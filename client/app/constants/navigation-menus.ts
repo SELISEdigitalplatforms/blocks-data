@@ -1,5 +1,5 @@
 import { Menu } from "@/models/menu-models";
-import { Home, Package, Users, BookMinus, Settings, Shield, Key, ShieldCheck, ScanFace, Lock, Zap, Gauge } from "lucide-react";
+import { Home, Package, Users, BookMinus, Settings, Shield, Key, ShieldCheck, ScanFace, Lock, Zap, Gauge, Database } from "lucide-react";
 
 export const navigationMenus: Menu[] = [
   {
@@ -93,5 +93,32 @@ export const navigationMenus: Menu[] = [
     name: "LMT",
     path: "/services/lmt",
     icon: Zap,
+  },
+  {
+    id: "service-data-gateway",
+    type: "menu",
+    name: "Data Gateway",
+    path: "/services/data-gateway",
+    icon: Database,
+    children: [
+      {
+        id: "service-data-gateway__schemas",
+        type: "menu",
+        name: "Schemas",
+        path: "/services/data-gateway",
+      },
+      {
+        id: "service-data-gateway__playground",
+        type: "menu",
+        name: "Playground",
+        path: "/services/data-gateway/playground",
+      },
+      {
+        id: "service-data-gateway__logs",
+        type: "menu",
+        name: "Logs",
+        path: "/services/data-gateway/logs",
+      },
+    ],
   },
 ];

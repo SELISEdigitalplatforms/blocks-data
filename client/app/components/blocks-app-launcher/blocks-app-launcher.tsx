@@ -139,7 +139,7 @@ const SELISE_APPS: BlocksApp[] = [
     key: "data-gateway",
     label: "Data Gateway",
     description: "Data Integration",
-    url: "https://dev-data-gateway.blocksdevelopers.com",
+    url: "/services/data-gateway",
     icon: <DataGatewayIcon />,
   },
   {

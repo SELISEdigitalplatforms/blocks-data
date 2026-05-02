@@ -4,10 +4,14 @@ import { defineConfig, loadEnv } from "vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, "BLOCKS_");
-  const proxyTarget = env.BLOCKS_API_BASE_URL;
+  const proxyTarget = env.BLOCKS_API_BASE_URL ?? "";
 
   return {
     envPrefix: ["BLOCKS_"],
+    define: {
+      "process.env.NEXT_PUBLIC_API_BASE_URL": JSON.stringify(proxyTarget),
+      "process.env.NEXT_PUBLIC_PROJECT_DEFAULT_API_BASE_URL": JSON.stringify(proxyTarget),
+    },
     plugins: [react()],
     resolve: {
       alias: {
@@ -20,15 +24,15 @@ export default defineConfig(({ mode }) => {
         "@blocks-localization": path.resolve(__dirname, "./app/cross-modules/localization"),
         "@blocks-utilities": path.resolve(__dirname, "./app/cross-modules/utilities"),
         "@blocks-ai": path.resolve(__dirname, "./app/cross-modules/ai"),
+        "@blocks-devops": path.resolve(__dirname, "./app/cross-modules/devops"),
       },
     },
-    build: {
-      outDir: "../server/Api/wwwroot",
-      emptyOutDir: true,
-    },
     server: {
-      host: true, // Listen on all addresses (0.0.0.0)
+      host: true,
       port: 4000,
+      fs: {
+        allow: [path.resolve(__dirname, "..")],
+      },
       allowedHosts: [
         "dev-cloud.seliseblocks.com",
         "localhost",
@@ -82,6 +86,19 @@ export default defineConfig(({ mode }) => {
             "/uds": { target: proxyTarget, changeOrigin: true, secure: false },
           } : {}),
         },
+    },
+    build: {
+      outDir: "../server/Api/wwwroot",
+      emptyOutDir: true,
+    },
+    optimizeDeps: {
+      include: [
+        "graphql",
+        "monaco-editor",
+        "@monaco-editor/react",
+        "graphiql",
+        "monaco-graphql",
+      ],
     },
   };
 });

@@ -3,6 +3,7 @@ using DomainService.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
+using Storage.DomainService.Requests;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
 
@@ -15,7 +16,7 @@ namespace Api.Controllers
     [Route("[controller]/[action]")]
     public class FilesController : ControllerBase
     {
-        private readonly Storage.DomainService.Services.IFileManagementService _fileManagementService;
+        private readonly IFileManagementService _fileManagementService;
         private readonly ChangeControllerContext _changeControllerContext;
 
         /// <summary>

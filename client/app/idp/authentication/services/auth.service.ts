@@ -48,7 +48,7 @@ export class AuthService {
     body.append("grant_type", "authorization_code");
     body.append("code", payload.code);
     body.append("state", payload.state);
-    body.append("client_secret", "e048ec1b63d548dd85d053f364d5d54c");
+    body.append("client_secret", "***REMOVED***");
 
     return http.post(
       `${IDP_BASE_URL}${AUTH_ENDPOINTS.TOKEN}`,

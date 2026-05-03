@@ -15,14 +15,7 @@ export function useFilteredMenus(menus: Menu[]): Menu[] {
       "repositories",
       "settings",
     ])
-    const nonProjectMenuIds = new Set([
-      "service-observability",
-      "service-observability__lmt",
-      "service-observability__rate-limiter",
-      "service-observability__auth-logs",
-      "service-data-gateway",
-      "service-storage",
-    ])
+    const nonProjectMenuIds = new Set(["service-data-gateway", "service-storage"])
 
     try {
       parsedBlockedMenu = JSON.parse(blockedMenu) as string[]

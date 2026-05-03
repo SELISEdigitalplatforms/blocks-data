@@ -1,48 +1,8 @@
 import { Menu } from "@/models/menu-models"
-import {
-  Package,
-  Users,
-  BookMinus,
-  Settings,
-  LineChart,
-  Database,
-  Gauge,
-  Zap,
-  HardDrive,
-} from "lucide-react"
+import { Package, Users, BookMinus, Settings, Database, HardDrive } from "lucide-react"
 
-/** Sidebar: observability hub, data services, then project-scoped links under /project-overview. */
+/** Sidebar: data services, then project-scoped links under /project-overview. */
 export const navigationMenus: Menu[] = [
-  {
-    id: "service-observability",
-    type: "menu",
-    name: "Observability",
-    path: "/services/lmt",
-    icon: LineChart,
-    children: [
-      {
-        id: "service-observability__lmt",
-        type: "menu",
-        name: "LMT",
-        path: "/services/lmt",
-        icon: Zap,
-      },
-      {
-        id: "service-observability__rate-limiter",
-        type: "menu",
-        name: "Rate limiter",
-        path: "/services/rate-limiter",
-        icon: Gauge,
-      },
-      {
-        id: "service-observability__auth-logs",
-        type: "menu",
-        name: "Authentication logs",
-        path: "/services/authentication/logs",
-        icon: LineChart,
-      },
-    ],
-  },
   {
     id: "service-data-gateway",
     type: "menu",

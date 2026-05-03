@@ -17,16 +17,27 @@ export function useFilteredMenus(menus: Menu[]): Menu[] {
     ]);
     const nonProjectMenuIds = new Set([
       "overview-project",
+      "code-studio",
+      "deployment",
+      "service-observability",
+      "service-observability__lmt",
+      "service-observability__rate-limiter",
+      "service-observability__auth-logs",
+      "service-ai",
+      "service-ai__models",
+      "service-ai__managed-services",
+      "workflow",
+      "service-identity",
       "service-identity__authentication",
       "service-identity__authorization",
-      "service-identity__mfa",
-      "service-identity__captcha",
       "service-identity__api-settings",
       "service-identity__secret-management",
-      "service-identity__lmt",
-            "service-identity__apps",
-
-    ]);
+      "service-data",
+      "service-data__gateway",
+      "service-data__storage",
+      "localization",
+      "utilities",
+    ])
 
     try {
       parsedBlockedMenu = JSON.parse(blockedMenu) as string[];

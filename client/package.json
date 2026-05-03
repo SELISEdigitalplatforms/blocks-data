@@ -52,7 +52,7 @@
     "graphiql": "^5.2.1",
     "graphql": "^16.12.0",
     "graphql-ws": "^6.0.6",
-    "monaco-editor": "^0.54.0",
+    "monaco-editor": "^0.52.2",
     "monaco-graphql": "^1.7.2",
     "next-themes": "^0.3.0",
     "nuqs": "^2.8.9",

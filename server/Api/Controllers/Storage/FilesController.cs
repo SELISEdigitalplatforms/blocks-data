@@ -3,7 +3,6 @@ using DomainService.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
-using Storage.DomainService.Requests;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
 

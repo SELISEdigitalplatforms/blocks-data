@@ -43,6 +43,8 @@ export class AuthService {
     });
   }
 
+
+
   verifyOidc(payload: { code: string; state: string }): Promise<any> {
     const body = new URLSearchParams();
     body.append("grant_type", "authorization_code");
@@ -51,7 +53,7 @@ export class AuthService {
     body.append("client_secret", "6b9e580d83ac48059bd7638c37a5eae5");
 
     return http.post(
-      `${IDP_BASE_URL}${AUTH_ENDPOINTS.TOKEN}`,
+      `https://dev-idp.blocksdevelopers.com${AUTH_ENDPOINTS.TOKEN}`,
       body,
       {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -59,7 +61,6 @@ export class AuthService {
       },
       {
         absoluteUrl: true,
-
       },
     );
   }

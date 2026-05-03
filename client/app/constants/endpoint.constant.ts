@@ -7,7 +7,7 @@ enum Version {
 export const API_BASES = {
   COMMUNICATION: "/api",
   CLOUD_CONFIGURATION: "/api",
-  UDS: `/api/${Version.V1}`,
+  UDS: `/uds/${Version.V1}`,
   UILM: "/api",
   UTILITIES: "/api",
   CLOUD_BUILD: "/api",

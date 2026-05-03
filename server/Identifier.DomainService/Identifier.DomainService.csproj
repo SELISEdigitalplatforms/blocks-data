@@ -4,7 +4,8 @@
     <PackageReference Include="Azure.ResourceManager.ServiceBus" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="SeliseBlocks.MailDriver" />
-    <PackageReference Include="SeliseBlocks.StorageDriver" />
+    <ProjectReference Include="..\Storage.Driver\Storage.Driver.csproj" />
+    <ProjectReference Include="..\Storage.DomainService\Storage.DomainService.csproj" />
     <PackageReference Include="SixLabors.Fonts" />
     <PackageReference Include="SSH.NET" />
   </ItemGroup>

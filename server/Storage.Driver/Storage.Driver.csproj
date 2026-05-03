@@ -16,8 +16,8 @@
   </PropertyGroup>
   
   <ItemGroup>
-    <PackageReference Include="AWSSDK.S3" Version="3.7.410.6" />
-    <PackageReference Include="Azure.Storage.Blobs" Version="12.22.2" />
+    <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="Azure.Storage.Blobs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -11,6 +11,7 @@ using Captcha.DomainService.Configuration;
 using MongoDB.Driver;
 using DataGateway.DomainService;
 using Storage.DomainService.Utilities;
+using DataGateway.DomainService.Middlewares;
 
 var serviceName = "blocks-os-api";
 //var vaultType = ResolveVaultType();

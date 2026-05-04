@@ -30,13 +30,13 @@ export default function OidcIndexPage() {
         }
         setAuthenticated();
 
-        window.location.href = `${window.location.origin}/console`;
+        navigate("/services/data-gateway", { replace: true });
       })
       .catch(() => {
         navigate("/oidc/error");
       })
       .finally(() => setIsExchanging(false));
-  }, [code, state]);
+  }, [code, state, navigate, setAuthenticated, setTokens]);
 
   if (code && state) {
     return (

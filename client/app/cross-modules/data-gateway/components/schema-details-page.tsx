@@ -10,7 +10,6 @@ import {
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@/store/useProjectStore";
-import { LogMenu } from "@blocks-lmt/components";
 import { Alert, AlertDescription } from "@/components/ui-kits/alert/alert";
 import {
   AlertTriangle,
@@ -18,12 +17,11 @@ import {
   ChevronRight,
   Download,
   FolderInput,
-  Logs,
   MoreVertical,
   Settings,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { parseAsString, useQueryStates } from "nuqs";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -257,10 +255,6 @@ export const SchemaDetailsPage = () => {
     setInitiatedAt(now);
   };
 
-  const openDataGatewaySwagger = () => {
-    window.open(`${process.env.NEXT_PUBLIC_API_BASE_URL}/uds/v1/swagger/index.html`, "_blank");
-  };
-
   return (
     <>
       <main className="flex flex-col gap-6">
@@ -301,9 +295,6 @@ export const SchemaDetailsPage = () => {
                       >
                         Playground
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer" onClick={openDataGatewaySwagger}>
-                        API Docs
-                      </DropdownMenuItem>
                       <DropdownMenuItem
                         className="cursor-pointer"
                         onClick={() => setIsOpenImportSchemaModal(true)}
@@ -317,15 +308,6 @@ export const SchemaDetailsPage = () => {
                       >
                         <Download className="mr-2 h-4 w-4" />
                         Export
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link
-                          to="/services/data-gateway/logs"
-                          className="flex cursor-pointer items-center gap-2"
-                        >
-                          <Logs className="h-4 w-4" />
-                          Logs
-                        </Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="cursor-pointer"
@@ -365,10 +347,6 @@ export const SchemaDetailsPage = () => {
                 >
                   Playground
                 </Button>
-                <Button size="sm" variant="outline" onClick={openDataGatewaySwagger}>
-                  API Docs
-                </Button>
-                <LogMenu link="/services/data-gateway/logs" />
                 <Button
                   variant="outline"
                   size="sm"

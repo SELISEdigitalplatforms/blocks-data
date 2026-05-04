@@ -41,15 +41,7 @@ const mapConfigurationToCardData = (
 export function StorageContents() {
   const navigate = useNavigate();
   
-  // Check if we're viewing a storage detail page
-  const params = new URLSearchParams(window.location.search);
-  const storageId = params.get("id");
-  
-  // If storageId is present, render the detail view
-  if (storageId) {
-    return <StorageDetail />;
-  }
-  
+  // Declare all hooks at top level (before any conditional logic)
   const [open, setOpen] = useState<boolean>(false);
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const [selectedStorage, setSelectedStorage] =
@@ -61,6 +53,15 @@ export function StorageContents() {
   });
 
   const { data, isLoading, isFetching } = useGetStorageConfigurations();
+  
+  // Check if we're viewing a storage detail page
+  const params = new URLSearchParams(window.location.search);
+  const storageId = params.get("id");
+  
+  // If storageId is present, render the detail view instead of the list
+  if (storageId) {
+    return <StorageDetail />;
+  }
 
   const loading = isLoading || isFetching;
 

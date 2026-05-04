@@ -60,6 +60,11 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+app.MapGraphQL("/gateway");
+app.UseMiddleware<RequestContextMiddleware>();
+
+ApplicationConfigurations.ConfigureMiddleware(app);
+
 var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
 
 if (File.Exists(indexHtml))
@@ -95,11 +100,6 @@ if (File.Exists(indexHtml))
     // Construct URL 
 
 }
-
-app.MapGraphQL("/gateway");
-app.UseMiddleware<RequestContextMiddleware>();
-
-ApplicationConfigurations.ConfigureMiddleware(app);
 
 await app.RunAsync();
 

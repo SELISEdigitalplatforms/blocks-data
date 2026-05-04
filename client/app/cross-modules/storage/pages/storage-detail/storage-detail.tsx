@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FileText,
   Image as ImageIcon,
@@ -93,6 +94,7 @@ type BreadcrumbItem = {
 };
 
 export function StorageDetail() {
+  const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
   const storageId = params.get("id") as string;
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
@@ -186,18 +188,18 @@ export function StorageDetail() {
   // Handle folder click - navigate into folder using URL
   const handleFolderClick = (folder: IDmsFileAndFolderInfo) => {
     const newPath = [...breadcrumbPath, { id: folder.itemId, name: folder.name }];
-    window.location.href = buildFolderUrl(folder.itemId, newPath);
+    navigate(buildFolderUrl(folder.itemId, newPath));
   };
 
   // Handle breadcrumb click - navigate to specific folder level
   const handleBreadcrumbClick = (index: number) => {
     if (index === -1) {
       // Clicked on root (storage name)
-      window.location.href = buildFolderUrl("", []);
+      navigate(buildFolderUrl("", []));
     } else {
       // Clicked on a folder in the path
       const newPath = breadcrumbPath.slice(0, index + 1);
-      window.location.href = buildFolderUrl(newPath[newPath.length - 1].id, newPath);
+      navigate(buildFolderUrl(newPath[newPath.length - 1].id, newPath));
     }
   };
 

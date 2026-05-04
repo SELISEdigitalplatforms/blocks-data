@@ -56,9 +56,15 @@ export const StorageCard = ({
   // onRemove,
   // _onDisconnect, // TODO: Uncomment when status feature is implemented
 }: StorageCardProps) => {
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    console.log("🔍 StorageCard clicked:", { id: data.id, title: data.title });
+    e.preventDefault();
+    e.stopPropagation();
     if (onClick) {
+      console.log("📤 Calling onClick with id:", data.id);
       onClick(data.id);
+    } else {
+      console.log("❌ onClick handler not provided");
     }
   };
 

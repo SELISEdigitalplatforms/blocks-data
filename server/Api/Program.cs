@@ -1,22 +1,25 @@
-using BlocksTemplate.Api;
 using Blocks.Genesis;
+using BlocksTemplate.Api;
+using Captcha.DomainService.Configuration;
 using Cloud.DomainService.Utilities;
-using DomainService.Utilities;
-using DomainService.Shared;
-using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Mvc;
 using Cloud.LmtService.Utilities;
 using CloudConfiguration.DomainService.Shared.Utilities;
-using Captcha.DomainService.Configuration;
-using MongoDB.Driver;
 using DataGateway.DomainService;
-using Storage.DomainService.Utilities;
 using DataGateway.DomainService.Middlewares;
+using DataGateway.DomainService.Services;
+using DomainService.Shared;
+using DomainService.Utilities;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Mvc;
+using MongoDB.Driver;
+using Storage.DomainService.Utilities;
 
 var serviceName = "blocks-os-api";
 //var vaultType = ResolveVaultType();
 //Console.WriteLine($"Using Genesis vault type: {vaultType}");
 var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(serviceName, VaultType.Azure);
+var cloudBuildSecret = await CloudBuildSecret.ProcessBlocksSecret(VaultType.Azure);
+
 var builder = WebApplication.CreateBuilder(args);
 
 ApplicationConfigurations.ConfigureServices(builder.Services, IdpConstants.GetMessageConfiguration(secret.MessageConnectionString));
@@ -27,6 +30,8 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 var services = builder.Services;
+// Register CloudBuildSecret as Singleton
+services.AddSingleton<ICloudBuildSecret>(cloudBuildSecret);
 
 services.AddHealthChecks();
 

@@ -55,14 +55,14 @@ class ConfigurationService {
   getDataServiceDetails(
     payload: IGetConfigurationPayload,
   ): Promise<IDataServiceConfigurationResponse> {
-    return http.get(`/uds/v1/data-sources/${payload.projectKey}/get`);
+    return http.get(`/data-sources/${payload.projectKey}/get`);
   }
 
   reloadSchemas(payload: {
     projectKey: string;
     projectShortKey?: string;
   }): Promise<IDataServiceConfigurationResponse> {
-    const url = `/uds/v1/${payload.projectShortKey}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
+    const url = `/${payload.projectShortKey}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
     return http.post(url, {});
   }
 
@@ -74,13 +74,13 @@ class ConfigurationService {
   getSecurityAndPerformanceSchemaList(
     payload: IGetSchemaListPayload,
   ): Promise<IGetSchemaListResponse> {
-    const url = `/uds/v1/schemas/aggregation?Keyword=${payload.keyword}&PageSize=${payload.pageSize}&PageNo=${payload.pageNo}&SortDescending=${payload.sortDescending}&SortBy=${payload.sortBy}&ProjectKey=${payload.projectKey}&SchemaType=${payload.schemaType}`;
+    const url = `/schemas/aggregation?Keyword=${payload.keyword}&PageSize=${payload.pageSize}&PageNo=${payload.pageNo}&SortDescending=${payload.sortDescending}&SortBy=${payload.sortBy}&ProjectKey=${payload.projectKey}&SchemaType=${payload.schemaType}`;
     return http.get(url);
   }
 
   getSchemaDetails(id: string, projectKey: string): Promise<IGetSchemaDetailsResponse> {
     const params = new URLSearchParams({ id, projectKey });
-    return http.get(`/uds/v1/schemas/get-by-id?${params.toString()}`);
+    return http.get(`/schemas/get-by-id?${params.toString()}`);
   }
 
   createSchema(payload: ICreateSchemaPayload): Promise<ICreateSchemaResponse> {
@@ -123,13 +123,13 @@ class ConfigurationService {
     query: string,
     headers?: Record<string, string>,
   ): Promise<unknown> {
-    const url = `/uds/v1/${projectShortKey}/gateway`;
+    const url = `/${projectShortKey}/gateway`;
     return http.post(url, { query }, headers);
   }
 
   getMockData(projectKey: string): Promise<IMockDataResponse> {
     const params = new URLSearchParams({ projectKey });
-    return http.get(`/uds/v1/data-manage/mock-data?${params.toString()}`);
+    return http.get(`/data-manage/mock-data?${params.toString()}`);
   }
 
   deleteMockData(payload: IDeleteMockDataPayload): Promise<IDeleteMockDataResponse> {
@@ -141,7 +141,7 @@ class ConfigurationService {
       schemaName: entityName,
       projectKey,
     });
-    return http.get(`/uds/v1/data-access/policy/get?${params.toString()}`);
+    return http.get(`/data-access/policy/get?${params.toString()}`);
   }
 
   createPolicy(payload: ICreatePolicyPayload): Promise<ICreatePolicyResponse> {
@@ -157,7 +157,7 @@ class ConfigurationService {
       itemId: payload.itemId,
       projectKey: payload.projectKey,
     });
-    const url = `/uds/v1/data-access/policy/delete?${params.toString()}`;
+    const url = `/data-access/policy/delete?${params.toString()}`;
     return http.delete(url);
   }
 
@@ -183,7 +183,7 @@ class ConfigurationService {
       fieldName: payload.fieldName,
       projectKey: payload.projectKey,
     });
-    return http.get(`/uds/v1/data-validations/by-schema-and-field?${params.toString()}`);
+    return http.get(`/data-validations/by-schema-and-field?${params.toString()}`);
   }
 
   createSchemaFieldValidation(
@@ -199,7 +199,7 @@ class ConfigurationService {
   }
 
   exportSchema(payload: ISchemaExportPayload): Promise<ISchemaExportResponse> {
-    return http.post(`/uds/v1/schema-exchange/export`, payload);
+    return http.post(`/schema-exchange/export`, payload);
   }
 
   deleteSchemaFieldValidation(
@@ -211,7 +211,7 @@ class ConfigurationService {
   }
 
   importSchemaFile = (payload: IImportFile) => {
-    const url = `/uds/v1/schema-exchange/import`;
+    const url = `/schema-exchange/import`;
     return http.post(url, payload);
   };
 }

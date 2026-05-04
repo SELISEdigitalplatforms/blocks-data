@@ -11,7 +11,7 @@ import {
 } from "./components/storage-card/storage-card";
 import { StorageDetailsDrawer } from "./components/storage-details-drawer/storage-details-drawer";
 import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { StorageDetail } from "../storage-detail/storage-detail";
 
 type FilterValues = {
@@ -39,8 +39,9 @@ const mapConfigurationToCardData = (
 });
 
 export function StorageContentsWrapper() {
-  // Check if we're viewing a storage detail page
-  const params = new URLSearchParams(window.location.search);
+  // Use useLocation to react to URL changes
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
   const storageId = params.get("id");
 
   // Render detail view or list view based on storageId query parameter

@@ -5,13 +5,13 @@ import { GraphQLPlaygroundPage } from "./graphql-playground-page";
 
 export const GraphQLPlayground = () => {
   return (
-    <main className="flex h-full w-full flex-col">
+    <main className="flex h-full min-h-0 w-full flex-col gap-4 p-6">
       <div className="flex w-full flex-col gap-2">
         <div className="hidden md:flex">
           <PageBreadcrumb breadcrumbIndex={2} />
         </div>
       </div>
-      <div className="w-full flex-1 overflow-hidden">
+      <div className="w-full flex-1 overflow-hidden rounded-md border bg-background">
         <GraphQLPlaygroundPage />
       </div>
     </main>

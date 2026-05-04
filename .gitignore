@@ -157,8 +157,8 @@ server/Api/wwwroot/**
 /server/.claude
 
 # Ignore environment-specific app settings, keep base appsettings.json
-**/appsettings.*.json
-**/appsetting.*.json
+# **/appsettings.*.json
+# **/appsetting.*.json
 
 # Local / agent outputs — not versioned (use `git rm --cached <path>` if they were committed)
 docs/superpowers/

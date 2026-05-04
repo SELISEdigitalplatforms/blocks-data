@@ -14,6 +14,7 @@ import {
   Upload,
   FolderPlus,
   MoreVertical,
+  ArrowLeft,
 } from "lucide-react";
 import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
@@ -355,14 +356,31 @@ export function StorageDetail() {
 
   return (
     <main className="flex flex-col">
+      {/* Back button and breadcrumb */}
+      <div className="mb-4 flex items-center gap-4">
+        <Button 
+          variant="ghost" 
+          size="sm"
+          onClick={() => navigate("/services/storage")}
+          className="gap-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Storage
+        </Button>
+      </div>
+      
       {/* Breadcrumb */}
       <Breadcrumb className="mb-4">
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink asChild>
-              <a href="/services/storage" className="text-foreground hover:text-foreground">
+            <BreadcrumbLink 
+              asChild
+              className="cursor-pointer"
+              onClick={() => navigate("/services/storage")}
+            >
+              <span className="text-foreground hover:text-foreground">
                 Storage
-              </a>
+              </span>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />

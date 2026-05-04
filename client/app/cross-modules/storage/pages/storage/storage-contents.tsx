@@ -12,6 +12,7 @@ import {
 import { StorageDetailsDrawer } from "./components/storage-details-drawer/storage-details-drawer";
 import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
 import { useNavigate } from "react-router";
+import { StorageDetail } from "../storage-detail/storage-detail";
 
 type FilterValues = {
   search: string;
@@ -39,6 +40,16 @@ const mapConfigurationToCardData = (
 
 export function StorageContents() {
   const navigate = useNavigate();
+  
+  // Check if we're viewing a storage detail page
+  const params = new URLSearchParams(window.location.search);
+  const storageId = params.get("id");
+  
+  // If storageId is present, render the detail view
+  if (storageId) {
+    return <StorageDetail />;
+  }
+  
   const [open, setOpen] = useState<boolean>(false);
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const [selectedStorage, setSelectedStorage] =
@@ -54,10 +65,7 @@ export function StorageContents() {
   const loading = isLoading || isFetching;
 
   const handleCardClick = (id: string) => {
-    console.log("🎯 handleCardClick called with id:", id);
-    const targetPath = `/services/storage?id=${encodeURIComponent(id)}`;
-    console.log("📍 Navigating to:", targetPath);
-    navigate(targetPath);
+    navigate(`/services/storage?id=${encodeURIComponent(id)}`);
   };
 
   // const handleViewDetails = (id: string) => {

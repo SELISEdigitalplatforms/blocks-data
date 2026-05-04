@@ -95,17 +95,13 @@ export const SchemaDetailsPage = () => {
 
   const handleListQueryChange = useCallback(
     (update: DataGatewayListQueryUpdate) => {
-      setQueryParams(update);
+      setQueryParams(update, { history: "push" });
     },
     [setQueryParams],
   );
 
   const isSchemaView = queryParams.type !== null;
   const selectedSchemaId = queryParams.schemaId;
-
-  const setSelectedSchemaId = (id: string | null) => {
-    setQueryParams({ schemaId: id });
-  };
 
   const projectKey = useProjectStore().selectedProject?.tenantId ?? "";
   const projectShortKey = useProjectStore()?.selectedProject?.tenantSlug ?? "";
@@ -152,7 +148,15 @@ export const SchemaDetailsPage = () => {
     const res = await createSchema(payload);
 
     if (res.isSuccess) {
-      setQueryParams({ type: "all", schemaId: res.data.itemId }, { history: "push" });
+      setQueryParams(
+        {
+          type: "all",
+          schemaId: res.data.itemId,
+          page: queryParams.page,
+          pageSize: queryParams.pageSize,
+        },
+        { history: "push" },
+      );
       showSuccessToast({ description: "Schema added successfully" });
       setIsAddEditSchemaModalOpen(false);
       return true;
@@ -162,18 +166,22 @@ export const SchemaDetailsPage = () => {
     }
   };
 
-  const onSchemaSelection = (id: string | null) => {
-    setSelectedSchemaId(id);
-  };
-
   const onDeleteSchema = () => {
     setSchemaDetails({ ...EMPTY_SCHEMA, projectKey });
-    setSelectedSchemaId(null);
+    handleListQueryChange({ schemaId: null });
   };
 
   /** Schema two-panel view: set list filter context and focused schema (URL stays in sync with sidebar). */
   const openSchemaInEditor = (schemaId: string | null) => {
-    setQueryParams({ type: "all", schemaId }, { history: "push" });
+    setQueryParams(
+      {
+        type: "all",
+        schemaId,
+        page: queryParams.page,
+        pageSize: queryParams.pageSize,
+      },
+      { history: "push" },
+    );
   };
 
   const navigateToSchemaView = (schema: Schema) => {
@@ -182,8 +190,7 @@ export const SchemaDetailsPage = () => {
 
   const navigateToSecurityView = () => {
     queryClient.invalidateQueries({ queryKey: ["security-performance-schema-list"] });
-    // Navigate to the clean security URL (clears all query params)
-    navigate("/services/data-gateway");
+    navigate({ pathname: "/services/data-gateway" });
   };
 
   // Warm policy cache for access drawers (query key is parent schemaName for all column rules).
@@ -385,7 +392,12 @@ export const SchemaDetailsPage = () => {
         {!isSchemaView ? (
           <SecurityAndPerformance
             onSchemaRowClick={navigateToSchemaView}
-            onNavigateToSchemas={() => setQueryParams({ type: "all" }, { history: "push" })}
+            onNavigateToSchemas={() =>
+              setQueryParams(
+                { type: "all", page: 1, pageSize: 10, schemaId: null },
+                { history: "push" },
+              )
+            }
           />
         ) : (
           /* ── Schema two-panel view ── */
@@ -395,7 +407,6 @@ export const SchemaDetailsPage = () => {
               <div className={`shrink-0 ${selectedSchemaId ? "hidden lg:block" : "block"}`}>
                 <SchemasSidebar
                   onAddSchema={() => setIsAddEditSchemaModalOpen(true)}
-                  onSchemaSelect={onSchemaSelection}
                   selectedSchemaId={selectedSchemaId}
                   isServerActive={isServerActive}
                   isServerInitiating={isServerInitiating}
@@ -415,7 +426,11 @@ export const SchemaDetailsPage = () => {
               >
                 {/* Mobile / tablet header (narrow shell) */}
                 <div className="flex items-center gap-2 pb-2 lg:hidden">
-                  <button onClick={() => onSchemaSelection(null)}>
+                  <button
+                    type="button"
+                    aria-label="Back to schema list"
+                    onClick={() => handleListQueryChange({ schemaId: null })}
+                  >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
                   <h2 className="text-lg font-semibold">{schemaDetails.schemaName}</h2>

@@ -24,11 +24,11 @@ export type DataGatewayListQueryUpdate = Partial<{
   type: string
   page: number
   pageSize: number
+  schemaId: string | null
 }>
 
 type SchemaListProps = {
   onAddSchema: () => void
-  onSchemaSelect: (id: string | null) => void
   selectedSchemaId?: string | null
   isServerActive?: boolean
   isServerInitiating?: boolean
@@ -53,7 +53,6 @@ const SchemaListSkeleton = () => (
 
 export default function SchemasSidebar({
   onAddSchema,
-  onSchemaSelect,
   selectedSchemaId: externalSelectedSchemaId,
   isServerActive = true,
   isServerInitiating = false,
@@ -183,6 +182,11 @@ export default function SchemasSidebar({
     onListQueryChange({ page: page + 1 })
   }
 
+  const handleSelectSchema = (id: string) => {
+    setInternalSelectedSchemaId(id)
+    onListQueryChange({ schemaId: id })
+  }
+
   const totalCount = schemaListQuery?.data?.totalCount || 0;
 
   return (
@@ -271,10 +275,7 @@ export default function SchemasSidebar({
               return (
                 <div
                   key={schema.schemaName}
-                  onClick={() => {
-                    setInternalSelectedSchemaId(schema.id);
-                    onSchemaSelect(schema.id);
-                  }}
+                  onClick={() => handleSelectSchema(schema.id)}
                   className={cn(
                     "flex cursor-pointer justify-between rounded-md px-3 py-3 text-sm transition-all",
                     isSelected

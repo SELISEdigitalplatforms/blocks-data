@@ -1,13 +1,17 @@
+"use client";
+
 import React, { useMemo, useState } from "react";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import { useGetStorageConfigurations } from "@blocks-storage/hooks/use-storage-configuration";
+import { Button } from "@/components/ui-kits/button/button";
+import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
+import { LogMenu } from "@blocks-lmt/components";
 import { SaveStorageConfiguration } from "../storage-configuration/save-storage-configuration/save-storage-configuration";
+import { StorageCard, StorageCardData } from "./components/storage-card/storage-card";
 import { FilterChangeHandler } from "@/components/filter-toolbar";
+import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
 import { IStorageConfiguration } from "@blocks-storage/models/storage.model";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { StorageCard, StorageCardData } from "./components/storage-card/storage-card";
 import { StorageDetailsDrawer } from "./components/storage-details-drawer/storage-details-drawer";
-import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
 
 type FilterValues = {
   search: string;
@@ -15,23 +19,29 @@ type FilterValues = {
   types: string[];
 };
 
-const mapConfigurationToCardData = (config: IStorageConfiguration): StorageCardData => ({
-  id: config.itemId,
-  provider: config.storageStrategy,
-  providerIcon: "",
-  providerColor: "",
-  title: config.name,
-  subtitle:
-    config.storageStrategy === "Amazon"
-      ? "AWS"
-      : config.storageStrategy === "Azure"
-        ? "Azure"
-        : config.storageStrategy === "S3Compatible"
-          ? "AWS S3 Compatible"
-          : "SFTP",
-});
+// Helper function to map API configuration to card data
+const mapConfigurationToCardData = (config: IStorageConfiguration): StorageCardData => {
+  return {
+    id: config.itemId,
+    provider: config.storageStrategy,
+    // status: "Configured",
+    providerIcon: "",
+    providerColor: "",
+    title: config.name,
+    subtitle:
+      config.storageStrategy === "Amazon"
+        ? "AWS"
+        : config.storageStrategy === "Azure"
+          ? "Azure"
+          : config.storageStrategy === "S3Compatible"
+            ? "AWS S3 Compatible"
+            : "SFTP",
+    // folderCount: 0,
+    // fileCount: 0,
+  };
+};
 
-export function StorageContents() {
+export function Storage() {
   const [open, setOpen] = useState<boolean>(false);
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const [selectedStorage, setSelectedStorage] = useState<IStorageConfiguration | null>(null);
@@ -57,14 +67,23 @@ export function StorageContents() {
     return data;
   }, [data]);
 
-  const storageCards = useMemo(() => configurations.map(mapConfigurationToCardData), [configurations]);
+  const storageCards = useMemo(() => {
+    return configurations.map(mapConfigurationToCardData);
+  }, [configurations]);
 
   const onChange: FilterChangeHandler<FilterValues> = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
   const onReset = () => {
-    setFilters({ search: "", providers: [], types: [] });
+    setFilters({
+      search: "",
+      providers: [],
+      types: [],
+    });
   };
 
   const filteredData = useMemo(() => {
@@ -72,9 +91,14 @@ export function StorageContents() {
       const matchesSearch = item.title.toLowerCase().includes(filters.search.toLowerCase());
       const matchesProvider =
         filters.providers.length === 0 || filters.providers.includes(item.provider);
+      // const matchesType = filters.types.length === 0 || filters.types.includes(item.status);
       return matchesSearch && matchesProvider;
     });
   }, [storageCards, filters]);
+
+  const handleCardClick = (id: string) => {
+    window.location.href = `/services/storage/${id}`;
+  };
 
   const handleViewDetails = (id: string) => {
     const storage = configurations.find((config) => config.itemId === id);
@@ -84,9 +108,40 @@ export function StorageContents() {
     }
   };
 
+  const handleRemove = (id: string) => {
+    console.log("Remove configuration:", id);
+    // TODO: Implement remove logic
+  };
+
+  const handleDisconnect = (id: string) => {
+    console.log("Disconnect storage:", id);
+    // TODO: Implement disconnect logic
+  };
+
   return (
-    <div className="flex flex-col">
-      <div className="mt-2 rounded-sm border bg-card p-6">
+    <main className="flex flex-col">
+      <div className="flex justify-between">
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-semibold">Storage</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              window.open(
+                `${process.env.NEXT_PUBLIC_API_BASE_URL}/uds/v1/swagger/index.html`,
+                "_blank",
+              )
+            }
+          >
+            API Docs
+          </Button> */}
+          <LogMenu link="/services/storage/logs" />{" "}
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-sm border bg-card p-6">
         <StorageFiltersToolbar
           filters={filters}
           onChange={onChange}
@@ -110,6 +165,10 @@ export function StorageContents() {
                   </div>
                   <Skeleton className="h-5 w-5" />
                 </div>
+                <div className="mt-auto flex gap-3 pt-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
+                </div>
               </div>
             ))}
           </div>
@@ -119,7 +178,10 @@ export function StorageContents() {
               <StorageCard
                 key={storage.id}
                 data={storage}
+                onClick={handleCardClick}
                 onViewDetails={handleViewDetails}
+                onRemove={handleRemove}
+                onDisconnect={handleDisconnect}
               />
             ))}
           </div>
@@ -139,6 +201,6 @@ export function StorageContents() {
         onOpenChange={setDetailsOpen}
         storage={selectedStorage}
       />
-    </div>
+    </main>
   );
 }

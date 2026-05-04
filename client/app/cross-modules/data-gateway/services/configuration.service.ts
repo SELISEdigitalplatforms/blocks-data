@@ -38,11 +38,10 @@ import {
   DATA_ACCESS_ENDPOINTS,
   DATA_MANAGE_ENDPOINTS,
   DATA_VALIDATION_ENDPOINTS,
-  GATEWAY_ENDPOINTS,
   PIPELINE_ENDPOINTS,
 } from "../constants/endpoint.constant";
 import { IImportFile } from "@blocks-localization/models/language";
-import { API_BASES } from "@/constants/endpoint.constant";
+import { API_BASES, GRAPHQL_GATEWAY_EXECUTE_ORIGIN } from "@/constants/endpoint.constant";
 
 class ConfigurationService {
   createDataSource(payload: IDataServiceConfiguration): Promise<IDataServiceConfigurationResponse> {
@@ -124,8 +123,8 @@ class ConfigurationService {
     query: string,
     headers?: Record<string, string>,
   ): Promise<unknown> {
-    const url = `${API_BASES.UDS}/${projectShortKey}/gateway`;
-    return http.post(url, { query }, headers);
+    const url = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/uds/v1/${projectShortKey}/gateway`;
+    return http.post(url, { query }, headers, { absoluteUrl: true });
   }
 
   getMockData(projectKey: string): Promise<IMockDataResponse> {
@@ -169,7 +168,8 @@ class ConfigurationService {
   }
 
   getPodActiveStatus(slug: string): Promise<undefined | { message: string }> {
-    return http.get(`${GATEWAY_ENDPOINTS.PING}/${slug}/ping`);
+    const url = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/uds/v1/${slug}/ping`;
+    return http.get(url, undefined, { absoluteUrl: true });
   }
 
   initiateDataGatewayPipeline(payload: IInitiateDataGatewayPipelinePayload): Promise<unknown> {

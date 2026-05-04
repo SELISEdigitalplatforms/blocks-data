@@ -49,14 +49,15 @@ const providerColors: Record<StorageStrategyType, string> = {
   S3Compatible: "bg-purple-100 text-purple-600",
 };
 
-export const StorageCard = ({
-  data,
-  onClick,
-  onViewDetails,
-  // onRemove,
-  // _onDisconnect, // TODO: Uncomment when status feature is implemented
-}: StorageCardProps) => {
-  console.log("📦 StorageCard props received:", { onClick: typeof onClick, onViewDetails: typeof onViewDetails, dataId: data.id });
+export const StorageCard = (props: StorageCardProps) => {
+  const { data, onClick, onViewDetails } = props;
+  
+  console.log("📦 StorageCard props received:", { 
+    onClick: typeof onClick, 
+    onViewDetails: typeof onViewDetails, 
+    dataId: data.id,
+    propsKeys: Object.keys(props)
+  });
   
   const handleClick = (e: React.MouseEvent) => {
     console.log("🔍 StorageCard clicked:", { id: data.id, title: data.title });

@@ -55,7 +55,7 @@ class ConfigurationService {
   getDataServiceDetails(
     payload: IGetConfigurationPayload,
   ): Promise<IDataServiceConfigurationResponse> {
-    return http.get(`/data-sources/${payload.projectKey}/get`);
+    return http.get(`/api/data-sources/${payload.projectKey}/get`);
   }
 
   reloadSchemas(payload: {

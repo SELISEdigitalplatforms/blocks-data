@@ -63,6 +63,8 @@ app.UseStaticFiles();
 app.MapGraphQL("/gateway");
 app.UseMiddleware<RequestContextMiddleware>();
 
+app.MapControllers();
+
 ApplicationConfigurations.ConfigureMiddleware(app);
 
 var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");

@@ -56,8 +56,11 @@ export const StorageCard = ({
   // onRemove,
   // _onDisconnect, // TODO: Uncomment when status feature is implemented
 }: StorageCardProps) => {
+  console.log("📦 StorageCard props received:", { onClick: typeof onClick, onViewDetails: typeof onViewDetails, dataId: data.id });
+  
   const handleClick = (e: React.MouseEvent) => {
     console.log("🔍 StorageCard clicked:", { id: data.id, title: data.title });
+    console.log("📋 onClick type:", typeof onClick, "value:", onClick);
     e.preventDefault();
     e.stopPropagation();
     if (onClick) {

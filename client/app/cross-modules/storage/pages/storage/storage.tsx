@@ -99,7 +99,10 @@ export function Storage() {
   }, [storageCards, filters]);
 
   const handleCardClick = (id: string) => {
-    navigate(`/services/storage/${id}`);
+    console.log("🎯 handleCardClick called with id:", id);
+    const targetPath = `/services/storage?id=${encodeURIComponent(id)}`;
+    console.log("📍 Navigating to:", targetPath);
+    navigate(targetPath);
   };
 
   const handleViewDetails = (id: string) => {

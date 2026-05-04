@@ -1,3 +1,4 @@
+import React from "react";
 import { FilterChangeHandler, FilterToolbar } from "@/components/filter-toolbar";
 import { Plus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
@@ -19,6 +20,7 @@ type StorageFiltersToolbarProps = {
   onChange: FilterChangeHandler<FilterValues>;
   onReset: () => void;
   onAddConfiguration: () => void;
+  onConnectStorage: () => void;
 };
 
 export function StorageFiltersToolbar({
@@ -26,6 +28,7 @@ export function StorageFiltersToolbar({
   onChange,
   onReset,
   onAddConfiguration,
+  // onConnectStorage,
 }: StorageFiltersToolbarProps) {
   return (
     <div className="mb-6 flex items-center justify-between gap-3">
@@ -46,6 +49,18 @@ export function StorageFiltersToolbar({
                 ],
               },
             },
+            // TODO: Implement Type filter later
+            // {
+            //   key: "types",
+            //   type: "MultiSelect",
+            //   label: "Type",
+            //   props: {
+            //     options: [
+            //       { label: "Connected", value: "Connected" },
+            //       { label: "Configured", value: "Configured" },
+            //     ],
+            //   },
+            // },
           ]}
           values={filters}
           defaultValues={{ search: "", providers: [], types: [] }}
@@ -65,6 +80,10 @@ export function StorageFiltersToolbar({
             <Plus className="mr-2 h-4 w-4" />
             Add Configuration
           </DropdownMenuItem>
+          {/* <DropdownMenuItem onClick={onConnectStorage}>
+            <Plus className="mr-2 h-4 w-4" />
+            Connect to your storage
+          </DropdownMenuItem> */}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

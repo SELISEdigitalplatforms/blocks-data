@@ -20,10 +20,10 @@ import {
   MoreVertical,
   Settings,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { parseAsString, useQueryStates } from "nuqs";
 import { useQueryClient } from "@tanstack/react-query";
+import { useDataGatewaySearchParams } from "../hooks/use-data-gateway-search-params";
 import {
   getPolicyDataQueryOptions,
   useCreateSchema,
@@ -44,7 +44,7 @@ import { normalizeSchemaFields } from "../utils/schema-normalization";
 import { AddEditSchemaModal } from "./add-edit-schema";
 import ConfigureDataSourceModal from "./configure-data-source";
 import { SchemaBasicInfo } from "./schema-basic-info";
-import SchemasSidebar from "./schema-side-bar";
+import SchemasSidebar, { type DataGatewayListQueryUpdate } from "./schema-side-bar";
 import SchemaStructureTable from "./schema-structure";
 import ExportSchemaModal from "./export-schema/export-schema-modal";
 import SecurityAndPerformance from "./security-and-performance/security-and-performance";
@@ -91,17 +91,17 @@ export const SchemaDetailsPage = () => {
   // URL-based view state:
   //   type = null  → security & performance landing (no query params in URL)
   //   type = "all" → schema two-panel view
-  const [queryParams, setQueryParams] = useQueryStates({
-    type: parseAsString, // null means security view
-    schemaId: parseAsString, // null means no schema selected
-  });
+  const [queryParams, setQueryParams] = useDataGatewaySearchParams();
+
+  const handleListQueryChange = useCallback(
+    (update: DataGatewayListQueryUpdate) => {
+      setQueryParams(update, { history: "push" });
+    },
+    [setQueryParams],
+  );
 
   const isSchemaView = queryParams.type !== null;
   const selectedSchemaId = queryParams.schemaId;
-
-  const setSelectedSchemaId = (id: string | null) => {
-    setQueryParams({ schemaId: id });
-  };
 
   const projectKey = useProjectStore().selectedProject?.tenantId ?? "";
   const projectShortKey = useProjectStore()?.selectedProject?.tenantSlug ?? "";
@@ -148,7 +148,15 @@ export const SchemaDetailsPage = () => {
     const res = await createSchema(payload);
 
     if (res.isSuccess) {
-      setQueryParams({ type: "all", schemaId: res.data.itemId }, { history: "push" });
+      setQueryParams(
+        {
+          type: "all",
+          schemaId: res.data.itemId,
+          page: queryParams.page,
+          pageSize: queryParams.pageSize,
+        },
+        { history: "push" },
+      );
       showSuccessToast({ description: "Schema added successfully" });
       setIsAddEditSchemaModalOpen(false);
       return true;
@@ -158,18 +166,22 @@ export const SchemaDetailsPage = () => {
     }
   };
 
-  const onSchemaSelection = (id: string | null) => {
-    setSelectedSchemaId(id);
-  };
-
   const onDeleteSchema = () => {
     setSchemaDetails({ ...EMPTY_SCHEMA, projectKey });
-    setSelectedSchemaId(null);
+    handleListQueryChange({ schemaId: null });
   };
 
   /** Schema two-panel view: set list filter context and focused schema (URL stays in sync with sidebar). */
   const openSchemaInEditor = (schemaId: string | null) => {
-    setQueryParams({ type: "all", schemaId }, { history: "push" });
+    setQueryParams(
+      {
+        type: "all",
+        schemaId,
+        page: queryParams.page,
+        pageSize: queryParams.pageSize,
+      },
+      { history: "push" },
+    );
   };
 
   const navigateToSchemaView = (schema: Schema) => {
@@ -178,8 +190,7 @@ export const SchemaDetailsPage = () => {
 
   const navigateToSecurityView = () => {
     queryClient.invalidateQueries({ queryKey: ["security-performance-schema-list"] });
-    // Navigate to the clean security URL (clears all query params)
-    navigate("/services/data-gateway");
+    navigate({ pathname: "/services/data-gateway" });
   };
 
   // Warm policy cache for access drawers (query key is parent schemaName for all column rules).
@@ -257,8 +268,7 @@ export const SchemaDetailsPage = () => {
 
   return (
     <>
-      <main className="flex flex-col gap-6">
-        {/* Breadcrumb + page header grouped so they stay close together */}
+      <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-1">
           {isSchemaView && (
             <nav className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -269,56 +279,51 @@ export const SchemaDetailsPage = () => {
               <span className="font-medium text-foreground">Schemas</span>
             </nav>
           )}
-          <div className="flex w-full flex-col text-high-emphasis">
-            <div className="flex w-full flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex w-full min-w-0 items-center justify-between gap-3 xl:w-auto xl:justify-start">
-                <h3 className="min-w-0 text-xl font-bold tracking-tight max-xl:truncate md:text-2xl">
-                  Data Gateway
-                </h3>
-                <div className="shrink-0 xl:hidden">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 shrink-0"
-                        aria-label="Open Data Gateway actions"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-52">
-                      <DropdownMenuItem
-                        className="cursor-pointer"
-                        onClick={() => navigate("/services/data-gateway/playground")}
-                      >
-                        Playground
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="cursor-pointer"
-                        onClick={() => setIsOpenImportSchemaModal(true)}
-                      >
-                        <FolderInput className="mr-2 h-4 w-4" />
-                        Import
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="cursor-pointer"
-                        onClick={() => setIsExportModalOpen(true)}
-                      >
-                        <Download className="mr-2 h-4 w-4" />
-                        Export
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="cursor-pointer"
-                        onClick={() => setIsConfigureModalOpen(true)}
-                      >
-                        <Settings className="mr-2 h-4 w-4" />
-                        Configure
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+          <div className="flex w-full flex-col gap-3 xl:flex-row xl:items-center xl:justify-end">
+            <div className="flex w-full justify-end gap-2 xl:items-center">
+              <div className="shrink-0 xl:hidden">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 shrink-0"
+                      aria-label="Open Data Gateway actions"
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => navigate("/services/data-gateway/playground")}
+                    >
+                      Playground
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => setIsOpenImportSchemaModal(true)}
+                    >
+                      <FolderInput className="mr-2 h-4 w-4" />
+                      Import
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => setIsExportModalOpen(true)}
+                    >
+                      <Download className="mr-2 h-4 w-4" />
+                      Export
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => setIsConfigureModalOpen(true)}
+                    >
+                      <Settings className="mr-2 h-4 w-4" />
+                      Configure
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
               <div className="hidden shrink-0 items-center gap-2 xl:flex">
                 <Button
@@ -387,7 +392,12 @@ export const SchemaDetailsPage = () => {
         {!isSchemaView ? (
           <SecurityAndPerformance
             onSchemaRowClick={navigateToSchemaView}
-            onNavigateToSchemas={() => setQueryParams({ type: "all" }, { history: "push" })}
+            onNavigateToSchemas={() =>
+              setQueryParams(
+                { type: "all", page: 1, pageSize: 10, schemaId: null },
+                { history: "push" },
+              )
+            }
           />
         ) : (
           /* ── Schema two-panel view ── */
@@ -397,11 +407,14 @@ export const SchemaDetailsPage = () => {
               <div className={`shrink-0 ${selectedSchemaId ? "hidden lg:block" : "block"}`}>
                 <SchemasSidebar
                   onAddSchema={() => setIsAddEditSchemaModalOpen(true)}
-                  onSchemaSelect={onSchemaSelection}
                   selectedSchemaId={selectedSchemaId}
                   isServerActive={isServerActive}
                   isServerInitiating={isServerInitiating}
                   onServerStart={handleServerStart}
+                  filterType={queryParams.type ?? "all"}
+                  page={queryParams.page}
+                  pageSize={queryParams.pageSize}
+                  onListQueryChange={handleListQueryChange}
                 />
               </div>
 
@@ -413,7 +426,11 @@ export const SchemaDetailsPage = () => {
               >
                 {/* Mobile / tablet header (narrow shell) */}
                 <div className="flex items-center gap-2 pb-2 lg:hidden">
-                  <button onClick={() => onSchemaSelection(null)}>
+                  <button
+                    type="button"
+                    aria-label="Back to schema list"
+                    onClick={() => handleListQueryChange({ schemaId: null })}
+                  >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
                   <h2 className="text-lg font-semibold">{schemaDetails.schemaName}</h2>
@@ -450,7 +467,7 @@ export const SchemaDetailsPage = () => {
             </div>
           </>
         )}
-      </main>
+      </div>
 
       <Dialog open={isAddEditSchemaModalOpen} onOpenChange={setIsAddEditSchemaModalOpen}>
         <AddEditSchemaModal

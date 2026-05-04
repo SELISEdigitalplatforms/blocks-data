@@ -10,10 +10,9 @@ import {
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { ISchemaDetails } from "../models/data-service";
 import { useProjectStore } from "@/store/useProjectStore";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react"
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
-import { parseAsString, parseAsInteger, useQueryStates } from "nuqs";
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -21,14 +20,24 @@ import { useNotificationListener } from "@blocks-communication/hooks/use-notific
 import { useQueryClient } from "@tanstack/react-query";
 import { NotificationData } from "@blocks-devops/models/live-logs";
 
+export type DataGatewayListQueryUpdate = Partial<{
+  type: string
+  page: number
+  pageSize: number
+  schemaId: string | null
+}>
+
 type SchemaListProps = {
-  onAddSchema: () => void;
-  onSchemaSelect: (id: string | null) => void;
-  selectedSchemaId?: string | null;
-  isServerActive?: boolean;
-  isServerInitiating?: boolean;
-  onServerStart?: () => void;
-};
+  onAddSchema: () => void
+  selectedSchemaId?: string | null
+  isServerActive?: boolean
+  isServerInitiating?: boolean
+  onServerStart?: () => void
+  filterType: string
+  page: number
+  pageSize: number
+  onListQueryChange: (update: DataGatewayListQueryUpdate) => void
+}
 
 type SearchFormValues = {
   search: string;
@@ -44,18 +53,16 @@ const SchemaListSkeleton = () => (
 
 export default function SchemasSidebar({
   onAddSchema,
-  onSchemaSelect,
   selectedSchemaId: externalSelectedSchemaId,
   isServerActive = true,
   isServerInitiating = false,
   onServerStart,
+  filterType,
+  page,
+  pageSize,
+  onListQueryChange,
 }: SchemaListProps) {
-  const [queryParams, setQueryParams] = useQueryStates({
-    type: parseAsString.withDefault("all"),
-    page: parseAsInteger.withDefault(1),
-    pageSize: parseAsInteger.withDefault(10),
-  });
-  const queryClient = useQueryClient();
+  const queryClient = useQueryClient()
 
   const { register, watch } = useForm<SearchFormValues>({
     defaultValues: {
@@ -81,12 +88,16 @@ export default function SchemasSidebar({
     }
   }, [externalSelectedSchemaId]);
 
-  // Reset to page 1 when search changes
+  const prevDebouncedRef = useRef<string | undefined>(undefined)
   useEffect(() => {
-    if (debouncedSearch !== search) return; // Only reset when debounced value updates
-    setQueryParams((prev) => ({ ...prev, page: 1 }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch]);
+    if (prevDebouncedRef.current === undefined) {
+      prevDebouncedRef.current = debouncedSearch
+      return
+    }
+    if (prevDebouncedRef.current === debouncedSearch) return
+    prevDebouncedRef.current = debouncedSearch
+    onListQueryChange({ page: 1 })
+  }, [debouncedSearch, onListQueryChange])
 
   const { refetch: initiateServer, isFetching: isStarting } = useInitiateDataGatewayPipeline({
     projectKey,
@@ -96,10 +107,10 @@ export default function SchemasSidebar({
   const { data: schemaListQuery } = useSchemaList({
     keyword: debouncedSearch,
     projectKey: projectKey,
-    pageNo: queryParams.page,
-    pageSize: queryParams.pageSize,
-    schemaType: queryParams.type == "all" ? "" : queryParams.type,
-  });
+    pageNo: page,
+    pageSize,
+    schemaType: filterType == "all" ? "" : filterType,
+  })
 
   const handleImportSchemaNotification = useCallback(
     (notificationData: NotificationData) => {
@@ -164,12 +175,17 @@ export default function SchemasSidebar({
   };
 
   const handlePrev = () => {
-    setQueryParams((prev) => ({ ...prev, page: prev.page - 1 }));
-  };
+    onListQueryChange({ page: page - 1 })
+  }
 
   const handleNext = () => {
-    setQueryParams((prev) => ({ ...prev, page: prev.page + 1 }));
-  };
+    onListQueryChange({ page: page + 1 })
+  }
+
+  const handleSelectSchema = (id: string) => {
+    setInternalSelectedSchemaId(id)
+    onListQueryChange({ schemaId: id })
+  }
 
   const totalCount = schemaListQuery?.data?.totalCount || 0;
 
@@ -230,7 +246,10 @@ export default function SchemasSidebar({
         </Button>
       </div>
 
-      <Tabs value={queryParams.type} onValueChange={(e) => setQueryParams({ type: e, page: 1 })}>
+      <Tabs
+        value={filterType}
+        onValueChange={(value) => onListQueryChange({ type: value, page: 1 })}
+      >
         <TabsList className="w-full">
           <TabsTrigger value="all" className="flex-1">
             All
@@ -256,10 +275,7 @@ export default function SchemasSidebar({
               return (
                 <div
                   key={schema.schemaName}
-                  onClick={() => {
-                    setInternalSelectedSchemaId(schema.id);
-                    onSchemaSelect(schema.id);
-                  }}
+                  onClick={() => handleSelectSchema(schema.id)}
                   className={cn(
                     "flex cursor-pointer justify-between rounded-md px-3 py-3 text-sm transition-all",
                     isSelected
@@ -270,12 +286,12 @@ export default function SchemasSidebar({
                   <span className="w-2/3 truncate" title={schema.schemaName}>
                     {schema.schemaName}
                   </span>
-                  {queryParams.type === "all" && (
+                  {filterType === "all" && (
                     <span className={cn(isSelected ? "text-primary/70" : "text-low-emphasis/60")}>
                       {schema.schemaType == 1 ? "Entity" : "Child"}
                     </span>
                   )}
-                  {queryParams.type === "2" && schema.totalSchemaReferences > 0 && (
+                  {filterType === "2" && schema.totalSchemaReferences > 0 && (
                     // <Tooltip>
                     //   <TooltipTrigger>
                     <Badge
@@ -299,15 +315,15 @@ export default function SchemasSidebar({
         </div>
       )}
 
-      {schemaListQuery?.data && totalCount > queryParams.pageSize && (
+      {schemaListQuery?.data && totalCount > pageSize && (
         <div className="mt-auto flex w-full items-center justify-between border-t pt-4 text-sm text-medium-emphasis">
-          <p>{`${(queryParams.page - 1) * queryParams.pageSize + 1}-${Math.min(queryParams.page * queryParams.pageSize, totalCount)} of ${totalCount}`}</p>
+          <p>{`${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, totalCount)} of ${totalCount}`}</p>
 
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               onClick={handlePrev}
-              disabled={queryParams.page <= 1}
+              disabled={page <= 1}
               className="h-8 w-8 p-0 text-primary disabled:opacity-30"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -316,7 +332,7 @@ export default function SchemasSidebar({
             <Button
               variant="outline"
               onClick={handleNext}
-              disabled={queryParams.page * queryParams.pageSize >= totalCount}
+              disabled={page * pageSize >= totalCount}
               className="h-8 w-8 p-0 text-primary disabled:opacity-30"
             >
               <ChevronRight className="h-4 w-4" />

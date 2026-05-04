@@ -164,3 +164,7 @@ server/Api/wwwroot/**
 docs/superpowers/
 change.md
 
+
+# .graphify output
+client/graphify-out/
+

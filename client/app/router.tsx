@@ -56,6 +56,8 @@ import SecretManagementPage from "./routes/dashboard/secret-management";
 import AiModelSelectedRoute from "./routes/dashboard/ai-model-selected";
 import ManagedServicesPage from "./routes/dashboard/managed-services";
 import ProfilePage from "./routes/dashboard/profile";
+import StoragePage from "./routes/dashboard/storage-page";
+
 
 // Console pages
 import { Console } from "./pages/console/console";
@@ -134,6 +136,7 @@ export const router = createBrowserRouter([
       { path: "/services/data-gateway", element: <DataGatewaySchemasPage /> },
       { path: "/services/data-gateway/playground", element: <DataGatewayPlaygroundPage /> },
       { path: "/services/data-gateway/logs", element: <DataGatewayLogsPage /> },
+      { path: "/services/storage", element: <StoragePage /> },
       { path: "/services/secret-management", element: <SecretManagementPage /> },
       { path: "/services/secret-management/ai-models/:provider", element: <AiModelSelectedRoute /> },
       { path: "/managed-services", element: <ManagedServicesPage /> },

@@ -15,3 +15,6 @@ export const API_BASES = {
   AI: "/api",
   STUDIO: "/api",
 } as const;
+
+/** Absolute origin for GraphQL gateway execute (playground); other UDS APIs stay on the app origin `/api` proxy. */
+export const GRAPHQL_GATEWAY_EXECUTE_ORIGIN = "https://dev-api.blocksdevelopers.com" as const;

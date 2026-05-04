@@ -74,7 +74,7 @@ public class PipelineRunService
             var accessToken = _cloudBuildSecret.SeliseGithubPat;
             var yamlPath = UdsConstants.DATAGETWAY_YAML_PATH;
             var metadataName = StringFormatterService.Truncate($"uds-config-run-{projectKey}-{version}-{Guid.NewGuid().ToString("N")}", 63);
-            var revision = _configuration["DatagatewayClusterRevision"];
+            var revision = _configuration["DatagatewayClusterRevision"] ?? "dev";
 
             Console.WriteLine($"Creating pipeline run with metadataName: {metadataName}, version: {version}, projectKey: {projectKey}, clusterNames: {clusterNames}, tenantId: {tenantId}");
 

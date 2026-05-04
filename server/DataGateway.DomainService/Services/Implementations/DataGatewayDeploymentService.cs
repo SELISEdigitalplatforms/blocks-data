@@ -67,7 +67,7 @@ public class DataGatewayDeploymentService : IDataGatewayDeploymentService
             string version = "v1";
             string tenantId = project.TenantId;
             string projectGuidId = $"{EnvironmentMapperHelper.EnvironmentMapper(project.Environment)}{projectGuid.EncodedValue}";
-            string clusterNames = _configuration["DatagatewayClusterNames"] ?? "default-cluster";
+            string clusterNames = _configuration["DatagatewayClusterNames"] ?? "aks-blocks-dev";//"default-cluster";
 
             var pipelineRunName = await _pipelineRunService.CreateDataGetwayInstance(version, projectGuidId, clusterNames, project.Name, tenantId);
             if (string.IsNullOrEmpty(pipelineRunName))

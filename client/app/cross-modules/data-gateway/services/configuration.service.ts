@@ -42,6 +42,7 @@ import {
   PIPELINE_ENDPOINTS,
 } from "../constants/endpoint.constant";
 import { IImportFile } from "@blocks-localization/models/language";
+import { API_BASES } from "@/constants/endpoint.constant";
 
 class ConfigurationService {
   createDataSource(payload: IDataServiceConfiguration): Promise<IDataServiceConfigurationResponse> {
@@ -55,14 +56,14 @@ class ConfigurationService {
   getDataServiceDetails(
     payload: IGetConfigurationPayload,
   ): Promise<IDataServiceConfigurationResponse> {
-    return http.get(`/api/data-sources/${payload.projectKey}/get`);
+    return http.get(`${DATA_SOURCE_ENDPOINTS.GET}/${payload.projectKey}/get`);
   }
 
   reloadSchemas(payload: {
     projectKey: string;
     projectShortKey?: string;
   }): Promise<IDataServiceConfigurationResponse> {
-    const url = `/${payload.projectShortKey}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
+    const url = `${API_BASES.UDS}/${payload.projectShortKey}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
     return http.post(url, {});
   }
 
@@ -74,13 +75,13 @@ class ConfigurationService {
   getSecurityAndPerformanceSchemaList(
     payload: IGetSchemaListPayload,
   ): Promise<IGetSchemaListResponse> {
-    const url = `/schemas/aggregation?Keyword=${payload.keyword}&PageSize=${payload.pageSize}&PageNo=${payload.pageNo}&SortDescending=${payload.sortDescending}&SortBy=${payload.sortBy}&ProjectKey=${payload.projectKey}&SchemaType=${payload.schemaType}`;
+    const url = `${API_BASES.UDS}/schemas/aggregation?Keyword=${payload.keyword}&PageSize=${payload.pageSize}&PageNo=${payload.pageNo}&SortDescending=${payload.sortDescending}&SortBy=${payload.sortBy}&ProjectKey=${payload.projectKey}&SchemaType=${payload.schemaType}`;
     return http.get(url);
   }
 
   getSchemaDetails(id: string, projectKey: string): Promise<IGetSchemaDetailsResponse> {
     const params = new URLSearchParams({ id, projectKey });
-    return http.get(`/schemas/get-by-id?${params.toString()}`);
+    return http.get(`${API_BASES.UDS}/schemas/get-by-id?${params.toString()}`);
   }
 
   createSchema(payload: ICreateSchemaPayload): Promise<ICreateSchemaResponse> {
@@ -123,13 +124,13 @@ class ConfigurationService {
     query: string,
     headers?: Record<string, string>,
   ): Promise<unknown> {
-    const url = `/${projectShortKey}/gateway`;
+    const url = `${API_BASES.UDS}/${projectShortKey}/gateway`;
     return http.post(url, { query }, headers);
   }
 
   getMockData(projectKey: string): Promise<IMockDataResponse> {
     const params = new URLSearchParams({ projectKey });
-    return http.get(`/data-manage/mock-data?${params.toString()}`);
+    return http.get(`${API_BASES.UDS}/data-manage/mock-data?${params.toString()}`);
   }
 
   deleteMockData(payload: IDeleteMockDataPayload): Promise<IDeleteMockDataResponse> {
@@ -141,7 +142,7 @@ class ConfigurationService {
       schemaName: entityName,
       projectKey,
     });
-    return http.get(`/data-access/policy/get?${params.toString()}`);
+    return http.get(`${API_BASES.UDS}/data-access/policy/get?${params.toString()}`);
   }
 
   createPolicy(payload: ICreatePolicyPayload): Promise<ICreatePolicyResponse> {
@@ -157,7 +158,7 @@ class ConfigurationService {
       itemId: payload.itemId,
       projectKey: payload.projectKey,
     });
-    const url = `/data-access/policy/delete?${params.toString()}`;
+    const url = `${API_BASES.UDS}/data-access/policy/delete?${params.toString()}`;
     return http.delete(url);
   }
 
@@ -183,7 +184,7 @@ class ConfigurationService {
       fieldName: payload.fieldName,
       projectKey: payload.projectKey,
     });
-    return http.get(`/data-validations/by-schema-and-field?${params.toString()}`);
+    return http.get(`${API_BASES.UDS}/data-validations/by-schema-and-field?${params.toString()}`);
   }
 
   createSchemaFieldValidation(
@@ -199,7 +200,7 @@ class ConfigurationService {
   }
 
   exportSchema(payload: ISchemaExportPayload): Promise<ISchemaExportResponse> {
-    return http.post(`/schema-exchange/export`, payload);
+    return http.post(`${API_BASES.UDS}/schema-exchange/export`, payload);
   }
 
   deleteSchemaFieldValidation(
@@ -211,7 +212,7 @@ class ConfigurationService {
   }
 
   importSchemaFile = (payload: IImportFile) => {
-    const url = `/schema-exchange/import`;
+    const url = `${API_BASES.UDS}/schema-exchange/import`;
     return http.post(url, payload);
   };
 }

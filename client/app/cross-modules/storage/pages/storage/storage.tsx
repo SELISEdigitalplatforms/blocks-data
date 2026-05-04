@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { Button } from "@/components/ui-kits/button/button";
 import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
@@ -42,6 +43,7 @@ const mapConfigurationToCardData = (config: IStorageConfiguration): StorageCardD
 };
 
 export function Storage() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState<boolean>(false);
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const [selectedStorage, setSelectedStorage] = useState<IStorageConfiguration | null>(null);
@@ -97,7 +99,7 @@ export function Storage() {
   }, [storageCards, filters]);
 
   const handleCardClick = (id: string) => {
-    window.location.href = `/services/storage/${id}`;
+    navigate(`/services/storage/${id}`);
   };
 
   const handleViewDetails = (id: string) => {

@@ -38,10 +38,21 @@ const mapConfigurationToCardData = (
           : "SFTP",
 });
 
+export function StorageContentsWrapper() {
+  // Check if we're viewing a storage detail page
+  const params = new URLSearchParams(window.location.search);
+  const storageId = params.get("id");
+
+  // Render detail view or list view based on storageId query parameter
+  if (storageId) {
+    return <StorageDetail />;
+  }
+
+  return <StorageContents />;
+}
+
 export function StorageContents() {
   const navigate = useNavigate();
-  
-  // Declare all hooks at top level (before any conditional logic)
   const [open, setOpen] = useState<boolean>(false);
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const [selectedStorage, setSelectedStorage] =
@@ -53,15 +64,6 @@ export function StorageContents() {
   });
 
   const { data, isLoading, isFetching } = useGetStorageConfigurations();
-  
-  // Check if we're viewing a storage detail page
-  const params = new URLSearchParams(window.location.search);
-  const storageId = params.get("id");
-  
-  // If storageId is present, render the detail view instead of the list
-  if (storageId) {
-    return <StorageDetail />;
-  }
 
   const loading = isLoading || isFetching;
 
@@ -69,17 +71,8 @@ export function StorageContents() {
     navigate(`/services/storage?id=${encodeURIComponent(id)}`);
   };
 
-  // const handleViewDetails = (id: string) => {
-  //   const storage = configurations.find((config) => config.itemId === id);
-  //   if (storage) {
-  //     setSelectedStorage(storage);
-  //     setDetailsOpen(true);
-  //   }
-  // };
-
   const handleRemove = (id: string) => {
     console.log("Remove configuration:", id);
-    // TODO: Implement remove logic
   };
 
   const configurations = useMemo(() => {

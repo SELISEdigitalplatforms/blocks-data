@@ -5,9 +5,13 @@ import { SaveStorageConfiguration } from "../storage-configuration/save-storage-
 import { FilterChangeHandler } from "@/components/filter-toolbar";
 import { IStorageConfiguration } from "@blocks-storage/models/storage.model";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { StorageCard, StorageCardData } from "./components/storage-card/storage-card";
+import {
+  StorageCard,
+  StorageCardData,
+} from "./components/storage-card/storage-card";
 import { StorageDetailsDrawer } from "./components/storage-details-drawer/storage-details-drawer";
 import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
+import { useNavigate } from "react-router";
 
 type FilterValues = {
   search: string;
@@ -15,7 +19,9 @@ type FilterValues = {
   types: string[];
 };
 
-const mapConfigurationToCardData = (config: IStorageConfiguration): StorageCardData => ({
+const mapConfigurationToCardData = (
+  config: IStorageConfiguration,
+): StorageCardData => ({
   id: config.itemId,
   provider: config.storageStrategy,
   providerIcon: "",
@@ -32,9 +38,11 @@ const mapConfigurationToCardData = (config: IStorageConfiguration): StorageCardD
 });
 
 export function StorageContents() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState<boolean>(false);
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
-  const [selectedStorage, setSelectedStorage] = useState<IStorageConfiguration | null>(null);
+  const [selectedStorage, setSelectedStorage] =
+    useState<IStorageConfiguration | null>(null);
   const [filters, setFilters] = useState<FilterValues>({
     search: "",
     providers: [],
@@ -44,6 +52,26 @@ export function StorageContents() {
   const { data, isLoading, isFetching } = useGetStorageConfigurations();
 
   const loading = isLoading || isFetching;
+
+  const handleCardClick = (id: string) => {
+    console.log("🎯 handleCardClick called with id:", id);
+    const targetPath = `/services/storage?id=${encodeURIComponent(id)}`;
+    console.log("📍 Navigating to:", targetPath);
+    navigate(targetPath);
+  };
+
+  // const handleViewDetails = (id: string) => {
+  //   const storage = configurations.find((config) => config.itemId === id);
+  //   if (storage) {
+  //     setSelectedStorage(storage);
+  //     setDetailsOpen(true);
+  //   }
+  // };
+
+  const handleRemove = (id: string) => {
+    console.log("Remove configuration:", id);
+    // TODO: Implement remove logic
+  };
 
   const configurations = useMemo(() => {
     if (!data) return [];
@@ -57,7 +85,10 @@ export function StorageContents() {
     return data;
   }, [data]);
 
-  const storageCards = useMemo(() => configurations.map(mapConfigurationToCardData), [configurations]);
+  const storageCards = useMemo(
+    () => configurations.map(mapConfigurationToCardData),
+    [configurations],
+  );
 
   const onChange: FilterChangeHandler<FilterValues> = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -69,9 +100,12 @@ export function StorageContents() {
 
   const filteredData = useMemo(() => {
     return storageCards.filter((item) => {
-      const matchesSearch = item.title.toLowerCase().includes(filters.search.toLowerCase());
+      const matchesSearch = item.title
+        .toLowerCase()
+        .includes(filters.search.toLowerCase());
       const matchesProvider =
-        filters.providers.length === 0 || filters.providers.includes(item.provider);
+        filters.providers.length === 0 ||
+        filters.providers.includes(item.provider);
       return matchesSearch && matchesProvider;
     });
   }, [storageCards, filters]);
@@ -119,13 +153,18 @@ export function StorageContents() {
               <StorageCard
                 key={storage.id}
                 data={storage}
+                onClick={handleCardClick}
                 onViewDetails={handleViewDetails}
+                onRemove={handleRemove}
+                // onDisconnect={handleDisconnect}
               />
             ))}
           </div>
         ) : (
           <div className="flex h-64 items-center justify-center">
-            <p className="text-muted-foreground">No storage configurations found.</p>
+            <p className="text-muted-foreground">
+              No storage configurations found.
+            </p>
           </div>
         )}
       </div>

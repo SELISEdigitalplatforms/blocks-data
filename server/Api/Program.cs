@@ -6,6 +6,7 @@ using Cloud.LmtService.Utilities;
 using CloudConfiguration.DomainService.Shared.Utilities;
 using DataGateway.DomainService;
 using DataGateway.DomainService.Middlewares;
+using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Services;
 using DomainService.Shared;
 using DomainService.Utilities;
@@ -14,7 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using Storage.DomainService.Utilities;
 
-var serviceName = "blocks-os-api";
+var serviceName = GraphQlConstant.ApiServiceName;
 //var vaultType = ResolveVaultType();
 //Console.WriteLine($"Using Genesis vault type: {vaultType}");
 var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(serviceName, VaultType.Azure);

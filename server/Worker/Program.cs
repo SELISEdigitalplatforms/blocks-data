@@ -4,6 +4,7 @@ using DomainService.Migration;
 using DomainService.Projects;
 using DomainService.Shared;
 using DomainService.Shared.Dtos;
+using DataGateway.DomainService.Models.Constants;
 using DomainService.Shared.Entities;
 using DomainService.Utilities;
 using DomainService.Worker;
@@ -18,7 +19,7 @@ using Worker.Consumers;
 using Worker.Consumers.Identifier;
 using Worker.Consumers.Users;
 
-const string _serviceName = "blocks-os-worker";
+const string _serviceName = GraphQlConstant.WorkerServiceName;
 
 var vaultType = ResolveVaultType();
 Console.WriteLine($"Using Genesis vault type: {vaultType}");

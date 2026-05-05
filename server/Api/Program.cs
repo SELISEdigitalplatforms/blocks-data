@@ -15,7 +15,8 @@ using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using Storage.DomainService.Utilities;
 
-var serviceName = GraphQlConstant.ApiServiceName;
+// var serviceName = GraphQlConstant.ApiServiceName;
+var serviceName = "blocks-os-api";
 //var vaultType = ResolveVaultType();
 //Console.WriteLine($"Using Genesis vault type: {vaultType}");
 var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(serviceName, VaultType.Azure);

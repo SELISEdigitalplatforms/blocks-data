@@ -19,7 +19,8 @@ using Worker.Consumers;
 using Worker.Consumers.Identifier;
 using Worker.Consumers.Users;
 
-const string _serviceName = GraphQlConstant.WorkerServiceName;
+// const string _serviceName = GraphQlConstant.WorkerServiceName;
+const string _serviceName = "blocks-os-worker";
 
 var vaultType = ResolveVaultType();
 Console.WriteLine($"Using Genesis vault type: {vaultType}");

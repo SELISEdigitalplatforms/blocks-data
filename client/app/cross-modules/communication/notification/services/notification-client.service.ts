@@ -7,7 +7,7 @@ export class NotificationClientService {
   constructor() {
     this.connection = new HubConnectionBuilder()
       .withUrl(
-        `${getRuntimeEnv("BLOCKS_API_BASE_URL")}/NotificationHub?x-blocks-key=${getRuntimeEnv("BLOCKS_X_BLOCKS_KEY")}`,
+          `${getRuntimeEnv("BLOCKS_NOTIFICATION_BASE_URL")}/NotificationHub?x-blocks-key=${getRuntimeEnv("BLOCKS_X_BLOCKS_KEY")}`,  
         {
           transport: HttpTransportType.WebSockets,
         },

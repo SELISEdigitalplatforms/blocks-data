@@ -27,10 +27,18 @@ export class NotificationService {
   };
 
   getNotificationConfig = (config: INotificationConfig, message: string): void => {
+    let parsedMessage: unknown = message;
+    if (typeof message === "string") {
+      try {
+        parsedMessage = JSON.parse(message);
+      } catch {
+        parsedMessage = message;
+      }
+    }
     const notificationEvent = new CustomEvent(config.notifyMethod, {
       detail: {
         method: config.notifyMethod,
-        message: message,
+        message: parsedMessage,
         timestamp: new Date().toISOString(),
         config: config,
       },

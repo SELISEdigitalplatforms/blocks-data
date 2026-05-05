@@ -356,19 +356,6 @@ export function StorageDetail() {
 
   return (
     <main className="flex flex-col">
-      {/* Back button and breadcrumb */}
-      <div className="mb-4 flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={() => navigate("/services/storage")}
-          className="gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Storage
-        </Button>
-      </div>
-      
       {/* Breadcrumb */}
       <Breadcrumb className="mb-4">
         <BreadcrumbList>

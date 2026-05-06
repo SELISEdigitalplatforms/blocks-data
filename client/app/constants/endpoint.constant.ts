@@ -17,7 +17,7 @@ export const API_BASES = {
 } as const;
 
 /** Absolute origin for GraphQL gateway execute (playground); other UDS APIs stay on the app origin `/api` proxy. */
-export const GRAPHQL_GATEWAY_EXECUTE_ORIGIN = "https://dev-api.blocksdevelopers.com" as const;
+export const GRAPHQL_GATEWAY_EXECUTE_ORIGIN = "https://dev-uds.blocksdevelopers.com" as const;
 
 /** Host for utility notifier REST + SignalR. */
 export const getUtilityApiOrigin = (): string => "https://dev-utility.blocksdevelopers.com";

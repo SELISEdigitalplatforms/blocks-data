@@ -168,3 +168,10 @@ change.md
 # .graphify output
 client/graphify-out/
 
+
+# .agent outputs
+client/.agents/
+
+
+# .cursor outputs
+client/.cursor/

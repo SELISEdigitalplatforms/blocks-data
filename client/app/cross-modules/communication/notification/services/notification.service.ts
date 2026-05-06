@@ -14,7 +14,7 @@ export class NotificationService {
     totalNotificationsCount: number;
     notifications: INotification[];
   }> => {
-    const url = `${NOTIFICATION_ENDPOINTS.GET_NOTIFICATIONS}?page=${pageNumber - 1}&pageSize=${pageSize}`;
+    const url = `/utility${NOTIFICATION_ENDPOINTS.GET_NOTIFICATIONS}?page=${pageNumber - 1}&pageSize=${pageSize}`;
     return http.get(url);
   };
 

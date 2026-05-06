@@ -123,7 +123,7 @@ class ConfigurationService {
     query: string,
     headers?: Record<string, string>,
   ): Promise<unknown> {
-    const url = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/uds/v1/${projectShortKey}/gateway`;
+    const url = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/${projectShortKey}/gateway`;
     return http.post(url, { query }, headers, { absoluteUrl: true });
   }
 
@@ -168,7 +168,7 @@ class ConfigurationService {
   }
 
   getPodActiveStatus(slug: string): Promise<undefined | { message: string }> {
-    const url = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/uds/v1/${slug}/ping`;
+    const url = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/${slug}/ping`;
     return http.get(url, undefined, { absoluteUrl: true });
   }
 

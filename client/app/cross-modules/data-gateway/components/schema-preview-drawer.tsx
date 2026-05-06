@@ -40,7 +40,7 @@ export function SchemaPreviewDrawer({
   const isEntity = schemaType === 1;
   const defaultTab = isEntity ? "request-format" : "schema-structure";
   const [activeTab, setActiveTab] = useState(defaultTab);
-  const requestUrl = `https://${process.env.NEXT_PUBLIC_PROJECT_DEFAULT_API_BASE_URL}/uds/v1${projectShortKey ? `/${projectShortKey}` : ""}/gateway`;
+  const requestUrl = `https://${process.env.NEXT_PUBLIC_PROJECT_DEFAULT_API_BASE_URL}/${projectShortKey ? `/${projectShortKey}` : ""}/gateway`;
   const navigate = useNavigate();
 
   useEffect(() => {

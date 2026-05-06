@@ -112,7 +112,7 @@ public class SchemaExportEventConsumer : IConsumer<SchemaExportEvent>
     private async Task SendNotificationAsync(bool isSuccess, SchemaExportEvent exportEvent)
     {
         // var url = _configuration["NotificationServiceUrl"];
-        var url = "https://dev-utility.blocksdevelopers.com/v1/Notifier/SendSecretNotification";
+        var url = "https://dev-utility.blocksdevelopers.com/api/Notifier/SendSecretNotification";
         if (string.IsNullOrEmpty(url))
         {
             _logger.LogWarning("SendNotificationAsync: NotificationServiceUrl is not configured");

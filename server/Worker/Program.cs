@@ -5,8 +5,9 @@ using DomainService.Projects;
 using DomainService.Shared;
 using DomainService.Shared.Dtos;
 using DataGateway.DomainService.Models.Constants;
-using DataGateway.DomainService.Models.Events;
 using DataGateway.DomainService;
+using DataGateway.DomainService.Models.Events;
+using DataGateway.DomainService.Services;
 using DomainService.Shared.Entities;
 using MigrationCompletionEvent = DomainService.Dtos.MigrationCompletionEvent;
 using DomainService.Utilities;
@@ -28,6 +29,7 @@ const string _serviceName = "blocks-os-worker";
 var vaultType = ResolveVaultType();
 Console.WriteLine($"Using Genesis vault type: {vaultType}");
 var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(_serviceName, vaultType);
+var cloudBuildSecret = await CloudBuildSecret.ProcessBlocksSecret(VaultType.Azure);
 
 await CreateHostBuilder(args).Build().RunAsync();
 
@@ -76,6 +78,7 @@ IHostBuilder CreateHostBuilder(string[] args) =>
 
             services.AddSingleton<IConsumer<SchemaExportEvent>, SchemaExportEventConsumer>();
             services.AddSingleton<IConsumer<SchemaImportEvent>, SchemaImportEventConsumer>();
+            services.AddSingleton<ICloudBuildSecret>(cloudBuildSecret);
             services.RegisterSchemaServices();
 
             ApplicationConfigurations.ConfigureWorker(services, IdpConstants.GetMessageConfiguration(secret.MessageConnectionString));

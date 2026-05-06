@@ -27,6 +27,10 @@ namespace DomainService.Utilities
         public const string BlocsDomain = "seliseblocks.com";
         #endregion
 
+        #region DataGateway Service Constants
+        public const string DataGatewayQueueName = "blocks_uds_import_export_listener";
+        #endregion
+
         public static MessageConfiguration GetMessageConfiguration(string messageConnectionString)
         {
             var provider = GetProvider(messageConnectionString);
@@ -61,7 +65,8 @@ namespace DomainService.Utilities
                                              ConsumerSubscription.BindToQueue(IdentifierQueueName),
                                              ConsumerSubscription.BindToQueue(DataCleanupQueue),
                                              ConsumerSubscription.BindToQueue(LanguageDataMigrationQueue),
-                                             ConsumerSubscription.BindToQueue(GenericMigrationQueue)],
+                                             ConsumerSubscription.BindToQueue(GenericMigrationQueue),
+                                             ConsumerSubscription.BindToQueue(DataGatewayQueueName)],
                 }
             };
         }
@@ -72,7 +77,7 @@ namespace DomainService.Utilities
             {
                 AzureServiceBusConfiguration = new AzureServiceBusConfiguration
                 {
-                    Queues = [AuthenticationQueue, IamQueue, MfaQueueName, IdentifierQueueName, DataCleanupQueue, LanguageDataMigrationQueue, GenericMigrationQueue],
+                    Queues = [AuthenticationQueue, IamQueue, MfaQueueName, IdentifierQueueName, DataCleanupQueue, LanguageDataMigrationQueue, GenericMigrationQueue, DataGatewayQueueName],
                     Topics = [MigrationCompletionTopic]
                 }
             };

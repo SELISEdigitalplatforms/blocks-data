@@ -6,7 +6,7 @@ public static class GraphQlConstant
 {
     public const string ApiServiceName = "blocks-uds-api";
     public const string WorkerServiceName = "blocks-uds-worker";
-    public const string DataGatewayQueueName = "blocks_uds_export_import_listener";
+    public const string DataGatewayQueueName = "blocks_uds_import_export_listener";
 	public const string DataGatewayInitiateQueueName = DataGatewayQueueName;
 	public const string StorageQueueName = "blocks_storage_listener";
     public const string MigrationCompletionTopic = "migration_topic";

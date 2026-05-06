@@ -5,7 +5,9 @@ using DomainService.Projects;
 using DomainService.Shared;
 using DomainService.Shared.Dtos;
 using DataGateway.DomainService.Models.Constants;
+using DataGateway.DomainService.Models.Events;
 using DomainService.Shared.Entities;
+using MigrationCompletionEvent = DomainService.Dtos.MigrationCompletionEvent;
 using DomainService.Utilities;
 using DomainService.Worker;
 using Iam.DomainService.Accounts;
@@ -70,6 +72,9 @@ IHostBuilder CreateHostBuilder(string[] args) =>
             services.AddSingleton<IConsumer<EnvironmentDataMigrationEvent>, EnvironmentDataMigrationEventConsumer>();
             services.AddSingleton<IConsumer<PublishScheduleCommand>, DataCleanupConsumer>();
             services.AddSingleton<IConsumer<UpdateResourceUsageCommand_Identifier>, UpdateResourceUsageConsumer>();
+
+            services.AddSingleton<IConsumer<SchemaExportEvent>, SchemaExportEventConsumer>();
+            services.AddSingleton<IConsumer<SchemaImportEvent>, SchemaImportEventConsumer>();
 
             ApplicationConfigurations.ConfigureWorker(services, IdpConstants.GetMessageConfiguration(secret.MessageConnectionString));
             //ApplicationConfigurations.ConfigureWorker(services, IdentifierConstants.GetMessageConfiguration(secret.MessageConnectionString));

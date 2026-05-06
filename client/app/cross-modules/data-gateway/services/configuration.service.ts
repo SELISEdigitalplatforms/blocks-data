@@ -62,7 +62,7 @@ class ConfigurationService {
     projectKey: string;
     projectShortKey?: string;
   }): Promise<IDataServiceConfigurationResponse> {
-    const url = `${API_BASES.UDS}/${payload.projectShortKey}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
+    const url = `${API_BASES.UDS}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
     return http.post(url, {});
   }
 

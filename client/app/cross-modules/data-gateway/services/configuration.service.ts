@@ -62,8 +62,8 @@ class ConfigurationService {
     projectKey: string;
     projectShortKey?: string;
   }): Promise<IDataServiceConfigurationResponse> {
-    const url = `${payload.projectShortKey}${API_BASES.UDS}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
-    return http.post(url, {});
+    const url = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/${payload.projectShortKey}${API_BASES.UDS}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
+    return http.post(url, {}, undefined, { absoluteUrl: true });
   }
 
   getSchemaList(payload: IGetSchemaListPayload): Promise<IGetSchemaListResponse> {

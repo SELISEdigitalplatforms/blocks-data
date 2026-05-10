@@ -87,7 +87,7 @@ public class SchemaImportEventConsumer : IConsumer<SchemaImportEvent>
     private async Task SendNotificationAsync(bool isSuccess, SchemaImportEvent importEvent, int importedCount)
     {
         // var url = _configuration["NotificationServiceUrl"];
-        var url = "https://dev-utility.blocksdevelopers.com/api/Notifier/SendSecretNotification";
+        var url = "https://dev-logic.blocksdevelopers.com/api/Notifier/SendSecretNotification";
         if (string.IsNullOrEmpty(url))
         {
             _logger.LogWarning("SendNotificationAsync: NotificationServiceUrl is not configured");

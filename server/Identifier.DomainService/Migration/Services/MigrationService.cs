@@ -276,7 +276,7 @@ namespace DomainService.Migration
             var actulalSecret = _cryptoService.Hash(rootTenantId, salt);
 
             // var url = _configuration["NotificationServiceUrl"];
-            var url = "https://dev-utility.blocksdevelopers.com/api/Notifier/SendSecretNotification";
+            var url = "https://dev-logic.blocksdevelopers.com/api/Notifier/SendSecretNotification";
             var headers = new Dictionary<string, string>
             {
                 { "x-blocks-key", blocksKey },
@@ -315,7 +315,7 @@ namespace DomainService.Migration
             var actulalSecret = _cryptoService.Hash(rootTenantId, salt);
 
             // var url = _configuration["NotificationServiceUrl"];
-            var url = "https://dev-utility.blocksdevelopers.com/api/Notifier/SendSecretNotification";
+            var url = "https://dev-logic.blocksdevelopers.com/api/Notifier/SendSecretNotification";
             var headers = new Dictionary<string, string>
             {
                 { "x-blocks-key", blocksKey },
@@ -364,7 +364,7 @@ namespace DomainService.Migration
             var actulalSecret = _cryptoService.Hash(rootTenantId, salt);
 
             // var url = _configuration["NotificationServiceUrl"];
-            var url = "https://dev-utility.blocksdevelopers.com/api/Notifier/SendSecretNotification";
+            var url = "https://dev-logic.blocksdevelopers.com/api/Notifier/SendSecretNotification";
             var headers = new Dictionary<string, string>
             {
                 { "x-blocks-key", blocksKey },

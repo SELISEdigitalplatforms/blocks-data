@@ -76,7 +76,8 @@ public static class GraphQlConstant
             RabbitMqConfiguration = new RabbitMqConfiguration
             {
                 ConsumerSubscriptions = [ConsumerSubscription.BindToQueue(DataGatewayQueueName),
-                                         ConsumerSubscription.BindToQueue(StorageQueueName)],
+                                         ConsumerSubscription.BindToQueue(StorageQueueName),
+                                         ConsumerSubscription.BindToQueue(DataGatewayInitiateQueueName)],
             }
         };
     }
@@ -87,7 +88,7 @@ public static class GraphQlConstant
         {
             AzureServiceBusConfiguration = new AzureServiceBusConfiguration
             {
-                Queues = [DataGatewayQueueName, StorageQueueName],
+                Queues = [DataGatewayQueueName, StorageQueueName, DataGatewayInitiateQueueName],
             }
         };
     }

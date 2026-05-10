@@ -22,6 +22,8 @@ using Worker.Configuration;
 using Worker.Consumers;
 using Worker.Consumers.Identifier;
 using Worker.Consumers.Users;
+using Storage.DomainService.Storage;
+using DataGateway.DomainService.Models;
 
 // const string _serviceName = GraphQlConstant.WorkerServiceName;
 const string _serviceName = "blocks-os-worker";
@@ -78,6 +80,8 @@ IHostBuilder CreateHostBuilder(string[] args) =>
 
             services.AddSingleton<IConsumer<SchemaExportEvent>, SchemaExportEventConsumer>();
             services.AddSingleton<IConsumer<SchemaImportEvent>, SchemaImportEventConsumer>();
+            services.AddSingleton<IConsumer<CreateDefaultFolderEvent>, CreateDefaultFolderEventConsumer>();
+            services.AddSingleton<IConsumer<PostBuildQueue>, PostBuildConsumer>();
             services.AddSingleton<ICloudBuildSecret>(cloudBuildSecret);
             services.RegisterSchemaServices();
 

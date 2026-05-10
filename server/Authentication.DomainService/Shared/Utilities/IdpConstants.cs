@@ -29,6 +29,7 @@ namespace DomainService.Utilities
 
         #region DataGateway Service Constants
         public const string DataGatewayQueueName = "blocks_uds_import_export_listener";
+        public const string DataGatewayInitiateQueueName = "blocks_uds_pipeline_initiate_listener";
         #endregion
 
         public static MessageConfiguration GetMessageConfiguration(string messageConnectionString)
@@ -66,7 +67,8 @@ namespace DomainService.Utilities
                                              ConsumerSubscription.BindToQueue(DataCleanupQueue),
                                              ConsumerSubscription.BindToQueue(LanguageDataMigrationQueue),
                                              ConsumerSubscription.BindToQueue(GenericMigrationQueue),
-                                             ConsumerSubscription.BindToQueue(DataGatewayQueueName)],
+                                             ConsumerSubscription.BindToQueue(DataGatewayQueueName),
+                                             ConsumerSubscription.BindToQueue(DataGatewayInitiateQueueName)],
                 }
             };
         }
@@ -77,7 +79,7 @@ namespace DomainService.Utilities
             {
                 AzureServiceBusConfiguration = new AzureServiceBusConfiguration
                 {
-                    Queues = [AuthenticationQueue, IamQueue, MfaQueueName, IdentifierQueueName, DataCleanupQueue, LanguageDataMigrationQueue, GenericMigrationQueue, DataGatewayQueueName],
+                    Queues = [AuthenticationQueue, IamQueue, MfaQueueName, IdentifierQueueName, DataCleanupQueue, LanguageDataMigrationQueue, GenericMigrationQueue, DataGatewayQueueName, DataGatewayInitiateQueueName],
                     Topics = [MigrationCompletionTopic]
                 }
             };

@@ -20,7 +20,7 @@ export const API_BASES = {
 export const GRAPHQL_GATEWAY_EXECUTE_ORIGIN = "https://dev-uds.blocksdevelopers.com" as const;
 
 /** Host for utility notifier REST + SignalR. */
-export const getUtilityApiOrigin = (): string => "https://dev-utility.blocksdevelopers.com";
+export const getUtilityApiOrigin = (): string => "https://dev-logic.blocksdevelopers.com";
 
 export const toUtilityApiUrl = (path: string): string => {
   const origin = getUtilityApiOrigin().replace(/\/$/, "");

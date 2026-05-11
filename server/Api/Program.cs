@@ -8,8 +8,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Utilities;
 
-// var serviceName = GraphQlConstant.ApiServiceName;
-var serviceName = "blocks-os-api";
+var serviceName = GraphQlConstant.ApiServiceName;
 //var vaultType = ResolveVaultType();
 //Console.WriteLine($"Using Genesis vault type: {vaultType}");
 var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(serviceName, VaultType.Azure);

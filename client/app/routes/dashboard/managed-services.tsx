@@ -1,4 +1,4 @@
-import { ManagedServices } from "@blocks-identifier/pages/services/managed-services";
+import { ManagedServices } from "@/identifier/pages/services/managed-services";
 
 export default function ManagedServicesPage() {
   return (

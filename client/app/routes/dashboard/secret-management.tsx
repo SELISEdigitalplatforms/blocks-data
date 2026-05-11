@@ -3,7 +3,6 @@ import { TabsContent } from "@radix-ui/react-tabs";
 import { useQueryState } from "nuqs";
 import { SSO } from "@blocks-idp/authentication/pages/authentication-config/sso";
 import { GRANT_TYPES, SecretManagementTabs } from "@blocks-idp/authentication/constants/authentication.constant";
-import { AIModels } from "@blocks-ai/pages/aimodels";
 import { OIDC } from "@blocks-idp/authentication/components/oidc";
 import { Certificates } from "@blocks-idp/authentication/pages/authentication-config/general/certificates/certificates";
 import { CreateOIDC } from "@blocks-idp/authentication/components/create-oidc";
@@ -11,15 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ConfigureCaptcha } from "@blocks-idp/captcha/pages/configure-captcha";
 import { ConfigureCaptchaModal } from "@blocks-idp/captcha/modals/configure-captcha-modal";
 import { ConfigureMFA } from "@blocks-idp/mfa/pages/configure-mfa/configure-mfa";
-import { MagicUrlConfigDialog } from "@blocks-utilities/components/magic-url-config-dialog/magic-url-config-dialog";
-import { useSaveMagicUrlConfig } from "@blocks-utilities/hooks/use-magic-url";
-import { StorageContents } from "@blocks-storage/pages/storage/storage-contents";
-import { ManagedServices } from "@blocks-identifier/pages/services/managed-services";
-import { AddService } from "@blocks-identifier/components/add-service/add-service";
-import { EmailConfiguration } from "@blocks-communication/mail/email/email-configure/email-configure";
-import NotificationConfigurationList from "@blocks-communication/notification/components/notification-configuration-list";
+import { MagicUrlConfigDialog } from "@/magic-url/components/magic-url-config-dialog/magic-url-config-dialog";
+import { useSaveMagicUrlConfig } from "@/magic-url/hooks/use-magic-url";
+import { StorageContents } from "@/storage/pages/storage/storage-contents";
+import { ManagedServices } from "@/identifier/pages/services/managed-services";
+import { AddService } from "@/identifier/components/add-service/add-service";
 import { Button } from "@/components/ui-kits/button/button";
-import { getApiUrl } from "@/lib/get-api-path";
 import { CirclePlus, Settings, Notebook, AlertCircle } from "lucide-react";
 import { MouseEvent, useMemo, useState } from "react";
 import { CAPTCHA_PROVIDERS, CAPTCHA_PROVIDERS_KEY } from "@blocks-idp/captcha/models/captcha";
@@ -35,9 +31,6 @@ export default function SecretManagementPage() {
   const { mutateAsync: saveMagicUrlConfig } = useSaveMagicUrlConfig();
   const [isMagicUrlConfigDialogOpen, setIsMagicUrlConfigDialogOpen] = useState(false);
   const [isManagedServicesGuideOpen, setIsManagedServicesGuideOpen] = useState(false);
-  const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
-  const [isNotificationConfigOpen, setIsNotificationConfigOpen] = useState(false);
-
   const areAllProvidersConfigured = useMemo(() => {
     if (!captchaData?.configurations) return false;
     const allProviderKeys = Object.keys(CAPTCHA_PROVIDERS) as CAPTCHA_PROVIDERS_KEY[];
@@ -128,26 +121,10 @@ export default function SecretManagementPage() {
                 <AddService />
               </div>
             )}
-            {selectedTab === "email" && (
-              <div className="flex items-center gap-2">
-                <Button size="sm" onClick={() => setIsEmailConfigOpen(true)}>
-                  <CirclePlus className="h-5 w-5" />
-                  <span className="sr-only sm:not-sr-only sm:ml-2.5 sm:text-sm sm:whitespace-nowrap">Add Configuration</span>
-                </Button>
-              </div>
-            )}
-            {selectedTab === "notification" && (
-              <div className="flex items-center gap-2">
-                <Button size="sm" onClick={() => setIsNotificationConfigOpen(true)}>
-                  <CirclePlus className="h-5 w-5" />
-                <span className="sr-only sm:not-sr-only sm:ml-2.5 sm:text-sm sm:whitespace-nowrap">Add Configuration</span>
-                </Button>
-              </div>
-            )}
           </>
         </div>
 
-        {!["my-secret", "managed-services", "ai-models"].includes(selectedTab) && (
+        {!["my-secret", "managed-services"].includes(selectedTab) && (
           <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/30 dark:bg-amber-950/20">
             <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600 dark:text-amber-500" />
             <div className="flex-1">
@@ -199,21 +176,6 @@ export default function SecretManagementPage() {
         </TabsContent>
         <TabsContent value="storage">
           <StorageContents />
-        </TabsContent>
-        <TabsContent value="email">
-          <EmailConfiguration
-            addConfigOpen={isEmailConfigOpen}
-            onAddConfigOpenChange={setIsEmailConfigOpen}
-          />
-        </TabsContent>
-        <TabsContent value="notification">
-          <NotificationConfigurationList
-            addConfigOpen={isNotificationConfigOpen}
-            onAddConfigOpenChange={setIsNotificationConfigOpen}
-          />
-        </TabsContent>
-        <TabsContent value="ai-models">
-          <AIModels />
         </TabsContent>
       </Tabs>
     </div>

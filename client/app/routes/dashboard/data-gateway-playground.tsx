@@ -1,7 +1,7 @@
 import { Suspense, lazy } from "react"
 
 const GraphQLPlayground = lazy(async () => {
-  const m = await import("@/cross-modules/data-gateway/components/graphql-playground")
+  const m = await import("@/data-gateway/components/graphql-playground")
   return { default: m.GraphQLPlayground }
 })
 

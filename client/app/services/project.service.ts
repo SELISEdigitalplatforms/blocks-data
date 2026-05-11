@@ -1,6 +1,6 @@
 import { http } from "@/lib/http-client";
 import { IDP_BASE_URL } from "@/constants/endpoint.constant";
-import { PROJECT_ENDPOINTS } from "@blocks-identifier/constants/endpoint.constant";
+import { PROJECT_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
 import { IGetProjectPayload, IGetProjectResponse, IProjectGroup } from "@/models/project.model";
 
 export class ProjectService {

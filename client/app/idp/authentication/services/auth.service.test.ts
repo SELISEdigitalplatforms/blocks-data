@@ -3,7 +3,7 @@ import { mockHttpClientFactory } from "@/test-utils/__mocks__";
 import { http } from "@/lib/http-client";
 import { AuthService } from "./auth.service";
 import { AUTH_ENDPOINTS } from "../constants/endpoint.constant";
-import { PEOPLE_ENDPOINTS } from "@blocks-identifier/constants/endpoint.constant";
+import { PEOPLE_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
 import {
   mockSigninPayload,
   mockSigninResponse,

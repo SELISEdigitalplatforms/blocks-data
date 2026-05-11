@@ -40,7 +40,7 @@ import {
 export class ProjectService {
   getProjects(page: number, pageSize: number, tenantGroupId: string): Promise<IProjectGroup[]> {
     const url = `${IDP_BASE_URL}${PROJECT_ENDPOINTS.GETS}?page=${page}&pageSize=${pageSize}&tenantGroupId=${tenantGroupId}`;
-    return http.get(url);
+    return http.get(url, undefined, { absoluteUrl: true });
   }
 
   getAssets(tenantGroupId: string): Promise<{

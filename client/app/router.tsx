@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, useParams } from "react-router-dom";
 
 import { AuthLayout } from "./layouts/auth-layout";
 import { PublicLayout } from "./layouts/public-layout";
@@ -47,13 +47,11 @@ import MfaLogsPage from "./routes/dashboard/mfa-logs";
 import CaptchaLogsPage from "./routes/dashboard/captcha-logs";
 import ApiSettingsPage from "./routes/dashboard/api-settings";
 import RateLimiterPage from "./routes/dashboard/rate-limiter";
-import LmtPage from "./routes/dashboard/lmt";
-import LmtServiceLogsPage from "./routes/dashboard/lmt-service-logs";
+import PlatformServiceLogsPage from "./routes/dashboard/platform-service-logs";
 import DataGatewaySchemasPage from "./routes/dashboard/data-gateway-schemas";
 import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
 import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
 import SecretManagementPage from "./routes/dashboard/secret-management";
-import AiModelSelectedRoute from "./routes/dashboard/ai-model-selected";
 import ManagedServicesPage from "./routes/dashboard/managed-services";
 import ProfilePage from "./routes/dashboard/profile";
 import StoragePage from "./routes/dashboard/storage-page";
@@ -68,6 +66,14 @@ import { RepositoriesPage } from "./pages/repositories/repositories";
 import { SettingsPage } from "./pages/settings/settings";
 import { CreateProjectWrapper } from "./pages/create-project/create-project";
 import CallbackPage from "./routes/callback/callback";
+
+const LmtLegacyRedirect = () => <Navigate to="/console" replace />;
+
+function LmtServiceLogsRedirect() {
+  const { serviceName } = useParams<{ serviceName: string }>();
+  if (!serviceName) return <Navigate to="/console" replace />;
+  return <Navigate to={`/services/logs/${serviceName}`} replace />;
+}
 
 export const router = createBrowserRouter([
   // ── Auth layout (login, signup, sso-activate) ──
@@ -131,14 +137,21 @@ export const router = createBrowserRouter([
       { path: "/services/mfa/logs", element: <MfaLogsPage /> },
       { path: "/services/api-settings", element: <ApiSettingsPage /> },
       { path: "/services/rate-limiter", element: <RateLimiterPage /> },
-      { path: "/services/lmt", element: <LmtPage /> },
-      { path: "/services/lmt/logs/:serviceName", element: <LmtServiceLogsPage /> },
+      { path: "/services/lmt", element: <LmtLegacyRedirect /> },
+      {
+        path: "/services/lmt/logs/:serviceName",
+        element: <LmtServiceLogsRedirect />,
+      },
+      { path: "/services/logs/:serviceName", element: <PlatformServiceLogsPage /> },
       { path: "/services/data-gateway", element: <DataGatewaySchemasPage /> },
       { path: "/services/data-gateway/playground", element: <DataGatewayPlaygroundPage /> },
       { path: "/services/data-gateway/logs", element: <DataGatewayLogsPage /> },
       { path: "/services/storage", element: <StoragePage /> },
       { path: "/services/secret-management", element: <SecretManagementPage /> },
-      { path: "/services/secret-management/ai-models/:provider", element: <AiModelSelectedRoute /> },
+      {
+        path: "/services/secret-management/ai-models/:provider",
+        element: <Navigate to="/services/secret-management" replace />,
+      },
       { path: "/managed-services", element: <ManagedServicesPage /> },
       { path: "/services/captcha", element: <Navigate to="/services/secret-management?tab=captcha" replace /> },
       { path: "/services/captcha/logs", element: <CaptchaLogsPage /> },

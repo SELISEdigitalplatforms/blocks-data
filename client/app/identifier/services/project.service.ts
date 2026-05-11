@@ -28,7 +28,7 @@ import {
   JwtClaimPayload,
   JwtClaimResponse,
 } from "@blocks-idp/authentication/models/jwt.claim.model";
-import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
+import { IDP_BASE_URL, getUtilityApiOrigin } from "@/constants/endpoint.constant";
 import {
   PROJECT_ENDPOINTS,
   DOMAIN_ENDPOINTS,
@@ -39,7 +39,7 @@ import {
 
 export class ProjectService {
   getProjects(page: number, pageSize: number, tenantGroupId: string): Promise<IProjectGroup[]> {
-    const url = `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GETS}?page=${page}&pageSize=${pageSize}&tenantGroupId=${tenantGroupId}`;
+    const url = `${IDP_BASE_URL}${PROJECT_ENDPOINTS.GETS}?page=${page}&pageSize=${pageSize}&tenantGroupId=${tenantGroupId}`;
     return http.get(url, undefined, { absoluteUrl: true });
   }
 
@@ -54,8 +54,8 @@ export class ProjectService {
     errors: unknown | null;
     isSuccess: boolean;
   }> {
-    const url = `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GET_ASSET}?TenantGroupId=${tenantGroupId}`;
-    return http.get(url, undefined, { absoluteUrl: true });
+    const url = `${PROJECT_ENDPOINTS.GET_ASSET}?TenantGroupId=${tenantGroupId}`;
+    return http.get(url);
   }
 
   addAssets(payload: { tenantGroupId: string; resource: IResource }): Promise<{
@@ -113,12 +113,7 @@ export class ProjectService {
   }
 
   updateTenantGroup(payload: IUpdateTenantGroupPayload): Promise<IUpdateProjectResponse> {
-    return http.post(
-      `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.UPDATE_TENANT_GROUP}`,
-      payload,
-      undefined,
-      { absoluteUrl: true },
-    );
+    return http.post(PROJECT_ENDPOINTS.UPDATE_TENANT_GROUP, payload);
   }
   disableProject(payload: IDisableProjectPayload): Promise<IDisableProjectResponse> {
     return http.post(PROJECT_ENDPOINTS.DISABLE, payload);

@@ -10,8 +10,8 @@ export class ProjectService {
   }
 
   getProject(payload: IGetProjectPayload): Promise<IGetProjectResponse> {
-    const url = `${PROJECT_ENDPOINTS.GET}?projectId=${payload.projectId}`;
-    return http.get(url);
+    const url = `${IDP_BASE_URL}${PROJECT_ENDPOINTS.GET}?projectId=${payload.projectId}`;
+    return http.get(url, undefined, { absoluteUrl: true });
   }
 }
 

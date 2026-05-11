@@ -1,5 +1,5 @@
 import { useProjectStore } from "@/store/useProjectStore";
-import { peopleService } from "@blocks-identifier/services/people.service";
+import { peopleService } from "@/identifier/services/people.service";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const useGetPeople = (option: { page: number; pageSize: number; filter: string }) => {

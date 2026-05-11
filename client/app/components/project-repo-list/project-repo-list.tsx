@@ -4,7 +4,7 @@ import { Check, Pencil } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { Card, CardTitle } from "@/components/ui-kits/card/card";
-import { IProject } from "@blocks-identifier/models/project.model";
+import { IProject } from "@/identifier/models/project.model";
 import { useGetEnvRepositories, useUpdateProject } from "@/hooks/use-project";
 import { Button } from "@/components/ui-kits/button/button";
 import {
@@ -186,7 +186,7 @@ export const ProjectRepoList = ({
                       <div className="mt-1">
                         <div
                           className="cursor-pointer text-sm text-blue-600 hover:text-blue-800 hover:underline"
-                          onClick={() => navigate(`/devops/repo/${repo.itemId}`)}
+                          onClick={() => navigate("/project-overview/repositories")}
                         >
                           {!repo.lastDeploymentDate || isDefaultDate
                             ? "Not deployed"
@@ -246,7 +246,7 @@ export const ProjectRepoList = ({
                     <div className="text-sm text-medium-emphasis">
                       <div
                         className="cursor-pointer text-blue-600 hover:text-blue-800 hover:underline"
-                        onClick={() => navigate(`/devops/repo/${repo.itemId}`)}
+                        onClick={() => navigate("/project-overview/repositories")}
                       >
                         {!repo.lastDeploymentDate || isDefaultDate
                           ? "Not deployed"

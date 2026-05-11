@@ -1,6 +1,6 @@
 import { http } from "@/lib/http-client";
 import { JwtClaimPayload } from "@blocks-idp/authentication/models/jwt.claim.model";
-import { PROJECT_ENDPOINTS } from "@blocks-identifier/constants/endpoint.constant";
+import { PROJECT_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
 
 class JwtClaimServices {
   addJwtClaim(payload: JwtClaimPayload): Promise<{

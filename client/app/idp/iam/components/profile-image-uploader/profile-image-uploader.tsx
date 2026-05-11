@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
-import { useGetPreSignedUrlForUpload, useUploadFile } from "@blocks-storage/hooks/use-storage-file";
-import { storageService } from "@blocks-storage/services/storage.service";
+import { useGetPreSignedUrlForUpload, useUploadFile } from "@/storage/hooks/use-storage-file";
+import { storageService } from "@/storage/services/storage.service";
 import { useGetUserById, useUpdateUser } from "@blocks-idp/iam/hooks/use-user";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";

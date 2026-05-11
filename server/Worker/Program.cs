@@ -7,6 +7,7 @@ using Worker;
 using Worker.Configuration;
 using Worker.Consumers;
 using Storage.DomainService.Storage;
+using Storage.DomainService.Utilities;
 using DataGateway.DomainService.Models;
 
 // const string _serviceName = GraphQlConstant.WorkerServiceName;
@@ -39,6 +40,7 @@ IHostBuilder CreateHostBuilder(string[] args) =>
             services.AddSingleton<IConsumer<CreateDefaultFolderEvent>, CreateDefaultFolderEventConsumer>();
             services.AddSingleton<IConsumer<PostBuildQueue>, PostBuildConsumer>();
             services.AddSingleton<ICloudBuildSecret>(cloudBuildSecret);
+            services.AddStorageDomainServices();
             services.RegisterSchemaServices();
 
             ApplicationConfigurations.ConfigureWorker(services, GraphQlConstant.GetMessageConfiguration(secret.MessageConnectionString));

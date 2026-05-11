@@ -4,6 +4,73 @@
         <name>Api</name>
     </assembly>
     <members>
+        <member name="T:DataGateway.Api.Controllers.ConfigurationController">
+            <summary>
+            OperateSchemaController provides endpoints to manage GraphQL schema operations.
+            It allows reloading the schema configuration, which is necessary after making changes to schema definitions or data sources.
+            </summary>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.ConfigurationController.#ctor(DataGateway.DomainService.Services.IConfigurationService,Blocks.Genesis.ChangeControllerContext)">
+            <summary>
+            Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.ConfigurationController"/> class.
+            </summary>
+            <param name="configurationService">The configuration service.</param>
+            <exception cref="T:System.ArgumentNullException">Thrown when the configuration service is null.</exception>
+            <param name="changeControllerContext">The change Controller service.</param>
+            <exception cref="T:System.ArgumentNullException">Thrown when the changeControllerContext is null.</exception>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.ConfigurationController.ReloadGraphQlServerAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            Cloud use only: Reloads the GraphQL schema configuration. Use this endpoint after making changes to schema definitions or data sources to refresh the schema.
+            </summary>
+            <param name="projectKey">The unique identifier of the project to retrieve.</param>
+            <param name="cancellationToken">A cancellation token to cancel the operation if needed.</param>
+            <returns>Returns a success response if the schema is reloaded, or an error message if the operation fails.</returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.ConfigurationController.ReloadDataGatewayServerAsync(System.String)">
+            <summary>
+            Reloads the GraphQL schema configuration. Use this endpoint after making changes to schema definitions or data sources to refresh the schema.
+            </summary>
+            <param name="projectKey">The unique identifier of the project to retrieve.</param>
+            <returns>Returns a success response if the schema is reloaded, or an error message if the operation fails.</returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.ConfigurationController.AddGraphQLServerAsync(System.String,System.Threading.CancellationToken)">
+            <summary>
+            
+            </summary>
+            <param name="serverName"></param>
+            <param name="cancellationToken"></param>
+            <returns></returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.DataManageController.#ctor(DataGateway.DomainService.Services.IDataManageService,Blocks.Genesis.ChangeControllerContext)">
+            <summary>
+            Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.DataManageController"/> class.
+            </summary>
+            <param name="dataManageService"></param>
+            <param name="changeControllerContext"></param>
+            <exception cref="T:System.ArgumentException"></exception>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.DataManageController.GetMockData(System.String)">
+            <summary>
+            Cloud use only: Gets mock data from the database.
+            </summary>
+            <param name="projectKey"></param>
+            <returns></returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.DataManageController.GetMockDataAsync(System.String)">
+            <summary>
+            Gets mock data from the database.
+            </summary>
+            <param name="projectKey"> The project key to get mock data for.</param>
+            <returns>Returns the mock data for the project.</returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.DataManageController.DeleteMockData(DataGateway.DomainService.Models.DeleteMockDataRequest)">
+            <summary>
+            Deletes mock data from the database.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
         <member name="T:Api.Controllers.DataGateway.DataAccessController">
             <summary>
             Controller for managing data access permissions.
@@ -373,39 +440,6 @@
             <param name="pageSize">The page size to reset.</param>
             <returns></returns>
         </member>
-        <member name="T:Api.Controllers.MigrationController">
-            <summary>
-            Controller for handling migration operations between projects.
-            </summary>
-        </member>
-        <member name="M:Api.Controllers.MigrationController.#ctor(DomainService.Migration.IMigrationService,DomainService.Migration.Services.IMigrationRepository,Blocks.Genesis.IMessageClient)">
-            <summary>
-            Initializes a new instance of the MigrationController.
-            </summary>
-            <param name="migrationService">The migration service.</param>
-            <param name="migrationRepository">The migration repository.</param>
-        </member>
-        <member name="M:Api.Controllers.MigrationController.Migrate(DomainService.Migration.MigrationRequest)">
-            <summary>
-            
-            </summary>
-            <param name="command"></param>
-            <returns></returns>
-        </member>
-        <member name="M:Api.Controllers.MigrationController.Verify(DomainService.Migration.MigrationVerifyOtpRequest)">
-            <summary>
-            Verifies the OTP code for the migration process.
-            </summary>
-            <param name="command">The OTP verification request containing the verification ID and code.</param>
-            <returns>An <see cref="T:DomainService.Migration.MigrationOtpVerificationResponse"/> indicating whether the OTP is valid.</returns>
-        </member>
-        <member name="M:Api.Controllers.MigrationController.GetMigrationStatus(System.String)">
-            <summary>
-            Gets the migration status for projects with incomplete services.
-            </summary>
-            <param name="tenantGroupId">The tenant group ID to check for migrations.</param>
-            <returns>List of migration trackers with incomplete services.</returns>
-        </member>
         <member name="T:Api.Controllers.FilesController">
             <summary>
             Controller for managing file-related operations such as downloading, uploading, and deleting files.
@@ -473,73 +507,6 @@
             </summary>
             <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
             <returns>A <see cref="T:Blocks.Genesis.BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
-        </member>
-        <member name="T:DataGateway.Api.Controllers.ConfigurationController">
-            <summary>
-            OperateSchemaController provides endpoints to manage GraphQL schema operations.
-            It allows reloading the schema configuration, which is necessary after making changes to schema definitions or data sources.
-            </summary>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.#ctor(DataGateway.DomainService.Services.IConfigurationService,Blocks.Genesis.ChangeControllerContext)">
-            <summary>
-            Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.ConfigurationController"/> class.
-            </summary>
-            <param name="configurationService">The configuration service.</param>
-            <exception cref="T:System.ArgumentNullException">Thrown when the configuration service is null.</exception>
-            <param name="changeControllerContext">The change Controller service.</param>
-            <exception cref="T:System.ArgumentNullException">Thrown when the changeControllerContext is null.</exception>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.ReloadGraphQlServerAsync(System.String,System.Threading.CancellationToken)">
-            <summary>
-            Cloud use only: Reloads the GraphQL schema configuration. Use this endpoint after making changes to schema definitions or data sources to refresh the schema.
-            </summary>
-            <param name="projectKey">The unique identifier of the project to retrieve.</param>
-            <param name="cancellationToken">A cancellation token to cancel the operation if needed.</param>
-            <returns>Returns a success response if the schema is reloaded, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.ReloadDataGatewayServerAsync(System.String)">
-            <summary>
-            Reloads the GraphQL schema configuration. Use this endpoint after making changes to schema definitions or data sources to refresh the schema.
-            </summary>
-            <param name="projectKey">The unique identifier of the project to retrieve.</param>
-            <returns>Returns a success response if the schema is reloaded, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.AddGraphQLServerAsync(System.String,System.Threading.CancellationToken)">
-            <summary>
-            
-            </summary>
-            <param name="serverName"></param>
-            <param name="cancellationToken"></param>
-            <returns></returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.DataManageController.#ctor(DataGateway.DomainService.Services.IDataManageService,Blocks.Genesis.ChangeControllerContext)">
-            <summary>
-            Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.DataManageController"/> class.
-            </summary>
-            <param name="dataManageService"></param>
-            <param name="changeControllerContext"></param>
-            <exception cref="T:System.ArgumentException"></exception>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.DataManageController.GetMockData(System.String)">
-            <summary>
-            Cloud use only: Gets mock data from the database.
-            </summary>
-            <param name="projectKey"></param>
-            <returns></returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.DataManageController.GetMockDataAsync(System.String)">
-            <summary>
-            Gets mock data from the database.
-            </summary>
-            <param name="projectKey"> The project key to get mock data for.</param>
-            <returns>Returns the mock data for the project.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.DataManageController.DeleteMockData(DataGateway.DomainService.Models.DeleteMockDataRequest)">
-            <summary>
-            Deletes mock data from the database.
-            </summary>
-            <param name="request"></param>
-            <returns></returns>
         </member>
         <member name="T:BlocksTemplate.Api.GlobalApiRoutePrefixConvention">
             <summary>Prepends a segment (e.g. <c>api</c>) to every controller’s attribute route template.</summary>

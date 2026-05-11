@@ -1,6 +1,24 @@
 import react from "@vitejs/plugin-react";
 import path from "path";
+import type { Plugin } from "vite";
 import { defineConfig, loadEnv } from "vite";
+
+/** Rollup rejects `/*#__PURE__*\/` immediately before `function` in @microsoft/signalr Utils.js */
+const stripSignalrInvalidPureAnnotations = (): Plugin => ({
+  name: "strip-signalr-invalid-pure-annotations",
+  enforce: "pre",
+  transform(code, id) {
+    if (!id.includes("node_modules/@microsoft/signalr") || !id.endsWith("Utils.js")) {
+      return null
+    }
+    const patched = code.replace(
+      /\/\/ eslint-disable-next-line spaced-comment\r?\n\/\*#__PURE__\*\/ function /g,
+      "function "
+    )
+    if (patched === code) return null
+    return { code: patched, map: null }
+  },
+})
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, "BLOCKS_");
@@ -12,7 +30,7 @@ export default defineConfig(({ mode }) => {
       "process.env.NEXT_PUBLIC_API_BASE_URL": JSON.stringify(proxyTarget),
       "process.env.NEXT_PUBLIC_PROJECT_DEFAULT_API_BASE_URL": JSON.stringify(proxyTarget),
     },
-    plugins: [react()],
+    plugins: [react(), stripSignalrInvalidPureAnnotations()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./app"),

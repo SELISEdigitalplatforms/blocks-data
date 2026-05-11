@@ -1,4 +1,4 @@
-import { API_BASES, toUtilityApiUrl } from "@/constants/endpoint.constant";
+import { API_BASES, getUtilityApiOrigin } from "@/constants/endpoint.constant";
 
 export const NOTIFICATION_ENDPOINTS = {
   GET_NOTIFICATIONS: `${API_BASES.UTILITIES}/Notifier/GetNotifications`,
@@ -7,7 +7,9 @@ export const NOTIFICATION_ENDPOINTS = {
 } as const;
 
 export const NOTIFICATION_CONFIG_ENDPOINTS = {
-  GET_CONFIGS: toUtilityApiUrl("/api/Notification/Gets"),
+  get GET_CONFIGS(): string {
+    return `${getUtilityApiOrigin()}${API_BASES.CLOUD_CONFIGURATION}/Notification/Gets`;
+  },
   SAVE_CONFIG: `${API_BASES.CLOUD_CONFIGURATION}/Notification/Save`,
   DELETE_CONFIG: `${API_BASES.CLOUD_CONFIGURATION}/Notification/Delete`,
-} as const;
+};

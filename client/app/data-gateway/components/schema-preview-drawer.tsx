@@ -23,7 +23,7 @@ import { useRawIntrospectionQuery } from "../hooks/use-configuration";
 import { SchemaPreviewDrawerProps } from "../models/schema-preview.types";
 import { buildPreviewSections } from "../utils/generate-preview-queries";
 import { formatPreviewJson } from "../utils/graphql-template.utils";
-import { GRAPHQL_GATEWAY_EXECUTE_ORIGIN } from "@/constants/endpoint.constant";
+import { getGraphqlGatewayExecuteOrigin } from "@/constants/endpoint.constant";
 
 export function SchemaPreviewDrawer({
   trigger,
@@ -41,7 +41,7 @@ export function SchemaPreviewDrawer({
   const isEntity = schemaType === 1;
   const defaultTab = isEntity ? "request-format" : "schema-structure";
   const [activeTab, setActiveTab] = useState(defaultTab);
-  const requestUrl = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/${projectShortKey}/gateway`;
+  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/${projectShortKey}/gateway`;
   const navigate = useNavigate();
 
   useEffect(() => {

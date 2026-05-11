@@ -28,6 +28,7 @@ import {
   JwtClaimPayload,
   JwtClaimResponse,
 } from "@blocks-idp/authentication/models/jwt.claim.model";
+import { IDP_BASE_URL } from "@/constants/endpoint.constant";
 import {
   PROJECT_ENDPOINTS,
   DOMAIN_ENDPOINTS,
@@ -38,7 +39,7 @@ import {
 
 export class ProjectService {
   getProjects(page: number, pageSize: number, tenantGroupId: string): Promise<IProjectGroup[]> {
-    const url = `${PROJECT_ENDPOINTS.GETS}?page=${page}&pageSize=${pageSize}&tenantGroupId=${tenantGroupId}`;
+    const url = `${IDP_BASE_URL}${PROJECT_ENDPOINTS.GETS}?page=${page}&pageSize=${pageSize}&tenantGroupId=${tenantGroupId}`;
     return http.get(url);
   }
 

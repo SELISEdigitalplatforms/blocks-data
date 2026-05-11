@@ -8,6 +8,7 @@ import {
   mockConfirmInvitationResponse,
 } from "../test-utils/__mocks__";
 import { http } from "@/lib/http-client";
+import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
 import { PEOPLE_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
 import { PeopleService } from "./people.service";
 
@@ -51,7 +52,12 @@ describe("PeopleService", () => {
       const payload = { page: 1, pageSize: 10, filter: "", projectGroupId: "group-1" };
       const result = await service.getPeople(payload);
 
-      expect(http.post).toHaveBeenCalledWith(PEOPLE_ENDPOINTS.GETS, payload);
+      expect(http.post).toHaveBeenCalledWith(
+        `${getUtilityApiOrigin()}${PEOPLE_ENDPOINTS.GETS}`,
+        payload,
+        undefined,
+        { absoluteUrl: true },
+      );
       expect(result).toEqual(mockGetPeopleResponse);
     });
 
@@ -61,7 +67,12 @@ describe("PeopleService", () => {
       const payload = { page: 1, pageSize: 20, filter: "john", projectGroupId: "group-1" };
       await service.getPeople(payload);
 
-      expect(http.post).toHaveBeenCalledWith(PEOPLE_ENDPOINTS.GETS, payload);
+      expect(http.post).toHaveBeenCalledWith(
+        `${getUtilityApiOrigin()}${PEOPLE_ENDPOINTS.GETS}`,
+        payload,
+        undefined,
+        { absoluteUrl: true },
+      );
     });
 
     it("should handle API errors", async () => {

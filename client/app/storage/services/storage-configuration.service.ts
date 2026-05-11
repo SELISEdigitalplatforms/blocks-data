@@ -5,12 +5,14 @@ import {
   IStorageConfigurationSavePayload,
 } from "../models/storage.model";
 import { STORAGE_CONFIG_ENDPOINTS } from "../constants/endpoint.constant";
+import { normalizeStorageConfigurationsList } from "../utils/normalize-storage-configurations-list";
 
 export class StorageConfiguration {
-  gets(projectKey: string): Promise<IStorageConfiguration[]> {
-    return http.get<IStorageConfiguration[]>(
+  async gets(projectKey: string): Promise<IStorageConfiguration[]> {
+    const raw = await http.get<unknown>(
       `${STORAGE_CONFIG_ENDPOINTS.GET_CONFIGS}?ProjectKey=${projectKey}`,
     );
+    return normalizeStorageConfigurationsList(raw);
   }
 
   save(values: IStorageConfigurationSavePayload): Promise<{

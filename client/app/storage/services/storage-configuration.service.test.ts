@@ -51,6 +51,14 @@ describe("StorageConfiguration", () => {
       expect(result).toEqual([]);
     });
 
+    it("should unwrap wrapped list payloads from Cloud Configuration", async () => {
+      vi.mocked(http.get).mockResolvedValue({ items: mockStorageConfigList });
+
+      const result = await service.gets(TEST_PROJECT_KEY);
+
+      expect(result).toEqual(mockStorageConfigList);
+    });
+
     it("should handle API errors", async () => {
       vi.mocked(http.get).mockRejectedValue(new Error("Network error"));
 

@@ -28,7 +28,7 @@ import {
   JwtClaimPayload,
   JwtClaimResponse,
 } from "@blocks-idp/authentication/models/jwt.claim.model";
-import { IDP_BASE_URL } from "@/constants/endpoint.constant";
+import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
 import {
   PROJECT_ENDPOINTS,
   DOMAIN_ENDPOINTS,
@@ -39,7 +39,7 @@ import {
 
 export class ProjectService {
   getProjects(page: number, pageSize: number, tenantGroupId: string): Promise<IProjectGroup[]> {
-    const url = `${IDP_BASE_URL}${PROJECT_ENDPOINTS.GETS}?page=${page}&pageSize=${pageSize}&tenantGroupId=${tenantGroupId}`;
+    const url = `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GETS}?page=${page}&pageSize=${pageSize}&tenantGroupId=${tenantGroupId}`;
     return http.get(url, undefined, { absoluteUrl: true });
   }
 
@@ -54,8 +54,8 @@ export class ProjectService {
     errors: unknown | null;
     isSuccess: boolean;
   }> {
-    const url = `${PROJECT_ENDPOINTS.GET_ASSET}?TenantGroupId=${tenantGroupId}`;
-    return http.get(url);
+    const url = `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GET_ASSET}?TenantGroupId=${tenantGroupId}`;
+    return http.get(url, undefined, { absoluteUrl: true });
   }
 
   addAssets(payload: { tenantGroupId: string; resource: IResource }): Promise<{
@@ -113,7 +113,12 @@ export class ProjectService {
   }
 
   updateTenantGroup(payload: IUpdateTenantGroupPayload): Promise<IUpdateProjectResponse> {
-    return http.post(PROJECT_ENDPOINTS.UPDATE_TENANT_GROUP, payload);
+    return http.post(
+      `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.UPDATE_TENANT_GROUP}`,
+      payload,
+      undefined,
+      { absoluteUrl: true },
+    );
   }
   disableProject(payload: IDisableProjectPayload): Promise<IDisableProjectResponse> {
     return http.post(PROJECT_ENDPOINTS.DISABLE, payload);
@@ -133,8 +138,8 @@ export class ProjectService {
   }
 
   getMigrationStatus(tenantGroupId: string): Promise<IMigrationStatusResponse> {
-    const url = `${MIGRATION_ENDPOINTS.GET_STATUS}?tenantGroupId=${tenantGroupId}`;
-    return http.get(url);
+    const url = `${getUtilityApiOrigin()}${MIGRATION_ENDPOINTS.GET_STATUS}?tenantGroupId=${tenantGroupId}`;
+    return http.get(url, undefined, { absoluteUrl: true });
   }
 
   savePublicCertificate(payload: ISavePublicCertificatePayload): Promise<IUpdateProjectResponse> {

@@ -4,7 +4,7 @@ import React from "react";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 
 import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
-import { LogsViewer } from "@blocks-lmt/components";
+import { LogsViewer } from "@/service-logs";
 
 export function AuthLogs() {
   BREADCRUMB_CUSTOM_TITLES["/services/authentication"] = "Authentication";
@@ -20,7 +20,7 @@ export function AuthLogs() {
             serviceName: "blocks-idp-api",
           },
           {
-            id: "blocks-idp-api",
+            id: "blocks-idp-worker",
             label: "Worker",
             serviceName: "blocks-idp-worker",
           },

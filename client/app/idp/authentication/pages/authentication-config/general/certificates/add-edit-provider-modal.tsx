@@ -20,14 +20,14 @@ import { Input } from "@/components/ui-kits/input/input";
 import { Label } from "@/components/ui-kits/label/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui-kits/radio-group/radio-group";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { IGetPublicCertificateResponse } from "@blocks-identifier/models/project.model";
+import { IGetPublicCertificateResponse } from "@/identifier/models/project.model";
 import { useProjectStore } from "@/store/useProjectStore";
 import { providers } from "@blocks-idp/authentication/constants/authentication.constant";
 import {
   useSavePublicCertificates,
   useValidateJwksUrl,
 } from "@blocks-idp/authentication/hooks/use-identifier";
-import { usePublicCertificateFile } from "@blocks-storage/hooks/use-storage-file";
+import { usePublicCertificateFile } from "@/storage/hooks/use-storage-file";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, Paperclip, Plus, Pencil, UploadCloud } from "lucide-react";
 import { useEffect, useRef, useState } from "react";

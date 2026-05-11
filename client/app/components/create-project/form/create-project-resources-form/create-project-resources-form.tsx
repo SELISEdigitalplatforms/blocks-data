@@ -5,7 +5,7 @@ import { Plus } from "lucide-react";
 import { Form } from "@/components/ui-kits/form/form";
 import { Button } from "@/components/ui-kits/button/button";
 import { useCreateProjectFormState } from "../../utils";
-import ProviderButtons from "@/cross-modules/devops/components/deployment-steps/render-repos/render-provider";
+import ProviderButtons from "@/repository-integration/components/render-provider";
 import { useStepper } from "@/components/stepper/stepper-provider";
 import {
   CreateProjectResourcesFormDefaultValue,
@@ -22,8 +22,8 @@ import {
 import {
   useGetRepositoryUser,
   useValidateAuthorization,
-} from "@/cross-modules/devops/hooks/github-info";
-import { IRepository, iconMap } from "@/cross-modules/devops/models/github-info";
+} from "@/repository-integration/hooks/use-github-integration";
+import { IRepository, iconMap } from "@/repository-integration/models/github-info";
 import { RepositorySelectionModal } from "@/components/repository-selection-modal/repository-selection-modal";
 
 export const CreateProjectResourcesForm = () => {

@@ -2,14 +2,14 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
 import { TEST_PROJECT_KEY } from "@/test-utils/__mocks__";
-import { projectService } from "@blocks-identifier/services/project.service";
+import { projectService } from "@/identifier/services/project.service";
 import {
   useSavePublicCertificates,
   useGetSavedPublicCertificates,
   useValidateJwksUrl,
 } from "./use-identifier";
 
-vi.mock("@blocks-identifier/services/project.service", () => ({
+vi.mock("@/identifier/services/project.service", () => ({
   projectService: {
     savePublicCertificate: vi.fn(),
     getPublicCertificateInformation: vi.fn(),

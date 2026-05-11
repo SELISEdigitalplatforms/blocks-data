@@ -31,8 +31,8 @@ import { Input } from "@/components/ui-kits/input/input";
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import { Button } from "@/components/ui-kits/button/button";
 import { isErrorWithErrors } from "@/lib/error";
-import { useGetPreSignedUrlForUpload, useUploadFile } from "@blocks-storage/hooks/use-storage-file";
-import { storageService } from "@blocks-storage/services/storage.service";
+import { useGetPreSignedUrlForUpload, useUploadFile } from "@/storage/hooks/use-storage-file";
+import { storageService } from "@/storage/services/storage.service";
 import { ColorSwatch } from "@/components/color-swatch/color-swatch";
 import { ModuleName } from "@/constants/modules.constants";
 

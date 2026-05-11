@@ -1,14 +1,20 @@
-import { API_BASES } from "@/constants/endpoint.constant";
+import { API_BASES, getUtilityApiOrigin } from "@/constants/endpoint.constant";
 
 const STORAGE_SUBPATH = "/Storage";
 const FILES_SUBPATH = "/Files";
 
-// Storage Configuration endpoints
+// Storage Configuration endpoints (Logic host via getUtilityApiOrigin(), same path shape as CLOUD_CONFIGURATION)
 export const STORAGE_CONFIG_ENDPOINTS = {
-  GET_CONFIGS: `${API_BASES.CLOUD_CONFIGURATION}${STORAGE_SUBPATH}/Gets`,
-  SAVE_CONFIG: `${API_BASES.CLOUD_CONFIGURATION}${STORAGE_SUBPATH}/Save`,
-  DELETE_CONFIG: `${API_BASES.CLOUD_CONFIGURATION}${STORAGE_SUBPATH}/Delete`,
-} as const;
+  get GET_CONFIGS(): string {
+    return `${getUtilityApiOrigin()}${API_BASES.CLOUD_CONFIGURATION}${STORAGE_SUBPATH}/Gets`;
+  },
+  get SAVE_CONFIG(): string {
+    return `${getUtilityApiOrigin()}${API_BASES.CLOUD_CONFIGURATION}${STORAGE_SUBPATH}/Save`;
+  },
+  get DELETE_CONFIG(): string {
+    return `${getUtilityApiOrigin()}${API_BASES.CLOUD_CONFIGURATION}${STORAGE_SUBPATH}/Delete`;
+  },
+};
 
 // Storage File endpoints
 export const STORAGE_FILE_ENDPOINTS = {

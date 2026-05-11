@@ -3,7 +3,7 @@ import {
   TEST_TENANT_ID,
   MOCK_NEW_ITEM_ID,
   mockDeleteSuccessResponse,
-} from "@/test-utils/__mocks__/data.mock";
+} from "@/test-utils/__mocks__";
 import {
   DmsItemType,
   IDmsFileAndFolderInfo,

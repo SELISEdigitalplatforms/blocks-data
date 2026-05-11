@@ -58,7 +58,7 @@ export function Storage() {
   const loading = isLoading || isFetching;
 
   const configurations = useMemo(() => {
-    if (!data) return [];
+    if (!Array.isArray(data)) return [];
     const index = data.findIndex((item) => item.name === "Default");
     if (index > -1) {
       const temps = [...data];

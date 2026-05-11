@@ -138,7 +138,10 @@ export function StorageDetail() {
   const { fetchFile } = useLazyGetFile();
 
   const storage = useMemo(() => {
-    return configurations?.find((config) => config.itemId === storageId);
+    if (!Array.isArray(configurations)) {
+      return undefined;
+    }
+    return configurations.find((config) => config.itemId === storageId);
   }, [configurations, storageId]);
 
   // Function to fetch DMS data

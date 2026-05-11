@@ -1,18 +1,11 @@
 using Blocks.Genesis;
 using BlocksTemplate.Api;
-using Captcha.DomainService.Configuration;
-using Cloud.DomainService.Utilities;
-using Cloud.LmtService.Utilities;
-using CloudConfiguration.DomainService.Shared.Utilities;
 using DataGateway.DomainService;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Services;
-using DomainService.Shared;
-using DomainService.Utilities;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using MongoDB.Driver;
 using Storage.DomainService.Utilities;
 
 // var serviceName = GraphQlConstant.ApiServiceName;
@@ -24,7 +17,7 @@ var cloudBuildSecret = await CloudBuildSecret.ProcessBlocksSecret(VaultType.Azur
 
 var builder = WebApplication.CreateBuilder(args);
 
-ApplicationConfigurations.ConfigureServices(builder.Services, IdpConstants.GetMessageConfiguration(secret.MessageConnectionString));
+ApplicationConfigurations.ConfigureServices(builder.Services, GraphQlConstant.GetMessageConfiguration(secret.MessageConnectionString));
 
 builder.Services.Configure<FormOptions>(options =>
 {
@@ -49,11 +42,6 @@ Directory.CreateDirectory(wwwrootPath);
 
 //ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath);
 
-services.RegisterAllServices();
-services.AddApplicationServices();
-services.AddCloudDomainServices();
-services.AddCloudLmtServices();
-services.AddCloudConfigurationServices();
 services.AddDataGatewayDomainServices();
 services.AddStorageDomainServices();
 
@@ -77,12 +65,9 @@ if (File.Exists(indexHtml))
     app.MapFallback(async context =>
     {
         var tenantService = context.RequestServices.GetRequiredService<ITenants>();
-        var dbContext = context.RequestServices.GetRequiredService<IDbContextProvider>();
         var host = context.Request.Host.Value;
         var tenant = tenantService.GetTenantByApplicationDomain(host);
-        var database = dbContext.GetDatabase(tenant.TenantId);
-        var captcheSetting = await (await database.GetCollection<CaptchaConfiguration>("CaptchaConfigurations").FindAsync(Builders<CaptchaConfiguration>.Filter.Eq(mc => mc.IsEnable, true))).FirstOrDefaultAsync();
-        ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath, tenant.TenantId, captcheSetting.CaptchaKey);
+        ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath, tenant.TenantId, string.Empty);
 
         context.Response.Cookies.Append("x-blocks-key", tenant.TenantId, new CookieOptions
         {

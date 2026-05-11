@@ -11,6 +11,8 @@ export class StorageConfiguration {
   async gets(projectKey: string): Promise<IStorageConfiguration[]> {
     const raw = await http.get<unknown>(
       `${STORAGE_CONFIG_ENDPOINTS.GET_CONFIGS}?ProjectKey=${projectKey}`,
+      undefined,
+      { absoluteUrl: true },
     );
     return normalizeStorageConfigurationsList(raw);
   }
@@ -60,7 +62,7 @@ export class StorageConfiguration {
     // Merge the reset values with the original values
     const payload = { ...resetValues, ...values };
 
-    return http.post(url, payload);
+    return http.post(url, payload, undefined, { absoluteUrl: true });
   }
 
   delete(payload: IStorageConfigurationDeletePayload): Promise<{
@@ -70,6 +72,8 @@ export class StorageConfiguration {
     return http.post(
       `${STORAGE_CONFIG_ENDPOINTS.DELETE_CONFIG}?ProjectKey=${payload.projectKey}&ConfigurationName=${payload.configurationName}`,
       {},
+      undefined,
+      { absoluteUrl: true },
     );
   }
 }

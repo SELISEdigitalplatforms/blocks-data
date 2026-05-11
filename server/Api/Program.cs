@@ -16,8 +16,6 @@ var cloudBuildSecret = await CloudBuildSecret.ProcessBlocksSecret(VaultType.Azur
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ApplicationConfigurations.ConfigureApiEnv(builder, args);
-
 ApplicationConfigurations.ConfigureServices(builder.Services, GraphQlConstant.GetMessageConfiguration(secret.MessageConnectionString));
 
 builder.Services.Configure<FormOptions>(options =>

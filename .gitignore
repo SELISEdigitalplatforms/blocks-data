@@ -163,7 +163,10 @@ server/Api/wwwroot/**
 # Local / agent outputs — not versioned (use `git rm --cached <path>` if they were committed)
 docs/superpowers/
 change.md
+client/change.md
 
+# Cursor IDE / agent workspace (local only; do not push)
+.cursor/
 
 # .graphify output
 client/graphify-out/

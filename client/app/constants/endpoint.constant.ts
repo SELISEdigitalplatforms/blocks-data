@@ -1,3 +1,5 @@
+import { getRuntimeEnv } from "@/lib/runtime-env"
+
 export const IDP_BASE_URL = "https://dev-idp.blocksdevelopers.com";
 
 export const API_BASES = {
@@ -16,14 +18,21 @@ export const API_BASES = {
   STUDIO: "/api",
 } as const;
 
-/** Absolute origin for GraphQL gateway execute (playground); other UDS APIs stay on the app origin `/api` proxy. */
-export const GRAPHQL_GATEWAY_EXECUTE_ORIGIN = "https://dev-uds.blocksdevelopers.com" as const;
+const DEFAULT_GRAPHQL_GATEWAY_ORIGIN = "https://dev-uds.blocksdevelopers.com" as const;
+const DEFAULT_UTILITY_API_ORIGIN = "https://dev-logic.blocksdevelopers.com" as const;
 
-/** Host for utility notifier REST + SignalR. */
-export const getUtilityApiOrigin = (): string => "https://dev-logic.blocksdevelopers.com";
+const trimTrailingSlash = (value: string) => value.replace(/\/$/, "");
 
-export const toUtilityApiUrl = (path: string): string => {
-  const origin = getUtilityApiOrigin().replace(/\/$/, "");
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${origin}${normalizedPath}`;
+/** GraphQL gateway host (execute / reload / ping). Override with `BLOCKS_GRAPHQL_GATEWAY_ORIGIN`; defaults to dev UDS. */
+export const getGraphqlGatewayExecuteOrigin = (): string => {
+  const fromEnv = trimTrailingSlash(getRuntimeEnv("BLOCKS_GRAPHQL_GATEWAY_ORIGIN").trim());
+  if (fromEnv) return fromEnv;
+  return DEFAULT_GRAPHQL_GATEWAY_ORIGIN;
+};
+
+/** Logic / utility API host (notifications, storage config, SignalR). Override with `BLOCKS_UTILITY_API_ORIGIN`; defaults to dev Logic. */
+export const getUtilityApiOrigin = (): string => {
+  const fromEnv = trimTrailingSlash(getRuntimeEnv("BLOCKS_UTILITY_API_ORIGIN").trim());
+  if (fromEnv) return fromEnv;
+  return DEFAULT_UTILITY_API_ORIGIN;
 };

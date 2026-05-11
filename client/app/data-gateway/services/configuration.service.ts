@@ -41,7 +41,7 @@ import {
   PIPELINE_ENDPOINTS,
 } from "../constants/endpoint.constant";
 import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
-import { API_BASES, GRAPHQL_GATEWAY_EXECUTE_ORIGIN } from "@/constants/endpoint.constant";
+import { API_BASES, getGraphqlGatewayExecuteOrigin } from "@/constants/endpoint.constant";
 
 class ConfigurationService {
   createDataSource(payload: IDataServiceConfiguration): Promise<IDataServiceConfigurationResponse> {
@@ -62,7 +62,7 @@ class ConfigurationService {
     projectKey: string;
     projectShortKey?: string;
   }): Promise<IDataServiceConfigurationResponse> {
-    const url = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/${payload.projectShortKey}${API_BASES.UDS}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
+    const url = `${getGraphqlGatewayExecuteOrigin()}/${payload.projectShortKey}${API_BASES.UDS}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
     return http.post(url, {}, undefined, { absoluteUrl: true });
   }
 
@@ -123,7 +123,7 @@ class ConfigurationService {
     query: string,
     headers?: Record<string, string>,
   ): Promise<unknown> {
-    const url = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/${projectShortKey}/gateway`;
+    const url = `${getGraphqlGatewayExecuteOrigin()}/${projectShortKey}/gateway`;
     return http.post(url, { query }, headers, { absoluteUrl: true });
   }
 
@@ -168,7 +168,7 @@ class ConfigurationService {
   }
 
   getPodActiveStatus(slug: string): Promise<undefined | { message: string }> {
-    const url = `${GRAPHQL_GATEWAY_EXECUTE_ORIGIN}/${slug}/ping`;
+    const url = `${getGraphqlGatewayExecuteOrigin()}/${slug}/ping`;
     return http.get(url, undefined, { absoluteUrl: true });
   }
 

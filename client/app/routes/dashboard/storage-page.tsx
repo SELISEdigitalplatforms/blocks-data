@@ -1,4 +1,4 @@
-import { StorageContentsWrapper } from "@/cross-modules/storage/pages/storage/storage-contents"
+import { StorageContentsWrapper } from "@/storage/pages/storage/storage-contents"
 
 const StoragePage = () => {
   return (

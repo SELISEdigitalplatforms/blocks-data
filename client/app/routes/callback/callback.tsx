@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { githubInfoService } from "@/cross-modules/devops/services/github-info.service";
+import { githubInfoService } from "@/repository-integration/services/github-info.service";
 import { Loader } from "lucide-react";
 
 export default function CallbackPage() {

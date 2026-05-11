@@ -4,7 +4,8 @@ import { Button } from "@/components/ui-kits/button/button";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { DataTableFacetedFilter } from "@/components/data-table-faceted-filter/data-table-faceted-filter";
 import { DateRangeFilter } from "@/components/date-range-filter/date-range-filter";
-import { translation } from "@blocks-localization/models/language";
+import { translationFilterOptions } from "@/idp/iam/constants/table-filter-options";
+import useIsServiceBarOpenLocal from "@/hooks/use-is-service-tab-open-local";
 import { DateRange } from "react-day-picker";
 import useIsMobile from "@/hooks/use-is-mobile";
 import {
@@ -19,7 +20,6 @@ import { Filter } from "lucide-react";
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { useActiveFiltersCount } from "@/hooks/use-active-filters-count";
 import { SearchInput } from "@/components/search-input/search-input";
-import useIsServiceBarOpenLocal from "@blocks-localization/hooks/use-is-service-tab-open-local";
 
 interface UsersRoleTableToolbarProps<TData> {
   table: Table<TData>;
@@ -66,7 +66,7 @@ export function UsersRoleTableToolbar<TData>({ table }: UsersRoleTableToolbarPro
         />
       )}
       {table.getColumn("lastLogin") && (
-        <DataTableFacetedFilter column={table.getColumn("lastLogin")} title="Last login" options={translation} />
+        <DataTableFacetedFilter column={table.getColumn("lastLogin")} title="Last login" options={[...translationFilterOptions]} />
       )}
     </>
   );

@@ -1,4 +1,4 @@
-import { DataService } from "@/cross-modules/data-gateway/components/data-service"
+import { DataService } from "@/data-gateway/components/data-service"
 
 const DataGatewaySchemasPage = () => {
   return (

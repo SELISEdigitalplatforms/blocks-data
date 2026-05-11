@@ -19,7 +19,7 @@ import {
   mockResource,
 } from "../test-utils/__mocks__";
 import { http } from "@/lib/http-client";
-import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
+import { IDP_BASE_URL, getUtilityApiOrigin } from "@/constants/endpoint.constant";
 import {
   PROJECT_ENDPOINTS,
   DOMAIN_ENDPOINTS,
@@ -47,7 +47,7 @@ describe("ProjectService", () => {
       const result = await service.getProjects(1, 10, "tenant-group-1");
 
       expect(http.get).toHaveBeenCalledWith(
-        `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GETS}?page=1&pageSize=10&tenantGroupId=tenant-group-1`,
+        `${IDP_BASE_URL}${PROJECT_ENDPOINTS.GETS}?page=1&pageSize=10&tenantGroupId=tenant-group-1`,
         undefined,
         { absoluteUrl: true },
       );
@@ -60,7 +60,7 @@ describe("ProjectService", () => {
       await service.getProjects(3, 25, "group-2");
 
       expect(http.get).toHaveBeenCalledWith(
-        `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GETS}?page=3&pageSize=25&tenantGroupId=group-2`,
+        `${IDP_BASE_URL}${PROJECT_ENDPOINTS.GETS}?page=3&pageSize=25&tenantGroupId=group-2`,
         undefined,
         { absoluteUrl: true },
       );
@@ -82,9 +82,7 @@ describe("ProjectService", () => {
       const result = await service.getAssets("tenant-group-1");
 
       expect(http.get).toHaveBeenCalledWith(
-        `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GET_ASSET}?TenantGroupId=tenant-group-1`,
-        undefined,
-        { absoluteUrl: true },
+        `${PROJECT_ENDPOINTS.GET_ASSET}?TenantGroupId=tenant-group-1`,
       );
       expect(result).toEqual(mockGetAssetsResponse);
     });

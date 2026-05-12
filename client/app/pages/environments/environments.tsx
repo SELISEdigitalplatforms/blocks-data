@@ -1,10 +1,6 @@
-import { useProjectStore } from "@/store/useProjectStore";
-import { useGetProjects, useGetMigrationStatus } from "@/hooks/use-project";
-import { useGetPeople } from "@/hooks/use-people";
-import { EnvironmentCard } from "@/components/environment-card/environment-card";
 import { AddEnvironmentModal } from "@/components/environment-card/add-environment-modal";
-import { Plus, ArrowRightLeft, CircleHelp } from "lucide-react";
-import { Button } from "@/components/ui-kits/button/button";
+import { EnvironmentCard } from "@/components/environment-card/environment-card";
+import { ProjectCardLoading } from "@/components/project-card/loading";
 import {
   Dialog,
   DialogContent,
@@ -12,12 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui-kits/dialog/dialog";
-import { useState, useCallback } from "react";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { ProjectCardLoading } from "@/components/project-card/loading";
-import { useNavigate } from "react-router-dom";
-import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/tooltip/tooltip";
+import { useNotificationListener } from "@/hooks/use-notification-listener";
+import { useGetPeople } from "@/hooks/use-people";
+import { useGetMigrationStatus, useGetProjects } from "@/hooks/use-project";
+import { useProjectStore } from "@/store/useProjectStore";
+import { CircleHelp } from "lucide-react";
+import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const ProjectGroupLoading = () => (
   <main className="flex flex-1 flex-col gap-4 p-4 sm:mx-10 md:gap-6">
@@ -77,7 +76,7 @@ export const EnvironmentsPage = () => {
       <div>
         <div className="mb-6 flex flex-row justify-between">
           <h4 className="text-lg font-semibold md:text-xl">Environments</h4>
-          <div className="flex gap-2 sm:gap-4">
+          {/* <div className="flex gap-2 sm:gap-4">
             <Button
               variant="outline"
               size="sm"
@@ -98,7 +97,7 @@ export const EnvironmentsPage = () => {
                 <span className="hidden sm:inline">New Environment</span>
               </Button>
             )}
-          </div>
+          </div> */}
         </div>
 
         {environmentList[0]?.isShared && (

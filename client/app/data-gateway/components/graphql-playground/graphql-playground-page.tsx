@@ -33,7 +33,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/t
 import { CleanTestDataModal } from "./clean-test-data-modal";
 import { SchemasDrawer } from "./schemas-drawer";
 
-const MonacoEditorLazy = lazy(() => import("@monaco-editor/react"));
+const MonacoEditorLazy = lazy(() =>
+  import("@monaco-editor/react").then((mod) => ({ default: mod.default })),
+);
 
 const monacoEditorFallback = (
   <div className="flex h-full w-full items-center justify-center">Loading editor...</div>
@@ -63,7 +65,8 @@ export const GraphQLPlaygroundPage = () => {
   const selectedProject = useProjectStore().selectedProject;
   const projectKey = selectedProject?.tenantId || "";
   const projectShortKey = selectedProject?.tenantSlug || "";
-  const { theme } = useTheme();
+  const { resolvedTheme } = useTheme();
+  const monacoTheme = resolvedTheme === "dark" ? "vs-dark" : "light";
 
   const { mutateAsync: executeGraphQL, isPending: isLoading } = useExecuteGraphQL();
   const {
@@ -1324,7 +1327,7 @@ export const GraphQLPlaygroundPage = () => {
               <GraphqlMonacoEditor
                 height="100%"
                 language="graphql"
-                theme={theme === "dark" ? "vs-dark" : "light"}
+                theme={monacoTheme}
                 value={query}
                 onChange={(value) => setQuery(value || "")}
                 onMount={handleEditorDidMount}
@@ -1356,7 +1359,7 @@ export const GraphQLPlaygroundPage = () => {
                   <GraphqlMonacoEditor
                     height="100%"
                     language="json"
-                    theme={theme === "dark" ? "vs-dark" : "light"}
+                    theme={monacoTheme}
                     value="// Execute a query to see the response"
                     options={{
                       readOnly: true,
@@ -1381,7 +1384,7 @@ export const GraphQLPlaygroundPage = () => {
                   <GraphqlMonacoEditor
                     height="100%"
                     language="json"
-                    theme={theme === "dark" ? "vs-dark" : "light"}
+                    theme={monacoTheme}
                     value={responses[0].content}
                     options={{
                       readOnly: true,
@@ -1425,7 +1428,7 @@ export const GraphQLPlaygroundPage = () => {
                     <GraphqlMonacoEditor
                       height="100%"
                       language="json"
-                      theme={theme === "dark" ? "vs-dark" : "light"}
+                      theme={monacoTheme}
                       value={response.content}
                       options={{
                         readOnly: true,

@@ -10,8 +10,7 @@ using Storage.DomainService.Storage;
 using Storage.DomainService.Utilities;
 using DataGateway.DomainService.Models;
 
-// const string _serviceName = GraphQlConstant.WorkerServiceName;
-const string _serviceName = "blocks-os-worker";
+const string _serviceName = GraphQlConstant.WorkerServiceName;
 
 var vaultType = ResolveVaultType();
 Console.WriteLine($"Using Genesis vault type: {vaultType}");

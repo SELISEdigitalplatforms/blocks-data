@@ -1,6 +1,6 @@
 import { http } from "@/lib/http-client";
 import { parseMongoDBString } from "@/lib/utils";
-import { IDP_BASE_URL } from "@/constants/endpoint.constant";
+import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
 import {
   IAccountResendActivationPayload,
   IAccountResendActivationResponse,
@@ -42,7 +42,7 @@ export class UserService {
 
   getUser(): Promise<{ data: User }> {
     return http.get(
-      `${IDP_BASE_URL}${USER_ENDPOINTS.GET_USER}`,
+      `${getUtilityApiOrigin()}${USER_ENDPOINTS.GET_USER}`,
       undefined,
       { absoluteUrl: true },
     );
@@ -50,7 +50,7 @@ export class UserService {
 
   getUserById(payload: IGetUserByIdPayload): Promise<IGetUserByIdResponse> {
     return http.get(
-      `${IDP_BASE_URL}${USER_ENDPOINTS.GET_USER}?id=${payload.id}&ProjectKey=${payload.projectKey}`,
+      `${getUtilityApiOrigin()}${USER_ENDPOINTS.GET_USER}?id=${payload.id}&ProjectKey=${payload.projectKey}`,
       undefined,
       { absoluteUrl: true },
     );

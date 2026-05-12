@@ -3,7 +3,7 @@ import { mockHttpClientFactory } from "@/test-utils/__mocks__";
 import { http } from "@/lib/http-client";
 import { UserService } from "./user.service";
 import { UserAccountService } from "./account.service";
-import { IDP_BASE_URL } from "@/constants/endpoint.constant";
+import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
 import { USER_ENDPOINTS } from "../constants/endpoint.constant";
 import { TEST_PROJECT_KEY } from "@/test-utils/__mocks__/data.mock";
 import {
@@ -70,7 +70,7 @@ describe("UserService", () => {
       const result = await service.getUser();
 
       expect(http.get).toHaveBeenCalledWith(
-        `${IDP_BASE_URL}${USER_ENDPOINTS.GET_USER}`,
+        `${getUtilityApiOrigin()}${USER_ENDPOINTS.GET_USER}`,
         undefined,
         { absoluteUrl: true },
       );
@@ -93,7 +93,7 @@ describe("UserService", () => {
       const result = await service.getUserById(payload);
 
       expect(http.get).toHaveBeenCalledWith(
-        `${IDP_BASE_URL}${USER_ENDPOINTS.GET_USER}?id=${payload.id}&ProjectKey=${payload.projectKey}`,
+        `${getUtilityApiOrigin()}${USER_ENDPOINTS.GET_USER}?id=${payload.id}&ProjectKey=${payload.projectKey}`,
         undefined,
         { absoluteUrl: true },
       );

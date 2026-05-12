@@ -19,7 +19,7 @@ import {
   mockResource,
 } from "../test-utils/__mocks__";
 import { http } from "@/lib/http-client";
-import { IDP_BASE_URL, getUtilityApiOrigin } from "@/constants/endpoint.constant";
+import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
 import {
   PROJECT_ENDPOINTS,
   DOMAIN_ENDPOINTS,
@@ -47,7 +47,7 @@ describe("ProjectService", () => {
       const result = await service.getProjects(1, 10, "tenant-group-1");
 
       expect(http.get).toHaveBeenCalledWith(
-        `${IDP_BASE_URL}${PROJECT_ENDPOINTS.GETS}?page=1&pageSize=10&tenantGroupId=tenant-group-1`,
+        `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GETS}?page=1&pageSize=10&tenantGroupId=tenant-group-1`,
         undefined,
         { absoluteUrl: true },
       );
@@ -60,7 +60,7 @@ describe("ProjectService", () => {
       await service.getProjects(3, 25, "group-2");
 
       expect(http.get).toHaveBeenCalledWith(
-        `${IDP_BASE_URL}${PROJECT_ENDPOINTS.GETS}?page=3&pageSize=25&tenantGroupId=group-2`,
+        `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GETS}?page=3&pageSize=25&tenantGroupId=group-2`,
         undefined,
         { absoluteUrl: true },
       );
@@ -82,7 +82,9 @@ describe("ProjectService", () => {
       const result = await service.getAssets("tenant-group-1");
 
       expect(http.get).toHaveBeenCalledWith(
-        `${PROJECT_ENDPOINTS.GET_ASSET}?TenantGroupId=tenant-group-1`,
+        `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GET_ASSET}?TenantGroupId=tenant-group-1`,
+        undefined,
+        { absoluteUrl: true },
       );
       expect(result).toEqual(mockGetAssetsResponse);
     });
@@ -269,6 +271,33 @@ describe("ProjectService", () => {
       await expect(
         service.updateProject({ projectKey: "key", name: "n", applicationDomain: "d" }),
       ).rejects.toThrow("Update failed");
+    });
+  });
+
+  // ─── updateTenantGroup ─────────────────────────────────────────────────────
+
+  describe("updateTenantGroup", () => {
+    it("should POST to Logic absolute URL with payload", async () => {
+      vi.mocked(http.post).mockResolvedValue(mockUpdateProjectResponse);
+
+      const payload = { name: "Renamed group", tenantGroupId: "tg-1" };
+      const result = await service.updateTenantGroup(payload);
+
+      expect(http.post).toHaveBeenCalledWith(
+        `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.UPDATE_TENANT_GROUP}`,
+        payload,
+        undefined,
+        { absoluteUrl: true },
+      );
+      expect(result).toEqual(mockUpdateProjectResponse);
+    });
+
+    it("should handle API errors", async () => {
+      vi.mocked(http.post).mockRejectedValue(new Error("Update tenant group failed"));
+
+      await expect(
+        service.updateTenantGroup({ name: "n", tenantGroupId: "tg" }),
+      ).rejects.toThrow("Update tenant group failed");
     });
   });
 

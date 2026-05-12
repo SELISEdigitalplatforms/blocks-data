@@ -9,7 +9,7 @@ export const API_BASES = {
   UILM: "/api",
   UTILITIES: "/api",
   CLOUD_BUILD: "/api",
-  IDP: "/api",
+  IDP: getRuntimeEnv("BLOCKS_IDP_BASE_URL") + "/api",
   IDENTIFIER: "/api",
   LMT: "/api",
   MFA: "/api",

@@ -7,7 +7,9 @@ type RuntimeKey =
   | "BLOCKS_UTILITY_API_ORIGIN"
   | "BLOCKS_X_BLOCKS_KEY"
   | "BLOCKS_GOOGLE_SITE_KEY"
-  | "BLOCKS_CONSTRUCT_URL";
+  | "BLOCKS_CONSTRUCT_URL"
+  | "BLOCKS_IDP_BASE_URL"
+  | "BLOCKS_OIDC_CLIENT_ID";
 
 declare global {
   interface Window {

@@ -433,7 +433,7 @@ export function StorageDetail() {
           >
             API Docs
           </Button> */}
-          <LogMenu link="/services/storage/logs" />
+          {/* <LogMenu link="/services/storage/logs" /> */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               {currentParentId && (

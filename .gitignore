@@ -161,7 +161,7 @@ server/Api/wwwroot/**
 # **/appsetting.*.json
 
 # Local / agent outputs — not versioned (use `git rm --cached <path>` if they were committed)
-docs/superpowers/
+docs/
 change.md
 client/change.md
 

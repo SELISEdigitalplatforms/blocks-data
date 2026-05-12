@@ -28,7 +28,7 @@ import {
 import { isObjectType, isNonNullType, isListType } from "graphql";
 import { useProjectStore } from "@/store/useProjectStore";
 import type { ISchemaDetails } from "../../models/data-service";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/hooks/use-theme";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { CleanTestDataModal } from "./clean-test-data-modal";
 import { SchemasDrawer } from "./schemas-drawer";

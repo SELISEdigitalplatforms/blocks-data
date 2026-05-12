@@ -1,9 +1,8 @@
-import { motion } from "framer-motion";
-import { useGetProjects } from "@/hooks/use-project";
 import ConsoleCreateProject from "@/components/console-create/console-create";
-import { ProjectCard } from "@/components/project-card/project-card";
 import { ProjectCardLoading } from "@/components/project-card/loading";
-import { AddProjectCard } from "@/components/project-card/add-project-card";
+import { ProjectCard } from "@/components/project-card/project-card";
+import { useGetProjects } from "@/hooks/use-project";
+import { motion } from "framer-motion";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20, scale: 0.97 },
@@ -52,11 +51,11 @@ export const SelfProject = () => {
         )}
       </div>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {projectGroups.length < 10 && (
+        {/* {projectGroups.length < 10 && (
           <motion.div variants={cardVariants} custom={0} initial="hidden" animate="visible">
             <AddProjectCard />
           </motion.div>
-        )}
+        )} */}
         {projectGroups.map((project, i) => (
           <motion.div
             key={project.tenantGroupId}

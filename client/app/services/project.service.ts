@@ -1,6 +1,5 @@
-import { http } from "@/lib/http-client";
-import { IDP_BASE_URL } from "@/constants/endpoint.constant";
 import { PROJECT_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
+import { http } from "@/lib/http-client";
 import { IGetProjectPayload, IGetProjectResponse, IProjectGroup } from "@/models/project.model";
 
 export class ProjectService {
@@ -10,7 +9,7 @@ export class ProjectService {
   }
 
   getProject(payload: IGetProjectPayload): Promise<IGetProjectResponse> {
-    const url = `${IDP_BASE_URL}${PROJECT_ENDPOINTS.GET}?projectId=${payload.projectId}`;
+    const url = `${PROJECT_ENDPOINTS.GET}?projectId=${payload.projectId}`;
     return http.get(url, undefined, { absoluteUrl: true });
   }
 }

@@ -2,7 +2,6 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 
 import { ConsoleLayout } from "./layouts/console-layout";
 import { DashboardLayout } from "./layouts/dashboard-layout";
-import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
 
 
 // Dashboard routes (protected)
@@ -63,17 +62,7 @@ export const router = createBrowserRouter([
   },
 
   // ── Dashboard and project overview in dashboard layout (consolidated sidebar) ──
-  {
-    element: <ProjectOverviewLayout />,
-    children: [
-      { path: "/dashboard", element: <DashboardOverview /> },
-      { path: "/project-overview", element: <Navigate to="/project-overview/environments" replace /> },
-      { path: "/project-overview/environments", element: <EnvironmentsPage /> },
-      { path: "/project-overview/people", element: <PeopleManagement /> },
-      { path: "/project-overview/repositories", element: <RepositoriesPage /> },
-      { path: "/project-overview/settings", element: <SettingsPage /> },
-    ],
-  },
+  
  
 
 
@@ -101,6 +90,18 @@ export const router = createBrowserRouter([
       { path: "/services/data-gateway/playground", element: <DataGatewayPlaygroundPage /> },
       { path: "/services/data-gateway/logs", element: <DataGatewayLogsPage /> },
       { path: "/services/storage", element: <StoragePage /> },
+    ],
+  },
+
+  {
+    element: <DashboardLayout />,
+    children: [
+      { path: "/dashboard", element: <DashboardOverview /> },
+      { path: "/project-overview", element: <Navigate to="/project-overview/environments" replace /> },
+      { path: "/project-overview/environments", element: <EnvironmentsPage /> },
+      { path: "/project-overview/people", element: <PeopleManagement /> },
+      { path: "/project-overview/repositories", element: <RepositoriesPage /> },
+      { path: "/project-overview/settings", element: <SettingsPage /> },
     ],
   },
 

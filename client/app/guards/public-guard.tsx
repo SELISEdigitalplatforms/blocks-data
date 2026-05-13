@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuthStore } from "@/store/useAuthStore";
+import { getSafeReturnPathFromStorage } from "./last-app-path.storage";
+
 export const useAppState = () => {
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
@@ -8,6 +10,7 @@ export const useAppState = () => {
   }, []);
   return { isMounted };
 };
+
 export function PublicGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
   const { isMounted } = useAppState();
@@ -22,15 +25,30 @@ export function PublicGuard({ children }: { children: React.ReactNode }) {
   const forcePublicLogin = searchParams.get("forceLogin") === "1";
   const isLoginSubtree =
     pathname === "/login" || pathname.startsWith("/login/");
-  const skipAuthRedirect = useMemo(
-    () => isSSOCallback || forcePublicLogin || isLoginSubtree,
-    [forcePublicLogin, isLoginSubtree, isSSOCallback],
-  );
+  const allowAuthenticatedLoginView = forcePublicLogin || isSSOCallback;
+
   useEffect(() => {
     if (!isMounted) return;
-    if (skipAuthRedirect) return;
-    if (isAuthenticated) return navigate("/console", { replace: true });
-  }, [isAuthenticated, isMounted, navigate, skipAuthRedirect]);
-  if (!isMounted || (isAuthenticated && !skipAuthRedirect)) return null;
-  return <>{children}</>;
+    if (!isAuthenticated) return;
+    if (!isLoginSubtree) {
+      navigate("/console", { replace: true });
+      return;
+    }
+    if (allowAuthenticatedLoginView) return;
+    navigate(getSafeReturnPathFromStorage(), { replace: true });
+  }, [
+    allowAuthenticatedLoginView,
+    isAuthenticated,
+    isLoginSubtree,
+    isMounted,
+    navigate,
+    pathname,
+  ]);
+
+  if (!isMounted) return null;
+  if (!isAuthenticated) return <>{children}</>;
+  if (isLoginSubtree && allowAuthenticatedLoginView) return <>{children}</>;
+  if (isLoginSubtree && isAuthenticated && !allowAuthenticatedLoginView)
+    return null;
+  return null;
 }

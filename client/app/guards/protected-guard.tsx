@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useAppState } from "./public-guard";
 import { useGetUser } from "@/idp/iam/hooks/use-user";
@@ -31,9 +31,6 @@ export function ImpersonateGuard({ children }: { children: React.ReactNode }) {
 
   const { selectedProject } = useProjectStore();
 
-  const [projectPersistHydrated, setProjectPersistHydrated] = useState(
-    () => useProjectStore.persist.hasHydrated(),
-  );
   const [ready, setReady] = useState(false);
   const impersonateRef = useRef({
     hasStarted: false,
@@ -41,18 +38,6 @@ export function ImpersonateGuard({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
-    if (useProjectStore.persist.hasHydrated()) {
-      setProjectPersistHydrated(true);
-      return;
-    }
-    const unsub = useProjectStore.persist.onFinishHydration(() => {
-      setProjectPersistHydrated(true);
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    if (!projectPersistHydrated) return;
     if (!selectedProject?.tenantId) return;
     if (impersonateRef.current.hasStarted) return;
 
@@ -90,21 +75,12 @@ export function ImpersonateGuard({ children }: { children: React.ReactNode }) {
       });
     };
   }, [
-    projectPersistHydrated,
     selectedProject?.tenantId,
     startImpersonationMutate,
     stopImpersonationMutate,
     startImpersonation,
     stopImpersonation,
   ]);
-
-  if (!projectPersistHydrated) {
-    return null;
-  }
-
-  if (!selectedProject?.tenantId) {
-    return <Navigate to="/console" replace />;
-  }
 
   if (!ready) return null;
 

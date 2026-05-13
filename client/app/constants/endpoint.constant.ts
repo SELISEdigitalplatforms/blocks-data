@@ -1,6 +1,4 @@
-import { getRuntimeEnv } from "@/lib/runtime-env"
-
-export const IDP_BASE_URL = "https://dev-idp.blocksdevelopers.com";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 
 const DEFAULT_GRAPHQL_GATEWAY_ORIGIN = "https://dev-uds.blocksdevelopers.com" as const;
 const DEFAULT_BLOCKS_LOGIC_SITE_ORIGIN = "https://dev-logic.blocksdevelopers.com" as const;

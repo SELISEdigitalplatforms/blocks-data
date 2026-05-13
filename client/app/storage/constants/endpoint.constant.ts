@@ -1,4 +1,4 @@
-import { API_BASES, IDP_BASE_URL } from "@/constants/endpoint.constant";
+import { API_BASES } from "@/constants/endpoint.constant";
 
 const STORAGE_SUBPATH = "/Storage";
 const FILES_SUBPATH = "/Files";
@@ -6,13 +6,13 @@ const FILES_SUBPATH = "/Files";
 // Storage Configuration endpoints (IDP host; paths under /api/Storage)
 export const STORAGE_CONFIG_ENDPOINTS = {
   get GET_CONFIGS(): string {
-    return `${IDP_BASE_URL}${API_BASES.CLOUD_CONFIGURATION}${STORAGE_SUBPATH}/Gets`;
+    return `${API_BASES.IDP}${STORAGE_SUBPATH}/Gets`;
   },
   get SAVE_CONFIG(): string {
-    return `${IDP_BASE_URL}${API_BASES.CLOUD_CONFIGURATION}${STORAGE_SUBPATH}/Save`;
+    return `${API_BASES.IDP}${STORAGE_SUBPATH}/Save`;
   },
   get DELETE_CONFIG(): string {
-    return `${IDP_BASE_URL}${API_BASES.CLOUD_CONFIGURATION}${STORAGE_SUBPATH}/Delete`;
+    return `${API_BASES.IDP}${STORAGE_SUBPATH}/Delete`;
   },
 };
 

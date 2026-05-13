@@ -1,11 +1,11 @@
 import { http } from "@/lib/http-client";
-import { getUtilityApiOrigin, IDP_BASE_URL } from "@/constants/endpoint.constant";
+import { IDP_BASE_URL } from "@/constants/endpoint.constant";
 import { PROJECT_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
 import { IGetProjectPayload, IGetProjectResponse, IProjectGroup } from "@/models/project.model";
 
 export class ProjectService {
   getProjects(page = 0, pageSize = 100, tenantGroupId = ""): Promise<IProjectGroup[]> {
-    const url = `${getUtilityApiOrigin()}${PROJECT_ENDPOINTS.GETS}?page=${page}&pageSize=${pageSize}&tenantGroupId=${tenantGroupId}`;
+    const url = `${PROJECT_ENDPOINTS.GETS}?page=${page}&pageSize=${pageSize}&tenantGroupId=${tenantGroupId}`;
     return http.get(url, undefined, { absoluteUrl: true });
   }
 

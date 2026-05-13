@@ -1,5 +1,5 @@
 import { http } from "@/lib/http-client";
-import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
+import { API_BASES } from "@/constants/endpoint.constant";
 import { INotification, INotificationConfig } from "../models/notification.model";
 import {
   NOTIFICATION_ENDPOINTS,
@@ -19,13 +19,13 @@ export class NotificationService {
       page: String(pageNumber - 1),
       pageSize: String(pageSize),
     });
-    const url = `${getUtilityApiOrigin()}${NOTIFICATION_ENDPOINTS.GET_NOTIFICATIONS}?${params}`;
+    const url = `${API_BASES.LOGIC}${NOTIFICATION_ENDPOINTS.GET_NOTIFICATIONS}?${params}`;
     return http.get(url, undefined, { absoluteUrl: true });
   };
 
   markAsRead = (notificationId: string): Promise<{ errors: null | unknown; isSuccess: boolean }> => {
     return http.post(
-      `${getUtilityApiOrigin()}${NOTIFICATION_ENDPOINTS.MARK_AS_READ}`,
+      `${API_BASES.LOGIC}${NOTIFICATION_ENDPOINTS.MARK_AS_READ}`,
       { id: notificationId },
       undefined,
       { absoluteUrl: true },
@@ -34,7 +34,7 @@ export class NotificationService {
 
   markAllNotificationsAsRead = (): Promise<{ errors: null | unknown; isSuccess: boolean }> => {
     return http.post(
-      `${getUtilityApiOrigin()}${NOTIFICATION_ENDPOINTS.MARK_ALL_AS_READ}`,
+      `${API_BASES.LOGIC}${NOTIFICATION_ENDPOINTS.MARK_ALL_AS_READ}`,
       {},
       undefined,
       { absoluteUrl: true },

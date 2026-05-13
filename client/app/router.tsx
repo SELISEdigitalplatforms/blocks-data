@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 
 import { ConsoleLayout } from "./layouts/console-layout";
 import { DashboardLayout } from "./layouts/dashboard-layout";
@@ -38,12 +38,18 @@ import { SettingsPage } from "./pages/settings/settings";
 import LoginCallbackPage from "./routes/auth/callback";
 import LoginSimplePage from "./routes/auth/login-simple";
 import CallbackPage from "./routes/callback/callback";
+import { PublicGuard } from "./guards/public-guard";
 
 
 export const router = createBrowserRouter([
   // ── IDP service login (initiates OIDC flow + handles callback) ──
   {
     path: "/login",
+    element: (
+      <PublicGuard>
+        <Outlet />
+      </PublicGuard>
+    ),
     children: [
       { index: true, element: <LoginSimplePage /> },
       { path: "callback", element: <LoginCallbackPage /> },

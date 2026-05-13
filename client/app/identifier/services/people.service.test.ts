@@ -8,7 +8,6 @@ import {
   mockConfirmInvitationResponse,
 } from "../test-utils/__mocks__";
 import { http } from "@/lib/http-client";
-import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
 import { PEOPLE_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
 import { PeopleService } from "./people.service";
 
@@ -53,7 +52,7 @@ describe("PeopleService", () => {
       const result = await service.getPeople(payload);
 
       expect(http.post).toHaveBeenCalledWith(
-        `${getUtilityApiOrigin()}${PEOPLE_ENDPOINTS.GETS}`,
+        PEOPLE_ENDPOINTS.GETS,
         payload,
         undefined,
         { absoluteUrl: true },
@@ -68,7 +67,7 @@ describe("PeopleService", () => {
       await service.getPeople(payload);
 
       expect(http.post).toHaveBeenCalledWith(
-        `${getUtilityApiOrigin()}${PEOPLE_ENDPOINTS.GETS}`,
+        PEOPLE_ENDPOINTS.GETS,
         payload,
         undefined,
         { absoluteUrl: true },

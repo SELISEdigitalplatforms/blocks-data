@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { Button } from "@/components/ui-kits/button/button";
 import { Logo } from "@/components/logo";
-import { getRuntimeEnv } from "@/lib/runtime-env";
+import { ModeToggle } from "@/components/mode-toggle/mode-toggle";
+import { Button } from "@/components/ui-kits/button/button";
+import { API_BASES } from "@/constants/endpoint.constant";
 import { showErrorToast } from "@/hooks/use-toast";
+import { getRuntimeEnv } from "@/lib/runtime-env";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   BarChart3,
   Bot,
@@ -14,16 +15,14 @@ import {
   Database,
   ExternalLink,
   KeyRound,
-  MoveRight,
   ScrollText,
   Settings2,
   ShieldCheck,
   Sliders,
-  type LucideIcon,
+  type LucideIcon
 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ModeToggle } from "@/components/mode-toggle/mode-toggle";
-import { API_BASES } from "@/constants/endpoint.constant";
 const pillars = [
   { icon: ShieldCheck, label: "Authentication" },
   { icon: KeyRound, label: "Secrets Management" },

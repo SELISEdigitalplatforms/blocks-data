@@ -1,6 +1,5 @@
 import { http } from "@/lib/http-client";
 import { parseMongoDBString } from "@/lib/utils";
-import { API_BASES } from "@/constants/endpoint.constant";
 import {
   IAccountResendActivationPayload,
   IAccountResendActivationResponse,
@@ -10,6 +9,8 @@ import {
   IGeneratePATPayload,
   IGetHistoriesPayload,
   IGetSessionPayload,
+  IGetSignUpSettingPayload,
+  IGetSignUpSettingResponse,
   IGetUserByIdPayload,
   IGetUserByIdResponse,
   IGetUserPermissionsPayload,
@@ -22,16 +23,14 @@ import {
   IPATResponse,
   ISaveRolesAndPermissionsPayload,
   ISaveRolesAndPermissionsResponse,
-  IUpdateUserPayload,
-  IUpdateUserResponse,
-  IGetSignUpSettingPayload,
-  IGetSignUpSettingResponse,
   ISaveSignUpSettingPayload,
   ISaveSignUpSettingResponse,
+  IUpdateUserPayload,
+  IUpdateUserResponse,
   User,
 } from "@blocks-idp/iam/models/user";
-import { UserAccountService } from "./account.service";
 import { USER_ENDPOINTS } from "../constants/endpoint.constant";
+import { UserAccountService } from "./account.service";
 
 export class UserService {
   constructor(public account: UserAccountService) {}

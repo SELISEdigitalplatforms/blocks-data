@@ -13,7 +13,6 @@ import {
   IRemoveEnvironmentAccess,
   IResendInvitation,
 } from "@/models/people";
-import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
 import { PEOPLE_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
 
 export class PeopleService {
@@ -30,7 +29,7 @@ export class PeopleService {
     projectGroupId: string;
   }): Promise<GetPeopleResponse> {
     return http.post<GetPeopleResponse>(
-      `${getUtilityApiOrigin()}${PEOPLE_ENDPOINTS.GETS}`,
+      PEOPLE_ENDPOINTS.GETS,
       payload,
       undefined,
       { absoluteUrl: true },

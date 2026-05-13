@@ -1,5 +1,5 @@
 import { HttpTransportType, HubConnection, HubConnectionBuilder } from "@microsoft/signalr";
-import { getUtilityApiOrigin } from "@/constants/endpoint.constant";
+import { BLOCKS_LOGIC_SITE_ORIGIN } from "@/constants/endpoint.constant";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 
 export class NotificationClientService {
@@ -8,7 +8,7 @@ export class NotificationClientService {
   constructor() {
     this.connection = new HubConnectionBuilder()
       .withUrl(
-        `${getUtilityApiOrigin()}/NotificationHub?x-blocks-key=${getRuntimeEnv("BLOCKS_X_BLOCKS_KEY")}`,
+        `${BLOCKS_LOGIC_SITE_ORIGIN}/NotificationHub?x-blocks-key=${getRuntimeEnv("BLOCKS_X_BLOCKS_KEY")}`,
         {
           transport: HttpTransportType.WebSockets,
         },

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useAppState } from "./public-guard";
 import { useGetUser } from "@/idp/iam/hooks/use-user";
@@ -8,6 +8,17 @@ import { getRuntimeEnv } from "@/lib/runtime-env";
 import { useStartImpersonation, useStopImpersonation } from "@/hooks/use-impersonation";
 import { useImpersonateStore } from "@/store/impersonate-store";
 import { ImpersonationRequest } from "@/services/impersonation.service";
+import { persistLastVisitedProtectedPath } from "./last-app-path.storage";
+
+const ProtectedLastVisitedPathTracker = () => {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    persistLastVisitedProtectedPath(pathname);
+  }, [pathname]);
+
+  return null;
+};
 
 export function ProtectedGuard({ children }: { children: React.ReactNode }) {
   const { isMounted } = useAppState();
@@ -19,9 +30,14 @@ export function ProtectedGuard({ children }: { children: React.ReactNode }) {
     if (!isMounted) return;
     if (!data) return navigate(`/login`, { replace: true });
     setUser(data.data);
-  }, [data, navigate, setUser]);
+  }, [data, isMounted, navigate, setUser]);
   if (!isMounted || !data) return null;
-  return <>{children}</>;
+  return (
+    <>
+      <ProtectedLastVisitedPathTracker />
+      {children}
+    </>
+  );
 }
 
 export function ImpersonateGuard({ children }: { children: React.ReactNode }) {

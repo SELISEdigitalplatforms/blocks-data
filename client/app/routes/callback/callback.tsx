@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { Loader } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { API_BASES } from "@/constants/endpoint.constant";
-import { getPostLoginRedirectPath } from "@/lib/post-login-redirect";
 
 export default function LoginCallbackPage() {
   const [searchParams] = useSearchParams();
@@ -36,8 +35,7 @@ export default function LoginCallbackPage() {
       .then((res) => {
         if (res.ok) {
           setAuthenticated();
-          window.location.href = getPostLoginRedirectPath(searchParams);
-          return;
+          window.location.href = "/console";
         } else {
           window.location.href = "/login?error=callback_failed";
         }
@@ -45,7 +43,7 @@ export default function LoginCallbackPage() {
       .catch(() => {
         window.location.href = "/login?error=callback_error";
       });
-  }, [code, state, error, tenantId, searchParams, setAuthenticated]);
+  }, [code, state, error, tenantId, setAuthenticated]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

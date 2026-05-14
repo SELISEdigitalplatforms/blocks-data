@@ -6,13 +6,13 @@ const FILES_SUBPATH = "/Files";
 // Storage Configuration endpoints (IDP host; paths under /api/Storage)
 export const STORAGE_CONFIG_ENDPOINTS = {
   get GET_CONFIGS(): string {
-    return `${API_BASES.IDP}${STORAGE_SUBPATH}/Gets`;
+    return `${API_BASES.LOGIC}${STORAGE_SUBPATH}/Gets`;
   },
   get SAVE_CONFIG(): string {
-    return `${API_BASES.IDP}${STORAGE_SUBPATH}/Save`;
+    return `${API_BASES.LOGIC}${STORAGE_SUBPATH}/Save`;
   },
   get DELETE_CONFIG(): string {
-    return `${API_BASES.IDP}${STORAGE_SUBPATH}/Delete`;
+    return `${API_BASES.LOGIC}${STORAGE_SUBPATH}/Delete`;
   },
 };
 

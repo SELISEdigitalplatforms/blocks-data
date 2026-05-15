@@ -6,30 +6,30 @@ import { showErrorToast } from "@/hooks/use-toast";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  BarChart3,
   Bot,
   ChevronLeft,
   ChevronRight,
   Cloud,
+  CloudUpload,
   Code2,
   Database,
   ExternalLink,
-  KeyRound,
-  ScrollText,
-  Settings2,
-  ShieldCheck,
-  Sliders,
+  FlaskConical,
+  FolderOpen,
+  Link2,
+  Lock,
+  Table2,
   type LucideIcon
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 const pillars = [
-  { icon: ShieldCheck, label: "Authentication" },
-  { icon: KeyRound, label: "Secrets Management" },
-  { icon: Sliders, label: "Configuration" },
-  { icon: Settings2, label: "API Console" },
-  { icon: BarChart3, label: "Usage" },
-  { icon: ScrollText, label: "Logs & Tracing" },
+  { icon: Table2, label: "Schema Builder" },
+  { icon: FlaskConical, label: "Data Playground" },
+  { icon: Lock, label: "Access Control" },
+  { icon: CloudUpload, label: "Multi-Provider" },
+  { icon: FolderOpen, label: "File Management" },
+  { icon: Link2, label: "Storage API" },
 ];
 interface StackLink {
   label: string;
@@ -408,7 +408,7 @@ export default function LoginSimplePage() {
         <div className="flex flex-1 flex-col items-start gap-6">
           <div className="flex flex-col gap-2">
             <p className="text-sm font-semibold uppercase tracking-[0.1em] text-primary">
-              Blocks OS Platform
+              Blocks Data Service
             </p>
             <h1 className="max-w-xl text-5xl font-semibold tracking-tight text-[hsl(var(--high-emphasis))] lg:text-6xl">
               Backends that are
@@ -436,10 +436,10 @@ export default function LoginSimplePage() {
             </div>
           </div>
           <p className="max-w-lg text-lg leading-relaxed tracking-tight text-muted-foreground">
-            Blocks OS is a modern platform for building and deploying secure,
-            scalable applications with built-in observability, AI capabilities,
-            and comprehensive identity management. Focus on your application
-            logic while Blocks OS handles the infrastructure.
+            Model and access your application data with customizable schemas,
+            column-level security, and a built-in Data Playground — plus
+            centralized file storage across AWS, Azure, and SFTP providers
+            through a unified Storage API.
           </p>
           <div className="flex flex-wrap gap-2">
             {pillars.map(({ icon: Icon, label }) => (

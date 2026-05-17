@@ -16,18 +16,18 @@ namespace Api.Controllers
     public class FilesController : ControllerBase
     {
         private readonly IFileManagementService _fileManagementService;
-        private readonly ChangeControllerContext _changeControllerContext;
+        // private readonly ChangeControllerContext _changeControllerContext;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FilesController"/> class.
         /// </summary>
         /// <param name="fileManagementService">Service for managing file operations.</param>
         /// <param name="changeControllerContext">Context changer for the controller.</param>
-        public FilesController(IFileManagementService fileManagementService,
-                               ChangeControllerContext changeControllerContext)
+        public FilesController(IFileManagementService fileManagementService)
+        //    ChangeControllerContext changeControllerContext)
         {
             _fileManagementService = fileManagementService;
-            _changeControllerContext = changeControllerContext;
+            // _changeControllerContext = changeControllerContext;
         }
 
         /// <summary>
@@ -36,10 +36,10 @@ namespace Api.Controllers
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
         [HttpGet]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::getfile")]
         public async Task<FileResponse?> GetFile([FromQuery] GetFileRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.GetUrlForDownloadFileAsync(request);
         }
 
@@ -49,10 +49,10 @@ namespace Api.Controllers
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
         [HttpPost]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::getfiles")]
         public async Task<List<FileResponse>?> GetFiles([FromBody] GetFilesRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.GetMultipleUrlsForDownloadFilesAsync(request);
         }
 
@@ -62,10 +62,10 @@ namespace Api.Controllers
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
         [HttpPost]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::getfilesinfo")]
         public async Task<GetFilesInfoResponse> GetFilesInfo([FromBody] GetFilesInfoRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.GetFilesInfoAsync(request);
         }
 
@@ -75,10 +75,10 @@ namespace Api.Controllers
         /// <param name="request">The request containing upload details.</param>
         /// <returns>A response containing the pre-signed URL for upload.</returns>
         [HttpPost]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::getpresignedurlforupload")]
         public async Task<GetPreSignedUrlForUploadResponse> GetPreSignedUrlForUpload([FromBody] GetPreSignedUrlForUploadRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.GetPerSignedUrlForUploadAsync(request);
         }
 
@@ -88,10 +88,10 @@ namespace Api.Controllers
         /// <param name="request">The request containing file deletion details.</param>
         /// <returns>A response indicating the result of the delete operation.</returns>
         [HttpPost]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::deletefile")]
         public async Task<BaseResponse> DeleteFile([FromBody] DeleteFileRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.DeleteFileAsync(request);
         }
 
@@ -101,10 +101,10 @@ namespace Api.Controllers
         /// <param name="request">The request containing the file stream and metadata for the upload.</param>
         /// <returns>A response containing the details of the uploaded file.</returns>
         [HttpPost]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::uploadfiletolocalstorage")]
         public async Task<LocalStorageUploadResponse> UploadFileToLocalStorage([FromForm] LocalStorageUploadRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.UploadFileToLocalStorageAsync(request);
         }
 
@@ -115,10 +115,10 @@ namespace Api.Controllers
         /// <returns>A response containing the file stream and metadata of the downloaded file.</returns>
         [ApiExplorerSettings(IgnoreApi = true)]
         [HttpGet]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::downloadfile")]
         public async Task<IActionResult> DownloadFile([FromQuery] DownloadFileRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var fileResponse = await _fileManagementService.DownloadFileFromLocalStorageAsync(request);
 
             if (fileResponse.FileStream == null)
@@ -130,41 +130,41 @@ namespace Api.Controllers
         }
 
         [HttpPost]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::updatefileadditionalinfo")]
         public async Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
         {
             if (command == null) return BadRequest();
-            _changeControllerContext.ChangeContext(command);
+            // _changeControllerContext.ChangeContext(command);
             var result = await _fileManagementService.UpdateFileAsync(command);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
         [HttpPost]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::getdmsfileandfolder")]
         public async Task<GetDmsFileAndFolderResponse> GetDmsFileAndFolder([FromBody] GetDmsFileAndFolderRequest command)
         {
             if (command == null) return new GetDmsFileAndFolderResponse();
-            _changeControllerContext.ChangeContext(command);
+            // _changeControllerContext.ChangeContext(command);
             return await _fileManagementService.GetDmsFileAndFolder(command);
         }
 
         [HttpPost]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::uploadfile")]
         public async Task<DmsResponse> UploadFile([FromBody] UploadFilesRequest command)
         {
             if (command == null) return null;
-            _changeControllerContext.ChangeContext(command);
+            // _changeControllerContext.ChangeContext(command);
 
             return await _fileManagementService.UploadFilesAsync(command);
         }
 
 
         [HttpPost]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::createfolder")]
         public async Task<DmsResponse> CreateFolder([FromBody] CreateFolderRequest command)
         {
             if (command == null) return null;
-            _changeControllerContext.ChangeContext(command);
+            // _changeControllerContext.ChangeContext(command);
 
             return await _fileManagementService.CreateFolderAsync(command);
         }
@@ -175,10 +175,10 @@ namespace Api.Controllers
         /// <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
         /// <returns>A <see cref="BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
         [HttpPost]
-        [ProtectedEndPoint]
+        [ProtectedEndPoint("uds::files::deletefolder")]
         public async Task<BaseResponse> DeleteFolder([FromBody] DeleteFolderRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.DeleteFolderAsync(request);
         }
     }

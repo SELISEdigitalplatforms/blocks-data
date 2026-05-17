@@ -18,7 +18,7 @@ namespace DataGateway.Api.Controllers;
 public class ConfigurationController : ControllerBase
 {
     private readonly IConfigurationService _configurationService;
-    private readonly ChangeControllerContext _changeControllerContext;
+    // private readonly ChangeControllerContext _changeControllerContext;
     /// <summary>
     /// Initializes a new instance of the <see cref="ConfigurationController"/> class.
     /// </summary>
@@ -26,10 +26,10 @@ public class ConfigurationController : ControllerBase
     /// <exception cref="ArgumentNullException">Thrown when the configuration service is null.</exception>
     /// <param name="changeControllerContext">The change Controller service.</param>
     /// <exception cref="ArgumentNullException">Thrown when the changeControllerContext is null.</exception>
-    public ConfigurationController(IConfigurationService configurationService, ChangeControllerContext changeControllerContext)
+    public ConfigurationController(IConfigurationService configurationService)//, ChangeControllerContext changeControllerContext)
     {
         _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
-        _changeControllerContext = changeControllerContext ?? throw new ArgumentNullException(nameof(changeControllerContext));
+        // _changeControllerContext = changeControllerContext ?? throw new ArgumentNullException(nameof(changeControllerContext));
     }
 
     /// <summary>
@@ -46,7 +46,7 @@ public class ConfigurationController : ControllerBase
     {
         try
         {
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var projectShortKey = TenantHelper.GetProjectShortKeyFromRequestUri();
             await _configurationService.ReloadAsync(projectShortKey, cancellationToken);
             return Ok(new ServiceResponse<bool>().SetSuccessMessage("Schema reloaded successfully."));
@@ -70,7 +70,7 @@ public class ConfigurationController : ControllerBase
     {
         try
         {
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             await _configurationService.ReloadAsync(GraphQlConstant.TenantSlug, CancellationToken.None);
             return Ok(new ServiceResponse<bool>().SetSuccessMessage("Schema reloaded successfully."));
         }

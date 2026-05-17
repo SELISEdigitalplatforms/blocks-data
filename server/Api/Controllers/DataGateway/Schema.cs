@@ -19,17 +19,17 @@ namespace Api.Controllers
         private const string InvalidProjectKeyMessage = "INVALID_PROJECT_KEY";
         private readonly ISchemaDefinitionService _schemaService;
         private readonly ISchemaChangeLogService _schemaChangeLogService;
-        private readonly ChangeControllerContext _changeControllerContext;
+        // private readonly ChangeControllerContext _changeControllerContext;
         /// <summary>
         /// Initializes a new instance of the <see cref="SchemaController"/> class.
         /// </summary>
         /// <param name="schemaService"></param>
         /// <param name="changeControllerContext"></param>
-        public SchemaController(ISchemaDefinitionService schemaService, ISchemaChangeLogService schemaChangeLogService, ChangeControllerContext changeControllerContext)
+        public SchemaController(ISchemaDefinitionService schemaService, ISchemaChangeLogService schemaChangeLogService)//, ChangeControllerContext changeControllerContext)
         {
             _schemaService = schemaService;
             _schemaChangeLogService = schemaChangeLogService;
-            _changeControllerContext = changeControllerContext;
+            // _changeControllerContext = changeControllerContext;
         }
 
         #region Get
@@ -44,7 +44,7 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetSchemaDefinitions([FromQuery] GetSchemaDefinitionListRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var schemas = await _schemaService.GetAllSchemasAsync(request);
 
             return Ok(new ServiceResponse<PaginationResponse<SchemaDefinitionResponse>>().SetSuccess(schemas));
@@ -61,7 +61,7 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetSchemaDefinitionsSummary([FromQuery] GetSchemaDefinitionListRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var schemas = await _schemaService.GetAllSchemasAsync(request);
             var aggregationResponse = await _schemaService.GetSchemaAggregationAsync();
 
@@ -89,10 +89,10 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel
-            {
-                ProjectKey = projectKey
-            });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel
+            // {
+            //     ProjectKey = projectKey
+            // });
             var response = await _schemaService.GetSchemaByIdAsync(id);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -112,10 +112,10 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(id))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_SCHEMA_ID" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel
-            {
-                ProjectKey = projectKey
-            });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel
+            // {
+            //     ProjectKey = projectKey
+            // });
             var response = await _schemaService.GetSchemaByIdAsync(id);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -134,10 +134,10 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel
-            {
-                ProjectKey = projectKey
-            });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel
+            // {
+            //     ProjectKey = projectKey
+            // });
             var response = await _schemaChangeLogService.GetUnadaptedSchemaChangeLogsAsync();
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -155,7 +155,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _schemaService.GetEntityCollectionsAsync();
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -173,7 +173,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _schemaService.GetEntityCollectionByNameAsync(projectSchemaName);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -191,7 +191,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(schemaName))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_SCHEMA_NAME" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _schemaService.GetEntityCollectionByNameAsync(schemaName);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -212,7 +212,7 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> CreateSchemaDefinition([FromBody] CreateSchemaDefinitionRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaService.CreateSchemaDefinitionAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -229,7 +229,7 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> CreateSchema([FromBody] CreateSchemaRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaService.CreateSchemaAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -246,13 +246,13 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SaveSchemaFields([FromBody] SaveFieldDefinitionRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaService.SaveFieldDefinitionAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
 
 
-#endregion
+        #endregion
 
         #region Put
 
@@ -268,7 +268,7 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UpdateSchemaDefinition([FromBody] UpdateSchemaDefinitionRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaService.UpdateSchemaDefinitionAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -285,7 +285,7 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UpdateSchema([FromBody] UpdateSchemaRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaService.UpdateSchemaAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -308,10 +308,10 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel
-            {
-                ProjectKey = projectKey
-            });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel
+            // {
+            //     ProjectKey = projectKey
+            // });
             var response = await _schemaService.DeleteSchemaAsync(id);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -331,10 +331,10 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(id))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_SCHEMA_ID" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel
-            {
-                ProjectKey = projectKey
-            });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel
+            // {
+            //     ProjectKey = projectKey
+            // });
             var response = await _schemaService.DeleteSchemaAsync(id);
             return StatusCode(response.HttpStatusCode, response);
         }

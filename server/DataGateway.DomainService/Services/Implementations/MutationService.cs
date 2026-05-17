@@ -22,18 +22,18 @@ public class MutationService : IMutationService
     private const string OperationLabelUpdate = "UPDATE";
     private const string OperationLabelDelete = "DELETE";
     private readonly IGqlDbRepository _repository;
-    private readonly ChangeControllerContext _changeControllerContext;
+    // private readonly ChangeControllerContext _changeControllerContext;
     private readonly IDataChangeEventPublisher _eventPublisher;
     private readonly ILogger<MutationService> _logger;
 
     public MutationService(
         IGqlDbRepository repository,
-        ChangeControllerContext changeControllerContext,
+        // ChangeControllerContext changeControllerContext,
         IDataChangeEventPublisher eventPublisher,
         ILogger<MutationService> logger)
     {
         _repository = repository;
-        _changeControllerContext = changeControllerContext;
+        // _changeControllerContext = changeControllerContext;
         _eventPublisher = eventPublisher;
         _logger = logger;
     }
@@ -388,7 +388,7 @@ public class MutationService : IMutationService
                 operationLabel.ToUpperInvariant(), schema.SchemaName, rlsResult.ErrorMessage);
             throw new GraphQLException(ErrorBuilder.New().SetMessage(rlsResult.ErrorMessage ?? $"You don't have permission to {operationLabel} records in this entity.").SetCode(GraphQlConstant.UnauthorizedErrorCode).Build());
         }
-        _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = GraphQlConstant.TenantId });
+        // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = GraphQlConstant.TenantId });
     }
 
     private PolicyEvaluationResult EvaluateRlsPolicies(SchemaDefinitionExtended schema, PolicyOperation operation)

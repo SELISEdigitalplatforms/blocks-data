@@ -178,3 +178,5 @@ client/.agents/
 
 # .cursor outputs
 client/.cursor/
+
+*.lscache

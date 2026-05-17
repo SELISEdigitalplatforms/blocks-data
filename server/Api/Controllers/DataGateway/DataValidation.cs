@@ -17,17 +17,17 @@ namespace Api.Controllers
     public class DataValidationController : ControllerBase
     {
         private readonly IDataValidationService _dataValidationService;
-        private readonly ChangeControllerContext _changeControllerContext;
+        // private readonly ChangeControllerContext _changeControllerContext;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataValidationController"/> class.
         /// </summary>
         /// <param name="dataValidationService">The data validation service.</param>
         /// <param name="changeControllerContext">The change controller context.</param>
-        public DataValidationController(IDataValidationService dataValidationService, ChangeControllerContext changeControllerContext)
+        public DataValidationController(IDataValidationService dataValidationService)//, ChangeControllerContext changeControllerContext)
         {
             _dataValidationService = dataValidationService;
-            _changeControllerContext = changeControllerContext;
+            // _changeControllerContext = changeControllerContext;
         }
 
         #region Get
@@ -42,7 +42,7 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetDataValidations([FromQuery] GetDataValidationListRequest request)
         {
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = request.ProjectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = request.ProjectKey });
             var response = await _dataValidationService.GetAllDataValidationsAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -62,7 +62,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_PROJECT_KEY" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _dataValidationService.GetDataValidationByIdAsync(id);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -82,7 +82,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(validationId))
                 return StatusCode(400, new { Message = "INVALID_VALIDATION_ID" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _dataValidationService.GetDataValidationByIdAsync(validationId);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -102,7 +102,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_PROJECT_KEY" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _dataValidationService.GetValidationsBySchemaIdAsync(schemaId);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -122,7 +122,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(schemaId))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_SCHEMA_ID" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _dataValidationService.GetValidationsBySchemaIdAsync(schemaId);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -142,7 +142,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_PROJECT_KEY" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            //_changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _dataValidationService.GetValidationBySchemaAndFieldAsync(schemaId, fieldName);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -162,7 +162,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(schemaId) || string.IsNullOrWhiteSpace(fieldName))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_SCHEMA_ID_OR_FIELD_NAME" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _dataValidationService.GetValidationBySchemaAndFieldAsync(schemaId, fieldName);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -182,7 +182,7 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> CreateDataValidation([FromBody] CreateDataValidationRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var response = await _dataValidationService.CreateDataValidationAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -201,7 +201,7 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UpdateDataValidation([FromBody] UpdateDataValidationRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var response = await _dataValidationService.UpdateDataValidationAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -223,7 +223,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_PROJECT_KEY" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _dataValidationService.DeleteDataValidationAsync(id);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -243,7 +243,7 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(validationId))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_VALIDATION_ID" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _dataValidationService.DeleteDataValidationAsync(validationId);
             return StatusCode(response.HttpStatusCode, response);
         }

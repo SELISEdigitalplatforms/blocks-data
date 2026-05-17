@@ -12,7 +12,7 @@ namespace DataGateway.Api.Controllers;
 public class DataManageController : ControllerBase
 {
     private readonly IDataManageService _dataManageService;
-    private readonly ChangeControllerContext _changeControllerContext;
+    // private readonly ChangeControllerContext _changeControllerContext;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DataManageController"/> class.
@@ -20,10 +20,10 @@ public class DataManageController : ControllerBase
     /// <param name="dataManageService"></param>
     /// <param name="changeControllerContext"></param>
     /// <exception cref="ArgumentException"></exception>
-    public DataManageController(IDataManageService dataManageService, ChangeControllerContext changeControllerContext)
+    public DataManageController(IDataManageService dataManageService)//, ChangeControllerContext changeControllerContext)
     {
         _dataManageService = dataManageService ?? throw new ArgumentException(nameof(dataManageService));
-        _changeControllerContext = changeControllerContext ?? throw new ArgumentException(nameof(changeControllerContext));
+        // _changeControllerContext = changeControllerContext ?? throw new ArgumentException(nameof(changeControllerContext));
     }
 
 
@@ -43,10 +43,10 @@ public class DataManageController : ControllerBase
             return BadRequest(new { Message = "INVALID_PROJECT_KEY" });
         }
 
-        _changeControllerContext.ChangeContext(new ProjectKeyModel
-        {
-            ProjectKey = projectKey
-        });
+        // _changeControllerContext.ChangeContext(new ProjectKeyModel
+        // {
+        //     ProjectKey = projectKey
+        // });
 
         var response = await _dataManageService.GetMockData(projectKey);
 
@@ -64,10 +64,10 @@ public class DataManageController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetMockDataAsync([FromQuery] string projectKey = "")
     {
-        _changeControllerContext.ChangeContext(new ProjectKeyModel
-        {
-            ProjectKey = projectKey
-        });
+        // _changeControllerContext.ChangeContext(new ProjectKeyModel
+        // {
+        //     ProjectKey = projectKey
+        // });
         var response = await _dataManageService.GetMockData(projectKey);
 
         return Ok(response);
@@ -94,10 +94,10 @@ public class DataManageController : ControllerBase
             return BadRequest(new { Message = "No schema names provided" });
         }
 
-        _changeControllerContext.ChangeContext(new ProjectKeyModel
-        {
-            ProjectKey = request.ProjectKey
-        });
+        // _changeControllerContext.ChangeContext(new ProjectKeyModel
+        // {
+        //     ProjectKey = request.ProjectKey
+        // });
 
         var response = await _dataManageService.DeleteMockData(request);
 

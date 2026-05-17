@@ -16,7 +16,7 @@ namespace Api.Controllers.DataGateway
     public class DataSourceController : ControllerBase
     {
         private readonly IDataSourceService _dataSourceService;
-        private readonly ChangeControllerContext _changeControllerContext;
+        // private readonly ChangeControllerContext _changeControllerContext;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataSourceController"/> class.
@@ -24,10 +24,10 @@ namespace Api.Controllers.DataGateway
         /// <param name="dataSourceService">The data source service.</param>
         /// <param name="changeControllerContext">The change Controller service.</param>
         /// <exception cref="ArgumentNullException">Thrown when the platform data configuration service is null.</exception>
-        public DataSourceController(IDataSourceService dataSourceService, ChangeControllerContext changeControllerContext)
+        public DataSourceController(IDataSourceService dataSourceService)//, ChangeControllerContext changeControllerContext)
         {
             _dataSourceService = dataSourceService ?? throw new ArgumentNullException(nameof(dataSourceService));
-            _changeControllerContext = changeControllerContext ?? throw new ArgumentNullException(nameof(changeControllerContext));
+            // _changeControllerContext = changeControllerContext ?? throw new ArgumentNullException(nameof(changeControllerContext));
         }
 
         /// <summary>
@@ -43,10 +43,10 @@ namespace Api.Controllers.DataGateway
         {
             try
             {
-                _changeControllerContext.ChangeContext(new ProjectKeyModel
-                {
-                    ProjectKey = projectKey
-                });
+                // _changeControllerContext.ChangeContext(new ProjectKeyModel
+                // {
+                //     ProjectKey = projectKey
+                // });
                 var response = await _dataSourceService.GetDataSource(projectKey);
                 return Ok(response);
             }
@@ -68,10 +68,10 @@ namespace Api.Controllers.DataGateway
         {
             try
             {
-                _changeControllerContext.ChangeContext(new ProjectKeyModel
-                {
-                    ProjectKey = projectKey
-                });
+                // _changeControllerContext.ChangeContext(new ProjectKeyModel
+                // {
+                //     ProjectKey = projectKey
+                // });
 
                 if (string.IsNullOrEmpty(projectKey))
                 {
@@ -100,7 +100,7 @@ namespace Api.Controllers.DataGateway
         {
             try
             {
-                _changeControllerContext.ChangeContext(request);
+                // _changeControllerContext.ChangeContext(request);
                 var response = await _dataSourceService.InsertDataSource(request);
                 return StatusCode(response.HttpStatusCode, response);
             }
@@ -124,7 +124,7 @@ namespace Api.Controllers.DataGateway
         {
             try
             {
-                _changeControllerContext.ChangeContext(request);
+                // _changeControllerContext.ChangeContext(request);
                 var response = await _dataSourceService.UpdateDataSource(request);
                 return StatusCode(response.HttpStatusCode, response);
             }

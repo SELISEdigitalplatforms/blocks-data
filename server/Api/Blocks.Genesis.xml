@@ -10,7 +10,7 @@
             It allows reloading the schema configuration, which is necessary after making changes to schema definitions or data sources.
             </summary>
         </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.#ctor(DataGateway.DomainService.Services.IConfigurationService,Blocks.Genesis.ChangeControllerContext)">
+        <member name="M:DataGateway.Api.Controllers.ConfigurationController.#ctor(DataGateway.DomainService.Services.IConfigurationService)">
             <summary>
             Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.ConfigurationController"/> class.
             </summary>
@@ -42,7 +42,7 @@
             <param name="cancellationToken"></param>
             <returns></returns>
         </member>
-        <member name="M:DataGateway.Api.Controllers.DataManageController.#ctor(DataGateway.DomainService.Services.IDataManageService,Blocks.Genesis.ChangeControllerContext)">
+        <member name="M:DataGateway.Api.Controllers.DataManageController.#ctor(DataGateway.DomainService.Services.IDataManageService)">
             <summary>
             Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.DataManageController"/> class.
             </summary>
@@ -78,7 +78,7 @@
             </summary>
             
         </member>
-        <member name="M:Api.Controllers.DataGateway.DataAccessController.#ctor(DataGateway.DomainService.Services.IDataAccessService,Blocks.Genesis.ChangeControllerContext)">
+        <member name="M:Api.Controllers.DataGateway.DataAccessController.#ctor(DataGateway.DomainService.Services.IDataAccessService)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.DataGateway.DataAccessController"/> class.
             </summary>
@@ -144,7 +144,7 @@
             Provides endpoints to retrieve, create, and update data source configurations for projects.
             </summary>
         </member>
-        <member name="M:Api.Controllers.DataGateway.DataSourceController.#ctor(DataGateway.DomainService.Services.IDataSourceService,Blocks.Genesis.ChangeControllerContext)">
+        <member name="M:Api.Controllers.DataGateway.DataSourceController.#ctor(DataGateway.DomainService.Services.IDataSourceService)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.DataGateway.DataSourceController"/> class.
             </summary>
@@ -208,7 +208,7 @@
             It provides endpoints to create, update, delete, and retrieve validation rules for schema fields.
             </summary>
         </member>
-        <member name="M:Api.Controllers.DataValidationController.#ctor(DataGateway.DomainService.Services.IDataValidationService,Blocks.Genesis.ChangeControllerContext)">
+        <member name="M:Api.Controllers.DataValidationController.#ctor(DataGateway.DomainService.Services.IDataValidationService)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.DataValidationController"/> class.
             </summary>
@@ -308,7 +308,7 @@
             It provides endpoints to reload the GraphQL schema configuration, which is necessary after making changes to schema definitions or data sources.
             </summary>
         </member>
-        <member name="M:Api.Controllers.SchemaController.#ctor(DataGateway.DomainService.Services.ISchemaDefinitionService,DataGateway.DomainService.Services.ISchemaChangeLogService,Blocks.Genesis.ChangeControllerContext)">
+        <member name="M:Api.Controllers.SchemaController.#ctor(DataGateway.DomainService.Services.ISchemaDefinitionService,DataGateway.DomainService.Services.ISchemaChangeLogService)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.SchemaController"/> class.
             </summary>
@@ -423,7 +423,7 @@
             It provides endpoints to setup the database schema.
             </summary>
         </member>
-        <member name="M:Api.Controllers.SetupController.#ctor(DataGateway.DomainService.Services.ISchemaDefinitionService,DataGateway.DomainService.Services.IProjectService,DataGateway.DomainService.Services.ChangeControllerContextAdapter)">
+        <member name="M:Api.Controllers.SetupController.#ctor(DataGateway.DomainService.Services.ISchemaDefinitionService,DataGateway.DomainService.Services.IProjectService)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.SetupController"/> class.
             </summary>
@@ -445,7 +445,7 @@
             Controller for managing file-related operations such as downloading, uploading, and deleting files.
             </summary>
         </member>
-        <member name="M:Api.Controllers.FilesController.#ctor(Storage.DomainService.Services.IFileManagementService,Blocks.Genesis.ChangeControllerContext)">
+        <member name="M:Api.Controllers.FilesController.#ctor(Storage.DomainService.Services.IFileManagementService)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.FilesController"/> class.
             </summary>

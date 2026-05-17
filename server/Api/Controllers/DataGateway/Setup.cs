@@ -19,7 +19,7 @@ namespace Api.Controllers
     {
         private readonly ISchemaDefinitionService _schemaService;
         private readonly IProjectService _projectService;
-        private readonly ChangeControllerContextAdapter _changeControllerContext;
+        // private readonly ChangeControllerContextAdapter _changeControllerContext;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SetupController"/> class.
@@ -27,11 +27,11 @@ namespace Api.Controllers
         /// <param name="schemaService"></param>
         /// <param name="projectService"></param>
         /// <param name="changeControllerContext"></param>
-        public SetupController(ISchemaDefinitionService schemaService, IProjectService projectService, ChangeControllerContextAdapter changeControllerContext)
+        public SetupController(ISchemaDefinitionService schemaService, IProjectService projectService)//, ChangeControllerContextAdapter changeControllerContext)
         {
             _schemaService = schemaService;
             _projectService = projectService;
-            _changeControllerContext = changeControllerContext;
+            // _changeControllerContext = changeControllerContext;
         }
 
         // exclude from swagger
@@ -63,7 +63,7 @@ namespace Api.Controllers
             {
                 Console.WriteLine($"Resetting schema for tenant: {tenantId}");
                 projectKeyModel.ProjectKey = tenantId;
-                _changeControllerContext.ChangeToAnyContext(projectKeyModel);
+                // _changeControllerContext.ChangeToAnyContext(projectKeyModel);
                 Console.WriteLine($"tenant changed to: {tenantId}");
                 var response = await _schemaService.ResetSchemaStructureAsync(pageNo, pageSize);
                 if (result.ContainsKey(tenantId))

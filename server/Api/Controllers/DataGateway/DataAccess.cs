@@ -18,17 +18,17 @@ namespace Api.Controllers.DataGateway
     public class DataAccessController : ControllerBase
     {
         private readonly IDataAccessService _dataAccessService;
-        private readonly ChangeControllerContext _changeControllerContext;
+        // private readonly ChangeControllerContext _changeControllerContext;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataAccessController"/> class.
         /// </summary>
         /// <param name="dataAccessService">The data access service.</param>
         /// <param name="changeControllerContext">The change Controller service.</param>
-        public DataAccessController(IDataAccessService dataAccessService, ChangeControllerContext changeControllerContext)
+        public DataAccessController(IDataAccessService dataAccessService)//, ChangeControllerContext changeControllerContext)
         {
             _dataAccessService = dataAccessService ?? throw new ArgumentNullException(nameof(dataAccessService));
-            _changeControllerContext = changeControllerContext ?? throw new ArgumentNullException(nameof(changeControllerContext));
+            // _changeControllerContext = changeControllerContext ?? throw new ArgumentNullException(nameof(changeControllerContext));
         }
 
         /// <summary>
@@ -43,7 +43,7 @@ namespace Api.Controllers.DataGateway
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> ConfigureSecurity([FromBody] ConfigureSchemaSecurityRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var response = await _dataAccessService.ConfigureSecurity(request);
             return StatusCode(response.HttpStatusCode, response);
 
@@ -59,7 +59,7 @@ namespace Api.Controllers.DataGateway
         [HttpPost("policy/create")]
         public async Task<IActionResult> CreateDataAccessPolicy([FromBody] CreateDataAccessPolicyRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var response = await _dataAccessService.CreateDataAccessPolicy(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -73,7 +73,7 @@ namespace Api.Controllers.DataGateway
         [HttpPost("policy/update")]
         public async Task<IActionResult> UpdateDataAccessPolicy([FromBody] UpdateDataAccessPolicyRequest request)
         {
-            _changeControllerContext.ChangeContext(request);
+            // _changeControllerContext.ChangeContext(request);
             var response = await _dataAccessService.UpdateDataAccessPolicy(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -90,10 +90,10 @@ namespace Api.Controllers.DataGateway
         {
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode(400, new { Message = "INVALID_PROJECT_KEY" });
-            _changeControllerContext.ChangeContext(new ProjectKeyModel
-            {
-                ProjectKey = projectKey
-            });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel
+            // {
+            //     ProjectKey = projectKey
+            // });
             var response = await _dataAccessService.DeleteDataAccessPolicy(itemId, projectKey);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -111,10 +111,10 @@ namespace Api.Controllers.DataGateway
             if (string.IsNullOrWhiteSpace(itemId))
                 return StatusCode(400, new { Message = "INVALID_ITEM_ID" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel
-            {
-                ProjectKey = projectKey
-            });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel
+            // {
+            //     ProjectKey = projectKey
+            // });
             var response = await _dataAccessService.DeleteDataAccessPolicy(itemId, projectKey);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -129,10 +129,10 @@ namespace Api.Controllers.DataGateway
         [HttpGet("policy/{schemaName}/get")]
         public async Task<IActionResult> GetDataAccessPolicy([FromRoute] string schemaName, [FromQuery] string projectKey)
         {
-            _changeControllerContext.ChangeContext(new ProjectKeyModel
-            {
-                ProjectKey = projectKey
-            });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel
+            // {
+            //     ProjectKey = projectKey
+            // });
             var response = await _dataAccessService.GetEntityDataAccessPolicy(schemaName);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -150,10 +150,10 @@ namespace Api.Controllers.DataGateway
             if (string.IsNullOrWhiteSpace(schemaName))
                 return StatusCode(400, new { Message = "INVALID_SCHEMA_NAME" });
 
-            _changeControllerContext.ChangeContext(new ProjectKeyModel
-            {
-                ProjectKey = projectKey
-            });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel
+            // {
+            //     ProjectKey = projectKey
+            // });
             var response = await _dataAccessService.GetEntityDataAccessPolicy(schemaName);
             return StatusCode(response.HttpStatusCode, response);
         }

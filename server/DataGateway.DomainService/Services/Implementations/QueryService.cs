@@ -20,16 +20,16 @@ namespace DataGateway.DomainService.Services;
 public class QueryService : IQueryService
 {
     private readonly IGqlDbRepository _repository;
-    private readonly ChangeControllerContext _changeControllerContext;
+    // private readonly ChangeControllerContext _changeControllerContext;
     private readonly ILogger<QueryService> _logger;
 
     public QueryService(
         IGqlDbRepository repository,
-        ChangeControllerContext changeControllerContext,
+        // ChangeControllerContext changeControllerContext,
         ILogger<QueryService> logger)
     {
         _repository = repository;
-        _changeControllerContext = changeControllerContext;
+        // _changeControllerContext = changeControllerContext;
         _logger = logger;
     }
 
@@ -41,7 +41,7 @@ public class QueryService : IQueryService
         try
         {
             _logger.LogInformation("Getting data for schema {SchemaName}", schema.SchemaName);
-            _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = GraphQlConstant.TenantId });
+            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = GraphQlConstant.TenantId });
 
             var queryInput = GetQueryInputFromContext(ctx);
             var rlsResult = EvaluateRlsPolicies(schema, PolicyOperation.READ);

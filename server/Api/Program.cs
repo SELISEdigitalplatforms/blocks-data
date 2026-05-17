@@ -29,7 +29,7 @@ services.AddSingleton<ICloudBuildSecret>(cloudBuildSecret);
 
 services.AddHealthChecks();
 
-ApplicationConfigurations.ConfigureApi(services);
+ApplicationConfigurations.ConfigureApi(services, serviceName);
 
 builder.Services.Configure<MvcOptions>(options =>
 {
@@ -67,10 +67,11 @@ if (File.Exists(indexHtml))
         var host = context.Request.Host.Value;
         var tenant = tenantService.GetTenantByApplicationDomain(host);
         ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath, tenant.TenantId, string.Empty);
+        var domain = tenant.Applications.FirstOrDefault(app => app.CookieDomain == host)?.CookieDomain;
 
         context.Response.Cookies.Append("x-blocks-key", tenant.TenantId, new CookieOptions
         {
-            Domain = tenant.CookieDomain,
+            Domain = domain,
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.None,

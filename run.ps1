@@ -105,8 +105,10 @@ function Restore-Dotnet {
 
 function Build-Frontend {
     Write-Host "Building frontend..."
-    npm --prefix $ClientDir install
-    npm --prefix $ClientDir run build
+    Push-Location $ClientDir
+    npm install
+    npm run build
+    Pop-Location
 
     if (!(Test-Path $Wwwroot)) {
         New-Item -ItemType Directory -Path $Wwwroot | Out-Null
@@ -118,9 +120,30 @@ function Build-Frontend {
     }
 }
 
+# HTTPS is driven by the machine env vars UDS_SSL_CERT / UDS_SSL_KEY.
+# Both set + both files present -> HTTPS on $ApiPort; otherwise -> HTTP (fallback).
+# Sets the Kestrel cert env vars (inherited by child Start-Process) and stores
+# the URL in $script:AspNetCoreUrls to pass on the command line.
+function Set-BackendTls {
+    $cert = $env:UDS_SSL_CERT
+    $key  = $env:UDS_SSL_KEY
+    if ($cert -and $key -and (Test-Path $cert) -and (Test-Path $key)) {
+        $env:Kestrel__Certificates__Default__Path = $cert
+        $env:Kestrel__Certificates__Default__KeyPath = $key
+        $script:AspNetCoreUrls = "https://0.0.0.0:$ApiPort"
+        Write-Host "Backend TLS: HTTPS on $ApiPort"
+    }
+    else {
+        $script:AspNetCoreUrls = "http://0.0.0.0:$ApiPort"
+        Write-Host "Backend TLS: cert env not set/found - HTTP on $ApiPort"
+    }
+}
+
 function Run-Backend {
+    Set-BackendTls
     Write-Host "Running .NET API..."
-    dotnet run --project $ApiProject
+    # --urls on the command line outranks launchSettings.json applicationUrl.
+    dotnet run --project $ApiProject -- --urls $script:AspNetCoreUrls
 }
 
 function Run-Worker {
@@ -141,7 +164,9 @@ if ($Dotnet.Count -gt 0) {
 }
 
 if ($Npm.Count -gt 0) {
-    npm --prefix $ClientDir @Npm
+    Push-Location $ClientDir
+    npm @Npm
+    Pop-Location
     exit
 }
 
@@ -159,8 +184,10 @@ if ($Worker) {
 }
 
 if ($Frontend) {
-    npm --prefix $ClientDir install
-    npm --prefix $ClientDir run dev
+    Push-Location $ClientDir
+    npm install
+    npm run dev
+    Pop-Location
     exit
 }
 
@@ -171,8 +198,12 @@ if ($All) {
 
     Write-Host "Starting API + Worker..."
 
+    # Resolve TLS in this (parent) process: the Kestrel__* env vars it sets are
+    # inherited by the child Start-Process; the URL is passed on its command line.
+    Set-BackendTls
+
     $api = Start-Process powershell `
-        -ArgumentList "-NoExit", "-Command", "dotnet run --project '$ApiProject'" `
+        -ArgumentList "-NoExit", "-Command", "dotnet run --project '$ApiProject' -- --urls '$script:AspNetCoreUrls'" `
         -PassThru
 
     $worker = Start-Process powershell `

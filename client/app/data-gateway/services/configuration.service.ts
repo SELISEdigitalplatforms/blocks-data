@@ -200,7 +200,7 @@ class ConfigurationService {
   }
 
   getPodActiveStatus(slug: string): Promise<undefined | { message: string }> {
-    const url = `${getGraphqlGatewayExecuteOrigin()}/${slug}ping`;
+    const url = `${getGraphqlGatewayExecuteOrigin()}/${slug}/ping`;
     return http.get(url, undefined, { absoluteUrl: true });
   }
 

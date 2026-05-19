@@ -80,7 +80,7 @@ export function EnvironmentList() {
   };
 
   const environment =
-    projectData?.data.environment || selectedProject?.environment;
+    projectData?.data?.environment || selectedProject?.environment;
   const applicationDomain =
     projectData?.data?.applicationDomain || selectedProject?.applicationDomain;
 

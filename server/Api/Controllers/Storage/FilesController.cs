@@ -36,7 +36,8 @@ namespace Api.Controllers
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
         [HttpGet]
-        [ProtectedEndPoint("uds::files::getfile")]
+        // [ProtectedEndPoint("uds::files::getfile")]
+        [Authorize]
         public async Task<FileResponse?> GetFile([FromQuery] GetFileRequest request)
         {
             // _changeControllerContext.ChangeContext(request);
@@ -49,7 +50,8 @@ namespace Api.Controllers
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
         [HttpPost]
-        [ProtectedEndPoint("uds::files::getfiles")]
+        // [ProtectedEndPoint("uds::files::getfiles")]
+        [Authorize]
         public async Task<List<FileResponse>?> GetFiles([FromBody] GetFilesRequest request)
         {
             // _changeControllerContext.ChangeContext(request);
@@ -62,7 +64,8 @@ namespace Api.Controllers
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
         [HttpPost]
-        [ProtectedEndPoint("uds::files::getfilesinfo")]
+        // [ProtectedEndPoint("uds::files::getfilesinfo")]
+        [Authorize]
         public async Task<GetFilesInfoResponse> GetFilesInfo([FromBody] GetFilesInfoRequest request)
         {
             // _changeControllerContext.ChangeContext(request);
@@ -75,7 +78,8 @@ namespace Api.Controllers
         /// <param name="request">The request containing upload details.</param>
         /// <returns>A response containing the pre-signed URL for upload.</returns>
         [HttpPost]
-        [ProtectedEndPoint("uds::files::getpresignedurlforupload")]
+        // [ProtectedEndPoint("uds::files::getpresignedurlforupload")]
+        [Authorize]
         public async Task<GetPreSignedUrlForUploadResponse> GetPreSignedUrlForUpload([FromBody] GetPreSignedUrlForUploadRequest request)
         {
             // _changeControllerContext.ChangeContext(request);
@@ -88,7 +92,8 @@ namespace Api.Controllers
         /// <param name="request">The request containing file deletion details.</param>
         /// <returns>A response indicating the result of the delete operation.</returns>
         [HttpPost]
-        [ProtectedEndPoint("uds::files::deletefile")]
+        // [ProtectedEndPoint("uds::files::deletefile")]
+        [Authorize]
         public async Task<BaseResponse> DeleteFile([FromBody] DeleteFileRequest request)
         {
             // _changeControllerContext.ChangeContext(request);
@@ -101,7 +106,8 @@ namespace Api.Controllers
         /// <param name="request">The request containing the file stream and metadata for the upload.</param>
         /// <returns>A response containing the details of the uploaded file.</returns>
         [HttpPost]
-        [ProtectedEndPoint("uds::files::uploadfiletolocalstorage")]
+        // [ProtectedEndPoint("uds::files::uploadfiletolocalstorage")]
+        [Authorize]
         public async Task<LocalStorageUploadResponse> UploadFileToLocalStorage([FromForm] LocalStorageUploadRequest request)
         {
             // _changeControllerContext.ChangeContext(request);
@@ -115,7 +121,8 @@ namespace Api.Controllers
         /// <returns>A response containing the file stream and metadata of the downloaded file.</returns>
         [ApiExplorerSettings(IgnoreApi = true)]
         [HttpGet]
-        [ProtectedEndPoint("uds::files::downloadfile")]
+        // [ProtectedEndPoint("uds::files::downloadfile")]
+        [Authorize]
         public async Task<IActionResult> DownloadFile([FromQuery] DownloadFileRequest request)
         {
             // _changeControllerContext.ChangeContext(request);
@@ -130,7 +137,8 @@ namespace Api.Controllers
         }
 
         [HttpPost]
-        [ProtectedEndPoint("uds::files::updatefileadditionalinfo")]
+        // [ProtectedEndPoint("uds::files::updatefileadditionalinfo")]
+        [Authorize]
         public async Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
         {
             if (command == null) return BadRequest();
@@ -140,7 +148,8 @@ namespace Api.Controllers
         }
 
         [HttpPost]
-        [ProtectedEndPoint("uds::files::getdmsfileandfolder")]
+        // [ProtectedEndPoint("uds::files::getdmsfileandfolder")]
+        [Authorize]
         public async Task<GetDmsFileAndFolderResponse> GetDmsFileAndFolder([FromBody] GetDmsFileAndFolderRequest command)
         {
             if (command == null) return new GetDmsFileAndFolderResponse();
@@ -149,7 +158,8 @@ namespace Api.Controllers
         }
 
         [HttpPost]
-        [ProtectedEndPoint("uds::files::uploadfile")]
+        // [ProtectedEndPoint("uds::files::uploadfile")]
+        [Authorize]
         public async Task<DmsResponse> UploadFile([FromBody] UploadFilesRequest command)
         {
             if (command == null) return null;
@@ -160,7 +170,8 @@ namespace Api.Controllers
 
 
         [HttpPost]
-        [ProtectedEndPoint("uds::files::createfolder")]
+        // [ProtectedEndPoint("uds::files::createfolder")]
+        [Authorize]
         public async Task<DmsResponse> CreateFolder([FromBody] CreateFolderRequest command)
         {
             if (command == null) return null;
@@ -175,7 +186,8 @@ namespace Api.Controllers
         /// <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
         /// <returns>A <see cref="BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
         [HttpPost]
-        [ProtectedEndPoint("uds::files::deletefolder")]
+        // [ProtectedEndPoint("uds::files::deletefolder")]
+        [Authorize]
         public async Task<BaseResponse> DeleteFolder([FromBody] DeleteFolderRequest request)
         {
             // _changeControllerContext.ChangeContext(request);

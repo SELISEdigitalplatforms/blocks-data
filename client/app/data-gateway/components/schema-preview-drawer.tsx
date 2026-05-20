@@ -10,12 +10,18 @@ import {
   DrawerTrigger,
 } from "@/components/ui-kits/drawer/drawer";
 import { ScrollArea } from "@/components/ui-kits/scroll-area/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui-kits/tabs/tabs";
+import { getGraphqlGatewayExecuteOrigin } from "@/constants/endpoint.constant";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/store/useProjectStore";
 import { Play, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import atomDark from "react-syntax-highlighter/dist/esm/styles/prism/atom-dark";
 import prism from "react-syntax-highlighter/dist/esm/styles/prism/prism";
@@ -23,7 +29,6 @@ import { useRawIntrospectionQuery } from "../hooks/use-configuration";
 import { SchemaPreviewDrawerProps } from "../models/schema-preview.types";
 import { buildPreviewSections } from "../utils/generate-preview-queries";
 import { formatPreviewJson } from "../utils/graphql-template.utils";
-import { getGraphqlGatewayExecuteOrigin } from "@/constants/endpoint.constant";
 
 export function SchemaPreviewDrawer({
   trigger,
@@ -41,7 +46,7 @@ export function SchemaPreviewDrawer({
   const isEntity = schemaType === 1;
   const defaultTab = isEntity ? "request-format" : "schema-structure";
   const [activeTab, setActiveTab] = useState(defaultTab);
-  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/${projectShortKey}/gateway`;
+  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/${projectShortKey}/api/gateway`;
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -56,7 +61,10 @@ export function SchemaPreviewDrawer({
     navigate("/services/data-gateway/playground");
   };
 
-  const formattedJson = useMemo(() => formatPreviewJson(previewData), [previewData]);
+  const formattedJson = useMemo(
+    () => formatPreviewJson(previewData),
+    [previewData],
+  );
 
   const {
     data: rawIntrospection,
@@ -76,16 +84,26 @@ export function SchemaPreviewDrawer({
 
   const sections = useMemo(
     () =>
-      rawIntrospection && schemaName ? buildPreviewSections(rawIntrospection, schemaName) : [],
+      rawIntrospection && schemaName
+        ? buildPreviewSections(rawIntrospection, schemaName)
+        : [],
     [schemaName, rawIntrospection],
   );
 
   const headingSource =
-    schemaName ?? (typeof previewData.SchemaName === "string" ? previewData.SchemaName : undefined);
+    schemaName ??
+    (typeof previewData.SchemaName === "string"
+      ? previewData.SchemaName
+      : undefined);
   const heading = title ?? `${headingSource ?? "Schema"} preview`;
 
   return (
-    <Drawer direction="right" handleOnly open={open} onOpenChange={onOpenChange}>
+    <Drawer
+      direction="right"
+      handleOnly
+      open={open}
+      onOpenChange={onOpenChange}
+    >
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
       <DrawerContent
         className={cn(
@@ -128,10 +146,15 @@ export function SchemaPreviewDrawer({
             ) : null}
 
             {/* Schema Structure Tab - JSON Preview */}
-            <TabsContent value="schema-structure" className="mt-4 flex-1 overflow-hidden">
+            <TabsContent
+              value="schema-structure"
+              className="mt-4 flex-1 overflow-hidden"
+            >
               <div className="group relative h-full">
                 <div className="absolute right-6 top-2 z-50 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-                  <CopyToClipboardButton textToCopy={formattedJson}> </CopyToClipboardButton>
+                  <CopyToClipboardButton textToCopy={formattedJson}>
+                    {" "}
+                  </CopyToClipboardButton>
                 </div>
                 <ScrollArea className="h-full rounded-lg border border-border/60 bg-gray-50 pr-4 dark:bg-gray-900">
                   {/* Light Mode */}
@@ -173,7 +196,10 @@ export function SchemaPreviewDrawer({
             </TabsContent>
 
             {/* Request Format Tab - GraphQL Templates */}
-            <TabsContent value="request-format" className="mt-4 flex-1 overflow-hidden">
+            <TabsContent
+              value="request-format"
+              className="mt-4 flex-1 overflow-hidden"
+            >
               <ScrollArea className="h-full pr-4">
                 <div className="relative space-y-3 pb-4">
                   {isGatewaySchemaLoading ? (
@@ -186,7 +212,10 @@ export function SchemaPreviewDrawer({
                       <div className="flex flex-col text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
                         <span className="mb-1 sm:mb-0">Request URL:</span>
                         <div className="flex flex-wrap items-center gap-2">
-                          <CopyToClipboardButton textToCopy={requestUrl} isHoverable>
+                          <CopyToClipboardButton
+                            textToCopy={requestUrl}
+                            isHoverable
+                          >
                             <code className="break-all rounded bg-muted px-2 py-1 font-mono text-xs">
                               {requestUrl}
                             </code>
@@ -194,7 +223,9 @@ export function SchemaPreviewDrawer({
                         </div>
                       </div>
                       <div className="flex flex-col text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
-                        <span className="mb-1 sm:mb-0">Add In Request Headers:</span>
+                        <span className="mb-1 sm:mb-0">
+                          Add In Request Headers:
+                        </span>
                         <div className="flex flex-wrap items-center gap-2">
                           <CopyToClipboardButton
                             textToCopy={`x-blocks-key: ${projectKey}`}
@@ -208,13 +239,18 @@ export function SchemaPreviewDrawer({
                       </div>
 
                       {sections.map((section) => (
-                        <section key={section.title} className="rounded-2xl bg-background">
+                        <section
+                          key={section.title}
+                          className="rounded-2xl bg-background"
+                        >
                           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                             <div className="w-full space-y-1">
                               <h4 className="text-base font-semibold text-foreground">
                                 {section.title}
                               </h4>
-                              <p className="text-sm text-muted-foreground">{section.description}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {section.description}
+                              </p>
                             </div>
                           </div>
 
@@ -226,12 +262,16 @@ export function SchemaPreviewDrawer({
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 gap-1"
-                                  onClick={() => handleTryInPlayground(section.code)}
+                                  onClick={() =>
+                                    handleTryInPlayground(section.code)
+                                  }
                                 >
                                   <Play className="h-3.5 w-3.5" />
                                   Try in Playground
                                 </Button>
-                                <CopyToClipboardButton textToCopy={section.code}>
+                                <CopyToClipboardButton
+                                  textToCopy={section.code}
+                                >
                                   {" "}
                                 </CopyToClipboardButton>
                               </div>
@@ -258,12 +298,16 @@ export function SchemaPreviewDrawer({
                                   size="sm"
                                   variant="ghost"
                                   className="h-8 gap-1"
-                                  onClick={() => handleTryInPlayground(section.code)}
+                                  onClick={() =>
+                                    handleTryInPlayground(section.code)
+                                  }
                                 >
                                   <Play className="h-3.5 w-3.5" />
                                   Try in Playground
                                 </Button>
-                                <CopyToClipboardButton textToCopy={section.code}>
+                                <CopyToClipboardButton
+                                  textToCopy={section.code}
+                                >
                                   {" "}
                                 </CopyToClipboardButton>
                               </div>

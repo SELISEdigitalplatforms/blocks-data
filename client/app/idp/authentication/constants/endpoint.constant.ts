@@ -64,3 +64,10 @@ export const IDP_ENDPOINTS = {
     TOKEN: AUTH_ENDPOINTS.TOKEN,
   },
 };
+
+
+export const IMPERSONATE_ENDPOINTS = {
+  IMPERSONATE: `${API_BASES.IDP}/auth/impersonate`,
+  STOP_IMPERSONATION: `${API_BASES.IDP}/auth/impersonation/stop`,
+  IMPERSONATION_STATUS: `${API_BASES.IDP}/auth/impersonation/status`,
+} as const

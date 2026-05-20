@@ -2,7 +2,7 @@ import { API_BASES } from "@/constants/endpoint.constant";
 
 // ─── Subpaths ─────────────────────────────────────────────────────────────────
 
-const IAM_SUBPATH = "/Iam";
+const IAM_SUBPATH = '/iam'
 const AUTH_SUBPATH = "/Authentication";
 const IAM_CONFIG_SUBPATH = "/IAM";
 
@@ -24,7 +24,8 @@ export const USER_ENDPOINTS = {
   GET_USER_ROLES: `${API_BASES.IDP}${IAM_SUBPATH}/GetUserRoles`,
   GET_USER_PERMISSIONS: `${API_BASES.IDP}${IAM_SUBPATH}/GetUserPermissions`,
   DEACTIVATE: `${API_BASES.IDP}${IAM_SUBPATH}/Deactivate`,
-} as const;
+  ME: `${API_BASES.IDP}${IAM_SUBPATH}/me`,
+} as const
 
 // ─── Account endpoints (account.service) ────────────────────────────────────
 

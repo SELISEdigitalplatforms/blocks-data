@@ -49,7 +49,7 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.MapGraphQL("/gateway");
+app.MapGraphQL("/api/gateway"); //.WithDisplayName("GraphQL");
 app.UseMiddleware<RequestContextMiddleware>();
 
 app.MapControllers();

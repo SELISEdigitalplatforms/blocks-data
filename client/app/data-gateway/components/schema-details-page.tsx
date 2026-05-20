@@ -1,16 +1,17 @@
 "use client";
 
+import { Alert, AlertDescription } from "@/components/ui-kits/alert/alert";
 import { Button } from "@/components/ui-kits/button/button";
+import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
-import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@/store/useProjectStore";
-import { Alert, AlertDescription } from "@/components/ui-kits/alert/alert";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -20,10 +21,14 @@ import {
   MoreVertical,
   Settings,
 } from "lucide-react";
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { useDataGatewaySearchParams } from "../hooks/use-data-gateway-search-params";
+import {
+  getStoredInitiatedAt,
+  INIT_STORAGE_PREFIX,
+  POLL_INTERVAL,
+  POLL_START_DELAY,
+} from "../constants/schema-access-control";
 import {
   getPolicyDataQueryOptions,
   useCreateSchema,
@@ -32,29 +37,29 @@ import {
   useGetUnadaptedChangeLogs,
   useSchemaDetails,
 } from "../hooks/use-configuration";
+import { useDataGatewaySearchParams } from "../hooks/use-data-gateway-search-params";
 import {
   ICreateSchemaDefaultValues,
   ICreateSchemaPayload,
   IDataSourceResponse,
   ISchemaDetails,
 } from "../models/data-service";
-import { createEmptyAccessRuleSet, normalizeAccessRuleSet } from "../utils/schema-access.utils";
 import { Schema } from "../models/security-and-performance";
+import {
+  createEmptyAccessRuleSet,
+  normalizeAccessRuleSet,
+} from "../utils/schema-access.utils";
 import { normalizeSchemaFields } from "../utils/schema-normalization";
 import { AddEditSchemaModal } from "./add-edit-schema";
 import ConfigureDataSourceModal from "./configure-data-source";
-import { SchemaBasicInfo } from "./schema-basic-info";
-import SchemasSidebar, { type DataGatewayListQueryUpdate } from "./schema-side-bar";
-import SchemaStructureTable from "./schema-structure";
 import ExportSchemaModal from "./export-schema/export-schema-modal";
-import SecurityAndPerformance from "./security-and-performance/security-and-performance";
-import {
-  getStoredInitiatedAt,
-  POLL_START_DELAY,
-  POLL_INTERVAL,
-  INIT_STORAGE_PREFIX,
-} from "../constants/schema-access-control";
 import ImportSchemaModal from "./import-schema-modal";
+import { SchemaBasicInfo } from "./schema-basic-info";
+import SchemasSidebar, {
+  type DataGatewayListQueryUpdate,
+} from "./schema-side-bar";
+import SchemaStructureTable from "./schema-structure";
+import SecurityAndPerformance from "./security-and-performance/security-and-performance";
 
 const EMPTY_SCHEMA: ISchemaDetails = {
   id: "",
@@ -83,7 +88,8 @@ const EMPTY_SCHEMA: ISchemaDetails = {
 export const SchemaDetailsPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] = useState(false);
+  const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] =
+    useState(false);
   const [isConfigureModalOpen, setIsConfigureModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isOpenImportSchemaModal, setIsOpenImportSchemaModal] = useState(false);
@@ -105,9 +111,12 @@ export const SchemaDetailsPage = () => {
 
   const projectKey = useProjectStore().selectedProject?.tenantId ?? "";
   const projectShortKey = useProjectStore()?.selectedProject?.tenantSlug ?? "";
-  const { data: unAdaptedChangeLogs } = useGetUnadaptedChangeLogs({ projectKey });
+  const { data: unAdaptedChangeLogs } = useGetUnadaptedChangeLogs({
+    projectKey,
+  });
   const hasUnadaptedChanges =
-    unAdaptedChangeLogs?.data != undefined && unAdaptedChangeLogs.data.length > 0;
+    unAdaptedChangeLogs?.data != undefined &&
+    unAdaptedChangeLogs.data.length > 0;
 
   const [initiatedAt, setInitiatedAt] = useState<number | null>(() =>
     getStoredInitiatedAt(projectKey),
@@ -117,11 +126,12 @@ export const SchemaDetailsPage = () => {
     return Date.now() - initiatedAt >= POLL_START_DELAY;
   });
 
-  const { data: message, isPending: isPodStatusLoading } = useGetPodActiveStatus({
-    slug: projectShortKey,
-    refetchInterval: shouldPoll && initiatedAt ? POLL_INTERVAL : false,
-  });
-  const isServerActive = !!message?.message;
+  const { data: message, isPending: isPodStatusLoading } =
+    useGetPodActiveStatus({
+      slug: projectShortKey,
+      refetchInterval: shouldPoll && initiatedAt ? POLL_INTERVAL : false,
+    });
+  const isServerActive = !!message?.status;
   const isServerInitiating = initiatedAt !== null && !isServerActive;
 
   const [schemaDetails, setSchemaDetails] = useState<ISchemaDetails>({
@@ -129,15 +139,16 @@ export const SchemaDetailsPage = () => {
     projectKey,
   });
 
-  const { data: schemaDetailsQuery, isLoading: isSchemaDetailsLoading } = useSchemaDetails(
-    selectedSchemaId ?? "",
-    projectKey,
-    { enabled: isSchemaView },
-  );
+  const { data: schemaDetailsQuery, isLoading: isSchemaDetailsLoading } =
+    useSchemaDetails(selectedSchemaId ?? "", projectKey, {
+      enabled: isSchemaView,
+    });
   const { data: configData } = useGetDataServiceConfiguration({ projectKey });
   const { mutateAsync: createSchema } = useCreateSchema();
 
-  const onSchemaCreate = async (values: ICreateSchemaDefaultValues): Promise<boolean> => {
+  const onSchemaCreate = async (
+    values: ICreateSchemaDefaultValues,
+  ): Promise<boolean> => {
     const payload: ICreateSchemaPayload = {
       schemaName: values.schemaName,
       collectionName: values.schemaType == "Entity" ? values.entityName : "",
@@ -189,7 +200,9 @@ export const SchemaDetailsPage = () => {
   };
 
   const navigateToSecurityView = () => {
-    queryClient.invalidateQueries({ queryKey: ["security-performance-schema-list"] });
+    queryClient.invalidateQueries({
+      queryKey: ["security-performance-schema-list"],
+    });
     navigate({ pathname: "/services/data-gateway" });
   };
 
@@ -198,7 +211,9 @@ export const SchemaDetailsPage = () => {
     if (!isSchemaView || !selectedSchemaId || !projectKey) return;
     const schemaName = schemaDetailsQuery?.data?.schemaName;
     if (!schemaName) return;
-    void queryClient.prefetchQuery(getPolicyDataQueryOptions(schemaName, projectKey));
+    void queryClient.prefetchQuery(
+      getPolicyDataQueryOptions(schemaName, projectKey),
+    );
   }, [
     isSchemaView,
     selectedSchemaId,
@@ -272,7 +287,10 @@ export const SchemaDetailsPage = () => {
         <div className="flex flex-col gap-1">
           {isSchemaView && (
             <nav className="flex items-center gap-1 text-sm text-muted-foreground">
-              <button className="hover:text-foreground" onClick={() => navigateToSecurityView()}>
+              <button
+                className="hover:text-foreground"
+                onClick={() => navigateToSecurityView()}
+              >
                 Data Gateway
               </button>
               <ChevronRight className="h-3.5 w-3.5" />
@@ -297,7 +315,9 @@ export const SchemaDetailsPage = () => {
                   <DropdownMenuContent align="end" className="w-52">
                     <DropdownMenuItem
                       className="cursor-pointer"
-                      onClick={() => navigate("/services/data-gateway/playground")}
+                      onClick={() =>
+                        navigate("/services/data-gateway/playground")
+                      }
                     >
                       Playground
                     </DropdownMenuItem>
@@ -382,7 +402,8 @@ export const SchemaDetailsPage = () => {
               <Alert className="flex flex-col items-center justify-center gap-1 rounded-sm border border-base-error bg-blocks-error-100 px-4 py-4 text-base font-normal text-blocks-error-800 md:flex-row">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
-                  You have unadapted changes, please click on the Publish button to adapt them.
+                  You have unadapted changes, please click on the Publish button
+                  to adapt them.
                 </AlertDescription>
               </Alert>
             )
@@ -404,7 +425,9 @@ export const SchemaDetailsPage = () => {
           <>
             <div className="flex flex-col gap-6 rounded pt-0 lg:flex-row lg:items-start">
               {/* Sidebar */}
-              <div className={`shrink-0 ${selectedSchemaId ? "hidden lg:block" : "block"}`}>
+              <div
+                className={`shrink-0 ${selectedSchemaId ? "hidden lg:block" : "block"}`}
+              >
                 <SchemasSidebar
                   onAddSchema={() => setIsAddEditSchemaModalOpen(true)}
                   selectedSchemaId={selectedSchemaId}
@@ -433,11 +456,15 @@ export const SchemaDetailsPage = () => {
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
-                  <h2 className="text-lg font-semibold">{schemaDetails.schemaName}</h2>
+                  <h2 className="text-lg font-semibold">
+                    {schemaDetails.schemaName}
+                  </h2>
                 </div>
 
                 {/* Mobile: show only when schema selected */}
-                <div className={`${selectedSchemaId ? "flex" : "hidden"} flex-col gap-4 lg:hidden`}>
+                <div
+                  className={`${selectedSchemaId ? "flex" : "hidden"} flex-col gap-4 lg:hidden`}
+                >
                   <SchemaBasicInfo
                     {...schemaDetails}
                     onDeleteSuccess={onDeleteSchema}
@@ -469,7 +496,10 @@ export const SchemaDetailsPage = () => {
         )}
       </div>
 
-      <Dialog open={isAddEditSchemaModalOpen} onOpenChange={setIsAddEditSchemaModalOpen}>
+      <Dialog
+        open={isAddEditSchemaModalOpen}
+        onOpenChange={setIsAddEditSchemaModalOpen}
+      >
         <AddEditSchemaModal
           mode="add"
           onSubmit={onSchemaCreate}
@@ -477,7 +507,10 @@ export const SchemaDetailsPage = () => {
         />
       </Dialog>
 
-      <Dialog open={isConfigureModalOpen} onOpenChange={setIsConfigureModalOpen}>
+      <Dialog
+        open={isConfigureModalOpen}
+        onOpenChange={setIsConfigureModalOpen}
+      >
         <ConfigureDataSourceModal
           mode="edit"
           initialData={configData?.data as IDataSourceResponse}
@@ -490,7 +523,10 @@ export const SchemaDetailsPage = () => {
         <ExportSchemaModal onClose={() => setIsExportModalOpen(false)} />
       </Dialog>
 
-      <Dialog open={isOpenImportSchemaModal} onOpenChange={setIsOpenImportSchemaModal}>
+      <Dialog
+        open={isOpenImportSchemaModal}
+        onOpenChange={setIsOpenImportSchemaModal}
+      >
         <ImportSchemaModal
           projectKey={projectKey}
           onClose={() => setIsOpenImportSchemaModal(false)}

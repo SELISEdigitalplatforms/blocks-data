@@ -208,3 +208,16 @@ export const useUserPermissions = (option: { userId: string; projectKey: string 
     deletePermissions,
   };
 };
+
+export const useGetMe = (options?: { enabled?: boolean }) => {
+  const authStore = useAuthStore()
+  return useQuery({
+    queryKey: ['user'],
+    queryFn: async () => {
+      const user = await userService.me()
+      authStore.setUser(user.data)
+      return user
+    },
+    ...options,
+  })
+}

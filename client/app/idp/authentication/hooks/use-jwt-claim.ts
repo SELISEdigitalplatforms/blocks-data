@@ -1,5 +1,5 @@
 import { GetJwtClaimPayload } from "@blocks-idp/authentication/models/jwt.claim.model";
-import { projectService } from "@blocks-identifier/services/project.service";
+import { projectService } from "@/identifier/services/project.service";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const useAddJwtClaim = () => {

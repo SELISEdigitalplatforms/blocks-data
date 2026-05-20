@@ -1,50 +1,50 @@
-import { http } from "@/lib/http-client";
-import {
-  ICreatePolicyPayload,
-  ICreatePolicyResponse,
-  ICreateSchemaPayload,
-  ICreateSchemaResponse,
-  IDataServiceConfiguration,
-  IDataServiceConfigurationResponse,
-  IDeleteMockDataResponse,
-  IDeleteMockDataPayload,
-  IGetSchemaDetailsResponse,
-  IGetSchemaListPayload,
-  IGetSchemaListResponse,
-  IMockDataResponse,
-  IGetPolicyResponse,
-  ISetDataAccessPayload,
-  ISetDataAccessResponse,
-  ISetRowColumnPermissionPayload,
-  IUnadaptedChangeLogsResponse,
-  IUpdateSchemaStructure,
-  IUpdatePolicyPayload,
-  IDeletePolicyPayload,
-  IDeletePolicyResponse,
-  IGetConfigurationPayload,
-  IGetUnAdaptedChangeLogsPayload,
-  IInitiateDataGatewayPipelinePayload,
-  IGetSchemaFieldValidationPayload,
-  IGetSchemaFieldValidationResponse,
-  ICreateSchemaFieldValidationPayload,
-  ISchemaExportPayload,
-  ISchemaExportResponse,
-  IDefaultResponse,
-  IDeleteSchemaFieldValidationPayload,
-} from "../models/data-service";
-import {
-  DATA_SOURCE_ENDPOINTS,
-  SCHEMA_ENDPOINTS,
-  DATA_ACCESS_ENDPOINTS,
-  DATA_MANAGE_ENDPOINTS,
-  DATA_VALIDATION_ENDPOINTS,
-  PIPELINE_ENDPOINTS,
-} from "../constants/endpoint.constant";
-import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
 import {
   API_BASES,
   getGraphqlGatewayExecuteOrigin,
 } from "@/constants/endpoint.constant";
+import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
+import { http } from "@/lib/http-client";
+import {
+  DATA_ACCESS_ENDPOINTS,
+  DATA_MANAGE_ENDPOINTS,
+  DATA_SOURCE_ENDPOINTS,
+  DATA_VALIDATION_ENDPOINTS,
+  PIPELINE_ENDPOINTS,
+  SCHEMA_ENDPOINTS,
+} from "../constants/endpoint.constant";
+import {
+  ICreatePolicyPayload,
+  ICreatePolicyResponse,
+  ICreateSchemaFieldValidationPayload,
+  ICreateSchemaPayload,
+  ICreateSchemaResponse,
+  IDataServiceConfiguration,
+  IDataServiceConfigurationResponse,
+  IDefaultResponse,
+  IDeleteMockDataPayload,
+  IDeleteMockDataResponse,
+  IDeletePolicyPayload,
+  IDeletePolicyResponse,
+  IDeleteSchemaFieldValidationPayload,
+  IGetConfigurationPayload,
+  IGetPolicyResponse,
+  IGetSchemaDetailsResponse,
+  IGetSchemaFieldValidationPayload,
+  IGetSchemaFieldValidationResponse,
+  IGetSchemaListPayload,
+  IGetSchemaListResponse,
+  IGetUnAdaptedChangeLogsPayload,
+  IInitiateDataGatewayPipelinePayload,
+  IMockDataResponse,
+  ISchemaExportPayload,
+  ISchemaExportResponse,
+  ISetDataAccessPayload,
+  ISetDataAccessResponse,
+  ISetRowColumnPermissionPayload,
+  IUnadaptedChangeLogsResponse,
+  IUpdatePolicyPayload,
+  IUpdateSchemaStructure,
+} from "../models/data-service";
 
 class ConfigurationService {
   createDataSource(
@@ -199,7 +199,7 @@ class ConfigurationService {
     );
   }
 
-  getPodActiveStatus(slug: string): Promise<undefined | { message: string }> {
+  getPodActiveStatus(slug: string): Promise<undefined | { status: string }> {
     const url = `${getGraphqlGatewayExecuteOrigin()}/${slug}/ping`;
     return http.get(url, undefined, { absoluteUrl: true });
   }

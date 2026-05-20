@@ -5,7 +5,7 @@ import { useAppState } from "./public-guard";
 import { useGetUser } from "@/idp/iam/hooks/use-user";
 import { useProjectStore } from "@/store/useProjectStore";
 import { getRuntimeEnv } from "@/lib/runtime-env";
-import { useStartImpersonation, useStopImpersonation } from "@/hooks/use-impersonation";
+import { useImpersonationStatusChecker, useStartImpersonation, useStopImpersonation } from "@/hooks/use-impersonation";
 import { useImpersonateStore } from "@/store/impersonate-store";
 import { ImpersonationRequest } from "@/services/impersonation.service";
 import { persistLastVisitedProtectedPath } from "./last-app-path.storage";
@@ -39,6 +39,28 @@ export function ProtectedGuard({ children }: { children: React.ReactNode }) {
     </>
   );
 }
+
+
+export const ImpersonationChecker = ({
+  children,
+}: {
+  children: React.ReactNode
+}) => {
+  const { data, isLoading, isSuccess } = useImpersonationStatusChecker()
+  const { setImpersonation } = useImpersonateStore()
+
+  useEffect(() => {
+    if (!data) return
+    setImpersonation(
+      data.impersonated,
+      data.originalTenantId,
+      data.impersonated ? data.impersonatedTenantId : null,
+    )
+  }, [data, setImpersonation])
+  if (isLoading || !isSuccess) return null
+  return <>{children}</>
+}
+
 
 export function ImpersonateGuard({ children }: { children: React.ReactNode }) {
   const { startImpersonation, stopImpersonation } = useImpersonateStore();

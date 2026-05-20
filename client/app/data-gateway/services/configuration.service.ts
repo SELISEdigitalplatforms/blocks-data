@@ -141,7 +141,7 @@ class ConfigurationService {
     query: string,
     headers?: Record<string, string>,
   ): Promise<unknown> {
-    const url = `${getGraphqlGatewayExecuteOrigin()}/${projectShortKey}/gateway`;
+    const url = `${getGraphqlGatewayExecuteOrigin()}/${projectShortKey}/api/gateway`;
     return http.post(url, { query }, headers, { absoluteUrl: true });
   }
 

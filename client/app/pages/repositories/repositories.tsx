@@ -25,11 +25,11 @@ import { Pagination } from "@/components/ui-kits/pagination/pagination";
 import { Card, CardContent, CardHeader } from "@/components/ui-kits/card/card";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { Input } from "@/components/ui-kits/input/input";
-import { IResource } from "@blocks-identifier/models/project.model";
-import { IRepository } from "@/cross-modules/devops/models/github-info";
-import { useValidateAuthorization } from "@/cross-modules/devops/hooks/github-info";
+import { IResource } from "@/identifier/models/project.model";
+import { IRepository } from "@/repository-integration/models/github-info";
+import { useValidateAuthorization } from "@/repository-integration/hooks/use-github-integration";
 import { RepositorySelectionModal } from "@/components/repository-selection-modal/repository-selection-modal";
-import ProviderButtons from "@/cross-modules/devops/components/deployment-steps/render-repos/render-provider";
+import ProviderButtons from "@/repository-integration/components/render-provider";
 
 const RepositoriesLoading = () => (
   <main className="p-6">

@@ -16,7 +16,7 @@ import { Filter } from "lucide-react";
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { useActiveFiltersCount } from "@/hooks/use-active-filters-count";
 import { SearchInput } from "@/components/search-input/search-input";
-import useIsServiceBarOpenLocal from "@blocks-localization/hooks/use-is-service-tab-open-local";
+import useIsServiceBarOpenLocal from "@/hooks/use-is-service-tab-open-local";
 
 interface TableFilterData {
   resourceGroup: string;

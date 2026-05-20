@@ -20,7 +20,7 @@ import {
   SSO_ENDPOINTS,
   OIDC_FLOW_ENDPOINTS,
 } from "../../authentication/constants/endpoint.constant";
-import { PEOPLE_ENDPOINTS } from "@blocks-identifier/constants/endpoint.constant";
+import { PEOPLE_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
 
 // ─── Endpoint Patterns ────────────────────────────────────────────────────────
 

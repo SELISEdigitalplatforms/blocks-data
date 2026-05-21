@@ -23,7 +23,7 @@ IHostBuilder CreateHostBuilder(string[] args) =>
         Host.CreateDefaultBuilder(args)
         .ConfigureAppConfiguration((context, builder) =>
         {
-            // ApplicationConfigurations.ConfigureWorkerEnv(builder, args);
+            ApplicationConfigurations.ConfigureWorkerEnv(builder, args);
         })
         .ConfigureServices((services) =>
         {

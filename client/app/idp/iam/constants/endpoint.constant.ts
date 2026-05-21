@@ -9,7 +9,7 @@ const IAM_CONFIG_SUBPATH = "/IAM";
 // ─── User endpoints (user.service) ──────────────────────────────────────────
 
 export const USER_ENDPOINTS = {
-  GET_USERS: `${API_BASES.IDP}${IAM_SUBPATH}/GetUsers`,
+  GET_USERS: `${API_BASES.IDP}${IAM_SUBPATH}/users`,
   GET_USER: `${API_BASES.IDP}/iam/me`,
   USER_INFO: `/api/idp/UserInfo`,
   CREATE: `${API_BASES.IDP}${IAM_SUBPATH}/Create`,

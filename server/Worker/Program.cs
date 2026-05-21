@@ -14,7 +14,7 @@ const string _serviceName = GraphQlConstant.WorkerServiceName;
 
 var vaultType = ResolveVaultType();
 Console.WriteLine($"Using Genesis vault type: {vaultType}");
-var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(_serviceName, vaultType);
+var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(_serviceName, VaultType.Azure);
 var cloudBuildSecret = await CloudBuildSecret.ProcessBlocksSecret(VaultType.Azure);
 
 await CreateHostBuilder(args).Build().RunAsync();

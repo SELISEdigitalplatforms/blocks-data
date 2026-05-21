@@ -35,7 +35,7 @@ internal static class SchemaAccessMiddlewareHelper
             return;
         }
 
-        Console.WriteLine($"{middlewareName}: accessLevel is not public");
+		Console.WriteLine($"{middlewareName}: accessLevel is not public");
         var isAuthenticated = IsAuthenticated(httpContext);
         Console.WriteLine($"{middlewareName}: isAuthenticated: {isAuthenticated}");
 
@@ -83,8 +83,8 @@ internal static class SchemaAccessMiddlewareHelper
         var blocksKey = httpContext.Request.Headers[GraphQlConstant.BlocksKeyHeaderKey].FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(blocksKey))
         {
-            var accessTokenCookieKey = $"access_token_{blocksKey}";
-            if (!string.IsNullOrWhiteSpace(accessTokenCookieKey) && requestCookies.Keys.Contains(accessTokenCookieKey))
+            //var accessTokenCookieKey = $"access_token_{blocksKey}";
+            //if (!string.IsNullOrWhiteSpace(accessTokenCookieKey) && requestCookies.Keys.Contains(accessTokenCookieKey))
                 return true;
         }
         return false;

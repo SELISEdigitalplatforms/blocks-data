@@ -82,7 +82,7 @@ const services: Service[] = [
     description:
       "Provision and manage databases with automatic scaling, backups, and real-time monitoring. Full control without the operational overhead.",
     features: ["Auto Backups", "Auto Scaling", "Query Console", "Monitoring"],
-    url: "https://dev-uds.blocksdevelopers.com",
+    url: "https://dev-data.blocksdevelopers.com",
     cta: "Visit Data Service",
     gradient: "from-emerald-600 to-teal-500",
   },

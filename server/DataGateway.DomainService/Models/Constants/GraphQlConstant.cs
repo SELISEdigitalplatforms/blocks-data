@@ -10,7 +10,7 @@ public static class GraphQlConstant
     public const string DataGatewayInitiateQueueName = "blocks_uds_pipeline_initiate_listener";
     public const string StorageQueueName = "blocks_storage_listener";
     public const string MigrationCompletionTopic = "migration_topic";
-    public const string DataChangeTriggerQueue = "blocks_workflow_data_trigger_listener";
+    public const string DataChangeTriggerQueue = "blocks_logic_workflow_data_trigger_listener";
     public const string BlocksRootDbName = "BlocksRootDb";
     public const string MOCK_DATA_TAG = "mock-data";
 

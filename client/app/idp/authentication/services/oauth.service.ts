@@ -6,7 +6,7 @@ import {
   ISigninBySSOResponse,
 } from "@blocks-idp/authentication/models/oauth.model";
 import { GRANT_TYPES } from "../constants/authentication.constant";
-import { AUTH_ENDPOINTS, IDP_ENDPOINTS } from "../constants/endpoint.constant";
+import { AUTH_ENDPOINTS } from "../constants/endpoint.constant";
 
 export class OAuthService {
   getSocialLoginEndpoint(
@@ -22,7 +22,7 @@ export class OAuthService {
     body.append("state", payload.state);
 
     return http.post(
-      IDP_ENDPOINTS.AUTHENTICATION.TOKEN,
+      AUTH_ENDPOINTS.TOKEN,
       body,
       {
         "Content-Type": "application/x-www-form-urlencoded",

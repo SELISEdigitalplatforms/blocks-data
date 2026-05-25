@@ -157,5 +157,26 @@ server/Api/wwwroot/**
 /server/.claude
 
 # Ignore environment-specific app settings, keep base appsettings.json
-**/appsettings.*.json
-**/appsetting.*.json
+# **/appsettings.*.json
+# **/appsetting.*.json
+
+# Local / agent outputs — not versioned (use `git rm --cached <path>` if they were committed)
+docs/
+change.md
+client/change.md
+
+# Cursor IDE / agent workspace (local only; do not push)
+.cursor/
+
+# .graphify output
+client/graphify-out/
+
+
+# .agent outputs
+client/.agents/
+
+
+# .cursor outputs
+client/.cursor/
+
+*.lscache

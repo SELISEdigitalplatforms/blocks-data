@@ -1,9 +1,8 @@
 import { getRuntimeEnv } from "@/lib/runtime-env";
 
-const DEFAULT_GRAPHQL_GATEWAY_ORIGIN =
-  "https://stg-data.blocksdevelopers.com" as const;
+const DEFAULT_GRAPHQL_GATEWAY_ORIGIN = "https://data.seliseblocks.com" as const;
 const DEFAULT_BLOCKS_LOGIC_SITE_ORIGIN =
-  "https://stg-logic.blocksdevelopers.com" as const;
+  "https://logic.seliseblocks.com" as const;
 
 const trimTrailingSlash = (value: string) => value.replace(/\/$/, "");
 const tryGetOrigin = (value: string): string => {

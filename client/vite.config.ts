@@ -1,5 +1,5 @@
-import fs from "fs";
 import react from "@vitejs/plugin-react";
+import fs from "fs";
 import path from "path";
 import type { Plugin } from "vite";
 import { defineConfig, loadEnv } from "vite";
@@ -85,11 +85,11 @@ export default defineConfig(({ mode }) => {
         ".seliseblocks.com",
       ],
       proxy: {
-        "/dev-idp-proxy": {
-          target: "https://dev-idp.blocksdevelopers.com",
+        "/dev-iam-proxy": {
+          target: "https://dev-iam.blocksdevelopers.com",
           changeOrigin: true,
           secure: true,
-          rewrite: (path) => path.replace(/^\/dev-idp-proxy/, ""),
+          rewrite: (path) => path.replace(/^\/dev-iam-proxy/, ""),
         },
         ...(proxyTarget
           ? {

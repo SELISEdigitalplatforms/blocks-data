@@ -17,7 +17,7 @@ export function SidebarMenuDesktop() {
 
   const getLogoSrc = () => {
     if (isSidebarOpen) {
-      return resolvedTheme === "dark" ? "/Logo_White.svg" : "/Logo_Black.svg";
+      return resolvedTheme === "dark" ? "/blocks-logos/Logo_White.svg" : "/blocks-logos/Logo_Black.svg";
     }
     return resolvedTheme === "dark" ? "/Icon_White.svg" : "/Icon.svg";
   };

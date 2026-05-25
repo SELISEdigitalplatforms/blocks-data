@@ -17,17 +17,16 @@ export interface ISigninByEmailPayload {
   scope?: string;
   redirectUri?: string;
 }
+/** Token response or MFA challenge from the password grant */
 export interface ISigninByEmailResponse {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  refresh_token: string;
-}
-export interface ISigninByEmailResponse {
-  enable_mfa: boolean;
-  message: string;
-  mfaType: number;
-  mfaId: string;
+  access_token?: string;
+  token_type?: string;
+  expires_in?: number;
+  refresh_token?: string;
+  enable_mfa?: boolean;
+  message?: string;
+  mfaType?: number;
+  mfaId?: string;
 }
 export interface IVerifyMfaPayload {
   code: string;

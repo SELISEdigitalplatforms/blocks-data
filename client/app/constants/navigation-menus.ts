@@ -1,17 +1,25 @@
-import { Menu } from "@/models/menu-models";
-import { Home, Package, Users, BookMinus, Settings, Shield, Key, ShieldCheck, ScanFace, Lock, Zap, Gauge } from "lucide-react";
+import { Menu } from "@/models/menu-models"
+import { Package, Users, BookMinus, Settings, Database, HardDrive } from "lucide-react"
 
+/** Sidebar: data services, then project-scoped links under /project-overview. */
 export const navigationMenus: Menu[] = [
   {
-    id: "overview-project",
+    id: "service-data-gateway",
     type: "menu",
-    name: "Overview",
-    path: "/dashboard",
-    icon: Home,
+    name: "Data Gateway",
+    path: "/services/data-gateway",
+    icon: Database,
+  },
+  {
+    id: "service-storage",
+    type: "menu",
+    name: "Storage",
+    path: "/services/storage",
+    icon: HardDrive,
   },
   {
     type: "separator",
-    id: "separator-overview",
+    id: "separator-identity",
   },
   {
     id: "environments",
@@ -41,57 +49,4 @@ export const navigationMenus: Menu[] = [
     path: "/project-overview/settings",
     icon: Settings,
   },
-  {
-    type: "separator",
-    id: "separator-identity",
-  },
-  {
-    id: "service-identity__authentication",
-    type: "menu",
-    name: "IDP",
-    path: "/services/authentication",
-    icon: Key,
-  },
-  // {
-  //   id: "service-identity__authorization",
-  //   type: "menu",
-  //   name: "Access Manager",
-  //   path: "/services/iam",
-  //   icon: Shield,
-  // },
-  // {
-  //   id: "service-identity__mfa",
-  //   type: "menu",
-  //   name: "MFA",
-  //   path: "/services/mfa",
-  //   icon: ShieldCheck,
-  // },
-  // {
-  //   id: "service-identity__captcha",
-  //   type: "menu",
-  //   name: "Captcha",
-  //   path: "/services/captcha",
-  //   icon: ScanFace,
-  // },
-  {
-    id: "service-identity__api-settings",
-    type: "menu",
-    name: "API Settings",
-    path: "/services/api-settings",
-    icon: Settings,
-  },
-  {
-    id: "service-identity__secret-management",
-    type: "menu",
-    name: "Secrets & Configs",
-    path: "/services/secret-management",
-    icon: Lock,
-  },
-  {
-    id: "service-identity__lmt",
-    type: "menu",
-    name: "LMT",
-    path: "/services/lmt",
-    icon: Zap,
-  },
-];
+]

@@ -21,12 +21,12 @@ import {
 } from "@/components/ui-kits/command/command";
 import { Button } from "@/components/ui-kits/button/button";
 import { cn } from "@/lib/utils";
-import { useGetGithubRepos } from "@/cross-modules/devops/hooks/github-info";
-import { IRepository, iconMap } from "@/cross-modules/devops/models/github-info";
-import { providers } from "@/cross-modules/devops/models/git-dummy";
+import { useGetGithubRepos } from "@/repository-integration/hooks/use-github-integration";
+import { IRepository, iconMap } from "@/repository-integration/models/github-info";
+import { providers } from "@/repository-integration/models/git-providers";
 import { debounce } from "@/lib/utils";
 import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
-import { githubInfoService } from "@/cross-modules/devops/services/github-info.service";
+import { githubInfoService } from "@/repository-integration/services/github-info.service";
 
 interface RepositorySelectionModalProps {
   open: boolean;

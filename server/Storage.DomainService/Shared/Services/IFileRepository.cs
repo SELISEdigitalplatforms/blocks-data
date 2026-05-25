@@ -1,0 +1,37 @@
+﻿
+using Blocks.Genesis;
+using DomainService.Storage;
+using MongoDB.Bson;
+using MongoDB.Driver;
+using Storage.DomainService.Dtos;
+using Storage.DomainService.Entities;
+using Storage.DomainService.Shared.Dtos;
+using Storage.DomainService.Shared.Entities;
+using Storage.DomainService.Storage;
+using File = Storage.DomainService.Entities.File;
+
+namespace Storage.DomainService.Services
+{
+    public interface IFileRepository
+    {
+        Task CreateFileAsync(File file);
+        Task UpdateFileAsync(File file);
+        Task DeleteFileAsync(File file);
+        Task<File> GetFileByItemIdAsync(string itemId);
+        Task<File> GetFileByItemIdAsync(string itemId, string tenantId);
+        Task<List<File>> GetFiles(string parentDirectoryId);
+        (IEnumerable<BsonDocument>, FileResponse[]) GetRequiredFiles(IEnumerable<string> fileIds, long? version);
+        Task<(IQueryable<T>?, long)> GetFilesInfoAsync<T, R>(R query) where R : BaseGetsRequest<GetFilesInfoFilter>;
+        Task<DmsArtifactList> GetDmsArtifactAsync(GetDmsFileAndFolderRequest command);
+        Task<DmsArtifactList> GetDmsArtifactByNameAndParentIdAsync(string artifactName, string parentId);
+        Task SavedmsArtifactAsync(DmsArtifact dmsArtifact);
+        Task SavedmsArtifactsAsync(List<DmsArtifact> dmsArtifacts);
+        Task<FileVersion> GetFileVersions(string fileStorageId);
+        Task<List<DmsArtifact>> GetDmsArtifactsAsync(FilterDefinition<DmsArtifact>? filter);
+        Task DeleteDmsArtifactFileAsync(string fileId);
+        Task DeleteDmsArtifactFolderAsync(string folderId);
+        Task DeleteFilesAsync(IEnumerable<File> files);
+        Task DeleteDmsArtifactFilesAsync(IEnumerable<string> fileIds);
+        Task<StorageConfiguration> GetDefaultConfiguration();
+    }
+}

@@ -1,111 +1,76 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 
-import { AuthLayout } from "./layouts/auth-layout";
-import { PublicLayout } from "./layouts/public-layout";
-import { OidcLayout } from "./layouts/oidc-layout";
-import { DashboardLayout } from "./layouts/dashboard-layout";
 import { ConsoleLayout } from "./layouts/console-layout";
-import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
+import { DashboardLayout } from "./layouts/dashboard-layout";
 
-// Auth routes (public, with auth layout)
-import LoginPage from "./routes/auth/login";
-import LoginSimplePage from "./routes/auth/login-simple";
-import SignupPage from "./routes/auth/signup";
-import SsoActivatePage from "./routes/auth/sso-activate";
-
-// Public routes (with public guard only)
-import ActivatePage from "./routes/auth/activate";
-import ForgotPasswordPage from "./routes/auth/forgot-password";
-import ResetPasswordPage from "./routes/auth/resetpassword";
-import ActivateSuccessPage from "./routes/auth/activate-success";
-import ForgotEmailSentPage from "./routes/auth/forgot-email-sent";
-import SignupEmailSentPage from "./routes/auth/signup-email-sent";
-import MfaCheckPage from "./routes/auth/mfa-check";
-import ResetPasswordSuccessPage from "./routes/auth/reset-password-success";
-
-// OIDC routes (un-guarded)
-import OidcIndexPage from "./routes/oidc/index";
-import OidcLoginPage from "./routes/oidc/login";
-import OidcPermissionPage from "./routes/oidc/permission";
-import OidcErrorPage from "./routes/oidc/error";
-import OidcForgotPasswordPage from "./routes/oidc/forgot-password";
-import OidcEmailSentConfirmationPage from "./routes/oidc/email-sent-confirmation";
 
 // Dashboard routes (protected)
-import IamPage from "./routes/dashboard/iam";
-import IamUserDetailPage from "./routes/dashboard/iam-user-detail";
-import IamRoleDetailPage from "./routes/dashboard/iam-role-detail";
-import IamPermissionDetailPage from "./routes/dashboard/iam-permission-detail";
-import IamAddPermissionPage from "./routes/dashboard/iam-add-permission";
-import IamOrgDetailPage from "./routes/dashboard/iam-org-detail";
-import IamLogsPage from "./routes/dashboard/iam-logs";
-import IamConfigurePage from "./routes/dashboard/iam-configure";
-import AuthenticationConfigPage from "./routes/dashboard/authentication-config";
-import SsoConfigurationPage from "./routes/dashboard/sso-configuration";
-import AuthLogsPage from "./routes/dashboard/auth-logs";
-import MfaLogsPage from "./routes/dashboard/mfa-logs";
-import CaptchaLogsPage from "./routes/dashboard/captcha-logs";
 import ApiSettingsPage from "./routes/dashboard/api-settings";
-import RateLimiterPage from "./routes/dashboard/rate-limiter";
-import LmtPage from "./routes/dashboard/lmt";
-import LmtServiceLogsPage from "./routes/dashboard/lmt-service-logs";
-import SecretManagementPage from "./routes/dashboard/secret-management";
-import AiModelSelectedRoute from "./routes/dashboard/ai-model-selected";
-import ManagedServicesPage from "./routes/dashboard/managed-services";
+import AuthLogsPage from "./routes/dashboard/auth-logs";
+import AuthenticationConfigPage from "./routes/dashboard/authentication-config";
+import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
+import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
+import DataGatewaySchemasPage from "./routes/dashboard/data-gateway-schemas";
+import IamPage from "./routes/dashboard/iam";
+import IamAddPermissionPage from "./routes/dashboard/iam-add-permission";
+import IamConfigurePage from "./routes/dashboard/iam-configure";
+import IamLogsPage from "./routes/dashboard/iam-logs";
+import IamOrgDetailPage from "./routes/dashboard/iam-org-detail";
+import IamPermissionDetailPage from "./routes/dashboard/iam-permission-detail";
+import IamRoleDetailPage from "./routes/dashboard/iam-role-detail";
+import IamUserDetailPage from "./routes/dashboard/iam-user-detail";
+import MfaLogsPage from "./routes/dashboard/mfa-logs";
+import PlatformServiceLogsPage from "./routes/dashboard/platform-service-logs";
 import ProfilePage from "./routes/dashboard/profile";
+import RateLimiterPage from "./routes/dashboard/rate-limiter";
+import SsoConfigurationPage from "./routes/dashboard/sso-configuration";
+import StoragePage from "./routes/dashboard/storage-page";
+
 
 // Console pages
 import { Console } from "./pages/console/console";
+import { CreateProjectWrapper } from "./pages/create-project/create-project";
 import { DashboardOverview } from "./pages/dashboard/dashboard-overview";
 import { EnvironmentsPage } from "./pages/environments/environments";
 import { PeopleManagement } from "./pages/people/people-management";
 import { RepositoriesPage } from "./pages/repositories/repositories";
 import { SettingsPage } from "./pages/settings/settings";
-import { CreateProjectWrapper } from "./pages/create-project/create-project";
+import LoginCallbackPage from "./routes/auth/callback";
+import LoginSimplePage from "./routes/auth/login-simple";
 import CallbackPage from "./routes/callback/callback";
+import { PublicGuard } from "./guards/public-guard";
+
 
 export const router = createBrowserRouter([
-  // ── Auth layout (login, signup, sso-activate) ──
+  // ── IDP service login (initiates OIDC flow + handles callback) ──
   {
-    element: <AuthLayout />,
+    path: "/login",
+    element: (
+      <PublicGuard>
+        <Outlet />
+      </PublicGuard>
+    ),
     children: [
-      { path: "/login-classic", element: <LoginPage /> },
-      { path: "/signup", element: <SignupPage /> },
-      { path: "/sso-activate", element: <SsoActivatePage /> },
+      { index: true, element: <LoginSimplePage /> },
+      { path: "callback", element: <LoginCallbackPage /> },
     ],
   },
 
-  // ── Simple login (no guards, no API calls) ──
-  { path: "/login", element: <LoginSimplePage /> },
-
-  // ── Public layout (other public pages with PublicGuard) ──
+   // ── Console layout (profile, console pages without sidebar) ──
   {
-    element: <PublicLayout />,
+    element: <ConsoleLayout />,
     children: [
-      { path: "/activate", element: <ActivatePage /> },
-      { path: "/forgot-password", element: <ForgotPasswordPage /> },
-      { path: "/resetpassword", element: <ResetPasswordPage /> },
-      { path: "/activate-success", element: <ActivateSuccessPage /> },
-      { path: "/forgot-email-sent", element: <ForgotEmailSentPage /> },
-      { path: "/signup-email-sent", element: <SignupEmailSentPage /> },
-      { path: "/mfa-check", element: <MfaCheckPage /> },
-      { path: "/reset-password-success", element: <ResetPasswordSuccessPage /> },
+      { path: "/profile", element: <ProfilePage /> },
+      { path: "/console", element: <Console /> },
+      { path: "/create-project", element: <CreateProjectWrapper /> },
+      { path: "/callback", element: <CallbackPage /> },
     ],
   },
 
-  // ── OIDC layout (un-guarded, themed) ──
-  {
-    path: "/oidc",
-    element: <OidcLayout />,
-    children: [
-      { index: true, element: <OidcIndexPage /> },
-      { path: "login", element: <OidcLoginPage /> },
-      { path: "permission", element: <OidcPermissionPage /> },
-      { path: "error", element: <OidcErrorPage /> },
-      { path: "forgot-password", element: <OidcForgotPasswordPage /> },
-      { path: "email-sent-confirmation", element: <OidcEmailSentConfirmationPage /> },
-    ],
-  },
+  // ── Dashboard and project overview in dashboard layout (consolidated sidebar) ──
+  
+ 
+
 
   // ── Dashboard layout (protected routes) ──
   {
@@ -126,28 +91,14 @@ export const router = createBrowserRouter([
       { path: "/services/mfa/logs", element: <MfaLogsPage /> },
       { path: "/services/api-settings", element: <ApiSettingsPage /> },
       { path: "/services/rate-limiter", element: <RateLimiterPage /> },
-      { path: "/services/lmt", element: <LmtPage /> },
-      { path: "/services/lmt/logs/:serviceName", element: <LmtServiceLogsPage /> },
-      { path: "/services/secret-management", element: <SecretManagementPage /> },
-      { path: "/services/secret-management/ai-models/:provider", element: <AiModelSelectedRoute /> },
-      { path: "/managed-services", element: <ManagedServicesPage /> },
-      { path: "/services/captcha", element: <Navigate to="/services/secret-management?tab=captcha" replace /> },
-      { path: "/services/captcha/logs", element: <CaptchaLogsPage /> },
+      { path: "/services/logs/:serviceName", element: <PlatformServiceLogsPage /> },
+      { path: "/services/data-gateway", element: <DataGatewaySchemasPage /> },
+      { path: "/services/data-gateway/playground", element: <DataGatewayPlaygroundPage /> },
+      { path: "/services/data-gateway/logs", element: <DataGatewayLogsPage /> },
+      { path: "/services/storage", element: <StoragePage /> },
     ],
   },
 
-  // ── Console layout (profile, console pages without sidebar) ──
-  {
-    element: <ConsoleLayout />,
-    children: [
-      { path: "/profile", element: <ProfilePage /> },
-      { path: "/console", element: <Console /> },
-      { path: "/create-project", element: <CreateProjectWrapper /> },
-      { path: "/callback", element: <CallbackPage /> },
-    ],
-  },
-
-  // ── Dashboard and project overview in dashboard layout (consolidated sidebar) ──
   {
     element: <DashboardLayout />,
     children: [

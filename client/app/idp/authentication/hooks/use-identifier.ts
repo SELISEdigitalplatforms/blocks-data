@@ -1,5 +1,5 @@
-import { IGetPublicCertificateResponse } from "@blocks-identifier/models/project.model";
-import { projectService } from "@blocks-identifier/services/project.service";
+import { IGetPublicCertificateResponse } from "@/identifier/models/project.model";
+import { projectService } from "@/identifier/services/project.service";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export const useSavePublicCertificates = () => {

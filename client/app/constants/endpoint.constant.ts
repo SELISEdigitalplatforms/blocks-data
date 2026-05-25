@@ -1,9 +1,9 @@
 import { getRuntimeEnv } from "@/lib/runtime-env";
 
 const DEFAULT_GRAPHQL_GATEWAY_ORIGIN =
-  "https://dev-uds.blocksdevelopers.com" as const;
+  "https://stg-data.blocksdevelopers.com" as const;
 const DEFAULT_BLOCKS_LOGIC_SITE_ORIGIN =
-  "https://dev-logic.blocksdevelopers.com" as const;
+  "https://stg-logic.blocksdevelopers.com" as const;
 
 const trimTrailingSlash = (value: string) => value.replace(/\/$/, "");
 const tryGetOrigin = (value: string): string => {
@@ -47,7 +47,7 @@ export const API_BASES = {
 
 /** GraphQL gateway host (execute / reload / ping). */
 export const getGraphqlGatewayExecuteOrigin = (): string => {
-  // Keep gateway aligned with runtime API host (e.g., stg-uds) when dedicated env is not provided.
+  // Keep gateway aligned with runtime API host (e.g., stg-data) when dedicated env is not provided.
   const fromApiBase = tryGetOrigin(getRuntimeEnv("BLOCKS_API_BASE_URL"));
   if (fromApiBase) return fromApiBase;
 

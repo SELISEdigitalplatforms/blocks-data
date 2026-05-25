@@ -26,14 +26,14 @@ export function Logo({ src, alt, width, height, className }: LogoProps) {
   return (
     <>
       <img
-        src="../../public/Logo_Black.svg"
+        src="/blocks-logos/Logo_Black.svg"
         alt={alt ?? "SELISE Logo"}
         width={width}
         height={height}
         className={`${className ?? ""} dark:hidden`}
       />
       <img
-        src="../../public/Logo_White.svg"
+        src="/blocks-logos/Logo_White.svg"
         alt={alt ?? "SELISE Logo"}
         width={width}
         height={height}

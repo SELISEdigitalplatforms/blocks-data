@@ -12,20 +12,28 @@ export function Logo({ src, alt, width, height, className }: LogoProps) {
   const { resolvedTheme } = useTheme();
 
   if (src) {
-    return <img src={src} alt={alt ?? "SELISE Logo"} width={width} height={height} className={className} />;
+    return (
+      <img
+        src={src}
+        alt={alt ?? "SELISE Logo"}
+        width={width}
+        height={height}
+        className={className}
+      />
+    );
   }
 
   return (
     <>
       <img
-        src="/Logo_Black.svg"
+        src="../../public/Logo_Black.svg"
         alt={alt ?? "SELISE Logo"}
         width={width}
         height={height}
         className={`${className ?? ""} dark:hidden`}
       />
       <img
-        src="/Logo_White.svg"
+        src="../../public/Logo_White.svg"
         alt={alt ?? "SELISE Logo"}
         width={width}
         height={height}

@@ -1,17 +1,17 @@
-import { useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "@/store/useAuthStore";
 import {
   useImpersonationStatusChecker,
   useStartImpersonation,
   useStopImpersonation,
 } from "@/hooks/use-impersonation";
-import { useAppState } from "./public-guard";
 import { useGetMe } from "@/idp/iam/hooks/use-user";
-import { useImpersonateStore } from "@/store/impersonate-store";
-import { useProjectStore } from "@/store/useProjectStore";
-import { ImpersonationRequest } from "@/services/impersonation.service";
 import { getRuntimeEnv } from "@/lib/runtime-env";
+import { ImpersonationRequest } from "@/services/impersonation.service";
+import { useImpersonateStore } from "@/store/impersonate-store";
+import { useAuthStore } from "@/store/useAuthStore";
+import { useProjectStore } from "@/store/useProjectStore";
+import { useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAppState } from "./public-guard";
 
 export function ProtectedGuard({ children }: { children: React.ReactNode }) {
   const { isMounted } = useAppState();
@@ -95,7 +95,7 @@ export function ImpersonationSynchronizer({
 
     isTriggering.current = true;
     const payload: ImpersonationRequest = {
-      targetTenantId: selectedProject.tenantId,
+      targeted_tenant_id: selectedProject.tenantId,
     };
     mutateAsync(payload)
       .then(() => {

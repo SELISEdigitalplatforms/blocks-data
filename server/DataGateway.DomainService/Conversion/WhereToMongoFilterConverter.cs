@@ -1,0 +1,266 @@
+using DataGateway.DomainService.Entities;
+using DataGateway.DomainService.Helpers;
+using DataGateway.DomainService.Models;
+using DataGateway.DomainService.Models.Constants;
+using MongoDB.Bson;
+using System.Collections;
+using System.Text.RegularExpressions;
+
+namespace DataGateway.DomainService.Conversion;
+
+/// <summary>
+/// Converts GraphQL-typed where input (dictionary tree) to MongoDB filter document.
+/// Validates field names against schema and rejects operator injection.
+/// </summary>
+public static class WhereToMongoFilterConverter
+{
+    private static readonly HashSet<string> AllowedStringOps = new(StringComparer.OrdinalIgnoreCase)
+        { "eq", "neq", "contains", "startsWith", "endsWith", "in" };
+    private static readonly HashSet<string> AllowedNumberOps = new(StringComparer.OrdinalIgnoreCase)
+        { "eq", "neq", "gt", "gte", "lt", "lte", "in" };
+    private static readonly HashSet<string> AllowedBoolOps = new(StringComparer.OrdinalIgnoreCase)
+        { "eq", "neq" };
+    private static readonly HashSet<string> AllowedDateTimeOps = new(StringComparer.OrdinalIgnoreCase)
+        { "eq", "neq", "gt", "gte", "lt", "lte", "in" };
+
+    /// <summary>
+    /// Converts a typed where object (from GraphQL) to a MongoDB BsonDocument filter.
+    /// </summary>
+    /// <param name="where">Dictionary representation of the where input (field -> operation object or nested where).</param>
+    /// <param name="schema">Schema used to validate field names and types.</param>
+    /// <param name="pathPrefix">Current path prefix for nested validation (e.g. "Address.").</param>
+    /// <returns>BsonDocument filter, or null if where is null/empty.</returns>
+    public static BsonDocument? Convert(
+        object? where,
+        SchemaDefinitionExtended schema,
+        string pathPrefix = "")
+    {
+        if (where is null) return null;
+        if (where is not IReadOnlyDictionary<string, object?> dict || dict.Count == 0)
+            return null;
+
+        var allowedFields = GetAllowedFieldNames(schema, pathPrefix);
+        var elements = new List<BsonElement>();
+
+        foreach (var kv in dict)
+        {
+            var key = kv.Key;
+            if (string.IsNullOrWhiteSpace(key) || key.StartsWith("$", StringComparison.Ordinal))
+                throw new ArgumentException($"Invalid or disallowed field name: '{key}'.");
+
+            var fullPath = string.IsNullOrEmpty(pathPrefix) ? key : $"{pathPrefix}.{key}";
+            if (!allowedFields.Contains(key))
+                throw new ArgumentException($"Field '{fullPath}' is not defined on the schema.");
+
+            var fieldDef = GetFieldDefinition(schema, fullPath)
+                ?? throw new ArgumentException($"Field '{fullPath}' is not defined on the schema.");
+
+            var value = kv.Value;
+            if (value is null) continue;
+
+            var dbFieldName = key == nameof(Entities.GraphQlBaseEntity.ItemId) ? GraphQlConstant.DbEntityIdFieldName : key;
+            if (GraphQlTypeHelper.IsScalar(fieldDef.Type))
+            {
+                var opBson = ConvertScalarOperation(fieldDef.Type, dbFieldName, value);
+                if (opBson != null)
+                    elements.AddRange(opBson.Elements);
+            }
+            else
+            {
+                var nested = Convert(value, schema, fullPath);
+                if (nested != null && nested.ElementCount > 0)
+                    elements.Add(new BsonElement(key, nested));
+            }
+        }
+
+        if (elements.Count == 0) return null;
+        if (elements.Count == 1) return new BsonDocument(elements[0].Name, elements[0].Value);
+        return new BsonDocument("$and", new BsonArray(elements.Select(e => new BsonDocument(e.Name, e.Value))));
+    }
+
+    private static BsonDocument? ConvertScalarOperation(string scalarType, string fieldName, object value)
+    {
+        var opDict = CoerceOperationDictionary(value);
+        if (opDict is null || opDict.Count == 0)
+            return null;
+
+        var allowedOps = GetAllowedOps(scalarType);
+        var clauses = new List<BsonElement>();
+
+        foreach (var op in opDict)
+        {
+            if (op.Value is null) continue;
+            var opKey = op.Key;
+            if (string.IsNullOrWhiteSpace(opKey) || !allowedOps.Contains(opKey))
+                throw new ArgumentException($"Unsupported or invalid operator: '{opKey}' for type {scalarType}.");
+
+            var mongoOp = MapOperatorToMongo(opKey);
+            BsonValue bsonVal;
+            if (mongoOp == "$regex")
+            {
+                var str = op.Value?.ToString() ?? string.Empty;
+                var lowerOp = opKey.ToLowerInvariant();
+                var pattern = lowerOp == "contains"
+                    ? Regex.Escape(str)
+                    : lowerOp == "startswith"
+                        ? "^" + Regex.Escape(str)
+                        : Regex.Escape(str) + "$";
+                bsonVal = new BsonRegularExpression(pattern, "i");
+            }
+            else if (op.Value is IList<object?> listVal)
+                bsonVal = new BsonArray(listVal.Select(BsonValue.Create).ToArray());
+            else if (op.Value is IEnumerable enumerable and not string)
+                bsonVal = new BsonArray(enumerable.Cast<object>().Select(BsonValue.Create).ToArray());
+            else
+                bsonVal = BsonValue.Create(op.Value);
+
+            if (mongoOp == "$eq" && bsonVal.BsonType == BsonType.String && string.IsNullOrEmpty(bsonVal.AsString))
+                continue;
+
+            clauses.Add(new BsonElement(mongoOp, bsonVal));
+        }
+
+        if (clauses.Count == 0) return null;
+        return new BsonDocument(fieldName, new BsonDocument(clauses));
+    }
+
+    /// <summary>
+    /// HotChocolate may pass CLR operation inputs (with Optional fields) or dictionary trees;
+    /// normalize to a case-insensitive key dictionary for mapping.
+    /// </summary>
+    private static IReadOnlyDictionary<string, object?>? CoerceOperationDictionary(object value) =>
+        value switch
+        {
+            StringOperationFilterInput s => Flatten(s),
+            NumberOperationFilterInput n => Flatten(n),
+            IntOperationFilterInput i => Flatten(i),
+            BooleanOperationFilterInput b => Flatten(b),
+            DateTimeOperationFilterInput dt => Flatten(dt),
+            IReadOnlyDictionary<string, object?> d => d,
+            IDictionary<string, object?> dict =>
+                dict as IReadOnlyDictionary<string, object?>
+                ?? dict.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+            _ => null
+        };
+
+    private static Dictionary<string, object?> Flatten(StringOperationFilterInput x)
+    {
+        var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        if (x.Eq.HasValue) d["eq"] = x.Eq.Value;
+        if (x.Neq.HasValue) d["neq"] = x.Neq.Value;
+        if (x.Contains.HasValue) d["contains"] = x.Contains.Value;
+        if (x.StartsWith.HasValue) d["startsWith"] = x.StartsWith.Value;
+        if (x.EndsWith.HasValue) d["endsWith"] = x.EndsWith.Value;
+        if (x.In.HasValue) d["in"] = x.In.Value;
+        return d;
+    }
+
+    private static Dictionary<string, object?> Flatten(NumberOperationFilterInput x)
+    {
+        var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        if (x.Eq.HasValue) d["eq"] = x.Eq.Value;
+        if (x.Neq.HasValue) d["neq"] = x.Neq.Value;
+        if (x.Gt.HasValue) d["gt"] = x.Gt.Value;
+        if (x.Gte.HasValue) d["gte"] = x.Gte.Value;
+        if (x.Lt.HasValue) d["lt"] = x.Lt.Value;
+        if (x.Lte.HasValue) d["lte"] = x.Lte.Value;
+        if (x.In.HasValue) d["in"] = x.In.Value;
+        return d;
+    }
+
+    private static Dictionary<string, object?> Flatten(IntOperationFilterInput x)
+    {
+        var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        if (x.Eq.HasValue) d["eq"] = x.Eq.Value;
+        if (x.Neq.HasValue) d["neq"] = x.Neq.Value;
+        if (x.Gt.HasValue) d["gt"] = x.Gt.Value;
+        if (x.Gte.HasValue) d["gte"] = x.Gte.Value;
+        if (x.Lt.HasValue) d["lt"] = x.Lt.Value;
+        if (x.Lte.HasValue) d["lte"] = x.Lte.Value;
+        if (x.In.HasValue) d["in"] = x.In.Value;
+        return d;
+    }
+
+    private static Dictionary<string, object?> Flatten(BooleanOperationFilterInput x)
+    {
+        var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        if (x.Eq.HasValue) d["eq"] = x.Eq.Value;
+        if (x.Neq.HasValue) d["neq"] = x.Neq.Value;
+        return d;
+    }
+
+    private static Dictionary<string, object?> Flatten(DateTimeOperationFilterInput x)
+    {
+        var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        if (x.Eq.HasValue) d["eq"] = x.Eq.Value;
+        if (x.Neq.HasValue) d["neq"] = x.Neq.Value;
+        if (x.Gt.HasValue) d["gt"] = x.Gt.Value;
+        if (x.Gte.HasValue) d["gte"] = x.Gte.Value;
+        if (x.Lt.HasValue) d["lt"] = x.Lt.Value;
+        if (x.Lte.HasValue) d["lte"] = x.Lte.Value;
+        if (x.In.HasValue) d["in"] = x.In.Value;
+        return d;
+    }
+
+    private static string MapOperatorToMongo(string opKey)
+    {
+        return opKey.ToLowerInvariant() switch
+        {
+            "eq" => "$eq",
+            "neq" => "$ne",
+            "gt" => "$gt",
+            "gte" => "$gte",
+            "lt" => "$lt",
+            "lte" => "$lte",
+            "in" => "$in",
+            "contains" => "$regex",
+            "startswith" => "$regex",
+            "endswith" => "$regex",
+            _ => throw new ArgumentException($"Unsupported operator: '{opKey}'.")
+        };
+    }
+
+    private static HashSet<string> GetAllowedOps(string scalarType)
+    {
+        return scalarType switch
+        {
+            "String" or "ID" => AllowedStringOps,
+            "Int" or "Float" => AllowedNumberOps,
+            "Boolean" => AllowedBoolOps,
+            "DateTime" => AllowedDateTimeOps,
+            _ => AllowedStringOps
+        };
+    }
+
+    private static HashSet<string> GetAllowedFieldNames(SchemaDefinitionExtended schema, string pathPrefix)
+    {
+        if (string.IsNullOrEmpty(pathPrefix))
+            return schema.Fields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var parts = pathPrefix.Split('.');
+        var current = schema.Fields.AsEnumerable();
+        for (var i = 0; i < parts.Length && current.Any(); i++)
+        {
+            var next = current.FirstOrDefault(f => f.Name.Equals(parts[i], StringComparison.OrdinalIgnoreCase));
+            if (next?.Fields == null || !next.Fields.Any())
+                return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            current = next.Fields;
+        }
+        return current.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static FieldDefinitionResponse? GetFieldDefinition(SchemaDefinitionExtended schema, string fullPath)
+    {
+        var parts = fullPath.Split('.');
+        IList<FieldDefinitionResponse>? current = schema.Fields;
+        FieldDefinitionResponse? last = null;
+        foreach (var part in parts)
+        {
+            if (current == null) return null;
+            last = current.FirstOrDefault(f => f.Name.Equals(part, StringComparison.OrdinalIgnoreCase));
+            if (last == null) return null;
+            current = last.Fields?.Count > 0 ? last.Fields : null;
+        }
+        return last;
+    }
+}

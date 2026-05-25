@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <Compile Remove="Configuration\Utilities\**" />
+    <EmbeddedResource Remove="Configuration\Utilities\**" />
+    <None Remove="Configuration\Utilities\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="Azure.Storage.Blobs" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="SeliseBlocks.Genesis" />
+    <PackageReference Include="SSH.NET" />
+  </ItemGroup>
+</Project>

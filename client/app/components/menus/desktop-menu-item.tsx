@@ -7,9 +7,11 @@ import { Menu } from "@/models/menu-models";
 
 type MenuItemType = Extract<Menu, { type: "menu" }>;
 
+const pathPrefix = (path: string) => path.split("?")[0] ?? path
+
 function ChildMenuItem({ menu }: { menu: MenuItemType }) {
-  const { pathname } = useLocation();
-  const isActiveMenu = pathname.startsWith(menu.path);
+  const { pathname } = useLocation()
+  const isActiveMenu = pathname.startsWith(pathPrefix(menu.path))
 
   return (
     <Link
@@ -30,14 +32,14 @@ export function DesktopMenuItem({ menu, isSidebarOpen }: { menu: MenuItemType; i
   const { pathname } = useLocation();
 
   const isActiveMenu = useMemo(() => {
-    const allPaths = [menu.path];
+    const allPaths = [pathPrefix(menu.path)]
     if (menu.children) {
       menu.children.forEach((child) => {
-        if (child.type === "menu") allPaths.push(child.path);
-      });
+        if (child.type === "menu") allPaths.push(pathPrefix(child.path))
+      })
     }
-    return allPaths.some((item) => pathname.startsWith(item));
-  }, [menu.children, menu.path, pathname]);
+    return allPaths.some((item) => pathname.startsWith(item))
+  }, [menu.children, menu.path, pathname])
 
   const hasChildren = Boolean(menu.children?.length);
 

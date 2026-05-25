@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Version>9.0.0-preview.16</Version>
+    <PackageId>SeliseBlocks.StorageDriver</PackageId>
+    <Authors>SeliseBlocks</Authors>
+    <Company>SeliseBlocks</Company>
+    <Description>Blocks Storage Driver</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>Genesis, BlocksGenesis, SeliseBlocksGenesis, Storage , Driver</PackageTags>
+    <RepositoryUrl>https://github.com/SELISEdigitalplatforms/l1-net-generic-storage</RepositoryUrl>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  
+  <ItemGroup>
+    <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="Azure.Storage.Blobs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Storage.DomainService\Storage.DomainService.csproj" PrivateAssets="All" />
+    <None Remove="bin\Release\net9.0\Storage.DomainService.dll" />
+    <None Include="$(OutputPath)Storage.DomainService.dll" Pack="true" PackagePath="lib/net9.0/" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+</Project>

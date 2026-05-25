@@ -1,23 +1,22 @@
-using BlocksTemplate.Api;
 using Blocks.Genesis;
-using Cloud.DomainService.Utilities;
-using DomainService.Utilities;
-using DomainService.Shared;
-using FluentValidation.AspNetCore;
+using BlocksTemplate.Api;
+using DataGateway.DomainService;
+using DataGateway.DomainService.Middlewares;
+using DataGateway.DomainService.Models.Constants;
+using DataGateway.DomainService.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using Cloud.LmtService.Utilities;
-using CloudConfiguration.DomainService.Shared.Utilities;
-using Microsoft.IdentityModel.Tokens;
-using Cloud.LmtService.Models.Trace;
+using Storage.DomainService.Utilities;
 
-var serviceName = "blocks-os-api";
-var vaultType = ResolveVaultType();
-Console.WriteLine($"Using Genesis vault type: {vaultType}");
-var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(serviceName, vaultType);
+var serviceName = GraphQlConstant.ApiServiceName;
+//var vaultType = ResolveVaultType();
+//Console.WriteLine($"Using Genesis vault type: {vaultType}");
+var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(serviceName, VaultType.Azure);
+var cloudBuildSecret = await CloudBuildSecret.ProcessBlocksSecret(VaultType.Azure);
+
 var builder = WebApplication.CreateBuilder(args);
 
-ApplicationConfigurations.ConfigureServices(builder.Services, IdpConstants.GetMessageConfiguration(secret.MessageConnectionString));
+ApplicationConfigurations.ConfigureServices(builder.Services, GraphQlConstant.GetMessageConfiguration(secret.MessageConnectionString));
 
 builder.Services.Configure<FormOptions>(options =>
 {
@@ -25,10 +24,12 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 var services = builder.Services;
+// Register CloudBuildSecret as Singleton
+services.AddSingleton<ICloudBuildSecret>(cloudBuildSecret);
 
 services.AddHealthChecks();
 
-ApplicationConfigurations.ConfigureApi(services);
+ApplicationConfigurations.ConfigureApi(services, serviceName);
 
 builder.Services.Configure<MvcOptions>(options =>
 {
@@ -38,56 +39,79 @@ builder.Services.Configure<MvcOptions>(options =>
 var wwwrootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 Directory.CreateDirectory(wwwrootPath);
 
-ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath);
+//ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath);
 
-services.RegisterAllServices();
-services.AddApplicationServices();
-services.AddCloudDomainServices();
-services.AddCloudLmtServices();
-services.AddCloudConfigurationServices();
+services.AddDataGatewayDomainServices();
+services.AddStorageDomainServices();
 
 var app = builder.Build();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
-if (File.Exists(indexHtml))
-{
-    app.MapFallbackToFile("/index.html");
-   // x-blocks-key cookie
-   // check if domain match 
-   // get google captch key BLOCKS_GOOGLE_SITE_KEY
-   // Base Url 
-   // Construct URL 
- 
-    
-}
+app.MapGraphQL("/api/gateway"); //.WithDisplayName("GraphQL");
+app.UseMiddleware<RequestContextMiddleware>();
+
+app.MapControllers();
 
 ApplicationConfigurations.ConfigureMiddleware(app);
 
-await app.RunAsync();
+var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
 
-static VaultType ResolveVaultType()
+if (File.Exists(indexHtml))
 {
-    var configuredVaultType = Environment.GetEnvironmentVariable("BLOCKS_VAULT_TYPE");
-    if (!string.IsNullOrWhiteSpace(configuredVaultType) &&
-        Enum.TryParse<VaultType>(configuredVaultType, true, out var parsedVaultType))
+
+    app.MapFallback(async context =>
     {
-        return parsedVaultType;
-    }
+        var tenantService = context.RequestServices.GetRequiredService<ITenants>();
+        var host = context.Request.Host.Value;
+        var tenant = tenantService.GetTenantByApplicationDomain(host);
+        ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath, tenant.TenantId, string.Empty);
+        var domain = tenant.Applications.FirstOrDefault(app => app.CookieDomain == host)?.CookieDomain;
 
-    var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ??
-                      Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+        context.Response.Cookies.Append("x-blocks-key", tenant.TenantId, new CookieOptions
+        {
+            Domain = domain,
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.None,
+            Path = "/"
+        });
 
-    return string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase)
-        ? VaultType.OnPrem
-        : VaultType.Azure;
+        await context.Response.SendFileAsync(indexHtml);
+
+    });
+
+    // x-blocks-key cookie
+    // check if domain match 
+    // get google captch key BLOCKS_GOOGLE_SITE_KEY
+    // Base Url 
+    // Construct URL 
+
 }
 
-static void ApplyFrontendRuntimeSettings(IConfiguration configuration, string webRootPath)
+await app.RunAsync();
+
+//static VaultType ResolveVaultType()
+//{
+//    var configuredVaultType = Environment.GetEnvironmentVariable("BLOCKS_VAULT_TYPE");
+//    if (!string.IsNullOrWhiteSpace(configuredVaultType) &&
+//        Enum.TryParse<VaultType>(configuredVaultType, true, out var parsedVaultType))
+//    {
+//        return parsedVaultType;
+//    }
+
+//    var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ??
+//                      Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+
+//    return string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase)
+//        ? VaultType.OnPrem
+//        : VaultType.Azure;
+//}
+
+static void ApplyFrontendRuntimeSettings(IConfiguration configuration, string webRootPath, string blocksKey, string googleSiteKey)
 {
-  //  var envFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+    //  var envFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
     //var section = configuration.GetSection("FrontendRuntime");
     //var replacements = new Dictionary<string, string?>
     //{
@@ -99,13 +123,20 @@ static void ApplyFrontendRuntimeSettings(IConfiguration configuration, string we
 
     DotNetEnv.Env.Load();
 
+    // blocksKey = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("BLOCKS_X_BLOCKS_KEY")) ? Environment.GetEnvironmentVariable("BLOCKS_X_BLOCKS_KEY") : blocksKey;
+    // googleSiteKey = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("BLOCKS_GOOGLE_SITE_KEY")) ? Environment.GetEnvironmentVariable("BLOCKS_GOOGLE_SITE_KEY") : googleSiteKey;
+
     var replacements = new Dictionary<string, string?>
     {
         ["__BLOCKS_API_BASE_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_API_BASE_URL"),
         ["__BLOCKS_X_BLOCKS_KEY__"] = Environment.GetEnvironmentVariable("BLOCKS_X_BLOCKS_KEY"),
         ["__BLOCKS_GOOGLE_SITE_KEY__"] = Environment.GetEnvironmentVariable("BLOCKS_GOOGLE_SITE_KEY"),
         ["__BLOCKS_CONSTRUCT_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_CONSTRUCT_URL"),
+        ["__BLOCKS_OIDC_CLIENT_ID__"] = Environment.GetEnvironmentVariable("BLOCKS_OIDC_CLIENT_ID"),
+        ["__BLOCKS_LOGIC_BASE_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_LOGIC_BASE_URL"),
+        ["__BLOCKS_IDP_BASE_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_IDP_BASE_URL"),
     };
+
 
     var files = Directory.EnumerateFiles(webRootPath, "*", SearchOption.AllDirectories)
         .Where(path =>

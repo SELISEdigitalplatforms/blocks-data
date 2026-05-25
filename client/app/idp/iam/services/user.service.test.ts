@@ -68,7 +68,11 @@ describe("UserService", () => {
 
       const result = await service.getUser();
 
-      expect(http.get).toHaveBeenCalledWith(USER_ENDPOINTS.GET_USER);
+      expect(http.get).toHaveBeenCalledWith(
+        `${USER_ENDPOINTS.GET_USER}`,
+        undefined,
+        { absoluteUrl: true },
+      );
       expect(result).toEqual(mockResponse);
     });
 
@@ -89,6 +93,8 @@ describe("UserService", () => {
 
       expect(http.get).toHaveBeenCalledWith(
         `${USER_ENDPOINTS.GET_USER}?id=${payload.id}&ProjectKey=${payload.projectKey}`,
+        undefined,
+        { absoluteUrl: true },
       );
       expect(result).toEqual({ data: mockUser });
     });

@@ -113,7 +113,4 @@ export const router = createBrowserRouter([
 
   // ── Root redirect: authenticated users go to console ──
   { path: "/", element: <Navigate to="/console" replace /> },
-
-  // ── Catch-all: redirect to login ──
-  { path: "*", element: <Navigate to="/login" replace /> },
 ]);

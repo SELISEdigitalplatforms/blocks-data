@@ -20,9 +20,9 @@ export const DataServiceLogs = () => {
             serviceName: "blocks-data",
           },
           {
-            id: "blocks-uds-worker",
+            id: "blocks-data-worker",
             label: "Worker",
-            serviceName: "blocks-uds-worker",
+            serviceName: "blocks-data-worker",
           },
         ]}
         predefinedQueries={[

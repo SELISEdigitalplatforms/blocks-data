@@ -1,8 +1,18 @@
-import { useState } from "react";
-import { getRuntimeEnv } from "@/lib/runtime-env";
-import { useNavigate } from "react-router-dom";
-import { RegisteredService } from "@/identifier/models/service.model";
+import { MaskedText } from "@/components/masked-text";
+import { AccordionTrigger } from "@/components/ui-kits/accordion/accordion";
+import { Badge } from "@/components/ui-kits/badge/badge";
 import { Button } from "@/components/ui-kits/button/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui-kits/dropdown-menu/dropdown-menu";
+import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
+import { showSuccessToast } from "@/hooks/use-toast";
+import { RegisteredService } from "@/identifier/models/service.model";
+import { getRuntimeEnv } from "@/lib/runtime-env";
+import { AccordionContent } from "@radix-ui/react-accordion";
 import {
   BookOpen,
   Braces,
@@ -10,20 +20,16 @@ import {
   EllipsisVertical,
   FileText,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui-kits/dropdown-menu/dropdown-menu";
-import { MaskedText } from "@/components/masked-text";
-import { useCopyToClipboard } from "@/hooks/use-copy-to-clipboard";
-import { showSuccessToast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui-kits/badge/badge";
-import { AccordionTrigger } from "@/components/ui-kits/accordion/accordion";
-import { AccordionContent } from "@radix-ui/react-accordion";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-const ServiceCardCopiedItem = ({ label, value }: { label: string; value: string }) => {
+const ServiceCardCopiedItem = ({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) => {
   const { copy } = useCopyToClipboard();
 
   return (
@@ -37,7 +43,11 @@ const ServiceCardCopiedItem = ({ label, value }: { label: string; value: string 
           variant="ghost"
           size="sm"
           className="h-5 w-5 p-0 text-gray-400 hover:text-gray-600"
-          onClick={() => copy(value, () => showSuccessToast({ description: `${label} copied` }))}
+          onClick={() =>
+            copy(value, () =>
+              showSuccessToast({ description: `${label} copied` }),
+            )
+          }
         >
           <Copy className="h-4 w-4" />
         </Button>
@@ -66,7 +76,7 @@ export const ServiceCard = ({ service }: { service: RegisteredService }) => {
   const [showAllTags, setShowAllTags] = useState(false);
   const navigate = useNavigate();
 
-  const swaggerUrl = `${getRuntimeEnv("BLOCKS_API_BASE_URL")}/identifier/v1/swagger/index.html`;
+  const swaggerUrl = `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/identifier/v1/swagger/index.html`;
   const docsUrl = "https://docs.seliseblocks.com/";
 
   return (
@@ -102,13 +112,17 @@ export const ServiceCard = ({ service }: { service: RegisteredService }) => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={() => window.open(swaggerUrl, "_blank", "noopener,noreferrer")}
+                  onClick={() =>
+                    window.open(swaggerUrl, "_blank", "noopener,noreferrer")
+                  }
                 >
                   <Braces className="mr-2 aspect-square w-4" />
                   Swagger
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onClick={() => window.open(docsUrl, "_blank", "noopener,noreferrer")}
+                  onClick={() =>
+                    window.open(docsUrl, "_blank", "noopener,noreferrer")
+                  }
                 >
                   <BookOpen className="mr-2 aspect-square w-4" />
                   Docs
@@ -122,29 +136,41 @@ export const ServiceCard = ({ service }: { service: RegisteredService }) => {
       <AccordionContent className="p-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           <ServiceCardCopiedItem label="Service ID" value={service.serviceId} />
-          {service.serviceBusConnectionString && service.serviceType !== "frontend" && (
-            <ServiceCardCopiedItem
-              label="Connection String"
-              value={service.serviceBusConnectionString}
-            />
-          )}
-          <ServiceCardCopiedItem label="X-Blocks-Key" value={service.tenantId} />
+          {service.serviceBusConnectionString &&
+            service.serviceType !== "frontend" && (
+              <ServiceCardCopiedItem
+                label="Connection String"
+                value={service.serviceBusConnectionString}
+              />
+            )}
+          <ServiceCardCopiedItem
+            label="X-Blocks-Key"
+            value={service.tenantId}
+          />
         </div>
 
         {service.description && (
           <div className="mt-3 text-sm">
             <h3 className="text-low-emphasis">Description</h3>
-            <p className="break-words text-high-emphasis">{service.description}</p>
+            <p className="break-words text-high-emphasis">
+              {service.description}
+            </p>
           </div>
         )}
 
         {service.tags?.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1">
-            {(showAllTags ? service.tags : service.tags.slice(0, 4)).map((tag, index) => (
-              <Badge key={`${tag}-${index}`} variant="secondary" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
+            {(showAllTags ? service.tags : service.tags.slice(0, 4)).map(
+              (tag, index) => (
+                <Badge
+                  key={`${tag}-${index}`}
+                  variant="secondary"
+                  className="text-xs"
+                >
+                  {tag}
+                </Badge>
+              ),
+            )}
             {!showAllTags && service.tags.length > 4 && (
               <Badge
                 variant="secondary"

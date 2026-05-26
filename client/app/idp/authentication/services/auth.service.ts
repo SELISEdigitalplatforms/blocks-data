@@ -1,10 +1,16 @@
+import {
+  PEOPLE_ENDPOINTS,
+  PROJECT_ENDPOINTS,
+} from "@/identifier/constants/endpoint.constant";
+import { IGetProjectLoginOptionResponse } from "@/identifier/models/project.model";
 import { http } from "@/lib/http-client";
 import { getRuntimeEnv } from "@/lib/runtime-env";
-import { PEOPLE_ENDPOINTS, PROJECT_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
-import { IGetProjectLoginOptionResponse } from "@/identifier/models/project.model";
 import { useAuthStore } from "@/store/useAuthStore";
 import { GRANT_TYPES } from "../constants/authentication.constant";
-import { AUTH_ENDPOINTS, AUTH_OIDC_ENDPOINTS } from "../constants/endpoint.constant";
+import {
+  AUTH_ENDPOINTS,
+  AUTH_OIDC_ENDPOINTS,
+} from "../constants/endpoint.constant";
 import type {
   ISigninByEmailPayload,
   ISigninByEmailResponse,
@@ -20,7 +26,9 @@ export interface IVerifyOidcPayload {
 }
 
 export class AuthService {
-  signinByEmail(payload: ISigninByEmailPayload): Promise<ISigninByEmailResponse> {
+  signinByEmail(
+    payload: ISigninByEmailPayload,
+  ): Promise<ISigninByEmailResponse> {
     const body = new URLSearchParams();
     body.append("grant_type", GRANT_TYPES.password);
     body.append("username", payload.username);
@@ -51,7 +59,9 @@ export class AuthService {
     });
   }
 
-  signupByEmail(payload: ISignupByEmailPayload): Promise<ISignupByEmailResponse> {
+  signupByEmail(
+    payload: ISignupByEmailPayload,
+  ): Promise<ISignupByEmailResponse> {
     return http.post(PEOPLE_ENDPOINTS.SIGNUP, payload);
   }
 
@@ -74,9 +84,15 @@ export class AuthService {
   }
 
   logout() {
-    const isLocalhost = getRuntimeEnv("BLOCKS_API_BASE_URL")?.includes("localhost");
-    const refreshToken = isLocalhost ? (useAuthStore.getState().refreshToken || "") : "";
-    return http.post(AUTH_ENDPOINTS.LOGOUT, { refreshToken }, undefined, { absoluteUrl: true });
+    const isLocalhost = getRuntimeEnv("BLOCKS_DATA_BASE_URL")?.includes(
+      "localhost",
+    );
+    const refreshToken = isLocalhost
+      ? useAuthStore.getState().refreshToken || ""
+      : "";
+    return http.post(AUTH_ENDPOINTS.LOGOUT, { refreshToken }, undefined, {
+      absoluteUrl: true,
+    });
   }
 }
 

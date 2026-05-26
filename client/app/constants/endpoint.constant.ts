@@ -34,7 +34,7 @@ export const API_BASES = {
   UILM: "/api",
   UTILITIES: "/api",
   CLOUD_BUILD: "/api",
-  IDP: getRuntimeEnv("BLOCKS_IDP_BASE_URL") + "/api",
+  IDP: getRuntimeEnv("BLOCKS_IAM_BASE_URL") + "/api",
   IDENTIFIER: "/api",
   LMT: "/api",
   MFA: "/api",
@@ -47,7 +47,7 @@ export const API_BASES = {
 /** GraphQL gateway host (execute / reload / ping). */
 export const getGraphqlGatewayExecuteOrigin = (): string => {
   // Keep gateway aligned with runtime API host (e.g., stg-data) when dedicated env is not provided.
-  const fromApiBase = tryGetOrigin(getRuntimeEnv("BLOCKS_API_BASE_URL"));
+  const fromApiBase = tryGetOrigin(getRuntimeEnv("BLOCKS_DATA_BASE_URL"));
   if (fromApiBase) return fromApiBase;
 
   const fromEnv = trimTrailingSlash(

@@ -199,9 +199,29 @@ class ConfigurationService {
     );
   }
 
-  getPodActiveStatus(slug: string): Promise<undefined | { status: string }> {
+  async getPodActiveStatus(
+    slug: string,
+  ): Promise<undefined | { status: string }> {
     const url = `${getGraphqlGatewayExecuteOrigin()}/${slug}/ping`;
-    return http.get(url, undefined, { absoluteUrl: true });
+
+    try {
+      const response = await http.get<unknown>(url, undefined, {
+        absoluteUrl: true,
+      });
+
+      if (
+        response &&
+        typeof response === "object" &&
+        "status" in response &&
+        typeof response.status === "string"
+      ) {
+        return { status: response.status };
+      }
+
+      return undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   initiateDataGatewayPipeline(

@@ -81,14 +81,30 @@ export function ImpersonationSynchronizer({
 }: {
   children: React.ReactNode;
 }) {
-  const { impersonate, isImpersonated, impersonatedTenantId } =
+  const { impersonate, terminate, isImpersonated, impersonatedTenantId } =
     useImpersonateStore();
-  const { mutateAsync } = useStartImpersonation();
+  const { mutateAsync: startMutation } = useStartImpersonation();
+  const { mutateAsync: stopMutation } = useStopImpersonation();
 
   const { selectedProject } = useProjectStore();
   const isTriggering = useRef(false);
 
   useEffect(() => {
+    // Stop impersonation if no project but still impersonated
+    if (!selectedProject?.tenantId && isImpersonated && !isTriggering.current) {
+      isTriggering.current = true;
+      stopMutation(undefined)
+        .then(() => {
+          terminate(getRuntimeEnv("BLOCKS_X_BLOCKS_KEY"));
+          isTriggering.current = false;
+        })
+        .catch(() => {
+          isTriggering.current = false;
+        });
+      return;
+    }
+
+    // Start impersonation if project selected and different from current
     if (!selectedProject?.tenantId) return;
     if (selectedProject.tenantId === impersonatedTenantId) return;
     if (isTriggering.current) return;
@@ -97,7 +113,7 @@ export function ImpersonationSynchronizer({
     const payload: ImpersonationRequest = {
       targeted_tenant_id: selectedProject.tenantId,
     };
-    mutateAsync(payload)
+    startMutation(payload)
       .then(() => {
         impersonate(
           selectedProject.tenantId,
@@ -110,8 +126,11 @@ export function ImpersonationSynchronizer({
       });
   }, [
     selectedProject?.tenantId,
-    mutateAsync,
+    startMutation,
+    stopMutation,
     impersonate,
+    terminate,
+    isImpersonated,
     impersonatedTenantId,
   ]);
   if (!isImpersonated || isTriggering.current) return null;
@@ -121,7 +140,7 @@ export function ImpersonationSynchronizer({
 /**
  * Composes the three impersonation components together for backward compatibility.
  * - ImpersonationChecker: syncs state from API on mount
- * - ImpersonationSynchronizer: starts impersonation when project changes
+ * - ImpersonationSynchronizer: starts impersonation when project changes, stops when project cleared
  * - ImpersonationTerminator: stops impersonation when component unmounts
  */
 export function ImpersonateGuard({ children }: { children: React.ReactNode }) {

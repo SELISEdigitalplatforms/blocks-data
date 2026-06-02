@@ -39,6 +39,7 @@ import LoginCallbackPage from "./routes/auth/callback";
 import LoginSimplePage from "./routes/auth/login-simple";
 import CallbackPage from "./routes/callback/callback";
 import { PublicGuard } from "./guards/public-guard";
+import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
 
 
 export const router = createBrowserRouter([
@@ -67,15 +68,11 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // ── Dashboard and project overview in dashboard layout (consolidated sidebar) ──
-  
- 
-
-
-  // ── Dashboard layout (protected routes) ──
+  // ── Dashboard and project overview in dashboard layout (consolidated sidebar) ───
   {
     element: <DashboardLayout />,
     children: [
+      { path: "/dashboard", element: <DashboardOverview />},
       { path: "/services/iam", element: <IamPage /> },
       { path: "/services/iam/user-detail/:id", element: <IamUserDetailPage /> },
       { path: "/services/iam/role-detail/:id", element: <IamRoleDetailPage /> },
@@ -100,9 +97,8 @@ export const router = createBrowserRouter([
   },
 
   {
-    element: <DashboardLayout />,
+    element: <ProjectOverviewLayout />,
     children: [
-      { path: "/dashboard", element: <DashboardOverview /> },
       { path: "/project-overview", element: <Navigate to="/project-overview/environments" replace /> },
       { path: "/project-overview/environments", element: <EnvironmentsPage /> },
       { path: "/project-overview/people", element: <PeopleManagement /> },

@@ -24,26 +24,20 @@ class ImpersonationService {
   startImpersonation(
     request: ImpersonationRequest,
   ): Promise<ImpersonationState> {
-    return http.post(
-      `${IMPERSONATE_ENDPOINTS.IMPERSONATE}`,
-      request,
-      undefined,
-      { absoluteUrl: true },
-    );
+    return http.post(IMPERSONATE_ENDPOINTS.IMPERSONATE, request, undefined, {
+      absoluteUrl: true,
+    });
   }
 
   stopImpersonation(): Promise<void> {
-    return http.post(
-      `${IMPERSONATE_ENDPOINTS.STOP_IMPERSONATION}`,
-      {},
-      undefined,
-      { absoluteUrl: true },
-    );
+    return http.post(IMPERSONATE_ENDPOINTS.STOP_IMPERSONATION, {}, undefined, {
+      absoluteUrl: true,
+    });
   }
 
   impersonationStatus(): Promise<ImpersonationStatusResponse> {
     return http.post(
-      `${IMPERSONATE_ENDPOINTS.IMPERSONATION_STATUS}`,
+      IMPERSONATE_ENDPOINTS.IMPERSONATION_STATUS,
       null,
       undefined,
       { absoluteUrl: true },

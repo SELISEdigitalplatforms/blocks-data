@@ -17,9 +17,11 @@ export function SidebarMenuDesktop() {
 
   const getLogoSrc = () => {
     if (isSidebarOpen) {
-      return resolvedTheme === "dark" ? "/blocks-logos/Logo_White.svg" : "/blocks-logos/Logo_Black.svg";
+      return resolvedTheme === "dark"
+        ? "/blocks-logos/Logo_Black.svg"
+        : "/blocks-logos/Logo_White.svg";
     }
-    return resolvedTheme === "dark" ? "/Icon_White.svg" : "/Icon.svg";
+    return resolvedTheme === "dark" ? "/Icon_White.svg" : "/Icon_Black.svg";
   };
 
   return (

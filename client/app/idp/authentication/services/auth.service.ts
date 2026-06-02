@@ -5,6 +5,8 @@ import {
 import { IGetProjectLoginOptionResponse } from "@/identifier/models/project.model";
 import { http } from "@/lib/http-client";
 import { getRuntimeEnv } from "@/lib/runtime-env";
+import { impersonationService } from "@/services/impersonation.service";
+import { useImpersonateStore } from "@/store/impersonate-store";
 import { useAuthStore } from "@/store/useAuthStore";
 import { GRANT_TYPES } from "../constants/authentication.constant";
 import {
@@ -83,13 +85,19 @@ export class AuthService {
     );
   }
 
-  logout() {
+  async logout() {
     const isLocalhost = getRuntimeEnv("BLOCKS_DATA_BASE_URL")?.includes(
       "localhost",
     );
+    const { isImpersonated } = useImpersonateStore.getState();
     const refreshToken = isLocalhost
       ? useAuthStore.getState().refreshToken || ""
       : "";
+
+    if (isImpersonated) {
+      await impersonationService.stopImpersonation().catch(() => {});
+    }
+
     return http.post(AUTH_ENDPOINTS.LOGOUT, { refreshToken }, undefined, {
       absoluteUrl: true,
     });

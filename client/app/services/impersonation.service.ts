@@ -30,12 +30,9 @@ class ImpersonationService {
   }
 
   stopImpersonation(): Promise<void> {
-    return http.post(
-      IMPERSONATE_ENDPOINTS.STOP_IMPERSONATION,
-      null,
-      undefined,
-      { absoluteUrl: true },
-    );
+    return http.post(IMPERSONATE_ENDPOINTS.STOP_IMPERSONATION, {}, undefined, {
+      absoluteUrl: true,
+    });
   }
 
   impersonationStatus(): Promise<ImpersonationStatusResponse> {

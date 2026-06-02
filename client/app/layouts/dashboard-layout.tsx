@@ -9,11 +9,11 @@ import { SidebarMenuDesktop } from "@/layouts/sidebar-menu-desktop/sidebar-menu-
 import { Outlet } from "react-router-dom";
 export function DashboardLayout() {
   return (
-    <ProtectedGuard>
+     <ProtectedGuard>
       <ImpersonationChecker>
         <ImpersonationSynchronizer>
           <DashboardLayoutProvider isOpen={true} persist>
-            <div className="relative flex h-screen overflow-hidden bg-[hsl(var(--surface-app))]">
+            <div className="relative flex h-screen bg-[hsl(var(--surface-app))]">
               <SidebarMenuDesktop />
               <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                 <DashboardHeader />

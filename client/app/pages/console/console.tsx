@@ -1,14 +1,7 @@
-import { useEffect } from "react";
-import { useProjectStore } from "@/store/useProjectStore";
 import { DefaultDoc } from "./default-doc";
 import { SelfProject } from "./self-project";
 
 export const Console = () => {
-  const { resetSelectedProject } = useProjectStore();
-  useEffect(() => {
-    resetSelectedProject();
-  }, [resetSelectedProject]);
-
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
       {/* Ambient glow decorations */}

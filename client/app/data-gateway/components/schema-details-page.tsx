@@ -433,6 +433,7 @@ export const SchemaDetailsPage = () => {
                   selectedSchemaId={selectedSchemaId}
                   isServerActive={isServerActive}
                   isServerInitiating={isServerInitiating}
+                  isPodStatusLoading={isPodStatusLoading}
                   onServerStart={handleServerStart}
                   filterType={queryParams.type ?? "all"}
                   page={queryParams.page}

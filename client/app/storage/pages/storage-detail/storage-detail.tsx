@@ -1,26 +1,9 @@
 "use client";
-import { useMemo, useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
 import {
-  FileText,
-  Image as ImageIcon,
-  Music,
-  Video,
-  Folder,
-  Info,
-  LayoutGrid,
-  List,
-  Plus,
-  Upload,
-  FolderPlus,
-  MoreVertical,
-  ArrowLeft,
-} from "lucide-react";
-import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
-import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { Button } from "@/components/ui-kits/button/button";
-import { FilterChangeHandler, FilterToolbar } from "@/components/filter-toolbar";
-import { LogMenu } from "@/service-logs";
+  FilterChangeHandler,
+  FilterToolbar,
+} from "@/components/filter-toolbar";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -29,27 +12,16 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui-kits/breadcrumb/breadcrumb";
+import { Button } from "@/components/ui-kits/button/button";
+import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
-import { useDeleteFile, useDeleteFolder, useGetDmsFileAndFolder, useLazyGetFile } from "@/storage/hooks/use-storage-file";
-import {
-  IGetDmsFileAndFolderResponse,
-  IDmsFileAndFolderInfo,
-  DmsItemType,
-} from "@/storage/models/storage.model";
-import { UploadDmsFileModal } from "@/storage/components/upload-dms-file-modal";
-import { FilePreviewModal } from "@/storage/components/file-preview-modal";
-import {
-  FolderGridSkeleton,
-  FolderListSkeleton,
-  FileGridSkeleton,
-  FileListSkeleton,
-} from "./storage-detail-skeleton";
-import { CreateDmsNewFolder } from "@/storage/components/create-new-folder-modal/create-dms-new-folder";
+import { ScrollArea } from "@/components/ui-kits/scroll-area/scroll-area";
+import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import {
   Table,
   TableBody,
@@ -58,11 +30,45 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui-kits/table/table";
-import { ScrollArea } from "@/components/ui-kits/scroll-area/scroll-area";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
-import { Dialog } from "@/components/ui-kits/dialog/dialog";
+import { CreateDmsNewFolder } from "@/storage/components/create-new-folder-modal/create-dms-new-folder";
+import { FilePreviewModal } from "@/storage/components/file-preview-modal";
+import { UploadDmsFileModal } from "@/storage/components/upload-dms-file-modal";
+import {
+  useDeleteFile,
+  useDeleteFolder,
+  useGetDmsFileAndFolder,
+  useLazyGetFile,
+} from "@/storage/hooks/use-storage-file";
+import {
+  DmsItemType,
+  IDmsFileAndFolderInfo,
+  IGetDmsFileAndFolderResponse,
+} from "@/storage/models/storage.model";
 import { useProjectStore } from "@/store/useProjectStore";
+import {
+  FileText,
+  Folder,
+  FolderPlus,
+  Image as ImageIcon,
+  Info,
+  LayoutGrid,
+  List,
+  MoreVertical,
+  Music,
+  Plus,
+  Upload,
+  Video,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
+import {
+  FileGridSkeleton,
+  FileListSkeleton,
+  FolderGridSkeleton,
+  FolderListSkeleton,
+} from "./storage-detail-skeleton";
 
 type FilterValues = {
   search: string;
@@ -100,7 +106,8 @@ export function StorageDetail() {
   const storageId = params.get("id") as string;
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
-  const [isDeleteFolderModalOpen, setIsDeleteFolderModalOpen] = useState<boolean>(false);
+  const [isDeleteFolderModalOpen, setIsDeleteFolderModalOpen] =
+    useState<boolean>(false);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
@@ -122,19 +129,25 @@ export function StorageDetail() {
     lastModified: "",
     fileType: [],
   });
-  const [dmsData, setDmsData] = useState<IGetDmsFileAndFolderResponse | null>(null);
+  const [dmsData, setDmsData] = useState<IGetDmsFileAndFolderResponse | null>(
+    null,
+  );
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<IDmsFileAndFolderInfo | null>(null);
+  const [selectedFile, setSelectedFile] =
+    useState<IDmsFileAndFolderInfo | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   const { data: configurations, isLoading } = useGetStorageConfigurations();
 
-  const { mutate: getDmsFileAndFolder, isPending: isDmsLoading } = useGetDmsFileAndFolder();
-  const { mutateAsync: deleteFile, isPending: deleteFilePending } = useDeleteFile();
-  const { mutateAsync: deleteFolder, isPending: deleteFolderPending } = useDeleteFolder();
+  const { mutate: getDmsFileAndFolder, isPending: isDmsLoading } =
+    useGetDmsFileAndFolder();
+  const { mutateAsync: deleteFile, isPending: deleteFilePending } =
+    useDeleteFile();
+  const { mutateAsync: deleteFolder, isPending: deleteFolderPending } =
+    useDeleteFolder();
   const { fetchFile } = useLazyGetFile();
 
   const storage = useMemo(() => {
@@ -191,7 +204,10 @@ export function StorageDetail() {
 
   // Handle folder click - navigate into folder using URL
   const handleFolderClick = (folder: IDmsFileAndFolderInfo) => {
-    const newPath = [...breadcrumbPath, { id: folder.itemId, name: folder.name }];
+    const newPath = [
+      ...breadcrumbPath,
+      { id: folder.itemId, name: folder.name },
+    ];
     navigate(buildFolderUrl(folder.itemId, newPath));
   };
 
@@ -276,11 +292,14 @@ export function StorageDetail() {
   // Filter files based on search and file type
   const filteredFiles = useMemo(() => {
     return files.filter((file) => {
-      const matchesSearch = file?.name.toLowerCase().includes(filters.search.toLowerCase());
+      const matchesSearch = file?.name
+        .toLowerCase()
+        .includes(filters.search.toLowerCase());
       // Map file extensions to file types for filtering
       const fileType = file?.extension?.toLowerCase() || "";
       const matchesFileType =
-        filters.fileType.length === 0 || filters.fileType.some((type) => fileType.includes(type));
+        filters.fileType.length === 0 ||
+        filters.fileType.some((type) => fileType.includes(type));
       return matchesSearch && matchesFileType;
     });
   }, [files, filters.search, filters.fileType]);
@@ -351,7 +370,9 @@ export function StorageDetail() {
           <h1 className="text-2xl font-semibold">Storage Details</h1>
         </div>
         <div className="mt-6 rounded-sm border bg-card p-6">
-          <p className="text-muted-foreground">Storage configuration not found.</p>
+          <p className="text-muted-foreground">
+            Storage configuration not found.
+          </p>
         </div>
       </main>
     );
@@ -363,7 +384,7 @@ export function StorageDetail() {
       <Breadcrumb className="mb-4">
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink 
+            <BreadcrumbLink
               asChild
               className="cursor-pointer"
               onClick={() => navigate("/services/storage")}
@@ -393,7 +414,9 @@ export function StorageDetail() {
               <BreadcrumbSeparator />
               <BreadcrumbItem>
                 {index === breadcrumbPath.length - 1 ? (
-                  <BreadcrumbPage className="text-low-emphasis">{item.name}</BreadcrumbPage>
+                  <BreadcrumbPage className="text-low-emphasis">
+                    {item.name}
+                  </BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink
                     className="cursor-pointer text-foreground hover:text-foreground"
@@ -436,7 +459,7 @@ export function StorageDetail() {
           {/* <LogMenu link="/services/storage/logs" /> */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              {currentParentId && (
+              {(currentParentId || storage.name !== "Default") && (
                 <Button size="sm" className="bg-primary">
                   <Plus className="mr-2 h-4 w-4" />
                   Add New
@@ -555,7 +578,10 @@ export function StorageDetail() {
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <Folder className="h-5 w-5 flex-shrink-0 text-yellow-500" />
-                      <span className="truncate text-sm font-medium" title={folder.name}>
+                      <span
+                        className="truncate text-sm font-medium"
+                        title={folder.name}
+                      >
                         {folder.name}
                       </span>
                     </div>
@@ -571,12 +597,18 @@ export function StorageDetail() {
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-none">
-                            <DropdownMenuItem onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedFolderId(folder.itemId)
-                              setIsDeleteFolderModalOpen(true)
-                            }} className="cursor-pointer text-red-500">
+                          <DropdownMenuContent
+                            align="end"
+                            className="rounded-none"
+                          >
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedFolderId(folder.itemId);
+                                setIsDeleteFolderModalOpen(true);
+                              }}
+                              className="cursor-pointer text-red-500"
+                            >
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -587,7 +619,9 @@ export function StorageDetail() {
                 ))}
               </div>
             ) : (
-              <div className={`rounded-lg ${folders.length > 0 && "border"} overflow-hidden`}>
+              <div
+                className={`rounded-lg ${folders.length > 0 && "border"} overflow-hidden`}
+              >
                 <Table className="w-full bg-background">
                   {filteredFolders.length > 0 && (
                     <TableHeader className="bg-muted/50">
@@ -615,12 +649,16 @@ export function StorageDetail() {
                         </TableCell>
 
                         {/* Folder Type */}
-                        <TableCell className="text-muted-foreground">Folder</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          Folder
+                        </TableCell>
 
                         {/* Last Modified */}
                         <TableCell className="text-muted-foreground">
                           {folder.lastUpdatedDate
-                            ? new Date(folder.lastUpdatedDate).toLocaleDateString()
+                            ? new Date(
+                                folder.lastUpdatedDate,
+                              ).toLocaleDateString()
                             : "-"}
                         </TableCell>
 
@@ -638,7 +676,10 @@ export function StorageDetail() {
                                     <MoreVertical className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="rounded-none">
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="rounded-none"
+                                >
                                   <DropdownMenuItem
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -664,7 +705,9 @@ export function StorageDetail() {
 
           {/* Files Section */}
           <div>
-            {filteredFiles.length > 0 && <h2 className="mb-4 text-base font-semibold">Files</h2>}
+            {filteredFiles.length > 0 && (
+              <h2 className="mb-4 text-base font-semibold">Files</h2>
+            )}
             {isDmsLoading ? (
               viewMode === "grid" ? (
                 <FileGridSkeleton />
@@ -681,17 +724,26 @@ export function StorageDetail() {
                   >
                     {/* File Preview */}
                     <div className="flex h-40 items-center justify-center border-b bg-muted/30 p-4">
-                      {[".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"].includes(
-                        file?.extension?.toLowerCase() || "",
-                      ) ? (
+                      {[
+                        ".jpg",
+                        ".jpeg",
+                        ".png",
+                        ".gif",
+                        ".svg",
+                        ".webp",
+                      ].includes(file?.extension?.toLowerCase() || "") ? (
                         <div className="flex flex-col items-center justify-center space-y-2">
                           {getFileIcon(file.extension)}
-                          <span className="text-xs text-muted-foreground">{file.extension}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {file.extension}
+                          </span>
                         </div>
                       ) : file?.extension?.toLowerCase() === ".pdf" ? (
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <FileText className="h-12 w-12 text-blue-500" />
-                          <span className="text-xs text-muted-foreground">PDF</span>
+                          <span className="text-xs text-muted-foreground">
+                            PDF
+                          </span>
                         </div>
                       ) : (
                         getFileIcon(file.extension)
@@ -705,7 +757,8 @@ export function StorageDetail() {
                           {getFileIcon(file.extension, "sm")}
                           <span
                             className="truncate text-sm font-medium min-w-0"
-                            title={file.name}>
+                            title={file.name}
+                          >
                             {file.name}
                           </span>
                         </div>
@@ -721,12 +774,18 @@ export function StorageDetail() {
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-none">
-                              <DropdownMenuItem onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedFileId(file.fileStorageId);
-                                setIsDeleteModalOpen(true);
-                              }} className="cursor-pointer text-red-500">
+                            <DropdownMenuContent
+                              align="end"
+                              className="rounded-none"
+                            >
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedFileId(file.fileStorageId);
+                                  setIsDeleteModalOpen(true);
+                                }}
+                                className="cursor-pointer text-red-500"
+                              >
                                 Delete
                               </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -738,7 +797,9 @@ export function StorageDetail() {
                 ))}
               </div>
             ) : (
-              <div className={`rounded-lg ${files.length > 0 && "border"} overflow-hidden`}>
+              <div
+                className={`rounded-lg ${files.length > 0 && "border"} overflow-hidden`}
+              >
                 <Table className="w-full bg-background">
                   {filteredFiles.length > 0 && (
                     <TableHeader className="bg-muted/50">
@@ -774,7 +835,9 @@ export function StorageDetail() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {file.lastUpdatedDate
-                            ? new Date(file.lastUpdatedDate).toLocaleDateString()
+                            ? new Date(
+                                file.lastUpdatedDate,
+                              ).toLocaleDateString()
                             : "-"}
                         </TableCell>
 
@@ -791,7 +854,10 @@ export function StorageDetail() {
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="rounded-none">
+                              <DropdownMenuContent
+                                align="end"
+                                className="rounded-none"
+                              >
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -882,7 +948,8 @@ export function StorageDetail() {
         <ConfirmationModal
           data={{
             dialogTitle: "Delete Folder",
-            dialogSubtitle: "Are you sure you want to delete this folder? All the files inside this folder will be deleted for this action.",
+            dialogSubtitle:
+              "Are you sure you want to delete this folder? All the files inside this folder will be deleted for this action.",
           }}
           onConfirm={async () => {
             if (selectedFolderId) {

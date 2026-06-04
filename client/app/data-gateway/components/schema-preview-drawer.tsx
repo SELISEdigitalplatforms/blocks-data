@@ -17,6 +17,7 @@ import {
   TabsTrigger,
 } from "@/components/ui-kits/tabs/tabs";
 import { getGraphqlGatewayExecuteOrigin } from "@/constants/endpoint.constant";
+import { useGetProject } from "@/hooks/use-project";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/store/useProjectStore";
 import { Play, X } from "lucide-react";
@@ -41,8 +42,21 @@ export function SchemaPreviewDrawer({
   onOpenChange,
 }: SchemaPreviewDrawerProps) {
   const selectedProject = useProjectStore().selectedProject;
+  const { setSelectedProject } = useProjectStore();
+  const { data: projectData } = useGetProject({
+    projectId: selectedProject?.itemId || "",
+  });
   const projectShortKey = selectedProject?.tenantSlug || "";
   const projectKey = selectedProject?.tenantId || "";
+
+  useEffect(() => {
+    if (
+      projectData?.data &&
+      selectedProject?.itemId === projectData.data.itemId
+    ) {
+      setSelectedProject(projectData.data);
+    }
+  }, [projectData, selectedProject?.itemId, setSelectedProject]);
   const isEntity = schemaType === 1;
   const defaultTab = isEntity ? "request-format" : "schema-structure";
   const [activeTab, setActiveTab] = useState(defaultTab);

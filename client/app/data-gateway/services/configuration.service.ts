@@ -146,7 +146,7 @@ class ConfigurationService {
   }
 
   getMockData(): Promise<IMockDataResponse> {
-    return http.get(`${API_BASES.UDS}/data-manage/mock-data}`);
+    return http.get(`${API_BASES.UDS}/data-manage/mock-data`);
   }
 
   deleteMockData(

@@ -1,43 +1,44 @@
-import { useForm } from "react-hook-form";
-import { Plus, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react";
-import { Input } from "@/components/ui-kits/input/input";
-import { Button } from "@/components/ui-kits/button/button";
-import {
-  useSchemaList,
-  useSchemasReload,
-  useInitiateDataGatewayPipeline,
-} from "../hooks/use-configuration";
-import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { ISchemaDetails } from "../models/data-service";
-import { useProjectStore } from "@/store/useProjectStore";
-import { useState, useEffect, useCallback, useRef } from "react"
-import { cn } from "@/lib/utils";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { Badge } from "@/components/ui-kits/badge/badge";
+import { Button } from "@/components/ui-kits/button/button";
+import { Input } from "@/components/ui-kits/input/input";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
+import { NotificationData } from "@/data-gateway/models/deployment-notification";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useNotificationListener } from "@/hooks/use-notification-listener";
+import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { useProjectStore } from "@/store/useProjectStore";
 import { useQueryClient } from "@tanstack/react-query";
-import { NotificationData } from "@/data-gateway/models/deployment-notification";
+import { ChevronLeft, ChevronRight, Plus, RotateCcw } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import {
+  useInitiateDataGatewayPipeline,
+  useSchemaList,
+  useSchemasReload,
+} from "../hooks/use-configuration";
+import { ISchemaDetails } from "../models/data-service";
 
 export type DataGatewayListQueryUpdate = Partial<{
-  type: string
-  page: number
-  pageSize: number
-  schemaId: string | null
-}>
+  type: string;
+  page: number;
+  pageSize: number;
+  schemaId: string | null;
+}>;
 
 type SchemaListProps = {
-  onAddSchema: () => void
-  selectedSchemaId?: string | null
-  isServerActive?: boolean
-  isServerInitiating?: boolean
-  onServerStart?: () => void
-  filterType: string
-  page: number
-  pageSize: number
-  onListQueryChange: (update: DataGatewayListQueryUpdate) => void
-}
+  onAddSchema: () => void;
+  selectedSchemaId?: string | null;
+  isServerActive?: boolean;
+  isServerInitiating?: boolean;
+  isPodStatusLoading?: boolean;
+  onServerStart?: () => void;
+  filterType: string;
+  page: number;
+  pageSize: number;
+  onListQueryChange: (update: DataGatewayListQueryUpdate) => void;
+};
 
 type SearchFormValues = {
   search: string;
@@ -56,13 +57,14 @@ export default function SchemasSidebar({
   selectedSchemaId: externalSelectedSchemaId,
   isServerActive = true,
   isServerInitiating = false,
+  isPodStatusLoading = false,
   onServerStart,
   filterType,
   page,
   pageSize,
   onListQueryChange,
 }: SchemaListProps) {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
   const { register, watch } = useForm<SearchFormValues>({
     defaultValues: {
@@ -75,11 +77,15 @@ export default function SchemasSidebar({
   const selectedProject = useProjectStore().selectedProject;
   const projectKey = selectedProject?.tenantId || "";
   const projectShortKey = selectedProject?.tenantSlug || "";
-  const [internalSelectedSchemaId, setInternalSelectedSchemaId] = useState<string | null>(null);
+  const [internalSelectedSchemaId, setInternalSelectedSchemaId] = useState<
+    string | null
+  >(null);
 
   // Use external selected schema ID if provided, otherwise use internal state
   const selectedSchemaId =
-    externalSelectedSchemaId !== undefined ? externalSelectedSchemaId : internalSelectedSchemaId;
+    externalSelectedSchemaId !== undefined
+      ? externalSelectedSchemaId
+      : internalSelectedSchemaId;
 
   // Sync internal state with external selected schema ID
   useEffect(() => {
@@ -88,21 +94,22 @@ export default function SchemasSidebar({
     }
   }, [externalSelectedSchemaId]);
 
-  const prevDebouncedRef = useRef<string | undefined>(undefined)
+  const prevDebouncedRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (prevDebouncedRef.current === undefined) {
-      prevDebouncedRef.current = debouncedSearch
-      return
+      prevDebouncedRef.current = debouncedSearch;
+      return;
     }
-    if (prevDebouncedRef.current === debouncedSearch) return
-    prevDebouncedRef.current = debouncedSearch
-    onListQueryChange({ page: 1 })
-  }, [debouncedSearch, onListQueryChange])
+    if (prevDebouncedRef.current === debouncedSearch) return;
+    prevDebouncedRef.current = debouncedSearch;
+    onListQueryChange({ page: 1 });
+  }, [debouncedSearch, onListQueryChange]);
 
-  const { refetch: initiateServer, isFetching: isStarting } = useInitiateDataGatewayPipeline({
-    projectKey,
-    enabled: false,
-  });
+  const { refetch: initiateServer, isFetching: isStarting } =
+    useInitiateDataGatewayPipeline({
+      projectKey,
+      enabled: false,
+    });
   const { mutateAsync, isPending: isPublishing } = useSchemasReload();
   const { data: schemaListQuery } = useSchemaList({
     keyword: debouncedSearch,
@@ -110,7 +117,7 @@ export default function SchemasSidebar({
     pageNo: page,
     pageSize,
     schemaType: filterType == "all" ? "" : filterType,
-  })
+  });
 
   const handleImportSchemaNotification = useCallback(
     (notificationData: NotificationData) => {
@@ -125,9 +132,10 @@ export default function SchemasSidebar({
         const message = parsed?.Message ?? parsed;
 
         if (message?.IsSuccess) {
-          queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] })
+          queryClient.invalidateQueries({
+            queryKey: ["unadapted-change-logs"],
+          });
         }
-
       } catch (error) {
         console.error(error);
         showErrorToast({
@@ -135,7 +143,7 @@ export default function SchemasSidebar({
         });
       }
     },
-    [queryClient]
+    [queryClient],
   );
 
   useNotificationListener("schema-import", handleImportSchemaNotification);
@@ -175,17 +183,17 @@ export default function SchemasSidebar({
   };
 
   const handlePrev = () => {
-    onListQueryChange({ page: page - 1 })
-  }
+    onListQueryChange({ page: page - 1 });
+  };
 
   const handleNext = () => {
-    onListQueryChange({ page: page + 1 })
-  }
+    onListQueryChange({ page: page + 1 });
+  };
 
   const handleSelectSchema = (id: string) => {
-    setInternalSelectedSchemaId(id)
-    onListQueryChange({ schemaId: id })
-  }
+    setInternalSelectedSchemaId(id);
+    onListQueryChange({ schemaId: id });
+  };
 
   const totalCount = schemaListQuery?.data?.totalCount || 0;
 
@@ -208,7 +216,7 @@ export default function SchemasSidebar({
               variant="outline"
               className="flex items-center gap-2 text-sm font-bold text-gray-500"
               onClick={startServer}
-              disabled={isStarting}
+              disabled={isStarting || isPodStatusLoading}
             >
               <RotateCcw
                 className={cn(
@@ -240,7 +248,11 @@ export default function SchemasSidebar({
       </div>
 
       <div className="mb-3 flex items-center gap-2">
-        <Input placeholder="Search" className="h-8 flex-1" {...register("search")} />
+        <Input
+          placeholder="Search"
+          className="h-8 flex-1"
+          {...register("search")}
+        />
         <Button size="sm" className="h-8 px-2" onClick={onAddSchema}>
           <Plus className="h-4 w-4" /> Add
         </Button>
@@ -287,7 +299,11 @@ export default function SchemasSidebar({
                     {schema.schemaName}
                   </span>
                   {filterType === "all" && (
-                    <span className={cn(isSelected ? "text-primary/70" : "text-low-emphasis/60")}>
+                    <span
+                      className={cn(
+                        isSelected ? "text-primary/70" : "text-low-emphasis/60",
+                      )}
+                    >
                       {schema.schemaType == 1 ? "Entity" : "Child"}
                     </span>
                   )}

@@ -26,13 +26,16 @@ export function SidebarMenuDesktop() {
 
   return (
     <div
-      className={`hidden h-[calc(100vh)] flex-col border-r bg-background transition-all md:flex ${isSidebarOpen ? "min-w-60" : "w-14"}`}
+      className={cn(
+        "hidden h-screen flex-col border-r bg-background transition-all md:flex",
+        isSidebarOpen ? "w-60 overflow-hidden" : "w-14",
+      )}
     >
       <div className="flex h-[60px] shrink-0 items-center justify-between border-b bg-background px-3">
         <Link
           to="/console"
           className={cn(
-            "relative inline-block cursor-pointer overflow-hidden transition-all",
+            "relative inline-block cursor-pointer overflow-hidden transition-all duration-300 ease-in-out",
             isSidebarOpen ? "h-[36px] w-[72px]" : "h-8 w-8",
           )}
         >

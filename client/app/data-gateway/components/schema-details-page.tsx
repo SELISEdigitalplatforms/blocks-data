@@ -109,8 +109,9 @@ export const SchemaDetailsPage = () => {
   const isSchemaView = queryParams.type !== null;
   const selectedSchemaId = queryParams.schemaId;
 
-  const projectKey = useProjectStore().selectedProject?.tenantId ?? "";
-  const projectShortKey = useProjectStore()?.selectedProject?.tenantSlug ?? "";
+  const selectedProject = useProjectStore().selectedProject;
+  const projectKey = selectedProject?.tenantId ?? "";
+  const projectShortKey = selectedProject?.tenantSlug ?? "";
   const { data: unAdaptedChangeLogs } = useGetUnadaptedChangeLogs({
     projectKey,
   });

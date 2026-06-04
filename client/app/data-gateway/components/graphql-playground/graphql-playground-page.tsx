@@ -425,7 +425,7 @@ export const GraphQLPlaygroundPage = () => {
           continue;
         }
 
-        if (scanDepth === 0) {
+        if (scanDepth === 1) {
           const rest = objStr.substring(k);
           const tagsKeyMatch = rest.match(/^Tags\s*:\s*\[/i);
 
@@ -436,8 +436,8 @@ export const GraphQLPlaygroundPage = () => {
             let j = k + bracketOpenOffset + 1;
 
             while (j < objStr.length && arrDepth > 0) {
-              if (inputContent[j] === "[") arrDepth++;
-              else if (inputContent[j] === "]") arrDepth--;
+              if (objStr[j] === "[") arrDepth++;
+              else if (objStr[j] === "]") arrDepth--;
               if (arrDepth > 0) j++;
             }
 
@@ -475,11 +475,30 @@ export const GraphQLPlaygroundPage = () => {
           objStr.substring(topLevelTagsEnd)
         );
       } else {
-        // Tags doesn't exist — inject it before the closing brace
-        const newContent = objStr.trim()
-          ? `${objStr.trimEnd()}\n    Tags: ["mock-data"]\n  `
-          : `\n    Tags: ["mock-data"]\n  `;
-        return newContent;
+        // Tags doesn't exist — inject it inside the object before closing brace
+        const openingBraceIndex = objStr.indexOf("{");
+        const closingBraceIndex = objStr.lastIndexOf("}");
+
+        if (
+          openingBraceIndex === -1 ||
+          closingBraceIndex === -1 ||
+          openingBraceIndex > closingBraceIndex
+        ) {
+          return objStr;
+        }
+
+        const innerContent = objStr.substring(
+          openingBraceIndex + 1,
+          closingBraceIndex,
+        );
+        const hasFields = innerContent.trim().length > 0;
+        const beforeClosing = objStr.substring(0, closingBraceIndex).trimEnd();
+        const closingIndentMatch = beforeClosing.match(/(^|\n)([ \t]*)[^\n]*$/);
+        const closingIndent = closingIndentMatch?.[2] ?? "  ";
+        const fieldIndent = `${closingIndent}  `;
+        const separator = hasFields ? "," : "";
+
+        return `${beforeClosing}${separator}\n${fieldIndent}Tags: ["mock-data"]\n${closingIndent}}${objStr.substring(closingBraceIndex + 1)}`;
       }
     };
 

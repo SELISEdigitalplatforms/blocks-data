@@ -5,6 +5,6 @@ namespace DataGateway.DomainService.Services;
 
 public interface IDataManageService
 {
-    Task<ServiceResponse<MockDataResponse>> GetMockData(string projectKey);
+    Task<ServiceResponse<MockDataResponse>> GetMockData();
     Task<ServiceResponse<ActionResponse>> DeleteMockData(DeleteMockDataRequest request);
 }

@@ -7,6 +7,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui-kits/tabs/tabs";
+import { useGetProject } from "@/hooks/use-project";
 import { useTheme } from "@/hooks/use-theme";
 import { useProjectStore } from "@/store/useProjectStore";
 import type { EditorProps } from "@monaco-editor/react";
@@ -80,8 +81,21 @@ export const GraphQLPlaygroundPage = () => {
   const completionDisposableRef = useRef<IDisposable | null>(null);
   const codeLensDisposableRef = useRef<IDisposable | null>(null);
   const selectedProject = useProjectStore().selectedProject;
+  const { setSelectedProject } = useProjectStore();
+  const { data: projectData } = useGetProject({
+    projectId: selectedProject?.itemId || "",
+  });
   const projectKey = selectedProject?.tenantId || "";
   const projectShortKey = selectedProject?.tenantSlug || "";
+
+  useEffect(() => {
+    if (
+      projectData?.data &&
+      selectedProject?.itemId === projectData.data.itemId
+    ) {
+      setSelectedProject(projectData.data);
+    }
+  }, [projectData, selectedProject?.itemId, setSelectedProject]);
   const { resolvedTheme } = useTheme();
   const monacoTheme = resolvedTheme === "dark" ? "vs-dark" : "light";
 

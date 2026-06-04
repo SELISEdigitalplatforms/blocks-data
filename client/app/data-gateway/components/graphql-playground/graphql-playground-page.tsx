@@ -540,9 +540,10 @@ export const GraphQLPlaygroundPage = () => {
 
       result = `${queryText.substring(0, openCharIndex + 1)}${processed}${queryText.substring(pos)}`;
     } else {
-      // Single insert case: use existing logic
-      const processedInput = processSingleObject(inputContent);
-      result = `${queryText.substring(0, openCharIndex + 1)}${processedInput}${queryText.substring(pos)}`;
+      // Single insert case: process full object including braces
+      const singleObject = queryText.substring(openCharIndex, pos + 1);
+      const processedSingleObject = processSingleObject(singleObject);
+      result = `${queryText.substring(0, openCharIndex)}${processedSingleObject}${queryText.substring(pos + 1)}`;
     }
 
     return result;

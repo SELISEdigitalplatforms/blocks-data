@@ -57,11 +57,10 @@
             <param name="projectKey"></param>
             <returns></returns>
         </member>
-        <member name="M:DataGateway.Api.Controllers.DataManageController.GetMockDataAsync(System.String)">
+        <member name="M:DataGateway.Api.Controllers.DataManageController.GetMockDataAsync">
             <summary>
             Gets mock data from the database.
             </summary>
-            <param name="projectKey"> The project key to get mock data for.</param>
             <returns>Returns the mock data for the project.</returns>
         </member>
         <member name="M:DataGateway.Api.Controllers.DataManageController.DeleteMockData(DataGateway.DomainService.Models.DeleteMockDataRequest)">

@@ -5,20 +5,33 @@ import { Notification } from "@/components/notification/notification";
 import { Button } from "@/components/ui-kits/button/button";
 import { UserDropdownMenu } from "@/components/user-dropdown-menu/user-dropdown-menu";
 import { SidebarContext } from "@/contexts/dashboard-layout-provider";
+import { useGetProject } from "@/hooks/use-project";
 import { SidebarMobileView } from "@/layouts/sidebar-mobile-view/sidebar-mobile-view";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/store/useProjectStore";
 import { ChevronRight, FolderOpen, PanelLeft } from "lucide-react";
-import { useContext } from "react";
+import { useContext, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 export function DashboardHeader() {
   const { isSidebarOpen, toggleSidebar } = useContext(SidebarContext);
   const { pathname } = useLocation();
-  const { selectedProject } = useProjectStore();
+  const { selectedProject, setSelectedProject } = useProjectStore();
+  const { data: projectData } = useGetProject({
+    projectId: selectedProject?.itemId || "",
+  });
   const projectName = selectedProject?.name;
   const environment = selectedProject?.environment;
   const isProjectOverviewRoute = pathname.startsWith("/project-overview");
+
+  useEffect(() => {
+    if (
+      projectData?.data &&
+      selectedProject?.itemId === projectData.data.itemId
+    ) {
+      setSelectedProject(projectData.data);
+    }
+  }, [projectData, selectedProject?.itemId, setSelectedProject]);
 
   return (
     <>

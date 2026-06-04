@@ -48,7 +48,7 @@ public class DataManageController : ControllerBase
         //     ProjectKey = projectKey
         // });
 
-        var response = await _dataManageService.GetMockData(projectKey);
+        var response = await _dataManageService.GetMockData();
 
         return Ok(response);
     }
@@ -56,19 +56,18 @@ public class DataManageController : ControllerBase
     /// <summary>
     /// Gets mock data from the database.
     /// </summary>
-    /// <param name="projectKey"> The project key to get mock data for.</param>
     /// <returns>Returns the mock data for the project.</returns>
     [Authorize]
     [HttpGet("mock-data")]
     [ProducesResponseType(typeof(ServiceResponse<MockDataResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetMockDataAsync([FromQuery] string projectKey = "")
+    public async Task<IActionResult> GetMockDataAsync()
     {
         // _changeControllerContext.ChangeContext(new ProjectKeyModel
         // {
         //     ProjectKey = projectKey
         // });
-        var response = await _dataManageService.GetMockData(projectKey);
+        var response = await _dataManageService.GetMockData();
 
         return Ok(response);
     }

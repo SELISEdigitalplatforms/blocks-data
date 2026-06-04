@@ -145,11 +145,8 @@ class ConfigurationService {
     return http.post(url, { query }, headers, { absoluteUrl: true });
   }
 
-  getMockData(projectKey: string): Promise<IMockDataResponse> {
-    const params = new URLSearchParams({ projectKey });
-    return http.get(
-      `${API_BASES.UDS}/data-manage/mock-data?${params.toString()}`,
-    );
+  getMockData(): Promise<IMockDataResponse> {
+    return http.get(`${API_BASES.UDS}/data-manage/mock-data`);
   }
 
   deleteMockData(

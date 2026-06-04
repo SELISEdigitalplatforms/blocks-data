@@ -10,9 +10,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui-kits/dialog/dialog";
+import {
+  useDeleteMockData,
+  useGetMockData,
+} from "@/data-gateway/hooks/use-configuration";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@/store/useProjectStore";
-import { useDeleteMockData, useGetMockData } from "@/data-gateway/hooks/use-configuration";
 import { Loader } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -21,12 +24,16 @@ interface CleanTestDataModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-export const CleanTestDataModal = ({ open, onOpenChange }: CleanTestDataModalProps) => {
+export const CleanTestDataModal = ({
+  open,
+  onOpenChange,
+}: CleanTestDataModalProps) => {
   const selectedProject = useProjectStore().selectedProject;
   const projectKey = selectedProject?.tenantId || "";
 
-  const { data: mockDataResponse, isLoading, refetch } = useGetMockData({ projectKey });
-  const { mutateAsync: deleteMockData, isPending: isDeleting } = useDeleteMockData();
+  const { data: mockDataResponse, isLoading, refetch } = useGetMockData();
+  const { mutateAsync: deleteMockData, isPending: isDeleting } =
+    useDeleteMockData();
 
   const [selectedSchemas, setSelectedSchemas] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
@@ -88,7 +95,9 @@ export const CleanTestDataModal = ({ open, onOpenChange }: CleanTestDataModalPro
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Clean Test Data</DialogTitle>
-          <DialogDescription>Select schemas to delete their test data</DialogDescription>
+          <DialogDescription>
+            Select schemas to delete their test data
+          </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[400px] overflow-y-auto">
@@ -97,13 +106,22 @@ export const CleanTestDataModal = ({ open, onOpenChange }: CleanTestDataModalPro
               <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : mockDataItems.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">No test data found</div>
+            <div className="py-8 text-center text-sm text-muted-foreground">
+              No test data found
+            </div>
           ) : (
             <div className="space-y-3">
               {/* Select All */}
               <div className="flex items-center space-x-2 border-b pb-2">
-                <Checkbox id="select-all" checked={selectAll} onCheckedChange={handleSelectAll} />
-                <label htmlFor="select-all" className="flex-1 cursor-pointer text-sm font-medium">
+                <Checkbox
+                  id="select-all"
+                  checked={selectAll}
+                  onCheckedChange={handleSelectAll}
+                />
+                <label
+                  htmlFor="select-all"
+                  className="flex-1 cursor-pointer text-sm font-medium"
+                >
                   Select All ({mockDataItems.length})
                 </label>
               </div>
@@ -120,7 +138,10 @@ export const CleanTestDataModal = ({ open, onOpenChange }: CleanTestDataModalPro
                         id={item.schemaName}
                         checked={selectedSchemas.includes(item.schemaName)}
                         onCheckedChange={(checked) =>
-                          handleSelectSchema(item.schemaName, checked as boolean)
+                          handleSelectSchema(
+                            item.schemaName,
+                            checked as boolean,
+                          )
                         }
                         className="mt-0.5"
                       />
@@ -140,7 +161,11 @@ export const CleanTestDataModal = ({ open, onOpenChange }: CleanTestDataModalPro
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isDeleting}>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isDeleting}
+          >
             Cancel
           </Button>
           <Button

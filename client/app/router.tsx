@@ -11,7 +11,6 @@ import StoragePage from "./routes/dashboard/storage-page";
 // Console pages
 import { Console } from "./pages/console/console";
 import { DashboardOverview } from "./pages/dashboard/dashboard-overview";
-import LoginCallbackPage from "./routes/auth/callback";
 import {
   AuthResolver,
   PublicGuard,
@@ -21,8 +20,11 @@ import {
   ImpersonationChecker,
   ImpersonationTerminator,
   ImpersonationSynchronizer,
+  CallbackPage,
+  ConsolePage,
 } from "@seliseblocks/blocks-kit";
 import ProfilePage from "./routes/dashboard/profile";
+import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
 
 export const router = createBrowserRouter([
   {
@@ -33,7 +35,7 @@ export const router = createBrowserRouter([
       </AuthResolver>
     ),
     children: [
-      // publuc
+      // public
       {
         element: (
           <PublicGuard>
@@ -42,7 +44,10 @@ export const router = createBrowserRouter([
         ),
         children: [
           { path: "/login", element: <LoginPage /> },
-          { path: "/login/callback", element: <LoginCallbackPage /> },
+          {
+            path: "/login/callback",
+            element: <CallbackPage redirectUrl="/console" />,
+          },
         ],
       },
 
@@ -58,15 +63,28 @@ export const router = createBrowserRouter([
             element: (
               <ImpersonationChecker>
                 <ImpersonationTerminator>
-                  <ConsoleLayout>
-                    <Outlet />
-                  </ConsoleLayout>
+                  {/* <ConsoleLayout> */}
+                  <Outlet />
+                  {/* </ConsoleLayout> */}
                 </ImpersonationTerminator>
               </ImpersonationChecker>
             ),
             children: [
-              { path: "/profile", element: <ProfilePage /> },
-              { path: "/console", element: <Console /> },
+              {
+                element: (
+                  <ConsoleLayout>
+                    <Outlet />
+                  </ConsoleLayout>
+                ),
+                children: [
+                  { path: "/profile", element: <ProfilePage /> },
+                  { path: "/console", element: <ConsolePage /> },
+                ],
+              },
+              {
+                path: "/project-overview/environments",
+                element: <ProjectOverviewLayout />,
+              },
             ],
           },
           {
@@ -81,18 +99,22 @@ export const router = createBrowserRouter([
             children: [
               { path: "/dashboard", element: <DashboardOverview /> },
               {
-                path: "/data-gateway",
+                path: "/dashboard/callback",
+                element: <CallbackPage redirectUrl="/dashboard" />,
+              },
+              {
+                path: "/services/data-gateway",
                 element: <DataGatewaySchemasPage />,
               },
               {
-                path: "/data-gateway/playground",
+                path: "/services/data-gateway/playground",
                 element: <DataGatewayPlaygroundPage />,
               },
               {
-                path: "/data-gateway/logs",
+                path: "/services/data-gateway/logs",
                 element: <DataGatewayLogsPage />,
               },
-              { path: "/storage", element: <StoragePage /> },
+              { path: "/services/storage", element: <StoragePage /> },
             ],
           },
         ],

@@ -9,7 +9,6 @@ import DataGatewaySchemasPage from "./routes/dashboard/data-gateway-schemas";
 import StoragePage from "./routes/dashboard/storage-page";
 
 // Console pages
-import { Console } from "./pages/console/console";
 import { DashboardOverview } from "./pages/dashboard/dashboard-overview";
 import {
   AuthResolver,
@@ -57,9 +56,7 @@ export const router = createBrowserRouter([
                 <Outlet />
               </PublicGuard>
             ),
-            children: [
-              { path: "/login", element: <LoginPage /> },
-            ],
+            children: [{ path: "/login", element: <LoginPage /> }],
           },
 
           // protected

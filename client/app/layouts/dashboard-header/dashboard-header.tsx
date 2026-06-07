@@ -14,7 +14,6 @@ import {
 import { ChevronRight, FolderOpen, PanelLeft } from "lucide-react";
 import { useContext, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { BlocksApp, SELISE_APPS } from "./dashboard.constant";
 
 export function DashboardHeader() {
   const { isSidebarOpen, toggleSidebar } = useContext(SidebarContext);
@@ -80,7 +79,7 @@ export function DashboardHeader() {
           <BackToConsoleNavigator />
           <ThemeSwitcher />
           <Notification />
-          <AppSwitcher apps={SELISE_APPS} />
+          <AppSwitcher forwardedTo="/dashboard" />
           <UserDropdownMenu />
         </div>
       </header>

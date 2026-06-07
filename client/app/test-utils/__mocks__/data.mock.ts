@@ -12,3 +12,9 @@ export {
 
 /** Used by storage mocks when an API returns a new item id */
 export const MOCK_NEW_ITEM_ID = "mock-new-item-id-001";
+
+export const mockSuccessResponseWithItemId = {
+  errors: null,
+  isSuccess: true,
+  itemId: MOCK_NEW_ITEM_ID,
+};

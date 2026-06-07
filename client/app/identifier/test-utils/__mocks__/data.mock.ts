@@ -196,3 +196,35 @@ export const mockConfirmInvitationResponse = {
   isSuccess: true,
   activationKey: "mock-activation-key-456",
 };
+
+export const mockPeopleAcceptInvitationResponse = {
+  isSuccess: true,
+  activationKey: "mock-activation-key-789",
+  errors: undefined,
+};
+
+export const mockGetPeopleResponse = {
+  peoples: [
+    {
+      peopleDetails: {
+        salutation: "Mr",
+        firstName: "John",
+        lastName: "Doe",
+        email: "john.doe@example.com",
+        profileImageUrl: null,
+        userId: "user-id-1",
+        allowResendActivation: false,
+      },
+      sharedEnviroments: [],
+    },
+  ],
+  totalCount: 1,
+  errors: null,
+  isSuccess: true,
+  isOwner: false,
+};
+
+export const mockInvitePeopleResponse = {
+  isSuccess: true,
+  errors: null,
+};

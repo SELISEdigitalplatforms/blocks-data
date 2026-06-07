@@ -28,53 +28,57 @@ import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
 
 export const router = createBrowserRouter([
   {
-    // Set User Auth Information and resolve authentication state before rendering any route
-    element: (
-      <AuthResolver>
-        <Outlet />
-      </AuthResolver>
-    ),
+    element: <Outlet />,
     children: [
-      // public
+      // All callback/redirect URLs handled here (unguarded, outside AuthResolver)
       {
-        element: (
-          <PublicGuard>
-            <Outlet />
-          </PublicGuard>
-        ),
-        children: [
-          { path: "/login", element: <LoginPage /> },
-          {
-            path: "/login/callback",
-            element: <CallbackPage redirectUrl="/console" />,
-          },
-        ],
+        path: "/login/callback",
+        element: <CallbackPage redirectUrl="/console" />,
       },
 
-      // protected
       {
+        // Set User Auth Information and resolve authentication state before rendering any route
         element: (
-          <ProtectedGuard>
+          <AuthResolver>
             <Outlet />
-          </ProtectedGuard>
+          </AuthResolver>
         ),
         children: [
+          // Callback inside AuthResolver but outside guards
+          {
+            path: "/dashboard/callback",
+            element: <CallbackPage redirectUrl="/dashboard" />,
+          },
+
+          // public
           {
             element: (
-              <ImpersonationChecker>
-                <ImpersonationTerminator>
-                  {/* <ConsoleLayout> */}
-                  <Outlet />
-                  {/* </ConsoleLayout> */}
-                </ImpersonationTerminator>
-              </ImpersonationChecker>
+              <PublicGuard>
+                <Outlet />
+              </PublicGuard>
+            ),
+            children: [
+              { path: "/login", element: <LoginPage /> },
+            ],
+          },
+
+          // protected
+          {
+            element: (
+              <ProtectedGuard>
+                <Outlet />
+              </ProtectedGuard>
             ),
             children: [
               {
                 element: (
-                  <ConsoleLayout>
-                    <Outlet />
-                  </ConsoleLayout>
+                  <ImpersonationChecker>
+                    <ImpersonationTerminator>
+                      <ConsoleLayout>
+                        <Outlet />
+                      </ConsoleLayout>
+                    </ImpersonationTerminator>
+                  </ImpersonationChecker>
                 ),
                 children: [
                   { path: "/profile", element: <ProfilePage /> },
@@ -85,45 +89,39 @@ export const router = createBrowserRouter([
                 path: "/project-overview/environments",
                 element: <ProjectOverviewLayout />,
               },
+              {
+                // impersonate
+                element: (
+                  <ImpersonationChecker>
+                    <ImpersonationSynchronizer>
+                      <DashboardLayout />
+                    </ImpersonationSynchronizer>
+                  </ImpersonationChecker>
+                ),
+                children: [
+                  { path: "/dashboard", element: <DashboardOverview /> },
+                  {
+                    path: "/services/data-gateway",
+                    element: <DataGatewaySchemasPage />,
+                  },
+                  {
+                    path: "/services/data-gateway/playground",
+                    element: <DataGatewayPlaygroundPage />,
+                  },
+                  {
+                    path: "/services/data-gateway/logs",
+                    element: <DataGatewayLogsPage />,
+                  },
+                  { path: "/services/storage", element: <StoragePage /> },
+                ],
+              },
             ],
           },
-          {
-            // impersonate
-            element: (
-              <ImpersonationChecker>
-                <ImpersonationSynchronizer>
-                  <DashboardLayout />
-                </ImpersonationSynchronizer>
-              </ImpersonationChecker>
-            ),
-            children: [
-              { path: "/dashboard", element: <DashboardOverview /> },
-              {
-                path: "/dashboard/callback",
-                element: <CallbackPage redirectUrl="/dashboard" />,
-              },
-              {
-                path: "/services/data-gateway",
-                element: <DataGatewaySchemasPage />,
-              },
-              {
-                path: "/services/data-gateway/playground",
-                element: <DataGatewayPlaygroundPage />,
-              },
-              {
-                path: "/services/data-gateway/logs",
-                element: <DataGatewayLogsPage />,
-              },
-              { path: "/services/storage", element: <StoragePage /> },
-            ],
-          },
+
+          { path: "/", element: <Navigate to="/console" replace /> },
+          { path: "*", element: <Navigate to="/login" replace /> },
         ],
       },
-
-      { path: "/", element: <Navigate to="/console" replace /> },
-
-      // ── Catch-all: redirect to login ──
-      { path: "*", element: <Navigate to="/login" replace /> },
     ],
   },
 ]);

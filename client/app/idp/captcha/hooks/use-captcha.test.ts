@@ -28,7 +28,11 @@ describe("useCaptcha", () => {
   });
 
   it("should set dark theme when theme is dark", () => {
-    vi.mocked(useTheme).mockReturnValue({ theme: "dark", setTheme: vi.fn(), themes: [] });
+    vi.mocked(useTheme).mockReturnValue({
+      theme: "dark",
+      setTheme: vi.fn(),
+      resolvedTheme: "dark",
+    });
 
     const { result } = renderHook(() =>
       useCaptcha({ siteKey: "test-site-key", type: "reCaptcha-v2-checkbox" }),

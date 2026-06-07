@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui-kits/card/card";
 import { useProjectStore } from "@/store/useProjectStore";
-import { useGetEnvRepositories, useGetProject } from "@/hooks/use-project";
+import { useGetProject } from "@/hooks/use-project";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { Button } from "@/components/ui-kits/button/button";
 import { CopyableSnippet } from "@/components/copyable-snippet/copyable-snippet";
@@ -33,23 +33,12 @@ export const GitCommandSnippet = () => {
     tenantId: "",
   };
   const { data, isLoading } = useGetProject({ projectId: itemId });
-  const {
-    data: envRepositoriesResponse,
-    isLoading: isLoadingEnvRepos,
-    isFetching: isFetchingEnvRepos,
-  } = useGetEnvRepositories(itemId || "");
 
-  if (isLoading || isLoadingEnvRepos || isFetchingEnvRepos)
-    return <LoadingSkeleton />;
+  if (isLoading) return <LoadingSkeleton />;
   const branchName =
     data?.data?.environment === "prod" ? "main" : data?.data?.environment;
-  const repo = envRepositoriesResponse?.data?.find(
-    (repo) =>
-      repo.defaultDeploymentUrl === data?.data?.applicationDomain ||
-      repo.customDeploymentUrl === data?.data?.applicationDomain,
-  );
-  const repoLink = repo?.repoUrl || "<your-repo-link>";
-  const hasRepository = !!repo?.repoUrl;
+  const repoLink = "<your-repo-link>";
+  const hasRepository = false;
   const gitCommands = `git remote add origin ${repoLink}\ngit branch -M ${branchName}\ngit add .\ngit commit -m "feat: initiate project"\ngit push -u origin ${branchName}`;
 
   return (

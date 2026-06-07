@@ -15,8 +15,7 @@ export const CLOUD_BUILD_ENDPOINTS = {
   BUILD: "/api/build",
 
   REPOS: "/api/repos",
-  REPOS_LIST: "/api/repos/list",
   REPO_DETAILS: "/api/repos/details",
 
   SETTINGS: "/api/settings",
-} as const
+} as const;

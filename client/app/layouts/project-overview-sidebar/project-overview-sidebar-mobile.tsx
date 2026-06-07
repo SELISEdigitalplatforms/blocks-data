@@ -1,5 +1,5 @@
 import { useState, Fragment } from "react";
-import { Settings, Users, MenuIcon, BookMinus, Package } from "lucide-react";
+import { MenuIcon, Package } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
 import {
   Sheet,
@@ -20,27 +20,27 @@ const projectOverviewMenuItems: Menu[] = [
     path: "/project-overview/environments",
     icon: Package,
   },
-  {
-    id: "people",
-    type: "menu" as const,
-    name: "People",
-    path: "/project-overview/people",
-    icon: Users,
-  },
-  {
-    id: "repositories",
-    type: "menu" as const,
-    name: "Repositories",
-    path: "/project-overview/repositories",
-    icon: BookMinus,
-  },
-  {
-    id: "settings",
-    type: "menu" as const,
-    name: "Project Settings",
-    path: "/project-overview/settings",
-    icon: Settings,
-  },
+  // {
+  //   id: "people",
+  //   type: "menu" as const,
+  //   name: "People",
+  //   path: "/project-overview/people",
+  //   icon: Users,
+  // },
+  // {
+  //   id: "repositories",
+  //   type: "menu" as const,
+  //   name: "Repositories",
+  //   path: "/project-overview/repositories",
+  //   icon: BookMinus,
+  // },
+  // {
+  //   id: "settings",
+  //   type: "menu" as const,
+  //   name: "Project Settings",
+  //   path: "/project-overview/settings",
+  //   icon: Settings,
+  // },
 ];
 
 export const ProjectOverviewSidebarMobile = () => {

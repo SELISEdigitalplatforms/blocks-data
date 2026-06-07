@@ -1,5 +1,4 @@
 import { AddEnvironmentModal } from "@/components/environment-card/add-environment-modal";
-import { EnvironmentCard } from "@/components/environment-card/environment-card";
 import { ProjectCardLoading } from "@/components/project-card/loading";
 import {
   Dialog,
@@ -17,6 +16,7 @@ import {
 import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { useGetMigrationStatus, useGetProjects } from "@/hooks/use-project";
 import { useProjectStore } from "@/store/useProjectStore";
+import { EnvironmentCard } from "@seliseblocks/blocks-kit";
 import { CircleHelp } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";

@@ -1,17 +1,20 @@
 import { BackToConsoleNavigator } from "@/components/back-to-console-navigator/back-to-console-navigator";
-import { BlocksAppLauncher } from "@/components/blocks-app-launcher/blocks-app-launcher";
-import { ModeToggle } from "@/components/mode-toggle/mode-toggle";
 import { Notification } from "@/components/notification/notification";
 import { Button } from "@/components/ui-kits/button/button";
-import { UserDropdownMenu } from "@/components/user-dropdown-menu/user-dropdown-menu";
 import { SidebarContext } from "@/contexts/dashboard-layout-provider";
 import { useGetProject } from "@/hooks/use-project";
 import { SidebarMobileView } from "@/layouts/sidebar-mobile-view/sidebar-mobile-view";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@/store/useProjectStore";
+import {
+  AppSwitcher,
+  ThemeSwitcher,
+  UserDropdownMenu,
+} from "@seliseblocks/blocks-kit";
 import { ChevronRight, FolderOpen, PanelLeft } from "lucide-react";
 import { useContext, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { BlocksApp, SELISE_APPS } from "./dashboard.constant";
 
 export function DashboardHeader() {
   const { isSidebarOpen, toggleSidebar } = useContext(SidebarContext);
@@ -75,9 +78,9 @@ export function DashboardHeader() {
 
         <div className="flex items-center gap-4">
           <BackToConsoleNavigator />
-          <ModeToggle />
+          <ThemeSwitcher />
           <Notification />
-          <BlocksAppLauncher />
+          <AppSwitcher apps={SELISE_APPS} />
           <UserDropdownMenu />
         </div>
       </header>

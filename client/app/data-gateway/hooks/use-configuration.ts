@@ -50,15 +50,10 @@ export const useUpdateDataSourceConfiguration = () => {
   });
 };
 
-export const useGetDataServiceConfiguration = (option: {
-  projectKey: string;
-}) => {
+export const useGetDataServiceConfiguration = () => {
   return useQuery({
-    queryKey: ["data-service-config", "get", option],
-    queryFn: () =>
-      configurationService.getDataServiceDetails({
-        projectKey: option.projectKey,
-      }),
+    queryKey: ["data-service-config", "get"],
+    queryFn: () => configurationService.getDataServiceDetails(),
   });
 };
 

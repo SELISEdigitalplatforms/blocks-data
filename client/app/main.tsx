@@ -20,7 +20,7 @@ createRoot(document.getElementById("root")!).render(
               projectBaseUrlKey: "BLOCKS_DATA_BASE_URL",
             }}
           >
-            <RouterProvider router={router} />{" "}
+            <RouterProvider router={router} />
           </BlocksAppLayout>
           <Toaster />
         </TooltipProvider>

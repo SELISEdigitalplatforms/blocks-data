@@ -1,8 +1,6 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 
-import { ConsoleLayout } from "./layouts/console-layout";
 import { DashboardLayout } from "./layouts/dashboard-layout";
-
 
 // Dashboard routes (protected)
 import ApiSettingsPage from "./routes/dashboard/api-settings";
@@ -26,7 +24,6 @@ import RateLimiterPage from "./routes/dashboard/rate-limiter";
 import SsoConfigurationPage from "./routes/dashboard/sso-configuration";
 import StoragePage from "./routes/dashboard/storage-page";
 
-
 // Console pages
 import { Console } from "./pages/console/console";
 import { CreateProjectWrapper } from "./pages/create-project/create-project";
@@ -38,75 +35,189 @@ import { SettingsPage } from "./pages/settings/settings";
 import LoginCallbackPage from "./routes/auth/callback";
 import LoginSimplePage from "./routes/auth/login-simple";
 import CallbackPage from "./routes/callback/callback";
-import { PublicGuard } from "./guards/public-guard";
 import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
-
+import {
+  AuthResolver,
+  PublicGuard,
+  LoginPage,
+  ProtectedGuard,
+  ConsoleLayout,
+  ImpersonationChecker,
+  ImpersonationTerminator,
+  ImpersonationSynchronizer,
+} from "@seliseblocks/blocks-kit";
 
 export const router = createBrowserRouter([
-  // ── IDP service login (initiates OIDC flow + handles callback) ──
   {
-    path: "/login",
+    // Set User Auth Information and resolve authentication state before rendering any route
     element: (
-      <PublicGuard>
+      <AuthResolver>
         <Outlet />
-      </PublicGuard>
+      </AuthResolver>
     ),
     children: [
-      { index: true, element: <LoginSimplePage /> },
-      { path: "callback", element: <LoginCallbackPage /> },
+      // publuc
+      {
+        element: (
+          <PublicGuard>
+            <Outlet />
+          </PublicGuard>
+        ),
+        children: [
+          { path: "/login", element: <LoginPage /> },
+          { path: "/login/callback", element: <LoginCallbackPage /> },
+        ],
+      },
+
+      // protected
+      {
+        element: (
+          <ProtectedGuard>
+            <Outlet />
+          </ProtectedGuard>
+        ),
+        children: [
+          {
+            element: (
+              <ImpersonationChecker>
+                <ImpersonationTerminator>
+                  <ConsoleLayout>
+                    <Outlet />
+                  </ConsoleLayout>
+                </ImpersonationTerminator>
+              </ImpersonationChecker>
+            ),
+            children: [
+              { path: "/profile", element: <ProfilePage /> },
+              { path: "/console", element: <Console /> },
+            ],
+          },
+          {
+            // impersonate
+            element: (
+              <ImpersonationChecker>
+                <ImpersonationSynchronizer>
+                  <DashboardLayout />
+                </ImpersonationSynchronizer>
+              </ImpersonationChecker>
+            ),
+            children: [
+              { path: "/dashboard", element: <DashboardOverview /> },
+              {
+                path: "/services/data-gateway",
+                element: <DataGatewaySchemasPage />,
+              },
+              {
+                path: "/services/data-gateway/playground",
+                element: <DataGatewayPlaygroundPage />,
+              },
+              {
+                path: "/services/data-gateway/logs",
+                element: <DataGatewayLogsPage />,
+              },
+              { path: "/services/storage", element: <StoragePage /> },
+            ],
+          },
+        ],
+      },
     ],
   },
-
-   // ── Console layout (profile, console pages without sidebar) ──
-  {
-    element: <ConsoleLayout />,
-    children: [
-      { path: "/profile", element: <ProfilePage /> },
-      { path: "/console", element: <Console /> },
-      { path: "/create-project", element: <CreateProjectWrapper /> },
-      { path: "/callback", element: <CallbackPage /> },
-    ],
-  },
-
-  // ── Dashboard and project overview in dashboard layout (consolidated sidebar) ───
-  {
-    element: <DashboardLayout />,
-    children: [
-      { path: "/dashboard", element: <DashboardOverview />},
-      { path: "/services/iam", element: <IamPage /> },
-      { path: "/services/iam/user-detail/:id", element: <IamUserDetailPage /> },
-      { path: "/services/iam/role-detail/:id", element: <IamRoleDetailPage /> },
-      { path: "/services/iam/permission-detail/new", element: <IamAddPermissionPage /> },
-      { path: "/services/iam/permission-detail/:id", element: <IamPermissionDetailPage /> },
-      { path: "/services/iam/organization-detail/:itemId", element: <IamOrgDetailPage /> },
-      { path: "/services/iam/logs", element: <IamLogsPage /> },
-      { path: "/services/iam/configure", element: <IamConfigurePage /> },
-      { path: "/services/authentication", element: <AuthenticationConfigPage /> },
-      { path: "/services/authentication/sso-configuration", element: <SsoConfigurationPage /> },
-      { path: "/services/authentication/logs", element: <AuthLogsPage /> },
-      { path: "/services/mfa", element: <Navigate to="/services/secret-management?tab=mfa" replace /> },
-      { path: "/services/mfa/logs", element: <MfaLogsPage /> },
-      { path: "/services/api-settings", element: <ApiSettingsPage /> },
-      { path: "/services/rate-limiter", element: <RateLimiterPage /> },
-      { path: "/services/logs/:serviceName", element: <PlatformServiceLogsPage /> },
-      { path: "/services/data-gateway", element: <DataGatewaySchemasPage /> },
-      { path: "/services/data-gateway/playground", element: <DataGatewayPlaygroundPage /> },
-      { path: "/services/data-gateway/logs", element: <DataGatewayLogsPage /> },
-      { path: "/services/storage", element: <StoragePage /> },
-    ],
-  },
-
-  {
-    element: <ProjectOverviewLayout />,
-    children: [
-      { path: "/project-overview", element: <Navigate to="/project-overview/environments" replace /> },
-      { path: "/project-overview/environments", element: <EnvironmentsPage /> },
-      { path: "/project-overview/people", element: <PeopleManagement /> },
-      { path: "/project-overview/repositories", element: <RepositoriesPage /> },
-      { path: "/project-overview/settings", element: <SettingsPage /> },
-    ],
-  },
-
-  // ── Root redirect: authenticated users go to console ──
   { path: "/", element: <Navigate to="/console" replace /> },
+
+  // ── Catch-all: redirect to login ──
+  { path: "*", element: <Navigate to="/login" replace /> },
+
+  // // ── IDP service login (initiates OIDC flow + handles callback) ──
+  // {
+  //   path: "/login",
+  //   element: (
+  //     <PublicGuard>
+  //       <Outlet />
+  //     </PublicGuard>
+  //   ),
+  //   children: [
+  //     { index: true, element: <LoginSimplePage /> },
+  //     { path: "callback", element: <LoginCallbackPage /> },
+  //   ],
+  // },
+
+  // // ── Console layout (profile, console pages without sidebar) ──
+  // {
+  //   element: <ConsoleLayout />,
+  //   children: [
+  //     { path: "/profile", element: <ProfilePage /> },
+  //     { path: "/console", element: <Console /> },
+  //     { path: "/create-project", element: <CreateProjectWrapper /> },
+  //     { path: "/callback", element: <CallbackPage /> },
+  //   ],
+  // },
+
+  // // ── Dashboard and project overview in dashboard layout (consolidated sidebar) ───
+  // {
+  //   element: <DashboardLayout />,
+  //   children: [
+  //     { path: "/dashboard", element: <DashboardOverview /> },
+  //     { path: "/services/iam", element: <IamPage /> },
+  //     { path: "/services/iam/user-detail/:id", element: <IamUserDetailPage /> },
+  //     { path: "/services/iam/role-detail/:id", element: <IamRoleDetailPage /> },
+  //     {
+  //       path: "/services/iam/permission-detail/new",
+  //       element: <IamAddPermissionPage />,
+  //     },
+  //     {
+  //       path: "/services/iam/permission-detail/:id",
+  //       element: <IamPermissionDetailPage />,
+  //     },
+  //     {
+  //       path: "/services/iam/organization-detail/:itemId",
+  //       element: <IamOrgDetailPage />,
+  //     },
+  //     { path: "/services/iam/logs", element: <IamLogsPage /> },
+  //     { path: "/services/iam/configure", element: <IamConfigurePage /> },
+  //     {
+  //       path: "/services/authentication",
+  //       element: <AuthenticationConfigPage />,
+  //     },
+  //     {
+  //       path: "/services/authentication/sso-configuration",
+  //       element: <SsoConfigurationPage />,
+  //     },
+  //     { path: "/services/authentication/logs", element: <AuthLogsPage /> },
+  //     {
+  //       path: "/services/mfa",
+  //       element: <Navigate to="/services/secret-management?tab=mfa" replace />,
+  //     },
+  //     { path: "/services/mfa/logs", element: <MfaLogsPage /> },
+  //     { path: "/services/api-settings", element: <ApiSettingsPage /> },
+  //     { path: "/services/rate-limiter", element: <RateLimiterPage /> },
+  //     {
+  //       path: "/services/logs/:serviceName",
+  //       element: <PlatformServiceLogsPage />,
+  //     },
+  //     { path: "/services/data-gateway", element: <DataGatewaySchemasPage /> },
+  //     {
+  //       path: "/services/data-gateway/playground",
+  //       element: <DataGatewayPlaygroundPage />,
+  //     },
+  //     { path: "/services/data-gateway/logs", element: <DataGatewayLogsPage /> },
+  //     { path: "/services/storage", element: <StoragePage /> },
+  //   ],
+  // },
+
+  // {
+  //   element: <ProjectOverviewLayout />,
+  //   children: [
+  //     {
+  //       path: "/project-overview",
+  //       element: <Navigate to="/project-overview/environments" replace />,
+  //     },
+  //     { path: "/project-overview/environments", element: <EnvironmentsPage /> },
+  //     { path: "/project-overview/people", element: <PeopleManagement /> },
+  //     { path: "/project-overview/repositories", element: <RepositoriesPage /> },
+  //     { path: "/project-overview/settings", element: <SettingsPage /> },
+  //   ],
+  // },
+
+  // // ── Root redirect: authenticated users go to console ──
+  // { path: "/", element: <Navigate to="/console" replace /> },
 ]);

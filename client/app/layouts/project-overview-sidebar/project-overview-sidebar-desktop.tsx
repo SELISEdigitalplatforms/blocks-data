@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { Settings, Users, BookMinus, Package } from "lucide-react";
+import { Package } from "lucide-react";
 import { DesktopMenuItem } from "@/components/menus/desktop-menu-item";
 import { Menu } from "@/models/menu-models";
 
@@ -11,27 +11,27 @@ const projectOverviewMenuItems: Menu[] = [
     path: "/project-overview/environments",
     icon: Package,
   },
-  {
-    id: "people",
-    type: "menu" as const,
-    name: "People",
-    path: "/project-overview/people",
-    icon: Users,
-  },
-  {
-    id: "repositories",
-    type: "menu" as const,
-    name: "Repositories",
-    path: "/project-overview/repositories",
-    icon: BookMinus,
-  },
-  {
-    id: "settings",
-    type: "menu" as const,
-    name: "Project Settings",
-    path: "/project-overview/settings",
-    icon: Settings,
-  },
+  // {
+  //   id: "people",
+  //   type: "menu" as const,
+  //   name: "People",
+  //   path: "/project-overview/people",
+  //   icon: Users,
+  // },
+  // {
+  //   id: "repositories",
+  //   type: "menu" as const,
+  //   name: "Repositories",
+  //   path: "/project-overview/repositories",
+  //   icon: BookMinus,
+  // },
+  // {
+  //   id: "settings",
+  //   type: "menu" as const,
+  //   name: "Project Settings",
+  //   path: "/project-overview/settings",
+  //   icon: Settings,
+  // },
 ];
 
 export const ProjectOverviewSidebarDesktop = () => {

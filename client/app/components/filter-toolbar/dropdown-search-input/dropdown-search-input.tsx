@@ -13,7 +13,7 @@ import {
 
 type ValueType = { selected: string; value: string };
 
-interface DropdownSearchInputProps {
+export interface DropdownSearchInputProps {
   onChange: (params: ValueType) => void;
   placeholder?: string;
   value: ValueType;
@@ -78,7 +78,11 @@ export const DropdownSearchInput: React.FC<DropdownSearchInputProps> = ({
         </SelectTrigger>
         <SelectContent className={cn(className.selectContent)}>
           {options.map((item) => (
-            <SelectItem key={item.value} value={item.value} className={cn(className.SelectItem)}>
+            <SelectItem
+              key={item.value}
+              value={item.value}
+              className={cn(className.SelectItem)}
+            >
               {item.label}
             </SelectItem>
           ))}
@@ -99,7 +103,10 @@ export const DropdownSearchInput: React.FC<DropdownSearchInputProps> = ({
       <Button
         variant="ghost"
         size="xs"
-        className={cn("h-full p-1 pr-0 hover:bg-transparent", !value.value && "invisible")}
+        className={cn(
+          "h-full p-1 pr-0 hover:bg-transparent",
+          !value.value && "invisible",
+        )}
         onClick={handleClear}
       >
         <X className="h-4 w-4 text-muted-foreground" />

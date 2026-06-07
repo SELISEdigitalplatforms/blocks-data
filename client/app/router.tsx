@@ -10,6 +10,7 @@ import StoragePage from "./routes/dashboard/storage-page";
 
 // Console pages
 import { DashboardOverview } from "./pages/dashboard/dashboard-overview";
+import { EnvironmentsPage } from "./pages/environments/environments";
 import {
   AuthResolver,
   PublicGuard,
@@ -83,8 +84,14 @@ export const router = createBrowserRouter([
                 ],
               },
               {
-                path: "/project-overview/environments",
+                path: "/project-overview",
                 element: <ProjectOverviewLayout />,
+                children: [
+                  {
+                    path: "environments",
+                    element: <EnvironmentsPage />,
+                  },
+                ],
               },
               {
                 // impersonate

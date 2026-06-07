@@ -144,7 +144,7 @@ export const SchemaDetailsPage = () => {
     useSchemaDetails(selectedSchemaId ?? "", projectKey, {
       enabled: isSchemaView,
     });
-  const { data: configData } = useGetDataServiceConfiguration({ projectKey });
+  const { data: configData } = useGetDataServiceConfiguration();
   const { mutateAsync: createSchema } = useCreateSchema();
 
   const onSchemaCreate = async (

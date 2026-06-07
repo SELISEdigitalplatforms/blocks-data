@@ -4,7 +4,7 @@ import { Button } from "@/components/ui-kits/button/button";
 import { Input } from "@/components/ui-kits/input/input";
 import { cn, debounce } from "@/lib/utils";
 
-interface SearchInputProps {
+export interface SearchInputProps {
   onChange: (value: string) => void;
   placeholder?: string;
   value: string;
@@ -65,7 +65,10 @@ export const SearchInput: React.FC<SearchInputProps> = ({
       <Button
         variant="ghost"
         size="xs"
-        className={cn("h-full p-1 pr-0 hover:bg-transparent", !value && "invisible")}
+        className={cn(
+          "h-full p-1 pr-0 hover:bg-transparent",
+          !value && "invisible",
+        )}
         onClick={handleClear}
       >
         <X className="h-4 w-4 text-muted-foreground" />

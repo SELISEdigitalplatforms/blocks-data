@@ -59,10 +59,8 @@ class ConfigurationService {
     return http.put(DATA_SOURCE_ENDPOINTS.UPDATE, payload);
   }
 
-  getDataServiceDetails(
-    payload: IGetConfigurationPayload,
-  ): Promise<IDataServiceConfigurationResponse> {
-    return http.get(`${DATA_SOURCE_ENDPOINTS.GET}/${payload.projectKey}/get`);
+  getDataServiceDetails(): Promise<IDataServiceConfigurationResponse> {
+    return http.get(`${DATA_SOURCE_ENDPOINTS.GET}/get`);
   }
 
   reloadSchemas(payload: {

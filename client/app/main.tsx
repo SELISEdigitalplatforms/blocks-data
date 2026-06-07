@@ -9,9 +9,6 @@ import { router } from "./router";
 import "./styles/globals.css";
 import { BlocksAppLayout } from "@seliseblocks/blocks-kit";
 
-import applightlogo from "./../public/blocks-logos/Logo_Black.svg";
-import appblacklogo from "./../public/blocks-logos/Logo_White.svg";
-
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryProvider>
@@ -22,8 +19,8 @@ createRoot(document.getElementById("root")!).render(
               userBaseUrlKey: "BLOCKS_IAM_BASE_URL",
               projectBaseUrlKey: "BLOCKS_LOGIC_BASE_URL",
               appLogoUrl: {
-                dark: applightlogo,
-                light: appblacklogo,
+                dark: "/blocks-logos/Logo_Black.svg",
+                light: "/blocks-logos/Logo_White.svg",
               },
             }}
           >

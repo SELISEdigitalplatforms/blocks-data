@@ -97,10 +97,11 @@ export const router = createBrowserRouter([
           },
         ],
       },
+
+      { path: "/", element: <Navigate to="/console" replace /> },
+
+      // ── Catch-all: redirect to login ──
+      { path: "*", element: <Navigate to="/login" replace /> },
     ],
   },
-  { path: "/", element: <Navigate to="/console" replace /> },
-
-  // ── Catch-all: redirect to login ──
-  { path: "*", element: <Navigate to="/login" replace /> },
 ]);

@@ -228,3 +228,38 @@ export const mockInvitePeopleResponse = {
   isSuccess: true,
   errors: null,
 };
+
+// ─── Mock Service Registry ────────────────────────────────────────────────────
+
+export const mockRegisterServiceResponse = {
+  itemId: "service-id-001",
+  isSuccess: true,
+  errors: null,
+};
+
+export const mockGetAllServicesResponse = {
+  data: [
+    {
+      itemId: "service-id-001",
+      createdDate: "2025-01-01T10:00:00Z",
+      lastUpdatedDate: "2025-01-15T14:30:00Z",
+      createdBy: "user-id-1",
+      language: "en",
+      lastUpdatedBy: "user-id-1",
+      organizationIds: [],
+      tags: ["api"],
+      name: "Test Service",
+      url: "https://api.example.com",
+      environment: "dev",
+      type: 1,
+      description: "A test service",
+      serviceId: "svc-001",
+      metadata: {},
+      serviceBusConnectionString: "",
+      tenantId: "test-tenant-id-123",
+      serviceType: "api",
+    },
+  ],
+  totalCount: 1,
+  errors: undefined,
+};

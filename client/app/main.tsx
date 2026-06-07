@@ -17,8 +17,8 @@ createRoot(document.getElementById("root")!).render(
         <TooltipProvider>
           <BlocksAppLayout
             config={{
-              userBaseUrlKey: getRuntimeEnv("BLOCKS_IAM_BASE_URL"),
-              projectBaseUrlKey: getRuntimeEnv("BLOCKS_LOGIC_BASE_URL"),
+              userBaseUrlKey: "BLOCKS_IAM_BASE_URL",
+              projectBaseUrlKey: "BLOCKS_LOGIC_BASE_URL",
               appLogoUrl: {
                 dark: "/blocks-logos/Logo_Black.svg",
                 light: "/blocks-logos/Logo_White.svg",

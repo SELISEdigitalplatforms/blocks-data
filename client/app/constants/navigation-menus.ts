@@ -1,5 +1,5 @@
-import { Menu } from "@/models/menu-models"
-import { Package, Users, BookMinus, Settings, Database, HardDrive } from "lucide-react"
+import { Menu } from "@/models/menu-models";
+import { Package, Database, HardDrive } from "lucide-react";
 
 /** Sidebar: data services, then project-scoped links under /project-overview. */
 export const navigationMenus: Menu[] = [
@@ -28,25 +28,25 @@ export const navigationMenus: Menu[] = [
     path: "/project-overview/environments",
     icon: Package,
   },
-  {
-    id: "people",
-    type: "menu",
-    name: "People",
-    path: "/project-overview/people",
-    icon: Users,
-  },
-  {
-    id: "repositories",
-    type: "menu",
-    name: "Repositories",
-    path: "/project-overview/repositories",
-    icon: BookMinus,
-  },
-  {
-    id: "settings",
-    type: "menu",
-    name: "Project Settings",
-    path: "/project-overview/settings",
-    icon: Settings,
-  },
-]
+  // {
+  //   id: "people",
+  //   type: "menu",
+  //   name: "People",
+  //   path: "/project-overview/people",
+  //   icon: Users,
+  // },
+  // {
+  //   id: "repositories",
+  //   type: "menu",
+  //   name: "Repositories",
+  //   path: "/project-overview/repositories",
+  //   icon: BookMinus,
+  // },
+  // {
+  //   id: "settings",
+  //   type: "menu",
+  //   name: "Project Settings",
+  //   path: "/project-overview/settings",
+  //   icon: Settings,
+  // },
+];

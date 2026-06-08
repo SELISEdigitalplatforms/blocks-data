@@ -25,6 +25,7 @@ import {
 } from "@seliseblocks/blocks-kit";
 import ProfilePage from "./routes/dashboard/profile";
 import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
+import LoginSimplePage from "./routes/auth/login-simple";
 
 export const router = createBrowserRouter([
   {
@@ -57,7 +58,7 @@ export const router = createBrowserRouter([
                 <Outlet />
               </PublicGuard>
             ),
-            children: [{ path: "/login", element: <LoginPage /> }],
+            children: [{ path: "/login", element: <LoginSimplePage /> }], // TODO: later we will change it to LoginPage from the package
           },
 
           // protected

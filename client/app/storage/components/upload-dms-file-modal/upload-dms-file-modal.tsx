@@ -12,7 +12,10 @@ import {
 } from "@/components/ui-kits/dialog/dialog";
 import { Button } from "@/components/ui-kits/button/button";
 import { CloudUpload, XCircle } from "lucide-react";
-import { FileUploader, FileInput } from "@/components/file-uploader/file-uploader";
+import {
+  FileUploader,
+  FileInput,
+} from "@/components/file-uploader/file-uploader";
 import { showSuccessToast, showErrorToast } from "@/hooks/use-toast";
 import {
   useGetPreSignedUrlForUpload,
@@ -21,7 +24,7 @@ import {
 } from "@/storage/hooks/use-storage-file";
 import { isErrorWithErrors } from "@/lib/error";
 import { IDmsUploadItem } from "@/storage/models/storage.model";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { ModuleName } from "@/constants/modules.constants";
 
 type UploadDmsFileModalProps = {
@@ -58,7 +61,8 @@ export const UploadDmsFileModal = ({
     return () => urls.forEach(URL.revokeObjectURL);
   }, [files]);
 
-  const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
+  const removeFile = (idx: number) =>
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
 
   const processFile = async (file: File) => {
     try {
@@ -156,7 +160,9 @@ export const UploadDmsFileModal = ({
       <DialogContent className="gap-6">
         <DialogHeader>
           <DialogTitle>Upload File</DialogTitle>
-          <DialogDescription>Upload files to your DMS workspace</DialogDescription>
+          <DialogDescription>
+            Upload files to your DMS workspace
+          </DialogDescription>
         </DialogHeader>
 
         <FileUploader
@@ -171,7 +177,9 @@ export const UploadDmsFileModal = ({
           <FileInput className="flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4">
             <CloudUpload className="h-8 w-8 text-low-emphasis" />
             <p className="text-sm leading-5">
-              <span className="font-semibold text-primary">Click to upload</span>
+              <span className="font-semibold text-primary">
+                Click to upload
+              </span>
               <span className="font-normal"> or drag and drop</span>
             </p>
             <span className="text-xs text-muted-foreground">
@@ -197,7 +205,10 @@ export const UploadDmsFileModal = ({
                     </span>
                   </div>
                 </div>
-                <p className="mt-1 w-32 truncate text-center text-xs" title={f.name}>
+                <p
+                  className="mt-1 w-32 truncate text-center text-xs"
+                  title={f.name}
+                >
                   {f.name}
                 </p>
               </div>
@@ -207,7 +218,12 @@ export const UploadDmsFileModal = ({
 
         <DialogFooter className="flex flex-col justify-end gap-2 sm:flex-row">
           <DialogClose asChild>
-            <Button variant="outline" disabled={isUploading} className="w-full sm:w-20" size="sm">
+            <Button
+              variant="outline"
+              disabled={isUploading}
+              className="w-full sm:w-20"
+              size="sm"
+            >
               Cancel
             </Button>
           </DialogClose>

@@ -9,19 +9,30 @@ import {
   DrawerTitle,
 } from "@/components/ui-kits/drawer/drawer";
 import { Button } from "@/components/ui-kits/button/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui-kits/tabs/tabs";
 import { cn } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
 import { useGetRoles } from "@blocks-idp/iam/hooks/use-roles";
 import { useGetPermissions } from "@blocks-idp/iam/hooks/use-permission";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { IRole } from "@blocks-idp/iam/models/role";
 import { SchemaAccessList } from "./schema-access-list";
-import type { AccessEntry, PermissionOption } from "../models/schema-access.types";
+import type {
+  AccessEntry,
+  PermissionOption,
+} from "../models/schema-access.types";
 import { FieldAccessTarget } from "../models/schema-access.types";
 import { sanitizeRuleSet, uniqueStrings } from "../utils/schema-access.utils";
 import { useSetDataAccess } from "../hooks/use-configuration";
-import { IDataAccessRuleSet, ISetDataAccessPayload } from "../models/data-service";
+import {
+  IDataAccessRuleSet,
+  ISetDataAccessPayload,
+} from "../models/data-service";
 // import { SchemaRlsToggle } from "./schema-rls-toggle";
 import { SchemaAccessToolbar } from "./schema-access-toolbar";
 import { useQueries, useQuery } from "@tanstack/react-query";
@@ -75,7 +86,10 @@ const TAB_META: Record<AccessTab, AccessTabMeta> = {
 
 const aggregateFieldRuleSets = (
   targets: FieldAccessTarget[],
-  key: keyof Pick<FieldAccessTarget, "readAccess" | "writeAccess" | "deleteAccess">,
+  key: keyof Pick<
+    FieldAccessTarget,
+    "readAccess" | "writeAccess" | "deleteAccess"
+  >,
 ): IDataAccessRuleSet => {
   const roles: (string | null | undefined)[] = [];
   const permissions: (string | null | undefined)[] = [];
@@ -105,7 +119,9 @@ const createEmptyEntries = (): Record<AccessTab, AccessEntry[]> => ({
   delete: [],
 });
 
-const cloneEntries = (source: Record<AccessTab, AccessEntry[]>): Record<AccessTab, AccessEntry[]> =>
+const cloneEntries = (
+  source: Record<AccessTab, AccessEntry[]>,
+): Record<AccessTab, AccessEntry[]> =>
   TAB_ORDER.reduce(
     (acc, tab) => {
       acc[tab] = source[tab].map((entry) => ({ ...entry }));
@@ -120,7 +136,9 @@ const normalizeEntries = (source: Record<AccessTab, AccessEntry[]>) =>
       acc[tab] = source[tab].map((entry) => ({
         ...entry,
         name: entry.name.trim(),
-        department: entry.department?.trim() ? entry.department.trim() : undefined,
+        department: entry.department?.trim()
+          ? entry.department.trim()
+          : undefined,
       }));
       return acc;
     },
@@ -157,18 +175,21 @@ export function SchemaAccessDrawer({
   const fieldTargets = fieldTargetsProp ?? EMPTY_FIELD_TARGETS;
   const [activeTab, setActiveTab] = useState<AccessTab>("view");
   const [isEditing, setIsEditing] = useState(false);
-  const [entriesByTab, setEntriesByTab] = useState<Record<AccessTab, AccessEntry[]>>(() =>
-    createEmptyEntries(),
-  );
-  const [draftEntriesByTab, setDraftEntriesByTab] = useState<Record<AccessTab, AccessEntry[]>>(() =>
-    createEmptyEntries(),
-  );
-  const [isTabSwitchConfirmationOpen, setIsTabSwitchConfirmationOpen] = useState(false);
+  const [entriesByTab, setEntriesByTab] = useState<
+    Record<AccessTab, AccessEntry[]>
+  >(() => createEmptyEntries());
+  const [draftEntriesByTab, setDraftEntriesByTab] = useState<
+    Record<AccessTab, AccessEntry[]>
+  >(() => createEmptyEntries());
+  const [isTabSwitchConfirmationOpen, setIsTabSwitchConfirmationOpen] =
+    useState(false);
   const [pendingTab, setPendingTab] = useState<AccessTab | null>(null);
   const [isCloseConfirmationOpen, setIsCloseConfirmationOpen] = useState(false);
-  const previousEntriesRef = useRef<Record<AccessTab, AccessEntry[]>>(createEmptyEntries());
+  const previousEntriesRef =
+    useRef<Record<AccessTab, AccessEntry[]>>(createEmptyEntries());
 
-  const { mutateAsync: setDataAccess, isPending: isSaving } = useSetDataAccess(schemaId);
+  const { mutateAsync: setDataAccess, isPending: isSaving } =
+    useSetDataAccess(schemaId);
 
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
@@ -184,9 +205,18 @@ export function SchemaAccessDrawer({
 
   const availableRoles: IRole[] = rolesData?.data ?? [];
 
-  const schemaReadAccess = useMemo(() => sanitizeRuleSet(readAccess), [readAccess]);
-  const schemaWriteAccess = useMemo(() => sanitizeRuleSet(writeAccess), [writeAccess]);
-  const schemaDeleteAccess = useMemo(() => sanitizeRuleSet(deleteAccess), [deleteAccess]);
+  const schemaReadAccess = useMemo(
+    () => sanitizeRuleSet(readAccess),
+    [readAccess],
+  );
+  const schemaWriteAccess = useMemo(
+    () => sanitizeRuleSet(writeAccess),
+    [writeAccess],
+  );
+  const schemaDeleteAccess = useMemo(
+    () => sanitizeRuleSet(deleteAccess),
+    [deleteAccess],
+  );
 
   const effectiveReadAccess = useMemo(() => {
     if (fieldTargets.length > 0) {
@@ -257,7 +287,12 @@ export function SchemaAccessDrawer({
   });
 
   const permissionsByResourceQuery = useQuery({
-    queryKey: ["permissions", "by-resource", projectKey, allPermissionResources],
+    queryKey: [
+      "permissions",
+      "by-resource",
+      projectKey,
+      allPermissionResources,
+    ],
     queryFn: () =>
       permissionService.getPermissions({
         page: 0,
@@ -279,11 +314,12 @@ export function SchemaAccessDrawer({
     queries:
       projectKey && allUserIds.length > 0
         ? allUserIds.map((id) => ({
-          queryKey: ["user", projectKey, id],
-          queryFn: () => userService.getUserById({ id, projectKey: projectKey }),
-          enabled: true,
-          staleTime: 5 * 60_000,
-        }))
+            queryKey: ["user", projectKey, id],
+            queryFn: () =>
+              userService.getUserById({ id, projectKey: projectKey }),
+            enabled: true,
+            staleTime: 5 * 60_000,
+          }))
         : [],
   });
 
@@ -291,7 +327,11 @@ export function SchemaAccessDrawer({
     const map = new Map<string, ResolvedRole>();
     rolesBySlugQuery.data?.data?.forEach((role) => {
       if (role.slug) {
-        map.set(role.slug, { slug: role.slug, name: role.name, id: role.itemId });
+        map.set(role.slug, {
+          slug: role.slug,
+          name: role.name,
+          id: role.itemId,
+        });
       }
     });
     return map;
@@ -302,7 +342,10 @@ export function SchemaAccessDrawer({
     allUserIds.forEach((id, index) => {
       const result = userQueries[index]?.data?.data;
       if (result) {
-        const displayName = [result.firstName, result.lastName].filter(Boolean).join(" ").trim();
+        const displayName = [result.firstName, result.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .trim();
         map.set(id, {
           id,
           name: displayName || result.email || result.userName || id,
@@ -392,7 +435,9 @@ export function SchemaAccessDrawer({
   }, [permissionsData, resolvedPermissions, fieldTargets.length]);
 
   const serverEntries = useMemo(() => {
-    const buildEntriesFromRuleSet = (ruleSet: IDataAccessRuleSet): AccessEntry[] => {
+    const buildEntriesFromRuleSet = (
+      ruleSet: IDataAccessRuleSet,
+    ): AccessEntry[] => {
       const roleEntries = ruleSet.roles.map((roleSlug) => {
         const role = resolvedRoles.get(roleSlug);
         return {
@@ -413,15 +458,17 @@ export function SchemaAccessDrawer({
         };
       });
 
-      const permissionEntries = ruleSet.permissions.map((permissionResource) => {
-        const permission = resolvedPermissions.get(permissionResource);
-        return {
-          type: "Permission" as const,
-          name: permission?.name ?? permissionResource,
-          department: permission?.resourceGroup ?? permission?.resource,
-          permissionResource,
-        };
-      });
+      const permissionEntries = ruleSet.permissions.map(
+        (permissionResource) => {
+          const permission = resolvedPermissions.get(permissionResource);
+          return {
+            type: "Permission" as const,
+            name: permission?.name ?? permissionResource,
+            department: permission?.resourceGroup ?? permission?.resource,
+            permissionResource,
+          };
+        },
+      );
 
       return [...roleEntries, ...userEntries, ...permissionEntries];
     };
@@ -520,10 +567,12 @@ export function SchemaAccessDrawer({
         return (
           draftEntry.type !== savedEntry.type ||
           normalize(draftEntry.name) !== normalize(savedEntry.name) ||
-          normalize(draftEntry.department) !== normalize(savedEntry.department) ||
+          normalize(draftEntry.department) !==
+            normalize(savedEntry.department) ||
           normalize(draftEntry.roleSlug) !== normalize(savedEntry.roleSlug) ||
           normalize(draftEntry.userId) !== normalize(savedEntry.userId) ||
-          normalize(draftEntry.permissionResource) !== normalize(savedEntry.permissionResource)
+          normalize(draftEntry.permissionResource) !==
+            normalize(savedEntry.permissionResource)
         );
       });
     });
@@ -600,7 +649,9 @@ export function SchemaAccessDrawer({
   const handleSaveEdit = async () => {
     const normalized = normalizeEntries(draftEntriesByTab);
 
-    const buildRuleSet = (entries: AccessEntry[]): ISetDataAccessPayload["readAccess"] => {
+    const buildRuleSet = (
+      entries: AccessEntry[],
+    ): ISetDataAccessPayload["readAccess"] => {
       const roles: string[] = [];
       const users: string[] = [];
       const permissions: string[] = [];
@@ -617,7 +668,8 @@ export function SchemaAccessDrawer({
             users.push(identifier);
           }
         } else if (entry.type === "Permission") {
-          const identifier = entry.permissionResource?.trim() || entry.name.trim();
+          const identifier =
+            entry.permissionResource?.trim() || entry.name.trim();
           if (identifier) {
             permissions.push(identifier);
           }
@@ -635,10 +687,13 @@ export function SchemaAccessDrawer({
     const readRuleSetPayload = buildRuleSet(normalized.view);
     const writeRuleSetPayload = buildRuleSet(normalized.edit);
     const deleteRuleSetPayload = buildRuleSet(normalized.delete);
-    const viewChanged = JSON.stringify(normalized.view) !== JSON.stringify(serverEntries.view);
-    const editChanged = JSON.stringify(normalized.edit) !== JSON.stringify(serverEntries.edit);
+    const viewChanged =
+      JSON.stringify(normalized.view) !== JSON.stringify(serverEntries.view);
+    const editChanged =
+      JSON.stringify(normalized.edit) !== JSON.stringify(serverEntries.edit);
     const deleteChanged =
-      JSON.stringify(normalized.delete) !== JSON.stringify(serverEntries.delete);
+      JSON.stringify(normalized.delete) !==
+      JSON.stringify(serverEntries.delete);
 
     const resolvedSchemaReadAccess = shouldUpdateSchemaLevel
       ? viewChanged
@@ -665,13 +720,17 @@ export function SchemaAccessDrawer({
       fields:
         fieldTargets.length > 0
           ? fieldTargets.map((target) => ({
-            name: target.name,
-            readAccess: viewChanged ? readRuleSetPayload : sanitizeRuleSet(target.readAccess),
-            writeAccess: editChanged ? writeRuleSetPayload : sanitizeRuleSet(target.writeAccess),
-            deleteAccess: deleteChanged
-              ? deleteRuleSetPayload
-              : sanitizeRuleSet(target.deleteAccess),
-          }))
+              name: target.name,
+              readAccess: viewChanged
+                ? readRuleSetPayload
+                : sanitizeRuleSet(target.readAccess),
+              writeAccess: editChanged
+                ? writeRuleSetPayload
+                : sanitizeRuleSet(target.writeAccess),
+              deleteAccess: deleteChanged
+                ? deleteRuleSetPayload
+                : sanitizeRuleSet(target.deleteAccess),
+            }))
           : [],
     };
 
@@ -687,7 +746,11 @@ export function SchemaAccessDrawer({
     }
   };
 
-  const handleEntryChange = (tab: AccessTab, index: number, updatedEntry: AccessEntry) => {
+  const handleEntryChange = (
+    tab: AccessTab,
+    index: number,
+    updatedEntry: AccessEntry,
+  ) => {
     setDraftEntriesByTab((prev) => {
       const next = cloneEntries(prev);
       const nextEntries = [...next[tab]];
@@ -727,7 +790,12 @@ export function SchemaAccessDrawer({
   const entriesAreEditable = isEditing && !isSaving;
 
   return (
-    <Drawer direction="right" open={open} onOpenChange={handleDrawerOpenChange} handleOnly>
+    <Drawer
+      direction="right"
+      open={open}
+      onOpenChange={handleDrawerOpenChange}
+      handleOnly
+    >
       <DrawerTrigger asChild>{trigger}</DrawerTrigger>
       <DrawerContent
         className={cn(
@@ -795,8 +863,8 @@ export function SchemaAccessDrawer({
                       <div className="flex flex-col items-center justify-center space-y-4 text-center">
                         <div className="space-y-2">
                           <h3 className="text-lg font-semibold text-foreground">
-                            This schema doesn’t have any access configuration yet. Click Add
-                            Configuration to set one up.
+                            This schema doesn’t have any access configuration
+                            yet. Click Add Configuration to set one up.
                           </h3>
                         </div>
                         <Button
@@ -824,12 +892,16 @@ export function SchemaAccessDrawer({
                       <SchemaAccessList
                         entries={entries}
                         isEditing={entriesAreEditable}
-                        onEntryChange={(index, entry) => handleEntryChange(tab, index, entry)}
+                        onEntryChange={(index, entry) =>
+                          handleEntryChange(tab, index, entry)
+                        }
                         onRemoveEntry={(index) => handleRemoveEntry(tab, index)}
                         roles={availableRoles}
                         rolesLoading={isRolesLoading}
                         permissions={availablePermissions}
-                        permissionsLoading={isPermissionsLoading || isPermissionsFetching}
+                        permissionsLoading={
+                          isPermissionsLoading || isPermissionsFetching
+                        }
                         className="mt-0"
                         projectKey={projectKey}
                       />
@@ -842,7 +914,10 @@ export function SchemaAccessDrawer({
         </div>
       </DrawerContent>
 
-      <Dialog open={isTabSwitchConfirmationOpen} onOpenChange={setIsTabSwitchConfirmationOpen}>
+      <Dialog
+        open={isTabSwitchConfirmationOpen}
+        onOpenChange={setIsTabSwitchConfirmationOpen}
+      >
         <ConfirmationModal
           onCancel={handleCancelTabSwitch}
           onConfirm={handleConfirmTabSwitch}
@@ -856,7 +931,10 @@ export function SchemaAccessDrawer({
         />
       </Dialog>
 
-      <Dialog open={isCloseConfirmationOpen} onOpenChange={setIsCloseConfirmationOpen}>
+      <Dialog
+        open={isCloseConfirmationOpen}
+        onOpenChange={setIsCloseConfirmationOpen}
+      >
         <ConfirmationModal
           onCancel={handleCancelClose}
           onConfirm={handleConfirmClose}

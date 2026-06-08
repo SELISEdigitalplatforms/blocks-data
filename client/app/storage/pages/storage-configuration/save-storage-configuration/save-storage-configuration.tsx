@@ -17,7 +17,10 @@ import {
 } from "@/components/ui-kits/select/select";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { storageConfigurationFormDefaultValue, storageConfigurationFormSchema } from "./utils";
+import {
+  storageConfigurationFormDefaultValue,
+  storageConfigurationFormSchema,
+} from "./utils";
 import {
   Form,
   FormControl,
@@ -35,7 +38,7 @@ import {
   StorageStrategyType,
 } from "@/storage/models/storage.model";
 import { isErrorWithErrors } from "@/lib/error";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 
 type SaveStorageConfigurationProps = {
   configuration?: IStorageConfiguration;
@@ -53,11 +56,15 @@ export const SaveStorageConfiguration = ({
   });
   const { isPending, mutateAsync } = useSaveStorageConfiguration();
 
-  const onFormSubmitHandler = async (values: z.infer<typeof storageConfigurationFormSchema>) => {
+  const onFormSubmitHandler = async (
+    values: z.infer<typeof storageConfigurationFormSchema>,
+  ) => {
     try {
       const payload = {
         ...values,
-        storageStrategy: (values.storageStrategy === "Amazon" ? "AWS" : values.storageStrategy) as StorageStrategyType,
+        storageStrategy: (values.storageStrategy === "Amazon"
+          ? "AWS"
+          : values.storageStrategy) as StorageStrategyType,
         projectKey: tenantId,
         updateRequest: configuration ? true : false,
         itemId: configuration?.itemId || null,
@@ -72,7 +79,8 @@ export const SaveStorageConfiguration = ({
       onClose(false);
       form.reset();
     } catch (error) {
-      if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
+      if (isErrorWithErrors(error))
+        return showErrorToast({ errors: error.errors });
       showErrorToast({ errors: "Something went wrong" });
     }
   };
@@ -81,14 +89,20 @@ export const SaveStorageConfiguration = ({
   return (
     <DialogContent className="rounded-md sm:max-w-[700px]">
       <DialogHeader>
-        <DialogTitle>{configuration ? "Edit" : "Add"} Storage Configuration</DialogTitle>
+        <DialogTitle>
+          {configuration ? "Edit" : "Add"} Storage Configuration
+        </DialogTitle>
         <DialogDescription>
-          Ensure you have selected a storage configuration provider to move forward.
+          Ensure you have selected a storage configuration provider to move
+          forward.
         </DialogDescription>
       </DialogHeader>
       <div className="">
         <Form {...form}>
-          <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(onFormSubmitHandler)}>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={form.handleSubmit(onFormSubmitHandler)}
+          >
             <FormField
               control={form.control}
               name="storageStrategy"
@@ -291,7 +305,11 @@ export const SaveStorageConfiguration = ({
                       <FormItem>
                         <FormLabel>Host IP Address</FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter host" {...field} value={field.value ?? ""} />
+                          <Input
+                            placeholder="Enter host"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

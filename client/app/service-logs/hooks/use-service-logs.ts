@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ILog } from "../models/log.model";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { logService } from "../services";
 
 type UseServiceLogsParams = {
@@ -47,7 +47,8 @@ export const useServiceLogs = ({
       const res = await logService.getLogsByDate(generateFetchLogsPayload());
       setIsLoading(false);
       if (res.data.length) setInitialLogs(res.data.reverse());
-      if (res.totalCount && res.totalCount <= page * pageSize) setHasTopMore(false);
+      if (res.totalCount && res.totalCount <= page * pageSize)
+        setHasTopMore(false);
     } catch (_error) {
       // Handle error
     } finally {
@@ -67,7 +68,8 @@ export const useServiceLogs = ({
         const payload = generateFetchLogsPayload();
         payload.filter.endDate = lastDate;
         const res = await logService.getLogsByDate(payload);
-        if (res.totalCount && res.totalCount <= page * pageSize) setHasTopMore(false);
+        if (res.totalCount && res.totalCount <= page * pageSize)
+          setHasTopMore(false);
         setPage((page) => page + 1);
         if (!res.data.length) return [];
         return res.data.reverse();

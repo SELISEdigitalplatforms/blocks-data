@@ -58,7 +58,9 @@ export const router = createBrowserRouter([
                 <Outlet />
               </PublicGuard>
             ),
-            children: [{ path: "/login", element: <LoginSimplePage /> }], // TODO: later we will change it to LoginPage from the package
+            children: [
+              { path: "/login", element: <LoginPage name="blocks-data" /> },
+            ],
           },
 
           // protected

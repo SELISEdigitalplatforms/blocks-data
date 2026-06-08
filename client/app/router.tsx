@@ -25,7 +25,6 @@ import {
 } from "@seliseblocks/blocks-kit";
 import ProfilePage from "./routes/dashboard/profile";
 import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
-import LoginSimplePage from "./routes/auth/login-simple";
 
 export const router = createBrowserRouter([
   {

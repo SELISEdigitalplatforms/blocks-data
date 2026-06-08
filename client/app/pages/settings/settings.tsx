@@ -5,7 +5,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
 import { Button } from "@/components/ui-kits/button/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui-kits/card/card";
 import {
   Dialog,
   DialogContent,
@@ -26,7 +31,7 @@ import {
 } from "@/components/ui-kits/form/form";
 
 import { useGetProjects, useUpdateTenantGroup } from "@/hooks/use-project";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { formatDate } from "@/lib/utils";
 
 const SettingsLoading = () => (
@@ -69,14 +74,18 @@ const projectNameSchema = z.object({
 type ProjectNameForm = z.infer<typeof projectNameSchema>;
 
 export const SettingsPage = () => {
-  const { selectedProject, selectedTenantGroup, setSelectedProject } = useProjectStore();
+  const { selectedProject, selectedTenantGroup, setSelectedProject } =
+    useProjectStore();
 
-  const { data: projectsData, isLoading } = useGetProjects(selectedTenantGroup || "");
+  const { data: projectsData, isLoading } = useGetProjects(
+    selectedTenantGroup || "",
+  );
   const project = projectsData?.[0]?.projects?.[0];
 
-  const { mutateAsync: updateTenantGroup, isPending: isUpdating } = useUpdateTenantGroup({
-    tenantGroupId: selectedTenantGroup || "",
-  });
+  const { mutateAsync: updateTenantGroup, isPending: isUpdating } =
+    useUpdateTenantGroup({
+      tenantGroupId: selectedTenantGroup || "",
+    });
 
   const [isEditOpen, setIsEditOpen] = useState(false);
 
@@ -214,8 +223,13 @@ export const SettingsPage = () => {
                 >
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isUpdating || !form.formState.isValid}>
-                  {isUpdating && <Loader className="mr-2 h-4 w-4 animate-spin" />}
+                <Button
+                  type="submit"
+                  disabled={isUpdating || !form.formState.isValid}
+                >
+                  {isUpdating && (
+                    <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  )}
                   Save
                 </Button>
               </DialogFooter>

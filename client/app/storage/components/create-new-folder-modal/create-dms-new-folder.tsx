@@ -25,7 +25,7 @@ import { useForm } from "react-hook-form";
 import { useCreateDmsFolder } from "@/storage/hooks/use-storage-file";
 import { ICreateDmsFolderPayload } from "@/storage/models/storage.model";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 
 const createFolderSchema = z.object({
   name: z.string().min(1, "Folder name is required"),
@@ -49,7 +49,8 @@ export const CreateDmsNewFolder = ({
   onSuccess,
 }: CreateDmsFolderModalProps) => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
-  const { mutateAsync: createDmsFolderMutate, isPending } = useCreateDmsFolder();
+  const { mutateAsync: createDmsFolderMutate, isPending } =
+    useCreateDmsFolder();
   const form = useForm<CreateFolderFormData>({
     resolver: zodResolver(createFolderSchema),
     defaultValues: {
@@ -96,7 +97,10 @@ export const CreateDmsNewFolder = ({
         </DialogHeader>
 
         <Form {...form}>
-          <form className="flex flex-col gap-4" onSubmit={form.handleSubmit(onSubmit)}>
+          <form
+            className="flex flex-col gap-4"
+            onSubmit={form.handleSubmit(onSubmit)}
+          >
             <FormField
               control={form.control}
               name="name"
@@ -116,7 +120,11 @@ export const CreateDmsNewFolder = ({
                   <Button variant="outline">Cancel</Button>
                 </DialogClose>
 
-                <Button type="submit" variant="default" disabled={!isValid || isPending}>
+                <Button
+                  type="submit"
+                  variant="default"
+                  disabled={!isValid || isPending}
+                >
                   Create
                 </Button>
               </div>

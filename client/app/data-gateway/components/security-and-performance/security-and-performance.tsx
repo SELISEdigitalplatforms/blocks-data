@@ -26,11 +26,13 @@ import SecurityAndPerformanceTable from "./security-and-performance-table";
 interface SecurityAndPerformanceProps {
   onSchemaRowClick: (schema: Schema) => void;
   onNavigateToSchemas: () => void;
+  onSchemaCreated: (schemaId: string) => void;
 }
 
 const SecurityAndPerformance = ({
   onSchemaRowClick,
   onNavigateToSchemas,
+  onSchemaCreated,
 }: SecurityAndPerformanceProps) => {
   const [isAddSchemaModalOpen, setIsAddSchemaModalOpen] = useState(false);
   const [pageNo, setPageNo] = useState(1);
@@ -90,6 +92,7 @@ const SecurityAndPerformance = ({
     const res = await createSchema(payload);
 
     if (res.isSuccess) {
+      onSchemaCreated(res.data.itemId);
       showSuccessToast({ description: "Schema added successfully" });
       setIsAddSchemaModalOpen(false);
       return true;

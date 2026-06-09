@@ -90,9 +90,6 @@ const SecurityAndPerformance = ({
     const res = await createSchema(payload);
 
     if (res.isSuccess) {
-      await queryClient.invalidateQueries({
-        queryKey: ["security-performance-schema-list"],
-      });
       showSuccessToast({ description: "Schema added successfully" });
       setIsAddSchemaModalOpen(false);
       return true;

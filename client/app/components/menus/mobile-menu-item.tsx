@@ -71,10 +71,11 @@ export function MobileMenuItem({
     return (
       <div
         className={cn(
-          "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[hsl(var(--low-emphasis))]",
+          "flex items-center gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[hsl(var(--low-emphasis))]",
           menu.id === "workspace-label" && "pt-4",
         )}
       >
+        {menu.icon ? <menu.icon className="h-4 w-4 shrink-0" /> : null}
         {menu.id === "environment-label" ? (
           <span className="flex items-center gap-2">
             <span>{displayText}</span>

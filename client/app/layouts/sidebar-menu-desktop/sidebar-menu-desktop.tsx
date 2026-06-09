@@ -1,6 +1,5 @@
 import { DesktopMenuItem } from "@/components/menus/desktop-menu-item";
 import { Button } from "@/components/ui-kits/button/button";
-import { Separator } from "@/components/ui-kits/separator/separator";
 import { navigationMenus } from "@/constants/navigation-menus";
 import { SidebarContext } from "@/contexts/dashboard-layout-provider";
 import { useFilteredMenus } from "@/hooks/use-filtered-menus";
@@ -60,13 +59,7 @@ export function SidebarMenuDesktop() {
         <nav className={cn("grid w-full items-start gap-0 py-2 text-sm")}>
           {allowedMenu.map((menu) => (
             <Fragment key={menu.id}>
-              {menu.type === "menu" ? (
-                <DesktopMenuItem menu={menu} isSidebarOpen={isSidebarOpen} />
-              ) : (
-                <div className="mx-0">
-                  <Separator />
-                </div>
-              )}
+              <DesktopMenuItem menu={menu} isSidebarOpen={isSidebarOpen} />
             </Fragment>
           ))}
         </nav>

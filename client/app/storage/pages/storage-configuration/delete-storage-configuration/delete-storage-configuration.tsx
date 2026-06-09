@@ -13,13 +13,15 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { IStorageConfiguration } from "@/storage/models/storage.model";
 import { useDeleteStorageConfiguration } from "@/storage/hooks/use-storage-configuration";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 
 type DeleteStorageConfigurationProps = {
   configuration: IStorageConfiguration;
 };
 
-export const DeleteStorageConfiguration = ({ configuration }: DeleteStorageConfigurationProps) => {
+export const DeleteStorageConfiguration = ({
+  configuration,
+}: DeleteStorageConfigurationProps) => {
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const { mutateAsync, isPending } = useDeleteStorageConfiguration();
   const [isOpen, setIsOpen] = useState(false);
@@ -54,8 +56,9 @@ export const DeleteStorageConfiguration = ({ configuration }: DeleteStorageConfi
         <DialogHeader>
           <DialogTitle className="text-left">Delete Configuration</DialogTitle>
           <DialogDescription className="text-left">
-            Are you sure you want to delete this storage configuration? This action may result in
-            the loss of existing data associated with this configuration.
+            Are you sure you want to delete this storage configuration? This
+            action may result in the loss of existing data associated with this
+            configuration.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="flex flex-row gap-2">

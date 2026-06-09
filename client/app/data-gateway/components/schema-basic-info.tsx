@@ -5,7 +5,7 @@ import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { ISchemaDetails } from "../models/data-service";
 import { useDeleteSchema } from "../hooks/use-configuration";
 import { toast } from "@/hooks/use-toast";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
 import { InfoCard } from "./info-card";
 import {
@@ -31,15 +31,21 @@ interface SchemaBasicInfoProps extends ISchemaDetails {
   isLoading?: boolean;
 }
 
-export const SchemaBasicInfo = ({ onDeleteSuccess, isLoading, ...props }: SchemaBasicInfoProps) => {
+export const SchemaBasicInfo = ({
+  onDeleteSuccess,
+  isLoading,
+  ...props
+}: SchemaBasicInfoProps) => {
   // State Management
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSchemaAccessControlDrawerOpen, setIsSchemaAccessControlDrawerOpen] = useState<boolean>(false);
+  const [isSchemaAccessControlDrawerOpen, setIsSchemaAccessControlDrawerOpen] =
+    useState<boolean>(false);
   const [selectedTab, setSelectedTab] = useState<string>("");
 
   // Hooks
-  const { isPending: isDeleteSchemaPending, mutateAsync: deleteAsync } = useDeleteSchema();
+  const { isPending: isDeleteSchemaPending, mutateAsync: deleteAsync } =
+    useDeleteSchema();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   // Delete Confirmation Modal Configuration
@@ -121,7 +127,10 @@ export const SchemaBasicInfo = ({ onDeleteSuccess, isLoading, ...props }: Schema
               )}
 
               {/* More Options Dropdown */}
-              <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+              <DropdownMenu
+                open={isDropdownOpen}
+                onOpenChange={setIsDropdownOpen}
+              >
                 <DropdownMenuTrigger asChild>
                   <Button
                     size="default"
@@ -163,7 +172,11 @@ export const SchemaBasicInfo = ({ onDeleteSuccess, isLoading, ...props }: Schema
                 <div className="flex items-center gap-2 overflow-x-auto pb-1">
                   {props.schemaReferences?.length > 0 ? (
                     props.schemaReferences.map((item, index) => (
-                      <Badge key={index} variant="secondary" className="shrink-0">
+                      <Badge
+                        key={index}
+                        variant="secondary"
+                        className="shrink-0"
+                      >
                         {item}
                       </Badge>
                     ))
@@ -185,10 +198,14 @@ export const SchemaBasicInfo = ({ onDeleteSuccess, isLoading, ...props }: Schema
                       { label: "Delete", level: props.deleteAccessLevel },
                     ] as const
                   ).map(({ label, level }) => {
-                    const accessType = level ? ACCESS_LEVEL_TO_TYPE[level] : ACCESS_TYPES.LOGGED_IN;
+                    const accessType = level
+                      ? ACCESS_LEVEL_TO_TYPE[level]
+                      : ACCESS_TYPES.LOGGED_IN;
                     return (
                       <div key={label} className="flex items-center gap-1.5">
-                        <span className="text-xs font-medium text-foreground">{label}:</span>
+                        <span className="text-xs font-medium text-foreground">
+                          {label}:
+                        </span>
                         <span
                           className={cn(
                             "rounded px-1.5 py-0.5 text-[10px] font-medium leading-tight",
@@ -217,7 +234,7 @@ export const SchemaBasicInfo = ({ onDeleteSuccess, isLoading, ...props }: Schema
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <ConfirmationModal
-          onCancel={() => { }}
+          onCancel={() => {}}
           onConfirm={onConfirmDelete}
           data={deleteSchemaModalData}
           buttonState={{ confirm: { disable: isDeleteSchemaPending } }}

@@ -18,10 +18,13 @@ import {
 } from "@/components/ui-kits/form/form";
 import { Input } from "@/components/ui-kits/input/input";
 import { Label } from "@/components/ui-kits/label/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui-kits/radio-group/radio-group";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/ui-kits/radio-group/radio-group";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
@@ -53,12 +56,14 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   const [selectedSource, setSelectedSource] = useState(
-    initialData?.dbConnectionString && initialData.dbConnectionString !== "default"
+    initialData?.dbConnectionString &&
+      initialData.dbConnectionString !== "default"
       ? "others"
       : "blocks",
   );
 
-  const [isUpdateSourceDialogOpen, setIsUpdateSourceDialogOpen] = useState(false);
+  const [isUpdateSourceDialogOpen, setIsUpdateSourceDialogOpen] =
+    useState(false);
   const updateDataSourceConfirmationModalData = {
     dialogTitle: "Confirm data source update?",
     dialogSubtitle:
@@ -68,8 +73,10 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
   };
 
   const { mutateAsync: createDataSource } = useCreateDataSourceConfiguration();
-  const { isPending: isUpdateDataSourcePending, mutateAsync: updateDataSource } =
-    useUpdateDataSourceConfiguration();
+  const {
+    isPending: isUpdateDataSourcePending,
+    mutateAsync: updateDataSource,
+  } = useUpdateDataSourceConfiguration();
 
   const sourceForm = useForm<IDataSourceFormValues>({
     mode: "onChange",
@@ -93,13 +100,17 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
       const formData = sourceForm.getValues();
 
       const payload: IDataServiceConfiguration = {
-        connectionString: selectedSource === "others" ? formData.dbConnectionString : "default",
-        databaseName: selectedSource === "others" ? formData.databaseName : "default",
+        connectionString:
+          selectedSource === "others" ? formData.dbConnectionString : "default",
+        databaseName:
+          selectedSource === "others" ? formData.databaseName : "default",
         projectKey: projectKey,
         itemId: initialData?.itemId || "",
       };
 
-      const res = isEditMode ? await updateDataSource(payload) : await createDataSource(payload);
+      const res = isEditMode
+        ? await updateDataSource(payload)
+        : await createDataSource(payload);
 
       if (res.isSuccess) {
         showSuccessToast({
@@ -138,13 +149,19 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
         <RadioGroup value={selectedSource} onValueChange={setSelectedSource}>
           <div className="flex items-center space-x-2">
             <RadioGroupItem id="blocks" value="blocks" />
-            <Label htmlFor="blocks" className="cursor-pointer text-sm font-medium">
+            <Label
+              htmlFor="blocks"
+              className="cursor-pointer text-sm font-medium"
+            >
               Blocks database
             </Label>
           </div>
           <div className="flex items-center space-x-2">
             <RadioGroupItem id="others" value="others" />
-            <Label htmlFor="others" className="cursor-pointer text-sm font-medium">
+            <Label
+              htmlFor="others"
+              className="cursor-pointer text-sm font-medium"
+            >
               My data sources
             </Label>
           </div>
@@ -194,14 +211,19 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
           <Button
             size="sm"
             onClick={handleDataSourceSave}
-            disabled={selectedSource === "others" && !sourceForm.formState.isValid}
+            disabled={
+              selectedSource === "others" && !sourceForm.formState.isValid
+            }
           >
             {isEditMode ? "Update" : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
 
-      <Dialog open={isUpdateSourceDialogOpen} onOpenChange={setIsUpdateSourceDialogOpen}>
+      <Dialog
+        open={isUpdateSourceDialogOpen}
+        onOpenChange={setIsUpdateSourceDialogOpen}
+      >
         <ConfirmationModal
           onCancel={() => {}}
           onConfirm={saveDataSource}

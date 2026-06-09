@@ -19,4 +19,5 @@ export type Menu =
       type: "label";
       id: string;
       name: string;
+      icon?: LucideIcon;
     };

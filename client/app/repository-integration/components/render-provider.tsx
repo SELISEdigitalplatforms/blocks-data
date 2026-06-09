@@ -1,23 +1,23 @@
-import { providers } from "@/repository-integration/models/git-providers"
-import { useState } from "react"
+import { providers } from "@/repository-integration/models/git-providers";
+import { useState } from "react";
 import {
   authenticateWithGithub,
   authenticateWithGitlab,
   authenticateWithBitbucket,
   authenticateWithAzure,
   authenticateWithAws,
-} from "@/repository-integration/services/git-provider-auth.service"
-import { iconMap } from "@/repository-integration/models/github-info"
-import { Button } from "@/components/ui-kits/button/button"
-import { useNavigate } from "react-router-dom"
-import { useValidateAuthorization } from "@/repository-integration/hooks/use-github-integration"
-import { IProviderDestination } from "@/repository-integration/models/utils"
-import { useProjectStore } from "@/store/useProjectStore"
+} from "@/repository-integration/services/git-provider-auth.service";
+import { iconMap } from "@/repository-integration/models/github-info";
+import { Button } from "@/components/ui-kits/button/button";
+import { useNavigate } from "react-router-dom";
+import { useValidateAuthorization } from "@/repository-integration/hooks/use-github-integration";
+import { IProviderDestination } from "@/repository-integration/models/utils";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 
 interface ProviderButtonsProps extends IProviderDestination {
-  onClose?: (verifyAuth?: boolean) => void | Promise<void>
-  extraState?: string
-  closeOnProviderSelect?: boolean
+  onClose?: (verifyAuth?: boolean) => void | Promise<void>;
+  extraState?: string;
+  closeOnProviderSelect?: boolean;
 }
 
 const ProviderButtons = ({
@@ -26,66 +26,66 @@ const ProviderButtons = ({
   extraState,
   closeOnProviderSelect,
 }: ProviderButtonsProps) => {
-  const navigate = useNavigate()
-  const projectKey = useProjectStore().selectedProject?.tenantId || ""
+  const navigate = useNavigate();
+  const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
-  const { data: verifyAuth } = useValidateAuthorization()
-  const [, setSelectedProvider] = useState<string | null>(null)
+  const { data: verifyAuth } = useValidateAuthorization();
+  const [, setSelectedProvider] = useState<string | null>(null);
 
-  const targetDestination = destination || "/project-overview/repositories"
+  const targetDestination = destination || "/project-overview/repositories";
 
   if (destination) {
-    localStorage.setItem("destination", destination)
+    localStorage.setItem("destination", destination);
   }
 
   const handleContinue = (providerId: string) => {
-    setSelectedProvider(providerId)
+    setSelectedProvider(providerId);
 
     switch (providerId) {
       case "github":
         if (verifyAuth?.isSuccess) {
           if (onClose) {
-            onClose(verifyAuth.isSuccess)
+            onClose(verifyAuth.isSuccess);
           } else {
-            navigate(targetDestination)
+            navigate(targetDestination);
           }
         } else {
           const reloadListener = (event: StorageEvent) => {
             if (event.key === "isReload" && event.newValue === "true") {
-              window.removeEventListener("storage", reloadListener)
-              localStorage.setItem("isReload", "false")
-              if (onClose) onClose(true)
+              window.removeEventListener("storage", reloadListener);
+              localStorage.setItem("isReload", "false");
+              if (onClose) onClose(true);
             }
-          }
-          window.addEventListener("storage", reloadListener)
+          };
+          window.addEventListener("storage", reloadListener);
 
-          authenticateWithGithub(extraState || "", projectKey)
+          authenticateWithGithub(extraState || "", projectKey);
         }
-        break
+        break;
       case "gitlab":
-        authenticateWithGitlab()
-        break
+        authenticateWithGitlab();
+        break;
       case "bitbucket":
-        authenticateWithBitbucket()
-        break
+        authenticateWithBitbucket();
+        break;
       case "azure":
-        authenticateWithAzure()
-        break
+        authenticateWithAzure();
+        break;
       case "aws":
-        authenticateWithAws()
-        break
+        authenticateWithAws();
+        break;
       default:
-        console.error("Unknown provider:", providerId)
+        console.error("Unknown provider:", providerId);
     }
-    if (closeOnProviderSelect && onClose) onClose()
-  }
+    if (closeOnProviderSelect && onClose) onClose();
+  };
 
   return (
     <>
       <div className="flex h-auto w-full flex-col items-center self-stretch">
         <div className="flex flex-col items-center gap-4">
           {providers.map((provider) => {
-            const iconSrc = iconMap[provider.icon]
+            const iconSrc = iconMap[provider.icon];
             return (
               <Button
                 key={provider.id}
@@ -101,14 +101,16 @@ const ProviderButtons = ({
                   height={18}
                   className="object-contain"
                 />
-                <span className="text-foreground">Continue with {provider.name}</span>
+                <span className="text-foreground">
+                  Continue with {provider.name}
+                </span>
               </Button>
-            )
+            );
           })}
         </div>
       </div>
     </>
-  )
-}
+  );
+};
 
-export default ProviderButtons
+export default ProviderButtons;

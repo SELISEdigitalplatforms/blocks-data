@@ -1,5 +1,5 @@
 import { Menu } from "@/models/menu-models";
-import { Database, HardDrive, Home } from "lucide-react";
+import { Database, Globe, HardDrive, Home, Folder } from "lucide-react";
 
 /** Sidebar: workspace overview and core services. */
 export const navigationMenus: Menu[] = [
@@ -12,11 +12,13 @@ export const navigationMenus: Menu[] = [
     id: "project-label",
     type: "label",
     name: "PROJECT",
+    icon: Folder,
   },
   {
     id: "environment-label",
     type: "label",
     name: "ENVIRONMENT",
+    icon: Globe,
   },
   {
     id: "workspace-overview",

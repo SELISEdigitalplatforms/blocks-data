@@ -18,12 +18,18 @@ import {
 } from "@/components/ui-kits/table/table";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { LOGICAL_OPERATOR } from "@/data-gateway/constants/schema-access-control";
 import { useDeletePolicy } from "@/data-gateway/hooks/use-configuration";
 import type { IPolicyItem } from "@/data-gateway/models/data-service";
 import { ruleToText } from "@/data-gateway/utils/schema-access-control.utils";
-import { ChevronDown, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 
 interface SchemaAccessControlAccordionProps {
@@ -41,9 +47,12 @@ export const SchemaAccessControlAccordion = ({
 }: SchemaAccessControlAccordionProps) => {
   const [openId, setOpenId] = useState<number | null>(null);
   const [searchText, setSearchText] = useState("");
-  const [deletingPolicy, setDeletingPolicy] = useState<IPolicyItem | null>(null);
+  const [deletingPolicy, setDeletingPolicy] = useState<IPolicyItem | null>(
+    null,
+  );
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
-  const { mutateAsync: deletePolicy, isPending: isDeleting } = useDeletePolicy();
+  const { mutateAsync: deletePolicy, isPending: isDeleting } =
+    useDeletePolicy();
 
   const handleDeletePolicy = async () => {
     if (!deletingPolicy?.itemId) return;
@@ -64,7 +73,9 @@ export const SchemaAccessControlAccordion = ({
   };
 
   const filteredPolicies = searchText
-    ? policies.filter((p) => p.policyName.toLowerCase().includes(searchText.toLowerCase()))
+    ? policies.filter((p) =>
+        p.policyName.toLowerCase().includes(searchText.toLowerCase()),
+      )
     : policies;
 
   return (
@@ -115,8 +126,12 @@ export const SchemaAccessControlAccordion = ({
                     className="cursor-pointer"
                     onClick={() => setOpenId(isOpen ? null : index)}
                   >
-                    <TableCell className="font-medium">{policy.policyName}</TableCell>
-                    <TableCell className="text-muted-foreground">{rulesCount}</TableCell>
+                    <TableCell className="font-medium">
+                      {policy.policyName}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {rulesCount}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
                         <DropdownMenu>
@@ -165,7 +180,9 @@ export const SchemaAccessControlAccordion = ({
                   {isOpen && (
                     <TableRow key={`${index}-details`}>
                       <TableCell colSpan={3} className="bg-muted/20 p-4">
-                        <p className="mb-3 text-xs text-muted-foreground">{logicalLabel}</p>
+                        <p className="mb-3 text-xs text-muted-foreground">
+                          {logicalLabel}
+                        </p>
                         <div className="flex flex-col gap-2">
                           {policy.ruleGroup.rules.map((rule, ruleIdx) => (
                             <div

@@ -15,7 +15,7 @@ import {
   useGetMockData,
 } from "@/data-gateway/hooks/use-configuration";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { Loader } from "lucide-react";
 import { useEffect, useState } from "react";
 

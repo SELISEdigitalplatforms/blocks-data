@@ -5,7 +5,7 @@ import { SidebarContext } from "@/contexts/dashboard-layout-provider";
 import { useGetProject } from "@/hooks/use-project";
 import { SidebarMobileView } from "@/layouts/sidebar-mobile-view/sidebar-mobile-view";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import {
   AppSwitcher,
   ThemeSwitcher,

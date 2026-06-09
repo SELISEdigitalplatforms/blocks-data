@@ -19,7 +19,7 @@ import {
 import { getGraphqlGatewayExecuteOrigin } from "@/constants/endpoint.constant";
 import { useGetProject } from "@/hooks/use-project";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { Play, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";

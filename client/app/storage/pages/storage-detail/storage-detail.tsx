@@ -45,7 +45,8 @@ import {
   IDmsFileAndFolderInfo,
   IGetDmsFileAndFolderResponse,
 } from "@/storage/models/storage.model";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
+
 import {
   FileText,
   Folder,

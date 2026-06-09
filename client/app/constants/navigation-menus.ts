@@ -1,5 +1,5 @@
 import { Menu } from "@/models/menu-models";
-import { Database, Globe, HardDrive, Home, Folder } from "lucide-react";
+import { Database, Folder, Globe, HardDrive, Home } from "lucide-react";
 
 /** Sidebar: workspace overview and core services. */
 export const navigationMenus: Menu[] = [

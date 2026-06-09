@@ -125,11 +125,10 @@ const SecurityAndPerformance = ({
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              variant="outline"
+              className="h-8 px-2"
               onClick={() => setIsAddSchemaModalOpen(true)}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Schema
+              <Plus className="h-4 w-4" /> Add Schema
             </Button>
             <Button size="sm" variant="outline" onClick={onNavigateToSchemas}>
               Go to Schemas
@@ -143,11 +142,10 @@ const SecurityAndPerformance = ({
             <h2 className="text-lg font-semibold">Security Assessment</h2>
             <Button
               size="sm"
-              variant="outline"
+              className="h-8 px-2"
               onClick={() => setIsAddSchemaModalOpen(true)}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Add Schema
+              <Plus className="h-4 w-4" /> Add Schema
             </Button>
           </div>
           <div className="my-5 grid grid-cols-1 gap-4 sm:grid-cols-3">

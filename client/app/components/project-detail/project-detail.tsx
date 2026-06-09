@@ -1,12 +1,12 @@
-import { ReactNode } from "react";
 import { CopyToClipboardButton } from "@/components/copy-to-clipboard-button";
-import { Button } from "@/components/ui-kits/button/button";
-import { formatFullDate } from "@/lib/utils";
-import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { MaskedText } from "@/components/masked-text";
-import { IProject } from "@/identifier/models/project.model";
+import { Button } from "@/components/ui-kits/button/button";
+import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { environmentOptions } from "@/constants/environment-options";
+import { IProject } from "@/identifier/models/project.model";
 import { getProjectBlocksApiUrl } from "@/lib/domain";
+import { formatFullDate } from "@/lib/utils";
+import { ReactNode } from "react";
 
 interface ProjectDetailItemProps {
   label: string;
@@ -62,15 +62,26 @@ export const ProjectDetail = ({
         <ProjectDetailItem label="Name">{project?.name}</ProjectDetailItem>
         <ProjectDetailItem label="X-Blocks-Key">
           <div className="flex h-6 items-center gap-2">
-            <CopyToClipboardButton textToCopy={project?.tenantId || ""} isHoverable>
-              <MaskedText text={project?.tenantId || ""} showFirstN={3} showLastN={3} length={20} />
+            <CopyToClipboardButton
+              textToCopy={project?.tenantId || ""}
+              isHoverable
+            >
+              <MaskedText
+                text={project?.tenantId || ""}
+                showFirstN={3}
+                showLastN={3}
+                length={20}
+              />
             </CopyToClipboardButton>
           </div>
         </ProjectDetailItem>
         {project?.tenantSlug && (
           <ProjectDetailItem label="Project Slug">
             <div className="flex h-6 items-center gap-2">
-              <CopyToClipboardButton textToCopy={project?.tenantSlug || ""} isHoverable>
+              <CopyToClipboardButton
+                textToCopy={project?.tenantSlug || ""}
+                isHoverable
+              >
                 {project?.tenantSlug}
               </CopyToClipboardButton>
             </div>
@@ -87,20 +98,26 @@ export const ProjectDetail = ({
               size="sm"
               variant="secondary"
             >
-              {environmentOptions.find((option) => option.value === project?.environment)?.label}
+              {
+                environmentOptions.find(
+                  (option) => option.value === project?.environment,
+                )?.label
+              }
             </Button>
           )}
         </ProjectDetailItem>
-        <ProjectDetailItem label="Blocks Microservices Url">
+        {/* <ProjectDetailItem label="Blocks Microservices Url">
           <div className="flex h-auto items-center gap-2">
             <RenderProjectUrl project={project} />
           </div>
-        </ProjectDetailItem>
+        </ProjectDetailItem> */}
         <ProjectDetailItem label="Last updated Date">
-          {project?.lastUpdatedDate && formatFullDate(new Date(project.lastUpdatedDate))}
+          {project?.lastUpdatedDate &&
+            formatFullDate(new Date(project.lastUpdatedDate))}
         </ProjectDetailItem>
         <ProjectDetailItem label="Created Date">
-          {project?.createdDate && formatFullDate(new Date(project.createdDate))}
+          {project?.createdDate &&
+            formatFullDate(new Date(project.createdDate))}
         </ProjectDetailItem>
       </div>
     </div>

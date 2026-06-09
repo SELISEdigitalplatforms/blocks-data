@@ -1,7 +1,4 @@
-import { GitCommandSnippet } from "@/components/git-command-snippet/git-command-snippet";
-import { ProjectCliSnippet } from "@/components/project-cli-snippet/project-cli-snippet";
 import { ProjectDetail } from "@/components/project-detail/project-detail";
-import { ProjectRepoList } from "@/components/project-repo-list/project-repo-list";
 import { useGetProject, useValidateCNameProject } from "@/hooks/use-project";
 import { showErrorToast } from "@/hooks/use-toast";
 import { getDomain } from "@/lib/domain";
@@ -55,9 +52,6 @@ export const DashboardOverview = () => {
         </h1>
       </div>
       <ProjectDetail project={data?.data} isLoading={isLoading} />
-      <ProjectRepoList project={data?.data} isLoading={isLoading} />
-      <ProjectCliSnippet />
-      <GitCommandSnippet />
     </main>
   );
 };

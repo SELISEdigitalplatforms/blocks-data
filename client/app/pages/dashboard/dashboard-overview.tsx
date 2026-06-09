@@ -1,13 +1,9 @@
-import { useCallback, useEffect } from "react";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
-import { useGetProject, useValidateCNameProject } from "@/hooks/use-project";
-import { getDomain } from "@/lib/domain";
-import { showErrorToast } from "@/hooks/use-toast";
 import { ProjectDetail } from "@/components/project-detail/project-detail";
-import { ProjectRepoList } from "@/components/project-repo-list/project-repo-list";
-import { ProjectCliSnippet } from "@/components/project-cli-snippet/project-cli-snippet";
-import { GitCommandSnippet } from "@/components/git-command-snippet/git-command-snippet";
-import { ActionsListProject } from "@/components/actions-list-project/actions-list-project";
+import { useGetProject, useValidateCNameProject } from "@/hooks/use-project";
+import { showErrorToast } from "@/hooks/use-toast";
+import { getDomain } from "@/lib/domain";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useCallback, useEffect } from "react";
 
 export const DashboardOverview = () => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
@@ -54,12 +50,8 @@ export const DashboardOverview = () => {
         <h1 className="text-xl font-semibold md:text-2xl">
           Environment Overview
         </h1>
-        <ActionsListProject />
       </div>
       <ProjectDetail project={data?.data} isLoading={isLoading} />
-      <ProjectRepoList project={data?.data} isLoading={isLoading} />
-      <ProjectCliSnippet />
-      <GitCommandSnippet />
     </main>
   );
 };

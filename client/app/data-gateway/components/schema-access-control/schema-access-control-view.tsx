@@ -28,7 +28,7 @@ import {
   useSetRowColumnPermission,
 } from "@/data-gateway/hooks/use-configuration";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
 
@@ -42,17 +42,23 @@ export const SchemaAccessControlView = ({
   defaultAccessLevel,
 }: SchemaAccessControlViewProps) => {
   const [showRuleSetForm, setShowRuleSetForm] = useState(false);
-  const [editingPolicy, setEditingPolicy] = useState<IPolicyItem | undefined>(undefined);
+  const [editingPolicy, setEditingPolicy] = useState<IPolicyItem | undefined>(
+    undefined,
+  );
   const [selectedAccessType, setSelectedAccessType] = useState("");
   const [initialized, setInitialized] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
-  const [pendingAccessType, setPendingAccessType] = useState<string | null>(null);
+  const [pendingAccessType, setPendingAccessType] = useState<string | null>(
+    null,
+  );
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   // Fetch when access is custom, including first paint (selectedAccessType is still "" until useEffect).
   // Also fetch when defaultAccessLevel is unknown and we haven't yet determined the type.
   const defaultResolvedType =
-    defaultAccessLevel !== undefined ? ACCESS_LEVEL_TO_TYPE[defaultAccessLevel] : undefined;
+    defaultAccessLevel !== undefined
+      ? ACCESS_LEVEL_TO_TYPE[defaultAccessLevel]
+      : undefined;
   const defaultLevelUnmapped =
     defaultAccessLevel !== undefined && defaultResolvedType === undefined;
   const isPolicyFetchEnabled =
@@ -73,7 +79,8 @@ export const SchemaAccessControlView = ({
   });
 
   const isPolicyListLoading =
-    isPolicyFetchEnabled && (isPending || (isFetching && policyResponse === undefined));
+    isPolicyFetchEnabled &&
+    (isPending || (isFetching && policyResponse === undefined));
   const { mutateAsync: setRowColumnPermission, isPending: isUpdating } =
     useSetRowColumnPermission(schemaId);
 
@@ -85,7 +92,9 @@ export const SchemaAccessControlView = ({
       return !p.fieldNames || p.fieldNames.length === 0;
     }
     return (
-      p.fieldNames && p.fieldNames.length > 0 && p.fieldNames.some((f) => fieldNames.includes(f))
+      p.fieldNames &&
+      p.fieldNames.length > 0 &&
+      p.fieldNames.some((f) => fieldNames.includes(f))
     );
   });
 
@@ -105,7 +114,8 @@ export const SchemaAccessControlView = ({
   // Infer from policies only when the API does not expose a field-level enum (legacy / bulk edge cases).
   useEffect(() => {
     const hasKnownDefault =
-      defaultAccessLevel !== undefined && !!ACCESS_LEVEL_TO_TYPE[defaultAccessLevel];
+      defaultAccessLevel !== undefined &&
+      !!ACCESS_LEVEL_TO_TYPE[defaultAccessLevel];
 
     if (hasKnownDefault) return;
     if (initialized) return;
@@ -191,20 +201,29 @@ export const SchemaAccessControlView = ({
               {currentAccessType === ACCESS_TYPES.PUBLIC
                 ? ACCESS_ICONS.PUBLIC
                 : ACCESS_ICONS.LOGGEDIN_OR_CUSTOM}
-              <p className="min-w-0 font-bold">{ACCESS_LABELS[currentAccessType]}</p>
+              <p className="min-w-0 font-bold">
+                {ACCESS_LABELS[currentAccessType]}
+              </p>
             </div>
 
             <div className="w-full shrink-0 sm:ml-auto sm:w-auto">
-              <Select value={selectedAccessType} onValueChange={handleAccessTypeSelect}>
+              <Select
+                value={selectedAccessType}
+                onValueChange={handleAccessTypeSelect}
+              >
                 <SelectTrigger className="w-full sm:w-[150px]">
                   <SelectValue placeholder="Change Policy" />
                 </SelectTrigger>
 
                 <SelectContent>
                   {level === "column" && (
-                    <SelectItem value={ACCESS_TYPES.INHERITED}>Inherited</SelectItem>
+                    <SelectItem value={ACCESS_TYPES.INHERITED}>
+                      Inherited
+                    </SelectItem>
                   )}
-                  <SelectItem value={ACCESS_TYPES.LOGGED_IN}>All logged in users</SelectItem>
+                  <SelectItem value={ACCESS_TYPES.LOGGED_IN}>
+                    All logged in users
+                  </SelectItem>
                   <SelectItem value={ACCESS_TYPES.PUBLIC}>Public</SelectItem>
                   <SelectItem value={ACCESS_TYPES.CUSTOM}>Custom</SelectItem>
                 </SelectContent>
@@ -236,8 +255,13 @@ export const SchemaAccessControlView = ({
                 aria-live="polite"
                 aria-busy="true"
               >
-                <Loader className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
-                <span className="text-sm text-muted-foreground">Loading access rules…</span>
+                <Loader
+                  className="h-8 w-8 animate-spin text-muted-foreground"
+                  aria-hidden
+                />
+                <span className="text-sm text-muted-foreground">
+                  Loading access rules…
+                </span>
               </div>
             ) : (
               <SchemaAccessControlAccordion

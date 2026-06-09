@@ -4,13 +4,14 @@ import { dataServiceInstructions } from "../constants/instructions";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import ConfigureDataSourceModal from "./configure-data-source";
 import { useState } from "react";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { configurationService } from "../services/configuration.service";
 
 const INIT_STORAGE_PREFIX = "dg-server-init-";
 
 export function DataServiceInstructions() {
-  const [isConfigureDataSourceModalOpen, setConfigureDataSourceModal] = useState<boolean>(false);
+  const [isConfigureDataSourceModalOpen, setConfigureDataSourceModal] =
+    useState<boolean>(false);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   const confirmSave = async () => {
@@ -22,7 +23,9 @@ export function DataServiceInstructions() {
         `${INIT_STORAGE_PREFIX}${projectKey}`,
         JSON.stringify({ initiatedAt: now }),
       );
-      configurationService.initiateDataGatewayPipeline({ projectKey }).catch(() => {});
+      configurationService
+        .initiateDataGatewayPipeline({ projectKey })
+        .catch(() => {});
     }
   };
 
@@ -56,7 +59,10 @@ export function DataServiceInstructions() {
           Configure
         </Button>
 
-        <Dialog open={isConfigureDataSourceModalOpen} onOpenChange={setConfigureDataSourceModal}>
+        <Dialog
+          open={isConfigureDataSourceModalOpen}
+          onOpenChange={setConfigureDataSourceModal}
+        >
           <ConfigureDataSourceModal
             mode="create"
             onCancel={() => setConfigureDataSourceModal(false)}

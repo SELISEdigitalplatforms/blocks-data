@@ -10,9 +10,12 @@ import {
   DialogTitle,
 } from "@/components/ui-kits/dialog/dialog";
 import { Label } from "@/components/ui-kits/label/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui-kits/radio-group/radio-group";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/ui-kits/radio-group/radio-group";
 import { toast, showErrorToast } from "@/hooks/use-toast";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { ISchemaExportNotificationData } from "@/data-gateway/models/schema-import-export-notification";
 import type { IGetFileByFileIDResponse } from "@/storage/models/storage.model";
@@ -22,7 +25,10 @@ import { DialogTrigger } from "@radix-ui/react-dialog";
 import { useCallback, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useSchemaExport } from "../../hooks/use-configuration";
-import { SchemaExportOption, SchemaExportOptionValue } from "../../models/data-service";
+import {
+  SchemaExportOption,
+  SchemaExportOptionValue,
+} from "../../models/data-service";
 
 const exportFormats = [{ id: "json", label: "JSON" }] as const;
 
@@ -60,7 +66,9 @@ const EXPORT_OPTIONS: ExportOptionRow[] = [
   },
 ];
 
-function calculateExportOption(selectedKeys: Set<string>): SchemaExportOptionValue {
+function calculateExportOption(
+  selectedKeys: Set<string>,
+): SchemaExportOptionValue {
   const hasAccessPolicies = selectedKeys.has("accessPolicies");
   const hasValidationRules = selectedKeys.has("validationRules");
   if (hasAccessPolicies && hasValidationRules) {
@@ -95,23 +103,33 @@ function extractExportFileIdFromNotification(
     ) {
       return undefined;
     }
-    const fileId = message?.FileId ?? message?.fileId ?? parsed?.FileId ?? parsed?.fileId;
+    const fileId =
+      message?.FileId ?? message?.fileId ?? parsed?.FileId ?? parsed?.fileId;
     return typeof fileId === "string" && fileId.length > 0 ? fileId : undefined;
   } catch {
     return undefined;
   }
 }
 
-export default function ExportSchemaModal({ onClose }: { onClose: () => void }) {
+export default function ExportSchemaModal({
+  onClose,
+}: {
+  onClose: () => void;
+}) {
   const [currentStep, setCurrentStep] = useState(1);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
-  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set(["schema"]));
-  const [selectedFormat, setSelectedFormat] = useState<ExportFormatId>(exportFormats[0].id);
+  const [selectedKeys, setSelectedKeys] = useState<Set<string>>(
+    new Set(["schema"]),
+  );
+  const [selectedFormat, setSelectedFormat] = useState<ExportFormatId>(
+    exportFormats[0].id,
+  );
   const [downloadChecked, setDownloadChecked] = useState(false);
 
   const queryClient = useQueryClient();
-  const { mutateAsync: exportSchemaAsync, isPending: isExporting } = useSchemaExport();
+  const { mutateAsync: exportSchemaAsync, isPending: isExporting } =
+    useSchemaExport();
   const downloadedRef = useRef(false);
   /** File IDs from the latest export request(s) we are still trying to download (superseded exports are removed). */
   const pendingExportFileIdsRef = useRef<Set<string>>(new Set());
@@ -126,7 +144,8 @@ export default function ExportSchemaModal({ onClose }: { onClose: () => void }) 
       try {
         const file = await queryClient.fetchQuery<IGetFileByFileIDResponse>({
           queryKey: ["getFilesDownload", fileId, projectKey],
-          queryFn: () => storageService.file.getFilesDownloadUrl({ fileId, projectKey }),
+          queryFn: () =>
+            storageService.file.getFilesDownloadUrl({ fileId, projectKey }),
           staleTime: 0,
         });
 
@@ -152,7 +171,8 @@ export default function ExportSchemaModal({ onClose }: { onClose: () => void }) 
         pendingExportFileIdsRef.current.delete(fileId);
         toast({
           title: "Download Failed",
-          description: "Download failed. Please check the logs for more details.",
+          description:
+            "Download failed. Please check the logs for more details.",
           variant: "destructive",
         });
       }
@@ -163,21 +183,24 @@ export default function ExportSchemaModal({ onClose }: { onClose: () => void }) 
   /** Backend notifier payload for schema export completion. */
   useNotificationListener("schema-export", handleNotificationData);
 
-  const toggleOptionalExport = useCallback((key: OptionalExportKey, checked: boolean) => {
-    setSelectedKeys((prev) => {
-      const next = new Set(prev);
-      next.add("schema");
-      if (!checked) {
-        next.delete(key);
+  const toggleOptionalExport = useCallback(
+    (key: OptionalExportKey, checked: boolean) => {
+      setSelectedKeys((prev) => {
+        const next = new Set(prev);
+        next.add("schema");
+        if (!checked) {
+          next.delete(key);
+          return next;
+        }
+        const other: OptionalExportKey =
+          key === "accessPolicies" ? "validationRules" : "accessPolicies";
+        next.delete(other);
+        next.add(key);
         return next;
-      }
-      const other: OptionalExportKey =
-        key === "accessPolicies" ? "validationRules" : "accessPolicies";
-      next.delete(other);
-      next.add(key);
-      return next;
-    });
-  }, []);
+      });
+    },
+    [],
+  );
 
   const handleSelectAllChange = useCallback((checked: boolean) => {
     setSelectedKeys((prev) => {
@@ -239,7 +262,11 @@ export default function ExportSchemaModal({ onClose }: { onClose: () => void }) 
       onClose();
     } catch (error) {
       showErrorToast({
-        errors: [error instanceof Error ? error.message : "Export failed. Please try again."],
+        errors: [
+          error instanceof Error
+            ? error.message
+            : "Export failed. Please try again.",
+        ],
       });
     }
   };
@@ -262,7 +289,9 @@ export default function ExportSchemaModal({ onClose }: { onClose: () => void }) 
               <Checkbox
                 id="export-schema-select-all"
                 checked={selectAllChecked}
-                onCheckedChange={(checked) => handleSelectAllChange(checked === true)}
+                onCheckedChange={(checked) =>
+                  handleSelectAllChange(checked === true)
+                }
               />
               <Label htmlFor="export-schema-select-all" className="font-normal">
                 Select all
@@ -271,7 +300,10 @@ export default function ExportSchemaModal({ onClose }: { onClose: () => void }) 
 
             <div className="flex flex-col gap-4">
               {EXPORT_OPTIONS.map((opt) => (
-                <div key={opt.key} className="flex flex-row items-start space-x-3 space-y-0">
+                <div
+                  key={opt.key}
+                  className="flex flex-row items-start space-x-3 space-y-0"
+                >
                   <Checkbox
                     id={`export-opt-${opt.key}`}
                     checked={selectedKeys.has(opt.key)}
@@ -288,7 +320,9 @@ export default function ExportSchemaModal({ onClose }: { onClose: () => void }) 
                     >
                       {opt.label}
                     </Label>
-                    <span className="text-xs text-medium-emphasis">{opt.description}</span>
+                    <span className="text-xs text-medium-emphasis">
+                      {opt.description}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -311,13 +345,17 @@ export default function ExportSchemaModal({ onClose }: { onClose: () => void }) 
               ))}
             </RadioGroup>
 
-            <div className="mt-2 text-sm text-medium-emphasis">How would you like to export?</div>
+            <div className="mt-2 text-sm text-medium-emphasis">
+              How would you like to export?
+            </div>
 
             <div className="flex flex-row items-start space-x-3 space-y-0">
               <Checkbox
                 id="schema-download"
                 checked={downloadChecked}
-                onCheckedChange={(checked) => setDownloadChecked(checked === true)}
+                onCheckedChange={(checked) =>
+                  setDownloadChecked(checked === true)
+                }
               />
               <Label htmlFor="schema-download" className="font-normal">
                 Download

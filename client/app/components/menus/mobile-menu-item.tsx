@@ -1,6 +1,3 @@
-import { useMemo } from "react";
-import { ChevronRight, X } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { Separator } from "@/components/ui-kits/separator/separator";
 import {
@@ -13,10 +10,20 @@ import {
 } from "@/components/ui-kits/sheet/sheet";
 import { cn } from "@/lib/utils";
 import { Menu } from "@/models/menu-models";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { ChevronRight, X } from "lucide-react";
+import { useMemo } from "react";
+import { Link, useLocation } from "react-router-dom";
 
 type MenuItemType = Extract<Menu, { type: "menu" }>;
 
-function ChildMenuItem({ menu, onClick }: { menu: MenuItemType; onClick?: () => void }) {
+function ChildMenuItem({
+  menu,
+  onClick,
+}: {
+  menu: MenuItemType;
+  onClick?: () => void;
+}) {
   const { pathname } = useLocation();
   const isActiveMenu = pathname.startsWith(menu.path);
 
@@ -36,20 +43,74 @@ function ChildMenuItem({ menu, onClick }: { menu: MenuItemType; onClick?: () => 
   );
 }
 
-export function MobileMenuItem({ menu, onClick }: { menu: MenuItemType; onClick?: () => void }) {
+export function MobileMenuItem({
+  menu,
+  onClick,
+}: {
+  menu: Menu;
+  onClick?: () => void;
+}) {
+  // Handle separator type
+  if (menu.type === "separator") {
+    return <Separator className="my-2" />;
+  }
+
+  // Handle label type - show as section header in mobile
+  if (menu.type === "label") {
+    const { selectedProject } = useProjectStore();
+    const projectName = selectedProject?.name || "Project";
+    const environment = selectedProject?.environment || "Environment";
+
+    let displayText = menu.name;
+    if (menu.id === "project-label") {
+      displayText = `PROJECT: ${projectName}`;
+    } else if (menu.id === "environment-label") {
+      displayText = `ENVIRONMENT: ${environment}`;
+    }
+
+    return (
+      <div
+        className={cn(
+          "px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[hsl(var(--low-emphasis))]",
+          menu.id === "workspace-label" && "pt-4",
+        )}
+      >
+        {menu.id === "environment-label" ? (
+          <span className="flex items-center gap-2">
+            <span>{displayText}</span>
+            <span className="rounded-sm bg-[hsl(var(--blocks-primary-50))] px-1.5 py-0.5 text-[10px] font-semibold text-[hsl(var(--high-emphasis))]">
+              {environment}
+            </span>
+          </span>
+        ) : (
+          displayText
+        )}
+      </div>
+    );
+  }
+
+  // Handle menu type
+  if (menu.type !== "menu") {
+    return null;
+  }
+
+  const menuItem = menu as MenuItemType;
   const { pathname } = useLocation();
+  const selectedProject = useProjectStore().selectedProject;
+  const projectName = selectedProject?.name || "Project";
+  const environment = selectedProject?.environment || "Environment";
 
   const isActiveMenu = useMemo(() => {
-    const allPaths = [menu.path];
-    if (menu.children) {
-      menu.children.forEach((child) => {
+    const allPaths = [menuItem.path];
+    if (menuItem.children) {
+      menuItem.children.forEach((child) => {
         if (child.type === "menu") allPaths.push(child.path);
       });
     }
     return allPaths.some((item) => pathname.startsWith(item));
-  }, [menu.children, menu.path, pathname]);
+  }, [menuItem.children, menuItem.path, pathname]);
 
-  const hasChildren = Boolean(menu.children?.length);
+  const hasChildren = Boolean(menuItem.children?.length);
 
   if (!hasChildren) {
     return (
@@ -59,16 +120,23 @@ export function MobileMenuItem({ menu, onClick }: { menu: MenuItemType; onClick?
           isActiveMenu && "!text-primary",
         )}
       >
-        <Link to={menu.path} className={cn("flex items-center gap-3", menu.disabled && "pointer-events-none opacity-50")} onClick={onClick}>
-          {menu.icon ? <menu.icon className="h-5 w-5" /> : null}
+        <Link
+          to={menuItem.path}
+          className={cn(
+            "flex items-center gap-3",
+            menuItem.disabled && "pointer-events-none opacity-50",
+          )}
+          onClick={onClick}
+        >
+          {menuItem.icon ? <menuItem.icon className="h-5 w-5" /> : null}
           <span className="relative">
-            {menu.name}
-            {menu.badge ? (
+            {menuItem.name}
+            {menuItem.badge ? (
               <Badge
                 variant="secondary"
                 className="absolute -top-2 left-full ml-1 h-4 px-1 text-[9px] font-semibold uppercase text-primary"
               >
-                {menu.badge}
+                {menuItem.badge}
               </Badge>
             ) : null}
           </span>
@@ -87,24 +155,33 @@ export function MobileMenuItem({ menu, onClick }: { menu: MenuItemType; onClick?
           )}
         >
           <div className="flex items-center gap-3">
-            {menu.icon ? <menu.icon className="h-5 w-5" /> : null}
-            <span className="relative">{menu.name}</span>
+            {menuItem.icon ? <menuItem.icon className="h-5 w-5" /> : null}
+            <span className="relative">{menuItem.name}</span>
           </div>
           <ChevronRight className="aspect-square w-4" />
         </div>
       </SheetTrigger>
-      <SheetContent className="w-full p-0" aria-describedby={undefined} hideClose>
+      <SheetContent
+        className="w-full p-0"
+        aria-describedby={undefined}
+        hideClose
+      >
         <SheetHeader className="flex-row items-center justify-between px-4 py-3">
-          <SheetTitle>{menu.name}</SheetTitle>
+          <SheetTitle>{menuItem.name}</SheetTitle>
           <SheetClose className="!mt-0">
             <X className="h-4 w-4" />
           </SheetClose>
         </SheetHeader>
         <Separator />
         <div className="mt-4 px-4">
-          {menu.children
-            ?.filter((item): item is MenuItemType => item.type === "menu" && !item.disabled)
-            .map((child) => <ChildMenuItem key={child.id} menu={child} onClick={onClick} />)}
+          {menuItem.children
+            ?.filter(
+              (item): item is MenuItemType =>
+                item.type === "menu" && !item.disabled,
+            )
+            .map((child) => (
+              <ChildMenuItem key={child.id} menu={child} onClick={onClick} />
+            ))}
         </div>
       </SheetContent>
     </Sheet>

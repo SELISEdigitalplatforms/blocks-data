@@ -1,19 +1,28 @@
 "use client";
 
 import { Button } from "@/components/ui-kits/button/button";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { SECURITY_PERFORMANCE_SUMMARY_ITEMS } from "@/data-gateway/constants/schema-access-control";
-import { useSecurityAndPerformanceSchemaList } from "@/data-gateway/hooks/use-configuration";
+import {
+  useCreateSchema,
+  useSecurityAndPerformanceSchemaList,
+} from "@/data-gateway/hooks/use-configuration";
+import {
+  ICreateSchemaDefaultValues,
+  ICreateSchemaPayload,
+} from "@/data-gateway/models/data-service";
+import { NotificationData } from "@/data-gateway/models/deployment-notification";
 import { Schema } from "@/data-gateway/models/security-and-performance";
-import { ArrowRight, ShieldAlert } from "lucide-react";
+import { useNotificationListener } from "@/hooks/use-notification-listener";
+import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useQueryClient } from "@tanstack/react-query";
+import { ArrowRight, Plus, ShieldAlert } from "lucide-react";
 import { useCallback, useState } from "react";
+import { AddEditSchemaModal } from "../add-edit-schema";
 import LoadingSkeleton from "./loading-skeleton";
 import SecurityAndPerformancePagination from "./pagination";
 import SecurityAndPerformanceTable from "./security-and-performance-table";
-import { showErrorToast } from "@/hooks/use-toast";
-import { useNotificationListener } from "@/hooks/use-notification-listener";
-import { useQueryClient } from "@tanstack/react-query";
-import { NotificationData } from "@/data-gateway/models/deployment-notification";
 interface SecurityAndPerformanceProps {
   onSchemaRowClick: (schema: Schema) => void;
   onNavigateToSchemas: () => void;
@@ -23,9 +32,11 @@ const SecurityAndPerformance = ({
   onSchemaRowClick,
   onNavigateToSchemas,
 }: SecurityAndPerformanceProps) => {
+  const [isAddSchemaModalOpen, setIsAddSchemaModalOpen] = useState(false);
   const [pageNo, setPageNo] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const queryClient = useQueryClient();
+  const { mutateAsync: createSchema } = useCreateSchema();
 
   const projectKey = useProjectStore().selectedProject?.tenantId ?? "";
   const { data: schemaListQuery, isLoading } =
@@ -66,6 +77,31 @@ const SecurityAndPerformance = ({
 
   useNotificationListener("schema-import", handleImportSchemaNotification);
 
+  const onSchemaCreate = async (
+    values: ICreateSchemaDefaultValues,
+  ): Promise<boolean> => {
+    const payload: ICreateSchemaPayload = {
+      schemaName: values.schemaName,
+      collectionName: values.schemaType == "Entity" ? values.entityName : "",
+      schemaType: values.schemaType == "Entity" ? 1 : 2,
+      projectKey,
+    };
+
+    const res = await createSchema(payload);
+
+    if (res.isSuccess) {
+      await queryClient.invalidateQueries({
+        queryKey: ["security-performance-schema-list"],
+      });
+      showSuccessToast({ description: "Schema added successfully" });
+      setIsAddSchemaModalOpen(false);
+      return true;
+    }
+
+    showErrorToast({ errors: res.errors });
+    return false;
+  };
+
   const schemas = schemaListQuery?.data.schemas.items ?? [];
   const permissionCounts = schemaListQuery?.data.aggregation;
   const totalItems = schemaListQuery?.data.schemas.totalCount ?? 0;
@@ -89,14 +125,34 @@ const SecurityAndPerformance = ({
               permissions.
             </p>
           </div>
-          <Button size="sm" variant="outline" onClick={onNavigateToSchemas}>
-            Go to Schemas
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsAddSchemaModalOpen(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Schema
+            </Button>
+            <Button size="sm" variant="outline" onClick={onNavigateToSchemas}>
+              Go to Schemas
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
         </div>
       ) : (
         <>
-          <h2 className="text-lg font-semibold">Security Assessment</h2>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Security Assessment</h2>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsAddSchemaModalOpen(true)}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add Schema
+            </Button>
+          </div>
           <div className="my-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
             {SECURITY_PERFORMANCE_SUMMARY_ITEMS.map((item) => (
               <div key={item.id} className={item.className}>
@@ -126,6 +182,17 @@ const SecurityAndPerformance = ({
           />
         </>
       )}
+
+      <Dialog
+        open={isAddSchemaModalOpen}
+        onOpenChange={setIsAddSchemaModalOpen}
+      >
+        <AddEditSchemaModal
+          mode="add"
+          onSubmit={onSchemaCreate}
+          onCancel={() => setIsAddSchemaModalOpen(false)}
+        />
+      </Dialog>
     </div>
   );
 };

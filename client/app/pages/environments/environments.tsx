@@ -15,8 +15,7 @@ import {
 } from "@/components/ui-kits/tooltip/tooltip";
 import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { useGetMigrationStatus, useGetProjects } from "@/hooks/use-project";
-import { useProjectStore } from "@/store/useProjectStore";
-import { EnvironmentCard } from "@seliseblocks/blocks-kit";
+import { EnvironmentCard, useProjectStore } from "@seliseblocks/blocks-kit";
 import { CircleHelp } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";

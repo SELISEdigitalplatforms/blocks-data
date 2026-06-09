@@ -5,7 +5,7 @@ import { Braces, List, RefreshCw, Table2 } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { useExecuteGraphQL } from "@/data-gateway/hooks/use-configuration";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { HttpError } from "@/lib/http-client";
 import { DataListView } from "./data-list-view";
 import { DataJsonView } from "./data-json-view";
@@ -46,18 +46,34 @@ function buildSelectionFields(
   const indent = "  ".repeat(indentLevel);
   const lines: string[] = [];
 
-  const formatNested = (obj: Record<string, unknown>, level: number): string[] => {
+  const formatNested = (
+    obj: Record<string, unknown>,
+    level: number,
+  ): string[] => {
     const nestedIndent = "  ".repeat(level);
     const nestedLines: string[] = [];
     Object.keys(obj).forEach((key) => {
       const val = obj[key];
-      if (Array.isArray(val) && val.length > 0 && typeof val[0] === "object" && val[0] !== null) {
+      if (
+        Array.isArray(val) &&
+        val.length > 0 &&
+        typeof val[0] === "object" &&
+        val[0] !== null
+      ) {
         nestedLines.push(`${nestedIndent}${key} {`);
-        nestedLines.push(...formatNested(val[0] as Record<string, unknown>, level + 1));
+        nestedLines.push(
+          ...formatNested(val[0] as Record<string, unknown>, level + 1),
+        );
         nestedLines.push(`${nestedIndent}}`);
-      } else if (typeof val === "object" && val !== null && !Array.isArray(val)) {
+      } else if (
+        typeof val === "object" &&
+        val !== null &&
+        !Array.isArray(val)
+      ) {
         nestedLines.push(`${nestedIndent}${key} {`);
-        nestedLines.push(...formatNested(val as Record<string, unknown>, level + 1));
+        nestedLines.push(
+          ...formatNested(val as Record<string, unknown>, level + 1),
+        );
         nestedLines.push(`${nestedIndent}}`);
       } else {
         nestedLines.push(`${nestedIndent}${key}`);
@@ -74,15 +90,29 @@ function buildSelectionFields(
         const firstItem = fieldValue[0];
         if (typeof firstItem === "object" && firstItem !== null) {
           lines.push(`${indent}${field.name} {`);
-          lines.push(...formatNested(firstItem as Record<string, unknown>, indentLevel + 1));
+          lines.push(
+            ...formatNested(
+              firstItem as Record<string, unknown>,
+              indentLevel + 1,
+            ),
+          );
           lines.push(`${indent}}`);
           return;
         }
       }
 
-      if (typeof fieldValue === "object" && fieldValue !== null && !Array.isArray(fieldValue)) {
+      if (
+        typeof fieldValue === "object" &&
+        fieldValue !== null &&
+        !Array.isArray(fieldValue)
+      ) {
         lines.push(`${indent}${field.name} {`);
-        lines.push(...formatNested(fieldValue as Record<string, unknown>, indentLevel + 1));
+        lines.push(
+          ...formatNested(
+            fieldValue as Record<string, unknown>,
+            indentLevel + 1,
+          ),
+        );
         lines.push(`${indent}}`);
         return;
       }
@@ -165,7 +195,9 @@ function EmptyState() {
   return (
     <div className="flex h-[calc(100vh-608px)] flex-col items-center justify-center text-center py-4">
       <p className="text-sm font-medium text-foreground">No data found</p>
-      <p className="mt-1 text-xs text-muted-foreground">This schema has no records yet.</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        This schema has no records yet.
+      </p>
     </div>
   );
 }
@@ -173,7 +205,9 @@ function EmptyState() {
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
-      <p className="text-sm font-medium text-destructive">Failed to fetch data</p>
+      <p className="text-sm font-medium text-destructive">
+        Failed to fetch data
+      </p>
       <p className="mt-1 max-w-xs text-xs text-muted-foreground">{message}</p>
     </div>
   );
@@ -189,7 +223,11 @@ const VIEW_TOGGLES: { mode: ViewMode; icon: ReactNode; label: string }[] = [
 // SchemaDataTab
 // ---------------------------------------------------------------------------
 
-export function SchemaDataTab({ schemaName, fields, previewData }: SchemaDataTabProps) {
+export function SchemaDataTab({
+  schemaName,
+  fields,
+  previewData,
+}: SchemaDataTabProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [data, setData] = useState<Record<string, unknown>[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -205,9 +243,13 @@ export function SchemaDataTab({ schemaName, fields, previewData }: SchemaDataTab
   );
 
   const [appliedQueryFilter, setAppliedQueryFilter] = useState("");
-  const [appliedProjectionFields, setAppliedProjectionFields] = useState<string[]>([]);
+  const [appliedProjectionFields, setAppliedProjectionFields] = useState<
+    string[]
+  >([]);
   const [appliedSortField, setAppliedSortField] = useState("");
-  const [appliedSortDirection, setAppliedSortDirection] = useState<"asc" | "desc">("asc");
+  const [appliedSortDirection, setAppliedSortDirection] = useState<
+    "asc" | "desc"
+  >("asc");
 
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
@@ -242,10 +284,11 @@ export function SchemaDataTab({ schemaName, fields, previewData }: SchemaDataTab
       const response = await executeGraphQL({ projectShortKey, query });
 
       const queryKey = `get${schemaName}s`;
-      const responseData = (response as Record<string, unknown> | null)?.data as
+      const responseData = (response as Record<string, unknown> | null)
+        ?.data as Record<string, unknown> | undefined;
+      const queryResult = responseData?.[queryKey] as
         | Record<string, unknown>
         | undefined;
-      const queryResult = responseData?.[queryKey] as Record<string, unknown> | undefined;
       const items = queryResult?.items;
       const count = (queryResult?.totalCount as number) ?? 0;
 
@@ -329,7 +372,8 @@ export function SchemaDataTab({ schemaName, fields, previewData }: SchemaDataTab
 
   const showContent = !isLoading && !error && data !== null;
   const hasData = showContent && data.length > 0;
-  const showPagination = !isLoading && !error && data !== null && totalCount > 0;
+  const showPagination =
+    !isLoading && !error && data !== null && totalCount > 0;
 
   return (
     <div className="flex h-full flex-col gap-2 overflow-hidden">
@@ -381,7 +425,9 @@ export function SchemaDataTab({ schemaName, fields, previewData }: SchemaDataTab
             disabled={isLoading}
             title="Refresh data"
           >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+            />
           </Button>
 
           <div className="flex items-center rounded-md border border-border bg-muted p-0.5">
@@ -413,9 +459,15 @@ export function SchemaDataTab({ schemaName, fields, previewData }: SchemaDataTab
           {isLoading && <LoadingSkeleton />}
           {!isLoading && error && <ErrorState message={error} />}
           {showContent && !hasData && <EmptyState />}
-          {hasData && viewMode === "list" && <DataListView data={data} piiFields={piiFields} />}
-          {hasData && viewMode === "json" && <DataJsonView data={data} piiFields={piiFields} />}
-          {hasData && viewMode === "table" && <DataTableView data={data} piiFields={piiFields} />}
+          {hasData && viewMode === "list" && (
+            <DataListView data={data} piiFields={piiFields} />
+          )}
+          {hasData && viewMode === "json" && (
+            <DataJsonView data={data} piiFields={piiFields} />
+          )}
+          {hasData && viewMode === "table" && (
+            <DataTableView data={data} piiFields={piiFields} />
+          )}
         </div>
       </div>
 

@@ -17,8 +17,15 @@ import {
 } from "@/components/ui-kits/form/form";
 import { Input } from "@/components/ui-kits/input/input";
 import { Label } from "@/components/ui-kits/label/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui-kits/popover/popover";
-import { RadioGroup, RadioGroupItem } from "@/components/ui-kits/radio-group/radio-group";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui-kits/popover/popover";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/ui-kits/radio-group/radio-group";
 import {
   Select,
   SelectContent,
@@ -28,7 +35,7 @@ import {
 } from "@/components/ui-kits/select/select";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import {
   AUTH_FIELD_OPTIONS,
   AUTH_STRING_FIELDS,
@@ -47,7 +54,10 @@ import {
   getFieldTypeCategory,
   type FieldTypeCategory,
 } from "@/data-gateway/constants/schema-access-control";
-import { useCreatePolicy, useUpdatePolicy } from "@/data-gateway/hooks/use-configuration";
+import {
+  useCreatePolicy,
+  useUpdatePolicy,
+} from "@/data-gateway/hooks/use-configuration";
 import type {
   ICreatePolicyPayload,
   IPolicyItem,
@@ -108,7 +118,9 @@ const ruleSetSchema = z.object({
   logicalOperator: z.enum(["AND", "OR"], {
     required_error: "Please select a rule relation",
   }),
-  rules: z.array(ruleRowSchema).min(1, "At least one complete rule is required"),
+  rules: z
+    .array(ruleRowSchema)
+    .min(1, "At least one complete rule is required"),
 });
 
 type RuleSetFormValues = z.infer<typeof ruleSetSchema>;
@@ -140,8 +152,10 @@ export const RuleSetForm = ({
   editingPolicy,
   level,
 }: RuleSetFormProps) => {
-  const { mutateAsync: createPolicy, isPending: isCreating } = useCreatePolicy();
-  const { mutateAsync: updatePolicy, isPending: isUpdating } = useUpdatePolicy();
+  const { mutateAsync: createPolicy, isPending: isCreating } =
+    useCreatePolicy();
+  const { mutateAsync: updatePolicy, isPending: isUpdating } =
+    useUpdatePolicy();
   const isSaving = isCreating || isUpdating;
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
@@ -157,7 +171,9 @@ export const RuleSetForm = ({
           ? "OR"
           : "AND"
         : "AND",
-      rules: editingPolicy ? editingPolicy.ruleGroup.rules.map(policyRuleToFormRow) : [],
+      rules: editingPolicy
+        ? editingPolicy.ruleGroup.rules.map(policyRuleToFormRow)
+        : [],
     },
   });
 
@@ -198,24 +214,35 @@ export const RuleSetForm = ({
     if (!category) return RULE_OPERATORS;
     const allowed = [...OPERATORS_BY_CATEGORY[category]];
     // Auth → roles: also allow IN / NOT_IN
-    if (source === RULE_SOURCE_TYPES.AUTH && fieldName === "roles" && !allowed.includes("IN")) {
+    if (
+      source === RULE_SOURCE_TYPES.AUTH &&
+      fieldName === "roles" &&
+      !allowed.includes("IN")
+    ) {
       allowed.push("IN", "NOT_IN");
     }
     return RULE_OPERATORS.filter((op) => allowed.includes(op.value));
   };
 
   /** Filter compare source options by category */
-  const getFilteredCompareSourceOptions = (category: FieldTypeCategory | undefined) => {
+  const getFilteredCompareSourceOptions = (
+    category: FieldTypeCategory | undefined,
+  ) => {
     if (!category) return COMPARE_SOURCE_OPTIONS;
     // Numeric: no auth fields are numeric, so remove Auth
     if (category === FIELD_TYPE_CATEGORY.NUMERIC) {
-      return COMPARE_SOURCE_OPTIONS.filter((o) => o.value !== RULE_SOURCE_TYPES.AUTH);
+      return COMPARE_SOURCE_OPTIONS.filter(
+        (o) => o.value !== RULE_SOURCE_TYPES.AUTH,
+      );
     }
     return COMPARE_SOURCE_OPTIONS;
   };
 
   /** Filter right-side field options based on left operand category */
-  const getRightFieldOptions = (cmpSource: string, category: FieldTypeCategory | undefined) => {
+  const getRightFieldOptions = (
+    cmpSource: string,
+    category: FieldTypeCategory | undefined,
+  ) => {
     if (cmpSource === RULE_SOURCE_TYPES.AUTH) {
       if (!category) return AUTH_FIELD_OPTIONS;
       // Array left → only string auth fields (userId, email)
@@ -223,18 +250,28 @@ export const RuleSetForm = ({
       return AUTH_FIELD_OPTIONS;
     }
     if (cmpSource === RULE_SOURCE_TYPES.SCHEMA_FIELD) {
-      if (!category) return schemaFields.map((f) => ({ label: f.name, value: f.name }));
+      if (!category)
+        return schemaFields.map((f) => ({ label: f.name, value: f.name }));
       return schemaFields
         .filter((f) => {
           const fCat = getFieldTypeCategory(f.type, f.isArray);
           if (category === FIELD_TYPE_CATEGORY.STRING) {
-            return fCat === FIELD_TYPE_CATEGORY.STRING || fCat === FIELD_TYPE_CATEGORY.ARRAY;
+            return (
+              fCat === FIELD_TYPE_CATEGORY.STRING ||
+              fCat === FIELD_TYPE_CATEGORY.ARRAY
+            );
           }
           if (category === FIELD_TYPE_CATEGORY.ARRAY) {
-            return getFieldTypeCategory(f.type, false) === FIELD_TYPE_CATEGORY.STRING && !f.isArray;
+            return (
+              getFieldTypeCategory(f.type, false) ===
+                FIELD_TYPE_CATEGORY.STRING && !f.isArray
+            );
           }
           if (category === FIELD_TYPE_CATEGORY.NUMERIC) {
-            return getFieldTypeCategory(f.type, false) === FIELD_TYPE_CATEGORY.NUMERIC;
+            return (
+              getFieldTypeCategory(f.type, false) ===
+              FIELD_TYPE_CATEGORY.NUMERIC
+            );
           }
           return true;
         })
@@ -247,7 +284,8 @@ export const RuleSetForm = ({
     operator: string,
     ruleRows: RuleSetFormValues["rules"],
   ): IPolicyRuleGroup => {
-    const logicalOperator = operator === "AND" ? LOGICAL_OPERATOR.AND : LOGICAL_OPERATOR.OR;
+    const logicalOperator =
+      operator === "AND" ? LOGICAL_OPERATOR.AND : LOGICAL_OPERATOR.OR;
 
     const directValueOps = ["REGEX", "START_WITH", "END_WITH"];
     const mappedRules: IPolicyRule[] = ruleRows.map((r) => {
@@ -303,7 +341,8 @@ export const RuleSetForm = ({
       const payload: IUpdatePolicyPayload = {
         itemId: editingPolicy.itemId,
         policyName: values.name,
-        policyDescription: editingPolicy.policyDescription ?? "Generated from Rule Builder",
+        policyDescription:
+          editingPolicy.policyDescription ?? "Generated from Rule Builder",
         policyType: level === "row" ? POLICY_TYPE.ROW : POLICY_TYPE.COLUMN,
         operation,
         schemaName,
@@ -452,22 +491,40 @@ export const RuleSetForm = ({
                     {fields.map((ruleField, index) => {
                       const source = form.watch(`rules.${index}.source`);
                       const leftField = form.watch(`rules.${index}.field`);
-                      const operatorValue = form.watch(`rules.${index}.operator`);
-                      const compareSource = form.watch(`rules.${index}.compareSource`);
-                      const compareValue = form.watch(`rules.${index}.compareValue`);
+                      const operatorValue = form.watch(
+                        `rules.${index}.operator`,
+                      );
+                      const compareSource = form.watch(
+                        `rules.${index}.compareSource`,
+                      );
+                      const compareValue = form.watch(
+                        `rules.${index}.compareValue`,
+                      );
                       const fieldOptions = getFieldOptions(source);
                       const category = getLeftFieldCategory(source, leftField);
-                      const filteredOperators = getFilteredOperators(category, source, leftField);
+                      const filteredOperators = getFilteredOperators(
+                        category,
+                        source,
+                        leftField,
+                      );
                       const filteredCompareSourceOptions =
                         getFilteredCompareSourceOptions(category);
-                      const compareFieldOptions = getRightFieldOptions(compareSource, category);
-                      const isStaticValue = source === RULE_SOURCE_TYPES.STATIC_VALUE;
-                      const isNullOperator = NULL_OPERATORS.includes(operatorValue);
-                      const isCompareStatic = compareSource === RULE_SOURCE_TYPES.STATIC_VALUE;
-                      const isInOp = IN_OPERATORS.includes(operatorValue);
-                      const isDirectValueOp = ["REGEX", "START_WITH", "END_WITH"].includes(
-                        operatorValue,
+                      const compareFieldOptions = getRightFieldOptions(
+                        compareSource,
+                        category,
                       );
+                      const isStaticValue =
+                        source === RULE_SOURCE_TYPES.STATIC_VALUE;
+                      const isNullOperator =
+                        NULL_OPERATORS.includes(operatorValue);
+                      const isCompareStatic =
+                        compareSource === RULE_SOURCE_TYPES.STATIC_VALUE;
+                      const isInOp = IN_OPERATORS.includes(operatorValue);
+                      const isDirectValueOp = [
+                        "REGEX",
+                        "START_WITH",
+                        "END_WITH",
+                      ].includes(operatorValue);
                       const selectedInValues =
                         isInOp && compareValue
                           ? compareValue
@@ -497,15 +554,27 @@ export const RuleSetForm = ({
                                     form.setValue(`rules.${index}.field`, "", {
                                       shouldValidate: true,
                                     });
-                                    form.setValue(`rules.${index}.operator`, "", {
-                                      shouldValidate: true,
-                                    });
-                                    form.setValue(`rules.${index}.compareSource`, "", {
-                                      shouldValidate: true,
-                                    });
-                                    form.setValue(`rules.${index}.compareValue`, "", {
-                                      shouldValidate: true,
-                                    });
+                                    form.setValue(
+                                      `rules.${index}.operator`,
+                                      "",
+                                      {
+                                        shouldValidate: true,
+                                      },
+                                    );
+                                    form.setValue(
+                                      `rules.${index}.compareSource`,
+                                      "",
+                                      {
+                                        shouldValidate: true,
+                                      },
+                                    );
+                                    form.setValue(
+                                      `rules.${index}.compareValue`,
+                                      "",
+                                      {
+                                        shouldValidate: true,
+                                      },
+                                    );
                                   }}
                                 >
                                   <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
@@ -513,7 +582,10 @@ export const RuleSetForm = ({
                                   </SelectTrigger>
                                   <SelectContent>
                                     {RULE_SOURCE_OPTIONS.map((opt) => (
-                                      <SelectItem key={opt.value} value={opt.value}>
+                                      <SelectItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                      >
                                         {opt.label}
                                       </SelectItem>
                                     ))}
@@ -539,22 +611,43 @@ export const RuleSetForm = ({
                                     value={field.value || undefined}
                                     onValueChange={(v) => {
                                       field.onChange(v);
-                                      const newCat = getLeftFieldCategory(source, v);
+                                      const newCat = getLeftFieldCategory(
+                                        source,
+                                        v,
+                                      );
                                       const allowedOps = newCat
                                         ? OPERATORS_BY_CATEGORY[newCat]
                                         : null;
-                                      const curOp = form.getValues(`rules.${index}.operator`);
-                                      if (allowedOps && curOp && !allowedOps.includes(curOp)) {
-                                        form.setValue(`rules.${index}.operator`, "", {
-                                          shouldValidate: true,
-                                        });
+                                      const curOp = form.getValues(
+                                        `rules.${index}.operator`,
+                                      );
+                                      if (
+                                        allowedOps &&
+                                        curOp &&
+                                        !allowedOps.includes(curOp)
+                                      ) {
+                                        form.setValue(
+                                          `rules.${index}.operator`,
+                                          "",
+                                          {
+                                            shouldValidate: true,
+                                          },
+                                        );
                                       }
-                                      form.setValue(`rules.${index}.compareSource`, "", {
-                                        shouldValidate: true,
-                                      });
-                                      form.setValue(`rules.${index}.compareValue`, "", {
-                                        shouldValidate: true,
-                                      });
+                                      form.setValue(
+                                        `rules.${index}.compareSource`,
+                                        "",
+                                        {
+                                          shouldValidate: true,
+                                        },
+                                      );
+                                      form.setValue(
+                                        `rules.${index}.compareValue`,
+                                        "",
+                                        {
+                                          shouldValidate: true,
+                                        },
+                                      );
                                     }}
                                     disabled={!source}
                                   >
@@ -563,7 +656,10 @@ export const RuleSetForm = ({
                                     </SelectTrigger>
                                     <SelectContent>
                                       {fieldOptions.map((opt) => (
-                                        <SelectItem key={opt.value} value={opt.value}>
+                                        <SelectItem
+                                          key={opt.value}
+                                          value={opt.value}
+                                        >
                                           {opt.label}
                                         </SelectItem>
                                       ))}
@@ -581,27 +677,56 @@ export const RuleSetForm = ({
                                 <Select
                                   value={field.value || undefined}
                                   onValueChange={(v) => {
-                                    const wasContain = IN_OPERATORS.includes(field.value);
-                                    const willContain = IN_OPERATORS.includes(v);
+                                    const wasContain = IN_OPERATORS.includes(
+                                      field.value,
+                                    );
+                                    const willContain =
+                                      IN_OPERATORS.includes(v);
                                     field.onChange(v);
                                     if (NULL_OPERATORS.includes(v)) {
-                                      form.setValue(`rules.${index}.compareSource`, "", {
-                                        shouldValidate: true,
-                                      });
-                                      form.setValue(`rules.${index}.compareValue`, "", {
-                                        shouldValidate: true,
-                                      });
-                                    } else if (["REGEX", "START_WITH", "END_WITH"].includes(v)) {
-                                      form.setValue(`rules.${index}.compareSource`, "", {
-                                        shouldValidate: true,
-                                      });
-                                      form.setValue(`rules.${index}.compareValue`, "", {
-                                        shouldValidate: true,
-                                      });
+                                      form.setValue(
+                                        `rules.${index}.compareSource`,
+                                        "",
+                                        {
+                                          shouldValidate: true,
+                                        },
+                                      );
+                                      form.setValue(
+                                        `rules.${index}.compareValue`,
+                                        "",
+                                        {
+                                          shouldValidate: true,
+                                        },
+                                      );
+                                    } else if (
+                                      [
+                                        "REGEX",
+                                        "START_WITH",
+                                        "END_WITH",
+                                      ].includes(v)
+                                    ) {
+                                      form.setValue(
+                                        `rules.${index}.compareSource`,
+                                        "",
+                                        {
+                                          shouldValidate: true,
+                                        },
+                                      );
+                                      form.setValue(
+                                        `rules.${index}.compareValue`,
+                                        "",
+                                        {
+                                          shouldValidate: true,
+                                        },
+                                      );
                                     } else if (wasContain !== willContain) {
-                                      form.setValue(`rules.${index}.compareValue`, "", {
-                                        shouldValidate: true,
-                                      });
+                                      form.setValue(
+                                        `rules.${index}.compareValue`,
+                                        "",
+                                        {
+                                          shouldValidate: true,
+                                        },
+                                      );
                                     }
                                   }}
                                 >
@@ -610,7 +735,10 @@ export const RuleSetForm = ({
                                   </SelectTrigger>
                                   <SelectContent>
                                     {filteredOperators.map((opt) => (
-                                      <SelectItem key={opt.value} value={opt.value}>
+                                      <SelectItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                      >
                                         {opt.label}
                                       </SelectItem>
                                     ))}
@@ -629,20 +757,29 @@ export const RuleSetForm = ({
                                     value={field.value || undefined}
                                     onValueChange={(v) => {
                                       field.onChange(v);
-                                      form.setValue(`rules.${index}.compareValue`, "", {
-                                        shouldValidate: true,
-                                      });
+                                      form.setValue(
+                                        `rules.${index}.compareValue`,
+                                        "",
+                                        {
+                                          shouldValidate: true,
+                                        },
+                                      );
                                     }}
                                   >
                                     <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
                                       <SelectValue placeholder="Compare with" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {filteredCompareSourceOptions.map((opt) => (
-                                        <SelectItem key={opt.value} value={opt.value}>
-                                          {opt.label}
-                                        </SelectItem>
-                                      ))}
+                                      {filteredCompareSourceOptions.map(
+                                        (opt) => (
+                                          <SelectItem
+                                            key={opt.value}
+                                            value={opt.value}
+                                          >
+                                            {opt.label}
+                                          </SelectItem>
+                                        ),
+                                      )}
                                     </SelectContent>
                                   </Select>
                                 )}
@@ -686,7 +823,11 @@ export const RuleSetForm = ({
                                   }
 
                                   // CONTAIN + Auth/Schema Fields → multi-select
-                                  if (isInOp && !isCompareStatic && compareSource) {
+                                  if (
+                                    isInOp &&
+                                    !isCompareStatic &&
+                                    compareSource
+                                  ) {
                                     return (
                                       <Popover>
                                         <PopoverTrigger asChild>
@@ -715,40 +856,54 @@ export const RuleSetForm = ({
                                             </svg>
                                           </button>
                                         </PopoverTrigger>
-                                        <PopoverContent className="w-52 p-0" align="start">
+                                        <PopoverContent
+                                          className="w-52 p-0"
+                                          align="start"
+                                        >
                                           <Command>
                                             <CommandList>
                                               <CommandGroup>
-                                                {compareFieldOptions.map((opt) => {
-                                                  const isSelected = selectedInValues.includes(
-                                                    opt.value,
-                                                  );
-                                                  return (
-                                                    <CommandItem
-                                                      key={opt.value}
-                                                      onSelect={() => {
-                                                        const updated = isSelected
-                                                          ? selectedInValues.filter(
-                                                              (v) => v !== opt.value,
-                                                            )
-                                                          : [...selectedInValues, opt.value];
-                                                        field.onChange(updated.join(","));
-                                                      }}
-                                                    >
-                                                      <div
-                                                        className={cn(
-                                                          "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                          isSelected
-                                                            ? "bg-primary text-primary-foreground"
-                                                            : "opacity-50 [&_svg]:invisible",
-                                                        )}
+                                                {compareFieldOptions.map(
+                                                  (opt) => {
+                                                    const isSelected =
+                                                      selectedInValues.includes(
+                                                        opt.value,
+                                                      );
+                                                    return (
+                                                      <CommandItem
+                                                        key={opt.value}
+                                                        onSelect={() => {
+                                                          const updated =
+                                                            isSelected
+                                                              ? selectedInValues.filter(
+                                                                  (v) =>
+                                                                    v !==
+                                                                    opt.value,
+                                                                )
+                                                              : [
+                                                                  ...selectedInValues,
+                                                                  opt.value,
+                                                                ];
+                                                          field.onChange(
+                                                            updated.join(","),
+                                                          );
+                                                        }}
                                                       >
-                                                        <CheckIcon className="h-4 w-4" />
-                                                      </div>
-                                                      <span>{opt.label}</span>
-                                                    </CommandItem>
-                                                  );
-                                                })}
+                                                        <div
+                                                          className={cn(
+                                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                            isSelected
+                                                              ? "bg-primary text-primary-foreground"
+                                                              : "opacity-50 [&_svg]:invisible",
+                                                          )}
+                                                        >
+                                                          <CheckIcon className="h-4 w-4" />
+                                                        </div>
+                                                        <span>{opt.label}</span>
+                                                      </CommandItem>
+                                                    );
+                                                  },
+                                                )}
                                               </CommandGroup>
                                             </CommandList>
                                           </Command>
@@ -776,7 +931,10 @@ export const RuleSetForm = ({
                                       </SelectTrigger>
                                       <SelectContent>
                                         {compareFieldOptions.map((opt) => (
-                                          <SelectItem key={opt.value} value={opt.value}>
+                                          <SelectItem
+                                            key={opt.value}
+                                            value={opt.value}
+                                          >
                                             {opt.label}
                                           </SelectItem>
                                         ))}

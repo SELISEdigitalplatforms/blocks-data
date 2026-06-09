@@ -1,6 +1,6 @@
 "use client";
 import { useGetDataServiceConfiguration } from "../hooks/use-configuration";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { SchemaDetailsPage } from "./schema-details-page";
 import { DataServiceInstructions } from "./data-service-instructions";
 

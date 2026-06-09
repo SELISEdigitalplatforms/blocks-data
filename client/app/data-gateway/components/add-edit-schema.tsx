@@ -19,9 +19,12 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { allowLettersNumbersUnderscoreKeyDown } from "../utils/input-restriction.util";
 import { useSchemaList } from "../hooks/use-configuration";
-import { ICreateSchemaDefaultValues, ISchemaDetails } from "../models/data-service";
+import {
+  ICreateSchemaDefaultValues,
+  ISchemaDetails,
+} from "../models/data-service";
 import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 
 type SchemaFormValues = {
   schemaName: string;
@@ -60,8 +63,10 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
     },
   });
 
-  const [pendingFormData, setPendingFormData] = useState<SchemaFormValues | null>(null);
-  const [isEditConfirmationModalOpen, setIsEditConfirmationModalOpen] = useState(false);
+  const [pendingFormData, setPendingFormData] =
+    useState<SchemaFormValues | null>(null);
+  const [isEditConfirmationModalOpen, setIsEditConfirmationModalOpen] =
+    useState(false);
   const editSchemaConfirmationModalData = {
     dialogTitle: "Update schema property",
     dialogSubtitle:
@@ -103,7 +108,8 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
 
     // Check if schemaName exists in the returned list (case-insensitive)
     const exists = schemaListQuery?.data?.items?.some(
-      (schema: ISchemaDetails) => schema.schemaName.toLowerCase() === schemaName.toLowerCase(),
+      (schema: ISchemaDetails) =>
+        schema.schemaName.toLowerCase() === schemaName.toLowerCase(),
     );
 
     setTimeout(() => {
@@ -154,7 +160,9 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
     <>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>{mode === "edit" ? "Edit Schema" : "Add New Schema"}</DialogTitle>
+          <DialogTitle>
+            {mode === "edit" ? "Edit Schema" : "Add New Schema"}
+          </DialogTitle>
           <p className="text-sm text-muted-foreground">
             Select a source to begin setting up your data connection.
           </p>
@@ -162,8 +170,8 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
             <div className="mb-4 rounded-md border border-base-warning bg-warning-100 p-4 dark:border-icon-warning dark:bg-warning-800/20">
               <div className="flex items-start gap-2 text-warning-700 dark:text-icon-warning">
                 <p className="text-sm">
-                  Editing schema properties will impact all areas of the application where they are
-                  used.
+                  Editing schema properties will impact all areas of the
+                  application where they are used.
                 </p>
               </div>
             </div>
@@ -174,7 +182,10 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
           <div className="space-y-4 py-2">
             {/* Schema Name */}
             <div>
-              <label htmlFor="schemaName" className="text-sm font-medium text-medium-emphasis">
+              <label
+                htmlFor="schemaName"
+                className="text-sm font-medium text-medium-emphasis"
+              >
                 Schema name
               </label>
               <Input
@@ -195,7 +206,9 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
               />
 
               {errors.schemaName && (
-                <p className="mt-1 text-sm text-red-500">{errors?.schemaName?.message}</p>
+                <p className="mt-1 text-sm text-red-500">
+                  {errors?.schemaName?.message}
+                </p>
               )}
             </div>
 
@@ -203,7 +216,9 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
             <div>
               <Select
                 value={watch("schemaType")}
-                onValueChange={(value) => setValue("schemaType", value as "Entity" | "DTO")}
+                onValueChange={(value) =>
+                  setValue("schemaType", value as "Entity" | "DTO")
+                }
               >
                 <Label htmlFor="schemaType" className="text-medium-emphasis">
                   Schema Type
@@ -221,7 +236,10 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
             {/* Entity Name (conditional) */}
             {isEntity && (
               <div>
-                <label htmlFor="entityName" className="text-sm font-medium text-medium-emphasis">
+                <label
+                  htmlFor="entityName"
+                  className="text-sm font-medium text-medium-emphasis"
+                >
                   Entity name
                 </label>
                 <Input
@@ -236,7 +254,9 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                   readOnly
                 />
                 {errors.entityName && (
-                  <p className="mt-1 text-sm text-red-500">{errors.entityName.message}</p>
+                  <p className="mt-1 text-sm text-red-500">
+                    {errors.entityName.message}
+                  </p>
                 )}
               </div>
             )}
@@ -253,7 +273,10 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
         </form>
       </DialogContent>
 
-      <Dialog open={isEditConfirmationModalOpen} onOpenChange={setIsEditConfirmationModalOpen}>
+      <Dialog
+        open={isEditConfirmationModalOpen}
+        onOpenChange={setIsEditConfirmationModalOpen}
+      >
         <ConfirmationModal
           onCancel={() => {}}
           onConfirm={handleEditConfirm}

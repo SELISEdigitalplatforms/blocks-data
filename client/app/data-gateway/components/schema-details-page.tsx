@@ -414,6 +414,7 @@ export const SchemaDetailsPage = () => {
         {!isSchemaView ? (
           <SecurityAndPerformance
             onSchemaRowClick={navigateToSchemaView}
+            onSchemaCreated={(schemaId) => openSchemaInEditor(schemaId)}
             onNavigateToSchemas={() =>
               setQueryParams(
                 { type: "all", page: 1, pageSize: 10, schemaId: null },

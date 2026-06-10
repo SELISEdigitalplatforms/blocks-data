@@ -1,4 +1,6 @@
+import { EnvironmentList } from "@/components/environment-list/environment-list";
 import { DesktopMenuItem } from "@/components/menus/desktop-menu-item";
+import { ProjectList } from "@/components/project-list/project-list";
 import { Button } from "@/components/ui-kits/button/button";
 import { Separator } from "@/components/ui-kits/separator/separator";
 import { navigationMenus } from "@/constants/navigation-menus";
@@ -8,12 +10,14 @@ import { useTheme } from "@/hooks/use-theme";
 import { cn } from "@/lib/utils";
 import { PanelLeft } from "lucide-react";
 import { Fragment, useContext } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 export function SidebarMenuDesktop() {
   const { isSidebarOpen, toggleSidebar } = useContext(SidebarContext);
   const { resolvedTheme } = useTheme();
+  const { pathname } = useLocation();
   const allowedMenu = useFilteredMenus(navigationMenus);
+  const isProjectOverviewRoute = pathname.startsWith("/project-overview");
 
   const getLogoSrc = () => {
     if (isSidebarOpen) {
@@ -56,17 +60,37 @@ export function SidebarMenuDesktop() {
           </Button>
         )}
       </div>
-      <div className="flex-1 overflow-auto">
-        <nav className={cn("grid w-full items-start gap-0 py-2 text-sm")}>
+
+      {!isProjectOverviewRoute &&
+        (isSidebarOpen ? (
+          <div className="border-b px-2 pb-2 pt-2">
+            <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Workspace
+            </p>
+
+            <div className="space-y-0.5">
+              <ProjectList />
+              <EnvironmentList />
+            </div>
+          </div>
+        ) : (
+          <div className="border-b py-1">
+            <ProjectList collapsed />
+            <EnvironmentList collapsed />
+          </div>
+        ))}
+
+      <div className="w-full flex-1">
+        <nav className={cn("grid w-full items-start gap-1 py-2 text-sm")}>
           {allowedMenu.map((menu) => (
             <Fragment key={menu.id}>
               {menu.type === "menu" ? (
                 <DesktopMenuItem menu={menu} isSidebarOpen={isSidebarOpen} />
-              ) : (
+              ) : menu.type === "separator" ? (
                 <div className="mx-0">
                   <Separator />
                 </div>
-              )}
+              ) : null}
             </Fragment>
           ))}
         </nav>

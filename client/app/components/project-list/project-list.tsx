@@ -1,6 +1,3 @@
-import { useEffect, useMemo, useRef } from "react";
-import { ChevronDown, Loader } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +9,9 @@ import {
 import { useGetProject, useGetProjects } from "@/hooks/use-project";
 import { IProject } from "@/models/project.model";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { FolderOpen, Loader } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const redirectPaths: Record<string, string> = {
   "/services/iam/user-detail/*": "/services/iam",
@@ -27,7 +27,7 @@ const wildcardToRegex = (pattern: string) => {
   return `^${escaped.replace(/\*/g, "[^/]+")}$`;
 };
 
-export function ProjectList() {
+export function ProjectList({ collapsed = false }: { collapsed?: boolean }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { data: projectGroups = [], isLoading } = useGetProjects();
@@ -77,17 +77,41 @@ export function ProjectList() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="w-full rounded-sm p-1 text-left hover:bg-accent hover:text-accent-foreground md:p-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="truncate text-sm font-medium">
+      {collapsed ? (
+        <DropdownMenuTrigger
+          disabled
+          className="group relative flex h-10 w-full items-center justify-center rounded-lg"
+        >
+          <FolderOpen className="h-5 w-5 text-muted-foreground" />
+          <div className="pointer-events-none absolute left-full top-0 z-20 ml-2 min-w-max whitespace-nowrap rounded bg-gray-300 px-2 py-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
             {name || "Select a Project"}
           </div>
-          <ChevronDown className="h-4 w-4 shrink-0" />
-        </div>
-      </DropdownMenuTrigger>
+        </DropdownMenuTrigger>
+      ) : (
+        <DropdownMenuTrigger
+          disabled
+          className="w-full cursor-default rounded-lg px-2 py-2 text-left"
+        >
+          <div className="flex items-center gap-2.5">
+            <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Project
+              </div>
+              <div className="break-all text-sm font-medium leading-tight">
+                {name || "Select a Project"}
+              </div>
+            </div>
+          </div>
+        </DropdownMenuTrigger>
+      )}
       <DropdownMenuContent
-        align="end"
-        className="w-[--radix-dropdown-menu-trigger-width]"
+        align={collapsed ? "center" : "start"}
+        side={collapsed ? "right" : "bottom"}
+        sideOffset={collapsed ? 8 : 4}
+        className={
+          collapsed ? "min-w-48" : "w-[--radix-dropdown-menu-trigger-width]"
+        }
       >
         <DropdownMenuLabel>Your Projects</DropdownMenuLabel>
         {projects

@@ -1,8 +1,36 @@
 import { Menu } from "@/models/menu-models";
-import { Package, Database, HardDrive } from "lucide-react";
+import { Database, Folder, Globe, HardDrive, Home } from "lucide-react";
 
-/** Sidebar: data services, then project-scoped links under /project-overview. */
+/** Sidebar: workspace overview and core services. */
 export const navigationMenus: Menu[] = [
+  {
+    id: "workspace-label",
+    type: "label",
+    name: "WORKSPACE",
+  },
+  {
+    id: "project-label",
+    type: "label",
+    name: "PROJECT",
+    icon: Folder,
+  },
+  {
+    id: "environment-label",
+    type: "label",
+    name: "ENVIRONMENT",
+    icon: Globe,
+  },
+  {
+    id: "workspace-overview",
+    type: "menu",
+    name: "Overview",
+    path: "/dashboard",
+    icon: Home,
+  },
+  {
+    id: "separator-overview",
+    type: "separator",
+  },
   {
     id: "service-data-gateway",
     type: "menu",
@@ -16,17 +44,6 @@ export const navigationMenus: Menu[] = [
     name: "Storage",
     path: "/services/storage",
     icon: HardDrive,
-  },
-  {
-    type: "separator",
-    id: "separator-identity",
-  },
-  {
-    id: "environments",
-    type: "menu",
-    name: "Environments",
-    path: "/project-overview/environments",
-    icon: Package,
   },
   // {
   //   id: "people",

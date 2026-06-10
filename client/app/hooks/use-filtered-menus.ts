@@ -27,10 +27,12 @@ export function useFilteredMenus(menus: Menu[]): Menu[] {
     }
 
     const filteredMenus = menus.filter((item) => {
-      if (item.type === "separator" || item.type === "label") return true;
-      if (item.disabled) return false;
+      if (item.type === "separator") return true;
+      // if (item.disabled) return false;
+      // Hide project menus when NOT on /project-overview
       if (!isProjectOverviewRoute && projectOverviewMenuIds.has(item.id))
         return false;
+      // Hide non-project menus when ON /project-overview
       if (isProjectOverviewRoute && nonProjectMenuIds.has(item.id))
         return false;
       return !parsedBlockedMenu.includes(item.id);
@@ -41,6 +43,22 @@ export function useFilteredMenus(menus: Menu[]): Menu[] {
 
       const previousItem = filteredMenus[index - 1];
       const nextItem = filteredMenus[index + 1];
+      const separatorId = (item as any).id;
+
+      // Hide separator-overview on project overview routes (Overview is hidden there)
+      if (separatorId === "separator-overview" && isProjectOverviewRoute) {
+        return false;
+      }
+
+      // Keep separator-overview if Overview is before it and not on project route
+      if (
+        separatorId === "separator-overview" &&
+        previousItem?.type !== "separator" &&
+        !isProjectOverviewRoute
+      ) {
+        return true;
+      }
+
       if (!previousItem || !nextItem) return false;
       if (previousItem.type === "separator" || nextItem.type === "separator")
         return false;

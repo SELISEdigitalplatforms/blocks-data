@@ -1,6 +1,3 @@
-import { useEffect, useMemo, useRef } from "react";
-import { ChevronDown, Loader } from "lucide-react";
-import { useLocation, useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +9,9 @@ import {
 import { useGetProject, useGetProjects } from "@/hooks/use-project";
 import { IProject } from "@/models/project.model";
 import { useProjectStore } from "@/store/useProjectStore";
+import { Globe, Loader } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 const redirectPaths: Record<string, string> = {
   "/services/iam/user-detail/*": "/services/iam",
@@ -27,7 +27,11 @@ const wildcardToRegex = (pattern: string) => {
   return `^${escaped.replace(/\*/g, "[^/]+")}$`;
 };
 
-export function EnvironmentList() {
+export function EnvironmentList({
+  collapsed = false,
+}: {
+  collapsed?: boolean;
+}) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { data: projectGroups = [], isLoading } = useGetProjects();
@@ -96,26 +100,54 @@ export function EnvironmentList() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="w-full rounded-sm py-1 text-left hover:bg-accent hover:text-accent-foreground md:p-2">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 flex-1 flex-col md:items-end">
-            {environment ? (
-              <div className="w-fit rounded-sm bg-[hsl(var(--blocks-primary-50))] px-2 text-[12px] font-semibold text-[hsl(var(--high-emphasis))]">
-                {environment}
-              </div>
-            ) : (
-              <span className="text-sm">Select an Environment</span>
-            )}
-            <small className="mt-1 w-full max-w-[150px] truncate text-left text-xs text-muted-foreground md:text-right">
-              {applicationDomain || "No domain selected"}
-            </small>
+      {collapsed ? (
+        <DropdownMenuTrigger
+          disabled
+          className="group relative flex h-10 w-full items-center justify-center rounded-lg"
+        >
+          <Globe className="h-5 w-5 text-muted-foreground" />
+          {environment && (
+            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[hsl(var(--blocks-primary-50))] ring-1 ring-background" />
+          )}
+          <div className="pointer-events-none absolute left-full top-0 z-20 ml-2 min-w-max whitespace-nowrap rounded bg-gray-300 px-2 py-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
+            {environment
+              ? `${environment}${applicationDomain ? ` - ${applicationDomain}` : ""}`
+              : "Select an Environment"}
           </div>
-          <ChevronDown className="h-4 w-4 shrink-0" />
-        </div>
-      </DropdownMenuTrigger>
+        </DropdownMenuTrigger>
+      ) : (
+        <DropdownMenuTrigger
+          disabled
+          className="w-full cursor-default rounded-lg px-2 py-2 text-left"
+        >
+          <div className="flex items-center gap-2.5">
+            <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="flex min-w-0 flex-1 flex-col items-start">
+              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Environment
+              </div>
+              {environment ? (
+                <div className="flex min-w-0 items-center gap-1 leading-tight">
+                  <span className="shrink-0 rounded-sm bg-[hsl(var(--blocks-primary-50))] px-1.5 py-0.5 text-[11px] font-semibold leading-none text-[hsl(var(--high-emphasis))]">
+                    {environment}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-sm leading-tight">
+                  Select an Environment
+                </span>
+              )}
+            </div>
+          </div>
+        </DropdownMenuTrigger>
+      )}
       <DropdownMenuContent
-        align="end"
-        className="w-[--radix-dropdown-menu-trigger-width]"
+        align={collapsed ? "center" : "start"}
+        side={collapsed ? "right" : "bottom"}
+        sideOffset={collapsed ? 8 : 4}
+        className={
+          collapsed ? "min-w-48" : "w-[--radix-dropdown-menu-trigger-width]"
+        }
       >
         <DropdownMenuLabel>Your Environments</DropdownMenuLabel>
         {projects

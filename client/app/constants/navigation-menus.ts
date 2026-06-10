@@ -28,6 +28,10 @@ export const navigationMenus: Menu[] = [
     icon: Home,
   },
   {
+    id: "separator-overview",
+    type: "separator",
+  },
+  {
     id: "service-data-gateway",
     type: "menu",
     name: "Data Gateway",

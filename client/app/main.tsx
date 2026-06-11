@@ -1,14 +1,13 @@
+import { BlocksAppLayout } from "@seliseblocks/blocks-kit";
+import { NuqsAdapter } from "nuqs/adapters/react-router/v6";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
-import { NuqsAdapter } from "nuqs/adapters/react-router/v6";
 import { Toaster } from "./components/ui-kits/toaster/toaster";
 import { TooltipProvider } from "./components/ui-kits/tooltip/tooltip";
 import QueryProvider from "./providers/query-provider";
 import { router } from "./router";
 import "./styles/globals.css";
-import { BlocksAppLayout } from "@seliseblocks/blocks-kit";
-import { getRuntimeEnv } from "./lib/runtime-env";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -23,6 +22,7 @@ createRoot(document.getElementById("root")!).render(
                 dark: "/blocks-logos/Logo_Black.svg",
                 light: "/blocks-logos/Logo_White.svg",
               },
+              name: "blocks-data",
             }}
           >
             <RouterProvider router={router} />

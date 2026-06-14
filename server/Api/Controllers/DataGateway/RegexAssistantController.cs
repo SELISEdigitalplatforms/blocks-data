@@ -1,56 +1,41 @@
 using DataGateway.DomainService.Services.RegexAssistant;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
 using System.Net;
 
-namespace BlocksTemplate.Api.Controllers
+namespace DataGateway.Api.Controllers;
+
+[ApiController]
+[Route("regex")]
+public class RegexAssistantController : ControllerBase
 {
-    [ApiController]
-    [Route("[controller]/[action]")]
-    public class RegexAssistantController : ControllerBase
+    private readonly IRegexAssistantService _regexAssistantService;
+
+    public RegexAssistantController(IRegexAssistantService regexAssistantService)
     {
-        private readonly IRegexAssistantService _regexAssistantService;
-        private readonly ILogger<RegexAssistantController> _logger;
+        _regexAssistantService = regexAssistantService;
+    }
 
-        public RegexAssistantController(IRegexAssistantService regexAssistantService, ILogger<RegexAssistantController> logger)
+    /// <summary>
+    /// Generates a regex pattern based on a text description using AI
+    /// </summary>
+    /// <param name="request">The regex generation request containing description and optional constraints</param>
+    /// <returns>Generated regex pattern</returns>
+    [HttpPost]
+    [Authorize]
+    public async Task<IActionResult> GenerateRegex([FromBody] RegexAssistantRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request?.Description))
         {
-            _regexAssistantService = regexAssistantService;
-            _logger = logger;
-            _logger.LogInformation("RegexAssistantController: Constructor called");
+            return BadRequest(new { error = "Description is required" });
         }
 
-        /// <summary>
-        /// Health check endpoint
-        /// </summary>
-        [HttpGet]
-        [AllowAnonymous]
-        public IActionResult Health()
+        var regexPattern = await _regexAssistantService.GenerateRegexPattern(request);
+
+        return StatusCode((int)HttpStatusCode.OK, new
         {
-            _logger.LogInformation("RegexAssistantController: Health endpoint called");
-            return Ok(new { status = "healthy", message = "RegexAssistant API is running" });
-        }
-
-        /// <summary>
-        /// Generates a regex pattern based on a text description using AI
-        /// </summary>
-        /// <param name="request">The regex generation request containing description and optional constraints</param>
-        /// <returns>Generated regex pattern</returns>
-        [HttpPost]
-        [AllowAnonymous]
-        public async Task<IActionResult> GenerateRegex([FromBody] RegexAssistantRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request?.Description))
-            {
-                return BadRequest(new { error = "Description is required" });
-            }
-
-            var regexPattern = await _regexAssistantService.GenerateRegexPattern(request);
-
-            return StatusCode((int)HttpStatusCode.OK, new
-            {
-                pattern = regexPattern
-            });
-        }
+            pattern = regexPattern
+        });
     }
 }
+

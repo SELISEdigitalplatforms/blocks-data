@@ -5,6 +5,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
 using DataGateway.DomainService.Services;
+using DataGateway.DomainService.Services.RegexAssistant;
 using DataGateway.DomainService.Validators;
 using HotChocolate.AspNetCore.Serialization;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +41,7 @@ public static class ServiceRegistry
         serviceCollection.AddScoped<IDataAccessService, DataAccessService>();
         serviceCollection.AddScoped<IDataManageService, DataManageService>();
         serviceCollection.AddScoped<IDataValidationService, DataValidationService>();
+        serviceCollection.AddHttpClient<IRegexAssistantService, RegexAssistantService>();
         serviceCollection.AddSingleton<ISchemaExportService, SchemaExportService>();
         serviceCollection.AddSingleton<ISchemaImportService, SchemaImportService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
@@ -90,7 +92,7 @@ public static class ServiceRegistry
     private static async ValueTask ConfigureGraphQLSchemaAsync(IServiceProvider services, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
     {
         var tenantSlug = string.IsNullOrWhiteSpace(GraphQlConstant.TenantSlug)
-            ? RequestContextAccessor.Current.TenantSlug
+            ? (RequestContextAccessor.Current.TenantSlug ?? string.Empty)
             : GraphQlConstant.TenantSlug;
         Console.WriteLine($"Tenant Slug from service: {tenantSlug}");
         var tenantId = GraphQlConstant.TenantId ?? string.Empty;

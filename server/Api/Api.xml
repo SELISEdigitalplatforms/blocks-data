@@ -70,6 +70,13 @@
             <param name="request"></param>
             <returns></returns>
         </member>
+        <member name="M:DataGateway.Api.Controllers.RegexAssistantController.GenerateRegex(DataGateway.DomainService.Services.RegexAssistant.RegexAssistantRequest)">
+            <summary>
+            Generates a regex pattern based on a text description using AI
+            </summary>
+            <param name="request">The regex generation request containing description and optional constraints</param>
+            <returns>Generated regex pattern</returns>
+        </member>
         <member name="T:Api.Controllers.DataGateway.DataAccessController">
             <summary>
             Controller for managing data access permissions.
@@ -300,13 +307,6 @@
             <param name="validationId">The unique identifier of the data validation to delete.</param>
             <param name="projectKey">The project key for context.</param>
             <returns>Returns a success response if the validation is deleted, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:Api.Controllers.RegexAssistantController.GenerateRegex(DataGateway.DomainService.Services.RegexAssistant.RegexAssistantRequest)">
-            <summary>
-            Generates a regex pattern based on a text description using AI
-            </summary>
-            <param name="request">The regex generation request containing description and optional constraints</param>
-            <returns>Generated regex pattern</returns>
         </member>
         <member name="T:Api.Controllers.SchemaController">
             <summary>

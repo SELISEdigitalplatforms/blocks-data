@@ -13,10 +13,19 @@
     <Content Remove="appsettings.Development.json" />
   </ItemGroup>
   <ItemGroup>
+    <None Remove="Api.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Api.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <None Include="appsettings.Development.json" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FluentValidation.AspNetCore" />
+	  <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DataGateway.DomainService\DataGateway.DomainService.csproj" />

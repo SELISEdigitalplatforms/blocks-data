@@ -4,8 +4,8 @@ import path from "path";
 import type { Plugin } from "vite";
 import { defineConfig, loadEnv } from "vite";
 
-// Local dev HTTPS, driven ONLY by the machine env vars UDS_SSL_CERT /
-// UDS_SSL_KEY (abs paths to an mkcert PEM cert + key). Read directly
+// Local dev HTTPS, driven ONLY by the machine env vars DATA_SSL_CERT /
+// DATA_SSL_KEY (abs paths to an mkcert PEM cert + key). Read directly
 // from process.env — NOT loadEnv, which is BLOCKS_-prefixed and would hide
 // these non-prefixed names. Both set AND both files present -> HTTPS;
 // otherwise warn and fall back to HTTP (returns undefined). Never throws.
@@ -15,12 +15,12 @@ import { defineConfig, loadEnv } from "vite";
 // `https.ServerOptions | undefined`, and vite.config.ts is type-checked by
 // `tsc -b` (tsconfig.node.json, strict) during `npm run build`.
 function resolveDevHttps(): { cert: Buffer; key: Buffer } | undefined {
-  const certPath = process.env.UDS_SSL_CERT;
-  const keyPath = process.env.UDS_SSL_KEY;
+  const certPath = process.env.DATA_SSL_CERT;
+  const keyPath = process.env.DATA_SSL_KEY;
 
   if (!certPath || !keyPath) {
     console.warn(
-      "[dev-https] UDS_SSL_CERT / UDS_SSL_KEY not set — serving HTTP.",
+      "[dev-https] DATA_SSL_CERT / DATA_SSL_KEY not set — serving HTTP.",
     );
     return undefined;
   }
@@ -75,7 +75,7 @@ export default defineConfig(({ mode }) => {
       host: true, // Listen on all addresses (0.0.0.0)
       port: 4000,
       strictPort: true, // Exit if the port is already in use
-      https: resolveDevHttps(), // HTTPS when UDS_SSL_* are set; else HTTP
+      https: resolveDevHttps(), // HTTPS when DATA_SSL_* are set; else HTTP
       fs: {
         allow: [path.resolve(__dirname, "..")],
       },
@@ -158,7 +158,7 @@ export default defineConfig(({ mode }) => {
                 changeOrigin: true,
                 secure: false,
               },
-              "/uds": {
+              "/DATA": {
                 target: proxyTarget,
                 changeOrigin: true,
                 secure: false,

@@ -3,39 +3,39 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 
-namespace DataGateway.Api.Controllers;
-
-[ApiController]
-[Route("regex")]
-public class RegexAssistantController : ControllerBase
+namespace BlocksTemplate.Api.Controllers
 {
-    private readonly IRegexAssistantService _regexAssistantService;
-
-    public RegexAssistantController(IRegexAssistantService regexAssistantService)
+    [ApiController]
+    [Route("regex")]
+    public class RegexAssistantController : ControllerBase
     {
-        _regexAssistantService = regexAssistantService;
-    }
+        private readonly IRegexAssistantService _regexAssistantService;
 
-    /// <summary>
-    /// Generates a regex pattern based on a text description using AI
-    /// </summary>
-    /// <param name="request">The regex generation request containing description and optional constraints</param>
-    /// <returns>Generated regex pattern</returns>
-    [HttpPost]
-    [Authorize]
-    public async Task<IActionResult> GenerateRegex([FromBody] RegexAssistantRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request?.Description))
+        public RegexAssistantController(IRegexAssistantService regexAssistantService)
         {
-            return BadRequest(new { error = "Description is required" });
+            _regexAssistantService = regexAssistantService;
         }
 
-        var regexPattern = await _regexAssistantService.GenerateRegexPattern(request);
-
-        return StatusCode((int)HttpStatusCode.OK, new
+        /// <summary>
+        /// Generates a regex pattern based on a text description using AI
+        /// </summary>
+        /// <param name="request">The regex generation request containing description and optional constraints</param>
+        /// <returns>Generated regex pattern</returns>
+        [HttpPost("generateregex")]
+        [Authorize]
+        public async Task<IActionResult> GenerateRegex([FromBody] RegexAssistantRequest request)
         {
-            pattern = regexPattern
-        });
+            if (string.IsNullOrWhiteSpace(request?.Description))
+            {
+                return BadRequest(new { error = "Description is required" });
+            }
+
+            var regexPattern = await _regexAssistantService.GenerateRegexPattern(request);
+
+            return StatusCode((int)HttpStatusCode.OK, new
+            {
+                pattern = regexPattern
+            });
+        }
     }
 }
-

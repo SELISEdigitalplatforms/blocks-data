@@ -301,13 +301,6 @@
             <param name="projectKey">The project key for context.</param>
             <returns>Returns a success response if the validation is deleted, or an error message if the operation fails.</returns>
         </member>
-        <member name="M:Api.Controllers.RegexAssistantController.GenerateRegex(DataGateway.DomainService.Services.RegexAssistant.RegexAssistantRequest)">
-            <summary>
-            Generates a regex pattern based on a text description using AI
-            </summary>
-            <param name="request">The regex generation request containing description and optional constraints</param>
-            <returns>Generated regex pattern</returns>
-        </member>
         <member name="T:Api.Controllers.SchemaController">
             <summary>
             OperateSchemaController is responsible for managing schema operations.
@@ -513,6 +506,18 @@
             </summary>
             <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
             <returns>A <see cref="T:Blocks.Genesis.BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
+        </member>
+        <member name="M:BlocksTemplate.Api.Controllers.RegexAssistantController.Health">
+            <summary>
+            Health check endpoint
+            </summary>
+        </member>
+        <member name="M:BlocksTemplate.Api.Controllers.RegexAssistantController.GenerateRegex(DataGateway.DomainService.Services.RegexAssistant.RegexAssistantRequest)">
+            <summary>
+            Generates a regex pattern based on a text description using AI
+            </summary>
+            <param name="request">The regex generation request containing description and optional constraints</param>
+            <returns>Generated regex pattern</returns>
         </member>
         <member name="T:BlocksTemplate.Api.GlobalApiRoutePrefixConvention">
             <summary>Prepends a segment (e.g. <c>api</c>) to every controller’s attribute route template.</summary>

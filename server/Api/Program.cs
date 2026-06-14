@@ -43,12 +43,6 @@ Directory.CreateDirectory(wwwrootPath);
 
 services.AddDataGatewayDomainServices();
 services.AddStorageDomainServices();
-services.AddBlocksSwagger(new BlocksSwaggerOptions
-{
-    Title = "Blocks Data API",
-    Version = "v1",
-    EnableBearerAuth = true
-});
 
 var app = builder.Build();
 

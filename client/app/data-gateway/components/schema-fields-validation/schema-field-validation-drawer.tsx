@@ -1,6 +1,9 @@
 "use client";
 
-import { ReactNode, useRef, useState } from "react";
+import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
+import { Button } from "@/components/ui-kits/button/button";
+import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
+import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import {
   Drawer,
   DrawerClose,
@@ -8,24 +11,30 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui-kits/drawer/drawer";
-import { Button } from "@/components/ui-kits/button/button";
 import { Input } from "@/components/ui-kits/input/input";
-import { Textarea } from "@/components/ui-kits/textarea/textarea";
-import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import { ScrollArea } from "@/components/ui-kits/scroll-area/scroll-area";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/tooltip/tooltip";
-import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
+import { Textarea } from "@/components/ui-kits/textarea/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui-kits/tooltip/tooltip";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { Pencil, Plus, Trash, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Pencil, Plus, Sparkles, Trash, X } from "lucide-react";
+import { ReactNode, useRef, useState } from "react";
 import {
   useCreateSchemaFieldValidation,
   useDeleteSchemaFieldValidation,
+  useGenerateRegex,
   useGetSchemaFieldValidation,
   useUpdateSchemaFieldValidation,
 } from "../../hooks/use-configuration";
-import { IFieldValidationRule, ISchemaFieldValidation } from "../../models/data-service";
+import {
+  IFieldValidationRule,
+  ISchemaFieldValidation,
+} from "../../models/data-service";
 
 interface SchemaFieldValidationDrawerProps {
   fieldName: string;
@@ -78,45 +87,95 @@ export function SchemaFieldValidationDrawer({
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ValidationFormState>(defaultForm);
   const [regexError, setRegexError] = useState<string | null>(null);
-  const originalForm = useRef<Pick<ValidationFormState, "value" | "errorMessage" | "isActive"> | null>(null);
-  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const originalForm = useRef<Pick<
+    ValidationFormState,
+    "value" | "errorMessage" | "isActive"
+  > | null>(null);
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(
+    null,
+  );
   const [shouldRefetch, setShouldRefetch] = useState(false);
 
   // When the prop is provided (even as null) we already have data from the schema response
   // and can skip the initial GET. After any mutation we flip shouldRefetch to fetch fresh data.
   const hasInitialData = initialValidationData !== undefined;
 
-  const { data: validationRes, isLoading, isFetching } = useGetSchemaFieldValidation({
+  const {
+    data: validationRes,
+    isLoading,
+    isFetching,
+  } = useGetSchemaFieldValidation({
     schemaId,
     fieldName,
     projectKey,
     enabled: !hasInitialData || shouldRefetch,
   });
 
-  const { mutateAsync: createValidation, isPending: isCreating } = useCreateSchemaFieldValidation();
-  const { mutateAsync: updateValidation, isPending: isUpdating } = useUpdateSchemaFieldValidation();
-  const { mutateAsync: deleteValidation, isPending: isDeleting } = useDeleteSchemaFieldValidation();
+  const { mutateAsync: createValidation, isPending: isCreating } =
+    useCreateSchemaFieldValidation();
+  const { mutateAsync: updateValidation, isPending: isUpdating } =
+    useUpdateSchemaFieldValidation();
+  const { mutateAsync: deleteValidation, isPending: isDeleting } =
+    useDeleteSchemaFieldValidation();
+  const { mutateAsync: generateRegex, isPending: isGenerating } =
+    useGenerateRegex();
 
   // Priority: fresh query result (post-mutation) → initial prop → query cache → null
-  const freshQueryData = shouldRefetch && validationRes?.data !== undefined ? validationRes.data : undefined;
-  const validationData = freshQueryData !== undefined
-    ? freshQueryData
-    : hasInitialData
-      ? initialValidationData
-      : (validationRes?.data ?? null);
+  const freshQueryData =
+    shouldRefetch && validationRes?.data !== undefined
+      ? validationRes.data
+      : undefined;
+  const validationData =
+    freshQueryData !== undefined
+      ? freshQueryData
+      : hasInitialData
+        ? initialValidationData
+        : (validationRes?.data ?? null);
 
-  const validations: ISchemaFieldValidation[] = validationData?.validations ?? [];
+  const validations: ISchemaFieldValidation[] =
+    validationData?.validations ?? [];
   const itemId = validationData?.itemId ?? null;
 
   const resetForm = () => {
     setForm(defaultForm);
     setRegexError(null);
     setShowForm(false);
+    setPrompt("");
+  };
+
+  const handleGenerateRegex = async () => {
+    if (!prompt.trim()) {
+      showErrorToast({ errors: ["Please enter a prompt"] });
+      return;
+    }
+
+    try {
+      const res = await generateRegex({
+        description: prompt.trim(),
+      });
+      if (res.pattern) {
+        setForm((prev) => ({
+          ...prev,
+          value: res.pattern,
+        }));
+        setRegexError(null);
+        setPrompt("");
+      } else {
+        showErrorToast({ errors: ["Failed to generate regex"] });
+      }
+    } catch (error) {
+      showErrorToast({ errors: ["Error generating regex"] });
+    }
   };
 
   const handleEdit = (index: number) => {
     const v = validations[index];
-    originalForm.current = { value: v.value, errorMessage: v.errorMessage, isActive: v.isActive };
+    originalForm.current = {
+      value: v.value,
+      errorMessage: v.errorMessage,
+      isActive: v.isActive,
+    };
     setForm({
       value: v.value,
       errorMessage: v.errorMessage,
@@ -160,7 +219,9 @@ export function SchemaFieldValidationDrawer({
             itemId,
             schemaId,
             fieldName,
-            validations: validations.map((v, i) => (i === form.editingIndex ? newRule : v)),
+            validations: validations.map((v, i) =>
+              i === form.editingIndex ? newRule : v,
+            ),
           })
         : await createValidation({
             projectKey,
@@ -193,7 +254,12 @@ export function SchemaFieldValidationDrawer({
     // }
 
     if (!itemId) return;
-    const res = await deleteValidation({ id: itemId, projectKey, schemaId, fieldName });
+    const res = await deleteValidation({
+      id: itemId,
+      projectKey,
+      schemaId,
+      fieldName,
+    });
     if (res.isSuccess) {
       showSuccessToast({ description: "Validation deleted successfully" });
       setShouldRefetch(true);
@@ -206,20 +272,27 @@ export function SchemaFieldValidationDrawer({
   // Show skeleton while a mutation is in flight OR while the post-mutation refetch is resolving
   const isRefreshing = isPending || (shouldRefetch && isFetching);
   const isEditMode = form.editingIndex !== undefined;
-  const isDirty = !isEditMode || !originalForm.current || (
+  const isDirty =
+    !isEditMode ||
+    !originalForm.current ||
     form.value.trim() !== originalForm.current.value.trim() ||
     form.errorMessage !== originalForm.current.errorMessage ||
-    form.isActive !== originalForm.current.isActive
-  );
+    form.isActive !== originalForm.current.isActive;
 
   return (
-    <Drawer direction="right" open={open} onOpenChange={onOpenChange} handleOnly>
+    <Drawer
+      direction="right"
+      open={open}
+      onOpenChange={onOpenChange}
+      handleOnly
+    >
       {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
-      <DrawerContent className="inset-y-0 left-auto right-0 mt-0 flex h-full w-full flex-col gap-0 rounded-none border-l bg-background p-0 transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right md:w-[420px] [&>div:first-child]:hidden">
+      <DrawerContent className="inset-y-0 left-auto right-0 mt-0 flex h-full w-full flex-col gap-0 rounded-none border-l bg-background p-0 transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right md:w-1/2 [&>div:first-child]:hidden">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-6 py-4">
           <DrawerTitle className="text-lg font-semibold leading-none tracking-tight">
-            Validations for <span className="font-mono text-primary">{fieldName}</span>
+            Validations for{" "}
+            <span className="font-mono text-primary">{fieldName}</span>
           </DrawerTitle>
           <DrawerClose asChild>
             <button
@@ -236,7 +309,9 @@ export function SchemaFieldValidationDrawer({
           <div className="flex flex-col gap-6 p-6">
             {/* Existing validations */}
             <div className="flex flex-col gap-3">
-              <p className="text-sm font-medium text-medium-emphasis">Existing validations</p>
+              <p className="text-sm font-medium text-medium-emphasis">
+                Existing validations
+              </p>
 
               {isRefreshing || (isLoading && !hasInitialData) ? (
                 <ValidationSkeleton />
@@ -256,7 +331,9 @@ export function SchemaFieldValidationDrawer({
                           {validation.value}
                         </p>
                         {validation.errorMessage && (
-                          <p className="text-xs text-muted-foreground">{validation.errorMessage}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {validation.errorMessage}
+                          </p>
                         )}
                         <span
                           className={`w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -310,8 +387,44 @@ export function SchemaFieldValidationDrawer({
             {showForm ? (
               <div className="flex flex-col gap-4 rounded-md border p-4">
                 <p className="text-sm font-medium text-foreground">
-                  {form.editingIndex !== undefined ? "Edit validation" : "Add validation"}
+                  {form.editingIndex !== undefined
+                    ? "Edit validation"
+                    : "Add validation"}
                 </p>
+
+                {/* Generate regex from prompt section */}
+                <div className="flex flex-col gap-1.5 rounded-md bg-muted/40 p-3">
+                  <label className="text-xs text-muted-foreground">
+                    Generate regex from prompt
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="e.g. Generate a regex pattern to validate email addresses"
+                      value={prompt}
+                      onChange={(e) => setPrompt(e.target.value)}
+                      disabled={isGenerating}
+                      className="flex-1 h-10"
+                    />
+                    <Button
+                      className={cn(
+                        "h-10 px-4 gap-2 transition-all",
+                        isGenerating &&
+                          "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 text-white",
+                      )}
+                      onClick={handleGenerateRegex}
+                      disabled={isGenerating || !prompt.trim()}
+                    >
+                      <Sparkles
+                        size={16}
+                        className={cn(isGenerating && "animate-spin")}
+                      />
+                      {isGenerating ? "Generating..." : "Generate"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Provide a description to generate regex from AI
+                  </p>
+                </div>
 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-xs text-muted-foreground">
@@ -327,15 +440,24 @@ export function SchemaFieldValidationDrawer({
                     className={`resize-none font-mono text-sm${regexError ? "border-destructive" : ""}`}
                     rows={4}
                   />
-                  {regexError && <p className="text-xs text-destructive">{regexError}</p>}
+                  {regexError && (
+                    <p className="text-xs text-destructive">{regexError}</p>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-muted-foreground">Error message</label>
+                  <label className="text-xs text-muted-foreground">
+                    Error message
+                  </label>
                   <Input
                     placeholder="e.g. Only letters are allowed"
                     value={form.errorMessage}
-                    onChange={(e) => setForm((prev) => ({ ...prev, errorMessage: e.target.value }))}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        errorMessage: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 
@@ -344,16 +466,32 @@ export function SchemaFieldValidationDrawer({
                     id="isActive"
                     checked={form.isActive}
                     onCheckedChange={(checked) =>
-                      setForm((prev) => ({ ...prev, isActive: checked === true }))
+                      setForm((prev) => ({
+                        ...prev,
+                        isActive: checked === true,
+                      }))
                     }
                   />
-                  <label htmlFor="isActive" className="cursor-pointer text-sm text-foreground">
+                  <label
+                    htmlFor="isActive"
+                    className="cursor-pointer text-sm text-foreground"
+                  >
                     Active
                   </label>
                 </div>
 
                 <div className="flex gap-2">
-                  <Button type="button" size="sm" disabled={isPending || !form.value.trim() || !!regexError || !isDirty} onClick={handleSubmit}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={
+                      isPending ||
+                      !form.value.trim() ||
+                      !!regexError ||
+                      !isDirty
+                    }
+                    onClick={handleSubmit}
+                  >
                     {isPending ? "Saving..." : isEditMode ? "Update" : "Add"}
                   </Button>
                   <Button
@@ -369,7 +507,8 @@ export function SchemaFieldValidationDrawer({
               </div>
             ) : (
               // TODO: support multiple validations — remove the validations.length === 0 check
-              !isRefreshing && validations.length === 0 && (
+              !isRefreshing &&
+              validations.length === 0 && (
                 <Button
                   type="button"
                   variant="outline"

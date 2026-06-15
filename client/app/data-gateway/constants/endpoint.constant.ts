@@ -56,6 +56,15 @@ export const DATA_VALIDATION_ENDPOINTS = {
   CREATE: `${API_BASES.UDS}${DATA_VALIDATIONS_SUBPATH}`,
   UPDATE: `${API_BASES.UDS}${DATA_VALIDATIONS_SUBPATH}`,
   DELETE: `${API_BASES.UDS}${DATA_VALIDATIONS_SUBPATH}`,
+  GENERATE_REGEX: `${API_BASES.UDS}${DATA_VALIDATIONS_SUBPATH}/generate-regex`,
+} as const;
+
+// ─── Data Validation endpoints ────────────────────────────────────────────────
+
+const VALIDATION_REGEX = "/regex";
+
+export const DATA_VALIDATION_REGEX_ENDPOINTS = {
+  GENERATE_REGEX: `${API_BASES.UDS}${VALIDATION_REGEX}/generateregex`,
 } as const;
 
 // ─── Gateway & Configuration endpoints ────────────────────────────────────────

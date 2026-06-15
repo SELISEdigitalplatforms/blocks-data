@@ -1,5 +1,6 @@
 using Blocks.Genesis;
 using BlocksTemplate.Api;
+using BlocksTemplate.Api.Filters;
 using DataGateway.DomainService;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models.Constants;
@@ -42,14 +43,19 @@ Directory.CreateDirectory(wwwrootPath);
 //ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath);
 
 services.AddDataGatewayDomainServices();
+services.RegisterRestGatewayServices();
 services.AddStorageDomainServices();
+
+builder.Services.Configure<MvcOptions>(opts =>
+{
+    opts.Filters.Add<GatewayExceptionFilter>();
+});
 
 var app = builder.Build();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.MapGraphQL("/api/gateway"); //.WithDisplayName("GraphQL");
 app.UseMiddleware<RequestContextMiddleware>();
 
 app.MapControllers();

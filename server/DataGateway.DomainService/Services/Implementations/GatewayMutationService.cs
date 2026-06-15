@@ -1,52 +1,44 @@
 using Blocks.Genesis;
 using DataGateway.DomainService.Entities;
+using DataGateway.DomainService.Exceptions;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Events;
+using DataGateway.DomainService.Models.Requests;
 using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Repositories;
-using HotChocolate.Language;
-using HotChocolate.Resolvers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 
 namespace DataGateway.DomainService.Services;
 
-/// <summary>
-/// Service for executing GraphQL mutations (insert, update, delete) with RLS/CLS and event publishing.
-/// </summary>
-public class MutationService : IMutationService
+public class GatewayMutationService : IGatewayMutationService
 {
     private const string OperationLabelCreate = "CREATE";
     private const string OperationLabelUpdate = "UPDATE";
     private const string OperationLabelDelete = "DELETE";
-    private readonly IGqlDbRepository _repository;
-    // private readonly ChangeControllerContext _changeControllerContext;
-    private readonly IDataChangeEventPublisher _eventPublisher;
-    private readonly ILogger<MutationService> _logger;
 
-    public MutationService(
+    private readonly IGqlDbRepository _repository;
+    private readonly IDataChangeEventPublisher _eventPublisher;
+    private readonly ILogger<GatewayMutationService> _logger;
+
+    public GatewayMutationService(
         IGqlDbRepository repository,
-        // ChangeControllerContext changeControllerContext,
         IDataChangeEventPublisher eventPublisher,
-        ILogger<MutationService> logger)
+        ILogger<GatewayMutationService> logger)
     {
         _repository = repository;
-        // _changeControllerContext = changeControllerContext;
         _eventPublisher = eventPublisher;
         _logger = logger;
     }
 
-    /// <inheritdoc />
     public async Task<ActionResponse> InsertAsync(
         SchemaDefinitionExtended schema,
-        IResolverContext context,
-        InputObjectType inputType)
+        Dictionary<string, object?> input)
     {
         _logger.LogInformation("Inserting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.WRITE, OperationLabelCreate);
-        var input = MutationInputHelper.ParseMutationInput(context, inputType);
         ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
         await ValidateUniquenessOrThrowAsync(schema, [input], null, OperationLabelCreate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.WRITE, OperationLabelCreate);
@@ -65,20 +57,21 @@ public class MutationService : IMutationService
         return new ActionResponse { Acknowledged = true, ItemId = itemId };
     }
 
-    /// <inheritdoc />
     public async Task<ActionResponse> UpdateAsync(
         SchemaDefinitionExtended schema,
-        IResolverContext context,
-        InputObjectType inputType)
+        string id,
+        Dictionary<string, object?> input)
     {
         _logger.LogInformation("Updating data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.EDIT, OperationLabelUpdate);
-        var filter = MutationFilterHelper.BuildFilterWithRls(context, schema, PolicyOperation.EDIT, EvaluateRlsPolicies);
+
+        var filter = new BsonDocument(GraphQlConstant.DbEntityIdFieldName, id);
+        filter = ApplyRlsToFilter(filter, schema, PolicyOperation.EDIT);
+
         var existingDocument = await _repository.GetItemAsync(schema.CollectionName, filter);
         if (existingDocument is null)
             return MutationInputHelper.ActionResponseNotFound(OperationLabelUpdate);
 
-        var input = MutationInputHelper.ParseMutationInput(context, inputType);
         ValidateMutationInputOrThrow(input, schema, OperationLabelUpdate);
         var currentId = existingDocument[GraphQlConstant.DbEntityIdFieldName]?.ToString();
         await ValidateUniquenessOrThrowAsync(schema, [input], currentId is not null ? [currentId] : null, OperationLabelUpdate);
@@ -95,17 +88,18 @@ public class MutationService : IMutationService
         return response;
     }
 
-    /// <inheritdoc />
     public async Task<ActionResponse> DeleteAsync(
         SchemaDefinitionExtended schema,
-        IResolverContext context,
-        InputObjectType inputType)
+        string id,
+        bool hardDelete)
     {
         _logger.LogInformation("Deleting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.DELETE, OperationLabelDelete);
-        var filter = MutationFilterHelper.BuildFilterWithRls(context, schema, PolicyOperation.DELETE, EvaluateRlsPolicies);
-        var sort = new BsonDocument();
-        var matchingDocuments = await _repository.GetItemsAsync(schema.CollectionName, filter, sort);
+
+        var filter = new BsonDocument(GraphQlConstant.DbEntityIdFieldName, id);
+        filter = ApplyRlsToFilter(filter, schema, PolicyOperation.DELETE);
+
+        var matchingDocuments = await _repository.GetItemsAsync(schema.CollectionName, filter, new BsonDocument());
         if (matchingDocuments is null || matchingDocuments.Count == 0)
             return MutationInputHelper.ActionResponseNotFound(OperationLabelDelete);
 
@@ -116,13 +110,12 @@ public class MutationService : IMutationService
 
         var deleteFilter = new BsonDocument { { GraphQlConstant.DbEntityIdFieldName, itemId } };
 
-        if (!MutationInputHelper.IsHardDeleteRequested(context, inputType))
-        {
+        if (!hardDelete)
             await SaveDeletedRecordAsync(schema, new List<BsonDocument> { firstDocument! });
-        }
-        var response = await _repository.DeleteAsync(schema.CollectionName, deleteFilter);
 
+        var response = await _repository.DeleteAsync(schema.CollectionName, deleteFilter);
         response.ItemId = itemId;
+
         if (response.Acknowledged)
             await _eventPublisher.PublishAsync(schema, DataChangeOperation.Deleted,
                 dataDocuments: new List<BsonDocument> { firstDocument! });
@@ -132,54 +125,23 @@ public class MutationService : IMutationService
         return response;
     }
 
-    /// <inheritdoc />
-    public async Task<ActionResponse> BulkDeleteAsync(
-        SchemaDefinitionExtended schema,
-        IResolverContext context,
-        InputObjectType inputType)
-    {
-        _logger.LogInformation("Bulk deleting data for schema {SchemaName}", schema.SchemaName);
-        PrepareMutation(schema, PolicyOperation.DELETE, OperationLabelDelete);
-        var filter = MutationFilterHelper.BuildFilterWithRls(context, schema, PolicyOperation.DELETE, EvaluateRlsPolicies);
-        var existingDocuments = await _repository.GetItemsAsync(schema.CollectionName, filter);
-        if (existingDocuments is null || !existingDocuments.Any())
-            return MutationInputHelper.ActionResponseNotFound(OperationLabelDelete);
-
-        if (!MutationInputHelper.IsHardDeleteRequested(context, inputType))
-        {
-            await SaveDeletedRecordAsync(schema, existingDocuments);
-        }
-        var bulkResponse = await _repository.DeleteManyAsync(schema.CollectionName, filter);
-
-        if (bulkResponse.Acknowledged)
-            await _eventPublisher.PublishAsync(schema, DataChangeOperation.Deleted,
-                dataDocuments: existingDocuments.ToList());
-
-        _logger.LogInformation("Data bulk deleted for schema {SchemaName}", schema.SchemaName);
-
-        return bulkResponse;
-    }
-
-    /// <inheritdoc />
     public async Task<BulkActionResponse> BulkInsertAsync(
         SchemaDefinitionExtended schema,
-        IResolverContext context,
-        InputObjectType inputType)
+        List<Dictionary<string, object?>> items)
     {
         _logger.LogInformation("Bulk inserting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.WRITE, OperationLabelCreate);
-        var listNode = context.ArgumentLiteral<IValueNode>(GraphQlConstant.InputFieldName) as ListValueNode;
-        var inputs = GraphQlTypeHelper.MapBulkMutationInput(listNode, inputType);
-        if (inputs == null || inputs.Count == 0)
+
+        if (items.Count == 0)
             return new BulkActionResponse { Acknowledged = true, TotalImpactedData = 0 };
 
-        foreach (var input in inputs)
+        foreach (var input in items)
             ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
 
-        await ValidateUniquenessOrThrowAsync(schema, inputs, null, OperationLabelCreate);
+        await ValidateUniquenessOrThrowAsync(schema, items, null, OperationLabelCreate);
 
         var documents = new List<BsonDocument>();
-        foreach (var input in inputs)
+        foreach (var input in items)
         {
             ApplyClsRestrictionsToInput(input, schema, PolicyOperation.WRITE, OperationLabelCreate);
             input.InjectDefaultValueOnInsert();
@@ -196,20 +158,21 @@ public class MutationService : IMutationService
         return response;
     }
 
-    /// <inheritdoc />
     public async Task<ActionResponse> BulkUpdateAsync(
         SchemaDefinitionExtended schema,
-        IResolverContext context,
-        InputObjectType inputType)
+        GatewayBulkUpdateRequest request)
     {
         _logger.LogInformation("Bulk updating data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.EDIT, OperationLabelUpdate);
-        var filter = MutationFilterHelper.BuildFilterWithRls(context, schema, PolicyOperation.EDIT, EvaluateRlsPolicies);
+
+        var filter = MutationFilterHelper.BuildFilterWithRls(
+            request.Where, request.Filter, false, schema, PolicyOperation.EDIT, EvaluateRlsPolicies);
+
         var existingDocuments = await _repository.GetItemsAsync(schema.CollectionName, filter);
         if (existingDocuments is null || existingDocuments.Count == 0)
             return MutationInputHelper.ActionResponseNotFound(OperationLabelUpdate);
 
-        var input = MutationInputHelper.ParseMutationInput(context, inputType);
+        var input = request.Input;
         ValidateMutationInputOrThrow(input, schema, OperationLabelUpdate);
         var existingIds = existingDocuments
             .Select(d => d[GraphQlConstant.DbEntityIdFieldName]?.ToString())
@@ -241,82 +204,85 @@ public class MutationService : IMutationService
         return response;
     }
 
-    /// <summary>
-    /// For each unique field in the schema, queries the DB with $in to find which values already exist.
-    /// Returns fieldName → set of BsonValues already taken. One DB query per unique field.
-    /// </summary>
-    private async Task<Dictionary<string, HashSet<BsonValue>>> GetConflictingValuesAsync(
+    public async Task<ActionResponse> BulkDeleteAsync(
         SchemaDefinitionExtended schema,
-        IReadOnlyList<Dictionary<string, object?>> inputs,
-        IReadOnlyList<string>? excludeIds)
+        GatewayBulkDeleteRequest request)
     {
-        var conflicts = new Dictionary<string, HashSet<BsonValue>>();
-        var uniqueFields = schema.Fields
-            .Where(f => f.IsUniqueData && GraphQlTypeHelper.IsScalar(f.Type) && !f.IsArray)
-            .ToList();
-        if (uniqueFields.Count == 0) return conflicts;
+        _logger.LogInformation("Bulk deleting data for schema {SchemaName}", schema.SchemaName);
+        PrepareMutation(schema, PolicyOperation.DELETE, OperationLabelDelete);
 
-        // Build per-field value sets (skip fields with no input values)
-        var fieldValues = new Dictionary<string, List<BsonValue>>();
-        foreach (var fieldDef in uniqueFields)
-        {
-            var values = inputs
-                .Where(inp => inp.TryGetValue(fieldDef.Name, out var v) && v is not null)
-                .Select(inp => BsonValue.Create(inp[fieldDef.Name]!))
-                .Distinct()
-                .ToList();
-            if (values.Count > 0)
-                fieldValues[fieldDef.Name] = values;
-        }
-        if (fieldValues.Count == 0) return conflicts;
+        var filter = MutationFilterHelper.BuildFilterWithRls(
+            request.Where, request.Filter, false, schema, PolicyOperation.DELETE, EvaluateRlsPolicies);
 
-        // Single $or query covering all unique fields — one DB round trip regardless of field count
-        var orClauses = new BsonArray(
-            fieldValues.Select(kv =>
-                (BsonValue)new BsonDocument(kv.Key, new BsonDocument("$in", new BsonArray(kv.Value)))));
+        var existingDocuments = await _repository.GetItemsAsync(schema.CollectionName, filter);
+        if (existingDocuments is null || !existingDocuments.Any())
+            return MutationInputHelper.ActionResponseNotFound(OperationLabelDelete);
 
-        var andClauses = new BsonArray
-        {
-            new BsonDocument("$or", orClauses)
-        };
-        if (excludeIds is not null && excludeIds.Count > 0)
-            andClauses.Add(new BsonDocument(GraphQlConstant.DbEntityIdFieldName,
-                new BsonDocument("$nin", new BsonArray(excludeIds.Select(id => BsonValue.Create(id))))));
+        if (!request.HardDelete)
+            await SaveDeletedRecordAsync(schema, existingDocuments);
 
-        // Project only the unique fields needed to identify conflicts
-        var projection = new BsonDocument(fieldValues.Keys.ToDictionary(k => k, _ => (object)1));
+        var bulkResponse = await _repository.DeleteManyAsync(schema.CollectionName, filter);
 
-        // Upper bound: each distinct value can conflict with at most one existing document
-        var limit = fieldValues.Values.Sum(v => v.Count);
+        if (bulkResponse.Acknowledged)
+            await _eventPublisher.PublishAsync(schema, DataChangeOperation.Deleted,
+                dataDocuments: existingDocuments.ToList());
 
-        var existing = await _repository.GetItemsAsync(
-            schema.CollectionName,
-            new BsonDocument("$and", andClauses),
-            sort: null,
-            projection: projection,
-            skip: 0,
-            limit: limit);
+        _logger.LogInformation("Data bulk deleted for schema {SchemaName}", schema.SchemaName);
 
-        if (existing is null || existing.Count == 0) return conflicts;
-
-        // Partition results by field in memory
-        foreach (var fieldName in fieldValues.Keys)
-        {
-            var taken = existing
-                .Where(doc => doc.Contains(fieldName))
-                .Select(doc => doc[fieldName])
-                .ToHashSet();
-            if (taken.Count > 0)
-                conflicts[fieldName] = taken;
-        }
-        return conflicts;
+        return bulkResponse;
     }
 
-    /// <summary>
-    /// Validates uniqueness for one or more inputs; throws <see cref="GraphQLException"/> on any conflict.
-    /// Checks intra-batch duplicates (in memory) and DB conflicts (one $in query per unique field).
-    /// Pass excludeIds to exclude the documents being updated from the DB check.
-    /// </summary>
+    #region Private helpers
+
+    private void PrepareMutation(SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)
+    {
+        var rlsResult = EvaluateRlsPolicies(schema, operation);
+        if (!rlsResult.IsAccessGranted)
+        {
+            _logger.LogWarning("Access denied for {Op} on schema {SchemaName}: {Error}",
+                operationLabel.ToUpperInvariant(), schema.SchemaName, rlsResult.ErrorMessage);
+            throw new AccessDeniedException(
+                rlsResult.ErrorMessage ?? $"You don't have permission to {operationLabel} records in this entity.");
+        }
+    }
+
+    private PolicyEvaluationResult EvaluateRlsPolicies(SchemaDefinitionExtended schema, PolicyOperation operation)
+    {
+        var accessLevel = MutationInputHelper.GetSchemaAccessLevelForOperation(schema, operation);
+        if (accessLevel != SchemaAccessLevel.Custom || RequestContextAccessor.Current.IsRequestFromBlocksCloud)
+            return new PolicyEvaluationResult { IsAccessGranted = true };
+
+        var rlsPolicies = schema.Policies.Where(p => p.PolicyType == PolicyType.RLS && p.Operation == operation).ToList();
+        if (rlsPolicies.Count == 0)
+            return new PolicyEvaluationResult { IsAccessGranted = false };
+
+        return rlsPolicies.EvaluatePolicies(operation, PolicyType.RLS);
+    }
+
+    private BsonDocument ApplyRlsToFilter(BsonDocument baseFilter, SchemaDefinitionExtended schema, PolicyOperation operation)
+    {
+        var accessLevel = MutationInputHelper.GetSchemaAccessLevelForOperation(schema, operation);
+        if (accessLevel != SchemaAccessLevel.Custom || RequestContextAccessor.Current.IsRequestFromBlocksCloud)
+            return baseFilter;
+
+        var rlsResult = EvaluateRlsPolicies(schema, operation);
+        if (!rlsResult.RequiresDataFilter || rlsResult.DataFilter.ElementCount == 0)
+            return baseFilter;
+
+        return new BsonDocument("$and", new BsonArray { baseFilter, rlsResult.DataFilter });
+    }
+
+    private void ValidateMutationInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel)
+    {
+        var r = input.Validate(schema);
+        if (!r.IsValid)
+        {
+            _logger.LogWarning("Validation failed for {Op} on schema {SchemaName}: {Errors}",
+                operationLabel, schema.SchemaName, r.ErrorMessage);
+            throw new DataValidationException(r);
+        }
+    }
+
     private async Task ValidateUniquenessOrThrowAsync(
         SchemaDefinitionExtended schema,
         IReadOnlyList<Dictionary<string, object?>> inputs,
@@ -330,7 +296,6 @@ public class MutationService : IMutationService
 
         var result = new DataValidationResult();
 
-        // Intra-batch duplicate check (only relevant when multiple inputs are provided)
         if (inputs.Count > 1)
         {
             foreach (var fieldDef in uniqueFields)
@@ -347,7 +312,6 @@ public class MutationService : IMutationService
             }
         }
 
-        // Single input applied to multiple documents: setting the same unique value on N > 1 records is itself a violation
         if (inputs.Count == 1 && excludeIds is not null && excludeIds.Count > 1)
         {
             foreach (var fieldDef in uniqueFields)
@@ -358,7 +322,6 @@ public class MutationService : IMutationService
             }
         }
 
-        // DB conflict check
         var conflictMap = await GetConflictingValuesAsync(schema, inputs, excludeIds);
         foreach (var input in inputs)
         {
@@ -375,39 +338,66 @@ public class MutationService : IMutationService
         {
             _logger.LogWarning("Uniqueness validation failed for {Op} on schema {SchemaName}: {Errors}",
                 operationLabel, schema.SchemaName, result.ErrorMessage);
-            MutationValidationHelper.ThrowValidationError(result);
+            throw new DataValidationException(result);
         }
     }
 
-    private void PrepareMutation(SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)
+    private async Task<Dictionary<string, HashSet<BsonValue>>> GetConflictingValuesAsync(
+        SchemaDefinitionExtended schema,
+        IReadOnlyList<Dictionary<string, object?>> inputs,
+        IReadOnlyList<string>? excludeIds)
     {
-        var rlsResult = EvaluateRlsPolicies(schema, operation);
-        if (!rlsResult.IsAccessGranted)
+        var conflicts = new Dictionary<string, HashSet<BsonValue>>();
+        var uniqueFields = schema.Fields
+            .Where(f => f.IsUniqueData && GraphQlTypeHelper.IsScalar(f.Type) && !f.IsArray)
+            .ToList();
+        if (uniqueFields.Count == 0) return conflicts;
+
+        var fieldValues = new Dictionary<string, List<BsonValue>>();
+        foreach (var fieldDef in uniqueFields)
         {
-            _logger.LogWarning("Access denied for {Op} on schema {SchemaName}: {Error}",
-                operationLabel.ToUpperInvariant(), schema.SchemaName, rlsResult.ErrorMessage);
-            throw new GraphQLException(ErrorBuilder.New().SetMessage(rlsResult.ErrorMessage ?? $"You don't have permission to {operationLabel} records in this entity.").SetCode(GraphQlConstant.UnauthorizedErrorCode).Build());
+            var values = inputs
+                .Where(inp => inp.TryGetValue(fieldDef.Name, out var v) && v is not null)
+                .Select(inp => BsonValue.Create(inp[fieldDef.Name]!))
+                .Distinct()
+                .ToList();
+            if (values.Count > 0)
+                fieldValues[fieldDef.Name] = values;
         }
-        // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = GraphQlConstant.TenantId });
-    }
+        if (fieldValues.Count == 0) return conflicts;
 
-    private PolicyEvaluationResult EvaluateRlsPolicies(SchemaDefinitionExtended schema, PolicyOperation operation)
-    {
-        var accessLevel = MutationInputHelper.GetSchemaAccessLevelForOperation(schema, operation);
-        if (accessLevel != SchemaAccessLevel.Custom || RequestContextAccessor.Current.IsRequestFromBlocksCloud)
-            return new PolicyEvaluationResult { IsAccessGranted = true };
+        var orClauses = new BsonArray(
+            fieldValues.Select(kv =>
+                (BsonValue)new BsonDocument(kv.Key, new BsonDocument("$in", new BsonArray(kv.Value)))));
 
-        var rlsPolicies = schema.Policies.Where(p => p.PolicyType == PolicyType.RLS && p.Operation == operation).ToList();
-        if (rlsPolicies.Count == 0)
-            return new PolicyEvaluationResult { IsAccessGranted = false };
+        var andClauses = new BsonArray { new BsonDocument("$or", orClauses) };
+        if (excludeIds is not null && excludeIds.Count > 0)
+            andClauses.Add(new BsonDocument(GraphQlConstant.DbEntityIdFieldName,
+                new BsonDocument("$nin", new BsonArray(excludeIds.Select(id => BsonValue.Create(id))))));
 
-        return rlsPolicies.EvaluatePolicies(operation, PolicyType.RLS);
-    }
+        var projection = new BsonDocument(fieldValues.Keys.ToDictionary(k => k, _ => (object)1));
+        var limit = fieldValues.Values.Sum(v => v.Count);
 
-    private void ValidateMutationInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel)
-    {
-        var r = input.Validate(schema);
-        if (!r.IsValid) { _logger.LogWarning("Validation failed for {Op} on schema {SchemaName}: {Errors}", operationLabel, schema.SchemaName, r.ErrorMessage); MutationValidationHelper.ThrowValidationError(r); }
+        var existing = await _repository.GetItemsAsync(
+            schema.CollectionName,
+            new BsonDocument("$and", andClauses),
+            sort: null,
+            projection: projection,
+            skip: 0,
+            limit: limit);
+
+        if (existing is null || existing.Count == 0) return conflicts;
+
+        foreach (var fieldName in fieldValues.Keys)
+        {
+            var taken = existing
+                .Where(doc => doc.Contains(fieldName))
+                .Select(doc => doc[fieldName])
+                .ToHashSet();
+            if (taken.Count > 0)
+                conflicts[fieldName] = taken;
+        }
+        return conflicts;
     }
 
     private void ApplyClsRestrictionsToInput(Dictionary<string, object?> input, SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)
@@ -423,12 +413,9 @@ public class MutationService : IMutationService
     private static BsonDocument InputToBsonDocument(Dictionary<string, object?> input) =>
         new BsonDocument(input.Select(kv => new BsonElement(kv.Key, BsonValue.Create(kv.Value))));
 
-    private async Task SaveDeletedRecordAsync(
-        SchemaDefinition schema,
-        IReadOnlyList<BsonDocument> documentsToArchive)
+    private async Task SaveDeletedRecordAsync(SchemaDefinition schema, IReadOnlyList<BsonDocument> documentsToArchive)
     {
-        if (documentsToArchive.Count == 0)
-            return;
+        if (documentsToArchive.Count == 0) return;
 
         var archivedDocs = documentsToArchive
             .Select(doc => BuildDeletedRecordDocument(schema, doc))
@@ -471,4 +458,6 @@ public class MutationService : IMutationService
         await _eventPublisher.PublishAsync(schema, DataChangeOperation.Updated,
             updatedDocuments: new List<UpdatedDocument> { new() { DocumentId = itemId, UpdatedFields = updatedFields } });
     }
+
+    #endregion
 }

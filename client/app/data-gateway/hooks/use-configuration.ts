@@ -490,6 +490,13 @@ export const useUpdateSchemaFieldValidation = () => {
   });
 };
 
+export const useGenerateRegex = () => {
+  return useMutation({
+    mutationFn: (payload: { description: string }) =>
+      configurationService.generateRegex(payload),
+  });
+};
+
 export const useSchemaExport = () => {
   return useMutation({
     mutationFn: (payload: ISchemaExportPayload) =>

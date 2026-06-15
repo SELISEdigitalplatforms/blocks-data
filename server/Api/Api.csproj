@@ -4,10 +4,10 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DocumentationFile>Api.xml</DocumentationFile>
+    <DocumentationFile>Blocks.Data.Api.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <DocumentationFile>Api.xml</DocumentationFile>
+    <DocumentationFile>Blocks.Data.Api.xml</DocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Content Remove="appsettings.Development.json" />

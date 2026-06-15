@@ -21,7 +21,8 @@ import {
   TooltipTrigger,
 } from "@/components/ui-kits/tooltip/tooltip";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { Pencil, Plus, Trash, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Pencil, Plus, Sparkles, Trash, X } from "lucide-react";
 import { ReactNode, useRef, useState } from "react";
 import {
   useCreateSchemaFieldValidation,
@@ -405,12 +406,18 @@ export function SchemaFieldValidationDrawer({
                       className="flex-1 h-10"
                     />
                     <Button
-                      type="button"
-                      variant="outline"
+                      className={cn(
+                        "h-10 px-4 gap-2 transition-all",
+                        isGenerating &&
+                          "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 text-white",
+                      )}
                       onClick={handleGenerateRegex}
                       disabled={isGenerating || !prompt.trim()}
-                      className="h-10 px-4"
                     >
+                      <Sparkles
+                        size={16}
+                        className={cn(isGenerating && "animate-spin")}
+                      />
                       {isGenerating ? "Generating..." : "Generate"}
                     </Button>
                   </div>

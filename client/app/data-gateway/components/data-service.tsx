@@ -1,12 +1,9 @@
 "use client";
 import { useGetDataServiceConfiguration } from "../hooks/use-configuration";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
-import { SchemaDetailsPage } from "./schema-details-page";
 import { DataServiceInstructions } from "./data-service-instructions";
+import { SchemaDetailsPage } from "./schema-details-page";
 
 export const DataService = () => {
-  const projectKey = useProjectStore().selectedProject?.tenantId || "";
-
   const { data, isLoading } = useGetDataServiceConfiguration();
 
   if (isLoading || !data) return null;

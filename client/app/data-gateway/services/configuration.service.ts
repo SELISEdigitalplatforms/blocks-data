@@ -9,6 +9,7 @@ import {
   DATA_MANAGE_ENDPOINTS,
   DATA_SOURCE_ENDPOINTS,
   DATA_VALIDATION_ENDPOINTS,
+  DATA_VALIDATION_REGEX_ENDPOINTS,
   PIPELINE_ENDPOINTS,
   SCHEMA_ENDPOINTS,
 } from "../constants/endpoint.constant";
@@ -26,7 +27,6 @@ import {
   IDeletePolicyPayload,
   IDeletePolicyResponse,
   IDeleteSchemaFieldValidationPayload,
-  IGetConfigurationPayload,
   IGetPolicyResponse,
   IGetSchemaDetailsResponse,
   IGetSchemaFieldValidationPayload,
@@ -262,6 +262,12 @@ class ConfigurationService {
     return http.delete(
       `${DATA_VALIDATION_ENDPOINTS.DELETE}/${payload.id}?projectKey=${payload.projectKey}`,
     );
+  }
+
+  generateRegex(payload: {
+    description: string;
+  }): Promise<{ pattern: string }> {
+    return http.post(DATA_VALIDATION_REGEX_ENDPOINTS.GENERATE_REGEX, payload);
   }
 
   importSchemaFile = (payload: IImportFile) => {

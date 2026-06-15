@@ -2,8 +2,6 @@
   <ItemGroup>
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
-    <PackageReference Include="HotChocolate.AspNetCore" />
-    <PackageReference Include="HotChocolate.Types" />
     <PackageReference Include="KubernetesClient" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="SeliseBlocks.Genesis" />

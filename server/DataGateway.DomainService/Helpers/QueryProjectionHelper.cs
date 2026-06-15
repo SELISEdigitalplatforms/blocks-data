@@ -1,27 +1,39 @@
 using Blocks.Genesis;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
-using HotChocolate.Resolvers;
+using DataGateway.DomainService.Models.Constants;
 using MongoDB.Bson;
 
 namespace DataGateway.DomainService.Helpers;
 
-/// <summary>
-/// Builds MongoDB projection documents for queries, including CLS-protected and rule-operand fields.
-/// </summary>
 public static class QueryProjectionHelper
 {
-    /// <summary>
-    /// Builds the MongoDB projection including protected fields and rule operand fields for CLS evaluation.
-    /// </summary>
     public static BsonDocument BuildMongoProjectionWithCls(
-        IResolverContext resolverContext,
+        IReadOnlyList<string>? requestedFields,
         SchemaDefinitionExtended schema,
         out HashSet<string> evaluationOnlyFieldPaths)
     {
-        var projection = resolverContext.MapQueryProjection();
-        var requestedFieldPaths = projection.Names.ToHashSet();
+        var projection = new BsonDocument();
         evaluationOnlyFieldPaths = new HashSet<string>();
+
+        if (requestedFields is null || requestedFields.Count == 0)
+        {
+            foreach (var field in schema.Fields)
+                projection[field.Name] = 1;
+            projection[GraphQlConstant.DbEntityIdFieldName] = 1;
+        }
+        else
+        {
+            foreach (var field in requestedFields)
+            {
+                var projectionField = field == nameof(GraphQlBaseEntity.ItemId)
+                    ? GraphQlConstant.DbEntityIdFieldName
+                    : field;
+                projection[projectionField] = 1;
+            }
+        }
+
+        var requestedFieldPaths = projection.Names.ToHashSet();
 
         if (RequestContextAccessor.Current.IsRequestFromBlocksCloud)
             return projection;
@@ -43,9 +55,6 @@ public static class QueryProjectionHelper
         return projection;
     }
 
-    /// <summary>
-    /// Returns true if the policy covers at least one requested field path.
-    /// </summary>
     public static bool PolicyCoversAnyRequestedField(DataAccessPolicy policy, HashSet<string> requestedFieldPaths)
     {
         foreach (var fieldName in policy.FieldNames)
@@ -57,9 +66,6 @@ public static class QueryProjectionHelper
         return false;
     }
 
-    /// <summary>
-    /// Adds protected fields to the projection, avoiding path collision with existing child paths.
-    /// </summary>
     public static void EnsureProtectedFieldsInProjection(BsonDocument projection, string[] protectedFieldNames)
     {
         var projectionKeys = projection.Names.ToHashSet();
@@ -73,9 +79,6 @@ public static class QueryProjectionHelper
         }
     }
 
-    /// <summary>
-    /// Adds schema fields used in policy rules to the projection (and marks evaluation-only paths).
-    /// </summary>
     public static void AddRuleOperandFieldsToProjection(
         PolicyRuleGroup ruleGroup,
         BsonDocument projection,
@@ -91,9 +94,6 @@ public static class QueryProjectionHelper
             AddRuleOperandFieldsToProjection(nestedGroup, projection, requestedFieldPaths, evaluationOnlyFieldPaths);
     }
 
-    /// <summary>
-    /// Adds a schema field to projection if it's a SCHEMA_FIELD operand; marks as evaluation-only if not requested.
-    /// </summary>
     public static void TryAddSchemaFieldToProjection(
         BsonDocument projection,
         HashSet<string> requestedFieldPaths,

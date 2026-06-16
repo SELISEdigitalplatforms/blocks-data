@@ -16,8 +16,12 @@
             </summary>
             <param name="configurationService">The configuration service.</param>
             <exception cref="T:System.ArgumentNullException">Thrown when the configuration service is null.</exception>
-            <param name="changeControllerContext">The change Controller service.</param>
-            <exception cref="T:System.ArgumentNullException">Thrown when the changeControllerContext is null.</exception>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.ConfigurationController.ResolveTenantId(System.String)">
+            <summary>
+            Resolves the tenant id whose GraphQL server should be addressed. Uses the explicit value when
+            provided, otherwise falls back to the tenant of the current request (x-blocks-key header).
+            </summary>
         </member>
         <member name="M:DataGateway.Api.Controllers.ConfigurationController.ReloadGraphQlServerAsync(System.String,System.Threading.CancellationToken)">
             <summary>

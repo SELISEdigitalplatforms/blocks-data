@@ -45,7 +45,7 @@ public class DataChangeEventPublisher : IDataChangeEventPublisher
     {
         try
         {
-            var projectKey = GraphQlConstant.TenantId;
+            var projectKey = TenantContext.GetTenantId();
             if (string.IsNullOrEmpty(projectKey)) return;
 
             var changeEvent = new DataChangeEvent

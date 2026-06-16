@@ -12,9 +12,11 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Blocks.Genesis;
+using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Execution.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using k8s;
 
 namespace DataGateway.DomainService;
@@ -23,7 +25,6 @@ public static class ServiceRegistry
 {
     public static void AddDataGatewayDomainServices(this IServiceCollection serviceCollection)
     {
-        SetServiceTenant();
         serviceCollection.RegisterSchemaServices();
         serviceCollection.RegisterGraphQlServices();
     }
@@ -87,44 +88,27 @@ public static class ServiceRegistry
         serviceCollection.AddGraphQLServer()
             .DisableIntrospection(false) // Allow introspection for development purposes
             .ConfigureSchemaAsync(ConfigureGraphQLSchemaAsync);
+
+        // A separate GraphQL schema/executor is served per tenant (identified by the x-blocks-key
+        // header). Replace the executor options monitor so an executor can be resolved for any tenant
+        // id at runtime, and register the dispatcher that routes requests to the right one.
+        serviceCollection.RemoveAll<IRequestExecutorOptionsMonitor>();
+        serviceCollection.AddSingleton<IRequestExecutorOptionsMonitor, ProjectExecutorOptionsMonitor>();
+        serviceCollection.AddSingleton<DataGatewayPipelineDispatcher>();
     }
 
     private static async ValueTask ConfigureGraphQLSchemaAsync(IServiceProvider services, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
     {
-        var tenantSlug = string.IsNullOrWhiteSpace(GraphQlConstant.TenantSlug)
-            ? (RequestContextAccessor.Current.TenantSlug ?? string.Empty)
-            : GraphQlConstant.TenantSlug;
-        Console.WriteLine($"Tenant Slug from service: {tenantSlug}");
-        var tenantId = GraphQlConstant.TenantId ?? string.Empty;
-        Console.WriteLine($"Tenant ID from service: {tenantId}");
-        if (string.IsNullOrWhiteSpace(tenantId))
-        {
-            var projectService = services.GetRequiredService<IProjectService>();
-            tenantId = string.IsNullOrWhiteSpace(tenantSlug)
-                        ? RequestContextAccessor.Current.BlocksKey
-                        : await projectService.GetTenantIdAsync(tenantSlug);
-        }
+        var tenantId = TenantContext.GetTenantId();
+        Console.WriteLine($"Configuring schema for tenant id: {tenantId}");
 
-
-        Console.WriteLine($"Tenant ID: {tenantId}");
         if (string.IsNullOrWhiteSpace(tenantId))
         {
             Console.WriteLine("Tenant ID is empty, skipping schema configuration");
             return;
         }
-        GraphQlConstant.SetTenantInformation(tenantId, tenantSlug);
+
         var provider = services.GetRequiredService<IConfigurationService>();
-        await provider.ConfigureSchemaAsync(tenantSlug, schemaBuilder, cancellationToken);
+        await provider.ConfigureSchemaAsync(tenantId, schemaBuilder, cancellationToken);
     }
-
-    private static void SetServiceTenant()
-    {
-        var tenantSlug = Environment.GetEnvironmentVariable("TENANT_SLUG") ?? string.Empty;
-        Console.WriteLine($"Tenant Slug from environment: {tenantSlug}");
-        var tenantId = Environment.GetEnvironmentVariable("TENANT_ID") ?? string.Empty;
-        Console.WriteLine($"Tenant ID from environment: {tenantId}");
-
-        GraphQlConstant.SetTenantInformation(tenantId, tenantSlug);
-    }
-
 }

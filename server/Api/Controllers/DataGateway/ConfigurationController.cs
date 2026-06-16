@@ -24,13 +24,18 @@ public class ConfigurationController : ControllerBase
     /// </summary>
     /// <param name="configurationService">The configuration service.</param>
     /// <exception cref="ArgumentNullException">Thrown when the configuration service is null.</exception>
-    /// <param name="changeControllerContext">The change Controller service.</param>
-    /// <exception cref="ArgumentNullException">Thrown when the changeControllerContext is null.</exception>
     public ConfigurationController(IConfigurationService configurationService)//, ChangeControllerContext changeControllerContext)
     {
         _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
         // _changeControllerContext = changeControllerContext ?? throw new ArgumentNullException(nameof(changeControllerContext));
     }
+
+    /// <summary>
+    /// Resolves the tenant id whose GraphQL server should be addressed. Uses the explicit value when
+    /// provided, otherwise falls back to the tenant of the current request (x-blocks-key header).
+    /// </summary>
+    private static string ResolveTenantId(string tenantId)
+        => string.IsNullOrWhiteSpace(tenantId) ? TenantContext.GetTenantId() : tenantId;
 
     /// <summary>
     /// Cloud use only: Reloads the GraphQL schema configuration. Use this endpoint after making changes to schema definitions or data sources to refresh the schema.
@@ -47,8 +52,7 @@ public class ConfigurationController : ControllerBase
         try
         {
             // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
-            var projectShortKey = TenantHelper.GetProjectShortKeyFromRequestUri();
-            await _configurationService.ReloadAsync(projectShortKey, cancellationToken);
+            await _configurationService.ReloadAsync(ResolveTenantId(projectKey), cancellationToken);
             return Ok(new ServiceResponse<bool>().SetSuccessMessage("Schema reloaded successfully."));
         }
         catch (Exception ex)
@@ -71,7 +75,7 @@ public class ConfigurationController : ControllerBase
         try
         {
             // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
-            await _configurationService.ReloadAsync(GraphQlConstant.TenantSlug, CancellationToken.None);
+            await _configurationService.ReloadAsync(ResolveTenantId(projectKey), CancellationToken.None);
             return Ok(new ServiceResponse<bool>().SetSuccessMessage("Schema reloaded successfully."));
         }
         catch (Exception ex)
@@ -95,8 +99,8 @@ public class ConfigurationController : ControllerBase
     {
         try
         {
-            var projectShortKey = TenantHelper.GetProjectShortKeyFromRequestUri();
-            await _configurationService.AddSchemaAsync(projectShortKey, cancellationToken);
+            // serverName carries the tenant id; evict its executor so it is (re)built on the next request.
+            await _configurationService.ReloadAsync(ResolveTenantId(serverName), cancellationToken);
             return Ok(new ServiceResponse<bool>().SetSuccessMessage("Schema added successfully."));
         }
         catch (Exception ex)

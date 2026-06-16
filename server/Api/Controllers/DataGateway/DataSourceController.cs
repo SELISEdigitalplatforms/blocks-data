@@ -78,7 +78,7 @@ namespace Api.Controllers.DataGateway
                     projectKey = BlocksContext.GetContext()?.TenantId;
                 }
                 var response = await _dataSourceService.GetDataSource(projectKey);
-                return StatusCode(response.HttpStatusCode, response);
+                return Ok(response);
             }
             catch (Exception ex)
             {

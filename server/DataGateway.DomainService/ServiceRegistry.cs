@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Blocks.Genesis;
+using DataGateway.DomainService.Authentication;
 using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models.Constants;
@@ -33,6 +34,7 @@ public static class ServiceRegistry
     {
         serviceCollection.AddSingleton<IDbRepository, DbRepository>();
         serviceCollection.AddSingleton<IProjectService, ProjectService>();
+        serviceCollection.AddSingleton<GatewayTokenAuthenticator>();
         // serviceCollection.AddSingleton<ChangeControllerContextAdapter>();
 
         serviceCollection.AddScoped<IDataSourceService, DataSourceService>();

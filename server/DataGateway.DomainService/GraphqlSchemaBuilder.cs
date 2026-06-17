@@ -32,7 +32,22 @@ public class GraphqlSchemaBuilder
             var schemas = await LoadSchemaDefinitions(tenantId);
             if (schemas is null || schemas.Count == 0)
             {
-                _logger.LogInformation("No schema definitions found for tenant: {TenantId}", tenantId);
+                // If no schema definitions are found, we need to create default health check query types
+                var healthCheckQueryType = new ObjectType(descriptor =>
+                {
+                    descriptor.Name("Query");
+                    descriptor.Field("health").Resolve(context => "OK");
+                });
+                // var mutationType = new ObjectType(descriptor =>
+                // {
+                //     descriptor.Name("Mutation");
+                //     descriptor.Field("health").Resolve(context => "OK");
+                // });
+                schemaBuilder.AddQueryType(healthCheckQueryType);
+                // schemaBuilder.AddMutationType(mutationType);
+                _logger.LogInformation("Default health check query types created for tenant: {TenantId}", tenantId);
+                // await AdaptSchemaChangeLogsToServerAsync();
+                // _logger.LogInformation("Schema change logs adapted to server successfully");
                 return;
             }
 

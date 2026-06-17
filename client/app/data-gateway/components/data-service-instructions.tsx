@@ -1,32 +1,16 @@
 "use client";
 import { Button } from "@/components/ui-kits/button/button";
-import { dataServiceInstructions } from "../constants/instructions";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import ConfigureDataSourceModal from "./configure-data-source";
 import { useState } from "react";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
-import { configurationService } from "../services/configuration.service";
-
-const INIT_STORAGE_PREFIX = "dg-server-init-";
+import { dataServiceInstructions } from "../constants/instructions";
+import ConfigureDataSourceModal from "./configure-data-source";
 
 export function DataServiceInstructions() {
   const [isConfigureDataSourceModalOpen, setConfigureDataSourceModal] =
     useState<boolean>(false);
-  const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   const confirmSave = async () => {
     setConfigureDataSourceModal(false);
-
-    if (projectKey) {
-      const now = Date.now();
-      localStorage.setItem(
-        `${INIT_STORAGE_PREFIX}${projectKey}`,
-        JSON.stringify({ initiatedAt: now }),
-      );
-      configurationService
-        .initiateDataGatewayPipeline({ projectKey })
-        .catch(() => {});
-    }
   };
 
   return (

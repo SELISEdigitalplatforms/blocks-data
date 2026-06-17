@@ -262,10 +262,7 @@ export const useSetRowColumnPermission = (schemaId?: string) => {
 export const useExecuteGraphQL = () => {
   return useMutation({
     mutationFn: (payload: IExecuteGraphQLPayload) =>
-      configurationService.executeGraphQLOperation(
-        payload.projectShortKey,
-        payload.query,
-      ),
+      configurationService.executeGraphQLOperation(payload.query),
   });
 };
 
@@ -360,33 +357,6 @@ export const useGetUnadaptedChangeLogs = (option: { projectKey: string }) => {
       configurationService.getUnadaptedChangeLogs({
         projectKey: option.projectKey,
       }),
-  });
-};
-
-export const useGetPodActiveStatus = (option: {
-  slug: string;
-  refetchInterval?: number | false;
-}) => {
-  return useQuery({
-    queryKey: ["ping-pod", option.slug],
-    queryFn: () => configurationService.getPodActiveStatus(option.slug),
-    refetchInterval: option.refetchInterval,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-};
-
-export const useInitiateDataGatewayPipeline = (option: {
-  projectKey: string;
-  enabled?: boolean;
-}) => {
-  return useQuery({
-    queryKey: ["initiate-pod", option.projectKey],
-    queryFn: () =>
-      configurationService.initiateDataGatewayPipeline({
-        projectKey: option.projectKey,
-      }),
-    enabled: option.enabled ?? true,
   });
 };
 
@@ -516,7 +486,6 @@ export const useGraphQLIntrospection = (options: {
     queryKey: ["graphql-introspection", options.projectShortKey],
     queryFn: async () => {
       const result = await configurationService.executeGraphQLOperation(
-        options.projectShortKey,
         getIntrospectionQuery(),
         GRAPHQL_PLAYGROUND_INTROSPECTION_HEADERS,
       );
@@ -539,7 +508,6 @@ export const useRawIntrospectionQuery = (options: {
     queryKey: ["graphql-raw-introspection", options.projectShortKey],
     queryFn: () =>
       configurationService.executeGraphQLOperation(
-        options.projectShortKey,
         getIntrospectionQuery(),
         GRAPHQL_PLAYGROUND_INTROSPECTION_HEADERS,
       ),

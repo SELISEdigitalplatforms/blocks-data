@@ -23,17 +23,11 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  getStoredInitiatedAt,
-  INIT_STORAGE_PREFIX,
-  POLL_INTERVAL,
-  POLL_START_DELAY,
-} from "../constants/schema-access-control";
+
 import {
   getPolicyDataQueryOptions,
   useCreateSchema,
   useGetDataServiceConfiguration,
-  useGetPodActiveStatus,
   useGetUnadaptedChangeLogs,
   useSchemaDetails,
 } from "../hooks/use-configuration";
@@ -118,22 +112,6 @@ export const SchemaDetailsPage = () => {
   const hasUnadaptedChanges =
     unAdaptedChangeLogs?.data != undefined &&
     unAdaptedChangeLogs.data.length > 0;
-
-  const [initiatedAt, setInitiatedAt] = useState<number | null>(() =>
-    getStoredInitiatedAt(projectKey),
-  );
-  const [shouldPoll, setShouldPoll] = useState(() => {
-    if (!initiatedAt) return false;
-    return Date.now() - initiatedAt >= POLL_START_DELAY;
-  });
-
-  const { data: message, isPending: isPodStatusLoading } =
-    useGetPodActiveStatus({
-      slug: projectShortKey,
-      refetchInterval: shouldPoll && initiatedAt ? POLL_INTERVAL : false,
-    });
-  const isServerActive = !!message?.status;
-  const isServerInitiating = initiatedAt !== null && !isServerActive;
 
   const [schemaDetails, setSchemaDetails] = useState<ISchemaDetails>({
     ...EMPTY_SCHEMA,
@@ -252,36 +230,6 @@ export const SchemaDetailsPage = () => {
     }
   }, [schemaDetailsQuery, projectKey]);
 
-  // Start polling after 2 minutes of server initiation
-  useEffect(() => {
-    if (!initiatedAt || shouldPoll || isServerActive) return;
-    const remaining = POLL_START_DELAY - (Date.now() - initiatedAt);
-    if (remaining <= 0) {
-      setShouldPoll(true);
-      return;
-    }
-    const timer = setTimeout(() => setShouldPoll(true), remaining);
-    return () => clearTimeout(timer);
-  }, [initiatedAt, shouldPoll, isServerActive]);
-
-  // Clear initiation state when server becomes active
-  useEffect(() => {
-    if (isServerActive && initiatedAt) {
-      localStorage.removeItem(`${INIT_STORAGE_PREFIX}${projectKey}`);
-      setInitiatedAt(null);
-      setShouldPoll(false);
-    }
-  }, [isServerActive, initiatedAt, projectKey]);
-
-  const handleServerStart = () => {
-    const now = Date.now();
-    localStorage.setItem(
-      `${INIT_STORAGE_PREFIX}${projectKey}`,
-      JSON.stringify({ initiatedAt: now }),
-    );
-    setInitiatedAt(now);
-  };
-
   return (
     <>
       <div className="flex flex-col gap-6">
@@ -388,27 +336,15 @@ export const SchemaDetailsPage = () => {
         </div>
 
         {/* Server status alert — only shown on schema view */}
-        {isSchemaView &&
-          (!isPodStatusLoading && !isServerActive ? (
-            <Alert className="flex flex-col items-center justify-center gap-1 rounded-sm border border-base-error bg-blocks-error-100 px-4 py-4 text-base font-normal text-blocks-error-800 md:flex-row">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                {isServerInitiating
-                  ? "Data Gateway server is starting up. This may take 1-5 minutes..."
-                  : "Data Gateway server is inactive. Please click the Start button to activate it."}
-              </AlertDescription>
-            </Alert>
-          ) : (
-            hasUnadaptedChanges && (
-              <Alert className="flex flex-col items-center justify-center gap-1 rounded-sm border border-base-error bg-blocks-error-100 px-4 py-4 text-base font-normal text-blocks-error-800 md:flex-row">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  You have unadapted changes, please click on the Publish button
-                  to adapt them.
-                </AlertDescription>
-              </Alert>
-            )
-          ))}
+        {isSchemaView && hasUnadaptedChanges && (
+          <Alert className="flex flex-col items-center justify-center gap-1 rounded-sm border border-base-error bg-blocks-error-100 px-4 py-4 text-base font-normal text-blocks-error-800 md:flex-row">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              You have unadapted changes, please click on the Publish button to
+              adapt them.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* ── Security landing view ── */}
         {!isSchemaView ? (
@@ -433,10 +369,6 @@ export const SchemaDetailsPage = () => {
                 <SchemasSidebar
                   onAddSchema={() => setIsAddEditSchemaModalOpen(true)}
                   selectedSchemaId={selectedSchemaId}
-                  isServerActive={isServerActive}
-                  isServerInitiating={isServerInitiating}
-                  isPodStatusLoading={isPodStatusLoading}
-                  onServerStart={handleServerStart}
                   filterType={queryParams.type ?? "all"}
                   page={queryParams.page}
                   pageSize={queryParams.pageSize}

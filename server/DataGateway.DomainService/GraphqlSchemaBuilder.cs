@@ -24,19 +24,19 @@ public class GraphqlSchemaBuilder
         _logger = logger;
     }
 
-    public async Task BuildSchema(string projectShortKey, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
+    public async Task BuildSchema(string tenantId, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
     {
         try
         {
-            _logger.LogInformation("Building GraphQL schema for project: {ProjectShortKey}", projectShortKey);
-            var schemas = await LoadSchemaDefinitions();
+            _logger.LogInformation("Building GraphQL schema for tenant: {TenantId}", tenantId);
+            var schemas = await LoadSchemaDefinitions(tenantId);
             
             if (schemas.Count > 1)
             {
                 schemas = schemas.DistinctBy(x => x.SchemaName).ToList();
             }
             
-            _logger.LogInformation("Loaded {Count} schema definitions for project: {ProjectShortKey}", schemas.Count, projectShortKey);
+            _logger.LogInformation("Loaded {Count} schema definitions for tenant: {TenantId}", schemas.Count, tenantId);
             var dbSchemas = schemas.Where(x => x.SchemaType == SchemaType.Entity).ToArray();
             var customSchemas = schemas.Where(x => x.SchemaType == SchemaType.Dto).ToArray();
             var dbSchemaTypes = schemas.ToDictionary(s => s.GetSchemaNameForProject(), s => s);
@@ -70,18 +70,18 @@ public class GraphqlSchemaBuilder
             schemaBuilder.AddQueryType(queryType);
             schemaBuilder.AddMutationType(mutationType);
 
-            _logger.LogInformation("GraphQL schema built for project: {ProjectShortKey}", projectShortKey);
+            _logger.LogInformation("GraphQL schema built for tenant: {TenantId}", tenantId);
             await AdaptSchemaChangeLogsToServerAsync();
             _logger.LogInformation("Schema change logs adapted to server successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error occurred while building GraphQL schema for project: {ProjectShortKey}, message: {Message}", projectShortKey, ex.Message);
+            _logger.LogError(ex, "Error occurred while building GraphQL schema for tenant: {TenantId}, message: {Message}", tenantId, ex.Message);
         }
 
     }
 
-    private async Task<List<SchemaDefinitionExtended>> LoadSchemaDefinitions()
+    private async Task<List<SchemaDefinitionExtended>> LoadSchemaDefinitions(string tenantId)
     {
 
         var filter = new BsonDocument
@@ -99,12 +99,12 @@ public class GraphqlSchemaBuilder
         var data = await _repository.GetItemsAsync<SchemaDefinition>(
             filter,
             null,
-            null, 0, 1000, GraphQlConstant.TenantId);
+            null, 0, 1000, tenantId);
 
         var validations = await _repository.GetItemsAsync<DataValidation>(
             new BsonDocument { { nameof(DataValidation.IsDeleted), false } },
             null,
-            null, 0, 1000, GraphQlConstant.TenantId);
+            null, 0, 1000, tenantId);
 
         var schemaDefinitions = data.Select(s => new SchemaDefinitionExtended
         {
@@ -141,7 +141,7 @@ public class GraphqlSchemaBuilder
         var policies = await _repository.GetItemsAsync<DataAccessPolicy>(
             policyFilter,
             null,
-            null, 0, 1000, GraphQlConstant.TenantId);
+            null, 0, 1000, tenantId);
 
 
         // Populate NestedFields for non-scalar fields from referenced schema definitions

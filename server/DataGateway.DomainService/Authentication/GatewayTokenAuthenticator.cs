@@ -64,10 +64,10 @@ public class GatewayTokenAuthenticator
 
     private (string Token, bool IsThirdPartyToken) GetToken(HttpRequest request, ITenants tenants)
     {
-        var (token, isThirdPartyToken) = TokenHelper.GetToken(request, tenants);
+        var (token, isThirdPartyToken) = TokenHelper.GetTokenFromCookie(request, tenants);
         if (string.IsNullOrEmpty(token))
         {
-            (token, isThirdPartyToken) = TokenHelper.GetTokenFromCookie(request, tenants);
+            (token, isThirdPartyToken) = TokenHelper.GetToken(request, tenants);
         }
         return (token, isThirdPartyToken);
 

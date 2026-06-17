@@ -30,12 +30,17 @@ public class GraphqlSchemaBuilder
         {
             _logger.LogInformation("Building GraphQL schema for tenant: {TenantId}", tenantId);
             var schemas = await LoadSchemaDefinitions(tenantId);
-            
+            if (schemas is null || schemas.Count == 0)
+            {
+                _logger.LogInformation("No schema definitions found for tenant: {TenantId}", tenantId);
+                return;
+            }
+
             if (schemas.Count > 1)
             {
                 schemas = schemas.DistinctBy(x => x.SchemaName).ToList();
             }
-            
+
             _logger.LogInformation("Loaded {Count} schema definitions for tenant: {TenantId}", schemas.Count, tenantId);
             var dbSchemas = schemas.Where(x => x.SchemaType == SchemaType.Entity).ToArray();
             var customSchemas = schemas.Where(x => x.SchemaType == SchemaType.Dto).ToArray();
@@ -100,6 +105,10 @@ public class GraphqlSchemaBuilder
             filter,
             null,
             null, 0, 1000, tenantId);
+        if (data is null || data.Count == 0)
+        {
+            return [];
+        }
 
         var validations = await _repository.GetItemsAsync<DataValidation>(
             new BsonDocument { { nameof(DataValidation.IsDeleted), false } },

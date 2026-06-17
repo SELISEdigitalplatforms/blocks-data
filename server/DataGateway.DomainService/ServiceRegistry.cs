@@ -34,7 +34,7 @@ public static class ServiceRegistry
     {
         serviceCollection.AddSingleton<IDbRepository, DbRepository>();
         serviceCollection.AddSingleton<IProjectService, ProjectService>();
-        serviceCollection.AddSingleton<GatewayTokenAuthenticator>();
+        serviceCollection.AddSingleton<DataGatewayTokenAuthenticator>();
         // serviceCollection.AddSingleton<ChangeControllerContextAdapter>();
 
         serviceCollection.AddScoped<IDataSourceService, DataSourceService>();

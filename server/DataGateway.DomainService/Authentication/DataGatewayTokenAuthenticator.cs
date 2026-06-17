@@ -15,14 +15,14 @@ namespace DataGateway.DomainService.Authentication;
 /// here against the tenant's public certificate and produce the <see cref="ClaimsPrincipal"/> so the
 /// rest of the request (tenant resolution, RLS/CLS, BlocksContext) sees the authenticated identity.
 /// </summary>
-public class GatewayTokenAuthenticator
+public class DataGatewayTokenAuthenticator
 {
     private const string Public_Cert_Cache_Prefix = "tetocertpublic::";
 
     private readonly ITenants _tenants;
     private readonly ICacheClient _cacheClient;
 
-    public GatewayTokenAuthenticator(ITenants tenants, ICacheClient cacheClient)
+    public DataGatewayTokenAuthenticator(ITenants tenants, ICacheClient cacheClient)
     {
         _tenants = tenants;
         _cacheClient = cacheClient;

@@ -53,6 +53,7 @@ public class GatewayTokenAuthenticator
                 }
                 return validatedToken;
             }
+            Console.WriteLine("No token found");
             return null;
         }
         catch (Exception ex)

@@ -1,3 +1,4 @@
+using DataGateway.DomainService.Authentication;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models.Constants;
 using Microsoft.AspNetCore.Builder;
@@ -23,6 +24,20 @@ public static class DataGatewayGraphQLEndpointExtensions
         {
             branch.Run(async context =>
             {
+                // /api/gateway is a public endpoint, so the framework does not validate the token for
+                // it. Validate it here against the tenant identified by x-blocks-key so an authenticated
+                // request gets its ClaimsPrincipal (and the token's tenant) before we resolve the tenant.
+                var blocksKey = RequestContextAccessor.Current.BlocksKey;
+                if (!string.IsNullOrWhiteSpace(blocksKey))
+                {
+                    var authenticator = context.RequestServices.GetRequiredService<GatewayTokenAuthenticator>();
+                    var principal = await authenticator.GetPrincipalFromTokenAsync(context.Request, blocksKey);
+                    if (principal is not null)
+                    {
+                        context.User = principal;
+                    }
+                }
+
                 // Token first (authenticated requests), then the x-blocks-key header.
                 var tenantId = TenantContext.GetTenantId();
                 if (string.IsNullOrWhiteSpace(tenantId))

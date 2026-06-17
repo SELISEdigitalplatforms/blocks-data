@@ -15,8 +15,8 @@
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.0.0" />
     <PackageVersion Include="Grpc.AspNetCore" Version="2.71.0" />
     <PackageVersion Include="Handlebars.Net" Version="2.1.6" />
-    <PackageVersion Include="HotChocolate.AspNetCore" Version="15.0.3" />
-    <PackageVersion Include="HotChocolate.Types" Version="15.0.3" />
+    <PackageVersion Include="HotChocolate.AspNetCore" Version="15.1.17" />
+    <PackageVersion Include="HotChocolate.Types" Version="15.1.17" />
     <PackageVersion Include="JUnitLogger" Version="1.0.1" />
     <PackageVersion Include="KubernetesClient" Version="17.0.14" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.2" />

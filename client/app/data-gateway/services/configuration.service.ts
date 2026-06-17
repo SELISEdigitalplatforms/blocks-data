@@ -1,7 +1,4 @@
-import {
-  API_BASES,
-  getGraphqlGatewayExecuteOrigin,
-} from "@/constants/endpoint.constant";
+import { API_BASES } from "@/constants/endpoint.constant";
 import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
 import { http } from "@/lib/http-client";
 import {
@@ -10,7 +7,6 @@ import {
   DATA_SOURCE_ENDPOINTS,
   DATA_VALIDATION_ENDPOINTS,
   DATA_VALIDATION_REGEX_ENDPOINTS,
-  PIPELINE_ENDPOINTS,
   SCHEMA_ENDPOINTS,
 } from "../constants/endpoint.constant";
 import {
@@ -34,7 +30,6 @@ import {
   IGetSchemaListPayload,
   IGetSchemaListResponse,
   IGetUnAdaptedChangeLogsPayload,
-  IInitiateDataGatewayPipelinePayload,
   IMockDataResponse,
   ISchemaExportPayload,
   ISchemaExportResponse,
@@ -67,8 +62,8 @@ class ConfigurationService {
     projectKey: string;
     projectShortKey?: string;
   }): Promise<IDataServiceConfigurationResponse> {
-    const url = `${getGraphqlGatewayExecuteOrigin()}/${payload.projectShortKey}${API_BASES.UDS}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
-    return http.post(url, {}, undefined, { absoluteUrl: true });
+    const url = `${API_BASES.UDS}/configurations/reload`;
+    return http.post(url, {});
   }
 
   getSchemaList(
@@ -135,12 +130,11 @@ class ConfigurationService {
    * introspection (`x-graphql-playground`) so the gateway can expose the full schema.
    */
   executeGraphQLOperation(
-    projectShortKey: string,
     query: string,
     headers?: Record<string, string>,
   ): Promise<unknown> {
-    const url = `${getGraphqlGatewayExecuteOrigin()}/${projectShortKey}/api/gateway`;
-    return http.post(url, { query }, headers, { absoluteUrl: true });
+    const url = `${API_BASES.UDS}/gateway`;
+    return http.post(url, { query }, headers);
   }
 
   getMockData(): Promise<IMockDataResponse> {
@@ -191,39 +185,6 @@ class ConfigurationService {
   ): Promise<IUnadaptedChangeLogsResponse> {
     return http.get(
       `${SCHEMA_ENDPOINTS.UNADAPTED_CHANGE_LOGS}?projectKey=${payload.projectKey}`,
-    );
-  }
-
-  async getPodActiveStatus(
-    slug: string,
-  ): Promise<undefined | { status: string }> {
-    const url = `${getGraphqlGatewayExecuteOrigin()}/${slug}/ping`;
-
-    try {
-      const response = await http.get<unknown>(url, undefined, {
-        absoluteUrl: true,
-      });
-
-      if (
-        response &&
-        typeof response === "object" &&
-        "status" in response &&
-        typeof response.status === "string"
-      ) {
-        return { status: response.status };
-      }
-
-      return undefined;
-    } catch {
-      return undefined;
-    }
-  }
-
-  initiateDataGatewayPipeline(
-    payload: IInitiateDataGatewayPipelinePayload,
-  ): Promise<unknown> {
-    return http.get(
-      `${PIPELINE_ENDPOINTS.INITIATE}?ProjectKey=${payload.projectKey}`,
     );
   }
 

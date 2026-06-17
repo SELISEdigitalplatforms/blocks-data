@@ -28,9 +28,10 @@ public static class DataGatewayGraphQLEndpointExtensions
                 // it. Validate it here against the tenant identified by x-blocks-key so an authenticated
                 // request gets its ClaimsPrincipal (and the token's tenant) before we resolve the tenant.
                 var blocksKey = RequestContextAccessor.Current.BlocksKey;
+                Console.WriteLine($"Blocks Key: {blocksKey} in api/gateway");
                 if (!string.IsNullOrWhiteSpace(blocksKey))
                 {
-                    var authenticator = context.RequestServices.GetRequiredService<GatewayTokenAuthenticator>();
+                    var authenticator = context.RequestServices.GetRequiredService<DataGatewayTokenAuthenticator>();
                     var principal = await authenticator.GetPrincipalFromTokenAsync(context.Request, blocksKey);
                     if (principal is not null)
                     {

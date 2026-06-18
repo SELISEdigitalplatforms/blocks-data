@@ -88,7 +88,7 @@ public static class ServiceRegistry
     {
         serviceCollection.AddHttpResponseFormatter<AuthHttpResponseFormatter>();
         serviceCollection.AddGraphQLServer()
-            .DisableIntrospection(false) // Allow introspection for development purposes
+            .DisableIntrospection()
             .ConfigureSchemaAsync(ConfigureGraphQLSchemaAsync);
 
         // A separate GraphQL schema/executor is served per tenant (identified by the x-blocks-key

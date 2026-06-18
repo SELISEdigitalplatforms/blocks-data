@@ -10,36 +10,18 @@
             It allows reloading the schema configuration, which is necessary after making changes to schema definitions or data sources.
             </summary>
         </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.#ctor(DataGateway.DomainService.Services.IConfigurationService)">
+        <member name="M:DataGateway.Api.Controllers.ConfigurationController.#ctor(DataGateway.DomainService.Services.IConfigurationService,Microsoft.Extensions.Logging.ILogger{DataGateway.Api.Controllers.ConfigurationController})">
             <summary>
             Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.ConfigurationController"/> class.
             </summary>
             <param name="configurationService">The configuration service.</param>
+            <param name="logger">The logger.</param>
             <exception cref="T:System.ArgumentNullException">Thrown when the configuration service is null.</exception>
-            <param name="changeControllerContext">The change Controller service.</param>
-            <exception cref="T:System.ArgumentNullException">Thrown when the changeControllerContext is null.</exception>
         </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.ReloadGraphQlServerAsync(System.String,System.Threading.CancellationToken)">
-            <summary>
-            Cloud use only: Reloads the GraphQL schema configuration. Use this endpoint after making changes to schema definitions or data sources to refresh the schema.
-            </summary>
-            <param name="projectKey">The unique identifier of the project to retrieve.</param>
-            <param name="cancellationToken">A cancellation token to cancel the operation if needed.</param>
-            <returns>Returns a success response if the schema is reloaded, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.ReloadDataGatewayServerAsync(System.String)">
-            <summary>
-            Reloads the GraphQL schema configuration. Use this endpoint after making changes to schema definitions or data sources to refresh the schema.
-            </summary>
-            <param name="projectKey">The unique identifier of the project to retrieve.</param>
-            <returns>Returns a success response if the schema is reloaded, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.AddGraphQLServerAsync(System.String,System.Threading.CancellationToken)">
+        <member name="M:DataGateway.Api.Controllers.ConfigurationController.ReloadDataGatewayServerAsync">
             <summary>
             
             </summary>
-            <param name="serverName"></param>
-            <param name="cancellationToken"></param>
             <returns></returns>
         </member>
         <member name="M:DataGateway.Api.Controllers.DataManageController.#ctor(DataGateway.DomainService.Services.IDataManageService)">

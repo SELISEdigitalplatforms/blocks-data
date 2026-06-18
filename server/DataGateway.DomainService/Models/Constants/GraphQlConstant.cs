@@ -29,22 +29,10 @@ public static class GraphQlConstant
     public const string BlocksKeyHeaderKey = "x-blocks-key";
     public const string UnauthorizedErrorCode = "AUTH_NOT_AUTHENTICATED";
     public const string ValidationErrorErrorCode = "VALIDATION_ERROR";
-    public static string TenantId { get; private set; } = string.Empty;
-    public static string TenantSlug { get; private set; } = string.Empty;
     private const string DefaultProvider = "azure";
     private const string RabbitMqProvider = "rabbitmq";
 
     public const int MaxNestedLevelIterationLimit = 3;
-
-    public static void SetAsTenantId(this string tenantId)
-    {
-        TenantId = tenantId;
-    }
-    public static void SetTenantInformation(string tenantId, string tenantSlug)
-    {
-        TenantId = tenantId;
-        TenantSlug = tenantSlug;
-    }
 
     public static MessageConfiguration GetMessageConfiguration(string messageConnectionString)
     {

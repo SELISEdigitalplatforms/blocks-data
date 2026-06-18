@@ -27,7 +27,8 @@ type RuntimeKey =
   | "BLOCKS_RELEASE_BASE_URL"
   | "BLOCKS_RELEASE_CALLBACK_URL"
   | "BLOCKS_STUDIO_BASE_URL"
-  | "BLOCKS_STUDIO_CALLBACK_URL";
+  | "BLOCKS_STUDIO_CALLBACK_URL"
+  | "BLOCKS_DATA_IMPORT_SAMPLE_FILE";
 
 type BlocksEnv = Partial<Record<RuntimeKey, string>>;
 

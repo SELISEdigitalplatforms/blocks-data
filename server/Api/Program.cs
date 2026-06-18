@@ -62,7 +62,7 @@ ApplicationConfigurations.ConfigureMiddleware(app);
 // The tenant is taken from the access token when authenticated, otherwise from the x-blocks-key
 // header. All requests use the same /api/gateway path. Mapped AFTER ConfigureMiddleware so that
 // authentication has run and the token (HttpContext.User / BlocksContext) is available here.
-app.MapDataGatewayGraphQL("/api/gateway");
+app.MapDataGatewayGraphQL("/api/gateway").WithDisplayName("GraphQL");
 
 var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
 

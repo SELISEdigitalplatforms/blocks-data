@@ -13,11 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Plus, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import {
-  useInitiateDataGatewayPipeline,
-  useSchemaList,
-  useSchemasReload,
-} from "../hooks/use-configuration";
+import { useSchemaList, useSchemasReload } from "../hooks/use-configuration";
 import { ISchemaDetails } from "../models/data-service";
 
 export type DataGatewayListQueryUpdate = Partial<{
@@ -33,7 +29,6 @@ type SchemaListProps = {
   isServerActive?: boolean;
   isServerInitiating?: boolean;
   isPodStatusLoading?: boolean;
-  onServerStart?: () => void;
   filterType: string;
   page: number;
   pageSize: number;
@@ -55,10 +50,6 @@ const SchemaListSkeleton = () => (
 export default function SchemasSidebar({
   onAddSchema,
   selectedSchemaId: externalSelectedSchemaId,
-  isServerActive = true,
-  isServerInitiating = false,
-  isPodStatusLoading = false,
-  onServerStart,
   filterType,
   page,
   pageSize,
@@ -105,11 +96,6 @@ export default function SchemasSidebar({
     onListQueryChange({ page: 1 });
   }, [debouncedSearch, onListQueryChange]);
 
-  const { refetch: initiateServer, isFetching: isStarting } =
-    useInitiateDataGatewayPipeline({
-      projectKey,
-      enabled: false,
-    });
   const { mutateAsync, isPending: isPublishing } = useSchemasReload();
   const { data: schemaListQuery } = useSchemaList({
     keyword: debouncedSearch,
@@ -154,20 +140,6 @@ export default function SchemasSidebar({
       ...schema,
     })) ?? [];
 
-  const startServer = async () => {
-    try {
-      const res = await initiateServer();
-      if (res.data) {
-        showSuccessToast({ description: "Data Gateway server is starting up" });
-        onServerStart?.();
-      } else {
-        showErrorToast({ errors: "Failed to start Data Gateway server" });
-      }
-    } catch (error) {
-      showErrorToast({ errors: error });
-    }
-  };
-
   const restartAll = async () => {
     try {
       const payload = { projectKey, projectShortKey };
@@ -201,49 +173,21 @@ export default function SchemasSidebar({
     <div className="flex h-[calc(100vh-154px)] w-full min-w-0 flex-col rounded-lg border border-border bg-card p-4 lg:w-[300px]">
       <div className="mb-4 flex items-center justify-between gap-4">
         <h2 className="text-lg font-bold">Schemas</h2>
-        {!isServerActive ? (
-          isServerInitiating ? (
-            <Button
-              variant="outline"
-              className="flex items-center gap-2 text-sm font-bold text-gray-500"
-              disabled
-            >
-              <RotateCcw className="h-4 w-4 text-gray-500" />
-              <span className="ml-1">Publish</span>
-            </Button>
-          ) : (
-            <Button
-              variant="outline"
-              className="flex items-center gap-2 text-sm font-bold text-gray-500"
-              onClick={startServer}
-              disabled={isStarting || isPodStatusLoading}
-            >
-              <RotateCcw
-                className={cn(
-                  "h-4 w-4 cursor-pointer text-gray-500 hover:text-black",
-                  isStarting && "animate-spin",
-                )}
-              />
-              <span className="ml-1">Start</span>
-            </Button>
-          )
-        ) : (
-          schemas.length > 0 && (
-            <Button
-              variant="outline"
-              className="flex items-center gap-2 text-sm font-bold text-gray-500"
-              onClick={() => restartAll()}
-              disabled={isPublishing}
-            >
-              <RotateCcw
-                className={cn(
-                  "h-4 w-4 cursor-pointer text-gray-500 hover:text-black",
-                  isPublishing && "animate-spin",
-                )}
-              />
-              <span className="ml-1">Publish</span>
-            </Button>
-          )
+        {schemas.length > 0 && (
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 text-sm font-bold text-gray-500"
+            onClick={() => restartAll()}
+            disabled={isPublishing}
+          >
+            <RotateCcw
+              className={cn(
+                "h-4 w-4 cursor-pointer text-gray-500 hover:text-black",
+                isPublishing && "animate-spin",
+              )}
+            />
+            <span className="ml-1">Publish</span>
+          </Button>
         )}
       </div>
 

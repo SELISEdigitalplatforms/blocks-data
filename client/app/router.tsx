@@ -14,17 +14,23 @@ import {
   CallbackPage,
   ConsoleLayout,
   ConsolePage,
+  DashboardOverview,
+  EnvironmentsPage,
   ImpersonationChecker,
   ImpersonationSynchronizer,
   ImpersonationTerminator,
   LoginPage,
   ProfilePage,
+  ProjectOverviewLayout,
   ProtectedGuard,
   PublicGuard,
 } from "@seliseblocks/blocks-kit";
-import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
-import { DashboardOverview } from "./pages/dashboard/dashboard-overview";
-import { EnvironmentsPage } from "./pages/environments/environments";
+import { navigationMenus } from "./constants/navigation-menus";
+
+const redirectPaths: Record<string, string> = {
+  "/services/data-gateway*": "/services/data-gateway",
+  "/services/storage*": "/services/storage",
+};
 
 export const router = createBrowserRouter([
   {
@@ -85,7 +91,14 @@ export const router = createBrowserRouter([
               },
               {
                 path: "/project-overview",
-                element: <ProjectOverviewLayout />,
+                element: (
+                  <ProjectOverviewLayout
+                    redirectPaths={redirectPaths}
+                    navigationMenus={navigationMenus}
+                  >
+                    <Outlet />
+                  </ProjectOverviewLayout>
+                ),
                 children: [
                   {
                     path: "environments",

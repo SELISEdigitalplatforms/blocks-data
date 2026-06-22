@@ -54,4 +54,20 @@ public class SchemaChangeLogService : ISchemaChangeLogService
             return new ServiceResponse<List<SchemaChangeLog>>().SetErrorMessage("Error occurred while getting unadapted schema change logs");
         }
     }
+
+    public async Task AdaptAllUnadaptedChangeLogsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("Adapting all unadapted schema change logs to server");
+            var filter = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), false);
+            var update = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), true);
+            await _repository.UpdateManyAsync($"{nameof(SchemaChangeLog)}s", filter, update);
+            _logger.LogInformation("All unadapted schema change logs have been adapted to server");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error occurred while adapting schema change logs to server");
+        }
+    }
 }

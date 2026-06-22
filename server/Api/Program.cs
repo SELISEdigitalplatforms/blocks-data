@@ -1,6 +1,7 @@
 using Blocks.Genesis;
 using BlocksTemplate.Api;
 using DataGateway.DomainService;
+using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Services;
@@ -51,12 +52,17 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.MapGraphQL("/api/gateway"); //.WithDisplayName("GraphQL");
 app.UseMiddleware<RequestContextMiddleware>();
 
 app.MapControllers();
 
 ApplicationConfigurations.ConfigureMiddleware(app);
+
+// One instance serves all tenants: a separate GraphQL server (schema/executor) per tenant.
+// The tenant is taken from the access token when authenticated, otherwise from the x-blocks-key
+// header. All requests use the same /api/gateway path. Mapped AFTER ConfigureMiddleware so that
+// authentication has run and the token (HttpContext.User / BlocksContext) is available here.
+app.MapDataGatewayGraphQL("/api/gateway").WithDisplayName("GraphQL");
 
 var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
 

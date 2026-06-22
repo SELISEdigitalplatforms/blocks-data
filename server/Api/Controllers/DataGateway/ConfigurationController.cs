@@ -34,9 +34,11 @@ public class ConfigurationController : ControllerBase
     }
 
     /// <summary>
-    /// 
+    /// Reloads the GraphQL schema configuration and resolves all unadapted changes.
+    /// This endpoint evicts the cached schema executor and marks all pending schema changes as adapted to the server.
+    /// Use this endpoint after making changes to schema definitions or data sources to refresh the schema and clear deployment badges in the UI.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>Returns a success response if the schema is reloaded and changes are resolved, or an error message if the operation fails.</returns>
     [Authorize]
     [HttpPost("reload")]
     [ProducesResponseType(typeof(ServiceResponse<bool>), StatusCodes.Status200OK)]

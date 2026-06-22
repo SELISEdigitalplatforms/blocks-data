@@ -1,7 +1,5 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 
-import { DashboardLayout } from "./layouts/dashboard-layout";
-
 // Dashboard routes (protected)
 import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
 import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
@@ -14,10 +12,10 @@ import {
   CallbackPage,
   ConsoleLayout,
   ConsolePage,
+  DashboardLayout,
   DashboardOverview,
   EnvironmentsPage,
   ImpersonationChecker,
-  ImpersonationSynchronizer,
   ImpersonationTerminator,
   LoginPage,
   ProfilePage,
@@ -109,11 +107,12 @@ export const router = createBrowserRouter([
               {
                 // impersonate
                 element: (
-                  <ImpersonationChecker>
-                    <ImpersonationSynchronizer>
-                      <DashboardLayout />
-                    </ImpersonationSynchronizer>
-                  </ImpersonationChecker>
+                  <DashboardLayout
+                    redirectPaths={redirectPaths}
+                    navigationMenus={navigationMenus}
+                  >
+                    <Outlet />
+                  </DashboardLayout>
                 ),
                 children: [
                   { path: "/dashboard", element: <DashboardOverview /> },

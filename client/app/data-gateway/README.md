@@ -371,7 +371,7 @@ All paths are defined in `constant/endpoint.constant.ts` and composed from the s
 |                             | `UPDATE`                | `UDS/data-validations`                              |
 |                             | `DELETE`                | `UDS/data-validations/{id}`                         |
 | `GATEWAY_ENDPOINTS`         | `EXECUTE`               | `UDS/{shortKey}/gateway`                            |
-|                             | `RELOAD`                | `UDS/{shortKey}/configurations/{projectKey}/reload` |
+|                             | `RELOAD`                | `UDS/{shortKey}/configurations/reload` |
 |                             | `PING`                  | `UDS/{slug}/ping`                                   |
 | `PIPELINE_ENDPOINTS`        | `INITIATE`              | `CLOUD_BUILD/build/DatagatewayPipelineInitiate`     |
 

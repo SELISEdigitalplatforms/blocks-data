@@ -10,7 +10,7 @@ export interface IProjectStore {
   resetSelectedProject: () => void;
   setProjects: (projects: IProject[]) => void;
   resetProject: () => void;
-  reset: () => void;
+  resetProjectStore: () => void;
   setTennantGroup: (tenantGroupId: string) => void;
   resetTennantGroup: () => void;
 }
@@ -23,7 +23,10 @@ export const useProjectStore = create<IProjectStore>()(
       selectedTenantGroup: null,
       setSelectedProject(project) {
         set((state) => ({ ...state, selectedProject: project }));
-        set((state) => ({ ...state, selectedTenantGroup: project.tenantGroupId }));
+        set((state) => ({
+          ...state,
+          selectedTenantGroup: project.tenantGroupId,
+        }));
       },
       resetSelectedProject() {
         set((state) => ({ ...state, selectedProject: null }));
@@ -34,8 +37,12 @@ export const useProjectStore = create<IProjectStore>()(
       resetProject() {
         set((state) => ({ ...state, projects: [] }));
       },
-      reset() {
-        set(() => ({ projects: [], selectedProject: null, selectedTenantGroup: null }));
+      resetProjectStore() {
+        set(() => ({
+          projects: [],
+          selectedProject: null,
+          selectedTenantGroup: null,
+        }));
       },
       setTennantGroup(tenantGroupId) {
         set((state) => ({ ...state, selectedTenantGroup: tenantGroupId }));

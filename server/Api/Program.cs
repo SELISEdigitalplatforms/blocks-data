@@ -54,6 +54,10 @@ Directory.CreateDirectory(wwwrootPath);
 
 ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath);
 
+var cloudSecret = await CloudBuildSecret.ProcessBlocksSecret(VaultType.Azure);
+cloudSecret.ChatGptEncryptedSecret = builder.Configuration["ChatGptEncryptedSecret"];
+cloudSecret.ChatGptEncryptionKey = builder.Configuration["ChatGptEncryptionKey"];
+
 services.AddDataGatewayDomainServices();
 services.AddStorageDomainServices();
 
@@ -75,52 +79,6 @@ ApplicationConfigurations.ConfigureMiddleware(app);
 app.MapDataGatewayGraphQL("/api/gateway").WithDisplayName("GraphQL");
 
 var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
-
-//if (File.Exists(indexHtml))
-//{
-
-//    app.MapFallback(async context =>
-//    {
-//        try
-//        {
-//            var tenantService = context.RequestServices.GetRequiredService<ITenants>();
-//            var host = context.Request.Host.Value;
-//            var tenant = tenantService.GetTenantByApplicationDomain(host);
-
-//            if (tenant == null)
-//            {
-//                context.Response.StatusCode = StatusCodes.Status404NotFound;
-//                return;
-//            }
-
-//            ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath, tenant.TenantId, string.Empty);
-//            var domain = tenant.Applications.FirstOrDefault(app => app.CookieDomain == host)?.CookieDomain;
-
-//            context.Response.Cookies.Append("x-blocks-key", tenant.TenantId, new CookieOptions
-//            {
-//                Domain = domain,
-//                HttpOnly = true,
-//                Secure = true,
-//                SameSite = SameSiteMode.None,
-//                Path = "/"
-//            });
-
-//            await context.Response.SendFileAsync(indexHtml);
-//        }
-//        catch (Exception ex)
-//        {
-//            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-//            await context.Response.WriteAsJsonAsync(new { error = ex.Message });
-//        }
-//    });
-
-//    // x-blocks-key cookie
-//    // check if domain match 
-//    // get google captch key BLOCKS_GOOGLE_SITE_KEY
-//    // Base Url 
-//    // Construct URL 
-
-//}
 
 await app.RunAsync();
 
@@ -190,23 +148,6 @@ static void ApplyFrontendRuntimeSettings(IConfiguration configuration, string we
         ["__BLOCKS_RELEASE_CLIENT_ID__"] = section["BLOCKS_RELEASE_CLIENT_ID"],
         ["__BLOCKS_STUDIO_CLIENT_ID__"] = section["BLOCKS_STUDIO_CLIENT_ID"],
     };
-
-    //DotNetEnv.Env.Load();
-
-    // blocksKey = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("BLOCKS_X_BLOCKS_KEY")) ? Environment.GetEnvironmentVariable("BLOCKS_X_BLOCKS_KEY") : blocksKey;
-    // googleSiteKey = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("BLOCKS_GOOGLE_SITE_KEY")) ? Environment.GetEnvironmentVariable("BLOCKS_GOOGLE_SITE_KEY") : googleSiteKey;
-
-    //var replacements = new Dictionary<string, string?>
-    //{
-    //    ["__BLOCKS_API_BASE_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_API_BASE_URL"),
-    //    ["__BLOCKS_X_BLOCKS_KEY__"] = Environment.GetEnvironmentVariable("BLOCKS_X_BLOCKS_KEY"),
-    //    ["__BLOCKS_GOOGLE_SITE_KEY__"] = Environment.GetEnvironmentVariable("BLOCKS_GOOGLE_SITE_KEY"),
-    //    ["__BLOCKS_CONSTRUCT_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_CONSTRUCT_URL"),
-    //    ["__BLOCKS_OIDC_CLIENT_ID__"] = Environment.GetEnvironmentVariable("BLOCKS_OIDC_CLIENT_ID"),
-    //    ["__BLOCKS_LOGIC_BASE_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_LOGIC_BASE_URL"),
-    //    ["__BLOCKS_IDP_BASE_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_IDP_BASE_URL"),
-    //};
-
 
     var files = Directory.EnumerateFiles(webRootPath, "*", SearchOption.AllDirectories)
         .Where(path =>

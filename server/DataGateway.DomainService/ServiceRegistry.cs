@@ -110,7 +110,7 @@ public static class ServiceRegistry
             return;
         }
 
-        var provider = services.GetRequiredService<IConfigurationService>();
-        await provider.ConfigureSchemaAsync(tenantId, schemaBuilder, cancellationToken);
+        var schemaBuilderService = services.GetRequiredService<GraphqlSchemaBuilder>();
+        await schemaBuilderService.BuildSchema(tenantId, schemaBuilder, cancellationToken);
     }
 }

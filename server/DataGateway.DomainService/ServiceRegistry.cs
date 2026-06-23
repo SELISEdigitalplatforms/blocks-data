@@ -62,10 +62,7 @@ public static class ServiceRegistry
             }
             return new Kubernetes(config);
         });
-        serviceCollection.AddSingleton<PipelineRunService>();
-        serviceCollection.AddScoped<IDataGatewayDeploymentRepository, DataGatewayDeploymentRepository>();
-        serviceCollection.AddScoped<IDataGatewayDeploymentService, DataGatewayDeploymentService>();
-
+        
         #region Validators
         serviceCollection.AddValidatorsFromAssemblyContaining<CreateSchemaDefinitionRequestValidator>();
         serviceCollection.AddScoped<IRequestValidator, RequestValidator>();

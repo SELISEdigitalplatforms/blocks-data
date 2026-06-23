@@ -27,7 +27,7 @@ export const mockProjectStoreFactory = (overrides?: {
     resetSelectedProject: vi.fn(),
     setProjects: vi.fn(),
     resetProject: vi.fn(),
-    reset: vi.fn(),
+    resetProjectStore: vi.fn(),
     setTennantGroup: vi.fn(),
     resetTennantGroup: vi.fn(),
   }),

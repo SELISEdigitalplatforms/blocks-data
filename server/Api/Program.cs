@@ -11,10 +11,10 @@ using Storage.DomainService.Utilities;
 using SeliseBlocks.ConfigurationDriver;
 
 var serviceName = GraphQlConstant.ApiServiceName;
-//var vaultType = ResolveVaultType();
-//Console.WriteLine($"Using Genesis vault type: {vaultType}");
-var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(serviceName, VaultType.Azure);
-var cloudBuildSecret = await CloudBuildSecret.ProcessBlocksSecret(VaultType.Azure);
+var vaultType = ApplicationConfigurations.ResolveVaultType();
+Console.WriteLine($"Using Genesis vault type: {vaultType}");
+var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(serviceName, vaultType);
+var cloudBuildSecret = await CloudBuildSecret.ProcessBlocksSecret(vaultType);
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,7 +54,7 @@ Directory.CreateDirectory(wwwrootPath);
 
 ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath);
 
-var cloudSecret = await CloudBuildSecret.ProcessBlocksSecret(VaultType.Azure);
+var cloudSecret = await CloudBuildSecret.ProcessBlocksSecret(vaultType);
 cloudSecret.ChatGptEncryptedSecret = builder.Configuration["ChatGptEncryptedSecret"];
 cloudSecret.ChatGptEncryptionKey = builder.Configuration["ChatGptEncryptionKey"];
 
@@ -79,30 +79,43 @@ ApplicationConfigurations.ConfigureMiddleware(app);
 app.MapDataGatewayGraphQL("/api/gateway").WithDisplayName("GraphQL");
 
 var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
+
 if (File.Exists(indexHtml))
 {
 
     app.MapFallback(async context =>
     {
-        // var tenantService = context.RequestServices.GetRequiredService<ITenants>();
-        // var dbContext = context.RequestServices.GetRequiredService<IDbContextProvider>();
-        // var host = context.Request.Host.Value;
-        // var tenant = tenantService.GetTenantByApplicationDomain(host);
-        // var database = dbContext.GetDatabase(tenant.TenantId);
-        // var captcheSetting = await (await database.GetCollection<CaptchaConfiguration>("CaptchaConfigurations").FindAsync(Builders<CaptchaConfiguration>.Filter.Eq(mc => mc.IsEnable, true))).FirstOrDefaultAsync();
-        // ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath, tenant.TenantId, captcheSetting.CaptchaKey);
+        try
+        {
+            var tenantService = context.RequestServices.GetRequiredService<ITenants>();
+            var host = context.Request.Host.Value;
+            var tenant = tenantService.GetTenantByApplicationDomain(host);
 
-        //context.Response.Cookies.Append("x-blocks-key", tenant.TenantId, new CookieOptions
-        //{
-        //    Domain = tenant.CookieDomain,
-        //    HttpOnly = true,
-        //    Secure = true,
-        //    SameSite = SameSiteMode.None,
-        //    Path = "/"
-        //});
-        context.Response.ContentType = "text/html; charset=utf-8";
-        await context.Response.SendFileAsync(indexHtml);
+            if (tenant == null)
+            {
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
 
+            // ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath, tenant.TenantId, string.Empty);
+            var domain = tenant.Applications.FirstOrDefault(app => app.CookieDomain == host)?.CookieDomain;
+
+            context.Response.Cookies.Append("x-blocks-key", tenant.TenantId, new CookieOptions
+            {
+                Domain = domain,
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.None,
+                Path = "/"
+            });
+
+            await context.Response.SendFileAsync(indexHtml);
+        }
+        catch (Exception ex)
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            await context.Response.WriteAsJsonAsync(new { error = ex.Message });
+        }
     });
 
     // x-blocks-key cookie
@@ -112,24 +125,8 @@ if (File.Exists(indexHtml))
     // Construct URL 
 
 }
+
 await app.RunAsync();
-
-//static VaultType ResolveVaultType()
-//{
-//    var configuredVaultType = Environment.GetEnvironmentVariable("BLOCKS_VAULT_TYPE");
-//    if (!string.IsNullOrWhiteSpace(configuredVaultType) &&
-//        Enum.TryParse<VaultType>(configuredVaultType, true, out var parsedVaultType))
-//    {
-//        return parsedVaultType;
-//    }
-
-//    var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ??
-//                      Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
-
-//    return string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase)
-//        ? VaultType.OnPrem
-//        : VaultType.Azure;
-//}
 
 static void ApplyFrontendRuntimeSettings(IConfiguration configuration, string webRootPath)
 {

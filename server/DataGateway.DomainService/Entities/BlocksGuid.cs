@@ -3,6 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace DataGateway.DomainService.Entities;
 
+[BsonIgnoreExtraElements]
 public class BlocksGuid
 {
     [BsonId]

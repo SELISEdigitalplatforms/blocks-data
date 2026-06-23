@@ -12,6 +12,7 @@ namespace DataGateway.DomainService.Entities;
 /// Represents a data access policy for a schema.
 /// Supports both Row-Level Security (RLS) and Column-Level Security (CLS).
 /// </summary>
+[BsonIgnoreExtraElements]
 public class DataAccessPolicy : GraphQlBaseEntity
 {
     public string ReferencePolicyId { get; set; } = string.Empty;

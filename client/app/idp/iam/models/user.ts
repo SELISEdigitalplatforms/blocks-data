@@ -195,7 +195,7 @@ export interface IHistories {
   LastUpdatedDate: string;
   CreatedBy: string;
   LastUpdatedBy: string;
-  OrganizationIds: string[];
+  OrganizationId: string;
   Tags: string[];
   Event: string;
   ActionBy: string;

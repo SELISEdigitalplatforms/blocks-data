@@ -60,7 +60,7 @@ export function SchemaPreviewDrawer({
   const isEntity = schemaType === 1;
   const defaultTab = isEntity ? "request-format" : "schema-structure";
   const [activeTab, setActiveTab] = useState(defaultTab);
-  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/${projectShortKey}/api/gateway`;
+  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/api/gateway`;
   const navigate = useNavigate();
 
   useEffect(() => {

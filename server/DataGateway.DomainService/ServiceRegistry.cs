@@ -74,7 +74,7 @@ public static class ServiceRegistry
     }
     public static void RegisterGraphQlServices(this IServiceCollection serviceCollection)
     {
-        serviceCollection.AddSingleton<IConfigurationService, ConfigurationService>();
+        serviceCollection.AddScoped<IConfigurationService, ConfigurationService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
         serviceCollection.AddSingleton<GraphqlSchemaBuilder>();
         serviceCollection.AddSingleton<IDataChangeEventPublisher, DataChangeEventPublisher>();
@@ -88,7 +88,7 @@ public static class ServiceRegistry
     {
         serviceCollection.AddHttpResponseFormatter<AuthHttpResponseFormatter>();
         serviceCollection.AddGraphQLServer()
-            .DisableIntrospection(false) // Allow introspection for development purposes
+            .DisableIntrospection()
             .ConfigureSchemaAsync(ConfigureGraphQLSchemaAsync);
 
         // A separate GraphQL schema/executor is served per tenant (identified by the x-blocks-key

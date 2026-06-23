@@ -31,7 +31,7 @@ function mapApiResponseToEndpoint(data: Record<string, unknown>): IApiEndpoint {
     createdBy: getProperty<string | null>("createdBy", "CreatedBy", null),
     lastUpdatedBy: getProperty<string>("lastUpdatedBy", "LastUpdatedBy", ""),
     language: getProperty<string | null>("language", "Language", null),
-    organizationIds: getProperty<string[]>("organizationIds", "OrganizationIds", []),
+    organizationId: getProperty<string>("organizationId", "OrganizationId", ""),
     tags: getProperty<string[]>("tags", "Tags", []),
     service: getProperty<string>("service", "Service", ""),
     method: getProperty<string>("method", "Method", ""),

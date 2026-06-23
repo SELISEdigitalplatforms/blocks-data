@@ -30,7 +30,7 @@ public class DataGatewayTokenAuthenticator
 
     public async Task<ClaimsPrincipal?> GetPrincipalFromTokenAsync(HttpRequest request, string tenantId)
     {
-        var (token, _) = GetToken(request, _tenants);
+        var (token, _) = TokenHelper.GetToken(request, _tenants);
         var tenant = _tenants.GetTenantByID(tenantId);
         if (tenant == null)
         {
@@ -61,16 +61,5 @@ public class DataGatewayTokenAuthenticator
             Console.WriteLine($"Error validating token: {ex.Message}");
             return null;
         }
-    }
-
-    private (string Token, bool IsThirdPartyToken) GetToken(HttpRequest request, ITenants tenants)
-    {
-        var (token, isThirdPartyToken) = TokenHelper.GetTokenFromCookie(request, tenants);
-        if (string.IsNullOrEmpty(token))
-        {
-            (token, isThirdPartyToken) = TokenHelper.GetToken(request, tenants);
-        }
-        return (token, isThirdPartyToken);
-
     }
 }

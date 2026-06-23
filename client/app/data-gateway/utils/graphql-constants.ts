@@ -59,7 +59,7 @@ export const EXCLUDED_INPUT_SUBFIELDS = new Set<string>();
 export const SYSTEM_INPUT_FIELDS = new Set([
   "ItemId",
   "Language",
-  "OrganizationIds",
+  "OrganizationId",
   "Tags",
   "CreatedDate",
   "CreatedBy",

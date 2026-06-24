@@ -966,7 +966,6 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
               bulkOperations.setSelectedFieldNames([]);
             }
           }}
-          trigger={<span aria-hidden="true" />}
         />
       )}
 
@@ -998,7 +997,6 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
             setCurrentAccessDrawerTitle("Manage access");
           }
         }}
-        trigger={<span aria-hidden="true" />}
       />
 
       {currentValidationFieldName && (
@@ -1015,7 +1013,6 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
               setCurrentValidationRule(null);
             }
           }}
-          trigger={<span aria-hidden="true" />}
         />
       )}
 
@@ -1028,7 +1025,6 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         title={`${schemaDetails.schemaName} preview`}
         open={isPreviewDrawerOpen}
         onOpenChange={setIsPreviewDrawerOpen}
-        trigger={<span aria-hidden="true" />}
       />
     </>
   ) : (

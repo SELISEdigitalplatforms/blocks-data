@@ -39,6 +39,7 @@ export const SchemaBasicInfo = ({
   // State Management
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [shouldFinalizeDelete, setShouldFinalizeDelete] = useState(false);
   const [isSchemaAccessControlDrawerOpen, setIsSchemaAccessControlDrawerOpen] =
     useState<boolean>(false);
   const [selectedTab, setSelectedTab] = useState<string>("");
@@ -72,8 +73,8 @@ export const SchemaBasicInfo = ({
           title: "Success",
           description: "Deleted successfully",
         });
+        setShouldFinalizeDelete(true);
         setIsDeleteDialogOpen(false);
-        onDeleteSuccess?.();
       } else {
         toast({
           variant: "destructive",
@@ -145,7 +146,11 @@ export const SchemaBasicInfo = ({
                   {/* Delete Option */}
                   <DropdownMenuItem
                     className="cursor-pointer text-red-500 focus:text-red-500"
-                    onClick={() => setIsDeleteDialogOpen(true)}
+                    onSelect={() => {
+                      setIsDropdownOpen(false);
+                      // Open dialog after menu selection resolves to avoid focus collisions.
+                      requestAnimationFrame(() => setIsDeleteDialogOpen(true));
+                    }}
                   >
                     <span className="text-red-500">Delete</span>
                   </DropdownMenuItem>
@@ -232,7 +237,16 @@ export const SchemaBasicInfo = ({
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open);
+          if (!open && shouldFinalizeDelete) {
+            setShouldFinalizeDelete(false);
+            onDeleteSuccess?.();
+          }
+        }}
+      >
         <ConfirmationModal
           onCancel={() => {}}
           onConfirm={onConfirmDelete}

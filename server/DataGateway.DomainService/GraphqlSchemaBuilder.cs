@@ -326,8 +326,8 @@ public class GraphqlSchemaBuilder
             _logger.LogInformation("Adapting schema change logs to server");
             var filter = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), false);
             var update = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), true);
-            await _repository.UpdateManyAsync($"{nameof(SchemaChangeLog)}s", filter, update);
-            _logger.LogInformation("Schema change logs adapted to server");
+            var result = await _repository.UpdateManyAsync($"{nameof(SchemaChangeLog)}s", filter, update);
+            _logger.LogInformation("Adapted {ModifiedCount} schema change logs to server", result.TotalImpactedData);
         }
         catch (Exception ex)
         {

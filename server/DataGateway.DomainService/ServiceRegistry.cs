@@ -71,7 +71,7 @@ public static class ServiceRegistry
     }
     public static void RegisterGraphQlServices(this IServiceCollection serviceCollection)
     {
-        serviceCollection.AddScoped<IConfigurationService, ConfigurationService>();
+        serviceCollection.AddSingleton<IConfigurationService, ConfigurationService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
         serviceCollection.AddSingleton<GraphqlSchemaBuilder>();
         serviceCollection.AddSingleton<IDataChangeEventPublisher, DataChangeEventPublisher>();

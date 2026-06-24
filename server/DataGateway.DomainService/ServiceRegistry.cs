@@ -98,20 +98,24 @@ public static class ServiceRegistry
 
     private static async ValueTask ConfigureGraphQLSchemaAsync(IServiceProvider services, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
     {
+        Console.WriteLine("Configuring GraphQL schema for tenant");
         // Skip schema configuration when HttpContext is unavailable.
         var httpContext = RequestContextAccessor.Current.HttpContext;
         if (httpContext == null)
         {
+            Console.WriteLine("ConfigureGraphQLSchemaAsync: HttpContext is null, skipping schema configuration");
             return;
         }
 
         // HttpContext may already be disposed on late pipeline stages.
         try
         {
+            Console.WriteLine($"ConfigureGraphQLSchemaAsync: HttpContext is available, request path: {httpContext.Request.Path}");
             _ = httpContext.RequestAborted;
         }
         catch (ObjectDisposedException)
         {
+            Console.WriteLine("ConfigureGraphQLSchemaAsync: HttpContext is disposed, skipping schema configuration");
             return;
         }
 

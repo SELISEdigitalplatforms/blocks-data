@@ -40,7 +40,7 @@ public static class ServiceRegistry
         serviceCollection.AddScoped<IDataSourceService, DataSourceService>();
         serviceCollection.AddScoped<SchemaDefinitionReferenceHelper>();
         serviceCollection.AddScoped<ISchemaDefinitionService, SchemaDefinitionService>();
-        serviceCollection.AddSingleton<ISchemaChangeLogService, SchemaChangeLogService>();
+        serviceCollection.AddScoped<ISchemaChangeLogService, SchemaChangeLogService>();
         serviceCollection.AddScoped<IDataAccessService, DataAccessService>();
         serviceCollection.AddScoped<IDataManageService, DataManageService>();
         serviceCollection.AddScoped<IDataValidationService, DataValidationService>();

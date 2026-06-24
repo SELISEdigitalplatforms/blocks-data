@@ -40,7 +40,7 @@ public static class ServiceRegistry
         serviceCollection.AddScoped<IDataSourceService, DataSourceService>();
         serviceCollection.AddScoped<SchemaDefinitionReferenceHelper>();
         serviceCollection.AddScoped<ISchemaDefinitionService, SchemaDefinitionService>();
-        serviceCollection.AddScoped<ISchemaChangeLogService, SchemaChangeLogService>();
+        serviceCollection.AddSingleton<ISchemaChangeLogService, SchemaChangeLogService>();
         serviceCollection.AddScoped<IDataAccessService, DataAccessService>();
         serviceCollection.AddScoped<IDataManageService, DataManageService>();
         serviceCollection.AddScoped<IDataValidationService, DataValidationService>();
@@ -62,7 +62,7 @@ public static class ServiceRegistry
             }
             return new Kubernetes(config);
         });
-        
+
         #region Validators
         serviceCollection.AddValidatorsFromAssemblyContaining<CreateSchemaDefinitionRequestValidator>();
         serviceCollection.AddScoped<IRequestValidator, RequestValidator>();
@@ -71,7 +71,7 @@ public static class ServiceRegistry
     }
     public static void RegisterGraphQlServices(this IServiceCollection serviceCollection)
     {
-        serviceCollection.AddScoped<IConfigurationService, ConfigurationService>();
+        serviceCollection.AddSingleton<IConfigurationService, ConfigurationService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
         serviceCollection.AddSingleton<GraphqlSchemaBuilder>();
         serviceCollection.AddSingleton<IDataChangeEventPublisher, DataChangeEventPublisher>();

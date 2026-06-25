@@ -3,36 +3,11 @@
 import { Alert, AlertDescription } from "@/components/ui-kits/alert/alert";
 import { Button } from "@/components/ui-kits/button/button";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  ChevronRight,
-  Download,
-  FolderInput,
-  MoreVertical,
-  Settings,
-} from "lucide-react";
-
-const GraphQLIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 30 30" className={className} fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4.08 22.864l-1.1-.636L15 .345l1.1.636zm-1.1 4.636L14.636 29.66l.636-1.1L3.616 26.4zm13.12 0L27.746 29.1l.636 1.1L16.736 28.4zm4.636-4.636l1.1.636L29.46 6.636 28.36 6zm-5.82-20.03l-.636-1.1L1.1 7.924l.636 1.1zM.5 9.636l-.636 1.1 11.63 6.72.636-1.1zm27.364 7.82l.636-1.1L16.87 9.636l-.636 1.1zm-13.82 6.1l1.274.012.012-13.82-1.274-.012z"/>
-    <circle cx="15" cy="1.833" r="2.5"/>
-    <circle cx="28.667" cy="9.5" r="2.5"/>
-    <circle cx="28.667" cy="20.5" r="2.5"/>
-    <circle cx="15" cy="28.167" r="2.5"/>
-    <circle cx="1.333" cy="20.5" r="2.5"/>
-    <circle cx="1.333" cy="9.5" r="2.5"/>
-  </svg>
-);
+import { AlertTriangle, ArrowLeft, ChevronRight } from "lucide-react";
+import { DataGatewayActions } from "./data-gateway-actions";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -55,8 +30,6 @@ import {
 } from "../utils/schema-access.utils";
 import { normalizeSchemaFields } from "../utils/schema-normalization";
 import { AddEditSchemaModal } from "./add-edit-schema";
-import ExportSchemaModal from "./export-schema/export-schema-modal";
-import ImportSchemaModal from "./import-schema-modal";
 import { SchemaBasicInfo } from "./schema-basic-info";
 import SchemasSidebar, {
   type DataGatewayListQueryUpdate,
@@ -93,8 +66,6 @@ export const SchemaDetailsPage = () => {
   const queryClient = useQueryClient();
   const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] =
     useState(false);
-  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [isOpenImportSchemaModal, setIsOpenImportSchemaModal] = useState(false);
 
   // URL-based view state:
   //   type = null  → security & performance landing (no query params in URL)
@@ -245,12 +216,13 @@ export const SchemaDetailsPage = () => {
 
   return (
     <>
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-1">
-          {isSchemaView && (
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-4">
+          {/* Breadcrumb */}
+          {isSchemaView ? (
             <nav className="flex items-center gap-1 text-sm text-muted-foreground">
               <button
-                className="hover:text-foreground"
+                className="transition-colors hover:text-foreground"
                 onClick={() => navigateToSecurityView()}
               >
                 Data Gateway
@@ -258,101 +230,12 @@ export const SchemaDetailsPage = () => {
               <ChevronRight className="h-3.5 w-3.5" />
               <span className="font-medium text-foreground">Schemas</span>
             </nav>
+          ) : (
+            <p className="text-sm font-semibold text-foreground">Data Gateway</p>
           )}
-          <div className="flex w-full flex-col gap-3 xl:flex-row xl:items-center xl:justify-end">
-            <div className="flex w-full justify-end gap-2 xl:items-center">
-              <div className="shrink-0 xl:hidden">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 shrink-0"
-                      aria-label="Open Data Gateway actions"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-52">
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onClick={() =>
-                        navigate("/services/data-gateway/playground")
-                      }
-                    >
-                      <GraphQLIcon className="mr-2 h-4 w-4" />
-                      Playground
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onClick={() => setIsOpenImportSchemaModal(true)}
-                    >
-                      <FolderInput className="mr-2 h-4 w-4" />
-                      Import
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onClick={() => setIsExportModalOpen(true)}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      Export
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="cursor-pointer"
-                      onClick={() =>
-                        navigate("/services/data-gateway/edit-data-source")
-                      }
-                    >
-                      <Settings className="mr-2 h-4 w-4" />
-                      Configure
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <div className="hidden shrink-0 items-center gap-2 xl:flex">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsOpenImportSchemaModal(true)}
-                  className="flex items-center gap-2"
-                >
-                  <FolderInput className="h-4 w-4" />
-                  Import
-                </Button>
 
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1"
-                  onClick={() => setIsExportModalOpen(true)}
-                >
-                  <Download className="h-4 w-4" />
-                  Export
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="flex items-center gap-2"
-                  onClick={() => navigate("/services/data-gateway/playground")}
-                >
-                  <GraphQLIcon className="h-4 w-4" />
-                  Playground
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 text-sm font-medium"
-                  onClick={() =>
-                    navigate("/services/data-gateway/edit-data-source")
-                  }
-                >
-                  <Settings className="h-5 w-5" />
-                  <span className="sr-only sm:not-sr-only">Configure</span>
-                </Button>
-              </div>
-            </div>
-          </div>
+          {/* Action buttons */}
+          <DataGatewayActions />
         </div>
 
         {/* Server status alert — only shown on schema view */}
@@ -381,7 +264,7 @@ export const SchemaDetailsPage = () => {
         ) : (
           /* ── Schema two-panel view ── */
           <>
-            <div className="flex flex-col gap-6 rounded pt-0 lg:flex-row lg:items-start">
+            <div className="flex flex-col gap-4 pt-0 lg:h-[calc(100vh-154px)] lg:flex-row lg:items-stretch">
               {/* Sidebar */}
               <div
                 className={`shrink-0 ${selectedSchemaId ? "hidden lg:block" : "block"}`}
@@ -398,7 +281,7 @@ export const SchemaDetailsPage = () => {
 
               {/* Main content */}
               <div
-                className={`flex w-full min-w-0 flex-col gap-4 lg:flex-1 ${
+                className={`flex w-full min-w-0 flex-col gap-4 lg:h-full lg:flex-1 lg:overflow-hidden ${
                   !selectedSchemaId ? "hidden lg:flex" : "block lg:flex"
                 }`}
               >
@@ -433,7 +316,7 @@ export const SchemaDetailsPage = () => {
                 </div>
 
                 {/* Desktop */}
-                <div className="hidden flex-col gap-4 lg:flex">
+                <div className="hidden min-h-0 flex-1 flex-col gap-4 lg:flex">
                   <SchemaBasicInfo
                     {...schemaDetails}
                     onDeleteSuccess={onDeleteSchema}
@@ -462,19 +345,6 @@ export const SchemaDetailsPage = () => {
         />
       </Dialog>
 
-      <Dialog open={isExportModalOpen} onOpenChange={setIsExportModalOpen}>
-        <ExportSchemaModal onClose={() => setIsExportModalOpen(false)} />
-      </Dialog>
-
-      <Dialog
-        open={isOpenImportSchemaModal}
-        onOpenChange={setIsOpenImportSchemaModal}
-      >
-        <ImportSchemaModal
-          projectKey={projectKey}
-          onClose={() => setIsOpenImportSchemaModal(false)}
-        />
-      </Dialog>
     </>
   );
 };

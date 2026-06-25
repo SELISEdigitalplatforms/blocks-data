@@ -130,7 +130,7 @@ export const router = createBrowserRouter([
                     element: <DataGatewayLogsPage />,
                   },
                   {
-                    path: "/services/data-gateway/edit-data-source",
+                    path: "/services/data-gateway/configuration",
                     element: <DataGatewayEditDataSourcePage />,
                   },
                   { path: "/services/storage", element: <StoragePage /> },

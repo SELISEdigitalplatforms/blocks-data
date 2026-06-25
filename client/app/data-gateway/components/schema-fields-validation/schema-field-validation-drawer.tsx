@@ -287,17 +287,20 @@ export function SchemaFieldValidationDrawer({
       handleOnly
     >
       {trigger && <DrawerTrigger asChild>{trigger}</DrawerTrigger>}
-      <DrawerContent className="inset-y-0 left-auto right-0 mt-0 flex h-full w-full flex-col gap-0 rounded-none border-l bg-background p-0 transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right md:w-1/2 [&>div:first-child]:hidden">
+      <DrawerContent className="inset-y-0 left-auto right-0 mt-0 flex h-full w-full flex-col gap-0 rounded-none border-l border-border/40 bg-background p-0 transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right md:w-1/2 [&>div:first-child]:hidden">
+        {/* Ambient gradient */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.05),transparent_55%)]" />
+
         {/* Header */}
-        <div className="flex items-center justify-between border-b px-6 py-4">
-          <DrawerTitle className="text-lg font-semibold leading-none tracking-tight">
+        <div className="relative flex shrink-0 items-center justify-between border-b border-border/40 px-6 py-4">
+          <DrawerTitle className="text-sm font-semibold text-foreground">
             Validations for{" "}
-            <span className="font-mono text-primary">{fieldName}</span>
+            <span className="font-mono text-indigo-400">{fieldName}</span>
           </DrawerTitle>
           <DrawerClose asChild>
             <button
               type="button"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-muted/40 hover:text-foreground"
               aria-label="Close validation drawer"
             >
               <X className="h-4 w-4" />
@@ -305,18 +308,18 @@ export function SchemaFieldValidationDrawer({
           </DrawerClose>
         </div>
 
-        <ScrollArea className="flex-1 overflow-auto">
-          <div className="flex flex-col gap-6 p-6">
+        <ScrollArea className="relative flex-1 overflow-auto">
+          <div className="flex flex-col gap-5 p-6">
             {/* Existing validations */}
             <div className="flex flex-col gap-3">
-              <p className="text-sm font-medium text-medium-emphasis">
+              <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
                 Existing validations
               </p>
 
               {isRefreshing || (isLoading && !hasInitialData) ? (
                 <ValidationSkeleton />
               ) : validations.length === 0 ? (
-                <div className="flex items-center justify-center rounded-md border border-dashed py-8 text-sm text-muted-foreground">
+                <div className="flex items-center justify-center rounded-sm border border-dashed border-border/30 bg-muted/5 py-8 text-xs text-muted-foreground/50">
                   No validations added yet
                 </div>
               ) : (
@@ -324,57 +327,42 @@ export function SchemaFieldValidationDrawer({
                   {validations.map((validation, index) => (
                     <div
                       key={index}
-                      className="flex items-start justify-between gap-3 rounded-md border bg-muted/30 px-4 py-3"
+                      className="flex items-start justify-between gap-3 rounded-sm border border-border/30 bg-card/40 px-4 py-3"
                     >
                       <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <p className="break-all font-mono text-sm text-foreground">
+                        <p className="break-all font-mono text-sm text-foreground/80">
                           {validation.value}
                         </p>
                         {validation.errorMessage && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground/60">
                             {validation.errorMessage}
                           </p>
                         )}
-                        <span
-                          className={`w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
-                            validation.isActive
-                              ? "bg-success/10 text-success"
-                              : "bg-muted text-muted-foreground"
-                          }`}
-                        >
+                        <span className={cn(
+                          "w-fit rounded-full px-2 py-0.5 text-xs font-medium",
+                          validation.isActive
+                            ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20"
+                            : "bg-muted/40 text-muted-foreground/50 border border-border/30",
+                        )}>
                           {validation.isActive ? "Active" : "Inactive"}
                         </span>
                       </div>
                       <div className="flex shrink-0 gap-1">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7"
-                              disabled={isPending}
-                              onClick={() => handleEdit(index)}
-                            >
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/40 hover:text-foreground" disabled={isPending} onClick={() => handleEdit(index)}>
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Edit validation</TooltipContent>
+                          <TooltipContent>Edit</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-destructive hover:text-destructive"
-                              disabled={isPending}
-                              onClick={() => setPendingDeleteIndex(index)}
-                            >
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/40 hover:text-rose-400" disabled={isPending} onClick={() => setPendingDeleteIndex(index)}>
                               <Trash className="h-3.5 w-3.5" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Delete validation</TooltipContent>
+                          <TooltipContent>Delete</TooltipContent>
                         </Tooltip>
                       </div>
                     </div>
@@ -385,16 +373,14 @@ export function SchemaFieldValidationDrawer({
 
             {/* Add / Edit form */}
             {showForm ? (
-              <div className="flex flex-col gap-4 rounded-md border p-4">
-                <p className="text-sm font-medium text-foreground">
-                  {form.editingIndex !== undefined
-                    ? "Edit validation"
-                    : "Add validation"}
+              <div className="flex flex-col gap-4 rounded-sm border border-border/30 bg-card/30 p-4">
+                <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground/50">
+                  {form.editingIndex !== undefined ? "Edit validation" : "Add validation"}
                 </p>
 
-                {/* Generate regex from prompt section */}
-                <div className="flex flex-col gap-1.5 rounded-md bg-muted/40 p-3">
-                  <label className="text-xs text-muted-foreground">
+                {/* Generate regex from prompt */}
+                <div className="flex flex-col gap-2 rounded-sm border border-border/30 bg-indigo-500/5 p-3">
+                  <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
                     Generate regex from prompt
                   </label>
                   <div className="flex gap-2">
@@ -403,32 +389,28 @@ export function SchemaFieldValidationDrawer({
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       disabled={isGenerating}
-                      className="flex-1 h-10"
+                      className="h-9 flex-1 border-border/40 bg-muted/10 text-sm focus-visible:border-primary/40 focus-visible:ring-primary/20"
                     />
                     <Button
                       className={cn(
-                        "h-10 px-4 gap-2 transition-all",
-                        isGenerating &&
-                          "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500 text-white",
+                        "h-9 gap-1.5 px-4 text-xs shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)] transition-all",
+                        isGenerating && "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500",
                       )}
                       onClick={handleGenerateRegex}
                       disabled={isGenerating || !prompt.trim()}
                     >
-                      <Sparkles
-                        size={16}
-                        className={cn(isGenerating && "animate-spin")}
-                      />
-                      {isGenerating ? "Generating..." : "Generate"}
+                      <Sparkles size={14} className={cn(isGenerating && "animate-spin")} />
+                      {isGenerating ? "Generating…" : "Generate"}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground/50">
                     Provide a description to generate regex from AI
                   </p>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-muted-foreground">
-                    Regex pattern <span className="text-destructive">*</span>
+                  <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
+                    Regex pattern <span className="text-rose-400">*</span>
                   </label>
                   <Textarea
                     placeholder="e.g. ^[a-zA-Z]+$"
@@ -437,84 +419,41 @@ export function SchemaFieldValidationDrawer({
                       setForm((prev) => ({ ...prev, value: e.target.value }));
                       if (regexError) validateRegex(e.target.value);
                     }}
-                    className={`resize-none font-mono text-sm${regexError ? "border-destructive" : ""}`}
+                    className={cn("resize-none border-border/40 bg-muted/10 font-mono text-sm focus-visible:border-primary/40 focus-visible:ring-primary/20", regexError && "border-rose-500/40")}
                     rows={4}
                   />
-                  {regexError && (
-                    <p className="text-xs text-destructive">{regexError}</p>
-                  )}
+                  {regexError && <p className="text-xs text-rose-400/80">{regexError}</p>}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs text-muted-foreground">
+                  <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
                     Error message
                   </label>
                   <Input
                     placeholder="e.g. Only letters are allowed"
                     value={form.errorMessage}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        errorMessage: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setForm((prev) => ({ ...prev, errorMessage: e.target.value }))}
+                    className="border-border/40 bg-muted/10 focus-visible:border-primary/40 focus-visible:ring-primary/20"
                   />
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="isActive"
-                    checked={form.isActive}
-                    onCheckedChange={(checked) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        isActive: checked === true,
-                      }))
-                    }
-                  />
-                  <label
-                    htmlFor="isActive"
-                    className="cursor-pointer text-sm text-foreground"
-                  >
-                    Active
-                  </label>
+                  <Checkbox id="isActive" checked={form.isActive} onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isActive: checked === true }))} />
+                  <label htmlFor="isActive" className="cursor-pointer text-xs text-muted-foreground/70">Active</label>
                 </div>
 
                 <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    disabled={
-                      isPending ||
-                      !form.value.trim() ||
-                      !!regexError ||
-                      !isDirty
-                    }
-                    onClick={handleSubmit}
-                  >
-                    {isPending ? "Saving..." : isEditMode ? "Update" : "Add"}
+                  <Button type="button" size="sm" className="shadow-[0_0_10px_-2px_rgba(99,102,241,0.3)]" disabled={isPending || !form.value.trim() || !!regexError || !isDirty} onClick={handleSubmit}>
+                    {isPending ? "Saving…" : isEditMode ? "Update" : "Add"}
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={resetForm}
-                    disabled={isPending}
-                  >
+                  <Button type="button" size="sm" variant="ghost" className="border border-border/40" onClick={resetForm} disabled={isPending}>
                     Cancel
                   </Button>
                 </div>
               </div>
             ) : (
-              // TODO: support multiple validations — remove the validations.length === 0 check
-              !isRefreshing &&
-              validations.length === 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full gap-2"
-                  onClick={() => setShowForm(true)}
-                >
+              !isRefreshing && validations.length === 0 && (
+                <Button type="button" variant="ghost" className="w-full gap-2 border border-border/30 text-muted-foreground/60 hover:border-primary/30 hover:text-primary" onClick={() => setShowForm(true)}>
                   <Plus className="h-4 w-4" />
                   Add validation
                 </Button>

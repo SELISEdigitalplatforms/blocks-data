@@ -7,7 +7,7 @@ export const navigationMenus: Menu[] = [
     id: "overview-project",
     type: "menu",
     name: "Overview",
-    path: "/dashboard",
+    path: "/app/dashboard",
     icon: Home,
   },
   {
@@ -18,21 +18,21 @@ export const navigationMenus: Menu[] = [
     id: "service-data-gateway",
     type: "menu",
     name: "Data Gateway",
-    path: "/services/data-gateway",
+    path: "/app/services/data-gateway",
     icon: Database,
   },
   {
     id: "service-storage",
     type: "menu",
     name: "Storage",
-    path: "/services/storage",
+    path: "/app/services/storage",
     icon: HardDrive,
   },
   {
     id: "environments",
     type: "menu",
     name: "Environments",
-    path: "/project-overview/environments",
+    path: "/app/project-overview/environments",
     icon: Package,
   },
 ];

@@ -79,7 +79,7 @@ export function SchemaPreviewDrawer({
     // Store the code in localStorage to be picked up by the playground
     localStorage.setItem("graphql-playground-query", code);
     // Navigate to the playground
-    navigate("/services/data-gateway/playground");
+    navigate("/app/services/data-gateway/playground");
   };
 
   const formattedJson = useMemo(

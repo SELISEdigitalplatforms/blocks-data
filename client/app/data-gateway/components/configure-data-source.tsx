@@ -105,7 +105,7 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
         databaseName:
           selectedSource === "others" ? formData.databaseName : "default",
         projectKey: projectKey,
-        itemId: initialData?.itemId || "",
+        itemId: initialData?.ItemId || "",
       };
 
       const res = isEditMode

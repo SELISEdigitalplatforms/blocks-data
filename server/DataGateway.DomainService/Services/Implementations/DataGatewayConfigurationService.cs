@@ -42,6 +42,8 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
         {
             DbConnectionString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(dataServiceConfiguration.DbConnectionString)),
             DatabaseName = dataServiceConfiguration.DatabaseName,
+            IsCollectionNameEditable = dataServiceConfiguration.IsCollectionNameEditable,
+            CollectionNamePattern = dataServiceConfiguration.CollectionNamePattern,
             ProjectKey = projectKey,
             ProjectShortKey = projectShortKey,
             ItemId = dataServiceConfiguration.ItemId

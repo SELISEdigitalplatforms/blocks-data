@@ -43,7 +43,12 @@ export const handleErrorMessages = (
 ): string | string[] => {
   if (typeof errors === "string") return errors;
 
-  if (errors && typeof errors === "object" && !Array.isArray(errors)) {
+  if (Array.isArray(errors)) {
+    const stringErrors = errors.filter((e): e is string => typeof e === "string");
+    return stringErrors.length ? stringErrors : "An unexpected error occurred.";
+  }
+
+  if (errors && typeof errors === "object") {
     return getErrorMessage(errors as Record<string, string | string[]>, customMessages);
   }
 

@@ -8,7 +8,6 @@ import {
   TabsTrigger,
 } from "@/components/ui-kits/tabs/tabs";
 import { useGetProject } from "@/hooks/use-project";
-import { useTheme } from "@/hooks/use-theme";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
 import type { EditorProps } from "@monaco-editor/react";
 import { isListType, isNonNullType, isObjectType } from "graphql";
@@ -96,8 +95,29 @@ export const GraphQLPlaygroundPage = () => {
       setSelectedProject(projectData.data);
     }
   }, [projectData, selectedProject?.itemId, setSelectedProject]);
-  const { resolvedTheme } = useTheme();
-  const monacoTheme = resolvedTheme === "dark" ? "vs-dark" : "light";
+  const [monacoTheme, setMonacoTheme] = useState<
+    NonNullable<EditorProps["theme"]>
+  >("light");
+
+  useEffect(() => {
+    const resolveTheme = () =>
+      document.documentElement.classList.contains("dark")
+        ? "vs-dark"
+        : "light";
+
+    setMonacoTheme(resolveTheme());
+
+    const observer = new MutationObserver(() => {
+      setMonacoTheme(resolveTheme());
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const { mutateAsync: executeGraphQL, isPending: isLoading } =
     useExecuteGraphQL();

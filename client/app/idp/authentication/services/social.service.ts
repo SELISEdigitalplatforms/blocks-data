@@ -12,11 +12,18 @@ import {
   IUpdateSsoCredentialStatusPayload,
   IUpdateSsoCredentialStatusResponse,
 } from "@blocks-idp/authentication/models/sso.model";
-import { SSO_ENDPOINTS, AUTH_OIDC_ENDPOINTS } from "../constants/endpoint.constant";
+import {
+  AUTH_OIDC_ENDPOINTS,
+  SSO_ENDPOINTS,
+} from "../constants/endpoint.constant";
 
 export class SSOService {
-  getSsoCredentials(payload: IGetSsoCredentialsPayload): Promise<IGetSsoCredentialsResponse> {
-    return http.get(`${SSO_ENDPOINTS.GET_SSO_CREDENTIALS}?ProjectKey=${payload.projectKey}`);
+  getSsoCredentials(
+    payload: IGetSsoCredentialsPayload,
+  ): Promise<IGetSsoCredentialsResponse> {
+    return http.get(
+      `${SSO_ENDPOINTS.GET_SSO_CREDENTIALS}?ProjectKey=${payload.projectKey}`,
+    );
   }
 
   getSsoCredentialId(
@@ -27,11 +34,15 @@ export class SSOService {
     );
   }
 
-  saveSsoCredential(payload: ISaveSsoCredentialPayload): Promise<ISaveSsoCredentialResponse> {
+  saveSsoCredential(
+    payload: ISaveSsoCredentialPayload,
+  ): Promise<ISaveSsoCredentialResponse> {
     return http.post(SSO_ENDPOINTS.SAVE_SSO_CREDENTIAL, payload);
   }
 
-  deleteSsoCredential(payload: IDeleteSsoCredentialPayload): Promise<IDeleteSsoCredentialResponse> {
+  deleteSsoCredential(
+    payload: IDeleteSsoCredentialPayload,
+  ): Promise<IDeleteSsoCredentialResponse> {
     return http.post(SSO_ENDPOINTS.DELETE_SSO_CREDENTIAL, payload);
   }
 
@@ -41,12 +52,18 @@ export class SSOService {
     return http.post(SSO_ENDPOINTS.UPDATE_STATUS, payload);
   }
 
-  saveBlocksSsoCredential(payload: unknown): Promise<ISaveSsoCredentialResponse> {
-    return http.post(AUTH_OIDC_ENDPOINTS.SAVE_OIDC_CLIENT, payload);
+  saveBlocksSsoCredential(
+    payload: unknown,
+  ): Promise<ISaveSsoCredentialResponse> {
+    return http.post(AUTH_OIDC_ENDPOINTS.SAVE_OIDC_CLIENT, {});
   }
 
-  getBlocksSsoCredential(projectKey: string): Promise<IGetOIDCCredentialResponse> {
-    return http.get(`${AUTH_OIDC_ENDPOINTS.GET_OIDC_CLIENT}?ProjectKey=${projectKey}`);
+  getBlocksSsoCredential(
+    projectKey: string,
+  ): Promise<IGetOIDCCredentialResponse> {
+    return http.get(
+      `${AUTH_OIDC_ENDPOINTS.GET_OIDC_CLIENT}?ProjectKey=${projectKey}`,
+    );
   }
 }
 

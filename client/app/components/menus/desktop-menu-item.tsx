@@ -41,45 +41,6 @@ export function DesktopMenuItem({
     return <div className="my-2 border-t border-[hsl(var(--low-emphasis))]" />;
   }
 
-  // Handle label type
-  if (menu.type === "label") {
-    const { selectedProject } = useProjectStore();
-    const projectName = selectedProject?.name || "Project";
-    const environment = selectedProject?.environment || "Environment";
-
-    let displayText = menu.name;
-    if (menu.id === "project-label" && isSidebarOpen) {
-      displayText = `PROJECT: ${projectName}`;
-    } else if (menu.id === "environment-label" && isSidebarOpen) {
-      displayText = `ENVIRONMENT: ${environment}`;
-    }
-
-    if (!isSidebarOpen) {
-      return null;
-    }
-
-    return (
-      <div
-        className={cn(
-          "flex items-center gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[hsl(var(--low-emphasis))]",
-          menu.id === "workspace-label" && "pt-4",
-        )}
-      >
-        {menu.icon ? <menu.icon className="h-4 w-4 shrink-0" /> : null}
-        {menu.id === "environment-label" ? (
-          <span className="flex items-center gap-2">
-            <span>{displayText}</span>
-            <span className="rounded-sm bg-[hsl(var(--blocks-primary-50))] px-1.5 py-0.5 text-[10px] font-semibold text-[hsl(var(--high-emphasis))]">
-              {environment}
-            </span>
-          </span>
-        ) : (
-          displayText
-        )}
-      </div>
-    );
-  }
-
   // Handle menu type
   if (menu.type !== "menu") {
     return null;

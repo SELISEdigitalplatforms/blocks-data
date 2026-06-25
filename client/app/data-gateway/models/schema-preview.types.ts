@@ -22,7 +22,7 @@ export type TemplateSection = {
 };
 
 export type SchemaPreviewDrawerProps = {
-  trigger: ReactNode;
+  trigger?: ReactNode;
   previewData: SchemaPreviewPayload;
   schemaName?: string;
   schemaType?: number;

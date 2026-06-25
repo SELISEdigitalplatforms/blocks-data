@@ -69,7 +69,7 @@ export function StorageContents() {
   const loading = isLoading || isFetching;
 
   const handleCardClick = (id: string) => {
-    navigate(`/services/storage?id=${encodeURIComponent(id)}`);
+    navigate(`/app/services/storage?id=${encodeURIComponent(id)}`);
   };
 
   const handleRemove = (id: string) => {

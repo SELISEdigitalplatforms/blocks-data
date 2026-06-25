@@ -20,7 +20,7 @@ namespace DataGateway.DomainService.GraphQL;
 /// configuration so that <c>IRequestExecutorResolver.GetRequestExecutorAsync(projectSlug)</c> works
 /// for arbitrary, dynamically created projects without an application restart.
 /// </summary>
-internal sealed class ProjectExecutorOptionsMonitor : IRequestExecutorOptionsMonitor, IDisposable
+public sealed class ProjectExecutorOptionsMonitor : IRequestExecutorOptionsMonitor, IDisposable
 {
     private readonly IOptionsMonitor<RequestExecutorSetup> _optionsMonitor;
     private readonly IRequestExecutorOptionsProvider[] _optionsProviders;
@@ -105,6 +105,22 @@ internal sealed class ProjectExecutorOptionsMonitor : IRequestExecutorOptionsMon
         finally
         {
             _semaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Notifies HC's executor resolver that the schema for <paramref name="schemaName"/> has
+    /// changed, causing HC to evict it through its own internal eviction path. More reliable than
+    /// calling <c>IRequestExecutorResolver.EvictRequestExecutor</c> directly.
+    /// </summary>
+    public void TriggerEviction(string schemaName)
+    {
+        lock (_listeners)
+        {
+            foreach (var listener in _listeners)
+            {
+                listener.Invoke(schemaName);
+            }
         }
     }
 

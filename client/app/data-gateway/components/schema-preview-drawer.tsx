@@ -17,11 +17,10 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui-kits/tabs/tabs";
-import { getGraphqlGatewayExecuteOrigin } from "@/constants/endpoint.constant";
 import { useGetProject } from "@/hooks/use-project";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
-import { Play, X } from "lucide-react";
+import { Link, Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -31,6 +30,55 @@ import { useRawIntrospectionQuery } from "../hooks/use-configuration";
 import { SchemaPreviewDrawerProps } from "../models/schema-preview.types";
 import { buildPreviewSections } from "../utils/generate-preview-queries";
 import { formatPreviewJson } from "../utils/graphql-template.utils";
+
+const OPERATIONS = [
+  {
+    value: "query",
+    label: "Query",
+    icon: Search,
+    iconColor: "text-blue-500",
+    activeBg: "bg-blue-50 dark:bg-blue-950/50",
+    activeText: "text-blue-700 dark:text-blue-300",
+    indicatorColor: "bg-blue-500",
+    badgeBg: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300",
+    sectionBorder: "border-l-2 border-blue-400/60",
+  },
+  {
+    value: "insert",
+    label: "Insert",
+    icon: Plus,
+    iconColor: "text-emerald-500",
+    activeBg: "bg-emerald-50 dark:bg-emerald-950/50",
+    activeText: "text-emerald-700 dark:text-emerald-300",
+    indicatorColor: "bg-emerald-500",
+    badgeBg:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300",
+    sectionBorder: "border-l-2 border-emerald-400/60",
+  },
+  {
+    value: "update",
+    label: "Update",
+    icon: Pencil,
+    iconColor: "text-amber-500",
+    activeBg: "bg-amber-50 dark:bg-amber-950/50",
+    activeText: "text-amber-700 dark:text-amber-300",
+    indicatorColor: "bg-amber-500",
+    badgeBg:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+    sectionBorder: "border-l-2 border-amber-400/60",
+  },
+  {
+    value: "delete",
+    label: "Delete",
+    icon: Trash2,
+    iconColor: "text-red-500",
+    activeBg: "bg-red-50 dark:bg-red-950/50",
+    activeText: "text-red-700 dark:text-red-300",
+    indicatorColor: "bg-red-500",
+    badgeBg: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300",
+    sectionBorder: "border-l-2 border-red-400/60",
+  },
+] as const;
 
 export function SchemaPreviewDrawer({
   trigger,
@@ -43,7 +91,6 @@ export function SchemaPreviewDrawer({
   onOpenChange,
 }: SchemaPreviewDrawerProps) {
   const handleCloseAutoFocus = (event: Event) => {
-    // In controlled mode, avoid restoring focus to hidden/virtual triggers.
     event.preventDefault();
     (document.activeElement as HTMLElement | null)?.blur();
   };
@@ -64,10 +111,14 @@ export function SchemaPreviewDrawer({
       setSelectedProject(projectData.data);
     }
   }, [projectData, selectedProject?.itemId, setSelectedProject]);
+
   const isEntity = schemaType === 1;
   const defaultTab = isEntity ? "request-format" : "schema-structure";
   const [activeTab, setActiveTab] = useState(defaultTab);
-  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/api/gateway`;
+  const [activeOperationTab, setActiveOperationTab] =
+    useState<string>("query");
+  const requestUrl = "https://dev-data.blocksdevelopers.com/api/gateway";
+  const blocksKey = "Dc4ec8f0355454e66be225a7ddb8dfd7b";
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -75,10 +126,15 @@ export function SchemaPreviewDrawer({
     setActiveTab(newDefaultTab);
   }, [isEntity]);
 
+  const operationTabMap: Record<string, string[]> = {
+    query: ["Query"],
+    insert: ["Insert", "Insert Many"],
+    update: ["Update"],
+    delete: ["Delete"],
+  };
+
   const handleTryInPlayground = (code: string) => {
-    // Store the code in localStorage to be picked up by the playground
     localStorage.setItem("graphql-playground-query", code);
-    // Navigate to the playground
     navigate("/services/data-gateway/playground");
   };
 
@@ -111,12 +167,14 @@ export function SchemaPreviewDrawer({
     [schemaName, rawIntrospection],
   );
 
-  const headingSource =
-    schemaName ??
-    (typeof previewData.SchemaName === "string"
-      ? previewData.SchemaName
-      : undefined);
-  const heading = title ?? `${headingSource ?? "Schema"} preview`;
+  const filteredSections = useMemo(() => {
+    const allowedTitles = operationTabMap[activeOperationTab] || [];
+    return sections.filter((section) => allowedTitles.includes(section.title));
+  }, [sections, activeOperationTab]);
+
+  const activeOperation =
+    OPERATIONS.find((op) => op.value === activeOperationTab) ?? OPERATIONS[0];
+  const heading = title ?? `${schemaName ?? "Schema"} preview`;
 
   return (
     <Drawer
@@ -136,6 +194,7 @@ export function SchemaPreviewDrawer({
         style={{ userSelect: "text" }}
       >
         <div className="flex h-full flex-1 flex-col">
+          {/* Header */}
           <div className="flex items-center justify-between gap-4">
             <DrawerTitle className="text-lg font-semibold leading-none tracking-tight">
               {heading}
@@ -170,7 +229,7 @@ export function SchemaPreviewDrawer({
               </TabsList>
             ) : null}
 
-            {/* Schema Structure Tab - JSON Preview */}
+            {/* Schema Structure Tab */}
             <TabsContent
               value="schema-structure"
               className="mt-4 flex-1 overflow-hidden"
@@ -182,7 +241,6 @@ export function SchemaPreviewDrawer({
                   </CopyToClipboardButton>
                 </div>
                 <ScrollArea className="h-full rounded-lg border border-border/60 bg-gray-50 pr-4 dark:bg-gray-900">
-                  {/* Light Mode */}
                   <div className="block p-6 pr-24 dark:hidden">
                     <SyntaxHighlighter
                       language="json"
@@ -199,7 +257,6 @@ export function SchemaPreviewDrawer({
                       {formattedJson}
                     </SyntaxHighlighter>
                   </div>
-                  {/* Dark Mode */}
                   <div className="hidden p-6 pr-24 dark:block">
                     <SyntaxHighlighter
                       language="json"
@@ -220,145 +277,190 @@ export function SchemaPreviewDrawer({
               </div>
             </TabsContent>
 
-            {/* Request Format Tab - GraphQL Templates */}
+            {/* Request Format Tab */}
             <TabsContent
               value="request-format"
-              className="mt-4 flex-1 overflow-hidden"
+              className="mt-4 flex flex-1 flex-col gap-3 overflow-hidden"
             >
-              <ScrollArea className="h-full pr-4">
-                <div className="relative space-y-3 pb-4">
-                  {isGatewaySchemaLoading ? (
-                    <div className="flex min-h-[240px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 bg-muted/30 py-12 text-sm text-muted-foreground">
-                      <span className="inline-block size-8 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-                      Loading request examples from gateway…
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex flex-col text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
-                        <span className="mb-1 sm:mb-0">Request URL:</span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <CopyToClipboardButton
-                            textToCopy={requestUrl}
-                            isHoverable
-                          >
-                            <code className="break-all rounded bg-muted px-2 py-1 font-mono text-xs">
-                              {requestUrl}
-                            </code>
-                          </CopyToClipboardButton>
-                        </div>
-                      </div>
-                      <div className="flex flex-col text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
-                        <span className="mb-1 sm:mb-0">
-                          Add In Request Headers:
-                        </span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <CopyToClipboardButton
-                            textToCopy={`x-blocks-key: ${projectKey}`}
-                            isHoverable
-                          >
-                            <code className="break-all rounded bg-muted px-2 py-1 font-mono text-xs">
-                              x-blocks-key: {projectKey}
-                            </code>
-                          </CopyToClipboardButton>
-                        </div>
-                      </div>
+              {/* Connection info card */}
+              <div className="flex-shrink-0 rounded-lg border border-border/50 bg-muted/20 px-4 py-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Link className="h-3.5 w-3.5 flex-shrink-0" />
+                    <span className="text-xs font-medium">URL</span>
+                    <CopyToClipboardButton textToCopy={requestUrl} isHoverable>
+                      <code className="rounded bg-background px-2 py-0.5 font-mono text-xs text-foreground">
+                        {requestUrl}
+                      </code>
+                    </CopyToClipboardButton>
+                  </div>
+                  <div className="h-3.5 w-px bg-border/60 max-sm:hidden" />
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <span className="text-xs font-medium">Header</span>
+                    <CopyToClipboardButton
+                      textToCopy={`x-blocks-key: ${blocksKey}`}
+                      isHoverable
+                    >
+                      <code className="rounded bg-background px-2 py-0.5 font-mono text-xs text-foreground">
+                        x-blocks-key: {blocksKey}
+                      </code>
+                    </CopyToClipboardButton>
+                  </div>
+                </div>
+              </div>
 
-                      {sections.map((section) => (
-                        <section
-                          key={section.title}
-                          className="rounded-2xl bg-background"
+              {/* Operations — vertical tabs + content */}
+              <div className="flex flex-1 gap-3 overflow-hidden">
+                {/* Vertical sidebar */}
+                <div className="flex flex-shrink-0 flex-col gap-0.5 rounded-xl border border-border/50 bg-muted/30 p-1.5">
+                  {OPERATIONS.map(
+                    ({
+                      value,
+                      label,
+                      icon: Icon,
+                      iconColor,
+                      activeBg,
+                      activeText,
+                      indicatorColor,
+                    }) => {
+                      const isActive = activeOperationTab === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setActiveOperationTab(value)}
+                          className={cn(
+                            "relative flex w-[3.75rem] flex-col items-center gap-1.5 rounded-lg px-1 py-3 text-xs font-medium outline-none transition-all duration-150 focus-visible:ring-2 focus-visible:ring-ring",
+                            isActive
+                              ? cn(activeBg, activeText, "shadow-sm")
+                              : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
+                          )}
                         >
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="w-full space-y-1">
-                              <h4 className="text-base font-semibold text-foreground">
-                                {section.title}
-                              </h4>
-                              <p className="text-sm text-muted-foreground">
-                                {section.description}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="pb-3">
-                            {/* Light Mode */}
-                            <div className="group relative block rounded-xl bg-gray-100 pr-24 dark:hidden">
-                              <div className="absolute right-6 top-2 z-10 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 gap-1"
-                                  onClick={() =>
-                                    handleTryInPlayground(section.code)
-                                  }
-                                >
-                                  <Play className="h-3.5 w-3.5" />
-                                  Try in Playground
-                                </Button>
-                                <CopyToClipboardButton
-                                  textToCopy={section.code}
-                                >
-                                  {" "}
-                                </CopyToClipboardButton>
-                              </div>
-                              <SyntaxHighlighter
-                                language="graphql"
-                                style={prism}
-                                customStyle={{
-                                  margin: 0,
-                                  background: "transparent",
-                                  padding: "20px",
-                                  fontSize: "0.8rem",
-                                  lineHeight: 1.5,
-                                  borderRadius: "0.75rem",
-                                }}
-                                wrapLongLines
-                              >
-                                {section.code}
-                              </SyntaxHighlighter>
-                            </div>
-                            {/* Dark Mode */}
-                            <div className="group relative hidden rounded-xl bg-gray-800 pr-24 dark:block">
-                              <div className="absolute right-6 top-2 z-10 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 gap-1"
-                                  onClick={() =>
-                                    handleTryInPlayground(section.code)
-                                  }
-                                >
-                                  <Play className="h-3.5 w-3.5" />
-                                  Try in Playground
-                                </Button>
-                                <CopyToClipboardButton
-                                  textToCopy={section.code}
-                                >
-                                  {" "}
-                                </CopyToClipboardButton>
-                              </div>
-                              <SyntaxHighlighter
-                                language="graphql"
-                                style={atomDark}
-                                customStyle={{
-                                  margin: 0,
-                                  background: "transparent",
-                                  padding: "20px",
-                                  fontSize: "0.8rem",
-                                  lineHeight: 1.5,
-                                  borderRadius: "0.75rem",
-                                }}
-                                wrapLongLines
-                              >
-                                {section.code}
-                              </SyntaxHighlighter>
-                            </div>
-                          </div>
-                        </section>
-                      ))}
-                    </>
+                          {isActive && (
+                            <span
+                              className={cn(
+                                "absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full",
+                                indicatorColor,
+                              )}
+                            />
+                          )}
+                          <Icon
+                            className={cn(
+                              "h-4 w-4 transition-colors duration-150",
+                              isActive ? iconColor : "opacity-60",
+                            )}
+                          />
+                          <span>{label}</span>
+                        </button>
+                      );
+                    },
                   )}
                 </div>
-              </ScrollArea>
+
+                {/* Content panel */}
+                <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border/50">
+                  {isGatewaySchemaLoading ? (
+                    <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                      <span className="inline-block size-7 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+                      <span>Loading from gateway…</span>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-full">
+                      <div className="space-y-4 p-4">
+                        {filteredSections.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                            <activeOperation.icon className={cn("h-8 w-8 opacity-30", activeOperation.iconColor)} />
+                            <span>No examples available</span>
+                          </div>
+                        ) : (
+                          filteredSections.map((section) => (
+                            <section
+                              key={section.title}
+                              className={cn(
+                                "rounded-xl border border-border/40 bg-background pl-3",
+                                activeOperation.sectionBorder,
+                              )}
+                            >
+                              {/* Section header */}
+                              <div className="flex items-center justify-between gap-2 px-1 py-3 pr-3">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={cn(
+                                      "rounded-md px-2 py-0.5 text-xs font-semibold",
+                                      activeOperation.badgeBg,
+                                    )}
+                                  >
+                                    {section.title}
+                                  </span>
+                                  {section.description ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      {section.description}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
+                                    onClick={() =>
+                                      handleTryInPlayground(section.code)
+                                    }
+                                  >
+                                    <Play className="h-3 w-3" />
+                                    Playground
+                                  </Button>
+                                  <CopyToClipboardButton
+                                    textToCopy={section.code}
+                                  >
+                                    {" "}
+                                  </CopyToClipboardButton>
+                                </div>
+                              </div>
+
+                              {/* Code block */}
+                              <div className="block dark:hidden">
+                                <SyntaxHighlighter
+                                  language="graphql"
+                                  style={prism}
+                                  customStyle={{
+                                    margin: 0,
+                                    background: "#f8f8f8",
+                                    padding: "16px",
+                                    fontSize: "0.78rem",
+                                    lineHeight: 1.6,
+                                    borderRadius: "0 0 0.75rem 0.75rem",
+                                  }}
+                                  wrapLongLines
+                                >
+                                  {section.code}
+                                </SyntaxHighlighter>
+                              </div>
+                              <div className="hidden dark:block">
+                                <SyntaxHighlighter
+                                  language="graphql"
+                                  style={atomDark}
+                                  customStyle={{
+                                    margin: 0,
+                                    background: "#1a1a2e",
+                                    padding: "16px",
+                                    fontSize: "0.78rem",
+                                    lineHeight: 1.6,
+                                    borderRadius: "0 0 0.75rem 0.75rem",
+                                  }}
+                                  wrapLongLines
+                                >
+                                  {section.code}
+                                </SyntaxHighlighter>
+                              </div>
+                            </section>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </div>

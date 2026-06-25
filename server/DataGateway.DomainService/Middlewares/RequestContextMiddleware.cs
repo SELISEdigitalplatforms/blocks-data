@@ -31,9 +31,8 @@ public class RequestContextMiddleware
         var ctx = new RequestContext
         {
             BlocksKey = tenantId,
-            TenantSlug = string.IsNullOrWhiteSpace(GraphQlConstant.TenantSlug)
-                        ? TenantHelper.GetTenantSlugFromRequestUri(requestUri)
-                        : GraphQlConstant.TenantSlug,
+            // The tenant served by the request is identified solely by the x-blocks-key header.
+            TenantId = tenantId,
             IsRequestFromBlocksCloud = tenant?.IsRootTenant ?? false,
             RequestUri = requestUri,
             RequestPath = requestPath,

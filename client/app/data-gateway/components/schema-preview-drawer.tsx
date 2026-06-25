@@ -6,6 +6,7 @@ import {
   Drawer,
   DrawerClose,
   DrawerContent,
+  DrawerDescription,
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui-kits/drawer/drawer";
@@ -41,6 +42,12 @@ export function SchemaPreviewDrawer({
   open,
   onOpenChange,
 }: SchemaPreviewDrawerProps) {
+  const handleCloseAutoFocus = (event: Event) => {
+    // In controlled mode, avoid restoring focus to hidden/virtual triggers.
+    event.preventDefault();
+    (document.activeElement as HTMLElement | null)?.blur();
+  };
+
   const selectedProject = useProjectStore().selectedProject;
   const { setSelectedProject } = useProjectStore();
   const { data: projectData } = useGetProject({
@@ -60,7 +67,7 @@ export function SchemaPreviewDrawer({
   const isEntity = schemaType === 1;
   const defaultTab = isEntity ? "request-format" : "schema-structure";
   const [activeTab, setActiveTab] = useState(defaultTab);
-  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/${projectShortKey}/api/gateway`;
+  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/api/gateway`;
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -118,8 +125,9 @@ export function SchemaPreviewDrawer({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DrawerTrigger asChild>{trigger}</DrawerTrigger>
+      {trigger ? <DrawerTrigger asChild>{trigger}</DrawerTrigger> : null}
       <DrawerContent
+        onCloseAutoFocus={handleCloseAutoFocus}
         className={cn(
           "inset-y-0 left-auto right-0 mt-0 h-full w-full rounded-none border-l bg-background p-6 md:w-[70vw] md:max-w-4xl [&>div:first-child]:hidden",
           "transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
@@ -132,6 +140,9 @@ export function SchemaPreviewDrawer({
             <DrawerTitle className="text-lg font-semibold leading-none tracking-tight">
               {heading}
             </DrawerTitle>
+            <DrawerDescription className="sr-only">
+              Preview schema payload and request examples.
+            </DrawerDescription>
             <DrawerClose asChild>
               <button
                 type="button"

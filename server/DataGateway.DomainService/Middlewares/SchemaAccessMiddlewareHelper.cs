@@ -59,7 +59,7 @@ internal static class SchemaAccessMiddlewareHelper
         if (string.IsNullOrWhiteSpace(blocksKey))
             return false;
 
-        return blocksKey == GraphQlConstant.TenantId || RequestContextAccessor.Current.IsRequestFromBlocksCloud;
+        return blocksKey == Helpers.TenantContext.GetTenantId() || RequestContextAccessor.Current.IsRequestFromBlocksCloud;
     }
 
 

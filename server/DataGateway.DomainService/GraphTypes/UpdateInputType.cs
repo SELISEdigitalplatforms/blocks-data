@@ -8,7 +8,7 @@ public class UpdateInputType : BaseInputType
     protected override string NameSuffix => "UpdateInput";
     protected override string[] AllowedBaseFields { get; } =
     [
-        nameof(GraphQlBaseEntity.OrganizationIds),
+        nameof(GraphQlBaseEntity.OrganizationId),
         nameof(GraphQlBaseEntity.Tags),
         nameof(GraphQlBaseEntity.Language)
     ];

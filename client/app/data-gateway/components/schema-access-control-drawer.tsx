@@ -2,6 +2,7 @@ import {
   Drawer,
   DrawerClose,
   DrawerContent,
+  DrawerDescription,
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui-kits/drawer/drawer";
@@ -51,6 +52,12 @@ const SchemaAccessControlDrawer = ({
   onOpenChange,
   selectedTab,
 }: SchemaAccessControlDrawerProps) => {
+  const handleCloseAutoFocus = (event: Event) => {
+    // In controlled mode, avoid restoring focus to hidden/virtual triggers.
+    event.preventDefault();
+    (document.activeElement as HTMLElement | null)?.blur();
+  };
+
   const schemaAccessLevels = {
     readAccessLevel,
     writeAccessLevel,
@@ -76,11 +83,14 @@ const SchemaAccessControlDrawer = ({
 
   return (
     <Drawer direction="right" open={open} onOpenChange={onOpenChange} handleOnly>
-      <DrawerTrigger onClick={() => setActiveTab("view")} asChild>
-        {trigger}
-      </DrawerTrigger>
+      {trigger ? (
+        <DrawerTrigger onClick={() => setActiveTab("view")} asChild>
+          {trigger}
+        </DrawerTrigger>
+      ) : null}
 
       <DrawerContent
+        onCloseAutoFocus={handleCloseAutoFocus}
         className={cn(
           "inset-y-0 left-auto right-0 mt-0 h-full w-full rounded-none border-l bg-background p-6 md:w-[85vw] md:max-w-6xl [&>div:first-child]:hidden",
           "transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
@@ -92,6 +102,9 @@ const SchemaAccessControlDrawer = ({
             <DrawerTitle className="min-w-0 flex-1 pr-2 text-lg font-semibold leading-snug tracking-tight">
               {title}
             </DrawerTitle>
+            <DrawerDescription className="sr-only">
+              Configure access rules for this schema.
+            </DrawerDescription>
             <DrawerClose asChild>
               <button
                 type="button"

@@ -62,9 +62,6 @@ public static class ServiceRegistry
             }
             return new Kubernetes(config);
         });
-        serviceCollection.AddSingleton<PipelineRunService>();
-        serviceCollection.AddScoped<IDataGatewayDeploymentRepository, DataGatewayDeploymentRepository>();
-        serviceCollection.AddScoped<IDataGatewayDeploymentService, DataGatewayDeploymentService>();
 
         #region Validators
         serviceCollection.AddValidatorsFromAssemblyContaining<CreateSchemaDefinitionRequestValidator>();
@@ -74,7 +71,7 @@ public static class ServiceRegistry
     }
     public static void RegisterGraphQlServices(this IServiceCollection serviceCollection)
     {
-        serviceCollection.AddScoped<IConfigurationService, ConfigurationService>();
+        serviceCollection.AddSingleton<IConfigurationService, ConfigurationService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
         serviceCollection.AddSingleton<GraphqlSchemaBuilder>();
         serviceCollection.AddSingleton<IDataChangeEventPublisher, DataChangeEventPublisher>();
@@ -95,12 +92,35 @@ public static class ServiceRegistry
         // header). Replace the executor options monitor so an executor can be resolved for any tenant
         // id at runtime, and register the dispatcher that routes requests to the right one.
         serviceCollection.RemoveAll<IRequestExecutorOptionsMonitor>();
-        serviceCollection.AddSingleton<IRequestExecutorOptionsMonitor, ProjectExecutorOptionsMonitor>();
+        serviceCollection.AddSingleton<ProjectExecutorOptionsMonitor>();
+        serviceCollection.AddSingleton<IRequestExecutorOptionsMonitor>(sp =>
+            sp.GetRequiredService<ProjectExecutorOptionsMonitor>());
         serviceCollection.AddSingleton<DataGatewayPipelineDispatcher>();
     }
 
     private static async ValueTask ConfigureGraphQLSchemaAsync(IServiceProvider services, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
     {
+        Console.WriteLine("Configuring GraphQL schema for tenant");
+        // Skip schema configuration when HttpContext is unavailable.
+        var httpContext = RequestContextAccessor.Current.HttpContext;
+        if (httpContext == null)
+        {
+            Console.WriteLine("ConfigureGraphQLSchemaAsync: HttpContext is null, skipping schema configuration");
+            return;
+        }
+
+        // HttpContext may already be disposed on late pipeline stages.
+        try
+        {
+            Console.WriteLine($"ConfigureGraphQLSchemaAsync: HttpContext is available, request path: {httpContext.Request.Path}");
+            _ = httpContext.RequestAborted;
+        }
+        catch (ObjectDisposedException)
+        {
+            Console.WriteLine("ConfigureGraphQLSchemaAsync: HttpContext is disposed, skipping schema configuration");
+            return;
+        }
+
         var tenantId = TenantContext.GetTenantId();
         Console.WriteLine($"Configuring schema for tenant id: {tenantId}");
 

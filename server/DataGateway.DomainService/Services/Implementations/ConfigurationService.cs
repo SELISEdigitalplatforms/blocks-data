@@ -1,3 +1,4 @@
+using DataGateway.DomainService.GraphQL;
 using HotChocolate.Execution;
 using Microsoft.Extensions.Logging;
 
@@ -8,16 +9,20 @@ public class ConfigurationService : IConfigurationService
     private readonly GraphqlSchemaBuilder _graphqlSchemaBuilder;
     private readonly ILogger<ConfigurationService> _logger;
     private readonly IRequestExecutorResolver _executorResolver;
-    private readonly ISchemaChangeLogService _schemaChangeLogService;
+    private readonly DataGatewayPipelineDispatcher _pipelineDispatcher;
+    private readonly ProjectExecutorOptionsMonitor _optionsMonitor;
 
     public ConfigurationService(GraphqlSchemaBuilder graphqlSchemaBuilder,
-        IRequestExecutorResolver executorResolver, ILogger<ConfigurationService> logger,
-        ISchemaChangeLogService schemaChangeLogService)
+        IRequestExecutorResolver executorResolver,
+        DataGatewayPipelineDispatcher pipelineDispatcher,
+        ProjectExecutorOptionsMonitor optionsMonitor,
+        ILogger<ConfigurationService> logger)
     {
         _executorResolver = executorResolver ?? throw new ArgumentNullException(nameof(executorResolver));
         _graphqlSchemaBuilder = graphqlSchemaBuilder ?? throw new ArgumentNullException(nameof(graphqlSchemaBuilder));
+        _pipelineDispatcher = pipelineDispatcher ?? throw new ArgumentNullException(nameof(pipelineDispatcher));
+        _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _schemaChangeLogService = schemaChangeLogService ?? throw new ArgumentNullException(nameof(schemaChangeLogService));
     }
 
     public async Task<ISchema> BuildSchemaAsync(string tenantId, CancellationToken cancellationToken)
@@ -39,20 +44,23 @@ public class ConfigurationService : IConfigurationService
     {
         _logger.LogInformation("Reloading schema for tenant: {TenantId}", tenantId);
 
-        // Evict the tenant's executor; HotChocolate rebuilds it (with the latest schema definitions)
-        // on the next request for that tenant.
-        _executorResolver.EvictRequestExecutor(string.IsNullOrWhiteSpace(tenantId) ? Schema.DefaultName : tenantId);
-        _logger.LogInformation("Request executor evicted for tenant: {TenantId}", tenantId);
+        var effectiveName = string.IsNullOrWhiteSpace(tenantId) ? Schema.DefaultName : tenantId;
 
-        // Adapt all unadapted schema change logs to mark them as resolved
-        await _schemaChangeLogService.AdaptAllUnadaptedChangeLogsAsync(cancellationToken);
-        _logger.LogInformation("All unadapted changes resolved for tenant: {TenantId}", tenantId);
+        // Bump the version counter so the next request uses a new schema name (e.g. tenantId@v1).
+        // HC has no cache entry for the new name → always builds a fresh executor from MongoDB.
+        // This bypasses any unreliability in EvictRequestExecutor for dynamically-created schemas.
+        var oldSchemaName = _pipelineDispatcher.BumpVersionAndClearPipeline(effectiveName);
+
+        // Evict old executor via HC's own change-notification path (more reliable than
+        // calling IRequestExecutorResolver.EvictRequestExecutor directly).
+        _optionsMonitor.TriggerEviction(oldSchemaName);
+        _logger.LogInformation("Schema reload complete for tenant: {TenantId}", tenantId);
     }
 
     public Task RemoveSchemaAsync(string tenantId, CancellationToken cancellationToken)
     {
-        // Evict the executor for this tenant so HotChocolate will remove it.
-        _executorResolver.EvictRequestExecutor(tenantId);
+        var oldSchemaName = _pipelineDispatcher.BumpVersionAndClearPipeline(tenantId);
+        _optionsMonitor.TriggerEviction(oldSchemaName);
         return Task.CompletedTask;
     }
 }

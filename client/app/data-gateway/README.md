@@ -364,14 +364,14 @@ All paths are defined in `constant/endpoint.constant.ts` and composed from the s
 |                             | `POLICY_CREATE`         | `UDS/data-access/policy/create`                     |
 |                             | `POLICY_UPDATE`         | `UDS/data-access/policy/update`                     |
 |                             | `POLICY_DELETE`         | `UDS/data-access/policy/{id}/delete`                |
-| `DATA_MANAGE_ENDPOINTS`     | `GET_MOCK_DATA`         | `UDS/data-manage/{projectKey}/mock-data`            |
-|                             | `DELETE_MOCK_DATA`      | `UDS/data-manage/mock-data`                         |
+| `DATA_MANAGE_ENDPOINTS`     | `GET_MOCK_DATA`         | `UDS/mock-data/{projectKey}/mock-data`            |
+|                             | `DELETE_MOCK_DATA`      | `UDS/mock-data/mock-data`                         |
 | `DATA_VALIDATION_ENDPOINTS` | `GET`                   | `UDS/data-validations/schema/{id}/field/{name}`     |
 |                             | `CREATE`                | `UDS/data-validations`                              |
 |                             | `UPDATE`                | `UDS/data-validations`                              |
 |                             | `DELETE`                | `UDS/data-validations/{id}`                         |
 | `GATEWAY_ENDPOINTS`         | `EXECUTE`               | `UDS/{shortKey}/gateway`                            |
-|                             | `RELOAD`                | `UDS/{shortKey}/configurations/reload` |
+|                             | `RELOAD`                | `UDS/{shortKey}/schema-configurations/reload` |
 |                             | `PING`                  | `UDS/{slug}/ping`                                   |
 | `PIPELINE_ENDPOINTS`        | `INITIATE`              | `CLOUD_BUILD/build/DatagatewayPipelineInitiate`     |
 

@@ -62,7 +62,7 @@ class ConfigurationService {
     projectKey: string;
     projectShortKey?: string;
   }): Promise<IDataServiceConfigurationResponse> {
-    const url = `${API_BASES.UDS}/configurations/reload`;
+    const url = `${API_BASES.UDS}/schema-configurations/reload`;
     return http.post(url, {});
   }
 
@@ -138,7 +138,7 @@ class ConfigurationService {
   }
 
   getMockData(): Promise<IMockDataResponse> {
-    return http.get(`${API_BASES.UDS}/data-manage/mock-data`);
+    return http.get(`${API_BASES.UDS}/mock-data/mock-data`);
   }
 
   deleteMockData(

@@ -38,13 +38,13 @@ export const DATA_ACCESS_ENDPOINTS = {
   POLICY_DELETE: `${API_BASES.UDS}${DATA_ACCESS_SUBPATH}${POLICY_SUBPATH}`,
 } as const;
 
-// ─── Data Manage endpoints ────────────────────────────────────────────────────
+// ─── Mock Data endpoints ──────────────────────────────────────────────────────
 
-const DATA_MANAGE_SUBPATH = "/data-manage";
+const MOCK_DATA_SUBPATH = "/mock-data";
 
 export const DATA_MANAGE_ENDPOINTS = {
-  GET_MOCK_DATA: `${API_BASES.UDS}${DATA_MANAGE_SUBPATH}`,
-  DELETE_MOCK_DATA: `${API_BASES.UDS}${DATA_MANAGE_SUBPATH}/mock-data`,
+  GET_MOCK_DATA: `${API_BASES.UDS}${MOCK_DATA_SUBPATH}`,
+  DELETE_MOCK_DATA: `${API_BASES.UDS}${MOCK_DATA_SUBPATH}/mock-data`,
 } as const;
 
 // ─── Data Validation endpoints ────────────────────────────────────────────────

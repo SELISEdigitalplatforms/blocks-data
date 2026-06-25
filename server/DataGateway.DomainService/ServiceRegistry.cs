@@ -92,7 +92,9 @@ public static class ServiceRegistry
         // header). Replace the executor options monitor so an executor can be resolved for any tenant
         // id at runtime, and register the dispatcher that routes requests to the right one.
         serviceCollection.RemoveAll<IRequestExecutorOptionsMonitor>();
-        serviceCollection.AddSingleton<IRequestExecutorOptionsMonitor, ProjectExecutorOptionsMonitor>();
+        serviceCollection.AddSingleton<ProjectExecutorOptionsMonitor>();
+        serviceCollection.AddSingleton<IRequestExecutorOptionsMonitor>(sp =>
+            sp.GetRequiredService<ProjectExecutorOptionsMonitor>());
         serviceCollection.AddSingleton<DataGatewayPipelineDispatcher>();
     }
 

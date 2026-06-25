@@ -52,7 +52,6 @@
             Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.DataManageController"/> class.
             </summary>
             <param name="dataManageService"></param>
-            <param name="changeControllerContext"></param>
             <exception cref="T:System.ArgumentException"></exception>
         </member>
         <member name="M:DataGateway.Api.Controllers.DataManageController.GetMockData(System.String)">

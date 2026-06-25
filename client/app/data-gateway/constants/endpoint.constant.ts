@@ -1,13 +1,11 @@
 import { API_BASES } from "@/constants/endpoint.constant";
 
-// ─── Data Source endpoints ────────────────────────────────────────────────────
+// ─── Configuration endpoints ─────────────────────────────────────────────────
 
-const DATA_SOURCES_SUBPATH = "/data-sources";
+const CONFIGURATIONS_SUBPATH = "/configurations";
 
-export const DATA_SOURCE_ENDPOINTS = {
-  ADD: `${API_BASES.UDS}${DATA_SOURCES_SUBPATH}/add`,
-  UPDATE: `${API_BASES.UDS}${DATA_SOURCES_SUBPATH}/update`,
-  GET: `${API_BASES.UDS}${DATA_SOURCES_SUBPATH}`,
+export const CONFIGURATION_ENDPOINTS = {
+  GET: `${API_BASES.UDS}${CONFIGURATIONS_SUBPATH}`,
 } as const;
 
 // ─── Schema endpoints ─────────────────────────────────────────────────────────

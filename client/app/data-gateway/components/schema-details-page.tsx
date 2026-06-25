@@ -21,13 +21,24 @@ import {
   MoreVertical,
   Settings,
 } from "lucide-react";
+
+const GraphQLIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 30 30" className={className} fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+    <path d="M4.08 22.864l-1.1-.636L15 .345l1.1.636zm-1.1 4.636L14.636 29.66l.636-1.1L3.616 26.4zm13.12 0L27.746 29.1l.636 1.1L16.736 28.4zm4.636-4.636l1.1.636L29.46 6.636 28.36 6zm-5.82-20.03l-.636-1.1L1.1 7.924l.636 1.1zM.5 9.636l-.636 1.1 11.63 6.72.636-1.1zm27.364 7.82l.636-1.1L16.87 9.636l-.636 1.1zm-13.82 6.1l1.274.012.012-13.82-1.274-.012z"/>
+    <circle cx="15" cy="1.833" r="2.5"/>
+    <circle cx="28.667" cy="9.5" r="2.5"/>
+    <circle cx="28.667" cy="20.5" r="2.5"/>
+    <circle cx="15" cy="28.167" r="2.5"/>
+    <circle cx="1.333" cy="20.5" r="2.5"/>
+    <circle cx="1.333" cy="9.5" r="2.5"/>
+  </svg>
+);
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import {
   getPolicyDataQueryOptions,
   useCreateSchema,
-  useGetDataServiceConfiguration,
   useGetUnadaptedChangeLogs,
   useSchemaDetails,
 } from "../hooks/use-configuration";
@@ -35,7 +46,6 @@ import { useDataGatewaySearchParams } from "../hooks/use-data-gateway-search-par
 import {
   ICreateSchemaDefaultValues,
   ICreateSchemaPayload,
-  IDataSourceResponse,
   ISchemaDetails,
 } from "../models/data-service";
 import { Schema } from "../models/security-and-performance";
@@ -45,7 +55,6 @@ import {
 } from "../utils/schema-access.utils";
 import { normalizeSchemaFields } from "../utils/schema-normalization";
 import { AddEditSchemaModal } from "./add-edit-schema";
-import ConfigureDataSourceModal from "./configure-data-source";
 import ExportSchemaModal from "./export-schema/export-schema-modal";
 import ImportSchemaModal from "./import-schema-modal";
 import { SchemaBasicInfo } from "./schema-basic-info";
@@ -84,7 +93,6 @@ export const SchemaDetailsPage = () => {
   const queryClient = useQueryClient();
   const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] =
     useState(false);
-  const [isConfigureModalOpen, setIsConfigureModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isOpenImportSchemaModal, setIsOpenImportSchemaModal] = useState(false);
 
@@ -122,36 +130,41 @@ export const SchemaDetailsPage = () => {
     useSchemaDetails(selectedSchemaId ?? "", projectKey, {
       enabled: isSchemaView,
     });
-  const { data: configData } = useGetDataServiceConfiguration();
   const { mutateAsync: createSchema } = useCreateSchema();
 
   const onSchemaCreate = async (
     values: ICreateSchemaDefaultValues,
   ): Promise<boolean> => {
-    const payload: ICreateSchemaPayload = {
-      schemaName: values.schemaName,
-      collectionName: values.schemaType == "Entity" ? values.entityName : "",
-      schemaType: values.schemaType == "Entity" ? 1 : 2,
-      projectKey,
-    };
+    try {
+      const payload: ICreateSchemaPayload = {
+        schemaName: values.schemaName,
+        collectionName: values.schemaType == "Entity" ? values.entityName : "",
+        schemaType: values.schemaType == "Entity" ? 1 : 2,
+        projectKey,
+      };
 
-    const res = await createSchema(payload);
+      const res = await createSchema(payload);
 
-    if (res.isSuccess) {
-      setQueryParams(
-        {
-          type: "all",
-          schemaId: res.data.itemId,
-          page: queryParams.page,
-          pageSize: queryParams.pageSize,
-        },
-        { history: "push" },
-      );
-      showSuccessToast({ description: "Schema added successfully" });
-      setIsAddEditSchemaModalOpen(false);
-      return true;
-    } else {
-      showErrorToast({ errors: res.errors });
+      if (res.isSuccess) {
+        setQueryParams(
+          {
+            type: "all",
+            schemaId: res.data.itemId,
+            page: queryParams.page,
+            pageSize: queryParams.pageSize,
+          },
+          { history: "push" },
+        );
+        showSuccessToast({ description: "Schema added successfully" });
+        setIsAddEditSchemaModalOpen(false);
+        return true;
+      } else {
+        showErrorToast({ errors: res.errors });
+        return false;
+      }
+    } catch (error) {
+      console.error("Error in onSchemaCreate:", error);
+      showErrorToast({ errors: ["An unexpected error occurred"] });
       return false;
     }
   };
@@ -268,6 +281,7 @@ export const SchemaDetailsPage = () => {
                         navigate("/services/data-gateway/playground")
                       }
                     >
+                      <GraphQLIcon className="mr-2 h-4 w-4" />
                       Playground
                     </DropdownMenuItem>
                     <DropdownMenuItem
@@ -286,7 +300,9 @@ export const SchemaDetailsPage = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="cursor-pointer"
-                      onClick={() => setIsConfigureModalOpen(true)}
+                      onClick={() =>
+                        navigate("/services/data-gateway/edit-data-source")
+                      }
                     >
                       <Settings className="mr-2 h-4 w-4" />
                       Configure
@@ -317,15 +333,19 @@ export const SchemaDetailsPage = () => {
                 <Button
                   size="sm"
                   variant="outline"
+                  className="flex items-center gap-2"
                   onClick={() => navigate("/services/data-gateway/playground")}
                 >
+                  <GraphQLIcon className="h-4 w-4" />
                   Playground
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   className="gap-1 text-sm font-medium"
-                  onClick={() => setIsConfigureModalOpen(true)}
+                  onClick={() =>
+                    navigate("/services/data-gateway/edit-data-source")
+                  }
                 >
                   <Settings className="h-5 w-5" />
                   <span className="sr-only sm:not-sr-only">Configure</span>
@@ -439,18 +459,6 @@ export const SchemaDetailsPage = () => {
           mode="add"
           onSubmit={onSchemaCreate}
           onCancel={() => setIsAddEditSchemaModalOpen(false)}
-        />
-      </Dialog>
-
-      <Dialog
-        open={isConfigureModalOpen}
-        onOpenChange={setIsConfigureModalOpen}
-      >
-        <ConfigureDataSourceModal
-          mode="edit"
-          initialData={configData?.data as IDataSourceResponse}
-          onCancel={() => setIsConfigureModalOpen(false)}
-          onConfirm={() => setIsConfigureModalOpen(false)}
         />
       </Dialog>
 

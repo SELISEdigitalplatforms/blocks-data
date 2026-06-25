@@ -348,9 +348,7 @@ All paths are defined in `constant/endpoint.constant.ts` and composed from the s
 
 | Group                       | Key                     | Path                                                |
 | --------------------------- | ----------------------- | --------------------------------------------------- |
-| `DATA_SOURCE_ENDPOINTS`     | `ADD`                   | `UDS/data-sources/add`                              |
-|                             | `UPDATE`                | `UDS/data-sources/update`                           |
-|                             | `GET`                   | `UDS/data-sources/{projectKey}/get`                 |
+| `CONFIGURATION_ENDPOINTS`   | `GET`                   | `UDS/configurations`                                 |
 | `SCHEMA_ENDPOINTS`          | `LIST`                  | `UDS/schemas`                                       |
 |                             | `DETAILS`               | `UDS/schemas/{id}`                                  |
 |                             | `CREATE_INFO`           | `UDS/schemas/info`                                  |

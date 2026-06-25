@@ -11,11 +11,12 @@ namespace Api.Controllers.DataGateway
     /// Controller for managing platform data source configurations.
     /// Provides endpoints to retrieve, create, and update data source configurations for projects.
     /// </summary>
+    [Obsolete("This controller is deprecated and will be removed in future versions. Please use the ConfigurationController instead.")]
     [Route("data-sources")]
     [ApiController]
     public class DataSourceController : ControllerBase
     {
-        private readonly IDataSourceService _dataSourceService;
+        private readonly IDataGatewayConfigurationService _dataSourceService;
         // private readonly ChangeControllerContext _changeControllerContext;
 
         /// <summary>
@@ -24,7 +25,7 @@ namespace Api.Controllers.DataGateway
         /// <param name="dataSourceService">The data source service.</param>
         /// <param name="changeControllerContext">The change Controller service.</param>
         /// <exception cref="ArgumentNullException">Thrown when the platform data configuration service is null.</exception>
-        public DataSourceController(IDataSourceService dataSourceService)//, ChangeControllerContext changeControllerContext)
+        public DataSourceController(IDataGatewayConfigurationService dataSourceService)//, ChangeControllerContext changeControllerContext)
         {
             _dataSourceService = dataSourceService ?? throw new ArgumentNullException(nameof(dataSourceService));
             // _changeControllerContext = changeControllerContext ?? throw new ArgumentNullException(nameof(changeControllerContext));
@@ -37,7 +38,7 @@ namespace Api.Controllers.DataGateway
         /// <returns>Returns the data source configuration details, including the connection string, database name, and project key, or an error message if the data source is not found.</returns>
         [Authorize]
         [HttpGet("{projectKey}/get")]
-        [ProducesResponseType(typeof(ServiceResponse<DataSourceResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ServiceResponse<DataServiceConfigurationResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetDataSourcesAsync([FromRoute] string projectKey)
         {
@@ -47,7 +48,7 @@ namespace Api.Controllers.DataGateway
                 // {
                 //     ProjectKey = projectKey
                 // });
-                var response = await _dataSourceService.GetDataSource(projectKey);
+                var response = await _dataSourceService.GetConfiguration(projectKey);
                 return Ok(response);
             }
             catch (Exception ex)
@@ -62,7 +63,7 @@ namespace Api.Controllers.DataGateway
         /// <returns>Returns the data source configuration details, including the connection string, database name, and project key, or an error message if the data source is not found.</returns>
         [Authorize]
         [HttpGet("get")]
-        [ProducesResponseType(typeof(ServiceResponse<DataSourceResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ServiceResponse<DataServiceConfigurationResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetProjectDataSourcesAsync(string projectKey = "")
         {
@@ -77,7 +78,7 @@ namespace Api.Controllers.DataGateway
                 {
                     projectKey = BlocksContext.GetContext()?.TenantId;
                 }
-                var response = await _dataSourceService.GetDataSource(projectKey);
+                var response = await _dataSourceService.GetConfiguration(projectKey);
                 return Ok(response);
             }
             catch (Exception ex)
@@ -96,12 +97,12 @@ namespace Api.Controllers.DataGateway
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> InsertDataSourceAsync([FromBody] CreateDataSourceRequest request)
+        public async Task<IActionResult> InsertDataSourceAsync([FromBody] CreateDataGatewayConfigurationRequest request)
         {
             try
             {
                 // _changeControllerContext.ChangeContext(request);
-                var response = await _dataSourceService.InsertDataSource(request);
+                var response = await _dataSourceService.InsertConfiguration(request);
                 return StatusCode(response.HttpStatusCode, response);
             }
             catch (Exception ex)
@@ -120,12 +121,12 @@ namespace Api.Controllers.DataGateway
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> UpdateDataSourceAsync([FromBody] UpdateDataSourceRequest request)
+        public async Task<IActionResult> UpdateDataSourceAsync([FromBody] UpdateDataGatewayConfigurationRequest request)
         {
             try
             {
                 // _changeControllerContext.ChangeContext(request);
-                var response = await _dataSourceService.UpdateDataSource(request);
+                var response = await _dataSourceService.UpdateConfiguration(request);
                 return StatusCode(response.HttpStatusCode, response);
             }
             catch (Exception ex)

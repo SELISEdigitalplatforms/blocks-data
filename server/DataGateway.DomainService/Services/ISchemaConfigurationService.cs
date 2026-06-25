@@ -1,6 +1,6 @@
 namespace DataGateway.DomainService.Services;
 
-public interface IConfigurationService
+public interface ISchemaConfigurationService
 {
     Task<ISchema> BuildSchemaAsync(string tenantId, CancellationToken cancellationToken);
     Task ConfigureSchemaAsync(string tenantId, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken);

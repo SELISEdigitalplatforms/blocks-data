@@ -1,7 +1,5 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 
-import { DashboardLayout } from "./layouts/dashboard-layout";
-
 // Dashboard routes (protected)
 import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
 import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
@@ -14,17 +12,23 @@ import {
   CallbackPage,
   ConsoleLayout,
   ConsolePage,
+  DashboardLayout,
+  DashboardOverview,
+  EnvironmentsPage,
   ImpersonationChecker,
-  ImpersonationSynchronizer,
   ImpersonationTerminator,
   LoginPage,
   ProfilePage,
+  ProjectOverviewLayout,
   ProtectedGuard,
   PublicGuard,
 } from "@seliseblocks/blocks-kit";
-import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
-import { DashboardOverview } from "./pages/dashboard/dashboard-overview";
-import { EnvironmentsPage } from "./pages/environments/environments";
+import { navigationMenus } from "./constants/navigation-menus";
+
+const redirectPaths: Record<string, string> = {
+  "/services/data-gateway*": "/services/data-gateway",
+  "/services/storage*": "/services/storage",
+};
 
 export const router = createBrowserRouter([
   {
@@ -85,7 +89,14 @@ export const router = createBrowserRouter([
               },
               {
                 path: "/project-overview",
-                element: <ProjectOverviewLayout />,
+                element: (
+                  <ProjectOverviewLayout
+                    redirectPaths={redirectPaths}
+                    navigationMenus={navigationMenus}
+                  >
+                    <Outlet />
+                  </ProjectOverviewLayout>
+                ),
                 children: [
                   {
                     path: "environments",
@@ -96,11 +107,12 @@ export const router = createBrowserRouter([
               {
                 // impersonate
                 element: (
-                  <ImpersonationChecker>
-                    <ImpersonationSynchronizer>
-                      <DashboardLayout />
-                    </ImpersonationSynchronizer>
-                  </ImpersonationChecker>
+                  <DashboardLayout
+                    redirectPaths={redirectPaths}
+                    navigationMenus={navigationMenus}
+                  >
+                    <Outlet />
+                  </DashboardLayout>
                 ),
                 children: [
                   { path: "/dashboard", element: <DashboardOverview /> },

@@ -1,22 +1,33 @@
 using Blocks.Genesis;
 using BlocksTemplate.Api;
 using DataGateway.DomainService;
+using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Utilities;
+using SeliseBlocks.ConfigurationDriver;
 
 var serviceName = GraphQlConstant.ApiServiceName;
-//var vaultType = ResolveVaultType();
-//Console.WriteLine($"Using Genesis vault type: {vaultType}");
-var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(serviceName, VaultType.Azure);
-var cloudBuildSecret = await CloudBuildSecret.ProcessBlocksSecret(VaultType.Azure);
+var vaultType = ApplicationConfigurations.ResolveVaultType();
+Console.WriteLine($"Using Genesis vault type: {vaultType}");
+var secret = await ApplicationConfigurations.ConfigureLogAndSecretsAsync(serviceName, vaultType);
+var cloudBuildSecret = await CloudBuildSecret.ProcessBlocksSecret(vaultType);
 
 var builder = WebApplication.CreateBuilder(args);
 
 ApplicationConfigurations.ConfigureApiEnv(builder, args);
+
+builder.Configuration.AddMongoDbConfiguration(options =>
+{
+    options.ConnectionString = secret.DatabaseConnectionString;
+    options.DatabaseName = secret.RootDatabaseName;
+    options.CollectionName = "Secrets";
+    options.SecretKey = "blocks-secret-data";
+});
+
 
 ApplicationConfigurations.ConfigureServices(builder.Services, GraphQlConstant.GetMessageConfiguration(secret.MessageConnectionString));
 
@@ -41,7 +52,11 @@ builder.Services.Configure<MvcOptions>(options =>
 var wwwrootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 Directory.CreateDirectory(wwwrootPath);
 
-//ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath);
+ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath);
+
+var cloudSecret = await CloudBuildSecret.ProcessBlocksSecret(vaultType);
+cloudSecret.ChatGptEncryptedSecret = builder.Configuration["ChatGptEncryptedSecret"];
+cloudSecret.ChatGptEncryptionKey = builder.Configuration["ChatGptEncryptionKey"];
 
 services.AddDataGatewayDomainServices();
 services.AddStorageDomainServices();
@@ -51,12 +66,17 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.MapGraphQL("/api/gateway"); //.WithDisplayName("GraphQL");
 app.UseMiddleware<RequestContextMiddleware>();
 
 app.MapControllers();
 
 ApplicationConfigurations.ConfigureMiddleware(app);
+
+// One instance serves all tenants: a separate GraphQL server (schema/executor) per tenant.
+// The tenant is taken from the access token when authenticated, otherwise from the x-blocks-key
+// header. All requests use the same /api/gateway path. Mapped AFTER ConfigureMiddleware so that
+// authentication has run and the token (HttpContext.User / BlocksContext) is available here.
+app.MapDataGatewayGraphQL("/api/gateway").WithDisplayName("GraphQL");
 
 var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
 
@@ -77,7 +97,7 @@ if (File.Exists(indexHtml))
                 return;
             }
 
-            ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath, tenant.TenantId, string.Empty);
+            // ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath, tenant.TenantId, string.Empty);
             var domain = tenant.Applications.FirstOrDefault(app => app.CookieDomain == host)?.CookieDomain;
 
             context.Response.Cookies.Append("x-blocks-key", tenant.TenantId, new CookieOptions
@@ -108,51 +128,55 @@ if (File.Exists(indexHtml))
 
 await app.RunAsync();
 
-//static VaultType ResolveVaultType()
-//{
-//    var configuredVaultType = Environment.GetEnvironmentVariable("BLOCKS_VAULT_TYPE");
-//    if (!string.IsNullOrWhiteSpace(configuredVaultType) &&
-//        Enum.TryParse<VaultType>(configuredVaultType, true, out var parsedVaultType))
-//    {
-//        return parsedVaultType;
-//    }
-
-//    var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ??
-//                      Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
-
-//    return string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase)
-//        ? VaultType.OnPrem
-//        : VaultType.Azure;
-//}
-
-static void ApplyFrontendRuntimeSettings(IConfiguration configuration, string webRootPath, string blocksKey, string googleSiteKey)
+static void ApplyFrontendRuntimeSettings(IConfiguration configuration, string webRootPath)
 {
     //  var envFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
-    //var section = configuration.GetSection("FrontendRuntime");
-    //var replacements = new Dictionary<string, string?>
-    //{
-    //    ["__BLOCKS_API_BASE_URL__"] = section["BLOCKS_API_BASE_URL"],
-    //    ["__BLOCKS_X_BLOCKS_KEY__"] = section["BLOCKS_X_BLOCKS_KEY"],
-    //    ["__BLOCKS_GOOGLE_SITE_KEY__"] = section["BLOCKS_GOOGLE_SITE_KEY"],
-    //    ["__BLOCKS_CONSTRUCT_URL__"] = section["BLOCKS_CONSTRUCT_URL"]
-    //};
-
-    DotNetEnv.Env.Load();
-
-    // blocksKey = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("BLOCKS_X_BLOCKS_KEY")) ? Environment.GetEnvironmentVariable("BLOCKS_X_BLOCKS_KEY") : blocksKey;
-    // googleSiteKey = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("BLOCKS_GOOGLE_SITE_KEY")) ? Environment.GetEnvironmentVariable("BLOCKS_GOOGLE_SITE_KEY") : googleSiteKey;
-
+    var section = configuration.GetSection("FrontendRuntime");
+    Console.WriteLine("SECTION FROM RUNTIME ", section);
     var replacements = new Dictionary<string, string?>
     {
-        ["__BLOCKS_API_BASE_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_API_BASE_URL"),
-        ["__BLOCKS_X_BLOCKS_KEY__"] = Environment.GetEnvironmentVariable("BLOCKS_X_BLOCKS_KEY"),
-        ["__BLOCKS_GOOGLE_SITE_KEY__"] = Environment.GetEnvironmentVariable("BLOCKS_GOOGLE_SITE_KEY"),
-        ["__BLOCKS_CONSTRUCT_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_CONSTRUCT_URL"),
-        ["__BLOCKS_OIDC_CLIENT_ID__"] = Environment.GetEnvironmentVariable("BLOCKS_OIDC_CLIENT_ID"),
-        ["__BLOCKS_LOGIC_BASE_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_LOGIC_BASE_URL"),
-        ["__BLOCKS_IDP_BASE_URL__"] = Environment.GetEnvironmentVariable("BLOCKS_IDP_BASE_URL"),
+        ["__BLOCKS_API_BASE_URL__"] = section["BLOCKS_API_BASE_URL"],
+        ["__BLOCKS_X_BLOCKS_KEY__"] = section["BLOCKS_X_BLOCKS_KEY"],
+        ["__BLOCKS_GOOGLE_SITE_KEY__"] = section["BLOCKS_GOOGLE_SITE_KEY"],
+        ["__BLOCKS_CONSTRUCT_URL__"] = section["BLOCKS_CONSTRUCT_URL"],
+        ["__BLOCKS_GITHUB_SSO_CLIENT_ID__"] = section["BLOCKS_GITHUB_SSO_CLIENT_ID"],
+        ["__BLOCKS_APP_URL__"] = section["BLOCKS_APP_URL"],
+        ["__BLOCKS_IDP_BASE_URL__"] = section["BLOCKS_IDP_BASE_URL"],
+        ["__BLOCKS_OS_URL__"] = section["BLOCKS_OS_URL"],
+        ["__BLOCKS_OIDC_CLIENT_ID__"] = section["BLOCKS_OIDC_CLIENT_ID"],
+        ["__BLOCKS_BASE_DOMAIN__"] = section["BLOCKS_BASE_DOMAIN"],
+        ["__BLOCKS_IAM_BASE_URL__"] = section["BLOCKS_IAM_BASE_URL"],
+        ["__BLOCKS_IAM_CALLBACK_URL__"] = section["BLOCKS_IAM_CALLBACK_URL"],
+        ["__BLOCKS_LOCALIZATION_BASE_URL__"] = section["BLOCKS_LOCALIZATION_BASE_URL"],
+        ["__BLOCKS_LOCALIZATION_CALLBACK_URL__"] = section["BLOCKS_LOCALIZATION_CALLBACK_URL"],
+        ["__BLOCKS_AGENTS_BASE_URL__"] = section["BLOCKS_AGENTS_BASE_URL"],
+        ["__BLOCKS_AGENTS_CALLBACK_URL__"] = section["BLOCKS_AGENTS_CALLBACK_URL"],
+        ["__BLOCKS_DATA_BASE_URL__"] = section["BLOCKS_DATA_BASE_URL"],
+        ["__BLOCKS_DATA_CALLBACK_URL__"] = section["BLOCKS_DATA_CALLBACK_URL"],
+        ["__BLOCKS_OS_BASE_URL__"] = section["BLOCKS_OS_BASE_URL"],
+        ["__BLOCKS_OS_CALLBACK_URL__"] = section["BLOCKS_OS_CALLBACK_URL"],
+        ["__BLOCKS_UTILITIES_BASE_URL__"] = section["BLOCKS_UTILITIES_BASE_URL"],
+        ["__BLOCKS_UTILITIES_CALLBACK_URL__"] = section["BLOCKS_UTILITIES_CALLBACK_URL"],
+        ["__BLOCKS_LOGIC_BASE_URL__"] = section["BLOCKS_LOGIC_BASE_URL"],
+        ["__BLOCKS_LOGIC_CALLBACK_URL__"] = section["BLOCKS_LOGIC_CALLBACK_URL"],
+        ["__BLOCKS_MONITOR_BASE_URL__"] = section["BLOCKS_MONITOR_BASE_URL"],
+        ["__BLOCKS_MONITOR_CALLBACK_URL__"] = section["BLOCKS_MONITOR_CALLBACK_URL"],
+        ["__BLOCKS_RELEASE_BASE_URL__"] = section["BLOCKS_RELEASE_BASE_URL"],
+        ["__BLOCKS_RELEASE_CALLBACK_URL__"] = section["BLOCKS_RELEASE_CALLBACK_URL"],
+        ["__BLOCKS_STUDIO_BASE_URL__"] = section["BLOCKS_STUDIO_BASE_URL"],
+        ["__BLOCKS_STUDIO_CALLBACK_URL__"] = section["BLOCKS_STUDIO_CALLBACK_URL"],
+        ["__BLOCKS_DATA_IMPORT_SAMPLE_FILE__"] = section["BLOCKS_DATA_IMPORT_SAMPLE_FILE"],
+        ["__BLOCKS_IAM_CLIENT_ID__"] = section["BLOCKS_IAM_CLIENT_ID"],
+        ["__BLOCKS_DATA_CLIENT_ID__"] = section["BLOCKS_DATA_CLIENT_ID"],
+        ["__BLOCKS_LOCALIZATION_CLIENT_ID__"] = section["BLOCKS_LOCALIZATION_CLIENT_ID"],
+        ["__BLOCKS_AGENTS_CLIENT_ID__"] = section["BLOCKS_AGENTS_CLIENT_ID"],
+        ["__BLOCKS_OS_CLIENT_ID__"] = section["BLOCKS_OS_CLIENT_ID"],
+        ["__BLOCKS_UTILITIES_CLIENT_ID__"] = section["BLOCKS_UTILITIES_CLIENT_ID"],
+        ["__BLOCKS_LOGIC_CLIENT_ID__"] = section["BLOCKS_LOGIC_CLIENT_ID"],
+        ["__BLOCKS_MONITOR_CLIENT_ID__"] = section["BLOCKS_MONITOR_CLIENT_ID"],
+        ["__BLOCKS_RELEASE_CLIENT_ID__"] = section["BLOCKS_RELEASE_CLIENT_ID"],
+        ["__BLOCKS_STUDIO_CLIENT_ID__"] = section["BLOCKS_STUDIO_CLIENT_ID"],
     };
-
 
     var files = Directory.EnumerateFiles(webRootPath, "*", SearchOption.AllDirectories)
         .Where(path =>

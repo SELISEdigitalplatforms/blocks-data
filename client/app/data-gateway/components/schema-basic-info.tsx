@@ -72,8 +72,8 @@ export const SchemaBasicInfo = ({
           title: "Success",
           description: "Deleted successfully",
         });
-        setIsDeleteDialogOpen(false);
         onDeleteSuccess?.();
+        setIsDeleteDialogOpen(false);
       } else {
         toast({
           variant: "destructive",
@@ -145,7 +145,11 @@ export const SchemaBasicInfo = ({
                   {/* Delete Option */}
                   <DropdownMenuItem
                     className="cursor-pointer text-red-500 focus:text-red-500"
-                    onClick={() => setIsDeleteDialogOpen(true)}
+                    onSelect={() => {
+                      setIsDropdownOpen(false);
+                      // Open dialog after menu selection resolves to avoid focus collisions.
+                      requestAnimationFrame(() => setIsDeleteDialogOpen(true));
+                    }}
                   >
                     <span className="text-red-500">Delete</span>
                   </DropdownMenuItem>
@@ -232,7 +236,10 @@ export const SchemaBasicInfo = ({
       </Card>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
         <ConfirmationModal
           onCancel={() => {}}
           onConfirm={onConfirmDelete}

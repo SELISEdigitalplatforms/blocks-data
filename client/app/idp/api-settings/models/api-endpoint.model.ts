@@ -5,7 +5,7 @@ export interface IApiEndpoint {
   createdBy: string | null;
   lastUpdatedBy: string;
   language: string | null;
-  organizationIds: string[];
+  organizationId: string;
   tags: string[];
   service: string;
   method: string;

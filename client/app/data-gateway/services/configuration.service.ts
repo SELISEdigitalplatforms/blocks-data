@@ -1,7 +1,4 @@
-import {
-  API_BASES,
-  getGraphqlGatewayExecuteOrigin,
-} from "@/constants/endpoint.constant";
+import { API_BASES } from "@/constants/endpoint.constant";
 import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
 import { http } from "@/lib/http-client";
 import {
@@ -10,7 +7,6 @@ import {
   DATA_SOURCE_ENDPOINTS,
   DATA_VALIDATION_ENDPOINTS,
   DATA_VALIDATION_REGEX_ENDPOINTS,
-  PIPELINE_ENDPOINTS,
   SCHEMA_ENDPOINTS,
 } from "../constants/endpoint.constant";
 import {
@@ -34,7 +30,6 @@ import {
   IGetSchemaListPayload,
   IGetSchemaListResponse,
   IGetUnAdaptedChangeLogsPayload,
-  IInitiateDataGatewayPipelinePayload,
   IMockDataResponse,
   ISchemaExportPayload,
   ISchemaExportResponse,
@@ -63,12 +58,9 @@ class ConfigurationService {
     return http.get(`${DATA_SOURCE_ENDPOINTS.GET}/get`);
   }
 
-  reloadSchemas(payload: {
-    projectKey: string;
-    projectShortKey?: string;
-  }): Promise<IDataServiceConfigurationResponse> {
-    const url = `${getGraphqlGatewayExecuteOrigin()}/${payload.projectShortKey}${API_BASES.UDS}/configurations/reload?projectKey=${encodeURIComponent(payload.projectKey)}`;
-    return http.post(url, {}, undefined, { absoluteUrl: true });
+  reloadSchemas(): Promise<IDataServiceConfigurationResponse> {
+    const url = `${API_BASES.UDS}/configurations/reload`;
+    return http.post(url, {});
   }
 
   getSchemaList(
@@ -135,12 +127,11 @@ class ConfigurationService {
    * introspection (`x-graphql-playground`) so the gateway can expose the full schema.
    */
   executeGraphQLOperation(
-    projectShortKey: string,
     query: string,
     headers?: Record<string, string>,
   ): Promise<unknown> {
-    const url = `${getGraphqlGatewayExecuteOrigin()}/${projectShortKey}/api/gateway`;
-    return http.post(url, { query }, headers, { absoluteUrl: true });
+    const url = `${API_BASES.UDS}/gateway`;
+    return http.post(url, { query }, headers);
   }
 
   getMockData(): Promise<IMockDataResponse> {
@@ -194,39 +185,6 @@ class ConfigurationService {
     );
   }
 
-  async getPodActiveStatus(
-    slug: string,
-  ): Promise<undefined | { status: string }> {
-    const url = `${getGraphqlGatewayExecuteOrigin()}/${slug}/ping`;
-
-    try {
-      const response = await http.get<unknown>(url, undefined, {
-        absoluteUrl: true,
-      });
-
-      if (
-        response &&
-        typeof response === "object" &&
-        "status" in response &&
-        typeof response.status === "string"
-      ) {
-        return { status: response.status };
-      }
-
-      return undefined;
-    } catch {
-      return undefined;
-    }
-  }
-
-  initiateDataGatewayPipeline(
-    payload: IInitiateDataGatewayPipelinePayload,
-  ): Promise<unknown> {
-    return http.get(
-      `${PIPELINE_ENDPOINTS.INITIATE}?ProjectKey=${payload.projectKey}`,
-    );
-  }
-
   getSchemaFieldValidation(
     payload: IGetSchemaFieldValidationPayload,
   ): Promise<IGetSchemaFieldValidationResponse> {
@@ -275,11 +233,5 @@ class ConfigurationService {
     return http.post(url, payload);
   };
 }
-
-/** Headers required by the gateway for full introspection from the playground. */
-export const GRAPHQL_PLAYGROUND_INTROSPECTION_HEADERS: Record<string, string> =
-  {
-    "x-graphql-playground": "true",
-  };
 
 export const configurationService = new ConfigurationService();

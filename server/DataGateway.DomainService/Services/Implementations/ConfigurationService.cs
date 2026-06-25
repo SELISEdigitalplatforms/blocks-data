@@ -1,3 +1,4 @@
+using DataGateway.DomainService.GraphQL;
 using HotChocolate.Execution;
 using Microsoft.Extensions.Logging;
 
@@ -8,56 +9,58 @@ public class ConfigurationService : IConfigurationService
     private readonly GraphqlSchemaBuilder _graphqlSchemaBuilder;
     private readonly ILogger<ConfigurationService> _logger;
     private readonly IRequestExecutorResolver _executorResolver;
-    private readonly IProjectService _projectService;
+    private readonly DataGatewayPipelineDispatcher _pipelineDispatcher;
+    private readonly ProjectExecutorOptionsMonitor _optionsMonitor;
 
     public ConfigurationService(GraphqlSchemaBuilder graphqlSchemaBuilder,
-        IRequestExecutorResolver executorResolver, IProjectService projectService, ILogger<ConfigurationService> logger)
+        IRequestExecutorResolver executorResolver,
+        DataGatewayPipelineDispatcher pipelineDispatcher,
+        ProjectExecutorOptionsMonitor optionsMonitor,
+        ILogger<ConfigurationService> logger)
     {
         _executorResolver = executorResolver ?? throw new ArgumentNullException(nameof(executorResolver));
         _graphqlSchemaBuilder = graphqlSchemaBuilder ?? throw new ArgumentNullException(nameof(graphqlSchemaBuilder));
-        _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
+        _pipelineDispatcher = pipelineDispatcher ?? throw new ArgumentNullException(nameof(pipelineDispatcher));
+        _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<ISchema> BuildSchemaAsync(string projectShortKey, CancellationToken cancellationToken)
+    public async Task<ISchema> BuildSchemaAsync(string tenantId, CancellationToken cancellationToken)
     {
         var builder = SchemaBuilder.New();
-        await _graphqlSchemaBuilder.BuildSchema(projectShortKey, builder, cancellationToken);
-        _logger.LogInformation("Schema built for project short key: {ProjectShortKey}", projectShortKey);
+        await _graphqlSchemaBuilder.BuildSchema(tenantId, builder, cancellationToken);
+        _logger.LogInformation("Schema built for tenant: {TenantId}", tenantId);
         return builder.Create();
     }
 
-    public async Task ConfigureSchemaAsync(string projectShortKey, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
+    public async Task ConfigureSchemaAsync(string tenantId, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Configuring schema for project short key: {ProjectShortKey}", projectShortKey);
-        await _graphqlSchemaBuilder.BuildSchema(projectShortKey, schemaBuilder, cancellationToken);
-        _logger.LogInformation("Schema configured for project short key: {ProjectShortKey}", projectShortKey);
+        _logger.LogInformation("Configuring schema for tenant: {TenantId}", tenantId);
+        await _graphqlSchemaBuilder.BuildSchema(tenantId, schemaBuilder, cancellationToken);
+        _logger.LogInformation("Schema configured for tenant: {TenantId}", tenantId);
     }
 
-    public async Task ReloadAsync(string projectShortKey, CancellationToken cancellationToken)
+    public async Task ReloadAsync(string tenantId, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Reloading schema for project short key: {ProjectShortKey}", projectShortKey);
-        await BuildSchemaAsync(projectShortKey, cancellationToken);
-        _logger.LogInformation("Schema reloaded for project short key: {ProjectShortKey}", projectShortKey);
+        _logger.LogInformation("Reloading schema for tenant: {TenantId}", tenantId);
 
-        _executorResolver.EvictRequestExecutor(Schema.DefaultName);
-        _logger.LogInformation("Request executor evicted for projectShortKey: {ProjectShortKey}", projectShortKey);
+        var effectiveName = string.IsNullOrWhiteSpace(tenantId) ? Schema.DefaultName : tenantId;
 
+        // Bump the version counter so the next request uses a new schema name (e.g. tenantId@v1).
+        // HC has no cache entry for the new name → always builds a fresh executor from MongoDB.
+        // This bypasses any unreliability in EvictRequestExecutor for dynamically-created schemas.
+        var oldSchemaName = _pipelineDispatcher.BumpVersionAndClearPipeline(effectiveName);
+
+        // Evict old executor via HC's own change-notification path (more reliable than
+        // calling IRequestExecutorResolver.EvictRequestExecutor directly).
+        _optionsMonitor.TriggerEviction(oldSchemaName);
+        _logger.LogInformation("Schema reload complete for tenant: {TenantId}", tenantId);
     }
-    public async Task AddSchemaAsync(string projectKey, CancellationToken cancellationToken)
+
+    public Task RemoveSchemaAsync(string tenantId, CancellationToken cancellationToken)
     {
-        var projectShortKey = await _projectService.GetTenantSlugAsync(projectKey);
-        if (string.IsNullOrEmpty(projectShortKey))
-        {
-            throw new Exception("Project short key not found");
-        }
-        await BuildSchemaAsync(projectShortKey, cancellationToken);
-        _executorResolver.EvictRequestExecutor(projectShortKey);
-        await _executorResolver.GetRequestExecutorAsync(projectShortKey, cancellationToken);
-    }
-    public async Task RemoveSchemaAsync(string projectShortKey, CancellationToken cancellationToken)
-    {
-        // Evict the executor for this key so HotChocolate will remove it
-        _executorResolver.EvictRequestExecutor(projectShortKey);
+        var oldSchemaName = _pipelineDispatcher.BumpVersionAndClearPipeline(tenantId);
+        _optionsMonitor.TriggerEviction(oldSchemaName);
+        return Task.CompletedTask;
     }
 }

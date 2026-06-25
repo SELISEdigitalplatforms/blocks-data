@@ -12,7 +12,7 @@ interface AuthState {
   setUnAuthenticated: () => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   clearTokens: () => void;
-  reset: () => void;
+  resetAuthStore: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -37,7 +37,7 @@ export const useAuthStore = create<AuthState>()(
       clearTokens: () => {
         set((state) => ({ ...state, accessToken: null, refreshToken: null }));
       },
-      reset: () => {
+      resetAuthStore: () => {
         set({
           isAuthenticated: false,
           user: null,

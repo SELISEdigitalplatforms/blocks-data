@@ -194,73 +194,65 @@ export default function ImportSchemaModal({
   // };
 
   return (
-    <DialogContent className="rounded-md sm:max-w-[450px]">
-      {/* {!showConfirmation ? ( */}
-      <>
-        <DialogHeader>
-          <DialogTitle className="text-left">Import</DialogTitle>
-          <DialogDescription className="text-left">
-            Import schema from a file.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col bg-warning-100 px-[12px] py-[8px]">
-          <div className="flex flex-row items-center">
-            <TriangleAlert className="h-4 w-4 text-icon-warning" />
-            <p className="ml-[8px] text-[14px] font-semibold text-high-emphasis">
-              JSON Format
-            </p>
-          </div>
-          <p className="mt-[8px] text-[14px] text-high-emphasis">
-            Please download the JSON Template and re-upload with your data to
-            avoid any error.
-          </p>
-        </div>
-        <FileUploader
-          value={files}
-          onValueChange={setFiles}
-          dropzoneOptions={dropZoneConfig}
-          className="relative my-2 rounded-lg"
-        >
-          <FileInput className="rounded border border-dashed border-border">
-            <div className="flex w-full flex-col items-center justify-center py-4">
-              <FileSvgDraw />
-            </div>
-          </FileInput>
-          <FileUploaderContent>
-            {files &&
-              files.length > 0 &&
-              files.map((file, i) => (
-                <FileUploaderItem key={i} index={i}>
-                  <Paperclip className="h-4 w-4 stroke-current" />
-                  <span>{file.name}</span>
-                </FileUploaderItem>
-              ))}
-          </FileUploaderContent>
-        </FileUploader>
+    <DialogContent className="rounded-sm border border-border/40 sm:max-w-[440px]">
+      <DialogHeader>
+        <DialogTitle className="text-sm font-semibold text-foreground">Import</DialogTitle>
+        <DialogDescription className="text-xs text-muted-foreground/60">
+          Import schema from a file.
+        </DialogDescription>
+      </DialogHeader>
 
-        <DialogFooter className="mr-1 grid grid-cols-2 gap-2">
-          <div
-            className="mt-2 flex cursor-pointer flex-row gap-2 text-primary"
-            onClick={downloadTemplate}
+      {/* Warning card */}
+      <div className="flex flex-col gap-1.5 rounded-sm border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-400/80" />
+          <p className="text-xs font-semibold text-amber-400/80">JSON Format</p>
+        </div>
+        <p className="text-xs text-amber-300/60">
+          Please download the JSON Template and re-upload with your data to avoid any error.
+        </p>
+      </div>
+
+      {/* File uploader */}
+      <FileUploader value={files} onValueChange={setFiles} dropzoneOptions={dropZoneConfig} className="relative my-1">
+        <FileInput className="rounded-sm border border-dashed border-border/30 bg-muted/5 hover:bg-muted/10 transition-colors">
+          <div className="flex w-full flex-col items-center justify-center py-5">
+            <FileSvgDraw />
+          </div>
+        </FileInput>
+        <FileUploaderContent>
+          {files?.length > 0 && files.map((file, i) => (
+            <FileUploaderItem key={i} index={i}>
+              <Paperclip className="h-4 w-4 stroke-current" />
+              <span>{file.name}</span>
+            </FileUploaderItem>
+          ))}
+        </FileUploaderContent>
+      </FileUploader>
+
+      <DialogFooter className="flex items-center justify-between gap-2">
+        <button
+          type="button"
+          className="flex items-center gap-1.5 text-xs text-indigo-400/70 transition-colors hover:text-indigo-400"
+          onClick={downloadTemplate}
+        >
+          <ArrowDownToLine className="h-3.5 w-3.5" />
+          Template
+        </button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" className="border border-border/40 text-muted-foreground/70" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            className="shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)]"
+            onClick={handleUpload}
+            disabled={!files || files.length === 0 || isBusy}
           >
-            <ArrowDownToLine size={20} />
-            <h3 className="text-sm font-medium">Template</h3>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" size="default" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              size="default"
-              className="bg-primary"
-              onClick={handleUpload}
-              disabled={!files || files.length === 0 || isBusy}
-            >
-              {isBusy ? "Uploading..." : "Upload"}
-            </Button>
-          </div>
-        </DialogFooter>
-      </>
+            {isBusy ? "Uploading…" : "Upload"}
+          </Button>
+        </div>
+      </DialogFooter>
     </DialogContent>
   );
 }

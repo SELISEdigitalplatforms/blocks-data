@@ -14,13 +14,13 @@ export const ACCESS_TYPES = {
 
 export const ACCESS_STYLES = {
   [ACCESS_TYPES.LOGGED_IN]:
-    "mt-4 rounded-[4px] border border-neutral-300 bg-neutral-50 p-4 dark:border-neutral-200 dark:bg-neutral-200/20",
+    "mt-4 rounded-sm border border-amber-500/20 bg-amber-500/5 p-4",
   [ACCESS_TYPES.PUBLIC]:
-    "mt-4 rounded-md border border-base-warning bg-warning-100 p-4 dark:border-icon-warning dark:bg-warning-800/20",
+    "mt-4 rounded-sm border border-rose-500/20 bg-rose-500/5 p-4",
   [ACCESS_TYPES.CUSTOM]:
-    "mt-4 rounded-[4px] border border-success bg-success/10 p-4 dark:bg-success/20",
+    "mt-4 rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-4",
   [ACCESS_TYPES.INHERITED]:
-    "mt-4 rounded-[4px] border border-blue-300 bg-blue-50 p-4 dark:border-blue-500 dark:bg-blue-900/20",
+    "mt-4 rounded-sm border border-sky-500/20 bg-sky-500/5 p-4",
 };
 
 export const ACCESS_LABELS = {

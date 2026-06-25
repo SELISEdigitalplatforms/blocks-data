@@ -67,7 +67,6 @@ export default function SchemasSidebar({
   const debouncedSearch = useDebounce(search, 500);
   const selectedProject = useProjectStore().selectedProject;
   const projectKey = selectedProject?.tenantId || "";
-  const projectShortKey = selectedProject?.tenantSlug || "";
   const [internalSelectedSchemaId, setInternalSelectedSchemaId] = useState<
     string | null
   >(null);
@@ -142,8 +141,7 @@ export default function SchemasSidebar({
 
   const restartAll = async () => {
     try {
-      const payload = { projectKey, projectShortKey };
-      const res = await mutateAsync(payload);
+      const res = await mutateAsync();
       if (res.isSuccess) {
         showSuccessToast({ description: "Schemas published successfully" });
       } else {

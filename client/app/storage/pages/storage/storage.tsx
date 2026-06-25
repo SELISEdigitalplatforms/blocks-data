@@ -99,7 +99,7 @@ export function Storage() {
   }, [storageCards, filters]);
 
   const handleCardClick = (id: string) => {
-    navigate(`/services/storage?id=${encodeURIComponent(id)}`);
+    navigate(`/app/services/storage?id=${encodeURIComponent(id)}`);
   };
 
   const handleViewDetails = (id: string) => {

@@ -26,8 +26,8 @@ import {
 import { navigationMenus } from "./constants/navigation-menus";
 
 const redirectPaths: Record<string, string> = {
-  "/services/data-gateway*": "/services/data-gateway",
-  "/services/storage*": "/services/storage",
+  "/app/services/data-gateway*": "/app/services/data-gateway",
+  "/app/services/storage*": "/app/services/storage",
 };
 
 export const router = createBrowserRouter([
@@ -37,7 +37,7 @@ export const router = createBrowserRouter([
       // All callback/redirect URLs handled here (unguarded, outside AuthResolver)
       {
         path: "/login/callback",
-        element: <CallbackPage redirectUrl="/console" />,
+        element: <CallbackPage defaultRedirectUrl="/app/console" />,
       },
 
       {
@@ -51,7 +51,7 @@ export const router = createBrowserRouter([
           // Callback inside AuthResolver but outside guards
           {
             path: "/dashboard/callback",
-            element: <CallbackPage redirectUrl="/dashboard" />,
+            element: <CallbackPage defaultRedirectUrl="/app/dashboard" />,
           },
 
           // public
@@ -66,6 +66,7 @@ export const router = createBrowserRouter([
 
           // protected
           {
+            path: "/app",
             element: (
               <ProtectedGuard>
                 <Outlet />
@@ -74,21 +75,17 @@ export const router = createBrowserRouter([
             children: [
               {
                 element: (
-                  <ImpersonationChecker>
-                    <ImpersonationTerminator>
-                      <ConsoleLayout>
-                        <Outlet />
-                      </ConsoleLayout>
-                    </ImpersonationTerminator>
-                  </ImpersonationChecker>
+                  <ConsoleLayout>
+                    <Outlet />
+                  </ConsoleLayout>
                 ),
                 children: [
-                  { path: "/profile", element: <ProfilePage /> },
-                  { path: "/console", element: <ConsolePage /> },
+                  { path: "profile", element: <ProfilePage /> },
+                  { path: "console", element: <ConsolePage /> },
                 ],
               },
               {
-                path: "/project-overview",
+                path: "project-overview",
                 element: (
                   <ProjectOverviewLayout
                     redirectPaths={redirectPaths}
@@ -115,26 +112,26 @@ export const router = createBrowserRouter([
                   </DashboardLayout>
                 ),
                 children: [
-                  { path: "/dashboard", element: <DashboardOverview /> },
+                  { path: "dashboard", element: <DashboardOverview /> },
                   {
-                    path: "/services/data-gateway",
+                    path: "services/data-gateway",
                     element: <DataGatewaySchemasPage />,
                   },
                   {
-                    path: "/services/data-gateway/playground",
+                    path: "services/data-gateway/playground",
                     element: <DataGatewayPlaygroundPage />,
                   },
                   {
-                    path: "/services/data-gateway/logs",
+                    path: "services/data-gateway/logs",
                     element: <DataGatewayLogsPage />,
                   },
-                  { path: "/services/storage", element: <StoragePage /> },
+                  { path: "services/storage", element: <StoragePage /> },
                 ],
               },
             ],
           },
 
-          { path: "/", element: <Navigate to="/console" replace /> },
+          { path: "/", element: <Navigate to="/app/console" replace /> },
           { path: "*", element: <Navigate to="/login" replace /> },
         ],
       },

@@ -39,7 +39,6 @@ export const SchemaBasicInfo = ({
   // State Management
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [shouldFinalizeDelete, setShouldFinalizeDelete] = useState(false);
   const [isSchemaAccessControlDrawerOpen, setIsSchemaAccessControlDrawerOpen] =
     useState<boolean>(false);
   const [selectedTab, setSelectedTab] = useState<string>("");
@@ -73,7 +72,7 @@ export const SchemaBasicInfo = ({
           title: "Success",
           description: "Deleted successfully",
         });
-        setShouldFinalizeDelete(true);
+        onDeleteSuccess?.();
         setIsDeleteDialogOpen(false);
       } else {
         toast({
@@ -239,13 +238,7 @@ export const SchemaBasicInfo = ({
       {/* Delete Confirmation Dialog */}
       <Dialog
         open={isDeleteDialogOpen}
-        onOpenChange={(open) => {
-          setIsDeleteDialogOpen(open);
-          if (!open && shouldFinalizeDelete) {
-            setShouldFinalizeDelete(false);
-            onDeleteSuccess?.();
-          }
-        }}
+        onOpenChange={setIsDeleteDialogOpen}
       >
         <ConfirmationModal
           onCancel={() => {}}

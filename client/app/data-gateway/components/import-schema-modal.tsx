@@ -12,16 +12,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui-kits/dialog/dialog";
+import { ModuleName } from "@/constants/modules.constants";
+import { useImportSchemaFile } from "@/data-gateway/hooks/use-configuration";
+import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
-import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
-import { ArrowDownToLine, CloudUpload, Paperclip, TriangleAlert } from "lucide-react";
+import {
+  useGetPreSignedUrlForUpload,
+  useUploadFile,
+} from "@/storage/hooks/use-storage-file";
+import { storageService } from "@/storage/services/storage.service";
+import { getRuntimeEnv } from "@seliseblocks/blocks-kit";
+import {
+  ArrowDownToLine,
+  CloudUpload,
+  Paperclip,
+  TriangleAlert,
+} from "lucide-react";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { ModuleName } from "@/constants/modules.constants";
-import { useGetPreSignedUrlForUpload, useUploadFile } from "@/storage/hooks/use-storage-file";
-import { storageService } from "@/storage/services/storage.service";
-import { useImportSchemaFile } from "@/data-gateway/hooks/use-configuration";
 
 const FileSvgDraw = () => {
   return (
@@ -33,7 +42,9 @@ const FileSvgDraw = () => {
         <span className="font-semibold text-primary">Click to upload</span>
         &nbsp; or drag and drop
       </div>
-      <div className="text-xs text-low-emphasis">JSON only. Maximum file 5MB</div>
+      <div className="text-xs text-low-emphasis">
+        JSON only. Maximum file 5MB
+      </div>
     </>
   );
 };
@@ -43,25 +54,30 @@ interface IImportFilesModalProps {
   onClose(): void;
 }
 
-export default function ImportSchemaModal({ projectKey, onClose }: IImportFilesModalProps) {
+export default function ImportSchemaModal({
+  projectKey,
+  onClose,
+}: IImportFilesModalProps) {
   const [files, setFiles] = useState<File[] | null>(null);
 
   const { mutateAsync: getPresignedUrl, isPending: isGettingPresignedUrl } =
     useGetPreSignedUrlForUpload();
-  const { mutateAsync: uploadFileMutate, isPending: isUploadingFile } = useUploadFile();
-  const { mutateAsync: uploadSchemaFile, isPending: isUploadingSchemaFile } = useImportSchemaFile(
-    {} as IImportFile,
-  );
+  const { mutateAsync: uploadFileMutate, isPending: isUploadingFile } =
+    useUploadFile();
+  const { mutateAsync: uploadSchemaFile, isPending: isUploadingSchemaFile } =
+    useImportSchemaFile({} as IImportFile);
   const [isUploadingBatch, setIsUploadingBatch] = useState(false);
 
   const isBusy =
-    isGettingPresignedUrl || isUploadingFile || isUploadingSchemaFile || isUploadingBatch;
+    isGettingPresignedUrl ||
+    isUploadingFile ||
+    isUploadingSchemaFile ||
+    isUploadingBatch;
 
   const downloadTemplate = async () => {
     try {
-      
-      const url =
-        "https://blocksstage.blob.core.windows.net/p2846e201c4784fada245995e46948632/Private/24af8ec4-c2f3-43d9-ba6f-d6bc9787b681/a4f5de39-3efa-4f36-aee5-9380b2f86a1f/schema_export_20260427180925.json?sv=2024-11-04&se=2026-04-30T18%3A09%3A26Z&sr=b&sp=r&sig=xkUYJO%2Br7EFRdqlkc0xfw4h6dLAsclTkdavUtTPM5pI%3D";
+      const url = getRuntimeEnv("BLOCKS_DATA_IMPORT_SAMPLE_FILE");
+
       const filename = "SCHEMA_TEMPLATE.json";
 
       if (!url) throw new Error("No URL received");
@@ -183,15 +199,20 @@ export default function ImportSchemaModal({ projectKey, onClose }: IImportFilesM
       <>
         <DialogHeader>
           <DialogTitle className="text-left">Import</DialogTitle>
-          <DialogDescription className="text-left">Import schema from a file.</DialogDescription>
+          <DialogDescription className="text-left">
+            Import schema from a file.
+          </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col bg-warning-100 px-[12px] py-[8px]">
           <div className="flex flex-row items-center">
             <TriangleAlert className="h-4 w-4 text-icon-warning" />
-            <p className="ml-[8px] text-[14px] font-semibold text-high-emphasis">JSON Format</p>
+            <p className="ml-[8px] text-[14px] font-semibold text-high-emphasis">
+              JSON Format
+            </p>
           </div>
           <p className="mt-[8px] text-[14px] text-high-emphasis">
-            Please download the JSON Template and re-upload with your data to avoid any error.
+            Please download the JSON Template and re-upload with your data to
+            avoid any error.
           </p>
         </div>
         <FileUploader

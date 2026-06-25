@@ -14,7 +14,7 @@ public static class DefaultValueInjection
         [nameof(GraphQlBaseEntity.LastUpdatedDate)] = "UTC timestamp of the most recent update to the record. Automatically refreshed on every write operation.",
         [nameof(GraphQlBaseEntity.CreatedBy)] = "User ID of the person who originally created the record. Derived from the authentication context at insert time.",
         [nameof(GraphQlBaseEntity.LastUpdatedBy)] = "User ID of the person who last modified the record. Automatically updated from the authentication context on every write.",
-        [nameof(GraphQlBaseEntity.OrganizationIds)] = "List of organization IDs this record belongs to. Used for multi-tenancy and access-control scoping.",
+        [nameof(GraphQlBaseEntity.OrganizationId)] = "List of organization IDs this record belongs to. Used for multi-tenancy and access-control scoping.",
         [nameof(GraphQlBaseEntity.Language)] = "Language code (e.g. 'en', 'de') that indicates the locale of the record. Used for localization and language-based content filtering.",
         [nameof(GraphQlBaseEntity.Tags)] = "List of tags associated with the record. Used for categorization, search, and filtering across queries.",
     };
@@ -93,7 +93,7 @@ public static class DefaultValueInjection
         {
             entity.CreatedBy = string.IsNullOrWhiteSpace(entity.CreatedBy) ? blocksCtx.UserId : entity.CreatedBy;
             entity.LastUpdatedBy = blocksCtx.UserId;
-            entity.OrganizationIds = isInsertOperation ? new List<string> { blocksCtx.OrganizationId } : entity.OrganizationIds;
+            entity.OrganizationId = isInsertOperation ? blocksCtx.OrganizationId : entity.OrganizationId;
         }
 
     }
@@ -121,9 +121,9 @@ public static class DefaultValueInjection
         {
             input.Add(nameof(GraphQlBaseEntity.CreatedBy), blocksCtx.UserId);
             input.Add(nameof(GraphQlBaseEntity.LastUpdatedBy), blocksCtx.UserId);
-            if (!input.ContainsKey(nameof(GraphQlBaseEntity.OrganizationIds)))
+            if (!input.ContainsKey(nameof(GraphQlBaseEntity.OrganizationId)))
             {
-                input.Add(nameof(GraphQlBaseEntity.OrganizationIds), new List<string> { blocksCtx.OrganizationId });
+                input.Add(nameof(GraphQlBaseEntity.OrganizationId), blocksCtx.OrganizationId);
             }
         }
     }

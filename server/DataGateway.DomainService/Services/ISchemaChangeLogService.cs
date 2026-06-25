@@ -15,4 +15,9 @@ public interface ISchemaChangeLogService
     /// Gets all schema change logs where DoesServerAdoptChanges is false.
     /// </summary>
     Task<ServiceResponse<List<SchemaChangeLog>>> GetUnadaptedSchemaChangeLogsAsync(CancellationToken cancellationToken = default);
+
+    // /// <summary>
+    // /// Marks all unadapted schema change logs as adapted to the server.
+    // /// </summary>
+    // Task AdaptAllUnadaptedChangeLogsAsync(CancellationToken cancellationToken = default);
 }

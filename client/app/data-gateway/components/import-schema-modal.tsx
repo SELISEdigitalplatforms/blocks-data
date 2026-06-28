@@ -221,7 +221,7 @@ export default function ImportSchemaModal({
           </div>
         </FileInput>
         <FileUploaderContent>
-          {files?.length > 0 && files.map((file, i) => (
+          {files && files.length > 0 && files.map((file, i) => (
             <FileUploaderItem key={i} index={i}>
               <Paperclip className="h-4 w-4 stroke-current" />
               <span>{file.name}</span>

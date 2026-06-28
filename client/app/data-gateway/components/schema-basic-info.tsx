@@ -76,8 +76,10 @@ export const SchemaBasicInfo = ({
       const res = await deleteAsync({ id: props.id, projectKey });
       if (res?.isSuccess) {
         toast({ variant: "success", title: "Success", description: "Deleted successfully" });
-        setShouldFinalizeDelete(true);
         setIsDeleteDialogOpen(false);
+        if (onDeleteSuccess) {
+          onDeleteSuccess();
+        }
       } else {
         toast({ variant: "destructive", title: "Error", description: JSON.stringify(res?.errors) });
       }

@@ -182,7 +182,7 @@ export const SchemaDetailsPage = () => {
     queryClient.invalidateQueries({
       queryKey: ["security-performance-schema-list"],
     });
-    navigate({ pathname: "/services/data-gateway" });
+    navigate({ pathname: "/app/services/data-gateway" });
   };
 
   // Warm policy cache for access drawers (query key is parent schemaName for all column rules).
@@ -265,7 +265,7 @@ export const SchemaDetailsPage = () => {
                     <DropdownMenuItem
                       className="cursor-pointer"
                       onClick={() =>
-                        navigate("/services/data-gateway/playground")
+                        navigate("/app/services/data-gateway/playground")
                       }
                     >
                       Playground
@@ -317,7 +317,7 @@ export const SchemaDetailsPage = () => {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => navigate("/services/data-gateway/playground")}
+                  onClick={() => navigate("/app/services/data-gateway/playground")}
                 >
                   Playground
                 </Button>

@@ -99,7 +99,7 @@ export function Storage() {
   }, [storageCards, filters]);
 
   const handleCardClick = (id: string) => {
-    navigate(`/services/storage?id=${encodeURIComponent(id)}`);
+    navigate(`/app/services/storage?id=${encodeURIComponent(id)}`);
   };
 
   const handleViewDetails = (id: string) => {
@@ -139,7 +139,7 @@ export function Storage() {
           >
             API Docs
           </Button> */}
-          <LogMenu link="/services/storage/logs" />{" "}
+          <LogMenu link="/app/services/storage/logs" />{" "}
         </div>
       </div>
 

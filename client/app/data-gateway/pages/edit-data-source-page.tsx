@@ -387,7 +387,7 @@ const EditDataSourcePage = () => {
                 variant="outline"
                 type="button"
                 className="border-border/40 text-muted-foreground/70 hover:text-foreground"
-                onClick={() => navigate("/services/data-gateway")}
+                onClick={() => navigate("/app/services/data-gateway")}
                 disabled={isUpdatePending}
               >
                 Cancel

@@ -1,7 +1,6 @@
 "use client";
 
 import { Alert, AlertDescription } from "@/components/ui-kits/alert/alert";
-import { Button } from "@/components/ui-kits/button/button";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
@@ -166,7 +165,7 @@ export const SchemaDetailsPage = () => {
     queryClient.invalidateQueries({
       queryKey: ["security-performance-schema-list"],
     });
-    navigate({ pathname: "/services/data-gateway" });
+    navigate({ pathname: "/app/services/data-gateway" });
   };
 
   // Warm policy cache for access drawers (query key is parent schemaName for all column rules).

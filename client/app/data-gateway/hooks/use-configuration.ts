@@ -1,4 +1,5 @@
 import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   buildClientSchema,
@@ -20,7 +21,6 @@ import {
 } from "../models/data-service";
 import {
   configurationService,
-  GRAPHQL_PLAYGROUND_INTROSPECTION_HEADERS,
 } from "../services/configuration.service";
 
 export const useCreateDataSourceConfiguration = () => {
@@ -59,20 +59,46 @@ export const useGetDataServiceConfiguration = () => {
 
 export const useSchemasReload = () => {
   const queryClient = useQueryClient();
+  const selectedProject = useProjectStore().selectedProject;
+  const projectShortKey = selectedProject?.tenantSlug || "";
 
   return useMutation({
-    mutationFn: (payload: { projectKey: string; projectShortKey?: string }) =>
-      configurationService.reloadSchemas({
-        projectKey: payload.projectKey,
-        projectShortKey: payload.projectShortKey,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["schema-list"] });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
-      queryClient.invalidateQueries({
+    mutationFn: () => configurationService.reloadSchemas(),
+    onSettled: async (_data, error) => {
+      const rawIntrospection = await configurationService.executeGraphQLOperation(
+        getIntrospectionQuery(),
+      );
+
+      if (projectShortKey) {
+        queryClient.setQueryData(
+          ["graphql-raw-introspection", projectShortKey],
+          rawIntrospection,
+        );
+
+        const introspectionData = (rawIntrospection as {
+          data: IntrospectionQuery;
+        }).data;
+        queryClient.setQueryData(
+          ["graphql-introspection", projectShortKey],
+          buildClientSchema(introspectionData),
+        );
+      }
+
+      await queryClient.invalidateQueries({
         queryKey: ["graphql-raw-introspection"],
+        refetchType: "none",
       });
-      queryClient.invalidateQueries({ queryKey: ["graphql-introspection"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["graphql-introspection"],
+        refetchType: "none",
+      });
+
+      if (!error) {
+        await queryClient.invalidateQueries({
+          queryKey: ["unadapted-change-logs"],
+        });
+        await queryClient.invalidateQueries({ queryKey: ["schema-list"] });
+      }
     },
   });
 };
@@ -207,7 +233,10 @@ export const useDeleteSchema = () => {
   return useMutation({
     mutationFn: (payload: { id: string; projectKey: string }) =>
       configurationService.deleteSchema(payload),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      queryClient.removeQueries({
+        queryKey: ["schema-details", variables.id],
+      });
       queryClient.invalidateQueries({ queryKey: ["schema-list"] });
       queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
       queryClient.invalidateQueries({
@@ -487,7 +516,6 @@ export const useGraphQLIntrospection = (options: {
     queryFn: async () => {
       const result = await configurationService.executeGraphQLOperation(
         getIntrospectionQuery(),
-        GRAPHQL_PLAYGROUND_INTROSPECTION_HEADERS,
       );
       // The gateway returns { data: { __schema: ... } }
       const introspectionData = (result as { data: IntrospectionQuery }).data;
@@ -509,7 +537,6 @@ export const useRawIntrospectionQuery = (options: {
     queryFn: () =>
       configurationService.executeGraphQLOperation(
         getIntrospectionQuery(),
-        GRAPHQL_PLAYGROUND_INTROSPECTION_HEADERS,
       ),
     enabled: !!options.projectShortKey && (options.enabled ?? true),
     staleTime: Number.POSITIVE_INFINITY,
@@ -524,16 +551,22 @@ export const useImportSchemaFile = (_payload: IImportFile) => {
   return useMutation({
     mutationKey: ["import-schema-file"],
     mutationFn: configurationService.importSchemaFile,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["schema-list"] });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
-      queryClient.invalidateQueries({
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["graphql-raw-introspection"],
+        refetchType: "all",
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["graphql-introspection"],
+        refetchType: "all",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["schema-list"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs"],
+      });
+      await queryClient.invalidateQueries({
         queryKey: ["security-performance-schema-list"],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["graphql-raw-introspection"],
-      });
-      queryClient.invalidateQueries({ queryKey: ["graphql-introspection"] });
     },
   });
 };

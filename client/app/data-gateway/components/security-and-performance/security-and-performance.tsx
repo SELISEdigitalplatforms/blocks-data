@@ -39,9 +39,9 @@ const STAT_CARDS = [
     iconRing: "ring-rose-200 dark:ring-rose-500/30",
     iconBg: "bg-rose-100 dark:bg-rose-500/10",
     iconColor: "text-rose-600 dark:text-rose-400",
-    numClass: "text-rose-600 dark:bg-gradient-to-br dark:from-rose-300 dark:to-rose-500 dark:bg-clip-text dark:text-transparent",
-    borderAccent: "border-l-2 border-rose-300 dark:border-rose-500/40",
-    bg: "bg-rose-50/60 dark:bg-gradient-to-br dark:from-rose-950/30 dark:via-transparent dark:to-transparent",
+    numClass: "text-rose-600 dark:text-rose-300",
+    borderAccent: "border-l-2 border-rose-200 dark:border-rose-500/40",
+    bg: "bg-rose-50/40 dark:bg-rose-950/20",
   },
   {
     key: "totalUserPermission" as const,
@@ -51,9 +51,9 @@ const STAT_CARDS = [
     iconRing: "ring-amber-200 dark:ring-amber-500/30",
     iconBg: "bg-amber-100 dark:bg-amber-500/10",
     iconColor: "text-amber-600 dark:text-amber-400",
-    numClass: "text-amber-600 dark:bg-gradient-to-br dark:from-amber-300 dark:to-amber-500 dark:bg-clip-text dark:text-transparent",
-    borderAccent: "border-l-2 border-amber-300 dark:border-amber-500/40",
-    bg: "bg-amber-50/60 dark:bg-gradient-to-br dark:from-amber-950/30 dark:via-transparent dark:to-transparent",
+    numClass: "text-amber-600 dark:text-amber-300",
+    borderAccent: "border-l-2 border-amber-200 dark:border-amber-500/40",
+    bg: "bg-amber-50/40 dark:bg-amber-950/20",
   },
   {
     key: "totalCustomPermission" as const,
@@ -63,9 +63,9 @@ const STAT_CARDS = [
     iconRing: "ring-emerald-200 dark:ring-emerald-500/30",
     iconBg: "bg-emerald-100 dark:bg-emerald-500/10",
     iconColor: "text-emerald-600 dark:text-emerald-400",
-    numClass: "text-emerald-600 dark:bg-gradient-to-br dark:from-emerald-300 dark:to-emerald-500 dark:bg-clip-text dark:text-transparent",
-    borderAccent: "border-l-2 border-emerald-300 dark:border-emerald-500/40",
-    bg: "bg-emerald-50/60 dark:bg-gradient-to-br dark:from-emerald-950/30 dark:via-transparent dark:to-transparent",
+    numClass: "text-emerald-600 dark:text-emerald-300",
+    borderAccent: "border-l-2 border-emerald-200 dark:border-emerald-500/40",
+    bg: "bg-emerald-50/40 dark:bg-emerald-950/20",
   },
 ] as const;
 

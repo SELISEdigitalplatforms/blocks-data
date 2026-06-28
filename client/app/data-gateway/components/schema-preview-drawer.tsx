@@ -112,7 +112,6 @@ export function SchemaPreviewDrawer({
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [activeOperationTab, setActiveOperationTab] = useState<string>("query");
   const requestUrl = "https://dev-data.blocksdevelopers.com/api/gateway";
-  const blocksKey = "***REMOVED***";
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -246,8 +245,8 @@ export function SchemaPreviewDrawer({
                 </div>
                 <div className="flex items-center gap-3 text-xs">
                   <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-widest text-foreground">Header</span>
-                  <CopyToClipboardButton textToCopy={`x-blocks-key: ${blocksKey}`} isHoverable>
-                    <code className="font-mono text-foreground">x-blocks-key: {blocksKey}</code>
+                  <CopyToClipboardButton textToCopy={`x-blocks-key: ${projectKey}`} isHoverable>
+                    <code className="font-mono text-foreground">x-blocks-key: {projectKey}</code>
                   </CopyToClipboardButton>
                 </div>
               </div>
@@ -330,7 +329,7 @@ export function SchemaPreviewDrawer({
                               </div>
 
                               {/* Code block */}
-                              <div className="block dark:hidden">
+                              <div className="block bg-gray-50 dark:hidden">
                                 <SyntaxHighlighter
                                   language="graphql"
                                   style={prism}
@@ -340,11 +339,11 @@ export function SchemaPreviewDrawer({
                                   {section.code}
                                 </SyntaxHighlighter>
                               </div>
-                              <div className="hidden dark:block">
+                              <div className="hidden bg-[#0f0f19] dark:block">
                                 <SyntaxHighlighter
                                   language="graphql"
                                   style={atomDark}
-                                  customStyle={{ margin: 0, background: "rgba(15,15,25,0.6)", padding: "14px 16px", fontSize: "0.775rem", lineHeight: 1.6 }}
+                                  customStyle={{ margin: 0, background: "transparent", padding: "14px 16px", fontSize: "0.775rem", lineHeight: 1.6 }}
                                   wrapLongLines
                                 >
                                   {section.code}

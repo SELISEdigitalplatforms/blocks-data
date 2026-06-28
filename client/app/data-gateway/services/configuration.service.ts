@@ -58,10 +58,7 @@ class ConfigurationService {
     return http.get(CONFIGURATION_ENDPOINTS.GET);
   }
 
-  reloadSchemas(payload: {
-    projectKey: string;
-    projectShortKey?: string;
-  }): Promise<IDataServiceConfigurationResponse> {
+  reloadSchemas(): Promise<IDataServiceConfigurationResponse> {
     const url = `${API_BASES.UDS}/schema-configurations/reload`;
     return http.post(url, {});
   }
@@ -236,11 +233,5 @@ class ConfigurationService {
     return http.post(url, payload);
   };
 }
-
-/** Headers required by the gateway for full introspection from the playground. */
-export const GRAPHQL_PLAYGROUND_INTROSPECTION_HEADERS: Record<string, string> =
-  {
-    "x-graphql-playground": "true",
-  };
 
 export const configurationService = new ConfigurationService();

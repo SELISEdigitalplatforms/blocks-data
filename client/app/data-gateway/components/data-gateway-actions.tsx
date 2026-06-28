@@ -53,13 +53,13 @@ export const DataGatewayActions = () => {
     {
       label: "Playground",
       icon: <GraphQLIcon className="h-4 w-4" />,
-      onClick: () => navigate("/services/data-gateway/playground"),
+      onClick: () => navigate("/app/services/data-gateway/playground"),
       active: isPlayground,
     },
     {
       label: "Configure",
       icon: <Settings className="h-4 w-4" />,
-      onClick: () => navigate("/services/data-gateway/configuration"),
+      onClick: () => navigate("/app/services/data-gateway/configuration"),
       active: isConfigure,
     },
   ];

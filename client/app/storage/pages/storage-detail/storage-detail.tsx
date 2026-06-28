@@ -388,7 +388,7 @@ export function StorageDetail() {
             <BreadcrumbLink
               asChild
               className="cursor-pointer"
-              onClick={() => navigate("/services/storage")}
+              onClick={() => navigate("/app/services/storage")}
             >
               <span className="text-foreground hover:text-foreground">
                 Storage

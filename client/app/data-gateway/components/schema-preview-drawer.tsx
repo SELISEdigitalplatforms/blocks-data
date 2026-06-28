@@ -128,7 +128,8 @@ export function SchemaPreviewDrawer({
 
   const handleTryInPlayground = (code: string) => {
     localStorage.setItem("graphql-playground-query", code);
-    navigate("/services/data-gateway/playground");
+    // Navigate to the playground
+    navigate("/app/services/data-gateway/playground");
   };
 
   const formattedJson = useMemo(() => formatPreviewJson(previewData), [previewData]);

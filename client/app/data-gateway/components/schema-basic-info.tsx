@@ -63,7 +63,6 @@ export const SchemaBasicInfo = ({
 }: SchemaBasicInfoProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [shouldFinalizeDelete, setShouldFinalizeDelete] = useState(false);
   const [isSchemaAccessControlDrawerOpen, setIsSchemaAccessControlDrawerOpen] =
     useState(false);
   const [selectedTab, setSelectedTab] = useState("");
@@ -231,13 +230,7 @@ export const SchemaBasicInfo = ({
 
       <Dialog
         open={isDeleteDialogOpen}
-        onOpenChange={(open) => {
-          setIsDeleteDialogOpen(open);
-          if (!open && shouldFinalizeDelete) {
-            setShouldFinalizeDelete(false);
-            onDeleteSuccess?.();
-          }
-        }}
+        onOpenChange={setIsDeleteDialogOpen}
       >
         <ConfirmationModal
           onCancel={() => {}}

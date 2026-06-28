@@ -1,5 +1,4 @@
 using Blocks.Genesis;
-using FluentValidation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
@@ -8,18 +7,17 @@ using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Validators;
 using MongoDB.Driver;
 using StackExchange.Redis;
-using Microsoft.Extensions.Logging;
 
 namespace DataGateway.DomainService.Services;
 
-public class DataSourceService : IDataSourceService
+public class DataGatewayConfigurationService : IDataGatewayConfigurationService
 {
     private readonly ICacheClient _cacheClient;
     private readonly IDbRepository _repository;
     private readonly IRequestValidator _requestValidator;
     private readonly IProjectService _projectService;
- 
-    public DataSourceService(
+
+    public DataGatewayConfigurationService(
         IDbRepository repository,
         ICacheClient cacheClient,
         IRequestValidator requestValidator,
@@ -31,27 +29,29 @@ public class DataSourceService : IDataSourceService
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
     }
 
-    public async Task<ServiceResponse<DataSourceResponse>> GetDataSource(string projectKey)
+    public async Task<ServiceResponse<DataServiceConfigurationResponse>> GetConfiguration(string projectKey)
     {
         var filter = Builders<DataServiceConfiguration>.Filter.Eq(x => x.IsDeleted, false);
         var dataServiceConfiguration = await _repository.GetItemAsync(filter);
-        
+
         if (dataServiceConfiguration is null)
-            return new ServiceResponse<DataSourceResponse>().SetErrorMessage("Data source not found.");
+            return new ServiceResponse<DataServiceConfigurationResponse>().SetErrorMessage("Data source not found.");
 
         var projectShortKey = await _projectService.GetTenantSlugAsync(projectKey);
-        var response = new DataSourceResponse
+        var response = new DataServiceConfigurationResponse
         {
             DbConnectionString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(dataServiceConfiguration.DbConnectionString)),
             DatabaseName = dataServiceConfiguration.DatabaseName,
+            IsCollectionNameEditable = dataServiceConfiguration.IsCollectionNameEditable,
+            CollectionNamePattern = dataServiceConfiguration.CollectionNamePattern,
             ProjectKey = projectKey,
             ProjectShortKey = projectShortKey,
             ItemId = dataServiceConfiguration.ItemId
         };
 
-        return new ServiceResponse<DataSourceResponse>().SetSuccess(response);
+        return new ServiceResponse<DataServiceConfigurationResponse>().SetSuccess(response);
     }
-    public async Task<ServiceResponse<ActionResponse>> InsertDataSource(CreateDataSourceRequest request)
+    public async Task<ServiceResponse<ActionResponse>> InsertConfiguration(CreateDataGatewayConfigurationRequest request)
     {
         var validationResult = await _requestValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
@@ -79,7 +79,7 @@ public class DataSourceService : IDataSourceService
 
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { ItemId = result.ItemId });
     }
-    public async Task<ServiceResponse<ActionResponse>> UpdateDataSource(UpdateDataSourceRequest request)
+    public async Task<ServiceResponse<ActionResponse>> UpdateConfiguration(UpdateDataGatewayConfigurationRequest request)
     {
         var validationResult = await _requestValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
@@ -91,11 +91,14 @@ public class DataSourceService : IDataSourceService
         if (dataServiceConfiguration is null)
             return
             new ServiceResponse<ActionResponse>()
-            .SetErrorMessage("Data source with this ItemId already exist.")
-            .SetHttpStatusCode(204);
+            .SetErrorMessage("Data source not found.")
+            .SetHttpStatusCode(404);
 
         dataServiceConfiguration.DbConnectionString = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(request.ConnectionString));
         dataServiceConfiguration.DatabaseName = request.DatabaseName;
+        dataServiceConfiguration.IsCollectionNameEditable = request.IsCollectionNameEditable;
+        dataServiceConfiguration.CollectionNamePattern = request.CollectionNamePattern;
+
         var result = await _repository.UpdateAsync(dataServiceConfiguration);
         await CacheDataSource(dataServiceConfiguration, request.ProjectKey);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse

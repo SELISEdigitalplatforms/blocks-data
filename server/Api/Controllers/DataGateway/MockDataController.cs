@@ -1,4 +1,4 @@
-﻿using Blocks.Genesis;
+using Blocks.Genesis;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Services;
@@ -7,48 +7,25 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DataGateway.Api.Controllers;
 
-[Obsolete("This controller is deprecated and will be removed in future versions. Please use the MockDataController instead.")]
-[Route("data-manage")]
+
+/// <summary>
+/// MockDataController provides endpoints to manage mock data operations.
+/// It allows retrieving and deleting mock data for a specific project.
+/// </summary>
+[Route("mock-data")]
 [ApiController]
-public class DataManageController : ControllerBase
+public class MockDataController : ControllerBase
 {
     private readonly IMockDataService _dataManageService;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="DataManageController"/> class.
+    /// Initializes a new instance of the <see cref="MockDataController"/> class.
     /// </summary>
     /// <param name="dataManageService"></param>
     /// <exception cref="ArgumentException"></exception>
-    public DataManageController(IMockDataService dataManageService)
+    public MockDataController(IMockDataService dataManageService)
     {
         _dataManageService = dataManageService ?? throw new ArgumentException(nameof(dataManageService));
-    }
-
-
-    /// <summary>
-    /// Cloud use only: Gets mock data from the database.
-    /// </summary>
-    /// <param name="projectKey"></param>
-    /// <returns></returns>
-    [Authorize]
-    [HttpGet("{projectKey}/mock-data")]
-    [ProducesResponseType(typeof(ServiceResponse<MockDataResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetMockData([FromRoute] string projectKey)
-    {
-        if (string.IsNullOrEmpty(projectKey))
-        {
-            return BadRequest(new { Message = "INVALID_PROJECT_KEY" });
-        }
-
-        // _changeControllerContext.ChangeContext(new ProjectKeyModel
-        // {
-        //     ProjectKey = projectKey
-        // });
-
-        var response = await _dataManageService.GetMockData();
-
-        return Ok(response);
     }
 
     /// <summary>
@@ -61,10 +38,6 @@ public class DataManageController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetMockDataAsync()
     {
-        // _changeControllerContext.ChangeContext(new ProjectKeyModel
-        // {
-        //     ProjectKey = projectKey
-        // });
         var response = await _dataManageService.GetMockData();
 
         return Ok(response);
@@ -76,7 +49,7 @@ public class DataManageController : ControllerBase
     /// <param name="request"></param>
     /// <returns></returns>
     [Authorize]
-    [HttpPost("mock-data")]
+    [HttpDelete]
     [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteMockData([FromBody] DeleteMockDataRequest request)
@@ -90,11 +63,6 @@ public class DataManageController : ControllerBase
         {
             return BadRequest(new { Message = "No schema names provided" });
         }
-
-        // _changeControllerContext.ChangeContext(new ProjectKeyModel
-        // {
-        //     ProjectKey = request.ProjectKey
-        // });
 
         var response = await _dataManageService.DeleteMockData(request);
 

@@ -69,12 +69,18 @@ export function SchemaStructureHeader({
 
   const SchemaTabs = (
     <Tabs value={activeTab} onValueChange={(v) => onTabChange(v as "attribute" | "data")}>
-      <TabsList className="h-8 bg-muted/60 p-0.5">
-        <TabsTrigger value="attribute" className="h-7 px-3 text-sm">
+      <TabsList className="h-8 gap-1 bg-transparent p-0">
+        <TabsTrigger
+          value="attribute"
+          className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
           Attribute
         </TabsTrigger>
         {schemaType !== 2 && (
-          <TabsTrigger value="data" className="h-7 px-3 text-sm">
+          <TabsTrigger
+            value="data"
+            className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
             Data
           </TabsTrigger>
         )}

@@ -92,95 +92,91 @@ export const CleanTestDataModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-xl rounded-sm border border-border/40">
         <DialogHeader>
-          <DialogTitle>Clean Test Data</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-sm font-semibold text-foreground">
+            Clean Test Data
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground/60">
             Select schemas to delete their test data
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[400px] overflow-y-auto">
+        <div className="max-h-[380px] overflow-y-auto">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
+            <div className="flex items-center justify-center py-10">
+              <Loader className="h-5 w-5 animate-spin text-muted-foreground/40" />
             </div>
           ) : mockDataItems.length === 0 ? (
-            <div className="py-8 text-center text-sm text-muted-foreground">
+            <div className="py-10 text-center text-xs text-muted-foreground/50">
               No test data found
             </div>
           ) : (
             <div className="space-y-3">
               {/* Select All */}
-              <div className="flex items-center space-x-2 border-b pb-2">
+              <div className="flex items-center gap-2 border-b border-border/40 pb-3">
                 <Checkbox
                   id="select-all"
                   checked={selectAll}
                   onCheckedChange={handleSelectAll}
                 />
-                <label
-                  htmlFor="select-all"
-                  className="flex-1 cursor-pointer text-sm font-medium"
-                >
+                <label htmlFor="select-all" className="flex-1 cursor-pointer text-xs font-medium text-muted-foreground/70">
                   Select All ({mockDataItems.length})
                 </label>
               </div>
 
-              {/* Individual Items - Two Column Grid */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Grid */}
+              <div className="grid grid-cols-2 gap-2">
                 {mockDataItems.map((item) => (
-                  <div
+                  <label
                     key={item.schemaName}
-                    className="flex flex-col space-y-1 rounded-md border p-3 hover:bg-accent/50"
+                    htmlFor={item.schemaName}
+                    className="flex cursor-pointer items-start gap-2.5 rounded-sm border border-border/30 bg-muted/10 p-3 transition-colors hover:border-border/50 hover:bg-muted/20"
                   >
-                    <div className="flex items-start space-x-2">
-                      <Checkbox
-                        id={item.schemaName}
-                        checked={selectedSchemas.includes(item.schemaName)}
-                        onCheckedChange={(checked) =>
-                          handleSelectSchema(
-                            item.schemaName,
-                            checked as boolean,
-                          )
-                        }
-                        className="mt-0.5"
-                      />
-                      <label
-                        htmlFor={item.schemaName}
-                        className="flex-1 cursor-pointer text-sm font-medium"
-                      >
-                        {item.collectionName} ({item.count}
-                        {item.count === 1 ? " record" : " records"})
-                      </label>
-                    </div>
-                  </div>
+                    <Checkbox
+                      id={item.schemaName}
+                      checked={selectedSchemas.includes(item.schemaName)}
+                      onCheckedChange={(checked) =>
+                        handleSelectSchema(item.schemaName, checked as boolean)
+                      }
+                      className="mt-0.5 shrink-0"
+                    />
+                    <span className="text-xs font-medium text-foreground/80">
+                      {item.collectionName}
+                      <span className="ml-1 text-muted-foreground/50">
+                        ({item.count} {item.count === 1 ? "record" : "records"})
+                      </span>
+                    </span>
+                  </label>
                 ))}
               </div>
             </div>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button
-            variant="outline"
+            variant="ghost"
+            size="sm"
+            className="border border-border/40 text-muted-foreground/70 hover:text-foreground"
             onClick={() => onOpenChange(false)}
             disabled={isDeleting}
           >
             Cancel
           </Button>
           <Button
-            variant="destructive"
+            size="sm"
             onClick={handleDelete}
             disabled={isDeleting || selectedSchemas.length === 0}
-            className="gap-2"
+            className="gap-1.5 bg-rose-600/90 text-white shadow-[0_0_12px_-2px_rgba(225,29,72,0.4)] hover:bg-rose-600 hover:shadow-[0_0_16px_-2px_rgba(225,29,72,0.5)] disabled:opacity-40"
           >
             {isDeleting ? (
               <>
-                <Loader className="h-4 w-4 animate-spin" />
-                Deleting...
+                <Loader className="h-3.5 w-3.5 animate-spin" />
+                Deleting…
               </>
             ) : (
-              <>Delete</>
+              "Delete"
             )}
           </Button>
         </DialogFooter>

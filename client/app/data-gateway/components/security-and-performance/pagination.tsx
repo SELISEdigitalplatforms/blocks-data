@@ -25,7 +25,7 @@ const SecurityAndPerformancePagination = ({
     isLoading={isLoading}
     onPageChange={onPageChange}
     onPageSizeChange={onPageSizeChange}
-    className="pt-4"
+    className=""
   />
 );
 

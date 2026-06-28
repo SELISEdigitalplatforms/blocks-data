@@ -8,7 +8,7 @@ export const GraphQLPlayground = () => {
     <main className="flex h-full min-h-0 w-full flex-col gap-4 p-6">
       <div className="flex w-full flex-col gap-2">
         <div className="hidden md:flex">
-          <PageBreadcrumb breadcrumbIndex={2} />
+          <PageBreadcrumb breadcrumbIndex={3} />
         </div>
       </div>
       <div className="w-full flex-1 overflow-hidden rounded-md border bg-background">

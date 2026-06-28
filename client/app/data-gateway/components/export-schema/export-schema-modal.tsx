@@ -274,35 +274,40 @@ export default function ExportSchemaModal({
   const selectAllChecked = isSelectAllChecked(selectedKeys);
 
   return (
-    <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden rounded-md sm:max-w-[425px]">
+    <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden rounded-sm border border-border/40 sm:max-w-[420px]">
       <DialogHeader>
-        <DialogTitle className="text-left">Export Schema</DialogTitle>
-        <DialogDescription className="!mt-[12px] text-sm text-medium-emphasis">
+        <DialogTitle className="text-sm font-semibold text-foreground">Export Schema</DialogTitle>
+        <DialogDescription className="text-xs text-muted-foreground/60">
           Select the data you&apos;d like to export
         </DialogDescription>
       </DialogHeader>
 
-      <div className="!mt-[8px] mb-8 flex-1 overflow-y-auto p-1 text-left text-high-emphasis">
+      <div className="flex-1 overflow-y-auto">
         <Stepperwithoutindicator currentStep={currentStep} stepNumber={1}>
-          <div className="space-y-4">
-            <div className="flex flex-row items-start space-x-3 space-y-0">
+          <div className="space-y-3 py-1">
+            {/* Select all row */}
+            <div className="flex items-center gap-3 border-b border-border/30 pb-3">
               <Checkbox
                 id="export-schema-select-all"
                 checked={selectAllChecked}
-                onCheckedChange={(checked) =>
-                  handleSelectAllChange(checked === true)
-                }
+                onCheckedChange={(checked) => handleSelectAllChange(checked === true)}
               />
-              <Label htmlFor="export-schema-select-all" className="font-normal">
+              <Label htmlFor="export-schema-select-all" className="cursor-pointer text-sm font-medium text-foreground/80">
                 Select all
               </Label>
             </div>
 
-            <div className="flex flex-col gap-4">
+            {/* Options */}
+            <div className="flex flex-col gap-3">
               {EXPORT_OPTIONS.map((opt) => (
-                <div
+                <label
                   key={opt.key}
-                  className="flex flex-row items-start space-x-3 space-y-0"
+                  htmlFor={`export-opt-${opt.key}`}
+                  className={`flex cursor-pointer items-start gap-3 rounded-sm border p-3 transition-colors ${
+                    selectedKeys.has(opt.key)
+                      ? "border-primary/30 bg-primary/5"
+                      : "border-border/30 bg-muted/5 hover:bg-muted/10"
+                  }`}
                 >
                   <Checkbox
                     id={`export-opt-${opt.key}`}
@@ -312,88 +317,60 @@ export default function ExportSchemaModal({
                       if (opt.key === "schema") return;
                       toggleOptionalExport(opt.key, checked === true);
                     }}
+                    className="mt-0.5 shrink-0"
                   />
                   <div className="flex flex-col gap-0.5">
-                    <Label
-                      htmlFor={`export-opt-${opt.key}`}
-                      className={`font-normal ${opt.alwaysSelected ? "text-medium-emphasis" : ""}`}
-                    >
+                    <span className={`text-sm font-medium ${opt.alwaysSelected ? "text-muted-foreground/60" : "text-foreground/80"}`}>
                       {opt.label}
-                    </Label>
-                    <span className="text-xs text-medium-emphasis">
-                      {opt.description}
                     </span>
+                    <span className="text-xs text-muted-foreground/50">{opt.description}</span>
                   </div>
-                </div>
+                </label>
               ))}
             </div>
           </div>
         </Stepperwithoutindicator>
 
         <Stepperwithoutindicator currentStep={currentStep} stepNumber={2}>
-          <div className="space-y-4 pr-4">
-            <RadioGroup
-              value={selectedFormat}
-              onValueChange={(val) => setSelectedFormat(val as ExportFormatId)}
-              className="space-y-4"
-            >
+          <div className="space-y-4 py-1 pr-2">
+            <RadioGroup value={selectedFormat} onValueChange={(val) => setSelectedFormat(val as ExportFormatId)} className="space-y-2">
               {exportFormats.map((fmt) => (
-                <div key={fmt.id} className="flex items-center space-x-2">
+                <div key={fmt.id} className="flex items-center gap-2">
                   <RadioGroupItem value={fmt.id} id={`fmt-${fmt.id}`} />
-                  <Label htmlFor={`fmt-${fmt.id}`}>{fmt.label}</Label>
+                  <Label htmlFor={`fmt-${fmt.id}`} className="text-sm text-foreground/80">{fmt.label}</Label>
                 </div>
               ))}
             </RadioGroup>
 
-            <div className="mt-2 text-sm text-medium-emphasis">
-              How would you like to export?
-            </div>
+            <p className="text-xs text-muted-foreground/50">How would you like to export?</p>
 
-            <div className="flex flex-row items-start space-x-3 space-y-0">
-              <Checkbox
-                id="schema-download"
-                checked={downloadChecked}
-                onCheckedChange={(checked) =>
-                  setDownloadChecked(checked === true)
-                }
-              />
-              <Label htmlFor="schema-download" className="font-normal">
-                Download
-              </Label>
+            <div className="flex items-center gap-2">
+              <Checkbox id="schema-download" checked={downloadChecked} onCheckedChange={(checked) => setDownloadChecked(checked === true)} />
+              <Label htmlFor="schema-download" className="cursor-pointer text-sm text-foreground/80">Download</Label>
             </div>
           </div>
         </Stepperwithoutindicator>
       </div>
 
-      <div className="mt-auto border-t pt-4">
+      <div className="mt-auto border-t border-border/40 pt-4">
         {currentStep === 1 ? (
           <div className="flex flex-row-reverse gap-2">
-            <Button size="default" onClick={handleSelectFileType}>
+            <Button size="sm" className="shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)]" onClick={handleSelectFileType}>
               Select file type
             </Button>
             <DialogTrigger asChild>
-              <Button variant="outline" size="default">
-                Cancel
-              </Button>
+              <Button variant="ghost" size="sm" className="border border-border/40 text-muted-foreground/70">Cancel</Button>
             </DialogTrigger>
           </div>
         ) : (
-          <div className="flex justify-between">
+          <div className="flex justify-between gap-2">
             <DialogTrigger asChild>
-              <Button variant="outline" size="default">
-                Cancel
-              </Button>
+              <Button variant="ghost" size="sm" className="border border-border/40 text-muted-foreground/70">Cancel</Button>
             </DialogTrigger>
-            <div className="space-x-2">
-              <Button size="default" variant="outline" onClick={handleBack}>
-                Back
-              </Button>
-              <Button
-                size="default"
-                onClick={handleExport}
-                disabled={!downloadChecked || isExporting}
-              >
-                Export
+            <div className="flex gap-2">
+              <Button size="sm" variant="ghost" className="border border-border/40" onClick={handleBack}>Back</Button>
+              <Button size="sm" className="shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)]" onClick={handleExport} disabled={!downloadChecked || isExporting}>
+                {isExporting ? "Exporting…" : "Export"}
               </Button>
             </div>
           </div>

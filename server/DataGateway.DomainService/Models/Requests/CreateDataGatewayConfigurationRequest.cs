@@ -2,7 +2,7 @@ using Blocks.Genesis;
 
 namespace DataGateway.DomainService.Models;
 
-public class CreateDataSourceRequest : IProjectKey
+public class CreateDataGatewayConfigurationRequest
 {
     public string ItemId { get; set; } = string.Empty;
     public string ConnectionString { get; set; } = string.Empty;

@@ -4,19 +4,19 @@ using Microsoft.Extensions.Logging;
 
 namespace DataGateway.DomainService.Services;
 
-public class ConfigurationService : IConfigurationService
+public class SchemaConfigurationService : ISchemaConfigurationService
 {
     private readonly GraphqlSchemaBuilder _graphqlSchemaBuilder;
-    private readonly ILogger<ConfigurationService> _logger;
+    private readonly ILogger<SchemaConfigurationService> _logger;
     private readonly IRequestExecutorResolver _executorResolver;
     private readonly DataGatewayPipelineDispatcher _pipelineDispatcher;
     private readonly ProjectExecutorOptionsMonitor _optionsMonitor;
 
-    public ConfigurationService(GraphqlSchemaBuilder graphqlSchemaBuilder,
+    public SchemaConfigurationService(GraphqlSchemaBuilder graphqlSchemaBuilder,
         IRequestExecutorResolver executorResolver,
         DataGatewayPipelineDispatcher pipelineDispatcher,
         ProjectExecutorOptionsMonitor optionsMonitor,
-        ILogger<ConfigurationService> logger)
+        ILogger<SchemaConfigurationService> logger)
     {
         _executorResolver = executorResolver ?? throw new ArgumentNullException(nameof(executorResolver));
         _graphqlSchemaBuilder = graphqlSchemaBuilder ?? throw new ArgumentNullException(nameof(graphqlSchemaBuilder));

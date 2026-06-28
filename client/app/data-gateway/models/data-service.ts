@@ -3,6 +3,8 @@ export interface IDataServiceConfiguration {
   databaseName: string;
   connectionString: string;
   itemId?: string;
+  isCollectionNameEditable?: boolean;
+  collectionNamePattern?: string;
 }
 
 export interface IDefaultResponse {
@@ -16,8 +18,17 @@ export interface IDataSourceResponse {
   projectKey: string;
   databaseName: string;
   dbConnectionString: string;
-  itemId?: string;
+  ItemId?: string;
   isActive: boolean;
+  isCollectionNameEditable?: boolean;
+  collectionNamePattern?: string;
+}
+
+export interface IDataSourceFormValues {
+  dbConnectionString: string;
+  databaseName: string;
+  isCollectionNameEditable: boolean;
+  collectionNamePattern: string;
 }
 
 export interface IUnadaptedChangeLogsResponse {
@@ -190,11 +201,6 @@ export interface IGetSchemaDetailsResponse extends IDataServiceConfigurationResp
     readAccessLevel: number;
     writeAccessLevel: number;
   };
-}
-
-export interface IDataSourceFormValues {
-  dbConnectionString: string;
-  databaseName: string;
 }
 
 export interface ICreateSchemaPayload {

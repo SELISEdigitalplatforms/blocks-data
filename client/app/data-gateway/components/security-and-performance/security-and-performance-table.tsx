@@ -9,65 +9,84 @@ import {
   TableRow,
 } from "@/components/ui-kits/table/table";
 import { cn } from "@/lib/utils";
-import { ACCESS_LEVEL_BADGE_MAP } from "@/data-gateway/constants/schema-access-control";
 import { Schema, SecurityTableProps } from "@/data-gateway/models/security-and-performance";
-import { Table2 } from "lucide-react";
+import { ChevronRight, ShieldOff } from "lucide-react";
 
 const COLUMNS = ["Schema", "View", "Create", "Edit", "Delete"] as const;
+
+const BADGE: Record<string, { label: string; className: string }> = {
+  "0": {
+    label: "Inherited",
+    className: "bg-muted/60 text-muted-foreground/80 border border-border/40",
+  },
+  "1": {
+    label: "Logged-in users",
+    className: "bg-amber-500/10 text-amber-300/80 border border-amber-500/20",
+  },
+  "2": {
+    label: "Public",
+    className: "bg-rose-500/10 text-rose-300/80 border border-rose-500/20",
+  },
+  "3": {
+    label: "Custom",
+    className: "bg-emerald-500/10 text-emerald-300/80 border border-emerald-500/20",
+  },
+};
+
+const AccessBadge = ({ level }: { level: number }) => {
+  const badge = BADGE[level.toString()];
+  if (!badge) return <span className="text-xs text-muted-foreground/40">—</span>;
+  return (
+    <span className={cn("inline-flex items-center rounded-lg px-2.5 py-0.5 text-xs font-medium", badge.className)}>
+      {badge.label}
+    </span>
+  );
+};
 
 const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps) => {
   if (!schemas.length) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-        <Table2 className="h-8 w-8 opacity-40" />
-        <p className="text-sm">No schemas found</p>
+      <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
+        <ShieldOff className="h-8 w-8 opacity-20" />
+        <p className="text-sm">No schemas to display</p>
       </div>
     );
   }
 
   return (
-    <Table className="min-w-[800px]">
-      <TableHeader className="sticky top-0 bg-white dark:bg-slate-950">
-        <TableRow>
+    <Table className="min-w-[700px]">
+      <TableHeader>
+        <TableRow className="border-b border-border/30 hover:bg-transparent">
           {COLUMNS.map((col) => (
-            <TableHead key={col}>{col}</TableHead>
+            <TableHead
+              key={col}
+              className="h-9 bg-muted/10 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60 first:pl-5"
+            >
+              {col}
+            </TableHead>
           ))}
+          <TableHead className="w-8 bg-muted/10" />
         </TableRow>
       </TableHeader>
       <TableBody>
-        {schemas.map((schema: Schema) => {
-          const accessLevels = [
-            schema.readAccessLevel,
-            schema.writeAccessLevel,
-            schema.editAccessLevel,
-            schema.deleteAccessLevel,
-          ];
-          return (
-            <TableRow
-              key={schema.schemaName}
-              className="cursor-pointer hover:bg-muted/50"
-              onClick={() => onRowClick(schema)}
-            >
-              <TableCell className="font-medium">{schema.schemaName}</TableCell>
-              {accessLevels.map((level, index) => {
-                const badge = ACCESS_LEVEL_BADGE_MAP[level.toString()];
-                return (
-                  <TableCell key={index}>
-                    {badge ? (
-                      <span
-                        className={cn("rounded px-2 py-0.5 text-xs font-medium", badge.colorClass)}
-                      >
-                        {badge.label}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-          );
-        })}
+        {schemas.map((schema: Schema) => (
+          <TableRow
+            key={schema.schemaName}
+            className="group cursor-pointer border-b border-border/20 transition-colors hover:bg-muted/10"
+            onClick={() => onRowClick(schema)}
+          >
+            <TableCell className="pl-5 text-sm font-medium text-foreground/90">
+              {schema.schemaName}
+            </TableCell>
+            <TableCell><AccessBadge level={schema.readAccessLevel} /></TableCell>
+            <TableCell><AccessBadge level={schema.writeAccessLevel} /></TableCell>
+            <TableCell><AccessBadge level={schema.editAccessLevel} /></TableCell>
+            <TableCell><AccessBadge level={schema.deleteAccessLevel} /></TableCell>
+            <TableCell className="w-8 pr-3">
+              <ChevronRight className="h-4 w-4 text-muted-foreground/20 transition-colors group-hover:text-muted-foreground/60" />
+            </TableCell>
+          </TableRow>
+        ))}
       </TableBody>
     </Table>
   );

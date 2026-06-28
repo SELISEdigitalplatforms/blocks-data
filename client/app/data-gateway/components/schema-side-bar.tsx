@@ -168,61 +168,58 @@ export default function SchemasSidebar({
   const totalCount = schemaListQuery?.data?.totalCount || 0;
 
   return (
-    <div className="flex h-[calc(100vh-154px)] w-full min-w-0 flex-col rounded-lg border border-border bg-card p-4 lg:w-[300px]">
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <h2 className="text-lg font-bold">Schemas</h2>
+    <div className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card lg:w-[300px]">
+      {/* Ambient gradient */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.04),transparent_60%)]" />
+
+      {/* Header */}
+      <div className="relative flex shrink-0 items-center justify-between gap-3 border-b border-border/40 px-4 py-3.5">
+        <h2 className="text-sm font-semibold text-foreground">Schemas</h2>
         {schemas.length > 0 && (
           <Button
-            variant="outline"
-            className="flex items-center gap-2 text-sm font-bold text-gray-500"
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 text-xs text-muted-foreground/60 hover:text-foreground"
             onClick={() => restartAll()}
             disabled={isPublishing}
           >
-            <RotateCcw
-              className={cn(
-                "h-4 w-4 cursor-pointer text-gray-500 hover:text-black",
-                isPublishing && "animate-spin",
-              )}
-            />
-            <span className="ml-1">Publish</span>
+            <RotateCcw className={cn("h-3.5 w-3.5", isPublishing && "animate-spin")} />
+            Publish
           </Button>
         )}
       </div>
 
-      <div className="mb-3 flex items-center gap-2">
+      {/* Search + Add */}
+      <div className="relative flex shrink-0 items-center gap-2 border-b border-border/40 px-3 py-2.5">
         <Input
-          placeholder="Search"
-          className="h-8 flex-1"
+          placeholder="Search schemas…"
+          className="h-8 flex-1 border-border/40 bg-muted/20 text-xs placeholder:text-muted-foreground/40 focus-visible:border-primary/40 focus-visible:ring-primary/20"
           {...register("search")}
         />
-        <Button size="sm" className="h-8 px-2" onClick={onAddSchema}>
-          <Plus className="h-4 w-4" /> Add
+        <Button size="sm" className="h-8 shrink-0 px-2.5 shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)]" onClick={onAddSchema}>
+          <Plus className="h-3.5 w-3.5" />
+          Add
         </Button>
       </div>
 
-      <Tabs
-        value={filterType}
-        onValueChange={(value) => onListQueryChange({ type: value, page: 1 })}
-      >
-        <TabsList className="w-full">
-          <TabsTrigger value="all" className="flex-1">
-            All
-          </TabsTrigger>
-          <TabsTrigger value="1" className="flex-1">
-            Entity
-          </TabsTrigger>
-          <TabsTrigger value="2" className="flex-1">
-            Child
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Filter tabs */}
+      <div className="relative shrink-0 border-b border-border/40 px-3 py-2">
+        <Tabs value={filterType} onValueChange={(value) => onListQueryChange({ type: value, page: 1 })}>
+          <TabsList className="w-full bg-muted/20">
+            <TabsTrigger value="all" className="flex-1 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none">All</TabsTrigger>
+            <TabsTrigger value="1" className="flex-1 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none">Entity</TabsTrigger>
+            <TabsTrigger value="2" className="flex-1 text-xs data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none">Child</TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
 
+      {/* Schema list */}
       {!schemaListQuery?.data ? (
-        <div className="mt-4 flex-1 overflow-auto">
+        <div className="relative flex-1 overflow-auto px-2 py-1">
           <SchemaListSkeleton />
         </div>
       ) : (
-        <div className="mt-4 flex-1 space-y-2 overflow-auto">
+        <div className="relative flex-1 overflow-auto px-2 py-1">
           {schemas && schemas.length > 0 ? (
             schemas.map((schema: ISchemaDetails) => {
               const isSelected = schema.id === selectedSchemaId;
@@ -231,68 +228,47 @@ export default function SchemasSidebar({
                   key={schema.schemaName}
                   onClick={() => handleSelectSchema(schema.id)}
                   className={cn(
-                    "flex cursor-pointer justify-between rounded-md px-3 py-3 text-sm transition-all",
+                    "relative flex cursor-pointer items-center justify-between overflow-hidden rounded-lg px-3 py-2.5 text-sm transition-all duration-150",
                     isSelected
-                      ? "bg-muted font-medium text-primary"
-                      : "text-low-emphasis hover:bg-muted hover:text-primary",
+                      ? "bg-primary/10 font-medium text-primary shadow-[0_0_16px_-4px_rgba(99,102,241,0.25)]"
+                      : "text-muted-foreground/70 hover:bg-muted/30 hover:text-foreground",
                   )}
                 >
-                  <span className="w-2/3 truncate" title={schema.schemaName}>
+                  {isSelected && (
+                    <span className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-full bg-primary shadow-[0_0_6px_rgba(99,102,241,0.8)]" />
+                  )}
+                  <span className="truncate" title={schema.schemaName}>
                     {schema.schemaName}
                   </span>
                   {filterType === "all" && (
-                    <span
-                      className={cn(
-                        isSelected ? "text-primary/70" : "text-low-emphasis/60",
-                      )}
-                    >
+                    <span className={cn("shrink-0 text-xs", isSelected ? "text-primary/50" : "text-muted-foreground/30")}>
                       {schema.schemaType == 1 ? "Entity" : "Child"}
                     </span>
                   )}
                   {filterType === "2" && schema.totalSchemaReferences > 0 && (
-                    // <Tooltip>
-                    //   <TooltipTrigger>
-                    <Badge
-                      variant="secondary"
-                      title={`Has ${schema.totalSchemaReferences} reference(s) in entities`}
-                    >
+                    <Badge variant="secondary" className="shrink-0 bg-primary/10 text-xs text-primary/70 ring-1 ring-primary/20" title={`${schema.totalSchemaReferences} reference(s)`}>
                       {schema.totalSchemaReferences}
                     </Badge>
-                    //   </TooltipTrigger>
-                    //   <TooltipContent>Test</TooltipContent>
-                    // </Tooltip>
                   )}
                 </div>
               );
             })
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-gray-500">
-              No Schemas Found!
+            <div className="flex h-full items-center justify-center py-8 text-sm text-muted-foreground/50">
+              No schemas found
             </div>
           )}
         </div>
       )}
 
       {schemaListQuery?.data && totalCount > pageSize && (
-        <div className="mt-auto flex w-full items-center justify-between border-t pt-4 text-sm text-medium-emphasis">
-          <p>{`${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, totalCount)} of ${totalCount}`}</p>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handlePrev}
-              disabled={page <= 1}
-              className="h-8 w-8 p-0 text-primary disabled:opacity-30"
-            >
+        <div className="relative mt-auto flex w-full shrink-0 items-center justify-between border-t border-border/40 px-4 py-3 text-xs text-muted-foreground/60">
+          <p>{`${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalCount)} of ${totalCount}`}</p>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="icon" onClick={handlePrev} disabled={page <= 1} className="h-7 w-7 rounded-lg border-border/40 disabled:opacity-20 hover:border-primary/40 hover:text-primary">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-
-            <Button
-              variant="outline"
-              onClick={handleNext}
-              disabled={page * pageSize >= totalCount}
-              className="h-8 w-8 p-0 text-primary disabled:opacity-30"
-            >
+            <Button variant="outline" size="icon" onClick={handleNext} disabled={page * pageSize >= totalCount} className="h-7 w-7 rounded-lg border-border/40 disabled:opacity-20 hover:border-primary/40 hover:text-primary">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

@@ -195,7 +195,15 @@ export const SchemaAccessControlView = ({
   return (
     <div className="flex flex-col">
       <div className={ACCESS_STYLES[currentAccessType]}>
-        <div className="flex flex-col items-start gap-2 dark:text-icon-warning">
+        <div className={`flex flex-col items-start gap-2 ${
+          currentAccessType === ACCESS_TYPES.PUBLIC
+            ? "text-rose-400"
+            : currentAccessType === ACCESS_TYPES.CUSTOM
+              ? "text-emerald-400"
+              : currentAccessType === ACCESS_TYPES.INHERITED
+                ? "text-sky-400"
+                : "text-amber-400"
+        }`}>
           <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
             <div className="flex min-w-0 items-center gap-3">
               {currentAccessType === ACCESS_TYPES.PUBLIC

@@ -17,11 +17,10 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui-kits/tabs/tabs";
-import { getGraphqlGatewayExecuteOrigin } from "@/constants/endpoint.constant";
 import { useGetProject } from "@/hooks/use-project";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
-import { Play, X } from "lucide-react";
+import { Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -31,6 +30,53 @@ import { useRawIntrospectionQuery } from "../hooks/use-configuration";
 import { SchemaPreviewDrawerProps } from "../models/schema-preview.types";
 import { buildPreviewSections } from "../utils/generate-preview-queries";
 import { formatPreviewJson } from "../utils/graphql-template.utils";
+
+const OPERATIONS = [
+  {
+    value: "query",
+    label: "Query",
+    icon: Search,
+    iconColor: "text-blue-500",
+    activeBg: "bg-blue-50 dark:bg-blue-950/50",
+    activeText: "text-blue-700 dark:text-blue-300",
+    indicatorColor: "bg-blue-500",
+    badgeBg: "bg-blue-500/10 text-blue-300/80 border border-blue-500/20",
+    sectionBorder: "border-l-2 border-blue-400/50",
+  },
+  {
+    value: "insert",
+    label: "Insert",
+    icon: Plus,
+    iconColor: "text-emerald-500",
+    activeBg: "bg-emerald-50 dark:bg-emerald-950/50",
+    activeText: "text-emerald-700 dark:text-emerald-300",
+    indicatorColor: "bg-emerald-500",
+    badgeBg: "bg-emerald-500/10 text-emerald-300/80 border border-emerald-500/20",
+    sectionBorder: "border-l-2 border-emerald-400/50",
+  },
+  {
+    value: "update",
+    label: "Update",
+    icon: Pencil,
+    iconColor: "text-amber-500",
+    activeBg: "bg-amber-50 dark:bg-amber-950/50",
+    activeText: "text-amber-700 dark:text-amber-300",
+    indicatorColor: "bg-amber-500",
+    badgeBg: "bg-amber-500/10 text-amber-300/80 border border-amber-500/20",
+    sectionBorder: "border-l-2 border-amber-400/50",
+  },
+  {
+    value: "delete",
+    label: "Delete",
+    icon: Trash2,
+    iconColor: "text-red-500",
+    activeBg: "bg-red-50 dark:bg-red-950/50",
+    activeText: "text-red-700 dark:text-red-300",
+    indicatorColor: "bg-red-500",
+    badgeBg: "bg-rose-500/10 text-rose-300/80 border border-rose-500/20",
+    sectionBorder: "border-l-2 border-red-400/50",
+  },
+] as const;
 
 export function SchemaPreviewDrawer({
   trigger,
@@ -43,7 +89,6 @@ export function SchemaPreviewDrawer({
   onOpenChange,
 }: SchemaPreviewDrawerProps) {
   const handleCloseAutoFocus = (event: Event) => {
-    // In controlled mode, avoid restoring focus to hidden/virtual triggers.
     event.preventDefault();
     (document.activeElement as HTMLElement | null)?.blur();
   };
@@ -57,87 +102,77 @@ export function SchemaPreviewDrawer({
   const projectKey = selectedProject?.tenantId || "";
 
   useEffect(() => {
-    if (
-      projectData?.data &&
-      selectedProject?.itemId === projectData.data.itemId
-    ) {
+    if (projectData?.data && selectedProject?.itemId === projectData.data.itemId) {
       setSelectedProject(projectData.data);
     }
   }, [projectData, selectedProject?.itemId, setSelectedProject]);
+
   const isEntity = schemaType === 1;
   const defaultTab = isEntity ? "request-format" : "schema-structure";
   const [activeTab, setActiveTab] = useState(defaultTab);
-  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/api/gateway`;
+  const [activeOperationTab, setActiveOperationTab] = useState<string>("query");
+  const requestUrl = "https://dev-data.blocksdevelopers.com/api/gateway";
+  const blocksKey = "Dc4ec8f0355454e66be225a7ddb8dfd7b";
   const navigate = useNavigate();
 
   useEffect(() => {
-    const newDefaultTab = isEntity ? "request-format" : "schema-structure";
-    setActiveTab(newDefaultTab);
+    setActiveTab(isEntity ? "request-format" : "schema-structure");
   }, [isEntity]);
 
+  const operationTabMap: Record<string, string[]> = {
+    query: ["Query"],
+    insert: ["Insert", "Insert Many"],
+    update: ["Update"],
+    delete: ["Delete"],
+  };
+
   const handleTryInPlayground = (code: string) => {
-    // Store the code in localStorage to be picked up by the playground
     localStorage.setItem("graphql-playground-query", code);
     // Navigate to the playground
     navigate("/app/services/data-gateway/playground");
   };
 
-  const formattedJson = useMemo(
-    () => formatPreviewJson(previewData),
-    [previewData],
-  );
+  const formattedJson = useMemo(() => formatPreviewJson(previewData), [previewData]);
 
-  const {
-    data: rawIntrospection,
-    isFetching: isGatewayIntrospectionFetching,
-    isPending: isGatewayIntrospectionPending,
-  } = useRawIntrospectionQuery({
-    projectShortKey,
-    enabled: isEntity && !!schemaName,
-  });
+  const { data: rawIntrospection, isFetching: isGatewayIntrospectionFetching, isPending: isGatewayIntrospectionPending } =
+    useRawIntrospectionQuery({ projectShortKey, enabled: isEntity && !!schemaName });
 
   const isGatewaySchemaLoading =
-    isEntity &&
-    !!schemaName &&
-    !!projectShortKey &&
-    (isGatewayIntrospectionPending ||
-      (isGatewayIntrospectionFetching && rawIntrospection === undefined));
+    isEntity && !!schemaName && !!projectShortKey &&
+    (isGatewayIntrospectionPending || (isGatewayIntrospectionFetching && rawIntrospection === undefined));
 
   const sections = useMemo(
-    () =>
-      rawIntrospection && schemaName
-        ? buildPreviewSections(rawIntrospection, schemaName)
-        : [],
+    () => rawIntrospection && schemaName ? buildPreviewSections(rawIntrospection, schemaName) : [],
     [schemaName, rawIntrospection],
   );
 
-  const headingSource =
-    schemaName ??
-    (typeof previewData.SchemaName === "string"
-      ? previewData.SchemaName
-      : undefined);
-  const heading = title ?? `${headingSource ?? "Schema"} preview`;
+  const filteredSections = useMemo(() => {
+    const allowedTitles = operationTabMap[activeOperationTab] || [];
+    return sections.filter((s) => allowedTitles.includes(s.title));
+  }, [sections, activeOperationTab]);
+
+  const activeOperation = OPERATIONS.find((op) => op.value === activeOperationTab) ?? OPERATIONS[0];
+  const heading = title ?? `${schemaName ?? "Schema"} preview`;
 
   return (
-    <Drawer
-      direction="right"
-      handleOnly
-      open={open}
-      onOpenChange={onOpenChange}
-    >
+    <Drawer direction="right" handleOnly open={open} onOpenChange={onOpenChange}>
       {trigger ? <DrawerTrigger asChild>{trigger}</DrawerTrigger> : null}
       <DrawerContent
         onCloseAutoFocus={handleCloseAutoFocus}
         className={cn(
-          "inset-y-0 left-auto right-0 mt-0 h-full w-full rounded-none border-l bg-background p-6 md:w-[70vw] md:max-w-4xl [&>div:first-child]:hidden",
+          "inset-y-0 left-auto right-0 mt-0 h-full w-full rounded-none border-l border-border/40 bg-background md:w-[48vw] md:max-w-2xl [&>div:first-child]:hidden",
           "transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
           className,
         )}
         style={{ userSelect: "text" }}
       >
-        <div className="flex h-full flex-1 flex-col">
-          <div className="flex items-center justify-between gap-4">
-            <DrawerTitle className="text-lg font-semibold leading-none tracking-tight">
+        <div className="relative flex h-full flex-col overflow-hidden">
+          {/* Ambient gradient */}
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.05),transparent_55%)]" />
+
+          {/* Drawer header */}
+          <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-6 py-4">
+            <DrawerTitle className="text-sm font-semibold text-foreground">
               {heading}
             </DrawerTitle>
             <DrawerDescription className="sr-only">
@@ -146,73 +181,51 @@ export function SchemaPreviewDrawer({
             <DrawerClose asChild>
               <button
                 type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
-                aria-label="Close schema preview drawer"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-muted/40 hover:text-foreground"
+                aria-label="Close"
               >
                 <X className="h-4 w-4" />
               </button>
             </DrawerClose>
           </div>
 
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="mt-6 flex flex-1 flex-col overflow-hidden"
-          >
-            {isEntity ? (
-              <TabsList className="w-full flex-shrink-0 justify-start bg-muted/60 p-1 md:max-w-md">
-                <TabsTrigger value="request-format" className="flex-1">
-                  Request Format
-                </TabsTrigger>
-                <TabsTrigger value="schema-structure" className="flex-1">
-                  Schema Structure
-                </TabsTrigger>
-              </TabsList>
-            ) : null}
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="relative flex flex-1 flex-col overflow-hidden">
 
-            {/* Schema Structure Tab - JSON Preview */}
-            <TabsContent
-              value="schema-structure"
-              className="mt-4 flex-1 overflow-hidden"
-            >
+            {/* Tab switcher */}
+            {isEntity && (
+              <div className="shrink-0 border-b border-border/40 px-6 pt-3">
+                <TabsList className="h-8 gap-1 bg-transparent p-0">
+                  <TabsTrigger
+                    value="request-format"
+                    className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs text-muted-foreground/60 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                  >
+                    Request Format
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="schema-structure"
+                    className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs text-muted-foreground/60 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                  >
+                    Schema Structure
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+            )}
+
+            {/* Schema Structure */}
+            <TabsContent value="schema-structure" className="flex-1 overflow-hidden p-6">
               <div className="group relative h-full">
-                <div className="absolute right-6 top-2 z-50 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-                  <CopyToClipboardButton textToCopy={formattedJson}>
-                    {" "}
-                  </CopyToClipboardButton>
+                <div className="absolute right-4 top-3 z-50 opacity-0 transition-opacity group-hover:opacity-100">
+                  <CopyToClipboardButton textToCopy={formattedJson}>{" "}</CopyToClipboardButton>
                 </div>
-                <ScrollArea className="h-full rounded-lg border border-border/60 bg-gray-50 pr-4 dark:bg-gray-900">
-                  {/* Light Mode */}
-                  <div className="block p-6 pr-24 dark:hidden">
-                    <SyntaxHighlighter
-                      language="json"
-                      style={prism}
-                      customStyle={{
-                        margin: 0,
-                        background: "transparent",
-                        padding: 0,
-                        fontSize: "0.75rem",
-                        lineHeight: 1.5,
-                      }}
-                      wrapLongLines
-                    >
+                <ScrollArea className="h-full rounded-sm border border-border/40 bg-muted/10 pr-4">
+                  <div className="block p-5 pr-20 dark:hidden">
+                    <SyntaxHighlighter language="json" style={prism} customStyle={{ margin: 0, background: "transparent", padding: 0, fontSize: "0.75rem", lineHeight: 1.6 }} wrapLongLines>
                       {formattedJson}
                     </SyntaxHighlighter>
                   </div>
-                  {/* Dark Mode */}
-                  <div className="hidden p-6 pr-24 dark:block">
-                    <SyntaxHighlighter
-                      language="json"
-                      style={atomDark}
-                      customStyle={{
-                        margin: 0,
-                        background: "transparent",
-                        padding: 0,
-                        fontSize: "0.75rem",
-                        lineHeight: 1.5,
-                      }}
-                      wrapLongLines
-                    >
+                  <div className="hidden p-5 pr-20 dark:block">
+                    <SyntaxHighlighter language="json" style={atomDark} customStyle={{ margin: 0, background: "transparent", padding: 0, fontSize: "0.75rem", lineHeight: 1.6 }} wrapLongLines>
                       {formattedJson}
                     </SyntaxHighlighter>
                   </div>
@@ -220,145 +233,131 @@ export function SchemaPreviewDrawer({
               </div>
             </TabsContent>
 
-            {/* Request Format Tab - GraphQL Templates */}
-            <TabsContent
-              value="request-format"
-              className="mt-4 flex-1 overflow-hidden"
-            >
-              <ScrollArea className="h-full pr-4">
-                <div className="relative space-y-3 pb-4">
+            {/* Request Format */}
+            <TabsContent value="request-format" className="flex flex-1 flex-col overflow-hidden">
+
+              {/* Connection info */}
+              <div className="shrink-0 space-y-2 border-b border-border/40 px-6 py-3">
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="w-14 shrink-0 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">URL</span>
+                  <CopyToClipboardButton textToCopy={requestUrl} isHoverable>
+                    <code className="font-mono text-foreground/70">{requestUrl}</code>
+                  </CopyToClipboardButton>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="w-14 shrink-0 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">Header</span>
+                  <CopyToClipboardButton textToCopy={`x-blocks-key: ${blocksKey}`} isHoverable>
+                    <code className="font-mono text-foreground/70">x-blocks-key: {blocksKey}</code>
+                  </CopyToClipboardButton>
+                </div>
+              </div>
+
+              {/* Operations layout */}
+              <div className="flex flex-1 overflow-hidden">
+
+                {/* Vertical sidebar */}
+                <div className="flex shrink-0 flex-col border-r border-border/40 py-2">
+                  {OPERATIONS.map(({ value, label, icon: Icon, iconColor, indicatorColor }) => {
+                    const isActive = activeOperationTab === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setActiveOperationTab(value)}
+                        className={cn(
+                          "relative flex w-16 flex-col items-center gap-1.5 px-1 py-3 text-xs font-medium outline-none transition-all duration-150",
+                          isActive
+                            ? "bg-primary/5 text-foreground"
+                            : "text-muted-foreground/50 hover:bg-muted/20 hover:text-muted-foreground",
+                        )}
+                      >
+                        {isActive && (
+                          <span className={cn("absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 rounded-l-full opacity-70", indicatorColor)} />
+                        )}
+                        <Icon className={cn("h-4 w-4 transition-colors", isActive ? iconColor : "opacity-30")} />
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Code content */}
+                <div className="flex flex-1 flex-col overflow-hidden">
                   {isGatewaySchemaLoading ? (
-                    <div className="flex min-h-[240px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 bg-muted/30 py-12 text-sm text-muted-foreground">
-                      <span className="inline-block size-8 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
-                      Loading request examples from gateway…
+                    <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+                      <span className="inline-block size-6 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/60" />
+                      <span className="text-xs">Loading from gateway…</span>
                     </div>
                   ) : (
-                    <>
-                      <div className="flex flex-col text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
-                        <span className="mb-1 sm:mb-0">Request URL:</span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <CopyToClipboardButton
-                            textToCopy={requestUrl}
-                            isHoverable
-                          >
-                            <code className="break-all rounded bg-muted px-2 py-1 font-mono text-xs">
-                              {requestUrl}
-                            </code>
-                          </CopyToClipboardButton>
-                        </div>
-                      </div>
-                      <div className="flex flex-col text-sm text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
-                        <span className="mb-1 sm:mb-0">
-                          Add In Request Headers:
-                        </span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <CopyToClipboardButton
-                            textToCopy={`x-blocks-key: ${projectKey}`}
-                            isHoverable
-                          >
-                            <code className="break-all rounded bg-muted px-2 py-1 font-mono text-xs">
-                              x-blocks-key: {projectKey}
-                            </code>
-                          </CopyToClipboardButton>
-                        </div>
-                      </div>
-
-                      {sections.map((section) => (
-                        <section
-                          key={section.title}
-                          className="rounded-2xl bg-background"
-                        >
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="w-full space-y-1">
-                              <h4 className="text-base font-semibold text-foreground">
-                                {section.title}
-                              </h4>
-                              <p className="text-sm text-muted-foreground">
-                                {section.description}
-                              </p>
-                            </div>
+                    <ScrollArea className="h-full">
+                      <div className="space-y-3 p-4">
+                        {filteredSections.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
+                            <activeOperation.icon className={cn("h-7 w-7 opacity-20", activeOperation.iconColor)} />
+                            <span className="text-xs text-muted-foreground/50">No examples available</span>
                           </div>
+                        ) : (
+                          filteredSections.map((section) => (
+                            <div
+                              key={section.title}
+                              className={cn(
+                                "overflow-hidden rounded-sm border border-border/30 bg-card/50",
+                                activeOperation.sectionBorder,
+                              )}
+                            >
+                              {/* Section header */}
+                              <div className="flex items-center justify-between gap-2 border-b border-border/30 bg-muted/10 px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                  <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1", activeOperation.badgeBg)}>
+                                    {section.title}
+                                  </span>
+                                  {section.description && (
+                                    <span className="text-xs text-muted-foreground/50">{section.description}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 gap-1 px-2 text-xs text-muted-foreground/50 hover:text-foreground"
+                                    onClick={() => handleTryInPlayground(section.code)}
+                                  >
+                                    <Play className="h-3 w-3" />
+                                    Playground
+                                  </Button>
+                                  <CopyToClipboardButton textToCopy={section.code}>{" "}</CopyToClipboardButton>
+                                </div>
+                              </div>
 
-                          <div className="pb-3">
-                            {/* Light Mode */}
-                            <div className="group relative block rounded-xl bg-gray-100 pr-24 dark:hidden">
-                              <div className="absolute right-6 top-2 z-10 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 gap-1"
-                                  onClick={() =>
-                                    handleTryInPlayground(section.code)
-                                  }
+                              {/* Code block */}
+                              <div className="block dark:hidden">
+                                <SyntaxHighlighter
+                                  language="graphql"
+                                  style={prism}
+                                  customStyle={{ margin: 0, background: "transparent", padding: "14px 16px", fontSize: "0.775rem", lineHeight: 1.6 }}
+                                  wrapLongLines
                                 >
-                                  <Play className="h-3.5 w-3.5" />
-                                  Try in Playground
-                                </Button>
-                                <CopyToClipboardButton
-                                  textToCopy={section.code}
-                                >
-                                  {" "}
-                                </CopyToClipboardButton>
+                                  {section.code}
+                                </SyntaxHighlighter>
                               </div>
-                              <SyntaxHighlighter
-                                language="graphql"
-                                style={prism}
-                                customStyle={{
-                                  margin: 0,
-                                  background: "transparent",
-                                  padding: "20px",
-                                  fontSize: "0.8rem",
-                                  lineHeight: 1.5,
-                                  borderRadius: "0.75rem",
-                                }}
-                                wrapLongLines
-                              >
-                                {section.code}
-                              </SyntaxHighlighter>
-                            </div>
-                            {/* Dark Mode */}
-                            <div className="group relative hidden rounded-xl bg-gray-800 pr-24 dark:block">
-                              <div className="absolute right-6 top-2 z-10 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 gap-1"
-                                  onClick={() =>
-                                    handleTryInPlayground(section.code)
-                                  }
+                              <div className="hidden dark:block">
+                                <SyntaxHighlighter
+                                  language="graphql"
+                                  style={atomDark}
+                                  customStyle={{ margin: 0, background: "rgba(15,15,25,0.6)", padding: "14px 16px", fontSize: "0.775rem", lineHeight: 1.6 }}
+                                  wrapLongLines
                                 >
-                                  <Play className="h-3.5 w-3.5" />
-                                  Try in Playground
-                                </Button>
-                                <CopyToClipboardButton
-                                  textToCopy={section.code}
-                                >
-                                  {" "}
-                                </CopyToClipboardButton>
+                                  {section.code}
+                                </SyntaxHighlighter>
                               </div>
-                              <SyntaxHighlighter
-                                language="graphql"
-                                style={atomDark}
-                                customStyle={{
-                                  margin: 0,
-                                  background: "transparent",
-                                  padding: "20px",
-                                  fontSize: "0.8rem",
-                                  lineHeight: 1.5,
-                                  borderRadius: "0.75rem",
-                                }}
-                                wrapLongLines
-                              >
-                                {section.code}
-                              </SyntaxHighlighter>
                             </div>
-                          </div>
-                        </section>
-                      ))}
-                    </>
+                          ))
+                        )}
+                      </div>
+                    </ScrollArea>
                   )}
                 </div>
-              </ScrollArea>
+              </div>
             </TabsContent>
           </Tabs>
         </div>

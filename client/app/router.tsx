@@ -4,6 +4,7 @@ import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
 import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
 import DataGatewaySchemasPage from "./routes/dashboard/data-gateway-schemas";
+import DataGatewayEditDataSourcePage from "./routes/dashboard/data-gateway-edit-data-source";
 import StoragePage from "./routes/dashboard/storage-page";
 
 // Console pages
@@ -124,6 +125,10 @@ export const router = createBrowserRouter([
                   {
                     path: "services/data-gateway/logs",
                     element: <DataGatewayLogsPage />,
+                  },
+                  {
+                    path: "services/data-gateway/configuration",
+                    element: <DataGatewayEditDataSourcePage />,
                   },
                   { path: "services/storage", element: <StoragePage /> },
                 ],

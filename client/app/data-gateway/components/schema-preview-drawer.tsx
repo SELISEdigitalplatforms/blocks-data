@@ -40,7 +40,7 @@ const OPERATIONS = [
     activeBg: "bg-blue-50 dark:bg-blue-950/50",
     activeText: "text-blue-700 dark:text-blue-300",
     indicatorColor: "bg-blue-500",
-    badgeBg: "bg-blue-500/10 text-blue-300/80 border border-blue-500/20",
+    badgeBg: "bg-blue-500/10 text-blue-700 border border-blue-400/30 dark:text-blue-300/80 dark:border-blue-500/20",
     sectionBorder: "border-l-2 border-blue-400/50",
   },
   {
@@ -51,7 +51,7 @@ const OPERATIONS = [
     activeBg: "bg-emerald-50 dark:bg-emerald-950/50",
     activeText: "text-emerald-700 dark:text-emerald-300",
     indicatorColor: "bg-emerald-500",
-    badgeBg: "bg-emerald-500/10 text-emerald-300/80 border border-emerald-500/20",
+    badgeBg: "bg-emerald-500/10 text-emerald-700 border border-emerald-400/30 dark:text-emerald-300/80 dark:border-emerald-500/20",
     sectionBorder: "border-l-2 border-emerald-400/50",
   },
   {
@@ -62,7 +62,7 @@ const OPERATIONS = [
     activeBg: "bg-amber-50 dark:bg-amber-950/50",
     activeText: "text-amber-700 dark:text-amber-300",
     indicatorColor: "bg-amber-500",
-    badgeBg: "bg-amber-500/10 text-amber-300/80 border border-amber-500/20",
+    badgeBg: "bg-amber-500/10 text-amber-700 border border-amber-400/30 dark:text-amber-300/80 dark:border-amber-500/20",
     sectionBorder: "border-l-2 border-amber-400/50",
   },
   {
@@ -73,7 +73,7 @@ const OPERATIONS = [
     activeBg: "bg-red-50 dark:bg-red-950/50",
     activeText: "text-red-700 dark:text-red-300",
     indicatorColor: "bg-red-500",
-    badgeBg: "bg-rose-500/10 text-rose-300/80 border border-rose-500/20",
+    badgeBg: "bg-rose-500/10 text-rose-700 border border-rose-400/30 dark:text-rose-300/80 dark:border-rose-500/20",
     sectionBorder: "border-l-2 border-red-400/50",
   },
 ] as const;
@@ -181,7 +181,7 @@ export function SchemaPreviewDrawer({
             <DrawerClose asChild>
               <button
                 type="button"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-muted/40 hover:text-foreground"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted/60 hover:text-foreground"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
@@ -198,13 +198,13 @@ export function SchemaPreviewDrawer({
                 <TabsList className="h-8 gap-1 bg-transparent p-0">
                   <TabsTrigger
                     value="request-format"
-                    className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs text-muted-foreground/60 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs text-foreground/70 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
                   >
                     Request Format
                   </TabsTrigger>
                   <TabsTrigger
                     value="schema-structure"
-                    className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs text-muted-foreground/60 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                    className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs text-foreground/70 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
                   >
                     Schema Structure
                   </TabsTrigger>
@@ -218,7 +218,7 @@ export function SchemaPreviewDrawer({
                 <div className="absolute right-4 top-3 z-50 opacity-0 transition-opacity group-hover:opacity-100">
                   <CopyToClipboardButton textToCopy={formattedJson}>{" "}</CopyToClipboardButton>
                 </div>
-                <ScrollArea className="h-full rounded-sm border border-border/40 bg-muted/10 pr-4">
+                <ScrollArea className="h-full rounded-sm border border-border/60 bg-muted/30 pr-4">
                   <div className="block p-5 pr-20 dark:hidden">
                     <SyntaxHighlighter language="json" style={prism} customStyle={{ margin: 0, background: "transparent", padding: 0, fontSize: "0.75rem", lineHeight: 1.6 }} wrapLongLines>
                       {formattedJson}
@@ -239,15 +239,15 @@ export function SchemaPreviewDrawer({
               {/* Connection info */}
               <div className="shrink-0 space-y-2 border-b border-border/40 px-6 py-3">
                 <div className="flex items-center gap-3 text-xs">
-                  <span className="w-14 shrink-0 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">URL</span>
+                  <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-widest text-foreground">URL</span>
                   <CopyToClipboardButton textToCopy={requestUrl} isHoverable>
-                    <code className="font-mono text-foreground/70">{requestUrl}</code>
+                    <code className="font-mono text-foreground">{requestUrl}</code>
                   </CopyToClipboardButton>
                 </div>
                 <div className="flex items-center gap-3 text-xs">
-                  <span className="w-14 shrink-0 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">Header</span>
+                  <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-widest text-foreground">Header</span>
                   <CopyToClipboardButton textToCopy={`x-blocks-key: ${blocksKey}`} isHoverable>
-                    <code className="font-mono text-foreground/70">x-blocks-key: {blocksKey}</code>
+                    <code className="font-mono text-foreground">x-blocks-key: {blocksKey}</code>
                   </CopyToClipboardButton>
                 </div>
               </div>
@@ -267,14 +267,14 @@ export function SchemaPreviewDrawer({
                         className={cn(
                           "relative flex w-16 flex-col items-center gap-1.5 px-1 py-3 text-xs font-medium outline-none transition-all duration-150",
                           isActive
-                            ? "bg-primary/5 text-foreground"
-                            : "text-muted-foreground/50 hover:bg-muted/20 hover:text-muted-foreground",
+                            ? "bg-primary/10 text-foreground"
+                            : "text-foreground/70 hover:bg-muted/40 hover:text-foreground",
                         )}
                       >
                         {isActive && (
-                          <span className={cn("absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 rounded-l-full opacity-70", indicatorColor)} />
+                          <span className={cn("absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 rounded-l-full", indicatorColor)} />
                         )}
-                        <Icon className={cn("h-4 w-4 transition-colors", isActive ? iconColor : "opacity-30")} />
+                        <Icon className={cn("h-4 w-4 transition-colors", isActive ? iconColor : "text-foreground/60")} />
                         <span>{label}</span>
                       </button>
                     );
@@ -284,42 +284,42 @@ export function SchemaPreviewDrawer({
                 {/* Code content */}
                 <div className="flex flex-1 flex-col overflow-hidden">
                   {isGatewaySchemaLoading ? (
-                    <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
-                      <span className="inline-block size-6 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground/60" />
+                    <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-foreground/80">
+                      <span className="inline-block size-6 animate-spin rounded-full border-2 border-foreground/20 border-t-foreground/70" />
                       <span className="text-xs">Loading from gateway…</span>
                     </div>
                   ) : (
                     <ScrollArea className="h-full">
                       <div className="space-y-3 p-4">
                         {filteredSections.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
-                            <activeOperation.icon className={cn("h-7 w-7 opacity-20", activeOperation.iconColor)} />
-                            <span className="text-xs text-muted-foreground/50">No examples available</span>
+                          <div className="flex flex-col items-center justify-center gap-2 py-16 text-foreground/70">
+                            <activeOperation.icon className={cn("h-7 w-7 opacity-40", activeOperation.iconColor)} />
+                            <span className="text-xs text-foreground/70">No examples available</span>
                           </div>
                         ) : (
                           filteredSections.map((section) => (
                             <div
                               key={section.title}
                               className={cn(
-                                "overflow-hidden rounded-sm border border-border/30 bg-card/50",
+                                "overflow-hidden rounded-sm border border-border/60 bg-card",
                                 activeOperation.sectionBorder,
                               )}
                             >
                               {/* Section header */}
-                              <div className="flex items-center justify-between gap-2 border-b border-border/30 bg-muted/10 px-3 py-2">
+                              <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/40 px-3 py-2">
                                 <div className="flex items-center gap-2">
                                   <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1", activeOperation.badgeBg)}>
                                     {section.title}
                                   </span>
                                   {section.description && (
-                                    <span className="text-xs text-muted-foreground/50">{section.description}</span>
+                                    <span className="text-xs text-foreground/70">{section.description}</span>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1">
                                   <Button
                                     size="sm"
                                     variant="ghost"
-                                    className="h-6 gap-1 px-2 text-xs text-muted-foreground/50 hover:text-foreground"
+                                    className="h-6 gap-1 px-2 text-xs text-foreground/80 hover:text-foreground"
                                     onClick={() => handleTryInPlayground(section.code)}
                                   >
                                     <Play className="h-3 w-3" />

@@ -31,12 +31,12 @@ export function SidebarMenuDesktop() {
   return (
     <div
       className={cn(
-        "relative hidden h-screen flex-col border-r border-border/50 bg-background transition-all md:flex",
+        "relative hidden h-screen flex-col border-r bg-background transition-all md:flex",
         isSidebarOpen ? "w-60 overflow-hidden" : "w-14",
       )}
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(99,102,241,0.04),transparent_60%)]" />
-      <div className="relative flex h-[60px] shrink-0 items-center justify-between border-b border-border/50 bg-background px-3">
+      <div className="relative flex h-[60px] shrink-0 items-center justify-between border-b bg-background px-3">
         <Link
           to="/console"
           className={cn(
@@ -64,7 +64,7 @@ export function SidebarMenuDesktop() {
 
       {!isProjectOverviewRoute &&
         (isSidebarOpen ? (
-          <div className="relative border-b border-border/50 px-2 pb-2 pt-2">
+          <div className="relative border-b px-2 pb-2 pt-2">
             <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Workspace
             </p>
@@ -75,7 +75,7 @@ export function SidebarMenuDesktop() {
             </div>
           </div>
         ) : (
-          <div className="relative border-b border-border/50 py-1">
+          <div className="relative border-b py-1">
             <ProjectList collapsed />
             <EnvironmentList collapsed />
           </div>

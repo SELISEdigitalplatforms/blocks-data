@@ -33,19 +33,19 @@ interface SchemaBasicInfoProps extends ISchemaDetails {
 const ACCESS_PILL: Record<string, { label: string; className: string }> = {
   [ACCESS_TYPES.LOGGED_IN]: {
     label: "Logged-in users",
-    className: "bg-amber-500/10 text-amber-300/80 border border-amber-500/20",
+    className: "bg-amber-500/10 text-amber-700 border border-amber-400/40 dark:text-amber-300/80 dark:border-amber-500/20",
   },
   [ACCESS_TYPES.PUBLIC]: {
     label: "Public",
-    className: "bg-rose-500/10 text-rose-300/80 border border-rose-500/20",
+    className: "bg-rose-500/10 text-rose-700 border border-rose-400/40 dark:text-rose-300/80 dark:border-rose-500/20",
   },
   [ACCESS_TYPES.CUSTOM]: {
     label: "Custom",
-    className: "bg-emerald-500/10 text-emerald-300/80 border border-emerald-500/20",
+    className: "bg-emerald-500/10 text-emerald-700 border border-emerald-400/40 dark:text-emerald-300/80 dark:border-emerald-500/20",
   },
   [ACCESS_TYPES.INHERITED]: {
     label: "Inherited",
-    className: "bg-muted/60 text-muted-foreground/80 border border-border/40",
+    className: "bg-muted/60 text-muted-foreground border border-border/60",
   },
 };
 

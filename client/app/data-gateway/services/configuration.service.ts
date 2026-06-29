@@ -2,9 +2,9 @@ import { API_BASES } from "@/constants/endpoint.constant";
 import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
 import { http } from "@/lib/http-client";
 import {
+  CONFIGURATION_ENDPOINTS,
   DATA_ACCESS_ENDPOINTS,
   DATA_MANAGE_ENDPOINTS,
-  DATA_SOURCE_ENDPOINTS,
   DATA_VALIDATION_ENDPOINTS,
   DATA_VALIDATION_REGEX_ENDPOINTS,
   SCHEMA_ENDPOINTS,
@@ -45,21 +45,21 @@ class ConfigurationService {
   createDataSource(
     payload: IDataServiceConfiguration,
   ): Promise<IDataServiceConfigurationResponse> {
-    return http.post(DATA_SOURCE_ENDPOINTS.ADD, payload);
+    return http.post(CONFIGURATION_ENDPOINTS.GET, payload);
   }
 
   updateDataSource(
     payload: IDataServiceConfiguration,
   ): Promise<IDataServiceConfigurationResponse> {
-    return http.put(DATA_SOURCE_ENDPOINTS.UPDATE, payload);
+    return http.put(CONFIGURATION_ENDPOINTS.GET, payload);
   }
 
   getDataServiceDetails(): Promise<IDataServiceConfigurationResponse> {
-    return http.get(`${DATA_SOURCE_ENDPOINTS.GET}/get`);
+    return http.get(CONFIGURATION_ENDPOINTS.GET);
   }
 
   reloadSchemas(): Promise<IDataServiceConfigurationResponse> {
-    const url = `${API_BASES.UDS}/configurations/reload`;
+    const url = `${API_BASES.UDS}/schema-configurations/reload`;
     return http.post(url, {});
   }
 
@@ -135,7 +135,7 @@ class ConfigurationService {
   }
 
   getMockData(): Promise<IMockDataResponse> {
-    return http.get(`${API_BASES.UDS}/data-manage/mock-data`);
+    return http.get(`${API_BASES.UDS}/mock-data/mock-data`);
   }
 
   deleteMockData(

@@ -3,7 +3,7 @@ using DataGateway.DomainService.Models;
 
 namespace DataGateway.DomainService.Validators;
 
-public class CreateDataSourceRequestValidator : AbstractValidator<CreateDataSourceRequest>
+public class CreateDataSourceRequestValidator : AbstractValidator<CreateDataGatewayConfigurationRequest>
 {
     private const string ConnectionStringRequired = "ConnectionString_Is_Required.";
     private const string DatabaseNameRequired = "DatabaseName_Is_Required.";

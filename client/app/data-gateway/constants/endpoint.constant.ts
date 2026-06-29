@@ -1,13 +1,11 @@
 import { API_BASES } from "@/constants/endpoint.constant";
 
-// ─── Data Source endpoints ────────────────────────────────────────────────────
+// ─── Configuration endpoints ─────────────────────────────────────────────────
 
-const DATA_SOURCES_SUBPATH = "/data-sources";
+const CONFIGURATIONS_SUBPATH = "/configurations";
 
-export const DATA_SOURCE_ENDPOINTS = {
-  ADD: `${API_BASES.UDS}${DATA_SOURCES_SUBPATH}/add`,
-  UPDATE: `${API_BASES.UDS}${DATA_SOURCES_SUBPATH}/update`,
-  GET: `${API_BASES.UDS}${DATA_SOURCES_SUBPATH}`,
+export const CONFIGURATION_ENDPOINTS = {
+  GET: `${API_BASES.UDS}${CONFIGURATIONS_SUBPATH}`,
 } as const;
 
 // ─── Schema endpoints ─────────────────────────────────────────────────────────
@@ -38,13 +36,13 @@ export const DATA_ACCESS_ENDPOINTS = {
   POLICY_DELETE: `${API_BASES.UDS}${DATA_ACCESS_SUBPATH}${POLICY_SUBPATH}`,
 } as const;
 
-// ─── Data Manage endpoints ────────────────────────────────────────────────────
+// ─── Mock Data endpoints ──────────────────────────────────────────────────────
 
-const DATA_MANAGE_SUBPATH = "/data-manage";
+const MOCK_DATA_SUBPATH = "/mock-data";
 
 export const DATA_MANAGE_ENDPOINTS = {
-  GET_MOCK_DATA: `${API_BASES.UDS}${DATA_MANAGE_SUBPATH}`,
-  DELETE_MOCK_DATA: `${API_BASES.UDS}${DATA_MANAGE_SUBPATH}/mock-data`,
+  GET_MOCK_DATA: `${API_BASES.UDS}${MOCK_DATA_SUBPATH}`,
+  DELETE_MOCK_DATA: `${API_BASES.UDS}${MOCK_DATA_SUBPATH}/mock-data`,
 } as const;
 
 // ─── Data Validation endpoints ────────────────────────────────────────────────

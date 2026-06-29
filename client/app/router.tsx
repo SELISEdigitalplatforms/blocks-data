@@ -16,8 +16,6 @@ import {
   DashboardLayout,
   DashboardOverview,
   EnvironmentsPage,
-  ImpersonationChecker,
-  ImpersonationTerminator,
   LoginPage,
   ProfilePage,
   ProjectOverviewLayout,

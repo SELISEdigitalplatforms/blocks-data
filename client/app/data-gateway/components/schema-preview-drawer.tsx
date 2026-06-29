@@ -30,6 +30,7 @@ import { useRawIntrospectionQuery } from "../hooks/use-configuration";
 import { SchemaPreviewDrawerProps } from "../models/schema-preview.types";
 import { buildPreviewSections } from "../utils/generate-preview-queries";
 import { formatPreviewJson } from "../utils/graphql-template.utils";
+import { getGraphqlGatewayExecuteOrigin } from "@/constants/endpoint.constant";
 
 const OPERATIONS = [
   {
@@ -111,7 +112,7 @@ export function SchemaPreviewDrawer({
   const defaultTab = isEntity ? "request-format" : "schema-structure";
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [activeOperationTab, setActiveOperationTab] = useState<string>("query");
-  const requestUrl = "https://dev-data.blocksdevelopers.com/api/gateway";
+  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/api/gateway`;
   const navigate = useNavigate();
 
   useEffect(() => {

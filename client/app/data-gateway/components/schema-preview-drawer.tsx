@@ -122,8 +122,8 @@ export function SchemaPreviewDrawer({
   const operationTabMap: Record<string, string[]> = {
     query: ["Query"],
     insert: ["Insert", "Insert Many"],
-    update: ["Update"],
-    delete: ["Delete"],
+    update: ["Update", "Update Many"],
+    delete: ["Delete", "Delete Many"],
   };
 
   const handleTryInPlayground = (code: string) => {

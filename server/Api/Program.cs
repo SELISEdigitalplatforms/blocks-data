@@ -75,8 +75,6 @@ if (File.Exists(indexHtml))
 
 app.UseMiddleware<RequestContextMiddleware>();
 
-app.MapControllers();
-
 ApplicationConfigurations.ConfigureMiddleware(app);
 
 // One instance serves all tenants: a separate GraphQL server (schema/executor) per tenant.

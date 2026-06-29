@@ -37,12 +37,12 @@ public static class ServiceRegistry
         serviceCollection.AddSingleton<DataGatewayTokenAuthenticator>();
         // serviceCollection.AddSingleton<ChangeControllerContextAdapter>();
 
-        serviceCollection.AddScoped<IDataSourceService, DataSourceService>();
+        serviceCollection.AddScoped<IDataGatewayConfigurationService, DataGatewayConfigurationService>();
         serviceCollection.AddScoped<SchemaDefinitionReferenceHelper>();
         serviceCollection.AddScoped<ISchemaDefinitionService, SchemaDefinitionService>();
         serviceCollection.AddScoped<ISchemaChangeLogService, SchemaChangeLogService>();
         serviceCollection.AddScoped<IDataAccessService, DataAccessService>();
-        serviceCollection.AddScoped<IDataManageService, DataManageService>();
+        serviceCollection.AddScoped<IMockDataService, MockDataService>();
         serviceCollection.AddScoped<IDataValidationService, DataValidationService>();
         serviceCollection.AddHttpClient<IRegexAssistantService, RegexAssistantService>();
         serviceCollection.AddSingleton<ISchemaExportService, SchemaExportService>();
@@ -71,7 +71,7 @@ public static class ServiceRegistry
     }
     public static void RegisterGraphQlServices(this IServiceCollection serviceCollection)
     {
-        serviceCollection.AddSingleton<IConfigurationService, ConfigurationService>();
+        serviceCollection.AddSingleton<ISchemaConfigurationService, SchemaConfigurationService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
         serviceCollection.AddSingleton<GraphqlSchemaBuilder>();
         serviceCollection.AddSingleton<IDataChangeEventPublisher, DataChangeEventPublisher>();

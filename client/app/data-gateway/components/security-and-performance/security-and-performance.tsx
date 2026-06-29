@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui-kits/button/button";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import { SECURITY_PERFORMANCE_SUMMARY_ITEMS } from "@/data-gateway/constants/schema-access-control";
 import {
   useCreateSchema,
   useSecurityAndPerformanceSchemaList,
@@ -15,19 +14,60 @@ import { NotificationData } from "@/data-gateway/models/deployment-notification"
 import { Schema } from "@/data-gateway/models/security-and-performance";
 import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Plus, ShieldAlert } from "lucide-react";
+import { ArrowRight, Globe, Lock, Plus, ShieldAlert, Users } from "lucide-react";
 import { useCallback, useState } from "react";
 import { AddEditSchemaModal } from "../add-edit-schema";
 import LoadingSkeleton from "./loading-skeleton";
 import SecurityAndPerformancePagination from "./pagination";
 import SecurityAndPerformanceTable from "./security-and-performance-table";
+
 interface SecurityAndPerformanceProps {
   onSchemaRowClick: (schema: Schema) => void;
   onNavigateToSchemas: () => void;
   onSchemaCreated: (schemaId: string) => void;
 }
+
+const STAT_CARDS = [
+  {
+    key: "totalPublicPermission" as const,
+    label: "Public",
+    icon: Globe,
+    glow: "dark:shadow-[0_0_24px_-4px_rgba(244,63,94,0.35)]",
+    iconRing: "ring-rose-200 dark:ring-rose-500/30",
+    iconBg: "bg-rose-100 dark:bg-rose-500/10",
+    iconColor: "text-rose-600 dark:text-rose-400",
+    numClass: "text-rose-600 dark:text-rose-300",
+    borderAccent: "border-l-2 border-rose-200 dark:border-rose-500/40",
+    bg: "bg-rose-50/40 dark:bg-rose-950/20",
+  },
+  {
+    key: "totalUserPermission" as const,
+    label: "Logged-in users",
+    icon: Users,
+    glow: "dark:shadow-[0_0_24px_-4px_rgba(245,158,11,0.35)]",
+    iconRing: "ring-amber-200 dark:ring-amber-500/30",
+    iconBg: "bg-amber-100 dark:bg-amber-500/10",
+    iconColor: "text-amber-600 dark:text-amber-400",
+    numClass: "text-amber-600 dark:text-amber-300",
+    borderAccent: "border-l-2 border-amber-200 dark:border-amber-500/40",
+    bg: "bg-amber-50/40 dark:bg-amber-950/20",
+  },
+  {
+    key: "totalCustomPermission" as const,
+    label: "Custom rules",
+    icon: Lock,
+    glow: "dark:shadow-[0_0_24px_-4px_rgba(16,185,129,0.35)]",
+    iconRing: "ring-emerald-200 dark:ring-emerald-500/30",
+    iconBg: "bg-emerald-100 dark:bg-emerald-500/10",
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    numClass: "text-emerald-600 dark:text-emerald-300",
+    borderAccent: "border-l-2 border-emerald-200 dark:border-emerald-500/40",
+    bg: "bg-emerald-50/40 dark:bg-emerald-950/20",
+  },
+] as const;
 
 const SecurityAndPerformance = ({
   onSchemaRowClick,
@@ -41,37 +81,27 @@ const SecurityAndPerformance = ({
   const { mutateAsync: createSchema } = useCreateSchema();
 
   const projectKey = useProjectStore().selectedProject?.tenantId ?? "";
-  const { data: schemaListQuery, isLoading } =
-    useSecurityAndPerformanceSchemaList({
-      keyword: "",
-      projectKey,
-      pageNo,
-      pageSize,
-      schemaType: "entity",
-    });
+  const { data: schemaListQuery, isLoading } = useSecurityAndPerformanceSchemaList({
+    keyword: "",
+    projectKey,
+    pageNo,
+    pageSize,
+    schemaType: "entity",
+  });
 
   const handleImportSchemaNotification = useCallback(
     (notificationData: NotificationData) => {
       try {
         const payload = notificationData?.message?.denormalizedPayload;
-
         if (!payload) return;
-
-        const parsed =
-          typeof payload === "string" ? JSON.parse(payload) : payload;
-
+        const parsed = typeof payload === "string" ? JSON.parse(payload) : payload;
         const message = parsed?.Message ?? parsed;
-
         if (message?.IsSuccess) {
-          queryClient.invalidateQueries({
-            queryKey: ["unadapted-change-logs"],
-          });
+          queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
         }
       } catch (error) {
         console.error(error);
-        showErrorToast({
-          errors: "Error processing import schema",
-        });
+        showErrorToast({ errors: "Error processing import schema" });
       }
     },
     [queryClient],
@@ -79,25 +109,20 @@ const SecurityAndPerformance = ({
 
   useNotificationListener("schema-import", handleImportSchemaNotification);
 
-  const onSchemaCreate = async (
-    values: ICreateSchemaDefaultValues,
-  ): Promise<boolean> => {
+  const onSchemaCreate = async (values: ICreateSchemaDefaultValues): Promise<boolean> => {
     const payload: ICreateSchemaPayload = {
       schemaName: values.schemaName,
       collectionName: values.schemaType == "Entity" ? values.entityName : "",
       schemaType: values.schemaType == "Entity" ? 1 : 2,
       projectKey,
     };
-
     const res = await createSchema(payload);
-
     if (res.isSuccess) {
       onSchemaCreated(res.data.itemId);
       showSuccessToast({ description: "Schema added successfully" });
       setIsAddSchemaModalOpen(false);
       return true;
     }
-
     showErrorToast({ errors: res.errors });
     return false;
   };
@@ -106,85 +131,107 @@ const SecurityAndPerformance = ({
   const permissionCounts = schemaListQuery?.data.aggregation;
   const totalItems = schemaListQuery?.data.schemas.totalCount ?? 0;
   const totalPages = Math.ceil(totalItems / pageSize);
-  const isEmpty =
-    !isLoading && schemaListQuery !== undefined && schemas.length === 0;
+  const isEmpty = !isLoading && schemaListQuery !== undefined && schemas.length === 0;
 
   return (
-    <div className="dark:border-gray-750 flex flex-col rounded border bg-white p-4 dark:bg-slate-950 md:max-h-[calc(100vh-154px)] md:min-h-[calc(100vh-154px)] md:p-5">
+    <div className="relative flex flex-col overflow-hidden rounded-sm border border-border/40 bg-card md:max-h-[calc(100vh-154px)] md:min-h-[calc(100vh-154px)]">
+      {/* Subtle background grid */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.04),transparent_60%)]" />
+
       {isLoading ? (
-        <LoadingSkeleton />
+        <div className="p-5">
+          <LoadingSkeleton />
+        </div>
       ) : isEmpty ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 text-muted-foreground">
-          <ShieldAlert className="h-12 w-12 opacity-30" />
+        <div className="flex flex-1 flex-col items-center justify-center gap-5 p-8 text-muted-foreground">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30 ring-1 ring-border/40">
+            <ShieldAlert className="h-8 w-8 opacity-30" />
+          </div>
           <div className="text-center">
-            <p className="text-sm font-medium text-foreground">
-              No schemas found
-            </p>
-            <p className="mt-1 text-xs">
-              Go to the Schemas page to add your first schema and manage
-              permissions.
+            <p className="text-base font-semibold text-foreground">No schemas yet</p>
+            <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+              Add your first schema and configure access permissions to get started.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              className="h-8 px-2"
-              onClick={() => setIsAddSchemaModalOpen(true)}
-            >
+            <Button size="sm" onClick={() => setIsAddSchemaModalOpen(true)}>
               <Plus className="h-4 w-4" /> Add Schema
             </Button>
             <Button size="sm" variant="outline" onClick={onNavigateToSchemas}>
-              Go to Schemas
-              <ArrowRight className="ml-2 h-4 w-4" />
+              Go to Schemas <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
       ) : (
         <>
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">Security Assessment</h2>
-            <Button
-              size="sm"
-              className="h-8 px-2"
-              onClick={() => setIsAddSchemaModalOpen(true)}
-            >
-              <Plus className="h-4 w-4" /> Add Schema
-            </Button>
-          </div>
-          <div className="my-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {SECURITY_PERFORMANCE_SUMMARY_ITEMS.map((item) => (
-              <div key={item.id} className={item.className}>
-                <p className="text-base text-muted-foreground">{item.label}</p>
-                <p className="text-2xl font-bold text-foreground">
-                  {permissionCounts?.[item.countKey] ?? 0}
+          {/* Header */}
+          <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 ring-1 ring-indigo-500/20">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-sm font-semibold text-foreground">Security Assessment</h2>
+                <p className="mt-0.5 text-xs text-muted-foreground/70">
+                  Access control overview for all entity schemas
                 </p>
               </div>
-            ))}
+            </div>
+            <Button
+              size="sm"
+              className="shrink-0 bg-primary/90 shadow-[0_0_16px_-2px_rgba(99,102,241,0.4)] hover:bg-primary"
+              onClick={() => setIsAddSchemaModalOpen(true)}
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Schema
+            </Button>
           </div>
-          <div className="min-h-0 flex-1 overflow-x-auto overflow-y-auto border-b [&>div]:overflow-visible">
-            <SecurityAndPerformanceTable
-              schemas={schemas}
-              onRowClick={onSchemaRowClick}
+
+          {/* Stats */}
+          <div className="grid shrink-0 grid-cols-3 divide-x divide-border/30 border-b border-border/40">
+            {STAT_CARDS.map((card) => {
+              const count = permissionCounts?.[card.key] ?? 0;
+              return (
+                <div key={card.key} className={cn("relative flex items-center gap-4 px-6 py-5", card.bg)}>
+                  <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1", card.iconBg, card.iconRing, card.glow)}>
+                    <card.icon className={cn("h-4 w-4", card.iconColor)} />
+                  </div>
+                  <div>
+                    <p className={cn("text-3xl font-bold leading-none tracking-tight", card.numClass)}>
+                      {count}
+                    </p>
+                    <p className="mt-1.5 text-xs text-muted-foreground/70">{card.label}</p>
+                  </div>
+                  <div className={cn("absolute inset-y-0 left-0", card.borderAccent)} />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Table */}
+          <div className="min-h-0 flex-1 overflow-auto">
+            <SecurityAndPerformanceTable schemas={schemas} onRowClick={onSchemaRowClick} />
+          </div>
+
+          {/* Pagination */}
+          <div className="border-t border-border/40">
+            <SecurityAndPerformancePagination
+              pageNo={pageNo}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              isLoading={isLoading}
+              onPageChange={setPageNo}
+              onPageSizeChange={(value) => {
+                setPageSize(Number(value));
+                setPageNo(1);
+              }}
             />
           </div>
-          <SecurityAndPerformancePagination
-            pageNo={pageNo}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            isLoading={isLoading}
-            onPageChange={setPageNo}
-            onPageSizeChange={(value) => {
-              setPageSize(Number(value));
-              setPageNo(1);
-            }}
-          />
         </>
       )}
 
-      <Dialog
-        open={isAddSchemaModalOpen}
-        onOpenChange={setIsAddSchemaModalOpen}
-      >
+      <Dialog open={isAddSchemaModalOpen} onOpenChange={setIsAddSchemaModalOpen}>
         <AddEditSchemaModal
           mode="add"
           onSubmit={onSchemaCreate}

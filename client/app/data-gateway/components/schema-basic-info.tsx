@@ -1,241 +1,235 @@
+"use client";
+
 import { Button } from "@/components/ui-kits/button/button";
-import { Card, CardContent } from "@/components/ui-kits/card/card";
-import { useState } from "react";
+import { Badge } from "@/components/ui-kits/badge/badge";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import { ISchemaDetails } from "../models/data-service";
-import { useDeleteSchema } from "../hooks/use-configuration";
-import { toast } from "@/hooks/use-toast";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
-import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
-import { InfoCard } from "./info-card";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
-import { MoreVertical } from "lucide-react";
-import { Badge } from "@/components/ui-kits/badge/badge";
+import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
+import { InfoCard } from "./info-card";
 import { SchemaBasicInfoSkeleton } from "./schema-basic-info-skeleton";
 import SchemaAccessControlDrawer from "./schema-access-control-drawer";
 import {
   ACCESS_LEVEL_TO_TYPE,
-  ACCESS_TYPE_BADGE_STYLES,
-  ACCESS_TYPE_SHORT_LABELS,
   ACCESS_TYPES,
 } from "../constants/schema-access-control";
+import { ISchemaDetails } from "../models/data-service";
+import { useDeleteSchema } from "../hooks/use-configuration";
+import { toast } from "@/hooks/use-toast";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { cn } from "@/lib/utils";
+import { Database, MoreVertical, ShieldCheck } from "lucide-react";
+import { useState } from "react";
 
 interface SchemaBasicInfoProps extends ISchemaDetails {
   onDeleteSuccess?: () => void;
   isLoading?: boolean;
 }
 
+const ACCESS_PILL: Record<string, { label: string; className: string }> = {
+  [ACCESS_TYPES.LOGGED_IN]: {
+    label: "Logged-in users",
+    className: "bg-amber-500/10 text-amber-700 border border-amber-400/40 dark:text-amber-300/80 dark:border-amber-500/20",
+  },
+  [ACCESS_TYPES.PUBLIC]: {
+    label: "Public",
+    className: "bg-rose-500/10 text-rose-700 border border-rose-400/40 dark:text-rose-300/80 dark:border-rose-500/20",
+  },
+  [ACCESS_TYPES.CUSTOM]: {
+    label: "Custom",
+    className: "bg-emerald-500/10 text-emerald-700 border border-emerald-400/40 dark:text-emerald-300/80 dark:border-emerald-500/20",
+  },
+  [ACCESS_TYPES.INHERITED]: {
+    label: "Inherited",
+    className: "bg-muted/60 text-muted-foreground border border-border/60",
+  },
+};
+
+const ACCESS_ACTIONS = [
+  { key: "view", label: "View" },
+  { key: "create", label: "Create" },
+  { key: "edit", label: "Edit" },
+  { key: "delete", label: "Delete" },
+] as const;
+
 export const SchemaBasicInfo = ({
   onDeleteSuccess,
   isLoading,
   ...props
 }: SchemaBasicInfoProps) => {
-  // State Management
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSchemaAccessControlDrawerOpen, setIsSchemaAccessControlDrawerOpen] =
-    useState<boolean>(false);
-  const [selectedTab, setSelectedTab] = useState<string>("");
+    useState(false);
+  const [selectedTab, setSelectedTab] = useState("");
 
-  // Hooks
   const { isPending: isDeleteSchemaPending, mutateAsync: deleteAsync } =
     useDeleteSchema();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
-  // Delete Confirmation Modal Configuration
-  const deleteSchemaModalData = {
-    dialogTitle: "Delete schema?",
-    dialogSubtitle: "Are you sure you want to delete this schema?",
-    confirmButton: "Delete",
-    cancelButton: "Cancel",
-  };
-
-  // Handler: Delete Schema
   const onConfirmDelete = async () => {
     try {
-      const payload = {
-        id: props.id,
-        projectKey,
-      };
-
-      const res = await deleteAsync(payload);
-
+      const res = await deleteAsync({ id: props.id, projectKey });
       if (res?.isSuccess) {
-        toast({
-          variant: "success",
-          title: "Success",
-          description: "Deleted successfully",
-        });
-        onDeleteSuccess?.();
+        toast({ variant: "success", title: "Success", description: "Deleted successfully" });
         setIsDeleteDialogOpen(false);
+        if (onDeleteSuccess) {
+          onDeleteSuccess();
+        }
       } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: JSON.stringify(res?.errors),
-        });
+        toast({ variant: "destructive", title: "Error", description: JSON.stringify(res?.errors) });
       }
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: JSON.stringify(error),
-      });
+      toast({ variant: "destructive", title: "Error", description: JSON.stringify(error) });
     }
   };
 
   const { schemaName } = props;
-  const schemaType = props.schemaType === 1 ? "Entity" : "DTO";
+  const schemaType = props.schemaType === 1 ? "Entity" : "Child";
+  const isEntity = schemaType === "Entity";
 
-  // Render - Loading State
-  if (isLoading) {
-    return <SchemaBasicInfoSkeleton />;
+  const accessLevels = [
+    { label: "View", level: props.readAccessLevel },
+    { label: "Create", level: props.writeAccessLevel },
+    { label: "Edit", level: props.editAccessLevel },
+    { label: "Delete", level: props.deleteAccessLevel },
+  ] as const;
+
+  if (isLoading) return <SchemaBasicInfoSkeleton />;
+
+  if (!schemaName) {
+    return (
+      <InfoCard
+        title="Basic Information"
+        message="Select a schema from the sidebar to view its details."
+      />
+    );
   }
 
-  // Render
-  return schemaName !== "" ? (
+  return (
     <>
-      <Card className="mb-4 shadow-none xl:h-[148px] xl:overflow-hidden">
-        <CardContent className="flex flex-col items-start justify-between gap-2">
-          {/* Header Section */}
-          <div className="flex w-full flex-row items-center justify-between">
-            <h2 className="mb-2 text-lg font-semibold">Basic Information</h2>
-
-            {/* Action Buttons */}
-            <div className="flex flex-row items-center gap-4">
-              {schemaType === "Entity" && (
-                <SchemaAccessControlDrawer
-                  fields={props.fields}
-                  schemaName={schemaName}
-                  schemaId={props.id}
-                  level="row"
-                  readAccessLevel={props.readAccessLevel}
-                  writeAccessLevel={props.writeAccessLevel}
-                  editAccessLevel={props.editAccessLevel}
-                  deleteAccessLevel={props.deleteAccessLevel}
-                  trigger={<Button variant="outline">Schema Access</Button>}
-                  open={isSchemaAccessControlDrawerOpen}
-                  onOpenChange={setIsSchemaAccessControlDrawerOpen}
-                  selectedTab={selectedTab}
-                />
-              )}
-
-              {/* More Options Dropdown */}
-              <DropdownMenu
-                open={isDropdownOpen}
-                onOpenChange={setIsDropdownOpen}
-              >
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="default"
-                    variant="outline"
-                    className="gap-2 rounded shadow-none hover:bg-slate-100 dark:hover:bg-gray-800"
-                    aria-label="More options"
-                  >
-                    <MoreVertical className="h-4 w-4" />
+      <div className="relative overflow-hidden rounded-sm border border-border/40 bg-card">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.04),transparent_60%)]" />
+        {/* Header */}
+        <div className="relative flex items-center justify-between gap-3 px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 ring-1 ring-indigo-500/20">
+              <Database className="h-4 w-4 text-indigo-400" />
+            </div>
+            <h2 className="text-sm font-semibold text-foreground">
+              {schemaName}
+            </h2>
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary/70 ring-1 ring-primary/20">
+              {schemaType}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {isEntity && (
+              <SchemaAccessControlDrawer
+                fields={props.fields}
+                schemaName={schemaName}
+                schemaId={props.id}
+                level="row"
+                readAccessLevel={props.readAccessLevel}
+                writeAccessLevel={props.writeAccessLevel}
+                editAccessLevel={props.editAccessLevel}
+                deleteAccessLevel={props.deleteAccessLevel}
+                trigger={
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Schema Access
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="rounded-none">
-                  {/* Delete Option */}
-                  <DropdownMenuItem
-                    className="cursor-pointer text-red-500 focus:text-red-500"
-                    onSelect={() => {
-                      setIsDropdownOpen(false);
-                      // Open dialog after menu selection resolves to avoid focus collisions.
-                      requestAnimationFrame(() => setIsDeleteDialogOpen(true));
-                    }}
-                  >
-                    <span className="text-red-500">Delete</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                }
+                open={isSchemaAccessControlDrawerOpen}
+                onOpenChange={setIsSchemaAccessControlDrawerOpen}
+                selectedTab={selectedTab}
+              />
+            )}
+            <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuItem
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                  onSelect={() => {
+                    setIsDropdownOpen(false);
+                    requestAnimationFrame(() => setIsDeleteDialogOpen(true));
+                  }}
+                >
+                  Delete schema
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
+        </div>
 
-          {/* Schema Details Section */}
-          <div className="flex w-full flex-col gap-4 text-muted-foreground xl:flex-row">
-            <div className="flex shrink-0 flex-col gap-1 xl:w-1/4">
-              <span>Schema Name</span>
-              <span className="font-medium text-foreground">{schemaName}</span>
-            </div>
-            <div className="flex shrink-0 flex-col gap-1 xl:w-1/4">
-              <span>Schema Type</span>
-              <span className="font-medium text-foreground">
-                {schemaType === "Entity" ? schemaType : "Child"}
-              </span>
-            </div>
-            {props.schemaType === 2 && (
-              <div className="flex flex-col gap-1 xl:w-1/2">
-                <span>Reference</span>
-                <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                  {props.schemaReferences?.length > 0 ? (
-                    props.schemaReferences.map((item, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="shrink-0"
+        {/* Bottom info row — Access Control for Entity, References for Child */}
+        {(isEntity || props.schemaType === 2) && (
+          <div className="relative flex items-start gap-4 border-t border-border/40 px-5 py-3">
+            <span className="shrink-0 pt-0.5 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
+              {isEntity ? "Access Control" : "References"}
+            </span>
+            {isEntity ? (
+              /* Access Control pills for Entity */
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                {accessLevels.map(({ label, level }) => {
+                  const accessType =
+                    ACCESS_LEVEL_TO_TYPE[level] ?? ACCESS_TYPES.LOGGED_IN;
+                  const pill = ACCESS_PILL[accessType];
+                  return (
+                    <div key={label} className="flex items-center gap-1.5">
+                      <span className="text-xs text-muted-foreground/70">
+                        {label}
+                      </span>
+                      <button
+                        type="button"
+                        className={cn(
+                          "inline-flex cursor-pointer items-center rounded-lg px-2.5 py-0.5 text-xs font-medium transition-opacity hover:opacity-75",
+                          pill?.className,
+                        )}
+                        onClick={() => {
+                          setIsSchemaAccessControlDrawerOpen(true);
+                          setSelectedTab(label);
+                        }}
                       >
-                        {item}
-                      </Badge>
-                    ))
-                  ) : (
-                    <span className="text-sm text-muted-foreground">-</span>
-                  )}
-                </div>
+                        {pill?.label}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-            )}
-            {schemaType === "Entity" && (
-              <div className="flex flex-col gap-1 xl:w-1/2">
-                <span>Access Control</span>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                  {(
-                    [
-                      { label: "View", level: props.readAccessLevel },
-                      { label: "Create", level: props.writeAccessLevel },
-                      { label: "Edit", level: props.editAccessLevel },
-                      { label: "Delete", level: props.deleteAccessLevel },
-                    ] as const
-                  ).map(({ label, level }) => {
-                    const accessType = level
-                      ? ACCESS_LEVEL_TO_TYPE[level]
-                      : ACCESS_TYPES.LOGGED_IN;
-                    return (
-                      <div key={label} className="flex items-center gap-1.5">
-                        <span className="text-xs font-medium text-foreground">
-                          {label}:
-                        </span>
-                        <span
-                          className={cn(
-                            "rounded px-1.5 py-0.5 text-[10px] font-medium leading-tight",
-                            ACCESS_TYPE_BADGE_STYLES[accessType],
-                          )}
-                        >
-                          <button
-                            onClick={() => {
-                              setIsSchemaAccessControlDrawerOpen(true);
-                              setSelectedTab(label);
-                            }}
-                          >
-                            {ACCESS_TYPE_SHORT_LABELS[accessType]}
-                          </button>
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
+            ) : (
+              /* References for Child */
+              <div className="flex flex-wrap items-center gap-2">
+                {props.schemaReferences?.length > 0 ? (
+                  props.schemaReferences.map((item, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs">
+                      {item}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-xs text-muted-foreground/50">
+                    No references
+                  </span>
+                )}
               </div>
             )}
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
@@ -243,16 +237,16 @@ export const SchemaBasicInfo = ({
         <ConfirmationModal
           onCancel={() => {}}
           onConfirm={onConfirmDelete}
-          data={deleteSchemaModalData}
+          data={{
+            dialogTitle: "Delete schema?",
+            dialogSubtitle: "Are you sure you want to delete this schema?",
+            confirmButton: "Delete",
+            cancelButton: "Cancel",
+          }}
           buttonState={{ confirm: { disable: isDeleteSchemaPending } }}
         />
       </Dialog>
     </>
-  ) : (
-    <InfoCard
-      title="Basic Information"
-      message="Select a schema from the sidebar to view its details."
-    />
   );
 };
 

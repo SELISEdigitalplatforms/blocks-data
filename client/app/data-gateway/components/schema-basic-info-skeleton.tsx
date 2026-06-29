@@ -1,35 +1,29 @@
-import { Card, CardContent } from "@/components/ui-kits/card/card";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 
-export const SchemaBasicInfoSkeleton = () => {
-  return (
-    <Card className="mb-4 shadow-none xl:h-[148px] xl:overflow-hidden">
-      <CardContent className="flex flex-col items-start justify-between gap-5">
-        {/* Header Section */}
-        <div className="flex w-full flex-row items-center justify-between">
-          <Skeleton className="h-7 w-40" />
-          <div className="flex flex-row items-center gap-4">
-            <Skeleton className="hidden h-10 w-32 lg:flex" />
-            <Skeleton className="h-10 w-10" />
-          </div>
-        </div>
+export const SchemaBasicInfoSkeleton = () => (
+  <div className="rounded-sm border border-border/60 bg-card">
+    {/* Header */}
+    <div className="flex items-center justify-between px-5 py-3.5">
+      <div className="flex items-center gap-2.5">
+        <Skeleton className="h-8 w-8 rounded-lg" />
+        <Skeleton className="h-4 w-24 rounded" />
+        <Skeleton className="h-5 w-12 rounded-md" />
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Skeleton className="h-8 w-32 rounded-md" />
+        <Skeleton className="h-8 w-8 rounded-md" />
+      </div>
+    </div>
 
-        {/* Schema Details Section */}
-        <div className="grid w-full grid-cols-1 gap-4 text-muted-foreground xl:grid-cols-3">
-          <div className="flex flex-col gap-1">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-5 w-32" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-5 w-20" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-5 w-28" />
-          </div>
+    {/* Access row */}
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border/50 px-5 py-3">
+      <Skeleton className="h-3 w-12 rounded" />
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <Skeleton className="h-3 w-8 rounded" />
+          <Skeleton className="h-5 w-24 rounded-full" />
         </div>
-      </CardContent>
-    </Card>
-  );
-};
+      ))}
+    </div>
+  </div>
+);

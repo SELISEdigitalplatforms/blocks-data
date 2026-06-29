@@ -70,7 +70,7 @@ export const getRuntimeEnv = (
   let value = "";
   const windowValue =
     typeof window !== "undefined"
-      ? (window.__BLOCKS_ENV__ as Partial<Record<RuntimeKey, string>> | undefined)?.[key]
+      ? (window.__BLOCKS_ENV__ as Partial<Record<string, string>> | undefined)?.[key]
       : undefined;
   if (windowValue && !isPlaceholder(windowValue)) {
     value = windowValue;

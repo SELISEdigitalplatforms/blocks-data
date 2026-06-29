@@ -82,48 +82,7 @@ var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
 
 if (File.Exists(indexHtml))
 {
-
-    app.MapFallback(async context =>
-    {
-        try
-        {
-            var tenantService = context.RequestServices.GetRequiredService<ITenants>();
-            var host = context.Request.Host.Value;
-            var tenant = tenantService.GetTenantByApplicationDomain(host);
-
-            if (tenant == null)
-            {
-                context.Response.StatusCode = StatusCodes.Status404NotFound;
-                return;
-            }
-
-            // ApplyFrontendRuntimeSettings(builder.Configuration, wwwrootPath, tenant.TenantId, string.Empty);
-            var domain = tenant.Applications.FirstOrDefault(app => app.CookieDomain == host)?.CookieDomain;
-
-            context.Response.Cookies.Append("x-blocks-key", tenant.TenantId, new CookieOptions
-            {
-                Domain = domain,
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.None,
-                Path = "/"
-            });
-
-            await context.Response.SendFileAsync(indexHtml);
-        }
-        catch (Exception ex)
-        {
-            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-            await context.Response.WriteAsJsonAsync(new { error = ex.Message });
-        }
-    });
-
-    // x-blocks-key cookie
-    // check if domain match 
-    // get google captch key BLOCKS_GOOGLE_SITE_KEY
-    // Base Url 
-    // Construct URL 
-
+    app.MapFallbackToFile("/index.html");
 }
 
 await app.RunAsync();

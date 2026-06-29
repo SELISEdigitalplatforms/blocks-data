@@ -105,7 +105,7 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
         databaseName:
           selectedSource === "others" ? formData.databaseName : "default",
         projectKey: projectKey,
-        itemId: initialData?.itemId || "",
+        itemId: initialData?.ItemId || "",
       };
 
       const res = isEditMode
@@ -136,7 +136,7 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
       <DialogContent className="mr-4 w-full max-w-[425px] rounded-md">
         <DialogHeader>
           <DialogTitle className="text-left text-lg font-semibold leading-7">
-            {isEditMode ? "Edit data source" : "Configure data source"}
+            {isEditMode ? "Configuration" : "Configure data source"}
           </DialogTitle>
 
           <DialogDescription className="mb-6 mt-2 text-left text-sm font-normal leading-5 text-medium-emphasis">

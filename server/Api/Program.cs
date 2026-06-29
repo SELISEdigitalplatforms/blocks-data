@@ -66,6 +66,13 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+// Serve SPA for unmatched routes BEFORE authentication middleware
+var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
+if (File.Exists(indexHtml))
+{
+    app.MapFallbackToFile("/index.html");
+}
+
 app.UseMiddleware<RequestContextMiddleware>();
 
 ApplicationConfigurations.ConfigureMiddleware(app);
@@ -75,13 +82,6 @@ ApplicationConfigurations.ConfigureMiddleware(app);
 // header. All requests use the same /api/gateway path. Mapped AFTER ConfigureMiddleware so that
 // authentication has run and the token (HttpContext.User / BlocksContext) is available here.
 app.MapDataGatewayGraphQL("/api/gateway").WithDisplayName("GraphQL");
-
-var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
-
-if (File.Exists(indexHtml))
-{
-    app.MapFallbackToFile("/index.html");
-}
 
 await app.RunAsync();
 

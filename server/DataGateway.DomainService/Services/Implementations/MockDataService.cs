@@ -8,11 +8,11 @@ using MongoDB.Driver;
 
 namespace DataGateway.DomainService.Services;
 
-public class DataManageService : IDataManageService
+public class MockDataService : IMockDataService
 {
     private readonly IGqlDbRepository _repository;
     private readonly IDbRepository _dbRepository;
-    public DataManageService(IGqlDbRepository repository, IDbRepository dbRepository)
+    public MockDataService(IGqlDbRepository repository, IDbRepository dbRepository)
     {
         _repository = repository;
         _dbRepository = dbRepository;

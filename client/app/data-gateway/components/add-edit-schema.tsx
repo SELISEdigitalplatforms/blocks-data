@@ -2,6 +2,7 @@ import { Button } from "@/components/ui-kits/button/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -18,12 +19,16 @@ import {
 import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { allowLettersNumbersUnderscoreKeyDown } from "../utils/input-restriction.util";
-import { useSchemaList } from "../hooks/use-configuration";
+import { showErrorToast } from "@/hooks/use-toast";
+import {
+  useGetDataServiceConfiguration,
+  useSchemaList,
+} from "../hooks/use-configuration";
 import {
   ICreateSchemaDefaultValues,
+  IDataSourceResponse,
   ISchemaDetails,
 } from "../models/data-service";
-import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
 
 type SchemaFormValues = {
@@ -80,6 +85,13 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   const isEntity = schemaType === "Entity";
 
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
+
+  // Fetch data source configuration for collection name pattern
+  const { data: configData } = useGetDataServiceConfiguration();
+  const config = configData?.data as IDataSourceResponse | undefined;
+  const isCollectionNameEditable = config?.isCollectionNameEditable ?? false;
+  const collectionNamePattern = config?.collectionNamePattern ?? "sb_{SchemaName}s";
+
   // Call API to check schema name existence
   const { data: schemaListQuery } = useSchemaList({
     schemaName: schemaName.trim() || "",
@@ -127,7 +139,6 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   const onFormSubmit = async (data: SchemaFormValues) => {
     if (mode === "edit") {
       setPendingFormData(data);
-      onCancel();
       setIsEditConfirmationModalOpen(true);
     } else {
       const success = await onSubmit(data);
@@ -146,14 +157,22 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   };
 
   const handleEditConfirm = async () => {
-    if (pendingFormData) {
+    if (!pendingFormData) {
+      setIsEditConfirmationModalOpen(false);
+      return;
+    }
+    try {
       const success = await onSubmit(pendingFormData);
       if (success) {
         resetForm();
         setPendingFormData(null);
       }
+    } catch (error) {
+      console.error("Error creating schema:", error);
+      showErrorToast({ errors: ["An unexpected error occurred. Please try again."] });
+    } finally {
+      setIsEditConfirmationModalOpen(false);
     }
-    setIsEditConfirmationModalOpen(false);
   };
 
   return (
@@ -198,7 +217,11 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                   onChange: (e) => {
                     const value = e.target.value;
                     if (mode === "add") {
-                      setValue("entityName", `sb_${value}s`);
+                      const pattern = collectionNamePattern.replace(
+                        "{SchemaName}",
+                        value,
+                      );
+                      setValue("entityName", pattern);
                     }
                   },
                 })}
@@ -250,8 +273,12 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                   {...register("entityName", {
                     required: "Entity name is required",
                   })}
-                  onKeyDown={allowLettersNumbersUnderscoreKeyDown}
-                  readOnly
+                  onKeyDown={
+                    isCollectionNameEditable
+                      ? allowLettersNumbersUnderscoreKeyDown
+                      : undefined
+                  }
+                  readOnly={!isCollectionNameEditable}
                 />
                 {errors.entityName && (
                   <p className="mt-1 text-sm text-red-500">
@@ -277,11 +304,37 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
         open={isEditConfirmationModalOpen}
         onOpenChange={setIsEditConfirmationModalOpen}
       >
-        <ConfirmationModal
-          onCancel={() => {}}
-          onConfirm={handleEditConfirm}
-          data={editSchemaConfirmationModalData}
-        />
+        <DialogContent
+          className="mr-4 w-full max-w-[425px] rounded-md"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            (document.activeElement as HTMLElement | null)?.blur();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-left text-lg font-semibold leading-7">
+              {editSchemaConfirmationModalData.dialogTitle}
+            </DialogTitle>
+            <DialogDescription className="mb-6 mt-2 break-words text-left text-sm font-normal leading-5 text-medium-emphasis">
+              {editSchemaConfirmationModalData.dialogSubtitle}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex flex-row gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditConfirmationModalOpen(false)}
+            >
+              {editSchemaConfirmationModalData.cancelButton || "Cancel"}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleEditConfirm}
+            >
+              {editSchemaConfirmationModalData.confirmButton || "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </>
   );

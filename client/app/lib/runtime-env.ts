@@ -1,6 +1,6 @@
 const PLACEHOLDER_PREFIX = "__BLOCKS_";
 
-type RuntimeKey =
+export type RuntimeKey =
   | "BLOCKS_IAM_BASE_URL"
   | "BLOCKS_X_BLOCKS_KEY"
   | "BLOCKS_GOOGLE_SITE_KEY"
@@ -30,19 +30,61 @@ type RuntimeKey =
   | "BLOCKS_STUDIO_CALLBACK_URL"
   | "BLOCKS_DATA_IMPORT_SAMPLE_FILE";
 
-type BlocksEnv = Partial<Record<RuntimeKey, string>>;
-
 const isPlaceholder = (value?: string) =>
   !!value && value.startsWith(PLACEHOLDER_PREFIX) && value.endsWith("__");
 
-export const getRuntimeEnv = (key: RuntimeKey): string => {
-  const windowValue =
-    typeof window !== "undefined"
-      ? (window.__BLOCKS_ENV__ as BlocksEnv | undefined)?.[key]
-      : undefined;
-  if (windowValue && !isPlaceholder(windowValue)) {
-    return windowValue;
+type GetRuntimeEnvOptions = {
+  stripPort?: boolean;
+  ensureTrailingSlash?: boolean;
+};
+
+const stripPortFromUrl = (url: string) => {
+  try {
+    const parsedUrl = new URL(url);
+    parsedUrl.port = "";
+    return parsedUrl.toString();
+  } catch (error) {
+    console.warn(`Failed to parse URL: ${url}`, error);
+    return url;
+  }
+};
+
+const ensureTrailingSlash = (url: string) =>
+  url.endsWith("/") ? url : `${url}/`;
+
+const isLocalEnv = () => {
+  if (import.meta.env.DEV) return true;
+
+  if (typeof window !== "undefined") {
+    const { hostname } = window.location;
+    return hostname === "localhost" || hostname === "127.0.0.1";
   }
 
-  return import.meta.env[key] || "";
+  return false;
+};
+
+export const getRuntimeEnv = (
+  key: RuntimeKey,
+  options: GetRuntimeEnvOptions = {},
+): string => {
+  let value = "";
+  const windowValue =
+    typeof window !== "undefined"
+      ? (window.__BLOCKS_ENV__ as Partial<Record<string, string>> | undefined)?.[key]
+      : undefined;
+  if (windowValue && !isPlaceholder(windowValue)) {
+    value = windowValue;
+  } else {
+    value = import.meta.env[key] || "";
+  }
+
+  if (options.stripPort && !isLocalEnv()) {
+    value = stripPortFromUrl(value);
+  }
+
+  if (value && options.ensureTrailingSlash) {
+    value = ensureTrailingSlash(value);
+  }
+
+  return value;
 };

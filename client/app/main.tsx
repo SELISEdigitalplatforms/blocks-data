@@ -8,6 +8,7 @@ import { TooltipProvider } from "./components/ui-kits/tooltip/tooltip";
 import QueryProvider from "./providers/query-provider";
 import { router } from "./router";
 import "./styles/globals.css";
+import "./lib/resolve-env";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

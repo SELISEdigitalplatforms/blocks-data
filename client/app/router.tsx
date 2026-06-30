@@ -95,6 +95,10 @@ export const router = createBrowserRouter([
                 ),
                 children: [
                   {
+                    index: true,
+                    element: <Navigate to="environments" replace />,
+                  },
+                  {
                     path: "environments",
                     element: <EnvironmentsPage />,
                   },

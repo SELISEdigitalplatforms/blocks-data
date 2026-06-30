@@ -23,14 +23,17 @@ import {
   configurationService,
 } from "../services/configuration.service";
 
+const getProjectKey = () => useProjectStore.getState().selectedProject?.tenantId || "";
+
 export const useCreateDataSourceConfiguration = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: configurationService.createDataSource,
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["data-service-config", "get"],
+        queryKey: ["data-service-config", "get", projectKey],
       });
     },
   });
@@ -38,21 +41,26 @@ export const useCreateDataSourceConfiguration = () => {
 
 export const useUpdateDataSourceConfiguration = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: configurationService.updateDataSource,
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["data-service-config", "get"],
+        queryKey: ["data-service-config", "get", projectKey],
       });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
     },
   });
 };
 
 export const useGetDataServiceConfiguration = () => {
+  const projectKey = getProjectKey();
+
   return useQuery({
-    queryKey: ["data-service-config", "get"],
+    queryKey: ["data-service-config", "get", projectKey],
     queryFn: () => configurationService.getDataServiceDetails(),
   });
 };
@@ -61,6 +69,7 @@ export const useSchemasReload = () => {
   const queryClient = useQueryClient();
   const selectedProject = useProjectStore().selectedProject;
   const projectShortKey = selectedProject?.tenantSlug || "";
+  const projectKey = selectedProject?.tenantId || "";
 
   return useMutation({
     mutationFn: () => configurationService.reloadSchemas(),
@@ -95,9 +104,11 @@ export const useSchemasReload = () => {
 
       if (!error) {
         await queryClient.invalidateQueries({
-          queryKey: ["unadapted-change-logs"],
+          queryKey: ["unadapted-change-logs", projectKey],
         });
-        await queryClient.invalidateQueries({ queryKey: ["schema-list"] });
+        await queryClient.invalidateQueries({
+          queryKey: ["schema-list", projectKey],
+        });
       }
     },
   });
@@ -185,14 +196,19 @@ export const useSchemaDetails = (
 
 export const useCreateSchema = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: configurationService.createSchema,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["schema-list"] });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
       queryClient.invalidateQueries({
-        queryKey: ["security-performance-schema-list"],
+        queryKey: ["schema-list", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["security-performance-schema-list", projectKey],
       });
     },
   });
@@ -200,47 +216,60 @@ export const useCreateSchema = () => {
 
 export const useUpdateSchema = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: configurationService.updateSchema,
     onSuccess: (_data, variables: ICreateSchemaPayload) => {
-      queryClient.invalidateQueries({ queryKey: ["schema-list"] });
       queryClient.invalidateQueries({
-        queryKey: ["schema-details", variables.itemId],
+        queryKey: ["schema-list", projectKey],
       });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
+      queryClient.invalidateQueries({
+        queryKey: ["schema-details", variables.itemId, projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
     },
   });
 };
 
 export const useUpdateSchemaStructure = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: configurationService.updateSchemaStructure,
     onSuccess: (_data, variables: IUpdateSchemaStructure) => {
       queryClient.invalidateQueries({
-        queryKey: ["schema-details", variables.schemaDefinitionItemId],
+        queryKey: ["schema-details", variables.schemaDefinitionItemId, projectKey],
       });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
     },
   });
 };
 
 export const useDeleteSchema = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: (payload: { id: string; projectKey: string }) =>
       configurationService.deleteSchema(payload),
     onSuccess: (_data, variables) => {
       queryClient.removeQueries({
-        queryKey: ["schema-details", variables.id],
+        queryKey: ["schema-details", variables.id, projectKey],
       });
-      queryClient.invalidateQueries({ queryKey: ["schema-list"] });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
       queryClient.invalidateQueries({
-        queryKey: ["security-performance-schema-list"],
+        queryKey: ["schema-list", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["security-performance-schema-list", projectKey],
       });
     },
   });
@@ -248,19 +277,26 @@ export const useDeleteSchema = () => {
 
 export const useSetDataAccess = (schemaId?: string) => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: configurationService.setDataAccess,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["schema-list"] });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
       queryClient.invalidateQueries({
-        queryKey: ["security-performance-schema-list"],
+        queryKey: ["schema-list", projectKey],
       });
-      queryClient.invalidateQueries({ queryKey: ["get-policy-data"] });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["security-performance-schema-list", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["get-policy-data", projectKey],
+      });
       if (schemaId) {
         queryClient.invalidateQueries({
-          queryKey: ["schema-details", schemaId],
+          queryKey: ["schema-details", schemaId, projectKey],
         });
       }
     },
@@ -269,19 +305,26 @@ export const useSetDataAccess = (schemaId?: string) => {
 
 export const useSetRowColumnPermission = (schemaId?: string) => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: configurationService.setRowColumnPermissions,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["schema-list"] });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
       queryClient.invalidateQueries({
-        queryKey: ["security-performance-schema-list"],
+        queryKey: ["schema-list", projectKey],
       });
-      queryClient.invalidateQueries({ queryKey: ["get-policy-data"] });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["security-performance-schema-list", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["get-policy-data", projectKey],
+      });
       if (schemaId) {
         queryClient.invalidateQueries({
-          queryKey: ["schema-details", schemaId],
+          queryKey: ["schema-details", schemaId, projectKey],
         });
       }
     },
@@ -296,16 +339,26 @@ export const useExecuteGraphQL = () => {
 };
 
 export const useGetMockData = () => {
+  const projectKey = getProjectKey();
+
   return useQuery({
-    queryKey: ["mock-data"],
+    queryKey: ["mock-data", projectKey],
     queryFn: () => configurationService.getMockData(),
   });
 };
 
 export const useDeleteMockData = () => {
+  const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
+
   return useMutation({
     mutationFn: (payload: IDeleteMockDataPayload) =>
       configurationService.deleteMockData(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["mock-data", projectKey],
+      });
+    },
   });
 };
 
@@ -337,14 +390,19 @@ export const useGetPolicyData = (option: {
 
 export const useCreatePolicy = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: configurationService.createPolicy,
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["get-policy-data"] });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
       queryClient.invalidateQueries({
-        queryKey: ["schema-details", variables.schemaId],
+        queryKey: ["get-policy-data", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schema-details", variables.schemaId, projectKey],
       });
     },
   });
@@ -352,14 +410,19 @@ export const useCreatePolicy = () => {
 
 export const useUpdatePolicy = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: configurationService.updatePolicy,
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["get-policy-data"] });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
       queryClient.invalidateQueries({
-        queryKey: ["schema-details", variables.schemaId],
+        queryKey: ["get-policy-data", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schema-details", variables.schemaId, projectKey],
       });
     },
   });
@@ -367,14 +430,21 @@ export const useUpdatePolicy = () => {
 
 export const useDeletePolicy = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: (payload: IDeletePolicyPayload) =>
       configurationService.deletePolicy(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["get-policy-data"] });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
-      queryClient.invalidateQueries({ queryKey: ["schema-details"] });
+      queryClient.invalidateQueries({
+        queryKey: ["get-policy-data", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["schema-details", projectKey],
+      });
     },
   });
 };
@@ -410,6 +480,7 @@ export const useGetSchemaFieldValidation = (
 
 export const useCreateSchemaFieldValidation = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: (payload: ICreateSchemaFieldValidationPayload) =>
@@ -424,15 +495,18 @@ export const useCreateSchemaFieldValidation = () => {
         ],
       });
       queryClient.invalidateQueries({
-        queryKey: ["schema-details", variables.schemaId],
+        queryKey: ["schema-details", variables.schemaId, projectKey],
       });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
     },
   });
 };
 
 export const useDeleteSchemaFieldValidation = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: (
@@ -458,9 +532,11 @@ export const useDeleteSchemaFieldValidation = () => {
           ],
         });
         queryClient.invalidateQueries({
-          queryKey: ["schema-details", variables.schemaId],
+          queryKey: ["schema-details", variables.schemaId, projectKey],
         });
-        queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
+        queryClient.invalidateQueries({
+          queryKey: ["unadapted-change-logs", projectKey],
+        });
       }
     },
   });
@@ -468,6 +544,7 @@ export const useDeleteSchemaFieldValidation = () => {
 
 export const useUpdateSchemaFieldValidation = () => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationFn: (payload: IUpdateSchemaFieldValidationPayload) =>
@@ -482,9 +559,11 @@ export const useUpdateSchemaFieldValidation = () => {
         ],
       });
       queryClient.invalidateQueries({
-        queryKey: ["schema-details", variables.schemaId],
+        queryKey: ["schema-details", variables.schemaId, projectKey],
       });
-      queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
     },
   });
 };
@@ -547,6 +626,7 @@ export const useRawIntrospectionQuery = (options: {
 
 export const useImportSchemaFile = (_payload: IImportFile) => {
   const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
 
   return useMutation({
     mutationKey: ["import-schema-file"],
@@ -560,12 +640,14 @@ export const useImportSchemaFile = (_payload: IImportFile) => {
         queryKey: ["graphql-introspection"],
         refetchType: "all",
       });
-      await queryClient.invalidateQueries({ queryKey: ["schema-list"] });
       await queryClient.invalidateQueries({
-        queryKey: ["unadapted-change-logs"],
+        queryKey: ["schema-list", projectKey],
       });
       await queryClient.invalidateQueries({
-        queryKey: ["security-performance-schema-list"],
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["security-performance-schema-list", projectKey],
       });
     },
   });

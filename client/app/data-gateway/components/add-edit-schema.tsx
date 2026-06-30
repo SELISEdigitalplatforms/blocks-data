@@ -30,6 +30,7 @@ import {
   ISchemaDetails,
 } from "../models/data-service";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { AlertCircle, Pencil, Plus } from "lucide-react";
 
 type SchemaFormValues = {
   schemaName: string;
@@ -179,7 +180,12 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
     <>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {mode === "edit" ? (
+              <Pencil className="h-4 w-4 text-indigo-400" />
+            ) : (
+              <Plus className="h-4 w-4 text-indigo-400" />
+            )}
             {mode === "edit" ? "Edit Schema" : "Add New Schema"}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -312,7 +318,8 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
           }}
         >
           <DialogHeader>
-            <DialogTitle className="text-left text-lg font-semibold leading-7">
+            <DialogTitle className="flex items-center gap-2 text-left text-lg font-semibold leading-7">
+              <AlertCircle className="h-4 w-4 text-indigo-400" />
               {editSchemaConfirmationModalData.dialogTitle}
             </DialogTitle>
             <DialogDescription className="mb-6 mt-2 break-words text-left text-sm font-normal leading-5 text-medium-emphasis">

@@ -18,7 +18,7 @@ import {
   resolveTypeName,
   type SchemaField,
 } from "@/data-gateway/utils/generate-preview-queries";
-import { Check, ChevronDown, ChevronRight, FilePenLine, Loader, Search, X } from "lucide-react";
+import { Boxes, Check, ChevronDown, ChevronRight, FilePenLine, Loader, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 interface CategorizedSchema {
@@ -534,7 +534,8 @@ export function SchemasDrawer({
 
           {/* Header */}
           <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-6 py-4">
-            <DrawerTitle className="text-sm font-semibold text-foreground">
+            <DrawerTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Boxes className="h-4 w-4 text-indigo-400" />
               Schemas
             </DrawerTitle>
             <DrawerClose asChild>

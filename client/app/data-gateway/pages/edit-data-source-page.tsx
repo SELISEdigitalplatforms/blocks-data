@@ -421,7 +421,8 @@ const EditDataSourcePage = () => {
           }}
         >
           <DialogHeader>
-            <DialogTitle className="text-left text-base font-semibold">
+            <DialogTitle className="flex items-center gap-2 text-left text-base font-semibold">
+              <AlertTriangle className="h-4 w-4 text-indigo-400" />
               Confirm data source update?
             </DialogTitle>
             <DialogDescription className="mt-2 text-left text-sm text-muted-foreground/70">

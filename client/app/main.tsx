@@ -14,6 +14,7 @@ createRoot(document.getElementById("root")!).render(
     <QueryProvider>
       <NuqsAdapter>
         <TooltipProvider>
+          <NuqsAdapter>
           <BlocksAppLayout
             config={{
               appLogoUrl: {
@@ -26,6 +27,7 @@ createRoot(document.getElementById("root")!).render(
             <RouterProvider router={router} />
           </BlocksAppLayout>
           <Toaster />
+          </NuqsAdapter>
         </TooltipProvider>
       </NuqsAdapter>
     </QueryProvider>

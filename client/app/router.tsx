@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, RouteObject } from "react-router-dom";
 
 // Dashboard routes (protected)
 import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
@@ -138,4 +138,4 @@ export const router = createBrowserRouter([
       },
     ],
   },
-]);
+] as const satisfies RouteObject[])

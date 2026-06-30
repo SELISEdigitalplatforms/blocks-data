@@ -30,7 +30,7 @@ import { isErrorWithErrors } from "@/lib/error";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
-import { Database, Loader2, Server, Settings2 } from "lucide-react";
+import { AlertTriangle, Database, Loader2, Server, Settings2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";

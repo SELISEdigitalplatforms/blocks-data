@@ -20,7 +20,7 @@ import {
 import { useGetProject } from "@/hooks/use-project";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
-import { Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
+import { Eye, Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
@@ -172,7 +172,8 @@ export function SchemaPreviewDrawer({
 
           {/* Drawer header */}
           <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-6 py-4">
-            <DrawerTitle className="text-sm font-semibold text-foreground">
+            <DrawerTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Eye className="h-4 w-4 text-indigo-400" />
               {heading}
             </DrawerTitle>
             <DrawerDescription className="sr-only">

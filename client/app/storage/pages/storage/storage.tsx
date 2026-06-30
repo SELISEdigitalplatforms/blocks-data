@@ -139,7 +139,7 @@ export function Storage() {
           >
             API Docs
           </Button> */}
-          <LogMenu link="/services/storage/logs" />{" "}
+          <LogMenu link="/app/services/storage/logs" />{" "}
         </div>
       </div>
 

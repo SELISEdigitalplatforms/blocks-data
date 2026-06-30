@@ -14,14 +14,14 @@ export const StorageLogs = () => {
       <LogsViewer
         services={[
           {
-            id: "blocks-uds-api",
+            id: "blocks-data",
             label: "Api",
-            serviceName: "blocks-uds-api",
+            serviceName: "blocks-data",
           },
           {
-            id: "blocks-uds-worker",
+            id: "blocks-data-worker",
             label: "Worker",
-            serviceName: "blocks-uds-worker",
+            serviceName: "blocks-data-worker",
           },
         ]}
         predefinedQueries={[

@@ -47,12 +47,6 @@ export const router = createBrowserRouter([
           </AuthResolver>
         ),
         children: [
-          // Callback inside AuthResolver but outside guards
-          {
-            path: "/dashboard/callback",
-            element: <CallbackPage defaultRedirectUrl="/app/dashboard" />,
-          },
-
           // public
           {
             element: (

@@ -1,13 +1,14 @@
 using Blocks.Genesis;
-using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService;
+using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Events;
 using DataGateway.DomainService.Services;
+using SeliseBlocks.ConfigurationDriver;
+using Storage.DomainService.Storage;
+using Storage.DomainService.Utilities;
 using Worker;
 using Worker.Configuration;
 using Worker.Consumers;
-using Storage.DomainService.Storage;
-using Storage.DomainService.Utilities;
 
 const string _serviceName = GraphQlConstant.WorkerServiceName;
 
@@ -23,6 +24,13 @@ IHostBuilder CreateHostBuilder(string[] args) =>
         .ConfigureAppConfiguration((context, builder) =>
         {
             ApplicationConfigurations.ConfigureWorkerEnv(builder, args);
+            builder.AddMongoDbConfiguration(options =>
+            {
+                options.ConnectionString = secret.DatabaseConnectionString;
+                options.DatabaseName = secret.RootDatabaseName;
+                options.CollectionName = "Secrets";
+                options.SecretKey = "blocks-secret-data";
+            });
         })
         .ConfigureServices((services) =>
         {

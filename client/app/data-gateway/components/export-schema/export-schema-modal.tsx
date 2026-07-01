@@ -22,6 +22,7 @@ import type { IGetFileByFileIDResponse } from "@/storage/models/storage.model";
 import { storageService } from "@/storage/services/storage.service";
 import { useQueryClient } from "@tanstack/react-query";
 import { DialogTrigger } from "@radix-ui/react-dialog";
+import { Download } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { useSchemaExport } from "../../hooks/use-configuration";
@@ -276,7 +277,10 @@ export default function ExportSchemaModal({
   return (
     <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden rounded-sm border border-border/40 sm:max-w-[420px]">
       <DialogHeader>
-        <DialogTitle className="text-sm font-semibold text-foreground">Export Schema</DialogTitle>
+        <DialogTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Download className="h-4 w-4 text-indigo-400" />
+          Export Schema
+        </DialogTitle>
         <DialogDescription className="text-xs text-muted-foreground/60">
           Select the data you&apos;d like to export
         </DialogDescription>

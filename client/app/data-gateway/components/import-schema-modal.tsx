@@ -196,7 +196,10 @@ export default function ImportSchemaModal({
   return (
     <DialogContent className="rounded-sm border border-border/40 sm:max-w-[440px]">
       <DialogHeader>
-        <DialogTitle className="text-sm font-semibold text-foreground">Import</DialogTitle>
+        <DialogTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <CloudUpload className="h-4 w-4 text-indigo-400" />
+          Import
+        </DialogTitle>
         <DialogDescription className="text-xs text-muted-foreground/60">
           Import schema from a file.
         </DialogDescription>

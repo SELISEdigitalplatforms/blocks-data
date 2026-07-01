@@ -22,7 +22,7 @@ import {
 } from "@/components/ui-kits/tooltip/tooltip";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { Pencil, Plus, Sparkles, Trash, X } from "lucide-react";
+import { Pencil, Plus, ShieldCheck, Sparkles, Trash, X } from "lucide-react";
 import { ReactNode, useRef, useState } from "react";
 import {
   useCreateSchemaFieldValidation,
@@ -293,7 +293,8 @@ export function SchemaFieldValidationDrawer({
 
         {/* Header */}
         <div className="relative flex shrink-0 items-center justify-between border-b border-border/40 px-6 py-4">
-          <DrawerTitle className="text-sm font-semibold text-foreground">
+          <DrawerTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <ShieldCheck className="h-4 w-4 text-indigo-400" />
             Validations for{" "}
             <span className="font-mono text-indigo-400">{fieldName}</span>
           </DrawerTitle>

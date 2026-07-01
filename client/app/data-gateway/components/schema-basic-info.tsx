@@ -120,12 +120,14 @@ export const SchemaBasicInfo = ({
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 ring-1 ring-indigo-500/20">
               <Database className="h-4 w-4 text-indigo-400" />
             </div>
-            <h2 className="text-sm font-semibold text-foreground">
-              {schemaName}
-            </h2>
-            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary/70 ring-1 ring-primary/20">
-              {schemaType}
-            </span>
+            <div className="flex flex-col">
+              <h2 className="text-sm font-semibold text-foreground">
+                {schemaName}
+              </h2>
+              <span className="text-[11px] text-muted-foreground/60">
+                {schemaType}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
             {isEntity && (

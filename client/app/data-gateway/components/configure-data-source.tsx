@@ -27,6 +27,7 @@ import { isErrorWithErrors } from "@/lib/error";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { Settings2 } from "lucide-react";
 import {
   useCreateDataSourceConfiguration,
   useUpdateDataSourceConfiguration,
@@ -135,7 +136,8 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
     <>
       <DialogContent className="mr-4 w-full max-w-[425px] rounded-md">
         <DialogHeader>
-          <DialogTitle className="text-left text-lg font-semibold leading-7">
+          <DialogTitle className="flex items-center gap-2 text-left text-lg font-semibold leading-7">
+            <Settings2 className="h-4 w-4 text-indigo-400" />
             {isEditMode ? "Configuration" : "Configure data source"}
           </DialogTitle>
 

@@ -30,7 +30,7 @@ import { isErrorWithErrors } from "@/lib/error";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
-import { Database, Loader2, Server, Settings2 } from "lucide-react";
+import { AlertTriangle, Database, Loader2, Server, Settings2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
@@ -421,7 +421,8 @@ const EditDataSourcePage = () => {
           }}
         >
           <DialogHeader>
-            <DialogTitle className="text-left text-base font-semibold">
+            <DialogTitle className="flex items-center gap-2 text-left text-base font-semibold">
+              <AlertTriangle className="h-4 w-4 text-indigo-400" />
               Confirm data source update?
             </DialogTitle>
             <DialogDescription className="mt-2 text-left text-sm text-muted-foreground/70">

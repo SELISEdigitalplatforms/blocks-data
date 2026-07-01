@@ -1,9 +1,9 @@
 import { getRuntimeEnv } from "@/lib/runtime-env";
 
 const DEFAULT_GRAPHQL_GATEWAY_ORIGIN =
-  "https://dev-api.blocksdevelopers.com" as const;
+  "https://dev-api.seliseblocks.com" as const;
 const DEFAULT_BLOCKS_LOGIC_SITE_ORIGIN =
-  "https://dev-logic.blocksdevelopers.com" as const;
+  "https://dev-logic.seliseblocks.com" as const;
 
 const trimTrailingSlash = (value: string) => value.replace(/\/$/, "");
 

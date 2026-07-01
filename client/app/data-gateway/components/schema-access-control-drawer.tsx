@@ -14,7 +14,7 @@ import {
   TAB_TO_ACCESS_LEVEL_KEY,
 } from "@/data-gateway/constants/schema-access-control";
 import { resolveFieldAccessLevel } from "@/data-gateway/utils/schema-access-control.utils";
-import { X } from "lucide-react";
+import { ShieldCheck, X } from "lucide-react";
 import React, { ReactNode, useEffect, useState } from "react";
 import { SchemaAccessControlView } from "./schema-access-control/schema-access-control-view";
 import type { IField } from "@/data-gateway/models/data-service";
@@ -101,7 +101,8 @@ const SchemaAccessControlDrawer = ({
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.05),transparent_55%)]" />
           {/* Header */}
           <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-6 py-4">
-            <DrawerTitle className="text-sm font-semibold text-foreground">
+            <DrawerTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <ShieldCheck className="h-4 w-4 text-indigo-400" />
               {title}
             </DrawerTitle>
             <DrawerDescription className="sr-only">

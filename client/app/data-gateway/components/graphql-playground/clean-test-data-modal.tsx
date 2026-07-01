@@ -16,7 +16,7 @@ import {
 } from "@/data-gateway/hooks/use-configuration";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
-import { Loader } from "lucide-react";
+import { Loader, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface CleanTestDataModalProps {
@@ -94,7 +94,8 @@ export const CleanTestDataModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl rounded-sm border border-border/40">
         <DialogHeader>
-          <DialogTitle className="text-sm font-semibold text-foreground">
+          <DialogTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Trash2 className="h-4 w-4 text-indigo-400" />
             Clean Test Data
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground/60">

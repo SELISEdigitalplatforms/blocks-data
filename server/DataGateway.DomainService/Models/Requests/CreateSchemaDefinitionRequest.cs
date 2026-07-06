@@ -4,7 +4,6 @@ namespace DataGateway.DomainService.Models;
 
 public class CreateSchemaDefinitionRequest : CreateSchemaRequest
 {
-    public string ProjectShortKey { get; set; } = string.Empty;
     public List<FieldDefinitionRequest> Fields { get; set; } = [];
 }
 
@@ -15,5 +14,5 @@ public class FieldDefinitionRequest
     public bool IsArray { get; set; }
     public bool IsPIIData { get; set; }
     public bool IsUniqueData { get; set; }
-    public string Description {  get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
 }

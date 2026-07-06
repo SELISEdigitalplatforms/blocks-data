@@ -2,10 +2,9 @@
 
 namespace Storage.DomainService.Storage
 {
-    public class UploadFilesRequest : IProjectKey
+    public class UploadFilesRequest
     {
         public List<UploadFileRequest> Upload { get; set; }
-        public string? ProjectKey { get; set; }
     }
 
     public class UploadFileRequest : ArtifactBaseRequest
@@ -13,9 +12,8 @@ namespace Storage.DomainService.Storage
         public string FileStorageId { get; set; }
     }
 
-    public class CreateFolderRequest : ArtifactBaseRequest, IProjectKey 
+    public class CreateFolderRequest : ArtifactBaseRequest
     {
         public string FileStorageId { get; set; }
-        public string? ProjectKey { get; set; }
     }
 }

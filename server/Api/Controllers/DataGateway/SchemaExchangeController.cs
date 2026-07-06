@@ -17,16 +17,18 @@ namespace Api.Controllers.DataGateway
     {
         private readonly ISchemaExportService _schemaExportService;
         private readonly ISchemaImportService _schemaImportService;
-        // private readonly ChangeControllerContext _changeControllerContext;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="SchemaExchangeController"/> class.
+        /// </summary>
+        /// <param name="schemaExportService">The schema export service.</param>
+        /// <param name="schemaImportService">The schema import service.</param>
         public SchemaExchangeController(
             ISchemaExportService schemaExportService,
             ISchemaImportService schemaImportService)
-        // ChangeControllerContext changeControllerContext)
         {
             _schemaExportService = schemaExportService;
             _schemaImportService = schemaImportService;
-            // _changeControllerContext = changeControllerContext;
         }
 
         /// <summary>
@@ -42,7 +44,6 @@ namespace Api.Controllers.DataGateway
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> ExportSchemas([FromBody] ExportSchemaRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaExportService.InitiateExportAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -61,7 +62,6 @@ namespace Api.Controllers.DataGateway
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> ImportSchemas([FromBody] ImportSchemaRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaImportService.InitiateImportAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }

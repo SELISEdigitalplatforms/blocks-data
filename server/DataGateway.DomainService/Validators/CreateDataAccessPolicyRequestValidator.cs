@@ -39,9 +39,6 @@ public class CreateDataAccessPolicyRequestValidator : AbstractValidator<CreateDa
         RuleFor(x => x.SchemaId)
             .NotEmpty().WithMessage(SchemaIdRequired);
 
-        RuleFor(x => x.ProjectKey)
-            .NotEmpty().WithMessage(ProjectKeyRequired);
-
         RuleFor(x => x.FieldNames)
             .NotNull()
             .Must(names => names.Length > 0)

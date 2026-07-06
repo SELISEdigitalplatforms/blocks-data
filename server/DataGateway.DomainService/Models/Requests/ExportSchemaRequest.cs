@@ -2,9 +2,8 @@ using Blocks.Genesis;
 
 namespace DataGateway.DomainService.Models;
 
-public class ExportSchemaRequest : IProjectKey
+public class ExportSchemaRequest
 {
-    public required string ProjectKey { get; set; }
     public string? MessageCoRelationId { get; set; }
     public SchemaExportOption ExportOption { get; set; }
 }

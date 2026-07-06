@@ -3,7 +3,7 @@ using DataGateway.DomainService.Entities;
 
 namespace DataGateway.DomainService.Models;
 
-public class CreateDataAccessPolicyRequest : IProjectKey
+public class CreateDataAccessPolicyRequest
 {
     public string PolicyName { get; set; } = string.Empty;
     public string PolicyDescription { get; set; } = string.Empty;
@@ -13,7 +13,6 @@ public class CreateDataAccessPolicyRequest : IProjectKey
     public string SchemaName { get; set; } = string.Empty;
     public string SchemaId { get; set; } = string.Empty;
     public string[] FieldNames { get; set; } = [];
-    public string ProjectKey { get; set; } = string.Empty;
 
     /// <summary>
     /// The rule group containing policy conditions.

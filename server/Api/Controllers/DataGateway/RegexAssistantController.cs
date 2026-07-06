@@ -5,12 +5,21 @@ using System.Net;
 
 namespace BlocksTemplate.Api.Controllers
 {
+
+    /// <summary>
+    /// Controller for assisting with regex pattern generation using AI.
+    /// Provides an endpoint to generate regex patterns based on text descriptions.
+    /// </summary>
     [ApiController]
     [Route("regex")]
     public class RegexAssistantController : ControllerBase
     {
         private readonly IRegexAssistantService _regexAssistantService;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RegexAssistantController"/> class.
+        /// </summary>
+        /// <param name="regexAssistantService"></param>
         public RegexAssistantController(IRegexAssistantService regexAssistantService)
         {
             _regexAssistantService = regexAssistantService;

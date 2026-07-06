@@ -306,8 +306,10 @@ namespace Storage.DomainService.Services
             {
                 return CreateErrorResponse<FileResponse>("configuration", ConfigurationNotFound);
             }
+            var context = BlocksContext.GetContext();
+            var tenantId = context?.TenantId ?? string.Empty;
 
-            var finalFileResponse = await GetFileResponse(result.Item1, result.Item2, configuration, request.ProjectKey);
+            var finalFileResponse = await GetFileResponse(result.Item1, result.Item2, configuration, tenantId);
 
             return finalFileResponse?.FirstOrDefault();
         }
@@ -330,8 +332,10 @@ namespace Storage.DomainService.Services
                 finalfileResponse.Add(CreateErrorResponse<FileResponse>("configuration", ConfigurationNotFound));
                 return finalfileResponse;
             }
+            var context = BlocksContext.GetContext();
+            var tenantId = context?.TenantId ?? string.Empty;
 
-            return await GetFileResponse(result.Item1, result.Item2, configuration, request.ProjectKey);
+            return await GetFileResponse(result.Item1, result.Item2, configuration, tenantId);
         }
 
         private async Task<List<FileResponse>?> GetFileResponse(IEnumerable<BsonDocument> bsonElements, FileResponse[] responses, StorageConfiguration configuration, string? projectKey)
@@ -431,8 +435,10 @@ namespace Storage.DomainService.Services
             }
 
             var storageService = GetStorageService(configuration);
+            var context = BlocksContext.GetContext();
+            var tenantId = context?.TenantId ?? string.Empty;
 
-            bool success = await DeleteSingleFileFromStorageAsync(storageService, category, existingFile, deleteFileRequest.ProjectKey);
+            bool success = await DeleteSingleFileFromStorageAsync(storageService, category, existingFile, tenantId);
             if (success)
                 await CleanupDatabaseAsync(existingFile);
 
@@ -565,7 +571,9 @@ namespace Storage.DomainService.Services
             }
 
             var storageServiceProvider = GetStorageService(configuration);
-            bool success = await storageServiceProvider.UploadFileToSftpAsync(request.Name, BlocksContext.GetContext()?.TenantId ?? request.ProjectKey, existingFile.ItemId, newFileVersion.No.ToString(), request.File);
+            var context = BlocksContext.GetContext();
+            var tenantId = context?.TenantId ?? string.Empty;
+            bool success = await storageServiceProvider.UploadFileToSftpAsync(request.Name, tenantId, existingFile.ItemId, newFileVersion.No.ToString(), request.File);
 
             if (success)
             {
@@ -599,7 +607,9 @@ namespace Storage.DomainService.Services
             }
 
             var storageServiceProvider = GetStorageService(configuration);
-            bool success = await storageServiceProvider.UploadFileToSftpAsync(request.Name, BlocksContext.GetContext()?.TenantId ?? request.ProjectKey, file.ItemId, fileVersion.No.ToString(), request.File);
+            var context = BlocksContext.GetContext();
+            var tenantId = context?.TenantId ?? string.Empty;
+            bool success = await storageServiceProvider.UploadFileToSftpAsync(request.Name, tenantId, file.ItemId, fileVersion.No.ToString(), request.File);
 
             if (success)
             {
@@ -630,9 +640,10 @@ namespace Storage.DomainService.Services
             {
                 return CreateErrorResponse<DownloadFileResponse>("Configuration", ConfigurationNotFound);
             }
-
+            var context = BlocksContext.GetContext();
+            var tenantId = context?.TenantId ?? string.Empty;
             // Validate signature
-            if (!ValidateSignature(request.Signature, request.ProjectKey, configuration.SftpSecretKey, out var signatureString, out var signatureError))
+            if (!ValidateSignature(request.Signature, tenantId, configuration.SftpSecretKey, out var signatureString, out var signatureError))
                 return CreateErrorResponse<DownloadFileResponse>(signatureError.field, signatureError.message);
 
             if (string.IsNullOrEmpty(signatureString.ItemId))
@@ -967,13 +978,15 @@ namespace Storage.DomainService.Services
             }
 
             var storageService = GetStorageService(configuration);
+            var context = BlocksContext.GetContext();
+            var tenantId = context?.TenantId ?? string.Empty;
 
             if (category == StorageStrategyCategory.Local)
             {
                 var successfullyDeleted = new List<File>();
                 foreach (var file in existingFiles)
                 {
-                    bool success = await DeleteSingleFileFromStorageAsync(storageService, category, file, deleteFolderRequest.ProjectKey);
+                    bool success = await DeleteSingleFileFromStorageAsync(storageService, category, file, tenantId);
                     if (success)
                         successfullyDeleted.Add(file);
                 }
@@ -983,7 +996,7 @@ namespace Storage.DomainService.Services
             else
             {
                 await Task.WhenAll(existingFiles.Select(file =>
-                    DeleteSingleFileFromStorageAsync(storageService, category, file, deleteFolderRequest.ProjectKey)));
+                    DeleteSingleFileFromStorageAsync(storageService, category, file, tenantId)));
 
                 await CleanupDatabaseBulkAsync(existingFiles);
             }

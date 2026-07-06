@@ -9,8 +9,7 @@ public interface IDataAccessService
     Task<ServiceResponse<ActionResponse>> ConfigureSecurity(ConfigureSchemaSecurityRequest request);
     Task<ServiceResponse<ActionResponse>> CreateDataAccessPolicy(CreateDataAccessPolicyRequest request);
     Task<ServiceResponse<ActionResponse>> UpdateDataAccessPolicy(UpdateDataAccessPolicyRequest request);
-    Task<ServiceResponse<ActionResponse>> DeleteDataAccessPolicy(string itemId, string projectKey);
+    Task<ServiceResponse<ActionResponse>> DeleteDataAccessPolicy(string itemId);
     Task<ServiceResponse<List<DataAccessPolicyResponse>>> GetEntityDataAccessPolicy(string entityName);
-    Task IsDataAccessible();
 
 }

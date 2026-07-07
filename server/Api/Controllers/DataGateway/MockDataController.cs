@@ -33,7 +33,7 @@ public class MockDataController : ControllerBase
     /// </summary>
     /// <returns>Returns the mock data for the project.</returns>
     [Authorize]
-    [HttpGet("mock-data")]
+    [HttpGet]
     [ProducesResponseType(typeof(ServiceResponse<MockDataResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetMockDataAsync()
@@ -54,10 +54,6 @@ public class MockDataController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteMockData([FromBody] DeleteMockDataRequest request)
     {
-        if (string.IsNullOrEmpty(request.ProjectKey))
-        {
-            return BadRequest(new { Message = "INVALID_PROJECT_KEY" });
-        }
 
         if (request.SchemaNames == null || request.SchemaNames.Count == 0)
         {

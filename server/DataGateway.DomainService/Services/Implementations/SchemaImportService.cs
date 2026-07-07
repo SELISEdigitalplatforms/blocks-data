@@ -34,6 +34,7 @@ public class SchemaImportService : ISchemaImportService
     public async Task<ServiceResponse<ActionResponse>> InitiateImportAsync(ImportSchemaRequest request)
     {
         var context = BlocksContext.GetContext();
+        var tenantId = context?.TenantId ?? string.Empty;
 
         await _messageClient.SendToConsumerAsync(new ConsumerMessage<SchemaImportEvent>
         {
@@ -41,14 +42,14 @@ public class SchemaImportService : ISchemaImportService
             Payload = new SchemaImportEvent
             {
                 FileId = request.FileId,
-                ProjectKey = request.ProjectKey,
+                ProjectKey = tenantId,
                 MessageCoRelationId = request.MessageCoRelationId,
                 CallerUserId = context?.UserId ?? string.Empty,
                 CallerTenantId = context?.OriginalTenantId ?? string.Empty
             }
         });
 
-        _logger.LogInformation("Schema import initiated: fileId={FileId}, projectKey={ProjectKey}", request.FileId, request.ProjectKey);
+        _logger.LogInformation("Schema import initiated: fileId={FileId}, projectKey={ProjectKey}", request.FileId, tenantId);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = request.FileId });
     }
 

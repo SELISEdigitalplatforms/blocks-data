@@ -12,6 +12,10 @@ export const allowLettersNumbersUnderscoreKeyDown = (e: React.KeyboardEvent<HTML
   }
 };
 
+// Allowed characters for schema/entity/field names: letters, digits, and '_' only.
+// Must start with a letter or underscore (cannot start with a digit).
+export const SCHEMA_NAME_ALLOWED_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 export const typeOptions = ["String", "Int", "Float", "Boolean", "DateTime"];
 
 export const readonlyPropertyNames = [

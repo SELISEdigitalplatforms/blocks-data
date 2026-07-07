@@ -18,7 +18,10 @@ import {
 } from "@/components/ui-kits/select/select";
 import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { allowLettersNumbersUnderscoreKeyDown } from "../utils/input-restriction.util";
+import {
+  allowLettersNumbersUnderscoreKeyDown,
+  SCHEMA_NAME_ALLOWED_PATTERN,
+} from "../utils/input-restriction.util";
 import { showErrorToast } from "@/hooks/use-toast";
 import {
   useGetDataServiceConfiguration,
@@ -220,17 +223,40 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                 className="mt-1 w-full rounded border px-3 py-2 text-sm"
                 {...register("schemaName", {
                   required: "Schema name is required",
+                  pattern: {
+                    value: SCHEMA_NAME_ALLOWED_PATTERN,
+                    message:
+                      "Only letters, numbers, and '_' are allowed. Cannot start with a number.",
+                  },
                   onChange: (e) => {
-                    const value = e.target.value;
+                    const sanitized = e.target.value
+                      .replace(/[^A-Za-z0-9_]/g, "")
+                      .replace(/^[0-9]+/, "");
+                    if (sanitized !== e.target.value) {
+                      e.target.value = sanitized;
+                    }
                     if (mode === "add") {
                       const pattern = collectionNamePattern.replace(
                         "{SchemaName}",
-                        value,
+                        sanitized,
                       );
                       setValue("entityName", pattern);
                     }
                   },
                 })}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData("text");
+                  const sanitized = pasted.replace(/[^A-Za-z0-9_]/g, "");
+                  if (sanitized !== pasted) {
+                    e.preventDefault();
+                    const target = e.target as HTMLInputElement;
+                    const newValue =
+                      target.value.slice(0, target.selectionStart ?? target.value.length) +
+                      sanitized +
+                      target.value.slice(target.selectionEnd ?? target.value.length);
+                    setValue("schemaName", newValue, { shouldValidate: true });
+                  }
+                }}
                 onKeyDown={allowLettersNumbersUnderscoreKeyDown}
               />
 
@@ -276,15 +302,44 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                   type="text"
                   placeholder="Enter entity name"
                   className="mt-1 w-full rounded border px-3 py-2 text-sm"
-                  {...register("entityName", {
-                    required: "Entity name is required",
-                  })}
-                  onKeyDown={
-                    isCollectionNameEditable
-                      ? allowLettersNumbersUnderscoreKeyDown
-                      : undefined
+{...register("entityName", {
+                  required: "Entity name is required",
+                  pattern: {
+                    value: SCHEMA_NAME_ALLOWED_PATTERN,
+                    message:
+                      "Only letters, numbers, and '_' are allowed. Cannot start with a number.",
+                  },
+                  onChange: (e) => {
+                    const sanitized = e.target.value
+                      .replace(/[^A-Za-z0-9_]/g, "")
+                      .replace(/^[0-9]+/, "");
+                    if (sanitized !== e.target.value) {
+                      e.target.value = sanitized;
+                    }
+                  },
+                })}
+                onPaste={(e) => {
+                  if (!isCollectionNameEditable) return;
+                  const pasted = e.clipboardData.getData("text");
+                  const sanitized = pasted
+                    .replace(/[^A-Za-z0-9_]/g, "")
+                    .replace(/^[0-9]+/, "");
+                  if (sanitized !== pasted) {
+                    e.preventDefault();
+                    const target = e.target as HTMLInputElement;
+                    const newValue =
+                      target.value.slice(0, target.selectionStart ?? target.value.length) +
+                      sanitized +
+                      target.value.slice(target.selectionEnd ?? target.value.length);
+                    setValue("entityName", newValue, { shouldValidate: true });
                   }
-                  readOnly={!isCollectionNameEditable}
+                }}
+                onKeyDown={
+                  isCollectionNameEditable
+                    ? allowLettersNumbersUnderscoreKeyDown
+                    : undefined
+                }
+                readOnly={!isCollectionNameEditable}
                 />
                 {errors.entityName && (
                   <p className="mt-1 text-sm text-red-500">

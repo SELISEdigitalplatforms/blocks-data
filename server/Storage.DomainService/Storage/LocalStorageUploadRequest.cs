@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Http;
 
 namespace DomainService.Storage
 {
-    public class LocalStorageUploadRequest : IProjectKey
+    public class LocalStorageUploadRequest
     {
         /// <summary>
         /// command. ItemId: String representing the item ID.
@@ -31,7 +31,6 @@ namespace DomainService.Storage
         public string AccessModifier { get; set; } = "Private";
 
         public string? ConfigurationName { get; set; } = null;
-        public string ProjectKey { get; set; }
         public required IFormFile File { get; set; }
         public Dictionary<string, string> AdditionalProperties { get; set; } = new Dictionary<string, string>();
     }

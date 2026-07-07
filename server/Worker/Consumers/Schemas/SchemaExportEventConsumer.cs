@@ -82,7 +82,6 @@ public class SchemaExportEventConsumer : IConsumer<SchemaExportEvent>
             Name = fileName,
             ParentDirectoryId = "Blocks-Schema-Export",
             Tags = "[\"File\"]",
-            ProjectKey = projectKey
         };
 
         var fileInfo = await _fileManagementService.GetPerSignedUrlForUploadAsync(payload);

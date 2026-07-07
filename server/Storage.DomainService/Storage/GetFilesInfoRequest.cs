@@ -8,10 +8,9 @@ using System.Threading.Tasks;
 
 namespace Storage.DomainService.Storage
 {
-    
-    public class GetFilesInfoRequest : BaseGetsRequest<GetFilesInfoFilter>, IProjectKey
+
+    public class GetFilesInfoRequest : BaseGetsRequest<GetFilesInfoFilter>
     {
-        public string? ProjectKey { get; set; }
     }
 
     public class GetFilesInfoResponse : BaseQueryListResponse<IQueryable<GetFile>>

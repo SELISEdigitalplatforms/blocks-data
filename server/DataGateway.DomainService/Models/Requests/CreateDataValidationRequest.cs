@@ -6,7 +6,7 @@ namespace DataGateway.DomainService.Models;
 /// <summary>
 /// Request model for creating a data validation
 /// </summary>
-public class CreateDataValidationRequest : ProjectKeyModel
+public class CreateDataValidationRequest
 {
     /// <summary>
     /// The schema ID this validation belongs to

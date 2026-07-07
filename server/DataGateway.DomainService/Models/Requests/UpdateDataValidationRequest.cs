@@ -6,7 +6,7 @@ namespace DataGateway.DomainService.Models;
 /// <summary>
 /// Request model for updating a data validation
 /// </summary>
-public class UpdateDataValidationRequest : ProjectKeyModel
+public class UpdateDataValidationRequest
 {
     /// <summary>
     /// The unique identifier of the validation to update

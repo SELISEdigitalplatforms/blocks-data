@@ -106,9 +106,7 @@ export const useSchemasReload = () => {
         await queryClient.invalidateQueries({
           queryKey: ["unadapted-change-logs", projectKey],
         });
-        await queryClient.invalidateQueries({
-          queryKey: ["schema-list", projectKey],
-        });
+        await invalidateSchemaList(queryClient, projectKey);
       }
     },
   });
@@ -194,6 +192,20 @@ export const useSchemaDetails = (
   });
 };
 
+const invalidateSchemaList = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  projectKey: string,
+) =>
+  queryClient.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey;
+      if (!Array.isArray(key) || key[0] !== "schema-list") return false;
+      // query key shape: ["schema-list", keyword, pageNo, pageSize, sortDescending, sortBy, projectKey, schemaType]
+      const keyProject = key[6];
+      return !projectKey || keyProject === projectKey;
+    },
+  });
+
 export const useCreateSchema = () => {
   const queryClient = useQueryClient();
   const projectKey = getProjectKey();
@@ -201,9 +213,7 @@ export const useCreateSchema = () => {
   return useMutation({
     mutationFn: configurationService.createSchema,
     onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["schema-list", projectKey],
-      });
+      invalidateSchemaList(queryClient, projectKey);
       queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],
       });
@@ -221,9 +231,7 @@ export const useUpdateSchema = () => {
   return useMutation({
     mutationFn: configurationService.updateSchema,
     onSuccess: (_data, variables: ICreateSchemaPayload) => {
-      queryClient.invalidateQueries({
-        queryKey: ["schema-list", projectKey],
-      });
+      invalidateSchemaList(queryClient, projectKey);
       queryClient.invalidateQueries({
         queryKey: ["schema-details", variables.itemId, projectKey],
       });
@@ -262,9 +270,7 @@ export const useDeleteSchema = () => {
       queryClient.removeQueries({
         queryKey: ["schema-details", variables.id, projectKey],
       });
-      queryClient.invalidateQueries({
-        queryKey: ["schema-list", projectKey],
-      });
+      invalidateSchemaList(queryClient, projectKey);
       queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],
       });

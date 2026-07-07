@@ -91,7 +91,13 @@ export const CreateDmsNewFolder = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent
+      onCloseAutoFocus={(event) => {
+        event.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur();
+        document.body.style.pointerEvents = "";
+      }}
+      >
         <DialogHeader>
           <DialogTitle>Create Folder</DialogTitle>
         </DialogHeader>

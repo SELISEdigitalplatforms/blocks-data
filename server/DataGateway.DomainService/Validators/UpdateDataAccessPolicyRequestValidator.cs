@@ -6,7 +6,6 @@ namespace DataGateway.DomainService.Validators;
 public class UpdateDataAccessPolicyRequestValidator : AbstractValidator<UpdateDataAccessPolicyRequest>
 {
     private const string ItemIdRequired = "ItemId_Is_Required.";
-    private const string ProjectKeyRequired = "ProjectKey_Is_Required.";
     private const string PolicyNameRequired = "Policy_Name_Must_Not_Be_Empty_When_Provided.";
     private const string PolicyNameLength = "Policy_Name_Length_Must_Not_Exceed_200_Characters.";
     private const string PolicyDescriptionLength = "Policy_Description_Length_Must_Not_Exceed_2000_Characters.";
@@ -16,9 +15,6 @@ public class UpdateDataAccessPolicyRequestValidator : AbstractValidator<UpdateDa
     {
         RuleFor(x => x.ItemId)
             .NotEmpty().WithMessage(ItemIdRequired);
-
-        RuleFor(x => x.ProjectKey)
-            .NotEmpty().WithMessage(ProjectKeyRequired);
 
         When(x => x.PolicyName is not null, () =>
         {

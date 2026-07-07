@@ -15,19 +15,16 @@ namespace DataGateway.Api.Controllers;
 [ApiController]
 public class ConfigurationController : ControllerBase
 {
-    private readonly ISchemaConfigurationService _schemaConfigurationService;
     private readonly IDataGatewayConfigurationService _configurationService;
     private readonly ILogger<ConfigurationController> _logger;
     /// <summary>
     /// Initializes a new instance of the <see cref="ConfigurationController"/> class.
     /// </summary>
-    /// <param name="schemaConfigurationService">The schema configuration service.</param>
     /// <param name="configurationService">The configuration service.</param>
     /// <param name="logger">The logger.</param>
     /// <exception cref="ArgumentNullException">Thrown when the schema configuration service, configuration service, or logger is null.</exception>
-    public ConfigurationController(ISchemaConfigurationService schemaConfigurationService, IDataGatewayConfigurationService configurationService, ILogger<ConfigurationController> logger)
+    public ConfigurationController(IDataGatewayConfigurationService configurationService, ILogger<ConfigurationController> logger)
     {
-        _schemaConfigurationService = schemaConfigurationService ?? throw new ArgumentNullException(nameof(schemaConfigurationService));
         _configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -101,35 +98,5 @@ public class ConfigurationController : ControllerBase
     }
 
 
-
-
-
-
-
-    /// <summary>
-    /// Reloads the GraphQL schema configuration and resolves all unadapted changes.
-    /// This endpoint evicts the cached schema executor and marks all pending schema changes as adapted to the server.
-    /// Use this endpoint after making changes to schema definitions or data sources to refresh the schema and clear deployment badges in the UI.
-    /// </summary>
-    /// <returns>Returns a success response if the schema is reloaded and changes are resolved, or an error message if the operation fails.</returns>
-    [Obsolete("This endpoint is deprecated and will be removed in future versions. Please use the SchemaConfigurationController instead.")]
-    [Authorize]
-    [HttpPost("reload")]
-    [ProducesResponseType(typeof(ServiceResponse<bool>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public async Task<IActionResult> ReloadDataGatewayServerAsync()
-    {
-        try
-        {
-            var tenantId = TenantContext.GetTenantId();
-            _logger.LogInformation("Evicting schema for tenant: {TenantId}", tenantId);
-            await _schemaConfigurationService.ReloadAsync(tenantId, CancellationToken.None);
-            return Ok(new ServiceResponse<bool>().SetSuccessMessage("Schema evicted successfully."));
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
-        }
-    }
 }
 

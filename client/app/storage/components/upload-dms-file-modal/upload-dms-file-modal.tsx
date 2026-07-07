@@ -157,7 +157,14 @@ export const UploadDmsFileModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-6">
+      <DialogContent
+        className="gap-6"
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          (document.activeElement as HTMLElement | null)?.blur();
+          document.body.style.pointerEvents = "";
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Upload File</DialogTitle>
           <DialogDescription>

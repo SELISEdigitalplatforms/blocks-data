@@ -66,14 +66,14 @@ class ConfigurationService {
   getSchemaList(
     payload: IGetSchemaListPayload,
   ): Promise<IGetSchemaListResponse> {
-    const url = `${SCHEMA_ENDPOINTS.LIST}?Keyword=${payload.keyword}&PageSize=${payload.pageSize}&PageNo=${payload.pageNo}&SortDescending=${payload.sortDescending}&SortBy=${payload.sortBy}&ProjectKey=${payload.projectKey}&SchemaType=${payload.schemaType}`;
+    const url = `${SCHEMA_ENDPOINTS.LIST}?Keyword=${payload.keyword}&PageSize=${payload.pageSize}&PageNo=${payload.pageNo}&SortDescending=${payload.sortDescending}&SortBy=${payload.sortBy}&SchemaType=${payload.schemaType}`;
     return http.get(url);
   }
 
   getSecurityAndPerformanceSchemaList(
     payload: IGetSchemaListPayload,
   ): Promise<IGetSchemaListResponse> {
-    const url = `${API_BASES.UDS}/schemas/aggregation?Keyword=${payload.keyword}&PageSize=${payload.pageSize}&PageNo=${payload.pageNo}&SortDescending=${payload.sortDescending}&SortBy=${payload.sortBy}&ProjectKey=${payload.projectKey}&SchemaType=${payload.schemaType}`;
+    const url = `${API_BASES.UDS}/schemas/aggregation?Keyword=${payload.keyword}&PageSize=${payload.pageSize}&PageNo=${payload.pageNo}&SortDescending=${payload.sortDescending}&SortBy=${payload.sortBy}&SchemaType=${payload.schemaType}`;
     return http.get(url);
   }
 
@@ -81,7 +81,7 @@ class ConfigurationService {
     id: string,
     projectKey: string,
   ): Promise<IGetSchemaDetailsResponse> {
-    const params = new URLSearchParams({ id, projectKey });
+    const params = new URLSearchParams({ id });
     return http.get(`${API_BASES.UDS}/schemas/get-by-id?${params.toString()}`);
   }
 
@@ -106,7 +106,7 @@ class ConfigurationService {
     projectKey: string;
   }): Promise<IDataServiceConfigurationResponse> {
     return http.delete(
-      `${SCHEMA_ENDPOINTS.DELETE}/${payload.id}?projectKey=${payload.projectKey}`,
+      `${SCHEMA_ENDPOINTS.DELETE}?id=${payload.id}`,
     );
   }
 
@@ -135,7 +135,7 @@ class ConfigurationService {
   }
 
   getMockData(): Promise<IMockDataResponse> {
-    return http.get(`${API_BASES.UDS}/mock-data/mock-data`);
+    return http.get(`${API_BASES.UDS}/mock-data`);
   }
 
   deleteMockData(
@@ -149,8 +149,7 @@ class ConfigurationService {
     projectKey: string,
   ): Promise<IGetPolicyResponse> {
     const params = new URLSearchParams({
-      schemaName: entityName,
-      projectKey,
+      schemaName: entityName
     });
     return http.get(
       `${API_BASES.UDS}/data-access/policy/get?${params.toString()}`,
@@ -170,8 +169,7 @@ class ConfigurationService {
 
   deletePolicy(payload: IDeletePolicyPayload): Promise<IDeletePolicyResponse> {
     const params = new URLSearchParams({
-      itemId: payload.itemId,
-      projectKey: payload.projectKey,
+      itemId: payload.itemId
     });
     const url = `${API_BASES.UDS}/data-access/policy/delete?${params.toString()}`;
     return http.delete(url);
@@ -181,7 +179,7 @@ class ConfigurationService {
     payload: IGetUnAdaptedChangeLogsPayload,
   ): Promise<IUnadaptedChangeLogsResponse> {
     return http.get(
-      `${SCHEMA_ENDPOINTS.UNADAPTED_CHANGE_LOGS}?projectKey=${payload.projectKey}`,
+      `${SCHEMA_ENDPOINTS.UNADAPTED_CHANGE_LOGS}`,
     );
   }
 
@@ -190,8 +188,7 @@ class ConfigurationService {
   ): Promise<IGetSchemaFieldValidationResponse> {
     const params = new URLSearchParams({
       schemaId: payload.schemaId,
-      fieldName: payload.fieldName,
-      projectKey: payload.projectKey,
+      fieldName: payload.fieldName
     });
     return http.get(
       `${API_BASES.UDS}/data-validations/by-schema-and-field?${params.toString()}`,
@@ -218,7 +215,7 @@ class ConfigurationService {
     payload: IDeleteSchemaFieldValidationPayload,
   ): Promise<IDefaultResponse> {
     return http.delete(
-      `${DATA_VALIDATION_ENDPOINTS.DELETE}/${payload.id}?projectKey=${payload.projectKey}`,
+      `${DATA_VALIDATION_ENDPOINTS.DELETE}?validationId=${payload.id}`,
     );
   }
 

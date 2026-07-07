@@ -10,11 +10,10 @@
             It allows reloading the schema configuration, which is necessary after making changes to schema definitions or data sources.
             </summary>
         </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.#ctor(DataGateway.DomainService.Services.ISchemaConfigurationService,DataGateway.DomainService.Services.IDataGatewayConfigurationService,Microsoft.Extensions.Logging.ILogger{DataGateway.Api.Controllers.ConfigurationController})">
+        <member name="M:DataGateway.Api.Controllers.ConfigurationController.#ctor(DataGateway.DomainService.Services.IDataGatewayConfigurationService,Microsoft.Extensions.Logging.ILogger{DataGateway.Api.Controllers.ConfigurationController})">
             <summary>
             Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.ConfigurationController"/> class.
             </summary>
-            <param name="schemaConfigurationService">The schema configuration service.</param>
             <param name="configurationService">The configuration service.</param>
             <param name="logger">The logger.</param>
             <exception cref="T:System.ArgumentNullException">Thrown when the schema configuration service, configuration service, or logger is null.</exception>
@@ -38,41 +37,6 @@
             </summary>
             <param name="request">The updated data source details. Required fields: ItemId (unique identifier), ConnectionString, DatabaseName, ProjectKey, IsActive.</param>
             <returns>Returns a success response if the data source is updated, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.ReloadDataGatewayServerAsync">
-            <summary>
-            Reloads the GraphQL schema configuration and resolves all unadapted changes.
-            This endpoint evicts the cached schema executor and marks all pending schema changes as adapted to the server.
-            Use this endpoint after making changes to schema definitions or data sources to refresh the schema and clear deployment badges in the UI.
-            </summary>
-            <returns>Returns a success response if the schema is reloaded and changes are resolved, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.DataManageController.#ctor(DataGateway.DomainService.Services.IMockDataService)">
-            <summary>
-            Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.DataManageController"/> class.
-            </summary>
-            <param name="dataManageService"></param>
-            <exception cref="T:System.ArgumentException"></exception>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.DataManageController.GetMockData(System.String)">
-            <summary>
-            Cloud use only: Gets mock data from the database.
-            </summary>
-            <param name="projectKey"></param>
-            <returns></returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.DataManageController.GetMockDataAsync">
-            <summary>
-            Gets mock data from the database.
-            </summary>
-            <returns>Returns the mock data for the project.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.DataManageController.DeleteMockData(DataGateway.DomainService.Models.DeleteMockDataRequest)">
-            <summary>
-            Deletes mock data from the database.
-            </summary>
-            <param name="request"></param>
-            <returns></returns>
         </member>
         <member name="T:DataGateway.Api.Controllers.MockDataController">
             <summary>
@@ -127,14 +91,12 @@
             Controller for managing data access permissions.
             Provides endpoints to set data access permissions for different schemas.
             </summary>
-            
         </member>
         <member name="M:Api.Controllers.DataGateway.DataAccessController.#ctor(DataGateway.DomainService.Services.IDataAccessService)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.DataGateway.DataAccessController"/> class.
             </summary>
             <param name="dataAccessService">The data access service.</param>
-            <param name="changeControllerContext">The change Controller service.</param>
         </member>
         <member name="M:Api.Controllers.DataGateway.DataAccessController.ConfigureSecurity(DataGateway.DomainService.Models.ConfigureSchemaSecurityRequest)">
             <summary>
@@ -157,84 +119,31 @@
             <param name="request"></param>
             <returns></returns>
         </member>
-        <member name="M:Api.Controllers.DataGateway.DataAccessController.DeleteDataAccessPolicy(System.String,System.String)">
-            <summary>
-            Cloud use only: Deletes a data access policy for a specific item.
-            </summary>
-            <param name="itemId"></param>
-            <param name="projectKey"></param>
-            <returns></returns>
-        </member>
-        <member name="M:Api.Controllers.DataGateway.DataAccessController.DeleteDataAccessPolicyAsync(System.String,System.String)">
+        <member name="M:Api.Controllers.DataGateway.DataAccessController.DeleteDataAccessPolicyAsync(System.String)">
             <summary>
             Deletes a data access policy for a specific item.
             </summary>
             <param name="itemId"></param>
-            <param name="projectKey"></param>
             <returns></returns>
         </member>
-        <member name="M:Api.Controllers.DataGateway.DataAccessController.GetDataAccessPolicy(System.String,System.String)">
-            <summary>
-            Cloud use only: Gets all data access policies for a specific schema.
-            </summary>
-            <param name="schemaName"></param>
-            <param name="projectKey"></param>
-            <returns></returns>
-        </member>
-        <member name="M:Api.Controllers.DataGateway.DataAccessController.GetDataAccessPolicyAsync(System.String,System.String)">
+        <member name="M:Api.Controllers.DataGateway.DataAccessController.GetDataAccessPolicyAsync(System.String)">
             <summary>
             Gets all data access policies for a specific schema.
             </summary>
             <param name="schemaName"></param>
-            <param name="projectKey"></param>
             <returns></returns>
-        </member>
-        <member name="T:Api.Controllers.DataGateway.DataSourceController">
-            <summary>
-            Controller for managing platform data source configurations.
-            Provides endpoints to retrieve, create, and update data source configurations for projects.
-            </summary>
-        </member>
-        <member name="M:Api.Controllers.DataGateway.DataSourceController.#ctor(DataGateway.DomainService.Services.IDataGatewayConfigurationService)">
-            <summary>
-            Initializes a new instance of the <see cref="T:Api.Controllers.DataGateway.DataSourceController"/> class.
-            </summary>
-            <param name="dataSourceService">The data source service.</param>
-            <param name="changeControllerContext">The change Controller service.</param>
-            <exception cref="T:System.ArgumentNullException">Thrown when the platform data configuration service is null.</exception>
-        </member>
-        <member name="M:Api.Controllers.DataGateway.DataSourceController.GetDataSourcesAsync(System.String)">
-            <summary>
-            Cloud use only: Retrieves the data source configuration for a specific project. Use this endpoint to get the database connection details for your platform.
-            </summary>
-            <param name="projectKey">The unique identifier for the project whose data source configuration you want to retrieve.</param>
-            <returns>Returns the data source configuration details, including the connection string, database name, and project key, or an error message if the data source is not found.</returns>
-        </member>
-        <member name="M:Api.Controllers.DataGateway.DataSourceController.GetProjectDataSourcesAsync(System.String)">
-            <summary>
-            Retrieves the data source configuration for a specific project. Use this endpoint to get the database connection details for your platform.
-            </summary>
-            <param name="projectKey">The unique identifier of the project to retrieve.</param>
-            <returns>Returns the data source configuration details, including the connection string, database name, and project key, or an error message if the data source is not found.</returns>
-        </member>
-        <member name="M:Api.Controllers.DataGateway.DataSourceController.InsertDataSourceAsync(DataGateway.DomainService.Models.CreateDataGatewayConfigurationRequest)">
-            <summary>
-            Creates a new data source configuration. Use this endpoint to add a new database connection for your platform.
-            </summary>
-            <param name="request">The data source details to be saved. Required fields: ItemId (unique identifier), ConnectionString (database connection string), DatabaseName (name of the database), ProjectKey (project identifier).</param>
-            <returns>Returns a success response if the data source is created, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:Api.Controllers.DataGateway.DataSourceController.UpdateDataSourceAsync(DataGateway.DomainService.Models.UpdateDataGatewayConfigurationRequest)">
-            <summary>
-            Updates an existing data source configuration. Use this endpoint to modify the connection string, database name, or other details for an existing data source.
-            </summary>
-            <param name="request">The updated data source details. Required fields: ItemId (unique identifier), ConnectionString, DatabaseName, ProjectKey, IsActive.</param>
-            <returns>Returns a success response if the data source is updated, or an error message if the operation fails.</returns>
         </member>
         <member name="T:Api.Controllers.DataGateway.SchemaExchangeController">
             <summary>
             Controller for schema import and export operations.
             </summary>
+        </member>
+        <member name="M:Api.Controllers.DataGateway.SchemaExchangeController.#ctor(DataGateway.DomainService.Services.ISchemaExportService,DataGateway.DomainService.Services.ISchemaImportService)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Api.Controllers.DataGateway.SchemaExchangeController"/> class.
+            </summary>
+            <param name="schemaExportService">The schema export service.</param>
+            <param name="schemaImportService">The schema import service.</param>
         </member>
         <member name="M:Api.Controllers.DataGateway.SchemaExchangeController.ExportSchemas(DataGateway.DomainService.Models.ExportSchemaRequest)">
             <summary>
@@ -264,7 +173,6 @@
             Initializes a new instance of the <see cref="T:Api.Controllers.DataValidationController"/> class.
             </summary>
             <param name="dataValidationService">The data validation service.</param>
-            <param name="changeControllerContext">The change controller context.</param>
         </member>
         <member name="M:Api.Controllers.DataValidationController.GetDataValidations(DataGateway.DomainService.Models.GetDataValidationListRequest)">
             <summary>
@@ -273,54 +181,26 @@
             <param name="request">Request parameters for pagination and filtering: SchemaId, FieldName, Keyword, PageNo, PageSize, SortBy, SortDescending.</param>
             <returns>Returns a paginated list of data validations.</returns>
         </member>
-        <member name="M:Api.Controllers.DataValidationController.GetDataValidationById(System.String,System.String)">
-            <summary>
-            Cloud use only: Retrieves the details of a specific data validation by its unique ID.
-            </summary>
-            <param name="id">The unique identifier of the data validation to retrieve.</param>
-            <param name="projectKey">The project key for context.</param>
-            <returns>Returns the data validation details if found, or an error message if not found.</returns>
-        </member>
-        <member name="M:Api.Controllers.DataValidationController.GetDataValidationByIdAsync(System.String,System.String)">
+        <member name="M:Api.Controllers.DataValidationController.GetDataValidationByIdAsync(System.String)">
             <summary>
             Retrieves the details of a specific data validation by its unique ID.
             </summary>
             <param name="validationId">The unique identifier of the data validation to retrieve.</param>
-            <param name="projectKey">The project key for context.</param>
             <returns>Returns the data validation details if found, or an error message if not found.</returns>
         </member>
-        <member name="M:Api.Controllers.DataValidationController.GetValidationsBySchemaId(System.String,System.String)">
-            <summary>
-            Cloud use only: Retrieves all validations for a specific schema.
-            </summary>
-            <param name="schemaId">The schema ID to get validations for.</param>
-            <param name="projectKey">The project key for context.</param>
-            <returns>Returns a list of data validations for the schema.</returns>
-        </member>
-        <member name="M:Api.Controllers.DataValidationController.GetValidationsBySchemaIdAsync(System.String,System.String)">
+        <member name="M:Api.Controllers.DataValidationController.GetValidationsBySchemaIdAsync(System.String)">
             <summary>
             Retrieves all validations for a specific schema.
             </summary>
             <param name="schemaId">The schema ID to get validations for.</param>
-            <param name="projectKey">The project key for context.</param>
             <returns>Returns a list of data validations for the schema.</returns>
         </member>
-        <member name="M:Api.Controllers.DataValidationController.GetValidationBySchemaAndField(System.String,System.String,System.String)">
-            <summary>
-            Cloud use only: Retrieves validation for a specific field in a schema.
-            </summary>
-            <param name="schemaId">The schema ID.</param>
-            <param name="fieldName">The field name.</param>
-            <param name="projectKey">The project key for context.</param>
-            <returns>Returns the data validation for the specified field.</returns>
-        </member>
-        <member name="M:Api.Controllers.DataValidationController.GetValidationBySchemaAndFieldAsync(System.String,System.String,System.String)">
+        <member name="M:Api.Controllers.DataValidationController.GetValidationBySchemaAndFieldAsync(System.String,System.String)">
             <summary>
             Retrieves validation for a specific field in a schema.
             </summary>
             <param name="schemaId">The schema ID.</param>
             <param name="fieldName">The field name.</param>
-            <param name="projectKey">The project key for context.</param>
             <returns>Returns the data validation for the specified field.</returns>
         </member>
         <member name="M:Api.Controllers.DataValidationController.CreateDataValidation(DataGateway.DomainService.Models.CreateDataValidationRequest)">
@@ -337,20 +217,11 @@
             <param name="request">Updated data validation: ItemId (unique identifier), SchemaId, FieldName, Validations.</param>
             <returns>Returns the updated data validation or an error message if the operation fails.</returns>
         </member>
-        <member name="M:Api.Controllers.DataValidationController.DeleteDataValidation(System.String,System.String)">
-            <summary>
-            Cloud use only: Deletes a data validation by its unique ID.
-            </summary>
-            <param name="id">The unique identifier of the data validation to delete.</param>
-            <param name="projectKey">The project key for context.</param>
-            <returns>Returns a success response if the validation is deleted, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:Api.Controllers.DataValidationController.DeleteDataValidationAsync(System.String,System.String)">
+        <member name="M:Api.Controllers.DataValidationController.DeleteDataValidationAsync(System.String)">
             <summary>
             Deletes a data validation by its unique ID.
             </summary>
             <param name="validationId">The unique identifier of the data validation to delete.</param>
-            <param name="projectKey">The project key for context.</param>
             <returns>Returns a success response if the validation is deleted, or an error message if the operation fails.</returns>
         </member>
         <member name="T:Api.Controllers.SchemaController">
@@ -364,7 +235,7 @@
             Initializes a new instance of the <see cref="T:Api.Controllers.SchemaController"/> class.
             </summary>
             <param name="schemaService"></param>
-            <param name="changeControllerContext"></param>
+            <param name="schemaChangeLogService"></param>
         </member>
         <member name="M:Api.Controllers.SchemaController.GetSchemaDefinitions(DataGateway.DomainService.Models.GetSchemaDefinitionListRequest)">
             <summary>
@@ -380,23 +251,14 @@
             <param name="request">Request parameters for pagination and filtering.</param>
             <returns>Returns a paginated list of schema definitions and an aggregation of access-level counts.</returns>
         </member>
-        <member name="M:Api.Controllers.SchemaController.GetSchemaDefinitionById(System.String,System.String)">
-            <summary>
-            Cloud use only: Retrieves the details of a specific schema definition by its unique ID. Use this endpoint to get the schema definition details, including its fields and type.
-            </summary>
-            <param name="id">The unique identifier of the schema definition to retrieve.</param>
-            <param name="projectKey">The unique identifier of the project to retrieve.</param>
-            <returns>Returns the schema definition details if found, or an error message if not found.</returns>
-        </member>
-        <member name="M:Api.Controllers.SchemaController.GetSchemaDefinitionByIdAsync(System.String,System.String)">
+        <member name="M:Api.Controllers.SchemaController.GetSchemaDefinitionByIdAsync(System.String)">
             <summary>
             Retrieves the details of a specific schema definition by its unique ID. Use this endpoint to get the schema definition details, including its fields and type.
             </summary>
             <param name="id">The unique identifier of the schema definition to retrieve.</param>
-            <param name="projectKey">The unique identifier of the project to retrieve.</param>
             <returns>Returns the schema definition details if found, or an error message if not found.</returns>
         </member>
-        <member name="M:Api.Controllers.SchemaController.GetUnadaptedSchemaChangeLogs(System.String)">
+        <member name="M:Api.Controllers.SchemaController.GetUnadaptedSchemaChangeLogs">
             <summary>
             Gets all unadapted schema change logs.
             </summary>
@@ -407,12 +269,7 @@
             Retrieves a list of all Entity-type schema collections with basic info.
             </summary>
         </member>
-        <member name="M:Api.Controllers.SchemaController.GetEntityCollectionByName(System.String,System.String)">
-            <summary>
-            Cloud use only: Retrieves the details of a specific Entity-type schema by its collection name, including all fields.
-            </summary>
-        </member>
-        <member name="M:Api.Controllers.SchemaController.GetEntityCollectionByNameAsync(System.String,System.String)">
+        <member name="M:Api.Controllers.SchemaController.GetEntityCollectionByNameAsync(System.String)">
             <summary>
             Retrieves the details of a specific Entity-type schema by its collection name, including all fields.
             </summary>
@@ -452,44 +309,12 @@
             <param name="request">Updated schema definition: ItemId (unique identifier), SchemaName, CollectionName, Fields, SchemaType.</param>
             <returns>Returns the updated schema definition or an error message if the operation fails.</returns>
         </member>
-        <member name="M:Api.Controllers.SchemaController.DeleteSchemaDefinition(System.String,System.String)">
-            <summary>
-            Cloud use only: Deletes a schema definition by its unique ID. This action cannot be undone.
-            </summary>
-            <param name="id">The unique identifier of the schema definition to delete.</param>
-            <param name="projectKey">The unique identifier of the project to retrieve.</param>
-            <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:Api.Controllers.SchemaController.DeleteSchemaDefinitionAsync(System.String,System.String)">
+        <member name="M:Api.Controllers.SchemaController.DeleteSchemaDefinitionAsync(System.String)">
             <summary>
             Deletes a schema definition by its unique ID. This action cannot be undone.
             </summary>
             <param name="id">The unique identifier of the schema definition to delete.</param>
-            <param name="projectKey">The unique identifier of the project to retrieve.</param>
             <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
-        </member>
-        <member name="T:Api.Controllers.SetupController">
-            <summary>
-            SetupController is responsible for managing setup operations.
-            It provides endpoints to setup the database schema.
-            </summary>
-        </member>
-        <member name="M:Api.Controllers.SetupController.#ctor(DataGateway.DomainService.Services.ISchemaDefinitionService,DataGateway.DomainService.Services.IProjectService)">
-            <summary>
-            Initializes a new instance of the <see cref="T:Api.Controllers.SetupController"/> class.
-            </summary>
-            <param name="schemaService"></param>
-            <param name="projectService"></param>
-            <param name="changeControllerContext"></param>
-        </member>
-        <member name="M:Api.Controllers.SetupController.ResetSchema(System.String,System.Int32,System.Int32)">
-            <summary>
-            Resets the schema for a project.
-            </summary>
-            <param name="projectKey">The unique identifier of the project to reset.</param>
-            <param name="pageNo">The page number to reset.</param>
-            <param name="pageSize">The page size to reset.</param>
-            <returns></returns>
         </member>
         <member name="T:Api.Controllers.FilesController">
             <summary>
@@ -501,7 +326,6 @@
             Initializes a new instance of the <see cref="T:Api.Controllers.FilesController"/> class.
             </summary>
             <param name="fileManagementService">Service for managing file operations.</param>
-            <param name="changeControllerContext">Context changer for the controller.</param>
         </member>
         <member name="M:Api.Controllers.FilesController.GetFile(DomainService.Storage.GetFileRequest)">
             <summary>
@@ -558,6 +382,18 @@
             </summary>
             <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
             <returns>A <see cref="T:Blocks.Genesis.BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
+        </member>
+        <member name="T:BlocksTemplate.Api.Controllers.RegexAssistantController">
+            <summary>
+            Controller for assisting with regex pattern generation using AI.
+            Provides an endpoint to generate regex patterns based on text descriptions.
+            </summary>
+        </member>
+        <member name="M:BlocksTemplate.Api.Controllers.RegexAssistantController.#ctor(DataGateway.DomainService.Services.RegexAssistant.IRegexAssistantService)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BlocksTemplate.Api.Controllers.RegexAssistantController"/> class.
+            </summary>
+            <param name="regexAssistantService"></param>
         </member>
         <member name="M:BlocksTemplate.Api.Controllers.RegexAssistantController.GenerateRegex(DataGateway.DomainService.Services.RegexAssistant.RegexAssistantRequest)">
             <summary>

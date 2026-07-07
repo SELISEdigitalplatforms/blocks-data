@@ -4,7 +4,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogClose,
 } from "@/components/ui-kits/dialog/dialog";
 import { Input } from "@/components/ui-kits/input/input";
 import { Button } from "@/components/ui-kits/button/button";
@@ -87,7 +87,14 @@ export const SaveStorageConfiguration = ({
   const storageStrategy = form.watch("storageStrategy") as StorageStrategyType;
 
   return (
-    <DialogContent className="rounded-md sm:max-w-[700px]">
+    <DialogContent
+      className="rounded-md sm:max-w-[700px]"
+      onCloseAutoFocus={(event) => {
+        event.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur();
+        document.body.style.pointerEvents = "";
+      }}
+    >
       <DialogHeader>
         <DialogTitle>
           {configuration ? "Edit" : "Add"} Storage Configuration
@@ -372,11 +379,11 @@ export const SaveStorageConfiguration = ({
             </div>
             <div className="mt-6 flex w-full items-center justify-end">
               <div className="flex flex-row gap-2">
-                <DialogTrigger asChild>
+                <DialogClose asChild>
                   <Button variant="outline" disabled={isPending}>
                     Cancel
                   </Button>
-                </DialogTrigger>
+                </DialogClose>
                 <Button variant="default" disabled={isPending}>
                   Save
                 </Button>

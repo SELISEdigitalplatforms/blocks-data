@@ -34,6 +34,9 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
       // Prevent restoring focus to elements that may unmount right after dialog close.
       event.preventDefault();
       (document.activeElement as HTMLElement | null)?.blur();
+      // When opened from a DropdownMenu item, the dialog's DismissableLayer can
+      // leave `pointer-events: none` stuck on <body>, freezing the page.
+      document.body.style.pointerEvents = "";
     }}
   >
     <DialogHeader>

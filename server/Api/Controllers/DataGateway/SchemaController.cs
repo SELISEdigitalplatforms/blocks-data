@@ -19,17 +19,15 @@ namespace Api.Controllers
         private const string InvalidProjectKeyMessage = "INVALID_PROJECT_KEY";
         private readonly ISchemaDefinitionService _schemaService;
         private readonly ISchemaChangeLogService _schemaChangeLogService;
-        // private readonly ChangeControllerContext _changeControllerContext;
         /// <summary>
         /// Initializes a new instance of the <see cref="SchemaController"/> class.
         /// </summary>
         /// <param name="schemaService"></param>
-        /// <param name="changeControllerContext"></param>
-        public SchemaController(ISchemaDefinitionService schemaService, ISchemaChangeLogService schemaChangeLogService)//, ChangeControllerContext changeControllerContext)
+        /// <param name="schemaChangeLogService"></param>
+        public SchemaController(ISchemaDefinitionService schemaService, ISchemaChangeLogService schemaChangeLogService)
         {
             _schemaService = schemaService;
             _schemaChangeLogService = schemaChangeLogService;
-            // _changeControllerContext = changeControllerContext;
         }
 
         #region Get
@@ -44,7 +42,6 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetSchemaDefinitions([FromQuery] GetSchemaDefinitionListRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             var schemas = await _schemaService.GetAllSchemasAsync(request);
 
             return Ok(new ServiceResponse<PaginationResponse<SchemaDefinitionResponse>>().SetSuccess(schemas));
@@ -61,7 +58,6 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetSchemaDefinitionsSummary([FromQuery] GetSchemaDefinitionListRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             var schemas = await _schemaService.GetAllSchemasAsync(request);
             var aggregationResponse = await _schemaService.GetSchemaAggregationAsync();
 
@@ -75,47 +71,19 @@ namespace Api.Controllers
         }
 
         /// <summary>
-        /// Cloud use only: Retrieves the details of a specific schema definition by its unique ID. Use this endpoint to get the schema definition details, including its fields and type.
-        /// </summary>
-        /// <param name="id">The unique identifier of the schema definition to retrieve.</param>
-        /// <param name="projectKey">The unique identifier of the project to retrieve.</param>
-        /// <returns>Returns the schema definition details if found, or an error message if not found.</returns>
-        [Authorize]
-        [HttpGet("{id}")]
-        [ProducesResponseType(typeof(ServiceResponse<SchemaDefinitionResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetSchemaDefinitionById([FromRoute] string id, [FromQuery] string projectKey)
-        {
-            if (string.IsNullOrWhiteSpace(projectKey))
-                return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
-
-            // _changeControllerContext.ChangeContext(new ProjectKeyModel
-            // {
-            //     ProjectKey = projectKey
-            // });
-            var response = await _schemaService.GetSchemaByIdAsync(id);
-            return StatusCode(response.HttpStatusCode, response);
-        }
-
-        /// <summary>
         /// Retrieves the details of a specific schema definition by its unique ID. Use this endpoint to get the schema definition details, including its fields and type.
         /// </summary>
         /// <param name="id">The unique identifier of the schema definition to retrieve.</param>
-        /// <param name="projectKey">The unique identifier of the project to retrieve.</param>
         /// <returns>Returns the schema definition details if found, or an error message if not found.</returns>
         [Authorize]
         [HttpGet("get-by-id")]
         [ProducesResponseType(typeof(ServiceResponse<SchemaDefinitionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> GetSchemaDefinitionByIdAsync([FromQuery] string id, string projectKey = "")
+        public async Task<IActionResult> GetSchemaDefinitionByIdAsync([FromQuery] string id)
         {
             if (string.IsNullOrWhiteSpace(id))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_SCHEMA_ID" });
 
-            // _changeControllerContext.ChangeContext(new ProjectKeyModel
-            // {
-            //     ProjectKey = projectKey
-            // });
             var response = await _schemaService.GetSchemaByIdAsync(id);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -129,15 +97,8 @@ namespace Api.Controllers
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetUnadaptedSchemaChangeLogs([FromQuery] string projectKey)
+        public async Task<IActionResult> GetUnadaptedSchemaChangeLogs()
         {
-            if (string.IsNullOrWhiteSpace(projectKey))
-                return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
-
-            // _changeControllerContext.ChangeContext(new ProjectKeyModel
-            // {
-            //     ProjectKey = projectKey
-            // });
             var response = await _schemaChangeLogService.GetUnadaptedSchemaChangeLogsAsync();
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -161,24 +122,6 @@ namespace Api.Controllers
         }
 
         /// <summary>
-        /// Cloud use only: Retrieves the details of a specific Entity-type schema by its collection name, including all fields.
-        /// </summary>
-        [Authorize]
-        [HttpGet("info/{projectSchemaName}")]
-        [ProducesResponseType(typeof(ServiceResponse<CollectionDetailResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetEntityCollectionByName([FromRoute] string projectSchemaName, [FromQuery] string projectKey)
-        {
-            if (string.IsNullOrWhiteSpace(projectKey))
-                return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
-
-            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
-            var response = await _schemaService.GetEntityCollectionByNameAsync(projectSchemaName);
-            return StatusCode(response.HttpStatusCode, response);
-        }
-
-        /// <summary>
         /// Retrieves the details of a specific Entity-type schema by its collection name, including all fields.
         /// </summary>
         [Authorize]
@@ -186,12 +129,11 @@ namespace Api.Controllers
         [ProducesResponseType(typeof(ServiceResponse<CollectionDetailResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetEntityCollectionByNameAsync([FromQuery] string schemaName, string projectKey = "")
+        public async Task<IActionResult> GetEntityCollectionByNameAsync([FromQuery] string schemaName)
         {
             if (string.IsNullOrWhiteSpace(schemaName))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_SCHEMA_NAME" });
 
-            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _schemaService.GetEntityCollectionByNameAsync(schemaName);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -212,7 +154,6 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> CreateSchemaDefinition([FromBody] CreateSchemaDefinitionRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaService.CreateSchemaDefinitionAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -229,7 +170,6 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> CreateSchema([FromBody] CreateSchemaRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaService.CreateSchemaAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -246,7 +186,6 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> SaveSchemaFields([FromBody] SaveFieldDefinitionRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaService.SaveFieldDefinitionAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -268,7 +207,6 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UpdateSchemaDefinition([FromBody] UpdateSchemaDefinitionRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaService.UpdateSchemaDefinitionAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -285,7 +223,6 @@ namespace Api.Controllers
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> UpdateSchema([FromBody] UpdateSchemaRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             var response = await _schemaService.UpdateSchemaAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -294,47 +231,19 @@ namespace Api.Controllers
         #region Delete
 
         /// <summary>
-        /// Cloud use only: Deletes a schema definition by its unique ID. This action cannot be undone.
-        /// </summary>
-        /// <param name="id">The unique identifier of the schema definition to delete.</param>
-        /// <param name="projectKey">The unique identifier of the project to retrieve.</param>
-        /// <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
-        [Authorize]
-        [HttpDelete("{id}")]
-        [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> DeleteSchemaDefinition([FromRoute] string id, [FromQuery] string projectKey)
-        {
-            if (string.IsNullOrWhiteSpace(projectKey))
-                return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
-
-            // _changeControllerContext.ChangeContext(new ProjectKeyModel
-            // {
-            //     ProjectKey = projectKey
-            // });
-            var response = await _schemaService.DeleteSchemaAsync(id);
-            return StatusCode(response.HttpStatusCode, response);
-        }
-
-        /// <summary>
         /// Deletes a schema definition by its unique ID. This action cannot be undone.
         /// </summary>
         /// <param name="id">The unique identifier of the schema definition to delete.</param>
-        /// <param name="projectKey">The unique identifier of the project to retrieve.</param>
         /// <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
         [Authorize]
         [HttpDelete]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> DeleteSchemaDefinitionAsync([FromQuery] string id, string projectKey = "")
+        public async Task<IActionResult> DeleteSchemaDefinitionAsync([FromQuery] string id)
         {
             if (string.IsNullOrWhiteSpace(id))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_SCHEMA_ID" });
 
-            // _changeControllerContext.ChangeContext(new ProjectKeyModel
-            // {
-            //     ProjectKey = projectKey
-            // });
             var response = await _schemaService.DeleteSchemaAsync(id);
             return StatusCode(response.HttpStatusCode, response);
         }

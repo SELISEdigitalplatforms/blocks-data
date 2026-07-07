@@ -16,18 +16,14 @@ namespace Api.Controllers
     public class FilesController : ControllerBase
     {
         private readonly IFileManagementService _fileManagementService;
-        // private readonly ChangeControllerContext _changeControllerContext;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FilesController"/> class.
         /// </summary>
         /// <param name="fileManagementService">Service for managing file operations.</param>
-        /// <param name="changeControllerContext">Context changer for the controller.</param>
         public FilesController(IFileManagementService fileManagementService)
-        //    ChangeControllerContext changeControllerContext)
         {
             _fileManagementService = fileManagementService;
-            // _changeControllerContext = changeControllerContext;
         }
 
         /// <summary>
@@ -40,7 +36,6 @@ namespace Api.Controllers
         [Authorize]
         public async Task<FileResponse?> GetFile([FromQuery] GetFileRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.GetUrlForDownloadFileAsync(request);
         }
 
@@ -54,7 +49,6 @@ namespace Api.Controllers
         [Authorize]
         public async Task<List<FileResponse>?> GetFiles([FromBody] GetFilesRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.GetMultipleUrlsForDownloadFilesAsync(request);
         }
 
@@ -68,7 +62,6 @@ namespace Api.Controllers
         [Authorize]
         public async Task<GetFilesInfoResponse> GetFilesInfo([FromBody] GetFilesInfoRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.GetFilesInfoAsync(request);
         }
 
@@ -82,7 +75,6 @@ namespace Api.Controllers
         [Authorize]
         public async Task<GetPreSignedUrlForUploadResponse> GetPreSignedUrlForUpload([FromBody] GetPreSignedUrlForUploadRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.GetPerSignedUrlForUploadAsync(request);
         }
 
@@ -96,7 +88,6 @@ namespace Api.Controllers
         [Authorize]
         public async Task<BaseResponse> DeleteFile([FromBody] DeleteFileRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.DeleteFileAsync(request);
         }
 
@@ -110,7 +101,6 @@ namespace Api.Controllers
         [Authorize]
         public async Task<LocalStorageUploadResponse> UploadFileToLocalStorage([FromForm] LocalStorageUploadRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.UploadFileToLocalStorageAsync(request);
         }
 
@@ -125,7 +115,6 @@ namespace Api.Controllers
         [Authorize]
         public async Task<IActionResult> DownloadFile([FromQuery] DownloadFileRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             var fileResponse = await _fileManagementService.DownloadFileFromLocalStorageAsync(request);
 
             if (fileResponse.FileStream == null)
@@ -142,7 +131,6 @@ namespace Api.Controllers
         public async Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
         {
             if (command == null) return BadRequest();
-            // _changeControllerContext.ChangeContext(command);
             var result = await _fileManagementService.UpdateFileAsync(command);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
@@ -153,7 +141,6 @@ namespace Api.Controllers
         public async Task<GetDmsFileAndFolderResponse> GetDmsFileAndFolder([FromBody] GetDmsFileAndFolderRequest command)
         {
             if (command == null) return new GetDmsFileAndFolderResponse();
-            // _changeControllerContext.ChangeContext(command);
             return await _fileManagementService.GetDmsFileAndFolder(command);
         }
 
@@ -163,7 +150,6 @@ namespace Api.Controllers
         public async Task<DmsResponse> UploadFile([FromBody] UploadFilesRequest command)
         {
             if (command == null) return null;
-            // _changeControllerContext.ChangeContext(command);
 
             return await _fileManagementService.UploadFilesAsync(command);
         }
@@ -175,7 +161,6 @@ namespace Api.Controllers
         public async Task<DmsResponse> CreateFolder([FromBody] CreateFolderRequest command)
         {
             if (command == null) return null;
-            // _changeControllerContext.ChangeContext(command);
 
             return await _fileManagementService.CreateFolderAsync(command);
         }
@@ -190,7 +175,6 @@ namespace Api.Controllers
         [Authorize]
         public async Task<BaseResponse> DeleteFolder([FromBody] DeleteFolderRequest request)
         {
-            // _changeControllerContext.ChangeContext(request);
             return await _fileManagementService.DeleteFolderAsync(request);
         }
     }

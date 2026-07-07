@@ -13,6 +13,7 @@ public class FieldDefinitionRequestValidator : AbstractValidator<FieldDefinition
     private readonly IDbRepository _dbRepository;
     private const string NameRequired = "Field_Name_Is_Required.";
     private const string NameLength = "Field_Name_Length_Must_Be_Between_1_And_50_Characters.";
+    private const string NameAllowedChars = "Field_Name_May_Only_Contain_Letters_Numbers_And_Underscore_And_Cannot_Start_With_A_Number.";
 
     private const string TypeRequired = "Field_Type_Is_Required.";
     private const string TypeValid = "Field_Type_Is_Not_Valid.";
@@ -27,7 +28,8 @@ public class FieldDefinitionRequestValidator : AbstractValidator<FieldDefinition
     {
         RuleFor(x => x.Name)
             .NotEmpty().WithMessage(NameRequired)
-            .Length(1, 50).WithMessage(NameLength);
+            .Length(1, 50).WithMessage(NameLength)
+            .Matches(SchemaValidatorHelper.NameAllowedPattern).WithMessage(NameAllowedChars);
 
         RuleFor(x => x.Type)
             .NotEmpty().WithMessage(TypeRequired)

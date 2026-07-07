@@ -3,13 +3,12 @@ using DataGateway.DomainService.Entities;
 
 namespace DataGateway.DomainService.Models;
 
-public class UpdateDataAccessPolicyRequest : IProjectKey
+public class UpdateDataAccessPolicyRequest
 {
     public string ItemId { get; set; } = string.Empty;
     public string? PolicyName { get; set; }
     public string? PolicyDescription { get; set; }
     public string[]? FieldNames { get; set; }
-    public string ProjectKey { get; set; } = string.Empty;
 
     /// <summary>
     /// The rule group containing policy conditions.

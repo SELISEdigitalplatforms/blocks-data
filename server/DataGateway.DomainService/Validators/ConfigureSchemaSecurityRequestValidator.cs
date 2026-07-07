@@ -15,8 +15,6 @@ public class ConfigureSchemaSecurityRequestValidator : AbstractValidator<Configu
 
     public ConfigureSchemaSecurityRequestValidator()
     {
-        RuleFor(x => x.ProjectKey)
-            .NotEmpty().WithMessage(ProjectKeyRequired);
 
         RuleFor(x => x.SchemaId)
             .NotEmpty().WithMessage(SchemaIdRequired);

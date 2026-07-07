@@ -3,7 +3,7 @@ using Storage.DomainService.Shared.Enums;
 
 namespace DomainService.Storage
 {
-    public class GetPreSignedUrlForUploadRequest : IProjectKey
+    public class GetPreSignedUrlForUploadRequest
     {
         /// <summary>
         /// command. ItemId: String representing the item ID.
@@ -31,7 +31,6 @@ namespace DomainService.Storage
         public string AccessModifier { get; set; } = "Private";
 
         public string? ConfigurationName { get; set; } = null;
-        public string? ProjectKey { get ; set ; }
         public ModuleName ModuleName { get; set; } = ModuleName.Default_Cloud;
         public Dictionary<string, string> AdditionalProperties { get; set; } = new Dictionary<string, string>();
     }

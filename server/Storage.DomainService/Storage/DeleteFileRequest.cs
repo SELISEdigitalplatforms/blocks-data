@@ -2,11 +2,10 @@
 
 namespace DomainService.Storage
 {
-    public class DeleteFileRequest : IProjectKey
+    public class DeleteFileRequest
     {
         public string FileId { get; set; }
         public string? ConfigurationName { get; set; } = null;
-        public string? ProjectKey { get ; set ; }
         public string? EventQueueName { get; set; }
     }
 }

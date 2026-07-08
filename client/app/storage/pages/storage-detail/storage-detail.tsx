@@ -52,7 +52,6 @@ import {
   Folder,
   FolderPlus,
   Image as ImageIcon,
-  Info,
   LayoutGrid,
   List,
   MoreVertical,
@@ -440,9 +439,6 @@ export function StorageDetail() {
               ? "AWS S3 Compatible"
               : storage.storageStrategy}
           </h1>
-          <Button variant="ghost" size="icon" className="h-5 w-5">
-            <Info className="h-4 w-4 text-muted-foreground" />
-          </Button>
         </div>
         <div className="flex items-center gap-2">
           {/* <Button

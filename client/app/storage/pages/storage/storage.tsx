@@ -74,10 +74,6 @@ export function Storage() {
     return data;
   }, [data]);
 
-  const storageCards = useMemo(() => {
-    return configurations.map(mapConfigurationToCardData);
-  }, [configurations]);
-
   const onChange: FilterChangeHandler<FilterValues> = (key, value) => {
     setFilters((prev) => ({
       ...prev,

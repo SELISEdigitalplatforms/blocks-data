@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui-kits/button/button";
+import { Card } from "@/components/ui-kits/card/card";
 import {
   Command,
   CommandGroup,
@@ -33,9 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui-kits/select/select";
-import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
 import {
   AUTH_FIELD_OPTIONS,
   AUTH_STRING_FIELDS,
@@ -66,13 +64,15 @@ import type {
   IUpdatePolicyPayload,
 } from "@/data-gateway/models/data-service";
 import { policyRuleToFormRow } from "@/data-gateway/utils/schema-access-control.utils";
+import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckIcon } from "@radix-ui/react-icons";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { Plus, X } from "lucide-react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import { SchemaAccessControlAccordion } from "./schema-access-control-accordion";
-import { Card } from "@/components/ui-kits/card/card";
 
 const ruleRowSchema = z
   .object({

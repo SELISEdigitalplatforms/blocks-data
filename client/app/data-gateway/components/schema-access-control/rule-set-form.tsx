@@ -114,7 +114,7 @@ const ruleRowSchema = z
   });
 
 const ruleSetSchema = z.object({
-  name: z.string().min(1, "Rule Set Name is required"),
+  name: z.string().trim().min(1, "Rule Set Name is required"),
   logicalOperator: z.enum(["AND", "OR"], {
     required_error: "Please select a rule relation",
   }),

@@ -1,9 +1,9 @@
 import { http } from "@/lib/http-client";
+import { IGetProjectLoginOptionResponse } from "@blocks-idp/authentication/models/auth-configuration.model";
 import {
   ICreateProjectPayload,
   IDisableProjectPayload,
   IDisableProjectResponse,
-  IGetProjectLoginOptionResponse,
   IGetProjectPayload,
   IGetProjectResponse,
   IGetPublicCertificateResponse,

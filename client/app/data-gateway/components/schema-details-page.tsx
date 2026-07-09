@@ -4,6 +4,7 @@ import { Alert, AlertDescription } from "@/components/ui-kits/alert/alert";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, ChevronRight } from "lucide-react";
 import { DataGatewayActions } from "./data-gateway-actions";
@@ -62,6 +63,7 @@ const EMPTY_SCHEMA: ISchemaDetails = {
 
 export const SchemaDetailsPage = () => {
   const navigate = useNavigate();
+  const dataGatewayPath = useDataGatewayPath();
   const queryClient = useQueryClient();
   const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] =
     useState(false);
@@ -162,10 +164,7 @@ export const SchemaDetailsPage = () => {
   };
 
   const navigateToSecurityView = () => {
-    queryClient.invalidateQueries({
-      queryKey: ["security-performance-schema-list"],
-    });
-    navigate({ pathname: "/app/services/data-gateway" });
+    navigate(dataGatewayPath);
   };
 
   // Warm policy cache for access drawers (query key is parent schemaName for all column rules).

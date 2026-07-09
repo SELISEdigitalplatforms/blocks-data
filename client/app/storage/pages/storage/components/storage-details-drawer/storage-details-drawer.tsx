@@ -1,16 +1,18 @@
 "use client";
 
-import { X } from "lucide-react";
-import { IStorageConfiguration, StorageStrategyType } from "@/storage/models/storage.model";
+import { Badge } from "@/components/ui-kits/badge/badge";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui-kits/sheet/sheet";
-import { Badge } from "@/components/ui-kits/badge/badge";
-import { PackageOpen } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
+import {
+  IStorageConfiguration,
+  StorageStrategyType,
+} from "@/storage/models/storage.model";
+import { PackageOpen, X } from "lucide-react";
 
 interface StorageDetailsDrawerProps {
   open: boolean;
@@ -19,10 +21,14 @@ interface StorageDetailsDrawerProps {
 }
 
 const providerColors: Record<StorageStrategyType, string> = {
-  Amazon: "bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400",
+  Amazon:
+    "bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400",
   Azure: "bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400",
-  SftpStorage: "bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400",
-  S3Compatible: "bg-purple-100 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400",
+  SftpStorage:
+    "bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400",
+  S3Compatible:
+    "bg-purple-100 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400",
+  AWS: "bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-400",
 };
 
 const getProviderLabel = (provider: StorageStrategyType): string => {
@@ -40,7 +46,11 @@ const getProviderLabel = (provider: StorageStrategyType): string => {
   }
 };
 
-export function StorageDetailsDrawer({ open, onOpenChange, storage }: StorageDetailsDrawerProps) {
+export function StorageDetailsDrawer({
+  open,
+  onOpenChange,
+  storage,
+}: StorageDetailsDrawerProps) {
   if (!storage) return null;
 
   const providerLabel = getProviderLabel(storage.storageStrategy);
@@ -69,18 +79,24 @@ export function StorageDetailsDrawer({ open, onOpenChange, storage }: StorageDet
             <div className="space-y-6">
               {/* Properties Section */}
               <div>
-                <h3 className="mb-4 text-sm font-medium text-muted-foreground">Properties</h3>
+                <h3 className="mb-4 text-sm font-medium text-muted-foreground">
+                  Properties
+                </h3>
 
                 <div className="space-y-4">
                   {/* Name */}
                   <div>
-                    <div className="mb-1 text-xs text-muted-foreground">Name</div>
+                    <div className="mb-1 text-xs text-muted-foreground">
+                      Name
+                    </div>
                     <div className="text-sm font-medium">{storage.name}</div>
                   </div>
 
                   {/* Storage Provider */}
                   <div>
-                    <div className="mb-2 text-xs text-muted-foreground">Storage provider</div>
+                    <div className="mb-2 text-xs text-muted-foreground">
+                      Storage provider
+                    </div>
                     <div className="flex items-center gap-2">
                       <div
                         className={cn(
@@ -119,27 +135,40 @@ export function StorageDetailsDrawer({ open, onOpenChange, storage }: StorageDet
                           />
                         )}
                       </div>
-                      <span className="text-sm font-medium">{providerLabel}</span>
+                      <span className="text-sm font-medium">
+                        {providerLabel}
+                      </span>
                     </div>
                   </div>
 
                   {/* Owner */}
                   <div>
-                    <div className="mb-1 text-xs text-muted-foreground">Owner</div>
-                    <div className="text-sm font-medium">{storage.createdBy || "Me"}</div>
+                    <div className="mb-1 text-xs text-muted-foreground">
+                      Owner
+                    </div>
+                    <div className="text-sm font-medium">
+                      {storage.createdBy || "Me"}
+                    </div>
                   </div>
 
                   {/* Type */}
                   <div>
-                    <div className="mb-2 text-xs text-muted-foreground">Type</div>
-                    <Badge variant="secondary" className="h-6 w-fit text-xs font-medium">
+                    <div className="mb-2 text-xs text-muted-foreground">
+                      Type
+                    </div>
+                    <Badge
+                      variant="secondary"
+                      className="h-6 w-fit text-xs font-medium"
+                    >
                       Configured
                     </Badge>
                   </div>
 
                   {/* Last Modified */}
                   <div>
-                    <div className="mb-1 text-xs text-muted-foreground">Last modified</div>
+                    <div className="mb-1 text-xs text-muted-foreground">
+                      Last modified
+                    </div>
                     <div className="text-sm font-medium">
                       {formatDate(new Date(storage.lastUpdatedDate))}
                     </div>
@@ -147,7 +176,9 @@ export function StorageDetailsDrawer({ open, onOpenChange, storage }: StorageDet
 
                   {/* Date Created */}
                   <div>
-                    <div className="mb-1 text-xs text-muted-foreground">Date created</div>
+                    <div className="mb-1 text-xs text-muted-foreground">
+                      Date created
+                    </div>
                     <div className="text-sm font-medium">
                       {formatDate(new Date(storage.createdDate))}
                     </div>

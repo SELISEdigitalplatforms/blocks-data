@@ -13,20 +13,19 @@ import {
   CallbackPage,
   ConsoleLayout,
   ConsolePage,
-  DashboardLayout,
   DashboardOverview,
   EnvironmentsPage,
   LoginPage,
   ProfilePage,
-  ProjectOverviewLayout,
   ProtectedGuard,
   PublicGuard,
 } from "@seliseblocks/blocks-kit";
+import { DashboardRoute, ProjectOverviewRoute } from "@seliseblocks/blocks-kit/layouts";
 import { navigationMenus } from "./constants/navigation-menus";
 
 const redirectPaths: Record<string, string> = {
-  "/app/services/data-gateway*": "/app/services/data-gateway",
-  "/app/services/storage*": "/app/services/storage",
+  "/app/*/data-gateway*": "/app/data-gateway",
+  "/app/*/storage*": "/app/storage",
 };
 
 export const router = createBrowserRouter([
@@ -77,15 +76,15 @@ export const router = createBrowserRouter([
                   { path: "console", element: <ConsolePage /> },
                 ],
               },
+              { index: true, element: <Navigate to="console" replace /> },
+
               {
-                path: "project-overview",
+                path: "project/:tenantGroupId",
                 element: (
-                  <ProjectOverviewLayout
+                  <ProjectOverviewRoute
                     redirectPaths={redirectPaths}
                     navigationMenus={navigationMenus}
-                  >
-                    <Outlet />
-                  </ProjectOverviewLayout>
+                  />
                 ),
                 children: [
                   {
@@ -99,34 +98,33 @@ export const router = createBrowserRouter([
                 ],
               },
               {
-                // impersonate
+                path: ":itemId",
                 element: (
-                  <DashboardLayout
+                  <DashboardRoute
                     redirectPaths={redirectPaths}
                     navigationMenus={navigationMenus}
-                  >
-                    <Outlet />
-                  </DashboardLayout>
+                  />
                 ),
                 children: [
+                  { index: true, element: <Navigate to="dashboard" replace /> },
                   { path: "dashboard", element: <DashboardOverview /> },
                   {
-                    path: "services/data-gateway",
+                    path: "data-gateway",
                     element: <DataGatewaySchemasPage />,
                   },
                   {
-                    path: "services/data-gateway/playground",
+                    path: "data-gateway/playground",
                     element: <DataGatewayPlaygroundPage />,
                   },
                   {
-                    path: "services/data-gateway/logs",
+                    path: "data-gateway/logs",
                     element: <DataGatewayLogsPage />,
                   },
                   {
-                    path: "services/data-gateway/configuration",
+                    path: "data-gateway/configuration",
                     element: <DataGatewayEditDataSourcePage />,
                   },
-                  { path: "services/storage", element: <StoragePage /> },
+                  { path: "storage", element: <StoragePage /> },
                 ],
               },
             ],

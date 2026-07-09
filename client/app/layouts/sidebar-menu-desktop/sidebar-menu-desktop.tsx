@@ -17,7 +17,7 @@ export function SidebarMenuDesktop() {
   const { resolvedTheme } = useTheme();
   const { pathname } = useLocation();
   const allowedMenu = useFilteredMenus(navigationMenus);
-  const isProjectOverviewRoute = pathname.startsWith("/project-overview");
+  const isProjectOverviewRoute = pathname.startsWith("/project");
 
   const getLogoSrc = () => {
     if (isSidebarOpen) {

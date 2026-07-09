@@ -20,6 +20,7 @@ import {
 import { useGetProject } from "@/hooks/use-project";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { Eye, Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -114,6 +115,7 @@ export function SchemaPreviewDrawer({
   const [activeOperationTab, setActiveOperationTab] = useState<string>("query");
   const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/data/v4/gateway`;
   const navigate = useNavigate();
+  const dataGatewayPath = useDataGatewayPath();
 
   useEffect(() => {
     setActiveTab(isEntity ? "request-format" : "schema-structure");
@@ -129,7 +131,7 @@ export function SchemaPreviewDrawer({
   const handleTryInPlayground = (code: string) => {
     localStorage.setItem("graphql-playground-query", code);
     // Navigate to the playground
-    navigate("/app/services/data-gateway/playground");
+    navigate(`${dataGatewayPath}/playground`);
   };
 
   const formattedJson = useMemo(() => formatPreviewJson(previewData), [previewData]);

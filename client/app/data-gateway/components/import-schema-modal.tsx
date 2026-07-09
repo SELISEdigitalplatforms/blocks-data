@@ -22,7 +22,7 @@ import {
   useUploadFile,
 } from "@/storage/hooks/use-storage-file";
 import { storageService } from "@/storage/services/storage.service";
-import { getRuntimeEnv } from "@seliseblocks/blocks-kit";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import {
   ArrowDownToLine,
   CloudUpload,

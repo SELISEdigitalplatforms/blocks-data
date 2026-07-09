@@ -2,7 +2,7 @@ import {
   PEOPLE_ENDPOINTS,
   PROJECT_ENDPOINTS,
 } from "@/identifier/constants/endpoint.constant";
-import { IGetProjectLoginOptionResponse } from "@/identifier/models/project.model";
+import { IGetProjectLoginOptionResponse } from "@blocks-idp/authentication/models/auth-configuration.model";
 import { http } from "@/lib/http-client";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { impersonationService } from "@/services/impersonation.service";

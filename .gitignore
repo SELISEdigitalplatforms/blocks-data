@@ -180,3 +180,5 @@ client/.agents/
 client/.cursor/
 
 *.lscache
+
+.kilo/

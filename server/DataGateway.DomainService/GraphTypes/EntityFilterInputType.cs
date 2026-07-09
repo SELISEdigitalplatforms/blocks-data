@@ -6,10 +6,6 @@ using HotChocolate.Types;
 
 namespace DataGateway.DomainService.GraphTypes;
 
-/// <summary>
-/// Dynamically built GraphQL input type for entity filter (e.g. StudentFilterInput).
-/// One field per schema scalar field, each of the appropriate operation filter type.
-/// </summary>
 public class EntityFilterInputType : InputObjectType
 {
     private readonly SchemaDefinitionExtended _schema;
@@ -22,7 +18,8 @@ public class EntityFilterInputType : InputObjectType
     protected override void Configure(IInputObjectTypeDescriptor descriptor)
     {
         var schemaName = _schema.GetSchemaNameForProject();
-        descriptor.Name($"{schemaName}FilterInput");
+        var filterTypeName = $"{schemaName}FilterInput";
+        descriptor.Name(filterTypeName);
         descriptor.Description($"Filter input for {schemaName}.");
 
         foreach (var field in _schema.Fields)
@@ -35,6 +32,13 @@ public class EntityFilterInputType : InputObjectType
                 .Type(new NamedTypeNode(operationFilterTypeName))
                 .Description($"Filter by {field.Name}.");
         }
+
+        descriptor.Field("or")
+            .Type(new ListTypeNode(new NamedTypeNode(filterTypeName)))
+            .Description("Logical OR of conditions.");
+        descriptor.Field("and")
+            .Type(new ListTypeNode(new NamedTypeNode(filterTypeName)))
+            .Description("Logical AND of conditions.");
     }
 
     private static string GetOperationFilterTypeName(string scalarType)

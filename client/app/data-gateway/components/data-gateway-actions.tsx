@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { Download, FolderInput, MoreVertical, Settings } from "lucide-react";
 import { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -31,6 +32,7 @@ export const DataGatewayActions = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
+  const dataGatewayPath = useDataGatewayPath();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
@@ -53,13 +55,13 @@ export const DataGatewayActions = () => {
     {
       label: "Playground",
       icon: <GraphQLIcon className="h-4 w-4" />,
-      onClick: () => navigate("/app/services/data-gateway/playground"),
+      onClick: () => navigate(`${dataGatewayPath}/playground`),
       active: isPlayground,
     },
     {
       label: "Configure",
       icon: <Settings className="h-4 w-4" />,
-      onClick: () => navigate("/app/services/data-gateway/configuration"),
+      onClick: () => navigate(`${dataGatewayPath}/configuration`),
       active: isConfigure,
     },
   ];

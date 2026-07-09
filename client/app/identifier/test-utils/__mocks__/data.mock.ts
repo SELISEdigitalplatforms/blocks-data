@@ -49,17 +49,17 @@ export const mockProject: IProject = {
   organizationIds: [TEST_TENANT_ID],
   tags: [],
   name: "Test Project",
-  applicationDomain: "https://test.seliseblocks.com",
-  customDomain: "",
+  customDomain: null,
+  cookieDomain: "blocksdevelopers.com",
   isProduction: true,
   tenantId: TEST_TENANT_ID,
   isCookieEnable: true,
   isDomainVerified: true,
-  cookieDomain: "test.seliseblocks.com",
   isDisabled: false,
   environment: "dev",
   tenantGroupId: MOCK_TENANT_GROUP_ID,
   tenantSlug: "test-project",
+  applications: [],
 };
 
 export const mockProject2: IProject = {

@@ -8,6 +8,7 @@ import { IStorageConfiguration } from "@/storage/models/storage.model";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
+import { useStoragePath } from "@/hooks/use-scoped-path";
 import {
   filterStorageConfigurations,
   type StorageFilterValues,
@@ -48,6 +49,7 @@ const mapConfigurationToCardData = (
 
 export function Storage() {
   const navigate = useNavigate();
+  const storagePath = useStoragePath();
   const [open, setOpen] = useState<boolean>(false);
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const [selectedStorage, setSelectedStorage] =
@@ -99,7 +101,7 @@ export function Storage() {
   }, [configurations, filters]);
 
   const handleCardClick = (id: string) => {
-    navigate(`/app/services/storage?id=${encodeURIComponent(id)}`);
+    navigate(`${storagePath}?id=${encodeURIComponent(id)}`);
   };
 
   const handleViewDetails = (id: string) => {

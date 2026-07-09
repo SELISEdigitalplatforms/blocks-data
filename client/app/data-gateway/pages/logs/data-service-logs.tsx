@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
 import { LogsViewer } from "@/service-logs";
@@ -11,7 +10,7 @@ export const DataServiceLogs = () => {
 
   return (
     <div>
-      <PageBreadcrumb breadcrumbIndex={2} />
+      <PageBreadcrumb breadcrumbIndex={3} />
       <LogsViewer
         services={[
           {

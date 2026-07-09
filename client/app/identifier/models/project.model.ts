@@ -1,37 +1,11 @@
-import { GRANT_TYPES, SSO_PROVIDERS } from "@blocks-idp/authentication/constants";
-
-export interface IProject {
-  itemId: string;
-  createdDate: string;
-  lastUpdatedDate: string;
-  createdBy: string;
-  lastUpdatedBy: string;
-  organizationIds: string[];
-  tags: string[];
-  name: string;
-  applicationDomain: string;
-  customDomain: string;
-  isProduction: true;
-  tenantId: string;
-  isCookieEnable: boolean;
-  isDomainVerified: boolean;
-  cookieDomain: string;
-  isDisabled: boolean;
-  environment: string;
-  tenantGroupId: string;
-  tenantSlug: string;
-}
+export type { IProject, IDomain } from "@seliseblocks/blocks-kit/models";
+export type { IProjectGroup, IGetProjectPayload, IGetProjectResponse } from "@seliseblocks/blocks-kit/models";
+export type { IEnvRepository } from "@seliseblocks/blocks-kit/models";
 
 export interface IResource {
   name: string;
   link: string;
   resourceId: string;
-}
-export interface IProjectGroup {
-  tenantGroupId: string;
-  projects: IProject[];
-  nonSharedProject: IProject[];
-  isShared: boolean;
 }
 export interface ICreateProjectPayload {
   name: string;
@@ -45,22 +19,6 @@ export interface ICreateProjectPayload {
     cookieDomain: string;
   }[];
   tenantGroupId?: string;
-}
-export interface IGetProjectPayload {
-  projectId: string;
-}
-export interface IGetProjectResponse {
-  data: IProject;
-  errors: unknown | null;
-}
-
-export interface IEnvRepository {
-  itemId: string;
-  repoName: string;
-  repoUrl: string;
-  defaultDeploymentUrl: string;
-  customDeploymentUrl: string;
-  lastDeploymentDate: string;
 }
 
 export interface IGetProjectAuthConfig {
@@ -111,23 +69,26 @@ export interface IValidateCNameProjectResponse {
   isStatusChanged: boolean;
 }
 
-export interface IUpdateProjectPayload {
-  name: string;
-  applicationDomain: string;
-  isCookieEnable?: boolean;
-  cookieDomain?: string;
-  useCustomDomain: boolean;
-  customDomain: string;
-  projectKey: string;
-}
 export interface IUpdateTenantGroupPayload {
   name: string;
   tenantGroupId: string;
 }
+
+export interface IUpdateProjectPayload {
+  action: number;
+  application: {
+    domain: string;
+    cookieDomain: string;
+    isDomainVerified: boolean;
+  };
+  applicationDomain?: string;
+}
+
 export interface IUpdateProjectResponse {
   errors: unknown | null;
   isSuccess: boolean;
 }
+
 export interface IDisableProjectPayload {
   projectKey: string;
 }
@@ -135,18 +96,7 @@ export interface IDisableProjectResponse {
   errors: unknown | null;
   isSuccess: boolean;
 }
-type SSO_INFO = {
-  provider: SSO_PROVIDERS;
-  audience: string;
-};
 
-export type LoginOption = {
-  allowedGrantTypes: GRANT_TYPES[];
-  ssoInfo: SSO_INFO[];
-};
-export type IGetProjectLoginOptionResponse = LoginOption;
-
-// Data Migration interfaces
 export interface IMigrationServiceDetails {
   shouldOverWriteExistingData: boolean;
   serviceName: number;

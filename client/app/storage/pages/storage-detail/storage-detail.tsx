@@ -46,6 +46,7 @@ import {
   IGetDmsFileAndFolderResponse,
 } from "@/storage/models/storage.model";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useStoragePath } from "@/hooks/use-scoped-path";
 
 import {
   FileText,
@@ -102,6 +103,7 @@ type BreadcrumbItem = {
 
 export function StorageDetail() {
   const navigate = useNavigate();
+  const storagePath = useStoragePath();
   const params = new URLSearchParams(window.location.search);
   const storageId = params.get("id") as string;
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
@@ -387,7 +389,7 @@ export function StorageDetail() {
             <BreadcrumbLink
               asChild
               className="cursor-pointer"
-              onClick={() => navigate("/app/services/storage")}
+              onClick={() => navigate(storagePath)}
             >
               <span className="text-foreground hover:text-foreground">
                 Storage

@@ -16,9 +16,10 @@ export const DashboardOverview = () => {
 
   const cNameValidator = useCallback(async () => {
     try {
+      const applicationDomain = data?.data?.applications?.[0]?.domain;
       if (
-        !data?.data?.applicationDomain ||
-        getDomain(data.data.applicationDomain) === "seliseblocks.com"
+        !applicationDomain ||
+        getDomain(applicationDomain) === "seliseblocks.com"
       )
         return;
 
@@ -34,7 +35,7 @@ export const DashboardOverview = () => {
       }
     }
   }, [
-    data?.data?.applicationDomain,
+    data?.data?.applications,
     data?.data?.customDomain,
     mutateAsync,
     projectKey,

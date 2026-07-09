@@ -3,7 +3,7 @@ import { z } from "zod";
 export const storageConfigurationFormSchema = z
   .object({
     name: z.string().nonempty("Name is required").trim(),
-    storageStrategy: z.enum(["Amazon", "Azure", "SftpStorage", "S3Compatible"]),
+    storageStrategy: z.enum(["Amazon", "Azure", "SftpStorage", "S3Compatible", "AWS"]),
     secretKey: z.string().trim().nullable(),
     accessKey: z.string().trim().nullable(),
     cloudStorageRegionEndPoint: z.string().trim().nullable(),
@@ -38,7 +38,7 @@ export const storageConfigurationFormSchema = z
       });
     };
 
-    if (storageStrategy === "Amazon") {
+    if (storageStrategy === "Amazon" || storageStrategy === "AWS") {
       requireFields(["secretKey", "accessKey", "cloudStorageRegionEndPoint"], {
         secretKey: "Secret key is required",
         accessKey: "Access key is required",

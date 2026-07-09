@@ -1,27 +1,31 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import { Button } from "@/components/ui-kits/button/button";
-import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
-import { LogMenu } from "@/service-logs";
-import { SaveStorageConfiguration } from "../storage-configuration/save-storage-configuration/save-storage-configuration";
-import { StorageCard, StorageCardData } from "./components/storage-card/storage-card";
 import { FilterChangeHandler } from "@/components/filter-toolbar";
-import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
-import { IStorageConfiguration } from "@/storage/models/storage.model";
+import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
+import { LogMenu } from "@/service-logs";
+import { IStorageConfiguration } from "@/storage/models/storage.model";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
+import {
+  filterStorageConfigurations,
+  type StorageFilterValues,
+} from "../../utils/filter-storage-configurations";
+import { SaveStorageConfiguration } from "../storage-configuration/save-storage-configuration/save-storage-configuration";
+import {
+  StorageCard,
+  StorageCardData,
+} from "./components/storage-card/storage-card";
 import { StorageDetailsDrawer } from "./components/storage-details-drawer/storage-details-drawer";
+import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
 
-type FilterValues = {
-  search: string;
-  providers: string[];
-  types: string[];
-};
+type FilterValues = StorageFilterValues;
 
 // Helper function to map API configuration to card data
-const mapConfigurationToCardData = (config: IStorageConfiguration): StorageCardData => {
+const mapConfigurationToCardData = (
+  config: IStorageConfiguration,
+): StorageCardData => {
   return {
     id: config.itemId,
     provider: config.storageStrategy,
@@ -46,7 +50,8 @@ export function Storage() {
   const navigate = useNavigate();
   const [open, setOpen] = useState<boolean>(false);
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
-  const [selectedStorage, setSelectedStorage] = useState<IStorageConfiguration | null>(null);
+  const [selectedStorage, setSelectedStorage] =
+    useState<IStorageConfiguration | null>(null);
   const [filters, setFilters] = useState<FilterValues>({
     search: "",
     providers: [],
@@ -69,10 +74,6 @@ export function Storage() {
     return data;
   }, [data]);
 
-  const storageCards = useMemo(() => {
-    return configurations.map(mapConfigurationToCardData);
-  }, [configurations]);
-
   const onChange: FilterChangeHandler<FilterValues> = (key, value) => {
     setFilters((prev) => ({
       ...prev,
@@ -89,14 +90,13 @@ export function Storage() {
   };
 
   const filteredData = useMemo(() => {
-    return storageCards.filter((item) => {
-      const matchesSearch = item.title.toLowerCase().includes(filters.search.toLowerCase());
-      const matchesProvider =
-        filters.providers.length === 0 || filters.providers.includes(item.provider);
-      // const matchesType = filters.types.length === 0 || filters.types.includes(item.status);
-      return matchesSearch && matchesProvider;
-    });
-  }, [storageCards, filters]);
+    const filteredConfigurations = filterStorageConfigurations(
+      configurations,
+      filters,
+    );
+
+    return filteredConfigurations.map(mapConfigurationToCardData);
+  }, [configurations, filters]);
 
   const handleCardClick = (id: string) => {
     navigate(`/app/services/storage?id=${encodeURIComponent(id)}`);
@@ -189,7 +189,9 @@ export function Storage() {
           </div>
         ) : (
           <div className="flex h-64 items-center justify-center">
-            <p className="text-muted-foreground">No storage configurations found.</p>
+            <p className="text-muted-foreground">
+              No storage configurations found.
+            </p>
           </div>
         )}
       </div>

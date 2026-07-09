@@ -117,14 +117,14 @@
             Updates a data access policy for a specific item.
             </summary>
             <param name="request"></param>
-            <returns></returns>
+            <returns>Returns the result of the update operation.</returns>
         </member>
         <member name="M:Api.Controllers.DataGateway.DataAccessController.DeleteDataAccessPolicyAsync(System.String)">
             <summary>
             Deletes a data access policy for a specific item.
             </summary>
             <param name="itemId"></param>
-            <returns></returns>
+            <returns>Returns the result of the delete operation.</returns>
         </member>
         <member name="M:Api.Controllers.DataGateway.DataAccessController.GetDataAccessPolicyAsync(System.String)">
             <summary>

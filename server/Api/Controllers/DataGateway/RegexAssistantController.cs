@@ -1,5 +1,5 @@
+using Blocks.Genesis;
 using DataGateway.DomainService.Services.RegexAssistant;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Net;
 
@@ -31,7 +31,7 @@ namespace BlocksTemplate.Api.Controllers
         /// <param name="request">The regex generation request containing description and optional constraints</param>
         /// <returns>Generated regex pattern</returns>
         [HttpPost("generateregex")]
-        [Authorize]
+        [ProtectedEndPoint("data::regex::generate-regex")]
         public async Task<IActionResult> GenerateRegex([FromBody] RegexAssistantRequest request)
         {
             if (string.IsNullOrWhiteSpace(request?.Description))

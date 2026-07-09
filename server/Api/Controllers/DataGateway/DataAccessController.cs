@@ -31,8 +31,8 @@ namespace Api.Controllers.DataGateway
         /// </summary>
         /// <param name="request"></param>
         /// <returns></returns>
-        [Authorize]
         [HttpPost("security/change")]
+        [ProtectedEndPoint("data::data-access::configure-security")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -49,8 +49,8 @@ namespace Api.Controllers.DataGateway
         /// </summary>
         /// <param name="request"></param>
         /// <returns></returns>
-        [Authorize]
         [HttpPost("policy/create")]
+        [ProtectedEndPoint("data::data-access::create-data-access-policy")]
         public async Task<IActionResult> CreateDataAccessPolicy([FromBody] CreateDataAccessPolicyRequest request)
         {
             var response = await _dataAccessService.CreateDataAccessPolicy(request);
@@ -61,9 +61,9 @@ namespace Api.Controllers.DataGateway
         /// Updates a data access policy for a specific item.
         /// </summary>
         /// <param name="request"></param>
-        /// <returns></returns>
-        [Authorize]
+        /// <returns>Returns the result of the update operation.</returns>
         [HttpPost("policy/update")]
+        [ProtectedEndPoint("data::data-access::update-data-access-policy")]
         public async Task<IActionResult> UpdateDataAccessPolicy([FromBody] UpdateDataAccessPolicyRequest request)
         {
             var response = await _dataAccessService.UpdateDataAccessPolicy(request);
@@ -74,14 +74,13 @@ namespace Api.Controllers.DataGateway
         /// Deletes a data access policy for a specific item.
         /// </summary>
         /// <param name="itemId"></param>
-        /// <returns></returns>
-        [Authorize]
+        /// <returns>Returns the result of the delete operation.</returns>
         [HttpDelete("policy/delete")]
+        [ProtectedEndPoint("data::data-access::delete-data-access-policy")]
         public async Task<IActionResult> DeleteDataAccessPolicyAsync([FromQuery] string itemId)
         {
             if (string.IsNullOrWhiteSpace(itemId))
                 return StatusCode(400, new { Message = "INVALID_ITEM_ID" });
-
             var response = await _dataAccessService.DeleteDataAccessPolicy(itemId);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -91,8 +90,8 @@ namespace Api.Controllers.DataGateway
         /// </summary>
         /// <param name="schemaName"></param>
         /// <returns></returns>
-        [Authorize]
         [HttpGet("policy/get")]
+        [ProtectedEndPoint("data::data-access::get-data-access-policy")]
         public async Task<IActionResult> GetDataAccessPolicyAsync([FromQuery] string schemaName)
         {
             if (string.IsNullOrWhiteSpace(schemaName))

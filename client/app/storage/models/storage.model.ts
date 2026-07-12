@@ -17,7 +17,6 @@ export const STORAGE_STRATEGIES: StorageStrategyOption[] = [
   { id: "azure", label: "Azure", value: "Azure" },
   { id: "sftp", label: "SFTP", value: "SftpStorage" },
   { id: "s3compatible", label: "AWS S3 Compatible", value: "S3Compatible" },
-  { id: "aws", label: "AWS", value: "AWS" },
 ];
 export interface IStorageConfiguration {
   storageStrategy: StorageStrategyType;

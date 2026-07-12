@@ -262,11 +262,12 @@ describe("ProjectService", () => {
       vi.mocked(http.post).mockResolvedValue(mockUpdateProjectResponse);
 
       const payload = {
-        projectKey: "key",
-        name: "Updated Project",
-        applicationDomain: "example.com",
-        useCustomDomain: false,
-        customDomain: "",
+        action: 1,
+        application: {
+          domain: "example.com",
+          cookieDomain: "example.com",
+          isDomainVerified: true,
+        },
       };
       const result = await service.updateProject(payload);
 
@@ -279,11 +280,12 @@ describe("ProjectService", () => {
 
       await expect(
         service.updateProject({
-          projectKey: "key",
-          name: "n",
-          applicationDomain: "d",
-          useCustomDomain: false,
-          customDomain: "",
+          action: 1,
+          application: {
+            domain: "d",
+            cookieDomain: "d",
+            isDomainVerified: true,
+          },
         }),
       ).rejects.toThrow("Update failed");
     });

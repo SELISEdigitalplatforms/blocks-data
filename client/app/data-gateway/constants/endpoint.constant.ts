@@ -42,7 +42,7 @@ const MOCK_DATA_SUBPATH = "/mock-data";
 
 export const DATA_MANAGE_ENDPOINTS = {
   GET_MOCK_DATA: `${API_BASES.UDS}${MOCK_DATA_SUBPATH}`,
-  DELETE_MOCK_DATA: `${API_BASES.UDS}${MOCK_DATA_SUBPATH}/mock-data`,
+  DELETE_MOCK_DATA: `${API_BASES.UDS}${MOCK_DATA_SUBPATH}`,
 } as const;
 
 // ─── Data Validation endpoints ────────────────────────────────────────────────

@@ -1,10 +1,15 @@
-import { createBrowserRouter, Navigate, Outlet, RouteObject } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Navigate,
+  Outlet,
+  RouteObject,
+} from "react-router-dom";
 
 // Dashboard routes (protected)
+import DataGatewayEditDataSourcePage from "./routes/dashboard/data-gateway-edit-data-source";
 import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
 import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
 import DataGatewaySchemasPage from "./routes/dashboard/data-gateway-schemas";
-import DataGatewayEditDataSourcePage from "./routes/dashboard/data-gateway-edit-data-source";
 import StoragePage from "./routes/dashboard/storage-page";
 
 // Console pages
@@ -14,13 +19,12 @@ import {
   ConsoleLayout,
   ConsolePage,
   DashboardOverview,
-  EnvironmentsPage,
   LoginPage,
   ProfilePage,
   ProtectedGuard,
   PublicGuard,
 } from "@seliseblocks/blocks-kit";
-import { DashboardRoute, ProjectOverviewRoute } from "@seliseblocks/blocks-kit/layouts";
+import { DashboardRoute } from "@seliseblocks/blocks-kit/layouts";
 import { navigationMenus } from "./constants/navigation-menus";
 
 const redirectPaths: Record<string, string> = {
@@ -79,25 +83,6 @@ export const router = createBrowserRouter([
               { index: true, element: <Navigate to="console" replace /> },
 
               {
-                path: "project/:tenantGroupId",
-                element: (
-                  <ProjectOverviewRoute
-                    redirectPaths={redirectPaths}
-                    navigationMenus={navigationMenus}
-                  />
-                ),
-                children: [
-                  {
-                    index: true,
-                    element: <Navigate to="environments" replace />,
-                  },
-                  {
-                    path: "environments",
-                    element: <EnvironmentsPage />,
-                  },
-                ],
-              },
-              {
                 path: ":itemId",
                 element: (
                   <DashboardRoute
@@ -136,4 +121,4 @@ export const router = createBrowserRouter([
       },
     ],
   },
-] as const satisfies RouteObject[])
+] as const satisfies RouteObject[]);

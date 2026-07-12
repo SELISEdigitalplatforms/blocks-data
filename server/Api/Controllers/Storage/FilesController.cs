@@ -32,7 +32,7 @@ namespace Api.Controllers
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
         [HttpGet]
-        [ProtectedEndPoint("data::files::get-file")]
+        [ProtectedEndPoint("blocks-data::get-file")]
         public async Task<FileResponse?> GetFile([FromQuery] GetFileRequest request)
         {
             return await _fileManagementService.GetUrlForDownloadFileAsync(request);
@@ -44,7 +44,7 @@ namespace Api.Controllers
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
         [HttpPost]
-        [ProtectedEndPoint("data::files::get-files")]
+        [ProtectedEndPoint("blocks-data::get-files")]
         public async Task<List<FileResponse>?> GetFiles([FromBody] GetFilesRequest request)
         {
             return await _fileManagementService.GetMultipleUrlsForDownloadFilesAsync(request);
@@ -56,7 +56,7 @@ namespace Api.Controllers
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
         [HttpPost]
-        [ProtectedEndPoint("data::files::get-files-info")]
+        [ProtectedEndPoint("blocks-data::get-files-info")]
         public async Task<GetFilesInfoResponse> GetFilesInfo([FromBody] GetFilesInfoRequest request)
         {
             return await _fileManagementService.GetFilesInfoAsync(request);
@@ -68,7 +68,7 @@ namespace Api.Controllers
         /// <param name="request">The request containing upload details.</param>
         /// <returns>A response containing the pre-signed URL for upload.</returns>
         [HttpPost]
-        [ProtectedEndPoint("data::files::get-pre-signed-url-for-upload")]
+        [ProtectedEndPoint("blocks-data::get-pre-signed-url-for-upload")]
         public async Task<GetPreSignedUrlForUploadResponse> GetPreSignedUrlForUpload([FromBody] GetPreSignedUrlForUploadRequest request)
         {
             return await _fileManagementService.GetPerSignedUrlForUploadAsync(request);
@@ -80,7 +80,7 @@ namespace Api.Controllers
         /// <param name="request">The request containing file deletion details.</param>
         /// <returns>A response indicating the result of the delete operation.</returns>
         [HttpPost]
-        [ProtectedEndPoint("data::files::delete-file")]
+        [ProtectedEndPoint("blocks-data::delete-file")]
         public async Task<BaseResponse> DeleteFile([FromBody] DeleteFileRequest request)
         {
             return await _fileManagementService.DeleteFileAsync(request);
@@ -92,7 +92,7 @@ namespace Api.Controllers
         /// <param name="request">The request containing the file stream and metadata for the upload.</param>
         /// <returns>A response containing the details of the uploaded file.</returns>
         [HttpPost]
-        [ProtectedEndPoint("data::files::upload-file-to-local-storage")]
+        [ProtectedEndPoint("blocks-data::upload-file-to-local-storage")]
         public async Task<LocalStorageUploadResponse> UploadFileToLocalStorage([FromForm] LocalStorageUploadRequest request)
         {
             return await _fileManagementService.UploadFileToLocalStorageAsync(request);
@@ -105,7 +105,7 @@ namespace Api.Controllers
         /// <returns>A response containing the file stream and metadata of the downloaded file.</returns>
         [ApiExplorerSettings(IgnoreApi = true)]
         [HttpGet]
-        [ProtectedEndPoint("data::files::download-file")]
+        [ProtectedEndPoint("blocks-data::download-file")]
         public async Task<IActionResult> DownloadFile([FromQuery] DownloadFileRequest request)
         {
             var fileResponse = await _fileManagementService.DownloadFileFromLocalStorageAsync(request);
@@ -119,7 +119,7 @@ namespace Api.Controllers
         }
 
         [HttpPost]
-        [ProtectedEndPoint("data::files::update-file-additional-info")]
+        [ProtectedEndPoint("blocks-data::update-file-additional-info")]
         public async Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
         {
             if (command == null) return BadRequest();
@@ -128,7 +128,7 @@ namespace Api.Controllers
         }
 
         [HttpPost]
-        [ProtectedEndPoint("data::files::get-dms-file-and-folder")]
+        [ProtectedEndPoint("blocks-data::get-dms-file-and-folder")]
         public async Task<GetDmsFileAndFolderResponse> GetDmsFileAndFolder([FromBody] GetDmsFileAndFolderRequest command)
         {
             if (command == null) return new GetDmsFileAndFolderResponse();
@@ -136,7 +136,7 @@ namespace Api.Controllers
         }
 
         [HttpPost]
-        [ProtectedEndPoint("data::files::upload-file")]
+        [ProtectedEndPoint("blocks-data::upload-file")]
         public async Task<DmsResponse> UploadFile([FromBody] UploadFilesRequest command)
         {
             if (command == null) return null;
@@ -146,7 +146,7 @@ namespace Api.Controllers
 
 
         [HttpPost]
-        [ProtectedEndPoint("data::files::create-folder")]
+        [ProtectedEndPoint("blocks-data::create-folder")]
         public async Task<DmsResponse> CreateFolder([FromBody] CreateFolderRequest command)
         {
             if (command == null) return null;
@@ -160,7 +160,7 @@ namespace Api.Controllers
         /// <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
         /// <returns>A <see cref="BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
         [HttpPost]
-        [ProtectedEndPoint("data::files::delete-folder")]
+        [ProtectedEndPoint("blocks-data::delete-folder")]
         public async Task<BaseResponse> DeleteFolder([FromBody] DeleteFolderRequest request)
         {
             return await _fileManagementService.DeleteFolderAsync(request);

@@ -36,7 +36,7 @@ public class SchemaConfigurationController : ControllerBase
     /// </summary>
     /// <returns>Returns a success response if the schema is reloaded and changes are resolved, or an error message if the operation fails.</returns>
     [HttpPost("reload")]
-    [ProtectedEndPoint("data::schema-configurations::reload-data-gateway-server")]
+    [ProtectedEndPoint("blocks-data::reload-data-gateway-server")]
     [ProducesResponseType(typeof(ServiceResponse<bool>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ReloadDataGatewayServerAsync()

@@ -33,7 +33,7 @@ public class MockDataController : ControllerBase
     /// </summary>
     /// <returns>Returns the mock data for the project.</returns>
     [HttpGet]
-    [ProtectedEndPoint("data::mock-data::get-mock-data")]
+    [ProtectedEndPoint("blocks-data::get-mock-data")]
     [ProducesResponseType(typeof(ServiceResponse<MockDataResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetMockDataAsync()
@@ -49,7 +49,7 @@ public class MockDataController : ControllerBase
     /// <param name="request"></param>
     /// <returns></returns>
     [HttpDelete]
-    [ProtectedEndPoint("data::mock-data::delete-mock-data")]
+    [ProtectedEndPoint("blocks-data::delete-mock-data")]
     [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteMockData([FromBody] DeleteMockDataRequest request)

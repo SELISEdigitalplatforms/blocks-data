@@ -104,6 +104,7 @@ export const SchemaDetailsPage = () => {
   const queryClient = useQueryClient();
   const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] =
     useState(false);
+  const [addEditSchemaInstance, setAddEditSchemaInstance] = useState(0);
 
   // URL-based view state:
   //   type = null  → security & performance landing (no query params in URL)
@@ -310,7 +311,10 @@ export const SchemaDetailsPage = () => {
                 className={`shrink-0 ${selectedSchemaId ? "hidden lg:block" : "block"}`}
               >
                 <SchemasSidebar
-                  onAddSchema={() => setIsAddEditSchemaModalOpen(true)}
+                  onAddSchema={() => {
+                    setAddEditSchemaInstance((n) => n + 1);
+                    setIsAddEditSchemaModalOpen(true);
+                  }}
                   selectedSchemaId={selectedSchemaId}
                   filterType={queryParams.type ?? "all"}
                   page={queryParams.page}
@@ -378,11 +382,14 @@ export const SchemaDetailsPage = () => {
         open={isAddEditSchemaModalOpen}
         onOpenChange={setIsAddEditSchemaModalOpen}
       >
-        <AddEditSchemaModal
-          mode="add"
-          onSubmit={onSchemaCreate}
-          onCancel={() => setIsAddEditSchemaModalOpen(false)}
-        />
+        {isAddEditSchemaModalOpen && (
+          <AddEditSchemaModal
+            key={addEditSchemaInstance}
+            mode="add"
+            onSubmit={onSchemaCreate}
+            onCancel={() => setIsAddEditSchemaModalOpen(false)}
+          />
+        )}
       </Dialog>
     </>
   );

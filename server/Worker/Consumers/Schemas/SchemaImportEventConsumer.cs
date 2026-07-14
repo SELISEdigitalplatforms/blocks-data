@@ -68,7 +68,6 @@ public class SchemaImportEventConsumer : IConsumer<SchemaImportEvent>
         var fileResponse = await _fileManagementService.GetUrlForDownloadFileAsync(new GetFileRequest
         {
             FileId = fileId,
-            ProjectKey = projectKey
         });
 
         if (fileResponse == null || string.IsNullOrEmpty(fileResponse.Url))

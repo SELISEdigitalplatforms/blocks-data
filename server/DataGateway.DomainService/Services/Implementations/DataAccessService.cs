@@ -22,10 +22,6 @@ public class DataAccessService : IDataAccessService
         _requestValidator = requestValidator;
         _schemaChangeLogService = schemaChangeLogService;
     }
-    public Task IsDataAccessible()
-    {
-        throw new NotImplementedException();
-    }
 
     public async Task<ServiceResponse<ActionResponse>> ConfigureSecurity(ConfigureSchemaSecurityRequest request)
     {
@@ -139,7 +135,7 @@ public class DataAccessService : IDataAccessService
             TotalImpactedData = 1
         }).SetSuccessMessage("Data_Access_Policy_Updated_Successfully");
     }
-    public async Task<ServiceResponse<ActionResponse>> DeleteDataAccessPolicy(string itemId, string projectKey)
+    public async Task<ServiceResponse<ActionResponse>> DeleteDataAccessPolicy(string itemId)
     {
         var response = new ServiceResponse<ActionResponse>();
         var filter = Builders<DataAccessPolicy>.Filter.Eq(x => x.ItemId, itemId);

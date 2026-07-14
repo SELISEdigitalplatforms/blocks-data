@@ -16,7 +16,7 @@ import {
   TabsTrigger,
 } from "@/components/ui-kits/tabs/tabs";
 import { cn } from "@/lib/utils";
-import { Plus, X } from "lucide-react";
+import { Plus, ShieldCheck, X } from "lucide-react";
 import { useGetRoles } from "@blocks-idp/iam/hooks/use-roles";
 import { useGetPermissions } from "@blocks-idp/iam/hooks/use-permission";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
@@ -807,7 +807,8 @@ export function SchemaAccessDrawer({
       >
         <div className="flex flex-1 flex-col">
           <div className="flex items-center justify-between gap-4">
-            <DrawerTitle className="text-lg font-semibold leading-none tracking-tight">
+            <DrawerTitle className="flex items-center gap-2 text-lg font-semibold leading-none tracking-tight">
+              <ShieldCheck className="h-4 w-4 text-indigo-400" />
               {title}
             </DrawerTitle>
             <DrawerClose asChild>

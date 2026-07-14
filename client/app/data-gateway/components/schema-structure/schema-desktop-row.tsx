@@ -38,6 +38,7 @@ import {
   readonlyPropertyNames,
   typeOptions,
 } from "@/data-gateway/constants/input-restrictions";
+import { allowLettersNumbersUnderscoreKeyDown, SCHEMA_NAME_ALLOWED_PATTERN } from "@/data-gateway/utils/input-restriction.util";
 import {
   ACCESS_LEVEL_TO_TYPE,
   ACCESS_TYPE_SHORT_LABELS,
@@ -232,6 +233,11 @@ export function SchemaDesktopRow({
               <Input
                 {...register(`properties.${index}.name`, {
                   required: "Property name is required",
+                  pattern: {
+                    value: SCHEMA_NAME_ALLOWED_PATTERN,
+                    message:
+                      "Only letters, numbers, and '_' are allowed. Cannot start with a number.",
+                  },
                   validate: (value) => {
                     const allNames = properties.map((p) => p.name.trim().toLowerCase());
                     const occurrences = allNames.filter(
@@ -243,12 +249,33 @@ export function SchemaDesktopRow({
                 placeholder="Click to edit"
                 readOnly={!isEditMode || isReadOnly}
                 onChange={(e) => {
-                  const filtered = e.target.value.replace(/[^a-zA-Z]/g, "");
+                  const filtered = e.target.value
+                    .replace(/[^A-Za-z0-9_]/g, "")
+                    .replace(/^[0-9]+/, "");
                   setValue(`properties.${index}.name`, filtered, {
                     shouldValidate: true,
                     shouldDirty: true,
                   });
                 }}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData("text");
+                  const filtered = pasted
+                    .replace(/[^A-Za-z0-9_]/g, "")
+                    .replace(/^[0-9]+/, "");
+                  if (filtered !== pasted) {
+                    e.preventDefault();
+                    const target = e.target as HTMLInputElement;
+                    const newValue =
+                      target.value.slice(0, target.selectionStart ?? target.value.length) +
+                      filtered +
+                      target.value.slice(target.selectionEnd ?? target.value.length);
+                    setValue(`properties.${index}.name`, newValue, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    });
+                  }
+                }}
+                onKeyDown={allowLettersNumbersUnderscoreKeyDown}
                 className={cn(
                   isEditMode && isReadOnly ? "cursor-not-allowed bg-muted opacity-50" : "",
                   errors.properties?.[index]?.name ? "border-red-500" : "",

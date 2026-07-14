@@ -30,7 +30,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui-kits/table/table";
+import { useStoragePath } from "@/hooks/use-scoped-path";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { CreateDmsNewFolder } from "@/storage/components/create-new-folder-modal/create-dms-new-folder";
 import { FilePreviewModal } from "@/storage/components/file-preview-modal";
 import { UploadDmsFileModal } from "@/storage/components/upload-dms-file-modal";
@@ -52,7 +54,6 @@ import {
   Folder,
   FolderPlus,
   Image as ImageIcon,
-  Info,
   LayoutGrid,
   List,
   MoreVertical,
@@ -103,6 +104,7 @@ type BreadcrumbItem = {
 
 export function StorageDetail() {
   const navigate = useNavigate();
+  const storagePath = useStoragePath();
   const params = new URLSearchParams(window.location.search);
   const storageId = params.get("id") as string;
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
@@ -388,7 +390,7 @@ export function StorageDetail() {
             <BreadcrumbLink
               asChild
               className="cursor-pointer"
-              onClick={() => navigate("/services/storage")}
+              onClick={() => navigate(storagePath)}
             >
               <span className="text-foreground hover:text-foreground">
                 Storage
@@ -440,23 +442,20 @@ export function StorageDetail() {
               ? "AWS S3 Compatible"
               : storage.storageStrategy}
           </h1>
-          <Button variant="ghost" size="icon" className="h-5 w-5">
-            <Info className="h-4 w-4 text-muted-foreground" />
-          </Button>
         </div>
         <div className="flex items-center gap-2">
-          {/* <Button
+          <Button
             variant="outline"
             size="sm"
             onClick={() =>
               window.open(
-                `${process.env.NEXT_PUBLIC_API_BASE_URL}/storage/v1/swagger/index.html`,
+                `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`,
                 "_blank",
               )
             }
           >
             API Docs
-          </Button> */}
+          </Button>
           {/* <LogMenu link="/services/storage/logs" /> */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

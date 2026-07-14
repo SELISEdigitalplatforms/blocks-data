@@ -1,0 +1,160 @@
+using Blocks.Genesis;
+using DataGateway.DomainService.Models;
+using DataGateway.DomainService.Models.Responses;
+using DataGateway.DomainService.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Net;
+
+namespace Api.Controllers
+{
+    /// <summary>
+    /// DataValidationController is responsible for managing data validation rules.
+    /// It provides endpoints to create, update, delete, and retrieve validation rules for schema fields.
+    /// </summary>
+    [Route("data-validations")]
+    [ApiController]
+    public class DataValidationController : ControllerBase
+    {
+        private readonly IDataValidationService _dataValidationService;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DataValidationController"/> class.
+        /// </summary>
+        /// <param name="dataValidationService">The data validation service.</param>
+        public DataValidationController(IDataValidationService dataValidationService)
+        {
+            _dataValidationService = dataValidationService;
+        }
+
+        #region Get
+        /// <summary>
+        /// Retrieves a paginated list of all data validations. Use this endpoint to view all available validations, optionally filtered by schema ID or field name.
+        /// </summary>
+        /// <param name="request">Request parameters for pagination and filtering: SchemaId, FieldName, Keyword, PageNo, PageSize, SortBy, SortDescending.</param>
+        /// <returns>Returns a paginated list of data validations.</returns>
+        [HttpGet]
+        [ProtectedEndPoint("blocks-data::get-data-validations")]
+        [ProducesResponseType(typeof(ServiceResponse<PaginationResponse<DataValidationResponse>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetDataValidations([FromQuery] GetDataValidationListRequest request)
+        {
+            var response = await _dataValidationService.GetAllDataValidationsAsync(request);
+            return StatusCode(response.HttpStatusCode, response);
+        }
+
+        /// <summary>
+        /// Retrieves the details of a specific data validation by its unique ID.
+        /// </summary>
+        /// <param name="validationId">The unique identifier of the data validation to retrieve.</param>
+        /// <returns>Returns the data validation details if found, or an error message if not found.</returns>
+        [HttpGet("get-by-id")]
+        [ProtectedEndPoint("blocks-data::get-data-validation-by-id")]
+        [ProducesResponseType(typeof(ServiceResponse<DataValidationResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetDataValidationByIdAsync([FromQuery] string validationId)
+        {
+            if (string.IsNullOrWhiteSpace(validationId))
+                return StatusCode(400, new { Message = "INVALID_VALIDATION_ID" });
+
+            var response = await _dataValidationService.GetDataValidationByIdAsync(validationId);
+            return StatusCode(response.HttpStatusCode, response);
+        }
+
+
+        /// <summary>
+        /// Retrieves all validations for a specific schema.
+        /// </summary>
+        /// <param name="schemaId">The schema ID to get validations for.</param>
+        /// <returns>Returns a list of data validations for the schema.</returns>
+        [HttpGet("by-schema-id")]
+        [ProtectedEndPoint("blocks-data::get-validations-by-schema-id")]
+        [ProducesResponseType(typeof(ServiceResponse<List<DataValidationResponse>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetValidationsBySchemaIdAsync([FromQuery] string schemaId)
+        {
+            if (string.IsNullOrWhiteSpace(schemaId))
+                return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_SCHEMA_ID" });
+
+            var response = await _dataValidationService.GetValidationsBySchemaIdAsync(schemaId);
+            return StatusCode(response.HttpStatusCode, response);
+        }
+
+        /// <summary>
+        /// Retrieves validation for a specific field in a schema.
+        /// </summary>
+        /// <param name="schemaId">The schema ID.</param>
+        /// <param name="fieldName">The field name.</param>
+        /// <returns>Returns the data validation for the specified field.</returns>
+        [HttpGet("by-schema-and-field")]
+        [ProtectedEndPoint("blocks-data::get-validation-by-schema-and-field")]
+        [ProducesResponseType(typeof(ServiceResponse<DataValidationResponse>), StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetValidationBySchemaAndFieldAsync([FromQuery] string schemaId, [FromQuery] string fieldName)
+        {
+            if (string.IsNullOrWhiteSpace(schemaId) || string.IsNullOrWhiteSpace(fieldName))
+                return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_SCHEMA_ID_OR_FIELD_NAME" });
+
+            var response = await _dataValidationService.GetValidationBySchemaAndFieldAsync(schemaId, fieldName);
+            return StatusCode(response.HttpStatusCode, response);
+        }
+        #endregion
+
+        #region Post
+
+        /// <summary>
+        /// Creates a new data validation. Use this endpoint to define validation rules for a schema field.
+        /// </summary>
+        /// <param name="request">Data validation details: SchemaId, FieldName, Validations (list of validation rules).</param>
+        /// <returns>Returns the created data validation or an error message if the operation fails.</returns>
+        [HttpPost]
+        [ProtectedEndPoint("blocks-data::create-data-validation")]
+        [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> CreateDataValidation([FromBody] CreateDataValidationRequest request)
+        {
+            var response = await _dataValidationService.CreateDataValidationAsync(request);
+            return StatusCode(response.HttpStatusCode, response);
+        }
+        #endregion
+
+        #region Put
+        /// <summary>
+        /// Updates an existing data validation. Use this endpoint to modify validation rules for a schema field.
+        /// </summary>
+        /// <param name="request">Updated data validation: ItemId (unique identifier), SchemaId, FieldName, Validations.</param>
+        /// <returns>Returns the updated data validation or an error message if the operation fails.</returns>
+        [HttpPut]
+        [ProtectedEndPoint("blocks-data::update-data-validation")]
+        [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> UpdateDataValidation([FromBody] UpdateDataValidationRequest request)
+        {
+            var response = await _dataValidationService.UpdateDataValidationAsync(request);
+            return StatusCode(response.HttpStatusCode, response);
+        }
+        #endregion
+
+        #region Delete
+
+        /// <summary>
+        /// Deletes a data validation by its unique ID.
+        /// </summary>
+        /// <param name="validationId">The unique identifier of the data validation to delete.</param>
+        /// <returns>Returns a success response if the validation is deleted, or an error message if the operation fails.</returns>
+        [HttpDelete]
+        [ProtectedEndPoint("blocks-data::delete-data-validation")]
+        [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> DeleteDataValidationAsync([FromQuery] string validationId)
+        {
+            if (string.IsNullOrWhiteSpace(validationId))
+                return StatusCode((int)HttpStatusCode.BadRequest, new { Message = "INVALID_VALIDATION_ID" });
+
+            var response = await _dataValidationService.DeleteDataValidationAsync(validationId);
+            return StatusCode(response.HttpStatusCode, response);
+        }
+        #endregion
+    }
+}

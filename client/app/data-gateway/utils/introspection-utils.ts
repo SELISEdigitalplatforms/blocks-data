@@ -18,6 +18,7 @@ import {
   KNOWN_ARG_COMMENTS,
   COLLAPSIBLE_FILTER_FIELD,
   COLLAPSIBLE_LIST_FIELDS,
+  LOGICAL_OPERATOR_FIELDS,
   EXCLUDED_QUERY_ARG_NAMES,
   EXCLUDED_MUTATION_FILTER_ARG_NAMES,
   EXCLUDED_INPUT_SUBFIELDS,
@@ -128,6 +129,10 @@ const buildNestedInputFieldLine = (
 
   if (COLLAPSIBLE_LIST_FIELDS.has(f.name) && fIsList) {
     return `${lineIndent}${f.name}: []`;
+  }
+
+  if (LOGICAL_OPERATOR_FIELDS.has(f.name) && fIsList && isInputObjectType(fNamed)) {
+    return `${lineIndent}${f.name}: [{}]`;
   }
 
   if (fIsList && isInputObjectType(fNamed)) {
@@ -278,6 +283,11 @@ const buildArgumentSnippet = (
         // Collapse order sub-field to empty array
         if (COLLAPSIBLE_LIST_FIELDS.has(f.name) && fIsList) {
           return `    ${f.name}: []`;
+        }
+
+        // Collapse or/and sub-fields to [{}] for logical operators
+        if (LOGICAL_OPERATOR_FIELDS.has(f.name) && fIsList && isInputObjectType(fNamed)) {
+          return `    ${f.name}: [{}]`;
         }
 
         if (isScalarType(fNamed) && (fNamed.name === "String" || fNamed.name === "JSON")) {
@@ -632,7 +642,13 @@ export const getInputFieldSuggestions = (
       let isSnippet = false;
 
       if (isInputObjectType(namedType)) {
-        insertText = `${field.name}: {\n  \${1}\n}`;
+        if (LOGICAL_OPERATOR_FIELDS.has(field.name) && fIsList) {
+          insertText = `${field.name}: [{}]`;
+        } else {
+          insertText = fIsList
+            ? `${field.name}: [{\n  \${1}\n}]`
+            : `${field.name}: {\n  \${1}\n}`;
+        }
         isSnippet = true;
       } else if (
         isScalarType(namedType) &&
@@ -785,9 +801,20 @@ export const resolveInputObjectTypeAtCursor = (options: {
       currentType = currentType.ofType;
     }
 
-    if (!currentType || !isInputObjectType(currentType)) return null;
+    if (!currentType) return null;
 
     const pathSegment = blockPath[i];
+
+    // Handle array indices (e.g., "0" in or[0]) — skip to get element type
+    if (/^\d+$/.test(pathSegment)) {
+      if (isInputObjectType(currentType)) {
+        continue;
+      }
+      return null;
+    }
+
+    if (!isInputObjectType(currentType)) return null;
+
     const nextField: { type: GraphQLType } | undefined = currentType.getFields()[pathSegment];
     if (!nextField) return null;
     currentType = nextField.type;

@@ -1,15 +1,15 @@
 "use client";
 
 import { Card, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
-import { MoreVertical, PackageOpen, Info } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { StorageStrategyType } from "@/storage/models/storage.model";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { StorageStrategyType } from "@/storage/models/storage.model";
+import { Info, MoreVertical, PackageOpen } from "lucide-react";
 
 // TODO: Uncomment when status feature is implemented
 // export type StorageCardStatus = "Connected" | "Configured";
@@ -47,6 +47,7 @@ const providerColors: Record<StorageStrategyType, string> = {
   Azure: "bg-blue-100 text-blue-600",
   SftpStorage: "bg-green-100 text-green-600",
   S3Compatible: "bg-purple-100 text-purple-600",
+  AWS: "bg-orange-100 text-orange-600",
 };
 
 export const StorageCard = ({
@@ -104,7 +105,7 @@ export const StorageCard = ({
               providerColorClass,
             )}
           >
-            {data.provider === "Amazon" && (
+            {(data.provider === "Amazon" || data.provider === "AWS") && (
               <img
                 src="/assets/images/amazon.png"
                 alt="AWS"
@@ -122,7 +123,9 @@ export const StorageCard = ({
                 className="h-5 w-5 object-contain"
               />
             )}
-            {data.provider === "SftpStorage" && <PackageOpen className="h-5 w-5" />}
+            {data.provider === "SftpStorage" && (
+              <PackageOpen className="h-5 w-5" />
+            )}
             {data.provider === "S3Compatible" && (
               <img
                 src="/assets/images/amazon.png"
@@ -157,7 +160,10 @@ export const StorageCard = ({
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            <DropdownMenuItem onClick={handleViewDetails} className="cursor-pointer">
+            <DropdownMenuItem
+              onClick={handleViewDetails}
+              className="cursor-pointer"
+            >
               <Info className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>

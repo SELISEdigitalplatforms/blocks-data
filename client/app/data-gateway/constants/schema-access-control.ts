@@ -14,13 +14,13 @@ export const ACCESS_TYPES = {
 
 export const ACCESS_STYLES = {
   [ACCESS_TYPES.LOGGED_IN]:
-    "mt-4 rounded-[4px] border border-neutral-300 bg-neutral-50 p-4 dark:border-neutral-200 dark:bg-neutral-200/20",
+    "mt-4 rounded-sm border border-amber-500/20 bg-amber-500/5 p-4",
   [ACCESS_TYPES.PUBLIC]:
-    "mt-4 rounded-md border border-base-warning bg-warning-100 p-4 dark:border-icon-warning dark:bg-warning-800/20",
+    "mt-4 rounded-sm border border-rose-500/20 bg-rose-500/5 p-4",
   [ACCESS_TYPES.CUSTOM]:
-    "mt-4 rounded-[4px] border border-success bg-success/10 p-4 dark:bg-success/20",
+    "mt-4 rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-4",
   [ACCESS_TYPES.INHERITED]:
-    "mt-4 rounded-[4px] border border-blue-300 bg-blue-50 p-4 dark:border-blue-500 dark:bg-blue-900/20",
+    "mt-4 rounded-sm border border-sky-500/20 bg-sky-500/5 p-4",
 };
 
 export const ACCESS_LABELS = {
@@ -36,7 +36,8 @@ export const ACCESS_DESCRIPTIONS = {
   [ACCESS_TYPES.PUBLIC]: "Anyone can view this API with no restrictions.",
   [ACCESS_TYPES.CUSTOM]:
     "This API is accessible based on rules set below. Ensure you have the rules configured properly.",
-  [ACCESS_TYPES.INHERITED]: "This field inherits the access policy from the schema level.",
+  [ACCESS_TYPES.INHERITED]:
+    "This field inherits the access policy from the schema level.",
 };
 
 export const RULE_SOURCE_TYPES = {
@@ -63,13 +64,18 @@ export const FIELD_TYPE_CATEGORY = {
   NUMERIC: "numeric",
 } as const;
 
-export type FieldTypeCategory = (typeof FIELD_TYPE_CATEGORY)[keyof typeof FIELD_TYPE_CATEGORY];
+export type FieldTypeCategory =
+  (typeof FIELD_TYPE_CATEGORY)[keyof typeof FIELD_TYPE_CATEGORY];
 
 export const AUTH_FIELD_OPTIONS = [
   { label: "UserId", value: "userId", category: FIELD_TYPE_CATEGORY.STRING },
   { label: "Email", value: "email", category: FIELD_TYPE_CATEGORY.STRING },
   { label: "Roles", value: "roles", category: FIELD_TYPE_CATEGORY.ARRAY },
-  { label: "Permissions", value: "permissions", category: FIELD_TYPE_CATEGORY.ARRAY },
+  {
+    label: "Permissions",
+    value: "permissions",
+    category: FIELD_TYPE_CATEGORY.ARRAY,
+  },
   // TODO: we will need them later
   // { label: "TenantId", value: "tenantId", category: FIELD_TYPE_CATEGORY.STRING },
   // { label: "Custom Claims", value: "customClaims", category: FIELD_TYPE_CATEGORY.STRING },
@@ -169,7 +175,8 @@ export const ACCESS_TYPE_BADGE_STYLES: Record<string, string> = {
   [ACCESS_TYPES.PUBLIC]:
     "bg-warning-100 text-warning-700 dark:bg-warning-800/30 dark:text-yellow-400",
   [ACCESS_TYPES.CUSTOM]: "bg-success/20 text-success",
-  [ACCESS_TYPES.INHERITED]: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  [ACCESS_TYPES.INHERITED]:
+    "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
 };
 
 /** Short display labels for access type badges */
@@ -216,7 +223,12 @@ export const STRING_OPERATORS = [
   "REGEX",
 ];
 
-export const ARRAY_OPERATORS = ["CONTAIN", "NOT_CONTAIN", "IS_NULL", "IS_NOT_NULL"];
+export const ARRAY_OPERATORS = [
+  "CONTAIN",
+  "NOT_CONTAIN",
+  "IS_NULL",
+  "IS_NOT_NULL",
+];
 
 export const NUMERIC_OPERATORS = [
   "EQUAL",
@@ -327,7 +339,10 @@ export const TAB_TO_OPERATION: Record<string, number> = {
 /** Map tab id → access-level property key on IField */
 export const TAB_TO_ACCESS_LEVEL_KEY: Record<
   string,
-  "readAccessLevel" | "writeAccessLevel" | "editAccessLevel" | "deleteAccessLevel"
+  | "readAccessLevel"
+  | "writeAccessLevel"
+  | "editAccessLevel"
+  | "deleteAccessLevel"
 > = {
   view: "readAccessLevel",
   create: "writeAccessLevel",
@@ -335,27 +350,6 @@ export const TAB_TO_ACCESS_LEVEL_KEY: Record<
   delete: "deleteAccessLevel",
 };
 
-/** Polling constants for data-gateway server initialization */
-export const INIT_STORAGE_PREFIX = "dg-server-init-";
-export const POLL_START_DELAY = 2 * 60 * 1000; // 2 minutes
-export const POLL_INTERVAL = 60 * 1000; // 1 minute
-export const MAX_INIT_DURATION = 10 * 60 * 1000; // 10 minutes
-
-/** Retrieve the stored server initiation timestamp (auto-expires) */
-export const getStoredInitiatedAt = (key: string): number | null => {
-  try {
-    const stored = localStorage.getItem(`${INIT_STORAGE_PREFIX}${key}`);
-    if (!stored) return null;
-    const { initiatedAt } = JSON.parse(stored);
-    if (Date.now() - initiatedAt > MAX_INIT_DURATION) {
-      localStorage.removeItem(`${INIT_STORAGE_PREFIX}${key}`);
-      return null;
-    }
-    return initiatedAt;
-  } catch {
-    return null;
-  }
-};
 export const SECURITY_PERFORMANCE_SUMMARY_ITEMS = [
   {
     id: 1,
@@ -380,10 +374,14 @@ export const SECURITY_PERFORMANCE_SUMMARY_ITEMS = [
   },
 ];
 
-export const ACCESS_LEVEL_BADGE_MAP: Record<string, { label: string; colorClass: string }> = {
+export const ACCESS_LEVEL_BADGE_MAP: Record<
+  string,
+  { label: string; colorClass: string }
+> = {
   "0": {
     label: "Inherited",
-    colorClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    colorClass:
+      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   },
   "1": {
     label: "Logged-in users",

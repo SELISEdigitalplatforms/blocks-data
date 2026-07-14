@@ -23,6 +23,9 @@ public static class WhereToMongoFilterConverter
     private static readonly HashSet<string> AllowedDateTimeOps = new(StringComparer.OrdinalIgnoreCase)
         { "eq", "neq", "gt", "gte", "lt", "lte", "in" };
 
+    private static readonly HashSet<string> LogicalOperators = new(StringComparer.OrdinalIgnoreCase)
+        { "or", "and" };
+
     /// <summary>
     /// Converts a typed where object (from GraphQL) to a MongoDB BsonDocument filter.
     /// </summary>
@@ -42,11 +45,30 @@ public static class WhereToMongoFilterConverter
         var allowedFields = GetAllowedFieldNames(schema, pathPrefix);
         var elements = new List<BsonElement>();
 
+        if (string.IsNullOrEmpty(pathPrefix))
+        {
+            if (dict.TryGetValue("or", out var orValue) && orValue != null)
+            {
+                var orClause = ConvertLogicalOperator(orValue, schema, "$or");
+                if (orClause.HasValue)
+                    elements.Add(orClause.Value);
+            }
+            if (dict.TryGetValue("and", out var andValue) && andValue != null)
+            {
+                var andClause = ConvertLogicalOperator(andValue, schema, "$and");
+                if (andClause.HasValue)
+                    elements.Add(andClause.Value);
+            }
+        }
+
         foreach (var kv in dict)
         {
             var key = kv.Key;
             if (string.IsNullOrWhiteSpace(key) || key.StartsWith("$", StringComparison.Ordinal))
                 throw new ArgumentException($"Invalid or disallowed field name: '{key}'.");
+
+            if (LogicalOperators.Contains(key))
+                continue;
 
             var fullPath = string.IsNullOrEmpty(pathPrefix) ? key : $"{pathPrefix}.{key}";
             if (!allowedFields.Contains(key))
@@ -76,6 +98,24 @@ public static class WhereToMongoFilterConverter
         if (elements.Count == 0) return null;
         if (elements.Count == 1) return new BsonDocument(elements[0].Name, elements[0].Value);
         return new BsonDocument("$and", new BsonArray(elements.Select(e => new BsonDocument(e.Name, e.Value))));
+    }
+
+    private static BsonElement? ConvertLogicalOperator(object value, SchemaDefinitionExtended schema, string mongoOp)
+    {
+        if (value is not IList<object?> orArray || orArray.Count == 0)
+            return null;
+
+        var clauses = new List<BsonDocument>();
+        foreach (var item in orArray)
+        {
+            if (item == null) continue;
+            var clause = Convert(item, schema, "");
+            if (clause != null)
+                clauses.Add(clause);
+        }
+
+        if (clauses.Count == 0) return null;
+        return new BsonElement(mongoOp, new BsonArray(clauses));
     }
 
     private static BsonDocument? ConvertScalarOperation(string scalarType, string fieldName, object value)

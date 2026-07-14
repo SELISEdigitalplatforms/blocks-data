@@ -18,7 +18,7 @@ import {
   resolveTypeName,
   type SchemaField,
 } from "@/data-gateway/utils/generate-preview-queries";
-import { Check, ChevronDown, ChevronRight, FilePenLine, Loader, Search, X } from "lucide-react";
+import { Boxes, Check, ChevronDown, ChevronRight, FilePenLine, Loader, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 interface CategorizedSchema {
@@ -122,19 +122,19 @@ function CollapsibleSection({
   if (count === 0) return null;
 
   return (
-    <div className="border-b border-border/60 last:border-b-0">
+    <div className="border-b border-border/30 last:border-b-0">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+        className="flex w-full items-center gap-2 px-4 py-2.5 text-left transition-colors hover:bg-muted/20"
       >
         {isOpen ? (
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
         ) : (
-          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
         )}
-        <span className="text-sm font-semibold">{title}</span>
-        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">{title}</span>
+        <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary/60 ring-1 ring-primary/15">
           {count}
         </span>
       </button>
@@ -208,7 +208,7 @@ function InlineTypeFields({
                 {field.name}
               </code>
               <span className="text-muted-foreground">:</span>
-              <span className="text-blue-600 dark:text-blue-400">
+              <span className="text-indigo-400/80">
                 {resolveTypeName(field.type)}
               </span>
             </div>
@@ -245,7 +245,7 @@ function InlineTypeFields({
               )}
               <code className="font-medium">{field.name}</code>
               <span className="text-muted-foreground">:</span>
-              <span className="text-blue-600 dark:text-blue-400">
+              <span className="text-indigo-400/80">
                 {resolveTypeName(field.type)}
               </span>
               {field.defaultValue && (
@@ -288,23 +288,23 @@ function ExpandableType({
   const allFields = [...fields, ...inputFields];
 
   return (
-    <div className="mx-4 mb-1.5 rounded-lg border border-border/40 bg-background">
+    <div className="mx-4 mb-1.5 overflow-hidden rounded-sm border border-border/30 bg-card/40">
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/30"
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/20"
       >
         {allFields.length > 0 || enumValues.length > 0 ? (
           isExpanded ? (
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
           ) : (
-            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
           )
         ) : (
           <span className="w-3.5" />
         )}
-        <code className="text-sm font-medium">{type.name}</code>
-        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <code className="text-sm font-medium text-foreground/80">{type.name}</code>
+        <span className="rounded bg-muted/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground/50">
           {type.kind}
         </span>
       </button>
@@ -345,35 +345,35 @@ function OperationField({
   };
 
   return (
-    <div className="mx-4 mb-1.5 rounded-lg border border-border/40 bg-background">
+    <div className="mx-4 mb-1.5 overflow-hidden rounded-sm border border-border/30 bg-card/40">
       <div className="flex items-start">
         <button
           type="button"
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex min-w-0 flex-1 items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/30"
+          className="flex min-w-0 flex-1 items-start gap-2 px-3 py-2 text-left transition-colors hover:bg-muted/20"
         >
           {isExpanded ? (
-            <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <ChevronDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
           ) : (
-            <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
           )}
           <div className="flex min-w-0 flex-wrap items-baseline gap-1 text-xs">
-            <code className="text-sm font-medium">{field.name}</code>
+            <code className="text-sm font-medium text-foreground/80">{field.name}</code>
             {field.args.length > 0 && (
-              <span className="text-muted-foreground">{formatArgs(field.args)}</span>
+              <span className="text-muted-foreground/50">{formatArgs(field.args)}</span>
             )}
-            <span className="text-muted-foreground">:</span>
-            <span className="text-blue-600 dark:text-blue-400">{resolveTypeName(field.type)}</span>
+            <span className="text-muted-foreground/40">:</span>
+            <span className="text-indigo-400/80">{resolveTypeName(field.type)}</span>
           </div>
         </button>
         <button
           type="button"
           onClick={handleCopy}
           className={cn(
-            "shrink-0 rounded-md px-2 py-1.5 transition-all",
+            "shrink-0 px-2 py-1.5 transition-all",
             isCopied
-              ? "bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400"
-              : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              ? "text-emerald-400"
+              : "text-muted-foreground/30 hover:text-primary",
           )}
           title="Use in Query Editor"
         >
@@ -390,11 +390,11 @@ function OperationField({
       {isExpanded && (
         <div className="space-y-3 border-t border-border/30 px-3 py-2">
           {field.description && (
-            <p className="text-xs text-muted-foreground">{field.description}</p>
+            <p className="text-xs text-muted-foreground/60">{field.description}</p>
           )}
           {field.args.length > 0 && (
             <div>
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
                 Arguments
               </p>
               <div className="space-y-0.5">
@@ -426,7 +426,7 @@ function OperationField({
           {returnBaseName && isExpandableType(returnBaseName, typeMap) && (
             <div>
               <div className="mb-1.5 flex flex-wrap items-baseline gap-1.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
                   Returns:
                 </span>
                 <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
@@ -524,21 +524,24 @@ export function SchemasDrawer({
       <DrawerContent
         onInteractOutside={() => onOpenChange(false)}
         className={cn(
-          "inset-y-0 left-auto right-0 mt-0 h-full w-full rounded-none border-l bg-background md:w-[50vw] md:max-w-2xl [&>div:first-child]:hidden",
+          "inset-y-0 left-auto right-0 mt-0 h-full w-full rounded-none border-l border-border/40 bg-background md:w-[50vw] md:max-w-2xl [&>div:first-child]:hidden",
           "transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
         )}
         style={{ userSelect: "text" }}
       >
-        <div className="flex h-full flex-1 flex-col">
+        <div className="relative flex h-full flex-col overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.05),transparent_55%)]" />
+
           {/* Header */}
-          <div className="flex items-center justify-between gap-4 border-b px-6 py-4">
-            <DrawerTitle className="text-lg font-semibold leading-none tracking-tight">
+          <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-6 py-4">
+            <DrawerTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Boxes className="h-4 w-4 text-indigo-400" />
               Schemas
             </DrawerTitle>
             <DrawerClose asChild>
               <button
                 type="button"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground/60 transition-colors hover:bg-muted/40 hover:text-foreground"
                 aria-label="Close schemas drawer"
               >
                 <X className="h-4 w-4" />
@@ -547,26 +550,26 @@ export function SchemasDrawer({
           </div>
 
           {/* Search */}
-          <div className="border-b px-6 py-3">
+          <div className="relative shrink-0 border-b border-border/40 px-5 py-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/40" />
               <Input
                 placeholder="Search types, fields..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-9 pl-9 text-sm"
+                className="h-8 border-border/40 bg-muted/10 pl-9 text-xs placeholder:text-muted-foreground/40 focus-visible:border-primary/40 focus-visible:ring-primary/20"
               />
             </div>
           </div>
 
           {/* Content */}
-          <ScrollArea className="flex-1">
+          <ScrollArea className="relative flex-1">
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader className="h-6 w-6 animate-spin text-muted-foreground" />
+                <Loader className="h-5 w-5 animate-spin text-muted-foreground/40" />
               </div>
             ) : !filtered ? (
-              <div className="py-16 text-center text-sm text-muted-foreground">
+              <div className="py-16 text-center text-xs text-muted-foreground/50">
                 No schema data available
               </div>
             ) : (
@@ -627,7 +630,7 @@ export function SchemasDrawer({
                   {filtered.scalars.map((type) => (
                     <div
                       key={type.name}
-                      className="mx-4 mb-1.5 flex items-baseline gap-2 rounded-lg border border-border/40 bg-background px-3 py-2"
+                      className="mx-4 mb-1.5 flex items-baseline gap-2 rounded-sm border border-border/30 bg-card/40 px-3 py-2"
                     >
                       <code className="text-sm font-medium">{type.name}</code>
                       {type.description && (

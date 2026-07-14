@@ -10,6 +10,9 @@ export const COLLAPSIBLE_FILTER_FIELD = "where";
 /** Field names whose list types are collapsed to `[]` in generated queries. */
 export const COLLAPSIBLE_LIST_FIELDS = new Set(["order"]);
 
+/** Logical operator fields (OR/AND) that should be collapsed to `[{}]` in filter inputs. */
+export const LOGICAL_OPERATOR_FIELDS = new Set(["or", "and"]);
+
 /** Field names whose list types should default to `[""]` (e.g. filter operators). */
 export const LIST_EMPTY_STRING_FIELDS = new Set(["in", "nin"]);
 
@@ -59,7 +62,7 @@ export const EXCLUDED_INPUT_SUBFIELDS = new Set<string>();
 export const SYSTEM_INPUT_FIELDS = new Set([
   "ItemId",
   "Language",
-  "OrganizationIds",
+  "OrganizationId",
   "Tags",
   "CreatedDate",
   "CreatedBy",

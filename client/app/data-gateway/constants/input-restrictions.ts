@@ -7,6 +7,6 @@ export const readonlyPropertyNames = [
   "LastUpdatedDate",
   "LastUpdatedBy",
   "Language",
-  "OrganizationIds",
+  "OrganizationId",
   "Tags",
 ];

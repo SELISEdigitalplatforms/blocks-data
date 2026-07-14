@@ -11,6 +11,10 @@ WWWROOT_DIR="$SCRIPT_DIR/server/Api/wwwroot"
 API_PORT=5000
 FRONTEND_PORT=4000
 
+# Ensure SSL vars are explicitly in scope for Vite
+export DATA_SSL_CERT="${DATA_SSL_CERT:-}"
+export DATA_SSL_KEY="${DATA_SSL_KEY:-}"
+
 API_PID=""
 WORKER_PID=""
 
@@ -80,36 +84,43 @@ run_frontend() {
 
     if [ ! -d "$CLIENT_DIR/node_modules" ]; then
         echo "Installing dependencies..."
-        npm --prefix "$CLIENT_DIR" install
+        (cd "$CLIENT_DIR" && npm clean-install)
     fi
 
     free_port $FRONTEND_PORT
 
-    npm --prefix "$CLIENT_DIR" run dev
+    cd "$CLIENT_DIR" && npm run dev
 }
 
 build_frontend() {
     echo "Building frontend..."
 
-    npm --prefix "$CLIENT_DIR" install
-    npm --prefix "$CLIENT_DIR" run build
+    pushd "$CLIENT_DIR" > /dev/null
+    npm install
+    npm run build
+    popd > /dev/null
 
     mkdir -p "$WWWROOT_DIR"
 
     if [ -d "$CLIENT_DIR/dist" ]; then
         echo "Syncing dist → wwwroot..."
-        rsync -a --delete "$CLIENT_DIR/dist/" "$WWWROOT_DIR/"
+        if command -v rsync >/dev/null 2>&1; then
+            rsync -a --delete "$CLIENT_DIR/dist/" "$WWWROOT_DIR/"
+        else
+            rm -rf "$WWWROOT_DIR"/*
+            cp -r "$CLIENT_DIR/dist/"* "$WWWROOT_DIR/"
+        fi
     fi
 }
 
 # ---------- BACKEND ----------
-# HTTPS is driven by the machine env vars UDS_SSL_CERT / UDS_SSL_KEY.
+# HTTPS is driven by the machine env vars DATA_SSL_CERT / DATA_SSL_KEY.
 # Both set + both files present -> HTTPS on $API_PORT; otherwise -> HTTP (fallback).
 configure_backend_tls() {
-    if [ -n "${UDS_SSL_CERT:-}" ] && [ -n "${UDS_SSL_KEY:-}" ] \
-       && [ -f "$UDS_SSL_CERT" ] && [ -f "$UDS_SSL_KEY" ]; then
-        export Kestrel__Certificates__Default__Path="$UDS_SSL_CERT"
-        export Kestrel__Certificates__Default__KeyPath="$UDS_SSL_KEY"
+    if [ -n "${DATA_SSL_CERT:-}" ] && [ -n "${DATA_SSL_KEY:-}" ] \
+       && [ -f "$DATA_SSL_CERT" ] && [ -f "$DATA_SSL_KEY" ]; then
+        export Kestrel__Certificates__Default__Path="$DATA_SSL_CERT"
+        export Kestrel__Certificates__Default__KeyPath="$DATA_SSL_KEY"
         export ASPNETCORE_URLS="https://0.0.0.0:$API_PORT"
         echo "Backend TLS: HTTPS on $API_PORT"
     else
@@ -178,7 +189,7 @@ case "$1" in
     -n|--npm)
         shift
         [ $# -eq 0 ] && echo "Usage: $0 -n <args>" && exit 1
-        npm --prefix "$CLIENT_DIR" "$@"
+        (cd "$CLIENT_DIR" && npm "$@")
         ;;
 
     -h|--help)

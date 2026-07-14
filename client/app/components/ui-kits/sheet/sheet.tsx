@@ -58,10 +58,20 @@ interface SheetContentProps
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, hideClose, children, ...props }, ref) => (
+>(({ side = "right", className, hideClose, children, onCloseAutoFocus, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
-    <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
+    <SheetPrimitive.Content
+      ref={ref}
+      onCloseAutoFocus={(event) => {
+        event.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur();
+        document.body.style.pointerEvents = "";
+        onCloseAutoFocus?.(event);
+      }}
+      className={cn(sheetVariants({ side }), className)}
+      {...props}
+    >
       {children}
       {!hideClose && (
         <SheetPrimitive.Close className="absolute right-6 top-8 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">

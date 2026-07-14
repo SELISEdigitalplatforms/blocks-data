@@ -15,7 +15,9 @@ public class GqlDbRepository : IGqlDbRepository
     private readonly IDbContextProvider _dbContextProvider;
     private readonly ICacheClient _cacheClient;
 
-    private IMongoDatabase _database;
+    // Optional override used by tests; when set it short-circuits per-request tenant resolution.
+    private IMongoDatabase? _overrideDatabase;
+
     public GqlDbRepository(IDbContextProvider dbContextProvider, ICacheClient cacheClient)
     {
         _dbContextProvider = dbContextProvider;
@@ -34,8 +36,7 @@ public class GqlDbRepository : IGqlDbRepository
     }
     public async Task<BsonDocument?> GetItemAsync(string collectionName, FilterDefinition<BsonDocument> filter)
     {
-        SetDatabase();
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await collection.Find(filter).FirstOrDefaultAsync();
     }
 
@@ -47,8 +48,7 @@ public class GqlDbRepository : IGqlDbRepository
         int skip = 0,
         int limit = 10)
     {
-        SetDatabase();
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.GetItemsAsync(collection, filter, sort, projection, skip, limit);
     }
 
@@ -62,8 +62,8 @@ public class GqlDbRepository : IGqlDbRepository
         int skip = 0,
         int limit = 10)
     {
-        SetDatabase();
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var db = GetDatabase();
+        var collection = db.GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.GetItemsWithCountAsync(collection, filter, sort, projection, skip, limit);
     }
 
@@ -74,8 +74,7 @@ public class GqlDbRepository : IGqlDbRepository
 
     public async Task<BsonDocument> InsertAsync(string collectionName, BsonDocument data)
     {
-        SetDatabase();
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.InsertAsync(collection, data);
     }
 
@@ -84,8 +83,7 @@ public class GqlDbRepository : IGqlDbRepository
         if (data == null || data.Count == 0)
             return new BulkActionResponse { Acknowledged = true, TotalImpactedData = 0 };
 
-        SetDatabase();
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         await collection.InsertManyAsync(data);
         var itemIds = data
             .Where(d => d.Contains(GraphQlConstant.DbEntityIdFieldName))
@@ -109,16 +107,14 @@ public class GqlDbRepository : IGqlDbRepository
         BsonDocument filter,
         BsonDocument data)
     {
-        SetDatabase();
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.UpdateOneAsync(collection, filter, data);
     }
     public async Task<ActionResponse> UpdateManyAsync(string collectionName,
             BsonDocument filter,
             BsonDocument data)
     {
-        SetDatabase();
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.UpdateManyAsync(collection, filter, data);
     }
     #endregion
@@ -128,14 +124,12 @@ public class GqlDbRepository : IGqlDbRepository
 
     public async Task<ActionResponse> DeleteAsync(string collectionName, BsonDocument filter)
     {
-        SetDatabase();
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.DeleteOneAsync(collection, filter);
     }
     public async Task<ActionResponse> DeleteManyAsync(string collectionName, BsonDocument filter)
     {
-        SetDatabase();
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.DeleteManyAsync(collection, filter);
     }
 
@@ -145,7 +139,7 @@ public class GqlDbRepository : IGqlDbRepository
 
     public async Task<List<CollectionsDataCount>> GetCollectionsDataCount(Dictionary<string, string> collectionToSchemaNameMap, FilterDefinition<BsonDocument>? filter = null)
     {
-        SetDatabase();
+        var database = GetDatabase();
 
         var result = new List<CollectionsDataCount>();
 
@@ -159,7 +153,7 @@ public class GqlDbRepository : IGqlDbRepository
 
         var firstCollectionName = collectionToSchemaNameMap.Keys.First();
 
-        var firstCollection = _database.GetCollection<BsonDocument>(firstCollectionName);
+        var firstCollection = database.GetCollection<BsonDocument>(firstCollectionName);
 
         // Build aggregation pipeline for all collections in a single query
         var pipeline = GetUnionPipelines(collectionToSchemaNameMap, filterBson);
@@ -176,32 +170,43 @@ public class GqlDbRepository : IGqlDbRepository
 
     #endregion
 
-    private GqlDbRepository SetDatabase(string connectionString, string databaseName)
+    /// <summary>
+    /// Resolves the MongoDB database for the project being served by the current request.
+    /// In a single-tenant deployment the tenant is fixed (environment), in the consolidated
+    /// multi-project deployment it is carried per request through the request context.
+    /// </summary>
+    private IMongoDatabase GetDatabase()
     {
-        _database = (string.IsNullOrWhiteSpace(connectionString) ? _dbContextProvider.GetDatabase() : _dbContextProvider.GetDatabase(connectionString, databaseName))!;
-        return this;
-    }
+        if (_overrideDatabase != null)
+        {
+            return _overrideDatabase;
+        }
 
-    private void SetDatabase()
-    {
-        // If the database has already been configured (e.g., in unit tests), do not overwrite it.
-        if (_database != null)
-            return;
-
-        var securityContext = BlocksContext.GetContext();
-        var tenantId = !string.IsNullOrWhiteSpace(GraphQlConstant.TenantId) ? GraphQlConstant.TenantId : securityContext?.TenantId;
+        var tenantId = TenantContext.GetTenantId();
         if (string.IsNullOrWhiteSpace(tenantId))
         {
-            return;
+            tenantId = BlocksContext.GetContext()?.TenantId ?? string.Empty;
         }
 
         var (connectionString, dbName) = GetDatabaseInfo(tenantId);
 
-        SetDatabase(connectionString, dbName);
+
+        var database = (string.IsNullOrWhiteSpace(connectionString)
+            ? _dbContextProvider.GetDatabase(tenantId)
+            : _dbContextProvider.GetDatabase(connectionString, dbName))!;
+
+        // if (database == null)
+        // {
+        //     database = _dbContextProvider.GetDatabase(tenantId);
+        // }
+        return database;
     }
 
     private (string ConnectionString, string DbName) GetDatabaseInfo(string tenantId)
     {
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return (string.Empty, string.Empty);
+
         var cache = _cacheClient.GetHashValue(tenantId).ToDictionary(
             kv => kv.Name,
             kv => kv.Value

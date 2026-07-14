@@ -1,8 +1,12 @@
-import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
-
-import { DashboardLayout } from "./layouts/dashboard-layout";
+import {
+  createBrowserRouter,
+  Navigate,
+  Outlet,
+  RouteObject,
+} from "react-router-dom";
 
 // Dashboard routes (protected)
+import DataGatewayEditDataSourcePage from "./routes/dashboard/data-gateway-edit-data-source";
 import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
 import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
 import DataGatewaySchemasPage from "./routes/dashboard/data-gateway-schemas";
@@ -14,17 +18,19 @@ import {
   CallbackPage,
   ConsoleLayout,
   ConsolePage,
-  ImpersonationChecker,
-  ImpersonationSynchronizer,
-  ImpersonationTerminator,
+  DashboardOverview,
   LoginPage,
   ProfilePage,
   ProtectedGuard,
   PublicGuard,
 } from "@seliseblocks/blocks-kit";
-import { ProjectOverviewLayout } from "./layouts/project-overview-layout";
-import { DashboardOverview } from "./pages/dashboard/dashboard-overview";
-import { EnvironmentsPage } from "./pages/environments/environments";
+import { DashboardRoute } from "@seliseblocks/blocks-kit/layouts";
+import { navigationMenus } from "./constants/navigation-menus";
+
+const redirectPaths: Record<string, string> = {
+  "/app/*/data-gateway*": "/app/data-gateway",
+  "/app/*/storage*": "/app/storage",
+};
 
 export const router = createBrowserRouter([
   {
@@ -33,7 +39,7 @@ export const router = createBrowserRouter([
       // All callback/redirect URLs handled here (unguarded, outside AuthResolver)
       {
         path: "/login/callback",
-        element: <CallbackPage redirectUrl="/console" />,
+        element: <CallbackPage defaultRedirectUrl="/app/console" />,
       },
 
       {
@@ -44,12 +50,6 @@ export const router = createBrowserRouter([
           </AuthResolver>
         ),
         children: [
-          // Callback inside AuthResolver but outside guards
-          {
-            path: "/dashboard/callback",
-            element: <CallbackPage redirectUrl="/dashboard" />,
-          },
-
           // public
           {
             element: (
@@ -62,6 +62,7 @@ export const router = createBrowserRouter([
 
           // protected
           {
+            path: "/app",
             element: (
               <ProtectedGuard>
                 <Outlet />
@@ -70,62 +71,54 @@ export const router = createBrowserRouter([
             children: [
               {
                 element: (
-                  <ImpersonationChecker>
-                    <ImpersonationTerminator>
-                      <ConsoleLayout>
-                        <Outlet />
-                      </ConsoleLayout>
-                    </ImpersonationTerminator>
-                  </ImpersonationChecker>
+                  <ConsoleLayout>
+                    <Outlet />
+                  </ConsoleLayout>
                 ),
                 children: [
-                  { path: "/profile", element: <ProfilePage /> },
-                  { path: "/console", element: <ConsolePage /> },
+                  { path: "profile", element: <ProfilePage /> },
+                  { path: "console", element: <ConsolePage /> },
                 ],
               },
+              { index: true, element: <Navigate to="console" replace /> },
+
               {
-                path: "/project-overview",
-                element: <ProjectOverviewLayout />,
-                children: [
-                  {
-                    path: "environments",
-                    element: <EnvironmentsPage />,
-                  },
-                ],
-              },
-              {
-                // impersonate
+                path: ":itemId",
                 element: (
-                  <ImpersonationChecker>
-                    <ImpersonationSynchronizer>
-                      <DashboardLayout />
-                    </ImpersonationSynchronizer>
-                  </ImpersonationChecker>
+                  <DashboardRoute
+                    redirectPaths={redirectPaths}
+                    navigationMenus={navigationMenus}
+                  />
                 ),
                 children: [
-                  { path: "/dashboard", element: <DashboardOverview /> },
+                  { index: true, element: <Navigate to="dashboard" replace /> },
+                  { path: "dashboard", element: <DashboardOverview /> },
                   {
-                    path: "/services/data-gateway",
+                    path: "data-gateway",
                     element: <DataGatewaySchemasPage />,
                   },
                   {
-                    path: "/services/data-gateway/playground",
+                    path: "data-gateway/playground",
                     element: <DataGatewayPlaygroundPage />,
                   },
                   {
-                    path: "/services/data-gateway/logs",
+                    path: "data-gateway/logs",
                     element: <DataGatewayLogsPage />,
                   },
-                  { path: "/services/storage", element: <StoragePage /> },
+                  {
+                    path: "data-gateway/configuration",
+                    element: <DataGatewayEditDataSourcePage />,
+                  },
+                  { path: "storage", element: <StoragePage /> },
                 ],
               },
             ],
           },
 
-          { path: "/", element: <Navigate to="/console" replace /> },
+          { path: "/", element: <Navigate to="/app/console" replace /> },
           { path: "*", element: <Navigate to="/login" replace /> },
         ],
       },
     ],
   },
-]);
+] as const satisfies RouteObject[]);

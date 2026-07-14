@@ -35,6 +35,7 @@ public class SchemaExportService : ISchemaExportService
     {
         var fileId = Guid.NewGuid().ToString();
         var context = BlocksContext.GetContext();
+        var tenantId = context?.TenantId ?? string.Empty;
 
         await _messageClient.SendToConsumerAsync(new ConsumerMessage<SchemaExportEvent>
         {
@@ -42,7 +43,7 @@ public class SchemaExportService : ISchemaExportService
             Payload = new SchemaExportEvent
             {
                 FileId = fileId,
-                ProjectKey = request.ProjectKey,
+                ProjectKey = tenantId,
                 MessageCoRelationId = request.MessageCoRelationId,
                 ExportOption = request.ExportOption,
                 CallerUserId = context?.UserId ?? string.Empty,
@@ -50,7 +51,7 @@ public class SchemaExportService : ISchemaExportService
             }
         });
 
-        _logger.LogInformation("Schema export initiated: fileId={FileId}, projectKey={ProjectKey}", fileId, request.ProjectKey);
+        _logger.LogInformation("Schema export initiated: fileId={FileId}, projectKey={ProjectKey}", fileId, tenantId);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = fileId });
     }
 

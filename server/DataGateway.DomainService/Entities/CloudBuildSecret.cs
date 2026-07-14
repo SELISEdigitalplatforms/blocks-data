@@ -5,25 +5,12 @@ namespace Blocks.Genesis
 {
     public sealed class CloudBuildSecret : ICloudBuildSecret
     {
-        public string SeliseGithubPat { get; set; }
-        public string ServiceName { get; set; }
-        public string SastBasicAuthToken { get; set; }
-        public string DependencyTrackApiKey { get; set; }
-        public string DependencyTrackDefaultTeamId { get; set; }
-        public string SonarQubeToken { get; set; }
-        public string GithubWebhookSecret { get; set; }
-        public string GithubClientSecret { get; set; }
-        public string GithubClientId { get; set; }
-
+        public string? ChatGptEncryptedSecret { get; set; }
+        public string? ChatGptEncryptionKey { get; set; }
 
         public static async Task<ICloudBuildSecret> ProcessBlocksSecret(VaultType vaultType = VaultType.Azure)
         {
-            IVault cloudVault = Vault.GetCloudVault(vaultType);
-            return await ProcessBlocksSecret(cloudVault);
-        }
-
-        public static async Task<ICloudBuildSecret> ProcessBlocksSecret(IVault cloudVault)
-        {
+             IVault cloudVault = Vault.GetCloudVault(vaultType);
             var blocksSecret = new CloudBuildSecret();
             PropertyInfo[] properties = typeof(CloudBuildSecret).GetProperties();
             var blocksSecretVault = await cloudVault.ProcessSecretsAsync(properties.Select(x => x.Name).ToList());
@@ -48,33 +35,7 @@ namespace Blocks.Genesis
                 }
             }
 
-            ValidateRequiredSecrets(blocksSecret);
             return blocksSecret;
-        }
-
-        private static void ValidateRequiredSecrets(CloudBuildSecret secret)
-        {
-            var requiredSecrets = new[] { nameof(CloudBuildSecret.SeliseGithubPat) };
-            var missingSecrets = new List<string>();
-
-            foreach (var secretName in requiredSecrets)
-            {
-                var property = typeof(CloudBuildSecret).GetProperty(secretName);
-                if (property != null)
-                {
-                    var value = property.GetValue(secret) as string;
-                    if (string.IsNullOrWhiteSpace(value))
-                    {
-                        missingSecrets.Add(secretName);
-                    }
-                }
-            }
-
-            if (missingSecrets.Count > 0)
-            {
-                var missingList = string.Join(", ", missingSecrets);
-                throw new InvalidOperationException($"Required CloudBuild secrets are not configured in vault: {missingList}. Please ensure these secrets exist in Azure Vault.");
-            }
         }
 
 

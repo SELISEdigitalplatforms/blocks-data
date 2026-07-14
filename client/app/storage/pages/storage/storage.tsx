@@ -1,27 +1,33 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import { Button } from "@/components/ui-kits/button/button";
-import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
-import { LogMenu } from "@/service-logs";
-import { SaveStorageConfiguration } from "../storage-configuration/save-storage-configuration/save-storage-configuration";
-import { StorageCard, StorageCardData } from "./components/storage-card/storage-card";
 import { FilterChangeHandler } from "@/components/filter-toolbar";
-import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
-import { IStorageConfiguration } from "@/storage/models/storage.model";
+import { Button } from "@/components/ui-kits/button/button";
+import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
+import { useStoragePath } from "@/hooks/use-scoped-path";
+import { getRuntimeEnv } from "@/lib/runtime-env";
+import { IStorageConfiguration } from "@/storage/models/storage.model";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
+import {
+  filterStorageConfigurations,
+  type StorageFilterValues,
+} from "../../utils/filter-storage-configurations";
+import { SaveStorageConfiguration } from "../storage-configuration/save-storage-configuration/save-storage-configuration";
+import {
+  StorageCard,
+  StorageCardData,
+} from "./components/storage-card/storage-card";
 import { StorageDetailsDrawer } from "./components/storage-details-drawer/storage-details-drawer";
+import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
 
-type FilterValues = {
-  search: string;
-  providers: string[];
-  types: string[];
-};
+type FilterValues = StorageFilterValues;
 
 // Helper function to map API configuration to card data
-const mapConfigurationToCardData = (config: IStorageConfiguration): StorageCardData => {
+const mapConfigurationToCardData = (
+  config: IStorageConfiguration,
+): StorageCardData => {
   return {
     id: config.itemId,
     provider: config.storageStrategy,
@@ -44,9 +50,11 @@ const mapConfigurationToCardData = (config: IStorageConfiguration): StorageCardD
 
 export function Storage() {
   const navigate = useNavigate();
+  const storagePath = useStoragePath();
   const [open, setOpen] = useState<boolean>(false);
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
-  const [selectedStorage, setSelectedStorage] = useState<IStorageConfiguration | null>(null);
+  const [selectedStorage, setSelectedStorage] =
+    useState<IStorageConfiguration | null>(null);
   const [filters, setFilters] = useState<FilterValues>({
     search: "",
     providers: [],
@@ -69,10 +77,6 @@ export function Storage() {
     return data;
   }, [data]);
 
-  const storageCards = useMemo(() => {
-    return configurations.map(mapConfigurationToCardData);
-  }, [configurations]);
-
   const onChange: FilterChangeHandler<FilterValues> = (key, value) => {
     setFilters((prev) => ({
       ...prev,
@@ -89,17 +93,16 @@ export function Storage() {
   };
 
   const filteredData = useMemo(() => {
-    return storageCards.filter((item) => {
-      const matchesSearch = item.title.toLowerCase().includes(filters.search.toLowerCase());
-      const matchesProvider =
-        filters.providers.length === 0 || filters.providers.includes(item.provider);
-      // const matchesType = filters.types.length === 0 || filters.types.includes(item.status);
-      return matchesSearch && matchesProvider;
-    });
-  }, [storageCards, filters]);
+    const filteredConfigurations = filterStorageConfigurations(
+      configurations,
+      filters,
+    );
+
+    return filteredConfigurations.map(mapConfigurationToCardData);
+  }, [configurations, filters]);
 
   const handleCardClick = (id: string) => {
-    navigate(`/services/storage?id=${encodeURIComponent(id)}`);
+    navigate(`${storagePath}?id=${encodeURIComponent(id)}`);
   };
 
   const handleViewDetails = (id: string) => {
@@ -127,19 +130,19 @@ export function Storage() {
           <h1 className="text-2xl font-semibold">Storage</h1>
         </div>
         <div className="flex items-center gap-2">
-          {/* <Button
+          <Button
             size="sm"
             variant="outline"
             onClick={() =>
               window.open(
-                `${process.env.NEXT_PUBLIC_API_BASE_URL}/uds/v1/swagger/index.html`,
+                `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`,
                 "_blank",
               )
             }
           >
             API Docs
-          </Button> */}
-          <LogMenu link="/services/storage/logs" />{" "}
+          </Button>
+          {/* <LogMenu link="/app/services/storage/logs" />{" "} */}
         </div>
       </div>
 
@@ -189,7 +192,9 @@ export function Storage() {
           </div>
         ) : (
           <div className="flex h-64 items-center justify-center">
-            <p className="text-muted-foreground">No storage configurations found.</p>
+            <p className="text-muted-foreground">
+              No storage configurations found.
+            </p>
           </div>
         )}
       </div>

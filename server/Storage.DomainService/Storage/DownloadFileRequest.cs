@@ -3,9 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace DomainService.Storage
 {
-    public class DownloadFileRequest : IProjectKey
+    public class DownloadFileRequest
     {
-        public string ProjectKey { get; set; }
 
         [FromQuery(Name = "x-blocks-key")]
         public string? XBlocksKey { get; set; }

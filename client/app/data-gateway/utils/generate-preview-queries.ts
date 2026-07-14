@@ -6,6 +6,7 @@
 import {
   COLLAPSIBLE_FILTER_FIELD,
   COLLAPSIBLE_LIST_FIELDS,
+  LOGICAL_OPERATOR_FIELDS,
   EXCLUDED_QUERY_ARG_NAMES,
   EXCLUDED_MUTATION_FILTER_ARG_NAMES,
   SYSTEM_INPUT_FIELDS,
@@ -125,6 +126,7 @@ export function buildInputValue(
 
   if (isList) {
     if (fieldName && COLLAPSIBLE_LIST_FIELDS.has(fieldName)) return "[]";
+    if (fieldName && LOGICAL_OPERATOR_FIELDS.has(fieldName)) return "[{}]";
     const inner = buildInputValue(
       unwrapped.ofType!,
       typeMap,

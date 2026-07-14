@@ -11,8 +11,10 @@ public class CreateSchemaRequestValidator : AbstractValidator<CreateSchemaReques
     private readonly IDbRepository _dbRepository;
     private const string SchemaNameRequired = "SchemaName_Is_Required.";
     private const string SchemaNameLength = "SchemaName_Length_Must_Be_Between_1_And_50_Characters.";
+    private const string SchemaNameInvalid = "SchemaName_May_Only_Contain_Letters_Numbers_And_Underscore_And_Cannot_Start_With_A_Number.";
     private const string CollectionNameRequired = "CollectionName_Is_Required.";
     private const string CollectionNameLength = "CollectionName_Length_Must_Be_Between_1_And_50_Characters.";
+    private const string CollectionNameInvalid = "CollectionName_May_Only_Contain_Letters_Numbers_And_Underscore_And_Cannot_Start_With_A_Number.";
     private const string SchemaTypeRequired = "SchemaType_Is_Required.";
 
     public CreateSchemaRequestValidator(IDbRepository dbRepository)
@@ -26,13 +28,16 @@ public class CreateSchemaRequestValidator : AbstractValidator<CreateSchemaReques
     {
         RuleFor(x => x.SchemaName)
             .NotEmpty().WithMessage(SchemaNameRequired)
-            .Length(1, 50).WithMessage(SchemaNameLength);
+            .Length(1, 50).WithMessage(SchemaNameLength)
+            .Matches(SchemaValidatorHelper.NameAllowedPattern).WithMessage(SchemaNameInvalid);
 
         RuleFor(x => x.CollectionName)
             .Must((request, collectionName) => SchemaValidatorHelper.DoesNotEmptyCollectionName(collectionName, request.SchemaType))
                 .WithMessage(CollectionNameRequired)
             .Must((request, collectionName) => SchemaValidatorHelper.IsValidCollectionNameLength(collectionName, request.SchemaType))
-                .WithMessage(CollectionNameLength);
+                .WithMessage(CollectionNameLength)
+            .Must((request, collectionName) => SchemaValidatorHelper.IsAllowedCollectionName(collectionName, request.SchemaType))
+                .WithMessage(CollectionNameInvalid);
 
         RuleFor(x => x.SchemaType)
             .NotEmpty().WithMessage(SchemaTypeRequired);

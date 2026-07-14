@@ -7,7 +7,7 @@ public static class GraphQlConstant
     public const string ApiServiceName = "blocks-data";
     public const string WorkerServiceName = "blocks-data-worker";
     public const string DataGatewayQueueName = "blocks_uds_import_export_listener";
-    public const string DataGatewayInitiateQueueName = "blocks_uds_pipeline_initiate_listener";
+    // public const string DataGatewayInitiateQueueName = "blocks_uds_pipeline_initiate_listener";
     public const string StorageQueueName = "blocks_storage_listener";
     public const string MigrationCompletionTopic = "migration_topic";
     public const string DataChangeTriggerQueue = "blocks_logic_workflow_data_trigger_listener";
@@ -29,12 +29,13 @@ public static class GraphQlConstant
     public const string BlocksKeyHeaderKey = "x-blocks-key";
     public const string UnauthorizedErrorCode = "AUTH_NOT_AUTHENTICATED";
     public const string ValidationErrorErrorCode = "VALIDATION_ERROR";
-    public static string TenantId { get; private set; } = string.Empty;
-    public static string TenantSlug { get; private set; } = string.Empty;
     private const string DefaultProvider = "azure";
     private const string RabbitMqProvider = "rabbitmq";
 
     public const int MaxNestedLevelIterationLimit = 3;
+
+    public static string TenantId { get; private set; } = string.Empty;
+    public static string TenantSlug { get; private set; } = string.Empty;
 
     public static void SetAsTenantId(this string tenantId)
     {
@@ -76,8 +77,8 @@ public static class GraphQlConstant
             RabbitMqConfiguration = new RabbitMqConfiguration
             {
                 ConsumerSubscriptions = [ConsumerSubscription.BindToQueue(DataGatewayQueueName),
-                                         ConsumerSubscription.BindToQueue(StorageQueueName),
-                                         ConsumerSubscription.BindToQueue(DataGatewayInitiateQueueName)],
+                                         ConsumerSubscription.BindToQueue(StorageQueueName)]
+                                         // ConsumerSubscription.BindToQueue(DataGatewayInitiateQueueName)],
             }
         };
     }
@@ -88,7 +89,7 @@ public static class GraphQlConstant
         {
             AzureServiceBusConfiguration = new AzureServiceBusConfiguration
             {
-                Queues = [DataGatewayQueueName, StorageQueueName, DataGatewayInitiateQueueName],
+                Queues = [DataGatewayQueueName, StorageQueueName, /* DataGatewayInitiateQueueName */],
             }
         };
     }

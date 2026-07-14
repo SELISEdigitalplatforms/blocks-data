@@ -14,10 +14,4 @@ export type Menu =
   | {
       type: "separator";
       id: string;
-    }
-  | {
-      type: "label";
-      id: string;
-      name: string;
-      icon?: LucideIcon;
     };

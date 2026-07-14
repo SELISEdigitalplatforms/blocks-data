@@ -1,15 +1,52 @@
 "use client";
 
 import { Alert, AlertDescription } from "@/components/ui-kits/alert/alert";
+import { Button } from "@/components/ui-kits/button/button";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { useDataGatewayPath } from "@/hooks/use-scoped-path";
+import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
+import { getRuntimeEnv } from "@/lib/runtime-env";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, ChevronRight } from "lucide-react";
-import { DataGatewayActions } from "./data-gateway-actions";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BookOpen,
+  ChevronRight,
+  Logs,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { DataGatewayActions } from "./data-gateway-actions";
+
+const actionButtonClass =
+  "gap-2 px-4 border-border/40 text-muted-foreground/70 hover:border-border/60 hover:text-foreground";
+
+const ApiDocsButton = () => (
+  <Button
+    size="sm"
+    variant="outline"
+    className={actionButtonClass}
+    onClick={() =>
+      window.open(
+        `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`,
+        "_blank",
+      )
+    }
+  >
+    <BookOpen className="h-4 w-4" />
+    API Docs
+  </Button>
+);
+
+const LogsButton = ({ link }: { link: string }) => (
+  <Link to={link}>
+    <Button size="sm" variant="outline" className={actionButtonClass}>
+      <Logs className="h-4 w-4" />
+      Logs
+    </Button>
+  </Link>
+);
 
 import {
   getPolicyDataQueryOptions,
@@ -85,7 +122,6 @@ export const SchemaDetailsPage = () => {
 
   const selectedProject = useProjectStore().selectedProject;
   const projectKey = selectedProject?.tenantId ?? "";
-  const projectShortKey = selectedProject?.tenantSlug ?? "";
   const { data: unAdaptedChangeLogs } = useGetUnadaptedChangeLogs({
     projectKey,
   });
@@ -229,11 +265,17 @@ export const SchemaDetailsPage = () => {
               <span className="font-medium text-foreground">Schemas</span>
             </nav>
           ) : (
-            <p className="text-sm font-semibold text-foreground">Data Gateway</p>
+            <p className="text-sm font-semibold text-foreground">
+              Data Gateway
+            </p>
           )}
 
           {/* Action buttons */}
-          <DataGatewayActions />
+          <div className="flex items-center gap-2">
+            <ApiDocsButton />
+            {/* <LogsButton link={`${dataGatewayPath}/logs`} /> */}
+            <DataGatewayActions />
+          </div>
         </div>
 
         {/* Server status alert — only shown on schema view */}
@@ -342,7 +384,6 @@ export const SchemaDetailsPage = () => {
           onCancel={() => setIsAddEditSchemaModalOpen(false)}
         />
       </Dialog>
-
     </>
   );
 };

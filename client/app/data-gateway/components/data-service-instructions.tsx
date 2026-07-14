@@ -8,6 +8,14 @@ import ConfigureDataSourceModal from "./configure-data-source";
 export function DataServiceInstructions() {
   const [isConfigureDataSourceModalOpen, setConfigureDataSourceModal] =
     useState<boolean>(false);
+  const [modalInstance, setModalInstance] = useState(0);
+
+  const openModal = () => {
+    setModalInstance((n) => n + 1);
+    setConfigureDataSourceModal(true);
+  };
+
+  const closeModal = () => setConfigureDataSourceModal(false);
 
   const confirmSave = async () => {
     setConfigureDataSourceModal(false);
@@ -28,17 +36,10 @@ export function DataServiceInstructions() {
           ))}
         </ol>
 
-        {/* <p className="mt-6 text-sm">
-          Need help?{" "}
-          <a href="" target="" rel="" className="text-blue-600 hover:underline">
-            View full documentation
-          </a>
-        </p> */}
-
         <Button
           size="sm"
           className="mt-6 h-10 gap-2 px-4 py-1"
-          onClick={() => setConfigureDataSourceModal(true)}
+          onClick={openModal}
         >
           Configure
         </Button>
@@ -47,11 +48,14 @@ export function DataServiceInstructions() {
           open={isConfigureDataSourceModalOpen}
           onOpenChange={setConfigureDataSourceModal}
         >
-          <ConfigureDataSourceModal
-            mode="create"
-            onCancel={() => setConfigureDataSourceModal(false)}
-            onConfirm={confirmSave}
-          />
+          {isConfigureDataSourceModalOpen && (
+            <ConfigureDataSourceModal
+              key={modalInstance}
+              mode="create"
+              onCancel={closeModal}
+              onConfirm={confirmSave}
+            />
+          )}
         </Dialog>
       </div>
     </div>

@@ -158,6 +158,7 @@ export function SchemaFieldValidationDrawer({
         setForm((prev) => ({
           ...prev,
           value: res.pattern,
+          errorMessage: res.errorMessage || prev.errorMessage,
         }));
         setRegexError(null);
         setPrompt("");
@@ -394,8 +395,9 @@ export function SchemaFieldValidationDrawer({
                     />
                     <Button
                       className={cn(
-                        "h-9 gap-1.5 px-4 text-xs shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)] transition-all",
-                        isGenerating && "bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-500",
+                        "h-9 gap-1.5 px-4 text-xs shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)] transition-all bg-primary text-primary-foreground hover:bg-primary/90",
+                        isGenerating &&
+                          "animate-pulse shadow-[0_0_20px_-4px_rgba(99,102,241,0.6)]",
                       )}
                       onClick={handleGenerateRegex}
                       disabled={isGenerating || !prompt.trim()}

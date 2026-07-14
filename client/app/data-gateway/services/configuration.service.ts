@@ -221,7 +221,7 @@ class ConfigurationService {
 
   generateRegex(payload: {
     description: string;
-  }): Promise<{ pattern: string }> {
+  }): Promise<{ pattern: string; errorMessage?: string }> {
     return http.post(DATA_VALIDATION_REGEX_ENDPOINTS.GENERATE_REGEX, payload);
   }
 

@@ -35,6 +35,7 @@ export const DataGatewayActions = () => {
   const dataGatewayPath = useDataGatewayPath();
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importModalInstance, setImportModalInstance] = useState(0);
 
   const isPlayground = location.pathname.includes("/playground");
   const isConfigure = location.pathname.includes("/configuration");
@@ -43,7 +44,10 @@ export const DataGatewayActions = () => {
     {
       label: "Import",
       icon: <FolderInput className="h-4 w-4" />,
-      onClick: () => setIsImportModalOpen(true),
+      onClick: () => {
+        setImportModalInstance((n) => n + 1);
+        setIsImportModalOpen(true);
+      },
       active: false,
     },
     {
@@ -113,10 +117,13 @@ export const DataGatewayActions = () => {
       </Dialog>
 
       <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
-        <ImportSchemaModal
-          projectKey={projectKey}
-          onClose={() => setIsImportModalOpen(false)}
-        />
+        {isImportModalOpen && (
+          <ImportSchemaModal
+            key={importModalInstance}
+            projectKey={projectKey}
+            onClose={() => setIsImportModalOpen(false)}
+          />
+        )}
       </Dialog>
     </>
   );

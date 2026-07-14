@@ -182,7 +182,9 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
               }}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Connection string</FormLabel>
+                  <FormLabel>
+                    Connection string <span className="text-red-500">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Write here" {...field} />
                   </FormControl>
@@ -202,7 +204,9 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
               }}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Database name</FormLabel>
+                  <FormLabel>
+                    Database name <span className="text-red-500">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Write here" {...field} />
                   </FormControl>

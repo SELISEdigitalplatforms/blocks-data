@@ -8,7 +8,6 @@ import {
   TabsTrigger,
 } from "@/components/ui-kits/tabs/tabs";
 import { useGetProject } from "@/hooks/use-project";
-import { useTheme } from "@/hooks/use-theme";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
 import type { EditorProps } from "@monaco-editor/react";
 import { isListType, isNonNullType, isObjectType } from "graphql";
@@ -96,8 +95,29 @@ export const GraphQLPlaygroundPage = () => {
       setSelectedProject(projectData.data);
     }
   }, [projectData, selectedProject?.itemId, setSelectedProject]);
-  const { resolvedTheme } = useTheme();
-  const monacoTheme = resolvedTheme === "dark" ? "vs-dark" : "light";
+  const [monacoTheme, setMonacoTheme] = useState<
+    NonNullable<EditorProps["theme"]>
+  >("light");
+
+  useEffect(() => {
+    const resolveTheme = () =>
+      document.documentElement.classList.contains("dark")
+        ? "vs-dark"
+        : "light";
+
+    setMonacoTheme(resolveTheme());
+
+    const observer = new MutationObserver(() => {
+      setMonacoTheme(resolveTheme());
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const { mutateAsync: executeGraphQL, isPending: isLoading } =
     useExecuteGraphQL();
@@ -1468,63 +1488,71 @@ export const GraphQLPlaygroundPage = () => {
 
   return (
     <>
-      <div className="flex h-full w-full flex-col">
-        {/* Top Header with Clean Test Data Button */}
-        <div className="flex h-12 items-center justify-between border-b bg-muted px-4">
-          <h2 className="text-lg font-semibold">GraphQL Playground</h2>
+      <div className="relative flex h-full w-full flex-col overflow-hidden rounded-sm border border-border/40 bg-card">
+        {/* Ambient gradient */}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.05),transparent_55%)]" />
+
+        {/* Top header */}
+        <div className="relative flex h-12 shrink-0 items-center justify-between border-b border-border/40 bg-card/80 px-4">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-500/10 ring-1 ring-indigo-500/20">
+              <svg viewBox="0 0 30 30" className="h-3.5 w-3.5 text-indigo-400" fill="currentColor">
+                <path d="M4.08 22.864l-1.1-.636L15 .345l1.1.636zm-1.1 4.636L14.636 29.66l.636-1.1L3.616 26.4zm13.12 0L27.746 29.1l.636 1.1L16.736 28.4zm4.636-4.636l1.1.636L29.46 6.636 28.36 6zm-5.82-20.03l-.636-1.1L1.1 7.924l.636 1.1zM.5 9.636l-.636 1.1 11.63 6.72.636-1.1zm27.364 7.82l.636-1.1L16.87 9.636l-.636 1.1zm-13.82 6.1l1.274.012.012-13.82-1.274-.012z"/>
+                <circle cx="15" cy="1.833" r="2.5"/>
+                <circle cx="28.667" cy="9.5" r="2.5"/>
+                <circle cx="28.667" cy="20.5" r="2.5"/>
+                <circle cx="15" cy="28.167" r="2.5"/>
+                <circle cx="1.333" cy="20.5" r="2.5"/>
+                <circle cx="1.333" cy="9.5" r="2.5"/>
+              </svg>
+            </div>
+            <h2 className="text-sm font-semibold text-foreground">GraphQL Playground</h2>
+          </div>
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               onClick={handleFetchSchemas}
               disabled={!projectShortKey || isSchemasDrawerLoading}
-              className="gap-2"
+              className="h-7 gap-1.5 border border-border/40 px-3 text-xs text-muted-foreground/70 hover:border-border/60 hover:text-foreground"
             >
-              <BookOpen className="h-4 w-4" />
+              <BookOpen className="h-3.5 w-3.5" />
               Schemas
             </Button>
             <Button
               size="sm"
-              variant="outline"
+              variant="ghost"
               onClick={() => setIsCleanDataModalOpen(true)}
-              className="gap-2"
+              className="h-7 gap-1.5 border border-border/40 px-3 text-xs text-muted-foreground/70 hover:border-rose-500/30 hover:text-rose-400"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5" />
               Clean Test Data
             </Button>
           </div>
         </div>
 
-        <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
-          {/* Query Editor */}
-          <div className="flex w-full flex-col border-r md:w-1/2">
-            <div className="flex h-12 items-center justify-between border-b bg-muted px-4">
+        <div className="relative flex flex-1 flex-col overflow-hidden md:flex-row">
+          {/* Query Editor panel */}
+          <div className="flex w-full flex-col border-r border-border/40 md:w-1/2">
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 bg-muted/10 px-4">
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Query Editor</span>
+                <span className="text-xs font-medium text-muted-foreground/70">Query Editor</span>
                 <div className="group relative">
-                  <Keyboard className="h-4 w-4 cursor-help text-muted-foreground transition-colors hover:text-foreground" />
-                  <div className="absolute left-0 top-full z-50 mt-2 hidden w-64 rounded-md border bg-popover p-3 text-xs shadow-md group-hover:block">
-                    <p className="mb-2 font-semibold text-foreground">
-                      Keyboard Shortcuts
-                    </p>
-                    <div className="space-y-1.5 text-muted-foreground">
-                      <div className="flex justify-between">
-                        <span>Execute query</span>
-                        <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                          Ctrl+Shift+E
-                        </kbd>
+                  <Keyboard className="h-3.5 w-3.5 cursor-help text-muted-foreground/30 transition-colors hover:text-muted-foreground/60" />
+                  <div className="absolute left-0 top-full z-50 mt-2 hidden w-60 rounded-sm border border-border/40 bg-card/95 p-3 text-xs shadow-xl backdrop-blur-sm group-hover:block">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">Shortcuts</p>
+                    <div className="space-y-1.5 text-muted-foreground/70">
+                      <div className="flex items-center justify-between">
+                        <span>Execute</span>
+                        <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">Ctrl+Shift+E</kbd>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex items-center justify-between">
                         <span>New line</span>
-                        <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                          Shift+Enter
-                        </kbd>
+                        <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">Shift+Enter</kbd>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Navigate fields</span>
-                        <kbd className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                          Tab
-                        </kbd>
+                      <div className="flex items-center justify-between">
+                        <span>Navigate</span>
+                        <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">Tab</kbd>
                       </div>
                     </div>
                   </div>
@@ -1535,10 +1563,10 @@ export const GraphQLPlaygroundPage = () => {
                 size="sm"
                 onClick={handleExecuteQuery}
                 disabled={isLoading}
-                className="gap-2"
+                className="h-7 gap-1.5 px-3 text-xs shadow-[0_0_12px_-2px_rgba(99,102,241,0.35)] hover:shadow-[0_0_16px_-2px_rgba(99,102,241,0.5)]"
               >
-                <Play className="h-4 w-4" />
-                {isLoading ? "Executing..." : "Execute"}
+                <Play className="h-3 w-3" />
+                {isLoading ? "Executing…" : "Execute"}
               </Button>
             </div>
             <div className="flex-1 overflow-hidden">
@@ -1551,7 +1579,7 @@ export const GraphQLPlaygroundPage = () => {
                 onMount={handleEditorDidMount}
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 14,
+                  fontSize: 13,
                   lineNumbers: "on",
                   scrollBeyondLastLine: false,
                   automaticLayout: true,
@@ -1566,12 +1594,12 @@ export const GraphQLPlaygroundPage = () => {
             </div>
           </div>
 
-          {/* Response Viewer */}
+          {/* Response panel */}
           <div className="flex w-full flex-col md:w-1/2">
             {responses.length === 0 ? (
               <>
-                <div className="flex h-12 items-center border-b bg-muted px-4">
-                  <span className="text-sm font-medium">Response</span>
+                <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
+                  <span className="text-xs font-medium text-muted-foreground/70">Response</span>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <GraphqlMonacoEditor
@@ -1582,7 +1610,7 @@ export const GraphQLPlaygroundPage = () => {
                     options={{
                       readOnly: true,
                       minimap: { enabled: false },
-                      fontSize: 14,
+                      fontSize: 13,
                       lineNumbers: "on",
                       scrollBeyondLastLine: false,
                       automaticLayout: true,
@@ -1595,10 +1623,8 @@ export const GraphQLPlaygroundPage = () => {
               </>
             ) : responses.length === 1 ? (
               <>
-                <div className="flex h-12 items-center border-b bg-muted px-4">
-                  <span className="text-sm font-medium">
-                    {responses[0].name}
-                  </span>
+                <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
+                  <span className="text-xs font-medium text-muted-foreground/70">{responses[0].name}</span>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <GraphqlMonacoEditor
@@ -1609,7 +1635,7 @@ export const GraphQLPlaygroundPage = () => {
                     options={{
                       readOnly: true,
                       minimap: { enabled: false },
-                      fontSize: 14,
+                      fontSize: 13,
                       lineNumbers: "on",
                       scrollBeyondLastLine: false,
                       automaticLayout: true,
@@ -1621,18 +1647,14 @@ export const GraphQLPlaygroundPage = () => {
                 </div>
               </>
             ) : (
-              <Tabs
-                value={activeResponseTab}
-                onValueChange={setActiveResponseTab}
-                className="flex h-full flex-col"
-              >
-                <div className="flex h-12 items-center border-b bg-muted px-4">
-                  <TabsList className="h-9 bg-transparent p-0">
+              <Tabs value={activeResponseTab} onValueChange={setActiveResponseTab} className="flex h-full flex-col">
+                <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
+                  <TabsList className="h-7 gap-0.5 bg-transparent p-0">
                     {responses.map((response) => (
                       <TabsTrigger
                         key={response.id}
                         value={response.id}
-                        className="px-3 text-xs data-[state=active]:bg-background"
+                        className="h-7 rounded-sm px-3 text-xs text-muted-foreground/60 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
                       >
                         {response.name}
                       </TabsTrigger>
@@ -1640,11 +1662,7 @@ export const GraphQLPlaygroundPage = () => {
                   </TabsList>
                 </div>
                 {responses.map((response) => (
-                  <TabsContent
-                    key={response.id}
-                    value={response.id}
-                    className="mt-0 flex-1 overflow-hidden"
-                  >
+                  <TabsContent key={response.id} value={response.id} className="mt-0 flex-1 overflow-hidden">
                     <GraphqlMonacoEditor
                       height="100%"
                       language="json"
@@ -1653,7 +1671,7 @@ export const GraphQLPlaygroundPage = () => {
                       options={{
                         readOnly: true,
                         minimap: { enabled: false },
-                        fontSize: 14,
+                        fontSize: 13,
                         lineNumbers: "on",
                         scrollBeyondLastLine: false,
                         automaticLayout: true,

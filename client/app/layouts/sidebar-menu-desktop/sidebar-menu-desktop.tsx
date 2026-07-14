@@ -17,7 +17,7 @@ export function SidebarMenuDesktop() {
   const { resolvedTheme } = useTheme();
   const { pathname } = useLocation();
   const allowedMenu = useFilteredMenus(navigationMenus);
-  const isProjectOverviewRoute = pathname.startsWith("/project-overview");
+  const isProjectOverviewRoute = pathname.startsWith("/project");
 
   const getLogoSrc = () => {
     if (isSidebarOpen) {
@@ -31,11 +31,12 @@ export function SidebarMenuDesktop() {
   return (
     <div
       className={cn(
-        "hidden h-screen flex-col border-r bg-background transition-all md:flex",
+        "relative hidden h-screen flex-col border-r bg-background transition-all md:flex",
         isSidebarOpen ? "w-60 overflow-hidden" : "w-14",
       )}
     >
-      <div className="flex h-[60px] shrink-0 items-center justify-between border-b bg-background px-3">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,rgba(99,102,241,0.04),transparent_60%)]" />
+      <div className="relative flex h-[60px] shrink-0 items-center justify-between border-b bg-background px-3">
         <Link
           to="/console"
           className={cn(
@@ -63,7 +64,7 @@ export function SidebarMenuDesktop() {
 
       {!isProjectOverviewRoute &&
         (isSidebarOpen ? (
-          <div className="border-b px-2 pb-2 pt-2">
+          <div className="relative border-b px-2 pb-2 pt-2">
             <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Workspace
             </p>
@@ -74,14 +75,14 @@ export function SidebarMenuDesktop() {
             </div>
           </div>
         ) : (
-          <div className="border-b py-1">
+          <div className="relative border-b py-1">
             <ProjectList collapsed />
             <EnvironmentList collapsed />
           </div>
         ))}
 
-      <div className="w-full flex-1">
-        <nav className={cn("grid w-full items-start gap-1 py-2 text-sm")}>
+      <div className="relative w-full flex-1">
+        <nav className={cn("grid w-full items-start gap-0.5 py-2 text-sm")}>
           {allowedMenu.map((menu) => (
             <Fragment key={menu.id}>
               {menu.type === "menu" ? (

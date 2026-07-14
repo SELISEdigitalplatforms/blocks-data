@@ -7,10 +7,9 @@ using System.Threading.Tasks;
 
 namespace Storage.DomainService.Storage
 {
-    public class UpdateFileRequest : IProjectKey
+    public class UpdateFileRequest
     {
         public string ItemId { get; set; }
         public Dictionary<string, string> AdditionalProperties { get; set; } = new Dictionary<string, string>();
-        public string? ProjectKey { get; set; }
     }
 }

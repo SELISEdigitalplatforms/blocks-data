@@ -1,32 +1,24 @@
 "use client";
 import { Button } from "@/components/ui-kits/button/button";
-import { dataServiceInstructions } from "../constants/instructions";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import ConfigureDataSourceModal from "./configure-data-source";
 import { useState } from "react";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
-import { configurationService } from "../services/configuration.service";
-
-const INIT_STORAGE_PREFIX = "dg-server-init-";
+import { dataServiceInstructions } from "../constants/instructions";
+import ConfigureDataSourceModal from "./configure-data-source";
 
 export function DataServiceInstructions() {
   const [isConfigureDataSourceModalOpen, setConfigureDataSourceModal] =
     useState<boolean>(false);
-  const projectKey = useProjectStore().selectedProject?.tenantId || "";
+  const [modalInstance, setModalInstance] = useState(0);
+
+  const openModal = () => {
+    setModalInstance((n) => n + 1);
+    setConfigureDataSourceModal(true);
+  };
+
+  const closeModal = () => setConfigureDataSourceModal(false);
 
   const confirmSave = async () => {
     setConfigureDataSourceModal(false);
-
-    if (projectKey) {
-      const now = Date.now();
-      localStorage.setItem(
-        `${INIT_STORAGE_PREFIX}${projectKey}`,
-        JSON.stringify({ initiatedAt: now }),
-      );
-      configurationService
-        .initiateDataGatewayPipeline({ projectKey })
-        .catch(() => {});
-    }
   };
 
   return (
@@ -44,17 +36,10 @@ export function DataServiceInstructions() {
           ))}
         </ol>
 
-        {/* <p className="mt-6 text-sm">
-          Need help?{" "}
-          <a href="" target="" rel="" className="text-blue-600 hover:underline">
-            View full documentation
-          </a>
-        </p> */}
-
         <Button
           size="sm"
           className="mt-6 h-10 gap-2 px-4 py-1"
-          onClick={() => setConfigureDataSourceModal(true)}
+          onClick={openModal}
         >
           Configure
         </Button>
@@ -63,11 +48,14 @@ export function DataServiceInstructions() {
           open={isConfigureDataSourceModalOpen}
           onOpenChange={setConfigureDataSourceModal}
         >
-          <ConfigureDataSourceModal
-            mode="create"
-            onCancel={() => setConfigureDataSourceModal(false)}
-            onConfirm={confirmSave}
-          />
+          {isConfigureDataSourceModalOpen && (
+            <ConfigureDataSourceModal
+              key={modalInstance}
+              mode="create"
+              onCancel={closeModal}
+              onConfirm={confirmSave}
+            />
+          )}
         </Dialog>
       </div>
     </div>

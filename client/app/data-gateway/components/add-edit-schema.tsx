@@ -2,6 +2,7 @@ import { Button } from "@/components/ui-kits/button/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -15,16 +16,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui-kits/select/select";
+import { showErrorToast } from "@/hooks/use-toast";
+import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { AlertCircle, Pencil, Plus } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
-import { allowLettersNumbersUnderscoreKeyDown } from "../utils/input-restriction.util";
-import { useSchemaList } from "../hooks/use-configuration";
+import {
+  useGetDataServiceConfiguration,
+  useSchemaList,
+} from "../hooks/use-configuration";
 import {
   ICreateSchemaDefaultValues,
+  IDataSourceResponse,
   ISchemaDetails,
 } from "../models/data-service";
-import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import {
+  allowLettersNumbersUnderscoreKeyDown,
+  SCHEMA_NAME_ALLOWED_PATTERN,
+} from "../utils/input-restriction.util";
 
 type SchemaFormValues = {
   schemaName: string;
@@ -80,6 +89,14 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   const isEntity = schemaType === "Entity";
 
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
+
+  // Fetch data source configuration for collection name pattern
+  const { data: configData } = useGetDataServiceConfiguration();
+  const config = configData?.data as IDataSourceResponse | undefined;
+  const isCollectionNameEditable = config?.isCollectionNameEditable ?? false;
+  const collectionNamePattern =
+    config?.collectionNamePattern ?? "sb_{SchemaName}s";
+
   // Call API to check schema name existence
   const { data: schemaListQuery } = useSchemaList({
     schemaName: schemaName.trim() || "",
@@ -127,7 +144,6 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   const onFormSubmit = async (data: SchemaFormValues) => {
     if (mode === "edit") {
       setPendingFormData(data);
-      onCancel();
       setIsEditConfirmationModalOpen(true);
     } else {
       const success = await onSubmit(data);
@@ -146,25 +162,40 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   };
 
   const handleEditConfirm = async () => {
-    if (pendingFormData) {
+    if (!pendingFormData) {
+      setIsEditConfirmationModalOpen(false);
+      return;
+    }
+    try {
       const success = await onSubmit(pendingFormData);
       if (success) {
         resetForm();
         setPendingFormData(null);
       }
+    } catch (error) {
+      console.error("Error creating schema:", error);
+      showErrorToast({
+        errors: ["An unexpected error occurred. Please try again."],
+      });
+    } finally {
+      setIsEditConfirmationModalOpen(false);
     }
-    setIsEditConfirmationModalOpen(false);
   };
 
   return (
     <>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {mode === "edit" ? (
+              <Pencil className="h-4 w-4 text-indigo-400" />
+            ) : (
+              <Plus className="h-4 w-4 text-indigo-400" />
+            )}
             {mode === "edit" ? "Edit Schema" : "Add New Schema"}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Select a source to begin setting up your data connection.
+            Define a schema to structure your data.
           </p>
           {mode === "edit" && (
             <div className="mb-4 rounded-md border border-base-warning bg-warning-100 p-4 dark:border-icon-warning dark:bg-warning-800/20">
@@ -195,13 +226,45 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                 className="mt-1 w-full rounded border px-3 py-2 text-sm"
                 {...register("schemaName", {
                   required: "Schema name is required",
+                  pattern: {
+                    value: SCHEMA_NAME_ALLOWED_PATTERN,
+                    message:
+                      "Only letters, numbers, and '_' are allowed. Cannot start with a number.",
+                  },
                   onChange: (e) => {
-                    const value = e.target.value;
+                    const sanitized = e.target.value
+                      .replace(/[^A-Za-z0-9_]/g, "")
+                      .replace(/^[0-9]+/, "");
+                    if (sanitized !== e.target.value) {
+                      e.target.value = sanitized;
+                    }
                     if (mode === "add") {
-                      setValue("entityName", `sb_${value}s`);
+                      const pattern = collectionNamePattern.replace(
+                        "{SchemaName}",
+                        sanitized,
+                      );
+                      setValue("entityName", pattern);
                     }
                   },
                 })}
+                onPaste={(e) => {
+                  const pasted = e.clipboardData.getData("text");
+                  const sanitized = pasted.replace(/[^A-Za-z0-9_]/g, "");
+                  if (sanitized !== pasted) {
+                    e.preventDefault();
+                    const target = e.target as HTMLInputElement;
+                    const newValue =
+                      target.value.slice(
+                        0,
+                        target.selectionStart ?? target.value.length,
+                      ) +
+                      sanitized +
+                      target.value.slice(
+                        target.selectionEnd ?? target.value.length,
+                      );
+                    setValue("schemaName", newValue, { shouldValidate: true });
+                  }
+                }}
                 onKeyDown={allowLettersNumbersUnderscoreKeyDown}
               />
 
@@ -249,9 +312,49 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                   className="mt-1 w-full rounded border px-3 py-2 text-sm"
                   {...register("entityName", {
                     required: "Entity name is required",
+                    pattern: {
+                      value: SCHEMA_NAME_ALLOWED_PATTERN,
+                      message:
+                        "Only letters, numbers, and '_' are allowed. Cannot start with a number.",
+                    },
+                    onChange: (e) => {
+                      const sanitized = e.target.value
+                        .replace(/[^A-Za-z0-9_]/g, "")
+                        .replace(/^[0-9]+/, "");
+                      if (sanitized !== e.target.value) {
+                        e.target.value = sanitized;
+                      }
+                    },
                   })}
-                  onKeyDown={allowLettersNumbersUnderscoreKeyDown}
-                  readOnly
+                  onPaste={(e) => {
+                    if (!isCollectionNameEditable) return;
+                    const pasted = e.clipboardData.getData("text");
+                    const sanitized = pasted
+                      .replace(/[^A-Za-z0-9_]/g, "")
+                      .replace(/^[0-9]+/, "");
+                    if (sanitized !== pasted) {
+                      e.preventDefault();
+                      const target = e.target as HTMLInputElement;
+                      const newValue =
+                        target.value.slice(
+                          0,
+                          target.selectionStart ?? target.value.length,
+                        ) +
+                        sanitized +
+                        target.value.slice(
+                          target.selectionEnd ?? target.value.length,
+                        );
+                      setValue("entityName", newValue, {
+                        shouldValidate: true,
+                      });
+                    }
+                  }}
+                  onKeyDown={
+                    isCollectionNameEditable
+                      ? allowLettersNumbersUnderscoreKeyDown
+                      : undefined
+                  }
+                  readOnly={!isCollectionNameEditable}
                 />
                 {errors.entityName && (
                   <p className="mt-1 text-sm text-red-500">
@@ -277,11 +380,35 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
         open={isEditConfirmationModalOpen}
         onOpenChange={setIsEditConfirmationModalOpen}
       >
-        <ConfirmationModal
-          onCancel={() => {}}
-          onConfirm={handleEditConfirm}
-          data={editSchemaConfirmationModalData}
-        />
+        <DialogContent
+          className="mr-4 w-full max-w-[425px] rounded-md"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            (document.activeElement as HTMLElement | null)?.blur();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-left text-lg font-semibold leading-7">
+              <AlertCircle className="h-4 w-4 text-indigo-400" />
+              {editSchemaConfirmationModalData.dialogTitle}
+            </DialogTitle>
+            <DialogDescription className="mb-6 mt-2 break-words text-left text-sm font-normal leading-5 text-medium-emphasis">
+              {editSchemaConfirmationModalData.dialogSubtitle}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 flex flex-row gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditConfirmationModalOpen(false)}
+            >
+              {editSchemaConfirmationModalData.cancelButton || "Cancel"}
+            </Button>
+            <Button size="sm" onClick={handleEditConfirm}>
+              {editSchemaConfirmationModalData.confirmButton || "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </>
   );

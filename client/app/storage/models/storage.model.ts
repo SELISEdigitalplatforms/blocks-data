@@ -1,5 +1,10 @@
 // "Azure"
-export type StorageStrategyType = "Amazon" | "Azure" | "SftpStorage" | "S3Compatible";
+export type StorageStrategyType =
+  | "Amazon"
+  | "Azure"
+  | "SftpStorage"
+  | "S3Compatible"
+  | "AWS";
 
 export interface StorageStrategyOption {
   id: string;

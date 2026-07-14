@@ -3,6 +3,8 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Responses;
+using HotChocolate.Language;
+using HotChocolate.Resolvers;
 
 namespace DataGateway.DomainService.Helpers;
 
@@ -200,14 +202,30 @@ public static class MutationInputHelper
     }
 
     /// <summary>
-    /// Ensures OrganizationIds and Tags are non-null lists on insert.
+    /// Ensures OrganizationId and Tags are non-null lists on insert.
     /// </summary>
     public static void EnsureDefaultListsForInsert(Dictionary<string, object?> input)
     {
-        if (!input.ContainsKey(nameof(GraphQlBaseEntity.OrganizationIds)) || input[nameof(GraphQlBaseEntity.OrganizationIds)] is null)
-            input[nameof(GraphQlBaseEntity.OrganizationIds)] = new List<string>();
+        if (!input.ContainsKey(nameof(GraphQlBaseEntity.OrganizationId)) || input[nameof(GraphQlBaseEntity.OrganizationId)] is null)
+            input[nameof(GraphQlBaseEntity.OrganizationId)] = string.Empty;
         if (!input.ContainsKey(nameof(GraphQlBaseEntity.Tags)) || input[nameof(GraphQlBaseEntity.Tags)] is null)
             input[nameof(GraphQlBaseEntity.Tags)] = new List<string>();
+    }
+
+    /// <summary>Parses the mutation input from the resolver context.</summary>
+    public static Dictionary<string, object?> ParseMutationInput(IResolverContext context, InputObjectType inputType)
+    {
+        var inputLiteral = context.ArgumentLiteral<IValueNode>(GraphQlConstant.InputFieldName) as ObjectValueNode;
+        var input = new Dictionary<string, object?>();
+        input.MapMutationInput(inputLiteral, inputType);
+        return input;
+    }
+
+    /// <summary>Returns true if the request asks for hard delete.</summary>
+    public static bool IsHardDeleteRequested(IResolverContext context, InputObjectType inputType)
+    {
+        var input = ParseMutationInput(context, inputType);
+        return input.TryGetValue(GraphQlConstant.HardDeleteFieldName, out var value) && value is bool hardDelete && hardDelete;
     }
 
     /// <summary>Builds a standard "not found" action response for the given operation.</summary>

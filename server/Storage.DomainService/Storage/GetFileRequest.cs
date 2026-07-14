@@ -2,7 +2,7 @@
 
 namespace DomainService.Storage
 {
-    public class GetFileRequest : IProjectKey
+    public class GetFileRequest
     {
         /// <summary>
         /// command. FileId: String representing the file ID.
@@ -14,6 +14,5 @@ namespace DomainService.Storage
         public long? Version { get; set; }
 
         public string? ConfigurationName { get; set; } = null;
-        public string? ProjectKey { get ; set ; }
     }
 }

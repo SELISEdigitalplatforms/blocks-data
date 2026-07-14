@@ -1,30 +1,13 @@
 import { Menu } from "@/models/menu-models";
-import { Database, Folder, Globe, HardDrive, Home } from "lucide-react";
+import { Database, HardDrive, Home, Package } from "lucide-react";
 
 /** Sidebar: workspace overview and core services. */
 export const navigationMenus: Menu[] = [
   {
-    id: "workspace-label",
-    type: "label",
-    name: "WORKSPACE",
-  },
-  {
-    id: "project-label",
-    type: "label",
-    name: "PROJECT",
-    icon: Folder,
-  },
-  {
-    id: "environment-label",
-    type: "label",
-    name: "ENVIRONMENT",
-    icon: Globe,
-  },
-  {
-    id: "workspace-overview",
+    id: "overview-project",
     type: "menu",
     name: "Overview",
-    path: "/dashboard",
+    path: "/app/dashboard",
     icon: Home,
   },
   {
@@ -35,35 +18,21 @@ export const navigationMenus: Menu[] = [
     id: "service-data-gateway",
     type: "menu",
     name: "Data Gateway",
-    path: "/services/data-gateway",
+    path: "/app/data-gateway",
     icon: Database,
   },
   {
     id: "service-storage",
     type: "menu",
     name: "Storage",
-    path: "/services/storage",
+    path: "/app/storage",
     icon: HardDrive,
   },
-  // {
-  //   id: "people",
-  //   type: "menu",
-  //   name: "People",
-  //   path: "/project-overview/people",
-  //   icon: Users,
-  // },
-  // {
-  //   id: "repositories",
-  //   type: "menu",
-  //   name: "Repositories",
-  //   path: "/project-overview/repositories",
-  //   icon: BookMinus,
-  // },
-  // {
-  //   id: "settings",
-  //   type: "menu",
-  //   name: "Project Settings",
-  //   path: "/project-overview/settings",
-  //   icon: Settings,
-  // },
+  {
+    id: "environments",
+    type: "menu",
+    name: "Environments",
+    path: "/app/project/environments",
+    icon: Package,
+  },
 ];

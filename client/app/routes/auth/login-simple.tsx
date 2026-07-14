@@ -1,10 +1,18 @@
 import { BlocksLoginPage } from "@/components/blocks-login-page";
 import { showErrorToast } from "@/hooks/use-toast";
 import { getRuntimeEnv } from "@/lib/runtime-env";
-import { useState } from "react";
+import { useAuthStore } from "@seliseblocks/blocks-kit";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function LoginSimplePage() {
   const [isStarting, setIsStarting] = useState(false);
+  const { isAuthenticated } = useAuthStore();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isAuthenticated) navigate("/console", { replace: true });
+  }, [isAuthenticated, navigate]);
 
   const startLogin = async () => {
     try {

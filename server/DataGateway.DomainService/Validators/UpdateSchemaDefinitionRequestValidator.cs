@@ -12,10 +12,12 @@ public class UpdateSchemaDefinitionRequestValidator : AbstractValidator<UpdateSc
     private const string SchemaNameRequired = "Schema_Name_Is_Required.";
     private const string SchemaNameLength = "Schema_Name_Length_Must_Be_Between_1_And_50_Characters.";
     private const string SchemaNameInvalid = "Schema_Name_Invalid.";
+    private const string SchemaNameAllowedChars = "Schema_Name_May_Only_Contain_Letters_Numbers_And_Underscore_And_Cannot_Start_With_A_Number.";
 
     private const string CollectionNameRequired = "Collection_Name_Is_Required.";
     private const string CollectionNameLength = "Collection_Name_Length_Must_Be_Between_1_And_50_Characters.";
     private const string CollectionNameUnique = "Collection_Name_Must_Be_Unique.";
+    private const string CollectionNameAllowedChars = "Collection_Name_May_Only_Contain_Letters_Numbers_And_Underscore_And_Cannot_Start_With_A_Number.";
 
     private const string SchemaTypeRequired = "Schema_Type_Is_Required.";
     private const string SchemaTypeValid = "Schema_Type_Must_Be_Valid.";
@@ -36,7 +38,8 @@ public class UpdateSchemaDefinitionRequestValidator : AbstractValidator<UpdateSc
 
         RuleFor(x => x.SchemaName)
             .NotEmpty().WithMessage(SchemaNameRequired)
-            .Length(1, 50).WithMessage(SchemaNameLength);
+            .Length(1, 50).WithMessage(SchemaNameLength)
+            .Matches(SchemaValidatorHelper.NameAllowedPattern).WithMessage(SchemaNameAllowedChars);
 
         RuleFor(x => new { x.ItemId, x.SchemaName })
             .MustAsync(async (schemaDef, cancellation)
@@ -47,6 +50,8 @@ public class UpdateSchemaDefinitionRequestValidator : AbstractValidator<UpdateSc
                 .WithMessage(CollectionNameRequired)
             .Must((request, collectionName) => SchemaValidatorHelper.IsValidCollectionNameLength(collectionName, request.SchemaType))
                 .WithMessage(CollectionNameLength)
+            .Must((request, collectionName) => SchemaValidatorHelper.IsAllowedCollectionName(collectionName, request.SchemaType))
+                .WithMessage(CollectionNameAllowedChars)
             .MustAsync(async (request, collectionName, context, cancellation) =>
                 await IsValidCollectionName(collectionName, request.SchemaType, request.ItemId))
             .WithMessage(CollectionNameUnique);

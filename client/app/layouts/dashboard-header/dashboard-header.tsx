@@ -24,7 +24,7 @@ export function DashboardHeader() {
   });
   const projectName = selectedProject?.name;
   const environment = selectedProject?.environment;
-  const isProjectOverviewRoute = pathname.startsWith("/project-overview");
+  const isProjectOverviewRoute = pathname.startsWith("/project");
 
   useEffect(() => {
     if (
@@ -79,7 +79,7 @@ export function DashboardHeader() {
           <BackToConsoleNavigator />
           <ThemeSwitcher />
           <Notification />
-          <AppSwitcher forwardedTo="/dashboard" />
+          <AppSwitcher forwardedTo="/app/dashboard" />
           <UserDropdownMenu />
         </div>
       </header>

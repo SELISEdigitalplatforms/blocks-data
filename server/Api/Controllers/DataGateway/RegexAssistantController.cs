@@ -40,10 +40,12 @@ namespace BlocksTemplate.Api.Controllers
             }
 
             var regexPattern = await _regexAssistantService.GenerateRegexPattern(request);
+            var errorMessage = _regexAssistantService.GetLastErrorMessage();
 
             return StatusCode((int)HttpStatusCode.OK, new
             {
-                pattern = regexPattern
+                pattern = regexPattern,
+                errorMessage
             });
         }
     }

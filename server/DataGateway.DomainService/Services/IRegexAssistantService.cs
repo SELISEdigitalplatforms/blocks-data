@@ -4,5 +4,6 @@ namespace DataGateway.DomainService.Services.RegexAssistant
     {
         Task<string> GenerateRegexPattern(RegexAssistantRequest request);
         Task<string> AiCompletion(AiCompletionRequest request);
+        string GetLastErrorMessage();
     }
 }

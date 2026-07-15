@@ -2,6 +2,11 @@ import path from "path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // Use the automatic JSX runtime for the test transform. The app relies on
+  // `@vitejs/plugin-react` (vite.config.ts), but vitest.config.ts is standalone
+  // and doesn't load it; without this, esbuild falls back to the classic runtime
+  // and every .tsx test throws `React is not defined`.
+  esbuild: { jsx: "automatic" },
   test: {
     globals: true,
     environment: "jsdom",

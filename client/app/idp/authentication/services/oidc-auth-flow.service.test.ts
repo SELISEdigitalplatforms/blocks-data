@@ -20,6 +20,13 @@ vi.mock("@/hooks/use-toast", () => ({
   showErrorToast: vi.fn(),
 }));
 
+// The service builds URLs from getRuntimeEnv("BLOCKS_DATA_BASE_URL"); pin it so
+// full-URL assertions are deterministic. Literal must equal MOCK_API_BASE below
+// (vi.mock is hoisted, so the const cannot be referenced here).
+vi.mock("@/lib/runtime-env", () => ({
+  getRuntimeEnv: () => "https://api.blocks.test",
+}));
+
 const MOCK_API_BASE = "https://api.blocks.test";
 
 describe("oidc-auth-flow.service", () => {

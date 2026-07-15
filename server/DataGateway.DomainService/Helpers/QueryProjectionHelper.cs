@@ -2,6 +2,7 @@ using Blocks.Genesis;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using HotChocolate.Resolvers;
+using DataGateway.DomainService.Models.Constants;
 using MongoDB.Bson;
 
 namespace DataGateway.DomainService.Helpers;
@@ -107,5 +108,56 @@ public static class QueryProjectionHelper
         projection[fieldPath] = 1;
         if (!requestedFieldPaths.Contains(fieldPath))
             evaluationOnlyFieldPaths.Add(fieldPath);
+    }
+
+    /// <summary>
+    /// HotChocolate-free overload used by the REST gateway: builds the projection from an
+    /// explicit list of requested fields instead of a resolver context.
+    /// </summary>
+    public static BsonDocument BuildMongoProjectionWithCls(
+        IReadOnlyList<string>? requestedFields,
+        SchemaDefinitionExtended schema,
+        out HashSet<string> evaluationOnlyFieldPaths)
+    {
+        var projection = new BsonDocument();
+        evaluationOnlyFieldPaths = new HashSet<string>();
+
+        if (requestedFields is null || requestedFields.Count == 0)
+        {
+            foreach (var field in schema.Fields)
+                projection[field.Name] = 1;
+            projection[GraphQlConstant.DbEntityIdFieldName] = 1;
+        }
+        else
+        {
+            foreach (var field in requestedFields)
+            {
+                var projectionField = field == nameof(GraphQlBaseEntity.ItemId)
+                    ? GraphQlConstant.DbEntityIdFieldName
+                    : field;
+                projection[projectionField] = 1;
+            }
+        }
+
+        var requestedFieldPaths = projection.Names.ToHashSet();
+
+        if (RequestContextAccessor.Current.IsRequestFromBlocksCloud)
+            return projection;
+
+        var readClsPolicies = schema.Policies
+            .Where(p => p.PolicyType == PolicyType.CLS && p.Operation == PolicyOperation.READ)
+            .ToList();
+        var policiesRelevantToProjection = readClsPolicies
+            .Where(policy => PolicyCoversAnyRequestedField(policy, requestedFieldPaths))
+            .ToList();
+
+        foreach (var policy in policiesRelevantToProjection)
+        {
+            EnsureProtectedFieldsInProjection(projection, policy.FieldNames);
+            if (policy.RuleGroup != null)
+                AddRuleOperandFieldsToProjection(policy.RuleGroup, projection, requestedFieldPaths, evaluationOnlyFieldPaths);
+        }
+
+        return projection;
     }
 }

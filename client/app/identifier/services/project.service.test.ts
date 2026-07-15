@@ -113,8 +113,7 @@ describe("ProjectService", () => {
 
       expect(http.post).toHaveBeenCalledWith(
         PROJECT_ENDPOINTS.ADD_ASSET,
-        payload,
-      );
+        payload, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockSuccessResponse);
     });
 
@@ -148,8 +147,7 @@ describe("ProjectService", () => {
 
       expect(http.post).toHaveBeenCalledWith(
         CLOUD_BUILD_ENDPOINTS.REPO_UPDATE,
-        payload,
-      );
+        payload, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockSuccessResponse);
     });
 
@@ -175,8 +173,7 @@ describe("ProjectService", () => {
       const result = await service.getProject({ projectId: "proj-123" });
 
       expect(http.get).toHaveBeenCalledWith(
-        `${PROJECT_ENDPOINTS.GET}?projectId=proj-123`,
-      );
+        `${PROJECT_ENDPOINTS.GET}?projectId=proj-123`, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockGetProjectResponse);
     });
 
@@ -205,7 +202,7 @@ describe("ProjectService", () => {
       };
       const result = await service.createProject(payload);
 
-      expect(http.post).toHaveBeenCalledWith(PROJECT_ENDPOINTS.CREATE, payload);
+      expect(http.post).toHaveBeenCalledWith(PROJECT_ENDPOINTS.CREATE, payload, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockCreateProjectResponse);
     });
 
@@ -236,8 +233,7 @@ describe("ProjectService", () => {
 
       expect(http.post).toHaveBeenCalledWith(
         DOMAIN_ENDPOINTS.CONFIGURE,
-        payload,
-      );
+        payload, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockValidateCNameResponse);
     });
 
@@ -271,7 +267,7 @@ describe("ProjectService", () => {
       };
       const result = await service.updateProject(payload);
 
-      expect(http.post).toHaveBeenCalledWith(PROJECT_ENDPOINTS.UPDATE, payload);
+      expect(http.post).toHaveBeenCalledWith(PROJECT_ENDPOINTS.UPDATE, payload, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockUpdateProjectResponse);
     });
 
@@ -331,8 +327,7 @@ describe("ProjectService", () => {
 
       expect(http.post).toHaveBeenCalledWith(
         PROJECT_ENDPOINTS.DISABLE,
-        payload,
-      );
+        payload, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockDisableProjectResponse);
     });
 
@@ -354,8 +349,7 @@ describe("ProjectService", () => {
       const result = await service.getProjectLoginOption();
 
       expect(http.get).toHaveBeenCalledWith(
-        PROJECT_ENDPOINTS.GET_LOGIN_OPTIONS,
-      );
+        PROJECT_ENDPOINTS.GET_LOGIN_OPTIONS, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockLoginOptionsResponse);
     });
 
@@ -384,8 +378,7 @@ describe("ProjectService", () => {
 
       expect(http.post).toHaveBeenCalledWith(
         MIGRATION_ENDPOINTS.MIGRATE,
-        payload,
-      );
+        payload, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockMigrationInitiateResponse);
     });
 
@@ -417,8 +410,7 @@ describe("ProjectService", () => {
 
       expect(http.post).toHaveBeenCalledWith(
         MIGRATION_ENDPOINTS.VERIFY,
-        payload,
-      );
+        payload, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockMigrationVerifyResponse);
     });
 
@@ -480,8 +472,7 @@ describe("ProjectService", () => {
 
       expect(http.post).toHaveBeenCalledWith(
         PROJECT_ENDPOINTS.UPDATE_TOKEN_VALIDATION,
-        payload,
-      );
+        payload, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockUpdateProjectResponse);
     });
 
@@ -514,8 +505,7 @@ describe("ProjectService", () => {
         await service.getPublicCertificateInformation("proj-key-1");
 
       expect(http.get).toHaveBeenCalledWith(
-        `${PROJECT_ENDPOINTS.GET_TOKEN_VALIDATION}?ProjectKey=proj-key-1`,
-      );
+        `${PROJECT_ENDPOINTS.GET_TOKEN_VALIDATION}?ProjectKey=proj-key-1`, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockPublicCertificateResponse);
     });
 
@@ -649,8 +639,7 @@ describe("ProjectService", () => {
       const result = await service.getJwtClaim(payload);
 
       expect(http.get).toHaveBeenCalledWith(
-        `${PROJECT_ENDPOINTS.GET_JWT_CLAIMS}?ProjectKey=proj-key&ItemId=item-1`,
-      );
+        `${PROJECT_ENDPOINTS.GET_JWT_CLAIMS}?ProjectKey=proj-key&ItemId=item-1`, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockResponse);
     });
 
@@ -683,8 +672,7 @@ describe("ProjectService", () => {
 
       expect(http.post).toHaveBeenCalledWith(
         PROJECT_ENDPOINTS.SAVE_JWT_CLAIMS,
-        payload,
-      );
+        payload, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockSuccessResponse);
     });
 
@@ -715,8 +703,7 @@ describe("ProjectService", () => {
       const result = await service.getSubscriptionUsage("proj-key-1");
 
       expect(http.get).toHaveBeenCalledWith(
-        `${SUBSCRIPTION_ENDPOINTS.GETS}?projectKey=proj-key-1`,
-      );
+        `${SUBSCRIPTION_ENDPOINTS.GETS}?projectKey=proj-key-1`, undefined, { absoluteUrl: true });
       expect(result).toEqual(mockGetSubscriptionUsageResponse);
     });
 

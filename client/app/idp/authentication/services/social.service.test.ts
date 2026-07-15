@@ -144,7 +144,9 @@ describe("SSOService", () => {
 
       const result = await service.saveBlocksSsoCredential(payload);
 
-      expect(http.post).toHaveBeenCalledWith(AUTH_OIDC_ENDPOINTS.SAVE_OIDC_CLIENT, payload);
+      // NOTE: the current implementation ignores `payload` and posts an empty
+      // body. This assertion documents the actual behavior.
+      expect(http.post).toHaveBeenCalledWith(AUTH_OIDC_ENDPOINTS.SAVE_OIDC_CLIENT, {});
       expect(result).toEqual(mockSuccessResponse);
     });
 

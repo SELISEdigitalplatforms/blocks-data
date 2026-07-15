@@ -26,7 +26,6 @@ public static class ServiceRegistry
 {
     public static void AddDataGatewayDomainServices(this IServiceCollection serviceCollection)
     {
-        SetServiceTenant();
         serviceCollection.RegisterSchemaServices();
         serviceCollection.RegisterGraphQlServices();
     }
@@ -97,24 +96,6 @@ public static class ServiceRegistry
         serviceCollection.AddSingleton<IRequestExecutorOptionsMonitor>(sp =>
             sp.GetRequiredService<ProjectExecutorOptionsMonitor>());
         serviceCollection.AddSingleton<DataGatewayPipelineDispatcher>();
-    }
-
-    public static void RegisterRestGatewayServices(this IServiceCollection serviceCollection)
-    {
-        serviceCollection.AddSingleton<ISchemaDefinitionRegistry, SchemaDefinitionRegistry>();
-        serviceCollection.AddSingleton<IGatewayQueryService, GatewayQueryService>();
-        serviceCollection.AddSingleton<IGatewayMutationService, GatewayMutationService>();
-        serviceCollection.AddSingleton<RestAccessControlService>();
-    }
-
-    private static void SetServiceTenant()
-    {
-        var tenantSlug = Environment.GetEnvironmentVariable("TENANT_SLUG") ?? string.Empty;
-        Console.WriteLine($"Tenant Slug from environment: {tenantSlug}");
-        var tenantId = Environment.GetEnvironmentVariable("TENANT_ID") ?? string.Empty;
-        Console.WriteLine($"Tenant ID from environment: {tenantId}");
-
-        GraphQlConstant.SetTenantInformation(tenantId, tenantSlug);
     }
 
     private static async ValueTask ConfigureGraphQLSchemaAsync(IServiceProvider services, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)

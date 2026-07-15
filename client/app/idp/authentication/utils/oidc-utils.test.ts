@@ -93,6 +93,83 @@ describe("oidc-utils", () => {
       const params = extractOIDCParams();
       expect(params.clientId).toBe("from-query");
     });
+
+    it("recovers brandColor from the raw URL when the query parser misses it", () => {
+      Object.defineProperty(window, "location", {
+        value: {
+          // search intentionally empty so searchParams.get('brandColor') is null,
+          // forcing the [?&]brandColor= regex fallback against the raw href.
+          search: "",
+          hash: "",
+          href: "http://localhost:3000/oidc/login?brandColor=00ff00",
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const params = extractOIDCParams();
+      expect(params.themeColor).toBe("#00ff00");
+    });
+
+    it("handles a bare hex-color hash with no trailing '&' segment", () => {
+      Object.defineProperty(window, "location", {
+        value: {
+          search: "",
+          hash: "#abcdef",
+          href: "http://localhost:3000/oidc/login#abcdef",
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const params = extractOIDCParams();
+      expect(params.themeColor).toBe("#abcdef");
+    });
+
+    it("recovers logoUrl from the raw URL when it is not in query or hash", () => {
+      Object.defineProperty(window, "location", {
+        value: {
+          search: "",
+          hash: "",
+          href: "http://localhost:3000/oidc/login?a=b&logoUrl=https%3A%2F%2Fcdn.test.com%2Fl.png",
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const params = extractOIDCParams();
+      expect(params.logoUrl).toBe("https://cdn.test.com/l.png");
+    });
+
+    it("falls back to the default theme color for a lone ampersand brandColor", () => {
+      Object.defineProperty(window, "location", {
+        value: {
+          search: "?brandColor=%26",
+          hash: "",
+          href: "http://localhost:3000/oidc/login?brandColor=%26",
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const params = extractOIDCParams();
+      expect(params.themeColor).toBe("#124091");
+    });
+
+    it("decodes a multiply-encoded logoUrl carried in the query string", () => {
+      Object.defineProperty(window, "location", {
+        value: {
+          search: "?logoUrl=https%253A%252F%252Fcdn.test.com%252Fx.png",
+          hash: "",
+          href: "http://localhost:3000/oidc/login?logoUrl=https%253A%252F%252Fcdn.test.com%252Fx.png",
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      const params = extractOIDCParams();
+      expect(params.logoUrl).toBe("https://cdn.test.com/x.png");
+    });
   });
 
   // ─── buildOIDCNavigationUrl ─────────────────────────────────────────────────

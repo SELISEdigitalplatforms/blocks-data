@@ -28,6 +28,9 @@ import {
   useAddRolesAndPermissionToUser,
   useGetUserRoles,
   useGetUserPermissions,
+  useUserRoles,
+  useUserPermissions,
+  useGetMe,
 } from "./use-user";
 
 vi.mock("@blocks-idp/iam/services/user.service", () => mockUserServiceFactory());
@@ -186,6 +189,157 @@ describe("use-user hooks", () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(result.current.data).toEqual(mockResponse);
       expect(userService.getUserPermissions).toHaveBeenCalledWith(mockGetUserRolesPayload);
+    });
+  });
+
+  describe("useUpdateUser (own vs foreign invalidation)", () => {
+    it("invalidates the current-user query when own=true", async () => {
+      vi.mocked(userService.updateUser).mockResolvedValue(undefined as never);
+
+      const { result } = renderHook(
+        () => useUpdateUser({ id: MOCK_USER_ITEM_ID, projectKey: TEST_PROJECT_KEY, own: true }),
+        { wrapper: createWrapper() },
+      );
+
+      result.current.mutate(mockUpdateUserPayload);
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(userService.updateUser).toHaveBeenCalled();
+    });
+  });
+
+  describe("useAddRolesAndPermissionToUser (role branch)", () => {
+    it("invalidates user-roles when type is 'role'", async () => {
+      vi.mocked(userService.saveRolesAndPermissions).mockResolvedValue(undefined as never);
+
+      const { result } = renderHook(() => useAddRolesAndPermissionToUser("role"), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate(mockSaveRolesAndPermissionsPayload);
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(userService.saveRolesAndPermissions).toHaveBeenCalled();
+    });
+  });
+
+  describe("useUserRoles", () => {
+    const byIdResponse = {
+      data: { itemId: MOCK_USER_ITEM_ID },
+      roles: [{ slug: "admin" }, { slug: "editor" }],
+      permissions: [],
+      errors: null,
+    };
+
+    it("exposes current role slugs and adds new roles via mutate", async () => {
+      vi.mocked(userService.getUserById).mockResolvedValue(byIdResponse as never);
+      vi.mocked(userService.updateUser).mockResolvedValue(undefined as never);
+
+      const { result } = renderHook(
+        () => useUserRoles({ id: MOCK_USER_ITEM_ID, projectKey: TEST_PROJECT_KEY }),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.slugs).toEqual(["admin", "editor"]));
+      expect(result.current.roles).toHaveLength(2);
+
+      await result.current.addRoles(["viewer"]);
+      await waitFor(() =>
+        expect(userService.updateUser).toHaveBeenCalledWith(
+          expect.objectContaining({
+            itemId: MOCK_USER_ITEM_ID,
+            projectKey: TEST_PROJECT_KEY,
+            roles: ["admin", "editor", "viewer"],
+          }),
+          expect.anything(),
+        ),
+      );
+    });
+
+    it("removes roles via deleteRoles", async () => {
+      vi.mocked(userService.getUserById).mockResolvedValue(byIdResponse as never);
+      vi.mocked(userService.updateUser).mockResolvedValue(undefined as never);
+
+      const { result } = renderHook(
+        () => useUserRoles({ id: MOCK_USER_ITEM_ID, projectKey: TEST_PROJECT_KEY }),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.slugs).toEqual(["admin", "editor"]));
+
+      await result.current.deleteRoles(["admin"]);
+      await waitFor(() =>
+        expect(userService.updateUser).toHaveBeenCalledWith(
+          expect.objectContaining({ roles: ["editor"] }),
+          expect.anything(),
+        ),
+      );
+    });
+  });
+
+  describe("useUserPermissions", () => {
+    const byIdResponse = {
+      data: { itemId: MOCK_USER_ITEM_ID },
+      roles: [],
+      permissions: [{ resource: "read" }, { resource: "write" }],
+      errors: null,
+    };
+
+    it("exposes resources and adds new permissions", async () => {
+      vi.mocked(userService.getUserById).mockResolvedValue(byIdResponse as never);
+      vi.mocked(userService.updateUser).mockResolvedValue(undefined as never);
+
+      const { result } = renderHook(
+        () => useUserPermissions({ userId: MOCK_USER_ITEM_ID, projectKey: TEST_PROJECT_KEY }),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.resources).toEqual(["read", "write"]));
+      expect(result.current.permissions).toHaveLength(2);
+
+      await result.current.addPermissions(["delete"]);
+      await waitFor(() =>
+        expect(userService.updateUser).toHaveBeenCalledWith(
+          expect.objectContaining({
+            itemId: MOCK_USER_ITEM_ID,
+            permissions: ["read", "write", "delete"],
+          }),
+          expect.anything(),
+        ),
+      );
+    });
+
+    it("removes permissions via deletePermissions", async () => {
+      vi.mocked(userService.getUserById).mockResolvedValue(byIdResponse as never);
+      vi.mocked(userService.updateUser).mockResolvedValue(undefined as never);
+
+      const { result } = renderHook(
+        () => useUserPermissions({ userId: MOCK_USER_ITEM_ID, projectKey: TEST_PROJECT_KEY }),
+        { wrapper: createWrapper() },
+      );
+
+      await waitFor(() => expect(result.current.resources).toEqual(["read", "write"]));
+
+      await result.current.deletePermissions(["read"]);
+      await waitFor(() =>
+        expect(userService.updateUser).toHaveBeenCalledWith(
+          expect.objectContaining({ permissions: ["write"] }),
+          expect.anything(),
+        ),
+      );
+    });
+  });
+
+  describe("useGetMe", () => {
+    it("fetches the current identity and stores it", async () => {
+      const meResponse = { data: mockUser };
+      // me() is not part of the shared factory; attach it to the mocked service.
+      (userService as unknown as { me: ReturnType<typeof vi.fn> }).me = vi
+        .fn()
+        .mockResolvedValue(meResponse);
+
+      const { result } = renderHook(() => useGetMe(), { wrapper: createWrapper() });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(mockSetUser).toHaveBeenCalledWith(mockUser);
     });
   });
 });

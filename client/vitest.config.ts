@@ -8,7 +8,6 @@ export default defineConfig({
     setupFiles: ["./app/test-utils/setup.ts"],
     include: ["app/**/*.test.ts", "app/**/*.test.tsx"],
     coverage: {
-      all: true,
       provider: "v8",
       reporter: ["text-summary", "text"],
       include: ["app/**/*.{ts,tsx}"],

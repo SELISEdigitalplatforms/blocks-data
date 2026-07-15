@@ -1,11 +1,20 @@
 import { getRuntimeEnv } from "@/lib/runtime-env";
 
-const DEFAULT_GRAPHQL_GATEWAY_ORIGIN =
-  "https://dev-api.blocksdevelopers.com" as const;
+const DEFAULT_GRAPHQL_GATEWAY_ORIGIN = "https://data.seliseblocks.com" as const;
 const DEFAULT_BLOCKS_LOGIC_SITE_ORIGIN =
-  "https://dev-logic.blocksdevelopers.com" as const;
+  "https://logic.seliseblocks.com" as const;
 
 const trimTrailingSlash = (value: string) => value.replace(/\/$/, "");
+const tryGetOrigin = (value: string): string => {
+  const normalized = trimTrailingSlash(value.trim());
+  if (!normalized) return "";
+
+  try {
+    return new URL(normalized).origin;
+  } catch {
+    return "";
+  }
+};
 
 const GRAPHQL_GATEWAY_ORIGINS: Record<string, string> = {
   dev: "https://dev-api.blocksdevelopers.com",
@@ -73,6 +82,10 @@ export const API_BASES = {
 
 /** GraphQL gateway host (execute / reload / ping). Override with `BLOCKS_GRAPHQL_GATEWAY_ORIGIN`; otherwise resolved from env/domain. */
 export const getGraphqlGatewayExecuteOrigin = (): string => {
+  // Keep gateway aligned with runtime API host (e.g., stg-data) when dedicated env is not provided.
+  const fromApiBase = tryGetOrigin(getRuntimeEnv("BLOCKS_DATA_BASE_URL"));
+  if (fromApiBase) return fromApiBase;
+
   const fromEnv = trimTrailingSlash(
     getRuntimeEnv("BLOCKS_GRAPHQL_GATEWAY_ORIGIN").trim(),
   );

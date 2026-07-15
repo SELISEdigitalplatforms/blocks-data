@@ -34,6 +34,19 @@ public static class GraphQlConstant
 
     public const int MaxNestedLevelIterationLimit = 3;
 
+    public static string TenantId { get; private set; } = string.Empty;
+    public static string TenantSlug { get; private set; } = string.Empty;
+
+    public static void SetAsTenantId(this string tenantId)
+    {
+        TenantId = tenantId;
+    }
+    public static void SetTenantInformation(string tenantId, string tenantSlug)
+    {
+        TenantId = tenantId;
+        TenantSlug = tenantSlug;
+    }
+
     public static MessageConfiguration GetMessageConfiguration(string messageConnectionString)
     {
         var provider = GetProvider(messageConnectionString);

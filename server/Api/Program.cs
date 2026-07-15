@@ -1,6 +1,5 @@
 using Blocks.Genesis;
 using BlocksTemplate.Api;
-using BlocksTemplate.Api.Filters;
 using DataGateway.DomainService;
 using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Middlewares;
@@ -60,13 +59,7 @@ cloudSecret.ChatGptEncryptedSecret = builder.Configuration["ChatGptEncryptedSecr
 cloudSecret.ChatGptEncryptionKey = builder.Configuration["ChatGptEncryptionKey"];
 
 services.AddDataGatewayDomainServices();
-services.RegisterRestGatewayServices();
 services.AddStorageDomainServices();
-
-builder.Services.Configure<MvcOptions>(opts =>
-{
-    opts.Filters.Add<GatewayExceptionFilter>();
-});
 
 var app = builder.Build();
 

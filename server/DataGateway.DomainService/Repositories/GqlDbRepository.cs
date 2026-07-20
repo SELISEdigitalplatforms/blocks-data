@@ -193,7 +193,7 @@ public class GqlDbRepository : IGqlDbRepository
 
         var database = (string.IsNullOrWhiteSpace(connectionString)
             ? _dbContextProvider.GetDatabase(tenantId)
-            : _dbContextProvider.GetDatabase(connectionString, dbName))!;
+            : _dbContextProvider.GetDatabase(connectionString, dbName, true))!;
 
         // if (database == null)
         // {

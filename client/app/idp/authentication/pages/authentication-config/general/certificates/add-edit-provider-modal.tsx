@@ -21,7 +21,7 @@ import { Label } from "@/components/ui-kits/label/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui-kits/radio-group/radio-group";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { IGetPublicCertificateResponse } from "@/identifier/models/project.model";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 import { providers } from "@blocks-idp/authentication/constants/authentication.constant";
 import {
   useSavePublicCertificates,

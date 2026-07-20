@@ -12,7 +12,7 @@ import { Input } from "@/components/ui-kits/input/input";
 import { showErrorToast } from "@/hooks/use-toast";
 import { useOIDCContext } from "@/layouts/oidc-layout";
 import { getApiUrl } from "@/lib/get-api-path";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/use-auth-store";
 import {
   ISigninByEmailPayload,
   ISigninByEmailResponse,

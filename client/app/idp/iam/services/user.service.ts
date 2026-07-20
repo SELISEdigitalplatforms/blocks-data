@@ -31,7 +31,7 @@ import {
 } from "@blocks-idp/iam/models/user";
 import { USER_ENDPOINTS } from "../constants/endpoint.constant";
 import { UserAccountService } from "./account.service";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/use-auth-store";
 import { useQuery } from "@tanstack/react-query";
 
 export class UserService {

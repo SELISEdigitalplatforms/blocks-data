@@ -1,4 +1,5 @@
-﻿using DomainService.Storage;
+﻿using Blocks.Genesis;
+using DomainService.Storage;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Services;
 
@@ -18,6 +19,7 @@ namespace Api.Controllers
         }
 
         [HttpPost]
+        [ProtectedEndPoint("blocks-data::upload-certificate")]
         public async Task<IActionResult> UploadCertificate(UploadCertificateRequest uploadCertificateRequest)
         {
             var downloadUrl = await _fileManagementService.UploadPublicCertificateAsync(uploadCertificateRequest);

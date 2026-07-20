@@ -2,7 +2,7 @@ using System;
 
 namespace DataGateway.DomainService.Models;
 
-public class DataServiceConfigurationResponse
+public class DataGatewayConfigurationResponse
 {
     public string DbConnectionString { get; set; } = string.Empty;
     public bool IsCollectionNameEditable { get; set; }
@@ -12,4 +12,12 @@ public class DataServiceConfigurationResponse
     public string ProjectShortKey { get; set; } = string.Empty;
     public string? ItemId { get; set; } = default!;
 
+}
+
+/// <summary>
+/// Deprecated alias kept for backward compatibility.
+/// </summary>
+[Obsolete("Renamed to DataGatewayConfigurationResponse.")]
+public class DataServiceConfigurationResponse : DataGatewayConfigurationResponse
+{
 }

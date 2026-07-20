@@ -25,7 +25,7 @@ vi.mock("@/identifier/services/people.service", () => ({
 }));
 
 const mockUseProjectStore = vi.fn(() => ({ selectedTenantGroup: "group-1" }));
-vi.mock("@/store/useProjectStore", () => ({
+vi.mock("@/store/use-project-store", () => ({
   useProjectStore: () => mockUseProjectStore(),
 }));
 

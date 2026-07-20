@@ -14,7 +14,7 @@ import {
 } from "../../test-utils/__mocks__";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { useImpersonateStore } from "@/store/impersonate-store";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/use-auth-store";
 import { impersonationService } from "@/services/impersonation.service";
 
 vi.mock("@/lib/http-client", () => mockHttpClientFactory());
@@ -22,7 +22,7 @@ vi.mock("@/lib/runtime-env", () => ({ getRuntimeEnv: vi.fn(() => "") }));
 vi.mock("@/store/impersonate-store", () => ({
   useImpersonateStore: { getState: vi.fn(() => ({ isImpersonated: false })) },
 }));
-vi.mock("@/store/useAuthStore", () => ({
+vi.mock("@/store/use-auth-store", () => ({
   useAuthStore: { getState: vi.fn(() => ({ refreshToken: "rt-123" })) },
 }));
 vi.mock("@/services/impersonation.service", () => ({

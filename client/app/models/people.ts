@@ -33,7 +33,12 @@ export interface SharedEnvironment {
   isInvitationSent: boolean;
   isInvitationConfirmed: boolean;
   isCreator: boolean;
-  enviroment: string; // Note: API has typo "enviroment" instead of "environment"
+  /**
+   * @deprecated The API historically emits the misspelled key `enviroment`.
+   * Read `environment` instead; this is kept so existing payloads still bind.
+   */
+  enviroment?: string;
+  environment?: string;
 }
 
 export interface PeopleDetails {
@@ -48,7 +53,11 @@ export interface PeopleDetails {
 
 export interface PeopleGroupedByEnvironments {
   peopleDetails: PeopleDetails;
-  sharedEnviroments: SharedEnvironment[];
+  /**
+   * @deprecated Misspelled wire key; use `sharedEnvironments`. Kept so existing payloads still bind.
+   */
+  sharedEnviroments?: SharedEnvironment[];
+  sharedEnvironments?: SharedEnvironment[];
 }
 
 // Legacy interface for backward compatibility

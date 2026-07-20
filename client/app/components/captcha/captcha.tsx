@@ -1,7 +1,7 @@
 
 
-import { ReCaptcha } from "./reCaptcha";
-import { HCaptcha } from "./hCaptcha";
+import { ReCaptcha } from "./re-captcha";
+import { HCaptcha } from "./h-captcha";
 import { CaptchaProps, CaptchaRef } from "./index.type";
 import { forwardRef } from "react";
 

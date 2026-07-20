@@ -96,7 +96,7 @@ namespace DataGateway.DomainService.Services.RegexAssistant
                     return null;
                 }
 
-                var encryptedSecret = await GetEncryptedSecret();
+                var encryptedSecret = await GetEncryptedSecretAsync();
                 if (string.IsNullOrEmpty(encryptedSecret))
                 {
                     _logger.LogError("ChatGPT encrypted secret is not configured in vault. Please configure 'ChatGptEncryptedSecret' and 'ChatGptEncryptionKey' in Azure Vault.");
@@ -152,7 +152,7 @@ namespace DataGateway.DomainService.Services.RegexAssistant
             return null;
         }
 
-        private async Task<string> GetEncryptedSecret()
+        private async Task<string> GetEncryptedSecretAsync()
         {
             return _cloudBuildSecret.ChatGptEncryptedSecret;
         }

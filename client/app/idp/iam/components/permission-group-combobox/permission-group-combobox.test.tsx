@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 const useGetResourceGroupMock = vi.fn();
 
-vi.mock("@/store/useProjectStore", () => ({
+vi.mock("@/store/use-project-store", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-1" } }),
 }));
 

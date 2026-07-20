@@ -23,7 +23,7 @@ public class DataAccessService : IDataAccessService
         _schemaChangeLogService = schemaChangeLogService;
     }
 
-    public async Task<ServiceResponse<ActionResponse>> ConfigureSecurity(ConfigureSchemaSecurityRequest request)
+    public async Task<ServiceResponse<ActionResponse>> ConfigureSecurityAsync(ConfigureSchemaSecurityRequest request)
     {
         var validationResult = await _requestValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
@@ -53,7 +53,7 @@ public class DataAccessService : IDataAccessService
         return new ServiceResponse<ActionResponse>().SetSuccessMessage("CONFIGURATION_SAVED");
     }
 
-    public async Task<ServiceResponse<ActionResponse>> CreateDataAccessPolicy(CreateDataAccessPolicyRequest request)
+    public async Task<ServiceResponse<ActionResponse>> CreateDataAccessPolicyAsync(CreateDataAccessPolicyRequest request)
     {
         var validationResult = await _requestValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
@@ -85,7 +85,7 @@ public class DataAccessService : IDataAccessService
         };
         policy.InjectDefaultValue();
         await _dbRepository.InsertAsync(policy);
-        await ChangeSchemaFieldAccessLevelWhenCustomPolicyApplied(schema, policy);
+        await ChangeSchemaFieldAccessLevelWhenCustomPolicyAppliedAsync(schema, policy);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaPolicyCreate);
         return response.SetSuccess(new ActionResponse
         {
@@ -95,7 +95,7 @@ public class DataAccessService : IDataAccessService
         }).SetSuccessMessage("Data_Access_Policy_Saved_Successfully");
     }
 
-    public async Task<ServiceResponse<ActionResponse>> UpdateDataAccessPolicy(UpdateDataAccessPolicyRequest request)
+    public async Task<ServiceResponse<ActionResponse>> UpdateDataAccessPolicyAsync(UpdateDataAccessPolicyRequest request)
     {
         var validationResult = await _requestValidator.ValidateAsync(request);
         if (!validationResult.IsValid)
@@ -126,7 +126,7 @@ public class DataAccessService : IDataAccessService
         policy.IsAllowPolicy = request.IsAllowPolicy ?? policy.IsAllowPolicy;
         policy.ReferencePolicyId = string.Empty;
         await _dbRepository.UpdateAsync(filter, policy);
-        await ChangeSchemaFieldAccessLevelWhenCustomPolicyApplied(schema, policy);
+        await ChangeSchemaFieldAccessLevelWhenCustomPolicyAppliedAsync(schema, policy);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(policy.ItemId, SchemaChangeType.SchemaPolicyUpdate);
         return response.SetSuccess(new ActionResponse
         {
@@ -135,7 +135,7 @@ public class DataAccessService : IDataAccessService
             TotalImpactedData = 1
         }).SetSuccessMessage("Data_Access_Policy_Updated_Successfully");
     }
-    public async Task<ServiceResponse<ActionResponse>> DeleteDataAccessPolicy(string itemId)
+    public async Task<ServiceResponse<ActionResponse>> DeleteDataAccessPolicyAsync(string itemId)
     {
         var response = new ServiceResponse<ActionResponse>();
         var filter = Builders<DataAccessPolicy>.Filter.Eq(x => x.ItemId, itemId);
@@ -154,7 +154,7 @@ public class DataAccessService : IDataAccessService
             TotalImpactedData = 1
         }).SetSuccessMessage("Data_Access_Policy_Deleted_Successfully");
     }
-    public async Task<ServiceResponse<List<DataAccessPolicyResponse>>> GetEntityDataAccessPolicy(string entityName)
+    public async Task<ServiceResponse<List<DataAccessPolicyResponse>>> GetEntityDataAccessPolicyAsync(string entityName)
     {
         var response = new ServiceResponse<List<DataAccessPolicyResponse>>();
         var filter = Builders<DataAccessPolicy>.Filter.Eq(x => x.SchemaName, entityName);
@@ -213,7 +213,7 @@ public class DataAccessService : IDataAccessService
         }
     }
 
-    private async Task ChangeSchemaFieldAccessLevelWhenCustomPolicyApplied(SchemaDefinition schema, DataAccessPolicy policy)
+    private async Task ChangeSchemaFieldAccessLevelWhenCustomPolicyAppliedAsync(SchemaDefinition schema, DataAccessPolicy policy)
     {
         if (policy.PolicyType == PolicyType.RLS)
             return;

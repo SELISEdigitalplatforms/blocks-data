@@ -10,7 +10,7 @@ vi.mock("@blocks-idp/iam/hooks/use-roles", () => ({
   useAddRole: () => ({ mutateAsync: mutateAsyncMock, isPending: false }),
 }));
 
-vi.mock("@/store/useProjectStore", () => ({
+vi.mock("@/store/use-project-store", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-1" } }),
 }));
 

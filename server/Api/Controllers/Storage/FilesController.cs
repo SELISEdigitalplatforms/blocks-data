@@ -120,12 +120,19 @@ namespace Api.Controllers
 
         [HttpPost]
         [ProtectedEndPoint("blocks-data::update-file-additional-info")]
-        public async Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
+        public async Task<IActionResult> UpdateFileAdditionalInfo([FromBody] UpdateFileRequest command)
         {
             if (command == null) return BadRequest();
             var result = await _fileManagementService.UpdateFileAsync(command);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
+
+        // Deprecated: use /Files/UpdateFileAdditionalInfo. Kept so the leaked camelCase URL keeps working.
+        [Obsolete("Renamed to UpdateFileAdditionalInfo.")]
+        [HttpPost]
+        [ProtectedEndPoint("blocks-data::update-file-additional-info")]
+        public Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
+            => UpdateFileAdditionalInfo(command);
 
         [HttpPost]
         [ProtectedEndPoint("blocks-data::get-dms-file-and-folder")]

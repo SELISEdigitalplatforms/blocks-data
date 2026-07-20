@@ -14,7 +14,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { showErrorToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
 import { getRuntimeEnv } from "@/lib/runtime-env";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/use-auth-store";
 import { useSigninByEmail } from "@blocks-idp/authentication/hooks/use-auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";

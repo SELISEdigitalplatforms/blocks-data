@@ -7,7 +7,7 @@ import { useGetMe } from "@/idp/iam/hooks/use-user";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { ImpersonationRequest } from "@/services/impersonation.service";
 import { useImpersonateStore } from "@/store/impersonate-store";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/use-auth-store";
 import { useProjectStore } from "@seliseblocks/blocks-kit";
 import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";

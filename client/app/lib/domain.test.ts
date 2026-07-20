@@ -21,9 +21,21 @@ describe("isValidDomain", () => {
 });
 
 describe("isValidSubdomain", () => {
-  it("validates each dotted label", () => {
+  it("accepts scheme-prefixed single- and multi-label hosts", () => {
     expect(isValidSubdomain("https://foo")).toBe(true);
+    expect(isValidSubdomain("https://app.example.com")).toBe(true);
+    expect(isValidSubdomain("https://a.b.c.example.com")).toBe(true);
+    expect(isValidSubdomain("http://app.example.com")).toBe(true);
+  });
+
+  it("trims surrounding whitespace before validating", () => {
+    expect(isValidSubdomain("  https://app.example.com  ")).toBe(true);
+  });
+
+  it("rejects empty, missing-scheme, and trailing-dot input", () => {
     expect(isValidSubdomain("")).toBe(false);
+    expect(isValidSubdomain("app.example.com")).toBe(false); // missing scheme
+    expect(isValidSubdomain("https://app.example.com.")).toBe(false); // trailing dot
   });
 });
 

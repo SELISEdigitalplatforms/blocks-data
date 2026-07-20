@@ -66,6 +66,9 @@ export const BLOCKS_LOGIC_SITE_ORIGIN = resolveBlocksLogicSiteOrigin();
 export const API_BASES = {
   COMMUNICATION: "/api",
   CLOUD_CONFIGURATION: "/api",
+  /** Canonical base for Blocks Data (Data Gateway + Storage). Replaces the retired "UDS" name. */
+  BLOCKS_DATA: "/api",
+  /** @deprecated "Unified Data Service (UDS)" is retired; use `BLOCKS_DATA`. Kept so existing endpoint constants keep resolving. */
   UDS: "/api",
   UILM: "/api",
   UTILITIES: "/api",

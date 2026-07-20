@@ -9,7 +9,7 @@ export const mockToastFactory = () => ({
   showErrorToast: vi.fn(),
 });
 
-/** Hoist-safe factory for `vi.mock("@/store/useProjectStore", () => mockProjectStoreFactory())` */
+/** Hoist-safe factory for `vi.mock("@/store/use-project-store", () => mockProjectStoreFactory())` */
 export const mockProjectStoreFactory = (overrides?: {
   selectedProject?: Record<string, unknown> | null;
   projects?: unknown[];

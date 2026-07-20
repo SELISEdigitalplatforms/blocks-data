@@ -41,7 +41,7 @@ const storeApi = {
   setTennantGroup: vi.fn(),
   selectedProject: null as unknown,
 };
-vi.mock("@/store/useProjectStore", () => ({
+vi.mock("@/store/use-project-store", () => ({
   useProjectStore: () => storeApi,
 }));
 

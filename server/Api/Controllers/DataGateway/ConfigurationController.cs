@@ -35,7 +35,7 @@ public class ConfigurationController : ControllerBase
     /// <returns>Returns the data source configuration details, including the connection string, database name, and project key, or an error message if the data source is not found.</returns>
     [HttpGet]
     [ProtectedEndPoint("blocks-data::get-configuration")]
-    [ProducesResponseType(typeof(ServiceResponse<DataServiceConfigurationResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ServiceResponse<DataGatewayConfigurationResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetConfigurationAsync()
     {

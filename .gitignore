@@ -182,3 +182,6 @@ client/.cursor/
 *.lscache
 
 .kilo/
+
+# Generated Swagger XML doc (build artifact)
+server/Api/Api.xml

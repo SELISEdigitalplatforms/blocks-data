@@ -48,6 +48,8 @@ public class MockDataController : ControllerBase
     /// </summary>
     /// <param name="request"></param>
     /// <returns></returns>
+    [HttpPost("delete")]
+    // Deprecated: use POST mock-data/delete. DELETE with a request body is dropped by many proxies/clients.
     [HttpDelete]
     [ProtectedEndPoint("blocks-data::delete-mock-data")]
     [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]

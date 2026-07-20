@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { useProjectStore } from "./useProjectStore";
-import { useAuthStore } from "./useAuthStore";
+import { useProjectStore } from "./use-project-store";
+import { useAuthStore } from "./use-auth-store";
 import { useImpersonateStore } from "./impersonate-store";
 import { useLanguageViewStore } from "./use-language-view-store";
 

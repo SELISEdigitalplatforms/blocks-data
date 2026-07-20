@@ -1,6 +1,6 @@
 
 import { useGetPermissionsGroupBySeverity } from "@blocks-idp/iam/hooks/use-permission";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 
 import { PermissionSeverity } from "@blocks-idp/iam/components/permission-severity/permission-severity";
 

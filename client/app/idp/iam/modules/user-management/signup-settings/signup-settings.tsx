@@ -15,7 +15,7 @@ import {
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import { Wrench } from "lucide-react";
 import { useGetSignUpSetting, useSaveSignUpSetting } from "@blocks-idp/iam/hooks/use-user";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 
 export const SignupSettings = () => {
   const [open, setOpen] = useState(false);

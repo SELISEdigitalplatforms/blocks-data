@@ -9,7 +9,7 @@ import {
   TooltipContent,
 } from "@/components/ui-kits/tooltip/tooltip";
 import { environmentOptions } from "@/constants/environment-options";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 import { ChevronRight, Settings2 } from "lucide-react";
 
 type ProjectCardProps = {

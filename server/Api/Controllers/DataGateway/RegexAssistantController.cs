@@ -30,6 +30,8 @@ namespace BlocksTemplate.Api.Controllers
         /// </summary>
         /// <param name="request">The regex generation request containing description and optional constraints</param>
         /// <returns>Generated regex pattern</returns>
+        [HttpPost("generate-regex")]
+        // Deprecated: use regex/generate-regex. Kept for backward compatibility.
         [HttpPost("generateregex")]
         [ProtectedEndPoint("blocks-data::generate-regex")]
         public async Task<IActionResult> GenerateRegex([FromBody] RegexAssistantRequest request)

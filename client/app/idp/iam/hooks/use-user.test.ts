@@ -36,7 +36,7 @@ import {
 vi.mock("@blocks-idp/iam/services/user.service", () => mockUserServiceFactory());
 
 const mockSetUser = vi.fn();
-vi.mock("@/store/useAuthStore", () => ({
+vi.mock("@/store/use-auth-store", () => ({
   useAuthStore: vi.fn(() => ({ setUser: mockSetUser })),
 }));
 

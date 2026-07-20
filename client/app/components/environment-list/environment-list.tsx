@@ -8,7 +8,7 @@ import {
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { useGetProject, useGetProjects } from "@/hooks/use-project";
 import { IProject } from "@/models/project.model";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 import { Globe, Loader } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";

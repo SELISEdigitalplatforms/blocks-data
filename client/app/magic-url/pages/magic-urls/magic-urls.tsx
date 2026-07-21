@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui-kits/card/card";
 import { Pagination } from "@/components/ui-kits/pagination/pagination";
 import { useMagicUrlsFilterQueryParams, MagicUrlsFilterToolBar } from "./magic-urls-filter-toolbar";
 import { MagicUrlsList } from "./magic-urls-list";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 import { useGetMagicUrls, useSaveMagicUrlConfig } from "@/magic-url/hooks/use-magic-url";
 import { MagicUrlDialog } from "@/magic-url/components/magic-url-dialog/magic-url-dialog";
 import { MagicUrlConfigDialog } from "@/magic-url/components/magic-url-config-dialog/magic-url-config-dialog";

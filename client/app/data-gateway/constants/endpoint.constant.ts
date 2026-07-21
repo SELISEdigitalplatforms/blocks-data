@@ -42,7 +42,7 @@ const MOCK_DATA_SUBPATH = "/mock-data";
 
 export const DATA_MANAGE_ENDPOINTS = {
   GET_MOCK_DATA: `${API_BASES.UDS}${MOCK_DATA_SUBPATH}`,
-  DELETE_MOCK_DATA: `${API_BASES.UDS}${MOCK_DATA_SUBPATH}`,
+  DELETE_MOCK_DATA: `${API_BASES.UDS}${MOCK_DATA_SUBPATH}/delete`,
 } as const;
 
 // ─── Data Validation endpoints ────────────────────────────────────────────────
@@ -62,7 +62,7 @@ export const DATA_VALIDATION_ENDPOINTS = {
 const VALIDATION_REGEX = "/regex";
 
 export const DATA_VALIDATION_REGEX_ENDPOINTS = {
-  GENERATE_REGEX: `${API_BASES.UDS}${VALIDATION_REGEX}/generateregex`,
+  GENERATE_REGEX: `${API_BASES.UDS}${VALIDATION_REGEX}/generate-regex`,
 } as const;
 
 // ─── Gateway & Configuration endpoints ────────────────────────────────────────

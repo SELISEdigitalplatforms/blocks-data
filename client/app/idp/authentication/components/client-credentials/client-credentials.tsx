@@ -1,4 +1,4 @@
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 import { GRANT_TYPES } from "@blocks-idp/authentication/constants/authentication.constant";
 import { useGetAuthConfig } from "@blocks-idp/authentication/hooks/use-auth-config";
 import { ClientCredentialList } from "./client-credentials-list";

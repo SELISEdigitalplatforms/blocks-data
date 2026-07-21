@@ -185,3 +185,5 @@ client/.cursor/
 
 # build output (never commit)
 builds/
+# Generated Swagger XML doc (build artifact)
+server/Api/Api.xml

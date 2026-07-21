@@ -19,7 +19,7 @@ import {
 } from "@/components/ui-kits/form/form";
 import { Input } from "@/components/ui-kits/input/input";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 import { useSaveOrganization } from "@blocks-idp/iam/hooks/use-organization";
 import { IOrganization } from "@blocks-idp/iam/models/organization";
 import { zodResolver } from "@hookform/resolvers/zod";

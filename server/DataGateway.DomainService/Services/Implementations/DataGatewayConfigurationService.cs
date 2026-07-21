@@ -29,16 +29,16 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
     }
 
-    public async Task<ServiceResponse<DataServiceConfigurationResponse>> GetConfiguration(string projectKey)
+    public async Task<ServiceResponse<DataGatewayConfigurationResponse>> GetConfiguration(string projectKey)
     {
         var filter = Builders<DataServiceConfiguration>.Filter.Eq(x => x.IsDeleted, false);
         var dataServiceConfiguration = await _repository.GetItemAsync(filter);
 
         if (dataServiceConfiguration is null)
-            return new ServiceResponse<DataServiceConfigurationResponse>().SetErrorMessage("Data source not found.");
+            return new ServiceResponse<DataGatewayConfigurationResponse>().SetErrorMessage("Data source not found.");
 
         var projectShortKey = await _projectService.GetTenantSlugAsync(projectKey);
-        var response = new DataServiceConfigurationResponse
+        var response = new DataGatewayConfigurationResponse
         {
             DbConnectionString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(dataServiceConfiguration.DbConnectionString)),
             DatabaseName = dataServiceConfiguration.DatabaseName,
@@ -49,7 +49,7 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
             ItemId = dataServiceConfiguration.ItemId
         };
 
-        return new ServiceResponse<DataServiceConfigurationResponse>().SetSuccess(response);
+        return new ServiceResponse<DataGatewayConfigurationResponse>().SetSuccess(response);
     }
     public async Task<ServiceResponse<ActionResponse>> InsertConfiguration(CreateDataGatewayConfigurationRequest request)
     {
@@ -75,7 +75,7 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
         dataServiceConfiguration.InjectDefaultValue();
 
         var result = await _repository.InsertAsync(dataServiceConfiguration);
-        await CacheDataSource(result, request.ProjectKey);
+        await CacheDataSourceAsync(result, request.ProjectKey);
 
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { ItemId = result.ItemId });
     }
@@ -100,7 +100,7 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
         dataServiceConfiguration.CollectionNamePattern = request.CollectionNamePattern;
 
         var result = await _repository.UpdateAsync(dataServiceConfiguration);
-        await CacheDataSource(dataServiceConfiguration, request.ProjectKey);
+        await CacheDataSourceAsync(dataServiceConfiguration, request.ProjectKey);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse
         {
             ItemId = result.ItemId,
@@ -109,7 +109,7 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
         });
     }
 
-    private async Task CacheDataSource(DataServiceConfiguration dataServiceConfiguration, string projectKey)
+    private async Task CacheDataSourceAsync(DataServiceConfiguration dataServiceConfiguration, string projectKey)
     {
         var blocksCtx = BlocksContext.GetContext();
         if (blocksCtx is null)

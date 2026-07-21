@@ -33,7 +33,7 @@ public class DataValidationService : IDataValidationService
         }
 
         // Check if validation already exists for this schema and field
-        if (await IsValidationExistsForField(request.SchemaId, request.FieldName))
+        if (await IsValidationExistsForFieldAsync(request.SchemaId, request.FieldName))
         {
             return new ServiceResponse<ActionResponse>()
                 .SetErrorMessage("Validation already exists for this schema field")
@@ -74,7 +74,7 @@ public class DataValidationService : IDataValidationService
 
         // Check if updating to a different field that already has validation
         if ((dataValidation.SchemaId != request.SchemaId || dataValidation.FieldName != request.FieldName) &&
-            await IsValidationExistsForField(request.SchemaId, request.FieldName))
+            await IsValidationExistsForFieldAsync(request.SchemaId, request.FieldName))
         {
             return new ServiceResponse<ActionResponse>()
                 .SetErrorMessage("Validation already exists for this schema field")
@@ -180,7 +180,7 @@ public class DataValidationService : IDataValidationService
         return new ServiceResponse<DataValidationResponse>().SetSuccess(dataValidation.MapToResponse());
     }
 
-    private async Task<bool> IsValidationExistsForField(string schemaId, string fieldName)
+    private async Task<bool> IsValidationExistsForFieldAsync(string schemaId, string fieldName)
     {
         var filter = Builders<DataValidation>.Filter.And(
             Builders<DataValidation>.Filter.Eq(x => x.SchemaId, schemaId),

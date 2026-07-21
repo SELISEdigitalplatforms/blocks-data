@@ -182,3 +182,6 @@ client/.cursor/
 *.lscache
 
 .kilo/
+
+# build output (never commit)
+builds/

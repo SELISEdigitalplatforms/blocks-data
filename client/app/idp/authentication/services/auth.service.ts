@@ -7,7 +7,7 @@ import { http } from "@/lib/http-client";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { impersonationService } from "@/services/impersonation.service";
 import { useImpersonateStore } from "@/store/impersonate-store";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/use-auth-store";
 import { GRANT_TYPES } from "../constants/authentication.constant";
 import {
   AUTH_ENDPOINTS,

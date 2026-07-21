@@ -18,9 +18,9 @@ import { CalendarIcon } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { MagicUrl } from "@/magic-url/models/magic-url.model";
 import { useCreateMagicUrl } from "@/magic-url/hooks/use-magic-url";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 import { toast } from "@/hooks/use-toast";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/use-auth-store";
 import {
   Select,
   SelectContent,

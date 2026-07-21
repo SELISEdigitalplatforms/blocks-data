@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Blocks.Extension.DependencyInjection;
 
-public static class DataGatewayDriverServiceExtention
+public static class DataGatewayDriverServiceExtension
 {
     public static void RegisterBlocksDataGateway(this IServiceCollection services)
     {

@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui-kits/card/card";
 import { Pagination } from "@/components/ui-kits/pagination/pagination";
 import { useGetOrganizations, useGetOrganizationConfig } from "@blocks-idp/iam/hooks/use-organization";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 import { OrganizationsList } from "./organizations-list";
 import { AddOrganization } from "../add-organization/add-organization";
 import {

@@ -187,3 +187,11 @@ client/.cursor/
 builds/
 # Generated Swagger XML doc (build artifact)
 server/Api/Api.xml
+.sonarqube/
+.scannerwork/
+*.trufflehog.json
+*-secrets.json
+*sbom*.json
+*.cdx.json
+zap-*.xml
+*-semgrep.sarif

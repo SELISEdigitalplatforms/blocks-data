@@ -118,7 +118,7 @@ public class SchemaImportEventConsumer : IConsumer<SchemaImportEvent>
                     : $"Schema import failed"
             }),
             SaveDenormalizedPayloadAsAnObject = false,
-            ConfiguratoinName = "schema-import",
+            ConfigurationName = "schema-import",
             ContentAvailable = true,
             ResponseKey = importEvent.MessageCoRelationId,
             ResponseValue = isSuccess.ToString()

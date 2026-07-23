@@ -1,4 +1,4 @@
-import { test, expect } from "../../support/test-base";
+import { expect, test } from "../../support/test-base";
 
 const username = process.env.E2E_USERNAME;
 const password = process.env.E2E_PASSWORD;
@@ -21,9 +21,7 @@ test.describe("Authentication", () => {
     //    Rendered by blocks-kit's LoginPage (pages/login/blocks-login.tsx),
     //    whose default CTA label is "Log in to your account".
     await page.goto("/login");
-    await page
-      .getByRole("button", { name: "Log in to your account" })
-      .click();
+    await page.getByRole("button", { name: "Log in to your account" }).click();
 
     // 2. Redirected to the dev-iam OIDC login page (/oidc/login, cross-origin).
     //    Selectors come from blocks-idp oidc-login-form.tsx (stable field ids).

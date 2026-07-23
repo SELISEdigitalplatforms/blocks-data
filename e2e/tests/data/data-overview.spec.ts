@@ -1,36 +1,41 @@
 import { test, expect } from "../../support/test-base";
 
 test.describe("Data overview page", () => {
-  test("renders the Data overview heading and primary actions", async ({
+  test("enters the Dashboard via a Development env chip and returns to the console", async ({
     page,
   }) => {
-    // The service-navigation spec lands here after the app switcher. This spec
-    // assumes the user is already authenticated and the Data app is the active
-    // project via fixtures/auth.json (set up by tests/auth/login.spec.ts).
     await page.goto("/app/console");
 
     await expect(
       page.getByRole("heading", { name: "Your Blocks Projects" }),
     ).toBeVisible({ timeout: 20_000 });
 
-    // The Data project card / overview CTA. The text "Data" is reused as both
-    // the card title and link name, so anchor on the visible heading or card.
-    const dataCard = page.getByRole("link", { name: /Data/ }).first();
-    await expect(dataCard).toBeVisible();
-    await dataCard.click();
+    // ProjectCard exposes <button> env chips named after constants in
+    // environment-options.ts ("Development", "Staging", "Production").
+    // Clicking routes to /app/<itemId>/dashboard (project-card.tsx:31).
+    const devChip = page.getByRole("button", { name: /^Development$/ }).first();
+    if (!(await devChip.isVisible().catch(() => false))) {
+      test.skip(true, "Tenant has no projects; cannot reach the dashboard.");
+      return;
+    }
+    await devChip.click();
 
-    // After opening the Data app, the overview page should show the project
-    // name and a primary content area. Headings in blocks-kit/data-overview are
-    // project-scoped, so wait for the URL to leave the console route.
-    await page.waitForURL((url) => !/\/app\/console$/.test(url.pathname), {
-      timeout: 30_000,
-    });
+    // DashboardOverview lives at /app/<itemId>/dashboard.
+    await page.waitForURL("**/app/**/dashboard", { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/app\/[^/]+\/dashboard$/);
 
-    // The Data overview shell renders inside <main>; assert it is present and
-    // at least one Data-scoped heading or action is reachable.
-    await expect(page.getByRole("main")).toBeVisible();
+    // DashboardHeader (different from the console header) renders the
+    // BackToConsoleNavigator — a <Link to="/console"> wrapping a Button whose
+    // visible text is "Back to console" (md+) or "Console" (mobile).
+    const back = page.getByRole("link", { name: /^(Back to console|Console)$/ });
+    await expect(back).toBeVisible({ timeout: 20_000 });
+
+    await back.click();
+
+    await page.waitForURL("**/app/console", { timeout: 20_000 });
+    await expect(page).toHaveURL(/\/app\/console$/);
     await expect(
-      page.getByRole("heading").filter({ hasText: /Data/ }).first(),
+      page.getByRole("heading", { name: "Your Blocks Projects" }),
     ).toBeVisible({ timeout: 20_000 });
   });
 });

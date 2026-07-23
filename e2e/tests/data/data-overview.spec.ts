@@ -1,6 +1,11 @@
 import { test, expect } from "../../support/test-base";
+import { login } from "../../support/auth";
 
 test.describe("Data overview page", () => {
+  test.beforeEach(async ({ page }) => {
+    await login(page);
+  });
+
   test("enters the Dashboard via a Development env chip and returns to the console", async ({
     page,
   }) => {

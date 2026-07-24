@@ -1,20 +1,20 @@
-# Blocks Data — End-to-End Tests (Playwright)
+# Blocks Data; End-to-End Tests (Playwright)
 
 E2E tests that drive the real app through the browser, including the dev-iam
 login redirect flow.
 
 ## One-time setup
 
-1. **Configure env** — copy the template and fill in your values:
+1. **Configure env**: copy the template and fill in your values:
    ```bash
    cd e2e
    cp .env.e2e.example .env.e2e
    ```
    Set `E2E_BASE_URL` (your named domain, e.g. `https://dev-data.blocksdevelopers.com:5000`),
-   `E2E_USERNAME`, `E2E_PASSWORD`. `.env.e2e` is gitignored — never commit real
+   `E2E_USERNAME`, `E2E_PASSWORD`. `.env.e2e` is gitignored; never commit real
    credentials.
 
-2. **Hosts entry** — `dev-data.blocksdevelopers.com` must resolve to `127.0.0.1`,
+2. **Hosts entry**: `dev-data.blocksdevelopers.com` must resolve to `127.0.0.1`,
    otherwise the tests drive the **remote** dev server instead of your machine.
 
 3. **Install** Playwright + the browser:

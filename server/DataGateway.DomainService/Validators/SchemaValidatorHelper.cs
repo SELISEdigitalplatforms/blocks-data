@@ -7,7 +7,8 @@ internal static class SchemaValidatorHelper
 {
     internal static readonly Regex NameAllowedPattern = new(
         @"^[A-Za-z_][A-Za-z0-9_]*$",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled,
+        TimeSpan.FromSeconds(1));
 
     internal static bool DoesNotEmptyCollectionName(string collectionName, SchemaType schemaType)
     {

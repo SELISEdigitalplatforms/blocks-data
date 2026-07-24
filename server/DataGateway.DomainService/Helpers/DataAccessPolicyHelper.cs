@@ -12,7 +12,7 @@ namespace DataGateway.DomainService.Helpers;
 /// </summary>
 public static class DataAccessPolicyHelper
 {
-    private static readonly Regex ExpressionPattern = new(@"\{\{(\w+)\.(\w+)\}\}", RegexOptions.Compiled);
+    private static readonly Regex ExpressionPattern = new(@"\{\{(\w+)\.(\w+)\}\}", RegexOptions.Compiled, TimeSpan.FromSeconds(1));
 
     #region Policy Evaluation
 
@@ -555,7 +555,7 @@ public static class DataAccessPolicyHelper
             PolicyOperator.LESS_THAN_OR_EQUAL => CompareNumeric(leftValue, rightValue) <= 0,
             PolicyOperator.START_WITH => leftValue.ToString()?.StartsWith(rightValue.ToString() ?? "") ?? false,
             PolicyOperator.END_WITH => leftValue.ToString()?.EndsWith(rightValue.ToString() ?? "") ?? false,
-            PolicyOperator.REGEX => Regex.IsMatch(leftValue.ToString() ?? "", rightValue.ToString() ?? ""),
+            PolicyOperator.REGEX => Regex.IsMatch(leftValue.ToString() ?? "", rightValue.ToString() ?? "", RegexOptions.None, TimeSpan.FromSeconds(1)),
             _ => false
         };
     }

@@ -139,44 +139,44 @@ data-gateway/
 
 ### Data Source Configuration
 
-- **Connect a database** — Provide a MongoDB connection string and database name to register a data source for a project.
-- **Reload schemas** — Refresh schema definitions from the live database; triggers invalidation of the schema list and unadapted change log.
+- **Connect a database**: Provide a MongoDB connection string and database name to register a data source for a project.
+- **Reload schemas**: Refresh schema definitions from the live database; triggers invalidation of the schema list and unadapted change log.
 
 ### Schema Management
 
-- **Entity schemas** — Define named collections with fully typed fields. Supports scalar types (`String`, `Int`, `Long`, `Float`, `Boolean`, `DateTime`) and references to DTO schemas.
-- **DTO schemas** — Define reusable object shapes that can be embedded as field types in Entity schemas.
-- **Field arrays** — Any field can be marked `isArray` to represent a list of values.
-- **Unadapted change logs** — Track schema changes that have not yet been applied to the live gateway configuration — visible as a badge alerting the user to deploy.
+- **Entity schemas**: Define named collections with fully typed fields. Supports scalar types (`String`, `Int`, `Long`, `Float`, `Boolean`, `DateTime`) and references to DTO schemas.
+- **DTO schemas**: Define reusable object shapes that can be embedded as field types in Entity schemas.
+- **Field arrays**: Any field can be marked `isArray` to represent a list of values.
+- **Unadapted change logs**: Track schema changes that have not yet been applied to the live gateway configuration; visible as a badge alerting the user to deploy.
 
 ### Access Control
 
-- **Row-Level Security (RLS)** — Toggle to gate which rows a user/role/permission can read, write, or delete at the schema level.
-- **Column-Level Security (CLS)** — Toggle to gate which fields a user/role/permission can access.
-- **Field-level access** — Per-field `readAccess`, `writeAccess`, `deleteAccess` rule sets specifying allowed roles, users, and permissions.
-- **Bulk access management** — Select multiple fields and apply access changes in one operation via `useBulkOperations`.
+- **Row-Level Security (RLS)**: Toggle to gate which rows a user/role/permission can read, write, or delete at the schema level.
+- **Column-Level Security (CLS)**: Toggle to gate which fields a user/role/permission can access.
+- **Field-level access**: Per-field `readAccess`, `writeAccess`, `deleteAccess` rule sets specifying allowed roles, users, and permissions.
+- **Bulk access management**: Select multiple fields and apply access changes in one operation via `useBulkOperations`.
 
 ### Policy Engine
 
-- **Allow/Deny policies** — Create declarative access policies with `isAllowPolicy` flag, priority ordering, and nested rule groups (`IPolicyRuleGroup`).
-- **Rule groups** — Combine conditions with logical operators (`AND`/`OR`) and support unlimited nesting via `nestedGroups`.
-- **Policy CRUD** — Full create, read (by entity name), update, and delete lifecycle.
+- **Allow/Deny policies**: Create declarative access policies with `isAllowPolicy` flag, priority ordering, and nested rule groups (`IPolicyRuleGroup`).
+- **Rule groups**: Combine conditions with logical operators (`AND`/`OR`) and support unlimited nesting via `nestedGroups`.
+- **Policy CRUD**: Full create, read (by entity name), update, and delete lifecycle.
 
 ### Field Validation
 
-- **Per-field rules** — Attach validation rules to any schema field (e.g., min/max length, regex pattern, required) with a custom `errorMessage` and `isActive` toggle.
-- **Full lifecycle** — Get, create, update, and delete field validation rule sets.
+- **Per-field rules**: Attach validation rules to any schema field (e.g., min/max length, regex pattern, required) with a custom `errorMessage` and `isActive` toggle.
+- **Full lifecycle**: Get, create, update, and delete field validation rule sets.
 
 ### GraphQL Playground
 
-- **Live query execution** — Submit GraphQL queries/mutations directly against the project's running gateway pod via `executeGraphQLOperation`.
-- **Template generation** — `graphql-template.utils.ts` auto-generates query/mutation templates from schema field definitions.
-- **Mock data management** — View the count of mock documents per collection and delete them via the playground's clean-test-data modal.
+- **Live query execution**: Submit GraphQL queries/mutations directly against the project's running gateway pod via `executeGraphQLOperation`.
+- **Template generation**: `graphql-template.utils.ts` auto-generates query/mutation templates from schema field definitions.
+- **Mock data management**: View the count of mock documents per collection and delete them via the playground's clean-test-data modal.
 
 ### Pipeline & Pod Management
 
-- **Initiate pipeline** — Trigger the CI/CD pipeline to build and deploy the data gateway service via `API_BASES.CLOUD_BUILD`.
-- **Pod health check** — Poll the pod's `/ping` endpoint to determine readiness before allowing GraphQL execution (`useGetPodActiveStatus` with configurable `refetchInterval`).
+- **Initiate pipeline**: Trigger the CI/CD pipeline to build and deploy the data gateway service via `API_BASES.CLOUD_BUILD`.
+- **Pod health check**: Poll the pod's `/ping` endpoint to determine readiness before allowing GraphQL execution (`useGetPodActiveStatus` with configurable `refetchInterval`).
 
 ---
 
@@ -190,9 +190,9 @@ All features follow the same three-layer pattern:
 Service  →  Hook  →  Component
 ```
 
-1. **Service** — `ConfigurationService` is a plain TypeScript class using the shared `http` client. No React dependency; fully unit-testable in isolation.
-2. **Hook** — TanStack Query (`useQuery` / `useMutation`) wrappers in `hooks/use-configuration.ts`. The hooks own caching, invalidation, and loading/error state.
-3. **Component / Page** — Consumes hooks only. Contains no direct API calls.
+1. **Service**: `ConfigurationService` is a plain TypeScript class using the shared `http` client. No React dependency; fully unit-testable in isolation.
+2. **Hook**: TanStack Query (`useQuery` / `useMutation`) wrappers in `hooks/use-configuration.ts`. The hooks own caching, invalidation, and loading/error state.
+3. **Component / Page**: Consumes hooks only. Contains no direct API calls.
 
 ### Single Service Singleton
 
@@ -204,7 +204,7 @@ import { configurationService } from "@blocks-data-gateway/services/configuratio
 
 ### Unadapted Change Log as Deployment Signal
 
-After any schema, access, policy, or validation mutation, the `unadapted-change-logs` query is invalidated. The UI uses the response — a list of `{ changeType: number }` items — to show a badge indicating undeployed changes. When the user reloads schemas, the badge clears.
+After any schema, access, policy, or validation mutation, the `unadapted-change-logs` query is invalidated. The UI uses the response; a list of `{ changeType: number }` items; to show a badge indicating undeployed changes. When the user reloads schemas, the badge clears.
 
 ### Environment Variables
 
@@ -282,8 +282,8 @@ Singleton exported as `configurationService`. All calls use the shared `http` cl
 | `useDeleteSchema()`                  | `schema-list`, `unadapted-change-logs`                               | Delete a schema                                     |
 | `useSetDataAccess()`                 | `schema-list`, `schema-details`, `unadapted-change-logs`             | Set row/field-level access rules                    |
 | `useSetRowColumnPermission()`        | `schema-list`, `schema-details`, `unadapted-change-logs`             | Set RLS/CLS permission levels                       |
-| `useExecuteGraphQL()`                | —                                                                    | Execute a GraphQL operation (no cache invalidation) |
-| `useDeleteMockData()`                | —                                                                    | Delete mock data for selected collections           |
+| `useExecuteGraphQL()`                |;                                                                    | Execute a GraphQL operation (no cache invalidation) |
+| `useDeleteMockData()`                |;                                                                    | Delete mock data for selected collections           |
 | `useCreatePolicy()`                  | `get-policy-data`, `unadapted-change-logs`                           | Create an access policy                             |
 | `useUpdatePolicy()`                  | `get-policy-data`, `unadapted-change-logs`                           | Update an access policy                             |
 | `useDeletePolicy()`                  | `get-policy-data`, `unadapted-change-logs`                           | Delete an access policy                             |
@@ -387,7 +387,7 @@ Maps schema property types to their JSON preview representations (`getPreviewFie
 
 ### `utils/schema-access.utils.ts`
 
-Sanitizes and transforms `IDataAccessRuleSet` objects — removing empty arrays, normalizing null values — before they are submitted to the access control API.
+Sanitizes and transforms `IDataAccessRuleSet` objects; removing empty arrays, normalizing null values; before they are submitted to the access control API.
 
 ### `utils/schema-access-control.utils.ts`
 
@@ -395,7 +395,7 @@ Builds `ICreatePolicyPayload` / `IUpdatePolicyPayload` objects from the policy r
 
 ### `utils/input-restriction.util.ts`
 
-Applies input restriction rules (from `constant/input-restrictions.ts`) to form field values — for example, blocking special characters in schema names or collection names.
+Applies input restriction rules (from `constant/input-restrictions.ts`) to form field values; for example, blocking special characters in schema names or collection names.
 
 ---
 

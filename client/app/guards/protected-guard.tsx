@@ -21,7 +21,10 @@ export function ProtectedGuard({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isMounted) return;
-    if (!data) return navigate(`/login`, { replace: true });
+    if (!data) {
+      navigate(`/login`, { replace: true });
+      return;
+    }
     setUser(data.data);
   }, [data, navigate, setUser]);
   if (!isMounted || !data) return null;

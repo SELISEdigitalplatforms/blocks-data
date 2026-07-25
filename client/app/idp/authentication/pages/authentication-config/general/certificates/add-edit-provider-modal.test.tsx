@@ -164,4 +164,211 @@ describe("AddEditProviderModal", () => {
     const url = screen.getByLabelText("URL") as HTMLInputElement;
     expect(url.value).toBe("");
   });
+
+  it("returns to public-url and clears the file when leaving the Others provider", async () => {
+    const user = userEvent.setup();
+    render(<AddEditProviderModal />);
+    await open(user);
+    await user.click(screen.getByText("Others"));
+    await user.click(screen.getByText("Upload file"));
+    expect(screen.getByText("Upload certificate")).toBeInTheDocument();
+
+    // Switching back to a non-Others provider forces the public-url method.
+    await user.click(screen.getByText("Keycloak"));
+    await waitFor(() =>
+      expect(screen.getByLabelText("URL")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText("Upload certificate")).not.toBeInTheDocument();
+
+    // Re-selecting the Public URL card keeps the public-url method active.
+    await user.click(screen.getByText("Public URL"));
+    expect(screen.getByLabelText("URL")).toBeInTheDocument();
+  });
+
+  it("stores an Others URL as the jwks url when it validates", async () => {
+    const user = userEvent.setup();
+    validateJwksUrl.mockResolvedValue({ isValid: true });
+    render(<AddEditProviderModal />);
+    await open(user);
+    await user.click(screen.getByText("Others"));
+    await user.type(screen.getByLabelText("URL"), "https://o/jwks");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(savePublicCertificates).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jwksUrl: "https://o/jwks",
+          publicCertificatePath: "",
+          providerName: "Others",
+        }),
+      ),
+    );
+  });
+
+  it("stores an Others URL as a certificate path when it does not validate", async () => {
+    const user = userEvent.setup();
+    validateJwksUrl.mockResolvedValue({ isValid: false });
+    render(<AddEditProviderModal />);
+    await open(user);
+    await user.click(screen.getByText("Others"));
+    await user.type(screen.getByLabelText("URL"), "https://o/cert.pem");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(savePublicCertificates).toHaveBeenCalledWith(
+        expect.objectContaining({
+          jwksUrl: "",
+          publicCertificatePath: "https://o/cert.pem",
+          providerName: "Others",
+        }),
+      ),
+    );
+  });
+
+  it("treats an Others URL as a certificate path when validation throws", async () => {
+    const user = userEvent.setup();
+    validateJwksUrl.mockRejectedValue(new Error("down"));
+    render(<AddEditProviderModal />);
+    await open(user);
+    await user.click(screen.getByText("Others"));
+    await user.type(screen.getByLabelText("URL"), "https://o/broken");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(savePublicCertificates).toHaveBeenCalledWith(
+        expect.objectContaining({
+          publicCertificatePath: "https://o/broken",
+          providerName: "Others",
+        }),
+      ),
+    );
+  });
+
+  it("shows an error toast when the public-url save throws", async () => {
+    const user = userEvent.setup();
+    savePublicCertificates.mockRejectedValue(new Error("save boom"));
+    render(<AddEditProviderModal />);
+    await open(user);
+    await user.type(screen.getByLabelText("URL"), "https://issuer/jwks");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({
+        errors: expect.any(Error),
+      }),
+    );
+  });
+
+  it("uploads a certificate file and saves the download path", async () => {
+    const user = userEvent.setup();
+    render(<AddEditProviderModal />);
+    await open(user);
+    await user.click(screen.getByText("Others"));
+    await user.click(screen.getByText("Upload file"));
+
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    const file = new File(["cert-bytes"], "cert.pfx", {
+      type: "application/x-pkcs12",
+    });
+    await user.upload(input, file);
+    expect(await screen.findByText("cert.pfx")).toBeInTheDocument();
+
+    // Make the RHF form dirty so Save is enabled.
+    await user.type(screen.getByLabelText("Issuer (Optional)"), "iss");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(uploadFileMutate).toHaveBeenCalledWith({
+        TenantId: "tenant-1",
+        file,
+      }),
+    );
+    await waitFor(() =>
+      expect(savePublicCertificates).toHaveBeenCalledWith(
+        expect.objectContaining({
+          publicCertificatePath: "https://cdn/cert.pfx",
+          jwksUrl: "",
+          providerName: "Others",
+        }),
+      ),
+    );
+    expect(showSuccessToast).toHaveBeenCalled();
+  });
+
+  it("errors when the upload response has no download url", async () => {
+    const user = userEvent.setup();
+    uploadFileMutate.mockResolvedValue({});
+    render(<AddEditProviderModal />);
+    await open(user);
+    await user.click(screen.getByText("Others"));
+    await user.click(screen.getByText("Upload file"));
+
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    await user.upload(
+      input,
+      new File(["x"], "cert.pfx", { type: "application/x-pkcs12" }),
+    );
+    await screen.findByText("cert.pfx");
+    await user.type(screen.getByLabelText("Issuer (Optional)"), "iss");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({
+        errors: "Failed to get upload URL",
+      }),
+    );
+  });
+
+  it("shows an error toast when the upload-file save fails", async () => {
+    const user = userEvent.setup();
+    savePublicCertificates.mockResolvedValue({ isSuccess: false, errors: "boom" });
+    render(<AddEditProviderModal />);
+    await open(user);
+    await user.click(screen.getByText("Others"));
+    await user.click(screen.getByText("Upload file"));
+
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    await user.upload(
+      input,
+      new File(["x"], "cert.pfx", { type: "application/x-pkcs12" }),
+    );
+    await screen.findByText("cert.pfx");
+    await user.type(screen.getByLabelText("Issuer (Optional)"), "iss");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({ errors: "boom" }),
+    );
+  });
+
+  it("shows an error toast when the upload-file save throws", async () => {
+    const user = userEvent.setup();
+    uploadFileMutate.mockRejectedValue(new Error("upload boom"));
+    render(<AddEditProviderModal />);
+    await open(user);
+    await user.click(screen.getByText("Others"));
+    await user.click(screen.getByText("Upload file"));
+
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    await user.upload(
+      input,
+      new File(["x"], "cert.pfx", { type: "application/x-pkcs12" }),
+    );
+    await screen.findByText("cert.pfx");
+    await user.type(screen.getByLabelText("Issuer (Optional)"), "iss");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({
+        errors: expect.any(Error),
+      }),
+    );
+  });
 });

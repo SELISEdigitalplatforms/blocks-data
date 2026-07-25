@@ -1,13 +1,27 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui-kits/tooltip/tooltip";
 
-// The property-type selector is exercised elsewhere; stub it to a marker here.
+// The property-type selector is exercised elsewhere; stub it to a marker here. The
+// trigger elements are spans (not buttons) so button queries stay unaffected.
 vi.mock("./property-type-selector", () => ({
-  PropertyTypeSelector: ({ value }: { value: string }) => (
-    <div data-testid="type-selector">type:{value}</div>
+  PropertyTypeSelector: ({
+    value,
+    onSelect,
+    onOpenChange,
+  }: {
+    value: string;
+    onSelect?: (type: string) => void;
+    onOpenChange?: (open: boolean) => void;
+  }) => (
+    <div data-testid="type-selector">
+      type:{value}
+      <span data-testid="type-open" onClick={() => onOpenChange?.(true)} />
+      <span data-testid="type-close" onClick={() => onOpenChange?.(false)} />
+      <span data-testid="type-select" onClick={() => onSelect?.("Guid")} />
+    </div>
   ),
 }));
 
@@ -164,5 +178,89 @@ describe("SchemaMobileCard", () => {
       />,
     );
     expect(screen.getByLabelText(/Manage validations for title/)).toBeInTheDocument();
+  });
+
+  it("sanitizes a pasted property name in edit mode", () => {
+    render(<Harness isEditMode />);
+    const input = screen.getByDisplayValue("title") as HTMLInputElement;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+    fireEvent.paste(input, { clipboardData: { getData: () => "9ab$cd" } });
+    expect(input.value).toBe("titleabcd");
+  });
+
+  it("wires the type selector open/close/select callbacks", async () => {
+    const user = userEvent.setup();
+    const setOpenMobileTypePopoverIndex = vi.fn();
+    render(
+      <Harness
+        isEditMode
+        setOpenMobileTypePopoverIndex={setOpenMobileTypePopoverIndex}
+      />,
+    );
+
+    await user.click(screen.getByTestId("type-open"));
+    expect(setOpenMobileTypePopoverIndex).toHaveBeenCalledWith(0);
+    await user.click(screen.getByTestId("type-close"));
+    expect(setOpenMobileTypePopoverIndex).toHaveBeenCalledWith(null);
+    await user.click(screen.getByTestId("type-select"));
+    expect(screen.getByTestId("type-selector")).toHaveTextContent("type:Guid");
+  });
+
+  it("selects a row through its checkbox in edit mode", async () => {
+    const user = userEvent.setup();
+    const onRowSelect = vi.fn();
+    render(<Harness isEditMode onRowSelect={onRowSelect} />);
+    await user.click(screen.getByLabelText(/Select title/));
+    expect(onRowSelect).toHaveBeenCalledWith(expect.any(String), true);
+  });
+
+  it("deletes the row from the actions menu", async () => {
+    const user = userEvent.setup();
+    const onDelete = vi.fn();
+    render(<Harness isEditMode onDelete={onDelete} />);
+    const trigger = screen
+      .getAllByRole("button")
+      .find((b) => !b.getAttribute("aria-label") && !b.hasAttribute("disabled"))!;
+    await user.click(trigger);
+    await user.click(await screen.findByText("Delete"));
+    expect(onDelete).toHaveBeenCalledWith(0);
+  });
+
+  it("toggles the readonly section for entity schemas", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        schemaType={1}
+        isReadOnly
+        properties={[{ ...property, name: "CreatedBy" }] as never}
+        field={{ id: "f1", ...property, name: "CreatedBy" } as never}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /Default Properties/ });
+    // Collapsed by default: the row (name input) is hidden.
+    expect(screen.queryByDisplayValue("title")).not.toBeInTheDocument();
+    await user.click(toggle);
+    expect(screen.getByDisplayValue("title")).toBeInTheDocument();
+    await user.click(toggle);
+    expect(screen.queryByDisplayValue("title")).not.toBeInTheDocument();
+  });
+
+  it("expands a child-type field from the view-mode toggle", async () => {
+    const user = userEvent.setup();
+    const onToggleExpand = vi.fn();
+    render(
+      <Harness
+        field={{ id: "f1", ...property, type: "Address" } as never}
+        properties={[{ ...property, type: "Address" }] as never}
+        childSchema={{ schemaName: "Address" } as never}
+        onToggleExpand={onToggleExpand}
+        isExpanded={false}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Expand Address attributes/ }),
+    );
+    expect(onToggleExpand).toHaveBeenCalledWith(0);
   });
 });

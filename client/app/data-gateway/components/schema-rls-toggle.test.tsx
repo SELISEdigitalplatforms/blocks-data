@@ -85,4 +85,61 @@ describe("SchemaRlsToggle", () => {
 
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
   });
+
+  it("disables row and column level security together when CLS is on", async () => {
+    const user = userEvent.setup();
+    setRowColumnPermission.mockResolvedValue({ isSuccess: true });
+    renderToggle({ isRlsEnabled: true, isClsEnabled: true });
+
+    await user.click(
+      screen.getByRole("switch", { name: "Toggle row level security" }),
+    );
+    expect(
+      await screen.findByText(
+        /Disabling row level security will also disable column level security/i,
+      ),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Disable" }));
+
+    await waitFor(() =>
+      expect(showSuccessToast).toHaveBeenCalledWith({
+        description: "Row and column level security disabled successfully.",
+      }),
+    );
+  });
+
+  it("reverts and shows an error toast when the mutation throws", async () => {
+    const user = userEvent.setup();
+    setRowColumnPermission.mockRejectedValue(new Error("boom"));
+    renderToggle({ isRlsEnabled: false });
+
+    await user.click(
+      screen.getByRole("switch", { name: "Toggle row level security" }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Enable" }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({ errors: expect.any(Error) }),
+    );
+  });
+
+  it("clears the pending value when the dialog is dismissed", async () => {
+    const user = userEvent.setup();
+    renderToggle({ isRlsEnabled: false });
+
+    await user.click(
+      screen.getByRole("switch", { name: "Toggle row level security" }),
+    );
+    expect(
+      await screen.findByText("Enable row level security?"),
+    ).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Enable row level security?"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(setRowColumnPermission).not.toHaveBeenCalled();
+  });
 });

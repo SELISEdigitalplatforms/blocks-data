@@ -63,6 +63,6 @@ describe("UsersRolePermissionTableToolbar", () => {
     const table = makeTable();
     render(<UsersRolePermissionTableToolbar table={table} />);
     fireEvent.click(screen.getAllByRole("button", { name: /Reset/ })[0]);
-    expect((table as any).resetColumnFilters).toHaveBeenCalled();
+    expect((table as unknown as { resetColumnFilters: unknown }).resetColumnFilters).toHaveBeenCalled();
   });
 });

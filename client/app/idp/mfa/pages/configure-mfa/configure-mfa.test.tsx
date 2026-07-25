@@ -21,7 +21,7 @@ vi.mock("@/hooks/use-toast", () => ({
   showSuccessToast: (...a: unknown[]) => showSuccessToast(...a),
 }));
 vi.mock("@/components/confirmation-modal/confirmation-modal", () => ({
-  default: (props: any) => (
+  default: (props: { data: { dialogSubtitle?: string }; onConfirm: () => void; onCancel: () => void }) => (
     <div data-testid="confirm-modal">
       <p>{props.data.dialogSubtitle}</p>
       <button onClick={props.onConfirm}>confirm</button>

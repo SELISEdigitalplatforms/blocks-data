@@ -173,7 +173,7 @@ export default function SecretManagementPage() {
                 Secret values are hidden for security
               </h4>
               <p className="mt-1 text-sm text-amber-800 dark:text-amber-200">
-                Once you enter secret values, they won't be displayed again for
+                Once you enter secret values, they won&apos;t be displayed again for
                 security reasons. You can only view and manage configurations.
               </p>
             </div>

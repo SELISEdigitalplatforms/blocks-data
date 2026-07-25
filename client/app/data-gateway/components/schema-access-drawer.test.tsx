@@ -10,18 +10,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   setDataAccess: vi.fn(),
   isSaving: false,
-  rolesResult: { data: { data: [] as any[] }, isLoading: false },
+  rolesResult: { data: { data: [] as unknown[] }, isLoading: false },
   permsResult: {
-    data: { data: [] as any[] },
+    data: { data: [] as unknown[] },
     isLoading: false,
     isFetching: false,
   },
   onOpenChange: vi.fn(),
   onSuccess: vi.fn(),
   // Resolver query results (roles-by-slug / permissions-by-resource / per-user).
-  rolesBySlug: undefined as any,
-  permsByResource: undefined as any,
-  userQueries: [] as any[],
+  rolesBySlug: undefined as unknown,
+  permsByResource: undefined as unknown,
+  userQueries: [] as unknown[],
 }));
 
 // `@/lib/http-client` builds `new HttpClient(...)` at import time and the iam
@@ -49,7 +49,7 @@ vi.mock("@seliseblocks/blocks-kit", () => ({
 // The drawer's own resolver queries (roles-by-slug, permissions-by-resource,
 // per-user) go through react-query directly — return controlled empties.
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: (opts: any) => {
+  useQuery: (opts: { queryKey?: unknown[] }) => {
     const kind = opts?.queryKey?.[1];
     if (kind === "by-slug") {
       return { data: mocks.rolesBySlug, isLoading: false, isFetching: false };
@@ -98,7 +98,17 @@ vi.mock("./schema-access-list", () => ({
     permissions,
     permissionsLoading,
     projectKey,
-  }: any) => (
+  }: {
+    entries: Array<{ type?: string; name?: string }>;
+    isEditing?: boolean;
+    onEntryChange?: (index: number, entry: { type: string; name: string; roleSlug: string }) => void;
+    onRemoveEntry?: (index: number) => void;
+    roles?: unknown[];
+    rolesLoading?: boolean;
+    permissions?: unknown[];
+    permissionsLoading?: boolean;
+    projectKey?: string;
+  }) => (
     <div
       data-testid="access-list"
       data-editing={String(!!isEditing)}
@@ -109,7 +119,7 @@ vi.mock("./schema-access-list", () => ({
       data-perms-loading={String(!!permissionsLoading)}
       data-project={projectKey}
     >
-      {entries.map((entry: any, index: number) => (
+      {entries.map((entry, index: number) => (
         <div key={index} data-testid="access-entry">
           {entry.type}:{entry.name || "(empty)"}
         </div>
@@ -143,7 +153,15 @@ vi.mock("./schema-access-toolbar", () => ({
     onEdit,
     onCancel,
     onSave,
-  }: any) => (
+  }: {
+    isEditing?: boolean;
+    isSaving?: boolean;
+    hasUnsavedChanges?: boolean;
+    onAdd?: () => void;
+    onEdit?: () => void;
+    onCancel?: () => void;
+    onSave?: () => void;
+  }) => (
     <div
       data-testid="access-toolbar"
       data-editing={String(!!isEditing)}
@@ -173,7 +191,7 @@ vi.mock("@/components/confirmation-modal/confirmation-modal", async () => {
     "@/components/ui-kits/dialog/dialog"
   );
   return {
-    default: ({ data, onConfirm, onCancel }: any) => (
+    default: ({ data, onConfirm, onCancel }: { data: { dialogTitle?: string; dialogSubtitle?: string; confirmButton?: string; cancelButton?: string }; onConfirm: () => void; onCancel: () => void }) => (
       <DialogContent hideCloseButton>
         <DialogTitle>{data.dialogTitle}</DialogTitle>
         <div data-testid="confirmation-modal">
@@ -591,7 +609,7 @@ describe("SchemaAccessDrawer", () => {
         writeAccess: emptyRuleSet,
         deleteAccess: emptyRuleSet,
       },
-    ] as any;
+    ] as unknown[];
     const { rerender } = render(<SchemaAccessDrawer {...baseProps()} />);
     rerender(<SchemaAccessDrawer {...baseProps({ fieldTargets })} />);
 

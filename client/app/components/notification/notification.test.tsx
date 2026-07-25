@@ -121,4 +121,95 @@ describe("Notification", () => {
     await user.click(screen.getByTestId("notification-bell"));
     expect(await screen.findByText("No notifications")).toBeInTheDocument();
   });
+
+  it("handles an incoming signalr message with a valid denormalized payload", () => {
+    renderComp();
+    const handler = connectionOn.mock.calls[0][1] as (m: string) => void;
+    // Should not throw for a well-formed payload.
+    expect(() =>
+      handler(
+        JSON.stringify({
+          denormalizedPayload: JSON.stringify({ title: "t", description: "d" }),
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("logs and swallows a malformed signalr message", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    renderComp();
+    const handler = connectionOn.mock.calls[0][1] as (m: string) => void;
+    handler("{not valid json");
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("formats a plain title and a status-only meta description", async () => {
+    useGetNotifications.mockReturnValue({
+      data: {
+        notifications: [
+          notif({
+            id: "n2",
+            denormalizedPayload: JSON.stringify({
+              title: "custom_event_name",
+              description: "fallback",
+              meta: JSON.stringify({ status: "pending" }),
+            }),
+          }),
+        ],
+        unReadNotificationsCount: 0,
+        totalNotificationsCount: 1,
+      },
+      isLoading: false,
+      isFetching: false,
+    });
+    const user = userEvent.setup();
+    renderComp();
+    await user.click(screen.getByTestId("notification-bell"));
+    expect(await screen.findByText("Custom Event Name")).toBeInTheDocument();
+    expect(screen.getByText("Status: Pending")).toBeInTheDocument();
+  });
+
+  it("falls back to the description when meta has no status or kb id", async () => {
+    useGetNotifications.mockReturnValue({
+      data: {
+        notifications: [
+          notif({
+            id: "n3",
+            denormalizedPayload: JSON.stringify({
+              title: "another_event",
+              description: "plain description",
+              meta: JSON.stringify({}),
+            }),
+          }),
+        ],
+        unReadNotificationsCount: 0,
+        totalNotificationsCount: 1,
+      },
+      isLoading: false,
+      isFetching: false,
+    });
+    const user = userEvent.setup();
+    renderComp();
+    await user.click(screen.getByTestId("notification-bell"));
+    expect(await screen.findByText("plain description")).toBeInTheDocument();
+  });
+
+  it("renders a fallback title when the denormalized payload is unparseable", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    useGetNotifications.mockReturnValue({
+      data: {
+        notifications: [notif({ id: "n4", denormalizedPayload: "{broken" })],
+        unReadNotificationsCount: 0,
+        totalNotificationsCount: 1,
+      },
+      isLoading: false,
+      isFetching: false,
+    });
+    const user = userEvent.setup();
+    renderComp();
+    await user.click(screen.getByTestId("notification-bell"));
+    expect(await screen.findByText("No Title")).toBeInTheDocument();
+    consoleError.mockRestore();
+  });
 });

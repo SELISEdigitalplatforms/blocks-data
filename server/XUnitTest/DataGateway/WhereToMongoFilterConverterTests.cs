@@ -193,4 +193,127 @@ public class WhereToMongoFilterConverterTests
         var where = new Dictionary<string, object?> { ["Name"] = null };
         WhereToMongoFilterConverter.Convert(where, PersonSchema()).Should().BeNull();
     }
+
+    private static SchemaDefinitionExtended ExtendedSchema() => Schema(fields: new()
+    {
+        Field("Name", "String"),
+        Field("Age", "Int"),
+        Field("IsActive", "Boolean"),
+        Field("Created", "DateTime"),
+        Field("Meta", "Meta", children: new())
+    });
+
+    [Fact]
+    public void Convert_AndLogicalOperator()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["and"] = new List<object?>
+            {
+                new Dictionary<string, object?> { ["Name"] = new Dictionary<string, object?> { ["eq"] = "A" } },
+                new Dictionary<string, object?> { ["Age"] = new Dictionary<string, object?> { ["gt"] = 1 } }
+            }
+        };
+        var result = WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        result!.Contains("$and").Should().BeTrue();
+        result["$and"].AsBsonArray.Count.Should().Be(2);
+    }
+
+    [Fact]
+    public void Convert_OrWithEmptyArray_ReturnsNull()
+    {
+        var where = new Dictionary<string, object?> { ["or"] = new List<object?>() };
+        WhereToMongoFilterConverter.Convert(where, ExtendedSchema()).Should().BeNull();
+    }
+
+    [Fact]
+    public void Convert_ScalarValueNotDictionary_Skipped()
+    {
+        var where = new Dictionary<string, object?> { ["Name"] = "John" };
+        WhereToMongoFilterConverter.Convert(where, ExtendedSchema()).Should().BeNull();
+    }
+
+    [Fact]
+    public void Convert_In_WithNonGenericEnumerable_ProducesArray()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["Age"] = new Dictionary<string, object?> { ["in"] = new[] { 1, 2, 3 } }
+        };
+        var result = WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        result!["Age"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(3);
+    }
+
+    [Fact]
+    public void Convert_NotEqual_MapsToNe()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["Name"] = new Dictionary<string, object?> { ["neq"] = "John" }
+        };
+        var result = WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        result!["Name"].AsBsonDocument.Contains("$ne").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Convert_LessThanAndLessThanOrEqual()
+    {
+        var lt = WhereToMongoFilterConverter.Convert(
+            new Dictionary<string, object?> { ["Age"] = new Dictionary<string, object?> { ["lt"] = 5 } },
+            ExtendedSchema());
+        lt!["Age"].AsBsonDocument["$lt"].AsInt32.Should().Be(5);
+
+        var lte = WhereToMongoFilterConverter.Convert(
+            new Dictionary<string, object?> { ["Age"] = new Dictionary<string, object?> { ["lte"] = 9 } },
+            ExtendedSchema());
+        lte!["Age"].AsBsonDocument["$lte"].AsInt32.Should().Be(9);
+    }
+
+    [Fact]
+    public void Convert_EndsWith_AnchorsPattern()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["Name"] = new Dictionary<string, object?> { ["endsWith"] = "Jo" }
+        };
+        var result = WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        result!["Name"].AsBsonDocument["$regex"].AsBsonRegularExpression.Pattern.Should().Be("Jo$");
+    }
+
+    [Fact]
+    public void Convert_BooleanEquality()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["IsActive"] = new Dictionary<string, object?> { ["eq"] = true }
+        };
+        var result = WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        result!["IsActive"].AsBsonDocument["$eq"].AsBoolean.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Convert_DateTimeGreaterThanOrEqual()
+    {
+        var when = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var where = new Dictionary<string, object?>
+        {
+            ["Created"] = new Dictionary<string, object?> { ["gte"] = when }
+        };
+        var result = WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        result!["Created"].AsBsonDocument.Contains("$gte").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Convert_NestedIntoObjectWithoutChildren_Throws()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["Meta"] = new Dictionary<string, object?>
+            {
+                ["Anything"] = new Dictionary<string, object?> { ["eq"] = "x" }
+            }
+        };
+        var act = () => WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        act.Should().Throw<ArgumentException>().WithMessage("*not defined on the schema*");
+    }
 }

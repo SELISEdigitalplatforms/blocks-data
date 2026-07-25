@@ -7,8 +7,10 @@ using DataGateway.DomainService.Services;
 using DataGateway.DomainService.Validators;
 using FluentAssertions;
 using FluentValidation.Results;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
+using System.Reflection;
 using XUnitTest.Infrastructure;
 
 namespace XUnitTest.DataGateway.Services;
@@ -250,5 +252,62 @@ public class DataValidationServiceTests
 
         result.IsSuccess.Should().BeTrue();
         result.Data!.FieldName.Should().Be("f");
+    }
+
+    private static BsonDocument InvokeGetFilter(GetDataValidationListRequest request)
+    {
+        var method = typeof(DataValidationService).GetMethod("GetFilter", BindingFlags.NonPublic | BindingFlags.Static)!;
+        return (BsonDocument)method.Invoke(null, new object[] { request })!;
+    }
+
+    [Fact]
+    public void GetFilter_FieldNameOnly_UsesExactMatch()
+    {
+        var filter = InvokeGetFilter(new GetDataValidationListRequest { FieldName = "f" });
+
+        filter[nameof(DataValidation.FieldName)].BsonType.Should().Be(BsonType.String);
+        filter[nameof(DataValidation.FieldName)].AsString.Should().Be("f");
+    }
+
+    [Fact]
+    public void GetFilter_KeywordOnly_UsesRegex()
+    {
+        var filter = InvokeGetFilter(new GetDataValidationListRequest { Keyword = "kw" });
+
+        filter[nameof(DataValidation.FieldName)].BsonType.Should().Be(BsonType.RegularExpression);
+        filter[nameof(DataValidation.FieldName)].AsBsonRegularExpression.Pattern.Should().Be("kw");
+    }
+
+    [Fact]
+    public void GetFilter_FieldNameAndKeyword_ExactMatchWins_NoDuplicate()
+    {
+        var filter = InvokeGetFilter(new GetDataValidationListRequest { FieldName = "f", Keyword = "kw" });
+
+        filter.ElementCount.Should().Be(1);
+        filter[nameof(DataValidation.FieldName)].BsonType.Should().Be(BsonType.String);
+        filter[nameof(DataValidation.FieldName)].AsString.Should().Be("f");
+    }
+
+    [Fact]
+    public async Task GetAll_FieldNameAndKeyword_DoesNotThrow()
+    {
+        _repo.Setup(r => r.GetItemsWithCountAsync<DataValidation>(
+                It.IsAny<FilterDefinition<MongoDB.Bson.BsonDocument>>(),
+                It.IsAny<SortDefinition<MongoDB.Bson.BsonDocument>>(),
+                It.IsAny<ProjectionDefinition<MongoDB.Bson.BsonDocument>>(),
+                It.IsAny<int>(), It.IsAny<int>(), ""))
+            .ReturnsAsync((new List<DataValidation> { new() { ItemId = "1", FieldName = "f" } }, 1));
+
+        var result = await _service.GetAllDataValidationsAsync(new GetDataValidationListRequest
+        {
+            SchemaId = "s",
+            FieldName = "f",
+            Keyword = "kw",
+            PageNo = 1,
+            PageSize = 10
+        });
+
+        result.IsSuccess.Should().BeTrue();
+        result.Data!.TotalCount.Should().Be(1);
     }
 }

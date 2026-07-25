@@ -56,7 +56,7 @@ export function UsersRolePermissionTableToolbar<TData extends TableFilterData>({
     table.resetColumnFilters();
   }
 
-  const FilterContent = () => (
+  const filterContent = (
     <>
       {table.getRowModel() && (
         <DataTableFacetedFilter
@@ -102,7 +102,7 @@ export function UsersRolePermissionTableToolbar<TData extends TableFilterData>({
               <SheetTitle className="mb-4">Filter</SheetTitle>
               <SheetDescription />
               <div className="flex flex-col space-y-4">
-                <FilterContent />
+                {filterContent}
                 <SheetClose asChild>
                   <Button className="mt-4" size="sm">
                     Show Results
@@ -130,7 +130,7 @@ export function UsersRolePermissionTableToolbar<TData extends TableFilterData>({
           isVisible={isSearchVisible}
           setIsVisible={setIsSearchVisible}
         />
-        <FilterContent />
+        {filterContent}
         {isFiltered && (
           <Button variant="outline" onClick={resetFilters} className="h-8 px-2 lg:px-3">
             Reset

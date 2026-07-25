@@ -30,7 +30,7 @@ vi.mock("@blocks-idp/iam/hooks/use-user", () => ({
 
 // Child components are mocked to expose the callbacks the parent wires up.
 vi.mock("./membership-role-tab", () => ({
-  MembershipRolesTab: (props: any) => (
+  MembershipRolesTab: (props: { getRoleDisplayName: (slug: string) => string; onRoleToggle: (id: string) => void; onRolesSearchChange: (q: string) => void; selectedRoles: string[]; filteredRoles: unknown[] }) => (
     <div data-testid="roles-tab">
       <span>role-name:{props.getRoleDisplayName("slug-a")}</span>
       <button onClick={() => props.onRoleToggle("role-1")}>toggle-role</button>
@@ -41,7 +41,7 @@ vi.mock("./membership-role-tab", () => ({
   ),
 }));
 vi.mock("./membership-permission-tab", () => ({
-  MembershipPermissionsTab: (props: any) => (
+  MembershipPermissionsTab: (props: { onPermissionToggle: (id: string) => void; onPermissionsSearchChange: (q: string) => void; onPermissionsTypeFilterChange: (t: string) => void; onPermissionsPageChange: (p: number) => void; selectedPermissions: string[]; totalPermissionPages: number }) => (
     <div data-testid="perms-tab">
       <button onClick={() => props.onPermissionToggle("perm-1")}>toggle-perm</button>
       <button onClick={() => props.onPermissionsSearchChange("read")}>search-perm</button>
@@ -53,7 +53,7 @@ vi.mock("./membership-permission-tab", () => ({
   ),
 }));
 vi.mock("./membership-footer", () => ({
-  MembershipFooter: (props: any) => (
+  MembershipFooter: (props: { onEdit: () => void; onSave: () => void; onCancel: () => void; onUnassign: () => void }) => (
     <div data-testid="footer">
       <button onClick={props.onEdit}>edit</button>
       <button onClick={props.onSave}>save</button>
@@ -63,7 +63,7 @@ vi.mock("./membership-footer", () => ({
   ),
 }));
 vi.mock("../remove-membership", () => ({
-  RemoveMembership: (props: any) =>
+  RemoveMembership: (props: { open?: boolean; onSuccess: () => void }) =>
     props.open ? (
       <div data-testid="remove-modal">
         <button onClick={props.onSuccess}>remove-success</button>

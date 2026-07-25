@@ -50,10 +50,17 @@ vi.mock("./schemas-drawer", () => ({
 // Monaco mock — captures the editor instance, monaco namespace, and the
 // registered completion / codelens providers so tests can drive them.
 // ---------------------------------------------------------------------------
-let capturedMonaco: any = null;
-let capturedEditor: any = null;
-let completionProvider: any = null;
-let codeLensProvider: any = null;
+interface CompletionProviderMock {
+  provideCompletionItems: (...args: unknown[]) => { suggestions: Array<Record<string, unknown>> };
+}
+interface CodeLensProviderMock {
+  provideCodeLenses: (...args: unknown[]) => { lenses: Array<Record<string, unknown>> };
+  resolveCodeLens: (...args: unknown[]) => unknown;
+}
+let capturedMonaco: ReturnType<typeof makeMonaco> | null = null;
+let capturedEditor: ReturnType<typeof makeEditor> | null = null;
+let completionProvider: CompletionProviderMock | null = null;
+let codeLensProvider: CodeLensProviderMock | null = null;
 
 function makeMonaco() {
   return {
@@ -71,11 +78,11 @@ function makeMonaco() {
       },
       CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
       registerCompletionItemProvider: (_lang: string, provider: unknown) => {
-        completionProvider = provider;
+        completionProvider = provider as CompletionProviderMock;
         return { dispose: vi.fn() };
       },
       registerCodeLensProvider: (_lang: string, provider: unknown) => {
-        codeLensProvider = provider;
+        codeLensProvider = provider as CodeLensProviderMock;
         return { dispose: vi.fn() };
       },
     },
@@ -95,7 +102,7 @@ function makeEditor() {
 }
 
 vi.mock("@monaco-editor/react", () => ({
-  default: (props: any) => {
+  default: (props: { onMount?: (editor: unknown, monaco: unknown) => void; onChange?: (value: string) => void; value?: string }) => {
     const mounted = useRef(false);
     useEffect(() => {
       if (!mounted.current && props.onMount) {

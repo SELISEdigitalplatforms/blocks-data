@@ -104,7 +104,6 @@ export const FilePreviewModal = ({
     if ([".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp", ".bmp"].includes(ext)) {
       return (
         <div className="flex h-[70vh] items-center justify-center bg-muted/30">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={fileUrl} alt={fileName} className="max-h-full max-w-full object-contain" />
         </div>
       );

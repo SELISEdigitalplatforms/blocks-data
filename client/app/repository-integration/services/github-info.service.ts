@@ -86,17 +86,17 @@ export class GithubInfoService {
 
   async cloneGithubRepo(payload: ICloneRepo) {
     const url = CLOUD_BUILD_ENDPOINTS.BUILD_BUILD;
-    return http.post<any>(url, payload);
+    return http.post<unknown>(url, payload);
   }
 
-  async repoInitialDeploy(payload: any) {
+  async repoInitialDeploy(payload: object) {
     const url = CLOUD_BUILD_ENDPOINTS.RUN_BUILD;
-    return http.post<any>(url, payload);
+    return http.post<unknown>(url, payload);
   }
 
   async manualDeploy(payload: IManualDeploymentPayload) {
     const url = CLOUD_BUILD_ENDPOINTS.MANUAL;
-    return http.post<any>(url, payload);
+    return http.post<unknown>(url, payload);
   }
 
   async getSpecs() {
@@ -111,12 +111,12 @@ export class GithubInfoService {
     return http.get(url);
   }
 
-  async getAllRepoBuilds(projectKey: string): Promise<any> {
+  async getAllRepoBuilds(projectKey: string): Promise<unknown> {
     const url = `${CLOUD_BUILD_ENDPOINTS.REPOS}?ProjectKey=${encodeURIComponent(projectKey)}`;
     return http.get(url);
   }
 
-  async getRepoDetails(projectKey: string, repoId: string): Promise<any> {
+  async getRepoDetails(projectKey: string, repoId: string): Promise<unknown> {
     const url = `${CLOUD_BUILD_ENDPOINTS.REPO_DETAILS}?ProjectKey=${encodeURIComponent(projectKey)}&RepoId=${encodeURIComponent(repoId)}`;
     return http.get(url);
   }

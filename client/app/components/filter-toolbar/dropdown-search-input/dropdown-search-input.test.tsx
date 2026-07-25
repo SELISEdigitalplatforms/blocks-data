@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DropdownSearchInput } from "./dropdown-search-input";
 
 const options = [
@@ -8,6 +8,12 @@ const options = [
   { label: "Email", value: "email" },
 ];
 
+beforeEach(() => {
+  // jsdom lacks the Pointer Capture APIs that Radix Select calls on open.
+  Element.prototype.hasPointerCapture = vi.fn(() => false);
+  Element.prototype.setPointerCapture = vi.fn();
+  Element.prototype.releasePointerCapture = vi.fn();
+});
 afterEach(() => vi.clearAllMocks());
 
 describe("DropdownSearchInput", () => {
@@ -52,7 +58,8 @@ describe("DropdownSearchInput", () => {
       <DropdownSearchInput onChange={onChange} value={{ selected: "name", value: "" }} options={options} />,
     );
     await user.click(screen.getByRole("combobox"));
-    await user.click(await screen.findByText("Email"));
+    const emailOptions = await screen.findAllByText("Email");
+    await user.click(emailOptions[emailOptions.length - 1]);
     expect(onChange).toHaveBeenCalledWith({ selected: "email", value: "" });
   });
 });

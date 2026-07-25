@@ -1,12 +1,17 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/components/mode-toggle/mode-toggle", () => ({
   ModeToggle: () => <div data-testid="mode-toggle" />,
 }));
 
 import { BlocksLoginPage } from "./index";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.useRealTimers();
+});
 
 describe("BlocksLoginPage", () => {
   it("renders the hero, docs links and login button for a known product", () => {
@@ -50,5 +55,52 @@ describe("BlocksLoginPage", () => {
     );
     expect(screen.getByText("first")).toBeInTheDocument();
     expect(screen.getByText(/Backends that are/)).toBeInTheDocument();
+  });
+
+  it("paints the atmospheric canvas gradient on mount", () => {
+    const gradient = { addColorStop: vi.fn() };
+    const ctx = {
+      setTransform: vi.fn(),
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      createRadialGradient: vi.fn(() => gradient),
+      fillStyle: "",
+    };
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
+      ctx as unknown as CanvasRenderingContext2D,
+    );
+    // Run the animation frame exactly once so draw() executes without looping.
+    let frames = 0;
+    vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+      if (frames++ < 1) cb(0);
+      return 1;
+    });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+
+    render(<BlocksLoginPage name="blocks-iam" onLogin={vi.fn()} />);
+
+    expect(ctx.setTransform).toHaveBeenCalled();
+    expect(ctx.createRadialGradient).toHaveBeenCalled();
+    expect(gradient.addColorStop).toHaveBeenCalled();
+    expect(ctx.fillRect).toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("rotates to the next animated keyword on the interval", () => {
+    vi.useFakeTimers();
+    render(
+      <BlocksLoginPage
+        name="blocks-iam"
+        onLogin={vi.fn()}
+        keywords={["alpha", "beta"]}
+      />,
+    );
+    expect(screen.getByText("alpha")).toBeInTheDocument();
+    act(() => {
+      vi.advanceTimersByTime(2800);
+      vi.advanceTimersByTime(280);
+    });
+    expect(screen.getByText("beta")).toBeInTheDocument();
   });
 });

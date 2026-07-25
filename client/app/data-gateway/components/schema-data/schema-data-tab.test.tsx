@@ -20,17 +20,62 @@ vi.mock("@seliseblocks/blocks-kit", () => ({
   },
 }));
 
+vi.mock("./toolbar/filter-popover", () => ({
+  FilterPopover: ({ onApply }: { onApply: (f: string) => void }) => (
+    <button onClick={() => onApply('{"name":"x"}')}>apply-filter</button>
+  ),
+}));
+vi.mock("./toolbar/projection-popover", () => ({
+  ProjectionPopover: ({ onApply }: { onApply: (f: string[]) => void }) => (
+    <button onClick={() => onApply(["name"])}>apply-projection</button>
+  ),
+}));
+vi.mock("./toolbar/sort-popover", () => ({
+  SortPopover: ({
+    onApply,
+    onClear,
+  }: {
+    onApply: (f: string, d: "asc" | "desc") => void;
+    onClear: () => void;
+  }) => (
+    <>
+      <button onClick={() => onApply("name", "desc")}>apply-sort</button>
+      <button onClick={onClear}>clear-sort</button>
+    </>
+  ),
+}));
+vi.mock("./toolbar/reset-button", () => ({
+  ResetButton: ({ onReset }: { onReset: () => void }) => (
+    <button onClick={onReset}>reset-all</button>
+  ),
+}));
+vi.mock("./toolbar/data-pagination", () => ({
+  DataPagination: ({
+    onPageChange,
+    onPageSizeChange,
+  }: {
+    onPageChange: (p: number) => void;
+    onPageSizeChange: (v: string) => void;
+  }) => (
+    <>
+      <button onClick={() => onPageChange(2)}>next-page</button>
+      <button onClick={() => onPageSizeChange("50")}>size-50</button>
+    </>
+  ),
+}));
+
 import { SchemaDataTab } from "./schema-data-tab";
+import { HttpError } from "@/lib/http-client";
 
 const fields = [
   { name: "name", isArray: false },
   { name: "email", isArray: false, isPIIData: true },
 ];
 
-function renderTab() {
+function renderTab(previewData: Record<string, unknown> = {}) {
   render(
     <TooltipProvider>
-      <SchemaDataTab schemaName="User" fields={fields} previewData={{}} />
+      <SchemaDataTab schemaName="User" fields={fields} previewData={previewData} />
     </TooltipProvider>,
   );
 }
@@ -100,5 +145,116 @@ describe("SchemaDataTab", () => {
       expect(screen.queryByText("secret@example.com")).not.toBeInTheDocument(),
     );
     expect(screen.getByText("••••••••")).toBeInTheDocument();
+  });
+
+  it("builds a nested selection set from preview data on mount", async () => {
+    executeGraphQL.mockResolvedValue({
+      data: { getUsers: { items: [], totalCount: 0 } },
+    });
+    render(
+      <TooltipProvider>
+        <SchemaDataTab
+          schemaName="User"
+          fields={[
+            { name: "name", isArray: false },
+            { name: "tags", isArray: true },
+            { name: "address", isArray: false },
+          ]}
+          previewData={{
+            name: "n",
+            tags: [{ label: "l", meta: { a: 1 } }],
+            address: { city: "c" },
+          }}
+        />
+      </TooltipProvider>,
+    );
+    await waitFor(() => expect(executeGraphQL).toHaveBeenCalled());
+    const query = executeGraphQL.mock.calls[0][0].query as string;
+    expect(query).toContain("tags {");
+    expect(query).toContain("address {");
+  });
+
+  it("applies a filter and re-queries with a filter clause", async () => {
+    const user = userEvent.setup();
+    executeGraphQL.mockResolvedValue({ data: { getUsers: { items: [], totalCount: 0 } } });
+    renderTab();
+    await waitFor(() => expect(executeGraphQL).toHaveBeenCalled());
+
+    await user.click(screen.getByText("apply-filter"));
+    await waitFor(() => {
+      const last = executeGraphQL.mock.calls.at(-1)![0].query as string;
+      expect(last).toContain("filter:");
+    });
+  });
+
+  it("applies a projection and re-queries", async () => {
+    const user = userEvent.setup();
+    executeGraphQL.mockResolvedValue({ data: { getUsers: { items: [], totalCount: 0 } } });
+    renderTab();
+    await waitFor(() => expect(executeGraphQL).toHaveBeenCalled());
+    const before = executeGraphQL.mock.calls.length;
+    await user.click(screen.getByText("apply-projection"));
+    await waitFor(() =>
+      expect(executeGraphQL.mock.calls.length).toBeGreaterThan(before),
+    );
+  });
+
+  it("applies a sort and re-queries with a sort clause", async () => {
+    const user = userEvent.setup();
+    executeGraphQL.mockResolvedValue({ data: { getUsers: { items: [], totalCount: 0 } } });
+    renderTab();
+    await waitFor(() => expect(executeGraphQL).toHaveBeenCalled());
+
+    await user.click(screen.getByText("apply-sort"));
+    await waitFor(() => {
+      const last = executeGraphQL.mock.calls.at(-1)![0].query as string;
+      expect(last).toContain("sort:");
+    });
+  });
+
+  it("changes page and page size through pagination", async () => {
+    const user = userEvent.setup();
+    executeGraphQL.mockResolvedValue({ data: { getUsers: { items: [{ name: "A" }], totalCount: 40 } } });
+    renderTab();
+    await screen.findByText("A");
+    const before = executeGraphQL.mock.calls.length;
+
+    await user.click(screen.getByText("next-page"));
+    await user.click(screen.getByText("size-50"));
+    await waitFor(() =>
+      expect(executeGraphQL.mock.calls.length).toBeGreaterThan(before + 1),
+    );
+  });
+
+  it("resets all filters through the reset button", async () => {
+    const user = userEvent.setup();
+    executeGraphQL.mockResolvedValue({ data: { getUsers: { items: [], totalCount: 0 } } });
+    renderTab();
+    await waitFor(() => expect(executeGraphQL).toHaveBeenCalled());
+    const before = executeGraphQL.mock.calls.length;
+    await user.click(screen.getByText("reset-all"));
+    await waitFor(() =>
+      expect(executeGraphQL.mock.calls.length).toBeGreaterThan(before),
+    );
+  });
+
+  it("refreshes the current page via the refresh button", async () => {
+    const user = userEvent.setup();
+    executeGraphQL.mockResolvedValue({ data: { getUsers: { items: [], totalCount: 0 } } });
+    renderTab();
+    await waitFor(() => expect(executeGraphQL).toHaveBeenCalled());
+    const before = executeGraphQL.mock.calls.length;
+    await user.click(screen.getByRole("button", { name: "Refresh data" }));
+    await waitFor(() =>
+      expect(executeGraphQL.mock.calls.length).toBeGreaterThan(before),
+    );
+  });
+
+  it("shows a server-status message on a 404 error", async () => {
+    executeGraphQL.mockRejectedValue(new HttpError(404, { errors: {} }));
+    renderTab();
+    expect(
+      await screen.findByText("Please check the server status"),
+    ).toBeInTheDocument();
   });
 });

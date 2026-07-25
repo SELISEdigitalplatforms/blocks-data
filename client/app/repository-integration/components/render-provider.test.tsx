@@ -81,4 +81,34 @@ describe("ProviderButtons", () => {
     await userEvent.click(screen.getByText("Continue with GitHub"));
     expect(authenticateWithGithub).toHaveBeenCalledWith("state-x", "t1");
   });
+
+  it("navigates to the destination when authorized and no onClose is given", async () => {
+    useValidateAuthorization.mockReturnValue({ data: { isSuccess: true } });
+    renderProvider();
+    await userEvent.click(screen.getByText("Continue with GitHub"));
+    // The navigate branch runs instead of authentication.
+    expect(authenticateWithGithub).not.toHaveBeenCalled();
+  });
+
+  it("completes the flow when the reload storage event fires", async () => {
+    const onClose = vi.fn();
+    useValidateAuthorization.mockReturnValue({ data: { isSuccess: false } });
+    renderProvider({ onClose });
+    await userEvent.click(screen.getByText("Continue with GitHub"));
+    expect(authenticateWithGithub).toHaveBeenCalled();
+
+    window.dispatchEvent(
+      new StorageEvent("storage", { key: "isReload", newValue: "true" }),
+    );
+    expect(onClose).toHaveBeenCalledWith(true);
+    expect(localStorage.getItem("isReload")).toBe("false");
+  });
+
+  it("closes immediately when closeOnProviderSelect is set", async () => {
+    const onClose = vi.fn();
+    useValidateAuthorization.mockReturnValue({ data: { isSuccess: false } });
+    renderProvider({ onClose, closeOnProviderSelect: true });
+    await userEvent.click(screen.getByText("Continue with GitHub"));
+    expect(onClose).toHaveBeenCalled();
+  });
 });

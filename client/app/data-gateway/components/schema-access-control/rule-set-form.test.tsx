@@ -357,4 +357,141 @@ describe("RuleSetForm create flow", () => {
     await user.click(saveBtn);
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
   });
+
+  it("submits through the native form submit handler", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Native submit" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+    await pick(user, 2, "Is Null");
+
+    // Fire the form's own submit event (covers the onSubmit preventDefault path).
+    fireEvent.submit(document.querySelector("form")!);
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+  });
+
+  it("appends a second rule from the bottom Add Rule button", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    // With one rule present, the bottom Add Rule button appends another.
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(2);
+  });
+
+  it("multi-selects auth fields for an IN comparison against Auth", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Multi set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "Roles");
+    await pick(user, 2, /^In$/);
+    await pick(user, 3, "Auth");
+
+    // The multi-select popover trigger appears for IN + non-static compare source.
+    await user.click(screen.getByRole("button", { name: /Select fields/ }));
+    // cmdk renders each option with role="option".
+    const option = await screen.findByRole("option", { name: "UserId" });
+    await user.click(option);
+    // Toggling the same option again exercises the deselect branch.
+    await user.click(screen.getByRole("option", { name: "UserId" }));
+  });
+
+  it("filters right-hand schema fields for a string left operand", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Schema string set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Schema Fields");
+    await pick(user, 1, "title");
+    await pick(user, 2, /^Equal$/);
+    await pick(user, 3, "Schema Fields");
+    // Right side offers string/array schema fields (title, tags).
+    await pick(user, 4, "tags");
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+  });
+
+  it("drops Auth and filters numeric schema fields for a numeric left operand", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Numeric set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Schema Fields");
+    await pick(user, 1, "count");
+    await pick(user, 2, /^Equal$/);
+    // Numeric left operands cannot compare against Auth, so that option is gone.
+    await user.click(screen.getAllByRole("combobox")[3]);
+    expect(
+      screen.queryByRole("option", { name: "Auth" }),
+    ).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("option", { name: "Schema Fields" }));
+    await pick(user, 4, "count");
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+  });
+
+  it("clears an incompatible operator when the left field category changes", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+    await pick(user, 2, "Start With");
+    // The START_WITH operator shows a dedicated prefix input.
+    expect(screen.getByPlaceholderText("Enter prefix")).toBeInTheDocument();
+    // Switching to an array field (Roles) invalidates START_WITH, resetting it,
+    // so the direct-value prefix input disappears.
+    await pick(user, 1, "Roles");
+    await waitFor(() =>
+      expect(
+        screen.queryByPlaceholderText("Enter prefix"),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("uses a single select for an EQUAL comparison against an Auth field", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Single set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+    await pick(user, 2, /^Equal$/);
+    await pick(user, 3, "Auth");
+
+    // compareValue renders as a single-select of auth fields; pick one.
+    await pick(user, 4, "Email");
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+  });
 });

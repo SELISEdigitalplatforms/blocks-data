@@ -19,10 +19,28 @@ vi.mock("@/hooks/use-toast", () => ({
   showSuccessToast: (...a: unknown[]) => showSuccessToast(...a),
   showErrorToast: (...a: unknown[]) => showErrorToast(...a),
 }));
-vi.mock("./rule-set-form", () => ({ RuleSetForm: () => <div data-testid="rule-set-form" /> }));
+vi.mock("./rule-set-form", () => ({
+  RuleSetForm: ({ onCancel }: { onCancel?: () => void }) => (
+    <div data-testid="rule-set-form">
+      <button onClick={() => onCancel?.()}>rsf-cancel</button>
+    </div>
+  ),
+}));
 vi.mock("./schema-access-control-accordion", () => ({
-  SchemaAccessControlAccordion: ({ policies }: { policies?: unknown[] }) => (
-    <div data-testid="accordion">policies:{policies?.length ?? 0}</div>
+  SchemaAccessControlAccordion: ({
+    policies,
+    onAddRuleSet,
+    onEditPolicy,
+  }: {
+    policies?: unknown[];
+    onAddRuleSet?: () => void;
+    onEditPolicy?: (p: unknown) => void;
+  }) => (
+    <div data-testid="accordion">
+      policies:{policies?.length ?? 0}
+      <button onClick={() => onAddRuleSet?.()}>add-rule</button>
+      <button onClick={() => onEditPolicy?.({ itemId: "e1" })}>edit-policy</button>
+    </div>
   ),
 }));
 vi.mock("@/components/confirmation-modal/confirmation-modal", () => ({
@@ -154,4 +172,94 @@ describe("SchemaAccessControlView", () => {
     await user.click(screen.getByText("cancel-change"));
     expect(setRowColumnPermission).not.toHaveBeenCalled();
   });
+
+  it("filters column-level policies by matching field names", () => {
+    useGetPolicyData.mockReturnValue({
+      data: {
+        isSuccess: true,
+        data: [
+          policy({ itemId: "match", fieldNames: ["email"] }),
+          policy({ itemId: "other", fieldNames: ["name"] }),
+          policy({ itemId: "rowlevel", fieldNames: [] }),
+        ],
+      },
+      refetch,
+      isPending: false,
+      isFetching: false,
+    });
+    render(
+      <SchemaAccessControlView
+        {...baseProps}
+        level="column"
+        fieldNames={["email"]}
+        defaultAccessLevel={3}
+      />,
+    );
+    expect(screen.getByTestId("accordion")).toHaveTextContent("policies:1");
+  });
+
+  it("ignores an unmapped default access level", () => {
+    render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={99} />);
+    expect(
+      screen.getByText("All logged in users have access"),
+    ).toBeInTheDocument();
+  });
+
+  it("waits for the policy response before inferring the access type", () => {
+    useGetPolicyData.mockReturnValue({
+      data: undefined,
+      refetch,
+      isPending: false,
+      isFetching: false,
+    });
+    render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={undefined} />);
+    expect(
+      screen.getByText("All logged in users have access"),
+    ).toBeInTheDocument();
+  });
+
+  it("opens the rule-set form and refetches after a successful save", async () => {
+    const user = userEvent.setup();
+    useGetPolicyData.mockReturnValue({
+      data: { isSuccess: true, data: [] },
+      refetch,
+      isPending: false,
+      isFetching: false,
+    });
+    render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={3} />);
+
+    await user.click(screen.getByText("add-rule"));
+    expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
+
+    await user.click(screen.getByText("rsf-cancel"));
+    await waitFor(() => expect(refetch).toHaveBeenCalled());
+    expect(screen.queryByTestId("rule-set-form")).not.toBeInTheDocument();
+  });
+
+  it("opens the rule-set form to edit an existing policy", async () => {
+    const user = userEvent.setup();
+    useGetPolicyData.mockReturnValue({
+      data: { isSuccess: true, data: [policy()] },
+      refetch,
+      isPending: false,
+      isFetching: false,
+    });
+    render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={3} />);
+
+    await user.click(screen.getByText("edit-policy"));
+    expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
+  });
+
+  it("surfaces an error toast when the access change throws", async () => {
+    setRowColumnPermission.mockRejectedValue(new Error("boom"));
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...baseProps} />);
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "Public" }));
+    await user.click(screen.getByText("confirm-change"));
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({ errors: expect.any(Error) }),
+    );
+  });
+
 });

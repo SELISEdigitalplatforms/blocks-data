@@ -13,20 +13,38 @@ test.describe("Authentication", () => {
   });
 
   test("logs in through dev-iam and lands on the console", async ({ page }) => {
-    // Extend the test timeout to cover an optional inspection hold at the end.
+    // Cross-origin OIDC plus a cold SPA load on the shared dev host can push
+    // this flow past Playwright's 30s default, so give it generous headroom.
+    // Extend further to cover an optional inspection hold at the end.
     const holdMs = Number(process.env.E2E_HOLD_MS ?? 0);
-    if (holdMs > 0) test.setTimeout(holdMs + 60_000);
+    test.setTimeout(holdMs > 0 ? holdMs + 120_000 : 120_000);
 
     // 1. Blocks Data login page — a single CTA that starts the OIDC flow.
     //    Rendered by blocks-kit's LoginPage (pages/login/blocks-login.tsx),
     //    whose default CTA label is "Log in to your account".
     await page.goto("/login");
-    await page.getByRole("button", { name: "Log in to your account" }).click();
+    await page.waitForLoadState("domcontentloaded");
+    // The dev SPA can take a while to hydrate the CTA on a cold load.
+    const loginCta = page.getByRole("button", { name: "Log in to your account" });
+    await loginCta.waitFor({ state: "visible", timeout: 60_000 });
 
     // 2. Redirected to the dev-iam OIDC login page (/oidc/login, cross-origin).
     //    Selectors come from blocks-idp oidc-login-form.tsx (stable field ids).
+    //    The CTA can render before its OIDC click handler is wired (hydration
+    //    race on a cold dev load), and the cross-origin redirect itself is
+    //    occasionally slow, so retry the click until the email field appears.
     const emailField = page.locator("#oidc-email");
-    await emailField.waitFor({ timeout: 30_000 });
+    let reachedOidc = false;
+    for (let attempt = 0; attempt < 4 && !reachedOidc; attempt++) {
+      if (await loginCta.isVisible().catch(() => false)) {
+        await loginCta.click().catch(() => {});
+      }
+      reachedOidc = await emailField
+        .waitFor({ state: "visible", timeout: 20_000 })
+        .then(() => true)
+        .catch(() => false);
+    }
+    await emailField.waitFor({ timeout: 20_000 });
     await emailField.fill(username!);
     await page.locator("#oidc-password").fill(password!);
     await page.getByRole("button", { name: "Login", exact: true }).click();

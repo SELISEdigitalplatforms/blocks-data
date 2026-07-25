@@ -114,12 +114,12 @@ export function Storage() {
   };
 
   const handleRemove = (id: string) => {
-    console.log("Remove configuration:", id);
+    console.error("Remove configuration:", id);
     // TODO: Implement remove logic
   };
 
   const handleDisconnect = (id: string) => {
-    console.log("Disconnect storage:", id);
+    console.error("Disconnect storage:", id);
     // TODO: Implement disconnect logic
   };
 
@@ -152,7 +152,7 @@ export function Storage() {
           onChange={onChange}
           onReset={onReset}
           onAddConfiguration={() => setOpen(true)}
-          onConnectStorage={() => console.log("Connect to storage")}
+          onConnectStorage={() => console.error("Connect to storage")}
         />
 
         {loading ? (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
 import { AddUserRole } from "./add-user-role";
 import { useUserRoles } from "@blocks-idp/iam/hooks/use-user";
@@ -22,10 +22,12 @@ export const UserRoles = ({ id, projectKey }: UserRolesProps) => {
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync localRoles with fetched roles
-  useEffect(() => {
+  const [prevRoles, setPrevRoles] = useState<IRole[] | undefined>(undefined);
+  if (prevRoles !== roles) {
+    setPrevRoles(roles);
     setLocalRoles(roles);
     setRemovedRoleSlugs([]);
-  }, [roles]);
+  }
 
   const onRemoveRole = (slug: string) => {
     setLocalRoles((prev) => prev.filter((role) => role.slug !== slug));

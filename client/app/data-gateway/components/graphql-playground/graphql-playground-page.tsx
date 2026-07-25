@@ -412,7 +412,7 @@ export const GraphQLPlaygroundPage = () => {
     }
 
     // Step 1: Find the input: [ or input: { block
-    const inputStartMatch = queryText.match(/(input\s*:\s*[\{\[])/i);
+    const inputStartMatch = queryText.match(/(input\s*:\s*[{[])/i);
     if (!inputStartMatch || inputStartMatch.index === undefined) {
       return queryText;
     }
@@ -801,7 +801,7 @@ export const GraphQLPlaygroundPage = () => {
                       operationCtx === "query" ? "Query" : "Mutation";
                     const argSuggestions = getArgumentSuggestions(
                       opMatch,
-                      parentTypeName as any,
+                      parentTypeName,
                       introspectedSchema,
                     );
                     argSuggestions.forEach((s: IntrospectionSuggestion) => {
@@ -878,7 +878,7 @@ export const GraphQLPlaygroundPage = () => {
                           isNonNullType(returnType) ||
                           isListType(returnType)
                         ) {
-                          returnType = (returnType as any).ofType;
+                          returnType = (returnType as unknown as { ofType: typeof returnType }).ofType;
                         }
 
                         if (isObjectType(returnType)) {
@@ -891,11 +891,11 @@ export const GraphQLPlaygroundPage = () => {
                                 isNonNullType(itemType) ||
                                 isListType(itemType)
                               ) {
-                                itemType = (itemType as any).ofType;
+                                itemType = (itemType as unknown as { ofType: typeof itemType }).ofType;
                               }
                               if (isObjectType(itemType)) {
                                 const fieldSuggestions = getFieldSuggestions(
-                                  (itemType as any).name,
+                                  (itemType as { name: string }).name,
                                   introspectedSchema,
                                 );
                                 fieldSuggestions.forEach((s) => {
@@ -908,7 +908,7 @@ export const GraphQLPlaygroundPage = () => {
                           } else {
                             // Directly inside the operation return type
                             const fieldSuggestions = getFieldSuggestions(
-                              (returnType as any).name,
+                              (returnType as { name: string }).name,
                               introspectedSchema,
                               { omitPaginationMirrorFields: true },
                             );

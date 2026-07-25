@@ -31,7 +31,7 @@ export const DashboardOverview = () => {
       });
     } catch (error) {
       if (error && typeof error === "object" && "errors" in error) {
-        showErrorToast({ errors: (error as any).errors });
+        showErrorToast({ errors: (error as { errors?: unknown }).errors });
       }
     }
   }, [

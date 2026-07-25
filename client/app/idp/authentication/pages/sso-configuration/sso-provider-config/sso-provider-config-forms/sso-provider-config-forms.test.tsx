@@ -34,13 +34,15 @@ const { formStub } = vi.hoisted(() => {
     provider: "google",
     redirectUrl: "https://cb",
   };
-  const formStub =
-    (name: string) =>
-    ({ save }: { save: (d: unknown) => void }) => (
+  const formStub = (name: string) => {
+    const FormStub = ({ save }: { save: (d: unknown) => void }) => (
       <button data-testid={name} onClick={() => save(sampleConfig)}>
         {name}
       </button>
     );
+    FormStub.displayName = `FormStub(${name})`;
+    return FormStub;
+  };
   return { formStub, sampleConfig };
 });
 

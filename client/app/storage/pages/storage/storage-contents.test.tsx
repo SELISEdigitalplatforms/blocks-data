@@ -24,11 +24,11 @@ vi.mock("../storage-configuration/save-storage-configuration/save-storage-config
   SaveStorageConfiguration: () => <div data-testid="save-config" />,
 }));
 vi.mock("./components/storage-details-drawer/storage-details-drawer", () => ({
-  StorageDetailsDrawer: (props: any) =>
+  StorageDetailsDrawer: (props: { open?: boolean; storage?: { name?: string } }) =>
     props.open ? <div data-testid="details-drawer">{props.storage?.name}</div> : null,
 }));
 vi.mock("./components/storage-filters-toolbar/storage-filters-toolbar", () => ({
-  StorageFiltersToolbar: (props: any) => (
+  StorageFiltersToolbar: (props: { onChange: (key: string, value: string) => void; onReset: () => void; onAddConfiguration: () => void }) => (
     <div data-testid="filters">
       <button onClick={() => props.onChange("search", "azure")}>set-search</button>
       <button onClick={props.onReset}>reset</button>
@@ -37,7 +37,7 @@ vi.mock("./components/storage-filters-toolbar/storage-filters-toolbar", () => ({
   ),
 }));
 vi.mock("./components/storage-card/storage-card", () => ({
-  StorageCard: (props: any) => (
+  StorageCard: (props: { data: { title?: string; id: string }; onClick: (id: string) => void; onViewDetails: (id: string) => void; onRemove: (id: string) => void }) => (
     <div data-testid="card">
       <span>{props.data.title}</span>
       <button onClick={() => props.onClick(props.data.id)}>open-{props.data.id}</button>

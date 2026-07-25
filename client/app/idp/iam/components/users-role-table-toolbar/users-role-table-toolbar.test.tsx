@@ -66,6 +66,6 @@ describe("UsersRoleTableToolbar", () => {
     render(<UsersRoleTableToolbar table={table} />);
     const resetButtons = screen.getAllByRole("button", { name: /Reset/ });
     fireEvent.click(resetButtons[0]);
-    expect((table as any).resetColumnFilters).toHaveBeenCalled();
+    expect((table as unknown as { resetColumnFilters: unknown }).resetColumnFilters).toHaveBeenCalled();
   });
 });

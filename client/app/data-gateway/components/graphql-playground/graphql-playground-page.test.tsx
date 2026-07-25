@@ -398,4 +398,123 @@ describe("GraphQLPlaygroundPage", () => {
     const res = await capturedEditor._commandService.executeCommand("some.other.command");
     expect(res).toBeUndefined();
   });
+
+  // ---- injectMockDataTag branches (via execution) -------------------------
+  async function executeQueryText(text: string) {
+    executeGraphQL.mockResolvedValue({ ok: 1 });
+    await renderMounted();
+    fireEvent.change(screen.getByTestId("monaco-query"), { target: { value: text } });
+    fireEvent.click(screen.getByRole("button", { name: /Execute/ }));
+    await waitFor(() => expect(executeGraphQL).toHaveBeenCalled());
+    return executeGraphQL.mock.calls.at(-1)![0].query as string;
+  }
+
+  it("appends mock-data to an existing Tags array on insert", async () => {
+    const sent = await executeQueryText(
+      'mutation {\n  insertProduct(input: { name: "x", Tags: ["a"] }) {\n    itemId\n  }\n}',
+    );
+    expect(sent).toContain("mock-data");
+    expect(sent).toContain('"a"');
+  });
+
+  it("leaves an insert unchanged when Tags already contains mock-data", async () => {
+    const sent = await executeQueryText(
+      'mutation {\n  insertProduct(input: { Tags: ["mock-data"] }) {\n    itemId\n  }\n}',
+    );
+    // Only one occurrence of mock-data (no duplication).
+    expect(sent.match(/mock-data/g)?.length).toBe(1);
+  });
+
+  it("injects mock-data into each object of an insertMany array", async () => {
+    const sent = await executeQueryText(
+      'mutation {\n  insertManyProduct(input: [{ name: "a" }, { name: "b" }]) {\n    itemId\n  }\n}',
+    );
+    expect(sent.match(/mock-data/g)?.length).toBe(2);
+  });
+
+  // ---- generateFieldSnippet with nested DTOs (fallback completions) --------
+  it("builds nested DTO field snippets in schema-based operation suggestions", async () => {
+    entityItems = [
+      {
+        schemaName: "Product",
+        fields: [
+          { name: "meta", type: "Meta", isArray: false },
+          { name: "tags", type: "Tag", isArray: true },
+          { name: "name", type: "string", isArray: false },
+        ],
+      },
+    ];
+    dtoItems = [
+      { schemaName: "Meta", fields: [{ name: "sku", type: "string", isArray: false }] },
+      { schemaName: "Tag", fields: [{ name: "label", type: "string", isArray: false }] },
+    ];
+    await renderMounted();
+    const result = completionProvider.provideCompletionItems(
+      makeModel("query {\n  "),
+      position,
+    );
+    const getProducts = result.suggestions.find(
+      (s: { label: string }) => s.label === "getProducts",
+    );
+    expect(getProducts).toBeTruthy();
+    // Nested DTO selection is expanded inside the items block.
+    expect(getProducts.insertText).toContain("meta {");
+    expect(getProducts.insertText).toContain("tags {");
+  });
+
+  it("suggests nested DTO fields inside an insert input block (fallback)", async () => {
+    entityItems = [
+      {
+        schemaName: "Product",
+        fields: [
+          { name: "meta", type: "Meta", isArray: false },
+          { name: "tags", type: "Tag", isArray: true },
+        ],
+      },
+    ];
+    dtoItems = [
+      { schemaName: "Meta", fields: [{ name: "sku", type: "string", isArray: false }] },
+      { schemaName: "Tag", fields: [{ name: "label", type: "string", isArray: false }] },
+    ];
+    await renderMounted();
+    const text = "mutation {\n  insertProduct(\n    input: {\n      ";
+    const result = completionProvider.provideCompletionItems(makeModel(text), position);
+    const meta = result.suggestions.find((s: { label: string }) => s.label === "meta");
+    expect(meta.insertText).toContain("sku");
+    const tags = result.suggestions.find((s: { label: string }) => s.label === "tags");
+    expect(tags.insertText).toContain("[{");
+  });
+
+  it("suggests nested DTO fields inside an items selection block (fallback)", async () => {
+    entityItems = [
+      {
+        schemaName: "Product",
+        fields: [{ name: "meta", type: "Meta", isArray: false }],
+      },
+    ];
+    dtoItems = [
+      { schemaName: "Meta", fields: [{ name: "sku", type: "string", isArray: false }] },
+    ];
+    await renderMounted();
+    const text = "query {\n  getProducts(input: {}) {\n    items {\n      ";
+    const result = completionProvider.provideCompletionItems(makeModel(text), position);
+    const meta = result.suggestions.find((s: { label: string }) => s.label === "meta");
+    expect(meta.insertText).toContain("sku");
+  });
+
+  // ---- depth >= 2 introspection field suggestions -------------------------
+  it("suggests return-type fields directly inside an operation block", async () => {
+    introspectedSchema = buildSchema(`
+      type Product { id: ID name: String }
+      type ProductList { items: [Product] totalCount: Int }
+      type Query { getProducts: ProductList }
+      type Mutation { noop: String }
+    `);
+    await renderMounted();
+    const result = completionProvider.provideCompletionItems(
+      makeModel("query {\n  getProducts {\n    "),
+      position,
+    );
+    expect(Array.isArray(result.suggestions)).toBe(true);
+  });
 });

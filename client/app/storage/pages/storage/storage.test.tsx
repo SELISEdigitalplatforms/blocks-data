@@ -115,7 +115,7 @@ describe("Storage", () => {
   });
 
   it("invokes the disconnect handler", () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     render(<Storage />);
     fireEvent.click(screen.getByText("disconnect-1"));
     expect(spy).toHaveBeenCalled();

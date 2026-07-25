@@ -96,7 +96,7 @@ describe("git-provider-auth.service", () => {
   // ─── unimplemented providers ─────────────────────────────────────────────
   describe("unimplemented providers", () => {
     it("logs a not-implemented message for each stub without throwing", () => {
-      const logSpy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+      const logSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
       expect(() => authenticateWithGitlab()).not.toThrow();
       expect(() => authenticateWithBitbucket()).not.toThrow();

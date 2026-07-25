@@ -75,7 +75,7 @@ export function StorageContents() {
   };
 
   const handleRemove = (id: string) => {
-    console.log("Remove configuration:", id);
+    console.error("Remove configuration:", id);
   };
 
   const configurations = useMemo(() => {
@@ -128,7 +128,7 @@ export function StorageContents() {
           onChange={onChange}
           onReset={onReset}
           onAddConfiguration={() => setOpen(true)}
-          onConnectStorage={() => console.log("Connect to storage")}
+          onConnectStorage={() => console.error("Connect to storage")}
         />
 
         {loading ? (

@@ -140,8 +140,8 @@ describe("StorageContents", () => {
     expect(screen.getByText("No storage configurations found.")).toBeInTheDocument();
   });
 
-  it("calls the remove handler (console log) without throwing", () => {
-    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+  it("calls the remove handler (console error) without throwing", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     render(<StorageContents />);
     fireEvent.click(screen.getByText("remove-1"));
     expect(spy).toHaveBeenCalled();

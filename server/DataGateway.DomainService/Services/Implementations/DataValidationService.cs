@@ -205,7 +205,7 @@ public class DataValidationService : IDataValidationService
             filter.Add(nameof(DataValidation.FieldName), request.FieldName);
         }
 
-        if (!string.IsNullOrWhiteSpace(request.Keyword))
+        if (!string.IsNullOrWhiteSpace(request.Keyword) && string.IsNullOrWhiteSpace(request.FieldName))
         {
             filter.Add(nameof(DataValidation.FieldName), new BsonRegularExpression(request.Keyword, "i"));
         }

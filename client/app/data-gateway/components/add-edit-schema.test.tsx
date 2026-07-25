@@ -113,4 +113,92 @@ describe("AddEditSchemaModal", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onCancel).toHaveBeenCalled();
   });
+
+  it("opens the confirmation modal and submits the edit on Update", async () => {
+    const user = userEvent.setup();
+    const { onSubmit } = renderModal({
+      mode: "edit",
+      defaultValues: {
+        schemaName: "User",
+        schemaType: "Entity",
+        entityName: "sb_Users",
+      },
+    });
+
+    // Trigger validation so the Save button enables.
+    await user.type(screen.getByPlaceholderText("Enter schema name"), "s");
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+
+    // The confirmation dialog appears.
+    const updateBtn = await screen.findByRole("button", { name: "Update" });
+    await user.click(updateBtn);
+
+    await waitFor(() =>
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ schemaName: "Users", schemaType: "Entity" }),
+      ),
+    );
+  });
+
+  it("surfaces an error toast when the edit submission throws", async () => {
+    const { showErrorToast } = await import("@/hooks/use-toast");
+    const user = userEvent.setup();
+    const onSubmit = vi.fn().mockRejectedValue(new Error("boom"));
+    render(
+      <Dialog open onOpenChange={vi.fn()}>
+        <AddEditSchemaModal
+          mode="edit"
+          defaultValues={{
+            schemaName: "User",
+            schemaType: "Entity",
+            entityName: "sb_Users",
+          }}
+          onSubmit={onSubmit}
+          onCancel={vi.fn()}
+        />
+      </Dialog>,
+    );
+
+    await user.type(screen.getByPlaceholderText("Enter schema name"), "s");
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+    await user.click(await screen.findByRole("button", { name: "Update" }));
+
+    await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
+  });
+
+  it("closes the confirmation modal from its Cancel button", async () => {
+    const user = userEvent.setup();
+    renderModal({
+      mode: "edit",
+      defaultValues: {
+        schemaName: "User",
+        schemaType: "Entity",
+        entityName: "sb_Users",
+      },
+    });
+
+    await user.type(screen.getByPlaceholderText("Enter schema name"), "s");
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+
+    const dialogCancel = await screen.findByRole("button", { name: "Cancel" });
+    await user.click(dialogCancel);
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Update" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("sanitizes pasted illegal characters in the schema name", async () => {
+    const user = userEvent.setup();
+    renderModal();
+    const input = screen.getByPlaceholderText("Enter schema name");
+    await user.click(input);
+    await user.paste("ab!!cd");
+    await waitFor(() => expect(input).toHaveValue("abcd"));
+  });
 });

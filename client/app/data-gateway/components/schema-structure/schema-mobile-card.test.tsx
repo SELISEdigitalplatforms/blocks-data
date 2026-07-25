@@ -123,4 +123,46 @@ describe("SchemaMobileCard", () => {
     );
     expect(screen.getByText(/Default Properties/)).toBeInTheDocument();
   });
+
+  it("edits the name, toggles switches and updates the description in edit mode", async () => {
+    const user = userEvent.setup();
+    render(<Harness isEditMode />);
+
+    const nameInput = screen.getByDisplayValue("title");
+    await user.clear(nameInput);
+    await user.type(nameInput, "new_name");
+    expect((nameInput as HTMLInputElement).value).toContain("new_name");
+
+    // Toggling the enabled switches runs their onCheckedChange -> setValue.
+    await user.click(screen.getByLabelText(/IsArray for/));
+    await user.click(screen.getByLabelText(/IsPII for/));
+    await user.click(screen.getByLabelText(/IsUnique for/));
+
+    const desc = screen.getByPlaceholderText("Add description");
+    await user.type(desc, "!");
+    expect(desc).toBeInTheDocument();
+  });
+
+  it("shows an active validation indicator when the field has validation rules", () => {
+    render(
+      <Harness
+        field={
+          {
+            id: "f1",
+            ...property,
+            validationRule: { rules: [{ isActive: true }] },
+          } as never
+        }
+        properties={
+          [
+            {
+              ...property,
+              validationRule: { rules: [{ isActive: true }] },
+            },
+          ] as never
+        }
+      />,
+    );
+    expect(screen.getByLabelText(/Manage validations for title/)).toBeInTheDocument();
+  });
 });

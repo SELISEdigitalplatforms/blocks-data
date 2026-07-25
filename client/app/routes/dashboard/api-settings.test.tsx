@@ -203,4 +203,90 @@ describe("ApiSettingsPage", () => {
     await (lastCardProps.onBulkGroupMfa as (ids: string[], v: boolean) => Promise<void>)(["e1"], false);
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
   });
+
+  it("shows success when a single captcha toggle succeeds", async () => {
+    render(<ApiSettingsPage />);
+    await (lastCardProps.onToggleCaptcha as (e: unknown, v: boolean) => Promise<void>)(ep(), true);
+    await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
+  });
+
+  it("bulk-enables group captcha preserving a mixed MFA state", async () => {
+    useGetApiEndpoints.mockReturnValue({
+      data: {
+        data: [
+          ep({ itemId: "a", isMFARequired: true }),
+          ep({ itemId: "b", isMFARequired: false }),
+        ],
+      },
+      isLoading: false,
+    });
+    render(<ApiSettingsPage />);
+    await (lastCardProps.onBulkGroupCaptcha as (ids: string[], v: boolean) => Promise<void>)(
+      ["a", "b"],
+      true,
+    );
+    expect(bulkUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        isCaptchaRequired: true,
+        isMFARequired: false,
+        disableAll: false,
+      }),
+    );
+    await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
+  });
+
+  it("bulk-enables group captcha keeping MFA when every endpoint requires it", async () => {
+    useGetApiEndpoints.mockReturnValue({
+      data: { data: [ep({ itemId: "a", isMFARequired: true })] },
+      isLoading: false,
+    });
+    render(<ApiSettingsPage />);
+    await (lastCardProps.onBulkGroupCaptcha as (ids: string[], v: boolean) => Promise<void>)(
+      ["a"],
+      true,
+    );
+    expect(bulkUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ isMFARequired: true }),
+    );
+  });
+
+  it("bulk-enables group MFA preserving a mixed captcha state", async () => {
+    useGetApiEndpoints.mockReturnValue({
+      data: {
+        data: [
+          ep({ itemId: "a", isCaptchaRequired: true }),
+          ep({ itemId: "b", isCaptchaRequired: false }),
+        ],
+      },
+      isLoading: false,
+    });
+    render(<ApiSettingsPage />);
+    await (lastCardProps.onBulkGroupMfa as (ids: string[], v: boolean) => Promise<void>)(
+      ["a", "b"],
+      true,
+    );
+    expect(bulkUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ isMFARequired: true, isCaptchaRequired: false }),
+    );
+  });
+
+  it("surfaces errors from the bulk bar MFA and captcha actions", async () => {
+    useGetApiEndpoints.mockReturnValue({
+      data: { data: [ep({ itemId: "x" })] },
+      isLoading: false,
+    });
+    bulkUpdate.mockResolvedValue(fail);
+    render(<ApiSettingsPage />);
+
+    (lastCardProps.onSelectEndpoint as (id: string, c: boolean) => void)("x", true);
+    await waitFor(() =>
+      expect(screen.getByTestId("bulk-bar")).toHaveTextContent("selected:1"),
+    );
+
+    await (lastBarProps.onEnableMfa as () => Promise<void>)();
+    await (lastBarProps.onEnableCaptcha as () => Promise<void>)();
+    await waitFor(() =>
+      expect(showErrorToast.mock.calls.length).toBeGreaterThanOrEqual(2),
+    );
+  });
 });

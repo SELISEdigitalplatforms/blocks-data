@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 
 const useSchemaListMock = vi.fn(() => ({
@@ -42,6 +42,13 @@ function renderModal(props: Partial<Parameters<typeof AddEditSchemaModal>[0]> = 
   );
   return { onSubmit, onCancel };
 }
+
+beforeAll(() => {
+  Element.prototype.hasPointerCapture ??= vi.fn(() => false) as never;
+  Element.prototype.setPointerCapture ??= vi.fn() as never;
+  Element.prototype.releasePointerCapture ??= vi.fn() as never;
+  Element.prototype.scrollIntoView ??= vi.fn() as never;
+});
 
 describe("AddEditSchemaModal", () => {
   beforeEach(() => {
@@ -200,5 +207,51 @@ describe("AddEditSchemaModal", () => {
     await user.click(input);
     await user.paste("ab!!cd");
     await waitFor(() => expect(input).toHaveValue("abcd"));
+  });
+
+  it("sanitizes typed illegal characters in the schema name", async () => {
+    renderModal();
+    const input = screen.getByPlaceholderText("Enter schema name");
+    fireEvent.change(input, { target: { value: "ab$c" } });
+    await waitFor(() => expect(input).toHaveValue("abc"));
+    // Add mode derives the entity name from the sanitized value.
+    await waitFor(() =>
+      expect(screen.getByPlaceholderText("Enter entity name")).toHaveValue(
+        "sb_abcs",
+      ),
+    );
+  });
+
+  it("hides the entity name when the schema type is set to Child", async () => {
+    const user = userEvent.setup();
+    renderModal();
+    expect(
+      screen.getByPlaceholderText("Enter entity name"),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox"));
+    await user.click(await screen.findByRole("option", { name: "Child" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByPlaceholderText("Enter entity name"),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("sanitizes typed and pasted illegal characters in the entity name", async () => {
+    renderModal();
+    const entity = screen.getByPlaceholderText("Enter entity name");
+
+    fireEvent.change(entity, { target: { value: "en$ty" } });
+    await waitFor(() => expect(entity).toHaveValue("enty"));
+
+    entity.focus();
+    (entity as HTMLInputElement).setSelectionRange(
+      (entity as HTMLInputElement).value.length,
+      (entity as HTMLInputElement).value.length,
+    );
+    fireEvent.paste(entity, { clipboardData: { getData: () => "!!z" } });
+    await waitFor(() => expect(entity).toHaveValue("entyz"));
   });
 });

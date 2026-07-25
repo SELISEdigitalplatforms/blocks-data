@@ -18,6 +18,10 @@ const mocks = vi.hoisted(() => ({
   },
   onOpenChange: vi.fn(),
   onSuccess: vi.fn(),
+  // Resolver query results (roles-by-slug / permissions-by-resource / per-user).
+  rolesBySlug: undefined as any,
+  permsByResource: undefined as any,
+  userQueries: [] as any[],
 }));
 
 // `@/lib/http-client` builds `new HttpClient(...)` at import time and the iam
@@ -45,8 +49,17 @@ vi.mock("@seliseblocks/blocks-kit", () => ({
 // The drawer's own resolver queries (roles-by-slug, permissions-by-resource,
 // per-user) go through react-query directly — return controlled empties.
 vi.mock("@tanstack/react-query", () => ({
-  useQuery: () => ({ data: undefined, isLoading: false, isFetching: false }),
-  useQueries: () => [],
+  useQuery: (opts: any) => {
+    const kind = opts?.queryKey?.[1];
+    if (kind === "by-slug") {
+      return { data: mocks.rolesBySlug, isLoading: false, isFetching: false };
+    }
+    if (kind === "by-resource") {
+      return { data: mocks.permsByResource, isLoading: false, isFetching: false };
+    }
+    return { data: undefined, isLoading: false, isFetching: false };
+  },
+  useQueries: () => mocks.userQueries,
 }));
 
 vi.mock("@blocks-idp/iam/hooks/use-roles", () => ({
@@ -211,6 +224,9 @@ beforeEach(() => {
   mocks.permsResult = { data: { data: [] }, isLoading: false, isFetching: false };
   mocks.onOpenChange = vi.fn();
   mocks.onSuccess = vi.fn();
+  mocks.rolesBySlug = undefined;
+  mocks.permsByResource = undefined;
+  mocks.userQueries = [];
 });
 
 describe("SchemaAccessDrawer", () => {
@@ -498,5 +514,97 @@ describe("SchemaAccessDrawer", () => {
 
     await user.click(screen.getByRole("button", { name: "Open Drawer" }));
     expect(await screen.findByText("Schema Access")).toBeInTheDocument();
+  });
+
+  it("resolves role, user and permission display names from resolver queries", async () => {
+    mocks.rolesBySlug = {
+      data: [{ slug: "admin", name: "Administrator", itemId: "r1" }],
+    };
+    mocks.permsByResource = {
+      data: [
+        { resource: "read:x", name: "Read X", resourceGroup: "grp", itemId: "p1" },
+      ],
+    };
+    mocks.userQueries = [
+      { data: { data: { firstName: "Jane", lastName: "Doe", email: "j@x.com" } } },
+    ];
+
+    const { rerender } = render(<SchemaAccessDrawer {...baseProps()} />);
+    rerender(
+      <SchemaAccessDrawer
+        {...baseProps({
+          readAccess: { roles: ["admin"], users: ["u1"], permissions: ["read:x"] },
+        })}
+      />,
+    );
+
+    const list = await screen.findByTestId("access-list");
+    await waitFor(() => expect(list).toHaveAttribute("data-count", "3"));
+    const entries = screen.getAllByTestId("access-entry").map((n) => n.textContent);
+    expect(entries).toContain("Role:Administrator");
+    expect(entries).toContain("User:Jane Doe");
+    expect(entries).toContain("Permission:Read X");
+  });
+
+  it("saves role, user and permission rule sets built from resolved entries", async () => {
+    mocks.rolesBySlug = {
+      data: [{ slug: "admin", name: "Administrator", itemId: "r1" }],
+    };
+    mocks.permsByResource = {
+      data: [{ resource: "read:x", name: "Read X", resourceGroup: "grp", itemId: "p1" }],
+    };
+    mocks.userQueries = [{ data: { data: { firstName: "Jane", email: "j@x.com" } } }];
+
+    const user = userEvent.setup();
+    const { rerender } = render(<SchemaAccessDrawer {...baseProps()} />);
+    rerender(
+      <SchemaAccessDrawer
+        {...baseProps({
+          readAccess: { roles: ["admin"], users: ["u1"], permissions: ["read:x"] },
+        })}
+      />,
+    );
+    await screen.findByTestId("access-list");
+
+    await user.click(screen.getByRole("button", { name: "toolbar-edit" }));
+    await user.click(screen.getByRole("button", { name: "toolbar-save" }));
+
+    await waitFor(() => expect(mocks.setDataAccess).toHaveBeenCalledTimes(1));
+    expect(mocks.setDataAccess).toHaveBeenCalledWith(
+      expect.objectContaining({
+        readAccess: {
+          roles: ["admin"],
+          users: ["u1"],
+          permissions: ["read:x"],
+        },
+      }),
+    );
+  });
+
+  it("aggregates and saves field-level access when fieldTargets are provided", async () => {
+    const user = userEvent.setup();
+    const emptyRuleSet = { roles: [], permissions: [], users: [] };
+    const fieldTargets = [
+      {
+        name: "field-a",
+        readAccess: { roles: ["admin"], permissions: [], users: [] },
+        writeAccess: emptyRuleSet,
+        deleteAccess: emptyRuleSet,
+      },
+    ] as any;
+    const { rerender } = render(<SchemaAccessDrawer {...baseProps()} />);
+    rerender(<SchemaAccessDrawer {...baseProps({ fieldTargets })} />);
+
+    // Aggregated field read access seeds the View entries.
+    const list = await screen.findByTestId("access-list");
+    await waitFor(() => expect(list).toHaveAttribute("data-count", "1"));
+
+    await user.click(screen.getByRole("button", { name: "toolbar-edit" }));
+    await user.click(screen.getByRole("button", { name: "toolbar-save" }));
+
+    await waitFor(() => expect(mocks.setDataAccess).toHaveBeenCalledTimes(1));
+    const payload = mocks.setDataAccess.mock.calls[0][0];
+    expect(payload.fields).toHaveLength(1);
+    expect(payload.fields[0].name).toBe("field-a");
   });
 });

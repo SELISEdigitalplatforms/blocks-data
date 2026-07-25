@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
 import { UserPermissionsList } from "./user-permissions-list";
 import { useUserPermissions } from "@blocks-idp/iam/hooks/use-user";
@@ -20,10 +20,12 @@ export function UserPermissions({ userId, projectKey }: UserPermissionsProps) {
   const [removedResources, setRemovedResources] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
+  const [prevPermissions, setPrevPermissions] = useState<IPermission[] | undefined>(undefined);
+  if (prevPermissions !== permissions) {
+    setPrevPermissions(permissions);
     setLocalPermissions(permissions);
     setRemovedResources([]);
-  }, [permissions]);
+  }
 
   const onRemovePermission = (resource: string) => {
     setLocalPermissions((prev) => prev.filter((perm) => perm.resource !== resource));

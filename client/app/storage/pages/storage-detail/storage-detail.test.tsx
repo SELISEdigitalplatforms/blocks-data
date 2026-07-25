@@ -505,4 +505,229 @@ describe("StorageDetail", () => {
     renderDetail();
     expect(mocks.showErrorToast).toHaveBeenCalledWith({ errors: "network down" });
   });
+
+  it("renders icons for image, video, audio, spreadsheet and unknown files", async () => {
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [
+        makeFile({ name: "pic.png", extension: ".png", fileStorageId: "p" }),
+        makeFile({ name: "clip.mp4", extension: ".mp4", fileStorageId: "v" }),
+        makeFile({ name: "song.mp3", extension: ".mp3", fileStorageId: "a" }),
+        makeFile({ name: "sheet.xlsx", extension: ".xlsx", fileStorageId: "x" }),
+        makeFile({ name: "notes.txt", extension: ".txt", fileStorageId: "t" }),
+      ],
+      totalCount: 5,
+    };
+    renderDetail();
+
+    expect(await screen.findByText("pic.png")).toBeInTheDocument();
+    expect(screen.getByText("clip.mp4")).toBeInTheDocument();
+    expect(screen.getByText("song.mp3")).toBeInTheDocument();
+    expect(screen.getByText("sheet.xlsx")).toBeInTheDocument();
+    expect(screen.getByText("notes.txt")).toBeInTheDocument();
+  });
+
+  it("shows an error toast when file preview fails to load", async () => {
+    const user = userEvent.setup();
+    mocks.fetchFile.mockRejectedValue(new Error("preview boom"));
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [
+        makeFile({ name: "broken.pdf", fileStorageId: "fs-x" }),
+      ],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByText("broken.pdf"));
+    await waitFor(() =>
+      expect(mocks.showErrorToast).toHaveBeenCalledWith({
+        errors: expect.any(Error),
+      }),
+    );
+  });
+
+  it("shows an error toast when file delete reports failure", async () => {
+    const user = userEvent.setup();
+    mocks.deleteFile.mockResolvedValue({ isSuccess: false });
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [
+        makeFile({ name: "keep.pdf", fileStorageId: "file-keep" }),
+      ],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+    await user.click(await screen.findByText("Delete"));
+    await screen.findByText("Delete File");
+    await user.click(screen.getByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() =>
+      expect(mocks.showErrorToast).toHaveBeenCalledWith({
+        errors: "Something went wrong",
+      }),
+    );
+  });
+
+  it("shows an error toast when file delete throws", async () => {
+    const user = userEvent.setup();
+    mocks.deleteFile.mockRejectedValue(new Error("delete boom"));
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [
+        makeFile({ name: "boom.pdf", fileStorageId: "file-boom" }),
+      ],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+    await user.click(await screen.findByText("Delete"));
+    await screen.findByText("Delete File");
+    await user.click(screen.getByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() =>
+      expect(mocks.showErrorToast).toHaveBeenCalledWith({
+        errors: expect.any(Error),
+      }),
+    );
+  });
+
+  it("shows an error toast when folder delete reports failure", async () => {
+    const user = userEvent.setup();
+    mocks.deleteFolder.mockResolvedValue({ isSuccess: false });
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [
+        makeFolder({ name: "keepdir", itemId: "fold-keep" }),
+      ],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+    await user.click(await screen.findByText("Delete"));
+    await screen.findByText("Delete Folder");
+    await user.click(screen.getByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() =>
+      expect(mocks.showErrorToast).toHaveBeenCalledWith({
+        errors: "Something went wrong",
+      }),
+    );
+  });
+
+  it("shows an error toast when folder delete throws", async () => {
+    const user = userEvent.setup();
+    mocks.deleteFolder.mockRejectedValue(new Error("folder boom"));
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [
+        makeFolder({ name: "boomdir", itemId: "fold-boom" }),
+      ],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+    await user.click(await screen.findByText("Delete"));
+    await screen.findByText("Delete Folder");
+    await user.click(screen.getByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() =>
+      expect(mocks.showErrorToast).toHaveBeenCalledWith({
+        errors: expect.any(Error),
+      }),
+    );
+  });
+
+  it("navigates through nested breadcrumb links", async () => {
+    const user = userEvent.setup();
+    const path = encodeURIComponent(
+      JSON.stringify([
+        { id: "f1", name: "Level1" },
+        { id: "f2", name: "Level2" },
+      ]),
+    );
+    setLocation(`/?id=cfg-1&folderId=f2&path=${path}`);
+    mocks.dmsState.response = { dmsFileAndFolderInfos: [], totalCount: 0 };
+    renderDetail();
+
+    // Clicking the strategy root resets folder navigation to the top level.
+    await user.click(screen.getByText("S3Compatible"));
+    expect(mocks.navigate).toHaveBeenCalledWith("?id=cfg-1");
+
+    // Clicking an intermediate crumb navigates to that folder level.
+    mocks.navigate.mockClear();
+    await user.click(screen.getByText("Level1"));
+    expect(mocks.navigate).toHaveBeenCalledWith(
+      expect.stringContaining("folderId=f1"),
+    );
+  });
+
+  it("deletes a folder from the list view", async () => {
+    const user = userEvent.setup();
+    mocks.deleteFolder.mockResolvedValue({ isSuccess: true });
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [
+        makeFolder({ name: "listdir", itemId: "fold-list" }),
+      ],
+      totalCount: 1,
+    };
+    const { container } = renderDetail();
+
+    await screen.findByText("listdir");
+    const toggle = container.querySelector(
+      "div.gap-1.rounded-md.border.p-1",
+    ) as HTMLElement;
+    await user.click(toggle.querySelectorAll("button")[0]);
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+    await user.click(await screen.findByText("Delete"));
+    await screen.findByText("Delete Folder");
+    await user.click(screen.getByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() =>
+      expect(mocks.deleteFolder).toHaveBeenCalledWith({
+        folderId: "fold-list",
+        configurationName: "MyStore",
+        projectKey: "t1",
+      }),
+    );
+  });
+
+  it("deletes a file from the list view and shows its size", async () => {
+    const user = userEvent.setup();
+    mocks.deleteFile.mockResolvedValue({ isSuccess: true });
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [
+        makeFile({
+          name: "listfile.csv",
+          extension: ".csv",
+          fileStorageId: "file-list",
+          sizeInBytes: "4096",
+        }),
+      ],
+      totalCount: 1,
+    };
+    const { container } = renderDetail();
+
+    await screen.findByText("listfile.csv");
+    const toggle = container.querySelector(
+      "div.gap-1.rounded-md.border.p-1",
+    ) as HTMLElement;
+    await user.click(toggle.querySelectorAll("button")[0]);
+
+    // List view formats the size in KB.
+    expect(await screen.findByText("4.00 KB")).toBeInTheDocument();
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+    await user.click(await screen.findByText("Delete"));
+    await screen.findByText("Delete File");
+    await user.click(screen.getByRole("button", { name: /^yes$/i }));
+
+    await waitFor(() =>
+      expect(mocks.deleteFile).toHaveBeenCalledWith({
+        fileId: "file-list",
+        configurationName: "MyStore",
+        projectKey: "t1",
+      }),
+    );
+  });
 });

@@ -1,21 +1,30 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { useForm, useFieldArray } from "react-hook-form";
 import { TooltipProvider } from "@/components/ui-kits/tooltip/tooltip";
 import type { IField, ISchemaDetails } from "@/data-gateway/models/data-service";
 
-// Isolate the row from the heavy popover/command based type selector.
+// Isolate the row from the heavy popover/command based type selector. The trigger
+// elements below are plain spans (not buttons) so `getByRole("button")` queries in
+// other tests keep matching only the real action buttons.
 vi.mock("./property-type-selector", () => ({
   PropertyTypeSelector: ({
     value,
     isChildType,
+    onSelect,
+    onOpenChange,
   }: {
     value: string;
     isChildType?: boolean;
+    onSelect?: (type: string) => void;
+    onOpenChange?: (open: boolean) => void;
   }) => (
     <div data-testid="type-selector" data-child={String(!!isChildType)}>
       {value}
+      <span data-testid="type-open" onClick={() => onOpenChange?.(true)} />
+      <span data-testid="type-close" onClick={() => onOpenChange?.(false)} />
+      <span data-testid="type-select" onClick={() => onSelect?.("Guid")} />
     </div>
   ),
 }));
@@ -296,6 +305,65 @@ describe("SchemaDesktopRow", () => {
       />,
     );
     expect(screen.getByText("User Properties (1)")).toBeInTheDocument();
+  });
+
+  it("sanitizes disallowed characters when typing a property name", async () => {
+    const user = userEvent.setup();
+    render(<Harness properties={[makeField({ name: "" })]} isEditMode />);
+    const input = screen.getByPlaceholderText("Click to edit");
+    await user.type(input, "1na!me@x");
+    // Leading digits and symbols are stripped by the onChange filter.
+    expect((input as HTMLInputElement).value).toBe("namex");
+  });
+
+  it("sanitizes a pasted property name", () => {
+    render(<Harness properties={[makeField({ name: "" })]} isEditMode />);
+    const input = screen.getByPlaceholderText("Click to edit") as HTMLInputElement;
+    input.focus();
+    fireEvent.paste(input, {
+      clipboardData: { getData: () => "12ab$cd" },
+    });
+    expect(input.value).toBe("abcd");
+  });
+
+  it("toggles PII / unique and edits the description in edit mode", async () => {
+    const user = userEvent.setup();
+    render(<Harness properties={[makeField()]} isEditMode />);
+
+    const pii = screen.getByRole("switch", { name: "IsPII for email" });
+    await user.click(pii);
+    expect(pii).toHaveAttribute("aria-checked", "true");
+
+    const unique = screen.getByRole("switch", { name: "IsUnique for email" });
+    await user.click(unique);
+    expect(unique).toHaveAttribute("aria-checked", "true");
+
+    const description = screen.getByPlaceholderText("Add description");
+    await user.type(description, "an email field");
+    expect((description as HTMLInputElement).value).toBe("an email field");
+  });
+
+  it("wires the type selector open/close/select callbacks in edit mode", async () => {
+    const user = userEvent.setup();
+    const setOpenTypePopoverIndex = vi.fn();
+    render(
+      <Harness
+        properties={[makeField()]}
+        isEditMode
+        setOpenTypePopoverIndex={setOpenTypePopoverIndex}
+      />,
+    );
+
+    await user.click(screen.getByTestId("type-open"));
+    expect(setOpenTypePopoverIndex).toHaveBeenCalledWith(0);
+
+    await user.click(screen.getByTestId("type-close"));
+    expect(setOpenTypePopoverIndex).toHaveBeenCalledWith(null);
+
+    await user.click(screen.getByTestId("type-select"));
+    // Selecting a type writes it back through setValue and closes the popover.
+    expect(screen.getByTestId("type-selector")).toHaveTextContent("Guid");
+    expect(setOpenTypePopoverIndex).toHaveBeenLastCalledWith(null);
   });
 
   it("collapses and expands the read-only entity section", async () => {

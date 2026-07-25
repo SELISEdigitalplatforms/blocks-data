@@ -1,6 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+// Radix Select relies on pointer-capture and scrollIntoView APIs jsdom lacks.
+beforeAll(() => {
+  Element.prototype.hasPointerCapture ??= vi.fn(() => false) as never;
+  Element.prototype.setPointerCapture ??= vi.fn() as never;
+  Element.prototype.releasePointerCapture ??= vi.fn() as never;
+  Element.prototype.scrollIntoView ??= vi.fn() as never;
+});
 
 const createPolicy = vi.fn();
 const updatePolicy = vi.fn();
@@ -165,6 +173,188 @@ describe("RuleSetForm", () => {
     const updateBtn = screen.getByRole("button", { name: "Update" });
     await waitFor(() => expect(updateBtn).toBeEnabled());
     fireEvent.click(updateBtn);
+    await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
+  });
+});
+
+describe("RuleSetForm create flow", () => {
+  // Pick option `name` in the Nth rule-row combobox (source, field, operator,
+  // compareSource render in that DOM order).
+  const pick = async (
+    user: ReturnType<typeof userEvent.setup>,
+    index: number,
+    name: RegExp | string,
+  ) => {
+    const combos = screen.getAllByRole("combobox");
+    await user.click(combos[index]);
+    await user.click(await screen.findByRole("option", { name }));
+  };
+
+  it("builds an EQUAL + static-value rule and creates the policy", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const onCancel = vi.fn();
+    render(<RuleSetForm {...baseProps} onCancel={onCancel} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Access set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+    await pick(user, 2, /^Equal$/);
+    await pick(user, 3, "Static Value");
+
+    fireEvent.change(screen.getByPlaceholderText("Enter value"), {
+      target: { value: "user-123" },
+    });
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    const payload = createPolicy.mock.calls[0][0];
+    expect(payload).toMatchObject({
+      policyName: "Access set",
+      schemaName: "Products",
+      projectKey: "tenant-1",
+      priority: 1,
+      isAllowPolicy: true,
+    });
+    expect(payload.ruleGroup.rules).toHaveLength(1);
+    const rule = payload.ruleGroup.rules[0];
+    // Auth => 0, EQUAL => 0, Static Value right source => 2, static value kept.
+    expect(rule).toMatchObject({
+      leftSource: 0,
+      leftOperand: "userId",
+      operator: 0,
+      rightSource: 2,
+      staticValue: "user-123",
+    });
+    await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
+    expect(onCancel).toHaveBeenCalled();
+  });
+
+  it("hides the compare inputs for an IS_NULL operator and creates the policy", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Null set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+    await pick(user, 2, "Is Null");
+
+    // Compare source / value controls are gone for null operators.
+    expect(screen.queryByText("Compare with")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Enter value")).not.toBeInTheDocument();
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    const rule = createPolicy.mock.calls[0][0].ruleGroup.rules[0];
+    expect(rule.operator).toBe(12);
+    expect(rule.staticValue).toBeNull();
+  });
+
+  it("renders a dedicated prefix input for START_WITH", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Prefix set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+    await pick(user, 2, "Start With");
+
+    const prefixInput = await screen.findByPlaceholderText("Enter prefix");
+    fireEvent.change(prefixInput, { target: { value: "adm" } });
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    const rule = createPolicy.mock.calls[0][0].ruleGroup.rules[0];
+    // START_WITH => 10, value stored as staticValue.
+    expect(rule.operator).toBe(10);
+    expect(rule.staticValue).toBe("adm");
+  });
+
+  it("collects comma-separated values for an IN + static rule", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "In set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "Roles");
+    await pick(user, 2, /^In$/);
+    await pick(user, 3, "Static Value");
+
+    const listInput = await screen.findByPlaceholderText(
+      "Enter comma-separated values",
+    );
+    fireEvent.change(listInput, { target: { value: "a, b , c" } });
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    const rule = createPolicy.mock.calls[0][0].ruleGroup.rules[0];
+    // IN => 8, trimmed static array.
+    expect(rule.operator).toBe(8);
+    expect(rule.staticValue).toEqual(["a", "b", "c"]);
+  });
+
+  it("shows an error toast when create returns a failure", async () => {
+    createPolicy.mockResolvedValue({ isSuccess: false, errors: ["bad"] });
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Fail set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+    await pick(user, 2, "Is Null");
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+    await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
+  });
+
+  it("shows an error toast when create throws", async () => {
+    createPolicy.mockRejectedValue(new Error("network"));
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Throw set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+    await pick(user, 2, "Is Null");
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
   });
 });

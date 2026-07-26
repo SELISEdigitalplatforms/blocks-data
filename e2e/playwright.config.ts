@@ -27,10 +27,6 @@ export default defineConfig({
   // Serial: these tests mutate shared backend state (create/delete real
   // records on dev), so running them in parallel would race.
   workers: 1,
-  // The login flow crosses two hosts (Blocks Data -> dev-iam -> back) and
-  // observed real runs take 26-41s, so Playwright's 30s default expires
-  // before the login spec's own 45s waitForURL ever gets a chance to.
-  timeout: 120_000,
   reporter: [["html", { open: "never" }], ["list"]],
   // Patches the served index.html so BLOCKS_DATA_BASE_URL points at the local
   // :5000 host (E2E_BASE_URL) instead of the remote dev server.
@@ -71,9 +67,23 @@ export default defineConfig({
       }
     : {}),
   projects: [
+    // Setup: performs the real login once and saves the session to
+    // fixtures/auth.json (see login.spec.ts).
+    {
+      name: "setup",
+      testMatch: /auth[\\/]login\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    // All other tests run authenticated by reusing that saved session, and
+    // only after "setup" (login) has succeeded.
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      testIgnore: /auth[\\/]login\.spec\.ts/,
+      dependencies: ["setup"],
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "fixtures/auth.json",
+      },
     },
   ],
 });

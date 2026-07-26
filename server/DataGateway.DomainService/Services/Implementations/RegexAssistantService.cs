@@ -236,7 +236,8 @@ namespace DataGateway.DomainService.Services.RegexAssistant
                 var codeMatch = System.Text.RegularExpressions.Regex.Match(
                     trimmed,
                     @"```(?:regex)?\s*(.*?)\s*```",
-                    System.Text.RegularExpressions.RegexOptions.Singleline);
+                    System.Text.RegularExpressions.RegexOptions.Singleline,
+                    TimeSpan.FromSeconds(1));
                 if (codeMatch.Success)
                 {
                     trimmed = codeMatch.Groups[1].Value.Trim();

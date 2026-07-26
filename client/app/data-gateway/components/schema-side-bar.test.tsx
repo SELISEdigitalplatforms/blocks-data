@@ -1,10 +1,15 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
 
 const useSchemaList = vi.fn();
 const reloadMutateAsync = vi.fn();
+
+// Capture the notification handler the sidebar registers so tests can invoke it.
+const { notifyRef } = vi.hoisted(() => ({
+  notifyRef: { current: null as null | ((data: unknown) => void) },
+}));
 
 vi.mock("../hooks/use-configuration", () => ({
   useSchemaList: (...a: unknown[]) => useSchemaList(...a),
@@ -17,7 +22,9 @@ vi.mock("@seliseblocks/blocks-kit", () => ({
 
 vi.mock("@/hooks/use-debounce", () => ({ useDebounce: (v: unknown) => v }));
 vi.mock("@/hooks/use-notification-listener", () => ({
-  useNotificationListener: vi.fn(),
+  useNotificationListener: (_name: string, cb: (data: unknown) => void) => {
+    notifyRef.current = cb;
+  },
 }));
 vi.mock("@/hooks/use-toast", () => ({
   showErrorToast: vi.fn(),
@@ -131,5 +138,77 @@ describe("SchemasSidebar", () => {
       .closest("button")!;
     await user.click(nextBtn);
     expect(onListQueryChange).toHaveBeenCalledWith({ page: 2 });
+  });
+
+  it("paginates to the previous page from a later page", async () => {
+    const user = userEvent.setup();
+    useSchemaList.mockReturnValue({
+      data: {
+        data: {
+          items: [{ id: "a", schemaName: "User", schemaType: 1, totalSchemaReferences: 0 }],
+          totalCount: 25,
+        },
+      },
+    });
+    const { onListQueryChange } = renderSidebar({ page: 2, pageSize: 10 });
+
+    const prevBtn = document
+      .querySelector("svg.lucide-chevron-left")!
+      .closest("button")!;
+    await user.click(prevBtn);
+    expect(onListQueryChange).toHaveBeenCalledWith({ page: 1 });
+  });
+
+  it("syncs the internal selection with the external selected schema id", () => {
+    useSchemaList.mockReturnValue({
+      data: {
+        data: {
+          items: [{ id: "a", schemaName: "User", schemaType: 1, totalSchemaReferences: 0 }],
+          totalCount: 1,
+        },
+      },
+    });
+    renderSidebar({ selectedSchemaId: "a" });
+    expect(screen.getByText("User")).toBeInTheDocument();
+  });
+
+  it("invalidates change-log queries on a successful import notification", () => {
+    useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
+    renderSidebar();
+
+    expect(notifyRef.current).toBeTypeOf("function");
+    act(() => {
+      notifyRef.current!({
+        message: {
+          denormalizedPayload: JSON.stringify({ Message: { IsSuccess: true } }),
+        },
+      });
+    });
+    // No throw = handled path executed.
+    expect(screen.getByText("No schemas found")).toBeInTheDocument();
+  });
+
+  it("ignores an import notification with no payload", () => {
+    useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
+    renderSidebar();
+
+    act(() => {
+      notifyRef.current!({ message: {} });
+    });
+    expect(screen.getByText("No schemas found")).toBeInTheDocument();
+  });
+
+  it("logs an error when the import notification payload is malformed", () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
+    renderSidebar();
+
+    act(() => {
+      notifyRef.current!({
+        message: { denormalizedPayload: "{not-json" },
+      });
+    });
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });

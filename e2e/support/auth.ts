@@ -4,9 +4,12 @@ const username = process.env.E2E_USERNAME;
 const password = process.env.E2E_PASSWORD;
 
 /**
- * Drive the app's login flow against the configured E2E_USERNAME/E2E_PASSWORD.
- * Lives in support/ so specs call it from `test.beforeEach` (avoids the
- * storageState handoff a separate "setup" project would otherwise require).
+ * Ensure the page is authenticated against E2E_USERNAME/E2E_PASSWORD.
+ *
+ * The chromium project reuses a session saved to fixtures/auth.json by the
+ * "setup" project (playwright.config.ts). This helper is therefore idempotent:
+ * when a session is already active it returns after confirming the console
+ * rendered, and only drives the full cross-origin OIDC login on a cold start.
  */
 export async function login(page: Page): Promise<void> {
   if (!username || !password) {
@@ -17,6 +20,21 @@ export async function login(page: Page): Promise<void> {
 
   await page.goto("/login");
   await page.waitForLoadState("domcontentloaded");
+
+  // With a reused session the PublicGuard redirects /login straight to
+  // /app/console, so the login CTA flashes and is detached mid-flow. Detect
+  // the redirect and return early instead of clicking the vanishing button.
+  const reused = await page
+    .waitForURL("**/app/console", { timeout: 15_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (reused) {
+    await expect(
+      page.getByRole("heading", { name: "Your Blocks Projects" }),
+    ).toBeVisible({ timeout: 20_000 });
+    return;
+  }
+
   await page.getByRole("button", { name: "Log in to your account" }).click();
 
   const emailField = page.locator("#oidc-email");

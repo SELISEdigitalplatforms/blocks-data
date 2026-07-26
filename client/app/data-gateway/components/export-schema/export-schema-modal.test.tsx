@@ -18,8 +18,13 @@ vi.mock("@seliseblocks/blocks-kit", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
 }));
 
+let notificationHandler:
+  | ((data: unknown) => void | Promise<void>)
+  | undefined;
 vi.mock("@/hooks/use-notification-listener", () => ({
-  useNotificationListener: vi.fn(),
+  useNotificationListener: (_event: string, handler: typeof notificationHandler) => {
+    notificationHandler = handler;
+  },
 }));
 
 const toast = vi.fn();
@@ -29,11 +34,16 @@ vi.mock("@/hooks/use-toast", () => ({
   showErrorToast: (...args: unknown[]) => showErrorToast(...args),
 }));
 
+const getFilesDownloadUrl = vi.fn();
 vi.mock("@/storage/services/storage.service", () => ({
-  storageService: { file: { getFilesDownloadUrl: vi.fn() } },
+  storageService: { file: { getFilesDownloadUrl: (...a: unknown[]) => getFilesDownloadUrl(...a) } },
 }));
 
 import ExportSchemaModal from "./export-schema-modal";
+
+const notification = (fileId: unknown) => ({
+  message: { denormalizedPayload: JSON.stringify({ Message: { FileId: fileId } }) },
+});
 
 function renderModal(onClose = vi.fn()) {
   const Wrapper = createWrapper();
@@ -52,6 +62,8 @@ describe("ExportSchemaModal", () => {
     exportMutateAsync.mockReset();
     toast.mockReset();
     showErrorToast.mockReset();
+    getFilesDownloadUrl.mockReset();
+    notificationHandler = undefined;
   });
 
   it("renders the export option rows on the first step", () => {
@@ -125,5 +137,77 @@ describe("ExportSchemaModal", () => {
     await user.click(screen.getByRole("button", { name: "Export" }));
 
     expect(showErrorToast).toHaveBeenCalled();
+  });
+
+  it("toggles all optional sections via the select-all checkbox", async () => {
+    const user = userEvent.setup();
+    exportMutateAsync.mockResolvedValue({ isSuccess: true, data: { itemId: "f" } });
+    renderModal();
+
+    await user.click(screen.getByLabelText("Select all"));
+    await user.click(screen.getByRole("button", { name: "Select file type" }));
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    expect(exportMutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ exportOption: SchemaExportOption.All }),
+    );
+  });
+
+  it("errors when the export succeeds but returns no file id", async () => {
+    const user = userEvent.setup();
+    exportMutateAsync.mockResolvedValue({ isSuccess: true, data: {} });
+    renderModal();
+
+    await user.click(screen.getByRole("button", { name: "Select file type" }));
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    expect(showErrorToast).toHaveBeenCalled();
+  });
+
+  it("downloads the exported file when its completion notification arrives", async () => {
+    const user = userEvent.setup();
+    exportMutateAsync.mockResolvedValue({ isSuccess: true, data: { itemId: "file-1" } });
+    getFilesDownloadUrl.mockResolvedValue({
+      isSuccess: true,
+      url: "https://example.com/f.json",
+      name: "export.json",
+    });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, "click")
+      .mockImplementation(() => {});
+    renderModal();
+
+    await user.click(screen.getByRole("button", { name: "Select file type" }));
+    await user.click(screen.getByRole("button", { name: "Export" }));
+
+    await notificationHandler?.(notification("file-1"));
+    expect(getFilesDownloadUrl).toHaveBeenCalledWith({
+      fileId: "file-1",
+      projectKey: "t1",
+    });
+    expect(clickSpy).toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({ variant: "success" }),
+    );
+    clickSpy.mockRestore();
+  });
+
+  it("shows a destructive toast when the download lookup fails", async () => {
+    const user = userEvent.setup();
+    exportMutateAsync.mockResolvedValue({ isSuccess: true, data: { itemId: "file-9" } });
+    getFilesDownloadUrl.mockRejectedValue(new Error("boom"));
+    renderModal();
+
+    await user.click(screen.getByRole("button", { name: "Select file type" }));
+    await user.click(screen.getByRole("button", { name: "Export" }));
+
+    await notificationHandler?.(notification("file-9"));
+    expect(toast).toHaveBeenCalledWith(
+      expect.objectContaining({ variant: "destructive" }),
+    );
+  });
+
+  it("ignores notifications for file ids it is not tracking", async () => {
+    renderModal();
+    await notificationHandler?.(notification("unknown-id"));
+    expect(getFilesDownloadUrl).not.toHaveBeenCalled();
   });
 });

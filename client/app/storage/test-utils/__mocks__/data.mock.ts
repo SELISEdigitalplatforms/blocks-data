@@ -39,8 +39,8 @@ const MOCK_FOLDER_ID = "f3d6-8b3e-5c0a-4f71";
 
 export const mockAmazonStorageConfig: IStorageConfiguration = {
   storageStrategy: "Amazon",
-  accessKey: "AKIAIOSFODNN7EXAMPLE",
-  secretKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+  accessKey: "MOCK_ACCESS_KEY",
+  secretKey: "MOCK_SECRET_KEY_NOT_A_REAL_CREDENTIAL",
   cloudStorageRegionEndPoint: "us-east-1",
   connectionString: null,
   host: null,
@@ -244,8 +244,8 @@ export const mockSaveAmazonConfigPayload = {
   name: "Amazon S3 Config",
   projectKey: TEST_PROJECT_KEY,
   storageStrategy: "Amazon" as const,
-  accessKey: "AKIAIOSFODNN7EXAMPLE",
-  secretKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+  accessKey: "MOCK_ACCESS_KEY",
+  secretKey: "MOCK_SECRET_KEY_NOT_A_REAL_CREDENTIAL",
   cloudStorageRegionEndPoint: "us-east-1",
   connectionString: null,
   host: null,

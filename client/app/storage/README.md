@@ -20,7 +20,7 @@ A submodule of the Blocks platform that provides **cloud storage configuration**
 
 ## Overview
 
-The `storage` submodule abstracts away the differences between cloud storage providers. Application code interacts with a single `StorageService` facade — the underlying provider (AWS S3, Azure Blob Storage, SFTP, or any S3-compatible service) is determined by the configuration stored on the platform, with no code changes required.
+The `storage` submodule abstracts away the differences between cloud storage providers. Application code interacts with a single `StorageService` facade; the underlying provider (AWS S3, Azure Blob Storage, SFTP, or any S3-compatible service) is determined by the configuration stored on the platform, with no code changes required.
 
 The module is split into three service classes that can be used independently or via the composed `StorageService` singleton:
 
@@ -77,7 +77,7 @@ storage/
 
 ### Storage Configuration
 
-- **Multi-provider support** — Configure storage backends for four provider types, each with its own credential fields:
+- **Multi-provider support**: Configure storage backends for four provider types, each with its own credential fields:
 
   | Strategy       | Provider                                                                      |
   | -------------- | ----------------------------------------------------------------------------- |
@@ -86,30 +86,30 @@ storage/
   | `SftpStorage`  | SFTP server (host, port, username, password, remote base path)                |
   | `S3Compatible` | Any S3-compatible service e.g. MinIO (access key, secret key, host, endpoint) |
 
-- **Named configurations** — Multiple configurations can coexist under a project key, allowing different parts of an application to use different storage backends.
-- **Smart save** — When saving, the service automatically clears fields that are irrelevant to the chosen strategy to avoid stale credentials being persisted.
+- **Named configurations**: Multiple configurations can coexist under a project key, allowing different parts of an application to use different storage backends.
+- **Smart save**: When saving, the service automatically clears fields that are irrelevant to the chosen strategy to avoid stale credentials being persisted.
 
 ### File Management
 
-- **Pre-signed upload URLs** — Obtain a short-lived cloud upload URL without exposing credentials to the client. After receiving the URL, the file is uploaded directly to the cloud provider.
-- **Direct cloud upload** — Stream a `File` or `Blob` object directly to a pre-signed URL with the correct `Content-Type` and Azure Blob headers where required.
-- **Local storage upload** — Upload files to the platform's own local storage using multipart form data.
-- **File metadata** — Retrieve full metadata for any stored file including access modifier, tags, MIME type, size, creator, and language.
-- **Bulk file info** — Fetch metadata for multiple files in a single request.
-- **Update additional info** — Patch a file's metadata and additional properties after upload.
-- **File deletion** — Soft-delete a file by ID and project key.
-- **Download URLs** — Resolve a download URL for any accessible file.
+- **Pre-signed upload URLs**: Obtain a short-lived cloud upload URL without exposing credentials to the client. After receiving the URL, the file is uploaded directly to the cloud provider.
+- **Direct cloud upload**: Stream a `File` or `Blob` object directly to a pre-signed URL with the correct `Content-Type` and Azure Blob headers where required.
+- **Local storage upload**: Upload files to the platform's own local storage using multipart form data.
+- **File metadata**: Retrieve full metadata for any stored file including access modifier, tags, MIME type, size, creator, and language.
+- **Bulk file info**: Fetch metadata for multiple files in a single request.
+- **Update additional info**: Patch a file's metadata and additional properties after upload.
+- **File deletion**: Soft-delete a file by ID and project key.
+- **Download URLs**: Resolve a download URL for any accessible file.
 
 ### Document Management System (DMS)
 
-- **Folder & file browser** — List files and sub-folders at any level of the DMS hierarchy.
-- **Folder creation** — Create named folders at any path in the DMS tree.
-- **DMS file upload** — Upload files into a specific DMS folder with metadata, tags, access modifiers, and optional agent association.
+- **Folder & file browser**: List files and sub-folders at any level of the DMS hierarchy.
+- **Folder creation**: Create named folders at any path in the DMS tree.
+- **DMS file upload**: Upload files into a specific DMS folder with metadata, tags, access modifiers, and optional agent association.
 
 ### Additional Capabilities
 
-- **Public certificate upload** — Upload PFX certificate files for third-party TLS/mTLS use cases.
-- **Lazy file fetching** — `useLazyGetFile` enables on-demand fetching outside of the React render cycle using `queryClient.fetchQuery`.
+- **Public certificate upload**: Upload PFX certificate files for third-party TLS/mTLS use cases.
+- **Lazy file fetching**: `useLazyGetFile` enables on-demand fetching outside of the React render cycle using `queryClient.fetchQuery`.
 
 ---
 
@@ -161,9 +161,9 @@ Every interaction follows the same three-layer pattern:
 Service  →  Hook  →  Component
 ```
 
-1. **Service** — A plain TypeScript class using the shared `http` client. No React dependency; fully unit-testable in isolation.
-2. **Hook** — A TanStack Query (`useQuery` / `useMutation`) wrapper. Owns caching, invalidation, and loading/error state.
-3. **Component / Page** — Consumes hooks only. Contains no direct API calls.
+1. **Service**: A plain TypeScript class using the shared `http` client. No React dependency; fully unit-testable in isolation.
+2. **Hook**: A TanStack Query (`useQuery` / `useMutation`) wrapper. Owns caching, invalidation, and loading/error state.
+3. **Component / Page**: Consumes hooks only. Contains no direct API calls.
 
 ### Environment Variables
 

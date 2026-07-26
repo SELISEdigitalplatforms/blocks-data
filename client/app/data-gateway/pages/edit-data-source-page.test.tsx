@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -117,5 +117,149 @@ describe("EditDataSourcePage", () => {
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(navigateMock).toHaveBeenCalledWith("/dg");
+  });
+
+  it("errors and closes the dialog when the configuration has no id", async () => {
+    const user = userEvent.setup();
+    useGetDataServiceConfiguration.mockReturnValue({
+      data: {
+        data: {
+          dbConnectionString: "default",
+          databaseName: "default",
+          isCollectionNameEditable: false,
+          collectionNamePattern: "sb_{SchemaName}s",
+        },
+      },
+      isLoading: false,
+    });
+    render(<EditDataSourcePage />);
+
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({
+        errors: ["Configuration not found. Please reload the page."],
+      }),
+    );
+    expect(updateDataSource).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText("Confirm data source update?"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("maps array error responses into readable messages", async () => {
+    const user = userEvent.setup();
+    useGetDataServiceConfiguration.mockReturnValue({
+      data: loadedConfig,
+      isLoading: false,
+    });
+    updateDataSource.mockResolvedValue({
+      isSuccess: false,
+      errors: [{ errorMessage: "e1" }, { propertyName: "p2" }, { code: 3 }],
+    });
+    render(<EditDataSourcePage />);
+
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({
+        errors: ["e1", "p2", JSON.stringify({ code: 3 })],
+      }),
+    );
+  });
+
+  it("maps thrown errors that carry an errors array", async () => {
+    const user = userEvent.setup();
+    useGetDataServiceConfiguration.mockReturnValue({
+      data: loadedConfig,
+      isLoading: false,
+    });
+    updateDataSource.mockRejectedValue({ errors: [{ errorMessage: "boom" }] });
+    render(<EditDataSourcePage />);
+
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({ errors: ["boom"] }),
+    );
+  });
+
+  it("shows a generic message when an unexpected error is thrown", async () => {
+    const user = userEvent.setup();
+    useGetDataServiceConfiguration.mockReturnValue({
+      data: loadedConfig,
+      isLoading: false,
+    });
+    updateDataSource.mockRejectedValue(new Error("kaboom"));
+    render(<EditDataSourcePage />);
+
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({
+        errors: ["An unexpected error occurred. Please try again."],
+      }),
+    );
+  });
+
+  it("reveals custom-source fields and edits the collection pattern", async () => {
+    const user = userEvent.setup();
+    useGetDataServiceConfiguration.mockReturnValue({
+      data: loadedConfig,
+      isLoading: false,
+    });
+    updateDataSource.mockResolvedValue({ isSuccess: true });
+    render(<EditDataSourcePage />);
+
+    await user.click(screen.getByText("My data sources"));
+
+    const connection = await screen.findByPlaceholderText(
+      "mongodb://<username>:<password>@host:27017/db",
+    );
+    await user.type(connection, "mongodb://localhost/db");
+    await user.type(screen.getByPlaceholderText("my-database"), "mydb");
+
+    // The split pattern editor keeps the {SchemaName} token fixed.
+    await user.clear(screen.getByPlaceholderText("prefix"));
+    await user.type(screen.getByPlaceholderText("prefix"), "col_");
+    await user.clear(screen.getByPlaceholderText("postfix"));
+    await user.type(screen.getByPlaceholderText("postfix"), "_v2");
+
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+    await user.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() =>
+      expect(updateDataSource).toHaveBeenCalledWith(
+        expect.objectContaining({
+          connectionString: "mongodb://localhost/db",
+          databaseName: "mydb",
+          collectionNamePattern: "col_{SchemaName}_v2",
+        }),
+      ),
+    );
+  });
+
+  it("dismisses the confirmation dialog from its Cancel button", async () => {
+    const user = userEvent.setup();
+    useGetDataServiceConfiguration.mockReturnValue({
+      data: loadedConfig,
+      isLoading: false,
+    });
+    render(<EditDataSourcePage />);
+
+    await user.click(screen.getByRole("button", { name: "Save Changes" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Confirm data source update?"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(updateDataSource).not.toHaveBeenCalled();
   });
 });

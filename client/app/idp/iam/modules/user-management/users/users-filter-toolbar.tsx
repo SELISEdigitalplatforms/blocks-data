@@ -4,7 +4,7 @@ import { Mail, User } from "lucide-react";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 
 type UsersFilter = {
-  search: {};
+  search: Record<string, unknown>;
 };
 
 export const useUsersFilterQueryParams = () => {

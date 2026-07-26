@@ -8,7 +8,7 @@ export class ProjectService {
     return http.get(url, undefined, { absoluteUrl: true });
   }
 
-  getProject(payload: any): Promise<IGetProjectResponse> {
+  getProject(payload: { projectId: string }): Promise<IGetProjectResponse> {
     const url = `${PROJECT_ENDPOINTS.GET}?projectId=${payload.projectId}`;
     return http.get(url, undefined, { absoluteUrl: true });
   }

@@ -46,6 +46,7 @@ vi.mock("@/hooks/use-toast", () => ({
 // child-expansion path.
 vi.mock("../hooks/use-configuration", () => ({
   useUpdateSchemaStructure: () => ({ mutateAsync, isPending: false }),
+  useRawIntrospectionQuery: () => ({ data: undefined }),
   useSchemaList: () => ({
     data: {
       data: {

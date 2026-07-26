@@ -112,4 +112,151 @@ describe("useSchemaPreview", () => {
       },
     ]);
   });
+
+  describe("introspection source", () => {
+    const scalar = (name: string) => ({ kind: "SCALAR", name, ofType: null });
+    const nn = (ofType: { kind: string; name: string | null; ofType: unknown }) => ({
+      kind: "NON_NULL",
+      name: null,
+      ofType,
+    });
+    const list = (ofType: { kind: string; name: string | null; ofType: unknown }) => ({
+      kind: "LIST",
+      name: null,
+      ofType,
+    });
+    const inputField = (name: string, type: { kind: string; name: string | null; ofType: unknown }) => ({
+      name,
+      description: null,
+      type,
+      defaultValue: null,
+    });
+    const buildInputObject = (name: string, inputFields: ReturnType<typeof inputField>[]) => ({
+      kind: "INPUT_OBJECT",
+      name,
+      description: null,
+      fields: null,
+      inputFields,
+      interfaces: null,
+      enumValues: null,
+      possibleTypes: null,
+    });
+
+    const buildIntrospection = (inputTypeName: string, inputFields: ReturnType<typeof inputField>[]) => ({
+      data: {
+        __schema: {
+          queryType: null,
+          mutationType: null,
+          subscriptionType: null,
+          types: [buildInputObject(inputTypeName, inputFields)],
+          directives: [],
+        },
+      },
+    });
+
+    it("should use introspection scalar mapping when schemaName matches", () => {
+      const introspection = buildIntrospection("User", [
+        inputField("email", scalar("String")),
+        inputField("age", scalar("Int")),
+        inputField("active", scalar("Boolean")),
+      ]);
+      const properties = [
+        makeProperty({ name: "email", type: "String" }),
+        makeProperty({ name: "age", type: "Int" }),
+        makeProperty({ name: "active", type: "Boolean" }),
+      ];
+      const { result } = renderHook(() =>
+        useSchemaPreview(properties, new Map(), {
+          rawIntrospection: introspection,
+          schemaName: "User",
+        }),
+      );
+
+      expect(result.current.previewData).toEqual({
+        email: "string",
+        age: "integer",
+        active: "boolean",
+      });
+    });
+
+    it("should resolve nested DTO via introspection types", () => {
+      const introspection = {
+        data: {
+          __schema: {
+            queryType: null,
+            mutationType: null,
+            subscriptionType: null,
+            types: [
+              buildInputObject("User", [
+                inputField("home", nn(scalar("Address"))),
+              ]),
+              buildInputObject("Address", [
+                inputField("street", scalar("String")),
+                inputField("zip", scalar("Int")),
+              ]),
+            ],
+            directives: [],
+          },
+        },
+      };
+      const properties = [makeProperty({ name: "home", type: "Address" })];
+      const { result } = renderHook(() =>
+        useSchemaPreview(properties, new Map(), {
+          rawIntrospection: introspection,
+          schemaName: "User",
+        }),
+      );
+
+      expect(result.current.previewData).toEqual({
+        home: { street: "string", zip: "integer" },
+      });
+    });
+
+    it("should wrap introspection types in arrays when isArray is true", () => {
+      const introspection = buildIntrospection("User", [
+        inputField("tags", list(scalar("String"))),
+      ]);
+      const properties = [makeProperty({ name: "tags", type: "String", isArray: true })];
+      const { result } = renderHook(() =>
+        useSchemaPreview(properties, new Map(), {
+          rawIntrospection: introspection,
+          schemaName: "User",
+        }),
+      );
+
+      expect(result.current.previewData).toEqual({ tags: ["string"] });
+    });
+
+    it("should fall back to local dtoPreviewMap when schemaName has no introspection type", () => {
+      const dtoMap = new Map<string, Record<string, unknown>>([
+        ["Address", { street: "string" }],
+      ]);
+      const introspection = buildIntrospection("User", [
+        inputField("email", scalar("String")),
+      ]);
+      const properties = [makeProperty({ name: "home", type: "Address" })];
+      const { result } = renderHook(() =>
+        useSchemaPreview(properties, dtoMap, {
+          rawIntrospection: introspection,
+          schemaName: "SomeOtherSchema",
+        }),
+      );
+
+      expect(result.current.previewData).toEqual({
+        home: { street: "string" },
+      });
+    });
+
+    it("should not throw when rawIntrospection is undefined", () => {
+      const properties = [makeProperty({ name: "title", type: "String" })];
+      const { result } = renderHook(() =>
+        useSchemaPreview(properties, new Map(), {
+          rawIntrospection: undefined,
+          schemaName: "User",
+        }),
+      );
+
+      expect(result.current.previewData).toEqual({ title: "string" });
+    });
+  });
 });

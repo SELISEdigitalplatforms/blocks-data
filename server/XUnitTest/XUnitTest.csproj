@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="EphemeralMongo" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="JUnitLogger" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />

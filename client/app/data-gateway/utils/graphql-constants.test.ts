@@ -37,7 +37,8 @@ describe("graphql-constants", () => {
       expect(KNOWN_ARG_COMMENTS.filter).toContain("stringify mongo filter");
       expect(KNOWN_ARG_COMMENTS.sort).toContain("stringify mongo sorting");
       expect(MONGO_FILTER_SORT_LITERAL).toBe('"{}"');
-      expect(KNOWN_STRING_DEFAULTS.filter).toContain("stringify mongo filter");
+      expect(KNOWN_STRING_DEFAULTS.where).toContain("stringify mongo filter");
+      expect(KNOWN_STRING_DEFAULTS.order).toContain("stringify mongo sorting");
       expect(KNOWN_INT_DEFAULTS.pageNo).toBe("1");
       expect(KNOWN_INT_DEFAULTS.pageSize).toBe("10");
     });
@@ -107,9 +108,9 @@ describe("graphql-constants", () => {
   });
 
   describe("getStringDefault", () => {
-    it("returns known defaults for filter/sort field names", () => {
-      expect(getStringDefault("filter")).toBe(KNOWN_STRING_DEFAULTS.filter);
-      expect(getStringDefault("sort")).toBe(KNOWN_STRING_DEFAULTS.sort);
+    it("returns known defaults for where/order field names", () => {
+      expect(getStringDefault("where")).toBe(KNOWN_STRING_DEFAULTS.where);
+      expect(getStringDefault("order")).toBe(KNOWN_STRING_DEFAULTS.order);
     });
 
     it("returns sample text for mutation input, empty string otherwise", () => {

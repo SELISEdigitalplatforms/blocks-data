@@ -266,22 +266,100 @@ export function generateGraphQLQuery(
     operationType === "mutation" &&
     (field.name.startsWith("update") || field.name.startsWith("delete"));
 
+  // Detect a legacy `input` arg (filter/sort/pageNo/pageSize) on queries.
+  // When present, the matching top-level fields are also excluded to avoid
+  // duplicating them alongside the new where/order/paging rendering.
+  const legacyInputArg = field.args.find((a) => a.name === "input");
+  const legacyInputType = legacyInputArg
+    ? typeMap.get(resolveBaseTypeName(legacyInputArg.type) || "")
+    : undefined;
+  const legacyInputFields =
+    legacyInputType?.kind === "INPUT_OBJECT"
+      ? legacyInputType.inputFields ?? []
+      : [];
+  const hasLegacyInput =
+    operationType === "query" &&
+    !!legacyInputArg &&
+    legacyInputFields.some(
+      (f) =>
+        f.name === "filter" ||
+        f.name === "sort" ||
+        f.name === "pageNo" ||
+        f.name === "pageSize",
+    );
+  const legacyTopLevelFieldNames = new Set<string>(
+    hasLegacyInput
+      ? legacyInputFields
+          .filter((f) =>
+            ["filter", "sort", "pageNo", "pageSize"].includes(f.name),
+          )
+          .map((f) => f.name)
+      : [],
+  );
+
   // For queries, filter out redundant top-level args (e.g. `input` duplicates where/order/paging)
   // For update/updateMany mutations, filter out `filter` (redundant with `where`)
   let args = field.args;
   if (operationType === "query") {
-    args = args.filter((a) => !EXCLUDED_QUERY_ARG_NAMES.has(a.name));
+    args = args.filter(
+      (a) =>
+        !EXCLUDED_QUERY_ARG_NAMES.has(a.name) &&
+        !legacyTopLevelFieldNames.has(a.name),
+    );
   } else if (isFilterExcludedMutation) {
     args = args.filter((a) => !EXCLUDED_MUTATION_FILTER_ARG_NAMES.has(a.name));
   }
 
-  const argLines = args.map((arg) => {
+  // Normalize legacy `input` arg (filter/sort/pageNo/pageSize) into where/order/paging
+  // when the introspection has not yet been migrated to the new arg layout.
+  args = args.map((arg) => {
+    if (operationType === "query" && arg.name === "input") {
+      return { ...arg, name: "__legacy_input__" };
+    }
+    if (operationType === "mutation" && arg.name === "filter") {
+      return { ...arg, name: "where" };
+    }
+    return arg;
+  });
+
+  const argLines: string[] = [];
+
+  if (hasLegacyInput && legacyInputArg) {
+    const whereField = legacyInputFields.find((f) => f.name === "filter");
+    const orderField = legacyInputFields.find((f) => f.name === "sort");
+    const pageNoField = legacyInputFields.find((f) => f.name === "pageNo");
+    const pageSizeField = legacyInputFields.find((f) => f.name === "pageSize");
+
+    if (whereField) {
+      const val = buildInputValue(whereField.type, typeMap, 0, "    ", new Set(), "where", isMutationInput);
+      argLines.push(`    where: ${val}`);
+    }
+    if (orderField) {
+      const val = buildInputValue(orderField.type, typeMap, 0, "    ", new Set(), "order", isMutationInput);
+      argLines.push(`    order: ${val}`);
+    }
+    if (pageNoField || pageSizeField) {
+      const pagingLines: string[] = [];
+      if (pageNoField) {
+        const val = buildInputValue(pageNoField.type, typeMap, 1, "      ", new Set(), "pageNo", isMutationInput);
+        pagingLines.push(`      pageNo: ${val}`);
+      }
+      if (pageSizeField) {
+        const val = buildInputValue(pageSizeField.type, typeMap, 1, "      ", new Set(), "pageSize", isMutationInput);
+        pagingLines.push(`      pageSize: ${val}`);
+      }
+      argLines.push(`    paging: {\n${pagingLines.join("\n")}\n    }`);
+    }
+  }
+
+  args.forEach((arg) => {
+    if (arg.name === "__legacy_input__") return;
     const val = buildInputValue(arg.type, typeMap, 0, "    ", new Set(), arg.name, isMutationInput);
-    return `    ${arg.name}: ${val}`;
+    argLines.push(`    ${arg.name}: ${val}`);
   });
 
   const header =
-    args.length > 0 ? [`  ${field.name}(`, argLines.join("\n"), "  ) {"] : [`  ${field.name} {`];
+    argLines.length > 0 ? [`  ${field.name}(`, argLines.join("\n"), "  ) {"] : [`  ${field.name} {`];
 
   const returnBase = resolveBaseTypeName(field.type);
   const selectionLines = returnBase
@@ -386,9 +464,38 @@ export function buildPreviewSections(
   const queryRoot = queryType?.name ? typeMap.get(queryType.name) : null;
   const mutationRoot = mutationType?.name ? typeMap.get(mutationType.name) : null;
 
+  const candidatesForOp = (op: OperationDescriptor): string[] => {
+    const names = [schemaName, schemaName.toLowerCase()];
+    const suffixes = [op.suffix, ""];
+    const out: string[] = [];
+    for (const n of names) {
+      for (const s of suffixes) {
+        out.push(`${op.prefix}${n}${s}`);
+      }
+    }
+    return out;
+  };
+
+  const findField = (
+    rootType: IntrospectionType | null | undefined,
+    candidates: string[],
+  ): SchemaField | undefined => {
+    if (!rootType?.fields) return undefined;
+    const lowered = candidates.map((c) => c.toLowerCase());
+    for (const candidate of candidates) {
+      const found = rootType.fields.find((f) => f.name === candidate);
+      if (found) return found as SchemaField;
+    }
+    for (const candidate of lowered) {
+      const found = rootType.fields.find((f) => f.name.toLowerCase() === candidate);
+      if (found) return found as SchemaField;
+    }
+    return undefined;
+  };
+
   return OPERATION_DESCRIPTORS.flatMap((op) => {
     const rootType = op.type === "query" ? queryRoot : mutationRoot;
-    const field = rootType?.fields?.find((f) => f.name === `${op.prefix}${schemaName}${op.suffix}`);
+    const field = findField(rootType, candidatesForOp(op));
     if (!field) return [];
 
     return [
@@ -399,4 +506,142 @@ export function buildPreviewSections(
       },
     ];
   });
+}
+
+// ---------------------------------------------------------------------------
+// Schema-structure preview JSON
+// ---------------------------------------------------------------------------
+
+/** Maps introspection scalar names to the preview placeholders used in
+ *  `PREVIEW_TYPE_MAP` (schema-structure.types.ts). Unknown scalars fall back
+ *  to a lowercase version of their name. */
+const INTROSPECTION_SCALAR_PREVIEW: Record<string, string> = {
+  String: "string",
+  Int: "integer",
+  Integer: "integer",
+  Long: "long",
+  Float: "float",
+  Boolean: "boolean",
+  DateTime: "datetime",
+  Date: "datetime",
+  DateTimeOffset: "datetime",
+  JSON: "string",
+};
+
+const previewForScalar = (name: string | null): string => {
+  if (!name) return "string";
+  return INTROSPECTION_SCALAR_PREVIEW[name] ?? name.toLowerCase();
+};
+
+/** Find the most appropriate GraphQL type for a schema by name. Preference:
+ *  1) exact OBJECT / INPUT_OBJECT name match (case-insensitive),
+ *  2) INPUT_OBJECT with `${schemaName}Input` suffix,
+ *  3) OBJECT with the same suffix. */
+const findSchemaType = (
+  typeMap: Map<string, IntrospectionType>,
+  schemaName: string,
+): IntrospectionType | null => {
+  if (!schemaName) return null;
+  const target = schemaName.trim().toLowerCase();
+
+  const candidates = Array.from(typeMap.values()).filter(
+    (t) =>
+      (t.kind === "OBJECT" || t.kind === "INPUT_OBJECT") &&
+      typeof t.name === "string" &&
+      t.name.toLowerCase() === target,
+  );
+  if (candidates.length > 0) return candidates[0];
+
+  const inputName = `${schemaName}Input`;
+  const inputMatch = Array.from(typeMap.values()).find(
+    (t) =>
+      t.kind === "INPUT_OBJECT" &&
+      typeof t.name === "string" &&
+      t.name.toLowerCase() === inputName.toLowerCase(),
+  );
+  if (inputMatch) return inputMatch;
+
+  return null;
+};
+
+const MAX_PREVIEW_DEPTH = 10;
+
+const buildPreviewValue = (
+  typeRef: TypeRef | null,
+  typeMap: Map<string, IntrospectionType>,
+  depth: number,
+  visited: Set<string>,
+): unknown => {
+  if (!typeRef || depth > MAX_PREVIEW_DEPTH) return "";
+
+  if (typeRef.kind === "NON_NULL") {
+    return buildPreviewValue(typeRef.ofType, typeMap, depth, visited);
+  }
+  if (typeRef.kind === "LIST") {
+    const inner = buildPreviewValue(typeRef.ofType, typeMap, depth + 1, visited);
+    return [inner];
+  }
+
+  const baseName = typeRef.name;
+  if (!baseName) return "";
+
+  const resolved = typeMap.get(baseName);
+  if (!resolved || resolved.kind === "SCALAR") {
+    return previewForScalar(baseName);
+  }
+
+  if (resolved.kind === "ENUM") {
+    const first = resolved.enumValues?.[0]?.name;
+    return first ? first.toLowerCase() : "string";
+  }
+
+  if (resolved.kind === "OBJECT" || resolved.kind === "INPUT_OBJECT") {
+    if (visited.has(baseName)) return {};
+    const nextVisited = new Set(visited).add(baseName);
+    const fields = resolved.kind === "INPUT_OBJECT"
+      ? (resolved.inputFields ?? [])
+      : (resolved.fields ?? []);
+    const result: Record<string, unknown> = {};
+    fields.forEach((f) => {
+      if (!f?.name) return;
+      result[f.name] = buildPreviewValue(f.type, typeMap, depth + 1, nextVisited);
+    });
+    return result;
+  }
+
+  return previewForScalar(baseName);
+};
+
+/**
+ * Build a JSON preview object that mirrors a schema record by walking the
+ * GraphQL types returned from the `/gateway` introspection query.
+ *
+ * The function prefers the exact `${schemaName}` type and falls back to
+ * `${schemaName}Input` when the schema does not have a direct OBJECT/INPUT
+ * representation in the introspection. Returns `null` when the schema cannot
+ * be resolved, so callers can fall back to local preview-map generation.
+ */
+export function buildPreviewJsonFromIntrospection(
+  rawIntrospection: unknown,
+  schemaName: string,
+): Record<string, unknown> | null {
+  const response = rawIntrospection as IntrospectionResponse | undefined;
+  if (!response?.data?.__schema || !schemaName) return null;
+
+  const typeMap = buildTypeMap(response);
+  const rootType = findSchemaType(typeMap, schemaName);
+  if (!rootType) return null;
+
+  const fields = rootType.kind === "INPUT_OBJECT"
+    ? (rootType.inputFields ?? [])
+    : (rootType.fields ?? []);
+  if (fields.length === 0) return {};
+
+  const preview: Record<string, unknown> = {};
+  fields.forEach((f) => {
+    if (!f?.name) return;
+    preview[f.name] = buildPreviewValue(f.type, typeMap, 0, new Set());
+  });
+
+  return preview;
 }

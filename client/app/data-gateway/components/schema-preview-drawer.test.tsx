@@ -168,15 +168,40 @@ describe("SchemaPreviewDrawer", () => {
     expect(screen.getByText(/Loading from gateway/)).toBeInTheDocument();
   });
 
-  it("renders the child view (schema structure) without the tab switcher", () => {
+  it("renders the child view (schema structure) with the Request Format tab for introspection-driven query/mutations", () => {
+    useRawIntrospectionQuery.mockReturnValue({
+      data: { __schema: {} },
+      isFetching: false,
+      isPending: false,
+    });
+    sectionsMock = [
+      { title: "Query", description: "Fetch data", code: "query { getUsers { items } }" },
+    ];
     renderDrawer({ schemaType: 2 });
 
-    // A child schema hides the Request Format / Schema Structure tab switcher.
-    expect(screen.queryByText("Request Format")).not.toBeInTheDocument();
-    // The formatted preview JSON is shown in the schema-structure tab.
+    // Child schemas now also show the Request Format tab with introspection-driven
+    // query/mutations code.
+    expect(screen.getByText("Request Format")).toBeInTheDocument();
+    expect(screen.getByText("Schema Structure")).toBeInTheDocument();
+    // The default tab for a child schema is Schema Structure (JSON preview).
     expect(document.body.textContent).toContain("SchemaName");
-    // No operation sidebar for a child schema.
-    expect(screen.queryByRole("button", { name: "Query" })).not.toBeInTheDocument();
+  });
+
+  it("shows introspection-driven query/mutations for child schemas when Request Format tab is selected", async () => {
+    const user = userEvent.setup();
+    useRawIntrospectionQuery.mockReturnValue({
+      data: { __schema: {} },
+      isFetching: false,
+      isPending: false,
+    });
+    sectionsMock = [
+      { title: "Query", description: "Fetch data", code: "query { getUsers { items } }" },
+      { title: "Insert", description: "Add entry", code: "mutation { insertUser }" },
+    ];
+    renderDrawer({ schemaType: 2 });
+
+    await user.click(screen.getByRole("tab", { name: "Request Format" }));
+    expect(await screen.findByText("Fetch data")).toBeInTheDocument();
   });
 
   it("uses the title prop for the heading when provided", () => {

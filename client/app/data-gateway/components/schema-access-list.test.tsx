@@ -234,4 +234,53 @@ describe("SchemaAccessList", () => {
       expect.objectContaining({ type: "User", name: "", roleSlug: undefined }),
     );
   });
+
+  it("resets the user search when switching a User row to another type", async () => {
+    const user = userEvent.setup();
+    const entries: AccessEntry[] = [{ type: "User", name: "Jane", userId: "u1" }];
+    const { onEntryChange } = renderList({ entries, isEditing: true });
+
+    const [typeSelect] = screen.getAllByRole("combobox");
+    await user.click(typeSelect);
+    await user.click(await screen.findByRole("option", { name: "Role" }));
+
+    expect(onEntryChange).toHaveBeenCalledWith(
+      0,
+      expect.objectContaining({ type: "Role", name: "" }),
+    );
+  });
+
+  it("filters the permission list by the search box", async () => {
+    const user = userEvent.setup();
+    const entries: AccessEntry[] = [{ type: "Permission", name: "" }];
+    renderList({ entries, isEditing: true });
+
+    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.type(
+      await screen.findByPlaceholderText("Search permissions..."),
+      "Write",
+    );
+
+    await waitFor(() =>
+      expect(screen.queryByText("Read")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText("Write")).toBeInTheDocument();
+  });
+
+  it("closes the role popover and clears its search on dismiss", async () => {
+    const user = userEvent.setup();
+    const entries: AccessEntry[] = [{ type: "Role", name: "" }];
+    renderList({ entries, isEditing: true });
+
+    await user.click(screen.getAllByRole("combobox")[1]);
+    const search = await screen.findByPlaceholderText("Search roles...");
+    await user.type(search, "Adm");
+    await user.keyboard("{Escape}");
+
+    await waitFor(() =>
+      expect(
+        screen.queryByPlaceholderText("Search roles..."),
+      ).not.toBeInTheDocument(),
+    );
+  });
 });

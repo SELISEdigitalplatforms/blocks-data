@@ -97,7 +97,7 @@ describe("getRuntimeEnv", () => {
   it("returns the original value and warns when the URL cannot be parsed", () => {
     vi.stubEnv("DEV", false);
     setHostname("prod.example.com");
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "error").mockImplementation(() => {});
     win.__BLOCKS_ENV__ = { BLOCKS_OS_BASE_URL: "not-a-valid-url" };
     expect(getRuntimeEnv("BLOCKS_OS_BASE_URL", { stripPort: true })).toBe(
       "not-a-valid-url",

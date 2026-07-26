@@ -88,4 +88,78 @@ describe("SchemaClsToggle", () => {
 
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
   });
+
+  it("enables column and row level security together when RLS is off", async () => {
+    const user = userEvent.setup();
+    setRowColumnPermission.mockResolvedValue({ isSuccess: true });
+    renderToggle({ isClsEnabled: false, isRlsEnabled: false });
+
+    await user.click(
+      screen.getByRole("switch", { name: "Toggle column level security" }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Enable" }));
+
+    await waitFor(() =>
+      expect(showSuccessToast).toHaveBeenCalledWith({
+        description: "Column and row level security enabled successfully.",
+      }),
+    );
+  });
+
+  it("shows an error toast when the response is not successful", async () => {
+    const user = userEvent.setup();
+    setRowColumnPermission.mockResolvedValue({ isSuccess: false });
+    renderToggle({ isClsEnabled: false, isRlsEnabled: true });
+
+    await user.click(
+      screen.getByRole("switch", { name: "Toggle column level security" }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Enable" }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({
+        errors: "Something went wrong",
+      }),
+    );
+  });
+
+  it("disables CLS through the disable confirmation", async () => {
+    const user = userEvent.setup();
+    setRowColumnPermission.mockResolvedValue({ isSuccess: true });
+    renderToggle({ isClsEnabled: true, isRlsEnabled: true });
+
+    await user.click(
+      screen.getByRole("switch", { name: "Toggle column level security" }),
+    );
+    expect(
+      await screen.findByText("Disable column level security?"),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Disable" }));
+
+    await waitFor(() =>
+      expect(showSuccessToast).toHaveBeenCalledWith({
+        description: "Column level security disabled successfully.",
+      }),
+    );
+  });
+
+  it("clears the pending value when the dialog is dismissed", async () => {
+    const user = userEvent.setup();
+    renderToggle({ isClsEnabled: false, isRlsEnabled: true });
+
+    await user.click(
+      screen.getByRole("switch", { name: "Toggle column level security" }),
+    );
+    expect(
+      await screen.findByText("Enable column level security?"),
+    ).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Enable column level security?"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(setRowColumnPermission).not.toHaveBeenCalled();
+  });
 });

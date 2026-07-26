@@ -159,6 +159,94 @@ public class DataValidationHelperTests
     }
 
     [Fact]
+    public void Validate_NestedObject_NullValue_Skipped()
+    {
+        var contactField = Field("Contact", "Contact", children: new()
+        {
+            FieldWithValidations("Email", "String", V(ValidationType.NotEmpty, msg: "Email required"))
+        });
+        var schema = Schema(fields: new() { contactField });
+        var input = new Dictionary<string, object?> { ["Contact"] = null };
+        input.Validate(schema).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_Equal_IntType()
+    {
+        var schema = Schema(fields: new() { FieldWithValidations("Age", "Int", V(ValidationType.Equal, 5)) });
+        new Dictionary<string, object?> { ["Age"] = 5 }.Validate(schema).IsValid.Should().BeTrue();
+        new Dictionary<string, object?> { ["Age"] = 6 }.Validate(schema).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_Equal_UnconvertibleValue_Fails()
+    {
+        var schema = Schema(fields: new() { FieldWithValidations("Age", "Int", V(ValidationType.Equal, 5)) });
+        new Dictionary<string, object?> { ["Age"] = "not-a-number" }.Validate(schema).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_Equal_FloatType()
+    {
+        var schema = Schema(fields: new() { FieldWithValidations("Price", "Float", V(ValidationType.Equal, 1.5)) });
+        new Dictionary<string, object?> { ["Price"] = 1.5 }.Validate(schema).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_Equal_DateTimeType()
+    {
+        var when = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var schema = Schema(fields: new() { FieldWithValidations("When", "DateTime", V(ValidationType.Equal, when)) });
+        new Dictionary<string, object?> { ["When"] = when }.Validate(schema).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_Equal_BooleanType()
+    {
+        var schema = Schema(fields: new() { FieldWithValidations("Flag", "Boolean", V(ValidationType.Equal, true)) });
+        new Dictionary<string, object?> { ["Flag"] = true }.Validate(schema).IsValid.Should().BeTrue();
+        new Dictionary<string, object?> { ["Flag"] = false }.Validate(schema).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_NotEqual_IntType_Matches_Fails()
+    {
+        var schema = Schema(fields: new() { FieldWithValidations("Age", "Int", V(ValidationType.NotEqual, 5)) });
+        new Dictionary<string, object?> { ["Age"] = 5 }.Validate(schema).IsValid.Should().BeFalse();
+        new Dictionary<string, object?> { ["Age"] = 6 }.Validate(schema).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_GreaterThanOrEqual_LessThanOrEqual()
+    {
+        var schema = Schema(fields: new()
+        {
+            FieldWithValidations("Age", "Int", V(ValidationType.GreaterThanOrEqual, 18), V(ValidationType.LessThanOrEqual, 65))
+        });
+        new Dictionary<string, object?> { ["Age"] = 18 }.Validate(schema).IsValid.Should().BeTrue();
+        new Dictionary<string, object?> { ["Age"] = 65 }.Validate(schema).IsValid.Should().BeTrue();
+        new Dictionary<string, object?> { ["Age"] = 17 }.Validate(schema).IsValid.Should().BeFalse();
+        new Dictionary<string, object?> { ["Age"] = 66 }.Validate(schema).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_Comparison_FloatType()
+    {
+        var schema = Schema(fields: new() { FieldWithValidations("Price", "Float", V(ValidationType.GreaterThan, 1.0)) });
+        new Dictionary<string, object?> { ["Price"] = 2.5 }.Validate(schema).IsValid.Should().BeTrue();
+        new Dictionary<string, object?> { ["Price"] = 0.5 }.Validate(schema).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_Comparison_DateTimeType()
+    {
+        var floor = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var schema = Schema(fields: new() { FieldWithValidations("When", "DateTime", V(ValidationType.GreaterThan, floor)) });
+        new Dictionary<string, object?> { ["When"] = floor.AddDays(1) }.Validate(schema).IsValid.Should().BeTrue();
+        new Dictionary<string, object?> { ["When"] = floor.AddDays(-1) }.Validate(schema).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
     public void DataValidationResult_ErrorMessage_AggregatesErrors()
     {
         var result = new global::DataGateway.DomainService.Models.Responses.DataValidationResult();

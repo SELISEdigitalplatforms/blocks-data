@@ -55,4 +55,25 @@ describe("CopyableSnippet", () => {
 
     await waitFor(() => expect(errorSpy).toHaveBeenCalled());
   });
+
+  it("falls back to execCommand when the clipboard API is unavailable", async () => {
+    const user = userEvent.setup();
+    // Remove the clipboard API installed by userEvent.setup() to force the fallback.
+    Object.defineProperty(navigator, "clipboard", {
+      value: undefined,
+      configurable: true,
+      writable: true,
+    });
+    const execCommand = vi.fn();
+    (document as unknown as { execCommand: unknown }).execCommand = execCommand;
+
+    render(<CopyableSnippet code="echo hi" isCopyable />);
+    await user.click(screen.getByRole("button", { name: /copy code/i }));
+
+    expect(execCommand).toHaveBeenCalledWith("copy");
+    // The copied indicator flips on after the fallback succeeds.
+    await waitFor(() =>
+      expect(document.querySelector("svg.lucide-check")).toBeInTheDocument(),
+    );
+  });
 });

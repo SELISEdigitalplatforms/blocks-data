@@ -64,7 +64,7 @@ vi.mock("../hooks/use-configuration", () => ({
 
 // ---- Heavy child component stubs (echo the props we assert on) -------------
 vi.mock("./schema-structure/schema-structure-header", () => ({
-  SchemaStructureHeader: (p: any) => (
+  SchemaStructureHeader: (p: Record<string, unknown>) => (
     <div
       data-testid="schema-header"
       data-edit={String(p.isEditMode)}
@@ -101,7 +101,7 @@ vi.mock("./schema-structure/schema-structure-header", () => ({
 }));
 
 vi.mock("./schema-structure/schema-desktop-row", () => ({
-  SchemaDesktopRow: (p: any) => {
+  SchemaDesktopRow: (p: Record<string, unknown>) => {
     const name = p.properties?.[p.index]?.name ?? p.field?.name ?? "";
     return (
       <tr>
@@ -144,23 +144,23 @@ vi.mock("./schema-structure/schema-desktop-row", () => ({
 }));
 
 vi.mock("./schema-structure/schema-mobile-card", () => ({
-  SchemaMobileCard: (p: any) => (
+  SchemaMobileCard: (p: Record<string, unknown>) => (
     <div data-testid="mobile-row" data-index={p.index} />
   ),
 }));
 
 vi.mock("./schema-data", () => ({
-  SchemaDataTab: (p: any) => <div data-testid="data-tab">{p.schemaName}</div>,
+  SchemaDataTab: (p: Record<string, unknown>) => <div data-testid="data-tab">{p.schemaName}</div>,
 }));
 
 vi.mock("./child-schema-expandable-content", () => ({
-  ChildSchemaExpandableContent: (p: any) => (
+  ChildSchemaExpandableContent: (p: Record<string, unknown>) => (
     <div data-testid="child-content">{p.schemaId}</div>
   ),
 }));
 
 vi.mock("./schema-access-control-drawer", () => ({
-  default: (p: any) => (
+  default: (p: Record<string, unknown>) => (
     <div
       data-testid="access-drawer"
       data-open={String(!!p.open)}
@@ -172,7 +172,7 @@ vi.mock("./schema-access-control-drawer", () => ({
 }));
 
 vi.mock("./schema-preview-drawer", () => ({
-  SchemaPreviewDrawer: (p: any) => (
+  SchemaPreviewDrawer: (p: Record<string, unknown>) => (
     <div data-testid="preview-drawer" data-open={String(!!p.open)}>
       {p.schemaName}
     </div>
@@ -180,7 +180,7 @@ vi.mock("./schema-preview-drawer", () => ({
 }));
 
 vi.mock("./schema-fields-validation/schema-field-validation-drawer", () => ({
-  SchemaFieldValidationDrawer: (p: any) => (
+  SchemaFieldValidationDrawer: (p: Record<string, unknown>) => (
     <div data-testid="validation-drawer" data-open={String(!!p.open)}>
       {p.fieldName}
     </div>

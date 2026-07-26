@@ -32,6 +32,9 @@ export type SchemaPreviewDrawerProps = {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   projectShortKey?: string;
+  rawIntrospection?: unknown;
+  isGatewayIntrospectionPending?: boolean;
+  isGatewayIntrospectionFetching?: boolean;
 };
 
 /**

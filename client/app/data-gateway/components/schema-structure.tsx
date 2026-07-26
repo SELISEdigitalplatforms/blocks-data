@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils";
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { readonlyPropertyNames } from "../constants/input-restrictions";
-import { useUpdateSchemaStructure } from "../hooks/use-configuration";
 import {
   IField,
   IFieldValidationRule,
@@ -39,6 +38,10 @@ import {
 import { useBulkOperations } from "../hooks/use-bulk-operations";
 import { useSchemaPreview } from "../hooks/use-schema-preview";
 import { useDtoPreviewMap } from "../hooks/use-dto-preview-map";
+import {
+  useRawIntrospectionQuery,
+  useUpdateSchemaStructure,
+} from "../hooks/use-configuration";
 import { SchemaDesktopRow } from "./schema-structure/schema-desktop-row";
 import { SchemaMobileCard } from "./schema-structure/schema-mobile-card";
 import { SchemaStructureHeader } from "./schema-structure/schema-structure-header";
@@ -197,6 +200,15 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const { searchText, debouncedSetSearchText, schemaItems, dtoPreviewMap } =
     useDtoPreviewMap(projectKey);
 
+  const {
+    data: rawIntrospection,
+    isPending: isGatewayIntrospectionPending,
+    isFetching: isGatewayIntrospectionFetching,
+  } = useRawIntrospectionQuery({
+    projectKey,
+    enabled: !!projectKey,
+  });
+
   const bulkOperations = useBulkOperations({
     fields,
     properties: watch("properties"),
@@ -209,6 +221,10 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const { previewData, templateFields } = useSchemaPreview(
     properties,
     dtoPreviewMap,
+    {
+      rawIntrospection,
+      schemaName: schemaDetails?.schemaName,
+    },
   );
 
   useEffect(() => {
@@ -564,6 +580,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
               onSelectAll={handleSelectAll}
               isPreviewDrawerOpen={isPreviewDrawerOpen}
               setIsPreviewDrawerOpen={setIsPreviewDrawerOpen}
+              rawIntrospection={rawIntrospection}
+              isGatewayIntrospectionPending={isGatewayIntrospectionPending}
+              isGatewayIntrospectionFetching={isGatewayIntrospectionFetching}
               onSaveClick={
                 useDivWrapper ? () => handleSubmit(onSubmit)() : undefined
               }
@@ -1025,6 +1044,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         title={`${schemaDetails.schemaName} preview`}
         open={isPreviewDrawerOpen}
         onOpenChange={setIsPreviewDrawerOpen}
+        rawIntrospection={rawIntrospection}
+        isGatewayIntrospectionPending={isGatewayIntrospectionPending}
+        isGatewayIntrospectionFetching={isGatewayIntrospectionFetching}
       />
     </>
   ) : (

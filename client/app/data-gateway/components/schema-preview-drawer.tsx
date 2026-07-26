@@ -27,7 +27,6 @@ import { useNavigate } from "react-router-dom";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import atomDark from "react-syntax-highlighter/dist/esm/styles/prism/atom-dark";
 import prism from "react-syntax-highlighter/dist/esm/styles/prism/prism";
-import { useRawIntrospectionQuery } from "../hooks/use-configuration";
 import { SchemaPreviewDrawerProps } from "../models/schema-preview.types";
 import { buildPreviewSections } from "../utils/generate-preview-queries";
 import { formatPreviewJson } from "../utils/graphql-template.utils";
@@ -89,6 +88,9 @@ export function SchemaPreviewDrawer({
   className,
   open,
   onOpenChange,
+  rawIntrospection: rawIntrospectionProp,
+  isGatewayIntrospectionPending: isGatewayIntrospectionPendingProp,
+  isGatewayIntrospectionFetching: isGatewayIntrospectionFetchingProp,
 }: SchemaPreviewDrawerProps) {
   const handleCloseAutoFocus = (event: Event) => {
     event.preventDefault();
@@ -136,11 +138,12 @@ export function SchemaPreviewDrawer({
 
   const formattedJson = useMemo(() => formatPreviewJson(previewData), [previewData]);
 
-  const { data: rawIntrospection, isFetching: isGatewayIntrospectionFetching, isPending: isGatewayIntrospectionPending } =
-    useRawIntrospectionQuery({ projectShortKey, enabled: isEntity && !!schemaName });
+  const rawIntrospection = rawIntrospectionProp;
+  const isGatewayIntrospectionFetching = isGatewayIntrospectionFetchingProp ?? false;
+  const isGatewayIntrospectionPending = isGatewayIntrospectionPendingProp ?? false;
 
   const isGatewaySchemaLoading =
-    isEntity && !!schemaName && !!projectShortKey &&
+    isEntity && !!schemaName && !!projectShortKey && !!rawIntrospectionProp &&
     (isGatewayIntrospectionPending || (isGatewayIntrospectionFetching && rawIntrospection === undefined));
 
   const sections = useMemo(

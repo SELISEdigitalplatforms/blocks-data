@@ -69,9 +69,16 @@ interface ResponseTab {
 }
 
 export const GraphQLPlaygroundPage = () => {
-  const [query, setQuery] = useState(
-    `# Write your GraphQL query/mutation here`,
-  );
+  const [query, setQuery] = useState(() => {
+    if (typeof window !== "undefined") {
+      const storedQuery = localStorage.getItem("graphql-playground-query");
+      if (storedQuery) {
+        localStorage.removeItem("graphql-playground-query");
+        return storedQuery;
+      }
+    }
+    return `# Write your GraphQL query/mutation here`;
+  });
   const [responses, setResponses] = useState<ResponseTab[]>([]);
   const [activeResponseTab, setActiveResponseTab] = useState<string>("");
   const [isCleanDataModalOpen, setIsCleanDataModalOpen] = useState(false);
@@ -97,15 +104,18 @@ export const GraphQLPlaygroundPage = () => {
   }, [projectData, selectedProject?.itemId, setSelectedProject]);
   const [monacoTheme, setMonacoTheme] = useState<
     NonNullable<EditorProps["theme"]>
-  >("light");
+  >(() =>
+    typeof document !== "undefined" &&
+    document.documentElement.classList.contains("dark")
+      ? "vs-dark"
+      : "light",
+  );
 
   useEffect(() => {
     const resolveTheme = () =>
       document.documentElement.classList.contains("dark")
         ? "vs-dark"
         : "light";
-
-    setMonacoTheme(resolveTheme());
 
     const observer = new MutationObserver(() => {
       setMonacoTheme(resolveTheme());
@@ -124,10 +134,9 @@ export const GraphQLPlaygroundPage = () => {
   const {
     data: schemasIntrospectionData,
     isPending: isSchemasIntrospectionPending,
-    isFetching: isSchemasIntrospectionFetching,
   } = useRawIntrospectionQuery({
-    projectShortKey,
-    enabled: isSchemasDrawerOpen && !!projectShortKey,
+    projectKey,
+    enabled: !!projectKey,
   });
 
   const handleFetchSchemas = () => {
@@ -137,9 +146,7 @@ export const GraphQLPlaygroundPage = () => {
   const isSchemasDrawerLoading =
     isSchemasDrawerOpen &&
     !!projectShortKey &&
-    (isSchemasIntrospectionPending ||
-      (isSchemasIntrospectionFetching &&
-        schemasIntrospectionData === undefined));
+    (isSchemasIntrospectionPending || schemasIntrospectionData === undefined);
 
   const handleUseQueryFromSchemas = useCallback((queryText: string) => {
     setQuery(queryText);
@@ -151,18 +158,8 @@ export const GraphQLPlaygroundPage = () => {
   // Fetch introspected schema for accurate autocompletion
   const { data: introspectedSchema } = useGraphQLIntrospection({
     projectShortKey,
-    enabled: !!projectShortKey && !!projectKey,
+    enabled: !!projectShortKey,
   });
-
-  // Load query from localStorage if coming from "Try in Playground"
-  useEffect(() => {
-    const storedQuery = localStorage.getItem("graphql-playground-query");
-    if (storedQuery) {
-      setQuery(storedQuery);
-      // Clear the stored query after loading
-      localStorage.removeItem("graphql-playground-query");
-    }
-  }, []);
 
   // Fetch entity schemas
   const { data: schemaListResponse } = useSchemaList({
@@ -1206,9 +1203,9 @@ export const GraphQLPlaygroundPage = () => {
                 label: `get${schemaName}s`,
                 kind: monaco.languages.CompletionItemKind.Function,
                 insertText: `get${schemaName}s(
-  input: {
-    filter: "{}" # stringify mongo filter
-    sort: "{}" # stringify mongo sorting
+  where: {}
+  order: []
+  paging: {
     pageNo: 1
     pageSize: 10
   }
@@ -1253,7 +1250,7 @@ export const GraphQLPlaygroundPage = () => {
                 label: `update${schemaName}`,
                 kind: monaco.languages.CompletionItemKind.Function,
                 insertText: `update${schemaName}(
-  filter: "{}" # stringify mongo filter
+  where: {}
   input: {
     \${1}
   }
@@ -1274,7 +1271,7 @@ export const GraphQLPlaygroundPage = () => {
                 label: `delete${schemaName}`,
                 kind: monaco.languages.CompletionItemKind.Function,
                 insertText: `delete${schemaName}(
-  filter: "{}" # stringify mongo filter
+  where: {}
 ) {
   acknowledged
   totalImpactedData
@@ -1513,7 +1510,7 @@ export const GraphQLPlaygroundPage = () => {
               size="sm"
               variant="ghost"
               onClick={handleFetchSchemas}
-              disabled={!projectShortKey || isSchemasDrawerLoading}
+              disabled={isSchemasDrawerLoading}
               className="h-7 gap-1.5 border border-border/40 px-3 text-xs text-muted-foreground/70 hover:border-border/60 hover:text-foreground"
             >
               <BookOpen className="h-3.5 w-3.5" />

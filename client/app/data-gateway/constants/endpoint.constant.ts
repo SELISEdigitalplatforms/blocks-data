@@ -67,8 +67,10 @@ export const DATA_VALIDATION_REGEX_ENDPOINTS = {
 
 // ─── Gateway & Configuration endpoints ────────────────────────────────────────
 
+const GATEWAY_SUBPATH = "/gateway";
+
 export const GATEWAY_ENDPOINTS = {
-  EXECUTE: `${API_BASES.UDS}`,
+  EXECUTE: `${API_BASES.UDS}${GATEWAY_SUBPATH}`,
   RELOAD: `${API_BASES.UDS}`,
   PING: `${API_BASES.UDS}`,
 } as const;

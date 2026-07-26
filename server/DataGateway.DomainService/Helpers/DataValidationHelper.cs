@@ -160,7 +160,7 @@ public static class DataValidationHelper
         {
             var patternStr = pattern.ToString();
             if (!string.IsNullOrEmpty(patternStr) &&
-                !Regex.IsMatch(fieldValue.ToString() ?? "", patternStr))
+                !Regex.IsMatch(fieldValue.ToString() ?? "", patternStr, RegexOptions.None, TimeSpan.FromSeconds(1)))
             {
                 return new ValidationError
                 {

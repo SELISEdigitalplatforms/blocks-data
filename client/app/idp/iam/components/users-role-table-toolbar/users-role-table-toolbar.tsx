@@ -55,7 +55,7 @@ export function UsersRoleTableToolbar<TData>({ table }: UsersRoleTableToolbarPro
     table.resetColumnFilters();
   }
 
-  const FilterContent = () => (
+  const filterContent = (
     <>
       {table.getColumn("lastLogin") && (
         <DateRangeFilter
@@ -100,7 +100,7 @@ export function UsersRoleTableToolbar<TData>({ table }: UsersRoleTableToolbarPro
               <SheetTitle className="mb-4">Filter</SheetTitle>
               <SheetDescription />
               <div className="flex flex-col space-y-4">
-                <FilterContent />
+                {filterContent}
                 <SheetClose asChild>
                   <Button className="mt-4" size="sm">
                     Show Results
@@ -128,7 +128,7 @@ export function UsersRoleTableToolbar<TData>({ table }: UsersRoleTableToolbarPro
           isVisible={isSearchVisible}
           setIsVisible={setIsSearchVisible}
         />
-        <FilterContent />
+        {filterContent}
         {isFiltered && (
           <Button variant="outline" onClick={resetFilters} className="h-8 px-2 lg:px-3">
             Reset

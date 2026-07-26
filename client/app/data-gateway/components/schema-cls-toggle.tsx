@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { Switch } from "@/components/ui-kits/switch/switch";
 import { InfoTooltip } from "@/components/info-tool-tip/info-tool-tip";
@@ -34,13 +34,17 @@ export const SchemaClsToggle = ({
   const { mutateAsync: setRowColumnPermission, isPending: isUpdatingRowColumnPermission } =
     useSetRowColumnPermission(schemaId);
 
-  useEffect(() => {
+  const [prevInitialClsEnabled, setPrevInitialClsEnabled] = useState(initialClsEnabled);
+  if (prevInitialClsEnabled !== initialClsEnabled) {
+    setPrevInitialClsEnabled(initialClsEnabled);
     setIsClsEnabled(initialClsEnabled);
-  }, [initialClsEnabled]);
+  }
 
-  useEffect(() => {
+  const [prevIsRlsEnabled, setPrevIsRlsEnabled] = useState(isRlsEnabled);
+  if (prevIsRlsEnabled !== isRlsEnabled) {
+    setPrevIsRlsEnabled(isRlsEnabled);
     setCurrentRlsEnabled(isRlsEnabled);
-  }, [isRlsEnabled]);
+  }
 
   const modalData =
     pendingClsValue === true

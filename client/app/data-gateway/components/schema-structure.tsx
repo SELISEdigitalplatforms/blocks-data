@@ -580,6 +580,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
               onSelectAll={handleSelectAll}
               isPreviewDrawerOpen={isPreviewDrawerOpen}
               setIsPreviewDrawerOpen={setIsPreviewDrawerOpen}
+              rawIntrospection={rawIntrospection}
+              isGatewayIntrospectionPending={isGatewayIntrospectionPending}
+              isGatewayIntrospectionFetching={isGatewayIntrospectionFetching}
               onSaveClick={
                 useDivWrapper ? () => handleSubmit(onSubmit)() : undefined
               }

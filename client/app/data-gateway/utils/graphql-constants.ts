@@ -27,8 +27,8 @@ export const MONGO_FILTER_SORT_LITERAL = `"{}"`;
 
 /** String defaults for well-known fields (schemas-drawer path). */
 export const KNOWN_STRING_DEFAULTS: Record<string, string> = {
-  filter: '"{}" # stringify mongo filter',
-  sort: '"{}" # stringify mongo sorting',
+  where: '"{}"',
+  order: '"{}"',
 };
 
 /** Integer defaults for pagination fields. */

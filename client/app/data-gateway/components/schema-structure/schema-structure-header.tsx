@@ -35,6 +35,9 @@ interface SchemaStructureHeaderProps {
   onSelectAll: (checked: boolean) => void;
   isPreviewDrawerOpen: boolean;
   setIsPreviewDrawerOpen: (open: boolean) => void;
+  rawIntrospection?: unknown;
+  isGatewayIntrospectionPending?: boolean;
+  isGatewayIntrospectionFetching?: boolean;
   /** When provided, Save uses onClick instead of type="submit" (avoids nested form issues) */
   onSaveClick?: () => void;
 }
@@ -62,6 +65,9 @@ export function SchemaStructureHeader({
   onBulkDelete,
   onSelectAll,
   setIsPreviewDrawerOpen,
+  rawIntrospection,
+  isGatewayIntrospectionPending,
+  isGatewayIntrospectionFetching,
   onSaveClick,
 }: SchemaStructureHeaderProps) {
   const fieldLength = Object.keys(previewData).length;
@@ -157,6 +163,9 @@ export function SchemaStructureHeader({
                   fields={templateFields}
                   previewData={previewData}
                   title={`${schemaName} preview`}
+                  rawIntrospection={rawIntrospection}
+                  isGatewayIntrospectionPending={isGatewayIntrospectionPending}
+                  isGatewayIntrospectionFetching={isGatewayIntrospectionFetching}
                   trigger={
                     <Button type="button" variant="outline" size="sm">
                       Preview

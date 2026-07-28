@@ -6,6 +6,16 @@ const DEFAULT_BLOCKS_LOGIC_SITE_ORIGIN =
   "https://stg-logic.blocksdevelopers.com" as const;
 
 const trimTrailingSlash = (value: string) => value.replace(/\/$/, "");
+const tryGetOrigin = (value: string): string => {
+  const normalized = trimTrailingSlash(value.trim());
+  if (!normalized) return "";
+
+  try {
+    return new URL(normalized).origin;
+  } catch {
+    return "";
+  }
+};
 
 const GRAPHQL_GATEWAY_ORIGINS: Record<string, string> = {
   dev: "https://dev-api.blocksdevelopers.com",
@@ -57,6 +67,9 @@ export const BLOCKS_LOGIC_SITE_ORIGIN = resolveBlocksLogicSiteOrigin();
 export const API_BASES = {
   COMMUNICATION: "/api",
   CLOUD_CONFIGURATION: "/api",
+  /** Canonical base for Blocks Data (Data Gateway + Storage). Replaces the retired "UDS" name. */
+  BLOCKS_DATA: "/api",
+  /** @deprecated "Unified Data Service (UDS)" is retired; use `BLOCKS_DATA`. Kept so existing endpoint constants keep resolving. */
   UDS: "/api",
   UILM: "/api",
   UTILITIES: "/api",
@@ -73,6 +86,10 @@ export const API_BASES = {
 
 /** GraphQL gateway host (execute / reload / ping). Override with `BLOCKS_GRAPHQL_GATEWAY_ORIGIN`; otherwise resolved from env/domain. */
 export const getGraphqlGatewayExecuteOrigin = (): string => {
+  // Keep gateway aligned with runtime API host (e.g., stg-data) when dedicated env is not provided.
+  const fromApiBase = tryGetOrigin(getRuntimeEnv("BLOCKS_DATA_BASE_URL"));
+  if (fromApiBase) return fromApiBase;
+
   const fromEnv = trimTrailingSlash(
     getRuntimeEnv("BLOCKS_GRAPHQL_GATEWAY_ORIGIN").trim(),
   );

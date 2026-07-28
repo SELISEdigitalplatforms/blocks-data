@@ -8,7 +8,7 @@ import {
   useRolesFilterQueryParams,
   useRolesSortQueryParams,
 } from "./roles-filter-toolbar";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 
 export const Roles = () => {
   const { queryParams, setQueryParams } = useRolesFilterQueryParams();

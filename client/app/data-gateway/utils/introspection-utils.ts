@@ -154,7 +154,7 @@ const buildNestedInputFieldLine = (
   if (isScalarType(fNamed) && (fNamed.name === "String" || fNamed.name === "JSON")) {
     const mongoLit = mongoStringLiteralForField(f.name, fIsList);
     if (mongoLit !== null) {
-      const litWithCursor = mongoLit.replace('[""]', '["${1}"]').replace('"{}"', '"{\${1}}"');
+      const litWithCursor = mongoLit.replace('[""]', '["${1}"]').replace('"{}"', '"{${1}}"');
       return `${lineIndent}${f.name}: ${litWithCursor}${fComment}`;
     }
     return fIsList
@@ -293,7 +293,7 @@ const buildArgumentSnippet = (
         if (isScalarType(fNamed) && (fNamed.name === "String" || fNamed.name === "JSON")) {
           const mongoLit = mongoStringLiteralForField(f.name, fIsList);
           if (mongoLit !== null) {
-            const litWithCursor = mongoLit.replace('[""]', '["${1}"]').replace('"{}"', '"{\${1}}"');
+            const litWithCursor = mongoLit.replace('[""]', '["${1}"]').replace('"{}"', '"{${1}}"');
             return `    ${f.name}: ${litWithCursor}${fComment}`;
           }
           if (fIsList) return `    ${f.name}: ["\${${fStop}}"]${fComment}`;
@@ -657,7 +657,7 @@ export const getInputFieldSuggestions = (
         const mongoLit = mongoStringLiteralForField(field.name, fIsList);
         if (mongoLit !== null) {
           // For snippets, place a cursor inside the quotes
-          const litWithCursor = mongoLit.replace('[""]', '["${1}"]').replace('"{}"', '"{\${1}}"');
+          const litWithCursor = mongoLit.replace('[""]', '["${1}"]').replace('"{}"', '"{${1}}"');
           // Automatically add a newline after filter/sort to prepare for the next field
           insertText = `${field.name}: ${litWithCursor}\n$0`;
         } else {
@@ -730,7 +730,7 @@ export const detectCurrentFieldName = (textBeforeCursor: string): string | null 
   const lines = textBeforeCursor.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) {
     const line = lines[i].trim();
-    const fieldMatch = line.match(/^(\w+)\s*[\({]/);
+    const fieldMatch = line.match(/^(\w+)\s*[({]/);
     if (fieldMatch) return fieldMatch[1];
   }
 

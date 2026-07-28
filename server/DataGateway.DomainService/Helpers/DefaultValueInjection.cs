@@ -7,7 +7,7 @@ namespace DataGateway.DomainService.Helpers;
 
 public static class DefaultValueInjection
 {
-    public static readonly Dictionary<string, string> DefaultFieldDescriptions = new()
+    public static readonly IReadOnlyDictionary<string, string> DefaultFieldDescriptions = new Dictionary<string, string>
     {
         [nameof(GraphQlBaseEntity.ItemId)] = "Unique identifier for the record. System-generated and immutable once created.",
         [nameof(GraphQlBaseEntity.CreatedDate)] = "UTC timestamp when the record was first created. Automatically set on insert and never changed afterward.",

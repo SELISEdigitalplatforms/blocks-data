@@ -18,11 +18,13 @@ export const SearchInput: React.FC<SearchInputProps> = ({
   className = "",
 }) => {
   const [state, setState] = useState(value);
+  const [prevValue, setPrevValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  if (prevValue !== value) {
+    setPrevValue(value);
     setState(value);
-  }, [value]);
+  }
 
   const debounced = useRef(
     debounce((val: string) => {

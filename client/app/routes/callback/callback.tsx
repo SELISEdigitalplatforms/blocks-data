@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Loader } from "lucide-react";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/use-auth-store";
 import { API_BASES } from "@/constants/endpoint.constant";
 
 export default function LoginCallbackPage() {

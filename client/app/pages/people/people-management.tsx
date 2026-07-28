@@ -77,9 +77,9 @@ export const PeopleManagement = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {person.sharedEnviroments?.map((env) => (
+                      {(person.sharedEnvironments ?? person.sharedEnviroments)?.map((env) => (
                         <Badge key={env.tenantId} variant="secondary" className="text-xs">
-                          {env.enviroment}
+                          {env.environment ?? env.enviroment}
                         </Badge>
                       ))}
                     </div>

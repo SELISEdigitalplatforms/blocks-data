@@ -1,7 +1,7 @@
-import { authHandlers } from "./authHandler";
-import { iamHandlers } from "./iamHandler";
-import { captchaHandlers } from "./captchaHandler";
-import { mfaHandlers } from "./mfaHandler";
+import { authHandlers } from "./auth-handler";
+import { iamHandlers } from "./iam-handler";
+import { captchaHandlers } from "./captcha-handler";
+import { mfaHandlers } from "./mfa-handler";
 
 /**
  * Aggregated IDP MSW handlers across all domains:

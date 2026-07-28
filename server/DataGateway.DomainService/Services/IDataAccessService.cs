@@ -6,10 +6,10 @@ namespace DataGateway.DomainService.Services;
 
 public interface IDataAccessService
 {
-    Task<ServiceResponse<ActionResponse>> ConfigureSecurity(ConfigureSchemaSecurityRequest request);
-    Task<ServiceResponse<ActionResponse>> CreateDataAccessPolicy(CreateDataAccessPolicyRequest request);
-    Task<ServiceResponse<ActionResponse>> UpdateDataAccessPolicy(UpdateDataAccessPolicyRequest request);
-    Task<ServiceResponse<ActionResponse>> DeleteDataAccessPolicy(string itemId);
-    Task<ServiceResponse<List<DataAccessPolicyResponse>>> GetEntityDataAccessPolicy(string entityName);
+    Task<ServiceResponse<ActionResponse>> ConfigureSecurityAsync(ConfigureSchemaSecurityRequest request);
+    Task<ServiceResponse<ActionResponse>> CreateDataAccessPolicyAsync(CreateDataAccessPolicyRequest request);
+    Task<ServiceResponse<ActionResponse>> UpdateDataAccessPolicyAsync(UpdateDataAccessPolicyRequest request);
+    Task<ServiceResponse<ActionResponse>> DeleteDataAccessPolicyAsync(string itemId);
+    Task<ServiceResponse<List<DataAccessPolicyResponse>>> GetEntityDataAccessPolicyAsync(string entityName);
 
 }

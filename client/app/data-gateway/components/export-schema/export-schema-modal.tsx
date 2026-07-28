@@ -84,8 +84,12 @@ function calculateExportOption(
   return SchemaExportOption.Schema;
 }
 
-function isSelectAllChecked(selectedKeys: Set<string>): boolean {
+function areAllOptionalSelected(selectedKeys: Set<string>): boolean {
   return OPTIONAL_KEYS.every((k) => selectedKeys.has(k));
+}
+
+function areSomeOptionalSelected(selectedKeys: Set<string>): boolean {
+  return OPTIONAL_KEYS.some((k) => selectedKeys.has(k));
 }
 
 /** Matches UILM-style payloads: `{ Message: { FileId } }` or a flat `{ FileId }`. */
@@ -126,7 +130,7 @@ export default function ExportSchemaModal({
   const [selectedFormat, setSelectedFormat] = useState<ExportFormatId>(
     exportFormats[0].id,
   );
-  const [downloadChecked, setDownloadChecked] = useState(false);
+  const [downloadChecked, setDownloadChecked] = useState(true);
 
   const queryClient = useQueryClient();
   const { mutateAsync: exportSchemaAsync, isPending: isExporting } =
@@ -189,14 +193,11 @@ export default function ExportSchemaModal({
       setSelectedKeys((prev) => {
         const next = new Set(prev);
         next.add("schema");
-        if (!checked) {
+        if (checked) {
+          next.add(key);
+        } else {
           next.delete(key);
-          return next;
         }
-        const other: OptionalExportKey =
-          key === "accessPolicies" ? "validationRules" : "accessPolicies";
-        next.delete(other);
-        next.add(key);
         return next;
       });
     },
@@ -272,7 +273,9 @@ export default function ExportSchemaModal({
     }
   };
 
-  const selectAllChecked = isSelectAllChecked(selectedKeys);
+  const selectAllChecked = areAllOptionalSelected(selectedKeys);
+  const selectAllIndeterminate =
+    !selectAllChecked && areSomeOptionalSelected(selectedKeys);
 
   return (
     <DialogContent className="flex max-h-[85vh] flex-col overflow-hidden rounded-sm border border-border/40 sm:max-w-[420px]">
@@ -293,7 +296,9 @@ export default function ExportSchemaModal({
             <div className="flex items-center gap-3 border-b border-border/30 pb-3">
               <Checkbox
                 id="export-schema-select-all"
-                checked={selectAllChecked}
+                checked={
+                  selectAllIndeterminate ? "indeterminate" : selectAllChecked
+                }
                 onCheckedChange={(checked) => handleSelectAllChange(checked === true)}
               />
               <Label htmlFor="export-schema-select-all" className="cursor-pointer text-sm font-medium text-foreground/80">

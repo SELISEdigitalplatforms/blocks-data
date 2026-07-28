@@ -48,7 +48,7 @@ export const SERVICES = [
     showInLogs: true,
   },
   {
-    label: "Unified Data Service",
+    label: "Blocks Data",
     name: "unified-data-service",
     serviceName: "uds",
     showInUsage: true,

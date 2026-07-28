@@ -87,15 +87,15 @@ feat(data-gateway): add per-field validation rule support - issue(#318)
 
 ## Coding Guidelines
 
-1. **Layer your code** — Add a service method first, then a hook, then a component. Never call the `http` client directly from a component.
-2. **Single service singleton** — All hooks must go through `configurationService` from `services/configuration.service.ts`. Never instantiate `ConfigurationService` directly in hooks or components.
-3. **Model your data** — Add TypeScript interfaces to the relevant `models/` file before implementing any service method or component. Use the `I` prefix for payload/response interfaces; no prefix for entity types and local UI types.
-4. **Name consistently** — Files use `kebab-case`. Hooks are prefixed with `use-`. Service classes are suffixed with `Service`.
-5. **Invalidate `unadapted-change-logs`** — Every mutation that changes schema structure, access rules, policies, or field validation must call `queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] })` on success. This is the deployment signal that notifies the user to reload schemas.
-6. **Write tests alongside code** — Every new service method and hook must have a corresponding `.test.ts` file in the same directory. Use Vitest + React Testing Library + MSW.
-7. **Use the shared `http` client** — Import from `@/lib/http-client`. Do not introduce alternative HTTP libraries or call `fetch` directly.
-8. **Environment variables** — Never hard-code URLs or API base paths. `API_BASES.UDS` and `API_BASES.CLOUD_BUILD` are derived from `NEXT_PUBLIC_API_BASE_URL` via the shared `constant/endpoint.constant.ts`.
-9. **Pure utils** — Functions in `utils/` must be pure (no side effects, no React hooks). Add corresponding `.test.ts` files for all utility functions.
+1. **Layer your code**: Add a service method first, then a hook, then a component. Never call the `http` client directly from a component.
+2. **Single service singleton**: All hooks must go through `configurationService` from `services/configuration.service.ts`. Never instantiate `ConfigurationService` directly in hooks or components.
+3. **Model your data**: Add TypeScript interfaces to the relevant `models/` file before implementing any service method or component. Use the `I` prefix for payload/response interfaces; no prefix for entity types and local UI types.
+4. **Name consistently**: Files use `kebab-case`. Hooks are prefixed with `use-`. Service classes are suffixed with `Service`.
+5. **Invalidate `unadapted-change-logs`**: Every mutation that changes schema structure, access rules, policies, or field validation must call `queryClient.invalidateQueries({ queryKey: ["unadapted-change-logs"] })` on success. This is the deployment signal that notifies the user to reload schemas.
+6. **Write tests alongside code**: Every new service method and hook must have a corresponding `.test.ts` file in the same directory. Use Vitest + React Testing Library + MSW.
+7. **Use the shared `http` client**: Import from `@/lib/http-client`. Do not introduce alternative HTTP libraries or call `fetch` directly.
+8. **Environment variables**: Never hard-code URLs or API base paths. `API_BASES.UDS` and `API_BASES.CLOUD_BUILD` are derived from `NEXT_PUBLIC_API_BASE_URL` via the shared `constant/endpoint.constant.ts`.
+9. **Pure utils**: Functions in `utils/` must be pure (no side effects, no React hooks). Add corresponding `.test.ts` files for all utility functions.
 
 ## Code Review Process
 

@@ -17,7 +17,7 @@ namespace DataGateway.DomainService.Services.RegexAssistant
                     new Message
                     {
                         role = "system",
-                        content = "You are a regex pattern expert. When asked to generate a regex pattern, respond with ONLY the regex pattern itself. Do not include explanations, code blocks, quotes, or any additional text. Just return the raw regex pattern that can be directly used in code."
+                        content = "You are a regex pattern expert. Generate STRICT, production-grade regex patterns that validate input thoroughly. Prefer patterns that reject edge cases and enforce exact formats over lenient ones. Always anchor with ^ and $. Return your response as a JSON object with two fields: {\"pattern\": \"the regex\", \"errorMessage\": \"a short user-friendly error message for validation failure, max 80 chars\"}. No markdown, no code blocks — just the raw JSON object."
                     },
                     new Message { role = "user", content = content }
                 },

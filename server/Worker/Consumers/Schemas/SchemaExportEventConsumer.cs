@@ -139,7 +139,7 @@ public class SchemaExportEventConsumer : IConsumer<SchemaExportEvent>
                 description = isSuccess ? "Schema export completed successfully." : "Schema export failed."
             }),
             SaveDenormalizedPayloadAsAnObject = false,
-            ConfiguratoinName = "schema-export",
+            ConfigurationName = "schema-export",
             ContentAvailable = true,
             ResponseKey = exportEvent.MessageCoRelationId,
             ResponseValue = isSuccess.ToString()

@@ -12,7 +12,7 @@ vi.mock("react-router-dom", () => ({
 }));
 
 const mockSetAuthenticated = vi.fn();
-vi.mock("@/store/useAuthStore", () => ({
+vi.mock("@/store/use-auth-store", () => ({
   useAuthStore: vi.fn(() => ({ setAuthenticated: mockSetAuthenticated })),
 }));
 
@@ -108,7 +108,7 @@ describe("useSsoActivation", () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/login"));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/login"));
   });
 
   it("should return isPending state", () => {

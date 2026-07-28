@@ -12,7 +12,7 @@ import { Input } from "@/components/ui-kits/input/input";
 import { showErrorToast } from "@/hooks/use-toast";
 import { useOIDCContext } from "@/layouts/oidc-layout";
 import { getApiUrl } from "@/lib/get-api-path";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/use-auth-store";
 import {
   ISigninByEmailPayload,
   ISigninByEmailResponse,
@@ -79,7 +79,7 @@ export const signinByEmail = async (
     const text = await response.text();
 
     if (!text || text.trim() === "") {
-      console.warn("Empty response from signin API, continuing with flow");
+      console.error("Empty response from signin API, continuing with flow");
       return { access_token: "authenticated" } as ISigninByEmailResponse;
     }
 

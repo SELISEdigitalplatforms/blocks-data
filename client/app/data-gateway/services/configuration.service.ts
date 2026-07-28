@@ -7,6 +7,7 @@ import {
   DATA_MANAGE_ENDPOINTS,
   DATA_VALIDATION_ENDPOINTS,
   DATA_VALIDATION_REGEX_ENDPOINTS,
+  GATEWAY_ENDPOINTS,
   SCHEMA_ENDPOINTS,
 } from "../constants/endpoint.constant";
 import {
@@ -130,8 +131,7 @@ class ConfigurationService {
     query: string,
     headers?: Record<string, string>,
   ): Promise<unknown> {
-    const url = `${API_BASES.UDS}/gateway`;
-    return http.post(url, { query }, headers);
+    return http.post(GATEWAY_ENDPOINTS.EXECUTE, { query }, headers);
   }
 
   getMockData(): Promise<IMockDataResponse> {
@@ -221,7 +221,7 @@ class ConfigurationService {
 
   generateRegex(payload: {
     description: string;
-  }): Promise<{ pattern: string }> {
+  }): Promise<{ pattern: string; errorMessage?: string }> {
     return http.post(DATA_VALIDATION_REGEX_ENDPOINTS.GENERATE_REGEX, payload);
   }
 

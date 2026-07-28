@@ -4,8 +4,6 @@ import {
   ICreateProjectPayload,
   IDisableProjectPayload,
   IDisableProjectResponse,
-  IGetProjectPayload,
-  IGetProjectResponse,
   IGetPublicCertificateResponse,
   IGetSubscriptionUsageResponse,
   IMigrationInitiateResponse,
@@ -86,10 +84,10 @@ export class ProjectService {
     });
   }
 
-  getProject(payload: IGetProjectPayload): Promise<IGetProjectResponse> {
-    const url = `${PROJECT_ENDPOINTS.GET}?projectId=${payload.projectId}`;
-    return http.get(url, undefined, { absoluteUrl: true });
-  }
+  // getProject(payload: IGetProjectPayload): Promise<IGetProjectResponse> {
+  //   const url = `${PROJECT_ENDPOINTS.GET}?projectId=${payload.projectId}`;
+  //   return http.get(url, undefined, { absoluteUrl: true });
+  // }
 
   createProject(payload: ICreateProjectPayload): Promise<{
     isSuccess: boolean;

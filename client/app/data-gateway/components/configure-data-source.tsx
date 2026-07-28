@@ -174,10 +174,17 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
             <FormField
               control={sourceForm.control}
               name="dbConnectionString"
-              rules={{ required: "Connection string is required" }}
+              rules={{
+                required: "Connection string is required",
+                validate: (value) =>
+                  value?.trim().length > 0 ||
+                  "Connection string is required",
+              }}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Connection string</FormLabel>
+                  <FormLabel>
+                    Connection string <span className="text-red-500">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Write here" {...field} />
                   </FormControl>
@@ -189,10 +196,17 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
             <FormField
               control={sourceForm.control}
               name="databaseName"
-              rules={{ required: "Database name is required" }}
+              rules={{
+                required: "Database name is required",
+                validate: (value) =>
+                  value?.trim().length > 0 ||
+                  "Database name is required",
+              }}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Database name</FormLabel>
+                  <FormLabel>
+                    Database name <span className="text-red-500">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Write here" {...field} />
                   </FormControl>

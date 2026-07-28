@@ -64,4 +64,48 @@ public static class MutationFilterHelper
 
     private static bool IsOwnerCheckRequested(IResolverContext context) =>
         context.ScopedContextData.TryGetValue(GraphQlConstant.CheckForOwnerContextKey, out var value) && value is true;
+
+    /// <summary>
+    /// HotChocolate-free overload used by the REST gateway: builds the mutation filter from
+    /// already-extracted arguments instead of a resolver context.
+    /// </summary>
+    public static BsonDocument BuildFilterWithRls(
+        object? where,
+        string? filterJson,
+        bool isOwnerCheckRequested,
+        SchemaDefinitionExtended schema,
+        PolicyOperation operation,
+        Func<SchemaDefinitionExtended, PolicyOperation, PolicyEvaluationResult> evaluateRlsPolicies)
+    {
+        var baseFilter = BuildBaseFilter(where, filterJson, isOwnerCheckRequested, schema);
+        var rlsResult = evaluateRlsPolicies(schema, operation);
+        var useCustomAccess = MutationInputHelper.GetSchemaAccessLevelForOperation(schema, operation) == SchemaAccessLevel.Custom;
+        return useCustomAccess ? ApplyPolicyFilter(baseFilter, rlsResult) : baseFilter;
+    }
+
+    /// <summary>HotChocolate-free overload used by the REST gateway.</summary>
+    public static BsonDocument BuildBaseFilter(
+        object? where,
+        string? filterJson,
+        bool isOwnerCheckRequested,
+        SchemaDefinitionExtended schema)
+    {
+        if (where != null)
+        {
+            var converted = WhereToMongoFilterConverter.Convert(where, schema);
+            if (converted != null && converted.ElementCount > 0)
+            {
+                var whereFilter = new BsonDocument(converted);
+                if (isOwnerCheckRequested)
+                    whereFilter.Add(nameof(GraphQlBaseEntity.CreatedBy), BlocksContext.GetContext()?.UserId ?? string.Empty);
+                return whereFilter.ReplaceSystemFieldInFilter();
+            }
+        }
+
+        var filterString = filterJson ?? "{}";
+        var baseFilter = BsonSerializer.Deserialize<BsonDocument>(filterString) ?? new BsonDocument();
+        if (isOwnerCheckRequested)
+            baseFilter.Add(nameof(GraphQlBaseEntity.CreatedBy), BlocksContext.GetContext()?.UserId ?? string.Empty);
+        return baseFilter.ReplaceSystemFieldInFilter();
+    }
 }

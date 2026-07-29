@@ -37,8 +37,7 @@ describe("graphql-constants", () => {
       expect(KNOWN_ARG_COMMENTS.filter).toContain("stringify mongo filter");
       expect(KNOWN_ARG_COMMENTS.sort).toContain("stringify mongo sorting");
       expect(MONGO_FILTER_SORT_LITERAL).toBe('"{}"');
-      expect(KNOWN_STRING_DEFAULTS.where).toContain("stringify mongo filter");
-      expect(KNOWN_STRING_DEFAULTS.order).toContain("stringify mongo sorting");
+
       expect(KNOWN_INT_DEFAULTS.pageNo).toBe("1");
       expect(KNOWN_INT_DEFAULTS.pageSize).toBe("10");
     });

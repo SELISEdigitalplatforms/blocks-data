@@ -365,7 +365,7 @@ describe("use-configuration hooks", () => {
       );
 
       const { result } = renderHook(
-        () => useRawIntrospectionQuery({ projectShortKey: "slug1" }),
+        () => useRawIntrospectionQuery({ projectKey: "slug1" }),
         { wrapper: createWrapper() },
       );
 

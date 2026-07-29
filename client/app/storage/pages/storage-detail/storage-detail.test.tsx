@@ -23,8 +23,8 @@ const mocks = vi.hoisted(() => ({
   showSuccessToast: vi.fn(),
 }));
 
-vi.mock("react-router-dom", async (orig) => ({
-  ...(await orig<typeof import("react-router-dom")>()),
+vi.mock("react-router", async (orig) => ({
+  ...(await orig<typeof import("react-router")>()),
   useNavigate: () => mocks.navigate,
 }));
 
@@ -40,7 +40,7 @@ vi.mock("@/hooks/use-toast", () => ({
   showErrorToast: mocks.showErrorToast,
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({
     selectedProject: {
       itemId: "p1",

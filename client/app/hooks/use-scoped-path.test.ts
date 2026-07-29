@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 // blocks-kit's useScopedPath returns a builder: useScopedPath()(segment) -> path
 const builder = vi.fn((segment: string) => `/scoped/${segment}`);
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useScopedPath: () => builder,
 }));
 

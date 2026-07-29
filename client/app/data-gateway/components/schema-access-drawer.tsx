@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { Plus, ShieldCheck, X } from "lucide-react";
 import { useGetRoles } from "@blocks-idp/iam/hooks/use-roles";
 import { useGetPermissions } from "@blocks-idp/iam/hooks/use-permission";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { IRole } from "@blocks-idp/iam/models/role";
 import { SchemaAccessList } from "./schema-access-list";
 import type {

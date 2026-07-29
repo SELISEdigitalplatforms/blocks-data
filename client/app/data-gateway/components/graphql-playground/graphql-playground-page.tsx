@@ -8,7 +8,7 @@ import {
   TabsTrigger,
 } from "@/components/ui-kits/tabs/tabs";
 import { useGetProject } from "@/hooks/use-project";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import type { EditorProps } from "@monaco-editor/react";
 import { isListType, isNonNullType, isObjectType } from "graphql";
 import { BookOpen, Keyboard, Play, Trash2 } from "lucide-react";

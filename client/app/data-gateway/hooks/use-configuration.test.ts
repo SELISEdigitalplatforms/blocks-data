@@ -46,7 +46,7 @@ import {
 const mockGetState = vi.fn(() => ({
   selectedProject: { tenantId: "t1", tenantSlug: "slug1" },
 }));
-vi.mock("@seliseblocks/blocks-kit", () => {
+vi.mock("@seliseblocks/genesis-os", () => {
   const useProjectStore = () => mockGetState();
   (useProjectStore as unknown as { getState: () => unknown }).getState = () =>
     mockGetState();

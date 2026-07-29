@@ -47,7 +47,7 @@ import {
   IDmsFileAndFolderInfo,
   IGetDmsFileAndFolderResponse,
 } from "@/storage/models/storage.model";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 
 import {
   FileText,
@@ -63,7 +63,7 @@ import {
   Video,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
 import {
   FileGridSkeleton,

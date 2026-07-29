@@ -15,7 +15,7 @@ vi.mock("@/storage/hooks/use-storage-configuration", () => ({
 
 vi.mock("@/hooks/use-toast", () => ({ showErrorToast, showSuccessToast }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-123" } }),
 }));
 

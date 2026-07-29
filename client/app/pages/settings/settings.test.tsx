@@ -11,7 +11,7 @@ vi.mock("@/hooks/use-project", () => ({
 
 const setSelectedProject = vi.fn();
 let selectedProject: Record<string, unknown> = { itemId: "p1", name: "Proj" };
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({
     selectedProject,
     selectedTenantGroup: "g1",

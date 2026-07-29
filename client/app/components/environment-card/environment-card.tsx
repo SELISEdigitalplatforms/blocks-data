@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { ChevronRight, Hourglass } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Card, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
 import { IProject } from "@/identifier/models/project.model";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import {
   Tooltip,
   TooltipContent,

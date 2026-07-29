@@ -38,7 +38,7 @@ import {
   StorageStrategyType,
 } from "@/storage/models/storage.model";
 import { isErrorWithErrors } from "@/lib/error";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 
 type SaveStorageConfigurationProps = {
   configuration?: IStorageConfiguration;

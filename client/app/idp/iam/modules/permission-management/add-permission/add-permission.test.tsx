@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const navigate = vi.fn();
-vi.mock("react-router-dom", () => ({ useNavigate: () => navigate }));
+vi.mock("react-router", () => ({ useNavigate: () => navigate }));
 
 vi.mock("@/store/use-project-store", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-1" } }),

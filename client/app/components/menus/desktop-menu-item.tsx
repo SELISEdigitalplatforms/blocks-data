@@ -1,10 +1,10 @@
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { cn } from "@/lib/utils";
 import { Menu } from "@/models/menu-models";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { ChevronRight } from "lucide-react";
 import { useMemo } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 
 type MenuItemType = Extract<Menu, { type: "menu" }>;
 

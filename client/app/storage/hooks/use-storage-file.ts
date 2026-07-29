@@ -7,7 +7,7 @@ import {
   IUploadDmsFilePayload,
 } from "../models/storage.model";
 import { storageService } from "../services/storage.service";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 
 const getProjectKey = () => useProjectStore.getState().selectedProject?.tenantId || "";
 

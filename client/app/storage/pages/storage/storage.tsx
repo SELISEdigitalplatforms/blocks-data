@@ -8,7 +8,7 @@ import { useStoragePath } from "@/hooks/use-scoped-path";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { IStorageConfiguration } from "@/storage/models/storage.model";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
 import {
   filterStorageConfigurations,

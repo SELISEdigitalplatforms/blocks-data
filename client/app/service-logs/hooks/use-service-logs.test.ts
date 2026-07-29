@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { logService } from "../services";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useServiceLogs } from "./use-service-logs";
 
 vi.mock("../services", () => ({
@@ -11,7 +11,7 @@ vi.mock("../services", () => ({
   },
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: vi.fn(() => ({ selectedProject: { tenantId: "tenant-1" } })),
 }));
 

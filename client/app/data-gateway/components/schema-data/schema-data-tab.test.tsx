@@ -9,7 +9,7 @@ vi.mock("@/data-gateway/hooks/use-configuration", () => ({
   useExecuteGraphQL: () => ({ mutateAsync: executeGraphQL }),
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantSlug: "slug1" } }),
   // http-client.ts constructs HttpClient instances at import time.
   HttpClient: class {

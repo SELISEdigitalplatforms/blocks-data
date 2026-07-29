@@ -6,14 +6,14 @@ const navigateMock = vi.fn();
 const showErrorToast = vi.fn();
 const authState = { isAuthenticated: false };
 
-vi.mock("react-router-dom", async () => {
+vi.mock("react-router", async () => {
   const actual =
-    await vi.importActual<typeof import("react-router-dom")>(
-      "react-router-dom",
+    await vi.importActual<typeof import("react-router")>(
+      "react-router",
     );
   return { ...actual, useNavigate: () => navigateMock };
 });
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useAuthStore: () => authState,
 }));
 vi.mock("@/hooks/use-toast", () => ({

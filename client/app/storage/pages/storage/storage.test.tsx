@@ -5,7 +5,7 @@ const navigate = vi.fn();
 let storageData: unknown;
 let isLoading = false;
 
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useNavigate: () => navigate,
 }));
 vi.mock("@/hooks/use-scoped-path", () => ({

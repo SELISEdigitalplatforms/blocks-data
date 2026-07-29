@@ -16,7 +16,7 @@ import { navigationMenus } from "@/constants/navigation-menus";
 import { useFilteredMenus } from "@/hooks/use-filtered-menus";
 import { Menu, X } from "lucide-react";
 import { Fragment, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 
 export function SidebarMobileView() {
   const [open, setOpen] = useState(false);

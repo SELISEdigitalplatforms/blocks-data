@@ -13,7 +13,7 @@ const { mutateAsync, showSuccessToast, showErrorToast } = vi.hoisted(() => ({
 
 // ---- Service / store mocks ------------------------------------------------
 // http-client.ts constructs `new HttpClient(...)` at import time.
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({
     selectedProject: {
       itemId: "p1",

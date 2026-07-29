@@ -6,7 +6,7 @@ const showErrorToast = vi.fn();
 const showSuccessToast = vi.fn();
 const createDmsFolderMutate = vi.fn();
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-abc" } }),
 }));
 vi.mock("@/storage/hooks/use-storage-file", () => ({

@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const navigate = vi.fn();
-vi.mock("react-router-dom", () => ({ useNavigate: () => navigate }));
+vi.mock("react-router", () => ({ useNavigate: () => navigate }));
 
 import { AddProjectCard } from "./add-project-card";
 

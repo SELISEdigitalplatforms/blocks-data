@@ -8,9 +8,9 @@ import { getRuntimeEnv } from "@/lib/runtime-env";
 import { ImpersonationRequest } from "@/services/impersonation.service";
 import { useImpersonateStore } from "@/store/impersonate-store";
 import { useAuthStore } from "@/store/use-auth-store";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useAppState } from "./public-guard";
 
 export function ProtectedGuard({ children }: { children: React.ReactNode }) {

@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui-kits/select/select";
 import { showErrorToast } from "@/hooks/use-toast";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { AlertCircle, Pencil, Plus } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";

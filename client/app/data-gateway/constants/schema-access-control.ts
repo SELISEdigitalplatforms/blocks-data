@@ -76,6 +76,11 @@ export const AUTH_FIELD_OPTIONS = [
     value: "permissions",
     category: FIELD_TYPE_CATEGORY.ARRAY,
   },
+  {
+    label: "OrganizationId",
+    value: "organizationId",
+    category: FIELD_TYPE_CATEGORY.STRING,
+  },
   // TODO: we will need them later
   // { label: "TenantId", value: "tenantId", category: FIELD_TYPE_CATEGORY.STRING },
   // { label: "Custom Claims", value: "customClaims", category: FIELD_TYPE_CATEGORY.STRING },

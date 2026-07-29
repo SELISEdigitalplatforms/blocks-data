@@ -16,7 +16,7 @@ vi.mock("../hooks/use-configuration", () => ({
   useSchemasReload: () => ({ mutateAsync: reloadMutateAsync, isPending: false }),
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
 }));
 

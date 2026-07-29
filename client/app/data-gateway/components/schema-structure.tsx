@@ -28,7 +28,7 @@ import { sanitizeRuleSet } from "../utils/schema-access.utils";
 import SchemaAccessControlDrawer from "./schema-access-control-drawer";
 import { SchemaPreviewDrawer } from "./schema-preview-drawer";
 import { SchemaFieldValidationDrawer } from "./schema-fields-validation/schema-field-validation-drawer";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { InfoCard } from "./info-card";
 import {
   defaultProperty,

@@ -5,7 +5,7 @@ import { OIDCPermissionWrapper } from "@blocks-idp/authentication/pages/oidc/per
 import { authService } from "@blocks-idp/authentication/services/auth.service";
 import { Loader } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 
 export default function OidcIndexPage() {
   const [searchParams] = useSearchParams();

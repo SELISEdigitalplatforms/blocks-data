@@ -29,7 +29,7 @@ import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import {
   AlertTriangle,
   Database,
@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { DataGatewayActions } from "../components/data-gateway-actions";
 import {
   useGetDataServiceConfiguration,

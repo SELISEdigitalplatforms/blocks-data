@@ -7,7 +7,7 @@ const getUsers = vi.fn();
 
 // http-client.ts constructs an HttpClient at import time; provide a stub plus
 // the project store the component tree reaches for.
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({
     selectedProject: { itemId: "p1", tenantId: "t1", tenantSlug: "slug1", name: "Proj" },
     setSelectedProject: vi.fn(),

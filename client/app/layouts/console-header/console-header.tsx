@@ -10,7 +10,7 @@ import { SidebarContext } from "@/contexts/dashboard-layout-provider";
 import useIsMobile from "@/hooks/use-is-mobile";
 import { Menu } from "lucide-react";
 import { useContext, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router";
 
 export function ConsoleHeader() {
   const context = useContext(SidebarContext);

@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import { ImpersonationChecker, ImpersonationTerminator, ProtectedGuard } from "@/guards/protected-guard";
 import { ConsoleHeader } from "@/layouts/console-header/console-header";
 

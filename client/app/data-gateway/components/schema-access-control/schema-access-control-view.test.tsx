@@ -12,7 +12,7 @@ vi.mock("@/data-gateway/hooks/use-configuration", () => ({
   useGetPolicyData: (...a: unknown[]) => useGetPolicyData(...a),
   useSetRowColumnPermission: () => ({ mutateAsync: setRowColumnPermission, isPending: false }),
 }));
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-1" } }),
 }));
 vi.mock("@/hooks/use-toast", () => ({

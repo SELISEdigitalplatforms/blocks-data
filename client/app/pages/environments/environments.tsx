@@ -15,10 +15,10 @@ import {
 } from "@/components/ui-kits/tooltip/tooltip";
 import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { useGetMigrationStatus, useGetProjects } from "@/hooks/use-project";
-import { EnvironmentCard, useProjectStore } from "@seliseblocks/blocks-kit";
+import { EnvironmentCard, useProjectStore } from "@seliseblocks/genesis-os";
 import { CircleHelp } from "lucide-react";
 import { useCallback, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 const ProjectGroupLoading = () => (
   <main className="flex flex-1 flex-col gap-4 p-4 sm:mx-10 md:gap-6">

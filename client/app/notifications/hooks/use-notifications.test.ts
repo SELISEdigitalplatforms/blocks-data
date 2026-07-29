@@ -2,7 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
 import { notificationService } from "../services/notification.service";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import {
   useGetNotifications,
   useMarkAsRead,
@@ -24,7 +24,7 @@ vi.mock("../services/notification.service", () => ({
   },
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: vi.fn(() => ({ selectedProject: { tenantId: "tenant-1" } })),
 }));
 

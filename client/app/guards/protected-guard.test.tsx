@@ -30,10 +30,10 @@ const state = {
   selectedProject: undefined as { tenantId: string } | undefined,
 };
 
-vi.mock("react-router-dom", async () => {
+vi.mock("react-router", async () => {
   const actual =
-    await vi.importActual<typeof import("react-router-dom")>(
-      "react-router-dom",
+    await vi.importActual<typeof import("react-router")>(
+      "react-router",
     );
   return { ...actual, useNavigate: () => navigateMock };
 });
@@ -54,7 +54,7 @@ vi.mock("@/hooks/use-impersonation", () => ({
 vi.mock("@/store/impersonate-store", () => ({
   useImpersonateStore: () => state.impersonateStore,
 }));
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: state.selectedProject }),
 }));
 vi.mock("@/lib/runtime-env", () => ({ getRuntimeEnv: () => "blocks-key" }));

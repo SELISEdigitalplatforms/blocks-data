@@ -6,7 +6,7 @@ import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { getRuntimeEnv } from "@/lib/runtime-env";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -16,7 +16,7 @@ import {
   Logs,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { DataGatewayActions } from "./data-gateway-actions";
 
 const actionButtonClass =

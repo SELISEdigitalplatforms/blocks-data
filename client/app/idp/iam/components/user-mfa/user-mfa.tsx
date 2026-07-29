@@ -4,7 +4,7 @@ import { UserMFAConfirmationDisable } from "./user-mfa-confirmation/user-mfa-con
 import { UserMFADetails } from "./user-mfa-detail";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { useGetMFAConfig } from "@blocks-idp/mfa/hooks/use-mfa-config";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { Button } from "@/components/ui-kits/button/button";
 import { createContext, useContext, useState } from "react";
 

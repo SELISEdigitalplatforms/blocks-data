@@ -19,7 +19,7 @@ const project = {
   tenantSlug: "slug-1",
 };
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: project, setSelectedProject }),
 }));
 vi.mock("@/hooks/use-project", () => ({

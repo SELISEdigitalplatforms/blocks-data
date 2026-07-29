@@ -5,7 +5,7 @@ let selectedProject: Record<string, unknown> | null = {
   itemId: "item-1",
   tenantId: "tenant-1",
 };
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject }),
 }));
 

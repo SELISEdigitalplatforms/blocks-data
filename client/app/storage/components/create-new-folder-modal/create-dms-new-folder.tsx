@@ -25,7 +25,7 @@ import { useForm } from "react-hook-form";
 import { useCreateDmsFolder } from "@/storage/hooks/use-storage-file";
 import { ICreateDmsFolderPayload } from "@/storage/models/storage.model";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 
 const createFolderSchema = z.object({
   name: z.string().min(1, "Folder name is required"),

@@ -1,6 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { useFilteredMenus } from "./use-filtered-menus";
 import type { Menu } from "@/models/menu-models";
 

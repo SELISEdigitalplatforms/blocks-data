@@ -4,7 +4,7 @@ import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
 import { LogsViewer } from "@/service-logs";
 import { SERVICES } from "@/service-logs/constants/services-catalog";
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useParams } from "react-router";
 
 export default function PlatformServiceLogsPage() {
   const { serviceName } = useParams<{ serviceName: string }>();

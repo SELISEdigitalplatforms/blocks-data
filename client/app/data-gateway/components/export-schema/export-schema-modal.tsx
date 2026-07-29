@@ -15,7 +15,7 @@ import {
   RadioGroupItem,
 } from "@/components/ui-kits/radio-group/radio-group";
 import { toast, showErrorToast } from "@/hooks/use-toast";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { ISchemaExportNotificationData } from "@/data-gateway/models/schema-import-export-notification";
 import type { IGetFileByFileIDResponse } from "@/storage/models/storage.model";

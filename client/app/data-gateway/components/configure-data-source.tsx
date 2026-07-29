@@ -24,7 +24,7 @@ import {
 } from "@/components/ui-kits/radio-group/radio-group";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Settings2 } from "lucide-react";

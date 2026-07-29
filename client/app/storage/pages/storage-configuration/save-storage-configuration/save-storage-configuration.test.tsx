@@ -21,7 +21,7 @@ vi.mock("@/hooks/use-toast", () => ({
   showErrorToast,
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({
     selectedProject: {
       itemId: "p1",

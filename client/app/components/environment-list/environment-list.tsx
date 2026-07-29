@@ -11,7 +11,7 @@ import { IProject } from "@/models/project.model";
 import { useProjectStore } from "@/store/use-project-store";
 import { Globe, Loader } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 
 const redirectPaths: Record<string, string> = {
   "/services/iam/user-detail/*": "/services/iam",

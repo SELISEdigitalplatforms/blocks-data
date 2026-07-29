@@ -15,7 +15,7 @@ vi.mock("../hooks/use-configuration", () => ({
   useDeleteSchema: () => ({ isPending: false, mutateAsync: deleteAsync }),
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
 }));
 

@@ -499,6 +499,7 @@ public static class DataAccessPolicyHelper
             "tenantid" or "tenant" => blocksContext.TenantId,
             "roles" or "role" => blocksContext.Roles ?? Array.Empty<string>(),
             "permissions" or "permission" => blocksContext.Permissions ?? Array.Empty<string>(),
+            "organizationid" or "organization" => blocksContext.OrganizationId,
             _ => GetCustomClaim(blocksContext, propertyName)
         };
     }

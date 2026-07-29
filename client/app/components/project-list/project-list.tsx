@@ -8,10 +8,10 @@ import {
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { useGetProject, useGetProjects } from "@/hooks/use-project";
 import { IProject } from "@/models/project.model";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { FolderOpen, Loader } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 
 const redirectPaths: Record<string, string> = {
   "/services/iam/user-detail/*": "/services/iam",

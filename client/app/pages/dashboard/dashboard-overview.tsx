@@ -2,7 +2,7 @@ import { ProjectDetail } from "@/components/project-detail/project-detail";
 import { useGetProject, useValidateCNameProject } from "@/hooks/use-project";
 import { showErrorToast } from "@/hooks/use-toast";
 import { getDomain } from "@/lib/domain";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useCallback, useEffect } from "react";
 
 export const DashboardOverview = () => {

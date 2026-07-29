@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigateMock = vi.fn();
@@ -8,10 +8,10 @@ const setTokens = vi.fn();
 const verifyOidc = vi.fn();
 let runtimeBase = "https://localhost:4000";
 
-vi.mock("react-router-dom", async () => {
+vi.mock("react-router", async () => {
   const actual =
-    await vi.importActual<typeof import("react-router-dom")>(
-      "react-router-dom",
+    await vi.importActual<typeof import("react-router")>(
+      "react-router",
     );
   return { ...actual, useNavigate: () => navigateMock };
 });

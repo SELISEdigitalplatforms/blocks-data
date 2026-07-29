@@ -8,7 +8,7 @@ import { PermissionForm } from "../permission-form";
 import { permissionFormSchemaType } from "../permission-form/utils";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 export const AddPermission = () => {
   const navigate = useNavigate();

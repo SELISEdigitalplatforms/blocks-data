@@ -1,15 +1,15 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import type { IProject } from "@/identifier/models/project.model";
 
 const navigate = vi.fn();
 const setTennantGroup = vi.fn();
 const setSelectedProject = vi.fn();
 
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>("react-router");
   return { ...actual, useNavigate: () => navigate };
 });
 vi.mock("@/store/use-project-store", () => ({

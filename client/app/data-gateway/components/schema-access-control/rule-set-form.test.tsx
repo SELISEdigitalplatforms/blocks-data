@@ -19,7 +19,7 @@ vi.mock("@/data-gateway/hooks/use-configuration", () => ({
   useCreatePolicy: () => ({ mutateAsync: createPolicy, isPending: false }),
   useUpdatePolicy: () => ({ mutateAsync: updatePolicy, isPending: false }),
 }));
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-1" } }),
 }));
 vi.mock("@/hooks/use-toast", () => ({

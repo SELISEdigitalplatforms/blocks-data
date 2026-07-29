@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { Accordion, AccordionItem } from "@/components/ui-kits/accordion/accordion";
 import type { RegisteredService } from "@/identifier/models/service.model";
 
@@ -9,8 +9,8 @@ const navigate = vi.fn();
 const copy = vi.fn();
 const showSuccessToast = vi.fn();
 
-vi.mock("react-router-dom", async () => {
-  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+vi.mock("react-router", async () => {
+  const actual = await vi.importActual<typeof import("react-router")>("react-router");
   return { ...actual, useNavigate: () => navigate };
 });
 vi.mock("@/hooks/use-copy-to-clipboard", () => ({

@@ -18,7 +18,7 @@ import {
 import { oauthService } from "@blocks-idp/authentication/services/oauth.service";
 import { sanitizeProviderUrl } from "@blocks-idp/authentication/utils/sanitize-provider-url.util";
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 
 type SsoActivateProps = {
   oauthParams: { code: string; username: string };

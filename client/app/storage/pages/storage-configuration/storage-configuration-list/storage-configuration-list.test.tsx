@@ -5,7 +5,7 @@ import { IStorageConfiguration } from "@/storage/models/storage.model";
 
 // The list pulls in child components that construct HttpClient (via blocks-kit)
 // at import time; mock blocks-kit defensively per project conventions.
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({
     selectedProject: { itemId: "p1", tenantId: "t1", tenantSlug: "slug1", name: "Proj" },
     setSelectedProject: vi.fn(),

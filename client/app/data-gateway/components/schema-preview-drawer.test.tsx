@@ -16,7 +16,7 @@ vi.mock("react-syntax-highlighter/dist/esm/styles/prism/prism", () => ({
   default: {},
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({
     selectedProject: { itemId: "p1", tenantId: "t1", tenantSlug: "slug1", name: "Proj" },
     setSelectedProject: vi.fn(),
@@ -39,7 +39,7 @@ vi.mock("@/hooks/use-scoped-path", () => ({
   useDataGatewayPath: () => "/data-gateway",
 }));
 
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useNavigate: () => navigate,
 }));
 

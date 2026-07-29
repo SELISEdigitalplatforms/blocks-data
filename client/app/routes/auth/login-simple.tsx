@@ -1,9 +1,9 @@
 import { BlocksLoginPage } from "@/components/blocks-login-page";
 import { showErrorToast } from "@/hooks/use-toast";
 import { getRuntimeEnv } from "@/lib/runtime-env";
-import { useAuthStore } from "@seliseblocks/blocks-kit";
+import { useAuthStore } from "@seliseblocks/genesis-os";
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 export default function LoginSimplePage() {
   const [isStarting, setIsStarting] = useState(false);

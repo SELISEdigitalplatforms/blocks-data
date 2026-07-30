@@ -53,8 +53,14 @@ const OrganizationActions = ({ organization }: OrganizationActionsProps) => {
     e.stopPropagation();
   };
 
+  // Keyboard activation of the menu below bubbles the same way a click does, so
+  // the row handler has to be shielded from both.
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    e.stopPropagation();
+  };
+
   return (
-    <div onClick={handleClick}>
+    <div onClick={handleClick} onKeyDown={handleKeyDown}>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="px-2">

@@ -312,6 +312,28 @@ describe("StorageDetail", () => {
     );
   });
 
+  it.each([["{Enter}"], [" "]])(
+    "navigates into a folder when %s is pressed on the folder card",
+    async (key) => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndFolderInfos: [makeFolder({ name: "Reports", itemId: "fold-9" })],
+        totalCount: 1,
+      };
+      renderDetail();
+
+      const card = (await screen.findByText("Reports")).closest(
+        '[role="button"]',
+      ) as HTMLElement;
+      card.focus();
+      await user.keyboard(key);
+
+      expect(mocks.navigate).toHaveBeenCalledWith(
+        expect.stringContaining("folderId=fold-9"),
+      );
+    },
+  );
+
   it("renders breadcrumb entries from the path query param", () => {
     const path = encodeURIComponent(
       JSON.stringify([{ id: "fold-1", name: "Invoices" }]),
@@ -403,6 +425,35 @@ describe("StorageDetail", () => {
       ),
     );
   });
+
+  it.each([["{Enter}"], [" "]])(
+    "previews a file when %s is pressed on the file card",
+    async (key) => {
+      const user = userEvent.setup();
+      mocks.fetchFile.mockResolvedValue({ url: "https://files/report.pdf" });
+      mocks.dmsState.response = {
+        dmsFileAndFolderInfos: [
+          makeFile({ name: "preview.pdf", fileStorageId: "fs-9" }),
+        ],
+        totalCount: 1,
+      };
+      renderDetail();
+
+      const card = (await screen.findByText("preview.pdf")).closest(
+        '[role="button"]',
+      ) as HTMLElement;
+      card.focus();
+      await user.keyboard(key);
+
+      await waitFor(() =>
+        expect(mocks.fetchFile).toHaveBeenCalledWith({
+          itemId: "fs-9",
+          projectKey: "t1",
+          configurationName: "MyStore",
+        }),
+      );
+    },
+  );
 
   it("previews a file and forwards the request to fetchFile", async () => {
     const user = userEvent.setup();

@@ -49,5 +49,4 @@ IHostBuilder CreateHostBuilder(string[] args) =>
             services.RegisterSchemaServices();
 
             ApplicationConfigurations.ConfigureWorker(services, GraphQlConstant.GetMessageConfiguration(secret.MessageConnectionString));
-            //ApplicationConfigurations.ConfigureWorker(services, IdentifierConstants.GetMessageConfiguration(secret.MessageConnectionString));
         });

@@ -7,7 +7,6 @@ public static class GraphQlConstant
     public const string ApiServiceName = "blocks-data";
     public const string WorkerServiceName = "blocks-data-worker";
     public const string DataGatewayQueueName = "blocks_uds_import_export_listener";
-    // public const string DataGatewayInitiateQueueName = "blocks_uds_pipeline_initiate_listener";
     public const string StorageQueueName = "blocks_storage_listener";
     public const string MigrationCompletionTopic = "migration_topic";
     public const string DataChangeTriggerQueue = "blocks_logic_workflow_data_trigger_listener";
@@ -78,7 +77,6 @@ public static class GraphQlConstant
             {
                 ConsumerSubscriptions = [ConsumerSubscription.BindToQueue(DataGatewayQueueName),
                                          ConsumerSubscription.BindToQueue(StorageQueueName)]
-                                         // ConsumerSubscription.BindToQueue(DataGatewayInitiateQueueName)],
             }
         };
     }
@@ -89,7 +87,7 @@ public static class GraphQlConstant
         {
             AzureServiceBusConfiguration = new AzureServiceBusConfiguration
             {
-                Queues = [DataGatewayQueueName, StorageQueueName, /* DataGatewayInitiateQueueName */],
+                Queues = [DataGatewayQueueName, StorageQueueName],
             }
         };
     }

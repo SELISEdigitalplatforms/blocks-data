@@ -57,7 +57,7 @@ export interface IntrospectionSuggestion {
  * A raw `/(\w+):\s*$/` on the substring before `{` fails for `input:\n  {`.
  */
 export function resolveFieldNameBeforeOpeningBrace(beforeBraceText: string): string | null {
-  const trimmed = beforeBraceText.replace(/[\s\u00a0]+$/g, "");
+  const trimmed = beforeBraceText.trimEnd();
   const match = trimmed.match(/(\w+)\s*:\s*$/);
   return match ? match[1] : null;
 }

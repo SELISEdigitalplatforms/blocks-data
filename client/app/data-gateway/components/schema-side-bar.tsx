@@ -226,7 +226,15 @@ export default function SchemasSidebar({
               return (
                 <div
                   key={schema.schemaName}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => handleSelectSchema(schema.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleSelectSchema(schema.id);
+                    }
+                  }}
                   className={cn(
                     "relative flex cursor-pointer items-center justify-between overflow-hidden rounded-lg px-3 py-2.5 text-sm transition-all duration-150",
                     isSelected

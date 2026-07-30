@@ -573,8 +573,16 @@ export function StorageDetail() {
                 {filteredFolders.map((folder, index) => (
                   <div
                     key={`folder-${folder.fileStorageId}-${index}`}
+                    role="button"
+                    tabIndex={0}
                     className="group flex cursor-pointer items-center justify-between gap-2 rounded-lg border bg-background p-4 transition-colors hover:bg-accent"
                     onClick={() => handleFolderClick(folder)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleFolderClick(folder);
+                      }
+                    }}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <Folder className="h-5 w-5 flex-shrink-0 text-yellow-500" />
@@ -719,8 +727,16 @@ export function StorageDetail() {
                 {filteredFiles.map((file, index) => (
                   <div
                     key={`file-${file.fileStorageId}-${index}`}
+                    role="button"
+                    tabIndex={0}
                     className="group flex cursor-pointer flex-col rounded-lg border bg-background transition-colors hover:bg-accent"
                     onClick={() => handleFileClick(file)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleFileClick(file);
+                      }
+                    }}
                   >
                     {/* File Preview */}
                     <div className="flex h-40 items-center justify-center border-b bg-muted/30 p-4">

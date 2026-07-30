@@ -9,6 +9,27 @@ namespace Storage.DomainService.Entities
     {
         public string TenantId { get; set; }
 
+        /// <summary>Cached folder ancestry, ordered root first, ending at the parent directory.</summary>
+        public List<string> AncestorIds { get; set; } = new();
+
+        /// <summary>Display and search path built from the ancestry, for example "/root/sub/parent".</summary>
+        public string FullPath { get; set; } = string.Empty;
+
+        /// <summary>When true the effective access policy is resolved by walking <see cref="AncestorIds"/>.</summary>
+        public bool InheritsParentAccess { get; set; } = true;
+
+        /// <summary>Soft delete. Archived folders stay queryable so they can be listed in trash and restored.</summary>
+        public bool IsArchived { get; set; }
+        public bool IsActive { get; set; } = true;
+        public string? ConfigurationName { get; set; }
+        public string? ModuleName { get; set; }
+        public string? Description { get; set; }
+
+        /// <summary>Cached counts and subtree size, maintained on write so listing does not aggregate.</summary>
+        public int ChildFolderCount { get; set; }
+        public int ChildFileCount { get; set; }
+        public long SizeInBytes { get; set; }
+
         public static Directory CreateNew(DirectoryOptions directoryOptions)
         {
             return new Directory
@@ -26,6 +47,12 @@ namespace Storage.DomainService.Entities
                 Tags = directoryOptions.Tags,
                 Language = directoryOptions.Language,
                 AllowedFileExtensions = directoryOptions.AllowedFileExtensions,
+                AncestorIds = directoryOptions.AncestorIds ?? new(),
+                FullPath = directoryOptions.FullPath ?? string.Empty,
+                InheritsParentAccess = directoryOptions.InheritsParentAccess,
+                ConfigurationName = directoryOptions.ConfigurationName,
+                ModuleName = directoryOptions.ModuleName,
+                Description = directoryOptions.Description,
             };
         }
 
@@ -47,6 +74,12 @@ namespace Storage.DomainService.Entities
         public List<string> Tags { get; set; }
         public string Language { get; set; }
         public string[] AllowedFileExtensions { get; set; }
+        public List<string>? AncestorIds { get; set; }
+        public string? FullPath { get; set; }
+        public bool InheritsParentAccess { get; set; } = true;
+        public string? ConfigurationName { get; set; }
+        public string? ModuleName { get; set; }
+        public string? Description { get; set; }
     }
 
     [BsonIgnoreExtraElements]

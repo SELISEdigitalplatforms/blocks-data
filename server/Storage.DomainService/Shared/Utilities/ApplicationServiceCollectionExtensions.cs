@@ -1,6 +1,7 @@
 ﻿using Blocks.Genesis;
 using DomainService.Configuration;
 using DomainService.Storage;
+using DomainService.Storage.Dms;
 using DomainService.Storage.Services;
 using DomainService.Storage.Validators;
 using FluentValidation;
@@ -20,6 +21,20 @@ namespace Storage.DomainService.Utilities
             services.AddTransient<IValidator<GetPreSignedUrlForUploadRequest>, GetPreSignedUrlForUploadRequestValidator>();
             services.AddTransient<IValidator<LocalStorageUploadRequest>, LocalStorageUploadRequestValidator>();
             services.AddTransient<IValidator<UpdateFileRequest>, UpdateFileRequestValidator>();
+            services.AddTransient<IValidator<global::DomainService.Storage.Dms.CreateFolderRequest>, CreateFolderRequestValidator>();
+            services.AddTransient<IValidator<UpdateFolderRequest>, UpdateFolderRequestValidator>();
+            services.AddTransient<IValidator<GetFolderChildrenRequest>, GetFolderChildrenRequestValidator>();
+            services.AddTransient<IValidator<CopyFileRequest>, CopyFileRequestValidator>();
+            services.AddTransient<IValidator<MoveFileRequest>, MoveFileRequestValidator>();
+            services.AddTransient<IValidator<MoveFolderRequest>, MoveFolderRequestValidator>();
+            services.AddTransient<IValidator<GrantAccessRequest>, GrantAccessRequestValidator>();
+            services.AddTransient<IValidator<RevokeAccessRequest>, RevokeAccessRequestValidator>();
+            services.AddTransient<IValidator<ToggleInheritanceRequest>, ToggleInheritanceRequestValidator>();
+            services.AddTransient<IValidator<ContentSearchRequest>, ContentSearchRequestValidator>();
+            services.AddTransient<IValidator<TrashRequest>, TrashRequestValidator>();
+            services.AddTransient<IValidator<RestoreFromTrashRequest>, RestoreFromTrashRequestValidator>();
+            services.AddTransient<IValidator<CreateFileVersionRequest>, CreateFileVersionRequestValidator>();
+            services.AddTransient<IValidator<GetFileVersionsRequest>, GetFileVersionsRequestValidator>();
 
             // Register services
             services.AddSingleton<IFileManagementService, FileManagementService>();

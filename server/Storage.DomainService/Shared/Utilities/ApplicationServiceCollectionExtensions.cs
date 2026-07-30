@@ -26,6 +26,9 @@ namespace Storage.DomainService.Utilities
             services.AddSingleton<IFileRepository, FileRepository>();
             services.AddSingleton<IFileVersionRepository, FileVersionRepository>();
             services.AddSingleton<IDirectoryRepository, DirectoryRepository>();
+            services.AddSingleton<IContentAccessRepository, ContentAccessRepository>();
+            services.AddSingleton<IContentAccessResolver, ContentAccessResolver>();
+            services.AddSingleton<IContentListingService, ContentListingService>();
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
             services.AddSingleton<DmsArtifactBuilderFactory>();
             services.AddSingleton<FileArtifactBuilder>();

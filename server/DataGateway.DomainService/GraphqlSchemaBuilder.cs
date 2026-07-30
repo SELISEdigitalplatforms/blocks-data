@@ -32,13 +32,6 @@ public class GraphqlSchemaBuilder
             var schemas = await LoadSchemaDefinitions(tenantId);
             if (schemas is null || schemas.Count == 0)
             {
-                // // If no schema definitions are found, we need to create default health check query types
-                // var healthCheckQueryType = new ObjectType(descriptor =>
-                // {
-                //     descriptor.Name("Query");
-                //     descriptor.Field("health").Resolve(context => "OK");
-                // });
-                // schemaBuilder.AddQueryType(healthCheckQueryType);
                 _logger.LogInformation("Default health check query types created for tenant: {TenantId}", tenantId);
                 return;
             }

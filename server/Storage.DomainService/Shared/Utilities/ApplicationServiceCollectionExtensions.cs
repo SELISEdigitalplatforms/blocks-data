@@ -47,6 +47,8 @@ namespace Storage.DomainService.Utilities
             services.AddSingleton<IContentHierarchyService, ContentHierarchyService>();
             services.AddSingleton<IContentFileService, ContentFileService>();
             services.AddSingleton<IContentManagementService, ContentManagementService>();
+            services.AddSingleton<IFolderManagementService, FolderManagementService>();
+            services.AddSingleton<IContentDiscoveryService, ContentDiscoveryService>();
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
             services.AddSingleton<DmsArtifactBuilderFactory>();
             services.AddSingleton<FileArtifactBuilder>();

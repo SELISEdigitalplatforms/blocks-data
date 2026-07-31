@@ -1,5 +1,6 @@
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
+using Storage.DomainService.Services;
 
 // Namespaced apart from the legacy storage DTOs: a CreateFolderRequest already
 // exists there for the folder methods that SPEC B5 retires in the post-migration
@@ -17,6 +18,18 @@ namespace DomainService.Storage.Dms
         public bool CanDelete { get; set; }
         public bool CanManage { get; set; }
         public bool CanOwner { get; set; }
+
+        public static PermissionFlags From(ContentPermissionFlags? flags) => flags is null
+            ? new PermissionFlags()
+            : new PermissionFlags
+            {
+                CanView = flags.CanView,
+                CanDownload = flags.CanDownload,
+                CanEdit = flags.CanEdit,
+                CanDelete = flags.CanDelete,
+                CanManage = flags.CanManage,
+                CanOwner = flags.CanOwner,
+            };
     }
 
     /// <summary>
@@ -66,6 +79,77 @@ namespace DomainService.Storage.Dms
         public long TotalChildCount { get; set; }
 
         public bool HasMore { get; set; }
+
+        public static ChildrenResponse From(VisibleChildrenPage page) => new()
+        {
+            Items = page.Items.Select(DmsItemMapper.From).ToList(),
+            NextCursor = page.NextCursor,
+            TotalChildCount = page.TotalChildCount,
+            HasMore = page.HasMore,
+        };
+    }
+
+    /// <summary>
+    /// Maps the service-layer listing item onto the wire shape. Kept as a separate mapper
+    /// rather than a method on <see cref="DmsItem"/> so the response type stays a plain
+    /// contract with no dependency direction back into the services.
+    /// </summary>
+    public static class DmsItemMapper
+    {
+        public static DmsItem From(VisibleChildItem item) => new()
+        {
+            ItemId = item.ItemId,
+            Name = item.Name,
+            Type = item.Type,
+            ParentFolderId = item.ParentDirectoryId,
+            SizeInBytes = item.SizeInBytes,
+            CreatedDate = item.CreatedDate,
+            LastUpdatedDate = item.LastUpdatedDate,
+            CreatedBy = item.CreatedBy,
+            Extension = item.Extension,
+            ContentType = item.ContentType,
+            Permissions = PermissionFlags.From(item.Permissions),
+        };
+    }
+
+    /// <summary>A folder with the operations the caller holds on it.</summary>
+    public class FolderDetailResponse
+    {
+        public string ItemId { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? ParentFolderId { get; set; }
+        public string? Description { get; set; }
+        public string FullPath { get; set; } = string.Empty;
+        public List<string> AncestorIds { get; set; } = new();
+        public bool InheritsParentAccess { get; set; }
+        public int ChildFolderCount { get; set; }
+        public int ChildFileCount { get; set; }
+        public long SizeInBytes { get; set; }
+        public string[]? AllowedFileExtensions { get; set; }
+        public DateTime CreatedDate { get; set; }
+        public DateTime LastUpdatedDate { get; set; }
+        public string? CreatedBy { get; set; }
+        public PermissionFlags Permissions { get; set; } = new();
+
+        public static FolderDetailResponse From(
+            global::Storage.DomainService.Entities.Directory folder, ContentPermissionFlags? flags) => new()
+        {
+            ItemId = folder.ItemId,
+            Name = folder.Name ?? string.Empty,
+            ParentFolderId = string.IsNullOrWhiteSpace(folder.ParentDirectoryID) ? null : folder.ParentDirectoryID,
+            Description = folder.Description,
+            FullPath = folder.FullPath ?? string.Empty,
+            AncestorIds = folder.AncestorIds ?? new List<string>(),
+            InheritsParentAccess = folder.InheritsParentAccess,
+            ChildFolderCount = folder.ChildFolderCount,
+            ChildFileCount = folder.ChildFileCount,
+            SizeInBytes = folder.SizeInBytes,
+            AllowedFileExtensions = folder.AllowedFileExtensions,
+            CreatedDate = folder.CreatedDate,
+            LastUpdatedDate = folder.LastUpdatedDate,
+            CreatedBy = folder.CreatedBy,
+            Permissions = PermissionFlags.From(flags),
+        };
     }
 
     public class AccessPolicyDto

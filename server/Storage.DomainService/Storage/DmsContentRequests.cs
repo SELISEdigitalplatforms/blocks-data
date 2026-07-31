@@ -127,6 +127,47 @@ namespace DomainService.Storage.Dms
     {
         public string? Cursor { get; set; }
         public int Limit { get; set; } = 50;
+
+        /// <summary>Narrows the trash to folders or files. Both when omitted.</summary>
+        public StructureType? Type { get; set; }
+    }
+
+    /// <summary>
+    /// Deletes a folder. Named apart from the legacy <c>DeleteFolderRequest</c> in the
+    /// storage namespace, which the post-migration pass retires.
+    /// </summary>
+    public class DeleteFolderContentRequest
+    {
+        public string FolderId { get; set; } = string.Empty;
+
+        /// <summary>Removes the folder outright instead of moving it to the trash.</summary>
+        public bool Permanent { get; set; }
+    }
+
+    /// <summary>Permanently removes an item that is already in the trash.</summary>
+    public class DeleteFromTrashRequest
+    {
+        public string ResourceId { get; set; } = string.Empty;
+    }
+
+    /// <summary>Reads the access entries on one resource.</summary>
+    public class GetAccessPoliciesRequest
+    {
+        public string ResourceId { get; set; } = string.Empty;
+
+        /// <summary>Includes entries inherited from ancestors alongside the resource's own.</summary>
+        public bool IncludeInherited { get; set; } = true;
+    }
+
+    /// <summary>Grants a principal an allow entry and records it as a share.</summary>
+    public class ShareContentRequest
+    {
+        public string ResourceId { get; set; } = string.Empty;
+        public ContentResourceType ResourceType { get; set; }
+        public ContentPrincipalType PrincipalType { get; set; }
+        public string? PrincipalId { get; set; }
+        public ContentPermission Permission { get; set; }
+        public DateTime? ExpiresAt { get; set; }
     }
 
     public class RestoreFromTrashRequest

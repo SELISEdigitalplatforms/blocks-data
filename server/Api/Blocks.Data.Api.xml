@@ -316,6 +316,50 @@
             <param name="id">The unique identifier of the schema definition to delete.</param>
             <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
         </member>
+        <member name="T:Api.Controllers.ContentController">
+            <summary>
+            Sharing, access policies, search and the trash.
+            </summary>
+            <remarks>
+            Every action here is authorised twice: the endpoint permission decides who may
+            call it at all, and the service resolves the caller's access to the specific
+            resource. Holding <c>blocks-data::grant-access</c> does not let anyone grant
+            access to a folder they cannot Manage.
+            </remarks>
+        </member>
+        <member name="M:Api.Controllers.ContentController.SearchContent(DomainService.Storage.Dms.ContentSearchRequest)">
+            <summary>Name search across folders and files the caller may view.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.GetTrash(DomainService.Storage.Dms.TrashRequest)">
+            <summary>Archived folders and files the caller may view.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.RestoreFromTrash(DomainService.Storage.Dms.RestoreFromTrashRequest)">
+            <summary>Returns an archived item to its original parent.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.DeleteFromTrash(DomainService.Storage.Dms.DeleteFromTrashRequest)">
+            <summary>Removes an archived item for good.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.GetAccessPolicies(DomainService.Storage.Dms.GetAccessPoliciesRequest)">
+            <summary>The access entries on a resource.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.GrantAccess(DomainService.Storage.Dms.GrantAccessRequest)">
+            <summary>Creates an access entry. Requires Manage on the resource.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.UpdateAccessPolicy(DomainService.Storage.Dms.GrantAccessRequest)">
+            <summary>Updates an existing access entry.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.RevokeAccessPolicy(DomainService.Storage.Dms.RevokeAccessRequest)">
+            <summary>Deletes an access entry.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.ResolveAccess(System.String)">
+            <summary>The operations the calling user holds on a resource.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.ToggleInheritance(DomainService.Storage.Dms.ToggleInheritanceRequest)">
+            <summary>Switches a resource between inheriting its parent's access and standing alone.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.ShareContent(DomainService.Storage.Dms.ShareContentRequest)">
+            <summary>Grants a principal an allow entry and records it as a share.</summary>
+        </member>
         <member name="T:Api.Controllers.FilesController">
             <summary>
             Controller for managing file-related operations such as downloading, uploading, and deleting files.
@@ -382,6 +426,42 @@
             </summary>
             <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
             <returns>A <see cref="T:Blocks.Genesis.BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
+        </member>
+        <member name="T:Api.Controllers.FoldersController">
+             <summary>
+             Folder operations: create, read, list children, rename, move and delete.
+             </summary>
+             <remarks>
+             Creating a root folder is a separate permission from creating a nested one.
+             Anyone with Edit on a parent may add a subfolder, but starting a new tree at the
+             root is a tenant-level act, so it is gated by
+             <c>blocks-data::create-root-folder</c> and assigned to the owner role only.
+            
+             Reads that the caller may not see report 404 rather than 403 throughout. Saying
+             "forbidden" would confirm that a folder exists, which is enough to map a tree the
+             caller cannot open.
+             </remarks>
+        </member>
+        <member name="M:Api.Controllers.FoldersController.CreateFolder(DomainService.Storage.Dms.CreateFolderRequest)">
+            <summary>Creates a folder beneath an existing parent.</summary>
+        </member>
+        <member name="M:Api.Controllers.FoldersController.CreateRootFolder(DomainService.Storage.Dms.CreateFolderRequest)">
+            <summary>Creates a folder at the root of the tenant.</summary>
+        </member>
+        <member name="M:Api.Controllers.FoldersController.GetFolder(System.String)">
+            <summary>Folder details plus the operations the caller holds on it.</summary>
+        </member>
+        <member name="M:Api.Controllers.FoldersController.GetFolderChildren(DomainService.Storage.Dms.GetFolderChildrenRequest)">
+            <summary>Access-resolved, cursor-paginated children of a folder.</summary>
+        </member>
+        <member name="M:Api.Controllers.FoldersController.UpdateFolder(DomainService.Storage.Dms.UpdateFolderRequest)">
+            <summary>Renames a folder or updates its description.</summary>
+        </member>
+        <member name="M:Api.Controllers.FoldersController.DeleteFolder(DomainService.Storage.Dms.DeleteFolderContentRequest)">
+            <summary>Moves a folder to the trash, or removes it permanently.</summary>
+        </member>
+        <member name="M:Api.Controllers.FoldersController.MoveFolder(DomainService.Storage.Dms.MoveFolderRequest)">
+            <summary>Re-parents a folder and rewrites the cached ancestry beneath it.</summary>
         </member>
         <member name="T:BlocksTemplate.Api.Controllers.RegexAssistantController">
             <summary>

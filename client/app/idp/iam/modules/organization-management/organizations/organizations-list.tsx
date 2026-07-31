@@ -12,7 +12,6 @@ import {
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { useMemo, useState } from "react";
 import { IOrganization } from "@blocks-idp/iam/models/organization";
-// import { FilterControls } from "@/components/filter-toolbar";
 import { useOrganizationsSortQueryParams } from "./organizations-filter-toolbar";
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { Button } from "@/components/ui-kits/button/button";
@@ -116,12 +115,6 @@ export const OrganizationsList = ({ organizations, isLoading }: OrganizationTabl
         id: "name",
         accessorFn: (row) => `${row.name}`.trim(),
         header: () => (
-          // <FilterControls.SortHeader
-          //   label="Name"
-          //   id="Name"
-          //   value={sortQueryParams}
-          //   onChange={setSortQueryParams}
-          // />
           <div className="flex items-center">
             <span className="font-bold text-medium-emphasis">Name</span>
           </div>

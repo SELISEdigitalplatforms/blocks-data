@@ -16,8 +16,6 @@ import {
   useDeleteStorageConfiguration,
 } from "./use-storage-configuration";
 
-// The hooks read the project key from the blocks-kit project store's static
-// getState(), and call the storage service for I/O — mock both.
 const mockGetState = vi.fn(() => ({
   selectedProject: { tenantId: TEST_TENANT_ID },
 }));

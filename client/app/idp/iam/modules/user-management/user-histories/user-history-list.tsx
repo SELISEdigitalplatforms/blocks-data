@@ -10,7 +10,6 @@ import {
 import { IHistories } from "@blocks-idp/iam/models/user";
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
-// import { Check } from "lucide-react";
 import { useMemo } from "react";
 
 type HistoryListProps = {

@@ -52,7 +52,6 @@ describe("ProfileMfaMethodSelectList", () => {
   it("opens the verify modal when enabling an inactive method", async () => {
     const user = userEvent.setup();
     render(<ProfileMfaMethodSelectList />);
-    // Authenticator (type 1) is not active, so it shows Enable.
     await user.click(screen.getByRole("button", { name: "Enable" }));
     expect(ctxValue.showVerifyModal).toHaveBeenCalledWith(1);
   });

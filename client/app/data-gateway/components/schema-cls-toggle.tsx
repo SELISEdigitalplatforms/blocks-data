@@ -68,7 +68,6 @@ export const SchemaClsToggle = ({
     setIsClsEnabled(checked);
 
     const shouldEnableRls = checked && !currentRlsEnabled;
-    // const intendedRlsState = shouldEnableRls ? true : currentRlsEnabled;
 
     try {
       const response = await setRowColumnPermission({

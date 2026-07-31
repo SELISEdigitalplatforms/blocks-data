@@ -56,7 +56,6 @@ namespace Storage.DomainService.Utilities
             services.AddTransient<AwsS3StorageService>();
             services.AddTransient<SftpStorageService>();
             services.AddTransient<AwsS3CompatibleStorageService>();
-            // services.AddSingleton<ChangeControllerContext>();
             services.AddHttpContextAccessor();
         }
     }

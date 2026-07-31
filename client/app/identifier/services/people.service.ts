@@ -76,11 +76,6 @@ export class PeopleService {
     return http.post(PEOPLE_ENDPOINTS.TRANSFER_OWNERSHIP, payload);
   }
 
-  // getUserPermissions(payload: IGetUserPermissionsPayload): Promise<IGetUserPermissionsResponse> {
-  //   return http.get(
-  //     `/idp/v1/Iam/GetUserPermissions?Id=${payload.userId}&ProjectKey=${payload.projectKey}`,
-  //   );
-  // }
 }
 
 export const peopleService = new PeopleService();

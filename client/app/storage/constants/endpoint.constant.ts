@@ -2,6 +2,8 @@ import { API_BASES } from "@/constants/endpoint.constant";
 
 const STORAGE_SUBPATH = "/Storage";
 const FILES_SUBPATH = "/Files";
+const FOLDERS_SUBPATH = "/Folders";
+const CONTENT_SUBPATH = "/Content";
 
 // Storage Configuration endpoints (IDP host; paths under /api/Storage)
 export const STORAGE_CONFIG_ENDPOINTS = {
@@ -29,4 +31,38 @@ export const STORAGE_FILE_ENDPOINTS = {
   UPLOAD_DMS_FILE: `${API_BASES.UDS}${FILES_SUBPATH}/UploadFile`,
   CREATE_FOLDER: `${API_BASES.UDS}${FILES_SUBPATH}/CreateFolder`,
   UPLOAD_PUBLIC_CERTIFICATE: `${API_BASES.UDS}/Certificate/UploadCertificate`,
+} as const;
+
+// DMS folder endpoints (see FoldersController).
+export const FOLDER_ENDPOINTS = {
+  GET: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetFolder`,
+  CHILDREN: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetFolderChildren`,
+  CREATE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/CreateFolder`,
+  CREATE_ROOT: `${API_BASES.UDS}${FOLDERS_SUBPATH}/CreateRootFolder`,
+  UPDATE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/UpdateFolder`,
+  MOVE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/MoveFolder`,
+  DELETE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/DeleteFolder`,
+} as const;
+
+// DMS sharing, access policy, search and trash endpoints (see ContentController).
+export const CONTENT_ENDPOINTS = {
+  SEARCH: `${API_BASES.UDS}${CONTENT_SUBPATH}/SearchContent`,
+  TRASH: `${API_BASES.UDS}${CONTENT_SUBPATH}/GetTrash`,
+  RESTORE: `${API_BASES.UDS}${CONTENT_SUBPATH}/RestoreFromTrash`,
+  DELETE_PERMANENT: `${API_BASES.UDS}${CONTENT_SUBPATH}/DeleteFromTrash`,
+  POLICIES: `${API_BASES.UDS}${CONTENT_SUBPATH}/GetAccessPolicies`,
+  GRANT: `${API_BASES.UDS}${CONTENT_SUBPATH}/GrantAccess`,
+  UPDATE_POLICY: `${API_BASES.UDS}${CONTENT_SUBPATH}/UpdateAccessPolicy`,
+  REVOKE: `${API_BASES.UDS}${CONTENT_SUBPATH}/RevokeAccessPolicy`,
+  RESOLVE: `${API_BASES.UDS}${CONTENT_SUBPATH}/ResolveAccess`,
+  INHERITANCE: `${API_BASES.UDS}${CONTENT_SUBPATH}/ToggleInheritance`,
+  SHARE: `${API_BASES.UDS}${CONTENT_SUBPATH}/ShareContent`,
+} as const;
+
+// File endpoints added by the DMS revamp, alongside the existing ones above.
+export const DMS_FILE_ENDPOINTS = {
+  FILE_VERSIONS: `${API_BASES.UDS}${FILES_SUBPATH}/GetFileVersions`,
+  CREATE_FILE_VERSION: `${API_BASES.UDS}${FILES_SUBPATH}/CreateFileVersion`,
+  COPY_FILE: `${API_BASES.UDS}${FILES_SUBPATH}/CopyFile`,
+  MOVE_FILE: `${API_BASES.UDS}${FILES_SUBPATH}/MoveFile`,
 } as const;

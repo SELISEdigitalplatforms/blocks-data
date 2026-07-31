@@ -8,7 +8,6 @@ import {
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { ChevronDown, Copy, MoreVertical, Trash } from "lucide-react";
-// import { SchemaClsToggle } from "../schema-cls-toggle";
 import { SchemaPreviewDrawer } from "../schema-preview-drawer";
 
 interface SchemaStructureHeaderProps {

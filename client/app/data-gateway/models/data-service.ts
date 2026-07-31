@@ -432,9 +432,6 @@ export interface IDeleteSchemaFieldValidationPayload {
   projectKey: string;
 }
 
-// export interface IDeleteSchemaFieldValidationResponse extends IDefaultResponse {
-//   data: null | [];
-// }
 
 // ── Schema Export ──────────────────────────────────────────────────────────
 /** Mirrors backend `SchemaExportOption`. Value `All` (3) includes both optional sections together. */

@@ -146,8 +146,6 @@ describe("FileUploader", () => {
   });
 
   it("Enter with no active item clicks the hidden input", () => {
-    // The Input forwards its ref to the real DOM node, replacing our mock's
-    // inputRef.current, so spy on the actual element's click.
     const { container } = render(<Harness value={[makeFile("a.txt")]} onValueChange={vi.fn()} />);
     const input = screen.getByTestId("dropzone-input") as HTMLInputElement;
     const clickSpy = vi.spyOn(input, "click");

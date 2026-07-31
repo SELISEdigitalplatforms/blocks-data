@@ -331,7 +331,6 @@ describe("use-user hooks", () => {
   describe("useGetMe", () => {
     it("fetches the current identity and stores it", async () => {
       const meResponse = { data: mockUser };
-      // me() is not part of the shared factory; attach it to the mocked service.
       (userService as unknown as { me: ReturnType<typeof vi.fn> }).me = vi
         .fn()
         .mockResolvedValue(meResponse);

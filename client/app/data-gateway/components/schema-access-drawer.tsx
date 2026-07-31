@@ -33,7 +33,6 @@ import {
   IDataAccessRuleSet,
   ISetDataAccessPayload,
 } from "../models/data-service";
-// import { SchemaRlsToggle } from "./schema-rls-toggle";
 import { SchemaAccessToolbar } from "./schema-access-toolbar";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { roleService } from "@blocks-idp/iam/services/role.service";
@@ -526,7 +525,6 @@ export function SchemaAccessDrawer({
   }, [serverEntries, isEditing]);
 
   useEffect(() => {
-    // setActiveTab("view");
     setIsEditing(false);
     // Only reset entries when schemaId changes, not when fieldTargets change
     // fieldTargets changes will be handled by the serverEntries useEffect

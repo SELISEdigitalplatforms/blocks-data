@@ -224,7 +224,6 @@ describe("graphql-template.utils", () => {
       });
       const insert = sections.find((s) => s.title === "Insert")!;
       const query = sections.find((s) => s.title === "Query")!;
-      // Insert (editable only) drops the readonly ItemId, but Query keeps all fields.
       expect(insert.code).not.toContain("ItemId:");
       expect(insert.code).toContain('title: "Sample text"');
       expect(query.code).toContain("ItemId");

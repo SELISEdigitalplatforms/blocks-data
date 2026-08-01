@@ -121,4 +121,64 @@ describe("DmsContentService", () => {
     expect(url).toContain("cursor=cursor-1");
     expect(url).toContain("limit=10");
   });
+
+  it("updates an existing policy through its own endpoint", async () => {
+    await service.updateAccessPolicy({
+      resourceId: "res-1",
+      policyItemId: "policy-1",
+      principalType: "User",
+      principalId: "user-2",
+      permission: "Edit",
+      effect: "Allow",
+    });
+
+    expect(http.post).toHaveBeenCalledWith(
+      expect.stringContaining("/Content/UpdateAccessPolicy"),
+      expect.objectContaining({ policyItemId: "policy-1" }),
+    );
+  });
+
+  it("resolves the caller's own effective access", async () => {
+    await service.resolveAccess("res-1");
+
+    expect(http.get).toHaveBeenCalledWith(
+      expect.stringContaining("/Content/ResolveAccess?resourceId=res-1"),
+    );
+  });
+
+  it("shares through the share endpoint rather than a plain grant", async () => {
+    // Sharing records an audit entry the plain grant does not, so the two are
+    // not interchangeable even though the stored entry looks the same.
+    const payload = {
+      resourceId: "res-1",
+      principalType: "User" as const,
+      principalId: "user-2",
+      permission: "View" as const,
+    };
+
+    await service.shareContent(payload);
+
+    expect(http.post).toHaveBeenCalledWith(
+      expect.stringContaining("/Content/ShareContent"),
+      payload,
+    );
+  });
+
+  it("requests a presigned url for a new version", async () => {
+    await service.createFileVersion("file-1", "azure");
+
+    expect(http.post).toHaveBeenCalledWith(
+      expect.stringContaining("/Files/CreateFileVersion"),
+      { fileId: "file-1", configurationName: "azure" },
+    );
+  });
+
+  it("moves a file to another folder", async () => {
+    await service.moveFile("file-1", "dir-2");
+
+    expect(http.post).toHaveBeenCalledWith(
+      expect.stringContaining("/Files/MoveFile"),
+      { fileId: "file-1", targetFolderId: "dir-2" },
+    );
+  });
 });

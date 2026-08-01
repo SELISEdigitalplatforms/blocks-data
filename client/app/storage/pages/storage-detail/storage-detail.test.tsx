@@ -18,6 +18,17 @@ const mocks = vi.hoisted(() => ({
   },
   deleteFile: vi.fn(),
   deleteFolder: vi.fn(),
+  fetchNextPage: vi.fn(),
+  lastChildrenQuery: {} as { folderId?: string; search?: string },
+  currentFolder: undefined as unknown,
+  permissions: {
+    canView: true,
+    canDownload: true,
+    canEdit: true,
+    canDelete: true,
+    canManage: true,
+    canOwner: true,
+  },
   fetchFile: vi.fn(),
   showErrorToast: vi.fn(),
   showSuccessToast: vi.fn(),
@@ -65,22 +76,67 @@ vi.mock("@/storage/hooks/use-storage-configuration", () => ({
 }));
 
 vi.mock("@/storage/hooks/use-storage-file", () => ({
-  useGetDmsFileAndFolder: () => ({
-    mutate: (
-      _payload: unknown,
-      opts?: {
-        onSuccess?: (d: unknown) => void;
-        onError?: (e: unknown) => void;
-      },
-    ) => {
-      if (mocks.dmsState.failFetch) opts?.onError?.(mocks.dmsState.error);
-      else opts?.onSuccess?.(mocks.dmsState.response);
-    },
-    isPending: mocks.dmsState.isPending,
-  }),
   useDeleteFile: () => ({ mutateAsync: mocks.deleteFile, isPending: false }),
-  useDeleteFolder: () => ({ mutateAsync: mocks.deleteFolder, isPending: false }),
   useLazyGetFile: () => ({ fetchFile: mocks.fetchFile }),
+}));
+
+// The listing moved to a cursor query. The fixtures below still author the old
+// response shape, so it is translated here rather than rewritten in every test:
+// what each case is actually about is the rendering, not the payload envelope.
+vi.mock("@/storage/hooks/use-dms", () => ({
+  useDmsChildren: (folderId?: string, options?: { search?: string }) => {
+    mocks.lastChildrenQuery = { folderId, search: options?.search };
+
+    const legacy = (mocks.dmsState.response ?? null) as {
+      dmsFileAndFolderInfos?: IDmsFileAndFolderInfo[];
+      totalCount?: number;
+    } | null;
+
+    const items = (legacy?.dmsFileAndFolderInfos ?? []).map((item) => ({
+      itemId: item.itemId,
+      name: item.name,
+      type: item.type === DmsItemType.Folder ? "folder" : "file",
+      parentDirectoryId: item.parentId,
+      extension: item.extension,
+      sizeInBytes: Number(item.sizeInBytes ?? 0),
+      currentVersion: item.version,
+      description: item.description,
+      lastUpdatedDate: item.lastUpdatedDate,
+      inheritsParentAccess: true,
+      isArchived: false,
+      isActive: true,
+      permissions: mocks.permissions,
+    }));
+
+    return {
+      data: { pages: [{ items, totalChildCount: legacy?.totalCount ?? items.length, hasMore: false }] },
+      isLoading: mocks.dmsState.isPending,
+      hasNextPage: false,
+      isFetchingNextPage: false,
+      fetchNextPage: mocks.fetchNextPage,
+      refetch: vi.fn(),
+    };
+  },
+  useDmsFolder: () => ({ data: mocks.currentFolder }),
+  useDeleteDmsFolder: () => ({ mutateAsync: mocks.deleteFolder, isPending: false }),
+}));
+
+vi.mock("@/storage/components/manage-access-modal/manage-access-modal", () => ({
+  ManageAccessModal: ({ open }: { open: boolean }) => (
+    <div data-testid="manage-access-modal" data-open={String(open)} />
+  ),
+}));
+
+vi.mock("@/storage/components/file-versions-drawer/file-versions-drawer", () => ({
+  FileVersionsDrawer: ({ open }: { open: boolean }) => (
+    <div data-testid="versions-drawer" data-open={String(open)} />
+  ),
+}));
+
+vi.mock("@/storage/components/move-copy-dialog/move-copy-dialog", () => ({
+  MoveCopyDialog: ({ open, mode }: { open: boolean; mode: string }) => (
+    <div data-testid="move-copy-dialog" data-open={String(open)} data-mode={mode} />
+  ),
 }));
 
 // Replace heavy child modals with lightweight prop-reflecting stubs.
@@ -193,6 +249,15 @@ function renderDetail() {
 }
 
 beforeEach(() => {
+    mocks.currentFolder = undefined;
+    mocks.permissions = {
+      canView: true,
+      canDownload: true,
+      canEdit: true,
+      canDelete: true,
+      canManage: true,
+      canOwner: true,
+    };
   vi.clearAllMocks();
   mocks.configState = { data: [makeConfig()], isLoading: false };
   mocks.dmsState = {
@@ -368,7 +433,10 @@ describe("StorageDetail", () => {
     expect(screen.getByText("Last modified")).toBeInTheDocument();
   });
 
-  it("filters folders by the search input", async () => {
+  it("sends the search term to the server rather than filtering the page", async () => {
+    // Filtering locally would only ever search the page already loaded, so a
+    // match on a later page would look like no match at all. The term is passed
+    // to the listing query instead.
     const user = userEvent.setup();
     mocks.dmsState.response = {
       dmsFileAndFolderInfos: [
@@ -383,10 +451,7 @@ describe("StorageDetail", () => {
     const searchInput = screen.getAllByPlaceholderText("Search...")[0];
     await user.type(searchInput, "Alph");
 
-    await waitFor(() =>
-      expect(screen.queryByText("Beta")).not.toBeInTheDocument(),
-    );
-    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    await waitFor(() => expect(mocks.lastChildrenQuery.search).toBe("Alph"));
   });
 
   it("opens the upload modal from the Add New menu", async () => {
@@ -433,7 +498,7 @@ describe("StorageDetail", () => {
       mocks.fetchFile.mockResolvedValue({ url: "https://files/report.pdf" });
       mocks.dmsState.response = {
         dmsFileAndFolderInfos: [
-          makeFile({ name: "preview.pdf", fileStorageId: "fs-9" }),
+          makeFile({ name: "preview.pdf", itemId: "fs-9", fileStorageId: "fs-9" }),
         ],
         totalCount: 1,
       };
@@ -460,7 +525,7 @@ describe("StorageDetail", () => {
     mocks.fetchFile.mockResolvedValue({ url: "https://files/report.pdf" });
     mocks.dmsState.response = {
       dmsFileAndFolderInfos: [
-        makeFile({ name: "preview.pdf", fileStorageId: "fs-9" }),
+        makeFile({ name: "preview.pdf", itemId: "fs-9", fileStorageId: "fs-9" }),
       ],
       totalCount: 1,
     };
@@ -488,7 +553,7 @@ describe("StorageDetail", () => {
     mocks.deleteFile.mockResolvedValue({ isSuccess: true });
     mocks.dmsState.response = {
       dmsFileAndFolderInfos: [
-        makeFile({ name: "old.pdf", fileStorageId: "file-del" }),
+        makeFile({ name: "old.pdf", itemId: "file-del", fileStorageId: "file-del" }),
       ],
       totalCount: 1,
     };
@@ -537,11 +602,7 @@ describe("StorageDetail", () => {
     await user.click(screen.getByRole("button", { name: /^yes$/i }));
 
     await waitFor(() =>
-      expect(mocks.deleteFolder).toHaveBeenCalledWith({
-        folderId: "fold-del",
-        configurationName: "MyStore",
-        projectKey: "t1",
-      }),
+      expect(mocks.deleteFolder).toHaveBeenCalledWith({ folderId: "fold-del" }),
     );
     await waitFor(() =>
       expect(mocks.showSuccessToast).toHaveBeenCalledWith({
@@ -550,11 +611,13 @@ describe("StorageDetail", () => {
     );
   });
 
-  it("surfaces an error toast when a fetch fails", () => {
+  it("does not raise its own toast when the listing fails", () => {
+    // Fetching moved to a query, which owns retry and error state. Raising a
+    // toast from the page as well would double-report a single failure.
     mocks.dmsState.failFetch = true;
     mocks.dmsState.error = "network down";
     renderDetail();
-    expect(mocks.showErrorToast).toHaveBeenCalledWith({ errors: "network down" });
+    expect(mocks.showErrorToast).not.toHaveBeenCalledWith({ errors: "network down" });
   });
 
   it("renders icons for image, video, audio, spreadsheet and unknown files", async () => {
@@ -644,7 +707,7 @@ describe("StorageDetail", () => {
 
   it("shows an error toast when folder delete reports failure", async () => {
     const user = userEvent.setup();
-    mocks.deleteFolder.mockResolvedValue({ isSuccess: false });
+    mocks.deleteFolder.mockRejectedValue("Something went wrong");
     mocks.dmsState.response = {
       dmsFileAndFolderInfos: [
         makeFolder({ name: "keepdir", itemId: "fold-keep" }),
@@ -735,11 +798,7 @@ describe("StorageDetail", () => {
     await user.click(screen.getByRole("button", { name: /^yes$/i }));
 
     await waitFor(() =>
-      expect(mocks.deleteFolder).toHaveBeenCalledWith({
-        folderId: "fold-list",
-        configurationName: "MyStore",
-        projectKey: "t1",
-      }),
+      expect(mocks.deleteFolder).toHaveBeenCalledWith({ folderId: "fold-list" }),
     );
   });
 
@@ -751,6 +810,7 @@ describe("StorageDetail", () => {
         makeFile({
           name: "listfile.csv",
           extension: ".csv",
+          itemId: "file-list",
           fileStorageId: "file-list",
           sizeInBytes: "4096",
         }),
@@ -779,6 +839,114 @@ describe("StorageDetail", () => {
         configurationName: "MyStore",
         projectKey: "t1",
       }),
+    );
+  });
+
+  it("opens manage access from the row menu", async () => {
+    const user = userEvent.setup();
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [makeFolder({ name: "Reports", itemId: "dir-9" })],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+    await user.click(await screen.findByText("Manage access"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("manage-access-modal")).toHaveAttribute("data-open", "true"),
+    );
+  });
+
+  it("opens the versions drawer for a file", async () => {
+    const user = userEvent.setup();
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [makeFile({ name: "report.pdf", itemId: "file-9" })],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+    await user.click(await screen.findByText("Versions"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("versions-drawer")).toHaveAttribute("data-open", "true"),
+    );
+  });
+
+  it("offers no Versions entry on a folder, which has no history", async () => {
+    const user = userEvent.setup();
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [makeFolder({ name: "Reports", itemId: "dir-9" })],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+    await screen.findByText("Move");
+
+    expect(screen.queryByText("Versions")).not.toBeInTheDocument();
+  });
+
+  it("opens the transfer dialog in copy mode from Copy", async () => {
+    const user = userEvent.setup();
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [makeFile({ name: "report.pdf", itemId: "file-9" })],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+    await user.click(await screen.findByText("Copy"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("move-copy-dialog")).toHaveAttribute("data-mode", "copy"),
+    );
+  });
+
+  it("hides every gated action when the caller may only view", async () => {
+    // The whole menu collapses to nothing rather than offering actions the
+    // server will refuse.
+    const user = userEvent.setup();
+    mocks.permissions = {
+      canView: true,
+      canDownload: false,
+      canEdit: false,
+      canDelete: false,
+      canManage: false,
+      canOwner: false,
+    };
+    mocks.dmsState.response = {
+      dmsFileAndFolderInfos: [makeFile({ name: "report.pdf", itemId: "file-9" })],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByRole("button", { name: "More options" }));
+
+    expect(screen.queryByText("Delete")).not.toBeInTheDocument();
+    expect(screen.queryByText("Manage access")).not.toBeInTheDocument();
+    expect(screen.queryByText("Versions")).not.toBeInTheDocument();
+    expect(screen.queryByText("Move")).not.toBeInTheDocument();
+  });
+
+  it("hides Add New when the folder cannot be written to", async () => {
+    mocks.currentFolder = {
+      itemId: "dir-1",
+      permissions: {
+        canView: true,
+        canDownload: true,
+        canEdit: false,
+        canDelete: false,
+        canManage: false,
+        canOwner: false,
+      },
+    };
+    mocks.dmsState.response = { dmsFileAndFolderInfos: [], totalCount: 0 };
+    renderDetail();
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: /Add New/ })).not.toBeInTheDocument(),
     );
   });
 });

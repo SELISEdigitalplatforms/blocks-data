@@ -36,16 +36,28 @@ import { getRuntimeEnv } from "@/lib/runtime-env";
 import { CreateDmsNewFolder } from "@/storage/components/create-new-folder-modal/create-dms-new-folder";
 import { FilePreviewModal } from "@/storage/components/file-preview-modal";
 import { UploadDmsFileModal } from "@/storage/components/upload-dms-file-modal";
+import { useDeleteFile, useLazyGetFile } from "@/storage/hooks/use-storage-file";
 import {
-  useDeleteFile,
-  useDeleteFolder,
-  useGetDmsFileAndFolder,
-  useLazyGetFile,
-} from "@/storage/hooks/use-storage-file";
+  useDeleteDmsFolder,
+  useDmsChildren,
+  useDmsFolder,
+} from "@/storage/hooks/use-dms";
+import { FileVersionsDrawer } from "@/storage/components/file-versions-drawer/file-versions-drawer";
+import { ManageAccessModal } from "@/storage/components/manage-access-modal/manage-access-modal";
+import {
+  MoveCopyDialog,
+  MoveCopyMode,
+} from "@/storage/components/move-copy-dialog/move-copy-dialog";
+import {
+  DmsFileItem,
+  DmsFolderItem,
+  DmsItem,
+  DmsPermissionFlags,
+} from "@/storage/models/dms.model";
+import { canAddToFolder, itemActions } from "@/storage/utils/permission-actions";
 import {
   DmsItemType,
   IDmsFileAndFolderInfo,
-  IGetDmsFileAndFolderResponse,
 } from "@/storage/models/storage.model";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 
@@ -62,7 +74,7 @@ import {
   Upload,
   Video,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
 import {
@@ -102,6 +114,32 @@ type BreadcrumbItem = {
   name: string;
 };
 
+/**
+ * The listing rows the render tree below already expects, plus the per-item
+ * permission flags the new endpoints return.
+ *
+ * The DMS listing is mapped onto the legacy row shape rather than the render
+ * tree being rewritten around the new model. The fields it reads are the same
+ * eight either way, and a rename sweep across 600 lines of grid and list markup
+ * would risk far more than it would clarify. `fileStorageId` becomes the item id
+ * because the item id is the storage object key prefix in the new model.
+ */
+type ListRow = IDmsFileAndFolderInfo & { permissions?: DmsPermissionFlags };
+
+const toRow = (item: DmsItem): ListRow => ({
+  parentId: item.parentDirectoryId ?? "",
+  type: item.type === "folder" ? DmsItemType.Folder : DmsItemType.File,
+  name: item.name,
+  fileStorageId: item.itemId,
+  extension: (item as DmsFileItem).extension ?? "",
+  sizeInBytes: String((item as DmsFileItem).sizeInBytes ?? ""),
+  version: (item as DmsFileItem).currentVersion ?? 0,
+  description: (item as DmsFolderItem).description ?? "",
+  itemId: item.itemId,
+  lastUpdatedDate: item.lastUpdatedDate ?? "",
+  permissions: item.permissions,
+});
+
 export function StorageDetail() {
   const navigate = useNavigate();
   const storagePath = useStoragePath();
@@ -132,10 +170,10 @@ export function StorageDetail() {
     lastModified: "",
     fileType: [],
   });
-  const [dmsData, setDmsData] = useState<IGetDmsFileAndFolderResponse | null>(
-    null,
-  );
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [accessItem, setAccessItem] = useState<DmsItem | null>(null);
+  const [versionsFile, setVersionsFile] = useState<DmsItem | null>(null);
+  const [transfer, setTransfer] = useState<{ item: DmsItem; mode: MoveCopyMode } | null>(null);
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] =
@@ -145,13 +183,37 @@ export function StorageDetail() {
 
   const { data: configurations, isLoading } = useGetStorageConfigurations();
 
-  const { mutate: getDmsFileAndFolder, isPending: isDmsLoading } =
-    useGetDmsFileAndFolder();
-  const { mutateAsync: deleteFile, isPending: deleteFilePending } =
-    useDeleteFile();
-  const { mutateAsync: deleteFolder, isPending: deleteFolderPending } =
-    useDeleteFolder();
+  // Cursor pagination: pages are followed while the server reports hasMore,
+  // and the search term is passed down rather than filtered on the client, so a
+  // folder with more items than one page still searches its whole contents.
+  const childrenQuery = useDmsChildren(currentParentId || undefined, {
+    search: filters.search || undefined,
+  });
+  const isDmsLoading = childrenQuery.isLoading;
+
+  const { data: currentFolder } = useDmsFolder(currentParentId || undefined);
+  const { mutateAsync: deleteFolderItem, isPending: deleteFolderPending } =
+    useDeleteDmsFolder();
+  // Files are removed through the file endpoint, not the folder one. Routing a
+  // file id at DeleteFolder would simply not find a folder with that id.
+  const { mutateAsync: deleteFile, isPending: deleteFilePending } = useDeleteFile();
   const { fetchFile } = useLazyGetFile();
+
+  const rows = useMemo(
+    () => (childrenQuery.data?.pages.flatMap((page) => page.items) ?? []).map(toRow),
+    [childrenQuery.data],
+  );
+
+  const dmsItemsById = useMemo(() => {
+    const map = new Map<string, DmsItem>();
+    (childrenQuery.data?.pages.flatMap((page) => page.items) ?? []).forEach((item) =>
+      map.set(item.itemId, item),
+    );
+    return map;
+  }, [childrenQuery.data]);
+
+  const totalChildCount = childrenQuery.data?.pages[0]?.totalChildCount ?? 0;
+  const canAddHere = canAddToFolder(currentFolder ?? undefined);
 
   const storage = useMemo(() => {
     if (!Array.isArray(configurations)) {
@@ -159,35 +221,6 @@ export function StorageDetail() {
     }
     return configurations.find((config) => config.itemId === storageId);
   }, [configurations, storageId]);
-
-  // Function to fetch DMS data
-  const fetchDmsData = (parentId?: string) => {
-    if (storage && projectKey) {
-      const payload = {
-        configurationName: storage.storageStrategy,
-        projectKey: projectKey,
-        skip: 0,
-        take: 20,
-        parentId,
-        searchKey: filters.search || undefined,
-      };
-
-      getDmsFileAndFolder(payload, {
-        onSuccess: (data) => {
-          setDmsData(data);
-        },
-        onError: (error) => {
-          return showErrorToast({ errors: error });
-        },
-      });
-    }
-  };
-
-  // Call the API when storage configuration is loaded or parentId changes
-  useEffect(() => {
-    fetchDmsData(currentParentId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storage, projectKey, filters.search, currentParentId]);
 
   // Helper to build URL with folder navigation params
   const buildFolderUrl = useCallback(
@@ -265,60 +298,49 @@ export function StorageDetail() {
     });
   };
 
-  // Separate folders and files from API data
   const { folders, files } = useMemo(() => {
-    if (!dmsData?.dmsFileAndFolderInfos) {
-      return { folders: [], files: [] };
-    }
+    const foldersData: ListRow[] = [];
+    const filesData: ListRow[] = [];
 
-    const foldersData: IDmsFileAndFolderInfo[] = [];
-    const filesData: IDmsFileAndFolderInfo[] = [];
-
-    dmsData.dmsFileAndFolderInfos.forEach((item) => {
+    rows.forEach((item) => {
       if (item.type === DmsItemType.Folder) {
         foldersData.push(item);
-      } else if (item.type === DmsItemType.File) {
+      } else {
         filesData.push(item);
       }
     });
 
     return { folders: foldersData, files: filesData };
-  }, [dmsData]);
+  }, [rows]);
 
-  // Filter folders based on search
-  const filteredFolders = useMemo(() => {
-    return folders.filter((folder) =>
-      folder.name.toLowerCase().includes(filters.search.toLowerCase()),
-    );
-  }, [folders, filters.search]);
+  // The name search is applied server side now, so only the extension filter is
+  // still narrowed here. Re-filtering by name locally would hide results the
+  // server had already matched on a later page.
+  const filteredFolders = folders;
 
-  // Filter files based on search and file type
   const filteredFiles = useMemo(() => {
+    if (filters.fileType.length === 0) {
+      return files;
+    }
+
     return files.filter((file) => {
-      const matchesSearch = file?.name
-        .toLowerCase()
-        .includes(filters.search.toLowerCase());
-      // Map file extensions to file types for filtering
       const fileType = file?.extension?.toLowerCase() || "";
-      const matchesFileType =
-        filters.fileType.length === 0 ||
-        filters.fileType.some((type) => fileType.includes(type));
-      return matchesSearch && matchesFileType;
+      return filters.fileType.some((type) => fileType.includes(type));
     });
-  }, [files, filters.search, filters.fileType]);
+  }, [files, filters.fileType]);
 
+  // Deleting is a soft delete: the item moves to the trash and can be restored
+  // from there. The hooks invalidate both the children and the trash listings.
   const handleDeleteFile = async (id: string) => {
-    const payload = {
-      fileId: id,
-      configurationName: storage?.name,
-      projectKey: projectKey,
-    };
-
     try {
-      const res = await deleteFile(payload);
+      const res = await deleteFile({
+        fileId: id,
+        configurationName: storage?.name,
+        projectKey,
+      });
       if (res.isSuccess) {
         showSuccessToast({ description: "File Deleted successfully" });
-        fetchDmsData(currentParentId);
+        childrenQuery.refetch();
       } else {
         showErrorToast({ errors: "Something went wrong" });
       }
@@ -327,24 +349,94 @@ export function StorageDetail() {
     }
   };
 
+  // Folders are soft-deleted: the folder moves to the trash and can be restored
+  // from there, so the hook invalidates both the children and trash listings.
   const handleDeleteFolder = async (id: string) => {
-    const payload = {
-      folderId: id,
-      configurationName: storage?.name,
-      projectKey: projectKey,
-    };
-
     try {
-      const res = await deleteFolder(payload);
-      if (res.isSuccess) {
-        showSuccessToast({ description: "Folder Deleted successfully" });
-        fetchDmsData(currentParentId);
-      } else {
-        showErrorToast({ errors: "Something went wrong" });
-      }
+      await deleteFolderItem({ folderId: id });
+      showSuccessToast({ description: "Folder Deleted successfully" });
     } catch (error) {
       showErrorToast({ errors: error });
     }
+  };
+
+  /**
+   * The actions offered on one row, gated by the flags the listing returned.
+   *
+   * Rendered from a single place rather than repeated in each of the four menus
+   * (folder and file, grid and list), so a permission rule cannot end up
+   * enforced in three of them and forgotten in the fourth.
+   */
+  const renderRowMenu = (row: ListRow) => {
+    const dmsItem = dmsItemsById.get(row.itemId);
+    const actions = itemActions(row);
+    const isFolderRow = row.type === DmsItemType.Folder;
+
+    return (
+      <>
+        {dmsItem && !isFolderRow && actions.canViewVersions && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setVersionsFile(dmsItem);
+            }}
+            className="cursor-pointer"
+          >
+            Versions
+          </DropdownMenuItem>
+        )}
+        {dmsItem && actions.canMove && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setTransfer({ item: dmsItem, mode: "move" });
+            }}
+            className="cursor-pointer"
+          >
+            Move
+          </DropdownMenuItem>
+        )}
+        {dmsItem && !isFolderRow && actions.canCopy && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setTransfer({ item: dmsItem, mode: "copy" });
+            }}
+            className="cursor-pointer"
+          >
+            Copy
+          </DropdownMenuItem>
+        )}
+        {dmsItem && actions.canManageAccess && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setAccessItem(dmsItem);
+            }}
+            className="cursor-pointer"
+          >
+            Manage access
+          </DropdownMenuItem>
+        )}
+        {actions.canDelete && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isFolderRow) {
+                setSelectedFolderId(row.itemId);
+                setIsDeleteFolderModalOpen(true);
+              } else {
+                setSelectedFileId(row.itemId);
+                setIsDeleteModalOpen(true);
+              }
+            }}
+            className="cursor-pointer text-red-500"
+          >
+            Delete
+          </DropdownMenuItem>
+        )}
+      </>
+    );
   };
 
   if (isLoading) {
@@ -459,7 +551,7 @@ export function StorageDetail() {
           {/* <LogMenu link="/services/storage/logs" /> */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              {(currentParentId || storage.name !== "Default") && (
+              {(currentParentId || storage.name !== "Default") && canAddHere && (
                 <Button size="sm" className="bg-primary">
                   <Plus className="mr-2 h-4 w-4" />
                   Add New
@@ -488,7 +580,7 @@ export function StorageDetail() {
 
       <div className="mt-6 flex h-[calc(100vh-180px)] flex-col overflow-hidden rounded-sm border bg-card">
         {/* Search and Filters */}
-        {((dmsData && dmsData.totalCount > 0) || filters.search) && (
+        {(totalChildCount > 0 || filters.search) && (
           <div className="p-3">
             <div className="-mb-3 flex items-center justify-between gap-4">
               <div className="flex-1">
@@ -531,7 +623,7 @@ export function StorageDetail() {
                   onReset={onReset}
                 />
               </div>
-              {dmsData && dmsData?.totalCount > 0 && (
+              {totalChildCount > 0 && (
                 <div className="flex items-center gap-1 rounded-md border p-1">
                   <Button
                     variant={viewMode === "list" ? "secondary" : "ghost"}
@@ -609,16 +701,7 @@ export function StorageDetail() {
                             align="end"
                             className="rounded-none"
                           >
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedFolderId(folder.itemId);
-                                setIsDeleteFolderModalOpen(true);
-                              }}
-                              className="cursor-pointer text-red-500"
-                            >
-                              Delete
-                            </DropdownMenuItem>
+                            {renderRowMenu(folder)}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -688,16 +771,7 @@ export function StorageDetail() {
                                   align="end"
                                   className="rounded-none"
                                 >
-                                  <DropdownMenuItem
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedFolderId(folder.itemId);
-                                      setIsDeleteFolderModalOpen(true);
-                                    }}
-                                    className="cursor-pointer text-red-500"
-                                  >
-                                    Delete
-                                  </DropdownMenuItem>
+                                  {renderRowMenu(folder)}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -794,16 +868,7 @@ export function StorageDetail() {
                               align="end"
                               className="rounded-none"
                             >
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedFileId(file.fileStorageId);
-                                  setIsDeleteModalOpen(true);
-                                }}
-                                className="cursor-pointer text-red-500"
-                              >
-                                Delete
-                              </DropdownMenuItem>
+                              {renderRowMenu(file)}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -874,16 +939,7 @@ export function StorageDetail() {
                                 align="end"
                                 className="rounded-none"
                               >
-                                <DropdownMenuItem
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedFileId(file.fileStorageId);
-                                    setIsDeleteModalOpen(true);
-                                  }}
-                                  className="cursor-pointer text-red-500"
-                                >
-                                  Delete
-                                </DropdownMenuItem>
+                                {renderRowMenu(file)}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -896,12 +952,50 @@ export function StorageDetail() {
             )}
           </div>
         </ScrollArea>
-        {!isDmsLoading && dmsData?.totalCount === 0 && (
+        {!isDmsLoading && rows.length === 0 && (
           <div className="flex h-full items-center justify-center">
             <p className="text-muted-foreground">No folders and files found</p>
           </div>
         )}
+        {childrenQuery.hasNextPage && (
+          <div className="flex justify-center border-t p-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => childrenQuery.fetchNextPage()}
+              disabled={childrenQuery.isFetchingNextPage}
+            >
+              {childrenQuery.isFetchingNextPage ? "Loading..." : "Load more"}
+            </Button>
+          </div>
+        )}
       </div>
+
+      {accessItem && (
+        <ManageAccessModal
+          open={!!accessItem}
+          onOpenChange={(open) => !open && setAccessItem(null)}
+          item={accessItem}
+        />
+      )}
+
+      {versionsFile && (
+        <FileVersionsDrawer
+          open={!!versionsFile}
+          onOpenChange={(open) => !open && setVersionsFile(null)}
+          file={versionsFile}
+        />
+      )}
+
+      {transfer && (
+        <MoveCopyDialog
+          open={!!transfer}
+          onOpenChange={(open) => !open && setTransfer(null)}
+          item={transfer.item}
+          mode={transfer.mode}
+          startFolderId={currentParentId || undefined}
+        />
+      )}
 
       {/* Upload Modal */}
       {storage && (
@@ -913,7 +1007,7 @@ export function StorageDetail() {
           parentId={currentParentId}
           dmsWorkspaceId={storageId}
           dmsWorkspaceName={storage.name}
-          onUploadSuccess={() => fetchDmsData(currentParentId)}
+          onUploadSuccess={() => childrenQuery.refetch()}
         />
       )}
 
@@ -923,7 +1017,7 @@ export function StorageDetail() {
           onOpenChange={setIsCreateFolderModalOpen}
           parentId={currentParentId}
           configurationName={storage.storageStrategy}
-          onSuccess={() => fetchDmsData(currentParentId)}
+          onSuccess={() => childrenQuery.refetch()}
         />
       )}
 

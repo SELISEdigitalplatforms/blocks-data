@@ -722,7 +722,10 @@ export const detectOperationContext = (textBeforeCursor: string): "query" | "mut
  */
 export const detectCurrentFieldName = (textBeforeCursor: string): string | null => {
   // Look for the last operation-like pattern: fieldName( or fieldName {
-  const match = textBeforeCursor.match(/(\w+)\s*(?:\([^)]*$|\{[^}]*$)/);
+  // Only the tail can satisfy the $-anchored alternatives, and an unanchored search
+  // would retry from every position in the whole buffer.
+  const tail = textBeforeCursor.slice(-2000);
+  const match = /(\w+)\s*(?:\([^)]*$|\{[^}]*$)/.exec(tail);
 
   if (!match) return null;
 

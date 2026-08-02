@@ -10,7 +10,7 @@ import { useGetSsoCredentialById, useSaveSsoCredential } from "@blocks-idp/authe
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
 import { ISsoProviderConfiguration } from "@blocks-idp/authentication/models/sso.model";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { SSOProviderConfigOwnSSOForm } from "./sso-provider-config-blocks-own-sso-form";
 export type SsoConfigFormsProps = {
   provider: SSO_PROVIDERS;

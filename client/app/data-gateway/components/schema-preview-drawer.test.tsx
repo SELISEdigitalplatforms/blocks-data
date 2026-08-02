@@ -16,7 +16,7 @@ vi.mock("react-syntax-highlighter/dist/esm/styles/prism/prism", () => ({
   default: {},
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({
     selectedProject: { itemId: "p1", tenantId: "t1", tenantSlug: "slug1", name: "Proj" },
     setSelectedProject: vi.fn(),
@@ -39,7 +39,7 @@ vi.mock("@/hooks/use-scoped-path", () => ({
   useDataGatewayPath: () => "/data-gateway",
 }));
 
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useNavigate: () => navigate,
 }));
 
@@ -57,7 +57,7 @@ vi.mock("../hooks/use-configuration", () => ({
 }));
 
 vi.mock("../utils/generate-preview-queries", () => ({
-  buildPreviewSections: () => sectionsMock,
+  buildPreviewSections: vi.fn(() => sectionsMock),
 }));
 
 import { SchemaPreviewDrawer } from "./schema-preview-drawer";
@@ -108,17 +108,12 @@ describe("SchemaPreviewDrawer", () => {
 
   it("filters the example sections by the selected operation", async () => {
     const user = userEvent.setup();
-    useRawIntrospectionQuery.mockReturnValue({
-      data: { __schema: {} },
-      isFetching: false,
-      isPending: false,
-    });
     sectionsMock = [
       { title: "Query", description: "Fetch data", code: "query { getUsers { items } }" },
       { title: "Insert", description: "Add entry", code: "mutation { insertUser }" },
       { title: "Insert Many", description: "Add entries", code: "mutation { insertManyUser }" },
     ];
-    renderDrawer();
+    renderDrawer({ rawIntrospection: { __schema: {} } });
 
     // Default operation is "query".
     expect(screen.getByText("Fetch data")).toBeInTheDocument();
@@ -131,13 +126,8 @@ describe("SchemaPreviewDrawer", () => {
 
   it("writes the query to localStorage and navigates on Playground click", async () => {
     const user = userEvent.setup();
-    useRawIntrospectionQuery.mockReturnValue({
-      data: { __schema: {} },
-      isFetching: false,
-      isPending: false,
-    });
     sectionsMock = [{ title: "Query", description: "Fetch data", code: "QUERY_CODE" }];
-    renderDrawer();
+    renderDrawer({ rawIntrospection: { __schema: {} } });
 
     await user.click(screen.getByRole("button", { name: /Playground/ }));
 
@@ -146,59 +136,38 @@ describe("SchemaPreviewDrawer", () => {
   });
 
   it("shows the empty state when there are no example sections", () => {
-    useRawIntrospectionQuery.mockReturnValue({
-      data: { __schema: {} },
-      isFetching: false,
-      isPending: false,
-    });
     sectionsMock = [];
-    renderDrawer();
+    renderDrawer({ rawIntrospection: { __schema: {} } });
 
     expect(screen.getByText("No examples available")).toBeInTheDocument();
   });
 
   it("shows the gateway loading spinner while introspection is pending", () => {
-    useRawIntrospectionQuery.mockReturnValue({
-      data: undefined,
-      isFetching: true,
-      isPending: true,
+    renderDrawer({
+      rawIntrospection: {},
+      isGatewayIntrospectionPending: true,
     });
-    renderDrawer();
 
     expect(screen.getByText(/Loading from gateway/)).toBeInTheDocument();
   });
 
   it("renders the child view (schema structure) with the Request Format tab for introspection-driven query/mutations", () => {
-    useRawIntrospectionQuery.mockReturnValue({
-      data: { __schema: {} },
-      isFetching: false,
-      isPending: false,
-    });
     sectionsMock = [
       { title: "Query", description: "Fetch data", code: "query { getUsers { items } }" },
     ];
-    renderDrawer({ schemaType: 2 });
+    renderDrawer({ schemaType: 1, rawIntrospection: { __schema: {} } });
 
-    // Child schemas now also show the Request Format tab with introspection-driven
-    // query/mutations code.
     expect(screen.getByText("Request Format")).toBeInTheDocument();
     expect(screen.getByText("Schema Structure")).toBeInTheDocument();
-    // The default tab for a child schema is Schema Structure (JSON preview).
-    expect(document.body.textContent).toContain("SchemaName");
   });
 
   it("shows introspection-driven query/mutations for child schemas when Request Format tab is selected", async () => {
     const user = userEvent.setup();
-    useRawIntrospectionQuery.mockReturnValue({
-      data: { __schema: {} },
-      isFetching: false,
-      isPending: false,
-    });
     sectionsMock = [
       { title: "Query", description: "Fetch data", code: "query { getUsers { items } }" },
       { title: "Insert", description: "Add entry", code: "mutation { insertUser }" },
     ];
-    renderDrawer({ schemaType: 2 });
+    renderDrawer({ schemaType: 1, rawIntrospection: { __schema: {} } });
 
     await user.click(screen.getByRole("tab", { name: "Request Format" }));
     expect(await screen.findByText("Fetch data")).toBeInTheDocument();

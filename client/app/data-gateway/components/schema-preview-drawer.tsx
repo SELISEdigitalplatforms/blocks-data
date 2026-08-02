@@ -19,11 +19,11 @@ import {
 } from "@/components/ui-kits/tabs/tabs";
 import { useGetProject } from "@/hooks/use-project";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { Eye, Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import atomDark from "react-syntax-highlighter/dist/esm/styles/prism/atom-dark";
 import prism from "react-syntax-highlighter/dist/esm/styles/prism/prism";

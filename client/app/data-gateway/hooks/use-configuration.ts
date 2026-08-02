@@ -1,5 +1,5 @@
 import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   buildClientSchema,

@@ -3,7 +3,7 @@ import {
   Navigate,
   Outlet,
   RouteObject,
-} from "react-router-dom";
+} from "react-router";
 
 // Dashboard routes (protected)
 import DataGatewayEditDataSourcePage from "./routes/dashboard/data-gateway-edit-data-source";
@@ -23,8 +23,8 @@ import {
   ProfilePage,
   ProtectedGuard,
   PublicGuard,
-} from "@seliseblocks/blocks-kit";
-import { DashboardRoute } from "@seliseblocks/blocks-kit/layouts";
+} from "@seliseblocks/genesis-os";
+import { DashboardRoute } from "@seliseblocks/genesis-os/layouts";
 import { navigationMenus } from "./constants/navigation-menus";
 
 const redirectPaths: Record<string, string> = {

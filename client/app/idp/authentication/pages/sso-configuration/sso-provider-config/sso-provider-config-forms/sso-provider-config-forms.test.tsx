@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { SSO_PROVIDERS } from "@blocks-idp/authentication/constants/sso-providers.constant";
 
 const navigate = vi.fn();
-vi.mock("react-router-dom", () => ({ useNavigate: () => navigate }));
+vi.mock("react-router", () => ({ useNavigate: () => navigate }));
 
 vi.mock("@/store/use-project-store", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-1" } }),

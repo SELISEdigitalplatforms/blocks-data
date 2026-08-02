@@ -4,7 +4,6 @@ using DomainService.Storage.Validators;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Storage.DomainService.Services;
-using Storage.DomainService.Shared.Services;
 using Storage.DomainService.Storage;
 using Storage.DomainService.Storage.Validators;
 using StorageDriver;
@@ -22,10 +21,8 @@ namespace Blocks.Extension.DependencyInjection
             services.AddTransient<IValidator<LocalStorageUploadRequest>, LocalStorageUploadRequestValidator>();
 
             // Register services
-            services.AddSingleton<DmsArtifactBuilderFactory>();
             services.AddTransient<IValidator<UpdateFileRequest>, UpdateFileRequestValidator>();
             services.AddTransient<AwsS3CompatibleStorageService>();
-            services.AddSingleton<FileArtifactBuilder>();
             services.AddSingleton<IFileManagementService, FileManagementService>();
             services.AddSingleton<IFileRepository, FileRepository>();
             services.AddSingleton<IFileVersionRepository, FileVersionRepository>();

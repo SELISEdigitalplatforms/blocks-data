@@ -237,33 +237,6 @@ public class StorageControllerTests
         service.Verify(s => s.UpdateFileAsync(command), Times.Once);
     }
 
-    // ---------------- FilesController: null-command short circuits ----------------
-
-    [Fact]
-    public async Task UploadFile_ReturnsNullForANullCommand()
-    {
-        var (controller, service) = BuildFiles();
-
-        var result = await controller.UploadFile(null!);
-
-        result.Should().BeNull();
-        service.Verify(s => s.UploadFilesAsync(It.IsAny<UploadFilesRequest>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task UploadFile_DelegatesWhenTheCommandIsPresent()
-    {
-        var (controller, service) = BuildFiles();
-        var command = new UploadFilesRequest { Upload = [] };
-        service.Setup(s => s.UploadFilesAsync(command))
-            .ReturnsAsync(Response.Build().WithMessage("uploaded").WithStatusCode(System.Net.HttpStatusCode.OK));
-
-        var result = await controller.UploadFile(command);
-
-        result.Message.Should().Be("uploaded");
-        result.HttpStatusCode.Should().Be(System.Net.HttpStatusCode.OK);
-    }
-
     // ---------------- CertificateController has been retired; certificate upload
     // moves to the IDP service, where the PFX is owned.
 }

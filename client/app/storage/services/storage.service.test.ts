@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockHttpClientFactory } from "@/test-utils/__mocks__";
 import {
-  mockUploadDmsFileResponse,
   mockSuccessResponse,
-  mockUploadDmsFilePayload,
 } from "../test-utils/__mocks__";
 import { http } from "@/lib/http-client";
 import { StorageService } from "./storage.service";
@@ -147,30 +145,6 @@ describe("StorageService", () => {
       await expect(
         service.uploadPublicCertificateFile({ TenantId: "tenant-1", file }),
       ).rejects.toThrow("Certificate upload failed");
-    });
-  });
-
-  // ─── uploadDmsFile ─────────────────────────────────────────────────────────
-
-  describe("uploadDmsFile", () => {
-    it("should call correct endpoint with payload", async () => {
-      vi.mocked(http.post).mockResolvedValue(mockUploadDmsFileResponse);
-
-      const result = await service.uploadDmsFile(mockUploadDmsFilePayload);
-
-      expect(http.post).toHaveBeenCalledWith(
-        STORAGE_FILE_ENDPOINTS.UPLOAD_DMS_FILE,
-        mockUploadDmsFilePayload,
-      );
-      expect(result).toEqual(mockUploadDmsFileResponse);
-    });
-
-    it("should handle API errors", async () => {
-      vi.mocked(http.post).mockRejectedValue(new Error("DMS upload failed"));
-
-      await expect(service.uploadDmsFile(mockUploadDmsFilePayload)).rejects.toThrow(
-        "DMS upload failed",
-      );
     });
   });
 

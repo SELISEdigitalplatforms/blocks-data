@@ -1,14 +1,9 @@
-﻿using Amazon.S3.Model;
-using Blocks.Genesis;
+﻿using Blocks.Genesis;
 using DomainService.Storage;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using Pipelines.Sockets.Unofficial.Arenas;
 using Storage.DomainService.Dtos;
 using Storage.DomainService.Entities;
-using Storage.DomainService.Shared.Dtos;
-using Storage.DomainService.Shared.Entities;
-using Storage.DomainService.Shared.Enums;
 using Storage.DomainService.Storage;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
@@ -208,63 +203,6 @@ namespace Storage.DomainService.Services
                 : builder.Ascending(sortRequest.Property);
         }
 
-        public async Task<DmsArtifactList> GetDmsArtifactByNameAndParentIdAsync(string artifactName, string parentId)
-        {
-            var collection = GetCollection<DmsArtifact>();
-
-            var builder = Builders<DmsArtifact>.Filter;
-            var filters = new List<FilterDefinition<DmsArtifact>>();
-
-            if (!string.IsNullOrWhiteSpace(artifactName))
-                filters.Add(builder.Eq(u => u.Name, artifactName));
-
-            if (!string.IsNullOrWhiteSpace(parentId))
-                filters.Add(builder.Eq(u => u.ParentId, parentId));
-            var filter = filters.Any() ? builder.And(filters) : builder.Empty;
-            var projection = Builders<DmsArtifact>.Projection.As<DmsArtifact>();
-
-            var totalCount = await collection.CountDocumentsAsync(filter);
-
-            var options = new FindOptions<DmsArtifact, DmsArtifact>
-            {
-                Projection = projection
-            };
-
-            var cursor = await collection.FindAsync(filter, options);
-            var data = await cursor.ToListAsync();
-            var response = new DmsArtifactList
-            {
-                DmsArtifacts = data,
-                TotalCount = totalCount
-            };
-            return response;
-        }
-
-        public async Task SavedmsArtifactAsync(DmsArtifact dmsArtifact)
-        {
-            var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
-            var filter = Builders<DmsArtifact>.Filter.And(
-                Builders<DmsArtifact>.Filter.Eq(x => x.ArtifactType, (int)DmsArtifactType.File),
-                Builders<DmsArtifact>.Filter.Exists(x => x.FileStorageId, true),
-                Builders<DmsArtifact>.Filter.Eq(x => x.FileStorageId, dmsArtifact.FileStorageId)
-            );
-            var existingFile = await collection.Find(filter).FirstOrDefaultAsync();
-            if (existingFile == null)
-            {
-                await collection.InsertOneAsync(dmsArtifact);
-            }
-            else
-            {
-                dmsArtifact.ItemId = existingFile.ItemId;
-                await collection.ReplaceOneAsync(Builders<DmsArtifact>.Filter.Eq(e => e.ItemId, existingFile.ItemId), dmsArtifact);
-            }
-        }
-        public async Task SavedmsArtifactsAsync(List<DmsArtifact> dmsArtifacts)
-        {
-            var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
-            await collection.InsertManyAsync(dmsArtifacts);
-        }
-
         public async Task<FileVersion> GetFileVersions(string fileStorageId)
         {
             var collection = GetCollection<FileVersion>();
@@ -287,27 +225,6 @@ namespace Storage.DomainService.Services
             var data = await cursor.FirstOrDefaultAsync();
 
             return data;
-        }
-
-        public async Task<List<DmsArtifact>> GetDmsArtifactsAsync(FilterDefinition<DmsArtifact>? filter)
-        {
-            var collection = GetCollection<DmsArtifact>();
-            var findResult = await collection.FindAsync(filter ?? Builders<DmsArtifact>.Filter.Empty);
-            return await findResult.ToListAsync();
-        }
-
-        public async Task DeleteDmsArtifactFileAsync(string fileId)
-        {
-            var filter = Builders<DmsArtifact>.Filter.Eq(e => e.FileStorageId, fileId);
-            var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
-            await collection.DeleteOneAsync(filter);
-        }
-
-        public async Task DeleteDmsArtifactFilesAsync(IEnumerable<string> fileIds)
-        {
-            var filter = Builders<DmsArtifact>.Filter.In(e => e.FileStorageId, fileIds);
-            var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
-            await collection.DeleteManyAsync(filter);
         }
 
         public async Task DeleteFilesAsync(IEnumerable<File> files)

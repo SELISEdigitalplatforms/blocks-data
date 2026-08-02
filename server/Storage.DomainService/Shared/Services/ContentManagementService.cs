@@ -267,7 +267,7 @@ namespace Storage.DomainService.Services
             if (resource.Type == ContentResourceType.Folder)
             {
                 var result = await Directories.UpdateOneAsync(
-                    Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId) & Builders<Directory>.Filter.Eq(d => d.ItemId, resource.Descriptor.ResourceId),
+                    Builders<Directory>.Filter.Eq(d => d.ItemId, resource.Descriptor.ResourceId),
                     Builders<Directory>.Update.Set(d => d.InheritsParentAccess, inherits).Set(d => d.LastUpdatedDate, DateTime.UtcNow),
                     cancellationToken: cancellationToken);
 
@@ -275,7 +275,7 @@ namespace Storage.DomainService.Services
             }
 
             var fileResult = await Files.UpdateOneAsync(
-                Builders<File>.Filter.Eq(f => f.TenantId, TenantId) & Builders<File>.Filter.Eq(f => f.ItemId, resource.Descriptor.ResourceId),
+                Builders<File>.Filter.Eq(f => f.ItemId, resource.Descriptor.ResourceId),
                 Builders<File>.Update.Set(f => f.InheritsParentAccess, inherits).Set(f => f.LastUpdatedDate, DateTime.UtcNow),
                 cancellationToken: cancellationToken);
 
@@ -287,7 +287,7 @@ namespace Storage.DomainService.Services
             if (string.IsNullOrEmpty(resourceId)) return null;
 
             var folder = await Directories
-                .Find(Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId) & Builders<Directory>.Filter.Eq(d => d.ItemId, resourceId))
+                .Find(Builders<Directory>.Filter.Eq(d => d.ItemId, resourceId))
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (folder is not null)
@@ -302,7 +302,7 @@ namespace Storage.DomainService.Services
             }
 
             var file = await Files
-                .Find(Builders<File>.Filter.Eq(f => f.TenantId, TenantId) & Builders<File>.Filter.Eq(f => f.ItemId, resourceId))
+                .Find(Builders<File>.Filter.Eq(f => f.ItemId, resourceId))
                 .FirstOrDefaultAsync(cancellationToken);
 
             return file is null

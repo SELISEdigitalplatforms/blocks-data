@@ -76,7 +76,7 @@ namespace Storage.DomainService.Services
             limit = Math.Clamp(limit, 1, MaxVersionPageSize);
 
             var b = Builders<FileVersion>.Filter;
-            var filter = b.Eq(v => v.TenantId, TenantId) & b.Eq(v => v.FileId, fileId);
+            var filter = b.Eq(v => v.FileId, fileId);
 
             // Newest first, so the cursor walks downwards through version numbers.
             if (long.TryParse(cursor, out var after))
@@ -113,7 +113,7 @@ namespace Storage.DomainService.Services
             if (rejection is not null) return FileOperationResult.Failure(rejection.Value);
 
             await Files.UpdateOneAsync(
-                TenantScoped(Builders<File>.Filter.Eq(f => f.ItemId, fileId)),
+                Builders<File>.Filter.Eq(f => f.ItemId, fileId),
                 Builders<File>.Update
                     .Set(f => f.ParentDirectoryID, target.ItemId)
                     .Set(f => f.AncestorIds, AncestryOf(target))
@@ -196,7 +196,7 @@ namespace Storage.DomainService.Services
         {
             var b = Builders<FileVersion>.Filter;
             var sourceVersions = await Versions
-                .Find(b.Eq(v => v.TenantId, TenantId) & b.Eq(v => v.FileId, source.ItemId))
+                .Find(b.Eq(v => v.FileId, source.ItemId))
                 .SortBy(v => v.No)
                 .ToListAsync(cancellationToken);
 
@@ -259,8 +259,7 @@ namespace Storage.DomainService.Services
             }
 
             var b = Builders<File>.Filter;
-            var clash = b.Eq(f => f.TenantId, TenantId)
-                        & b.Eq(f => f.ParentDirectoryID, target.ItemId)
+            var clash = b.Eq(f => f.ParentDirectoryID, target.ItemId)
                         & b.Eq(f => f.Name, file.Name)
                         & b.Eq(f => f.IsArchived, false);
 
@@ -280,16 +279,13 @@ namespace Storage.DomainService.Services
         private Task<File> FindFileAsync(string fileId, CancellationToken cancellationToken) =>
             string.IsNullOrEmpty(fileId)
                 ? Task.FromResult<File>(null!)
-                : Files.Find(TenantScoped(Builders<File>.Filter.Eq(f => f.ItemId, fileId))).FirstOrDefaultAsync(cancellationToken);
+                : Files.Find(Builders<File>.Filter.Eq(f => f.ItemId, fileId)).FirstOrDefaultAsync(cancellationToken);
 
         private Task<Directory> FindFolderAsync(string folderId, CancellationToken cancellationToken) =>
             string.IsNullOrEmpty(folderId)
                 ? Task.FromResult<Directory>(null!)
                 : Directories
-                    .Find(Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId) & Builders<Directory>.Filter.Eq(d => d.ItemId, folderId))
+                    .Find(Builders<Directory>.Filter.Eq(d => d.ItemId, folderId))
                     .FirstOrDefaultAsync(cancellationToken);
-
-        private static FilterDefinition<File> TenantScoped(FilterDefinition<File> filter) =>
-            Builders<File>.Filter.Eq(f => f.TenantId, TenantId) & filter;
     }
 }

@@ -922,33 +922,6 @@ namespace Storage.DomainService.Services
             return dmsResponse;
         }
 
-        public async Task<DmsResponse> CreateFolderAsync(CreateFolderRequest command)
-        {
-            var responses = new List<CreateFolderResponse>();
-
-            var artifactBuilder = _artifactBuilderFactory.CreateArtifactBuilder(DmsArtifactType.Folder);
-
-            var response = await artifactBuilder.CreateArtifact(command);
-
-            if (response.Result == null || response.Result.Success == false)
-            {
-                response.WithMessage("Failed to upload file");
-
-            }
-
-            responses.Add(new CreateFolderResponse
-            {
-                Success = true
-            });
-
-            var dmsResponse = Response.Build()
-                .WithResult(responses)
-                .WithStatusCode(HttpStatusCode.OK)
-                .WithMessage("Upload Files");
-
-            return dmsResponse;
-        }
-
         public async Task<BaseResponse> DeleteFolderAsync(DeleteFolderRequest deleteFolderRequest)
         {
             if (string.IsNullOrEmpty(deleteFolderRequest.FolderId))

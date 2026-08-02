@@ -306,30 +306,6 @@ public class StorageControllerTests
         result.HttpStatusCode.Should().Be(System.Net.HttpStatusCode.OK);
     }
 
-    [Fact]
-    public async Task CreateFolder_ReturnsNullForANullCommand()
-    {
-        var (controller, service) = BuildFiles();
-
-        var result = await controller.CreateFolder(null!);
-
-        result.Should().BeNull();
-        service.Verify(s => s.CreateFolderAsync(It.IsAny<CreateFolderRequest>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task CreateFolder_DelegatesWhenTheCommandIsPresent()
-    {
-        var (controller, service) = BuildFiles();
-        var command = new CreateFolderRequest { ArtifactName = "docs" };
-        service.Setup(s => s.CreateFolderAsync(command))
-            .ReturnsAsync(Response.Build().WithResult(new { Id = "folder-1" }));
-
-        var result = await controller.CreateFolder(command);
-
-        ((object)result.Result).Should().NotBeNull();
-    }
-
     // ---------------- CertificateController ----------------
 
     [Fact]

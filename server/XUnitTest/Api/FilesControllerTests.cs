@@ -214,22 +214,5 @@ namespace XUnitTest.Api
             (await _sut.UploadFile(null!)).Should().BeNull();
             _files.Verify(f => f.UploadFilesAsync(It.IsAny<UploadFilesRequest>()), Times.Never);
         }
-
-        [Fact]
-        public async Task CreateFolder_ForwardsTheCommand()
-        {
-            var command = new CreateFolderRequest();
-            var expected = new DmsResponse();
-            _files.Setup(f => f.CreateFolderAsync(command)).ReturnsAsync(expected);
-
-            (await _sut.CreateFolder(command)).Should().BeSameAs(expected);
-        }
-
-        [Fact]
-        public async Task CreateFolder_ReturnsNullForANullCommand()
-        {
-            (await _sut.CreateFolder(null!)).Should().BeNull();
-            _files.Verify(f => f.CreateFolderAsync(It.IsAny<CreateFolderRequest>()), Times.Never);
-        }
     }
 }

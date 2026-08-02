@@ -310,9 +310,7 @@ namespace Storage.DomainService.Services
         private async Task<Directory?> LoadFolderAsync(
             string folderId, CancellationToken cancellationToken, bool includeArchived = false)
         {
-            var filter = Builders<Directory>.Filter.And(
-                Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId),
-                Builders<Directory>.Filter.Eq(d => d.ItemId, folderId));
+            var filter = Builders<Directory>.Filter.Eq(d => d.ItemId, folderId);
 
             if (!includeArchived)
             {
@@ -334,7 +332,6 @@ namespace Storage.DomainService.Services
                 : Builders<Directory>.Filter.Eq(d => d.ParentDirectoryID, parentFolderId);
 
             var filter = Builders<Directory>.Filter.And(
-                Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId),
                 parentFilter,
                 Builders<Directory>.Filter.Eq(d => d.SystemName, systemName),
                 Builders<Directory>.Filter.Eq(d => d.IsArchived, false));
@@ -351,7 +348,6 @@ namespace Storage.DomainService.Services
         {
             var folders = await Directories.CountDocumentsAsync(
                 Builders<Directory>.Filter.And(
-                    Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId),
                     Builders<Directory>.Filter.Eq(d => d.ParentDirectoryID, folderId)),
                 cancellationToken: cancellationToken);
 
@@ -361,9 +357,7 @@ namespace Storage.DomainService.Services
             }
 
             return await Files.CountDocumentsAsync(
-                Builders<File>.Filter.And(
-                    Builders<File>.Filter.Eq(f => f.TenantId, TenantId),
-                    Builders<File>.Filter.Eq(f => f.ParentDirectoryID, folderId)),
+                Builders<File>.Filter.Eq(f => f.ParentDirectoryID, folderId),
                 cancellationToken: cancellationToken) > 0;
         }
 

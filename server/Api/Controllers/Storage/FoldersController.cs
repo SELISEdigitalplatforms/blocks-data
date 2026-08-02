@@ -1,5 +1,6 @@
 using Blocks.Genesis;
 using DomainService.Storage.Dms;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Services;
 
@@ -38,7 +39,8 @@ namespace Api.Controllers
 
         /// <summary>Creates a folder beneath an existing parent.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::create-folder")]
+        [Authorize]
+        // [ProtectedEndPoint("blocks-data::create-folder")]
         public async Task<IActionResult> CreateFolder([FromBody] CreateFolderRequest request)
         {
             if (string.IsNullOrWhiteSpace(request?.ParentFolderId))
@@ -58,7 +60,8 @@ namespace Api.Controllers
 
         /// <summary>Creates a folder at the root of the tenant.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::create-root-folder")]
+        [Authorize]
+        //[ProtectedEndPoint("blocks-data::create-root-folder")]
         public async Task<IActionResult> CreateRootFolder([FromBody] CreateFolderRequest request)
         {
             var result = await _folderManagementService.CreateFolderAsync(
@@ -70,7 +73,8 @@ namespace Api.Controllers
 
         /// <summary>Folder details plus the operations the caller holds on it.</summary>
         [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-folder")]
+        [Authorize]
+        // [ProtectedEndPoint("blocks-data::get-folder")]
         public async Task<IActionResult> GetFolder([FromQuery] string folderId)
         {
             var result = await _folderManagementService.GetFolderAsync(folderId);
@@ -85,7 +89,8 @@ namespace Api.Controllers
 
         /// <summary>Access-resolved, cursor-paginated children of a folder.</summary>
         [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-folder-children")]
+        [Authorize]
+        // [ProtectedEndPoint("blocks-data::get-folder-children")]
         public async Task<IActionResult> GetFolderChildren([FromQuery] GetFolderChildrenRequest request)
         {
             var page = await _contentListingService.GetVisibleChildrenAsync(
@@ -96,7 +101,8 @@ namespace Api.Controllers
 
         /// <summary>Renames a folder or updates its description.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::update-folder")]
+        [Authorize]
+        // [ProtectedEndPoint("blocks-data::update-folder")]
         public async Task<IActionResult> UpdateFolder([FromBody] UpdateFolderRequest request)
         {
             var result = await _folderManagementService.UpdateFolderAsync(
@@ -113,7 +119,8 @@ namespace Api.Controllers
 
         /// <summary>Moves a folder to the trash, or removes it permanently.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::delete-folder")]
+        [Authorize]
+        // [ProtectedEndPoint("blocks-data::delete-folder")]
         public async Task<IActionResult> DeleteFolder([FromBody] DeleteFolderContentRequest request)
         {
             var result = await _folderManagementService.DeleteFolderAsync(request.FolderId, request.Permanent);
@@ -129,7 +136,8 @@ namespace Api.Controllers
 
         /// <summary>Re-parents a folder and rewrites the cached ancestry beneath it.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::move-folder")]
+        [Authorize]
+        // [ProtectedEndPoint("blocks-data::move-folder")]
         public async Task<IActionResult> MoveFolder([FromBody] MoveFolderRequest request)
         {
             var result = await _contentHierarchyService.MoveFolderAsync(request.FolderId, request.TargetFolderId);

@@ -145,7 +145,11 @@ export interface FileVersionsResponse {
 }
 
 export interface DmsChildrenQuery {
-  folderId: string;
+  /**
+   * The folder whose children to list. Empty/undefined lists the root, which is what the
+   * storage page renders before any folder has been opened.
+   */
+  folderId?: string;
   cursor?: string;
   limit?: number;
   type?: DmsItemType;

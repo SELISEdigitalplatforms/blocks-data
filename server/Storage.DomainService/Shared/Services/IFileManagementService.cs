@@ -21,7 +21,6 @@ namespace Storage.DomainService.Services
         Task<BaseMutationResponse> UpdateFileAsync(UpdateFileRequest command);
         Task<GetDmsFileAndFolderResponse> GetDmsFileAndFolder(GetDmsFileAndFolderRequest command);
         Task<DmsResponse> UploadFilesAsync(UploadFilesRequest command);
-        Task<DmsResponse> CreateFolderAsync(CreateFolderRequest command);
         Task<BaseResponse> DeleteFolderAsync(DeleteFolderRequest deleteFolderRequest);
     }
 }

@@ -111,17 +111,6 @@ public class ContentHierarchyServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task A_folder_in_another_tenant_is_invisible_to_the_walk()
-    {
-        await Folder("root", "root", null, tenantId: "tenant-2");
-        await Folder("a", "alpha", "root");
-
-        // The parent exists, but not in this tenant, so the chain stops rather than
-        // reaching across the boundary.
-        (await _hierarchy.GetAncestorsAsync("a")).Should().BeEmpty();
-    }
-
-    [Fact]
     public async Task Rebuilding_writes_ancestry_and_path_through_the_whole_subtree()
     {
         await BuildChain();

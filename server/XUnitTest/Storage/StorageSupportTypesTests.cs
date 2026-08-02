@@ -336,7 +336,9 @@ public class StorageSupportTypesTests
     [Fact]
     public void ArtifactBaseRequest_CarriesTheSharedArtifactFields()
     {
-        var request = new CreateFolderRequest
+        // UploadFileRequest is the only remaining ArtifactBaseRequest subclass now that the
+        // legacy folder-create request has been retired, so it stands in for the base fields.
+        var request = new UploadFileRequest
         {
             ItemId = "folder-1",
             ArtifactName = "docs",

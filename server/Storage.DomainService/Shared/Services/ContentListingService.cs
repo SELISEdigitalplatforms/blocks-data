@@ -1,5 +1,4 @@
 using Blocks.Genesis;
-using MongoDB.Driver;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Directory = Storage.DomainService.Entities.Directory;
@@ -22,11 +21,13 @@ namespace Storage.DomainService.Services
     /// Cursor-paginated children listing that only returns what the caller may see.
     /// </summary>
     /// <remarks>
-    /// Children live in two collections, so each page is assembled by reading a bounded
-    /// slice of both and merging on the shared sort key. Access filtering happens after
-    /// the read, which means a page can come back short; the loop keeps pulling until it
-    /// has a full page or the stream runs out, so callers never see a short page that
-    /// still has more behind it.
+    /// No Mongo access lives here. Reads go through <see cref="IDirectoryRepository"/> and
+    /// <see cref="IFileRepository"/>, so the listing concerns (access resolution, merging
+    /// folders-ahead-of-files, pagination cursor) sit one layer above the data access ones
+    /// (filter building, keyset predicates, tenant scoping). Each page is assembled by reading
+    /// a bounded slice of both kinds and merging on the shared sort key; access filtering happens
+    /// after the read, which means a page can come back short, so the loop keeps pulling until it
+    /// has a full page or the stream runs out.
     /// </remarks>
     public class ContentListingService : IContentListingService
     {
@@ -36,22 +37,19 @@ namespace Storage.DomainService.Services
         // heavily restricted folder cannot turn one request into an unbounded scan.
         private const int MaxRoundsPerPage = 20;
 
-        private readonly IDbContextProvider _dbContextProvider;
+        private readonly IDirectoryRepository _directoryRepository;
+        private readonly IFileRepository _fileRepository;
         private readonly IContentAccessResolver _resolver;
 
-        public ContentListingService(IDbContextProvider dbContextProvider, IContentAccessResolver resolver)
+        public ContentListingService(
+            IDirectoryRepository directoryRepository,
+            IFileRepository fileRepository,
+            IContentAccessResolver resolver)
         {
-            _dbContextProvider = dbContextProvider;
+            _directoryRepository = directoryRepository;
+            _fileRepository = fileRepository;
             _resolver = resolver;
         }
-
-        private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
-
-        private IMongoCollection<Directory> Directories =>
-            _dbContextProvider.GetCollection<Directory>("Directories");
-
-        private IMongoCollection<File> Files =>
-            _dbContextProvider.GetCollection<File>("Files");
 
         public async Task<VisibleChildrenPage> GetVisibleChildrenAsync(
             string parentId,
@@ -63,18 +61,31 @@ namespace Storage.DomainService.Services
         {
             limit = Math.Clamp(limit, 1, MaxLimit);
 
+            // The root listing has no parent folder to gate visibility against, so it is
+            // open to any caller that already holds the endpoint permission; per-item
+            // resolution below still hides folders the caller may not see. Root listings
+            // also default to folders only, because files only acquire a parent on upload.
+            var isRoot = string.IsNullOrWhiteSpace(parentId);
+
             // The pure-inherit shortcut below is only sound for children of a parent the
             // caller can already see: it assumes a child's effective policy is a superset
             // of the parent's. Without this gate any caller could list any folder's
             // inheriting children, so the parent check is load bearing, not defensive.
-            if (!await CanViewParentAsync(parentId, cancellationToken))
+            Directory? parent = null;
+            if (!isRoot)
             {
-                return new VisibleChildrenPage();
+                parent = await _directoryRepository.FindByIdAsync(parentId, includeArchived: false, cancellationToken);
+                if (parent is null || !await CanViewAsync(parent, cancellationToken))
+                {
+                    return new VisibleChildrenPage();
+                }
             }
+
+            var effectiveType = isRoot && type is null ? StructureType.Directory : type;
 
             var page = new VisibleChildrenPage
             {
-                TotalChildCount = await CountChildrenAsync(parentId, type, search, cancellationToken),
+                TotalChildCount = await CountChildrenAsync(parentId, effectiveType, search, cancellationToken),
             };
 
             var position = ContentCursor.Decode(cursor);
@@ -83,9 +94,8 @@ namespace Storage.DomainService.Services
 
             for (var round = 0; round < MaxRoundsPerPage && visible.Count <= limit && !exhausted; round++)
             {
-                // One extra row tells us whether anything follows this page without a
-                // second query.
-                var batch = await ReadMergedSliceAsync(parentId, position, limit + 1, type, search, cancellationToken);
+                // One extra row tells us whether anything follows this page without a second query.
+                var batch = await ReadMergedSliceAsync(parentId, position, limit + 1, effectiveType, search, cancellationToken);
                 if (batch.Count == 0)
                 {
                     exhausted = true;
@@ -126,90 +136,37 @@ namespace Storage.DomainService.Services
             return page;
         }
 
-        /// <summary>
-        /// Resolves View on the folder being listed. A folder that does not exist in this
-        /// tenant is treated as not viewable, so a probe for an unknown id cannot be used
-        /// to tell an empty folder apart from one the caller may not see.
-        /// </summary>
-        private async Task<bool> CanViewParentAsync(string parentId, CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrEmpty(parentId)) return false;
-
-            var b = Builders<Directory>.Filter;
-            var parent = await Directories
-                .Find(b.Eq(d => d.TenantId, TenantId) & b.Eq(d => d.ItemId, parentId))
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (parent is null) return false;
-
-            return await _resolver.ResolveAsync(
-                new ContentResourceDescriptor
-                {
-                    ResourceId = parent.ItemId,
-                    AncestorIds = parent.AncestorIds ?? new(),
-                    InheritsParentAccess = parent.InheritsParentAccess,
-                    CreatedBy = parent.CreatedBy,
-                },
-                ContentPermission.View,
-                cancellationToken);
-        }
+        private async Task<bool> CanViewAsync(Directory parent, CancellationToken cancellationToken)
+            => await _resolver.ResolveAsync(Describe(parent), ContentPermission.View, cancellationToken);
 
         private async Task<long> CountChildrenAsync(string parentId, StructureType? type, string? search, CancellationToken cancellationToken)
         {
             long total = 0;
+            var ctx = BlocksContext.GetContext();
+            Console.WriteLine($"TenantId: {ctx.TenantId}, original TenantId: {ctx.OriginalTenantId}, UserId: {ctx.UserId}, Roles: {string.Join(", ", ctx.Roles)}");
 
             if (type is null or StructureType.Directory)
             {
-                total += await Directories.CountDocumentsAsync(DirectoryFilter(parentId, search), cancellationToken: cancellationToken);
+                total += await _directoryRepository.CountChildrenAsync(parentId, search, cancellationToken);
             }
 
             if (type is null or StructureType.File)
             {
-                total += await Files.CountDocumentsAsync(FileFilter(parentId, search), cancellationToken: cancellationToken);
+                total += await _fileRepository.CountChildrenAsync(parentId, search, cancellationToken);
             }
 
             return total;
         }
 
-        private FilterDefinition<Directory> DirectoryFilter(string parentId, string? search)
-        {
-            var b = Builders<Directory>.Filter;
-            var filter = b.Eq(d => d.TenantId, TenantId)
-                         & b.Eq(d => d.ParentDirectoryID, parentId)
-                         & b.Eq(d => d.IsArchived, false);
-
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                filter &= b.Regex(d => d.Name, new MongoDB.Bson.BsonRegularExpression(Escape(search), "i"));
-            }
-
-            return filter;
-        }
-
-        private FilterDefinition<File> FileFilter(string parentId, string? search)
-        {
-            var b = Builders<File>.Filter;
-            var filter = b.Eq(f => f.TenantId, TenantId)
-                         & b.Eq(f => f.ParentDirectoryID, parentId)
-                         & b.Eq(f => f.IsArchived, false);
-
-            if (!string.IsNullOrWhiteSpace(search))
-            {
-                filter &= b.Regex(f => f.Name, new MongoDB.Bson.BsonRegularExpression(Escape(search), "i"));
-            }
-
-            return filter;
-        }
-
         /// <summary>
-        /// Reads at most <paramref name="take"/> rows past the cursor from each side and
-        /// merges them into one ordered stream.
+        /// Reads at most <paramref name="take"/> rows past the cursor from each kind and merges
+        /// them into one ordered stream.
         /// </summary>
         /// <remarks>
-        /// Because folders sort ahead of files, the cursor's type says which collections
-        /// can still contribute: once the position is in the files, no folder can follow.
-        /// The keyset predicate and the limit are both pushed into the query, so a folder
-        /// with many thousands of children never loads more than a page at a time.
+        /// Folders sort ahead of files, so the cursor's type says which kinds can still
+        /// contribute: once the position is in the files, no folder can follow. Each repo applies
+        /// both the keyset predicate and the limit inside the query, so a folder with many
+        /// thousands of children never loads more than a page at a time.
         /// </remarks>
         private async Task<List<ChildRow>> ReadMergedSliceAsync(
             string parentId, ContentCursor? position, int take, StructureType? type, string? search, CancellationToken cancellationToken)
@@ -222,32 +179,25 @@ namespace Storage.DomainService.Services
 
             if (wantDirectories)
             {
-                var filter = DirectoryFilter(parentId, search);
-                if (position?.Type == StructureType.Directory)
-                {
-                    filter &= AfterKey<Directory>(position.Name, position.ItemId, nameof(Directory.Name));
-                }
+                // The cursor continues from inside the directories until it crosses into the files.
+                var afterName = position?.Type == StructureType.Directory ? position.Name : null;
+                var afterId = position?.Type == StructureType.Directory ? position.ItemId : null;
 
-                var directories = await Directories.Find(filter)
-                    .SortBy(d => d.Name).ThenBy(d => d.ItemId)
-                    .Limit(take)
-                    .ToListAsync(cancellationToken);
+                var directories = await _directoryRepository.FindChildrenAsync(
+                    parentId, afterName, afterId, take, search, cancellationToken);
 
                 rows.AddRange(directories.Select(ChildRow.From));
             }
 
             if (wantFiles)
             {
-                var filter = FileFilter(parentId, search);
-                if (position?.Type == StructureType.File)
-                {
-                    filter &= AfterKey<File>(position.Name, position.ItemId, nameof(File.Name));
-                }
+                // Once we have crossed into files the cursor only continues the file stream; before
+                // that there is no "after" file to skip past.
+                var afterName = position?.Type == StructureType.File ? position.Name : null;
+                var afterId = position?.Type == StructureType.File ? position.ItemId : null;
 
-                var files = await Files.Find(filter)
-                    .SortBy(f => f.Name).ThenBy(f => f.ItemId)
-                    .Limit(take)
-                    .ToListAsync(cancellationToken);
+                var files = await _fileRepository.FindChildrenAsync(
+                    parentId, afterName, afterId, take, search, cancellationToken);
 
                 rows.AddRange(files.Select(ChildRow.From));
             }
@@ -258,19 +208,13 @@ namespace Storage.DomainService.Services
                 .ToList();
         }
 
-        /// <summary>
-        /// Keyset predicate for a compound (name, id) sort: strictly greater by name, or
-        /// equal by name and strictly greater by id. Using a plain "greater than name"
-        /// would skip every sibling that shares a name with the page boundary.
-        /// </summary>
-        private static FilterDefinition<T> AfterKey<T>(string name, string itemId, string nameField)
+        private static ContentResourceDescriptor Describe(Directory folder) => new()
         {
-            var b = Builders<T>.Filter;
-            return b.Gt(nameField, name)
-                   | (b.Eq(nameField, name) & b.Gt("_id", itemId));
-        }
-
-        private static string Escape(string value) => System.Text.RegularExpressions.Regex.Escape(value);
+            ResourceId = folder.ItemId,
+            AncestorIds = folder.AncestorIds ?? new List<string>(),
+            InheritsParentAccess = folder.InheritsParentAccess,
+            CreatedBy = folder.CreatedBy,
+        };
 
         private sealed class ChildRow
         {

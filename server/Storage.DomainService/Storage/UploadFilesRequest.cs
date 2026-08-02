@@ -11,9 +11,4 @@ namespace Storage.DomainService.Storage
     {
         public string FileStorageId { get; set; }
     }
-
-    public class CreateFolderRequest : ArtifactBaseRequest
-    {
-        public string FileStorageId { get; set; }
-    }
 }

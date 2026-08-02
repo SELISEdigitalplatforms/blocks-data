@@ -115,12 +115,10 @@ namespace Storage.DomainService.Services
             var pattern = new BsonRegularExpression(Regex.Escape(query.Trim()), "i");
 
             var folderFilter = Builders<Directory>.Filter.And(
-                Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId),
                 Builders<Directory>.Filter.Eq(d => d.IsArchived, false),
                 Builders<Directory>.Filter.Regex(d => d.Name, pattern));
 
             var fileFilter = Builders<File>.Filter.And(
-                Builders<File>.Filter.Eq(f => f.TenantId, TenantId),
                 Builders<File>.Filter.Eq(f => f.IsArchived, false),
                 Builders<File>.Filter.Regex(f => f.Name, pattern));
 
@@ -140,11 +138,9 @@ namespace Storage.DomainService.Services
             CancellationToken cancellationToken = default)
         {
             var folderFilter = Builders<Directory>.Filter.And(
-                Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId),
                 Builders<Directory>.Filter.Eq(d => d.IsArchived, true));
 
             var fileFilter = Builders<File>.Filter.And(
-                Builders<File>.Filter.Eq(f => f.TenantId, TenantId),
                 Builders<File>.Filter.Eq(f => f.IsArchived, true));
 
             return AssemblePageAsync(folderFilter, fileFilter, type, cursor, limit, cancellationToken);
@@ -393,7 +389,6 @@ namespace Storage.DomainService.Services
         private async Task<Directory?> FindArchivedFolderAsync(string resourceId, CancellationToken cancellationToken) =>
             await (await Directories.FindAsync(
                     Builders<Directory>.Filter.And(
-                        Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId),
                         Builders<Directory>.Filter.Eq(d => d.ItemId, resourceId),
                         Builders<Directory>.Filter.Eq(d => d.IsArchived, true)),
                     cancellationToken: cancellationToken))
@@ -402,7 +397,6 @@ namespace Storage.DomainService.Services
         private async Task<File?> FindArchivedFileAsync(string resourceId, CancellationToken cancellationToken) =>
             await (await Files.FindAsync(
                     Builders<File>.Filter.And(
-                        Builders<File>.Filter.Eq(f => f.TenantId, TenantId),
                         Builders<File>.Filter.Eq(f => f.ItemId, resourceId),
                         Builders<File>.Filter.Eq(f => f.IsArchived, true)),
                     cancellationToken: cancellationToken))

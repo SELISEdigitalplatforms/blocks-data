@@ -26,7 +26,6 @@ namespace Blocks.Extension.DependencyInjection
             services.AddTransient<IValidator<UpdateFileRequest>, UpdateFileRequestValidator>();
             services.AddTransient<AwsS3CompatibleStorageService>();
             services.AddSingleton<FileArtifactBuilder>();
-            services.AddSingleton<FolderArtifactBuilder>();
             services.AddSingleton<IFileManagementService, FileManagementService>();
             services.AddSingleton<IFileRepository, FileRepository>();
             services.AddSingleton<IFileVersionRepository, FileVersionRepository>();

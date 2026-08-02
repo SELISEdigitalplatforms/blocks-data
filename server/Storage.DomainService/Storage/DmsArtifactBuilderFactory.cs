@@ -4,6 +4,11 @@ using Storage.DomainService.Shared.Services;
 
 namespace Storage.DomainService.Storage
 {
+    /// <summary>
+    /// Resolves the builder for an artifact kind. Folder creation now lives on
+    /// <c>FoldersController</c> / <c>FolderManagementService</c>, so the factory handles
+    /// only file artifacts; the folder builder and its registration have been retired.
+    /// </summary>
     public class DmsArtifactBuilderFactory
     {
         private readonly IServiceProvider _serviceProvider;
@@ -15,20 +20,12 @@ namespace Storage.DomainService.Storage
 
         public IArtifact CreateArtifactBuilder(DmsArtifactType artifactType)
         {
-            switch (artifactType)
+            if (artifactType == DmsArtifactType.File)
             {
-                case DmsArtifactType.File:
-                    {
-                        return _serviceProvider.GetService<FileArtifactBuilder>();
-                    }
-                case DmsArtifactType.Folder:
-                    {
-                        return _serviceProvider.GetService<FolderArtifactBuilder>();
-                    }
-                default:
-                    return null;
-
+                return _serviceProvider.GetService<FileArtifactBuilder>();
             }
+
+            return null;
         }
     }
 }

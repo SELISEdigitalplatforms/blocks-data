@@ -387,5 +387,59 @@ namespace Storage.DomainService.Services
             var config = await collection.Find(filter).FirstOrDefaultAsync();
             return config;
         }
+
+        public async Task<List<File>> FindChildrenAsync(
+            string parentId,
+            string? afterName,
+            string? afterId,
+            int take,
+            string? search,
+            CancellationToken cancellationToken = default)
+        {
+            var filter = BuildChildFileFilter(parentId, search);
+
+            if (!string.IsNullOrEmpty(afterName) && !string.IsNullOrEmpty(afterId))
+            {
+                var b = Builders<File>.Filter;
+                filter &= b.Gt(f => f.Name, afterName)
+                         | (b.Eq(f => f.Name, afterName) & b.Gt(f => f.ItemId, afterId));
+            }
+
+            var collection = _dbContextProvider.GetCollection<File>(string.Format("{0}s", typeof(File).Name));
+            return await collection.Find(filter)
+                .SortBy(f => f.Name).ThenBy(f => f.ItemId)
+                .Limit(take)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<long> CountChildrenAsync(string parentId, string? search, CancellationToken cancellationToken = default)
+        {
+            var collection = _dbContextProvider.GetCollection<File>(string.Format("{0}s", typeof(File).Name));
+            return await collection.CountDocumentsAsync(BuildChildFileFilter(parentId, search), cancellationToken: cancellationToken);
+        }
+
+        private static FilterDefinition<File> BuildChildFileFilter(string parentId, string? search)
+        {
+            var b = Builders<File>.Filter;
+            var filter = ParentFilter(b, f => f.ParentDirectoryID, parentId)
+                         & b.Eq(f => f.IsArchived, false);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                filter &= b.Regex(f => f.Name, new BsonRegularExpression(Escape(search), "i"));
+            }
+
+            return filter;
+        }
+
+        private static FilterDefinition<File> ParentFilter(
+            FilterDefinitionBuilder<File> b,
+            System.Linq.Expressions.Expression<Func<File, string?>> field,
+            string parentId)
+            => string.IsNullOrWhiteSpace(parentId)
+                ? b.Or(b.Eq(field, (string?)null), b.Eq(field, ""))
+                : b.Eq(field, parentId);
+
+        private static string Escape(string value) => System.Text.RegularExpressions.Regex.Escape(value);
     }
 }

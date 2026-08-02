@@ -52,7 +52,6 @@ namespace Storage.DomainService.Utilities
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
             services.AddSingleton<DmsArtifactBuilderFactory>();
             services.AddSingleton<FileArtifactBuilder>();
-            services.AddSingleton<FolderArtifactBuilder>();
             services.AddSingleton<IConfigurationRepository, ConfigurationRepository>();
             services.AddTransient<AzureBlobStorageService>();
             services.AddTransient<AwsS3StorageService>();

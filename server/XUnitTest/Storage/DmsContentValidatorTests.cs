@@ -87,11 +87,13 @@ public class DmsContentValidatorTests
     // Listing
 
     [Fact]
-    public void A_children_request_needs_a_folder_and_a_sane_page_size()
+    public void A_children_request_accepts_an_empty_folder_for_root_listings()
     {
         var validator = new GetFolderChildrenRequestValidator();
 
-        validator.Validate(new GetFolderChildrenRequest { FolderId = "" }).IsValid.Should().BeFalse();
+        // An empty folder id selects the root listing rather than being rejected, so the
+        // storage page can call the same endpoint before any folder has been opened.
+        validator.Validate(new GetFolderChildrenRequest { FolderId = "" }).IsValid.Should().BeTrue();
         validator.Validate(new GetFolderChildrenRequest { FolderId = "dir-1", Limit = 0 }).IsValid.Should().BeFalse();
         validator.Validate(new GetFolderChildrenRequest { FolderId = "dir-1", Limit = 201 }).IsValid.Should().BeFalse();
         validator.Validate(new GetFolderChildrenRequest { FolderId = "dir-1", Limit = 50 }).IsValid.Should().BeTrue();

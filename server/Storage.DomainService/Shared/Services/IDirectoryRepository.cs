@@ -5,6 +5,7 @@ namespace Storage.DomainService.Services
     public interface IDirectoryRepository
     {
         Task CreateDirectoryAsync(Directory directory);
+        Task CreateDirectoriesAsync(List<Directory> directories);
         Task<List<Directory>> GetDirectories(string directoryId);
         Task<Directory> GetDirectoryByItemIDAsync(string itemID);
         Task UpdateDirectory(Directory directory);
@@ -32,5 +33,13 @@ namespace Storage.DomainService.Services
 
         /// <summary>Raw, unfiltered child count for a folder, used as informational metadata.</summary>
         Task<long> CountChildrenAsync(string parentId, string? search, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Returns every non-archived folder in the tenant that carries the given
+        /// <paramref name="configurationName"/>. Used by the default-folder consumer to
+        /// clone the template tree (seeded with <c>ConfigurationName "Azure"</c>) for a
+        /// newly added storage configuration.
+        /// </summary>
+        Task<List<Directory>> GetByConfigurationNameAsync(string configurationName, CancellationToken cancellationToken = default);
     }
 }

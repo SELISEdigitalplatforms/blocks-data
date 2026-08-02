@@ -24,8 +24,15 @@ namespace Storage.DomainService.Services
 
         public async Task CreateDirectoryAsync(Directory directory)
         {
-            var entities = _dbContextProvider.GetCollection<Directory>(string.Format("{0}s", typeof(Directory).Name));
+            var entities = _dbContextProvider.GetCollection<Directory>(CollectionName);
             await entities.InsertOneAsync(directory);
+        }
+
+        public async Task CreateDirectoriesAsync(List<Directory> directories)
+        {
+            if (directories.Count == 0) return;
+            var entities = _dbContextProvider.GetCollection<Directory>(CollectionName);
+            await entities.InsertManyAsync(directories);
         }
 
         public async Task UpdateDirectory(Directory directory)
@@ -96,6 +103,18 @@ namespace Storage.DomainService.Services
         {
             var collection = _dbContextProvider.GetCollection<Directory>(CollectionName);
             return await collection.CountDocumentsAsync(BuildChildFilter(parentId, search), cancellationToken: cancellationToken);
+        }
+
+        public async Task<List<Directory>> GetByConfigurationNameAsync(string configurationName, CancellationToken cancellationToken = default)
+        {
+            var b = Builders<Directory>.Filter;
+            var filter = b.Eq(d => d.ConfigurationName, configurationName)
+                         & b.Eq(d => d.IsArchived, false);
+
+            var collection = _dbContextProvider.GetCollection<Directory>(CollectionName);
+            return await collection.Find(filter)
+                .SortBy(d => d.Name).ThenBy(d => d.ItemId)
+                .ToListAsync(cancellationToken);
         }
 
         /// <summary>

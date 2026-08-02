@@ -1,25 +1,25 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
-using MongoDB.Driver;
 using Moq;
+using Storage.DomainService.Entities;
+using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
-using Storage.DomainService.Shared.Entities;
-using Storage.DomainService.Shared.Enums;
 using Storage.DomainService.Storage;
 using Worker.Consumers;
+using Directory = Storage.DomainService.Entities.Directory;
 
 namespace XUnitTest.Worker;
 
 public class CreateDefaultFolderEventConsumerTests
 {
-    private readonly Mock<IFileRepository> _fileRepository = new();
+    private readonly Mock<IDirectoryRepository> _directoryRepository = new();
     private readonly CreateDefaultFolderEventConsumer _consumer;
 
     public CreateDefaultFolderEventConsumerTests()
     {
         _consumer = new CreateDefaultFolderEventConsumer(
             NullLogger<CreateDefaultFolderEventConsumer>.Instance,
-            _fileRepository.Object);
+            _directoryRepository.Object);
     }
 
     private static CreateDefaultFolderEvent Event() => new()
@@ -30,104 +30,115 @@ public class CreateDefaultFolderEventConsumerTests
         ProjectKey = "proj-1",
     };
 
-    private static DmsArtifact Folder(string itemId, string parentId, string name) => new()
+    private static Directory Folder(string itemId, string? parentId, string name) => new()
     {
         ItemId = itemId,
-        ParentId = parentId,
+        ParentDirectoryID = parentId,
         Name = name,
-        ArtifactType = (int)DmsArtifactType.Folder,
+        SystemName = name.ToLower(),
         ConfigurationName = "Azure",
     };
 
-    private List<DmsArtifact> GivenFolders(params DmsArtifact[] folders)
+    private void GivenTemplates(params Directory[] folders)
     {
-        var list = folders.ToList();
-        _fileRepository
-            .Setup(r => r.GetDmsArtifactsAsync(It.IsAny<FilterDefinition<DmsArtifact>?>()))
-            .ReturnsAsync(list);
-        return list;
+        _directoryRepository
+            .Setup(r => r.GetByConfigurationNameAsync("Azure", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(folders.ToList());
+    }
+
+    private List<Directory> CaptureSaved()
+    {
+        var captured = new List<Directory>();
+        _directoryRepository
+            .Setup(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()))
+            .Callback<List<Directory>>(captured.AddRange)
+            .Returns(Task.CompletedTask);
+        return captured;
     }
 
     [Fact]
-    public async Task Consume_RepointsRootFoldersAtTheTargetStrategyAndSaves()
+    public async Task Consume_CreatesRootFoldersAsDirectoriesWithFreshIds()
     {
-        var folders = GivenFolders(Folder("root-1", string.Empty, "Documents"));
+        GivenTemplates(Folder("root-1", null, "Documents"));
+
+        var saved = CaptureSaved();
 
         await _consumer.Consume(Event());
 
-        _fileRepository.Verify(r => r.SavedmsArtifactsAsync(folders), Times.Once);
-        var root = folders.Single();
+        _directoryRepository.Verify(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()), Times.Once);
+        var root = saved.Single();
+        root.Name.Should().Be("Documents");
         root.ConfigurationName.Should().Be("S3Compatible");
-        root.ParentId.Should().BeEmpty("a root folder keeps its empty parent");
-        root.ItemId.Should().NotBe("root-1", "each copied folder gets a fresh id");
+        root.ParentDirectoryID.Should().BeNull("a root folder has no parent");
+        root.AncestorIds.Should().BeEmpty();
+        root.FullPath.Should().Be("/Documents");
+        root.SystemName.Should().Be("documents");
+        root.Type.Should().Be(StructureType.Directory);
+        root.ItemId.Should().NotBe("root-1", "each cloned folder gets a fresh id");
+        root.InheritsParentAccess.Should().BeTrue();
+        root.IsArchived.Should().BeFalse();
+        root.IsActive.Should().BeTrue();
     }
 
     [Fact]
-    public async Task Consume_RewiresChildrenToTheirParentsNewId()
+    public async Task Consume_WiresChildrenToTheirParentsNewIdAndBuildsAncestry()
     {
-        var folders = GivenFolders(
-            Folder("root-1", string.Empty, "Documents"),
+        GivenTemplates(
+            Folder("root-1", null, "Documents"),
             Folder("child-1", "root-1", "Invoices"),
             Folder("grandchild-1", "child-1", "2026"));
 
-        await _consumer.Consume(Event());
-
-        var root = folders.Single(f => f.Name == "Documents");
-        var child = folders.Single(f => f.Name == "Invoices");
-        var grandchild = folders.Single(f => f.Name == "2026");
-
-        child.ParentId.Should().Be(root.ItemId);
-        grandchild.ParentId.Should().Be(child.ItemId);
-        folders.Select(f => f.ItemId).Should().OnlyHaveUniqueItems();
-        folders.Should().OnlyContain(f => f.ConfigurationName == "S3Compatible");
-    }
-
-    [Fact]
-    public async Task Consume_LeavesFoldersWithNoMatchingParentUntouched()
-    {
-        // Parent id points at a folder that is not in the fetched set, so the recursion never
-        // reaches it and it is saved as-is.
-        var folders = GivenFolders(Folder("orphan-1", "missing-parent", "Orphan"));
+        var saved = CaptureSaved();
 
         await _consumer.Consume(Event());
 
-        var orphan = folders.Single();
-        orphan.ItemId.Should().Be("orphan-1");
-        orphan.ParentId.Should().Be("missing-parent");
-        orphan.ConfigurationName.Should().Be("Azure");
-        _fileRepository.Verify(r => r.SavedmsArtifactsAsync(folders), Times.Once);
+        saved.Should().HaveCount(3);
+        saved.Select(d => d.ItemId).Should().OnlyHaveUniqueItems();
+
+        var root = saved.Single(d => d.Name == "Documents");
+        var child = saved.Single(d => d.Name == "Invoices");
+        var grandchild = saved.Single(d => d.Name == "2026");
+
+        child.ParentDirectoryID.Should().Be(root.ItemId);
+        child.AncestorIds.Should().Equal(new[] { root.ItemId });
+        child.FullPath.Should().Be("/Documents/Invoices");
+
+        grandchild.ParentDirectoryID.Should().Be(child.ItemId);
+        grandchild.AncestorIds.Should().Equal(new[] { root.ItemId, child.ItemId });
+        grandchild.FullPath.Should().Be("/Documents/Invoices/2026");
+
+        saved.Should().OnlyContain(d => d.ConfigurationName == "S3Compatible");
     }
 
     [Fact]
-    public async Task Consume_SavesAnEmptySetWhenThereAreNoDefaultFolders()
+    public async Task Consume_DoesNotSaveAnythingWhenThereAreNoDefaultFolders()
     {
-        var folders = GivenFolders();
+        GivenTemplates();
 
         await _consumer.Consume(Event());
 
-        _fileRepository.Verify(r => r.SavedmsArtifactsAsync(folders), Times.Once);
-        folders.Should().BeEmpty();
+        _directoryRepository.Verify(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()), Times.Never);
     }
 
     [Fact]
-    public async Task Consume_SwallowsRepositoryFailures()
+    public async Task Consume_SwallowsTemplateFetchFailures()
     {
-        _fileRepository
-            .Setup(r => r.GetDmsArtifactsAsync(It.IsAny<FilterDefinition<DmsArtifact>?>()))
+        _directoryRepository
+            .Setup(r => r.GetByConfigurationNameAsync("Azure", It.IsAny<CancellationToken>()))
             .ThrowsAsync(new TimeoutException("mongo down"));
 
         var act = () => _consumer.Consume(Event());
 
         await act.Should().NotThrowAsync();
-        _fileRepository.Verify(r => r.SavedmsArtifactsAsync(It.IsAny<List<DmsArtifact>>()), Times.Never);
+        _directoryRepository.Verify(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()), Times.Never);
     }
 
     [Fact]
     public async Task Consume_SwallowsSaveFailures()
     {
-        GivenFolders(Folder("root-1", string.Empty, "Documents"));
-        _fileRepository
-            .Setup(r => r.SavedmsArtifactsAsync(It.IsAny<List<DmsArtifact>>()))
+        GivenTemplates(Folder("root-1", null, "Documents"));
+        _directoryRepository
+            .Setup(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()))
             .ThrowsAsync(new InvalidOperationException("write failed"));
 
         var act = () => _consumer.Consume(Event());

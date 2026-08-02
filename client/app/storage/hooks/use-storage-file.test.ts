@@ -10,11 +10,8 @@ import {
   mockGetFilePayload,
   mockGetFilesInfoPayload,
   mockDeleteFilePayload,
-  mockGetDmsFileAndFolderResponse,
-  mockGetDmsPayload,
   mockUploadDmsFileResponse,
   mockUploadDmsFilePayload,
-  mockCreateDmsFolderPayload,
   mockSuccessResponse,
   mockDeleteSuccessResponse,
 } from "../test-utils/__mocks__";
@@ -26,13 +23,10 @@ import {
   useGetFile,
   useLazyGetFile,
   useDeleteFile,
-  useDeleteFolder,
   useGetFilesInfo,
   useGetFilesDownload,
   usePublicCertificateFile,
-  useGetDmsFileAndFolder,
   useUploadDmsFile,
-  useCreateDmsFolder,
 } from "./use-storage-file";
 
 const mockGetState = vi.fn(() => ({
@@ -47,7 +41,6 @@ vi.mock("../services/storage.service", () => ({
     file: {
       getFileByFileId: vi.fn(),
       deleteFileByFileId: vi.fn(),
-      deleteFolderByFileId: vi.fn(),
       getPreSignedUrlForUpload: vi.fn(),
       getFilesInfoUrlForUpload: vi.fn(),
       getFilesDownloadUrl: vi.fn(),
@@ -55,9 +48,7 @@ vi.mock("../services/storage.service", () => ({
     uploadFile: vi.fn(),
     uploadFileToLocalStorage: vi.fn(),
     uploadPublicCertificateFile: vi.fn(),
-    getFilesAndFolders: vi.fn(),
     uploadDmsFile: vi.fn(),
-    createDmsFolder: vi.fn(),
   },
 }));
 
@@ -195,25 +186,6 @@ describe("Storage File Hooks", () => {
     });
   });
 
-  describe("useDeleteFolder", () => {
-    it("should delete a folder", async () => {
-      vi.mocked(storageService.file.deleteFolderByFileId).mockResolvedValue(
-        mockDeleteSuccessResponse,
-      );
-
-      const { result } = renderHook(() => useDeleteFolder(), {
-        wrapper: createWrapper(),
-      });
-
-      result.current.mutate(mockDeleteFilePayload);
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-      expect(storageService.file.deleteFolderByFileId).toHaveBeenCalledWith(
-        mockDeleteFilePayload,
-        expect.anything(),
-      );
-    });
-  });
-
   describe("useGetFilesInfo", () => {
     it("should fetch files info using the payload projectKey", async () => {
       vi.mocked(storageService.file.getFilesInfoUrlForUpload).mockResolvedValue(
@@ -296,25 +268,6 @@ describe("Storage File Hooks", () => {
     });
   });
 
-  describe("useGetDmsFileAndFolder", () => {
-    it("should fetch DMS files and folders", async () => {
-      vi.mocked(storageService.getFilesAndFolders).mockResolvedValue(
-        mockGetDmsFileAndFolderResponse,
-      );
-
-      const { result } = renderHook(() => useGetDmsFileAndFolder(), {
-        wrapper: createWrapper(),
-      });
-
-      result.current.mutate(mockGetDmsPayload);
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-      expect(storageService.getFilesAndFolders).toHaveBeenCalledWith(
-        mockGetDmsPayload,
-      );
-      expect(result.current.data).toEqual(mockGetDmsFileAndFolderResponse);
-    });
-  });
-
   describe("useUploadDmsFile", () => {
     it("should upload a DMS file", async () => {
       vi.mocked(storageService.uploadDmsFile).mockResolvedValue(
@@ -330,37 +283,6 @@ describe("Storage File Hooks", () => {
       expect(storageService.uploadDmsFile).toHaveBeenCalledWith(
         mockUploadDmsFilePayload,
       );
-    });
-  });
-
-  describe("useCreateDmsFolder", () => {
-    it("should create a DMS folder", async () => {
-      vi.mocked(storageService.createDmsFolder).mockResolvedValue(
-        mockSuccessResponse,
-      );
-
-      const { result } = renderHook(() => useCreateDmsFolder(), {
-        wrapper: createWrapper(),
-      });
-
-      result.current.mutate(mockCreateDmsFolderPayload);
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-      expect(storageService.createDmsFolder).toHaveBeenCalledWith(
-        mockCreateDmsFolderPayload,
-      );
-    });
-
-    it("should surface errors", async () => {
-      vi.mocked(storageService.createDmsFolder).mockRejectedValue(
-        new Error("create failed"),
-      );
-
-      const { result } = renderHook(() => useCreateDmsFolder(), {
-        wrapper: createWrapper(),
-      });
-
-      result.current.mutate(mockCreateDmsFolderPayload);
-      await waitFor(() => expect(result.current.isError).toBe(true));
     });
   });
 });

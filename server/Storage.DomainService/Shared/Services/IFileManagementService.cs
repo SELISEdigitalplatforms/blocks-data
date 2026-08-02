@@ -17,10 +17,7 @@ namespace Storage.DomainService.Services
         Task<GetFilesInfoResponse> GetFilesInfoAsync(GetFilesInfoRequest query);
         Task<BlobClient> GetBlobClientAsync(string tenantId);
 
-        Task<string> UploadPublicCertificateAsync(UploadCertificateRequest request);
         Task<BaseMutationResponse> UpdateFileAsync(UpdateFileRequest command);
-        Task<GetDmsFileAndFolderResponse> GetDmsFileAndFolder(GetDmsFileAndFolderRequest command);
         Task<DmsResponse> UploadFilesAsync(UploadFilesRequest command);
-        Task<BaseResponse> DeleteFolderAsync(DeleteFolderRequest deleteFolderRequest);
     }
 }

@@ -135,33 +135,12 @@ namespace Api.Controllers
             => UpdateFileAdditionalInfo(command);
 
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::get-dms-file-and-folder")]
-        public async Task<GetDmsFileAndFolderResponse> GetDmsFileAndFolder([FromBody] GetDmsFileAndFolderRequest command)
-        {
-            if (command == null) return new GetDmsFileAndFolderResponse();
-            return await _fileManagementService.GetDmsFileAndFolder(command);
-        }
-
-        [HttpPost]
         [ProtectedEndPoint("blocks-data::upload-file")]
         public async Task<DmsResponse> UploadFile([FromBody] UploadFilesRequest command)
         {
             if (command == null) return null;
 
             return await _fileManagementService.UploadFilesAsync(command);
-        }
-
-
-        /// <summary>
-        /// Deletes a folder based on the provided request.
-        /// </summary>
-        /// <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
-        /// <returns>A <see cref="BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::delete-folder")]
-        public async Task<BaseResponse> DeleteFolder([FromBody] DeleteFolderRequest request)
-        {
-            return await _fileManagementService.DeleteFolderAsync(request);
         }
     }
 }

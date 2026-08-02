@@ -208,61 +208,6 @@ namespace Storage.DomainService.Services
                 : builder.Ascending(sortRequest.Property);
         }
 
-        public async Task<DmsArtifactList> GetDmsArtifactAsync(GetDmsFileAndFolderRequest command)
-        {
-            var collection = GetCollection<DmsArtifact>();
-
-            var filter = BuildDmsFilter(command);
-            var projection = Builders<DmsArtifact>.Projection.As<DmsArtifact>();
-
-            var totalCount = await collection.CountDocumentsAsync(filter);
-
-            var options = new FindOptions<DmsArtifact, DmsArtifact>
-            {
-                Skip = command.Skip,
-                Limit = command.Take,
-                Projection = projection
-            };
-
-            var cursor = await collection.FindAsync(filter, options);
-            var data = await cursor.ToListAsync();
-            var response = new DmsArtifactList
-            {
-                DmsArtifacts = data,
-                TotalCount = totalCount
-            };
-            return response;
-        }
-
-        private FilterDefinition<DmsArtifact> BuildDmsFilter(GetDmsFileAndFolderRequest command)
-        {
-            var builder = Builders<DmsArtifact>.Filter;
-            var filters = new List<FilterDefinition<DmsArtifact>>();
-
-            if (!string.IsNullOrWhiteSpace(command.SearchKey))
-            {
-                var regex = new BsonRegularExpression(command.SearchKey, "i");
-                filters.Add(builder.Regex(u => u.Name, regex));
-            }
-
-            filters.Add(builder.Eq(u => u.ParentId, command.ParentId));
-
-            if (!string.IsNullOrWhiteSpace(command.ConfigurationName))
-            {
-                var defaultStorageConfiguration = GetDefaultConfiguration().GetAwaiter().GetResult();
-                if (command.ConfigurationName == defaultStorageConfiguration?.StorageStrategy || command.ConfigurationName == "Default")
-                    filters.Add(builder.In(u => u.ConfigurationName, [defaultStorageConfiguration?.StorageStrategy, "Default"]));
-                else
-                    filters.Add(builder.Eq(u => u.ConfigurationName, command.ConfigurationName));
-
-            }
-
-            if (!string.IsNullOrWhiteSpace(command.ModuleName))
-                filters.Add(builder.Eq(u => u.ModuleName, command.ModuleName));
-
-            return filters.Any() ? builder.And(filters) : builder.Empty;
-        }
-
         public async Task<DmsArtifactList> GetDmsArtifactByNameAndParentIdAsync(string artifactName, string parentId)
         {
             var collection = GetCollection<DmsArtifact>();
@@ -363,13 +308,6 @@ namespace Storage.DomainService.Services
             var filter = Builders<DmsArtifact>.Filter.In(e => e.FileStorageId, fileIds);
             var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
             await collection.DeleteManyAsync(filter);
-        }
-
-        public async Task DeleteDmsArtifactFolderAsync(string folderId)
-        {
-            var filter = Builders<DmsArtifact>.Filter.Eq(e => e.ItemId, folderId);
-            var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
-            await collection.DeleteOneAsync(filter);
         }
 
         public async Task DeleteFilesAsync(IEnumerable<File> files)

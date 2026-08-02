@@ -22,14 +22,12 @@ namespace Storage.DomainService.Services
         Task<List<File>> GetFiles(string parentDirectoryId);
         (IEnumerable<BsonDocument>, FileResponse[]) GetRequiredFiles(IEnumerable<string> fileIds, long? version);
         Task<(IQueryable<T>?, long)> GetFilesInfoAsync<T, R>(R query) where R : BaseGetsRequest<GetFilesInfoFilter>;
-        Task<DmsArtifactList> GetDmsArtifactAsync(GetDmsFileAndFolderRequest command);
         Task<DmsArtifactList> GetDmsArtifactByNameAndParentIdAsync(string artifactName, string parentId);
         Task SavedmsArtifactAsync(DmsArtifact dmsArtifact);
         Task SavedmsArtifactsAsync(List<DmsArtifact> dmsArtifacts);
         Task<FileVersion> GetFileVersions(string fileStorageId);
         Task<List<DmsArtifact>> GetDmsArtifactsAsync(FilterDefinition<DmsArtifact>? filter);
         Task DeleteDmsArtifactFileAsync(string fileId);
-        Task DeleteDmsArtifactFolderAsync(string folderId);
         Task DeleteFilesAsync(IEnumerable<File> files);
         Task DeleteDmsArtifactFilesAsync(IEnumerable<string> fileIds);
         Task<StorageConfiguration> GetDefaultConfiguration();

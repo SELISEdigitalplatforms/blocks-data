@@ -1,12 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockHttpClientFactory } from "@/test-utils/__mocks__";
 import {
-  mockGetDmsFileAndFolderResponse,
   mockUploadDmsFileResponse,
   mockSuccessResponse,
-  mockGetDmsPayload,
   mockUploadDmsFilePayload,
-  mockCreateDmsFolderPayload,
 } from "../test-utils/__mocks__";
 import { http } from "@/lib/http-client";
 import { StorageService } from "./storage.service";
@@ -153,30 +150,6 @@ describe("StorageService", () => {
     });
   });
 
-  // ─── getFilesAndFolders ────────────────────────────────────────────────────
-
-  describe("getFilesAndFolders", () => {
-    it("should call correct endpoint with payload", async () => {
-      vi.mocked(http.post).mockResolvedValue(mockGetDmsFileAndFolderResponse);
-
-      const result = await service.getFilesAndFolders(mockGetDmsPayload);
-
-      expect(http.post).toHaveBeenCalledWith(
-        STORAGE_FILE_ENDPOINTS.GET_DMS_FILE_AND_FOLDER,
-        mockGetDmsPayload,
-      );
-      expect(result).toEqual(mockGetDmsFileAndFolderResponse);
-    });
-
-    it("should handle API errors", async () => {
-      vi.mocked(http.post).mockRejectedValue(new Error("Failed to fetch DMS files"));
-
-      await expect(service.getFilesAndFolders(mockGetDmsPayload)).rejects.toThrow(
-        "Failed to fetch DMS files",
-      );
-    });
-  });
-
   // ─── uploadDmsFile ─────────────────────────────────────────────────────────
 
   describe("uploadDmsFile", () => {
@@ -197,30 +170,6 @@ describe("StorageService", () => {
 
       await expect(service.uploadDmsFile(mockUploadDmsFilePayload)).rejects.toThrow(
         "DMS upload failed",
-      );
-    });
-  });
-
-  // ─── createDmsFolder ───────────────────────────────────────────────────────
-
-  describe("createDmsFolder", () => {
-    it("should call correct endpoint with payload", async () => {
-      vi.mocked(http.post).mockResolvedValue(mockUploadDmsFileResponse);
-
-      const result = await service.createDmsFolder(mockCreateDmsFolderPayload);
-
-      expect(http.post).toHaveBeenCalledWith(
-        STORAGE_FILE_ENDPOINTS.CREATE_FOLDER,
-        mockCreateDmsFolderPayload,
-      );
-      expect(result).toEqual(mockUploadDmsFileResponse);
-    });
-
-    it("should handle API errors", async () => {
-      vi.mocked(http.post).mockRejectedValue(new Error("Folder creation failed"));
-
-      await expect(service.createDmsFolder(mockCreateDmsFolderPayload)).rejects.toThrow(
-        "Folder creation failed",
       );
     });
   });

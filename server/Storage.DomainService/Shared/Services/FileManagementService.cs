@@ -278,20 +278,6 @@ namespace Storage.DomainService.Services
                 });
         }
 
-        public async Task<string> UploadPublicCertificateAsync(UploadCertificateRequest request)
-        {
-            string blobName = request.IsThirdParty ? $"{request.TenantId}_3rdparty" : request.TenantId;
-            var blobContainerClient = await InitializeBlobContainerClientAsync();
-            var blobClient = blobContainerClient.GetBlobClient(blobName);
-
-            using (var stream = request.Certificate.OpenReadStream())
-            {
-                await blobClient.UploadAsync(stream, new BlobHttpHeaders { ContentType = request.Certificate.ContentType });
-            }
-
-            return blobClient.Uri.ToString();
-        }
-
         public async Task<FileResponse?> GetUrlForDownloadFileAsync(GetFileRequest request)
         {
             if (string.IsNullOrEmpty(request.FileId))
@@ -865,32 +851,6 @@ namespace Storage.DomainService.Services
             };
         }
 
-        public async Task<GetDmsFileAndFolderResponse> GetDmsFileAndFolder(GetDmsFileAndFolderRequest command)
-        {
-            var result = new GetDmsFileAndFolderResponse();
-
-            var response = await _fileRepository.GetDmsArtifactAsync(command);
-            result.TotalCount = response.TotalCount;
-            foreach (var artifact in response.DmsArtifacts)
-            {
-                var newArtifact = new DmsFileAndFolderInfo
-                {
-                    Description = artifact.Description,
-                    Extension = artifact.Extension,
-                    FileStorageId = artifact.FileStorageId,
-                    Name = artifact.Name,
-                    ParentId = artifact.ParentId,
-                    SizeInBytes = artifact.SizeInBytes,
-                    Type = artifact.ArtifactType,
-                    Version = artifact.Version,
-                    ItemId = artifact.ItemId,
-                    LastUpdatedDate = artifact.LastUpdatedDate
-                };
-                result.DmsFileAndFolderInfos.Add(newArtifact);
-            }
-            return result;
-        }
-
         public async Task<DmsResponse> UploadFilesAsync(UploadFilesRequest command)
         {
             var responses = new List<UploadFileResponse>();
@@ -920,61 +880,6 @@ namespace Storage.DomainService.Services
                 .WithMessage("Upload Files");
 
             return dmsResponse;
-        }
-
-        public async Task<BaseResponse> DeleteFolderAsync(DeleteFolderRequest deleteFolderRequest)
-        {
-            if (string.IsNullOrEmpty(deleteFolderRequest.FolderId))
-            {
-                return CreateErrorResponse<BaseResponse>("empty_folder_id", "folder_id_should_not_be_empty");
-            }
-
-            await _fileRepository.DeleteDmsArtifactFolderAsync(deleteFolderRequest.FolderId);
-
-            var response = CreateSuccessResponse<BaseResponse>();
-
-            var configuration = await GetConfigurationAsync(deleteFolderRequest.ConfigurationName);
-
-            if (configuration == null)
-            {
-                return response;
-            }
-
-            if (!StorageTypes.TryGetCategory(configuration.StorageStrategy, out var category))
-                return CreateErrorResponse<BaseResponse>("StorageStrategy", "wrong_storage_strategy_config");
-
-            var existingFiles = await _fileRepository.GetFiles(deleteFolderRequest.FolderId);
-
-            if (existingFiles == null || existingFiles.Count == 0)
-            {
-                return response;
-            }
-
-            var storageService = GetStorageService(configuration);
-            var context = BlocksContext.GetContext();
-            var tenantId = context?.TenantId ?? string.Empty;
-
-            if (category == StorageStrategyCategory.Local)
-            {
-                var successfullyDeleted = new List<File>();
-                foreach (var file in existingFiles)
-                {
-                    bool success = await DeleteSingleFileFromStorageAsync(storageService, category, file, tenantId);
-                    if (success)
-                        successfullyDeleted.Add(file);
-                }
-                if (successfullyDeleted.Count > 0)
-                    await CleanupDatabaseBulkAsync(successfullyDeleted);
-            }
-            else
-            {
-                await Task.WhenAll(existingFiles.Select(file =>
-                    DeleteSingleFileFromStorageAsync(storageService, category, file, tenantId)));
-
-                await CleanupDatabaseBulkAsync(existingFiles);
-            }
-
-            return response;
         }
     }
 }

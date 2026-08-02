@@ -147,18 +147,6 @@ public class StorageControllerTests
         result.FileVersion.Should().Be(2);
     }
 
-    [Fact]
-    public async Task DeleteFolder_DelegatesToTheService()
-    {
-        var (controller, service) = BuildFiles();
-        var request = new DeleteFolderRequest { FolderId = "folder-1" };
-        service.Setup(s => s.DeleteFolderAsync(request)).ReturnsAsync(new BaseResponse { IsSuccess = true });
-
-        var result = await controller.DeleteFolder(request);
-
-        result.IsSuccess.Should().BeTrue();
-    }
-
     // ---------------- FilesController: DownloadFile branches ----------------
 
     [Fact]
@@ -252,36 +240,6 @@ public class StorageControllerTests
     // ---------------- FilesController: null-command short circuits ----------------
 
     [Fact]
-    public async Task GetDmsFileAndFolder_ReturnsAnEmptyResponseForANullCommand()
-    {
-        var (controller, service) = BuildFiles();
-
-        var result = await controller.GetDmsFileAndFolder(null!);
-
-        result.DmsFileAndFolderInfos.Should().BeEmpty();
-        result.TotalCount.Should().Be(0);
-        service.Verify(s => s.GetDmsFileAndFolder(It.IsAny<GetDmsFileAndFolderRequest>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task GetDmsFileAndFolder_DelegatesWhenTheCommandIsPresent()
-    {
-        var (controller, service) = BuildFiles();
-        var command = new GetDmsFileAndFolderRequest { ParentId = "root" };
-        service.Setup(s => s.GetDmsFileAndFolder(command))
-            .ReturnsAsync(new GetDmsFileAndFolderResponse
-            {
-                TotalCount = 1,
-                DmsFileAndFolderInfos = [new DmsFileAndFolderInfo { ItemId = "a", Name = "a.txt" }]
-            });
-
-        var result = await controller.GetDmsFileAndFolder(command);
-
-        result.TotalCount.Should().Be(1);
-        result.DmsFileAndFolderInfos.Should().ContainSingle(info => info.ItemId == "a");
-    }
-
-    [Fact]
     public async Task UploadFile_ReturnsNullForANullCommand()
     {
         var (controller, service) = BuildFiles();
@@ -306,21 +264,6 @@ public class StorageControllerTests
         result.HttpStatusCode.Should().Be(System.Net.HttpStatusCode.OK);
     }
 
-    // ---------------- CertificateController ----------------
-
-    [Fact]
-    public async Task UploadCertificate_ReturnsTheDownloadUrlFromTheService()
-    {
-        var service = new Mock<IFileManagementService>();
-        var request = new UploadCertificateRequest { TenantId = "t1" };
-        service.Setup(s => s.UploadPublicCertificateAsync(request)).ReturnsAsync("https://cdn/cert.pfx");
-        var controller = new CertificateController(service.Object);
-
-        var result = await controller.UploadCertificate(request);
-
-        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.Value.Should().NotBeNull();
-        ok.Value!.GetType().GetProperty("DownloadUrl")!.GetValue(ok.Value)
-            .Should().Be("https://cdn/cert.pfx");
-    }
+    // ---------------- CertificateController has been retired; certificate upload
+    // moves to the IDP service, where the PFX is owned.
 }

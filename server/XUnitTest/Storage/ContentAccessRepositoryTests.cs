@@ -9,10 +9,10 @@ using XUnitTest.Infrastructure;
 namespace XUnitTest.Storage;
 
 /// <summary>
-/// Exercises the access-entry store against a real mongod. Tenant scoping and expiry are
-/// enforced by the query rather than by the caller, so they are only actually proven by
-/// running the queries; a mocked driver would assert the shape of a filter that might
-/// still return the wrong rows.
+/// Exercises the access-entry store against a real mongod. Expiry is enforced by the
+/// query rather than by the caller, so it is only actually proven by running the queries;
+/// a mocked driver would assert the shape of a filter that might still return the wrong rows.
+/// Tenant isolation is enforced by <see cref="IDbContextProvider"/>, not by query filters.
 /// </summary>
 [Collection("Mongo")]
 public class ContentAccessRepositoryTests : IDisposable
@@ -70,18 +70,6 @@ public class ContentAccessRepositoryTests : IDisposable
         found.Should().ContainSingle();
         found[0].ItemId.Should().Be(policy.ItemId);
         found[0].Permission.Should().Be(ContentPermission.View);
-    }
-
-    [Fact]
-    public async Task Entries_belonging_to_another_tenant_are_never_returned()
-    {
-        await _repository.GrantAsync(Policy("file-1"));
-        await _repository.GrantAsync(Policy("file-1", tenantId: "tenant-2"));
-
-        var found = await _repository.GetByResourceAsync("file-1");
-
-        found.Should().ContainSingle();
-        found[0].TenantId.Should().Be("tenant-1");
     }
 
     [Fact]
@@ -171,20 +159,6 @@ public class ContentAccessRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task Updating_cannot_reach_an_entry_in_another_tenant()
-    {
-        var foreign = Policy("file-1", tenantId: "tenant-2");
-        await _repository.GrantAsync(foreign);
-
-        foreign.Permission = ContentPermission.Owner;
-        await _repository.UpdateAsync(foreign);
-
-        var stored = await _db.GetCollection<ContentAccessPolicy>("ContentAccessPolicies")
-            .Find(p => p.ItemId == foreign.ItemId).SingleAsync();
-        stored.Permission.Should().Be(ContentPermission.View, "the update must not cross the tenant boundary");
-    }
-
-    [Fact]
     public async Task Revoking_removes_the_entry_and_reports_whether_it_existed()
     {
         var policy = Policy("file-1");
@@ -194,17 +168,6 @@ public class ContentAccessRepositoryTests : IDisposable
         (await _repository.GetByResourceAsync("file-1")).Should().BeEmpty();
         (await _repository.RevokeAsync(policy.ItemId)).Should().BeFalse();
         (await _repository.RevokeAsync(string.Empty)).Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task Revoking_cannot_reach_an_entry_in_another_tenant()
-    {
-        var foreign = Policy("file-1", tenantId: "tenant-2");
-        await _repository.GrantAsync(foreign);
-
-        var removed = await _repository.RevokeAsync(foreign.ItemId);
-
-        removed.Should().BeFalse();
     }
 
     [Fact]
@@ -258,14 +221,14 @@ public class ContentAccessRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task Audit_reads_are_tenant_scoped_and_bounded()
+    public async Task Audit_reads_are_bounded()
     {
         for (var i = 0; i < 5; i++)
         {
             await _repository.WriteAuditAsync(new ContentAuditLog
             {
                 ItemId = Guid.NewGuid().ToString(),
-                TenantId = i == 0 ? "tenant-2" : "tenant-1",
+                TenantId = "tenant-1",
                 ResourceId = "file-1",
                 ResourceType = ContentResourceType.File,
                 UserId = "user-1",
@@ -278,7 +241,6 @@ public class ContentAccessRepositoryTests : IDisposable
         var entries = await _repository.GetAuditForResourceAsync("file-1", limit: 2);
 
         entries.Should().HaveCount(2);
-        entries.Should().OnlyContain(e => e.TenantId == "tenant-1");
         (await _repository.GetAuditForResourceAsync(string.Empty)).Should().BeEmpty();
     }
 

@@ -22,8 +22,8 @@ import {
   FormMessage,
 } from "@/components/ui-kits/form/form";
 import { useForm } from "react-hook-form";
-import { useCreateDmsFolder } from "@/storage/hooks/use-storage-file";
-import { ICreateDmsFolderPayload } from "@/storage/models/storage.model";
+import { useCreateDmsFolder } from "@/storage/hooks/use-dms";
+import { CreateFolderDto } from "@/storage/models/dms.model";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 
@@ -63,22 +63,19 @@ export const CreateDmsNewFolder = ({
 
   const onSubmit = async (data: CreateFolderFormData) => {
     try {
-      const payload: ICreateDmsFolderPayload = {
-        artifactName: data.name,
+      // The folder service routes a payload with a parent to /Folders/CreateFolder and one
+      // without to /Folders/CreateRootFolder, so the empty root id creates a root folder
+      // rather than being sent as a nested one with a blank parent.
+      const payload: CreateFolderDto = {
+        name: data.name,
+        parentDirectoryId: parentId || undefined,
         description: "Folder creation",
-        parentId,
-        tags: [],
-        metaData: {},
-        organizationId: "",
-        fileStorageId: "",
-        projectKey,
         configurationName,
+        projectKey,
       };
 
-      const res = await createDmsFolderMutate(payload);
-      if (res.httpStatusCode == 200) {
-        showSuccessToast({ description: "Folder created successfully." });
-      }
+      await createDmsFolderMutate(payload);
+      showSuccessToast({ description: "Folder created successfully." });
 
       form.reset();
       onOpenChange(false);

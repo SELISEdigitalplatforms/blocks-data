@@ -73,10 +73,19 @@ describe("useDmsChildren", () => {
     vi.clearAllMocks();
   });
 
-  it("does not fetch until a folder is selected", () => {
+  it("fetches the root listing when no folder is selected", async () => {
+    // The storage page previously relied on a removed DmsArtifact endpoint for the top
+    // level. The new endpoint takes a folder id, so an unset one now means "the root",
+    // and the hook fires before the user has opened anything.
+    vi.mocked(dmsFolderService.getChildren).mockResolvedValue(page());
+
     renderHook(() => useDmsChildren(undefined), { wrapper: createWrapper() });
 
-    expect(dmsFolderService.getChildren).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(dmsFolderService.getChildren).toHaveBeenCalledWith(
+        expect.objectContaining({ folderId: undefined, cursor: undefined }),
+      ),
+    );
   });
 
   it("requests the first page with no cursor", async () => {

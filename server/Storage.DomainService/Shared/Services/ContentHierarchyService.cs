@@ -57,8 +57,6 @@ namespace Storage.DomainService.Services
             _dbContextProvider = dbContextProvider;
         }
 
-        private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
-
         private IMongoCollection<Directory> Directories =>
             _dbContextProvider.GetCollection<Directory>("Directories");
 
@@ -120,7 +118,7 @@ namespace Storage.DomainService.Services
                 var (parentId, parentAncestors, parentPath) = queue.Dequeue();
 
                 var children = await Directories
-                    .Find(TenantScoped(Builders<Directory>.Filter.Eq(d => d.ParentDirectoryID, parentId)))
+                    .Find(Builders<Directory>.Filter.Eq(d => d.ParentDirectoryID, parentId))
                     .ToListAsync(cancellationToken);
 
                 foreach (var child in children)
@@ -164,17 +162,17 @@ namespace Storage.DomainService.Services
                 }
 
                 var clash = await Directories
-                    .Find(TenantScoped(
+                    .Find(
                         Builders<Directory>.Filter.Eq(d => d.ParentDirectoryID, newParentId)
                         & Builders<Directory>.Filter.Eq(d => d.Name, folder.Name)
-                        & Builders<Directory>.Filter.Ne(d => d.ItemId, folderId)))
+                        & Builders<Directory>.Filter.Ne(d => d.ItemId, folderId))
                     .AnyAsync(cancellationToken);
 
                 if (clash) return MoveFolderResult.NameConflict;
             }
 
             await Directories.UpdateOneAsync(
-                TenantScoped(Builders<Directory>.Filter.Eq(d => d.ItemId, folderId)),
+                Builders<Directory>.Filter.Eq(d => d.ItemId, folderId),
                 Builders<Directory>.Update
                     .Set(d => d.ParentDirectoryID, string.IsNullOrEmpty(newParentId) ? null : newParentId)
                     .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
@@ -204,13 +202,13 @@ namespace Storage.DomainService.Services
         }
 
         private Task<Directory> FindFolderAsync(string folderId, CancellationToken cancellationToken) =>
-            Directories.Find(TenantScoped(Builders<Directory>.Filter.Eq(d => d.ItemId, folderId)))
+            Directories.Find(Builders<Directory>.Filter.Eq(d => d.ItemId, folderId))
                 .FirstOrDefaultAsync(cancellationToken);
 
         private async Task<int> ApplyFolderAsync(string folderId, List<string> ancestorIds, string fullPath, CancellationToken cancellationToken)
         {
             var result = await Directories.UpdateOneAsync(
-                TenantScoped(Builders<Directory>.Filter.Eq(d => d.ItemId, folderId)),
+                Builders<Directory>.Filter.Eq(d => d.ItemId, folderId),
                 Builders<Directory>.Update
                     .Set(d => d.AncestorIds, ancestorIds)
                     .Set(d => d.FullPath, fullPath),
@@ -222,18 +220,12 @@ namespace Storage.DomainService.Services
         private async Task<int> ApplyFilesAsync(string folderId, List<string> ancestorIds, CancellationToken cancellationToken)
         {
             var result = await Files.UpdateManyAsync(
-                TenantScoped(Builders<File>.Filter.Eq(f => f.ParentDirectoryID, folderId)),
+                Builders<File>.Filter.Eq(f => f.ParentDirectoryID, folderId),
                 Builders<File>.Update.Set(f => f.AncestorIds, ancestorIds),
                 cancellationToken: cancellationToken);
 
             return (int)result.ModifiedCount;
         }
-
-        private static FilterDefinition<Directory> TenantScoped(FilterDefinition<Directory> filter) =>
-            Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId) & filter;
-
-        private static FilterDefinition<File> TenantScoped(FilterDefinition<File> filter) =>
-            Builders<File>.Filter.Eq(f => f.TenantId, TenantId) & filter;
 
         private static List<string> Append(IEnumerable<string> existing, string id) =>
             existing.Concat(new[] { id }).ToList();

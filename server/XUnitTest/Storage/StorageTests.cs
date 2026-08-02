@@ -102,7 +102,6 @@ public class DmsArtifactBuilderFactoryTests
         var services = new ServiceCollection();
         services.AddSingleton(Mock.Of<IFileRepository>());
         services.AddTransient<FileArtifactBuilder>();
-        services.AddTransient<FolderArtifactBuilder>();
         return services.BuildServiceProvider();
     }
 
@@ -114,10 +113,10 @@ public class DmsArtifactBuilderFactoryTests
     }
 
     [Fact]
-    public void CreateArtifactBuilder_Folder_ReturnsFolderBuilder()
+    public void CreateArtifactBuilder_Folder_ReturnsNullBecauseFoldersAreHandledByFolderManagementService()
     {
         var factory = new StorageStorage.DmsArtifactBuilderFactory(BuildProvider());
-        factory.CreateArtifactBuilder(DmsArtifactType.Folder).Should().BeOfType<FolderArtifactBuilder>();
+        factory.CreateArtifactBuilder(DmsArtifactType.Folder).Should().BeNull();
     }
 
     [Fact]

@@ -67,7 +67,7 @@ namespace Storage.DomainService.Storage.Validators
     {
         public GetFolderChildrenRequestValidator()
         {
-            RuleFor(r => r.FolderId).NotEmpty();
+            // An empty folder id lists root folders, so it is allowed rather than rejected.
             RuleFor(r => r.Limit).InclusiveBetween(1, DmsValidationRules.MaxPageSize);
             RuleFor(r => r.Cursor).Must(DmsValidationRules.BeADecodableCursor).WithMessage("Cursor is not a valid continuation token.");
             RuleFor(r => r.Search).MaximumLength(DmsValidationRules.MaxNameLength);

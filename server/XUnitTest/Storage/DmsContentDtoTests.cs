@@ -124,7 +124,7 @@ public class DmsContentDtoTests
         {
             ItemId = "dir-1",
             Name = "Reports",
-            Type = StructureType.Directory,
+            Type = "folder",
             ParentFolderId = "root",
             SizeInBytes = 4096,
             ChildFolderCount = 2,
@@ -134,7 +134,7 @@ public class DmsContentDtoTests
             LastUpdatedDate = DateTime.UtcNow,
         };
 
-        item.Type.Should().Be(StructureType.Directory);
+        item.Type.Should().Be("folder");
         item.ChildFolderCount.Should().Be(2);
         item.ChildFileCount.Should().Be(5);
         item.Extension.Should().BeNull();
@@ -150,7 +150,7 @@ public class DmsContentDtoTests
         {
             ItemId = "file-1",
             Name = "doc.txt",
-            Type = StructureType.File,
+            Type = "file",
             ParentFolderId = "dir-1",
             SizeInBytes = 42,
             Extension = "txt",
@@ -159,7 +159,7 @@ public class DmsContentDtoTests
             Permissions = new PermissionFlags { CanView = true, CanDownload = true },
         };
 
-        item.Type.Should().Be(StructureType.File);
+        item.Type.Should().Be("file");
         item.Extension.Should().Be("txt");
         item.ContentType.Should().Be("text/plain");
         item.CurrentVersion.Should().Be(3);
@@ -187,7 +187,7 @@ public class DmsContentDtoTests
         // removed something, so the two are not asserted to match anywhere.
         var response = new ChildrenResponse
         {
-            Items = new List<DmsItem> { new() { ItemId = "file-1", Type = StructureType.File } },
+            Items = new List<DmsItem> { new() { ItemId = "file-1", Type = "file" } },
             NextCursor = "cursor-token",
             TotalChildCount = 12,
             HasMore = true,

@@ -9,7 +9,7 @@ const createDmsFolderMutate = vi.fn();
 vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-abc" } }),
 }));
-vi.mock("@/storage/hooks/use-storage-file", () => ({
+vi.mock("@/storage/hooks/use-dms", () => ({
   useCreateDmsFolder: () => ({ mutateAsync: createDmsFolderMutate, isPending: false }),
 }));
 vi.mock("@/hooks/use-toast", () => ({
@@ -29,7 +29,7 @@ const props = () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
-  createDmsFolderMutate.mockResolvedValue({ httpStatusCode: 200 });
+  createDmsFolderMutate.mockResolvedValue({ folderId: "new-folder" });
 });
 
 describe("CreateDmsNewFolder", () => {
@@ -55,8 +55,8 @@ describe("CreateDmsNewFolder", () => {
     await user.click(screen.getByRole("button", { name: "Create" }));
     await waitFor(() => expect(createDmsFolderMutate).toHaveBeenCalledTimes(1));
     const payload = createDmsFolderMutate.mock.calls[0][0];
-    expect(payload.artifactName).toBe("Reports");
-    expect(payload.parentId).toBe("parent-1");
+    expect(payload.name).toBe("Reports");
+    expect(payload.parentDirectoryId).toBe("parent-1");
     expect(payload.configurationName).toBe("docs");
     expect(payload.projectKey).toBe("tenant-abc");
     expect(showSuccessToast).toHaveBeenCalledWith({ description: "Folder created successfully." });

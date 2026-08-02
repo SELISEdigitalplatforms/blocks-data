@@ -51,7 +51,7 @@ export const useDmsChildren = (
     queryKey: [...dmsChildrenKey(projectKey), folderId, options.type, options.search],
     queryFn: ({ pageParam }) =>
       dmsFolderService.getChildren({
-        folderId: folderId as string,
+        folderId: folderId,
         cursor: pageParam as string | undefined,
         limit: options.limit ?? 50,
         type: options.type,
@@ -59,9 +59,10 @@ export const useDmsChildren = (
       }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: nextCursor,
-    // Without a folder there is nothing to list; the query stays idle rather than
-    // firing a request for `undefined`.
-    enabled: !!folderId,
+    // An unset folder id targets the root listing, which is what the storage page shows
+    // before any folder has been opened. Disable only when the caller is unscoped, not
+    // just because a folder id is missing.
+    enabled: !!projectKey,
   });
 };
 

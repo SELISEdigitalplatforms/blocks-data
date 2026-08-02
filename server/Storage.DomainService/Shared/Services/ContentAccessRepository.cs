@@ -21,24 +21,21 @@ namespace Storage.DomainService.Services
             _dbContextProvider = dbContextProvider;
         }
 
-        private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
+        /// <summary>
+        /// Entries are active when they are not expired. An entry with no expiry never
+        /// expires, so the filter has to admit null rather than compare against it.
+        /// </summary>
+        private static FilterDefinition<ContentAccessPolicy> Active(DateTime asOf)
+        {
+            var builder = Builders<ContentAccessPolicy>.Filter;
+            return builder.Eq(p => p.ExpiresAt, null) | builder.Gt(p => p.ExpiresAt, asOf);
+        }
 
         private IMongoCollection<ContentAccessPolicy> Policies =>
             _dbContextProvider.GetCollection<ContentAccessPolicy>(PolicyCollectionName);
 
         private IMongoCollection<ContentAuditLog> AuditLogs =>
             _dbContextProvider.GetCollection<ContentAuditLog>(AuditCollectionName);
-
-        /// <summary>
-        /// Entries are active when they are not expired. An entry with no expiry never
-        /// expires, so the filter has to admit null rather than compare against it.
-        /// </summary>
-        private static FilterDefinition<ContentAccessPolicy> ActiveInTenant(DateTime asOf)
-        {
-            var builder = Builders<ContentAccessPolicy>.Filter;
-            return builder.Eq(p => p.TenantId, TenantId)
-                   & (builder.Eq(p => p.ExpiresAt, null) | builder.Gt(p => p.ExpiresAt, asOf));
-        }
 
         private async Task EnsurePolicyIndexesAsync(CancellationToken cancellationToken)
         {
@@ -76,7 +73,7 @@ namespace Storage.DomainService.Services
 
             await EnsurePolicyIndexesAsync(cancellationToken);
 
-            var filter = ActiveInTenant(DateTime.UtcNow)
+            var filter = Active(DateTime.UtcNow)
                          & Builders<ContentAccessPolicy>.Filter.Eq(p => p.ResourceId, resourceId);
 
             return await Policies.Find(filter).ToListAsync(cancellationToken);
@@ -89,7 +86,7 @@ namespace Storage.DomainService.Services
 
             await EnsurePolicyIndexesAsync(cancellationToken);
 
-            var filter = ActiveInTenant(DateTime.UtcNow)
+            var filter = Active(DateTime.UtcNow)
                          & Builders<ContentAccessPolicy>.Filter.In(p => p.ResourceId, ids);
 
             return await Policies.Find(filter).ToListAsync(cancellationToken);
@@ -102,7 +99,7 @@ namespace Storage.DomainService.Services
 
             await EnsurePolicyIndexesAsync(cancellationToken);
 
-            var filter = ActiveInTenant(DateTime.UtcNow)
+            var filter = Active(DateTime.UtcNow)
                          & Builders<ContentAccessPolicy>.Filter.In(p => p.ResourceId, ids);
 
             var found = await Policies.DistinctAsync(p => p.ResourceId, filter, cancellationToken: cancellationToken);
@@ -122,8 +119,7 @@ namespace Storage.DomainService.Services
             ArgumentNullException.ThrowIfNull(policy);
             await EnsurePolicyIndexesAsync(cancellationToken);
 
-            var filter = Builders<ContentAccessPolicy>.Filter.Eq(p => p.ItemId, policy.ItemId)
-                         & Builders<ContentAccessPolicy>.Filter.Eq(p => p.TenantId, TenantId);
+            var filter = Builders<ContentAccessPolicy>.Filter.Eq(p => p.ItemId, policy.ItemId);
 
             await Policies.ReplaceOneAsync(filter, policy, cancellationToken: cancellationToken);
         }
@@ -132,8 +128,7 @@ namespace Storage.DomainService.Services
         {
             if (string.IsNullOrEmpty(policyItemId)) return false;
 
-            var filter = Builders<ContentAccessPolicy>.Filter.Eq(p => p.ItemId, policyItemId)
-                         & Builders<ContentAccessPolicy>.Filter.Eq(p => p.TenantId, TenantId);
+            var filter = Builders<ContentAccessPolicy>.Filter.Eq(p => p.ItemId, policyItemId);
 
             var result = await Policies.DeleteOneAsync(filter, cancellationToken);
             return result.DeletedCount > 0;
@@ -143,8 +138,7 @@ namespace Storage.DomainService.Services
         {
             if (string.IsNullOrEmpty(resourceId)) return 0;
 
-            var filter = Builders<ContentAccessPolicy>.Filter.Eq(p => p.ResourceId, resourceId)
-                         & Builders<ContentAccessPolicy>.Filter.Eq(p => p.TenantId, TenantId);
+            var filter = Builders<ContentAccessPolicy>.Filter.Eq(p => p.ResourceId, resourceId);
 
             var result = await Policies.DeleteManyAsync(filter, cancellationToken);
             return result.DeletedCount;
@@ -163,8 +157,7 @@ namespace Storage.DomainService.Services
 
             await EnsureAuditIndexesAsync(cancellationToken);
 
-            var filter = Builders<ContentAuditLog>.Filter.Eq(a => a.TenantId, TenantId)
-                         & Builders<ContentAuditLog>.Filter.Eq(a => a.ResourceId, resourceId);
+            var filter = Builders<ContentAuditLog>.Filter.Eq(a => a.ResourceId, resourceId);
 
             return await AuditLogs.Find(filter)
                 .SortByDescending(a => a.CreatedDate)

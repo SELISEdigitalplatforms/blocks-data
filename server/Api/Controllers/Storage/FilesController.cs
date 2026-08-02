@@ -152,15 +152,6 @@ namespace Api.Controllers
         }
 
 
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::create-folder")]
-        public async Task<DmsResponse> CreateFolder([FromBody] CreateFolderRequest command)
-        {
-            if (command == null) return null;
-
-            return await _fileManagementService.CreateFolderAsync(command);
-        }
-
         /// <summary>
         /// Deletes a folder based on the provided request.
         /// </summary>

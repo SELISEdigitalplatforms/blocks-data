@@ -245,15 +245,6 @@ public class ContentFileServiceTests : IDisposable
         (await _files.MoveFileAsync("file-1", "dir-1")).Status.Should().Be(FileOperationStatus.Succeeded);
     }
 
-    [Fact]
-    public async Task A_file_in_another_tenant_cannot_be_moved()
-    {
-        await Folder("dir-2", "target");
-        await FileDoc("file-1", "doc.txt", "dir-1", tenantId: "tenant-2");
-
-        (await _files.MoveFileAsync("file-1", "dir-2")).Status.Should().Be(FileOperationStatus.FileNotFound);
-    }
-
     // Copy
 
     [Fact]

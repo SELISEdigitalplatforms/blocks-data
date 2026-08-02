@@ -43,8 +43,14 @@ namespace DomainService.Storage.Dms
         public string ItemId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
 
-        /// <summary>Folder or File. The discriminator for the rest of this shape.</summary>
-        public StructureType Type { get; set; }
+        /// <summary>
+        /// Folder or File, as the contract the client reads. Serialized as the lowercased
+        /// kind ("folder" / "file") rather than the numeric <see cref="StructureType"/>
+        /// enum, because the frontend discriminates on this string and treats any value it
+        /// does not recognise as a file. A numeric value here would render every folder as
+        /// a file in the storage page.
+        /// </summary>
+        public string Type { get; set; } = string.Empty;
 
         public string? ParentFolderId { get; set; }
         public long SizeInBytes { get; set; }
@@ -100,7 +106,7 @@ namespace DomainService.Storage.Dms
         {
             ItemId = item.ItemId,
             Name = item.Name,
-            Type = item.Type,
+            Type = ToKind(item.Type),
             ParentFolderId = item.ParentDirectoryId,
             SizeInBytes = item.SizeInBytes,
             CreatedDate = item.CreatedDate,
@@ -109,6 +115,17 @@ namespace DomainService.Storage.Dms
             Extension = item.Extension,
             ContentType = item.ContentType,
             Permissions = PermissionFlags.From(item.Permissions),
+        };
+
+        /// <summary>
+        /// Maps the storage enum onto the contract string the client discriminates on. Kept
+        /// here rather than on the enum so the response shape owns its own wire format.
+        /// </summary>
+        public static string ToKind(StructureType type) => type switch
+        {
+            StructureType.Directory => "folder",
+            StructureType.File => "file",
+            _ => "file",
         };
     }
 

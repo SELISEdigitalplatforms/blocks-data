@@ -76,9 +76,8 @@ namespace Storage.DomainService.Services
     /// Folder lifecycle: create, read, rename and delete.
     /// </summary>
     /// <remarks>
-    /// Folder operations live here rather than on <c>FileManagementService</c>, which is
-    /// where the legacy DmsArtifact versions of them sit. The two coexist until the
-    /// post-migration change removes the legacy methods, so nothing here calls into them.
+    /// Folder operations live here rather than on <c>FileManagementService</c>, which now
+    /// owns only file-level concerns.
     ///
     /// Deletion is soft by default. Permanent deletion refuses a folder that still has
     /// children rather than cascading, because a cascade behind a single request is how a

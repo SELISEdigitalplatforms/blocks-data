@@ -18,6 +18,5 @@ namespace Storage.DomainService.Services
         Task<BlobClient> GetBlobClientAsync(string tenantId);
 
         Task<BaseMutationResponse> UpdateFileAsync(UpdateFileRequest command);
-        Task<DmsResponse> UploadFilesAsync(UploadFilesRequest command);
     }
 }

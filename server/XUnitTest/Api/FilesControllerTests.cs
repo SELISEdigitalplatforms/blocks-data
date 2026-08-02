@@ -166,24 +166,7 @@ namespace XUnitTest.Api
 #pragma warning restore CS0618
 
             alias.Should().BeOfType<OkObjectResult>();
-            _files.Verify(f => f.UpdateFileAsync(command), Times.Once);
-        }
-
-        [Fact]
-        public async Task UploadFile_ForwardsTheCommand()
-        {
-            var command = new UploadFilesRequest();
-            var expected = new DmsResponse();
-            _files.Setup(f => f.UploadFilesAsync(command)).ReturnsAsync(expected);
-
-            (await _sut.UploadFile(command)).Should().BeSameAs(expected);
-        }
-
-        [Fact]
-        public async Task UploadFile_ReturnsNullForANullCommand()
-        {
-            (await _sut.UploadFile(null!)).Should().BeNull();
-            _files.Verify(f => f.UploadFilesAsync(It.IsAny<UploadFilesRequest>()), Times.Never);
-        }
+        _files.Verify(f => f.UpdateFileAsync(command), Times.Once);
     }
+}
 }

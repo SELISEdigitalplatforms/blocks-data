@@ -10,8 +10,6 @@ import {
   mockGetFilePayload,
   mockGetFilesInfoPayload,
   mockDeleteFilePayload,
-  mockUploadDmsFileResponse,
-  mockUploadDmsFilePayload,
   mockSuccessResponse,
   mockDeleteSuccessResponse,
 } from "../test-utils/__mocks__";
@@ -26,7 +24,6 @@ import {
   useGetFilesInfo,
   useGetFilesDownload,
   usePublicCertificateFile,
-  useUploadDmsFile,
 } from "./use-storage-file";
 
 const mockGetState = vi.fn(() => ({
@@ -48,7 +45,6 @@ vi.mock("../services/storage.service", () => ({
     uploadFile: vi.fn(),
     uploadFileToLocalStorage: vi.fn(),
     uploadPublicCertificateFile: vi.fn(),
-    uploadDmsFile: vi.fn(),
   },
 }));
 
@@ -264,24 +260,6 @@ describe("Storage File Hooks", () => {
       expect(storageService.uploadPublicCertificateFile).toHaveBeenCalledWith(
         payload,
         expect.anything(),
-      );
-    });
-  });
-
-  describe("useUploadDmsFile", () => {
-    it("should upload a DMS file", async () => {
-      vi.mocked(storageService.uploadDmsFile).mockResolvedValue(
-        mockUploadDmsFileResponse,
-      );
-
-      const { result } = renderHook(() => useUploadDmsFile(), {
-        wrapper: createWrapper(),
-      });
-
-      result.current.mutate(mockUploadDmsFilePayload);
-      await waitFor(() => expect(result.current.isSuccess).toBe(true));
-      expect(storageService.uploadDmsFile).toHaveBeenCalledWith(
-        mockUploadDmsFilePayload,
       );
     });
   });

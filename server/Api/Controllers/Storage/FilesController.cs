@@ -133,14 +133,5 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::update-file-additional-info")]
         public Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
             => UpdateFileAdditionalInfo(command);
-
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::upload-file")]
-        public async Task<DmsResponse> UploadFile([FromBody] UploadFilesRequest command)
-        {
-            if (command == null) return null;
-
-            return await _fileManagementService.UploadFilesAsync(command);
-        }
     }
 }

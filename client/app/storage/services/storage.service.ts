@@ -4,8 +4,6 @@ import { StorageFile } from "./storage-file.service";
 import { STORAGE_FILE_ENDPOINTS } from "../constants/endpoint.constant";
 import {
   IPublicCertificatePayload,
-  IUploadDmsFilePayload,
-  IUploadDmsFileResponse,
   IUploadFileToLocalStorage,
   IUploadImagePayload,
 } from "../models/storage.model";
@@ -55,10 +53,6 @@ export class StorageService {
       formData,
       { Accept: "*/*" },
     );
-  }
-
-  uploadDmsFile(payload: IUploadDmsFilePayload): Promise<IUploadDmsFileResponse> {
-    return http.post(STORAGE_FILE_ENDPOINTS.UPLOAD_DMS_FILE, payload);
   }
 }
 

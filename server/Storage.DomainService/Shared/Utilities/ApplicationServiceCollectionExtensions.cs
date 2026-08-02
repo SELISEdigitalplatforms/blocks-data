@@ -7,7 +7,6 @@ using DomainService.Storage.Validators;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Storage.DomainService.Services;
-using Storage.DomainService.Shared.Services;
 using Storage.DomainService.Storage;
 using Storage.DomainService.Storage.Validators;
 
@@ -50,8 +49,6 @@ namespace Storage.DomainService.Utilities
             services.AddSingleton<IFolderManagementService, FolderManagementService>();
             services.AddSingleton<IContentDiscoveryService, ContentDiscoveryService>();
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
-            services.AddSingleton<DmsArtifactBuilderFactory>();
-            services.AddSingleton<FileArtifactBuilder>();
             services.AddSingleton<IConfigurationRepository, ConfigurationRepository>();
             services.AddTransient<AzureBlobStorageService>();
             services.AddTransient<AwsS3StorageService>();

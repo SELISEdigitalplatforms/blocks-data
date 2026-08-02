@@ -13,7 +13,6 @@ import {
   IGetFilesInfoResponse,
   IGetPreSignedUrlForUploadResponse,
   IStorageConfiguration,
-  IUploadDmsFileResponse,
 } from "../../models/storage.model";
 
 export { mockDeleteSuccessResponse };
@@ -218,12 +217,6 @@ export const mockGetDmsFileAndFolderResponse: IGetDmsFileAndFolderResponse = {
   totalCount: 2,
 };
 
-export const mockUploadDmsFileResponse: IUploadDmsFileResponse = {
-  result: [{ fileStorageId: "file-storage-new", success: true }],
-  message: "Upload successful",
-  httpStatusCode: 200,
-};
-
 // ─── Common Responses ─────────────────────────────────────────────────────────
 
 export const mockSuccessResponse = {
@@ -348,22 +341,6 @@ export const mockGetDmsPayload = {
   projectKey: TEST_PROJECT_KEY,
   skip: 0,
   take: 20,
-};
-
-export const mockUploadDmsFilePayload = {
-  upload: [
-    {
-      artifactName: "document.pdf",
-      description: "A test document",
-      parentId: MOCK_FOLDER_ID,
-      tags: [],
-      metaData: {},
-      organizationId: TEST_TENANT_ID,
-      fileStorageId: MOCK_FILE_STORAGE_ID,
-      configurationName: "Amazon S3 Config",
-    },
-  ],
-  projectKey: TEST_PROJECT_KEY,
 };
 
 export const mockCreateDmsFolderPayload = {

@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IGetFileByFileIDPayload,
   IGetFilesInfoPayload,
-  IUploadDmsFilePayload,
 } from "../models/storage.model";
 import { storageService } from "../services/storage.service";
 import { useProjectStore } from "@seliseblocks/genesis-os";
@@ -95,20 +94,5 @@ export const usePublicCertificateFile = () => {
   return useMutation({
     mutationKey: ["storage", "file", "public-certificate"],
     mutationFn: storageService.uploadPublicCertificateFile,
-  });
-};
-
-export const useUploadDmsFile = () => {
-  const queryClient = useQueryClient();
-  const projectKey = getProjectKey();
-
-  return useMutation({
-    mutationKey: ["upload", "dms-file"],
-    mutationFn: (payload: IUploadDmsFilePayload) => storageService.uploadDmsFile(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["storage", "file", "dms-file-and-folder", projectKey],
-      });
-    },
   });
 };

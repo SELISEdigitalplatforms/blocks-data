@@ -20,10 +20,8 @@ import { showSuccessToast, showErrorToast } from "@/hooks/use-toast";
 import {
   useGetPreSignedUrlForUpload,
   useUploadFile,
-  useUploadDmsFile,
 } from "@/storage/hooks/use-storage-file";
 import { isErrorWithErrors } from "@/lib/error";
-import { IDmsUploadItem } from "@/storage/models/storage.model";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { ModuleName } from "@/constants/modules.constants";
 
@@ -41,7 +39,6 @@ type UploadDmsFileModalProps = {
 export const UploadDmsFileModal = ({
   open,
   onOpenChange,
-  configurationName,
   name,
   parentId = "",
   onUploadSuccess,
@@ -53,7 +50,6 @@ export const UploadDmsFileModal = ({
 
   const { mutateAsync: presignedMutate } = useGetPreSignedUrlForUpload();
   const { mutateAsync: uploadfileMutate } = useUploadFile();
-  const { mutateAsync: uploadDmsFileMutate } = useUploadDmsFile();
 
   useEffect(() => {
     const urls = files.map((f) => URL.createObjectURL(f));
@@ -102,30 +98,14 @@ export const UploadDmsFileModal = ({
   const uploadFileHandler = async () => {
     setIsUploading(true);
     try {
-      // Process all files (steps 1 & 2)
+      // Step 1: get presigned URL (backend creates the File + FileVersion stub).
+      // Step 2: PUT the file bytes to the presigned URL. No separate register call.
       const uploadedFiles = await Promise.all(files.map(processFile));
 
       if (uploadedFiles.length < 1) {
         showErrorToast({ errors: "Failed to upload files" });
         return;
       }
-
-      // Step 3: Call uploadDmsFile API
-      const dmsUploadItems: IDmsUploadItem[] = uploadedFiles.map((file) => ({
-        artifactName: file.fileName,
-        description: `Uploaded file: ${file.fileName}`,
-        parentId,
-        tags: [],
-        metaData: {},
-        organizationId: "",
-        fileStorageId: file.fileId,
-        configurationName,
-      }));
-
-      await uploadDmsFileMutate({
-        upload: dmsUploadItems,
-        projectKey,
-      });
 
       showSuccessToast({
         description: `${uploadedFiles.length} file(s) uploaded successfully!`,

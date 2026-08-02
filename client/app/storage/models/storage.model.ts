@@ -243,39 +243,6 @@ export interface IGetDmsFileAndFolderResponse {
   totalCount: number;
 }
 
-export interface IDmsMetaDataItem {
-  type: string;
-  value: string;
-}
-
-export interface IDmsUploadItem {
-  artifactName: string;
-  description: string;
-  parentId: string;
-  tags: string[];
-  metaData: Record<string, IDmsMetaDataItem>;
-  organizationId: string;
-  fileStorageId: string;
-  configurationName: string;
-}
-
-export interface IUploadDmsFilePayload {
-  upload: IDmsUploadItem[];
-  projectKey: string;
-  name?: string;
-}
-
-export interface IUploadDmsFileResult {
-  fileStorageId: string;
-  success: boolean;
-}
-
-export interface IUploadDmsFileResponse {
-  result: IUploadDmsFileResult[];
-  message: string;
-  httpStatusCode: number;
-}
-
 export interface IDmsMetaDataValue {
   type: string;
   value: string;

@@ -13,7 +13,7 @@ vi.mock("@/data-gateway/hooks/use-configuration", () => ({
   useCreateSchema: (...a: unknown[]) => useCreateSchema(...a),
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
 }));
 

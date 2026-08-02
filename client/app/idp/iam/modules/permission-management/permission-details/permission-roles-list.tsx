@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui-kits/table/table";
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { IRole } from "@blocks-idp/iam/models/role";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
 import { useProjectStore } from "@/store/use-project-store";

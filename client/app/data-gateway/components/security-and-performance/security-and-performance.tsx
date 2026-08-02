@@ -15,7 +15,7 @@ import { Schema } from "@/data-gateway/models/security-and-performance";
 import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Globe, Lock, Plus, ShieldAlert, Users } from "lucide-react";
 import { useCallback, useState } from "react";

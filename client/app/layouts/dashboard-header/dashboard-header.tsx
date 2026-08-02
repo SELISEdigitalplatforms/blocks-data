@@ -5,15 +5,15 @@ import { SidebarContext } from "@/contexts/dashboard-layout-provider";
 import { useGetProject } from "@/hooks/use-project";
 import { SidebarMobileView } from "@/layouts/sidebar-mobile-view/sidebar-mobile-view";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import {
   AppSwitcher,
   ThemeSwitcher,
   UserDropdownMenu,
-} from "@seliseblocks/blocks-kit";
+} from "@seliseblocks/genesis-os";
 import { ChevronRight, FolderOpen, PanelLeft } from "lucide-react";
 import { useContext, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 
 export function DashboardHeader() {
   const { isSidebarOpen, toggleSidebar } = useContext(SidebarContext);

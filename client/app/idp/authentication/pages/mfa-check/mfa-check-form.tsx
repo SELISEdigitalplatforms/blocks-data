@@ -14,7 +14,7 @@ import { useAuthStore } from "@/store/use-auth-store";
 import { useVerifyMfa } from "@blocks-idp/authentication/hooks/use-auth";
 import { useResendOtp } from "@blocks-idp/mfa/hooks/use-resend-otp";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 
 import { useForm } from "react-hook-form";

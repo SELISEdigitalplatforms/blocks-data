@@ -119,4 +119,5 @@ export function TablePagination<TData>({
   );
 }
 
-export default TablePagination;
+// DEADCODE 2026-07-29: default export has no importers (tests use the named export); commented pending review
+// export default TablePagination;

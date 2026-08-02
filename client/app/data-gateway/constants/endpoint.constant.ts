@@ -77,6 +77,7 @@ export const GATEWAY_ENDPOINTS = {
 
 // ─── Pipeline endpoints ───────────────────────────────────────────────────────
 
-export const PIPELINE_ENDPOINTS = {
-  INITIATE: `${API_BASES.UDS}/deployment/pipeline`,
-} as const;
+// DEADCODE 2026-07-29: no references in client or e2e (build pipeline UI was removed); commented pending review
+// export const PIPELINE_ENDPOINTS = {
+//   INITIATE: `${API_BASES.UDS}/deployment/pipeline`,
+// } as const;

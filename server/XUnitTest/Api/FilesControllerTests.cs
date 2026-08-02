@@ -85,16 +85,6 @@ namespace XUnitTest.Api
         }
 
         [Fact]
-        public async Task DeleteFolder_ForwardsTheRequest()
-        {
-            var request = new DeleteFolderRequest { FolderId = "folder-1" };
-            var expected = new BaseResponse { IsSuccess = true };
-            _files.Setup(f => f.DeleteFolderAsync(request)).ReturnsAsync(expected);
-
-            (await _sut.DeleteFolder(request)).Should().BeSameAs(expected);
-        }
-
-        [Fact]
         public async Task UploadFileToLocalStorage_ForwardsTheFormRequest()
         {
             var request = new LocalStorageUploadRequest { File = new Mock<IFormFile>().Object };
@@ -177,25 +167,6 @@ namespace XUnitTest.Api
 
             alias.Should().BeOfType<OkObjectResult>();
             _files.Verify(f => f.UpdateFileAsync(command), Times.Once);
-        }
-
-        [Fact]
-        public async Task GetDmsFileAndFolder_ForwardsTheCommand()
-        {
-            var command = new GetDmsFileAndFolderRequest();
-            var expected = new GetDmsFileAndFolderResponse();
-            _files.Setup(f => f.GetDmsFileAndFolder(command)).ReturnsAsync(expected);
-
-            (await _sut.GetDmsFileAndFolder(command)).Should().BeSameAs(expected);
-        }
-
-        [Fact]
-        public async Task GetDmsFileAndFolder_ReturnsAnEmptyResponseForANullCommand()
-        {
-            var result = await _sut.GetDmsFileAndFolder(null!);
-
-            result.Should().NotBeNull();
-            _files.Verify(f => f.GetDmsFileAndFolder(It.IsAny<GetDmsFileAndFolderRequest>()), Times.Never);
         }
 
         [Fact]

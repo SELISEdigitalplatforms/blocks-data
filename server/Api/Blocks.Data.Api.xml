@@ -420,13 +420,6 @@
             <param name="request">The request containing file download details.</param>
             <returns>A response containing the file stream and metadata of the downloaded file.</returns>
         </member>
-        <member name="M:Api.Controllers.FilesController.DeleteFolder(DomainService.Storage.DeleteFolderRequest)">
-            <summary>
-            Deletes a folder based on the provided request.
-            </summary>
-            <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
-            <returns>A <see cref="T:Blocks.Genesis.BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
-        </member>
         <member name="T:Api.Controllers.FoldersController">
              <summary>
              Folder operations: create, read, list children, rename, move and delete.

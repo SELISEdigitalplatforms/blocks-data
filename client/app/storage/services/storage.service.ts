@@ -3,9 +3,6 @@ import { StorageConfiguration } from "./storage-configuration.service";
 import { StorageFile } from "./storage-file.service";
 import { STORAGE_FILE_ENDPOINTS } from "../constants/endpoint.constant";
 import {
-  ICreateDmsFolderPayload,
-  IGetDmsFileAndFolderPayload,
-  IGetDmsFileAndFolderResponse,
   IPublicCertificatePayload,
   IUploadDmsFilePayload,
   IUploadDmsFileResponse,
@@ -60,16 +57,8 @@ export class StorageService {
     );
   }
 
-  getFilesAndFolders(payload: IGetDmsFileAndFolderPayload): Promise<IGetDmsFileAndFolderResponse> {
-    return http.post(STORAGE_FILE_ENDPOINTS.GET_DMS_FILE_AND_FOLDER, payload);
-  }
-
   uploadDmsFile(payload: IUploadDmsFilePayload): Promise<IUploadDmsFileResponse> {
     return http.post(STORAGE_FILE_ENDPOINTS.UPLOAD_DMS_FILE, payload);
-  }
-
-  createDmsFolder(payload: ICreateDmsFolderPayload): Promise<IUploadDmsFileResponse> {
-    return http.post(STORAGE_FILE_ENDPOINTS.CREATE_FOLDER, payload);
   }
 }
 

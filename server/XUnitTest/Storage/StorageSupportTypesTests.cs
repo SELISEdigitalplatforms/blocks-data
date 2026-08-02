@@ -282,58 +282,6 @@ public class StorageSupportTypesTests
     }
 
     [Fact]
-    public void GetDmsFileAndFolderResponse_DefaultsToAnEmptyListing()
-    {
-        var response = new GetDmsFileAndFolderResponse();
-
-        response.DmsFileAndFolderInfos.Should().BeEmpty();
-        response.TotalCount.Should().Be(0);
-    }
-
-    [Fact]
-    public void DmsFileAndFolderInfo_CarriesTheListingRow()
-    {
-        var updated = new DateTime(2026, 7, 30, 9, 0, 0, DateTimeKind.Utc);
-        var info = new DmsFileAndFolderInfo
-        {
-            ItemId = "artifact-1",
-            ParentId = "dir-1",
-            Type = 1,
-            Name = "a.txt",
-            FileStorageId = "blob-1",
-            Extension = ".txt",
-            SizeInBytes = "42",
-            Version = 2,
-            Description = "notes",
-            LastUpdatedDate = updated
-        };
-
-        info.ItemId.Should().Be("artifact-1");
-        info.ParentId.Should().Be("dir-1");
-        info.Type.Should().Be(1);
-        info.Name.Should().Be("a.txt");
-        info.FileStorageId.Should().Be("blob-1");
-        info.Extension.Should().Be(".txt");
-        info.SizeInBytes.Should().Be("42");
-        info.Version.Should().Be(2);
-        info.Description.Should().Be("notes");
-        info.LastUpdatedDate.Should().Be(updated);
-    }
-
-    [Fact]
-    public void GetDmsFileAndFolderRequest_DefaultsEveryFilterToUnset()
-    {
-        var request = new GetDmsFileAndFolderRequest();
-
-        request.ParentId.Should().BeNull();
-        request.ConfigurationName.Should().BeNull();
-        request.SearchKey.Should().BeNull();
-        request.ModuleName.Should().BeNull();
-        request.Skip.Should().BeNull();
-        request.Take.Should().BeNull();
-    }
-
-    [Fact]
     public void ArtifactBaseRequest_CarriesTheSharedArtifactFields()
     {
         // UploadFileRequest is the only remaining ArtifactBaseRequest subclass now that the

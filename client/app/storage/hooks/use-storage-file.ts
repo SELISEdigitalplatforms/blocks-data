@@ -1,7 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ICreateDmsFolderPayload,
-  IGetDmsFileAndFolderPayload,
   IGetFileByFileIDPayload,
   IGetFilesInfoPayload,
   IUploadDmsFilePayload,
@@ -73,21 +71,6 @@ export const useDeleteFile = () => {
   });
 };
 
-export const useDeleteFolder = () => {
-  const queryClient = useQueryClient();
-  const projectKey = getProjectKey();
-
-  return useMutation({
-    mutationKey: ["storage", "folder", "delete"],
-    mutationFn: storageService.file.deleteFolderByFileId,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["storage", "folder", "getFolderInfo", projectKey],
-      });
-    },
-  });
-};
-
 export const useGetFilesInfo = (options: IGetFilesInfoPayload) => {
   const projectKey = options.projectKey || getProjectKey();
   return useQuery({
@@ -115,14 +98,6 @@ export const usePublicCertificateFile = () => {
   });
 };
 
-export const useGetDmsFileAndFolder = () => {
-  return useMutation({
-    mutationKey: ["storage", "file", "dms-file-and-folder"],
-    mutationFn: (payload: IGetDmsFileAndFolderPayload) =>
-      storageService.getFilesAndFolders(payload),
-  });
-};
-
 export const useUploadDmsFile = () => {
   const queryClient = useQueryClient();
   const projectKey = getProjectKey();
@@ -130,21 +105,6 @@ export const useUploadDmsFile = () => {
   return useMutation({
     mutationKey: ["upload", "dms-file"],
     mutationFn: (payload: IUploadDmsFilePayload) => storageService.uploadDmsFile(payload),
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["storage", "file", "dms-file-and-folder", projectKey],
-      });
-    },
-  });
-};
-
-export const useCreateDmsFolder = () => {
-  const queryClient = useQueryClient();
-  const projectKey = getProjectKey();
-
-  return useMutation({
-    mutationKey: ["create-folder", "dms-folder"],
-    mutationFn: (payload: ICreateDmsFolderPayload) => storageService.createDmsFolder(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ["storage", "file", "dms-file-and-folder", projectKey],

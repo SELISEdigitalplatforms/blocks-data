@@ -1,10 +1,12 @@
 using Api.Controllers;
 using Blocks.Genesis;
 using DomainService.Storage;
+using DomainService.Storage.Dms;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
+using Storage.DomainService.Entities;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
 using System.Text;
@@ -21,9 +23,10 @@ namespace XUnitTest.Api
     public class FilesControllerTests
     {
         private readonly Mock<IFileManagementService> _files = new();
+        private readonly Mock<IContentFileService> _contentFiles = new();
         private readonly FilesController _sut;
 
-        public FilesControllerTests() => _sut = new FilesController(_files.Object);
+        public FilesControllerTests() => _sut = new FilesController(_files.Object, _contentFiles.Object);
 
         [Fact]
         public async Task GetFile_ForwardsTheRequestAndReturnsTheResponse()
@@ -168,5 +171,100 @@ namespace XUnitTest.Api
             alias.Should().BeOfType<OkObjectResult>();
         _files.Verify(f => f.UpdateFileAsync(command), Times.Once);
     }
-}
+
+        // ---------------- DMS file endpoints (move / copy / versions / create-version) ----------------
+
+        [Fact]
+        public async Task MoveFile_ReturnsOkAndTheFileIdOnSuccess()
+        {
+            var request = new MoveFileRequest { FileId = "f1", TargetFolderId = "dir-1" };
+            _contentFiles.Setup(c => c.MoveFileAsync("f1", "dir-1", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new FileOperationResult { Status = FileOperationStatus.Succeeded });
+
+            var result = await _sut.MoveFile(request);
+
+            var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+            ok.Value.Should().BeEquivalentTo(new { fileId = "f1" });
+        }
+
+        [Fact]
+        public async Task MoveFile_ReturnsNotFoundWhenTheFileIsMissing()
+        {
+            _contentFiles.Setup(c => c.MoveFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(FileOperationResult.Failure(FileOperationStatus.FileNotFound));
+
+            var result = await _sut.MoveFile(new MoveFileRequest { FileId = "x", TargetFolderId = "dir-1" });
+
+            result.Should().BeOfType<NotFoundObjectResult>();
+        }
+
+        [Fact]
+        public async Task CopyFile_ReturnsTheNewFileIdOnSuccess()
+        {
+            var request = new CopyFileRequest { FileId = "f1", TargetFolderId = "dir-1", CopyAccessPolicies = true };
+            _contentFiles.Setup(c => c.CopyFileAsync("f1", "dir-1", true, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new FileOperationResult { Status = FileOperationStatus.Succeeded, NewFileId = "copy-1" });
+
+            var result = await _sut.CopyFile(request);
+
+            var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+            ok.Value.Should().BeEquivalentTo(new { fileId = "copy-1" });
+        }
+
+        [Fact]
+        public async Task CopyFile_ReturnsConflictOnANameClash()
+        {
+            _contentFiles.Setup(c => c.CopyFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(FileOperationResult.Failure(FileOperationStatus.NameConflict));
+
+            var result = await _sut.CopyFile(new CopyFileRequest { FileId = "f1", TargetFolderId = "dir-1" });
+
+            result.Should().BeOfType<ConflictObjectResult>();
+        }
+
+        [Fact]
+        public async Task GetFileVersions_ForwardsTheQueryAndMapsThePage()
+        {
+            var page = new FileVersionPage
+            {
+                Items = [FileVersion.CreateNew("f1", 2, new FileVersionOptions { ItemId = "v1" })],
+                NextCursor = "1",
+                HasMore = true,
+            };
+            _contentFiles.Setup(c => c.GetVersionsAsync("f1", "5", 10, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(page);
+
+            var result = await _sut.GetFileVersions(new GetFileVersionsRequest { FileId = "f1", Cursor = "5", Limit = 10 });
+
+            var body = result.Should().BeOfType<OkObjectResult>().Subject.Value.Should().BeOfType<FileVersionsResponse>().Subject;
+            body.HasMore.Should().BeTrue();
+            body.NextCursor.Should().Be("1");
+            body.Items.Should().ContainSingle().Which.No.Should().Be(2);
+        }
+
+        [Fact]
+        public async Task CreateFileVersion_ReturnsOkWithTheVersionAndUrl()
+        {
+            var response = new CreateFileVersionResponse { VersionNo = 3, UploadUrl = "https://upload", IsSuccess = true };
+            _files.Setup(f => f.CreateFileVersionAsync(It.IsAny<CreateFileVersionRequest>()))
+                .ReturnsAsync(response);
+
+            var result = await _sut.CreateFileVersion(new CreateFileVersionRequest { FileId = "f1" });
+
+            var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+            ok.Value.Should().BeSameAs(response);
+        }
+
+        [Fact]
+        public async Task CreateFileVersion_ReturnsBadRequestWhenTheFileIsMissing()
+        {
+            var response = new CreateFileVersionResponse { Errors = new() { ["FileId"] = "not_found" } };
+            _files.Setup(f => f.CreateFileVersionAsync(It.IsAny<CreateFileVersionRequest>()))
+                .ReturnsAsync(response);
+
+            var result = await _sut.CreateFileVersion(new CreateFileVersionRequest { FileId = "x" });
+
+            result.Should().BeOfType<BadRequestObjectResult>();
+        }
+    }
 }

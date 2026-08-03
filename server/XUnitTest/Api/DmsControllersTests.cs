@@ -130,7 +130,7 @@ namespace XUnitTest.Api
                 FolderId = "dir-1",
                 Cursor = "cursor-1",
                 Limit = 25,
-                Type = StructureType.File,
+                Type = "file",
                 Search = "report",
             }) as OkObjectResult;
 
@@ -212,7 +212,7 @@ namespace XUnitTest.Api
 
             var result = await _sut.SearchContent(new ContentSearchRequest
             {
-                Query = "report", FolderId = "dir-1", Type = StructureType.File, Cursor = "cursor", Limit = 10,
+                Query = "report", FolderId = "dir-1", Type = "file", Cursor = "cursor", Limit = 10,
             }) as OkObjectResult;
 
             result!.Value.Should().BeOfType<ChildrenResponse>()
@@ -226,7 +226,7 @@ namespace XUnitTest.Api
                     StructureType.Directory, null, 50, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new VisibleChildrenPage());
 
-            var result = await _sut.GetTrash(new TrashRequest { Type = StructureType.Directory });
+            var result = await _sut.GetTrash(new TrashRequest { Type = "folder" });
 
             result.Should().BeOfType<OkObjectResult>();
             _discovery.Verify(d => d.GetTrashAsync(

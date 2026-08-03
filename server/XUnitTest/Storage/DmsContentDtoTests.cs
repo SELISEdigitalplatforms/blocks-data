@@ -267,4 +267,17 @@ public class DmsContentDtoTests
         var moveFile = new MoveFileRequest { FileId = "file-1", TargetFolderId = "dir-2" };
         moveFile.TargetFolderId.Should().Be("dir-2");
     }
+
+    [Theory]
+    [InlineData("folder", StructureType.Directory)]
+    [InlineData("FOLDER", StructureType.Directory)]
+    [InlineData("file", StructureType.File)]
+    [InlineData(null, null)]
+    [InlineData("", null)]
+    [InlineData("all", null)]
+    [InlineData("bogus", null)]
+    public void ContentKind_MapsTheApiKindStringOntoTheStructureType(string? value, StructureType? expected)
+    {
+        ContentKind.FromApiString(value).Should().Be(expected);
+    }
 }

@@ -1,6 +1,7 @@
 ﻿using Azure.Storage.Blobs;
 using Blocks.Genesis;
 using DomainService.Storage;
+using DomainService.Storage.Dms;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Storage;
 
@@ -18,5 +19,8 @@ namespace Storage.DomainService.Services
         Task<BlobClient> GetBlobClientAsync(string tenantId);
 
         Task<BaseMutationResponse> UpdateFileAsync(UpdateFileRequest command);
+
+        /// <summary>Creates the next version of an existing file and returns a presigned upload URL.</summary>
+        Task<CreateFileVersionResponse> CreateFileVersionAsync(CreateFileVersionRequest request);
     }
 }

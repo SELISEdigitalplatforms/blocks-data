@@ -94,7 +94,7 @@ namespace Api.Controllers
         public async Task<IActionResult> GetFolderChildren([FromQuery] GetFolderChildrenRequest request)
         {
             var page = await _contentListingService.GetVisibleChildrenAsync(
-                request.FolderId, request.Cursor, request.Limit, request.Type, request.Search);
+                request.FolderId, request.Cursor, request.Limit, ContentKind.FromApiString(request.Type), request.Search);
 
             return Ok(ChildrenResponse.From(page));
         }

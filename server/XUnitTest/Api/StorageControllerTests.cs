@@ -20,7 +20,7 @@ public class StorageControllerTests
     private static (FilesController Controller, Mock<IFileManagementService> Service) BuildFiles()
     {
         var service = new Mock<IFileManagementService>();
-        return (new FilesController(service.Object), service);
+        return (new FilesController(service.Object, Mock.Of<IContentFileService>()), service);
     }
 
     // ---------------- FilesController: pass-through actions ----------------

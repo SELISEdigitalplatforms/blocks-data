@@ -36,7 +36,7 @@ namespace Api.Controllers
         public async Task<IActionResult> SearchContent([FromQuery] ContentSearchRequest request)
         {
             var page = await _contentDiscoveryService.SearchAsync(
-                request.Query, request.FolderId, request.Type, request.Cursor, request.Limit);
+                request.Query, request.FolderId, ContentKind.FromApiString(request.Type), request.Cursor, request.Limit);
 
             return Ok(ChildrenResponse.From(page));
         }
@@ -46,7 +46,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::get-trash")]
         public async Task<IActionResult> GetTrash([FromQuery] TrashRequest request)
         {
-            var page = await _contentDiscoveryService.GetTrashAsync(request.Type, request.Cursor, request.Limit);
+            var page = await _contentDiscoveryService.GetTrashAsync(ContentKind.FromApiString(request.Type), request.Cursor, request.Limit);
 
             return Ok(ChildrenResponse.From(page));
         }

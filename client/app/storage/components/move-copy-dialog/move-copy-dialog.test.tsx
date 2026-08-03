@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   folders: [] as unknown[],
   lastFolderId: undefined as string | undefined,
+  folderDetail: null as { fullPath: string; ancestorIds: string[] } | null,
   moveFile: vi.fn(),
   copyFile: vi.fn(),
   moveFolder: vi.fn(),
@@ -31,6 +32,14 @@ vi.mock("../../hooks/use-dms", () => ({
       fetchNextPage: vi.fn(),
     };
   },
+  useDmsFolder: (folderId?: string) => ({
+    data: mocks.folderDetail
+      ? {
+          ...mocks.folderDetail,
+          itemId: folderId,
+        }
+      : undefined,
+  }),
   useMoveFile: () => ({ mutateAsync: mocks.moveFile, isPending: false }),
   useCopyFile: () => ({ mutateAsync: mocks.copyFile, isPending: false }),
   useMoveDmsFolder: () => ({ mutateAsync: mocks.moveFolder, isPending: false }),
@@ -58,6 +67,7 @@ describe("MoveCopyDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.folders = [folder()];
+    mocks.folderDetail = null;
   });
 
   it("browses folders only", () => {
@@ -138,5 +148,35 @@ describe("MoveCopyDialog", () => {
 
     await waitFor(() => expect(mocks.showErrorToast).toHaveBeenCalled());
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
+  it("seeds the breadcrumb trail from the folder detail so ancestors are reachable", async () => {
+    // f3 sits at /f1/f2/f3. The picker must let the caller navigate up to f1 or f2,
+    // not only down into children.
+    mocks.folderDetail = { fullPath: "/f1/f2/f3", ancestorIds: ["f1", "f2"] };
+
+    const user = userEvent.setup();
+    mocks.moveFile.mockResolvedValue({ fileId: "file-1" });
+    render(
+      <MoveCopyDialog
+        open
+        onOpenChange={vi.fn()}
+        item={fileItem}
+        mode="move"
+        startFolderId="f3"
+      />,
+    );
+
+    // The breadcrumb buttons for the ancestors render before the children list.
+    await waitFor(() => expect(screen.getByRole("button", { name: "f1" })).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "f2" })).toBeInTheDocument();
+
+    // Navigate up to f1 and move the file there.
+    await user.click(screen.getByRole("button", { name: "f1" }));
+    await user.click(screen.getByRole("button", { name: "Move here" }));
+
+    await waitFor(() =>
+      expect(mocks.moveFile).toHaveBeenCalledWith({ fileId: "file-1", targetFolderId: "f1" }),
+    );
   });
 });

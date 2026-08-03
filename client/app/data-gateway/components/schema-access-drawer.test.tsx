@@ -349,7 +349,6 @@ describe("SchemaAccessDrawer", () => {
 
     const list = await screen.findByTestId("access-list");
     expect(list).toHaveAttribute("data-roles", "1");
-    // OWNER (built-in for schema-level) + read:user = 2.
     expect(list).toHaveAttribute("data-perms", "2");
   });
 

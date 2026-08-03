@@ -316,16 +316,97 @@
             <param name="id">The unique identifier of the schema definition to delete.</param>
             <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
         </member>
+        <member name="T:Api.Controllers.ContentController">
+            <summary>
+            Sharing, access policies, search and the trash.
+            </summary>
+            <remarks>
+            Every action here is authorised twice: the endpoint permission decides who may
+            call it at all, and the service resolves the caller's access to the specific
+            resource. Holding <c>blocks-data::grant-access</c> does not let anyone grant
+            access to a directory they cannot Manage.
+            </remarks>
+        </member>
+        <member name="M:Api.Controllers.ContentController.SearchContent(DomainService.Storage.Dms.ContentSearchRequest)">
+            <summary>Name search across directorys and files the caller may view.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.GetTrash(DomainService.Storage.Dms.TrashRequest)">
+            <summary>Archived directorys and files the caller may view.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.RestoreFromTrash(DomainService.Storage.Dms.RestoreFromTrashRequest)">
+            <summary>Returns an archived item to its original parent.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.DeleteFromTrash(DomainService.Storage.Dms.DeleteFromTrashRequest)">
+            <summary>Removes an archived item for good.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.GetAccessPolicies(DomainService.Storage.Dms.GetAccessPoliciesRequest)">
+            <summary>The access entries on a resource.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.GrantAccess(DomainService.Storage.Dms.GrantAccessRequest)">
+            <summary>Creates an access entry. Requires Manage on the resource.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.UpdateAccessPolicy(DomainService.Storage.Dms.GrantAccessRequest)">
+            <summary>Updates an existing access entry.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.RevokeAccessPolicy(DomainService.Storage.Dms.RevokeAccessRequest)">
+            <summary>Deletes an access entry.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.ResolveAccess(System.String)">
+            <summary>The operations the calling user holds on a resource.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.ToggleInheritance(DomainService.Storage.Dms.ToggleInheritanceRequest)">
+            <summary>Switches a resource between inheriting its parent's access and standing alone.</summary>
+        </member>
+        <member name="M:Api.Controllers.ContentController.ShareContent(DomainService.Storage.Dms.ShareContentRequest)">
+            <summary>Grants a principal an allow entry and records it as a share.</summary>
+        </member>
+        <member name="T:Api.Controllers.DirectoriesController">
+             <summary>
+             Directory operations: create, read, list children, rename, move and delete.
+             </summary>
+             <remarks>
+             Creating a root directory is a separate permission from creating a nested one.
+             Anyone with Edit on a parent may add a subdirectory, but starting a new tree at the
+             root is a tenant-level act, so it is gated by
+             <c>blocks-data::create-root-directory</c> and assigned to the owner role only.
+            
+             Reads that the caller may not see report 404 rather than 403 throughout. Saying
+             "forbidden" would confirm that a directory exists, which is enough to map a tree the
+             caller cannot open.
+             </remarks>
+        </member>
+        <member name="M:Api.Controllers.DirectoriesController.CreateDirectory(DomainService.Storage.Dms.CreateDirectoryRequest)">
+            <summary>Creates a directory beneath an existing parent.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoriesController.CreateRootDirectory(DomainService.Storage.Dms.CreateDirectoryRequest)">
+            <summary>Creates a directory at the root of the tenant.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoriesController.GetDirectory(System.String)">
+            <summary>Directory details plus the operations the caller holds on it.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoriesController.GetDirectoryChildren(DomainService.Storage.Dms.GetDirectoryChildrenRequest)">
+            <summary>Access-resolved, cursor-paginated children of a directory.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoriesController.UpdateDirectory(DomainService.Storage.Dms.UpdateDirectoryRequest)">
+            <summary>Renames a directory or updates its description.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoriesController.DeleteDirectory(DomainService.Storage.Dms.DeleteDirectoryContentRequest)">
+            <summary>Moves a directory to the trash, or removes it permanently.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoriesController.MoveDirectory(DomainService.Storage.Dms.MoveDirectoryRequest)">
+            <summary>Re-parents a directory and rewrites the cached ancestry beneath it.</summary>
+        </member>
         <member name="T:Api.Controllers.FilesController">
             <summary>
             Controller for managing file-related operations such as downloading, uploading, and deleting files.
             </summary>
         </member>
-        <member name="M:Api.Controllers.FilesController.#ctor(Storage.DomainService.Services.IFileManagementService)">
+        <member name="M:Api.Controllers.FilesController.#ctor(Storage.DomainService.Services.IFileManagementService,Storage.DomainService.Services.IContentFileService)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.FilesController"/> class.
             </summary>
             <param name="fileManagementService">Service for managing file operations.</param>
+            <param name="contentFileService">Service for file version, move and copy operations.</param>
         </member>
         <member name="M:Api.Controllers.FilesController.GetFile(DomainService.Storage.GetFileRequest)">
             <summary>
@@ -376,12 +457,17 @@
             <param name="request">The request containing file download details.</param>
             <returns>A response containing the file stream and metadata of the downloaded file.</returns>
         </member>
-        <member name="M:Api.Controllers.FilesController.DeleteFolder(DomainService.Storage.DeleteFolderRequest)">
-            <summary>
-            Deletes a folder based on the provided request.
-            </summary>
-            <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
-            <returns>A <see cref="T:Blocks.Genesis.BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
+        <member name="M:Api.Controllers.FilesController.GetFileVersions(DomainService.Storage.Dms.GetFileVersionsRequest)">
+            <summary>Cursor-paginated version history of a file, newest first.</summary>
+        </member>
+        <member name="M:Api.Controllers.FilesController.CreateFileVersion(DomainService.Storage.Dms.CreateFileVersionRequest)">
+            <summary>Creates the next version of a file and returns a presigned upload URL.</summary>
+        </member>
+        <member name="M:Api.Controllers.FilesController.CopyFile(DomainService.Storage.Dms.CopyFileRequest)">
+            <summary>Copies a file into another directory without duplicating its stored bytes.</summary>
+        </member>
+        <member name="M:Api.Controllers.FilesController.MoveFile(DomainService.Storage.Dms.MoveFileRequest)">
+            <summary>Re-parents a file into another directory.</summary>
         </member>
         <member name="T:BlocksTemplate.Api.Controllers.RegexAssistantController">
             <summary>

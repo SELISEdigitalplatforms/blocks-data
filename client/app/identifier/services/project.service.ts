@@ -84,11 +84,6 @@ export class ProjectService {
     });
   }
 
-  // getProject(payload: IGetProjectPayload): Promise<IGetProjectResponse> {
-  //   const url = `${PROJECT_ENDPOINTS.GET}?projectId=${payload.projectId}`;
-  //   return http.get(url, undefined, { absoluteUrl: true });
-  // }
-
   createProject(payload: ICreateProjectPayload): Promise<{
     isSuccess: boolean;
     errors: Record<string, string | string[]>;

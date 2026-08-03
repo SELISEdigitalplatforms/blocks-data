@@ -41,8 +41,6 @@ import {
   useUpdateSchemaStructure,
 } from "./use-configuration";
 
-// The hooks read the project key from the blocks-kit project store's static
-// getState(), and useSchemasReload also calls the store as a hook — mock both.
 const mockGetState = vi.fn(() => ({
   selectedProject: { tenantId: "t1", tenantSlug: "slug1" },
 }));

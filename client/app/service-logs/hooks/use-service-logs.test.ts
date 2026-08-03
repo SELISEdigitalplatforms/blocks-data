@@ -47,7 +47,6 @@ describe("useServiceLogs", () => {
         "trace-2",
         "trace-1",
       ]);
-      // totalCount (3) is not <= page(0) * pageSize(20) => still has more
       expect(result.current.hasTopMore).toBe(true);
     });
 

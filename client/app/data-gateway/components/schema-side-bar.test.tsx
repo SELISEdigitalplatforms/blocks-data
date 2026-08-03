@@ -211,4 +211,23 @@ describe("SchemasSidebar", () => {
     expect(errorSpy).toHaveBeenCalled();
     errorSpy.mockRestore();
   });
+
+  it.each([["{Enter}"], [" "]])("selects a schema when %s is pressed on the row", async (key) => {
+    const user = userEvent.setup();
+    useSchemaList.mockReturnValue({
+      data: {
+        data: {
+          items: [{ id: "a", schemaName: "User", schemaType: 1, totalSchemaReferences: 0 }],
+          totalCount: 1,
+        },
+      },
+    });
+    const { onListQueryChange } = renderSidebar();
+
+    const row = screen.getByText("User").closest('[role="button"]') as HTMLElement;
+    row.focus();
+    await user.keyboard(key);
+
+    expect(onListQueryChange).toHaveBeenCalledWith({ schemaId: "a" });
+  });
 });

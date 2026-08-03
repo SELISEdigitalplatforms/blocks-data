@@ -174,7 +174,7 @@ export const StorageConfigurationList = ({
           ))}
       </Accordion>
       <div className="mt-4 flex justify-end">
-        {configurations.length && configurations.length > pageSize && (
+        {configurations.length > pageSize && (
           <Pagination
             onChange={(page) => setPage(page)}
             page={page}

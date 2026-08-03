@@ -89,7 +89,6 @@ await app.RunAsync();
 
 static void ApplyFrontendRuntimeSettings(IConfiguration configuration, string webRootPath)
 {
-    //  var envFilePath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
     var section = configuration.GetSection("FrontendRuntime");
     Console.WriteLine("SECTION FROM RUNTIME ", section);
     var replacements = new Dictionary<string, string?>

@@ -28,8 +28,6 @@ export function useFilteredMenus(menus: Menu[]): Menu[] {
 
     const filteredMenus = menus.filter((item) => {
       if (item.type === "separator") return true;
-      // if (item.disabled) return false;
-      // Hide project menus when NOT on /project-overview
       if (!isProjectOverviewRoute && projectOverviewMenuIds.has(item.id))
         return false;
       // Hide non-project menus when ON /project-overview

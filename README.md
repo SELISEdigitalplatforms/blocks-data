@@ -3,7 +3,7 @@
 Blocks Data is the data service of the SELISE Blocks platform. It covers two domains:
 
 - **Data Gateway**: schema-driven structured data on MongoDB. Users define schemas (entities and reusable objects), and the service exposes each project's data through a per-tenant GraphQL API with row-level and column-level access control (RLS/CLS), field validation rules, mock data generation, and schema import/export.
-- **Storage**: unstructured file storage and document management (DMS) over multiple back ends (Azure Blob, AWS S3 and S3-compatible services, SFTP), including pre-signed upload/download URLs, file versioning, and folder structures.
+- **Storage**: unstructured file storage and document management (DMS) over multiple back ends (Azure Blob, AWS S3 and S3-compatible services, SFTP), including pre-signed upload/download URLs, file versioning, and nested folders. Folders and files carry per-resource access policies scoped to users, roles, organizations or everyone, with inheritance from the parent and a per-resource override. Listings are access-resolved and cursor-paginated, so a caller sees only what they may view. Standard document-management features are included: search, a trash with restore, copy and move, and an audit trail of every access decision.
 
 The repository ships a .NET backend, a React single-page application, and a Playwright end-to-end suite. It is released under the [MIT license](LICENSE).
 
@@ -95,6 +95,32 @@ npm --prefix client run test -- --coverage
 ```
 
 The e2e suite drives the real application through a browser. It needs a running app, a `.env.e2e` file with the target URL and test credentials, and a hosts entry for the named domain. See [e2e/README.md](e2e/README.md) for the full setup.
+
+Backend tests that touch MongoDB run against an ephemeral server through `MongoFixture` and are marked `[Collection("Mongo")]`; `BlocksTestContext` seeds the ambient tenant and user. Frontend tests mock the HTTP client and wrap hooks in the shared query-client provider from `client/app/test-utils`.
+
+Two things worth knowing before reading a failure here:
+
+- **Build before measuring coverage.** A combined `dotnet test` invocation has been seen returning partial totals with whole assemblies reporting zero and no error. Run `dotnet build server/XUnitTest/XUnitTest.csproj` first, then `dotnet test --no-build`, and compare the test total against the previous run before quoting a number.
+- **Delete a leftover `.sonarqube` directory.** If `dotnet test` aborts with "Test host process crashed" and writes no coverage file, `scripts/scan.sh` left one at the repository root. It is ignored by git, so `rm -rf .sonarqube` and re-run.
+
+## Document management
+
+The DMS exposes three controllers under `server/Api/Controllers/Storage/`:
+
+| Controller | Covers |
+|---|---|
+| `FilesController` | File metadata, presigned upload and download, versions, copy, move |
+| `FoldersController` | Folder create, read, children listing, rename, move, delete |
+| `ContentController` | Sharing, access policies, search, trash |
+
+Every action is authorised twice. `[ProtectedEndPoint("blocks-data::<verb>")]` decides who may call it at all, and the service then resolves the caller's access to the specific resource through `IContentAccessResolver`. Holding the endpoint permission does not grant access to any particular folder or file.
+
+Access policies attach to a folder or a file and name a principal: a user, a role, an organization, or everyone. A resource inherits its parent's policies unless inheritance is switched off, which is refused while nothing else grants access, since the resource would otherwise become invisible to everyone including the person switching it. Deny beats allow, except that a deny aimed at the owner of the resource it sits on is rejected rather than stored.
+
+Two conventions are easy to break by accident:
+
+- **A read the caller may not perform answers 404, not 403.** Returning "forbidden" would confirm that a folder exists to someone who may not see it, which is enough to map a tree they have no access to.
+- **The listing visibility shortcut is only valid for one folder's children.** It treats a purely inheriting resource as visible because its parent already was. Any query that crosses folders, such as search or the trash, resolves `View` per item instead.
 
 ## Scan and deploy
 

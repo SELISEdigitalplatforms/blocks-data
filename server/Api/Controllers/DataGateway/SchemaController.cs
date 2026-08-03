@@ -116,7 +116,6 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
 
-            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _schemaService.GetEntityCollectionsAsync();
             return StatusCode(response.HttpStatusCode, response);
         }

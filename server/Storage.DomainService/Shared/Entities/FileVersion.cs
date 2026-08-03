@@ -9,6 +9,15 @@ namespace Storage.DomainService.Entities
         public long SizeInBytes { get; set; }
         public string? TenantId { get; private set; }
 
+        /// <summary>
+        /// Object key for this version. Null on legacy and migrated rows, where the
+        /// caller falls back to the existing path computation.
+        /// </summary>
+        public string? StorageKey { get; set; }
+
+        /// <summary>Who uploaded this version.</summary>
+        public string? UploadedBy { get; set; }
+
         private FileVersion() { }
 
         public static FileVersion CreateNew(string fileId, long no, FileVersionOptions options)
@@ -24,7 +33,9 @@ namespace Storage.DomainService.Entities
                 CreatedDate = options.CreateDate,
                 CreatedBy = options.CreatedBy,
                 Tags = options.Tags,
-                Language = options.Language
+                Language = options.Language,
+                StorageKey = options.StorageKey,
+                UploadedBy = options.UploadedBy
             };
         }
     }
@@ -38,5 +49,7 @@ namespace Storage.DomainService.Entities
         public List<string>? Tags { get; set; }
         public string Language { get; set; } = "en";
         public bool LazyUpdate { get; set; } = false;
+        public string? StorageKey { get; set; }
+        public string? UploadedBy { get; set; }
     }
 }

@@ -83,9 +83,7 @@ internal static class SchemaAccessMiddlewareHelper
         var blocksKey = httpContext.Request.Headers[GraphQlConstant.BlocksKeyHeaderKey].FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(blocksKey))
         {
-            //var accessTokenCookieKey = $"access_token_{blocksKey}";
-            //if (!string.IsNullOrWhiteSpace(accessTokenCookieKey) && requestCookies.Keys.Contains(accessTokenCookieKey))
-                return true;
+            return true;
         }
         return false;
     }

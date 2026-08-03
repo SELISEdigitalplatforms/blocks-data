@@ -195,10 +195,6 @@ public class GqlDbRepository : IGqlDbRepository
             ? _dbContextProvider.GetDatabase(tenantId)
             : _dbContextProvider.GetDatabase(connectionString, dbName, true))!;
 
-        // if (database == null)
-        // {
-        //     database = _dbContextProvider.GetDatabase(tenantId);
-        // }
         return database;
     }
 

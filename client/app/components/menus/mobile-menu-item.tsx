@@ -50,6 +50,24 @@ export function MobileMenuItem({
   menu: Menu;
   onClick?: () => void;
 }) {
+  // Hooks run before the type guards below so that every render calls them in
+  // the same order, whatever the menu type is.
+  const menuItem = menu as MenuItemType;
+  const { pathname } = useLocation();
+  const selectedProject = useProjectStore().selectedProject;
+
+  const isActiveMenu = useMemo(() => {
+    if (menu.type !== "menu") return false;
+
+    const allPaths = [menuItem.path];
+    if (menuItem.children) {
+      menuItem.children.forEach((child) => {
+        if (child.type === "menu") allPaths.push(child.path);
+      });
+    }
+    return allPaths.some((item) => pathname.startsWith(item));
+  }, [menu.type, menuItem.children, menuItem.path, pathname]);
+
   // Handle separator type
   if (menu.type === "separator") {
     return <Separator className="my-2" />;
@@ -60,21 +78,8 @@ export function MobileMenuItem({
     return null;
   }
 
-  const menuItem = menu as MenuItemType;
-  const { pathname } = useLocation();
-  const selectedProject = useProjectStore().selectedProject;
   const projectName = selectedProject?.name || "Project";
   const environment = selectedProject?.environment || "Environment";
-
-  const isActiveMenu = useMemo(() => {
-    const allPaths = [menuItem.path];
-    if (menuItem.children) {
-      menuItem.children.forEach((child) => {
-        if (child.type === "menu") allPaths.push(child.path);
-      });
-    }
-    return allPaths.some((item) => pathname.startsWith(item));
-  }, [menuItem.children, menuItem.path, pathname]);
 
   const hasChildren = Boolean(menuItem.children?.length);
 

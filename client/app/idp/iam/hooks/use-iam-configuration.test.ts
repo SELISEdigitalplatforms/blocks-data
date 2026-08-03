@@ -17,8 +17,6 @@ vi.mock("@/store/use-project-store", () => mockProjectStoreFactory());
 
 describe("use-iam-configuration hooks", () => {
   beforeEach(() => {
-    // clearAllMocks (not resetAllMocks) so the useProjectStore factory's
-    // mockReturnValue survives between tests.
     vi.clearAllMocks();
   });
 

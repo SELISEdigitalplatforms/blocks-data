@@ -368,7 +368,7 @@ export const GraphQLPlaygroundPage = () => {
       const lineNumber = index + 1;
 
       // Detect operation start (query or mutation)
-      const operationMatch = line.match(/^\s*(query|mutation)\s*(\w*)\s*{/);
+      const operationMatch = line.match(/^\s*(query|mutation)(?:\s+(\w+))?\s*\{/);
 
       if (operationMatch && braceDepth === 0) {
         currentOperation = {
@@ -524,8 +524,10 @@ export const GraphQLPlaygroundPage = () => {
         );
         const hasFields = innerContent.trim().length > 0;
         const beforeClosing = objStr.substring(0, closingBraceIndex).trimEnd();
-        const closingIndentMatch = beforeClosing.match(/(^|\n)([ \t]*)[^\n]*$/);
-        const closingIndent = closingIndentMatch?.[2] ?? "  ";
+        const lastLine = beforeClosing.slice(
+          beforeClosing.lastIndexOf("\n") + 1,
+        );
+        const closingIndent = /^[ \t]*/.exec(lastLine)?.[0] ?? "  ";
         const fieldIndent = `${closingIndent}  `;
         const separator = hasFields ? "," : "";
 

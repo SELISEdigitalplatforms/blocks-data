@@ -139,6 +139,12 @@ vi.mock("@/storage/components/move-copy-dialog/move-copy-dialog", () => ({
   ),
 }));
 
+vi.mock("@/storage/components/rename-folder-dialog", () => ({
+  RenameFolderDialog: ({ open }: { open: boolean }) => (
+    <div data-testid="rename-dialog" data-open={String(open)} />
+  ),
+}));
+
 // Replace heavy child modals with lightweight prop-reflecting stubs.
 vi.mock("@/storage/components/upload-dms-file-modal", () => ({
   UploadDmsFileModal: ({ open }: { open: boolean }) => (

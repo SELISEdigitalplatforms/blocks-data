@@ -48,6 +48,7 @@ import {
   MoveCopyDialog,
   MoveCopyMode,
 } from "@/storage/components/move-copy-dialog/move-copy-dialog";
+import { RenameFolderDialog } from "@/storage/components/rename-folder-dialog";
 import {
   DmsFileItem,
   DmsFolderItem,
@@ -174,6 +175,7 @@ export function StorageDetail() {
   const [accessItem, setAccessItem] = useState<DmsItem | null>(null);
   const [versionsFile, setVersionsFile] = useState<DmsItem | null>(null);
   const [transfer, setTransfer] = useState<{ item: DmsItem; mode: MoveCopyMode } | null>(null);
+  const [renameFolder, setRenameFolder] = useState<DmsFolderItem | null>(null);
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] =
@@ -416,6 +418,17 @@ export function StorageDetail() {
             className="cursor-pointer"
           >
             Manage access
+          </DropdownMenuItem>
+        )}
+        {dmsItem && isFolderRow && actions.canRename && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              setRenameFolder(dmsItem as DmsFolderItem);
+            }}
+            className="cursor-pointer"
+          >
+            Rename
           </DropdownMenuItem>
         )}
         {actions.canDelete && (
@@ -685,8 +698,7 @@ export function StorageDetail() {
                         {folder.name}
                       </span>
                     </div>
-                    {folder.description === "Folder creation" && (
-                      <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0 -mr-1">
+                    <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0 -mr-1">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -705,7 +717,6 @@ export function StorageDetail() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -755,7 +766,6 @@ export function StorageDetail() {
 
                         {/* Dropdown Icon*/}
                         <TableCell className="w-px">
-                          {folder.description === "Folder creation" && (
                             <div className="opacity-0 group-hover:opacity-100 flex-shrink-0">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -775,7 +785,6 @@ export function StorageDetail() {
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
-                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -996,6 +1005,13 @@ export function StorageDetail() {
           startFolderId={currentParentId || undefined}
         />
       )}
+
+      <RenameFolderDialog
+        open={!!renameFolder}
+        onOpenChange={(open) => !open && setRenameFolder(null)}
+        folder={renameFolder}
+        onDone={() => childrenQuery.refetch()}
+      />
 
       {/* Upload Modal */}
       {storage && (

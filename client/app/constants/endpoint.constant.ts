@@ -1,7 +1,7 @@
 import { getRuntimeEnv } from "@/lib/runtime-env";
 
 const DEFAULT_GRAPHQL_GATEWAY_ORIGIN =
-  "https://stg-api.blocksdevelopers.com" as const;
+  "https://api.seliseblocks.com" as const;
 const DEFAULT_BLOCKS_LOGIC_SITE_ORIGIN =
   "https://stg-logic.blocksdevelopers.com" as const;
 

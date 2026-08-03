@@ -53,13 +53,14 @@ public class DmsEntityExtensionTests
     [Fact]
     public void Directory_factory_carries_the_new_options_through()
     {
+        var createdAt = DateTime.UtcNow;
         var directory = Directory.CreateNew(new DirectoryOptions
         {
             Name = "Reports",
             ParentId = "parent-1",
             ItemId = "dir-1",
             TenantId = "tenant-1",
-            CreateDate = DateTime.UtcNow,
+            CreateDate = createdAt,
             CreatedBy = "user-1",
             Language = "en",
             AncestorIds = new List<string> { "root-1", "parent-1" },
@@ -77,6 +78,8 @@ public class DmsEntityExtensionTests
         directory.ModuleName.Should().Be("dms");
         directory.Description.Should().Be("Quarterly reports");
         directory.SystemName.Should().Be("reports");
+        directory.LastUpdatedDate.Should().Be(createdAt);
+        directory.LastUpdatedBy.Should().Be("user-1");
     }
 
     [Fact]

@@ -26,6 +26,7 @@ import { useCreateDmsDirectory } from "@/storage/hooks/use-dms";
 import { CreateDirectoryDto } from "@/storage/models/dms.model";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
+import { LoaderCircle } from "lucide-react";
 
 const createDirectorySchema = z.object({
   name: z.string().min(1, "Directory name is required"),
@@ -49,8 +50,7 @@ export const CreateDmsNewDirectory = ({
   onSuccess,
 }: CreateDmsDirectoryModalProps) => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
-  const { mutateAsync: createDmsDirectoryMutate, isPending } =
-    useCreateDmsDirectory();
+  const { mutateAsync: createDmsDirectoryMutate, isPending } = useCreateDmsDirectory();
   const form = useForm<CreateDirectoryFormData>({
     resolver: zodResolver(createDirectorySchema),
     defaultValues: {
@@ -89,11 +89,11 @@ export const CreateDmsNewDirectory = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-      onCloseAutoFocus={(event) => {
-        event.preventDefault();
-        (document.activeElement as HTMLElement | null)?.blur();
-        document.body.style.pointerEvents = "";
-      }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          (document.activeElement as HTMLElement | null)?.blur();
+          document.body.style.pointerEvents = "";
+        }}
       >
         <DialogHeader>
           <DialogTitle>Create Directory</DialogTitle>
@@ -103,6 +103,7 @@ export const CreateDmsNewDirectory = ({
           <form
             className="flex flex-col gap-4"
             onSubmit={form.handleSubmit(onSubmit)}
+            aria-busy={isPending}
           >
             <FormField
               control={form.control}
@@ -111,24 +112,32 @@ export const CreateDmsNewDirectory = ({
                 <FormItem>
                   <FormLabel>Directory Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter directory name" {...field} />
+                    <Input placeholder="Enter directory name" disabled={isPending} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            {isPending ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
+              >
+                <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Creating directory…
+              </div>
+            ) : null}
             <div className="mt-6 flex w-full items-center justify-end">
               <div className="flex flex-row gap-2">
                 <DialogClose asChild>
-                  <Button variant="outline">Cancel</Button>
+                  <Button variant="outline" disabled={isPending}>
+                    Cancel
+                  </Button>
                 </DialogClose>
 
-                <Button
-                  type="submit"
-                  variant="default"
-                  disabled={!isValid || isPending}
-                >
-                  Create
+                <Button type="submit" variant="default" disabled={!isValid || isPending}>
+                  {isPending ? "Creating…" : "Create"}
                 </Button>
               </div>
             </div>

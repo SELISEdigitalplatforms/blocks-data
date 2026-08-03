@@ -1,9 +1,6 @@
 "use client";
 import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
-import {
-  FilterChangeHandler,
-  FilterToolbar,
-} from "@/components/filter-toolbar";
+import { FilterChangeHandler, FilterToolbar } from "@/components/filter-toolbar";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -37,11 +34,7 @@ import { CreateDmsNewDirectory } from "@/storage/components/create-new-directory
 import { FilePreviewModal } from "@/storage/components/file-preview-modal";
 import { UploadDmsFileModal } from "@/storage/components/upload-dms-file-modal";
 import { useDeleteFile, useLazyGetFile } from "@/storage/hooks/use-storage-file";
-import {
-  useDeleteDmsDirectory,
-  useDmsChildren,
-  useDmsDirectory,
-} from "@/storage/hooks/use-dms";
+import { useDeleteDmsDirectory, useDmsChildren, useDmsDirectory } from "@/storage/hooks/use-dms";
 import { FileVersionsDrawer } from "@/storage/components/file-versions-drawer/file-versions-drawer";
 import { ManageAccessModal } from "@/storage/components/manage-access-modal/manage-access-modal";
 import {
@@ -56,10 +49,7 @@ import {
   DmsPermissionFlags,
 } from "@/storage/models/dms.model";
 import { canAddToDirectory, itemActions } from "@/storage/utils/permission-actions";
-import {
-  DmsItemType,
-  IDmsFileAndDirectoryInfo,
-} from "@/storage/models/storage.model";
+import { DmsItemType, IDmsFileAndDirectoryInfo } from "@/storage/models/storage.model";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 
 import {
@@ -137,7 +127,9 @@ const toRow = (item: DmsItem): ListRow => ({
   version: (item as DmsFileItem).currentVersion ?? 0,
   description: (item as DmsDirectoryItem).description ?? "",
   itemId: item.itemId,
-  lastUpdatedDate: item.lastUpdatedDate ?? "",
+  // Older data can predate LastUpdatedDate. Display its creation date instead of
+  // passing an empty timestamp to Date and rendering the Unix-epoch-like 1/1/1.
+  lastUpdatedDate: item.lastUpdatedDate ?? item.createdDate ?? "",
   permissions: item.permissions,
 });
 
@@ -148,8 +140,7 @@ export function StorageDetail() {
   const storageId = params.get("id") as string;
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
-  const [isDeleteDirectoryModalOpen, setIsDeleteDirectoryModalOpen] =
-    useState<boolean>(false);
+  const [isDeleteDirectoryModalOpen, setIsDeleteDirectoryModalOpen] = useState<boolean>(false);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [selectedDirectoryId, setSelectedDirectoryId] = useState<string | null>(null);
 
@@ -178,8 +169,7 @@ export function StorageDetail() {
   const [renameDirectory, setRenameDirectory] = useState<DmsDirectoryItem | null>(null);
   const [isCreateDirectoryModalOpen, setIsCreateDirectoryModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-  const [selectedFile, setSelectedFile] =
-    useState<IDmsFileAndDirectoryInfo | null>(null);
+  const [selectedFile, setSelectedFile] = useState<IDmsFileAndDirectoryInfo | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
@@ -225,27 +215,21 @@ export function StorageDetail() {
   }, [configurations, storageId]);
 
   // Helper to build URL with directory navigation params
-  const buildDirectoryUrl = useCallback(
-    (directoryId: string, path: BreadcrumbItem[]) => {
-      const params = new URLSearchParams(window.location.search);
-      if (directoryId) {
-        params.set("directoryId", directoryId);
-        params.set("path", encodeURIComponent(JSON.stringify(path)));
-      } else {
-        params.delete("directoryId");
-        params.delete("path");
-      }
-      return `?${params.toString()}`;
-    },
-    [],
-  );
+  const buildDirectoryUrl = useCallback((directoryId: string, path: BreadcrumbItem[]) => {
+    const params = new URLSearchParams(window.location.search);
+    if (directoryId) {
+      params.set("directoryId", directoryId);
+      params.set("path", encodeURIComponent(JSON.stringify(path)));
+    } else {
+      params.delete("directoryId");
+      params.delete("path");
+    }
+    return `?${params.toString()}`;
+  }, []);
 
   // Handle directory click - navigate into directory using URL
   const handleDirectoryClick = (directory: IDmsFileAndDirectoryInfo) => {
-    const newPath = [
-      ...breadcrumbPath,
-      { id: directory.itemId, name: directory.name },
-    ];
+    const newPath = [...breadcrumbPath, { id: directory.itemId, name: directory.name }];
     navigate(buildDirectoryUrl(directory.itemId, newPath));
   };
 
@@ -375,7 +359,8 @@ export function StorageDetail() {
     const isDirectoryRow = row.type === DmsItemType.Directory;
     // Default directories (Cloud/Construct/etc) are seeded system roots: they anchor
     // the tree and shouldn't be moved, renamed or deleted from the UI.
-    const isProtected = isDirectoryRow && (dmsItem as { isDefault?: boolean } | undefined)?.isDefault === true;
+    const isProtected =
+      isDirectoryRow && (dmsItem as { isDefault?: boolean } | undefined)?.isDefault === true;
 
     return (
       <>
@@ -481,9 +466,7 @@ export function StorageDetail() {
           <h1 className="text-2xl font-semibold">Storage Details</h1>
         </div>
         <div className="mt-6 rounded-sm border bg-card p-6">
-          <p className="text-muted-foreground">
-            Storage configuration not found.
-          </p>
+          <p className="text-muted-foreground">Storage configuration not found.</p>
         </div>
       </main>
     );
@@ -500,9 +483,7 @@ export function StorageDetail() {
               className="cursor-pointer"
               onClick={() => navigate(storagePath)}
             >
-              <span className="text-foreground hover:text-foreground">
-                Storage
-              </span>
+              <span className="text-foreground hover:text-foreground">Storage</span>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -525,9 +506,7 @@ export function StorageDetail() {
               <BreadcrumbSeparator />
               <BreadcrumbItem>
                 {index === breadcrumbPath.length - 1 ? (
-                  <BreadcrumbPage className="text-low-emphasis">
-                    {item.name}
-                  </BreadcrumbPage>
+                  <BreadcrumbPage className="text-low-emphasis">{item.name}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink
                     className="cursor-pointer text-foreground hover:text-foreground"
@@ -556,10 +535,7 @@ export function StorageDetail() {
             variant="outline"
             size="sm"
             onClick={() =>
-              window.open(
-                `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`,
-                "_blank",
-              )
+              window.open(`${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`, "_blank")
             }
           >
             API Docs
@@ -664,12 +640,8 @@ export function StorageDetail() {
         )}
 
         <ScrollArea className="flex-1 overflow-auto p-3">
-          {/* Directorys Section */}
+          {/* Directories */}
           <div className="mb-8">
-            {filteredDirectorys.length > 0 && (
-              <h2 className="mb-4 text-base font-semibold">Directorys</h2>
-            )}
-
             {isDmsLoading ? (
               viewMode === "grid" ? (
                 <DirectoryGridSkeleton />
@@ -694,39 +666,31 @@ export function StorageDetail() {
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <Directory className="h-5 w-5 flex-shrink-0 text-yellow-500" />
-                      <span
-                        className="truncate text-sm font-medium"
-                        title={directory.name}
-                      >
+                      <span className="truncate text-sm font-medium" title={directory.name}>
                         {directory.name}
                       </span>
                     </div>
                     <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0 -mr-1">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                              aria-label="More options"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="rounded-none"
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
+                            aria-label="More options"
                           >
-                            {renderRowMenu(directory)}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-none">
+                          {renderRowMenu(directory)}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div
-                className={`rounded-lg ${directorys.length > 0 && "border"} overflow-hidden`}
-              >
+              <div className={`rounded-lg ${directorys.length > 0 && "border"} overflow-hidden`}>
                 <Table className="w-full bg-background">
                   {filteredDirectorys.length > 0 && (
                     <TableHeader className="bg-muted/50">
@@ -754,40 +718,33 @@ export function StorageDetail() {
                         </TableCell>
 
                         {/* Directory Type */}
-                        <TableCell className="text-muted-foreground">
-                          Directory
-                        </TableCell>
+                        <TableCell className="text-muted-foreground">Directory</TableCell>
 
                         {/* Last Modified */}
                         <TableCell className="text-muted-foreground">
                           {directory.lastUpdatedDate
-                            ? new Date(
-                                directory.lastUpdatedDate,
-                              ).toLocaleDateString()
+                            ? new Date(directory.lastUpdatedDate).toLocaleDateString()
                             : "-"}
                         </TableCell>
 
                         {/* Dropdown Icon*/}
                         <TableCell className="w-px">
-                            <div className="opacity-0 group-hover:opacity-100 flex-shrink-0">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                                    aria-label="More options"
-                                  >
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent
-                                  align="end"
-                                  className="rounded-none"
+                          <div className="opacity-0 group-hover:opacity-100 flex-shrink-0">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
+                                  aria-label="More options"
                                 >
-                                  {renderRowMenu(directory)}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="rounded-none">
+                                {renderRowMenu(directory)}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -799,9 +756,7 @@ export function StorageDetail() {
 
           {/* Files Section */}
           <div>
-            {filteredFiles.length > 0 && (
-              <h2 className="mb-4 text-base font-semibold">Files</h2>
-            )}
+            {filteredFiles.length > 0 && <h2 className="mb-4 text-base font-semibold">Files</h2>}
             {isDmsLoading ? (
               viewMode === "grid" ? (
                 <FileGridSkeleton />
@@ -826,26 +781,17 @@ export function StorageDetail() {
                   >
                     {/* File Preview */}
                     <div className="flex h-40 items-center justify-center border-b bg-muted/30 p-4">
-                      {[
-                        ".jpg",
-                        ".jpeg",
-                        ".png",
-                        ".gif",
-                        ".svg",
-                        ".webp",
-                      ].includes(file?.extension?.toLowerCase() || "") ? (
+                      {[".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"].includes(
+                        file?.extension?.toLowerCase() || "",
+                      ) ? (
                         <div className="flex flex-col items-center justify-center space-y-2">
                           {getFileIcon(file.extension)}
-                          <span className="text-xs text-muted-foreground">
-                            {file.extension}
-                          </span>
+                          <span className="text-xs text-muted-foreground">{file.extension}</span>
                         </div>
                       ) : file?.extension?.toLowerCase() === ".pdf" ? (
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <FileText className="h-12 w-12 text-blue-500" />
-                          <span className="text-xs text-muted-foreground">
-                            PDF
-                          </span>
+                          <span className="text-xs text-muted-foreground">PDF</span>
                         </div>
                       ) : (
                         getFileIcon(file.extension)
@@ -857,10 +803,7 @@ export function StorageDetail() {
                       <div className="flex justify-between items-center gap-2 flex-1 min-w-0">
                         <div className="flex items-center gap-2 p-3 min-w-0">
                           {getFileIcon(file.extension, "sm")}
-                          <span
-                            className="truncate text-sm font-medium min-w-0"
-                            title={file.name}
-                          >
+                          <span className="truncate text-sm font-medium min-w-0" title={file.name}>
                             {file.name}
                           </span>
                         </div>
@@ -876,10 +819,7 @@ export function StorageDetail() {
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="rounded-none"
-                            >
+                            <DropdownMenuContent align="end" className="rounded-none">
                               {renderRowMenu(file)}
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -890,9 +830,7 @@ export function StorageDetail() {
                 ))}
               </div>
             ) : (
-              <div
-                className={`rounded-lg ${files.length > 0 && "border"} overflow-hidden`}
-              >
+              <div className={`rounded-lg ${files.length > 0 && "border"} overflow-hidden`}>
                 <Table className="w-full bg-background">
                   {filteredFiles.length > 0 && (
                     <TableHeader className="bg-muted/50">
@@ -928,9 +866,7 @@ export function StorageDetail() {
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {file.lastUpdatedDate
-                            ? new Date(
-                                file.lastUpdatedDate,
-                              ).toLocaleDateString()
+                            ? new Date(file.lastUpdatedDate).toLocaleDateString()
                             : "-"}
                         </TableCell>
 
@@ -947,10 +883,7 @@ export function StorageDetail() {
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                align="end"
-                                className="rounded-none"
-                              >
+                              <DropdownMenuContent align="end" className="rounded-none">
                                 {renderRowMenu(file)}
                               </DropdownMenuContent>
                             </DropdownMenu>

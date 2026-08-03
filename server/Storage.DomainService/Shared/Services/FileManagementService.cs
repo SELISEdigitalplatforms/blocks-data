@@ -193,6 +193,8 @@ namespace Storage.DomainService.Services
 
         private File CreateNewFile(dynamic request)
         {
+            var now = DateTime.UtcNow;
+            var userId = BlocksContext.GetContext()?.UserId ?? string.Empty;
 
             var tags = string.IsNullOrWhiteSpace(request.Tags)
                 ? new List<string>()
@@ -214,9 +216,12 @@ namespace Storage.DomainService.Services
                 Url = string.Empty,
                 ItemId = request.ItemId,
                 TenantId = BlocksContext.GetContext()?.TenantId ?? string.Empty,
-                CreatedDate = DateTime.UtcNow,
-                CreatedBy = BlocksContext.GetContext()?.UserId ?? string.Empty,
-                LastUpdatedBy = BlocksContext.GetContext()?.UserId ?? string.Empty,
+                CreatedDate = now,
+                CreatedBy = userId,
+                // A fresh upload is also the initial version of this file, not an
+                // update after creation. Persist the same timestamp for both fields.
+                LastUpdatedDate = now,
+                LastUpdatedBy = userId,
                 Tags = tags,
                 Language = "EN",
                 AccessModifier = string.IsNullOrWhiteSpace(request.AccessModifier)

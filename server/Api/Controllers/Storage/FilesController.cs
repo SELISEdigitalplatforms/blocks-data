@@ -140,8 +140,7 @@ namespace Api.Controllers
 
         /// <summary>Cursor-paginated version history of a file, newest first.</summary>
         [HttpGet]
-        // [ProtectedEndPoint("blocks-data::get-file-versions")]
-        [Authorize]
+        [ProtectedEndPoint("blocks-data::get-file-versions")]
         public async Task<IActionResult> GetFileVersions([FromQuery] GetFileVersionsRequest request)
         {
             var page = await _contentFileService.GetVersionsAsync(request.FileId, request.Cursor, request.Limit);
@@ -155,8 +154,7 @@ namespace Api.Controllers
 
         /// <summary>Creates the next version of a file and returns a presigned upload URL.</summary>
         [HttpPost]
-        // [ProtectedEndPoint("blocks-data::create-file-version")]
-        [Authorize]
+        [ProtectedEndPoint("blocks-data::create-file-version")]
         public async Task<IActionResult> CreateFileVersion([FromBody] CreateFileVersionRequest request)
         {
             var result = await _fileManagementService.CreateFileVersionAsync(request);
@@ -165,8 +163,7 @@ namespace Api.Controllers
 
         /// <summary>Copies a file into another directory without duplicating its stored bytes.</summary>
         [HttpPost]
-        // [ProtectedEndPoint("blocks-data::copy-file")]
-        [Authorize]
+        [ProtectedEndPoint("blocks-data::copy-file")]
         public async Task<IActionResult> CopyFile([FromBody] CopyFileRequest request)
         {
             var result = await _contentFileService.CopyFileAsync(request.FileId, request.TargetDirectoryId, request.CopyAccessPolicies);
@@ -177,8 +174,7 @@ namespace Api.Controllers
 
         /// <summary>Re-parents a file into another directory.</summary>
         [HttpPost]
-        // [ProtectedEndPoint("blocks-data::move-file")]
-        [Authorize]
+        [ProtectedEndPoint("blocks-data::move-file")]
         public async Task<IActionResult> MoveFile([FromBody] MoveFileRequest request)
         {
             var result = await _contentFileService.MoveFileAsync(request.FileId, request.TargetDirectoryId);

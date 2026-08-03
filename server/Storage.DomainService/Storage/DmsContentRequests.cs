@@ -41,8 +41,8 @@ namespace DomainService.Storage.Dms
 
         public int Limit { get; set; } = 50;
 
-        /// <summary>Null returns folders and files together.</summary>
-        public StructureType? Type { get; set; }
+        /// <summary>Null returns folders and files together. Accepts the API kind strings "folder" / "file".</summary>
+        public string? Type { get; set; }
 
         public string? Search { get; set; }
     }
@@ -120,7 +120,9 @@ namespace DomainService.Storage.Dms
 
         public string? Cursor { get; set; }
         public int Limit { get; set; } = 50;
-        public StructureType? Type { get; set; }
+
+        /// <summary>Null searches folders and files together. Accepts "folder" / "file".</summary>
+        public string? Type { get; set; }
     }
 
     public class TrashRequest
@@ -128,8 +130,8 @@ namespace DomainService.Storage.Dms
         public string? Cursor { get; set; }
         public int Limit { get; set; } = 50;
 
-        /// <summary>Narrows the trash to folders or files. Both when omitted.</summary>
-        public StructureType? Type { get; set; }
+        /// <summary>Narrows the trash to folders or files. Both when omitted. Accepts "folder" / "file".</summary>
+        public string? Type { get; set; }
     }
 
     /// <summary>
@@ -180,5 +182,22 @@ namespace DomainService.Storage.Dms
         public string FileId { get; set; } = string.Empty;
         public string? Cursor { get; set; }
         public int Limit { get; set; } = 25;
+    }
+
+    /// <summary>
+    /// Maps the API kind strings the frontend sends ("folder" / "file") onto the
+    /// <see cref="StructureType"/> the listing/search services filter on. Any other
+    /// value (null, empty, "all", typos) resolves to null, which the services read as
+    /// "no filter" — matching the contract where an omitted type returns both kinds.
+    /// </summary>
+    public static class ContentKind
+    {
+        public static StructureType? FromApiString(string? value)
+            => value?.Trim().ToLowerInvariant() switch
+            {
+                "folder" => StructureType.Directory,
+                "file" => StructureType.File,
+                _ => null,
+            };
     }
 }

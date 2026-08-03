@@ -10,8 +10,8 @@ import {
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { ChevronRight, Folder as FolderIcon } from "lucide-react";
-import { useMemo, useState } from "react";
-import { useCopyFile, useDmsChildren, useMoveDmsFolder, useMoveFile } from "../../hooks/use-dms";
+import { useEffect, useMemo, useState } from "react";
+import { useCopyFile, useDmsChildren, useDmsFolder, useMoveDmsFolder, useMoveFile } from "../../hooks/use-dms";
 import { DmsItem, isFolder } from "../../models/dms.model";
 
 export type MoveCopyMode = "move" | "copy";
@@ -50,8 +50,34 @@ export function MoveCopyDialog({
   startFolderId,
   onDone,
 }: Readonly<MoveCopyDialogProps>) {
+  // The picker starts inside the item's current folder, seeded with the full
+  // breadcrumb trail from the root so the caller can navigate UP to ancestors as
+  // well as down into children. Without this the picker can only descend, which
+  // makes it impossible to move a file into a parent or sibling tree.
   const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: startFolderId, name: "Root" }]);
   const current = crumbs[crumbs.length - 1];
+
+  const folderDetail = useDmsFolder(startFolderId);
+
+  useEffect(() => {
+    const detail = folderDetail.data;
+    if (!detail || !startFolderId) return;
+
+    const names = (detail.fullPath ?? "").split("/").map((s) => s.trim()).filter(Boolean);
+    const ancestorIds = detail.ancestorIds ?? [];
+    const allIds = [...ancestorIds, startFolderId];
+
+    // The path segments must line up with the ids one-to-one (ancestors + self).
+    // If they don't — legacy or malformed data — keep the single-entry fallback
+    // rather than rendering a misleading trail.
+    if (names.length !== allIds.length) return;
+
+    const trail: Crumb[] = [{ id: undefined, name: "Root" }, ...allIds.map((id, i) => ({ id, name: names[i] }))];
+    setCrumbs(trail);
+    // Seed only once per start folder; re-running on every data tick would reset
+    // the caller's in-flight navigation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startFolderId, folderDetail.data?.itemId]);
 
   const children = useDmsChildren(current.id, { type: "folder" });
   const moveFile = useMoveFile();

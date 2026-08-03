@@ -365,11 +365,12 @@
             Controller for managing file-related operations such as downloading, uploading, and deleting files.
             </summary>
         </member>
-        <member name="M:Api.Controllers.FilesController.#ctor(Storage.DomainService.Services.IFileManagementService)">
+        <member name="M:Api.Controllers.FilesController.#ctor(Storage.DomainService.Services.IFileManagementService,Storage.DomainService.Services.IContentFileService)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.FilesController"/> class.
             </summary>
             <param name="fileManagementService">Service for managing file operations.</param>
+            <param name="contentFileService">Service for file version, move and copy operations.</param>
         </member>
         <member name="M:Api.Controllers.FilesController.GetFile(DomainService.Storage.GetFileRequest)">
             <summary>
@@ -419,6 +420,18 @@
             </summary>
             <param name="request">The request containing file download details.</param>
             <returns>A response containing the file stream and metadata of the downloaded file.</returns>
+        </member>
+        <member name="M:Api.Controllers.FilesController.GetFileVersions(DomainService.Storage.Dms.GetFileVersionsRequest)">
+            <summary>Cursor-paginated version history of a file, newest first.</summary>
+        </member>
+        <member name="M:Api.Controllers.FilesController.CreateFileVersion(DomainService.Storage.Dms.CreateFileVersionRequest)">
+            <summary>Creates the next version of a file and returns a presigned upload URL.</summary>
+        </member>
+        <member name="M:Api.Controllers.FilesController.CopyFile(DomainService.Storage.Dms.CopyFileRequest)">
+            <summary>Copies a file into another folder without duplicating its stored bytes.</summary>
+        </member>
+        <member name="M:Api.Controllers.FilesController.MoveFile(DomainService.Storage.Dms.MoveFileRequest)">
+            <summary>Re-parents a file into another folder.</summary>
         </member>
         <member name="T:Api.Controllers.FoldersController">
              <summary>

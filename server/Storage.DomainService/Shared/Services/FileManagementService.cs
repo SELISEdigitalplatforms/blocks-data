@@ -3,6 +3,7 @@ using Azure.Storage.Blobs.Models;
 using Blocks.Genesis;
 using DomainService.Configuration;
 using DomainService.Storage;
+using DomainService.Storage.Dms;
 using FluentValidation;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -811,6 +812,44 @@ namespace Storage.DomainService.Services
             {
                 IsSuccess = true,
                 ItemId = file.ItemId
+            };
+        }
+
+        public async Task<CreateFileVersionResponse> CreateFileVersionAsync(CreateFileVersionRequest request)
+        {
+            var existingFile = await _fileRepository.GetFileByItemIdAsync(request.FileId);
+            if (existingFile == null)
+            {
+                return new CreateFileVersionResponse
+                {
+                    Errors = new Dictionary<string, string> { { "FileId", $"file_with_id_{request.FileId}_not_exist" } },
+                };
+            }
+
+            var latestFileVersionNumber = await _versionRepository.GetLatestFileVersionNumberAsync(existingFile.ItemId);
+            var newFileVersion = CreateNewFileVersion(existingFile.ItemId, latestFileVersionNumber);
+
+            var configuration = await GetConfigurationAsync(request.ConfigurationName);
+            if (configuration == null)
+            {
+                return new CreateFileVersionResponse
+                {
+                    Errors = new Dictionary<string, string> { { "Configuration", ConfigurationNotFound } },
+                };
+            }
+
+            var storageServiceProvider = GetStorageService(configuration);
+
+            var fileInfo = GetFileInfo(existingFile.ItemId, newFileVersion.ItemId, existingFile.Name, existingFile.AccessModifier, StorageStrategyCategory.Cloud);
+            var preSignedUrl = storageServiceProvider.GeneratePreSignedUploadUrlAsync(fileInfo.filePath, fileInfo.expiry);
+
+            await _versionRepository.CreateFileVersionAsync(newFileVersion);
+
+            return new CreateFileVersionResponse
+            {
+                VersionNo = newFileVersion.No,
+                UploadUrl = preSignedUrl,
+                IsSuccess = true
             };
         }
     }

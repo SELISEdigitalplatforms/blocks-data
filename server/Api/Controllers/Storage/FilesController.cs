@@ -1,5 +1,6 @@
 ﻿using Blocks.Genesis;
 using DomainService.Storage;
+using DomainService.Storage.Dms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
@@ -16,14 +17,17 @@ namespace Api.Controllers
     public class FilesController : ControllerBase
     {
         private readonly IFileManagementService _fileManagementService;
+        private readonly IContentFileService _contentFileService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FilesController"/> class.
         /// </summary>
         /// <param name="fileManagementService">Service for managing file operations.</param>
-        public FilesController(IFileManagementService fileManagementService)
+        /// <param name="contentFileService">Service for file version, move and copy operations.</param>
+        public FilesController(IFileManagementService fileManagementService, IContentFileService contentFileService)
         {
             _fileManagementService = fileManagementService;
+            _contentFileService = contentFileService;
         }
 
         /// <summary>
@@ -126,5 +130,70 @@ namespace Api.Controllers
             var result = await _fileManagementService.UpdateFileAsync(command);
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
+
+        // Deprecated: use /Files/UpdateFileAdditionalInfo. Kept so the leaked camelCase URL keeps working.
+        [Obsolete("Renamed to UpdateFileAdditionalInfo.")]
+        [HttpPost]
+        [ProtectedEndPoint("blocks-data::update-file-additional-info")]
+        public Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
+            => UpdateFileAdditionalInfo(command);
+
+        /// <summary>Cursor-paginated version history of a file, newest first.</summary>
+        [HttpGet]
+        // [ProtectedEndPoint("blocks-data::get-file-versions")]
+        [Authorize]
+        public async Task<IActionResult> GetFileVersions([FromQuery] GetFileVersionsRequest request)
+        {
+            var page = await _contentFileService.GetVersionsAsync(request.FileId, request.Cursor, request.Limit);
+            return Ok(new FileVersionsResponse
+            {
+                Items = page.Items.Select(FileVersionDto.From).ToList(),
+                NextCursor = page.NextCursor,
+                HasMore = page.HasMore,
+            });
+        }
+
+        /// <summary>Creates the next version of a file and returns a presigned upload URL.</summary>
+        [HttpPost]
+        // [ProtectedEndPoint("blocks-data::create-file-version")]
+        [Authorize]
+        public async Task<IActionResult> CreateFileVersion([FromBody] CreateFileVersionRequest request)
+        {
+            var result = await _fileManagementService.CreateFileVersionAsync(request);
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
+        }
+
+        /// <summary>Copies a file into another folder without duplicating its stored bytes.</summary>
+        [HttpPost]
+        // [ProtectedEndPoint("blocks-data::copy-file")]
+        [Authorize]
+        public async Task<IActionResult> CopyFile([FromBody] CopyFileRequest request)
+        {
+            var result = await _contentFileService.CopyFileAsync(request.FileId, request.TargetFolderId, request.CopyAccessPolicies);
+            return result.Status == FileOperationStatus.Succeeded
+                ? Ok(new { fileId = result.NewFileId })
+                : MapFileOperation(result.Status);
+        }
+
+        /// <summary>Re-parents a file into another folder.</summary>
+        [HttpPost]
+        // [ProtectedEndPoint("blocks-data::move-file")]
+        [Authorize]
+        public async Task<IActionResult> MoveFile([FromBody] MoveFileRequest request)
+        {
+            var result = await _contentFileService.MoveFileAsync(request.FileId, request.TargetFolderId);
+            return result.Status == FileOperationStatus.Succeeded
+                ? Ok(new { fileId = request.FileId })
+                : MapFileOperation(result.Status);
+        }
+
+        private IActionResult MapFileOperation(FileOperationStatus status) => status switch
+        {
+            FileOperationStatus.FileNotFound => NotFound(new { message = "File not found." }),
+            FileOperationStatus.TargetNotFound => NotFound(new { message = "Target folder not found." }),
+            FileOperationStatus.NameConflict => Conflict(new { message = "A file with that name already exists in the target folder." }),
+            FileOperationStatus.ExtensionNotAllowed => BadRequest(new { message = "The target folder does not allow this file extension." }),
+            _ => BadRequest(new { message = "The file operation could not be completed." }),
+        };
     }
 }

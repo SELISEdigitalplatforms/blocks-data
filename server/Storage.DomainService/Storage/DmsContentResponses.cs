@@ -223,4 +223,13 @@ namespace DomainService.Storage.Dms
         public string? NextCursor { get; set; }
         public bool HasMore { get; set; }
     }
+
+    /// <summary>Returned by CreateFileVersion: the number assigned and the URL to PUT the bytes to.</summary>
+    public class CreateFileVersionResponse
+    {
+        public long VersionNo { get; set; }
+        public string? UploadUrl { get; set; }
+        public bool IsSuccess { get; set; }
+        public Dictionary<string, string>? Errors { get; set; }
+    }
 }

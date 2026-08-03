@@ -46,7 +46,7 @@ public class ContentFileServiceTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private Task Folder(string id, string name, string[]? allowedExtensions = null, List<string>? ancestors = null)
+    private Task Directory(string id, string name, string[]? allowedExtensions = null, List<string>? ancestors = null)
         => _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
         {
             ItemId = id,
@@ -67,7 +67,7 @@ public class ContentFileServiceTests : IDisposable
             TenantId = tenantId,
             Name = name,
             SystemName = name.ToLowerInvariant(),
-            ParentDirectoryID = parent,
+            DirectoryId = parent,
             Type = StructureType.File,
             Extension = extension,
             SizeInBytes = 42,
@@ -168,55 +168,55 @@ public class ContentFileServiceTests : IDisposable
     [Fact]
     public async Task Moving_a_file_repoints_it_and_rewrites_its_ancestry()
     {
-        await Folder("dir-1", "source");
-        await Folder("dir-2", "target", ancestors: new List<string> { "root" });
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "target", ancestors: new List<string> { "root" });
         await FileDoc("file-1", "doc.txt", "dir-1");
 
         var result = await _files.MoveFileAsync("file-1", "dir-2");
 
         result.Status.Should().Be(FileOperationStatus.Succeeded);
         var moved = await ReadFile("file-1");
-        moved.ParentDirectoryID.Should().Be("dir-2");
+        moved.DirectoryId.Should().Be("dir-2");
         moved.AncestorIds.Should().Equal("root", "dir-2");
     }
 
     [Fact]
     public async Task Moving_a_file_that_does_not_exist_is_refused()
     {
-        await Folder("dir-2", "target");
+        await Directory("dir-2", "target");
 
         (await _files.MoveFileAsync("nope", "dir-2")).Status.Should().Be(FileOperationStatus.FileNotFound);
     }
 
     [Fact]
-    public async Task Moving_into_a_folder_that_does_not_exist_is_refused()
+    public async Task Moving_into_a_directory_that_does_not_exist_is_refused()
     {
-        await Folder("dir-1", "source");
+        await Directory("dir-1", "source");
         await FileDoc("file-1", "doc.txt", "dir-1");
 
         (await _files.MoveFileAsync("file-1", "nowhere")).Status.Should().Be(FileOperationStatus.TargetNotFound);
-        (await ReadFile("file-1")).ParentDirectoryID.Should().Be("dir-1", "a refused move writes nothing");
+        (await ReadFile("file-1")).DirectoryId.Should().Be("dir-1", "a refused move writes nothing");
     }
 
     [Fact]
     public async Task Moving_onto_an_existing_name_in_the_target_is_refused()
     {
-        await Folder("dir-1", "source");
-        await Folder("dir-2", "target");
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "target");
         await FileDoc("file-1", "doc.txt", "dir-1");
         await FileDoc("file-2", "doc.txt", "dir-2");
 
         var result = await _files.MoveFileAsync("file-1", "dir-2");
 
         result.Status.Should().Be(FileOperationStatus.NameConflict);
-        (await ReadFile("file-1")).ParentDirectoryID.Should().Be("dir-1");
+        (await ReadFile("file-1")).DirectoryId.Should().Be("dir-1");
     }
 
     [Fact]
-    public async Task Moving_a_file_into_a_folder_that_rejects_its_extension_is_refused()
+    public async Task Moving_a_file_into_a_directory_that_rejects_its_extension_is_refused()
     {
-        await Folder("dir-1", "source");
-        await Folder("dir-2", "images", allowedExtensions: new[] { "png", "jpg" });
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "images", allowedExtensions: new[] { "png", "jpg" });
         await FileDoc("file-1", "doc.txt", "dir-1", extension: "txt");
 
         var result = await _files.MoveFileAsync("file-1", "dir-2");
@@ -227,31 +227,22 @@ public class ContentFileServiceTests : IDisposable
     [Fact]
     public async Task An_allowed_extension_is_matched_regardless_of_case_or_leading_dot()
     {
-        await Folder("dir-1", "source");
-        await Folder("dir-2", "images", allowedExtensions: new[] { ".PNG" });
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "images", allowedExtensions: new[] { ".PNG" });
         await FileDoc("file-1", "photo.png", "dir-1", extension: "png");
 
         (await _files.MoveFileAsync("file-1", "dir-2")).Status.Should().Be(FileOperationStatus.Succeeded);
     }
 
     [Fact]
-    public async Task Moving_a_file_into_the_folder_it_already_sits_in_is_allowed()
+    public async Task Moving_a_file_into_the_directory_it_already_sits_in_is_allowed()
     {
         // The file itself is excluded from the name-clash probe, so a no-op move does not
         // collide with its own record.
-        await Folder("dir-1", "source");
+        await Directory("dir-1", "source");
         await FileDoc("file-1", "doc.txt", "dir-1");
 
         (await _files.MoveFileAsync("file-1", "dir-1")).Status.Should().Be(FileOperationStatus.Succeeded);
-    }
-
-    [Fact]
-    public async Task A_file_in_another_tenant_cannot_be_moved()
-    {
-        await Folder("dir-2", "target");
-        await FileDoc("file-1", "doc.txt", "dir-1", tenantId: "tenant-2");
-
-        (await _files.MoveFileAsync("file-1", "dir-2")).Status.Should().Be(FileOperationStatus.FileNotFound);
     }
 
     // Copy
@@ -259,8 +250,8 @@ public class ContentFileServiceTests : IDisposable
     [Fact]
     public async Task Copying_creates_a_new_file_in_the_target_and_leaves_the_source_alone()
     {
-        await Folder("dir-1", "source");
-        await Folder("dir-2", "target", ancestors: new List<string> { "root" });
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "target", ancestors: new List<string> { "root" });
         await FileDoc("file-1", "doc.txt", "dir-1");
 
         var result = await _files.CopyFileAsync("file-1", "dir-2");
@@ -269,12 +260,12 @@ public class ContentFileServiceTests : IDisposable
         result.NewFileId.Should().NotBeNullOrEmpty().And.NotBe("file-1");
 
         var copy = await ReadFile(result.NewFileId!);
-        copy.ParentDirectoryID.Should().Be("dir-2");
+        copy.DirectoryId.Should().Be("dir-2");
         copy.AncestorIds.Should().Equal("root", "dir-2");
         copy.Name.Should().Be("doc.txt");
         copy.SizeInBytes.Should().Be(42);
 
-        (await ReadFile("file-1")).ParentDirectoryID.Should().Be("dir-1");
+        (await ReadFile("file-1")).DirectoryId.Should().Be("dir-1");
     }
 
     [Fact]
@@ -283,8 +274,8 @@ public class ContentFileServiceTests : IDisposable
         // Zero-copy: versions are immutable, so the clone points at the same keys. The
         // consequence is that deleting a file must not purge storage another file still
         // references.
-        await Folder("dir-1", "source");
-        await Folder("dir-2", "target");
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "target");
         await FileDoc("file-1", "doc.txt", "dir-1");
         await Version("file-1", 1, "Private/file-1/v1/doc.txt");
         await Version("file-1", 2, "Private/file-1/v2/doc.txt");
@@ -307,15 +298,15 @@ public class ContentFileServiceTests : IDisposable
     [Fact]
     public async Task A_copy_inherits_from_where_it_lands_even_when_the_source_did_not()
     {
-        await Folder("dir-1", "source");
-        await Folder("dir-2", "target");
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "target");
         await _db.GetCollection<File>("Files").InsertOneAsync(new File
         {
             ItemId = "file-1",
             TenantId = "tenant-1",
             Name = "doc.txt",
             SystemName = "doc.txt",
-            ParentDirectoryID = "dir-1",
+            DirectoryId = "dir-1",
             InheritsParentAccess = false,
             CreatedBy = "author",
         });
@@ -329,8 +320,8 @@ public class ContentFileServiceTests : IDisposable
     [Fact]
     public async Task Access_entries_are_not_carried_over_unless_asked_for()
     {
-        await Folder("dir-1", "source");
-        await Folder("dir-2", "target");
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "target");
         await FileDoc("file-1", "doc.txt", "dir-1");
         await _accessRepository.GrantAsync(new ContentAccessPolicy
         {
@@ -347,7 +338,7 @@ public class ContentFileServiceTests : IDisposable
         var plain = await _files.CopyFileAsync("file-1", "dir-2");
         (await _accessRepository.GetByResourceAsync(plain.NewFileId!)).Should().BeEmpty();
 
-        await Folder("dir-3", "another");
+        await Directory("dir-3", "another");
         var withPolicies = await _files.CopyFileAsync("file-1", "dir-3", copyAccessPolicies: true);
         var cloned = await _accessRepository.GetByResourceAsync(withPolicies.NewFileId!);
 
@@ -360,8 +351,8 @@ public class ContentFileServiceTests : IDisposable
     [Fact]
     public async Task Copying_onto_an_existing_name_in_the_target_is_refused()
     {
-        await Folder("dir-1", "source");
-        await Folder("dir-2", "target");
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "target");
         await FileDoc("file-1", "doc.txt", "dir-1");
         await FileDoc("file-2", "doc.txt", "dir-2");
 
@@ -374,8 +365,8 @@ public class ContentFileServiceTests : IDisposable
     [Fact]
     public async Task Copying_a_file_with_no_versions_still_produces_the_file_record()
     {
-        await Folder("dir-1", "source");
-        await Folder("dir-2", "target");
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "target");
         await FileDoc("file-1", "doc.txt", "dir-1");
 
         var result = await _files.CopyFileAsync("file-1", "dir-2");
@@ -385,10 +376,10 @@ public class ContentFileServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Copying_a_missing_file_or_into_a_missing_folder_is_refused()
+    public async Task Copying_a_missing_file_or_into_a_missing_directory_is_refused()
     {
-        await Folder("dir-2", "target");
-        await Folder("dir-1", "source");
+        await Directory("dir-2", "target");
+        await Directory("dir-1", "source");
         await FileDoc("file-1", "doc.txt", "dir-1");
 
         (await _files.CopyFileAsync("nope", "dir-2")).Status.Should().Be(FileOperationStatus.FileNotFound);

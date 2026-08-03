@@ -45,8 +45,8 @@ public class ContentManagementServiceTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    /// <summary>A folder the caller created, so they hold Manage through ownership.</summary>
-    private Task OwnedFolder(string id = "dir-1", string createdBy = "user-1", bool inherits = true)
+    /// <summary>A directory the caller created, so they hold Manage through ownership.</summary>
+    private Task OwnedDirectory(string id = "dir-1", string createdBy = "user-1", bool inherits = true)
         => _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
         {
             ItemId = id,
@@ -68,7 +68,7 @@ public class ContentManagementServiceTests : IDisposable
             Name = id,
             SystemName = id,
             Type = StructureType.File,
-            ParentDirectoryID = "dir-1",
+            DirectoryId = "dir-1",
             AncestorIds = new List<string> { "dir-1" },
             InheritsParentAccess = inherits,
             CreatedBy = createdBy,
@@ -83,7 +83,7 @@ public class ContentManagementServiceTests : IDisposable
         ContentEffect effect = ContentEffect.Allow) => new()
         {
             ResourceId = resourceId,
-            ResourceType = ContentResourceType.Folder,
+            ResourceType = ContentResourceType.Directory,
             PrincipalType = principalType,
             PrincipalId = principalId,
             Permission = permission,
@@ -106,7 +106,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task A_caller_without_manage_cannot_grant_and_the_attempt_is_audited()
     {
-        await OwnedFolder(createdBy: "someone-else");
+        await OwnedDirectory(createdBy: "someone-else");
 
         var result = await _management.GrantAccessAsync(Policy());
 
@@ -122,7 +122,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task The_owner_of_a_resource_holds_manage_without_an_explicit_entry()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
 
         var result = await _management.GrantAccessAsync(Policy());
 
@@ -132,13 +132,13 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task An_explicit_manage_grant_is_enough_to_administer_a_resource_owned_by_someone_else()
     {
-        await OwnedFolder(createdBy: "someone-else");
+        await OwnedDirectory(createdBy: "someone-else");
         await _accessRepository.GrantAsync(new ContentAccessPolicy
         {
             ItemId = Guid.NewGuid().ToString(),
             TenantId = "tenant-1",
             ResourceId = "dir-1",
-            ResourceType = ContentResourceType.Folder,
+            ResourceType = ContentResourceType.Directory,
             PrincipalType = ContentPrincipalType.User,
             PrincipalId = "user-1",
             Permission = ContentPermission.Manage,
@@ -155,7 +155,7 @@ public class ContentManagementServiceTests : IDisposable
     {
         // Resolution treats such an entry as void, so storing it would leave something
         // that looks like it restricts the owner and does not.
-        await OwnedFolder(createdBy: "user-1");
+        await OwnedDirectory(createdBy: "user-1");
 
         var result = await _management.GrantAccessAsync(
             Policy(principalType: ContentPrincipalType.User, principalId: "user-1", effect: ContentEffect.Deny));
@@ -167,7 +167,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task A_deny_aimed_at_someone_who_is_not_the_owner_is_allowed()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
 
         var result = await _management.GrantAccessAsync(
             Policy(principalType: ContentPrincipalType.User, principalId: "user-2", effect: ContentEffect.Deny));
@@ -181,7 +181,7 @@ public class ContentManagementServiceTests : IDisposable
     [InlineData(ContentPrincipalType.Organization)]
     public async Task A_grant_without_a_principal_is_refused_for_every_kind_that_needs_one(ContentPrincipalType principalType)
     {
-        await OwnedFolder();
+        await OwnedDirectory();
 
         var result = await _management.GrantAccessAsync(Policy(principalType: principalType, principalId: null));
 
@@ -191,7 +191,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task An_everyone_grant_needs_no_principal()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
 
         var result = await _management.GrantAccessAsync(
             Policy(principalType: ContentPrincipalType.Everyone, principalId: null));
@@ -204,7 +204,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task A_grant_is_stamped_with_the_tenant_and_the_caller_and_audited()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
 
         var result = await _management.GrantAccessAsync(Policy());
 
@@ -223,7 +223,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Updating_an_entry_replaces_it_and_keeps_its_creation_time()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
         var created = await _management.GrantAccessAsync(Policy());
         var original = (await _accessRepository.GetByResourceAsync("dir-1")).Single();
 
@@ -242,7 +242,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Updating_an_entry_that_does_not_exist_is_refused()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
         var edit = Policy();
         edit.ItemId = Guid.NewGuid().ToString();
 
@@ -252,7 +252,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Revoking_removes_the_entry_and_records_it()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
         var created = await _management.GrantAccessAsync(Policy());
 
         var result = await _management.RevokeAccessAsync("dir-1", created.PolicyItemId!);
@@ -265,7 +265,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Revoking_an_entry_that_does_not_exist_is_refused()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
 
         (await _management.RevokeAccessAsync("dir-1", Guid.NewGuid().ToString()))
             .Status.Should().Be(ContentAccessOperationStatus.PolicyNotFound);
@@ -276,10 +276,10 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Sharing_creates_an_allow_entry_and_is_logged_as_a_share()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
 
         var result = await _management.ShareContentAsync(
-            "dir-1", ContentResourceType.Folder, ContentPrincipalType.User, "user-9", ContentPermission.Download);
+            "dir-1", ContentResourceType.Directory, ContentPrincipalType.User, "user-9", ContentPermission.Download);
 
         result.Status.Should().Be(ContentAccessOperationStatus.Succeeded);
 
@@ -296,11 +296,11 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Sharing_honours_an_expiry()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
         var expires = DateTime.UtcNow.AddDays(7);
 
         await _management.ShareContentAsync(
-            "dir-1", ContentResourceType.Folder, ContentPrincipalType.User, "user-9", ContentPermission.View, expires);
+            "dir-1", ContentResourceType.Directory, ContentPrincipalType.User, "user-9", ContentPermission.View, expires);
 
         (await _accessRepository.GetByResourceAsync("dir-1")).Single().ExpiresAt.Should().BeCloseTo(expires, TimeSpan.FromSeconds(1));
     }
@@ -308,10 +308,10 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Sharing_without_manage_is_refused()
     {
-        await OwnedFolder(createdBy: "someone-else");
+        await OwnedDirectory(createdBy: "someone-else");
 
         var result = await _management.ShareContentAsync(
-            "dir-1", ContentResourceType.Folder, ContentPrincipalType.User, "user-9", ContentPermission.View);
+            "dir-1", ContentResourceType.Directory, ContentPrincipalType.User, "user-9", ContentPermission.View);
 
         result.Status.Should().Be(ContentAccessOperationStatus.NotPermitted);
     }
@@ -323,33 +323,33 @@ public class ContentManagementServiceTests : IDisposable
     {
         // Otherwise the resource becomes invisible to everyone, including the caller who
         // just made the change.
-        await OwnedFolder();
+        await OwnedDirectory();
 
         var result = await _management.ToggleInheritanceAsync("dir-1", inherits: false);
 
         result.Status.Should().Be(ContentAccessOperationStatus.WouldOrphanResource);
-        var folder = await _db.GetCollection<Directory>("Directories").Find(d => d.ItemId == "dir-1").SingleAsync();
-        folder.InheritsParentAccess.Should().BeTrue("the refused change must not be written");
+        var directory = await _db.GetCollection<Directory>("Directories").Find(d => d.ItemId == "dir-1").SingleAsync();
+        directory.InheritsParentAccess.Should().BeTrue("the refused change must not be written");
     }
 
     [Fact]
     public async Task Inheritance_can_be_switched_off_once_an_allow_entry_exists()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
         await _management.GrantAccessAsync(Policy(principalType: ContentPrincipalType.User, principalId: "user-1"));
 
         var result = await _management.ToggleInheritanceAsync("dir-1", inherits: false);
 
         result.Status.Should().Be(ContentAccessOperationStatus.Succeeded);
-        var folder = await _db.GetCollection<Directory>("Directories").Find(d => d.ItemId == "dir-1").SingleAsync();
-        folder.InheritsParentAccess.Should().BeFalse();
+        var directory = await _db.GetCollection<Directory>("Directories").Find(d => d.ItemId == "dir-1").SingleAsync();
+        directory.InheritsParentAccess.Should().BeFalse();
         (await Audit("dir-1")).Should().Contain(a => a.Detail != null && a.Detail.Contains("InheritsParentAccess=False"));
     }
 
     [Fact]
     public async Task A_deny_only_entry_does_not_count_as_granting_access()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
         await _management.GrantAccessAsync(
             Policy(principalType: ContentPrincipalType.User, principalId: "user-2", effect: ContentEffect.Deny));
 
@@ -360,16 +360,16 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Inheritance_can_always_be_switched_back_on()
     {
-        await OwnedFolder(inherits: false);
+        await OwnedDirectory(inherits: false);
 
         (await _management.ToggleInheritanceAsync("dir-1", inherits: true))
             .Status.Should().Be(ContentAccessOperationStatus.Succeeded);
     }
 
     [Fact]
-    public async Task Inheritance_can_be_toggled_on_a_file_as_well_as_a_folder()
+    public async Task Inheritance_can_be_toggled_on_a_file_as_well_as_a_directory()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
         await FileDoc(inherits: false);
 
         (await _management.ToggleInheritanceAsync("file-1", inherits: true))
@@ -384,7 +384,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Resolving_access_reports_the_callers_permissions()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
 
         var flags = await _management.ResolveAccessAsync("dir-1");
 
@@ -401,7 +401,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Listing_entries_requires_manage()
     {
-        await OwnedFolder(createdBy: "someone-else");
+        await OwnedDirectory(createdBy: "someone-else");
 
         (await _management.GetAccessAsync("dir-1")).Should().BeEmpty();
     }
@@ -409,7 +409,7 @@ public class ContentManagementServiceTests : IDisposable
     [Fact]
     public async Task Listing_entries_returns_them_for_an_administrator()
     {
-        await OwnedFolder();
+        await OwnedDirectory();
         await _management.GrantAccessAsync(Policy());
 
         (await _management.GetAccessAsync("dir-1")).Should().ContainSingle();

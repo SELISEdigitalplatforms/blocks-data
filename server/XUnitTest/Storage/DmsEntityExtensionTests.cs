@@ -46,20 +46,21 @@ public class DmsEntityExtensionTests
         directory.AncestorIds.Should().NotBeNull().And.BeEmpty();
         directory.FullPath.Should().BeEmpty();
         directory.ChildFileCount.Should().Be(0);
-        directory.ChildFolderCount.Should().Be(0);
+        directory.ChildDirectoryCount.Should().Be(0);
         directory.SizeInBytes.Should().Be(0);
     }
 
     [Fact]
     public void Directory_factory_carries_the_new_options_through()
     {
+        var createdAt = DateTime.UtcNow;
         var directory = Directory.CreateNew(new DirectoryOptions
         {
             Name = "Reports",
-            ParentDirectoryId = "parent-1",
+            ParentId = "parent-1",
             ItemId = "dir-1",
             TenantId = "tenant-1",
-            CreateDate = DateTime.UtcNow,
+            CreateDate = createdAt,
             CreatedBy = "user-1",
             Language = "en",
             AncestorIds = new List<string> { "root-1", "parent-1" },
@@ -77,6 +78,8 @@ public class DmsEntityExtensionTests
         directory.ModuleName.Should().Be("dms");
         directory.Description.Should().Be("Quarterly reports");
         directory.SystemName.Should().Be("reports");
+        directory.LastUpdatedDate.Should().Be(createdAt);
+        directory.LastUpdatedBy.Should().Be("user-1");
     }
 
     [Fact]
@@ -95,7 +98,7 @@ public class DmsEntityExtensionTests
         directory.AncestorIds.Should().NotBeNull().And.BeEmpty();
         directory.FullPath.Should().BeEmpty();
         directory.InheritsParentAccess.Should().BeTrue();
-        directory.ParentDirectoryID.Should().BeNull();
+        directory.ParentId.Should().BeNull();
     }
 
     [Fact]
@@ -202,7 +205,7 @@ public class DmsEntityExtensionTests
             ConfigurationName = "default",
             ModuleName = "dms",
             Description = "Quarterly reports",
-            ChildFolderCount = 2,
+            ChildDirectoryCount = 2,
             ChildFileCount = 5,
             SizeInBytes = 4096,
         };
@@ -217,7 +220,7 @@ public class DmsEntityExtensionTests
         found.IsActive.Should().BeFalse();
         found.ModuleName.Should().Be("dms");
         found.Description.Should().Be("Quarterly reports");
-        found.ChildFolderCount.Should().Be(2);
+        found.ChildDirectoryCount.Should().Be(2);
         found.ChildFileCount.Should().Be(5);
         found.SizeInBytes.Should().Be(4096);
     }

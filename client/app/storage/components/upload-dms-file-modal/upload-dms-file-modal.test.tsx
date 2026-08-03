@@ -1,10 +1,8 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const presignedMutate = vi.fn();
 const uploadfileMutate = vi.fn();
-const uploadDmsFileMutate = vi.fn();
 const showSuccessToast = vi.fn();
 const showErrorToast = vi.fn();
 
@@ -18,7 +16,6 @@ vi.mock("@/hooks/use-toast", () => ({
 vi.mock("@/storage/hooks/use-storage-file", () => ({
   useGetPreSignedUrlForUpload: () => ({ mutateAsync: presignedMutate }),
   useUploadFile: () => ({ mutateAsync: uploadfileMutate }),
-  useUploadDmsFile: () => ({ mutateAsync: uploadDmsFileMutate }),
 }));
 
 import { UploadDmsFileModal } from "./upload-dms-file-modal";
@@ -52,7 +49,6 @@ beforeEach(() => {
     fileId: "file-1",
   });
   uploadfileMutate.mockResolvedValue({});
-  uploadDmsFileMutate.mockResolvedValue({ isSuccess: true });
 });
 
 describe("UploadDmsFileModal", () => {
@@ -78,7 +74,7 @@ describe("UploadDmsFileModal", () => {
     await waitFor(() => expect(screen.queryByText("doc.txt")).not.toBeInTheDocument());
   });
 
-  it("runs the full upload pipeline and reports success", async () => {
+  it("runs the presigned + PUT pipeline and reports success", async () => {
     const onOpenChange = vi.fn();
     const onUploadSuccess = vi.fn();
     render(
@@ -87,7 +83,8 @@ describe("UploadDmsFileModal", () => {
     addFile();
     await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Upload" }));
-    await waitFor(() => expect(uploadDmsFileMutate).toHaveBeenCalled());
+    await waitFor(() => expect(presignedMutate).toHaveBeenCalled());
+    await waitFor(() => expect(uploadfileMutate).toHaveBeenCalled());
     expect(presignedMutate).toHaveBeenCalledWith(
       expect.objectContaining({ name: "doc.txt", projectKey: "tenant-1" }),
     );
@@ -103,6 +100,6 @@ describe("UploadDmsFileModal", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Upload" }));
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
-    expect(uploadDmsFileMutate).not.toHaveBeenCalled();
+    expect(uploadfileMutate).not.toHaveBeenCalled();
   });
 });

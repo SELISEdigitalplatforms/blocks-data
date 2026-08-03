@@ -1,5 +1,6 @@
 using Blocks.Genesis;
 using DomainService.Storage.Dms;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Services;
@@ -13,7 +14,7 @@ namespace Api.Controllers
     /// Every action here is authorised twice: the endpoint permission decides who may
     /// call it at all, and the service resolves the caller's access to the specific
     /// resource. Holding <c>blocks-data::grant-access</c> does not let anyone grant
-    /// access to a folder they cannot Manage.
+    /// access to a directory they cannot Manage.
     /// </remarks>
     [ApiController]
     [Route("[controller]/[action]")]
@@ -30,23 +31,23 @@ namespace Api.Controllers
             _contentDiscoveryService = contentDiscoveryService;
         }
 
-        /// <summary>Name search across folders and files the caller may view.</summary>
+        /// <summary>Name search across directorys and files the caller may view.</summary>
         [HttpGet]
         [ProtectedEndPoint("blocks-data::search-content")]
         public async Task<IActionResult> SearchContent([FromQuery] ContentSearchRequest request)
         {
             var page = await _contentDiscoveryService.SearchAsync(
-                request.Query, request.FolderId, request.Type, request.Cursor, request.Limit);
+                request.Query, request.DirectoryId, ContentKind.FromApiString(request.Type), request.Cursor, request.Limit);
 
             return Ok(ChildrenResponse.From(page));
         }
 
-        /// <summary>Archived folders and files the caller may view.</summary>
+        /// <summary>Archived directorys and files the caller may view.</summary>
         [HttpGet]
         [ProtectedEndPoint("blocks-data::get-trash")]
         public async Task<IActionResult> GetTrash([FromQuery] TrashRequest request)
         {
-            var page = await _contentDiscoveryService.GetTrashAsync(request.Type, request.Cursor, request.Limit);
+            var page = await _contentDiscoveryService.GetTrashAsync(ContentKind.FromApiString(request.Type), request.Cursor, request.Limit);
 
             return Ok(ChildrenResponse.From(page));
         }

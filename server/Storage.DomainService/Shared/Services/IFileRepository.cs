@@ -5,8 +5,6 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Storage.DomainService.Dtos;
 using Storage.DomainService.Entities;
-using Storage.DomainService.Shared.Dtos;
-using Storage.DomainService.Shared.Entities;
 using Storage.DomainService.Storage;
 using File = Storage.DomainService.Entities.File;
 
@@ -22,16 +20,25 @@ namespace Storage.DomainService.Services
         Task<List<File>> GetFiles(string parentDirectoryId);
         (IEnumerable<BsonDocument>, FileResponse[]) GetRequiredFiles(IEnumerable<string> fileIds, long? version);
         Task<(IQueryable<T>?, long)> GetFilesInfoAsync<T, R>(R query) where R : BaseGetsRequest<GetFilesInfoFilter>;
-        Task<DmsArtifactList> GetDmsArtifactAsync(GetDmsFileAndFolderRequest command);
-        Task<DmsArtifactList> GetDmsArtifactByNameAndParentIdAsync(string artifactName, string parentId);
-        Task SavedmsArtifactAsync(DmsArtifact dmsArtifact);
-        Task SavedmsArtifactsAsync(List<DmsArtifact> dmsArtifacts);
         Task<FileVersion> GetFileVersions(string fileStorageId);
-        Task<List<DmsArtifact>> GetDmsArtifactsAsync(FilterDefinition<DmsArtifact>? filter);
-        Task DeleteDmsArtifactFileAsync(string fileId);
-        Task DeleteDmsArtifactFolderAsync(string folderId);
         Task DeleteFilesAsync(IEnumerable<File> files);
-        Task DeleteDmsArtifactFilesAsync(IEnumerable<string> fileIds);
         Task<StorageConfiguration> GetDefaultConfiguration();
+
+        /// <summary>
+        /// Keyset-paginated child files of a directory. An empty <paramref name="parentId"/> lists
+        /// files parked at the root level. <paramref name="afterName"/>/<paramref name="afterId"/>
+        /// continue from a previous page boundary; null starts at the beginning. Returned sorted
+        /// by name then id, the same key the cursor encodes.
+        /// </summary>
+        Task<List<File>> FindChildrenAsync(
+            string parentId,
+            string? afterName,
+            string? afterId,
+            int take,
+            string? search,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>Raw, unfiltered child file count for a directory, used as informational metadata.</summary>
+        Task<long> CountChildrenAsync(string parentId, string? search, CancellationToken cancellationToken = default);
     }
 }

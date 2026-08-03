@@ -4,7 +4,7 @@ import { mockHttpClientFactory } from "@/test-utils/__mocks__/mock-http-client";
 vi.mock("@/lib/http-client", () => mockHttpClientFactory());
 
 import { http } from "@/lib/http-client";
-import { DmsFolderService, toQuery } from "./dms-folder.service";
+import { DmsDirectoryService, toQuery } from "./dms-directory.service";
 
 describe("toQuery", () => {
   it("omits values that were never set", () => {
@@ -26,22 +26,22 @@ describe("toQuery", () => {
   });
 });
 
-describe("DmsFolderService", () => {
-  const service = new DmsFolderService();
+describe("DmsDirectoryService", () => {
+  const service = new DmsDirectoryService();
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("reads a folder by id", async () => {
-    await service.getFolder("dir-1");
+  it("reads a directory by id", async () => {
+    await service.getDirectory("dir-1");
 
-    expect(http.get).toHaveBeenCalledWith(expect.stringContaining("/Folders/GetFolder?folderId=dir-1"));
+    expect(http.get).toHaveBeenCalledWith(expect.stringContaining("/Directories/GetDirectory?directoryId=dir-1"));
   });
 
   it("passes every listing filter through", async () => {
     await service.getChildren({
-      folderId: "dir-1",
+      directoryId: "dir-1",
       cursor: "c1",
       limit: 25,
       type: "file",
@@ -49,54 +49,54 @@ describe("DmsFolderService", () => {
     });
 
     const url = (http.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-    expect(url).toContain("folderId=dir-1");
+    expect(url).toContain("directoryId=dir-1");
     expect(url).toContain("cursor=c1");
     expect(url).toContain("limit=25");
     expect(url).toContain("type=file");
     expect(url).toContain("search=report");
   });
 
-  it("routes a folder with a parent to CreateFolder", async () => {
-    await service.createFolder({ name: "Reports", parentDirectoryId: "root" });
+  it("routes a directory with a parent to CreateDirectory", async () => {
+    await service.createDirectory({ name: "Reports", parentDirectoryId: "root" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Folders/CreateFolder"),
-      expect.objectContaining({ name: "Reports", parentFolderId: "root" }),
+      expect.stringContaining("/Directories/CreateDirectory"),
+      expect.objectContaining({ name: "Reports", parentDirectoryId: "root" }),
     );
   });
 
-  it("routes a folder with no parent to CreateRootFolder", async () => {
+  it("routes a directory with no parent to CreateRootDirectory", async () => {
     // The two carry different permissions on the server, so picking the endpoint by
     // payload is what keeps that distinction intact from the client side.
-    await service.createFolder({ name: "Reports" });
+    await service.createDirectory({ name: "Reports" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Folders/CreateRootFolder"),
+      expect.stringContaining("/Directories/CreateRootDirectory"),
       expect.objectContaining({ name: "Reports" }),
     );
   });
 
-  it("defaults a delete to the trash rather than a permanent removal", async () => {
-    await service.deleteFolder({ folderId: "dir-1" });
+  it("defaults a delete to permanent removal", async () => {
+    await service.deleteDirectory({ directoryId: "dir-1" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Folders/DeleteFolder"),
-      { folderId: "dir-1", permanent: false },
+      expect.stringContaining("/Directories/DeleteDirectory"),
+      { directoryId: "dir-1", permanent: true },
     );
   });
 
-  it("forwards an explicit permanent delete", async () => {
-    await service.deleteFolder({ folderId: "dir-1", permanent: true });
+  it("forwards an explicit soft delete", async () => {
+    await service.deleteDirectory({ directoryId: "dir-1", permanent: false });
 
-    expect(http.post).toHaveBeenCalledWith(expect.any(String), { folderId: "dir-1", permanent: true });
+    expect(http.post).toHaveBeenCalledWith(expect.any(String), { directoryId: "dir-1", permanent: false });
   });
 
-  it("moves a folder to the root when no target is given", async () => {
-    await service.moveFolder({ folderId: "dir-1" });
+  it("moves a directory to the root when no target is given", async () => {
+    await service.moveDirectory({ directoryId: "dir-1" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Folders/MoveFolder"),
-      { folderId: "dir-1" },
+      expect.stringContaining("/Directories/MoveDirectory"),
+      { directoryId: "dir-1" },
     );
   });
 });

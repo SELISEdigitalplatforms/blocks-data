@@ -145,9 +145,9 @@ describe("Trash", () => {
     const user = userEvent.setup();
     render(<Trash />);
 
-    await user.click(screen.getByRole("button", { name: "Folders" }));
+    await user.click(screen.getByRole("button", { name: "Directorys" }));
 
-    await waitFor(() => expect(mocks.lastTrashQuery.type).toBe("folder"));
+    await waitFor(() => expect(mocks.lastTrashQuery.type).toBe("directory"));
   });
 
   it("asks for everything again when the All filter is chosen", async () => {

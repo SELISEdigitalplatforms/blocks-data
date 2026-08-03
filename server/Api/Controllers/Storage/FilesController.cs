@@ -1,5 +1,6 @@
 ﻿using Blocks.Genesis;
 using DomainService.Storage;
+using DomainService.Storage.Dms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
@@ -16,14 +17,17 @@ namespace Api.Controllers
     public class FilesController : ControllerBase
     {
         private readonly IFileManagementService _fileManagementService;
+        private readonly IContentFileService _contentFileService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FilesController"/> class.
         /// </summary>
         /// <param name="fileManagementService">Service for managing file operations.</param>
-        public FilesController(IFileManagementService fileManagementService)
+        /// <param name="contentFileService">Service for file version, move and copy operations.</param>
+        public FilesController(IFileManagementService fileManagementService, IContentFileService contentFileService)
         {
             _fileManagementService = fileManagementService;
+            _contentFileService = contentFileService;
         }
 
         /// <summary>
@@ -134,43 +138,58 @@ namespace Api.Controllers
         public Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
             => UpdateFileAdditionalInfo(command);
 
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::get-dms-file-and-folder")]
-        public async Task<GetDmsFileAndFolderResponse> GetDmsFileAndFolder([FromBody] GetDmsFileAndFolderRequest command)
+        /// <summary>Cursor-paginated version history of a file, newest first.</summary>
+        [HttpGet]
+        [ProtectedEndPoint("blocks-data::get-file-versions")]
+        public async Task<IActionResult> GetFileVersions([FromQuery] GetFileVersionsRequest request)
         {
-            if (command == null) return new GetDmsFileAndFolderResponse();
-            return await _fileManagementService.GetDmsFileAndFolder(command);
+            var page = await _contentFileService.GetVersionsAsync(request.FileId, request.Cursor, request.Limit);
+            return Ok(new FileVersionsResponse
+            {
+                Items = page.Items.Select(FileVersionDto.From).ToList(),
+                NextCursor = page.NextCursor,
+                HasMore = page.HasMore,
+            });
         }
 
+        /// <summary>Creates the next version of a file and returns a presigned upload URL.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::upload-file")]
-        public async Task<DmsResponse> UploadFile([FromBody] UploadFilesRequest command)
+        [ProtectedEndPoint("blocks-data::create-file-version")]
+        public async Task<IActionResult> CreateFileVersion([FromBody] CreateFileVersionRequest request)
         {
-            if (command == null) return null;
-
-            return await _fileManagementService.UploadFilesAsync(command);
+            var result = await _fileManagementService.CreateFileVersionAsync(request);
+            return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
-
+        /// <summary>Copies a file into another directory without duplicating its stored bytes.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::create-folder")]
-        public async Task<DmsResponse> CreateFolder([FromBody] CreateFolderRequest command)
+        [ProtectedEndPoint("blocks-data::copy-file")]
+        public async Task<IActionResult> CopyFile([FromBody] CopyFileRequest request)
         {
-            if (command == null) return null;
-
-            return await _fileManagementService.CreateFolderAsync(command);
+            var result = await _contentFileService.CopyFileAsync(request.FileId, request.TargetDirectoryId, request.CopyAccessPolicies);
+            return result.Status == FileOperationStatus.Succeeded
+                ? Ok(new { fileId = result.NewFileId })
+                : MapFileOperation(result.Status);
         }
 
-        /// <summary>
-        /// Deletes a folder based on the provided request.
-        /// </summary>
-        /// <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
-        /// <returns>A <see cref="BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
+        /// <summary>Re-parents a file into another directory.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::delete-folder")]
-        public async Task<BaseResponse> DeleteFolder([FromBody] DeleteFolderRequest request)
+        [ProtectedEndPoint("blocks-data::move-file")]
+        public async Task<IActionResult> MoveFile([FromBody] MoveFileRequest request)
         {
-            return await _fileManagementService.DeleteFolderAsync(request);
+            var result = await _contentFileService.MoveFileAsync(request.FileId, request.TargetDirectoryId);
+            return result.Status == FileOperationStatus.Succeeded
+                ? Ok(new { fileId = request.FileId })
+                : MapFileOperation(result.Status);
         }
+
+        private IActionResult MapFileOperation(FileOperationStatus status) => status switch
+        {
+            FileOperationStatus.FileNotFound => NotFound(new { message = "File not found." }),
+            FileOperationStatus.TargetNotFound => NotFound(new { message = "Target directory not found." }),
+            FileOperationStatus.NameConflict => Conflict(new { message = "A file with that name already exists in the target directory." }),
+            FileOperationStatus.ExtensionNotAllowed => BadRequest(new { message = "The target directory does not allow this file extension." }),
+            _ => BadRequest(new { message = "The file operation could not be completed." }),
+        };
     }
 }

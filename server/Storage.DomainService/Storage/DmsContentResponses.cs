@@ -2,8 +2,8 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 
-// Namespaced apart from the legacy storage DTOs: a CreateFolderRequest already
-// exists there for the folder methods that SPEC B5 retires in the post-migration
+// Namespaced apart from the legacy storage DTOs: a CreateDirectoryRequest already
+// exists there for the directory methods that SPEC B5 retires in the post-migration
 // pass, and the two must coexist until that lands.
 namespace DomainService.Storage.Dms
 {
@@ -33,9 +33,9 @@ namespace DomainService.Storage.Dms
     }
 
     /// <summary>
-    /// One entry in a children listing. Folders and files share this shape, discriminated
+    /// One entry in a children listing. Directorys and files share this shape, discriminated
     /// by <see cref="Type"/>, so a client can render a mixed listing without inspecting
-    /// two different payloads. Fields that only apply to files are null on a folder, and
+    /// two different payloads. Fields that only apply to files are null on a directory, and
     /// the reverse.
     /// </summary>
     public class DmsItem
@@ -43,10 +43,16 @@ namespace DomainService.Storage.Dms
         public string ItemId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
 
-        /// <summary>Folder or File. The discriminator for the rest of this shape.</summary>
-        public StructureType Type { get; set; }
+        /// <summary>
+        /// Directory or File, as the contract the client reads. Serialized as the lowercased
+        /// kind ("directory" / "file") rather than the numeric <see cref="StructureType"/>
+        /// enum, because the frontend discriminates on this string and treats any value it
+        /// does not recognise as a file. A numeric value here would render every directory as
+        /// a file in the storage page.
+        /// </summary>
+        public string Type { get; set; } = string.Empty;
 
-        public string? ParentFolderId { get; set; }
+        public string? ParentDirectoryId { get; set; }
         public long SizeInBytes { get; set; }
         public DateTime CreatedDate { get; set; }
         public DateTime LastUpdatedDate { get; set; }
@@ -57,9 +63,16 @@ namespace DomainService.Storage.Dms
         public string? ContentType { get; set; }
         public long? CurrentVersion { get; set; }
 
-        // Folder only.
-        public int? ChildFolderCount { get; set; }
+        // Directory only.
+        public int? ChildDirectoryCount { get; set; }
         public int? ChildFileCount { get; set; }
+
+        /// <summary>
+        /// True for directories seeded from the default templates (Cloud/Construct/etc).
+        /// The frontend disables destructive row actions (move/rename/delete) on these.
+        /// Always false for files.
+        /// </summary>
+        public bool IsDefault { get; set; }
 
         public PermissionFlags Permissions { get; set; } = new();
     }
@@ -100,29 +113,41 @@ namespace DomainService.Storage.Dms
         {
             ItemId = item.ItemId,
             Name = item.Name,
-            Type = item.Type,
-            ParentFolderId = item.ParentDirectoryId,
+            Type = ToKind(item.Type),
+            ParentDirectoryId = item.ParentDirectoryId,
             SizeInBytes = item.SizeInBytes,
             CreatedDate = item.CreatedDate,
             LastUpdatedDate = item.LastUpdatedDate,
             CreatedBy = item.CreatedBy,
             Extension = item.Extension,
             ContentType = item.ContentType,
+            IsDefault = item.IsDefault,
             Permissions = PermissionFlags.From(item.Permissions),
+        };
+
+        /// <summary>
+        /// Maps the storage enum onto the contract string the client discriminates on. Kept
+        /// here rather than on the enum so the response shape owns its own wire format.
+        /// </summary>
+        public static string ToKind(StructureType type) => type switch
+        {
+            StructureType.Directory => "directory",
+            StructureType.File => "file",
+            _ => "file",
         };
     }
 
-    /// <summary>A folder with the operations the caller holds on it.</summary>
-    public class FolderDetailResponse
+    /// <summary>A directory with the operations the caller holds on it.</summary>
+    public class DirectoryDetailResponse
     {
         public string ItemId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
-        public string? ParentFolderId { get; set; }
+        public string? ParentDirectoryId { get; set; }
         public string? Description { get; set; }
         public string FullPath { get; set; } = string.Empty;
         public List<string> AncestorIds { get; set; } = new();
         public bool InheritsParentAccess { get; set; }
-        public int ChildFolderCount { get; set; }
+        public int ChildDirectoryCount { get; set; }
         public int ChildFileCount { get; set; }
         public long SizeInBytes { get; set; }
         public string[]? AllowedFileExtensions { get; set; }
@@ -131,23 +156,23 @@ namespace DomainService.Storage.Dms
         public string? CreatedBy { get; set; }
         public PermissionFlags Permissions { get; set; } = new();
 
-        public static FolderDetailResponse From(
-            global::Storage.DomainService.Entities.Directory folder, ContentPermissionFlags? flags) => new()
+        public static DirectoryDetailResponse From(
+            global::Storage.DomainService.Entities.Directory directory, ContentPermissionFlags? flags) => new()
         {
-            ItemId = folder.ItemId,
-            Name = folder.Name ?? string.Empty,
-            ParentFolderId = string.IsNullOrWhiteSpace(folder.ParentDirectoryID) ? null : folder.ParentDirectoryID,
-            Description = folder.Description,
-            FullPath = folder.FullPath ?? string.Empty,
-            AncestorIds = folder.AncestorIds ?? new List<string>(),
-            InheritsParentAccess = folder.InheritsParentAccess,
-            ChildFolderCount = folder.ChildFolderCount,
-            ChildFileCount = folder.ChildFileCount,
-            SizeInBytes = folder.SizeInBytes,
-            AllowedFileExtensions = folder.AllowedFileExtensions,
-            CreatedDate = folder.CreatedDate,
-            LastUpdatedDate = folder.LastUpdatedDate,
-            CreatedBy = folder.CreatedBy,
+            ItemId = directory.ItemId,
+            Name = directory.Name ?? string.Empty,
+            ParentDirectoryId = string.IsNullOrWhiteSpace(directory.ParentId) ? null : directory.ParentId,
+            Description = directory.Description,
+            FullPath = directory.FullPath ?? string.Empty,
+            AncestorIds = directory.AncestorIds ?? new List<string>(),
+            InheritsParentAccess = directory.InheritsParentAccess,
+            ChildDirectoryCount = directory.ChildDirectoryCount,
+            ChildFileCount = directory.ChildFileCount,
+            SizeInBytes = directory.SizeInBytes,
+            AllowedFileExtensions = directory.AllowedFileExtensions,
+            CreatedDate = directory.CreatedDate,
+            LastUpdatedDate = directory.LastUpdatedDate,
+            CreatedBy = directory.CreatedBy,
             Permissions = PermissionFlags.From(flags),
         };
     }
@@ -205,5 +230,14 @@ namespace DomainService.Storage.Dms
         public List<FileVersionDto> Items { get; set; } = new();
         public string? NextCursor { get; set; }
         public bool HasMore { get; set; }
+    }
+
+    /// <summary>Returned by CreateFileVersion: the number assigned and the URL to PUT the bytes to.</summary>
+    public class CreateFileVersionResponse
+    {
+        public long VersionNo { get; set; }
+        public string? UploadUrl { get; set; }
+        public bool IsSuccess { get; set; }
+        public Dictionary<string, string>? Errors { get; set; }
     }
 }

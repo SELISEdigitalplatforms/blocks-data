@@ -1,14 +1,9 @@
-﻿using Amazon.S3.Model;
-using Blocks.Genesis;
+﻿using Blocks.Genesis;
 using DomainService.Storage;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using Pipelines.Sockets.Unofficial.Arenas;
 using Storage.DomainService.Dtos;
 using Storage.DomainService.Entities;
-using Storage.DomainService.Shared.Dtos;
-using Storage.DomainService.Shared.Entities;
-using Storage.DomainService.Shared.Enums;
 using Storage.DomainService.Storage;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
@@ -87,7 +82,7 @@ namespace Storage.DomainService.Services
 
         public async Task<List<File>> GetFiles(string parentDirectoryId)
         {
-            var filter = Builders<File>.Filter.Eq(e => e.ParentDirectoryID, parentDirectoryId);
+            var filter = Builders<File>.Filter.Eq(e => e.DirectoryId, parentDirectoryId);
             var collection = _dbContextProvider.GetCollection<File>(string.Format("{0}s", typeof(File).Name));
             return await collection.Find(filter).ToListAsync();
         }
@@ -208,118 +203,6 @@ namespace Storage.DomainService.Services
                 : builder.Ascending(sortRequest.Property);
         }
 
-        public async Task<DmsArtifactList> GetDmsArtifactAsync(GetDmsFileAndFolderRequest command)
-        {
-            var collection = GetCollection<DmsArtifact>();
-
-            var filter = BuildDmsFilter(command);
-            var projection = Builders<DmsArtifact>.Projection.As<DmsArtifact>();
-
-            var totalCount = await collection.CountDocumentsAsync(filter);
-
-            var options = new FindOptions<DmsArtifact, DmsArtifact>
-            {
-                Skip = command.Skip,
-                Limit = command.Take,
-                Projection = projection
-            };
-
-            var cursor = await collection.FindAsync(filter, options);
-            var data = await cursor.ToListAsync();
-            var response = new DmsArtifactList
-            {
-                DmsArtifacts = data,
-                TotalCount = totalCount
-            };
-            return response;
-        }
-
-        private FilterDefinition<DmsArtifact> BuildDmsFilter(GetDmsFileAndFolderRequest command)
-        {
-            var builder = Builders<DmsArtifact>.Filter;
-            var filters = new List<FilterDefinition<DmsArtifact>>();
-
-            if (!string.IsNullOrWhiteSpace(command.SearchKey))
-            {
-                var regex = new BsonRegularExpression(command.SearchKey, "i");
-                filters.Add(builder.Regex(u => u.Name, regex));
-            }
-
-            filters.Add(builder.Eq(u => u.ParentId, command.ParentId));
-
-            if (!string.IsNullOrWhiteSpace(command.ConfigurationName))
-            {
-                var defaultStorageConfiguration = GetDefaultConfiguration().GetAwaiter().GetResult();
-                if (command.ConfigurationName == defaultStorageConfiguration?.StorageStrategy || command.ConfigurationName == "Default")
-                    filters.Add(builder.In(u => u.ConfigurationName, [defaultStorageConfiguration?.StorageStrategy, "Default"]));
-                else
-                    filters.Add(builder.Eq(u => u.ConfigurationName, command.ConfigurationName));
-
-            }
-
-            if (!string.IsNullOrWhiteSpace(command.ModuleName))
-                filters.Add(builder.Eq(u => u.ModuleName, command.ModuleName));
-
-            return filters.Any() ? builder.And(filters) : builder.Empty;
-        }
-
-        public async Task<DmsArtifactList> GetDmsArtifactByNameAndParentIdAsync(string artifactName, string parentId)
-        {
-            var collection = GetCollection<DmsArtifact>();
-
-            var builder = Builders<DmsArtifact>.Filter;
-            var filters = new List<FilterDefinition<DmsArtifact>>();
-
-            if (!string.IsNullOrWhiteSpace(artifactName))
-                filters.Add(builder.Eq(u => u.Name, artifactName));
-
-            if (!string.IsNullOrWhiteSpace(parentId))
-                filters.Add(builder.Eq(u => u.ParentId, parentId));
-            var filter = filters.Any() ? builder.And(filters) : builder.Empty;
-            var projection = Builders<DmsArtifact>.Projection.As<DmsArtifact>();
-
-            var totalCount = await collection.CountDocumentsAsync(filter);
-
-            var options = new FindOptions<DmsArtifact, DmsArtifact>
-            {
-                Projection = projection
-            };
-
-            var cursor = await collection.FindAsync(filter, options);
-            var data = await cursor.ToListAsync();
-            var response = new DmsArtifactList
-            {
-                DmsArtifacts = data,
-                TotalCount = totalCount
-            };
-            return response;
-        }
-
-        public async Task SavedmsArtifactAsync(DmsArtifact dmsArtifact)
-        {
-            var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
-            var filter = Builders<DmsArtifact>.Filter.And(
-                Builders<DmsArtifact>.Filter.Eq(x => x.ArtifactType, (int)DmsArtifactType.File),
-                Builders<DmsArtifact>.Filter.Exists(x => x.FileStorageId, true),
-                Builders<DmsArtifact>.Filter.Eq(x => x.FileStorageId, dmsArtifact.FileStorageId)
-            );
-            var existingFile = await collection.Find(filter).FirstOrDefaultAsync();
-            if (existingFile == null)
-            {
-                await collection.InsertOneAsync(dmsArtifact);
-            }
-            else
-            {
-                dmsArtifact.ItemId = existingFile.ItemId;
-                await collection.ReplaceOneAsync(Builders<DmsArtifact>.Filter.Eq(e => e.ItemId, existingFile.ItemId), dmsArtifact);
-            }
-        }
-        public async Task SavedmsArtifactsAsync(List<DmsArtifact> dmsArtifacts)
-        {
-            var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
-            await collection.InsertManyAsync(dmsArtifacts);
-        }
-
         public async Task<FileVersion> GetFileVersions(string fileStorageId)
         {
             var collection = GetCollection<FileVersion>();
@@ -344,34 +227,6 @@ namespace Storage.DomainService.Services
             return data;
         }
 
-        public async Task<List<DmsArtifact>> GetDmsArtifactsAsync(FilterDefinition<DmsArtifact>? filter)
-        {
-            var collection = GetCollection<DmsArtifact>();
-            var findResult = await collection.FindAsync(filter ?? Builders<DmsArtifact>.Filter.Empty);
-            return await findResult.ToListAsync();
-        }
-
-        public async Task DeleteDmsArtifactFileAsync(string fileId)
-        {
-            var filter = Builders<DmsArtifact>.Filter.Eq(e => e.FileStorageId, fileId);
-            var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
-            await collection.DeleteOneAsync(filter);
-        }
-
-        public async Task DeleteDmsArtifactFilesAsync(IEnumerable<string> fileIds)
-        {
-            var filter = Builders<DmsArtifact>.Filter.In(e => e.FileStorageId, fileIds);
-            var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
-            await collection.DeleteManyAsync(filter);
-        }
-
-        public async Task DeleteDmsArtifactFolderAsync(string folderId)
-        {
-            var filter = Builders<DmsArtifact>.Filter.Eq(e => e.ItemId, folderId);
-            var collection = _dbContextProvider.GetCollection<DmsArtifact>(string.Format("{0}s", typeof(DmsArtifact).Name));
-            await collection.DeleteOneAsync(filter);
-        }
-
         public async Task DeleteFilesAsync(IEnumerable<File> files)
         {
             var itemIds = files.Select(f => f.ItemId).ToList();
@@ -387,5 +242,59 @@ namespace Storage.DomainService.Services
             var config = await collection.Find(filter).FirstOrDefaultAsync();
             return config;
         }
+
+        public async Task<List<File>> FindChildrenAsync(
+            string parentId,
+            string? afterName,
+            string? afterId,
+            int take,
+            string? search,
+            CancellationToken cancellationToken = default)
+        {
+            var filter = BuildChildFileFilter(parentId, search);
+
+            if (!string.IsNullOrEmpty(afterName) && !string.IsNullOrEmpty(afterId))
+            {
+                var b = Builders<File>.Filter;
+                filter &= b.Gt(f => f.Name, afterName)
+                         | (b.Eq(f => f.Name, afterName) & b.Gt(f => f.ItemId, afterId));
+            }
+
+            var collection = _dbContextProvider.GetCollection<File>(string.Format("{0}s", typeof(File).Name));
+            return await collection.Find(filter)
+                .SortBy(f => f.Name).ThenBy(f => f.ItemId)
+                .Limit(take)
+                .ToListAsync(cancellationToken);
+        }
+
+        public async Task<long> CountChildrenAsync(string parentId, string? search, CancellationToken cancellationToken = default)
+        {
+            var collection = _dbContextProvider.GetCollection<File>(string.Format("{0}s", typeof(File).Name));
+            return await collection.CountDocumentsAsync(BuildChildFileFilter(parentId, search), cancellationToken: cancellationToken);
+        }
+
+        private static FilterDefinition<File> BuildChildFileFilter(string parentId, string? search)
+        {
+            var b = Builders<File>.Filter;
+            var filter = ParentFilter(b, f => f.DirectoryId, parentId)
+                         & b.Eq(f => f.IsArchived, false);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                filter &= b.Regex(f => f.Name, new BsonRegularExpression(Escape(search), "i"));
+            }
+
+            return filter;
+        }
+
+        private static FilterDefinition<File> ParentFilter(
+            FilterDefinitionBuilder<File> b,
+            System.Linq.Expressions.Expression<Func<File, string?>> field,
+            string parentId)
+            => string.IsNullOrWhiteSpace(parentId)
+                ? b.Or(b.Eq(field, (string?)null), b.Eq(field, ""))
+                : b.Eq(field, parentId);
+
+        private static string Escape(string value) => System.Text.RegularExpressions.Regex.Escape(value);
     }
 }

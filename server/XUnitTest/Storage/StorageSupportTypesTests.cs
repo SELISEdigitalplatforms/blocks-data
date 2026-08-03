@@ -3,15 +3,9 @@ using Blocks.Genesis;
 using DomainService.Configuration;
 using DomainService.Storage;
 using FluentAssertions;
-using Moq;
 using Storage.DomainService.Dtos;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
-using Storage.DomainService.Services;
-using Storage.DomainService.Shared.Dtos;
-using Storage.DomainService.Shared.Entities;
-using Storage.DomainService.Shared.Enums;
-using Storage.DomainService.Shared.Services;
 using Storage.DomainService.Storage;
 using Storage.DomainService.Utilities;
 
@@ -115,91 +109,6 @@ public class StorageSupportTypesTests
         Constants.StorageQueueName.Should().Be("blocks_storage_listener");
     }
 
-    // ---------------- ArtifactContext ----------------
-
-    /// <summary>Exposes the protected parent lookup the artifact builders inherit.</summary>
-    private sealed class ArtifactContextProbe : ArtifactContext
-    {
-        public ArtifactContextProbe(IFileRepository fileRepository) : base(fileRepository)
-        {
-        }
-
-        public Task<DmsArtifact> GetParentAsync(string parentId) => GetParentIfExistsAndValidAsync(parentId);
-    }
-
-    private static ArtifactContextProbe ProbeReturning(DmsArtifactList? list)
-    {
-        var repository = new Mock<IFileRepository>();
-        repository
-            .Setup(r => r.GetDmsArtifactByNameAndParentIdAsync(It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(list!);
-        return new ArtifactContextProbe(repository.Object);
-    }
-
-    [Fact]
-    public async Task GetParent_RejectsAParentIdThatResolvesToNothing()
-    {
-        var probe = ProbeReturning(null);
-
-        var act = () => probe.GetParentAsync("missing");
-
-        (await act.Should().ThrowAsync<ArgumentException>())
-            .WithMessage("ParentId = missing does not exist.");
-    }
-
-    [Fact]
-    public async Task GetParent_RejectsAParentIdWhoseArtifactListIsNull()
-    {
-        var probe = ProbeReturning(new DmsArtifactList { DmsArtifacts = null! });
-
-        var act = () => probe.GetParentAsync("missing");
-
-        await act.Should().ThrowAsync<ArgumentException>();
-    }
-
-    [Fact]
-    public async Task GetParent_RejectsAFileAsAParent()
-    {
-        var probe = ProbeReturning(new DmsArtifactList
-        {
-            DmsArtifacts = [new DmsArtifact { Name = "a.txt", ArtifactType = (int)DmsArtifactType.File }]
-        });
-
-        var act = () => probe.GetParentAsync("file-1");
-
-        (await act.Should().ThrowAsync<NotSupportedException>())
-            .WithMessage("Artifact type file can not have child artifacts");
-    }
-
-    [Fact]
-    public async Task GetParent_ReturnsTheFolderArtifact()
-    {
-        var folder = new DmsArtifact { Name = "docs", ArtifactType = (int)DmsArtifactType.Folder };
-        var probe = ProbeReturning(new DmsArtifactList { DmsArtifacts = [folder] });
-
-        var parent = await probe.GetParentAsync("folder-1");
-
-        parent.Should().BeSameAs(folder);
-    }
-
-    [Fact]
-    public async Task GetParent_ReturnsNullWhenTheArtifactListIsEmpty()
-    {
-        // Pinned behaviour: an empty (but non-null) list is not treated as "does not exist", the
-        // caller gets a null parent back. Changing that has to update this test.
-        var probe = ProbeReturning(new DmsArtifactList { DmsArtifacts = [] });
-
-        (await probe.GetParentAsync("folder-1")).Should().BeNull();
-    }
-
-    [Fact]
-    public void ArtifactContext_ExposesTheRepositoryItWasBuiltWith()
-    {
-        var repository = new Mock<IFileRepository>().Object;
-
-        new ArtifactContextProbe(repository)._fileRepository.Should().BeSameAs(repository);
-    }
-
     // ---------------- response and request shapes ----------------
 
     [Fact]
@@ -282,92 +191,6 @@ public class StorageSupportTypesTests
     }
 
     [Fact]
-    public void GetDmsFileAndFolderResponse_DefaultsToAnEmptyListing()
-    {
-        var response = new GetDmsFileAndFolderResponse();
-
-        response.DmsFileAndFolderInfos.Should().BeEmpty();
-        response.TotalCount.Should().Be(0);
-    }
-
-    [Fact]
-    public void DmsFileAndFolderInfo_CarriesTheListingRow()
-    {
-        var updated = new DateTime(2026, 7, 30, 9, 0, 0, DateTimeKind.Utc);
-        var info = new DmsFileAndFolderInfo
-        {
-            ItemId = "artifact-1",
-            ParentId = "dir-1",
-            Type = 1,
-            Name = "a.txt",
-            FileStorageId = "blob-1",
-            Extension = ".txt",
-            SizeInBytes = "42",
-            Version = 2,
-            Description = "notes",
-            LastUpdatedDate = updated
-        };
-
-        info.ItemId.Should().Be("artifact-1");
-        info.ParentId.Should().Be("dir-1");
-        info.Type.Should().Be(1);
-        info.Name.Should().Be("a.txt");
-        info.FileStorageId.Should().Be("blob-1");
-        info.Extension.Should().Be(".txt");
-        info.SizeInBytes.Should().Be("42");
-        info.Version.Should().Be(2);
-        info.Description.Should().Be("notes");
-        info.LastUpdatedDate.Should().Be(updated);
-    }
-
-    [Fact]
-    public void GetDmsFileAndFolderRequest_DefaultsEveryFilterToUnset()
-    {
-        var request = new GetDmsFileAndFolderRequest();
-
-        request.ParentId.Should().BeNull();
-        request.ConfigurationName.Should().BeNull();
-        request.SearchKey.Should().BeNull();
-        request.ModuleName.Should().BeNull();
-        request.Skip.Should().BeNull();
-        request.Take.Should().BeNull();
-    }
-
-    [Fact]
-    public void ArtifactBaseRequest_CarriesTheSharedArtifactFields()
-    {
-        var request = new CreateFolderRequest
-        {
-            ItemId = "folder-1",
-            ArtifactName = "docs",
-            ConfigurationName = "Default",
-            Description = "team docs",
-            ParentId = "root",
-            DmsWorkspaceId = "ws-1",
-            DmsWorkspaceName = "workspace",
-            OrganizationId = "org-1",
-            Tags = ["a"],
-            MetaData = new Dictionary<string, MetaValuePair>
-            {
-                ["owner"] = new() { Type = "String", Value = "Ada" }
-            }
-        };
-
-        request.Should().BeAssignableTo<ArtifactBaseRequest>();
-        request.ItemId.Should().Be("folder-1");
-        request.ArtifactName.Should().Be("docs");
-        request.ConfigurationName.Should().Be("Default");
-        request.Description.Should().Be("team docs");
-        request.ParentId.Should().Be("root");
-        request.DmsWorkspaceId.Should().Be("ws-1");
-        request.DmsWorkspaceName.Should().Be("workspace");
-        request.OrganizationId.Should().Be("org-1");
-        request.Tags.Should().Equal("a");
-        request.MetaData["owner"].Type.Should().Be("String");
-        request.MetaData["owner"].Value.Should().Be("Ada");
-    }
-
-    [Fact]
     public void LocalStorageUploadRequest_DefaultsToAPrivateUploadWithNoConfiguration()
     {
         var request = new LocalStorageUploadRequest { File = null! };
@@ -422,53 +245,6 @@ public class StorageSupportTypesTests
         signature.AccessModifier.Should().Be("Private");
         signature.ProjectKey.Should().Be("project-1");
         signature.ExpiryUtc.Should().Be("2026-07-30T09:00:00Z");
-    }
-
-    [Fact]
-    public void DmsArtifact_DefaultsToActiveAndNotArchived()
-    {
-        var artifact = new DmsArtifact { Name = "docs" };
-
-        artifact.IsActive.Should().BeTrue();
-        artifact.IsArchived.Should().BeFalse();
-        artifact.Version.Should().Be(0);
-    }
-
-    [Fact]
-    public void DmsArtifact_CarriesTheStoredArtifactRow()
-    {
-        var artifact = new DmsArtifact
-        {
-            Name = "a.txt",
-            Version = 4,
-            Description = "notes",
-            ParentId = "dir-1",
-            FileStorageId = "blob-1",
-            Extension = ".txt",
-            ArtifactType = (int)DmsArtifactType.File,
-            Color = "#fff",
-            SizeInBytes = "42",
-            IsArchived = true,
-            IsActive = false,
-            TenantId = "tenant-1",
-            ConfigurationName = "Default",
-            ModuleName = "Dms"
-        };
-
-        artifact.Name.Should().Be("a.txt");
-        artifact.Version.Should().Be(4);
-        artifact.Description.Should().Be("notes");
-        artifact.ParentId.Should().Be("dir-1");
-        artifact.FileStorageId.Should().Be("blob-1");
-        artifact.Extension.Should().Be(".txt");
-        artifact.ArtifactType.Should().Be((int)DmsArtifactType.File);
-        artifact.Color.Should().Be("#fff");
-        artifact.SizeInBytes.Should().Be("42");
-        artifact.IsArchived.Should().BeTrue();
-        artifact.IsActive.Should().BeFalse();
-        artifact.TenantId.Should().Be("tenant-1");
-        artifact.ConfigurationName.Should().Be("Default");
-        artifact.ModuleName.Should().Be("Dms");
     }
 
     [Fact]

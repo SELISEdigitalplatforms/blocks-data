@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DmsPermissionFlags } from "../models/dms.model";
-import { canAddToFolder, hasAnyAction, itemActions, permissionsOf } from "./permission-actions";
+import { canAddToDirectory, hasAnyAction, itemActions, permissionsOf } from "./permission-actions";
 
 const flags = (over: Partial<DmsPermissionFlags> = {}): DmsPermissionFlags => ({
   canView: false,
@@ -95,21 +95,21 @@ describe("itemActions", () => {
   });
 });
 
-describe("canAddToFolder", () => {
+describe("canAddToDirectory", () => {
   it("allows adding when the parent is editable", () => {
-    expect(canAddToFolder({ permissions: flags({ canEdit: true }) })).toBe(true);
+    expect(canAddToDirectory({ permissions: flags({ canEdit: true }) })).toBe(true);
   });
 
   it("refuses when the parent is not editable", () => {
-    expect(canAddToFolder({ permissions: flags({ canView: true }) })).toBe(false);
+    expect(canAddToDirectory({ permissions: flags({ canView: true }) })).toBe(false);
   });
 
   it("allows at the root, where the server holds the real gate", () => {
     // Root creation is a separate server permission the client cannot see, so
     // the button is offered and the server is left to refuse rather than hiding
     // a capability the user may actually hold.
-    expect(canAddToFolder(undefined)).toBe(true);
-    expect(canAddToFolder(null)).toBe(true);
+    expect(canAddToDirectory(undefined)).toBe(true);
+    expect(canAddToDirectory(null)).toBe(true);
   });
 });
 

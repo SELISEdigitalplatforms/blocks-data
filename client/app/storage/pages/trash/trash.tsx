@@ -10,12 +10,12 @@ import { itemActions } from "../../utils/permission-actions";
 
 const FILTERS: { label: string; value: DmsItemType | "all" }[] = [
   { label: "All", value: "all" },
-  { label: "Folders", value: "folder" },
+  { label: "Directorys", value: "directory" },
   { label: "Files", value: "file" },
 ];
 
 /**
- * The trash: archived folders and files, with restore and permanent delete.
+ * The trash: archived directorys and files, with restore and permanent delete.
  *
  * Permanent delete is the only irreversible action in the storage UI, so it sits
  * behind a confirmation and is offered only where the item's own flags allow a
@@ -38,7 +38,7 @@ export function Trash() {
   const handleRestore = async (item: DmsItem) => {
     try {
       await restore.mutateAsync(item.itemId);
-      showSuccessToast({ title: "Restored", description: `${item.name} is back in its folder.` });
+      showSuccessToast({ title: "Restored", description: `${item.name} is back in its directory.` });
     } catch {
       showErrorToast({ title: "Could not restore", errors: `${item.name} was not restored.` });
     }

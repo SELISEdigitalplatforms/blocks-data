@@ -11,19 +11,11 @@ import {
   DialogClose,
 } from "@/components/ui-kits/dialog/dialog";
 import { Button } from "@/components/ui-kits/button/button";
-import { CloudUpload, XCircle } from "lucide-react";
-import {
-  FileUploader,
-  FileInput,
-} from "@/components/file-uploader/file-uploader";
+import { CloudUpload, LoaderCircle, XCircle } from "lucide-react";
+import { FileUploader, FileInput } from "@/components/file-uploader/file-uploader";
 import { showSuccessToast, showErrorToast } from "@/hooks/use-toast";
-import {
-  useGetPreSignedUrlForUpload,
-  useUploadFile,
-  useUploadDmsFile,
-} from "@/storage/hooks/use-storage-file";
+import { useGetPreSignedUrlForUpload, useUploadFile } from "@/storage/hooks/use-storage-file";
 import { isErrorWithErrors } from "@/lib/error";
-import { IDmsUploadItem } from "@/storage/models/storage.model";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { ModuleName } from "@/constants/modules.constants";
 
@@ -41,7 +33,6 @@ type UploadDmsFileModalProps = {
 export const UploadDmsFileModal = ({
   open,
   onOpenChange,
-  configurationName,
   name,
   parentId = "",
   onUploadSuccess,
@@ -53,7 +44,6 @@ export const UploadDmsFileModal = ({
 
   const { mutateAsync: presignedMutate } = useGetPreSignedUrlForUpload();
   const { mutateAsync: uploadfileMutate } = useUploadFile();
-  const { mutateAsync: uploadDmsFileMutate } = useUploadDmsFile();
 
   useEffect(() => {
     const urls = files.map((f) => URL.createObjectURL(f));
@@ -61,8 +51,7 @@ export const UploadDmsFileModal = ({
     return () => urls.forEach(URL.revokeObjectURL);
   }, [files]);
 
-  const removeFile = (idx: number) =>
-    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
 
   const processFile = async (file: File) => {
     try {
@@ -102,30 +91,14 @@ export const UploadDmsFileModal = ({
   const uploadFileHandler = async () => {
     setIsUploading(true);
     try {
-      // Process all files (steps 1 & 2)
+      // Step 1: get presigned URL (backend creates the File + FileVersion stub).
+      // Step 2: PUT the file bytes to the presigned URL. No separate register call.
       const uploadedFiles = await Promise.all(files.map(processFile));
 
       if (uploadedFiles.length < 1) {
         showErrorToast({ errors: "Failed to upload files" });
         return;
       }
-
-      // Step 3: Call uploadDmsFile API
-      const dmsUploadItems: IDmsUploadItem[] = uploadedFiles.map((file) => ({
-        artifactName: file.fileName,
-        description: `Uploaded file: ${file.fileName}`,
-        parentId,
-        tags: [],
-        metaData: {},
-        organizationId: "",
-        fileStorageId: file.fileId,
-        configurationName,
-      }));
-
-      await uploadDmsFileMutate({
-        upload: dmsUploadItems,
-        projectKey,
-      });
 
       showSuccessToast({
         description: `${uploadedFiles.length} file(s) uploaded successfully!`,
@@ -167,33 +140,34 @@ export const UploadDmsFileModal = ({
       >
         <DialogHeader>
           <DialogTitle>Upload File</DialogTitle>
-          <DialogDescription>
-            Upload files to your DMS workspace
-          </DialogDescription>
+          <DialogDescription>Upload files to your DMS workspace</DialogDescription>
         </DialogHeader>
 
-        <FileUploader
-          value={files}
-          onValueChange={(next) => setFiles(next || [])}
-          dropzoneOptions={{
-            maxFiles: 10,
-            maxSize: 100 * 1024 * 1024, // 100MB
-            multiple: true,
-          }}
+        <div
+          aria-busy={isUploading}
+          className={isUploading ? "pointer-events-none opacity-60" : undefined}
         >
-          <FileInput className="flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4">
-            <CloudUpload className="h-8 w-8 text-low-emphasis" />
-            <p className="text-sm leading-5">
-              <span className="font-semibold text-primary">
-                Click to upload
+          <FileUploader
+            value={files}
+            onValueChange={(next) => setFiles(next || [])}
+            dropzoneOptions={{
+              maxFiles: 10,
+              maxSize: 100 * 1024 * 1024, // 100MB
+              multiple: true,
+            }}
+          >
+            <FileInput className="flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4">
+              <CloudUpload className="h-8 w-8 text-low-emphasis" />
+              <p className="text-sm leading-5">
+                <span className="font-semibold text-primary">Click to upload</span>
+                <span className="font-normal"> or drag and drop</span>
+              </p>
+              <span className="text-xs text-muted-foreground">
+                Upload any file type (Max 10 files, 100MB each)
               </span>
-              <span className="font-normal"> or drag and drop</span>
-            </p>
-            <span className="text-xs text-muted-foreground">
-              Upload any file type (Max 10 files, 100MB each)
-            </span>
-          </FileInput>
-        </FileUploader>
+            </FileInput>
+          </FileUploader>
+        </div>
 
         {files.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-4">
@@ -202,6 +176,7 @@ export const UploadDmsFileModal = ({
                 <div className="relative h-32 w-32 overflow-hidden rounded border bg-muted/30 p-4">
                   <button
                     onClick={() => removeFile(i)}
+                    disabled={isUploading}
                     className="absolute right-0 top-0 z-10 rounded-full bg-white text-gray-400 shadow hover:text-gray-600"
                   >
                     <XCircle className="h-5 w-5" />
@@ -212,10 +187,7 @@ export const UploadDmsFileModal = ({
                     </span>
                   </div>
                 </div>
-                <p
-                  className="mt-1 w-32 truncate text-center text-xs"
-                  title={f.name}
-                >
+                <p className="mt-1 w-32 truncate text-center text-xs" title={f.name}>
                   {f.name}
                 </p>
               </div>
@@ -223,14 +195,20 @@ export const UploadDmsFileModal = ({
           </div>
         )}
 
+        {isUploading ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
+          >
+            <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Uploading {files.length} {files.length === 1 ? "file" : "files"}…
+          </div>
+        ) : null}
+
         <DialogFooter className="flex flex-col justify-end gap-2 sm:flex-row">
           <DialogClose asChild>
-            <Button
-              variant="outline"
-              disabled={isUploading}
-              className="w-full sm:w-20"
-              size="sm"
-            >
+            <Button variant="outline" disabled={isUploading} className="w-full sm:w-20" size="sm">
               Cancel
             </Button>
           </DialogClose>

@@ -10,19 +10,19 @@ using Directory = Storage.DomainService.Entities.Directory;
 
 namespace XUnitTest.Worker;
 
-public class CreateDefaultFolderEventConsumerTests
+public class CreateDefaultDirectoryEventConsumerTests
 {
     private readonly Mock<IDirectoryRepository> _directoryRepository = new();
-    private readonly CreateDefaultFolderEventConsumer _consumer;
+    private readonly CreateDefaultDirectoryEventConsumer _consumer;
 
-    public CreateDefaultFolderEventConsumerTests()
+    public CreateDefaultDirectoryEventConsumerTests()
     {
-        _consumer = new CreateDefaultFolderEventConsumer(
-            NullLogger<CreateDefaultFolderEventConsumer>.Instance,
+        _consumer = new CreateDefaultDirectoryEventConsumer(
+            NullLogger<CreateDefaultDirectoryEventConsumer>.Instance,
             _directoryRepository.Object);
     }
 
-    private static CreateDefaultFolderEvent Event() => new()
+    private static CreateDefaultDirectoryEvent Event() => new()
     {
         ItemId = "item-1",
         ConfigurationName = "Azure",
@@ -30,20 +30,20 @@ public class CreateDefaultFolderEventConsumerTests
         ProjectKey = "proj-1",
     };
 
-    private static Directory Folder(string itemId, string? parentId, string name) => new()
+    private static Directory Directory(string itemId, string? parentId, string name) => new()
     {
         ItemId = itemId,
-        ParentDirectoryID = parentId,
+        ParentId = parentId,
         Name = name,
         SystemName = name.ToLower(),
         ConfigurationName = "Azure",
     };
 
-    private void GivenTemplates(params Directory[] folders)
+    private void GivenTemplates(params Directory[] directorys)
     {
         _directoryRepository
             .Setup(r => r.GetByConfigurationNameAsync("Azure", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(folders.ToList());
+            .ReturnsAsync(directorys.ToList());
     }
 
     private List<Directory> CaptureSaved()
@@ -57,9 +57,9 @@ public class CreateDefaultFolderEventConsumerTests
     }
 
     [Fact]
-    public async Task Consume_CreatesRootFoldersAsDirectoriesWithFreshIds()
+    public async Task Consume_CreatesRootDirectorysAsDirectoriesWithFreshIds()
     {
-        GivenTemplates(Folder("root-1", null, "Documents"));
+        GivenTemplates(Directory("root-1", null, "Documents"));
 
         var saved = CaptureSaved();
 
@@ -69,12 +69,12 @@ public class CreateDefaultFolderEventConsumerTests
         var root = saved.Single();
         root.Name.Should().Be("Documents");
         root.ConfigurationName.Should().Be("S3Compatible");
-        root.ParentDirectoryID.Should().BeNull("a root folder has no parent");
+        root.ParentId.Should().BeNull("a root directory has no parent");
         root.AncestorIds.Should().BeEmpty();
         root.FullPath.Should().Be("/Documents");
         root.SystemName.Should().Be("documents");
         root.Type.Should().Be(StructureType.Directory);
-        root.ItemId.Should().NotBe("root-1", "each cloned folder gets a fresh id");
+        root.ItemId.Should().NotBe("root-1", "each cloned directory gets a fresh id");
         root.InheritsParentAccess.Should().BeTrue();
         root.IsArchived.Should().BeFalse();
         root.IsActive.Should().BeTrue();
@@ -84,9 +84,9 @@ public class CreateDefaultFolderEventConsumerTests
     public async Task Consume_WiresChildrenToTheirParentsNewIdAndBuildsAncestry()
     {
         GivenTemplates(
-            Folder("root-1", null, "Documents"),
-            Folder("child-1", "root-1", "Invoices"),
-            Folder("grandchild-1", "child-1", "2026"));
+            Directory("root-1", null, "Documents"),
+            Directory("child-1", "root-1", "Invoices"),
+            Directory("grandchild-1", "child-1", "2026"));
 
         var saved = CaptureSaved();
 
@@ -99,11 +99,11 @@ public class CreateDefaultFolderEventConsumerTests
         var child = saved.Single(d => d.Name == "Invoices");
         var grandchild = saved.Single(d => d.Name == "2026");
 
-        child.ParentDirectoryID.Should().Be(root.ItemId);
+        child.ParentId.Should().Be(root.ItemId);
         child.AncestorIds.Should().Equal(new[] { root.ItemId });
         child.FullPath.Should().Be("/Documents/Invoices");
 
-        grandchild.ParentDirectoryID.Should().Be(child.ItemId);
+        grandchild.ParentId.Should().Be(child.ItemId);
         grandchild.AncestorIds.Should().Equal(new[] { root.ItemId, child.ItemId });
         grandchild.FullPath.Should().Be("/Documents/Invoices/2026");
 
@@ -111,7 +111,7 @@ public class CreateDefaultFolderEventConsumerTests
     }
 
     [Fact]
-    public async Task Consume_DoesNotSaveAnythingWhenThereAreNoDefaultFolders()
+    public async Task Consume_DoesNotSaveAnythingWhenThereAreNoDefaultDirectorys()
     {
         GivenTemplates();
 
@@ -136,7 +136,7 @@ public class CreateDefaultFolderEventConsumerTests
     [Fact]
     public async Task Consume_SwallowsSaveFailures()
     {
-        GivenTemplates(Folder("root-1", null, "Documents"));
+        GivenTemplates(Directory("root-1", null, "Documents"));
         _directoryRepository
             .Setup(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()))
             .ThrowsAsync(new InvalidOperationException("write failed"));

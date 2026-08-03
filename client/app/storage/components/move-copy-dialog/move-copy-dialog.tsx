@@ -9,10 +9,10 @@ import {
 } from "@/components/ui-kits/dialog/dialog";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { ChevronRight, Folder as FolderIcon } from "lucide-react";
+import { ChevronRight, Folder as DirectoryIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useCopyFile, useDmsChildren, useDmsFolder, useMoveDmsFolder, useMoveFile } from "../../hooks/use-dms";
-import { DmsItem, isFolder } from "../../models/dms.model";
+import { useCopyFile, useDmsChildren, useDmsDirectory, useMoveDmsDirectory, useMoveFile } from "../../hooks/use-dms";
+import { DmsItem, isDirectory } from "../../models/dms.model";
 
 export type MoveCopyMode = "move" | "copy";
 
@@ -21,8 +21,8 @@ export interface MoveCopyDialogProps {
   onOpenChange: (open: boolean) => void;
   item: DmsItem;
   mode: MoveCopyMode;
-  /** Folder the picker starts in. Undefined browses from the root. */
-  startFolderId?: string;
+  /** Directory the picker starts in. Undefined browses from the root. */
+  startDirectoryId?: string;
   onDone?: () => void;
 }
 
@@ -32,11 +32,11 @@ interface Crumb {
 }
 
 /**
- * Picks a destination folder for a move or a copy.
+ * Picks a destination directory for a move or a copy.
  *
  * The picker browses with the same access-resolved listing the main view uses,
- * so a folder the caller cannot see is not offered as a destination. Only
- * folders are shown; a file is never a destination.
+ * so a directory the caller cannot see is not offered as a destination. Only
+ * directorys are shown; a file is never a destination.
  *
  * Copy is zero-copy on the server: the new file points at the same stored
  * object, because versions are immutable. That is why copying a large file
@@ -47,25 +47,25 @@ export function MoveCopyDialog({
   onOpenChange,
   item,
   mode,
-  startFolderId,
+  startDirectoryId,
   onDone,
 }: Readonly<MoveCopyDialogProps>) {
-  // The picker starts inside the item's current folder, seeded with the full
+  // The picker starts inside the item's current directory, seeded with the full
   // breadcrumb trail from the root so the caller can navigate UP to ancestors as
   // well as down into children. Without this the picker can only descend, which
   // makes it impossible to move a file into a parent or sibling tree.
-  const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: startFolderId, name: "Root" }]);
+  const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: startDirectoryId, name: "Root" }]);
   const current = crumbs[crumbs.length - 1];
 
-  const folderDetail = useDmsFolder(startFolderId);
+  const directoryDetail = useDmsDirectory(startDirectoryId);
 
   useEffect(() => {
-    const detail = folderDetail.data;
-    if (!detail || !startFolderId) return;
+    const detail = directoryDetail.data;
+    if (!detail || !startDirectoryId) return;
 
     const names = (detail.fullPath ?? "").split("/").map((s) => s.trim()).filter(Boolean);
     const ancestorIds = detail.ancestorIds ?? [];
-    const allIds = [...ancestorIds, startFolderId];
+    const allIds = [...ancestorIds, startDirectoryId];
 
     // The path segments must line up with the ids one-to-one (ancestors + self).
     // If they don't — legacy or malformed data — keep the single-entry fallback
@@ -74,24 +74,24 @@ export function MoveCopyDialog({
 
     const trail: Crumb[] = [{ id: undefined, name: "Root" }, ...allIds.map((id, i) => ({ id, name: names[i] }))];
     setCrumbs(trail);
-    // Seed only once per start folder; re-running on every data tick would reset
+    // Seed only once per start directory; re-running on every data tick would reset
     // the caller's in-flight navigation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startFolderId, folderDetail.data?.itemId]);
+  }, [startDirectoryId, directoryDetail.data?.itemId]);
 
-  const children = useDmsChildren(current.id, { type: "folder" });
+  const children = useDmsChildren(current.id, { type: "directory" });
   const moveFile = useMoveFile();
   const copyFile = useCopyFile();
-  const moveFolder = useMoveDmsFolder();
+  const moveDirectory = useMoveDmsDirectory();
 
-  const folders = useMemo(
-    () => (children.data?.pages.flatMap((p) => p.items) ?? []).filter(isFolder),
+  const directorys = useMemo(
+    () => (children.data?.pages.flatMap((p) => p.items) ?? []).filter(isDirectory),
     [children.data],
   );
 
-  const isPending = moveFile.isPending || copyFile.isPending || moveFolder.isPending;
+  const isPending = moveFile.isPending || copyFile.isPending || moveDirectory.isPending;
 
-  // A folder cannot be moved into itself, and the picker should not offer the
+  // A directory cannot be moved into itself, and the picker should not offer the
   // item's current parent as a destination for a move that would be a no-op.
   const targetIsSelf = current.id === item.itemId;
   const targetIsCurrentParent = mode === "move" && current.id === item.parentDirectoryId;
@@ -101,12 +101,12 @@ export function MoveCopyDialog({
     if (!current.id) return;
 
     try {
-      if (isFolder(item)) {
-        await moveFolder.mutateAsync({ folderId: item.itemId, targetFolderId: current.id });
+      if (isDirectory(item)) {
+        await moveDirectory.mutateAsync({ directoryId: item.itemId, targetDirectoryId: current.id });
       } else if (mode === "move") {
-        await moveFile.mutateAsync({ fileId: item.itemId, targetFolderId: current.id });
+        await moveFile.mutateAsync({ fileId: item.itemId, targetDirectoryId: current.id });
       } else {
-        await copyFile.mutateAsync({ fileId: item.itemId, targetFolderId: current.id });
+        await copyFile.mutateAsync({ fileId: item.itemId, targetDirectoryId: current.id });
       }
 
       showSuccessToast({
@@ -149,23 +149,23 @@ export function MoveCopyDialog({
 
         {children.isLoading ? (
           <Skeleton className="h-32 w-full" />
-        ) : folders.length === 0 ? (
+        ) : directorys.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            No folders here. Choose this one, or go back.
+            No directorys here. Choose this one, or go back.
           </p>
         ) : (
           <ul className="flex max-h-64 flex-col divide-y overflow-y-auto rounded-md border text-sm">
-            {folders.map((folder) => (
-              <li key={folder.itemId}>
+            {directorys.map((directory) => (
+              <li key={directory.itemId}>
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted"
-                  disabled={folder.itemId === item.itemId}
-                  onClick={() => setCrumbs([...crumbs, { id: folder.itemId, name: folder.name }])}
+                  disabled={directory.itemId === item.itemId}
+                  onClick={() => setCrumbs([...crumbs, { id: directory.itemId, name: directory.name }])}
                 >
-                  <FolderIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="truncate">{folder.name}</span>
-                  {folder.itemId === item.itemId ? (
+                  <DirectoryIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  <span className="truncate">{directory.name}</span>
+                  {directory.itemId === item.itemId ? (
                     <span className="ml-auto text-xs text-muted-foreground">itself</span>
                   ) : null}
                 </button>

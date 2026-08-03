@@ -137,8 +137,8 @@ export interface IDeleteFilePayload extends IDeleteResourceBasePayload {
   fileId: string;
 }
 
-export interface IDeleteFolderPayload extends IDeleteResourceBasePayload {
-  folderId: string;
+export interface IDeleteDirectoryPayload extends IDeleteResourceBasePayload {
+  directoryId: string;
 }
 export interface IDeleteResourceResponse {
   errors: unknown;
@@ -210,7 +210,7 @@ export interface IUpdateFileAdditionalInfoResponse {
   isSuccess: boolean;
 }
 
-export interface IGetDmsFileAndFolderPayload {
+export interface IGetDmsFileAndDirectoryPayload {
   parentId?: string;
   configurationName: string;
   projectKey: string;
@@ -222,10 +222,10 @@ export interface IGetDmsFileAndFolderPayload {
 
 export enum DmsItemType {
   File = 1,
-  Folder = 2,
+  Directory = 2,
 }
 
-export interface IDmsFileAndFolderInfo {
+export interface IDmsFileAndDirectoryInfo {
   parentId: string;
   type: DmsItemType;
   name: string;
@@ -238,8 +238,8 @@ export interface IDmsFileAndFolderInfo {
   lastUpdatedDate: string;
 }
 
-export interface IGetDmsFileAndFolderResponse {
-  dmsFileAndFolderInfos: IDmsFileAndFolderInfo[];
+export interface IGetDmsFileAndDirectoryResponse {
+  dmsFileAndDirectoryInfos: IDmsFileAndDirectoryInfo[];
   totalCount: number;
 }
 
@@ -248,7 +248,7 @@ export interface IDmsMetaDataValue {
   value: string;
 }
 
-export interface ICreateDmsFolderPayload {
+export interface ICreateDmsDirectoryPayload {
   artifactName: string;
   description: string;
   parentId: string;

@@ -9,7 +9,7 @@ namespace Storage.DomainService.Entities
     {
         public string TenantId { get; set; }
 
-        /// <summary>Cached folder ancestry, ordered root first, ending at the parent directory.</summary>
+        /// <summary>Cached directory ancestry, ordered root first, ending at the parent directory.</summary>
         public List<string> AncestorIds { get; set; } = new();
 
         /// <summary>Display and search path built from the ancestry, for example "/root/sub/parent".</summary>
@@ -18,7 +18,7 @@ namespace Storage.DomainService.Entities
         /// <summary>When true the effective access policy is resolved by walking <see cref="AncestorIds"/>.</summary>
         public bool InheritsParentAccess { get; set; } = true;
 
-        /// <summary>Soft delete. Archived folders stay queryable so they can be listed in trash and restored.</summary>
+        /// <summary>Soft delete. Archived directorys stay queryable so they can be listed in trash and restored.</summary>
         public bool IsArchived { get; set; }
         public bool IsActive { get; set; } = true;
         public string? ConfigurationName { get; set; }
@@ -26,7 +26,7 @@ namespace Storage.DomainService.Entities
         public string? Description { get; set; }
 
         /// <summary>Cached counts and subtree size, maintained on write so listing does not aggregate.</summary>
-        public int ChildFolderCount { get; set; }
+        public int ChildDirectoryCount { get; set; }
         public int ChildFileCount { get; set; }
         public long SizeInBytes { get; set; }
 
@@ -35,7 +35,7 @@ namespace Storage.DomainService.Entities
             return new Directory
             {
                 Name = directoryOptions.Name,
-                ParentDirectoryID = string.IsNullOrEmpty(directoryOptions.ParentDirectoryId) ? null : directoryOptions.ParentDirectoryId,
+                ParentId = string.IsNullOrEmpty(directoryOptions.ParentId) ? null : directoryOptions.ParentId,
                 SystemName = directoryOptions.Name.ToLower(),
                 Type = StructureType.Directory,
                 TypeString = StructureType.Directory.ToString(),
@@ -65,7 +65,7 @@ namespace Storage.DomainService.Entities
     public class DirectoryOptions
     {
         public string Name { get; set; }
-        public string ParentDirectoryId { get; set; }
+        public string ParentId { get; set; }
         public Dictionary<string, MetaValue> MetaData { get; set; }
         public string ItemId { get; set; }
         public string TenantId { get; set; }
@@ -92,7 +92,7 @@ namespace Storage.DomainService.Entities
 
         public Dictionary<string, MetaValue> MetaData { get; set; }
         public string Name { get; set; }
-        public string? ParentDirectoryID { get; set; }
+        public string? ParentId { get; set; }
         public string SystemName { get; set; }
         public StructureType Type { get; set; }
         public string TypeString { get; set; }

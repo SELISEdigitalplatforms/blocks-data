@@ -33,7 +33,7 @@ export const mockStorageServiceFactory = () => ({
     uploadFile: vi.fn(),
     uploadFileToLocalStorage: vi.fn(),
     uploadPublicCertificateFile: vi.fn(),
-    getFilesAndFolders: vi.fn(),
-    createDmsFolder: vi.fn(),
+    getFilesAndDirectorys: vi.fn(),
+    createDmsDirectory: vi.fn(),
   },
 });

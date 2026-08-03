@@ -324,14 +324,14 @@
             Every action here is authorised twice: the endpoint permission decides who may
             call it at all, and the service resolves the caller's access to the specific
             resource. Holding <c>blocks-data::grant-access</c> does not let anyone grant
-            access to a folder they cannot Manage.
+            access to a directory they cannot Manage.
             </remarks>
         </member>
         <member name="M:Api.Controllers.ContentController.SearchContent(DomainService.Storage.Dms.ContentSearchRequest)">
-            <summary>Name search across folders and files the caller may view.</summary>
+            <summary>Name search across directorys and files the caller may view.</summary>
         </member>
         <member name="M:Api.Controllers.ContentController.GetTrash(DomainService.Storage.Dms.TrashRequest)">
-            <summary>Archived folders and files the caller may view.</summary>
+            <summary>Archived directorys and files the caller may view.</summary>
         </member>
         <member name="M:Api.Controllers.ContentController.RestoreFromTrash(DomainService.Storage.Dms.RestoreFromTrashRequest)">
             <summary>Returns an archived item to its original parent.</summary>
@@ -359,6 +359,42 @@
         </member>
         <member name="M:Api.Controllers.ContentController.ShareContent(DomainService.Storage.Dms.ShareContentRequest)">
             <summary>Grants a principal an allow entry and records it as a share.</summary>
+        </member>
+        <member name="T:Api.Controllers.DirectorysController">
+             <summary>
+             Directory operations: create, read, list children, rename, move and delete.
+             </summary>
+             <remarks>
+             Creating a root directory is a separate permission from creating a nested one.
+             Anyone with Edit on a parent may add a subdirectory, but starting a new tree at the
+             root is a tenant-level act, so it is gated by
+             <c>blocks-data::create-root-directory</c> and assigned to the owner role only.
+            
+             Reads that the caller may not see report 404 rather than 403 throughout. Saying
+             "forbidden" would confirm that a directory exists, which is enough to map a tree the
+             caller cannot open.
+             </remarks>
+        </member>
+        <member name="M:Api.Controllers.DirectorysController.CreateDirectory(DomainService.Storage.Dms.CreateDirectoryRequest)">
+            <summary>Creates a directory beneath an existing parent.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectorysController.CreateRootDirectory(DomainService.Storage.Dms.CreateDirectoryRequest)">
+            <summary>Creates a directory at the root of the tenant.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectorysController.GetDirectory(System.String)">
+            <summary>Directory details plus the operations the caller holds on it.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectorysController.GetDirectoryChildren(DomainService.Storage.Dms.GetDirectoryChildrenRequest)">
+            <summary>Access-resolved, cursor-paginated children of a directory.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectorysController.UpdateDirectory(DomainService.Storage.Dms.UpdateDirectoryRequest)">
+            <summary>Renames a directory or updates its description.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectorysController.DeleteDirectory(DomainService.Storage.Dms.DeleteDirectoryContentRequest)">
+            <summary>Moves a directory to the trash, or removes it permanently.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectorysController.MoveDirectory(DomainService.Storage.Dms.MoveDirectoryRequest)">
+            <summary>Re-parents a directory and rewrites the cached ancestry beneath it.</summary>
         </member>
         <member name="T:Api.Controllers.FilesController">
             <summary>
@@ -428,46 +464,10 @@
             <summary>Creates the next version of a file and returns a presigned upload URL.</summary>
         </member>
         <member name="M:Api.Controllers.FilesController.CopyFile(DomainService.Storage.Dms.CopyFileRequest)">
-            <summary>Copies a file into another folder without duplicating its stored bytes.</summary>
+            <summary>Copies a file into another directory without duplicating its stored bytes.</summary>
         </member>
         <member name="M:Api.Controllers.FilesController.MoveFile(DomainService.Storage.Dms.MoveFileRequest)">
-            <summary>Re-parents a file into another folder.</summary>
-        </member>
-        <member name="T:Api.Controllers.FoldersController">
-             <summary>
-             Folder operations: create, read, list children, rename, move and delete.
-             </summary>
-             <remarks>
-             Creating a root folder is a separate permission from creating a nested one.
-             Anyone with Edit on a parent may add a subfolder, but starting a new tree at the
-             root is a tenant-level act, so it is gated by
-             <c>blocks-data::create-root-folder</c> and assigned to the owner role only.
-            
-             Reads that the caller may not see report 404 rather than 403 throughout. Saying
-             "forbidden" would confirm that a folder exists, which is enough to map a tree the
-             caller cannot open.
-             </remarks>
-        </member>
-        <member name="M:Api.Controllers.FoldersController.CreateFolder(DomainService.Storage.Dms.CreateFolderRequest)">
-            <summary>Creates a folder beneath an existing parent.</summary>
-        </member>
-        <member name="M:Api.Controllers.FoldersController.CreateRootFolder(DomainService.Storage.Dms.CreateFolderRequest)">
-            <summary>Creates a folder at the root of the tenant.</summary>
-        </member>
-        <member name="M:Api.Controllers.FoldersController.GetFolder(System.String)">
-            <summary>Folder details plus the operations the caller holds on it.</summary>
-        </member>
-        <member name="M:Api.Controllers.FoldersController.GetFolderChildren(DomainService.Storage.Dms.GetFolderChildrenRequest)">
-            <summary>Access-resolved, cursor-paginated children of a folder.</summary>
-        </member>
-        <member name="M:Api.Controllers.FoldersController.UpdateFolder(DomainService.Storage.Dms.UpdateFolderRequest)">
-            <summary>Renames a folder or updates its description.</summary>
-        </member>
-        <member name="M:Api.Controllers.FoldersController.DeleteFolder(DomainService.Storage.Dms.DeleteFolderContentRequest)">
-            <summary>Moves a folder to the trash, or removes it permanently.</summary>
-        </member>
-        <member name="M:Api.Controllers.FoldersController.MoveFolder(DomainService.Storage.Dms.MoveFolderRequest)">
-            <summary>Re-parents a folder and rewrites the cached ancestry beneath it.</summary>
+            <summary>Re-parents a file into another directory.</summary>
         </member>
         <member name="T:BlocksTemplate.Api.Controllers.RegexAssistantController">
             <summary>

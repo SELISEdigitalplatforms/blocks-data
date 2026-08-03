@@ -2,7 +2,7 @@ namespace Storage.DomainService.Entities
 {
     public enum ContentResourceType
     {
-        Folder = 1,
+        Directory = 1,
         File = 2
     }
 

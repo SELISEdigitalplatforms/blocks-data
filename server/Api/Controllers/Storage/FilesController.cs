@@ -163,25 +163,25 @@ namespace Api.Controllers
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
-        /// <summary>Copies a file into another folder without duplicating its stored bytes.</summary>
+        /// <summary>Copies a file into another directory without duplicating its stored bytes.</summary>
         [HttpPost]
         // [ProtectedEndPoint("blocks-data::copy-file")]
         [Authorize]
         public async Task<IActionResult> CopyFile([FromBody] CopyFileRequest request)
         {
-            var result = await _contentFileService.CopyFileAsync(request.FileId, request.TargetFolderId, request.CopyAccessPolicies);
+            var result = await _contentFileService.CopyFileAsync(request.FileId, request.TargetDirectoryId, request.CopyAccessPolicies);
             return result.Status == FileOperationStatus.Succeeded
                 ? Ok(new { fileId = result.NewFileId })
                 : MapFileOperation(result.Status);
         }
 
-        /// <summary>Re-parents a file into another folder.</summary>
+        /// <summary>Re-parents a file into another directory.</summary>
         [HttpPost]
         // [ProtectedEndPoint("blocks-data::move-file")]
         [Authorize]
         public async Task<IActionResult> MoveFile([FromBody] MoveFileRequest request)
         {
-            var result = await _contentFileService.MoveFileAsync(request.FileId, request.TargetFolderId);
+            var result = await _contentFileService.MoveFileAsync(request.FileId, request.TargetDirectoryId);
             return result.Status == FileOperationStatus.Succeeded
                 ? Ok(new { fileId = request.FileId })
                 : MapFileOperation(result.Status);
@@ -190,9 +190,9 @@ namespace Api.Controllers
         private IActionResult MapFileOperation(FileOperationStatus status) => status switch
         {
             FileOperationStatus.FileNotFound => NotFound(new { message = "File not found." }),
-            FileOperationStatus.TargetNotFound => NotFound(new { message = "Target folder not found." }),
-            FileOperationStatus.NameConflict => Conflict(new { message = "A file with that name already exists in the target folder." }),
-            FileOperationStatus.ExtensionNotAllowed => BadRequest(new { message = "The target folder does not allow this file extension." }),
+            FileOperationStatus.TargetNotFound => NotFound(new { message = "Target directory not found." }),
+            FileOperationStatus.NameConflict => Conflict(new { message = "A file with that name already exists in the target directory." }),
+            FileOperationStatus.ExtensionNotAllowed => BadRequest(new { message = "The target directory does not allow this file extension." }),
             _ => BadRequest(new { message = "The file operation could not be completed." }),
         };
     }

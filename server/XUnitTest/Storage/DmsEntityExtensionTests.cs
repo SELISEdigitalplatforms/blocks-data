@@ -46,7 +46,7 @@ public class DmsEntityExtensionTests
         directory.AncestorIds.Should().NotBeNull().And.BeEmpty();
         directory.FullPath.Should().BeEmpty();
         directory.ChildFileCount.Should().Be(0);
-        directory.ChildFolderCount.Should().Be(0);
+        directory.ChildDirectoryCount.Should().Be(0);
         directory.SizeInBytes.Should().Be(0);
     }
 
@@ -56,7 +56,7 @@ public class DmsEntityExtensionTests
         var directory = Directory.CreateNew(new DirectoryOptions
         {
             Name = "Reports",
-            ParentDirectoryId = "parent-1",
+            ParentId = "parent-1",
             ItemId = "dir-1",
             TenantId = "tenant-1",
             CreateDate = DateTime.UtcNow,
@@ -95,7 +95,7 @@ public class DmsEntityExtensionTests
         directory.AncestorIds.Should().NotBeNull().And.BeEmpty();
         directory.FullPath.Should().BeEmpty();
         directory.InheritsParentAccess.Should().BeTrue();
-        directory.ParentDirectoryID.Should().BeNull();
+        directory.ParentId.Should().BeNull();
     }
 
     [Fact]
@@ -202,7 +202,7 @@ public class DmsEntityExtensionTests
             ConfigurationName = "default",
             ModuleName = "dms",
             Description = "Quarterly reports",
-            ChildFolderCount = 2,
+            ChildDirectoryCount = 2,
             ChildFileCount = 5,
             SizeInBytes = 4096,
         };
@@ -217,7 +217,7 @@ public class DmsEntityExtensionTests
         found.IsActive.Should().BeFalse();
         found.ModuleName.Should().Be("dms");
         found.Description.Should().Be("Quarterly reports");
-        found.ChildFolderCount.Should().Be(2);
+        found.ChildDirectoryCount.Should().Be(2);
         found.ChildFileCount.Should().Be(5);
         found.SizeInBytes.Should().Be(4096);
     }

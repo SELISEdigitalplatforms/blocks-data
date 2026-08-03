@@ -11,22 +11,22 @@ using Directory = Storage.DomainService.Entities.Directory;
 namespace XUnitTest.Api
 {
     /// <summary>
-    /// Unit tests for <see cref="FoldersController"/>. The controller's own job is mapping
+    /// Unit tests for <see cref="DirectorysController"/>. The controller's own job is mapping
     /// a service outcome onto a status code, and the mapping carries meaning: a refusal to
-    /// read reports 404 rather than 403, because 403 would confirm that a folder exists to
+    /// read reports 404 rather than 403, because 403 would confirm that a directory exists to
     /// a caller who may not see it. The create split is the other piece of real logic here.
     /// </summary>
-    public class FoldersControllerTests
+    public class DirectorysControllerTests
     {
-        private readonly Mock<IFolderManagementService> _folders = new();
+        private readonly Mock<IDirectoryManagementService> _directorys = new();
         private readonly Mock<IContentListingService> _listing = new();
         private readonly Mock<IContentHierarchyService> _hierarchy = new();
-        private readonly FoldersController _sut;
+        private readonly DirectorysController _sut;
 
-        public FoldersControllerTests() =>
-            _sut = new FoldersController(_folders.Object, _listing.Object, _hierarchy.Object);
+        public DirectorysControllerTests() =>
+            _sut = new DirectorysController(_directorys.Object, _listing.Object, _hierarchy.Object);
 
-        private static Directory Folder(string id = "dir-1") => new()
+        private static Directory Directory(string id = "dir-1") => new()
         {
             ItemId = id,
             Name = "Reports",
@@ -39,70 +39,70 @@ namespace XUnitTest.Api
         };
 
         [Fact]
-        public async Task CreateFolder_WithoutAParent_IsRejectedRatherThanCreatingARoot()
+        public async Task CreateDirectory_WithoutAParent_IsRejectedRatherThanCreatingARoot()
         {
             // Root creation carries a stronger permission that this action does not hold.
             // Branching inside one endpoint would make the two grants indistinguishable.
-            var result = await _sut.CreateFolder(new CreateFolderRequest { Name = "Reports" });
+            var result = await _sut.CreateDirectory(new CreateDirectoryRequest { Name = "Reports" });
 
             result.Should().BeOfType<BadRequestObjectResult>();
-            _folders.Verify(f => f.CreateFolderAsync(
+            _directorys.Verify(f => f.CreateDirectoryAsync(
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                 It.IsAny<string?>(), It.IsAny<string[]?>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
-        public async Task CreateFolder_WithAParent_ForwardsAndReturns201()
+        public async Task CreateDirectory_WithAParent_ForwardsAndReturns201()
         {
-            _folders.Setup(f => f.CreateFolderAsync(
+            _directorys.Setup(f => f.CreateDirectoryAsync(
                     "Reports", "root", null, null, null, null, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(FolderOperationResult.Success("new-id"));
+                .ReturnsAsync(DirectoryOperationResult.Success("new-id"));
 
-            var result = await _sut.CreateFolder(new CreateFolderRequest { Name = "Reports", ParentFolderId = "root" });
+            var result = await _sut.CreateDirectory(new CreateDirectoryRequest { Name = "Reports", ParentDirectoryId = "root" });
 
             result.Should().BeOfType<CreatedResult>();
         }
 
         [Fact]
-        public async Task CreateRootFolder_PassesANullParent()
+        public async Task CreateRootDirectory_PassesANullParent()
         {
-            _folders.Setup(f => f.CreateFolderAsync(
+            _directorys.Setup(f => f.CreateDirectoryAsync(
                     "Reports", null, null, null, null, null, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(FolderOperationResult.Success("new-id"));
+                .ReturnsAsync(DirectoryOperationResult.Success("new-id"));
 
-            var result = await _sut.CreateRootFolder(new CreateFolderRequest { Name = "Reports", ParentFolderId = "ignored" });
+            var result = await _sut.CreateRootDirectory(new CreateDirectoryRequest { Name = "Reports", ParentDirectoryId = "ignored" });
 
             result.Should().BeOfType<CreatedResult>();
-            _folders.Verify(f => f.CreateFolderAsync(
+            _directorys.Verify(f => f.CreateDirectoryAsync(
                 "Reports", null, null, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Theory]
-        [InlineData(FolderOperationStatus.NameConflict, typeof(ConflictObjectResult))]
-        [InlineData(FolderOperationStatus.ParentNotFound, typeof(NotFoundObjectResult))]
-        [InlineData(FolderOperationStatus.NotFound, typeof(NotFoundObjectResult))]
-        public async Task CreateFolder_MapsEachRefusalOntoItsStatus(FolderOperationStatus status, Type expected)
+        [InlineData(DirectoryOperationStatus.NameConflict, typeof(ConflictObjectResult))]
+        [InlineData(DirectoryOperationStatus.ParentNotFound, typeof(NotFoundObjectResult))]
+        [InlineData(DirectoryOperationStatus.NotFound, typeof(NotFoundObjectResult))]
+        public async Task CreateDirectory_MapsEachRefusalOntoItsStatus(DirectoryOperationStatus status, Type expected)
         {
-            _folders.Setup(f => f.CreateFolderAsync(
+            _directorys.Setup(f => f.CreateDirectoryAsync(
                     It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
                     It.IsAny<string?>(), It.IsAny<string[]?>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(FolderOperationResult.Failure(status));
+                .ReturnsAsync(DirectoryOperationResult.Failure(status));
 
-            var result = await _sut.CreateFolder(new CreateFolderRequest { Name = "x", ParentFolderId = "root" });
+            var result = await _sut.CreateDirectory(new CreateDirectoryRequest { Name = "x", ParentDirectoryId = "root" });
 
             result.Should().BeOfType(expected);
         }
 
         [Fact]
-        public async Task GetFolder_ReturnsTheFolderWithItsPermissions()
+        public async Task GetDirectory_ReturnsTheDirectoryWithItsPermissions()
         {
-            _folders.Setup(f => f.GetFolderAsync("dir-1", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(FolderOperationResult.Success(
-                    "dir-1", Folder(), new ContentPermissionFlags { CanView = true, CanEdit = true }));
+            _directorys.Setup(f => f.GetDirectoryAsync("dir-1", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(DirectoryOperationResult.Success(
+                    "dir-1", Directory(), new ContentPermissionFlags { CanView = true, CanEdit = true }));
 
-            var result = await _sut.GetFolder("dir-1") as OkObjectResult;
+            var result = await _sut.GetDirectory("dir-1") as OkObjectResult;
 
-            var body = result!.Value.Should().BeOfType<FolderDetailResponse>().Subject;
+            var body = result!.Value.Should().BeOfType<DirectoryDetailResponse>().Subject;
             body.ItemId.Should().Be("dir-1");
             body.FullPath.Should().Be("/Root/Reports");
             body.Permissions.CanEdit.Should().BeTrue();
@@ -110,24 +110,24 @@ namespace XUnitTest.Api
         }
 
         [Fact]
-        public async Task GetFolder_ReportsNotFoundWhenTheCallerMayNotSeeIt()
+        public async Task GetDirectory_ReportsNotFoundWhenTheCallerMayNotSeeIt()
         {
-            _folders.Setup(f => f.GetFolderAsync("dir-1", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(FolderOperationResult.Failure(FolderOperationStatus.NotFound));
+            _directorys.Setup(f => f.GetDirectoryAsync("dir-1", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound));
 
-            (await _sut.GetFolder("dir-1")).Should().BeOfType<NotFoundObjectResult>();
+            (await _sut.GetDirectory("dir-1")).Should().BeOfType<NotFoundObjectResult>();
         }
 
         [Fact]
-        public async Task GetFolderChildren_ForwardsEveryListingArgument()
+        public async Task GetDirectoryChildren_ForwardsEveryListingArgument()
         {
             _listing.Setup(l => l.GetVisibleChildrenAsync(
                     "dir-1", "cursor-1", 25, StructureType.File, "report", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new VisibleChildrenPage { HasMore = true, NextCursor = "next", TotalChildCount = 9 });
 
-            var result = await _sut.GetFolderChildren(new GetFolderChildrenRequest
+            var result = await _sut.GetDirectoryChildren(new GetDirectoryChildrenRequest
             {
-                FolderId = "dir-1",
+                DirectoryId = "dir-1",
                 Cursor = "cursor-1",
                 Limit = 25,
                 Type = "file",
@@ -141,49 +141,49 @@ namespace XUnitTest.Api
         }
 
         [Theory]
-        [InlineData(FolderOperationStatus.Succeeded, typeof(OkObjectResult))]
-        [InlineData(FolderOperationStatus.NameConflict, typeof(ConflictObjectResult))]
-        [InlineData(FolderOperationStatus.NotFound, typeof(NotFoundObjectResult))]
-        public async Task UpdateFolder_MapsTheOutcome(FolderOperationStatus status, Type expected)
+        [InlineData(DirectoryOperationStatus.Succeeded, typeof(OkObjectResult))]
+        [InlineData(DirectoryOperationStatus.NameConflict, typeof(ConflictObjectResult))]
+        [InlineData(DirectoryOperationStatus.NotFound, typeof(NotFoundObjectResult))]
+        public async Task UpdateDirectory_MapsTheOutcome(DirectoryOperationStatus status, Type expected)
         {
-            _folders.Setup(f => f.UpdateFolderAsync("dir-1", "New", null, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(status == FolderOperationStatus.Succeeded
-                    ? FolderOperationResult.Success("dir-1")
-                    : FolderOperationResult.Failure(status));
+            _directorys.Setup(f => f.UpdateDirectoryAsync("dir-1", "New", null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(status == DirectoryOperationStatus.Succeeded
+                    ? DirectoryOperationResult.Success("dir-1")
+                    : DirectoryOperationResult.Failure(status));
 
-            var result = await _sut.UpdateFolder(new UpdateFolderRequest { FolderId = "dir-1", Name = "New" });
+            var result = await _sut.UpdateDirectory(new UpdateDirectoryRequest { DirectoryId = "dir-1", Name = "New" });
 
             result.Should().BeOfType(expected);
         }
 
         [Theory]
-        [InlineData(FolderOperationStatus.Succeeded, typeof(OkObjectResult))]
-        [InlineData(FolderOperationStatus.NotEmpty, typeof(ConflictObjectResult))]
-        [InlineData(FolderOperationStatus.NotFound, typeof(NotFoundObjectResult))]
-        public async Task DeleteFolder_MapsTheOutcome(FolderOperationStatus status, Type expected)
+        [InlineData(DirectoryOperationStatus.Succeeded, typeof(OkObjectResult))]
+        [InlineData(DirectoryOperationStatus.NotEmpty, typeof(ConflictObjectResult))]
+        [InlineData(DirectoryOperationStatus.NotFound, typeof(NotFoundObjectResult))]
+        public async Task DeleteDirectory_MapsTheOutcome(DirectoryOperationStatus status, Type expected)
         {
-            _folders.Setup(f => f.DeleteFolderAsync("dir-1", true, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(status == FolderOperationStatus.Succeeded
-                    ? FolderOperationResult.Success("dir-1")
-                    : FolderOperationResult.Failure(status));
+            _directorys.Setup(f => f.DeleteDirectoryAsync("dir-1", true, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(status == DirectoryOperationStatus.Succeeded
+                    ? DirectoryOperationResult.Success("dir-1")
+                    : DirectoryOperationResult.Failure(status));
 
-            var result = await _sut.DeleteFolder(new DeleteFolderContentRequest { FolderId = "dir-1", Permanent = true });
+            var result = await _sut.DeleteDirectory(new DeleteDirectoryContentRequest { DirectoryId = "dir-1", Permanent = true });
 
             result.Should().BeOfType(expected);
         }
 
         [Theory]
-        [InlineData(MoveFolderResult.Moved, typeof(OkObjectResult))]
-        [InlineData(MoveFolderResult.WouldCreateCycle, typeof(BadRequestObjectResult))]
-        [InlineData(MoveFolderResult.NameConflict, typeof(ConflictObjectResult))]
-        [InlineData(MoveFolderResult.TargetNotFound, typeof(NotFoundObjectResult))]
-        [InlineData(MoveFolderResult.SourceNotFound, typeof(NotFoundObjectResult))]
-        public async Task MoveFolder_MapsEveryOutcome(MoveFolderResult outcome, Type expected)
+        [InlineData(MoveDirectoryResult.Moved, typeof(OkObjectResult))]
+        [InlineData(MoveDirectoryResult.WouldCreateCycle, typeof(BadRequestObjectResult))]
+        [InlineData(MoveDirectoryResult.NameConflict, typeof(ConflictObjectResult))]
+        [InlineData(MoveDirectoryResult.TargetNotFound, typeof(NotFoundObjectResult))]
+        [InlineData(MoveDirectoryResult.SourceNotFound, typeof(NotFoundObjectResult))]
+        public async Task MoveDirectory_MapsEveryOutcome(MoveDirectoryResult outcome, Type expected)
         {
-            _hierarchy.Setup(h => h.MoveFolderAsync("dir-1", "target", It.IsAny<CancellationToken>()))
+            _hierarchy.Setup(h => h.MoveDirectoryAsync("dir-1", "target", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(outcome);
 
-            var result = await _sut.MoveFolder(new MoveFolderRequest { FolderId = "dir-1", TargetFolderId = "target" });
+            var result = await _sut.MoveDirectory(new MoveDirectoryRequest { DirectoryId = "dir-1", TargetDirectoryId = "target" });
 
             result.Should().BeOfType(expected);
         }
@@ -212,7 +212,7 @@ namespace XUnitTest.Api
 
             var result = await _sut.SearchContent(new ContentSearchRequest
             {
-                Query = "report", FolderId = "dir-1", Type = "file", Cursor = "cursor", Limit = 10,
+                Query = "report", DirectoryId = "dir-1", Type = "file", Cursor = "cursor", Limit = 10,
             }) as OkObjectResult;
 
             result!.Value.Should().BeOfType<ChildrenResponse>()
@@ -226,7 +226,7 @@ namespace XUnitTest.Api
                     StructureType.Directory, null, 50, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new VisibleChildrenPage());
 
-            var result = await _sut.GetTrash(new TrashRequest { Type = "folder" });
+            var result = await _sut.GetTrash(new TrashRequest { Type = "directory" });
 
             result.Should().BeOfType<OkObjectResult>();
             _discovery.Verify(d => d.GetTrashAsync(
@@ -298,7 +298,7 @@ namespace XUnitTest.Api
             var result = await _sut.GrantAccess(new GrantAccessRequest
             {
                 ResourceId = "res-1",
-                ResourceType = ContentResourceType.Folder,
+                ResourceType = ContentResourceType.Directory,
                 PrincipalType = ContentPrincipalType.User,
                 PrincipalId = "user-2",
                 Permission = ContentPermission.Download,

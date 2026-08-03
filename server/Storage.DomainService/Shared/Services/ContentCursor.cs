@@ -4,7 +4,7 @@ using Storage.DomainService.Enums;
 namespace Storage.DomainService.Services
 {
     /// <summary>
-    /// Keyset pagination position for a children listing, ordered folders first, then by
+    /// Keyset pagination position for a children listing, ordered directorys first, then by
     /// name, with the item id breaking ties so the key is unique and the page boundary is
     /// stable when two siblings share a name.
     /// </summary>
@@ -54,13 +54,13 @@ namespace Storage.DomainService.Services
         }
 
         /// <summary>
-        /// Orders folders ahead of files, then by name, then by id. Returns a negative
+        /// Orders directorys ahead of files, then by name, then by id. Returns a negative
         /// number when this position sorts before <paramref name="other"/>.
         /// </summary>
         public static int Compare(StructureType leftType, string leftName, string leftId,
                                   StructureType rightType, string rightName, string rightId)
         {
-            // StructureType has File = 0 and Directory = 1, so descending puts folders first.
+            // StructureType has File = 0 and Directory = 1, so descending puts directorys first.
             var byType = ((int)rightType).CompareTo((int)leftType);
             if (byType != 0) return byType;
 

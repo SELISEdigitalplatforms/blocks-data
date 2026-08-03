@@ -206,7 +206,7 @@ namespace Storage.DomainService.Services
             return new File
             {
                 Name = request.Name,
-                ParentDirectoryID = string.IsNullOrWhiteSpace(request.ParentDirectoryId) ? string.Empty : request.ParentDirectoryId,
+                DirectoryId = string.IsNullOrWhiteSpace(request.ParentDirectoryId) ? string.Empty : request.ParentDirectoryId,
                 SystemName = request.Name.ToLower(),
                 Type = StructureType.File,
                 TypeString = StructureType.File.ToString(),

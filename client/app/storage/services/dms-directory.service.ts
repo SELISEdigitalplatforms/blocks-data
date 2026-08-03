@@ -1,13 +1,13 @@
 import { http } from "@/lib/http-client";
 import { FOLDER_ENDPOINTS } from "../constants/endpoint.constant";
 import {
-  CreateFolderDto,
-  DeleteFolderDto,
+  CreateDirectoryDto,
+  DeleteDirectoryDto,
   DmsChildrenQuery,
   DmsChildrenResponse,
-  DmsFolderDetail,
-  MoveFolderDto,
-  UpdateFolderDto,
+  DmsDirectoryDetail,
+  MoveDirectoryDto,
+  UpdateDirectoryDto,
 } from "../models/dms.model";
 
 /**
@@ -27,15 +27,15 @@ export function toQuery(params: Record<string, string | number | boolean | undef
   return query ? `?${query}` : "";
 }
 
-export class DmsFolderService {
-  getFolder(folderId: string): Promise<DmsFolderDetail> {
-    return http.get(`${FOLDER_ENDPOINTS.GET}${toQuery({ folderId })}`);
+export class DmsDirectoryService {
+  getDirectory(directoryId: string): Promise<DmsDirectoryDetail> {
+    return http.get(`${FOLDER_ENDPOINTS.GET}${toQuery({ directoryId })}`);
   }
 
   getChildren(query: DmsChildrenQuery): Promise<DmsChildrenResponse> {
     return http.get(
       `${FOLDER_ENDPOINTS.CHILDREN}${toQuery({
-        folderId: query.folderId,
+        directoryId: query.directoryId,
         cursor: query.cursor,
         limit: query.limit,
         type: query.type,
@@ -45,16 +45,16 @@ export class DmsFolderService {
   }
 
   /**
-   * Creates a folder. A folder with no parent starts a new tree, which is a
+   * Creates a directory. A directory with no parent starts a new tree, which is a
    * separate endpoint because it carries a separate permission; routing on the
    * payload here keeps that split invisible to callers.
    */
-  createFolder(payload: CreateFolderDto): Promise<{ folderId: string }> {
+  createDirectory(payload: CreateDirectoryDto): Promise<{ directoryId: string }> {
     const endpoint = payload.parentDirectoryId ? FOLDER_ENDPOINTS.CREATE : FOLDER_ENDPOINTS.CREATE_ROOT;
 
     return http.post(endpoint, {
       name: payload.name,
-      parentFolderId: payload.parentDirectoryId,
+      parentDirectoryId: payload.parentDirectoryId,
       description: payload.description,
       configurationName: payload.configurationName,
       moduleName: payload.moduleName,
@@ -62,20 +62,20 @@ export class DmsFolderService {
     });
   }
 
-  updateFolder(payload: UpdateFolderDto): Promise<{ folderId: string }> {
+  updateDirectory(payload: UpdateDirectoryDto): Promise<{ directoryId: string }> {
     return http.post(FOLDER_ENDPOINTS.UPDATE, payload);
   }
 
-  moveFolder(payload: MoveFolderDto): Promise<{ folderId: string }> {
+  moveDirectory(payload: MoveDirectoryDto): Promise<{ directoryId: string }> {
     return http.post(FOLDER_ENDPOINTS.MOVE, payload);
   }
 
-  deleteFolder(payload: DeleteFolderDto): Promise<{ folderId: string }> {
+  deleteDirectory(payload: DeleteDirectoryDto): Promise<{ directoryId: string }> {
     return http.post(FOLDER_ENDPOINTS.DELETE, {
-      folderId: payload.folderId,
-      permanent: payload.permanent ?? false,
+      directoryId: payload.directoryId,
+      permanent: payload.permanent ?? true,
     });
   }
 }
 
-export const dmsFolderService = new DmsFolderService();
+export const dmsDirectoryService = new DmsDirectoryService();

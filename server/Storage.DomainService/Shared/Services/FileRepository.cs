@@ -82,7 +82,7 @@ namespace Storage.DomainService.Services
 
         public async Task<List<File>> GetFiles(string parentDirectoryId)
         {
-            var filter = Builders<File>.Filter.Eq(e => e.ParentDirectoryID, parentDirectoryId);
+            var filter = Builders<File>.Filter.Eq(e => e.DirectoryId, parentDirectoryId);
             var collection = _dbContextProvider.GetCollection<File>(string.Format("{0}s", typeof(File).Name));
             return await collection.Find(filter).ToListAsync();
         }
@@ -276,7 +276,7 @@ namespace Storage.DomainService.Services
         private static FilterDefinition<File> BuildChildFileFilter(string parentId, string? search)
         {
             var b = Builders<File>.Filter;
-            var filter = ParentFilter(b, f => f.ParentDirectoryID, parentId)
+            var filter = ParentFilter(b, f => f.DirectoryId, parentId)
                          & b.Eq(f => f.IsArchived, false);
 
             if (!string.IsNullOrWhiteSpace(search))

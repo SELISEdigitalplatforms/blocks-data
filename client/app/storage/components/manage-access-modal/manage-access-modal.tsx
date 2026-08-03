@@ -43,7 +43,7 @@ export interface ManageAccessModalProps {
 }
 
 /**
- * Who may do what with one folder or file.
+ * Who may do what with one directory or file.
  *
  * Two rules from the access model are visible here rather than left to a failed
  * request. An inherited entry cannot be revoked from the resource it is
@@ -72,7 +72,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
     try {
       await grant.mutateAsync({
         resourceId: item.itemId,
-        resourceType: item.type === "folder" ? "Folder" : "File",
+        resourceType: item.type === "directory" ? "Directory" : "File",
         principalType,
         principalId: needsPrincipal ? principalId.trim() : undefined,
         permission,
@@ -130,7 +130,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
               <Skeleton className="h-16 w-full" />
             ) : rows.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No entries of its own. Access comes from the parent folder.
+                No entries of its own. Access comes from the parent directory.
               </p>
             ) : (
               <ul className="flex flex-col divide-y rounded-md border text-sm">
@@ -238,7 +238,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
 
           <section className="flex items-center justify-between gap-3 rounded-md border p-3">
             <div className="flex flex-col">
-              <span className="text-sm font-medium">Inherit access from the parent folder</span>
+              <span className="text-sm font-medium">Inherit access from the parent directory</span>
               <span className="text-xs text-muted-foreground">
                 {item.inheritsParentAccess
                   ? "This item follows its parent."

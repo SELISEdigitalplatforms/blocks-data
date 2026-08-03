@@ -9,14 +9,14 @@ vi.mock("@seliseblocks/genesis-os", () => ({
   }),
 }));
 
-vi.mock("../services/dms-folder.service", () => ({
-  dmsFolderService: {
+vi.mock("../services/dms-directory.service", () => ({
+  dmsDirectoryService: {
     getChildren: vi.fn(),
-    getFolder: vi.fn(),
-    createFolder: vi.fn(),
-    updateFolder: vi.fn(),
-    moveFolder: vi.fn(),
-    deleteFolder: vi.fn(),
+    getDirectory: vi.fn(),
+    createDirectory: vi.fn(),
+    updateDirectory: vi.fn(),
+    moveDirectory: vi.fn(),
+    deleteDirectory: vi.fn(),
   },
   toQuery: vi.fn(),
 }));
@@ -39,26 +39,26 @@ vi.mock("../services/dms-content.service", () => ({
 }));
 
 import { dmsContentService } from "../services/dms-content.service";
-import { dmsFolderService } from "../services/dms-folder.service";
+import { dmsDirectoryService } from "../services/dms-directory.service";
 import {
   useAccessPolicies,
   useCopyFile,
-  useCreateDmsFolder,
-  useDeleteDmsFolder,
+  useCreateDmsDirectory,
+  useDeleteDmsDirectory,
   useDeleteFromTrash,
   useDmsChildren,
-  useDmsFolder,
+  useDmsDirectory,
   useDmsSearch,
   useDmsTrash,
   useFileVersions,
   useGrantAccess,
-  useMoveDmsFolder,
+  useMoveDmsDirectory,
   useMoveFile,
   useRestoreFromTrash,
   useRevokeAccess,
   useShareContent,
   useToggleInheritance,
-  useUpdateDmsFolder,
+  useUpdateDmsDirectory,
 } from "./use-dms";
 
 const page = (over: Partial<DmsChildrenResponse> = {}): DmsChildrenResponse => ({
@@ -73,49 +73,49 @@ describe("useDmsChildren", () => {
     vi.clearAllMocks();
   });
 
-  it("fetches the root listing when no folder is selected", async () => {
+  it("fetches the root listing when no directory is selected", async () => {
     // The storage page previously relied on a removed DmsArtifact endpoint for the top
-    // level. The new endpoint takes a folder id, so an unset one now means "the root",
+    // level. The new endpoint takes a directory id, so an unset one now means "the root",
     // and the hook fires before the user has opened anything.
-    vi.mocked(dmsFolderService.getChildren).mockResolvedValue(page());
+    vi.mocked(dmsDirectoryService.getChildren).mockResolvedValue(page());
 
     renderHook(() => useDmsChildren(undefined), { wrapper: createWrapper() });
 
     await waitFor(() =>
-      expect(dmsFolderService.getChildren).toHaveBeenCalledWith(
-        expect.objectContaining({ folderId: undefined, cursor: undefined }),
+      expect(dmsDirectoryService.getChildren).toHaveBeenCalledWith(
+        expect.objectContaining({ directoryId: undefined, cursor: undefined }),
       ),
     );
   });
 
   it("requests the first page with no cursor", async () => {
-    vi.mocked(dmsFolderService.getChildren).mockResolvedValue(page());
+    vi.mocked(dmsDirectoryService.getChildren).mockResolvedValue(page());
 
     renderHook(() => useDmsChildren("dir-1"), { wrapper: createWrapper() });
 
     await waitFor(() =>
-      expect(dmsFolderService.getChildren).toHaveBeenCalledWith(
-        expect.objectContaining({ folderId: "dir-1", cursor: undefined }),
+      expect(dmsDirectoryService.getChildren).toHaveBeenCalledWith(
+        expect.objectContaining({ directoryId: "dir-1", cursor: undefined }),
       ),
     );
   });
 
   it("passes the type and search filters through", async () => {
-    vi.mocked(dmsFolderService.getChildren).mockResolvedValue(page());
+    vi.mocked(dmsDirectoryService.getChildren).mockResolvedValue(page());
 
     renderHook(() => useDmsChildren("dir-1", { type: "file", search: "report", limit: 10 }), {
       wrapper: createWrapper(),
     });
 
     await waitFor(() =>
-      expect(dmsFolderService.getChildren).toHaveBeenCalledWith(
+      expect(dmsDirectoryService.getChildren).toHaveBeenCalledWith(
         expect.objectContaining({ type: "file", search: "report", limit: 10 }),
       ),
     );
   });
 
   it("follows nextCursor when the server says there is more", async () => {
-    vi.mocked(dmsFolderService.getChildren)
+    vi.mocked(dmsDirectoryService.getChildren)
       .mockResolvedValueOnce(page({ hasMore: true, nextCursor: "cursor-2" }))
       .mockResolvedValueOnce(page());
 
@@ -126,7 +126,7 @@ describe("useDmsChildren", () => {
     await result.current.fetchNextPage();
 
     await waitFor(() =>
-      expect(dmsFolderService.getChildren).toHaveBeenLastCalledWith(
+      expect(dmsDirectoryService.getChildren).toHaveBeenLastCalledWith(
         expect.objectContaining({ cursor: "cursor-2" }),
       ),
     );
@@ -135,7 +135,7 @@ describe("useDmsChildren", () => {
   it("stops paging once hasMore is false, even if a cursor is still present", async () => {
     // The server sends a cursor on the last page too. Treating that as "more" would
     // loop forever re-fetching an empty page.
-    vi.mocked(dmsFolderService.getChildren).mockResolvedValue(
+    vi.mocked(dmsDirectoryService.getChildren).mockResolvedValue(
       page({ hasMore: false, nextCursor: "cursor-2" }),
     );
 
@@ -146,7 +146,7 @@ describe("useDmsChildren", () => {
   });
 
   it("keeps each page separate so the caller can flatten without duplicates", async () => {
-    vi.mocked(dmsFolderService.getChildren)
+    vi.mocked(dmsDirectoryService.getChildren)
       .mockResolvedValueOnce(
         page({
           items: [{ itemId: "a" }, { itemId: "b" }] as never,
@@ -192,7 +192,7 @@ describe("useDmsSearch", () => {
 describe("useDmsTrash", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("loads the trash without needing a folder", async () => {
+  it("loads the trash without needing a directory", async () => {
     vi.mocked(dmsContentService.getTrash).mockResolvedValue(page());
 
     renderHook(() => useDmsTrash(), { wrapper: createWrapper() });
@@ -203,11 +203,11 @@ describe("useDmsTrash", () => {
   it("narrows the trash to one kind when asked", async () => {
     vi.mocked(dmsContentService.getTrash).mockResolvedValue(page());
 
-    renderHook(() => useDmsTrash({ type: "folder" }), { wrapper: createWrapper() });
+    renderHook(() => useDmsTrash({ type: "directory" }), { wrapper: createWrapper() });
 
     await waitFor(() =>
       expect(dmsContentService.getTrash).toHaveBeenCalledWith(
-        expect.objectContaining({ type: "folder" }),
+        expect.objectContaining({ type: "directory" }),
       ),
     );
   });
@@ -216,18 +216,18 @@ describe("useDmsTrash", () => {
 describe("the reads that depend on a selection", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("useDmsFolder stays idle without a folder id", () => {
-    renderHook(() => useDmsFolder(undefined), { wrapper: createWrapper() });
+  it("useDmsDirectory stays idle without a directory id", () => {
+    renderHook(() => useDmsDirectory(undefined), { wrapper: createWrapper() });
 
-    expect(dmsFolderService.getFolder).not.toHaveBeenCalled();
+    expect(dmsDirectoryService.getDirectory).not.toHaveBeenCalled();
   });
 
-  it("useDmsFolder loads once an id is supplied", async () => {
-    vi.mocked(dmsFolderService.getFolder).mockResolvedValue({} as never);
+  it("useDmsDirectory loads once an id is supplied", async () => {
+    vi.mocked(dmsDirectoryService.getDirectory).mockResolvedValue({} as never);
 
-    renderHook(() => useDmsFolder("dir-1"), { wrapper: createWrapper() });
+    renderHook(() => useDmsDirectory("dir-1"), { wrapper: createWrapper() });
 
-    await waitFor(() => expect(dmsFolderService.getFolder).toHaveBeenCalledWith("dir-1"));
+    await waitFor(() => expect(dmsDirectoryService.getDirectory).toHaveBeenCalledWith("dir-1"));
   });
 
   it("useAccessPolicies stays idle without a resource", () => {
@@ -269,42 +269,42 @@ describe("the reads that depend on a selection", () => {
 describe("the mutations", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("creates a folder through the folder service", async () => {
-    vi.mocked(dmsFolderService.createFolder).mockResolvedValue({ folderId: "new" });
+  it("creates a directory through the directory service", async () => {
+    vi.mocked(dmsDirectoryService.createDirectory).mockResolvedValue({ directoryId: "new" });
 
-    const { result } = renderHook(() => useCreateDmsFolder(), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useCreateDmsDirectory(), { wrapper: createWrapper() });
     await result.current.mutateAsync({ name: "Reports", parentDirectoryId: "root" });
 
-    expect(dmsFolderService.createFolder).toHaveBeenCalledWith(
+    expect(dmsDirectoryService.createDirectory).toHaveBeenCalledWith(
       expect.objectContaining({ name: "Reports" }),
     );
   });
 
-  it("updates a folder", async () => {
-    vi.mocked(dmsFolderService.updateFolder).mockResolvedValue({ folderId: "dir-1" });
+  it("updates a directory", async () => {
+    vi.mocked(dmsDirectoryService.updateDirectory).mockResolvedValue({ directoryId: "dir-1" });
 
-    const { result } = renderHook(() => useUpdateDmsFolder(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({ folderId: "dir-1", name: "New" });
+    const { result } = renderHook(() => useUpdateDmsDirectory(), { wrapper: createWrapper() });
+    await result.current.mutateAsync({ directoryId: "dir-1", name: "New" });
 
-    expect(dmsFolderService.updateFolder).toHaveBeenCalledWith({ folderId: "dir-1", name: "New" });
+    expect(dmsDirectoryService.updateDirectory).toHaveBeenCalledWith({ directoryId: "dir-1", name: "New" });
   });
 
-  it("moves a folder", async () => {
-    vi.mocked(dmsFolderService.moveFolder).mockResolvedValue({ folderId: "dir-1" });
+  it("moves a directory", async () => {
+    vi.mocked(dmsDirectoryService.moveDirectory).mockResolvedValue({ directoryId: "dir-1" });
 
-    const { result } = renderHook(() => useMoveDmsFolder(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({ folderId: "dir-1", targetFolderId: "dir-2" });
+    const { result } = renderHook(() => useMoveDmsDirectory(), { wrapper: createWrapper() });
+    await result.current.mutateAsync({ directoryId: "dir-1", targetDirectoryId: "dir-2" });
 
-    expect(dmsFolderService.moveFolder).toHaveBeenCalled();
+    expect(dmsDirectoryService.moveDirectory).toHaveBeenCalled();
   });
 
-  it("deletes a folder", async () => {
-    vi.mocked(dmsFolderService.deleteFolder).mockResolvedValue({ folderId: "dir-1" });
+  it("deletes a directory", async () => {
+    vi.mocked(dmsDirectoryService.deleteDirectory).mockResolvedValue({ directoryId: "dir-1" });
 
-    const { result } = renderHook(() => useDeleteDmsFolder(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({ folderId: "dir-1" });
+    const { result } = renderHook(() => useDeleteDmsDirectory(), { wrapper: createWrapper() });
+    await result.current.mutateAsync({ directoryId: "dir-1" });
 
-    expect(dmsFolderService.deleteFolder).toHaveBeenCalledWith({ folderId: "dir-1" });
+    expect(dmsDirectoryService.deleteDirectory).toHaveBeenCalledWith({ directoryId: "dir-1" });
   });
 
   it("restores from the trash", async () => {
@@ -376,7 +376,7 @@ describe("the mutations", () => {
     vi.mocked(dmsContentService.copyFile).mockResolvedValue({ fileId: "new" });
 
     const { result } = renderHook(() => useCopyFile(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({ fileId: "file-1", targetFolderId: "dir-2" });
+    await result.current.mutateAsync({ fileId: "file-1", targetDirectoryId: "dir-2" });
 
     expect(dmsContentService.copyFile).toHaveBeenCalledWith("file-1", "dir-2", undefined);
   });
@@ -385,7 +385,7 @@ describe("the mutations", () => {
     vi.mocked(dmsContentService.moveFile).mockResolvedValue({ fileId: "file-1" });
 
     const { result } = renderHook(() => useMoveFile(), { wrapper: createWrapper() });
-    await result.current.mutateAsync({ fileId: "file-1", targetFolderId: "dir-2" });
+    await result.current.mutateAsync({ fileId: "file-1", targetDirectoryId: "dir-2" });
 
     expect(dmsContentService.moveFile).toHaveBeenCalledWith("file-1", "dir-2");
   });

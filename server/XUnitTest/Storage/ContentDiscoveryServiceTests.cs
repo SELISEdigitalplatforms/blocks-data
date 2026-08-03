@@ -13,7 +13,7 @@ namespace XUnitTest.Storage;
 
 /// <summary>
 /// Covers search and the trash. Both are reads that cross the whole tenant rather than
-/// one folder, so the case that matters most is that a match the caller may not view
+/// one directory, so the case that matters most is that a match the caller may not view
 /// never reaches them: a search that leaked names would be a directory listing of
 /// everything, which is exactly what the access model exists to prevent.
 /// </summary>
@@ -50,7 +50,7 @@ public class ContentDiscoveryServiceTests : IDisposable
     private IMongoCollection<Directory> Directories => _db.GetCollection<Directory>("Directories");
     private IMongoCollection<File> Files => _db.GetCollection<File>("Files");
 
-    private Task SeedFolder(
+    private Task SeedDirectory(
         string id, string name, string createdBy = "user-1", bool archived = false,
         List<string>? ancestorIds = null)
         => Directories.InsertOneAsync(new Directory
@@ -88,7 +88,7 @@ public class ContentDiscoveryServiceTests : IDisposable
     [Fact]
     public async Task Search_matches_a_substring_of_the_name()
     {
-        await SeedFolder("dir-1", "Quarterly Reports");
+        await SeedDirectory("dir-1", "Quarterly Reports");
         await SeedFile("file-1", "budget.xlsx");
 
         var page = await _discovery.SearchAsync("report");
@@ -99,15 +99,15 @@ public class ContentDiscoveryServiceTests : IDisposable
     [Fact]
     public async Task Search_ignores_case()
     {
-        await SeedFolder("dir-1", "Quarterly Reports");
+        await SeedDirectory("dir-1", "Quarterly Reports");
 
         (await _discovery.SearchAsync("QUARTERLY")).Items.Should().ContainSingle();
     }
 
     [Fact]
-    public async Task Search_returns_both_folders_and_files()
+    public async Task Search_returns_both_directorys_and_files()
     {
-        await SeedFolder("dir-1", "report archive");
+        await SeedDirectory("dir-1", "report archive");
         await SeedFile("file-1", "report.pdf");
 
         var page = await _discovery.SearchAsync("report");
@@ -119,13 +119,13 @@ public class ContentDiscoveryServiceTests : IDisposable
     [Fact]
     public async Task Search_can_be_narrowed_to_one_kind()
     {
-        await SeedFolder("dir-1", "report archive");
+        await SeedDirectory("dir-1", "report archive");
         await SeedFile("file-1", "report.pdf");
 
-        var folders = await _discovery.SearchAsync("report", type: StructureType.Directory);
+        var directorys = await _discovery.SearchAsync("report", type: StructureType.Directory);
         var files = await _discovery.SearchAsync("report", type: StructureType.File);
 
-        folders.Items.Should().ContainSingle().Which.ItemId.Should().Be("dir-1");
+        directorys.Items.Should().ContainSingle().Which.ItemId.Should().Be("dir-1");
         files.Items.Should().ContainSingle().Which.ItemId.Should().Be("file-1");
     }
 
@@ -145,11 +145,11 @@ public class ContentDiscoveryServiceTests : IDisposable
     [Fact]
     public async Task Search_can_be_scoped_to_a_subtree()
     {
-        await SeedFolder("root", "Root");
+        await SeedDirectory("root", "Root");
         await SeedFile("inside", "report-inside.pdf", ancestorIds: new List<string> { "root" });
         await SeedFile("outside", "report-outside.pdf");
 
-        var page = await _discovery.SearchAsync("report", folderId: "root");
+        var page = await _discovery.SearchAsync("report", directoryId: "root");
 
         page.Items.Should().ContainSingle().Which.ItemId.Should().Be("inside");
     }
@@ -265,9 +265,9 @@ public class ContentDiscoveryServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Restoring_a_folder_works_the_same_way()
+    public async Task Restoring_a_directory_works_the_same_way()
     {
-        await SeedFolder("dir-1", "Reports", archived: true);
+        await SeedDirectory("dir-1", "Reports", archived: true);
 
         var result = await _discovery.RestoreAsync("dir-1");
 

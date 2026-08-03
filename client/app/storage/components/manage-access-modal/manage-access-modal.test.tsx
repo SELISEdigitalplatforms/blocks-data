@@ -32,11 +32,11 @@ const item = (over: Record<string, unknown> = {}) =>
   ({
     itemId: "dir-1",
     name: "Reports",
-    type: "folder",
+    type: "directory",
     inheritsParentAccess: true,
     isArchived: false,
     isActive: true,
-    childFolderCount: 0,
+    childDirectoryCount: 0,
     childFileCount: 0,
     sizeInBytes: 0,
     permissions: {
@@ -76,7 +76,7 @@ describe("ManageAccessModal", () => {
   it("says where access comes from when the item has no entries of its own", async () => {
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
-    expect(await screen.findByText(/Access comes from the parent folder/)).toBeInTheDocument();
+    expect(await screen.findByText(/Access comes from the parent directory/)).toBeInTheDocument();
   });
 
   it("lists an existing entry", async () => {
@@ -126,7 +126,7 @@ describe("ManageAccessModal", () => {
       expect(mocks.grant).toHaveBeenCalledWith(
         expect.objectContaining({
           resourceId: "dir-1",
-          resourceType: "Folder",
+          resourceType: "Directory",
           principalType: "User",
           principalId: "user-2",
           permission: "View",

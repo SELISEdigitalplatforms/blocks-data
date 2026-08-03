@@ -7,26 +7,26 @@ using Directory = Storage.DomainService.Entities.Directory;
 
 namespace Worker.Consumers;
 
-public class CreateDefaultFolderEventConsumer : IConsumer<CreateDefaultFolderEvent>
+public class CreateDefaultDirectoryEventConsumer : IConsumer<CreateDefaultDirectoryEvent>
 {
-    private readonly ILogger<CreateDefaultFolderEventConsumer> _logger;
+    private readonly ILogger<CreateDefaultDirectoryEventConsumer> _logger;
     private readonly IDirectoryRepository _directoryRepository;
 
-    public CreateDefaultFolderEventConsumer(
-        ILogger<CreateDefaultFolderEventConsumer> logger,
+    public CreateDefaultDirectoryEventConsumer(
+        ILogger<CreateDefaultDirectoryEventConsumer> logger,
         IDirectoryRepository directoryRepository)
     {
         _logger = logger;
         _directoryRepository = directoryRepository;
     }
 
-    public async Task Consume(CreateDefaultFolderEvent @event)
+    public async Task Consume(CreateDefaultDirectoryEvent @event)
     {
-        _logger.LogInformation("Consuming create default folder event for item id: {@ItemId}", @event.ItemId);
+        _logger.LogInformation("Consuming create default directory event for item id: {@ItemId}", @event.ItemId);
         try
         {
-            // The default folder templates live in the Directorys collection (seeded with
-            // ConfigurationName "Azure"). They are read-only templates; the cloned folders
+            // The default directory templates live in the Directorys collection (seeded with
+            // ConfigurationName "Azure"). They are read-only templates; the cloned directorys
             // get fresh ids, rebuilt ancestry/full-path, and the target storage strategy.
             var templates = await _directoryRepository.GetByConfigurationNameAsync("Azure");
 
@@ -36,11 +36,11 @@ public class CreateDefaultFolderEventConsumer : IConsumer<CreateDefaultFolderEve
                 await _directoryRepository.CreateDirectoriesAsync(directories);
             }
 
-            _logger.LogInformation("Create default folder event for item id: {@ItemId} consumed successfully. {Count} directories created", @event.ItemId, directories.Count);
+            _logger.LogInformation("Create default directory event for item id: {@ItemId} consumed successfully. {Count} directories created", @event.ItemId, directories.Count);
         }
         catch (System.Exception ex)
         {
-            _logger.LogError(ex, "Error consuming create default folder event for item id: {@ItemId}", @event.ItemId);
+            _logger.LogError(ex, "Error consuming create default directory event for item id: {@ItemId}", @event.ItemId);
         }
     }
 
@@ -69,7 +69,7 @@ public class CreateDefaultFolderEventConsumer : IConsumer<CreateDefaultFolderEve
     }
 
     /// <summary>
-    /// Recursively clones the template folder tree. Children are matched by their template
+    /// Recursively clones the template directory tree. Children are matched by their template
     /// <c>ParentDirectoryID</c> against the parent's *template* <c>ItemId</c>, while each
     /// cloned <see cref="Directory"/> carries a fresh GUID and points at the parent's *new*
     /// id. Root templates carry a null or empty parent id.
@@ -88,8 +88,8 @@ public class CreateDefaultFolderEventConsumer : IConsumer<CreateDefaultFolderEve
     {
         var children = templates
             .Where(t => string.IsNullOrEmpty(templateParentId)
-                ? string.IsNullOrEmpty(t.ParentDirectoryID)
-                : t.ParentDirectoryID == templateParentId)
+                ? string.IsNullOrEmpty(t.ParentId)
+                : t.ParentId == templateParentId)
             .ToList();
 
         foreach (var template in children)
@@ -104,7 +104,7 @@ public class CreateDefaultFolderEventConsumer : IConsumer<CreateDefaultFolderEve
                 ItemId = newItemId,
                 Name = template.Name,
                 SystemName = template.SystemName,
-                ParentDirectoryID = newParentId,
+                ParentId = newParentId,
                 Type = StructureType.Directory,
                 TypeString = StructureType.Directory.ToString(),
                 MetaData = template.MetaData ?? new Dictionary<string, MetaValue>(),
@@ -118,7 +118,7 @@ public class CreateDefaultFolderEventConsumer : IConsumer<CreateDefaultFolderEve
                 InheritsParentAccess = template.InheritsParentAccess,
                 IsArchived = false,
                 IsActive = true,
-                ChildFolderCount = 0,
+                ChildDirectoryCount = 0,
                 ChildFileCount = 0,
                 SizeInBytes = 0,
                 CreatedBy = userId,

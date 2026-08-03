@@ -13,44 +13,44 @@ import {
 import { Input } from "@/components/ui-kits/input/input";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
-import { useUpdateDmsFolder } from "@/storage/hooks/use-dms";
-import { DmsFolderItem } from "@/storage/models/dms.model";
+import { useUpdateDmsDirectory } from "@/storage/hooks/use-dms";
+import { DmsDirectoryItem } from "@/storage/models/dms.model";
 
-export interface RenameFolderDialogProps {
+export interface RenameDirectoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  folder: DmsFolderItem | null;
+  directory: DmsDirectoryItem | null;
   onDone?: () => void;
 }
 
 /**
- * Renames a folder. The body endpoint reuses the generic folder update, which
+ * Renames a directory. The body endpoint reuses the generic directory update, which
  * accepts a new name; only the name is edited here, the description is preserved.
  */
-export function RenameFolderDialog({
+export function RenameDirectoryDialog({
   open,
   onOpenChange,
-  folder,
+  directory,
   onDone,
-}: Readonly<RenameFolderDialogProps>) {
+}: Readonly<RenameDirectoryDialogProps>) {
   const [name, setName] = useState("");
-  const updateFolder = useUpdateDmsFolder();
+  const updateDirectory = useUpdateDmsDirectory();
 
   useEffect(() => {
-    setName(folder?.name ?? "");
-  }, [folder]);
+    setName(directory?.name ?? "");
+  }, [directory]);
 
-  if (!folder) return null;
+  if (!directory) return null;
 
   const trimmed = name.trim();
-  const unchanged = trimmed === folder.name;
-  const canSubmit = trimmed.length > 0 && !unchanged && !updateFolder.isPending;
+  const unchanged = trimmed === directory.name;
+  const canSubmit = trimmed.length > 0 && !unchanged && !updateDirectory.isPending;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
     try {
-      await updateFolder.mutateAsync({ folderId: folder.itemId, name: trimmed });
+      await updateDirectory.mutateAsync({ directoryId: directory.itemId, name: trimmed });
 
       showSuccessToast({ description: `Renamed to ${trimmed}.` });
       onOpenChange(false);
@@ -70,7 +70,7 @@ export function RenameFolderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Rename folder</DialogTitle>
+          <DialogTitle>Rename directory</DialogTitle>
         </DialogHeader>
 
         <Input
@@ -83,17 +83,17 @@ export function RenameFolderDialog({
               handleSubmit();
             }
           }}
-          placeholder="Folder name"
+          placeholder="Directory name"
         />
 
         <DialogFooter className="gap-2 sm:gap-2">
           <DialogClose asChild>
-            <Button variant="outline" size="sm" disabled={updateFolder.isPending}>
+            <Button variant="outline" size="sm" disabled={updateDirectory.isPending}>
               Cancel
             </Button>
           </DialogClose>
           <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-            {updateFolder.isPending ? "Saving..." : "Save"}
+            {updateDirectory.isPending ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

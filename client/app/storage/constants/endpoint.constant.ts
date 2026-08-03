@@ -2,7 +2,7 @@ import { API_BASES } from "@/constants/endpoint.constant";
 
 const STORAGE_SUBPATH = "/Storage";
 const FILES_SUBPATH = "/Files";
-const FOLDERS_SUBPATH = "/Folders";
+const FOLDERS_SUBPATH = "/Directorys";
 const CONTENT_SUBPATH = "/Content";
 
 // Storage Configuration endpoints (IDP host; paths under /api/Storage)
@@ -29,15 +29,15 @@ export const STORAGE_FILE_ENDPOINTS = {
   UPLOAD_PUBLIC_CERTIFICATE: `${API_BASES.UDS}/Certificate/UploadCertificate`,
 } as const;
 
-// DMS folder endpoints (see FoldersController).
+// DMS directory endpoints (see DirectorysController).
 export const FOLDER_ENDPOINTS = {
-  GET: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetFolder`,
-  CHILDREN: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetFolderChildren`,
-  CREATE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/CreateFolder`,
-  CREATE_ROOT: `${API_BASES.UDS}${FOLDERS_SUBPATH}/CreateRootFolder`,
-  UPDATE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/UpdateFolder`,
-  MOVE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/MoveFolder`,
-  DELETE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/DeleteFolder`,
+  GET: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetDirectory`,
+  CHILDREN: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetDirectoryChildren`,
+  CREATE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/CreateDirectory`,
+  CREATE_ROOT: `${API_BASES.UDS}${FOLDERS_SUBPATH}/CreateRootDirectory`,
+  UPDATE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/UpdateDirectory`,
+  MOVE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/MoveDirectory`,
+  DELETE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/DeleteDirectory`,
 } as const;
 
 // DMS sharing, access policy, search and trash endpoints (see ContentController).

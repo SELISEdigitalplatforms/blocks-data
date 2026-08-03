@@ -11,15 +11,15 @@ namespace Storage.DomainService.Services
         Task UpdateDirectory(Directory directory);
 
         /// <summary>
-        /// Loads a folder by id within the caller's tenant. Archived folders are excluded
-        /// unless <paramref name="includeArchived"/> is set, so a trashed folder cannot be
+        /// Loads a directory by id within the caller's tenant. Archived directorys are excluded
+        /// unless <paramref name="includeArchived"/> is set, so a trashed directory cannot be
         /// confused for a live one on the read paths that do not expect it.
         /// </summary>
-        Task<Directory?> FindByIdAsync(string folderId, bool includeArchived, CancellationToken cancellationToken = default);
+        Task<Directory?> FindByIdAsync(string directoryId, bool includeArchived, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Keyset-paginated children of a folder. An empty <paramref name="parentId"/> lists
-        /// root folders. <paramref name="afterName"/>/<paramref name="afterId"/> continue from
+        /// Keyset-paginated children of a directory. An empty <paramref name="parentId"/> lists
+        /// root directorys. <paramref name="afterName"/>/<paramref name="afterId"/> continue from
         /// a previous page boundary; null starts at the beginning. Returned sorted by name then
         /// id, the same key the cursor encodes.
         /// </summary>
@@ -31,12 +31,12 @@ namespace Storage.DomainService.Services
             string? search,
             CancellationToken cancellationToken = default);
 
-        /// <summary>Raw, unfiltered child count for a folder, used as informational metadata.</summary>
+        /// <summary>Raw, unfiltered child count for a directory, used as informational metadata.</summary>
         Task<long> CountChildrenAsync(string parentId, string? search, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Returns every non-archived folder in the tenant that carries the given
-        /// <paramref name="configurationName"/>. Used by the default-folder consumer to
+        /// Returns every non-archived directory in the tenant that carries the given
+        /// <paramref name="configurationName"/>. Used by the default-directory consumer to
         /// clone the template tree (seeded with <c>ConfigurationName "Azure"</c>) for a
         /// newly added storage configuration.
         /// </summary>

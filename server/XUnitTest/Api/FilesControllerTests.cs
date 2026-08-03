@@ -177,7 +177,7 @@ namespace XUnitTest.Api
         [Fact]
         public async Task MoveFile_ReturnsOkAndTheFileIdOnSuccess()
         {
-            var request = new MoveFileRequest { FileId = "f1", TargetFolderId = "dir-1" };
+            var request = new MoveFileRequest { FileId = "f1", TargetDirectoryId = "dir-1" };
             _contentFiles.Setup(c => c.MoveFileAsync("f1", "dir-1", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new FileOperationResult { Status = FileOperationStatus.Succeeded });
 
@@ -193,7 +193,7 @@ namespace XUnitTest.Api
             _contentFiles.Setup(c => c.MoveFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(FileOperationResult.Failure(FileOperationStatus.FileNotFound));
 
-            var result = await _sut.MoveFile(new MoveFileRequest { FileId = "x", TargetFolderId = "dir-1" });
+            var result = await _sut.MoveFile(new MoveFileRequest { FileId = "x", TargetDirectoryId = "dir-1" });
 
             result.Should().BeOfType<NotFoundObjectResult>();
         }
@@ -201,7 +201,7 @@ namespace XUnitTest.Api
         [Fact]
         public async Task CopyFile_ReturnsTheNewFileIdOnSuccess()
         {
-            var request = new CopyFileRequest { FileId = "f1", TargetFolderId = "dir-1", CopyAccessPolicies = true };
+            var request = new CopyFileRequest { FileId = "f1", TargetDirectoryId = "dir-1", CopyAccessPolicies = true };
             _contentFiles.Setup(c => c.CopyFileAsync("f1", "dir-1", true, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new FileOperationResult { Status = FileOperationStatus.Succeeded, NewFileId = "copy-1" });
 
@@ -217,7 +217,7 @@ namespace XUnitTest.Api
             _contentFiles.Setup(c => c.CopyFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(FileOperationResult.Failure(FileOperationStatus.NameConflict));
 
-            var result = await _sut.CopyFile(new CopyFileRequest { FileId = "f1", TargetFolderId = "dir-1" });
+            var result = await _sut.CopyFile(new CopyFileRequest { FileId = "f1", TargetDirectoryId = "dir-1" });
 
             result.Should().BeOfType<ConflictObjectResult>();
         }

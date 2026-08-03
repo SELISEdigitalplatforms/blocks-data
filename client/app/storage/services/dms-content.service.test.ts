@@ -14,12 +14,12 @@ describe("DmsContentService", () => {
   });
 
   it("sends the search term and its filters", async () => {
-    await service.search({ query: "report", folderId: "dir-1", type: "file", limit: 10 });
+    await service.search({ query: "report", directoryId: "dir-1", type: "file", limit: 10 });
 
     const url = (http.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(url).toContain("/Content/SearchContent");
     expect(url).toContain("query=report");
-    expect(url).toContain("folderId=dir-1");
+    expect(url).toContain("directoryId=dir-1");
     expect(url).toContain("type=file");
     expect(url).toContain("limit=10");
   });
@@ -39,9 +39,9 @@ describe("DmsContentService", () => {
     );
   });
 
-  it("permanently deletes through the trash endpoint, not the folder one", async () => {
+  it("permanently deletes through the trash endpoint, not the directory one", async () => {
     // These are different permissions on the server. Sending a permanent delete to
-    // the folder endpoint would bypass the trash entirely.
+    // the directory endpoint would bypass the trash entirely.
     await service.deletePermanently("res-1");
 
     expect(http.post).toHaveBeenCalledWith(
@@ -99,7 +99,7 @@ describe("DmsContentService", () => {
 
     expect(http.post).toHaveBeenCalledWith(
       expect.stringContaining("/Files/CopyFile"),
-      { fileId: "file-1", targetFolderId: "dir-2", copyAccessPolicies: false },
+      { fileId: "file-1", targetDirectoryId: "dir-2", copyAccessPolicies: false },
     );
   });
 
@@ -173,12 +173,12 @@ describe("DmsContentService", () => {
     );
   });
 
-  it("moves a file to another folder", async () => {
+  it("moves a file to another directory", async () => {
     await service.moveFile("file-1", "dir-2");
 
     expect(http.post).toHaveBeenCalledWith(
       expect.stringContaining("/Files/MoveFile"),
-      { fileId: "file-1", targetFolderId: "dir-2" },
+      { fileId: "file-1", targetDirectoryId: "dir-2" },
     );
   });
 });

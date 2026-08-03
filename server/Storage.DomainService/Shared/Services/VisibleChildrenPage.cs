@@ -2,7 +2,7 @@ using Storage.DomainService.Enums;
 
 namespace Storage.DomainService.Services
 {
-    /// <summary>One child of a folder, with the operations the caller holds on it.</summary>
+    /// <summary>One child of a directory, with the operations the caller holds on it.</summary>
     public sealed class VisibleChildItem
     {
         public string ItemId { get; set; } = string.Empty;
@@ -26,7 +26,7 @@ namespace Storage.DomainService.Services
         public string? NextCursor { get; set; }
 
         /// <summary>
-        /// Raw child count for the folder, before access filtering. Informational only:
+        /// Raw child count for the directory, before access filtering. Informational only:
         /// it deliberately does not agree with the number of visible items, because
         /// computing a filtered total would mean resolving every child on every page.
         /// </summary>

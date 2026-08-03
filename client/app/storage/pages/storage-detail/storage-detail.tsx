@@ -33,14 +33,14 @@ import {
 import { useStoragePath } from "@/hooks/use-scoped-path";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { getRuntimeEnv } from "@/lib/runtime-env";
-import { CreateDmsNewFolder } from "@/storage/components/create-new-folder-modal/create-dms-new-folder";
+import { CreateDmsNewDirectory } from "@/storage/components/create-new-directory-modal/create-dms-new-directory";
 import { FilePreviewModal } from "@/storage/components/file-preview-modal";
 import { UploadDmsFileModal } from "@/storage/components/upload-dms-file-modal";
 import { useDeleteFile, useLazyGetFile } from "@/storage/hooks/use-storage-file";
 import {
-  useDeleteDmsFolder,
+  useDeleteDmsDirectory,
   useDmsChildren,
-  useDmsFolder,
+  useDmsDirectory,
 } from "@/storage/hooks/use-dms";
 import { FileVersionsDrawer } from "@/storage/components/file-versions-drawer/file-versions-drawer";
 import { ManageAccessModal } from "@/storage/components/manage-access-modal/manage-access-modal";
@@ -48,24 +48,24 @@ import {
   MoveCopyDialog,
   MoveCopyMode,
 } from "@/storage/components/move-copy-dialog/move-copy-dialog";
-import { RenameFolderDialog } from "@/storage/components/rename-folder-dialog";
+import { RenameDirectoryDialog } from "@/storage/components/rename-directory-dialog";
 import {
   DmsFileItem,
-  DmsFolderItem,
+  DmsDirectoryItem,
   DmsItem,
   DmsPermissionFlags,
 } from "@/storage/models/dms.model";
-import { canAddToFolder, itemActions } from "@/storage/utils/permission-actions";
+import { canAddToDirectory, itemActions } from "@/storage/utils/permission-actions";
 import {
   DmsItemType,
-  IDmsFileAndFolderInfo,
+  IDmsFileAndDirectoryInfo,
 } from "@/storage/models/storage.model";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 
 import {
   FileText,
-  Folder,
-  FolderPlus,
+  Folder as Directory,
+  FolderPlus as DirectoryPlus,
   Image as ImageIcon,
   LayoutGrid,
   List,
@@ -81,8 +81,8 @@ import { useGetStorageConfigurations } from "../../hooks/use-storage-configurati
 import {
   FileGridSkeleton,
   FileListSkeleton,
-  FolderGridSkeleton,
-  FolderListSkeleton,
+  DirectoryGridSkeleton,
+  DirectoryListSkeleton,
 } from "./storage-detail-skeleton";
 
 type FilterValues = {
@@ -125,17 +125,17 @@ type BreadcrumbItem = {
  * would risk far more than it would clarify. `fileStorageId` becomes the item id
  * because the item id is the storage object key prefix in the new model.
  */
-type ListRow = IDmsFileAndFolderInfo & { permissions?: DmsPermissionFlags };
+type ListRow = IDmsFileAndDirectoryInfo & { permissions?: DmsPermissionFlags };
 
 const toRow = (item: DmsItem): ListRow => ({
   parentId: item.parentDirectoryId ?? "",
-  type: item.type === "folder" ? DmsItemType.Folder : DmsItemType.File,
+  type: item.type === "directory" ? DmsItemType.Directory : DmsItemType.File,
   name: item.name,
   fileStorageId: item.itemId,
   extension: (item as DmsFileItem).extension ?? "",
   sizeInBytes: String((item as DmsFileItem).sizeInBytes ?? ""),
   version: (item as DmsFileItem).currentVersion ?? 0,
-  description: (item as DmsFolderItem).description ?? "",
+  description: (item as DmsDirectoryItem).description ?? "",
   itemId: item.itemId,
   lastUpdatedDate: item.lastUpdatedDate ?? "",
   permissions: item.permissions,
@@ -148,13 +148,13 @@ export function StorageDetail() {
   const storageId = params.get("id") as string;
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
-  const [isDeleteFolderModalOpen, setIsDeleteFolderModalOpen] =
+  const [isDeleteDirectoryModalOpen, setIsDeleteDirectoryModalOpen] =
     useState<boolean>(false);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [selectedDirectoryId, setSelectedDirectoryId] = useState<string | null>(null);
 
-  // Derive folder navigation state from URL
-  const currentParentId = params.get("folderId") || "";
+  // Derive directory navigation state from URL
+  const currentParentId = params.get("directoryId") || "";
   const breadcrumbPath: BreadcrumbItem[] = useMemo(() => {
     const pathParam = params.get("path");
     if (!pathParam) return [];
@@ -175,11 +175,11 @@ export function StorageDetail() {
   const [accessItem, setAccessItem] = useState<DmsItem | null>(null);
   const [versionsFile, setVersionsFile] = useState<DmsItem | null>(null);
   const [transfer, setTransfer] = useState<{ item: DmsItem; mode: MoveCopyMode } | null>(null);
-  const [renameFolder, setRenameFolder] = useState<DmsFolderItem | null>(null);
-  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false);
+  const [renameDirectory, setRenameDirectory] = useState<DmsDirectoryItem | null>(null);
+  const [isCreateDirectoryModalOpen, setIsCreateDirectoryModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] =
-    useState<IDmsFileAndFolderInfo | null>(null);
+    useState<IDmsFileAndDirectoryInfo | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
@@ -187,17 +187,17 @@ export function StorageDetail() {
 
   // Cursor pagination: pages are followed while the server reports hasMore,
   // and the search term is passed down rather than filtered on the client, so a
-  // folder with more items than one page still searches its whole contents.
+  // directory with more items than one page still searches its whole contents.
   const childrenQuery = useDmsChildren(currentParentId || undefined, {
     search: filters.search || undefined,
   });
   const isDmsLoading = childrenQuery.isLoading;
 
-  const { data: currentFolder } = useDmsFolder(currentParentId || undefined);
-  const { mutateAsync: deleteFolderItem, isPending: deleteFolderPending } =
-    useDeleteDmsFolder();
-  // Files are removed through the file endpoint, not the folder one. Routing a
-  // file id at DeleteFolder would simply not find a folder with that id.
+  const { data: currentDirectory } = useDmsDirectory(currentParentId || undefined);
+  const { mutateAsync: deleteDirectoryItem, isPending: deleteDirectoryPending } =
+    useDeleteDmsDirectory();
+  // Files are removed through the file endpoint, not the directory one. Routing a
+  // file id at DeleteDirectory would simply not find a directory with that id.
   const { mutateAsync: deleteFile, isPending: deleteFilePending } = useDeleteFile();
   const { fetchFile } = useLazyGetFile();
 
@@ -215,7 +215,7 @@ export function StorageDetail() {
   }, [childrenQuery.data]);
 
   const totalChildCount = childrenQuery.data?.pages[0]?.totalChildCount ?? 0;
-  const canAddHere = canAddToFolder(currentFolder ?? undefined);
+  const canAddHere = canAddToDirectory(currentDirectory ?? undefined);
 
   const storage = useMemo(() => {
     if (!Array.isArray(configurations)) {
@@ -224,15 +224,15 @@ export function StorageDetail() {
     return configurations.find((config) => config.itemId === storageId);
   }, [configurations, storageId]);
 
-  // Helper to build URL with folder navigation params
-  const buildFolderUrl = useCallback(
-    (folderId: string, path: BreadcrumbItem[]) => {
+  // Helper to build URL with directory navigation params
+  const buildDirectoryUrl = useCallback(
+    (directoryId: string, path: BreadcrumbItem[]) => {
       const params = new URLSearchParams(window.location.search);
-      if (folderId) {
-        params.set("folderId", folderId);
+      if (directoryId) {
+        params.set("directoryId", directoryId);
         params.set("path", encodeURIComponent(JSON.stringify(path)));
       } else {
-        params.delete("folderId");
+        params.delete("directoryId");
         params.delete("path");
       }
       return `?${params.toString()}`;
@@ -240,29 +240,29 @@ export function StorageDetail() {
     [],
   );
 
-  // Handle folder click - navigate into folder using URL
-  const handleFolderClick = (folder: IDmsFileAndFolderInfo) => {
+  // Handle directory click - navigate into directory using URL
+  const handleDirectoryClick = (directory: IDmsFileAndDirectoryInfo) => {
     const newPath = [
       ...breadcrumbPath,
-      { id: folder.itemId, name: folder.name },
+      { id: directory.itemId, name: directory.name },
     ];
-    navigate(buildFolderUrl(folder.itemId, newPath));
+    navigate(buildDirectoryUrl(directory.itemId, newPath));
   };
 
-  // Handle breadcrumb click - navigate to specific folder level
+  // Handle breadcrumb click - navigate to specific directory level
   const handleBreadcrumbClick = (index: number) => {
     if (index === -1) {
       // Clicked on root (storage name)
-      navigate(buildFolderUrl("", []));
+      navigate(buildDirectoryUrl("", []));
     } else {
-      // Clicked on a folder in the path
+      // Clicked on a directory in the path
       const newPath = breadcrumbPath.slice(0, index + 1);
-      navigate(buildFolderUrl(newPath[newPath.length - 1].id, newPath));
+      navigate(buildDirectoryUrl(newPath[newPath.length - 1].id, newPath));
     }
   };
 
   // Handle file preview
-  const handleFileClick = async (file: IDmsFileAndFolderInfo) => {
+  const handleFileClick = async (file: IDmsFileAndDirectoryInfo) => {
     setSelectedFile(file);
     setIsPreviewModalOpen(true);
     setIsLoadingPreview(true);
@@ -300,25 +300,25 @@ export function StorageDetail() {
     });
   };
 
-  const { folders, files } = useMemo(() => {
-    const foldersData: ListRow[] = [];
+  const { directorys, files } = useMemo(() => {
+    const directorysData: ListRow[] = [];
     const filesData: ListRow[] = [];
 
     rows.forEach((item) => {
-      if (item.type === DmsItemType.Folder) {
-        foldersData.push(item);
+      if (item.type === DmsItemType.Directory) {
+        directorysData.push(item);
       } else {
         filesData.push(item);
       }
     });
 
-    return { folders: foldersData, files: filesData };
+    return { directorys: directorysData, files: filesData };
   }, [rows]);
 
   // The name search is applied server side now, so only the extension filter is
   // still narrowed here. Re-filtering by name locally would hide results the
   // server had already matched on a later page.
-  const filteredFolders = folders;
+  const filteredDirectorys = directorys;
 
   const filteredFiles = useMemo(() => {
     if (filters.fileType.length === 0) {
@@ -351,12 +351,12 @@ export function StorageDetail() {
     }
   };
 
-  // Folders are soft-deleted: the folder moves to the trash and can be restored
+  // Directorys are soft-deleted: the directory moves to the trash and can be restored
   // from there, so the hook invalidates both the children and trash listings.
-  const handleDeleteFolder = async (id: string) => {
+  const handleDeleteDirectory = async (id: string) => {
     try {
-      await deleteFolderItem({ folderId: id });
-      showSuccessToast({ description: "Folder Deleted successfully" });
+      await deleteDirectoryItem({ directoryId: id });
+      showSuccessToast({ description: "Directory Deleted successfully" });
     } catch (error) {
       showErrorToast({ errors: error });
     }
@@ -366,17 +366,17 @@ export function StorageDetail() {
    * The actions offered on one row, gated by the flags the listing returned.
    *
    * Rendered from a single place rather than repeated in each of the four menus
-   * (folder and file, grid and list), so a permission rule cannot end up
+   * (directory and file, grid and list), so a permission rule cannot end up
    * enforced in three of them and forgotten in the fourth.
    */
   const renderRowMenu = (row: ListRow) => {
     const dmsItem = dmsItemsById.get(row.itemId);
     const actions = itemActions(row);
-    const isFolderRow = row.type === DmsItemType.Folder;
+    const isDirectoryRow = row.type === DmsItemType.Directory;
 
     return (
       <>
-        {dmsItem && !isFolderRow && actions.canViewVersions && (
+        {dmsItem && !isDirectoryRow && actions.canViewVersions && (
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
@@ -398,7 +398,7 @@ export function StorageDetail() {
             Move
           </DropdownMenuItem>
         )}
-        {dmsItem && !isFolderRow && actions.canCopy && (
+        {dmsItem && !isDirectoryRow && actions.canCopy && (
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
@@ -420,11 +420,11 @@ export function StorageDetail() {
             Manage access
           </DropdownMenuItem>
         )}
-        {dmsItem && isFolderRow && actions.canRename && (
+        {dmsItem && isDirectoryRow && actions.canRename && (
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
-              setRenameFolder(dmsItem as DmsFolderItem);
+              setRenameDirectory(dmsItem as DmsDirectoryItem);
             }}
             className="cursor-pointer"
           >
@@ -435,9 +435,9 @@ export function StorageDetail() {
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
-              if (isFolderRow) {
-                setSelectedFolderId(row.itemId);
-                setIsDeleteFolderModalOpen(true);
+              if (isDirectoryRow) {
+                setSelectedDirectoryId(row.itemId);
+                setIsDeleteDirectoryModalOpen(true);
               } else {
                 setSelectedFileId(row.itemId);
                 setIsDeleteModalOpen(true);
@@ -581,10 +581,10 @@ export function StorageDetail() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="cursor-pointer"
-                onClick={() => setIsCreateFolderModalOpen(true)}
+                onClick={() => setIsCreateDirectoryModalOpen(true)}
               >
-                <FolderPlus className="mr-2 h-4 w-4" />
-                Create new folder
+                <DirectoryPlus className="mr-2 h-4 w-4" />
+                Create new directory
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -661,41 +661,41 @@ export function StorageDetail() {
         )}
 
         <ScrollArea className="flex-1 overflow-auto p-3">
-          {/* Folders Section */}
+          {/* Directorys Section */}
           <div className="mb-8">
-            {filteredFolders.length > 0 && (
-              <h2 className="mb-4 text-base font-semibold">Folders</h2>
+            {filteredDirectorys.length > 0 && (
+              <h2 className="mb-4 text-base font-semibold">Directorys</h2>
             )}
 
             {isDmsLoading ? (
               viewMode === "grid" ? (
-                <FolderGridSkeleton />
+                <DirectoryGridSkeleton />
               ) : (
-                <FolderListSkeleton />
+                <DirectoryListSkeleton />
               )
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {filteredFolders.map((folder, index) => (
+                {filteredDirectorys.map((directory, index) => (
                   <div
-                    key={`folder-${folder.fileStorageId}-${index}`}
+                    key={`directory-${directory.fileStorageId}-${index}`}
                     role="button"
                     tabIndex={0}
                     className="group flex cursor-pointer items-center justify-between gap-2 rounded-lg border bg-background p-4 transition-colors hover:bg-accent"
-                    onClick={() => handleFolderClick(folder)}
+                    onClick={() => handleDirectoryClick(directory)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        handleFolderClick(folder);
+                        handleDirectoryClick(directory);
                       }
                     }}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <Folder className="h-5 w-5 flex-shrink-0 text-yellow-500" />
+                      <Directory className="h-5 w-5 flex-shrink-0 text-yellow-500" />
                       <span
                         className="truncate text-sm font-medium"
-                        title={folder.name}
+                        title={directory.name}
                       >
-                        {folder.name}
+                        {directory.name}
                       </span>
                     </div>
                     <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0 -mr-1">
@@ -713,7 +713,7 @@ export function StorageDetail() {
                             align="end"
                             className="rounded-none"
                           >
-                            {renderRowMenu(folder)}
+                            {renderRowMenu(directory)}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -722,10 +722,10 @@ export function StorageDetail() {
               </div>
             ) : (
               <div
-                className={`rounded-lg ${folders.length > 0 && "border"} overflow-hidden`}
+                className={`rounded-lg ${directorys.length > 0 && "border"} overflow-hidden`}
               >
                 <Table className="w-full bg-background">
-                  {filteredFolders.length > 0 && (
+                  {filteredDirectorys.length > 0 && (
                     <TableHeader className="bg-muted/50">
                       <TableRow>
                         <TableHead>Name</TableHead>
@@ -736,30 +736,30 @@ export function StorageDetail() {
                     </TableHeader>
                   )}
                   <TableBody>
-                    {filteredFolders.map((folder, index) => (
+                    {filteredDirectorys.map((directory, index) => (
                       <TableRow
-                        key={`folder-list-${folder.fileStorageId}-${index}`}
+                        key={`directory-list-${directory.fileStorageId}-${index}`}
                         className="group cursor-pointer hover:bg-accent"
-                        onClick={() => handleFolderClick(folder)}
+                        onClick={() => handleDirectoryClick(directory)}
                       >
-                        {/* Folder Name */}
+                        {/* Directory Name */}
                         <TableCell className="flex items-center gap-3 min-w-0">
-                          <Folder className="h-5 w-5 flex-shrink-0 text-yellow-500" />
+                          <Directory className="h-5 w-5 flex-shrink-0 text-yellow-500" />
                           <span className="font-medium truncate max-w-[200px] min-w-0">
-                            {folder.name}
+                            {directory.name}
                           </span>
                         </TableCell>
 
-                        {/* Folder Type */}
+                        {/* Directory Type */}
                         <TableCell className="text-muted-foreground">
-                          Folder
+                          Directory
                         </TableCell>
 
                         {/* Last Modified */}
                         <TableCell className="text-muted-foreground">
-                          {folder.lastUpdatedDate
+                          {directory.lastUpdatedDate
                             ? new Date(
-                                folder.lastUpdatedDate,
+                                directory.lastUpdatedDate,
                               ).toLocaleDateString()
                             : "-"}
                         </TableCell>
@@ -781,7 +781,7 @@ export function StorageDetail() {
                                   align="end"
                                   className="rounded-none"
                                 >
-                                  {renderRowMenu(folder)}
+                                  {renderRowMenu(directory)}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -963,7 +963,7 @@ export function StorageDetail() {
         </ScrollArea>
         {!isDmsLoading && rows.length === 0 && (
           <div className="flex h-full items-center justify-center">
-            <p className="text-muted-foreground">No folders and files found</p>
+            <p className="text-muted-foreground">No directorys and files found</p>
           </div>
         )}
         {childrenQuery.hasNextPage && (
@@ -1002,14 +1002,14 @@ export function StorageDetail() {
           onOpenChange={(open) => !open && setTransfer(null)}
           item={transfer.item}
           mode={transfer.mode}
-          startFolderId={currentParentId || undefined}
+          startDirectoryId={currentParentId || undefined}
         />
       )}
 
-      <RenameFolderDialog
-        open={!!renameFolder}
-        onOpenChange={(open) => !open && setRenameFolder(null)}
-        folder={renameFolder}
+      <RenameDirectoryDialog
+        open={!!renameDirectory}
+        onOpenChange={(open) => !open && setRenameDirectory(null)}
+        directory={renameDirectory}
         onDone={() => childrenQuery.refetch()}
       />
 
@@ -1028,9 +1028,9 @@ export function StorageDetail() {
       )}
 
       {storage && (
-        <CreateDmsNewFolder
-          open={isCreateFolderModalOpen}
-          onOpenChange={setIsCreateFolderModalOpen}
+        <CreateDmsNewDirectory
+          open={isCreateDirectoryModalOpen}
+          onOpenChange={setIsCreateDirectoryModalOpen}
           parentId={currentParentId}
           configurationName={storage.storageStrategy}
           onSuccess={() => childrenQuery.refetch()}
@@ -1066,31 +1066,31 @@ export function StorageDetail() {
       </Dialog>
 
       <Dialog
-        open={isDeleteFolderModalOpen}
+        open={isDeleteDirectoryModalOpen}
         onOpenChange={(open) => {
-          if (!deleteFolderPending) setIsDeleteFolderModalOpen(open);
+          if (!deleteDirectoryPending) setIsDeleteDirectoryModalOpen(open);
         }}
       >
         <ConfirmationModal
           data={{
-            dialogTitle: "Delete Folder",
+            dialogTitle: "Delete Directory",
             dialogSubtitle:
-              "Are you sure you want to delete this folder? All the files inside this folder will be deleted for this action.",
+              "Are you sure you want to delete this directory? All the files inside this directory will be deleted for this action.",
           }}
           onConfirm={async () => {
-            if (selectedFolderId) {
-              await handleDeleteFolder(selectedFolderId);
-              setSelectedFolderId(null);
-              setIsDeleteFolderModalOpen(false);
+            if (selectedDirectoryId) {
+              await handleDeleteDirectory(selectedDirectoryId);
+              setSelectedDirectoryId(null);
+              setIsDeleteDirectoryModalOpen(false);
             }
           }}
           onCancel={() => {
-            if (!deleteFolderPending) {
-              setIsDeleteFolderModalOpen(false);
-              setSelectedFolderId(null);
+            if (!deleteDirectoryPending) {
+              setIsDeleteDirectoryModalOpen(false);
+              setSelectedDirectoryId(null);
             }
           }}
-          buttonState={{ confirm: { disable: deleteFolderPending } }}
+          buttonState={{ confirm: { disable: deleteDirectoryPending } }}
         />
       </Dialog>
 

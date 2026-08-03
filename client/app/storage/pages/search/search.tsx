@@ -9,12 +9,12 @@ import { DmsItem, DmsItemType } from "../../models/dms.model";
 
 const FILTERS: { label: string; value: DmsItemType | "all" }[] = [
   { label: "All", value: "all" },
-  { label: "Folders", value: "folder" },
+  { label: "Directorys", value: "directory" },
   { label: "Files", value: "file" },
 ];
 
 /**
- * Search across folders and files.
+ * Search across directorys and files.
  *
  * The term lives in the URL so a result set can be linked to and survives a
  * reload. Results are already access-filtered by the server, so anything listed
@@ -28,11 +28,11 @@ export function StorageSearch() {
 
   const [type, setType] = useState<DmsItemType | "all">("all");
   const query = params.get("q") ?? "";
-  const folderId = params.get("folderId") ?? undefined;
+  const directoryId = params.get("directoryId") ?? undefined;
 
   const results = useDmsSearch({
     query,
-    folderId,
+    directoryId,
     type: type === "all" ? undefined : type,
   });
 
@@ -52,11 +52,11 @@ export function StorageSearch() {
   };
 
   const openItem = (item: DmsItem) => {
-    // A folder opens the browser at that folder; a file opens its parent, since
+    // A directory opens the browser at that directory; a file opens its parent, since
     // there is no standalone file route to land on.
-    const target = item.type === "folder" ? item.itemId : item.parentDirectoryId;
+    const target = item.type === "directory" ? item.itemId : item.parentDirectoryId;
     if (!target) return;
-    navigate(`${storagePath}?folderId=${encodeURIComponent(target)}`);
+    navigate(`${storagePath}?directoryId=${encodeURIComponent(target)}`);
   };
 
   return (
@@ -64,7 +64,7 @@ export function StorageSearch() {
       <SearchInput
         value={query}
         onSearch={setQuery}
-        placeholder="Search files and folders"
+        placeholder="Search files and directorys"
         isVisible
         setIsVisible={() => undefined}
       />
@@ -94,7 +94,7 @@ export function StorageSearch() {
         />
       ) : (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          Type to search across your folders and files.
+          Type to search across your directorys and files.
         </p>
       )}
     </div>

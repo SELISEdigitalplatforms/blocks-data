@@ -17,15 +17,15 @@ public class DmsContentValidatorTests
     private static string ValidCursor() =>
         new ContentCursor { Type = StructureType.File, Name = "doc.txt", ItemId = "file-1" }.Encode();
 
-    // Create folder
+    // Create directory
 
     [Fact]
-    public void A_folder_name_is_required()
+    public void A_directory_name_is_required()
     {
-        var result = new CreateFolderRequestValidator().Validate(new CreateFolderRequest { Name = "" });
+        var result = new CreateDirectoryRequestValidator().Validate(new CreateDirectoryRequest { Name = "" });
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.PropertyName == nameof(CreateFolderRequest.Name));
+        result.Errors.Should().Contain(e => e.PropertyName == nameof(CreateDirectoryRequest.Name));
     }
 
     [Theory]
@@ -36,12 +36,12 @@ public class DmsContentValidatorTests
     [InlineData(".")]
     [InlineData("..")]
     [InlineData("   ")]
-    public void A_folder_name_that_would_break_a_path_is_rejected(string name)
+    public void A_directory_name_that_would_break_a_path_is_rejected(string name)
     {
         // Path separators and the relative-path names would corrupt FullPath, and
-        // surrounding whitespace produces two folders that look identical in a tree.
-        new CreateFolderRequestValidator()
-            .Validate(new CreateFolderRequest { Name = name })
+        // surrounding whitespace produces two directorys that look identical in a tree.
+        new CreateDirectoryRequestValidator()
+            .Validate(new CreateDirectoryRequest { Name = name })
             .IsValid.Should().BeFalse();
     }
 
@@ -50,63 +50,63 @@ public class DmsContentValidatorTests
     [InlineData("2026-07")]
     [InlineData("naïve café")]
     [InlineData("a.b.c")]
-    public void An_ordinary_folder_name_is_accepted(string name)
+    public void An_ordinary_directory_name_is_accepted(string name)
     {
-        new CreateFolderRequestValidator()
-            .Validate(new CreateFolderRequest { Name = name })
+        new CreateDirectoryRequestValidator()
+            .Validate(new CreateDirectoryRequest { Name = name })
             .IsValid.Should().BeTrue();
     }
 
     [Fact]
-    public void A_folder_name_longer_than_the_limit_is_rejected()
+    public void A_directory_name_longer_than_the_limit_is_rejected()
     {
-        new CreateFolderRequestValidator()
-            .Validate(new CreateFolderRequest { Name = new string('a', 256) })
+        new CreateDirectoryRequestValidator()
+            .Validate(new CreateDirectoryRequest { Name = new string('a', 256) })
             .IsValid.Should().BeFalse();
     }
 
     [Fact]
-    public void A_folder_may_be_created_at_the_top_level()
+    public void A_directory_may_be_created_at_the_top_level()
     {
-        new CreateFolderRequestValidator()
-            .Validate(new CreateFolderRequest { Name = "Root level", ParentFolderId = null })
+        new CreateDirectoryRequestValidator()
+            .Validate(new CreateDirectoryRequest { Name = "Root level", ParentDirectoryId = null })
             .IsValid.Should().BeTrue();
     }
 
     [Fact]
-    public void A_folder_update_may_omit_the_name_but_not_supply_a_bad_one()
+    public void A_directory_update_may_omit_the_name_but_not_supply_a_bad_one()
     {
-        var validator = new UpdateFolderRequestValidator();
+        var validator = new UpdateDirectoryRequestValidator();
 
-        validator.Validate(new UpdateFolderRequest { FolderId = "dir-1" }).IsValid.Should().BeTrue();
-        validator.Validate(new UpdateFolderRequest { FolderId = "dir-1", Name = "ok" }).IsValid.Should().BeTrue();
-        validator.Validate(new UpdateFolderRequest { FolderId = "dir-1", Name = "bad/name" }).IsValid.Should().BeFalse();
-        validator.Validate(new UpdateFolderRequest { FolderId = "", Name = "ok" }).IsValid.Should().BeFalse();
+        validator.Validate(new UpdateDirectoryRequest { DirectoryId = "dir-1" }).IsValid.Should().BeTrue();
+        validator.Validate(new UpdateDirectoryRequest { DirectoryId = "dir-1", Name = "ok" }).IsValid.Should().BeTrue();
+        validator.Validate(new UpdateDirectoryRequest { DirectoryId = "dir-1", Name = "bad/name" }).IsValid.Should().BeFalse();
+        validator.Validate(new UpdateDirectoryRequest { DirectoryId = "", Name = "ok" }).IsValid.Should().BeFalse();
     }
 
     // Listing
 
     [Fact]
-    public void A_children_request_accepts_an_empty_folder_for_root_listings()
+    public void A_children_request_accepts_an_empty_directory_for_root_listings()
     {
-        var validator = new GetFolderChildrenRequestValidator();
+        var validator = new GetDirectoryChildrenRequestValidator();
 
-        // An empty folder id selects the root listing rather than being rejected, so the
-        // storage page can call the same endpoint before any folder has been opened.
-        validator.Validate(new GetFolderChildrenRequest { FolderId = "" }).IsValid.Should().BeTrue();
-        validator.Validate(new GetFolderChildrenRequest { FolderId = "dir-1", Limit = 0 }).IsValid.Should().BeFalse();
-        validator.Validate(new GetFolderChildrenRequest { FolderId = "dir-1", Limit = 201 }).IsValid.Should().BeFalse();
-        validator.Validate(new GetFolderChildrenRequest { FolderId = "dir-1", Limit = 50 }).IsValid.Should().BeTrue();
+        // An empty directory id selects the root listing rather than being rejected, so the
+        // storage page can call the same endpoint before any directory has been opened.
+        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "" }).IsValid.Should().BeTrue();
+        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Limit = 0 }).IsValid.Should().BeFalse();
+        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Limit = 201 }).IsValid.Should().BeFalse();
+        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Limit = 50 }).IsValid.Should().BeTrue();
     }
 
     [Fact]
     public void A_cursor_is_accepted_when_it_decodes_and_rejected_when_it_does_not()
     {
-        var validator = new GetFolderChildrenRequestValidator();
+        var validator = new GetDirectoryChildrenRequestValidator();
 
-        validator.Validate(new GetFolderChildrenRequest { FolderId = "dir-1", Cursor = null }).IsValid.Should().BeTrue();
-        validator.Validate(new GetFolderChildrenRequest { FolderId = "dir-1", Cursor = ValidCursor() }).IsValid.Should().BeTrue();
-        validator.Validate(new GetFolderChildrenRequest { FolderId = "dir-1", Cursor = "obviously not base64 !!" }).IsValid.Should().BeFalse();
+        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Cursor = null }).IsValid.Should().BeTrue();
+        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Cursor = ValidCursor() }).IsValid.Should().BeTrue();
+        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Cursor = "obviously not base64 !!" }).IsValid.Should().BeFalse();
     }
 
     // Copy and move
@@ -114,30 +114,30 @@ public class DmsContentValidatorTests
     [Fact]
     public void Copy_and_move_both_need_a_source_and_a_target()
     {
-        new CopyFileRequestValidator().Validate(new CopyFileRequest { FileId = "", TargetFolderId = "dir-1" }).IsValid.Should().BeFalse();
-        new CopyFileRequestValidator().Validate(new CopyFileRequest { FileId = "file-1", TargetFolderId = "" }).IsValid.Should().BeFalse();
-        new CopyFileRequestValidator().Validate(new CopyFileRequest { FileId = "file-1", TargetFolderId = "dir-1" }).IsValid.Should().BeTrue();
+        new CopyFileRequestValidator().Validate(new CopyFileRequest { FileId = "", TargetDirectoryId = "dir-1" }).IsValid.Should().BeFalse();
+        new CopyFileRequestValidator().Validate(new CopyFileRequest { FileId = "file-1", TargetDirectoryId = "" }).IsValid.Should().BeFalse();
+        new CopyFileRequestValidator().Validate(new CopyFileRequest { FileId = "file-1", TargetDirectoryId = "dir-1" }).IsValid.Should().BeTrue();
 
-        new MoveFileRequestValidator().Validate(new MoveFileRequest { FileId = "file-1", TargetFolderId = "" }).IsValid.Should().BeFalse();
-        new MoveFileRequestValidator().Validate(new MoveFileRequest { FileId = "file-1", TargetFolderId = "dir-1" }).IsValid.Should().BeTrue();
+        new MoveFileRequestValidator().Validate(new MoveFileRequest { FileId = "file-1", TargetDirectoryId = "" }).IsValid.Should().BeFalse();
+        new MoveFileRequestValidator().Validate(new MoveFileRequest { FileId = "file-1", TargetDirectoryId = "dir-1" }).IsValid.Should().BeTrue();
     }
 
     [Fact]
-    public void A_folder_cannot_be_moved_into_itself()
+    public void A_directory_cannot_be_moved_into_itself()
     {
-        var validator = new MoveFolderRequestValidator();
+        var validator = new MoveDirectoryRequestValidator();
 
-        validator.Validate(new MoveFolderRequest { FolderId = "dir-1", TargetFolderId = "dir-1" }).IsValid.Should().BeFalse();
-        validator.Validate(new MoveFolderRequest { FolderId = "dir-1", TargetFolderId = "dir-2" }).IsValid.Should().BeTrue();
+        validator.Validate(new MoveDirectoryRequest { DirectoryId = "dir-1", TargetDirectoryId = "dir-1" }).IsValid.Should().BeFalse();
+        validator.Validate(new MoveDirectoryRequest { DirectoryId = "dir-1", TargetDirectoryId = "dir-2" }).IsValid.Should().BeTrue();
     }
 
     [Fact]
-    public void A_folder_may_be_moved_to_the_top_level()
+    public void A_directory_may_be_moved_to_the_top_level()
     {
         // An empty target means the top level, which is legitimate. Only the descendant
         // case needs the stored hierarchy, so the service checks that rather than this.
-        new MoveFolderRequestValidator()
-            .Validate(new MoveFolderRequest { FolderId = "dir-1", TargetFolderId = null })
+        new MoveDirectoryRequestValidator()
+            .Validate(new MoveDirectoryRequest { DirectoryId = "dir-1", TargetDirectoryId = null })
             .IsValid.Should().BeTrue();
     }
 
@@ -152,7 +152,7 @@ public class DmsContentValidatorTests
         var result = new GrantAccessRequestValidator().Validate(new GrantAccessRequest
         {
             ResourceId = "dir-1",
-            ResourceType = ContentResourceType.Folder,
+            ResourceType = ContentResourceType.Directory,
             PrincipalType = principalType,
             PrincipalId = null,
             Permission = ContentPermission.View,
@@ -167,7 +167,7 @@ public class DmsContentValidatorTests
         new GrantAccessRequestValidator().Validate(new GrantAccessRequest
         {
             ResourceId = "dir-1",
-            ResourceType = ContentResourceType.Folder,
+            ResourceType = ContentResourceType.Directory,
             PrincipalType = ContentPrincipalType.Everyone,
             PrincipalId = null,
             Permission = ContentPermission.View,
@@ -182,7 +182,7 @@ public class DmsContentValidatorTests
         new GrantAccessRequestValidator().Validate(new GrantAccessRequest
         {
             ResourceId = "dir-1",
-            ResourceType = ContentResourceType.Folder,
+            ResourceType = ContentResourceType.Directory,
             PrincipalType = ContentPrincipalType.Everyone,
             Permission = (ContentPermission)99,
         }).IsValid.Should().BeFalse();
@@ -196,7 +196,7 @@ public class DmsContentValidatorTests
         GrantAccessRequest WithExpiry(DateTime? expiry) => new()
         {
             ResourceId = "dir-1",
-            ResourceType = ContentResourceType.Folder,
+            ResourceType = ContentResourceType.Directory,
             PrincipalType = ContentPrincipalType.Everyone,
             Permission = ContentPermission.View,
             ExpiresAt = expiry,
@@ -211,7 +211,7 @@ public class DmsContentValidatorTests
     public void A_grant_that_omits_the_resource_type_is_rejected()
     {
         // The Content enums deliberately start at 1, so an omitted value lands on 0 and
-        // fails the enum check rather than defaulting silently to Folder.
+        // fails the enum check rather than defaulting silently to Directory.
         new GrantAccessRequestValidator().Validate(new GrantAccessRequest
         {
             ResourceId = "dir-1",
@@ -226,7 +226,7 @@ public class DmsContentValidatorTests
         new GrantAccessRequestValidator().Validate(new GrantAccessRequest
         {
             ResourceId = "dir-1",
-            ResourceType = ContentResourceType.Folder,
+            ResourceType = ContentResourceType.Directory,
             PrincipalType = ContentPrincipalType.Everyone,
             Permission = ContentPermission.View,
             Priority = -1,

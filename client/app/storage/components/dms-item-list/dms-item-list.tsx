@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui-kits/button/button";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { File as FileIcon, Folder as FolderIcon } from "lucide-react";
+import { File as FileIcon, Folder as DirectoryIcon } from "lucide-react";
 import { ReactNode } from "react";
 import { DmsItem } from "../../models/dms.model";
 
@@ -29,7 +29,7 @@ const formatSize = (bytes: number | undefined): string => {
 };
 
 /**
- * A flat list of folders and files with a cursor-driven "load more".
+ * A flat list of directorys and files with a cursor-driven "load more".
  *
  * Deliberately not built on `app/components/infinite-scroller`, which the
  * specification suggests reusing: that component is written for a polling log
@@ -70,8 +70,8 @@ export function DmsItemList({
     <div className="flex flex-col gap-2">
       <ul className="flex flex-col divide-y rounded-md border">
         {items.map((item) => {
-          const isFolder = item.type === "folder";
-          const Icon = isFolder ? FolderIcon : FileIcon;
+          const isDirectory = item.type === "directory";
+          const Icon = isDirectory ? DirectoryIcon : FileIcon;
 
           return (
             <li key={item.itemId} className="flex items-center gap-3 px-3 py-2">
@@ -92,7 +92,7 @@ export function DmsItemList({
               )}
 
               <span className="shrink-0 text-xs text-muted-foreground">
-                {isFolder ? "Folder" : formatSize((item as { sizeInBytes?: number }).sizeInBytes)}
+                {isDirectory ? "Directory" : formatSize((item as { sizeInBytes?: number }).sizeInBytes)}
               </span>
 
               {renderActions ? <span className="shrink-0">{renderActions(item)}</span> : null}

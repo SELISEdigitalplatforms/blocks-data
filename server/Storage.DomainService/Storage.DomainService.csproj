@@ -8,7 +8,7 @@
     <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="FluentValidation" />
-    <PackageReference Include="SeliseBlocks.Genesis" />
+    <PackageReference Include="SeliseBlocks.Genesis.OS" />
     <PackageReference Include="SSH.NET" />
   </ItemGroup>
 </Project>

@@ -13,7 +13,7 @@ import { showErrorToast } from "@/hooks/use-toast";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 interface BlocksApp {
   key: string;
   label: string;

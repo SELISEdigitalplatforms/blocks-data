@@ -20,7 +20,7 @@ import {
 import { ISchemaDetails } from "../models/data-service";
 import { useDeleteSchema } from "../hooks/use-configuration";
 import { toast } from "@/hooks/use-toast";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { cn } from "@/lib/utils";
 import { Database, MoreVertical, ShieldCheck } from "lucide-react";
 import { useState } from "react";
@@ -252,4 +252,5 @@ export const SchemaBasicInfo = ({
   );
 };
 
-export default SchemaBasicInfo;
+// DEADCODE 2026-07-29: default export has no importers (all consumers use the named export); commented pending review
+// export default SchemaBasicInfo;

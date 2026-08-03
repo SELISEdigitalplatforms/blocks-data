@@ -10,10 +10,10 @@ vi.mock("@/hooks/use-project", () => ({
   useGetProjects: () => ({ data: projectGroups, isLoading }),
   useGetProject: () => ({ data: projectData }),
 }));
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject, setSelectedProject: vi.fn() }),
 }));
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useNavigate: () => vi.fn(),
   useLocation: () => ({ pathname: "/services/iam" }),
 }));

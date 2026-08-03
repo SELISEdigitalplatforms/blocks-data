@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import { GRANT_TYPES } from "@blocks-idp/authentication/constants/authentication.constant";
 
 vi.mock("@/lib/runtime-env", () => ({ getRuntimeEnv: () => "x-key" }));

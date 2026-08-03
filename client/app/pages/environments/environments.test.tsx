@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const useProjectStore = vi.fn();
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => useProjectStore(),
   EnvironmentCard: ({ project }: { project: { itemId: string; name?: string } }) => (
     <div data-testid="environment-card">{project.name ?? project.itemId}</div>
@@ -20,7 +20,7 @@ vi.mock("@/hooks/use-notification-listener", () => ({
   useNotificationListener: vi.fn(),
 }));
 
-vi.mock("react-router-dom", () => ({ useNavigate: () => vi.fn() }));
+vi.mock("react-router", () => ({ useNavigate: () => vi.fn() }));
 vi.mock("@/components/environment-card/add-environment-modal", () => ({
   AddEnvironmentModal: () => <div data-testid="add-env-modal" />,
 }));

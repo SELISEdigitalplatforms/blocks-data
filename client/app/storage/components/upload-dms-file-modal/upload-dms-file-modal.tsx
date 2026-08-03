@@ -24,7 +24,7 @@ import {
 } from "@/storage/hooks/use-storage-file";
 import { isErrorWithErrors } from "@/lib/error";
 import { IDmsUploadItem } from "@/storage/models/storage.model";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { ModuleName } from "@/constants/modules.constants";
 
 type UploadDmsFileModalProps = {

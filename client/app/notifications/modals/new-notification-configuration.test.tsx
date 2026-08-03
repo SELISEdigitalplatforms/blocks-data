@@ -8,7 +8,7 @@ vi.mock("../hooks/use-notifications", () => ({
   useSaveNotificationConfig: () => useSaveNotificationConfig(),
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({
     selectedProject: { tenantId: "tenant-1" },
   }),

@@ -13,7 +13,7 @@ const showErrorToast = vi.fn();
 let lastCardProps: Record<string, unknown> = {};
 let lastBarProps: Record<string, unknown> = {};
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t-1" } }),
 }));
 vi.mock("@/hooks/use-toast", () => ({

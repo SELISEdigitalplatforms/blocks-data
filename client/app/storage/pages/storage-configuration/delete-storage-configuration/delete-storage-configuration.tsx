@@ -13,7 +13,7 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { IStorageConfiguration } from "@/storage/models/storage.model";
 import { useDeleteStorageConfiguration } from "@/storage/hooks/use-storage-configuration";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 
 type DeleteStorageConfigurationProps = {
   configuration: IStorageConfiguration;

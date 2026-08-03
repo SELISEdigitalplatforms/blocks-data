@@ -2,8 +2,10 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
+using HotChocolate;
 using MongoDB.Bson;
 using System.Collections;
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace DataGateway.DomainService.Conversion;
@@ -39,7 +41,8 @@ public static class WhereToMongoFilterConverter
         string pathPrefix = "")
     {
         if (where is null) return null;
-        if (where is not IReadOnlyDictionary<string, object?> dict || dict.Count == 0)
+        var dict = CoerceWhereDictionary(where);
+        if (dict is null || dict.Count == 0)
             return null;
 
         var allowedFields = GetAllowedFieldNames(schema, pathPrefix);
@@ -102,11 +105,12 @@ public static class WhereToMongoFilterConverter
 
     private static BsonElement? ConvertLogicalOperator(object value, SchemaDefinitionExtended schema, string mongoOp)
     {
-        if (value is not IList<object?> orArray || orArray.Count == 0)
+        var items = CoerceList(value);
+        if (items is null || items.Count == 0)
             return null;
 
         var clauses = new List<BsonDocument>();
-        foreach (var item in orArray)
+        foreach (var item in items)
         {
             if (item == null) continue;
             var clause = Convert(item, schema, "");
@@ -116,6 +120,28 @@ public static class WhereToMongoFilterConverter
 
         if (clauses.Count == 0) return null;
         return new BsonElement(mongoOp, new BsonArray(clauses));
+    }
+
+    private static List<object?>? CoerceList(object? value)
+    {
+        switch (value)
+        {
+            case null:
+                return null;
+            case IList<object?> typed:
+                return [.. typed];
+            case string:
+                return null;
+            case IEnumerable enumerable:
+            {
+                var list = new List<object?>();
+                foreach (var item in enumerable)
+                    list.Add(item);
+                return list;
+            }
+            default:
+                return null;
+        }
     }
 
     private static BsonDocument? ConvertScalarOperation(string scalarType, string fieldName, object value)
@@ -164,15 +190,90 @@ public static class WhereToMongoFilterConverter
         return new BsonDocument(fieldName, new BsonDocument(clauses));
     }
 
-    private static IReadOnlyDictionary<string, object?>? CoerceOperationDictionary(object value) =>
-        value switch
+    private static IReadOnlyDictionary<string, object?>? CoerceOperationDictionary(object value)
+    {
+        switch (value)
         {
-            IReadOnlyDictionary<string, object?> d => d,
-            IDictionary<string, object?> dict =>
-                dict as IReadOnlyDictionary<string, object?>
-                ?? dict.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
-            _ => null
-        };
+            case IReadOnlyDictionary<string, object?> roDict:
+                return roDict;
+            case IDictionary<string, object?> dict:
+                return dict as IReadOnlyDictionary<string, object?>
+                    ?? dict.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return CoerceFromClrObject(value);
+    }
+
+    private static IReadOnlyDictionary<string, object?>? CoerceWhereDictionary(object value)
+    {
+        if (value is IReadOnlyDictionary<string, object?> roDict)
+            return roDict;
+        if (value is IDictionary<string, object?> dict)
+            return dict as IReadOnlyDictionary<string, object?>
+                ?? dict.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
+        return CoerceFromClrObject(value);
+    }
+
+    private static IReadOnlyDictionary<string, object?>? CoerceFromClrObject(object? value)
+    {
+        if (value is null || value is string || value is IEnumerable || value.GetType().IsPrimitive)
+            return null;
+
+        var unwrapped = UnwrapOptional(value);
+        if (unwrapped is null || unwrapped is string || unwrapped is IEnumerable || unwrapped.GetType().IsPrimitive)
+            return null;
+        if (unwrapped is IReadOnlyDictionary<string, object?> roDict)
+            return roDict;
+        if (unwrapped is IDictionary<string, object?> dict)
+            return dict as IReadOnlyDictionary<string, object?>
+                ?? dict.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
+
+        var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var prop in unwrapped.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
+        {
+            if (prop.GetIndexParameters().Length > 0) continue;
+            if (!seen.Add(prop.Name)) continue;
+
+            object? propValue;
+            try
+            {
+                propValue = prop.GetValue(unwrapped);
+            }
+            catch
+            {
+                continue;
+            }
+
+            result[prop.Name] = UnwrapOptional(propValue);
+        }
+
+        return result.Count == 0 ? null : result;
+    }
+
+    private static object? UnwrapOptional(object? value)
+    {
+        while (value is not null)
+        {
+            var type = value.GetType();
+            if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(Optional<>))
+                break;
+
+            var hasValueProp = type.GetProperty("HasValue");
+            var valueProp = type.GetProperty("Value");
+            if (hasValueProp is null || valueProp is null)
+                break;
+            if (hasValueProp.GetValue(value) is not true)
+                return null;
+            value = valueProp.GetValue(value);
+        }
+
+        if (value is Optional<object?> optional)
+            return optional.HasValue ? optional.Value : null;
+
+        return value;
+    }
 
     private static string MapOperatorToMongo(string opKey)
     {

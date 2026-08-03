@@ -112,6 +112,7 @@ namespace Api.Controllers
             {
                 DirectoryOperationStatus.Succeeded => Ok(new { directoryId = result.DirectoryId }),
                 DirectoryOperationStatus.NameConflict => Conflict(new { message = "A directory with that name already exists here." }),
+                DirectoryOperationStatus.IsDefault => BadRequest(new { message = "This is a default directory and cannot be renamed." }),
                 DirectoryOperationStatus.NotPermitted => Forbid(),
                 _ => NotFound(new { message = $"Directory not found: {request.DirectoryId}" }),
             };
@@ -129,6 +130,7 @@ namespace Api.Controllers
             {
                 DirectoryOperationStatus.Succeeded => Ok(new { directoryId = request.DirectoryId }),
                 DirectoryOperationStatus.NotEmpty => Conflict(new { message = "Empty the directory before deleting it permanently." }),
+                DirectoryOperationStatus.IsDefault => BadRequest(new { message = "This is a default directory and cannot be deleted." }),
                 DirectoryOperationStatus.NotPermitted => Forbid(),
                 _ => NotFound(new { message = $"Directory not found: {request.DirectoryId}" }),
             };
@@ -147,6 +149,7 @@ namespace Api.Controllers
                 MoveDirectoryResult.Moved => Ok(new { directoryId = request.DirectoryId }),
                 MoveDirectoryResult.WouldCreateCycle => BadRequest(new { message = "A directory cannot be moved inside itself." }),
                 MoveDirectoryResult.NameConflict => Conflict(new { message = "A directory with that name already exists in the target." }),
+                MoveDirectoryResult.IsDefault => BadRequest(new { message = "This is a default directory and cannot be moved." }),
                 MoveDirectoryResult.TargetNotFound => NotFound(new { message = $"Target directory not found: {request.TargetDirectoryId}" }),
                 _ => NotFound(new { message = $"Directory not found: {request.DirectoryId}" }),
             };

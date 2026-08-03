@@ -67,6 +67,13 @@ namespace DomainService.Storage.Dms
         public int? ChildDirectoryCount { get; set; }
         public int? ChildFileCount { get; set; }
 
+        /// <summary>
+        /// True for directories seeded from the default templates (Cloud/Construct/etc).
+        /// The frontend disables destructive row actions (move/rename/delete) on these.
+        /// Always false for files.
+        /// </summary>
+        public bool IsDefault { get; set; }
+
         public PermissionFlags Permissions { get; set; } = new();
     }
 
@@ -114,6 +121,7 @@ namespace DomainService.Storage.Dms
             CreatedBy = item.CreatedBy,
             Extension = item.Extension,
             ContentType = item.ContentType,
+            IsDefault = item.IsDefault,
             Permissions = PermissionFlags.From(item.Permissions),
         };
 

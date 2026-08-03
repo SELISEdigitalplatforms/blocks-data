@@ -15,6 +15,10 @@ namespace Storage.DomainService.Services
         WouldCreateCycle = 3,
         /// <summary>A sibling in the target already uses this name.</summary>
         NameConflict = 4,
+        /// <summary>
+        /// The source is a default/system root (seeded from a template) and cannot be moved.
+        /// </summary>
+        IsDefault = 5,
     }
 
     public interface IContentHierarchyService
@@ -142,6 +146,13 @@ namespace Storage.DomainService.Services
         {
             var directory = await FindDirectoryAsync(directoryId, cancellationToken);
             if (directory is null) return MoveDirectoryResult.SourceNotFound;
+
+            // Default directories are system roots and cannot be relocated. They are
+            // marked by a "default" entry in their Tags array.
+            if (directory.Tags?.Contains("default", StringComparer.OrdinalIgnoreCase) == true)
+            {
+                return MoveDirectoryResult.IsDefault;
+            }
 
             if (string.Equals(directoryId, newParentId, StringComparison.Ordinal))
             {

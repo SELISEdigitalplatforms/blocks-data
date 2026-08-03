@@ -240,6 +240,23 @@ public class ContentHierarchyServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Moving_a_default_directory_is_refused()
+    {
+        // Default directories are system roots and cannot be relocated, regardless
+        // of where they are being moved to.
+        await BuildChain();
+        await Directory("cloud", "Cloud", "root");
+        await _db.GetCollection<Directory>("Directories").UpdateOneAsync(
+            d => d.ItemId == "cloud",
+            Builders<Directory>.Update.Set(d => d.Tags, new List<string> { "default" }));
+
+        var result = await _hierarchy.MoveDirectoryAsync("cloud", "dest");
+
+        result.Should().Be(MoveDirectoryResult.IsDefault);
+        (await Read("cloud")).ParentId.Should().Be("root");
+    }
+
+    [Fact]
     public async Task Moving_onto_a_name_already_used_in_the_target_is_refused()
     {
         await BuildChain();

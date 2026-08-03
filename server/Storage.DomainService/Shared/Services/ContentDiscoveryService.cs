@@ -265,6 +265,7 @@ namespace Storage.DomainService.Services
                     CreatedDate = f.CreatedDate,
                     LastUpdatedDate = f.LastUpdatedDate,
                     CreatedBy = f.CreatedBy,
+                    IsDefault = f.Tags != null && f.Tags.Contains("default", StringComparer.OrdinalIgnoreCase),
                 }));
             }
 

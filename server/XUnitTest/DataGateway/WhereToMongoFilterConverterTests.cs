@@ -316,4 +316,66 @@ public class WhereToMongoFilterConverterTests
         var act = () => WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
         act.Should().Throw<ArgumentException>().WithMessage("*not defined on the schema*");
     }
+
+    [Fact]
+    public void Convert_WhereAsClrInputObject_ProducesSameMongoFilterAsDictionary()
+    {
+        var where = new ClrWhereInput
+        {
+            Name = new ClrStringOp { Eq = "Abcde" }
+        };
+
+        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+
+        Assert.Equal(new BsonDocument("Name", new BsonDocument("$eq", "Abcde")), result);
+    }
+
+    [Fact]
+    public void Convert_ScalarOperationAsClrInputObject_ProducesMongoFilter()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["Name"] = new ClrStringOp { Eq = "Abcde" }
+        };
+
+        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+
+        Assert.Equal(new BsonDocument("Name", new BsonDocument("$eq", "Abcde")), result);
+    }
+
+    [Fact]
+    public void Convert_LogicalOperatorAsClrEnumerable_ProducesMongoFilter()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["or"] = new List<object?>
+            {
+                new ClrWhereInput { Name = new ClrStringOp { Eq = "Abcde" } },
+                new Dictionary<string, object?>
+                {
+                    ["Name"] = new ClrStringOp { Eq = "Fghij" }
+                }
+            }
+        };
+
+        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+
+        result.Should().NotBeNull();
+        result!.Contains("$or").Should().BeTrue();
+        result["$or"].AsBsonArray.Count.Should().Be(2);
+    }
+
+    private sealed class ClrWhereInput
+    {
+        public ClrStringOp? Name { get; set; }
+        public object? Age { get; set; }
+        public object? IsActive { get; set; }
+    }
+
+    private sealed class ClrStringOp
+    {
+        public string? Eq { get; set; }
+        public string? Neq { get; set; }
+        public string? Contains { get; set; }
+    }
 }

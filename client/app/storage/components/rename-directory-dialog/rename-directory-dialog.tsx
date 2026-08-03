@@ -15,6 +15,7 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
 import { useUpdateDmsDirectory } from "@/storage/hooks/use-dms";
 import { DmsDirectoryItem } from "@/storage/models/dms.model";
+import { LoaderCircle } from "lucide-react";
 
 export interface RenameDirectoryDialogProps {
   open: boolean;
@@ -76,6 +77,7 @@ export function RenameDirectoryDialog({
         <Input
           value={name}
           autoFocus
+          disabled={updateDirectory.isPending}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -86,6 +88,17 @@ export function RenameDirectoryDialog({
           placeholder="Directory name"
         />
 
+        {updateDirectory.isPending ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
+          >
+            <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Renaming directory…
+          </div>
+        ) : null}
+
         <DialogFooter className="gap-2 sm:gap-2">
           <DialogClose asChild>
             <Button variant="outline" size="sm" disabled={updateDirectory.isPending}>
@@ -93,7 +106,7 @@ export function RenameDirectoryDialog({
             </Button>
           </DialogClose>
           <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-            {updateDirectory.isPending ? "Saving..." : "Save"}
+            {updateDirectory.isPending ? "Renaming…" : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

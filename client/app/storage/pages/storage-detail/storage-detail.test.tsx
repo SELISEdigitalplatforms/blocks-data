@@ -110,7 +110,9 @@ vi.mock("@/storage/hooks/use-dms", () => ({
     }));
 
     return {
-      data: { pages: [{ items, totalChildCount: legacy?.totalCount ?? items.length, hasMore: false }] },
+      data: {
+        pages: [{ items, totalChildCount: legacy?.totalCount ?? items.length, hasMore: false }],
+      },
       isLoading: mocks.dmsState.isPending,
       hasNextPage: false,
       isFetchingNextPage: false,
@@ -154,27 +156,18 @@ vi.mock("@/storage/components/upload-dms-file-modal", () => ({
 }));
 
 vi.mock("@/storage/components/file-preview-modal", () => ({
-  FilePreviewModal: ({
-    open,
-    fileName,
-  }: {
-    open: boolean;
-    fileName: string;
-  }) => (
+  FilePreviewModal: ({ open, fileName }: { open: boolean; fileName: string }) => (
     <div data-testid="preview-modal" data-open={String(open)}>
       {fileName}
     </div>
   ),
 }));
 
-vi.mock(
-  "@/storage/components/create-new-directory-modal/create-dms-new-directory",
-  () => ({
-    CreateDmsNewDirectory: ({ open }: { open: boolean }) => (
-      <div data-testid="create-directory-modal" data-open={String(open)} />
-    ),
-  }),
-);
+vi.mock("@/storage/components/create-new-directory-modal/create-dms-new-directory", () => ({
+  CreateDmsNewDirectory: ({ open }: { open: boolean }) => (
+    <div data-testid="create-directory-modal" data-open={String(open)} />
+  ),
+}));
 
 import { StorageDetail } from "./storage-detail";
 
@@ -185,9 +178,7 @@ beforeAll(() => {
   Element.prototype.scrollIntoView ??= vi.fn() as never;
 });
 
-function makeConfig(
-  overrides: Partial<IStorageConfiguration> = {},
-): IStorageConfiguration {
+function makeConfig(overrides: Partial<IStorageConfiguration> = {}): IStorageConfiguration {
   return {
     storageStrategy: "S3Compatible",
     accessKey: "AK",
@@ -229,9 +220,7 @@ function makeDirectory(
   };
 }
 
-function makeFile(
-  overrides: Partial<IDmsFileAndDirectoryInfo> = {},
-): IDmsFileAndDirectoryInfo {
+function makeFile(overrides: Partial<IDmsFileAndDirectoryInfo> = {}): IDmsFileAndDirectoryInfo {
   return {
     parentId: "",
     type: DmsItemType.File,
@@ -256,15 +245,15 @@ function renderDetail() {
 }
 
 beforeEach(() => {
-    mocks.currentDirectory = undefined;
-    mocks.permissions = {
-      canView: true,
-      canDownload: true,
-      canEdit: true,
-      canDelete: true,
-      canManage: true,
-      canOwner: true,
-    };
+  mocks.currentDirectory = undefined;
+  mocks.permissions = {
+    canView: true,
+    canDownload: true,
+    canEdit: true,
+    canDelete: true,
+    canManage: true,
+    canOwner: true,
+  };
   vi.clearAllMocks();
   mocks.configState = { data: [makeConfig()], isLoading: false };
   mocks.dmsState = {
@@ -280,31 +269,21 @@ describe("StorageDetail", () => {
   it("renders the configuration-loading skeleton", () => {
     mocks.configState = { data: undefined, isLoading: true };
     const { container } = renderDetail();
-    expect(
-      screen.queryByRole("button", { name: "API Docs" }),
-    ).not.toBeInTheDocument();
-    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.queryByRole("button", { name: "API Docs" })).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
   });
 
   it("shows a not-found message when the configuration is missing", () => {
     mocks.configState = { data: [], isLoading: false };
     renderDetail();
-    expect(
-      screen.getByRole("heading", { name: "Storage Details" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Storage configuration not found."),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Storage Details" })).toBeInTheDocument();
+    expect(screen.getByText("Storage configuration not found.")).toBeInTheDocument();
   });
 
   it("renders the mapped provider title and API Docs button", () => {
     mocks.dmsState.response = { dmsFileAndDirectoryInfos: [], totalCount: 0 };
     renderDetail();
-    expect(
-      screen.getByRole("heading", { name: "AWS S3 Compatible" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "AWS S3 Compatible" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "API Docs" })).toBeInTheDocument();
   });
 
@@ -332,16 +311,14 @@ describe("StorageDetail", () => {
 
     expect(await screen.findByText("Documents")).toBeInTheDocument();
     expect(screen.getByText("report.pdf")).toBeInTheDocument();
-    expect(screen.getByText("Directorys")).toBeInTheDocument();
+    expect(screen.queryByText("Directorys")).not.toBeInTheDocument();
     expect(screen.getByText("Files")).toBeInTheDocument();
   });
 
   it("shows the empty state when there are no directorys or files", () => {
     mocks.dmsState.response = { dmsFileAndDirectoryInfos: [], totalCount: 0 };
     renderDetail();
-    expect(
-      screen.getByText("No directorys and files found"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("No directorys and files found")).toBeInTheDocument();
   });
 
   it("renders skeletons while the DMS data is loading", () => {
@@ -353,12 +330,8 @@ describe("StorageDetail", () => {
     const { container } = renderDetail();
 
     expect(screen.queryByText("HiddenDirectory")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("No directorys and files found"),
-    ).not.toBeInTheDocument();
-    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
-      0,
-    );
+    expect(screen.queryByText("No directorys and files found")).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
   });
 
   it("navigates back to the storage list from the breadcrumb", async () => {
@@ -379,9 +352,7 @@ describe("StorageDetail", () => {
     renderDetail();
 
     await user.click(await screen.findByText("Reports"));
-    expect(mocks.navigate).toHaveBeenCalledWith(
-      expect.stringContaining("directoryId=fold-9"),
-    );
+    expect(mocks.navigate).toHaveBeenCalledWith(expect.stringContaining("directoryId=fold-9"));
   });
 
   it.each([["{Enter}"], [" "]])(
@@ -394,22 +365,16 @@ describe("StorageDetail", () => {
       };
       renderDetail();
 
-      const card = (await screen.findByText("Reports")).closest(
-        '[role="button"]',
-      ) as HTMLElement;
+      const card = (await screen.findByText("Reports")).closest('[role="button"]') as HTMLElement;
       card.focus();
       await user.keyboard(key);
 
-      expect(mocks.navigate).toHaveBeenCalledWith(
-        expect.stringContaining("directoryId=fold-9"),
-      );
+      expect(mocks.navigate).toHaveBeenCalledWith(expect.stringContaining("directoryId=fold-9"));
     },
   );
 
   it("renders breadcrumb entries from the path query param", () => {
-    const path = encodeURIComponent(
-      JSON.stringify([{ id: "fold-1", name: "Invoices" }]),
-    );
+    const path = encodeURIComponent(JSON.stringify([{ id: "fold-1", name: "Invoices" }]));
     setLocation(`/?id=cfg-1&directoryId=fold-1&path=${path}`);
     mocks.dmsState.response = { dmsFileAndDirectoryInfos: [], totalCount: 0 };
     renderDetail();
@@ -430,9 +395,7 @@ describe("StorageDetail", () => {
     // grid view: no table headers yet
     expect(screen.queryByText("Size")).not.toBeInTheDocument();
 
-    const toggle = container.querySelector(
-      "div.gap-1.rounded-md.border.p-1",
-    ) as HTMLElement;
+    const toggle = container.querySelector("div.gap-1.rounded-md.border.p-1") as HTMLElement;
     const listButton = toggle.querySelectorAll("button")[0];
     await user.click(listButton);
 
@@ -466,19 +429,13 @@ describe("StorageDetail", () => {
     mocks.dmsState.response = { dmsFileAndDirectoryInfos: [], totalCount: 0 };
     renderDetail();
 
-    expect(screen.getByTestId("upload-modal")).toHaveAttribute(
-      "data-open",
-      "false",
-    );
+    expect(screen.getByTestId("upload-modal")).toHaveAttribute("data-open", "false");
 
     await user.click(screen.getByRole("button", { name: /Add New/i }));
     await user.click(await screen.findByText("Upload file"));
 
     await waitFor(() =>
-      expect(screen.getByTestId("upload-modal")).toHaveAttribute(
-        "data-open",
-        "true",
-      ),
+      expect(screen.getByTestId("upload-modal")).toHaveAttribute("data-open", "true"),
     );
   });
 
@@ -491,10 +448,7 @@ describe("StorageDetail", () => {
     await user.click(await screen.findByText("Create new directory"));
 
     await waitFor(() =>
-      expect(screen.getByTestId("create-directory-modal")).toHaveAttribute(
-        "data-open",
-        "true",
-      ),
+      expect(screen.getByTestId("create-directory-modal")).toHaveAttribute("data-open", "true"),
     );
   });
 
@@ -548,10 +502,7 @@ describe("StorageDetail", () => {
       }),
     );
     await waitFor(() =>
-      expect(screen.getByTestId("preview-modal")).toHaveAttribute(
-        "data-open",
-        "true",
-      ),
+      expect(screen.getByTestId("preview-modal")).toHaveAttribute("data-open", "true"),
     );
   });
 
@@ -671,9 +622,7 @@ describe("StorageDetail", () => {
     const user = userEvent.setup();
     mocks.fetchFile.mockRejectedValue(new Error("preview boom"));
     mocks.dmsState.response = {
-      dmsFileAndDirectoryInfos: [
-        makeFile({ name: "broken.pdf", fileStorageId: "fs-x" }),
-      ],
+      dmsFileAndDirectoryInfos: [makeFile({ name: "broken.pdf", fileStorageId: "fs-x" })],
       totalCount: 1,
     };
     renderDetail();
@@ -690,9 +639,7 @@ describe("StorageDetail", () => {
     const user = userEvent.setup();
     mocks.deleteFile.mockResolvedValue({ isSuccess: false });
     mocks.dmsState.response = {
-      dmsFileAndDirectoryInfos: [
-        makeFile({ name: "keep.pdf", fileStorageId: "file-keep" }),
-      ],
+      dmsFileAndDirectoryInfos: [makeFile({ name: "keep.pdf", fileStorageId: "file-keep" })],
       totalCount: 1,
     };
     renderDetail();
@@ -713,9 +660,7 @@ describe("StorageDetail", () => {
     const user = userEvent.setup();
     mocks.deleteFile.mockRejectedValue(new Error("delete boom"));
     mocks.dmsState.response = {
-      dmsFileAndDirectoryInfos: [
-        makeFile({ name: "boom.pdf", fileStorageId: "file-boom" }),
-      ],
+      dmsFileAndDirectoryInfos: [makeFile({ name: "boom.pdf", fileStorageId: "file-boom" })],
       totalCount: 1,
     };
     renderDetail();
@@ -736,9 +681,7 @@ describe("StorageDetail", () => {
     const user = userEvent.setup();
     mocks.deleteDirectory.mockRejectedValue("Something went wrong");
     mocks.dmsState.response = {
-      dmsFileAndDirectoryInfos: [
-        makeDirectory({ name: "keepdir", itemId: "fold-keep" }),
-      ],
+      dmsFileAndDirectoryInfos: [makeDirectory({ name: "keepdir", itemId: "fold-keep" })],
       totalCount: 1,
     };
     renderDetail();
@@ -759,9 +702,7 @@ describe("StorageDetail", () => {
     const user = userEvent.setup();
     mocks.deleteDirectory.mockRejectedValue(new Error("directory boom"));
     mocks.dmsState.response = {
-      dmsFileAndDirectoryInfos: [
-        makeDirectory({ name: "boomdir", itemId: "fold-boom" }),
-      ],
+      dmsFileAndDirectoryInfos: [makeDirectory({ name: "boomdir", itemId: "fold-boom" })],
       totalCount: 1,
     };
     renderDetail();
@@ -797,26 +738,20 @@ describe("StorageDetail", () => {
     // Clicking an intermediate crumb navigates to that directory level.
     mocks.navigate.mockClear();
     await user.click(screen.getByText("Level1"));
-    expect(mocks.navigate).toHaveBeenCalledWith(
-      expect.stringContaining("directoryId=f1"),
-    );
+    expect(mocks.navigate).toHaveBeenCalledWith(expect.stringContaining("directoryId=f1"));
   });
 
   it("deletes a directory from the list view", async () => {
     const user = userEvent.setup();
     mocks.deleteDirectory.mockResolvedValue({ isSuccess: true });
     mocks.dmsState.response = {
-      dmsFileAndDirectoryInfos: [
-        makeDirectory({ name: "listdir", itemId: "fold-list" }),
-      ],
+      dmsFileAndDirectoryInfos: [makeDirectory({ name: "listdir", itemId: "fold-list" })],
       totalCount: 1,
     };
     const { container } = renderDetail();
 
     await screen.findByText("listdir");
-    const toggle = container.querySelector(
-      "div.gap-1.rounded-md.border.p-1",
-    ) as HTMLElement;
+    const toggle = container.querySelector("div.gap-1.rounded-md.border.p-1") as HTMLElement;
     await user.click(toggle.querySelectorAll("button")[0]);
 
     await user.click(await screen.findByRole("button", { name: "More options" }));
@@ -847,9 +782,7 @@ describe("StorageDetail", () => {
     const { container } = renderDetail();
 
     await screen.findByText("listfile.csv");
-    const toggle = container.querySelector(
-      "div.gap-1.rounded-md.border.p-1",
-    ) as HTMLElement;
+    const toggle = container.querySelector("div.gap-1.rounded-md.border.p-1") as HTMLElement;
     await user.click(toggle.querySelectorAll("button")[0]);
 
     // List view formats the size in KB.

@@ -44,6 +44,10 @@ namespace Storage.DomainService.Entities
                 TenantId = directoryOptions.TenantId,
                 CreatedDate = directoryOptions.CreateDate,
                 CreatedBy = directoryOptions.CreatedBy,
+                // A newly created directory has not been modified after creation, so both
+                // timestamps (and their actors) must describe the same initial write.
+                LastUpdatedDate = directoryOptions.CreateDate,
+                LastUpdatedBy = directoryOptions.CreatedBy,
                 Tags = directoryOptions.Tags,
                 Language = directoryOptions.Language,
                 AllowedFileExtensions = directoryOptions.AllowedFileExtensions,

@@ -95,16 +95,16 @@ describe("ManageAccessModal", () => {
     mocks.policies = [policy()];
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
-    expect(await screen.findByText("Role: editors")).toBeInTheDocument();
-    expect(screen.getByText("Allow Edit")).toBeInTheDocument();
+    expect(await screen.findByText("editors")).toBeInTheDocument();
+    expect(screen.getByText(/Direct rule/)).toBeInTheDocument();
   });
 
   it("marks an inherited entry and offers no revoke for it", async () => {
     mocks.policies = [policy({ isInherited: true })];
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
-    expect(await screen.findByText("inherited")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Revoke" })).not.toBeInTheDocument();
+    expect(await screen.findByText(/Inherited from parent/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove rule" })).not.toBeInTheDocument();
   });
 
   it("revokes an entry the item owns", async () => {
@@ -113,7 +113,7 @@ describe("ManageAccessModal", () => {
     mocks.revoke.mockResolvedValue({ itemId: "policy-1" });
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
-    await user.click(await screen.findByRole("button", { name: "Revoke" }));
+    await user.click(await screen.findByRole("button", { name: "Remove rule" }));
 
     await waitFor(() => expect(mocks.revoke).toHaveBeenCalledWith("policy-1"));
   });
@@ -121,7 +121,7 @@ describe("ManageAccessModal", () => {
   it("will not grant to a named principal without a selection", async () => {
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
-    expect(await screen.findByRole("button", { name: "Grant" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Add access rule" })).toBeDisabled();
   });
 
   it("grants once a principal is picked from the dropdown", async () => {
@@ -130,9 +130,9 @@ describe("ManageAccessModal", () => {
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
     // Default principal type is User — open the picker and pick Alice.
-    await user.click(screen.getByRole("combobox", { name: "Users" }));
+    await user.click(screen.getByRole("combobox", { name: "Select user" }));
     await user.click(await screen.findByText("Alice"));
-    await user.click(screen.getByRole("button", { name: "Grant" }));
+    await user.click(screen.getByRole("button", { name: "Add access rule" }));
 
     await waitFor(() =>
       expect(mocks.grant).toHaveBeenCalledWith(
@@ -153,10 +153,10 @@ describe("ManageAccessModal", () => {
     mocks.grant.mockResolvedValue({ itemId: "policy-x" });
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
-    await user.click(screen.getByRole("combobox", { name: "Users" }));
+    await user.click(screen.getByRole("combobox", { name: "Select user" }));
     await user.click(await screen.findByText("Alice"));
     await user.click(await screen.findByText("Bob"));
-    await user.click(screen.getByRole("button", { name: "Grant" }));
+    await user.click(screen.getByRole("button", { name: "Add access rule" }));
 
     await waitFor(() => expect(mocks.grant).toHaveBeenCalledTimes(2));
     expect(mocks.grant).toHaveBeenNthCalledWith(
@@ -175,7 +175,7 @@ describe("ManageAccessModal", () => {
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
     await user.click(screen.getByRole("button", { name: "Everyone" }));
-    await user.click(screen.getByRole("button", { name: "Grant" }));
+    await user.click(screen.getByRole("button", { name: "Add access rule" }));
 
     await waitFor(() =>
       expect(mocks.grant).toHaveBeenCalledWith(
@@ -188,7 +188,7 @@ describe("ManageAccessModal", () => {
     mocks.policies = [];
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
-    expect(await screen.findByRole("button", { name: "Turn off" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Turn off inheritance" })).toBeDisabled();
   });
 
   it("allows switching inheritance off once the item has its own entry", async () => {
@@ -197,7 +197,7 @@ describe("ManageAccessModal", () => {
     mocks.toggleInheritance.mockResolvedValue({ itemId: "dir-1" });
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
-    const toggle = await screen.findByRole("button", { name: "Turn off" });
+    const toggle = await screen.findByRole("button", { name: "Turn off inheritance" });
     expect(toggle).toBeEnabled();
     await user.click(toggle);
 
@@ -215,7 +215,7 @@ describe("ManageAccessModal", () => {
       />,
     );
 
-    await user.click(await screen.findByRole("button", { name: "Turn on" }));
+    await user.click(await screen.findByRole("button", { name: "Turn on inheritance" }));
 
     await waitFor(() => expect(mocks.toggleInheritance).toHaveBeenCalledWith(true));
   });
@@ -225,9 +225,9 @@ describe("ManageAccessModal", () => {
     mocks.grant.mockRejectedValue(new Error("refused"));
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
-    await user.click(screen.getByRole("combobox", { name: "Users" }));
+    await user.click(screen.getByRole("combobox", { name: "Select user" }));
     await user.click(await screen.findByText("Alice"));
-    await user.click(screen.getByRole("button", { name: "Grant" }));
+    await user.click(screen.getByRole("button", { name: "Add access rule" }));
 
     await waitFor(() => expect(mocks.showErrorToast).toHaveBeenCalled());
     expect(mocks.showSuccessToast).not.toHaveBeenCalled();

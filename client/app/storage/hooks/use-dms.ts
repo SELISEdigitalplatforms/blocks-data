@@ -6,25 +6,26 @@ import {
 } from "@tanstack/react-query";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { dmsContentService } from "../services/dms-content.service";
-import { dmsFolderService } from "../services/dms-folder.service";
+import { dmsDirectoryService } from "../services/dms-directory.service";
+import { iamPrincipalService } from "../services/iam-principal.service";
 import {
   ContentSearchQuery,
-  CreateFolderDto,
-  DeleteFolderDto,
+  CreateDirectoryDto,
+  DeleteDirectoryDto,
   DmsChildrenResponse,
   DmsItemType,
   GrantAccessDto,
-  MoveFolderDto,
+  MoveDirectoryDto,
   ShareContentDto,
   TrashQuery,
-  UpdateFolderDto,
+  UpdateDirectoryDto,
 } from "../models/dms.model";
 
 const getProjectKey = () => useProjectStore.getState().selectedProject?.tenantId || "";
 
 /**
  * Every listing mutation invalidates this prefix rather than an exact key, so a
- * create or delete refreshes the folder regardless of the filters in effect when
+ * create or delete refreshes the directory regardless of the filters in effect when
  * it happened.
  */
 export const dmsChildrenKey = (projectKey: string) => ["dms", "children", projectKey];
@@ -42,16 +43,16 @@ export const dmsPoliciesKey = (projectKey: string, resourceId: string) => [
 const nextCursor = (last: DmsChildrenResponse) => (last.hasMore ? last.nextCursor : undefined);
 
 export const useDmsChildren = (
-  folderId: string | undefined,
+  directoryId: string | undefined,
   options: { type?: DmsItemType; search?: string; limit?: number } = {},
 ) => {
   const projectKey = getProjectKey();
 
   return useInfiniteQuery({
-    queryKey: [...dmsChildrenKey(projectKey), folderId, options.type, options.search],
+    queryKey: [...dmsChildrenKey(projectKey), directoryId, options.type, options.search],
     queryFn: ({ pageParam }) =>
-      dmsFolderService.getChildren({
-        folderId: folderId as string,
+      dmsDirectoryService.getChildren({
+        directoryId: directoryId,
         cursor: pageParam as string | undefined,
         limit: options.limit ?? 50,
         type: options.type,
@@ -59,19 +60,20 @@ export const useDmsChildren = (
       }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: nextCursor,
-    // Without a folder there is nothing to list; the query stays idle rather than
-    // firing a request for `undefined`.
-    enabled: !!folderId,
+    // An unset directory id targets the root listing, which is what the storage page shows
+    // before any directory has been opened. Disable only when the caller is unscoped, not
+    // just because a directory id is missing.
+    enabled: !!projectKey,
   });
 };
 
-export const useDmsFolder = (folderId: string | undefined) => {
+export const useDmsDirectory = (directoryId: string | undefined) => {
   const projectKey = getProjectKey();
 
   return useQuery({
-    queryKey: ["dms", "folder", projectKey, folderId],
-    queryFn: () => dmsFolderService.getFolder(folderId as string),
-    enabled: !!folderId,
+    queryKey: ["dms", "directory", projectKey, directoryId],
+    queryFn: () => dmsDirectoryService.getDirectory(directoryId as string),
+    enabled: !!directoryId,
   });
 };
 
@@ -79,7 +81,7 @@ export const useDmsSearch = (query: ContentSearchQuery) => {
   const projectKey = getProjectKey();
 
   return useInfiniteQuery({
-    queryKey: ["dms", "search", projectKey, query.query, query.folderId, query.type],
+    queryKey: ["dms", "search", projectKey, query.query, query.directoryId, query.type],
     queryFn: ({ pageParam }) =>
       dmsContentService.search({ ...query, cursor: pageParam as string | undefined }),
     initialPageParam: undefined as string | undefined,
@@ -100,52 +102,52 @@ export const useDmsTrash = (query: TrashQuery = {}) => {
   });
 };
 
-export const useCreateDmsFolder = () => {
+export const useCreateDmsDirectory = () => {
   const queryClient = useQueryClient();
   const projectKey = getProjectKey();
 
   return useMutation({
-    mutationKey: ["dms", "folder", "create"],
-    mutationFn: (payload: CreateFolderDto) => dmsFolderService.createFolder(payload),
+    mutationKey: ["dms", "directory", "create"],
+    mutationFn: (payload: CreateDirectoryDto) => dmsDirectoryService.createDirectory(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dmsChildrenKey(projectKey) });
     },
   });
 };
 
-export const useUpdateDmsFolder = () => {
+export const useUpdateDmsDirectory = () => {
   const queryClient = useQueryClient();
   const projectKey = getProjectKey();
 
   return useMutation({
-    mutationKey: ["dms", "folder", "update"],
-    mutationFn: (payload: UpdateFolderDto) => dmsFolderService.updateFolder(payload),
+    mutationKey: ["dms", "directory", "update"],
+    mutationFn: (payload: UpdateDirectoryDto) => dmsDirectoryService.updateDirectory(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dmsChildrenKey(projectKey) });
     },
   });
 };
 
-export const useMoveDmsFolder = () => {
+export const useMoveDmsDirectory = () => {
   const queryClient = useQueryClient();
   const projectKey = getProjectKey();
 
   return useMutation({
-    mutationKey: ["dms", "folder", "move"],
-    mutationFn: (payload: MoveFolderDto) => dmsFolderService.moveFolder(payload),
+    mutationKey: ["dms", "directory", "move"],
+    mutationFn: (payload: MoveDirectoryDto) => dmsDirectoryService.moveDirectory(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dmsChildrenKey(projectKey) });
     },
   });
 };
 
-export const useDeleteDmsFolder = () => {
+export const useDeleteDmsDirectory = () => {
   const queryClient = useQueryClient();
   const projectKey = getProjectKey();
 
   return useMutation({
-    mutationKey: ["dms", "folder", "delete"],
-    mutationFn: (payload: DeleteFolderDto) => dmsFolderService.deleteFolder(payload),
+    mutationKey: ["dms", "directory", "delete"],
+    mutationFn: (payload: DeleteDirectoryDto) => dmsDirectoryService.deleteDirectory(payload),
     onSuccess: () => {
       // A soft delete moves the item into the trash, so both listings are stale.
       queryClient.invalidateQueries({ queryKey: dmsChildrenKey(projectKey) });
@@ -267,8 +269,8 @@ export const useCopyFile = () => {
 
   return useMutation({
     mutationKey: ["dms", "file", "copy"],
-    mutationFn: (payload: { fileId: string; targetFolderId: string; copyAccessPolicies?: boolean }) =>
-      dmsContentService.copyFile(payload.fileId, payload.targetFolderId, payload.copyAccessPolicies),
+    mutationFn: (payload: { fileId: string; targetDirectoryId: string; copyAccessPolicies?: boolean }) =>
+      dmsContentService.copyFile(payload.fileId, payload.targetDirectoryId, payload.copyAccessPolicies),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dmsChildrenKey(projectKey) });
     },
@@ -281,10 +283,52 @@ export const useMoveFile = () => {
 
   return useMutation({
     mutationKey: ["dms", "file", "move"],
-    mutationFn: (payload: { fileId: string; targetFolderId: string }) =>
-      dmsContentService.moveFile(payload.fileId, payload.targetFolderId),
+    mutationFn: (payload: { fileId: string; targetDirectoryId: string }) =>
+      dmsContentService.moveFile(payload.fileId, payload.targetDirectoryId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dmsChildrenKey(projectKey) });
     },
+  });
+};
+
+// ---- IAM principal pickers (back the manage-access dialog) ----
+//
+// Each query is keyed by the search term so typing re-queries the IAM service.
+// `enabled` lets the dialog mount a single hook and only fire when the relevant
+// principal type is picked — otherwise the unused two stay dormant.
+
+export const iamPrincipalKey = (
+  projectKey: string,
+  kind: "users" | "roles" | "organizations",
+  search: string,
+) => ["dms", "iam-principals", projectKey, kind, search];
+
+export const useIamUsers = (search: string, enabled: boolean) => {
+  const projectKey = getProjectKey();
+
+  return useQuery({
+    queryKey: iamPrincipalKey(projectKey, "users", search),
+    queryFn: () => iamPrincipalService.getUsers(search),
+    enabled,
+  });
+};
+
+export const useIamRoles = (search: string, enabled: boolean) => {
+  const projectKey = getProjectKey();
+
+  return useQuery({
+    queryKey: iamPrincipalKey(projectKey, "roles", search),
+    queryFn: () => iamPrincipalService.getRoles(search),
+    enabled,
+  });
+};
+
+export const useIamOrganizations = (search: string, enabled: boolean) => {
+  const projectKey = getProjectKey();
+
+  return useQuery({
+    queryKey: iamPrincipalKey(projectKey, "organizations", search),
+    queryFn: () => iamPrincipalService.getOrganizations(search),
+    enabled,
   });
 };

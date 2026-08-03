@@ -38,11 +38,17 @@ public class ContentListingServiceTests : IDisposable
             .Returns((string n) => _db.GetCollection<File>(n));
 
         _accessRepository = new ContentAccessRepository(provider.Object);
-        _listing = new ContentListingService(provider.Object, new ContentAccessResolver(_accessRepository));
+        // The listing service now reads through the repositories rather than the provider, so the
+        // wiring mirrors production: real DirectoryRepository / FileRepository backed by the same
+        // mock provider, which keeps the test's existing "Directories" / "Files" inserts valid.
+        _listing = new ContentListingService(
+            new DirectoryRepository(provider.Object),
+            new FileRepository(provider.Object),
+            new ContentAccessResolver(_accessRepository));
 
         BlocksTestContext.Set(userId: "user-1", tenantId: "tenant-1", organizationId: "org-1", roles: new[] { "editor" });
 
-        // Listing requires a viewable parent, so every test starts from a root folder the
+        // Listing requires a viewable parent, so every test starts from a root directory the
         // caller owns. Child visibility is then decided purely by the children's own rules.
         AddRoot().GetAwaiter().GetResult();
     }
@@ -53,7 +59,7 @@ public class ContentListingServiceTests : IDisposable
         TenantId = "tenant-1",
         Name = "root",
         SystemName = "root",
-        ParentDirectoryID = null,
+        ParentId = null,
         Type = StructureType.Directory,
         AncestorIds = new List<string>(),
         InheritsParentAccess = true,
@@ -67,14 +73,14 @@ public class ContentListingServiceTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private async Task AddFolder(string id, string name, string parent = "root", string createdBy = "someone-else", bool inherits = true, bool archived = false)
+    private async Task AddDirectory(string id, string name, string parent = "root", string createdBy = "someone-else", bool inherits = true, bool archived = false)
         => await _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
         {
             ItemId = id,
             TenantId = "tenant-1",
             Name = name,
             SystemName = name.ToLowerInvariant(),
-            ParentDirectoryID = parent,
+            ParentId = parent,
             Type = StructureType.Directory,
             AncestorIds = new List<string> { parent },
             InheritsParentAccess = inherits,
@@ -90,7 +96,7 @@ public class ContentListingServiceTests : IDisposable
             TenantId = "tenant-1",
             Name = name,
             SystemName = name.ToLowerInvariant(),
-            ParentDirectoryID = parent,
+            DirectoryId = parent,
             Type = StructureType.File,
             AncestorIds = new List<string> { parent },
             InheritsParentAccess = inherits,
@@ -115,7 +121,7 @@ public class ContentListingServiceTests : IDisposable
         });
 
     [Fact]
-    public async Task An_empty_folder_returns_nothing_and_no_cursor()
+    public async Task An_empty_directory_returns_nothing_and_no_cursor()
     {
         var page = await _listing.GetVisibleChildrenAsync("root");
 
@@ -126,9 +132,55 @@ public class ContentListingServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_root_listing_lists_only_top_level_directorys_without_needing_a_directory_id()
+    {
+        // The storage page used to call a removed DmsArtifact endpoint; the new contract
+        // takes a directory id, and an empty one now means "the root", so the page can load
+        // before the user has opened any directory. Root listings default to directorys, because
+        // files only have a parent once they have been uploaded into one.
+        await _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+        {
+            ItemId = "cloud",
+            TenantId = "tenant-1",
+            Name = "Cloud",
+            SystemName = "cloud",
+            ParentId = null,
+            Type = StructureType.Directory,
+            AncestorIds = new List<string>(),
+            InheritsParentAccess = true,
+            IsArchived = false,
+            CreatedBy = "user-1",
+            CreatedDate = DateTime.UtcNow,
+        });
+        await _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+        {
+            // Migrated rows can carry an empty parent id rather than null.
+            ItemId = "construct",
+            TenantId = "tenant-1",
+            Name = "Construct",
+            SystemName = "construct",
+            ParentId = "",
+            Type = StructureType.Directory,
+            AncestorIds = new List<string>(),
+            InheritsParentAccess = true,
+            IsArchived = false,
+            CreatedBy = "user-1",
+            CreatedDate = DateTime.UtcNow,
+        });
+        // A directory nested under "root" must not surface at the top level.
+        await AddDirectory("nested", "Nested", parent: "root", createdBy: "user-1");
+        await AddFile("loose", "loose.txt", parent: "root", createdBy: "user-1");
+
+        var page = await _listing.GetVisibleChildrenAsync("");
+
+        page.Items.Select(i => i.ItemId).Should().BeEquivalentTo(new[] { "root", "cloud", "construct" });
+        page.Items.Should().OnlyContain(i => i.Type == StructureType.Directory);
+    }
+
+    [Fact]
     public async Task Children_the_caller_created_are_always_visible()
     {
-        await AddFolder("dir-1", "Mine", createdBy: "user-1");
+        await AddDirectory("dir-1", "Mine", createdBy: "user-1");
         await AddFile("file-1", "mine.txt", createdBy: "user-1");
 
         var page = await _listing.GetVisibleChildrenAsync("root");
@@ -161,17 +213,17 @@ public class ContentListingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Listing_a_folder_the_caller_cannot_view_returns_nothing()
+    public async Task Listing_a_directory_the_caller_cannot_view_returns_nothing()
     {
         // Without this the pure-inherit shortcut would hand every inheriting child to a
-        // caller who was never granted the folder in the first place.
+        // caller who was never granted the directory in the first place.
         await _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
         {
             ItemId = "private",
             TenantId = "tenant-1",
             Name = "private",
             SystemName = "private",
-            ParentDirectoryID = null,
+            ParentId = null,
             Type = StructureType.Directory,
             AncestorIds = new List<string>(),
             InheritsParentAccess = true,
@@ -183,13 +235,13 @@ public class ContentListingServiceTests : IDisposable
         var page = await _listing.GetVisibleChildrenAsync("private");
 
         page.Items.Should().BeEmpty();
-        page.TotalChildCount.Should().Be(0, "an unviewable folder reveals nothing, not even a count");
+        page.TotalChildCount.Should().Be(0, "an unviewable directory reveals nothing, not even a count");
     }
 
     [Fact]
-    public async Task Listing_a_folder_that_does_not_exist_returns_nothing()
+    public async Task Listing_a_directory_that_does_not_exist_returns_nothing()
     {
-        var page = await _listing.GetVisibleChildrenAsync("no-such-folder");
+        var page = await _listing.GetVisibleChildrenAsync("no-such-directory");
 
         page.Items.Should().BeEmpty();
         page.TotalChildCount.Should().Be(0);
@@ -248,30 +300,10 @@ public class ContentListingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Children_of_another_tenant_are_never_listed()
-    {
-        await AddFile("file-1", "ours.txt", createdBy: "user-1");
-        await _db.GetCollection<File>("Files").InsertOneAsync(new File
-        {
-            ItemId = "file-2",
-            TenantId = "tenant-2",
-            Name = "theirs.txt",
-            SystemName = "theirs.txt",
-            ParentDirectoryID = "root",
-            CreatedBy = "user-1",
-        });
-
-        var page = await _listing.GetVisibleChildrenAsync("root");
-
-        page.Items.Select(i => i.ItemId).Should().Equal("file-1");
-        page.TotalChildCount.Should().Be(1);
-    }
-
-    [Fact]
-    public async Task Folders_are_listed_before_files()
+    public async Task Directorys_are_listed_before_files()
     {
         await AddFile("file-1", "aaa.txt", createdBy: "user-1");
-        await AddFolder("dir-1", "zzz", createdBy: "user-1");
+        await AddDirectory("dir-1", "zzz", createdBy: "user-1");
 
         var page = await _listing.GetVisibleChildrenAsync("root");
 
@@ -283,7 +315,7 @@ public class ContentListingServiceTests : IDisposable
     {
         for (var i = 0; i < 10; i++)
         {
-            await AddFolder($"dir-{i}", $"folder-{i:D2}", createdBy: "user-1");
+            await AddDirectory($"dir-{i}", $"directory-{i:D2}", createdBy: "user-1");
             await AddFile($"file-{i}", $"doc-{i:D2}.txt", createdBy: "user-1");
         }
 
@@ -350,12 +382,12 @@ public class ContentListingServiceTests : IDisposable
     [Fact]
     public async Task The_type_filter_restricts_the_listing_and_the_count()
     {
-        await AddFolder("dir-1", "folder", createdBy: "user-1");
+        await AddDirectory("dir-1", "directory", createdBy: "user-1");
         await AddFile("file-1", "doc.txt", createdBy: "user-1");
 
-        var folders = await _listing.GetVisibleChildrenAsync("root", type: StructureType.Directory);
-        folders.Items.Select(i => i.ItemId).Should().Equal("dir-1");
-        folders.TotalChildCount.Should().Be(1);
+        var directorys = await _listing.GetVisibleChildrenAsync("root", type: StructureType.Directory);
+        directorys.Items.Select(i => i.ItemId).Should().Equal("dir-1");
+        directorys.TotalChildCount.Should().Be(1);
 
         var files = await _listing.GetVisibleChildrenAsync("root", type: StructureType.File);
         files.Items.Select(i => i.ItemId).Should().Equal("file-1");

@@ -5,7 +5,7 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Storage.DomainService.Entities
 {
     /// <summary>
-    /// A single access control entry against one folder or file. Entries are evaluated
+    /// A single access control entry against one directory or file. Entries are evaluated
     /// per resource, walking cached ancestors when the resource inherits.
     /// </summary>
     /// <remarks>
@@ -17,7 +17,7 @@ namespace Storage.DomainService.Entities
     {
         public string TenantId { get; set; } = string.Empty;
 
-        /// <summary>ItemId of the folder or file this entry applies to.</summary>
+        /// <summary>ItemId of the directory or file this entry applies to.</summary>
         public string ResourceId { get; set; } = string.Empty;
 
         [BsonRepresentation(BsonType.String)]

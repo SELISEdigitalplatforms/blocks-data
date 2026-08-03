@@ -49,14 +49,14 @@ export function itemActions(item: { permissions?: DmsPermissionFlags | null }): 
 }
 
 /**
- * Whether the current folder allows adding content. Upload and create-folder
+ * Whether the current directory allows adding content. Upload and create-directory
  * are writes into the parent, so they follow the parent's `canEdit`.
  *
  * A missing parent means the root listing, where creation is gated server-side
  * by a separate permission the client cannot see; the button is offered and the
  * server is left to refuse, rather than hiding a capability the user may hold.
  */
-export function canAddToFolder(parent?: { permissions?: DmsPermissionFlags | null } | null): boolean {
+export function canAddToDirectory(parent?: { permissions?: DmsPermissionFlags | null } | null): boolean {
   if (!parent) {
     return true;
   }

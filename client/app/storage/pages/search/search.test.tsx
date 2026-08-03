@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   items: [] as unknown[],
-  lastQuery: {} as { query?: string; folderId?: string; type?: string },
+  lastQuery: {} as { query?: string; directoryId?: string; type?: string },
   navigate: vi.fn(),
   fetchNextPage: vi.fn(),
   hasNextPage: false,
@@ -21,7 +21,7 @@ vi.mock("@/hooks/use-scoped-path", () => ({
 }));
 
 vi.mock("../../hooks/use-dms", () => ({
-  useDmsSearch: (query: { query?: string; folderId?: string; type?: string }) => {
+  useDmsSearch: (query: { query?: string; directoryId?: string; type?: string }) => {
     mocks.lastQuery = query;
     return {
       data: { pages: [{ items: mocks.items, totalChildCount: mocks.items.length, hasMore: false }] },
@@ -83,19 +83,19 @@ describe("StorageSearch", () => {
     expect(mocks.lastQuery.query).toBe("report");
   });
 
-  it("passes a folder scope through when the url carries one", () => {
-    renderAt("/app/storage/search?q=report&folderId=dir-9");
+  it("passes a directory scope through when the url carries one", () => {
+    renderAt("/app/storage/search?q=report&directoryId=dir-9");
 
-    expect(mocks.lastQuery.folderId).toBe("dir-9");
+    expect(mocks.lastQuery.directoryId).toBe("dir-9");
   });
 
   it("narrows to one kind", async () => {
     const user = userEvent.setup();
     renderAt("/app/storage/search?q=report");
 
-    await user.click(screen.getByRole("button", { name: "Folders" }));
+    await user.click(screen.getByRole("button", { name: "Directorys" }));
 
-    await waitFor(() => expect(mocks.lastQuery.type).toBe("folder"));
+    await waitFor(() => expect(mocks.lastQuery.type).toBe("directory"));
   });
 
   it("sends no type filter when All is selected", async () => {
@@ -109,14 +109,14 @@ describe("StorageSearch", () => {
     await waitFor(() => expect(mocks.lastQuery.type).toBeUndefined());
   });
 
-  it("opens a folder at itself", async () => {
+  it("opens a directory at itself", async () => {
     const user = userEvent.setup();
-    mocks.items = [file({ itemId: "dir-2", name: "Reports", type: "folder" })];
+    mocks.items = [file({ itemId: "dir-2", name: "Reports", type: "directory" })];
     renderAt("/app/storage/search?q=rep");
 
     await user.click(await screen.findByRole("button", { name: /Reports/ }));
 
-    expect(mocks.navigate).toHaveBeenCalledWith("/app/storage?folderId=dir-2");
+    expect(mocks.navigate).toHaveBeenCalledWith("/app/storage?directoryId=dir-2");
   });
 
   it("opens a file at its parent, since there is no file route to land on", async () => {
@@ -126,7 +126,7 @@ describe("StorageSearch", () => {
 
     await user.click(await screen.findByRole("button", { name: /report\.pdf/ }));
 
-    expect(mocks.navigate).toHaveBeenCalledWith("/app/storage?folderId=dir-1");
+    expect(mocks.navigate).toHaveBeenCalledWith("/app/storage?directoryId=dir-1");
   });
 
   it("says so when nothing matches", async () => {
@@ -140,7 +140,7 @@ describe("StorageSearch", () => {
     const user = userEvent.setup();
     renderAt();
 
-    await user.type(screen.getByPlaceholderText("Search files and folders"), "budget");
+    await user.type(screen.getByPlaceholderText("Search files and directorys"), "budget");
 
     await waitFor(() => expect(mocks.lastQuery.query).toBe("budget"));
   });
@@ -149,7 +149,7 @@ describe("StorageSearch", () => {
     const user = userEvent.setup();
     renderAt("/app/storage/search?q=budget");
 
-    const box = screen.getByPlaceholderText("Search files and folders");
+    const box = screen.getByPlaceholderText("Search files and directorys");
     await user.clear(box);
 
     await waitFor(() => expect(mocks.lastQuery.query).toBe(""));

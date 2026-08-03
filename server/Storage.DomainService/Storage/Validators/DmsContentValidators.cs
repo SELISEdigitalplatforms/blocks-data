@@ -6,7 +6,7 @@ using Storage.DomainService.Services;
 namespace Storage.DomainService.Storage.Validators
 {
     // Shape and range rules only. Anything needing a database read stays in the service:
-    // name uniqueness, whether a folder exists, and whether the caller may act on it.
+    // name uniqueness, whether a directory exists, and whether the caller may act on it.
 
     internal static class DmsValidationRules
     {
@@ -32,9 +32,9 @@ namespace Storage.DomainService.Storage.Validators
             && name != "..";
     }
 
-    public class CreateFolderRequestValidator : AbstractValidator<global::DomainService.Storage.Dms.CreateFolderRequest>
+    public class CreateDirectoryRequestValidator : AbstractValidator<global::DomainService.Storage.Dms.CreateDirectoryRequest>
     {
-        public CreateFolderRequestValidator()
+        public CreateDirectoryRequestValidator()
         {
             RuleFor(r => r.Name)
                 .NotEmpty()
@@ -46,11 +46,11 @@ namespace Storage.DomainService.Storage.Validators
         }
     }
 
-    public class UpdateFolderRequestValidator : AbstractValidator<UpdateFolderRequest>
+    public class UpdateDirectoryRequestValidator : AbstractValidator<UpdateDirectoryRequest>
     {
-        public UpdateFolderRequestValidator()
+        public UpdateDirectoryRequestValidator()
         {
-            RuleFor(r => r.FolderId).NotEmpty();
+            RuleFor(r => r.DirectoryId).NotEmpty();
 
             // Name is optional on an update, but must be usable when supplied.
             RuleFor(r => r.Name)
@@ -63,11 +63,11 @@ namespace Storage.DomainService.Storage.Validators
         }
     }
 
-    public class GetFolderChildrenRequestValidator : AbstractValidator<GetFolderChildrenRequest>
+    public class GetDirectoryChildrenRequestValidator : AbstractValidator<GetDirectoryChildrenRequest>
     {
-        public GetFolderChildrenRequestValidator()
+        public GetDirectoryChildrenRequestValidator()
         {
-            RuleFor(r => r.FolderId).NotEmpty();
+            // An empty directory id lists root directorys, so it is allowed rather than rejected.
             RuleFor(r => r.Limit).InclusiveBetween(1, DmsValidationRules.MaxPageSize);
             RuleFor(r => r.Cursor).Must(DmsValidationRules.BeADecodableCursor).WithMessage("Cursor is not a valid continuation token.");
             RuleFor(r => r.Search).MaximumLength(DmsValidationRules.MaxNameLength);
@@ -79,7 +79,7 @@ namespace Storage.DomainService.Storage.Validators
         public CopyFileRequestValidator()
         {
             RuleFor(r => r.FileId).NotEmpty();
-            RuleFor(r => r.TargetFolderId).NotEmpty();
+            RuleFor(r => r.TargetDirectoryId).NotEmpty();
         }
     }
 
@@ -88,23 +88,23 @@ namespace Storage.DomainService.Storage.Validators
         public MoveFileRequestValidator()
         {
             RuleFor(r => r.FileId).NotEmpty();
-            RuleFor(r => r.TargetFolderId).NotEmpty();
+            RuleFor(r => r.TargetDirectoryId).NotEmpty();
         }
     }
 
-    public class MoveFolderRequestValidator : AbstractValidator<MoveFolderRequest>
+    public class MoveDirectoryRequestValidator : AbstractValidator<MoveDirectoryRequest>
     {
-        public MoveFolderRequestValidator()
+        public MoveDirectoryRequestValidator()
         {
-            RuleFor(r => r.FolderId).NotEmpty();
+            RuleFor(r => r.DirectoryId).NotEmpty();
 
             // The target may be empty, meaning the top level, but it must never be the
-            // folder itself. The service still checks the descendant case, which needs
+            // directory itself. The service still checks the descendant case, which needs
             // the stored hierarchy.
-            RuleFor(r => r.TargetFolderId)
-                .NotEqual(r => r.FolderId)
-                .When(r => !string.IsNullOrEmpty(r.TargetFolderId))
-                .WithMessage("A folder cannot be moved into itself.");
+            RuleFor(r => r.TargetDirectoryId)
+                .NotEqual(r => r.DirectoryId)
+                .When(r => !string.IsNullOrEmpty(r.TargetDirectoryId))
+                .WithMessage("A directory cannot be moved into itself.");
         }
     }
 

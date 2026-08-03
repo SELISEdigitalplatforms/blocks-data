@@ -6,29 +6,33 @@ using File = Storage.DomainService.Entities.File;
 namespace Storage.DomainService.Services
 {
     /// <summary>Outcome of a move, so callers can distinguish refusals from failures.</summary>
-    public enum MoveFolderResult
+    public enum MoveDirectoryResult
     {
         Moved = 0,
         SourceNotFound = 1,
         TargetNotFound = 2,
-        /// <summary>The target is the folder itself or one of its descendants.</summary>
+        /// <summary>The target is the directory itself or one of its descendants.</summary>
         WouldCreateCycle = 3,
         /// <summary>A sibling in the target already uses this name.</summary>
         NameConflict = 4,
+        /// <summary>
+        /// The source is a default/system root (seeded from a template) and cannot be moved.
+        /// </summary>
+        IsDefault = 5,
     }
 
     public interface IContentHierarchyService
     {
-        /// <summary>Ancestors of a folder, ordered root first. Empty for a root folder.</summary>
-        Task<List<Directory>> GetAncestorsAsync(string folderId, CancellationToken cancellationToken = default);
+        /// <summary>Ancestors of a directory, ordered root first. Empty for a root directory.</summary>
+        Task<List<Directory>> GetAncestorsAsync(string directoryId, CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Recomputes cached ancestry and path for a folder and everything beneath it.
+        /// Recomputes cached ancestry and path for a directory and everything beneath it.
         /// Safe to run on an already-consistent subtree.
         /// </summary>
-        Task<int> RebuildAncestorPathsAsync(string folderId, CancellationToken cancellationToken = default);
+        Task<int> RebuildAncestorPathsAsync(string directoryId, CancellationToken cancellationToken = default);
 
-        Task<MoveFolderResult> MoveFolderAsync(string folderId, string? newParentId, CancellationToken cancellationToken = default);
+        Task<MoveDirectoryResult> MoveDirectoryAsync(string directoryId, string? newParentId, CancellationToken cancellationToken = default);
     }
 
     /// <summary>
@@ -38,7 +42,7 @@ namespace Storage.DomainService.Services
     /// <remarks>
     /// Placed alongside the other content services rather than on
     /// <c>DirectoryRepository</c> as the specification sketches, because it spans the
-    /// folder and file collections and carries real logic that deserves direct test
+    /// directory and file collections and carries real logic that deserves direct test
     /// coverage; the existing repositories are thin wrappers marked
     /// <c>ExcludeFromCodeCoverage</c>.
     /// </remarks>
@@ -57,53 +61,51 @@ namespace Storage.DomainService.Services
             _dbContextProvider = dbContextProvider;
         }
 
-        private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
-
         private IMongoCollection<Directory> Directories =>
             _dbContextProvider.GetCollection<Directory>("Directories");
 
         private IMongoCollection<File> Files =>
             _dbContextProvider.GetCollection<File>("Files");
 
-        public async Task<List<Directory>> GetAncestorsAsync(string folderId, CancellationToken cancellationToken = default)
+        public async Task<List<Directory>> GetAncestorsAsync(string directoryId, CancellationToken cancellationToken = default)
         {
             var chain = new List<Directory>();
-            if (string.IsNullOrEmpty(folderId)) return chain;
+            if (string.IsNullOrEmpty(directoryId)) return chain;
 
-            var current = await FindFolderAsync(folderId, cancellationToken);
+            var current = await FindDirectoryAsync(directoryId, cancellationToken);
             if (current is null) return chain;
 
             // Walking up by parent pointer rather than trusting the cached AncestorIds,
             // because this method is what repairs that cache.
             var visited = new HashSet<string>(StringComparer.Ordinal) { current.ItemId };
-            var parentId = current.ParentDirectoryID;
+            var parentId = current.ParentId;
 
             for (var depth = 0; depth < MaxDepth && !string.IsNullOrEmpty(parentId); depth++)
             {
                 if (!visited.Add(parentId)) break;
 
-                var parent = await FindFolderAsync(parentId, cancellationToken);
+                var parent = await FindDirectoryAsync(parentId, cancellationToken);
                 if (parent is null) break;
 
                 chain.Add(parent);
-                parentId = parent.ParentDirectoryID;
+                parentId = parent.ParentId;
             }
 
             chain.Reverse();
             return chain;
         }
 
-        public async Task<int> RebuildAncestorPathsAsync(string folderId, CancellationToken cancellationToken = default)
+        public async Task<int> RebuildAncestorPathsAsync(string directoryId, CancellationToken cancellationToken = default)
         {
-            var root = await FindFolderAsync(folderId, cancellationToken);
+            var root = await FindDirectoryAsync(directoryId, cancellationToken);
             if (root is null) return 0;
 
-            var ancestors = await GetAncestorsAsync(folderId, cancellationToken);
+            var ancestors = await GetAncestorsAsync(directoryId, cancellationToken);
             var rootAncestorIds = ancestors.Select(a => a.ItemId).ToList();
             var rootPath = BuildPath(ancestors.Select(a => a.Name), root.Name);
 
             var updated = 0;
-            updated += await ApplyFolderAsync(root.ItemId, rootAncestorIds, rootPath, cancellationToken);
+            updated += await ApplyDirectoryAsync(root.ItemId, rootAncestorIds, rootPath, cancellationToken);
             updated += await ApplyFilesAsync(root.ItemId, Append(rootAncestorIds, root.ItemId), cancellationToken);
 
             // Breadth-first so each level is written once. The visited set is what stops a
@@ -120,7 +122,7 @@ namespace Storage.DomainService.Services
                 var (parentId, parentAncestors, parentPath) = queue.Dequeue();
 
                 var children = await Directories
-                    .Find(TenantScoped(Builders<Directory>.Filter.Eq(d => d.ParentDirectoryID, parentId)))
+                    .Find(Builders<Directory>.Filter.Eq(d => d.ParentId, parentId))
                     .ToListAsync(cancellationToken);
 
                 foreach (var child in children)
@@ -128,7 +130,7 @@ namespace Storage.DomainService.Services
                     if (!visited.Add(child.ItemId)) continue;
 
                     var childPath = $"{parentPath}/{child.Name}";
-                    updated += await ApplyFolderAsync(child.ItemId, parentAncestors, childPath, cancellationToken);
+                    updated += await ApplyDirectoryAsync(child.ItemId, parentAncestors, childPath, cancellationToken);
 
                     var childAncestors = Append(parentAncestors, child.ItemId);
                     updated += await ApplyFilesAsync(child.ItemId, childAncestors, cancellationToken);
@@ -140,48 +142,55 @@ namespace Storage.DomainService.Services
             return updated;
         }
 
-        public async Task<MoveFolderResult> MoveFolderAsync(string folderId, string? newParentId, CancellationToken cancellationToken = default)
+        public async Task<MoveDirectoryResult> MoveDirectoryAsync(string directoryId, string? newParentId, CancellationToken cancellationToken = default)
         {
-            var folder = await FindFolderAsync(folderId, cancellationToken);
-            if (folder is null) return MoveFolderResult.SourceNotFound;
+            var directory = await FindDirectoryAsync(directoryId, cancellationToken);
+            if (directory is null) return MoveDirectoryResult.SourceNotFound;
 
-            if (string.Equals(folderId, newParentId, StringComparison.Ordinal))
+            // Default directories are system roots and cannot be relocated. They are
+            // marked by a "default" entry in their Tags array.
+            if (directory.Tags?.Contains("default", StringComparer.OrdinalIgnoreCase) == true)
             {
-                return MoveFolderResult.WouldCreateCycle;
+                return MoveDirectoryResult.IsDefault;
+            }
+
+            if (string.Equals(directoryId, newParentId, StringComparison.Ordinal))
+            {
+                return MoveDirectoryResult.WouldCreateCycle;
             }
 
             if (!string.IsNullOrEmpty(newParentId))
             {
-                var target = await FindFolderAsync(newParentId, cancellationToken);
-                if (target is null) return MoveFolderResult.TargetNotFound;
+                var target = await FindDirectoryAsync(newParentId, cancellationToken);
+                if (target is null) return MoveDirectoryResult.TargetNotFound;
 
-                // Moving a folder beneath itself detaches the whole subtree from the root
+                // Moving a directory beneath itself detaches the whole subtree from the root
                 // and leaves a ring that no walk can escape, so it is refused rather than
                 // repaired afterwards.
-                if (await IsDescendantOfAsync(newParentId, folderId, cancellationToken))
+                if (await IsDescendantOfAsync(newParentId, directoryId, cancellationToken))
                 {
-                    return MoveFolderResult.WouldCreateCycle;
+                    return MoveDirectoryResult.WouldCreateCycle;
                 }
 
                 var clash = await Directories
-                    .Find(TenantScoped(
-                        Builders<Directory>.Filter.Eq(d => d.ParentDirectoryID, newParentId)
-                        & Builders<Directory>.Filter.Eq(d => d.Name, folder.Name)
-                        & Builders<Directory>.Filter.Ne(d => d.ItemId, folderId)))
+                    .Find(
+                        Builders<Directory>.Filter.Eq(d => d.ParentId, newParentId)
+                        & Builders<Directory>.Filter.Eq(d => d.Name, directory.Name)
+                        & Builders<Directory>.Filter.Ne(d => d.ItemId, directoryId))
                     .AnyAsync(cancellationToken);
 
-                if (clash) return MoveFolderResult.NameConflict;
+                if (clash) return MoveDirectoryResult.NameConflict;
             }
 
             await Directories.UpdateOneAsync(
-                TenantScoped(Builders<Directory>.Filter.Eq(d => d.ItemId, folderId)),
+                Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId),
                 Builders<Directory>.Update
-                    .Set(d => d.ParentDirectoryID, string.IsNullOrEmpty(newParentId) ? null : newParentId)
+                    .Set(d => d.ParentId, string.IsNullOrEmpty(newParentId) ? null : newParentId)
                     .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
                 cancellationToken: cancellationToken);
 
-            await RebuildAncestorPathsAsync(folderId, cancellationToken);
-            return MoveFolderResult.Moved;
+            await RebuildAncestorPathsAsync(directoryId, cancellationToken);
+            return MoveDirectoryResult.Moved;
         }
 
         /// <summary>Walks up from <paramref name="candidateId"/> looking for <paramref name="ancestorId"/>.</summary>
@@ -195,22 +204,22 @@ namespace Storage.DomainService.Services
                 if (string.Equals(currentId, ancestorId, StringComparison.Ordinal)) return true;
                 if (!visited.Add(currentId)) break;
 
-                var current = await FindFolderAsync(currentId, cancellationToken);
+                var current = await FindDirectoryAsync(currentId, cancellationToken);
                 if (current is null) break;
-                currentId = current.ParentDirectoryID;
+                currentId = current.ParentId;
             }
 
             return false;
         }
 
-        private Task<Directory> FindFolderAsync(string folderId, CancellationToken cancellationToken) =>
-            Directories.Find(TenantScoped(Builders<Directory>.Filter.Eq(d => d.ItemId, folderId)))
+        private Task<Directory> FindDirectoryAsync(string directoryId, CancellationToken cancellationToken) =>
+            Directories.Find(Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId))
                 .FirstOrDefaultAsync(cancellationToken);
 
-        private async Task<int> ApplyFolderAsync(string folderId, List<string> ancestorIds, string fullPath, CancellationToken cancellationToken)
+        private async Task<int> ApplyDirectoryAsync(string directoryId, List<string> ancestorIds, string fullPath, CancellationToken cancellationToken)
         {
             var result = await Directories.UpdateOneAsync(
-                TenantScoped(Builders<Directory>.Filter.Eq(d => d.ItemId, folderId)),
+                Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId),
                 Builders<Directory>.Update
                     .Set(d => d.AncestorIds, ancestorIds)
                     .Set(d => d.FullPath, fullPath),
@@ -219,21 +228,15 @@ namespace Storage.DomainService.Services
             return (int)result.ModifiedCount;
         }
 
-        private async Task<int> ApplyFilesAsync(string folderId, List<string> ancestorIds, CancellationToken cancellationToken)
+        private async Task<int> ApplyFilesAsync(string directoryId, List<string> ancestorIds, CancellationToken cancellationToken)
         {
             var result = await Files.UpdateManyAsync(
-                TenantScoped(Builders<File>.Filter.Eq(f => f.ParentDirectoryID, folderId)),
+                Builders<File>.Filter.Eq(f => f.DirectoryId, directoryId),
                 Builders<File>.Update.Set(f => f.AncestorIds, ancestorIds),
                 cancellationToken: cancellationToken);
 
             return (int)result.ModifiedCount;
         }
-
-        private static FilterDefinition<Directory> TenantScoped(FilterDefinition<Directory> filter) =>
-            Builders<Directory>.Filter.Eq(d => d.TenantId, TenantId) & filter;
-
-        private static FilterDefinition<File> TenantScoped(FilterDefinition<File> filter) =>
-            Builders<File>.Filter.Eq(f => f.TenantId, TenantId) & filter;
 
         private static List<string> Append(IEnumerable<string> existing, string id) =>
             existing.Concat(new[] { id }).ToList();

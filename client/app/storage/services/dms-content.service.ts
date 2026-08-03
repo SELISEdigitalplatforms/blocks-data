@@ -10,14 +10,14 @@ import {
   ShareContentDto,
   TrashQuery,
 } from "../models/dms.model";
-import { toQuery } from "./dms-folder.service";
+import { toQuery } from "./dms-directory.service";
 
 export class DmsContentService {
   search(query: ContentSearchQuery): Promise<DmsChildrenResponse> {
     return http.get(
       `${CONTENT_ENDPOINTS.SEARCH}${toQuery({
         query: query.query,
-        folderId: query.folderId,
+        directoryId: query.directoryId,
         type: query.type,
         cursor: query.cursor,
         limit: query.limit,
@@ -84,14 +84,14 @@ export class DmsContentService {
 
   copyFile(
     fileId: string,
-    targetFolderId: string,
+    targetDirectoryId: string,
     copyAccessPolicies = false,
   ): Promise<{ fileId: string }> {
-    return http.post(DMS_FILE_ENDPOINTS.COPY_FILE, { fileId, targetFolderId, copyAccessPolicies });
+    return http.post(DMS_FILE_ENDPOINTS.COPY_FILE, { fileId, targetDirectoryId, copyAccessPolicies });
   }
 
-  moveFile(fileId: string, targetFolderId: string): Promise<{ fileId: string }> {
-    return http.post(DMS_FILE_ENDPOINTS.MOVE_FILE, { fileId, targetFolderId });
+  moveFile(fileId: string, targetDirectoryId: string): Promise<{ fileId: string }> {
+    return http.post(DMS_FILE_ENDPOINTS.MOVE_FILE, { fileId, targetDirectoryId });
   }
 }
 

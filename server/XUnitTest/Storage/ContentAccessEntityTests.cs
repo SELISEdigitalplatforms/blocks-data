@@ -26,8 +26,8 @@ public class ContentAccessEntityTests
     {
         ItemId = Guid.NewGuid().ToString(),
         TenantId = "tenant-1",
-        ResourceId = "folder-1",
-        ResourceType = ContentResourceType.Folder,
+        ResourceId = "directory-1",
+        ResourceType = ContentResourceType.Directory,
         PrincipalType = ContentPrincipalType.Role,
         PrincipalId = "editors",
         Permission = ContentPermission.Owner,
@@ -50,7 +50,7 @@ public class ContentAccessEntityTests
             .Find(Builders<BsonDocument>.Filter.Eq("_id", policy.ItemId))
             .SingleAsync();
 
-        raw["ResourceType"].AsString.Should().Be("Folder");
+        raw["ResourceType"].AsString.Should().Be("Directory");
         raw["PrincipalType"].AsString.Should().Be("Role");
         raw["Permission"].AsString.Should().Be("Owner");
         raw["Effect"].AsString.Should().Be("Allow");
@@ -67,8 +67,8 @@ public class ContentAccessEntityTests
         var found = await typed.Find(p => p.ItemId == policy.ItemId).SingleAsync();
 
         found.TenantId.Should().Be("tenant-1");
-        found.ResourceId.Should().Be("folder-1");
-        found.ResourceType.Should().Be(ContentResourceType.Folder);
+        found.ResourceId.Should().Be("directory-1");
+        found.ResourceType.Should().Be(ContentResourceType.Directory);
         found.PrincipalType.Should().Be(ContentPrincipalType.Role);
         found.PrincipalId.Should().Be("editors");
         found.Permission.Should().Be(ContentPermission.Owner);
@@ -181,6 +181,6 @@ public class ContentAccessEntityTests
         Enum.GetNames<ContentEffect>().Should().BeEquivalentTo("Allow", "Deny");
         Enum.GetNames<ContentPrincipalType>().Should().BeEquivalentTo(
             "User", "Role", "Everyone", "Organization");
-        Enum.GetNames<ContentResourceType>().Should().BeEquivalentTo("Folder", "File");
+        Enum.GetNames<ContentResourceType>().Should().BeEquivalentTo("Directory", "File");
     }
 }

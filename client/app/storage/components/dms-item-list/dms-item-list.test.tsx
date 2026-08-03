@@ -53,14 +53,14 @@ describe("DmsItemList", () => {
     expect(screen.getByText("The trash is empty.")).toBeInTheDocument();
   });
 
-  it("labels a folder as such and formats a file size", () => {
+  it("labels a directory as such and formats a file size", () => {
     render(
       <DmsItemList
-        items={[item({ itemId: "d1", name: "Reports", type: "folder" }), item()]}
+        items={[item({ itemId: "d1", name: "Reports", type: "directory" }), item()]}
       />,
     );
 
-    expect(screen.getByText("Folder")).toBeInTheDocument();
+    expect(screen.getByText("Directory")).toBeInTheDocument();
     expect(screen.getByText("2.0 KB")).toBeInTheDocument();
   });
 

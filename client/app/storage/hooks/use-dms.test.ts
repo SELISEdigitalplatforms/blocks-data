@@ -7,6 +7,25 @@ vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: Object.assign(() => ({ selectedProject: { tenantId: "tenant-1" } }), {
     getState: () => ({ selectedProject: { tenantId: "tenant-1" } }),
   }),
+  // The IAM principal service imports `serviceInstances` from `@/lib/http-client`,
+  // which in turn `new`s an HttpClient from genesis-os. The hooks under test do
+  // not call it, so a no-op constructor keeps module evaluation cheap.
+  HttpClient: vi.fn().mockImplementation(() => ({
+    get: vi.fn(),
+    post: vi.fn(),
+    put: vi.fn(),
+    patch: vi.fn(),
+    delete: vi.fn(),
+    stream: vi.fn(),
+  })),
+}));
+
+vi.mock("../services/iam-principal.service", () => ({
+  iamPrincipalService: {
+    getUsers: vi.fn(),
+    getRoles: vi.fn(),
+    getOrganizations: vi.fn(),
+  },
 }));
 
 vi.mock("../services/dms-directory.service", () => ({

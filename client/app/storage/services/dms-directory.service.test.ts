@@ -36,7 +36,7 @@ describe("DmsDirectoryService", () => {
   it("reads a directory by id", async () => {
     await service.getDirectory("dir-1");
 
-    expect(http.get).toHaveBeenCalledWith(expect.stringContaining("/Directorys/GetDirectory?directoryId=dir-1"));
+    expect(http.get).toHaveBeenCalledWith(expect.stringContaining("/Directories/GetDirectory?directoryId=dir-1"));
   });
 
   it("passes every listing filter through", async () => {
@@ -60,7 +60,7 @@ describe("DmsDirectoryService", () => {
     await service.createDirectory({ name: "Reports", parentDirectoryId: "root" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Directorys/CreateDirectory"),
+      expect.stringContaining("/Directories/CreateDirectory"),
       expect.objectContaining({ name: "Reports", parentDirectoryId: "root" }),
     );
   });
@@ -71,7 +71,7 @@ describe("DmsDirectoryService", () => {
     await service.createDirectory({ name: "Reports" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Directorys/CreateRootDirectory"),
+      expect.stringContaining("/Directories/CreateRootDirectory"),
       expect.objectContaining({ name: "Reports" }),
     );
   });
@@ -80,7 +80,7 @@ describe("DmsDirectoryService", () => {
     await service.deleteDirectory({ directoryId: "dir-1" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Directorys/DeleteDirectory"),
+      expect.stringContaining("/Directories/DeleteDirectory"),
       { directoryId: "dir-1", permanent: true },
     );
   });
@@ -95,7 +95,7 @@ describe("DmsDirectoryService", () => {
     await service.moveDirectory({ directoryId: "dir-1" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Directorys/MoveDirectory"),
+      expect.stringContaining("/Directories/MoveDirectory"),
       { directoryId: "dir-1" },
     );
   });

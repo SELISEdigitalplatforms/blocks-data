@@ -7,6 +7,7 @@ import {
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { dmsContentService } from "../services/dms-content.service";
 import { dmsDirectoryService } from "../services/dms-directory.service";
+import { iamPrincipalService } from "../services/iam-principal.service";
 import {
   ContentSearchQuery,
   CreateDirectoryDto,
@@ -287,5 +288,47 @@ export const useMoveFile = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dmsChildrenKey(projectKey) });
     },
+  });
+};
+
+// ---- IAM principal pickers (back the manage-access dialog) ----
+//
+// Each query is keyed by the search term so typing re-queries the IAM service.
+// `enabled` lets the dialog mount a single hook and only fire when the relevant
+// principal type is picked — otherwise the unused two stay dormant.
+
+export const iamPrincipalKey = (
+  projectKey: string,
+  kind: "users" | "roles" | "organizations",
+  search: string,
+) => ["dms", "iam-principals", projectKey, kind, search];
+
+export const useIamUsers = (search: string, enabled: boolean) => {
+  const projectKey = getProjectKey();
+
+  return useQuery({
+    queryKey: iamPrincipalKey(projectKey, "users", search),
+    queryFn: () => iamPrincipalService.getUsers(search),
+    enabled,
+  });
+};
+
+export const useIamRoles = (search: string, enabled: boolean) => {
+  const projectKey = getProjectKey();
+
+  return useQuery({
+    queryKey: iamPrincipalKey(projectKey, "roles", search),
+    queryFn: () => iamPrincipalService.getRoles(search),
+    enabled,
+  });
+};
+
+export const useIamOrganizations = (search: string, enabled: boolean) => {
+  const projectKey = getProjectKey();
+
+  return useQuery({
+    queryKey: iamPrincipalKey(projectKey, "organizations", search),
+    queryFn: () => iamPrincipalService.getOrganizations(search),
+    enabled,
   });
 };

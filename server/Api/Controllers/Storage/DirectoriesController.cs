@@ -39,8 +39,7 @@ namespace Api.Controllers
 
         /// <summary>Creates a directory beneath an existing parent.</summary>
         [HttpPost]
-        [Authorize]
-        // [ProtectedEndPoint("blocks-data::create-directory")]
+        [ProtectedEndPoint("blocks-data::create-directory")]
         public async Task<IActionResult> CreateDirectory([FromBody] CreateDirectoryRequest request)
         {
             if (string.IsNullOrWhiteSpace(request?.ParentDirectoryId))
@@ -60,8 +59,7 @@ namespace Api.Controllers
 
         /// <summary>Creates a directory at the root of the tenant.</summary>
         [HttpPost]
-        [Authorize]
-        //[ProtectedEndPoint("blocks-data::create-root-directory")]
+        [ProtectedEndPoint("blocks-data::create-root-directory")]
         public async Task<IActionResult> CreateRootDirectory([FromBody] CreateDirectoryRequest request)
         {
             var result = await _directoryManagementService.CreateDirectoryAsync(
@@ -73,8 +71,7 @@ namespace Api.Controllers
 
         /// <summary>Directory details plus the operations the caller holds on it.</summary>
         [HttpGet]
-        [Authorize]
-        // [ProtectedEndPoint("blocks-data::get-directory")]
+        [ProtectedEndPoint("blocks-data::get-directory")]
         public async Task<IActionResult> GetDirectory([FromQuery] string directoryId)
         {
             var result = await _directoryManagementService.GetDirectoryAsync(directoryId);
@@ -89,8 +86,7 @@ namespace Api.Controllers
 
         /// <summary>Access-resolved, cursor-paginated children of a directory.</summary>
         [HttpGet]
-        [Authorize]
-        // [ProtectedEndPoint("blocks-data::get-directory-children")]
+        [ProtectedEndPoint("blocks-data::get-directory-children")]
         public async Task<IActionResult> GetDirectoryChildren([FromQuery] GetDirectoryChildrenRequest request)
         {
             var page = await _contentListingService.GetVisibleChildrenAsync(
@@ -101,8 +97,7 @@ namespace Api.Controllers
 
         /// <summary>Renames a directory or updates its description.</summary>
         [HttpPost]
-        [Authorize]
-        // [ProtectedEndPoint("blocks-data::update-directory")]
+        [ProtectedEndPoint("blocks-data::update-directory")]
         public async Task<IActionResult> UpdateDirectory([FromBody] UpdateDirectoryRequest request)
         {
             var result = await _directoryManagementService.UpdateDirectoryAsync(
@@ -120,8 +115,7 @@ namespace Api.Controllers
 
         /// <summary>Moves a directory to the trash, or removes it permanently.</summary>
         [HttpPost]
-        [Authorize]
-        // [ProtectedEndPoint("blocks-data::delete-directory")]
+        [ProtectedEndPoint("blocks-data::delete-directory")]
         public async Task<IActionResult> DeleteDirectory([FromBody] DeleteDirectoryContentRequest request)
         {
             var result = await _directoryManagementService.DeleteDirectoryAsync(request.DirectoryId, request.Permanent);
@@ -138,8 +132,7 @@ namespace Api.Controllers
 
         /// <summary>Re-parents a directory and rewrites the cached ancestry beneath it.</summary>
         [HttpPost]
-        [Authorize]
-        // [ProtectedEndPoint("blocks-data::move-directory")]
+        [ProtectedEndPoint("blocks-data::move-directory")]
         public async Task<IActionResult> MoveDirectory([FromBody] MoveDirectoryRequest request)
         {
             var result = await _contentHierarchyService.MoveDirectoryAsync(request.DirectoryId, request.TargetDirectoryId);

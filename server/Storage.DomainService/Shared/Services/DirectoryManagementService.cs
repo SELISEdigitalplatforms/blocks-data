@@ -1,4 +1,5 @@
 using Blocks.Genesis;
+using DomainService.Storage;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
 using Directory = Storage.DomainService.Entities.Directory;
@@ -89,15 +90,18 @@ namespace Storage.DomainService.Services
         private readonly IDbContextProvider _dbContextProvider;
         private readonly IContentAccessResolver _resolver;
         private readonly IContentAccessRepository _accessRepository;
+        private readonly IFileManagementService _fileManagementService;
 
         public DirectoryManagementService(
             IDbContextProvider dbContextProvider,
             IContentAccessResolver resolver,
-            IContentAccessRepository accessRepository)
+            IContentAccessRepository accessRepository,
+            IFileManagementService fileManagementService)
         {
             _dbContextProvider = dbContextProvider;
             _resolver = resolver;
             _accessRepository = accessRepository;
+            _fileManagementService = fileManagementService;
         }
 
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
@@ -283,15 +287,26 @@ namespace Storage.DomainService.Services
                     .ToListAsync(cancellationToken);
                 var doomedDirectoryIds = doomedDirectories.Select(d => d.ItemId).ToList();
 
-                // Delete all descendant files + their access policies.
-                // Match files whose ancestors include any doomed directory, or whose
-                // direct parent is one of them (covers files that carry only the
-                // immediate parent in AncestorIds).
-                await Files.DeleteManyAsync(
+                // Delete every descendant file through the file-management service so that
+                // the stored object (Azure/S3/local), the FileVersion rows, and the File
+                // document are all removed. Each file carries its own ConfigurationName,
+                // so the correct storage provider is resolved per file.
+                var doomedFiles = await (await Files.FindAsync(
                     Builders<File>.Filter.Or(
                         Builders<File>.Filter.AnyIn(f => f.AncestorIds, doomedDirectoryIds),
                         Builders<File>.Filter.In(f => f.DirectoryId, doomedDirectoryIds)),
-                    cancellationToken);
+                    cancellationToken: cancellationToken))
+                    .ToListAsync(cancellationToken);
+
+                foreach (var file in doomedFiles)
+                {
+                    await _fileManagementService.DeleteFileAsync(new DeleteFileRequest
+                    {
+                        FileId = file.ItemId,
+                        ConfigurationName = file.ConfigurationName,
+                    });
+                }
+
                 foreach (var id in doomedDirectoryIds)
                 {
                     await _accessRepository.RevokeAllForResourceAsync(id, cancellationToken);

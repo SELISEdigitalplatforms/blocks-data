@@ -1,10 +1,12 @@
 using Blocks.Genesis;
+using DomainService.Storage;
 using FluentAssertions;
 using MongoDB.Driver;
 using Moq;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
+using Storage.DomainService.Storage;
 using XUnitTest.Infrastructure;
 using Directory = Storage.DomainService.Entities.Directory;
 using File = Storage.DomainService.Entities.File;
@@ -31,12 +33,31 @@ public class DirectoryManagementServiceTests : IDisposable
         var provider = new Mock<IDbContextProvider>();
         provider.Setup(p => p.GetCollection<Directory>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<Directory>(n));
         provider.Setup(p => p.GetCollection<File>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<File>(n));
+        provider.Setup(p => p.GetCollection<FileVersion>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<FileVersion>(n));
         provider.Setup(p => p.GetCollection<ContentAccessPolicy>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAccessPolicy>(n));
         provider.Setup(p => p.GetCollection<ContentAuditLog>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAuditLog>(n));
 
         _accessRepository = new ContentAccessRepository(provider.Object);
+
+        // The real FileManagementService has heavy storage-provider dependencies; for the
+        // directory cascade tests we only need DeleteFileAsync to remove the File + its
+        // versions from the test database so the post-cascade assertions hold.
+        var fileRepo = new FileRepository(provider.Object);
+        var versionRepo = new FileVersionRepository(provider.Object);
+        var fileManagementMock = new Mock<IFileManagementService>();
+        fileManagementMock
+            .Setup(f => f.DeleteFileAsync(It.IsAny<DeleteFileRequest>()))
+            .ReturnsAsync((DeleteFileRequest req) =>
+            {
+                var file = fileRepo.GetFileByItemIdAsync(req.FileId).GetAwaiter().GetResult();
+                if (file is null) return new BaseResponse { IsSuccess = true };
+                versionRepo.DeleteFileVersionsAsync(file.ItemId).GetAwaiter().GetResult();
+                fileRepo.DeleteFileAsync(file).GetAwaiter().GetResult();
+                return new BaseResponse { IsSuccess = true };
+            });
+
         _directorys = new DirectoryManagementService(
-            provider.Object, new ContentAccessResolver(_accessRepository), _accessRepository);
+            provider.Object, new ContentAccessResolver(_accessRepository), _accessRepository, fileManagementMock.Object);
 
         BlocksTestContext.Set(userId: "user-1", tenantId: "tenant-1", organizationId: "org-1", roles: new[] { "editor" });
     }

@@ -5,7 +5,7 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Storage.DomainService.Entities
 {
     /// <summary>
-    /// One recorded access decision or access-management action against a folder or file.
+    /// One recorded access decision or access-management action against a directory or file.
     /// Denied attempts are recorded as well as granted ones, so the log answers who tried
     /// as well as who succeeded.
     /// </summary>

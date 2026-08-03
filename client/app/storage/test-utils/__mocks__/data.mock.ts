@@ -6,9 +6,9 @@ import {
 } from "@/test-utils/__mocks__";
 import {
   DmsItemType,
-  IDmsFileAndFolderInfo,
+  IDmsFileAndDirectoryInfo,
   IFile,
-  IGetDmsFileAndFolderResponse,
+  IGetDmsFileAndDirectoryResponse,
   IGetFileByFileIDResponse,
   IGetFilesInfoResponse,
   IGetPreSignedUrlForUploadResponse,
@@ -186,7 +186,7 @@ export const mockPreSignedUrlResponse: IGetPreSignedUrlForUploadResponse = {
 
 // ─── DMS ──────────────────────────────────────────────────────────────────────
 
-export const mockDmsFile: IDmsFileAndFolderInfo = {
+export const mockDmsFile: IDmsFileAndDirectoryInfo = {
   parentId: MOCK_FOLDER_ID,
   type: DmsItemType.File,
   name: "document.pdf",
@@ -199,21 +199,21 @@ export const mockDmsFile: IDmsFileAndFolderInfo = {
   lastUpdatedDate: "2024-01-15T14:30:00Z",
 };
 
-export const mockDmsFolder: IDmsFileAndFolderInfo = {
+export const mockDmsDirectory: IDmsFileAndDirectoryInfo = {
   parentId: "root",
-  type: DmsItemType.Folder,
+  type: DmsItemType.Directory,
   name: "Documents",
   fileStorageId: "",
   extension: "",
   sizeInBytes: "0",
   version: 0,
-  description: "Documents folder",
+  description: "Documents directory",
   itemId: MOCK_DMS_FOLDER_ID,
   lastUpdatedDate: "2024-01-01T10:00:00Z",
 };
 
-export const mockGetDmsFileAndFolderResponse: IGetDmsFileAndFolderResponse = {
-  dmsFileAndFolderInfos: [mockDmsFolder, mockDmsFile],
+export const mockGetDmsFileAndDirectoryResponse: IGetDmsFileAndDirectoryResponse = {
+  dmsFileAndDirectoryInfos: [mockDmsDirectory, mockDmsFile],
   totalCount: 2,
 };
 
@@ -343,9 +343,9 @@ export const mockGetDmsPayload = {
   take: 20,
 };
 
-export const mockCreateDmsFolderPayload = {
-  artifactName: "New Folder",
-  description: "A new folder",
+export const mockCreateDmsDirectoryPayload = {
+  artifactName: "New Directory",
+  description: "A new directory",
   parentId: "root",
   tags: [],
   metaData: {},

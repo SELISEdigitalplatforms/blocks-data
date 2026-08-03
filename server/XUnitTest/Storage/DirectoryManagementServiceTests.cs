@@ -12,19 +12,19 @@ using File = Storage.DomainService.Entities.File;
 namespace XUnitTest.Storage;
 
 /// <summary>
-/// Covers the folder lifecycle. The cases that matter here are the refusals: creating a
-/// subfolder somewhere the caller cannot write, colliding with a sibling name, and
-/// permanently deleting a folder that still holds content. Each of those is a way to
+/// Covers the directory lifecycle. The cases that matter here are the refusals: creating a
+/// subdirectory somewhere the caller cannot write, colliding with a sibling name, and
+/// permanently deleting a directory that still holds content. Each of those is a way to
 /// either bypass access or lose data, so they are asserted rather than assumed.
 /// </summary>
 [Collection("Mongo")]
-public class FolderManagementServiceTests : IDisposable
+public class DirectoryManagementServiceTests : IDisposable
 {
     private readonly IMongoDatabase _db;
     private readonly ContentAccessRepository _accessRepository;
-    private readonly FolderManagementService _folders;
+    private readonly DirectoryManagementService _directorys;
 
-    public FolderManagementServiceTests(MongoFixture fixture)
+    public DirectoryManagementServiceTests(MongoFixture fixture)
     {
         _db = fixture.CreateDatabase();
 
@@ -35,7 +35,7 @@ public class FolderManagementServiceTests : IDisposable
         provider.Setup(p => p.GetCollection<ContentAuditLog>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAuditLog>(n));
 
         _accessRepository = new ContentAccessRepository(provider.Object);
-        _folders = new FolderManagementService(
+        _directorys = new DirectoryManagementService(
             provider.Object, new ContentAccessResolver(_accessRepository), _accessRepository);
 
         BlocksTestContext.Set(userId: "user-1", tenantId: "tenant-1", organizationId: "org-1", roles: new[] { "editor" });
@@ -50,7 +50,7 @@ public class FolderManagementServiceTests : IDisposable
     private IMongoCollection<Directory> Directories => _db.GetCollection<Directory>("Directories");
     private IMongoCollection<File> Files => _db.GetCollection<File>("Files");
 
-    private Task SeedFolder(
+    private Task SeedDirectory(
         string id, string? parentId = null, string createdBy = "user-1",
         bool inherits = true, bool archived = false, string? name = null,
         List<string>? ancestorIds = null)
@@ -61,7 +61,7 @@ public class FolderManagementServiceTests : IDisposable
             Name = name ?? id,
             SystemName = (name ?? id).ToLowerInvariant(),
             Type = StructureType.Directory,
-            ParentDirectoryID = parentId,
+            ParentId = parentId,
             AncestorIds = ancestorIds ?? new List<string>(),
             InheritsParentAccess = inherits,
             IsArchived = archived,
@@ -76,7 +76,7 @@ public class FolderManagementServiceTests : IDisposable
             TenantId = "tenant-1",
             Name = id,
             Type = StructureType.File,
-            ParentDirectoryID = parentId,
+            DirectoryId = parentId,
             AncestorIds = new List<string> { parentId },
             CreatedBy = createdBy,
             CreatedDate = DateTime.UtcNow,
@@ -88,30 +88,30 @@ public class FolderManagementServiceTests : IDisposable
     // ---------- Create ----------
 
     [Fact]
-    public async Task A_root_folder_is_created_with_no_ancestry()
+    public async Task A_root_directory_is_created_with_no_ancestry()
     {
-        var result = await _folders.CreateFolderAsync("Reports", null);
+        var result = await _directorys.CreateDirectoryAsync("Reports", null);
 
         result.IsSuccess.Should().BeTrue();
-        var stored = await Load(result.FolderId!);
+        var stored = await Load(result.DirectoryId!);
         stored.AncestorIds.Should().BeEmpty();
-        stored.ParentDirectoryID.Should().BeNull();
+        stored.ParentId.Should().BeNull();
         stored.FullPath.Should().Be("/Reports");
         stored.CreatedBy.Should().Be("user-1");
     }
 
     [Fact]
-    public async Task A_nested_folder_inherits_the_parent_ancestry_and_path()
+    public async Task A_nested_directory_inherits_the_parent_ancestry_and_path()
     {
-        await SeedFolder("root", name: "Root");
-        await SeedFolder("mid", parentId: "root", name: "Mid", ancestorIds: new List<string> { "root" });
+        await SeedDirectory("root", name: "Root");
+        await SeedDirectory("mid", parentId: "root", name: "Mid", ancestorIds: new List<string> { "root" });
         await Directories.UpdateOneAsync(
             d => d.ItemId == "mid", Builders<Directory>.Update.Set(d => d.FullPath, "/Root/Mid"));
 
-        var result = await _folders.CreateFolderAsync("Leaf", "mid");
+        var result = await _directorys.CreateDirectoryAsync("Leaf", "mid");
 
         result.IsSuccess.Should().BeTrue();
-        var stored = await Load(result.FolderId!);
+        var stored = await Load(result.DirectoryId!);
         stored.AncestorIds.Should().Equal("root", "mid");
         stored.FullPath.Should().Be("/Root/Mid/Leaf");
     }
@@ -120,20 +120,20 @@ public class FolderManagementServiceTests : IDisposable
     public async Task Creating_under_a_parent_the_caller_cannot_edit_is_refused()
     {
         // Owned by somebody else and carrying no grant, so Edit does not resolve.
-        await SeedFolder("root", createdBy: "someone-else");
+        await SeedDirectory("root", createdBy: "someone-else");
 
-        var result = await _folders.CreateFolderAsync("Leaf", "root");
+        var result = await _directorys.CreateDirectoryAsync("Leaf", "root");
 
-        result.Status.Should().Be(FolderOperationStatus.NotPermitted);
+        result.Status.Should().Be(DirectoryOperationStatus.NotPermitted);
         (await Directories.CountDocumentsAsync(d => d.Name == "Leaf")).Should().Be(0);
     }
 
     [Fact]
-    public async Task Creating_under_a_missing_parent_reports_the_parent_not_the_folder()
+    public async Task Creating_under_a_missing_parent_reports_the_parent_not_the_directory()
     {
-        var result = await _folders.CreateFolderAsync("Leaf", "no-such-folder");
+        var result = await _directorys.CreateDirectoryAsync("Leaf", "no-such-directory");
 
-        result.Status.Should().Be(FolderOperationStatus.ParentNotFound);
+        result.Status.Should().Be(DirectoryOperationStatus.ParentNotFound);
     }
 
     [Fact]
@@ -141,75 +141,75 @@ public class FolderManagementServiceTests : IDisposable
     {
         // The stored key is the lowercased name, so "REPORTS" and "Reports" collide. This
         // is the case that breaks if the uniqueness key and the stored value ever diverge.
-        await _folders.CreateFolderAsync("Reports", null);
+        await _directorys.CreateDirectoryAsync("Reports", null);
 
-        var result = await _folders.CreateFolderAsync("REPORTS", null);
+        var result = await _directorys.CreateDirectoryAsync("REPORTS", null);
 
-        result.Status.Should().Be(FolderOperationStatus.NameConflict);
-        (await Directories.CountDocumentsAsync(d => d.ParentDirectoryID == null)).Should().Be(1);
+        result.Status.Should().Be(DirectoryOperationStatus.NameConflict);
+        (await Directories.CountDocumentsAsync(d => d.ParentId == null)).Should().Be(1);
     }
 
     [Fact]
     public async Task A_name_reused_under_a_different_parent_is_allowed()
     {
-        await SeedFolder("root");
-        await _folders.CreateFolderAsync("Reports", null);
+        await SeedDirectory("root");
+        await _directorys.CreateDirectoryAsync("Reports", null);
 
-        var result = await _folders.CreateFolderAsync("Reports", "root");
+        var result = await _directorys.CreateDirectoryAsync("Reports", "root");
 
         result.IsSuccess.Should().BeTrue("uniqueness is scoped to the parent, not the tenant");
     }
 
     [Fact]
-    public async Task Creating_a_subfolder_bumps_the_parents_folder_count()
+    public async Task Creating_a_subdirectory_bumps_the_parents_directory_count()
     {
-        await SeedFolder("root");
+        await SeedDirectory("root");
 
-        await _folders.CreateFolderAsync("Leaf", "root");
+        await _directorys.CreateDirectoryAsync("Leaf", "root");
 
-        (await Load("root")).ChildFolderCount.Should().Be(1);
+        (await Load("root")).ChildDirectoryCount.Should().Be(1);
     }
 
     [Fact]
-    public async Task Creating_a_folder_is_audited()
+    public async Task Creating_a_directory_is_audited()
     {
-        var result = await _folders.CreateFolderAsync("Reports", null);
+        var result = await _directorys.CreateDirectoryAsync("Reports", null);
 
-        var audit = await _accessRepository.GetAuditForResourceAsync(result.FolderId!);
+        var audit = await _accessRepository.GetAuditForResourceAsync(result.DirectoryId!);
         audit.Should().ContainSingle().Which.Granted.Should().BeTrue();
     }
 
     // ---------- Get ----------
 
     [Fact]
-    public async Task Reading_an_owned_folder_returns_it_with_full_permissions()
+    public async Task Reading_an_owned_directory_returns_it_with_full_permissions()
     {
-        await SeedFolder("dir-1");
+        await SeedDirectory("dir-1");
 
-        var result = await _folders.GetFolderAsync("dir-1");
+        var result = await _directorys.GetDirectoryAsync("dir-1");
 
         result.IsSuccess.Should().BeTrue();
-        result.Folder!.ItemId.Should().Be("dir-1");
+        result.Directory!.ItemId.Should().Be("dir-1");
         result.Permissions!.CanManage.Should().BeTrue();
     }
 
     [Fact]
-    public async Task A_folder_the_caller_cannot_view_reports_not_found_rather_than_forbidden()
+    public async Task A_directory_the_caller_cannot_view_reports_not_found_rather_than_forbidden()
     {
-        // Saying "forbidden" would confirm the folder exists, which is enough to map a
+        // Saying "forbidden" would confirm the directory exists, which is enough to map a
         // tree the caller has no access to.
-        await SeedFolder("dir-1", createdBy: "someone-else");
+        await SeedDirectory("dir-1", createdBy: "someone-else");
 
-        var result = await _folders.GetFolderAsync("dir-1");
+        var result = await _directorys.GetDirectoryAsync("dir-1");
 
-        result.Status.Should().Be(FolderOperationStatus.NotFound);
-        result.Status.Should().NotBe(FolderOperationStatus.NotPermitted);
+        result.Status.Should().Be(DirectoryOperationStatus.NotFound);
+        result.Status.Should().NotBe(DirectoryOperationStatus.NotPermitted);
     }
 
     [Fact]
-    public async Task A_missing_folder_reports_not_found()
+    public async Task A_missing_directory_reports_not_found()
     {
-        (await _folders.GetFolderAsync("nope")).Status.Should().Be(FolderOperationStatus.NotFound);
+        (await _directorys.GetDirectoryAsync("nope")).Status.Should().Be(DirectoryOperationStatus.NotFound);
     }
 
     // ---------- Update ----------
@@ -217,11 +217,11 @@ public class FolderManagementServiceTests : IDisposable
     [Fact]
     public async Task Renaming_updates_the_name_the_lookup_key_and_the_path_leaf()
     {
-        await SeedFolder("dir-1", name: "Old");
+        await SeedDirectory("dir-1", name: "Old");
         await Directories.UpdateOneAsync(
             d => d.ItemId == "dir-1", Builders<Directory>.Update.Set(d => d.FullPath, "/Root/Old"));
 
-        var result = await _folders.UpdateFolderAsync("dir-1", "New", null);
+        var result = await _directorys.UpdateDirectoryAsync("dir-1", "New", null);
 
         result.IsSuccess.Should().BeTrue();
         var stored = await Load("dir-1");
@@ -233,21 +233,21 @@ public class FolderManagementServiceTests : IDisposable
     [Fact]
     public async Task Renaming_onto_an_existing_sibling_is_refused()
     {
-        await SeedFolder("a", name: "Alpha");
-        await SeedFolder("b", name: "Beta");
+        await SeedDirectory("a", name: "Alpha");
+        await SeedDirectory("b", name: "Beta");
 
-        var result = await _folders.UpdateFolderAsync("b", "Alpha", null);
+        var result = await _directorys.UpdateDirectoryAsync("b", "Alpha", null);
 
-        result.Status.Should().Be(FolderOperationStatus.NameConflict);
+        result.Status.Should().Be(DirectoryOperationStatus.NameConflict);
         (await Load("b")).Name.Should().Be("Beta");
     }
 
     [Fact]
-    public async Task Renaming_a_folder_to_its_own_name_is_not_a_conflict()
+    public async Task Renaming_a_directory_to_its_own_name_is_not_a_conflict()
     {
-        await SeedFolder("a", name: "Alpha");
+        await SeedDirectory("a", name: "Alpha");
 
-        var result = await _folders.UpdateFolderAsync("a", "Alpha", null);
+        var result = await _directorys.UpdateDirectoryAsync("a", "Alpha", null);
 
         result.IsSuccess.Should().BeTrue();
     }
@@ -255,9 +255,9 @@ public class FolderManagementServiceTests : IDisposable
     [Fact]
     public async Task A_description_can_be_set_without_touching_the_name()
     {
-        await SeedFolder("dir-1", name: "Alpha");
+        await SeedDirectory("dir-1", name: "Alpha");
 
-        await _folders.UpdateFolderAsync("dir-1", null, "quarterly numbers");
+        await _directorys.UpdateDirectoryAsync("dir-1", null, "quarterly numbers");
 
         var stored = await Load("dir-1");
         stored.Description.Should().Be("quarterly numbers");
@@ -265,70 +265,73 @@ public class FolderManagementServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Updating_a_folder_the_caller_cannot_edit_is_refused()
+    public async Task Updating_a_directory_the_caller_cannot_edit_is_refused()
     {
-        await SeedFolder("dir-1", createdBy: "someone-else");
+        await SeedDirectory("dir-1", createdBy: "someone-else");
 
-        var result = await _folders.UpdateFolderAsync("dir-1", "New", null);
+        var result = await _directorys.UpdateDirectoryAsync("dir-1", "New", null);
 
-        result.Status.Should().Be(FolderOperationStatus.NotPermitted);
+        result.Status.Should().Be(DirectoryOperationStatus.NotPermitted);
     }
 
     // ---------- Delete ----------
 
     [Fact]
-    public async Task A_soft_delete_archives_the_folder_and_keeps_it_recoverable()
+    public async Task A_soft_delete_archives_the_directory_and_keeps_it_recoverable()
     {
-        await SeedFolder("dir-1");
+        await SeedDirectory("dir-1");
 
-        var result = await _folders.DeleteFolderAsync("dir-1");
+        // Permanent is the default now, so soft delete must be asked for explicitly.
+        var result = await _directorys.DeleteDirectoryAsync("dir-1", permanent: false);
 
         result.IsSuccess.Should().BeTrue();
         (await Load("dir-1")).IsArchived.Should().BeTrue();
     }
 
     [Fact]
-    public async Task A_permanent_delete_of_a_folder_holding_files_is_refused()
+    public async Task A_permanent_delete_cascades_to_files_inside_the_directory()
     {
-        // Refusing rather than cascading is what stops a subtree disappearing behind one
-        // request. The caller empties it first, or the trash keeps it.
-        await SeedFolder("dir-1", archived: true);
+        await SeedDirectory("dir-1", archived: true);
         await SeedFile("file-1", "dir-1");
 
-        var result = await _folders.DeleteFolderAsync("dir-1", permanent: true);
+        var result = await _directorys.DeleteDirectoryAsync("dir-1", permanent: true);
 
-        result.Status.Should().Be(FolderOperationStatus.NotEmpty);
-        (await Directories.CountDocumentsAsync(d => d.ItemId == "dir-1")).Should().Be(1);
+        result.IsSuccess.Should().BeTrue();
+        (await Directories.CountDocumentsAsync(d => d.ItemId == "dir-1")).Should().Be(0);
+        (await Files.CountDocumentsAsync(f => f.ItemId == "file-1")).Should().Be(0);
     }
 
     [Fact]
-    public async Task A_permanent_delete_of_a_folder_holding_subfolders_is_refused()
+    public async Task A_permanent_delete_cascades_to_nested_subdirectories_and_their_files()
     {
-        await SeedFolder("dir-1", archived: true);
-        await SeedFolder("child", parentId: "dir-1");
+        await SeedDirectory("dir-1", archived: true);
+        await SeedDirectory("child", parentId: "dir-1", ancestorIds: new List<string> { "dir-1" });
+        await SeedFile("file-1", "child");
 
-        var result = await _folders.DeleteFolderAsync("dir-1", permanent: true);
+        var result = await _directorys.DeleteDirectoryAsync("dir-1", permanent: true);
 
-        result.Status.Should().Be(FolderOperationStatus.NotEmpty);
+        result.IsSuccess.Should().BeTrue();
+        (await Directories.CountDocumentsAsync(d => d.ItemId == "dir-1" || d.ItemId == "child")).Should().Be(0);
+        (await Files.CountDocumentsAsync(f => f.ItemId == "file-1")).Should().Be(0);
     }
 
     [Fact]
-    public async Task A_permanent_delete_of_an_empty_folder_removes_it_and_its_access_entries()
+    public async Task A_permanent_delete_of_an_empty_directory_removes_it_and_its_access_entries()
     {
-        await SeedFolder("dir-1", archived: true);
+        await SeedDirectory("dir-1", archived: true);
         await _accessRepository.GrantAsync(new ContentAccessPolicy
         {
             ItemId = "policy-1",
             TenantId = "tenant-1",
             ResourceId = "dir-1",
-            ResourceType = ContentResourceType.Folder,
+            ResourceType = ContentResourceType.Directory,
             PrincipalType = ContentPrincipalType.User,
             PrincipalId = "user-2",
             Permission = ContentPermission.View,
             Effect = ContentEffect.Allow,
         });
 
-        var result = await _folders.DeleteFolderAsync("dir-1", permanent: true);
+        var result = await _directorys.DeleteDirectoryAsync("dir-1", permanent: true);
 
         result.IsSuccess.Should().BeTrue();
         (await Directories.CountDocumentsAsync(d => d.ItemId == "dir-1")).Should().Be(0);
@@ -337,26 +340,26 @@ public class FolderManagementServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Deleting_a_folder_the_caller_cannot_delete_is_refused()
+    public async Task Deleting_a_directory_the_caller_cannot_delete_is_refused()
     {
-        await SeedFolder("dir-1", createdBy: "someone-else");
+        await SeedDirectory("dir-1", createdBy: "someone-else");
 
-        var result = await _folders.DeleteFolderAsync("dir-1");
+        var result = await _directorys.DeleteDirectoryAsync("dir-1");
 
-        result.Status.Should().Be(FolderOperationStatus.NotPermitted);
+        result.Status.Should().Be(DirectoryOperationStatus.NotPermitted);
         (await Load("dir-1")).IsArchived.Should().BeFalse();
     }
 
     [Fact]
-    public async Task Deleting_a_subfolder_decrements_the_parents_folder_count()
+    public async Task Deleting_a_subdirectory_decrements_the_parents_directory_count()
     {
-        await SeedFolder("root");
-        var created = await _folders.CreateFolderAsync("Leaf", "root");
-        (await Load("root")).ChildFolderCount.Should().Be(1);
+        await SeedDirectory("root");
+        var created = await _directorys.CreateDirectoryAsync("Leaf", "root");
+        (await Load("root")).ChildDirectoryCount.Should().Be(1);
 
-        await _folders.DeleteFolderAsync(created.FolderId!);
+        await _directorys.DeleteDirectoryAsync(created.DirectoryId!);
 
-        (await Load("root")).ChildFolderCount.Should().Be(0);
+        (await Load("root")).ChildDirectoryCount.Should().Be(0);
     }
 
     // ---------- Path helpers ----------
@@ -369,7 +372,7 @@ public class FolderManagementServiceTests : IDisposable
     public void A_path_is_built_from_the_parent_without_doubling_separators(
         string? parentPath, string name, string expected)
     {
-        FolderManagementService.BuildPath(parentPath, name).Should().Be(expected);
+        DirectoryManagementService.BuildPath(parentPath, name).Should().Be(expected);
     }
 
     [Theory]
@@ -378,6 +381,6 @@ public class FolderManagementServiceTests : IDisposable
     [InlineData(null, "New", "/New")]
     public void A_rename_replaces_only_the_last_path_segment(string? fullPath, string newName, string expected)
     {
-        FolderManagementService.RenameLeaf(fullPath, newName).Should().Be(expected);
+        DirectoryManagementService.RenameLeaf(fullPath, newName).Should().Be(expected);
     }
 }

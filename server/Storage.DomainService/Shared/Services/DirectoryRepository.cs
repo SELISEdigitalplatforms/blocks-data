@@ -44,7 +44,7 @@ namespace Storage.DomainService.Services
 
         public async Task<List<Directory>> GetDirectories(string directoryId)
         {
-            var filter = Builders<Directory>.Filter.Eq(e => e.ParentDirectoryID, directoryId);
+            var filter = Builders<Directory>.Filter.Eq(e => e.ParentId, directoryId);
             var collection = _dbContextProvider.GetCollection<Directory>(string.Format("{0}s", typeof(Directory).Name));
             var directories = collection.Find(filter);
             return await directories.ToListAsync();
@@ -57,10 +57,10 @@ namespace Storage.DomainService.Services
             return await collection.Find(filter).SingleOrDefaultAsync();
         }
 
-        public async Task<Directory?> FindByIdAsync(string folderId, bool includeArchived, CancellationToken cancellationToken = default)
+        public async Task<Directory?> FindByIdAsync(string directoryId, bool includeArchived, CancellationToken cancellationToken = default)
         {
             var b = Builders<Directory>.Filter;
-            var filter = b.Eq(d => d.ItemId, folderId);
+            var filter = b.Eq(d => d.ItemId, directoryId);
 
             if (!includeArchived)
             {
@@ -118,14 +118,14 @@ namespace Storage.DomainService.Services
         }
 
         /// <summary>
-        /// One-row form of the children predicate. Root folders carry a null or empty parent
+        /// One-row form of the children predicate. Root directorys carry a null or empty parent
         /// id depending on whether they were created by the new model or migrated from the
         /// legacy DmsArtifact store, so the empty parentId matches both.
         /// </summary>
         private FilterDefinition<Directory> BuildChildFilter(string parentId, string? search)
         {
             var b = Builders<Directory>.Filter;
-            var filter = ParentFilter(b, d => d.ParentDirectoryID, parentId)
+            var filter = ParentFilter(b, d => d.ParentId, parentId)
                          & b.Eq(d => d.IsArchived, false);
 
             if (!string.IsNullOrWhiteSpace(search))

@@ -2,7 +2,7 @@ using Blocks.Genesis;
 
 namespace Storage.DomainService.Storage;
 
-public class CreateDefaultFolderEvent
+public class CreateDefaultDirectoryEvent
 {
     public string ItemId { get; set; }
     public string ConfigurationName { get; set; }

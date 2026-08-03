@@ -29,18 +29,18 @@ namespace Storage.DomainService.Services
     public interface IContentDiscoveryService
     {
         /// <summary>
-        /// Name search across folders and files, restricted to what the caller may view.
+        /// Name search across directorys and files, restricted to what the caller may view.
         /// Optionally scoped to one subtree.
         /// </summary>
         Task<VisibleChildrenPage> SearchAsync(
             string query,
-            string? folderId = null,
+            string? directoryId = null,
             StructureType? type = null,
             string? cursor = null,
             int limit = 50,
             CancellationToken cancellationToken = default);
 
-        /// <summary>Archived folders and files the caller may view.</summary>
+        /// <summary>Archived directorys and files the caller may view.</summary>
         Task<VisibleChildrenPage> GetTrashAsync(
             StructureType? type = null, string? cursor = null, int limit = 50,
             CancellationToken cancellationToken = default);
@@ -99,7 +99,7 @@ namespace Storage.DomainService.Services
 
         public Task<VisibleChildrenPage> SearchAsync(
             string query,
-            string? folderId = null,
+            string? directoryId = null,
             StructureType? type = null,
             string? cursor = null,
             int limit = 50,
@@ -114,7 +114,7 @@ namespace Storage.DomainService.Services
             // as a group, and so a pathological pattern cannot be supplied by a caller.
             var pattern = new BsonRegularExpression(Regex.Escape(query.Trim()), "i");
 
-            var folderFilter = Builders<Directory>.Filter.And(
+            var directoryFilter = Builders<Directory>.Filter.And(
                 Builders<Directory>.Filter.Eq(d => d.IsArchived, false),
                 Builders<Directory>.Filter.Regex(d => d.Name, pattern));
 
@@ -122,38 +122,38 @@ namespace Storage.DomainService.Services
                 Builders<File>.Filter.Eq(f => f.IsArchived, false),
                 Builders<File>.Filter.Regex(f => f.Name, pattern));
 
-            if (!string.IsNullOrWhiteSpace(folderId))
+            if (!string.IsNullOrWhiteSpace(directoryId))
             {
                 // AncestorIds holds the whole chain, so this scopes to the subtree without
-                // a recursive walk. The folder itself is not a result of its own search.
-                folderFilter &= Builders<Directory>.Filter.AnyEq(d => d.AncestorIds, folderId);
-                fileFilter &= Builders<File>.Filter.AnyEq(f => f.AncestorIds, folderId);
+                // a recursive walk. The directory itself is not a result of its own search.
+                directoryFilter &= Builders<Directory>.Filter.AnyEq(d => d.AncestorIds, directoryId);
+                fileFilter &= Builders<File>.Filter.AnyEq(f => f.AncestorIds, directoryId);
             }
 
-            return AssemblePageAsync(folderFilter, fileFilter, type, cursor, limit, cancellationToken);
+            return AssemblePageAsync(directoryFilter, fileFilter, type, cursor, limit, cancellationToken);
         }
 
         public Task<VisibleChildrenPage> GetTrashAsync(
             StructureType? type = null, string? cursor = null, int limit = 50,
             CancellationToken cancellationToken = default)
         {
-            var folderFilter = Builders<Directory>.Filter.And(
+            var directoryFilter = Builders<Directory>.Filter.And(
                 Builders<Directory>.Filter.Eq(d => d.IsArchived, true));
 
             var fileFilter = Builders<File>.Filter.And(
                 Builders<File>.Filter.Eq(f => f.IsArchived, true));
 
-            return AssemblePageAsync(folderFilter, fileFilter, type, cursor, limit, cancellationToken);
+            return AssemblePageAsync(directoryFilter, fileFilter, type, cursor, limit, cancellationToken);
         }
 
         public async Task<TrashOperationResult> RestoreAsync(string resourceId, CancellationToken cancellationToken = default)
         {
-            var folder = await FindArchivedFolderAsync(resourceId, cancellationToken);
-            if (folder is not null)
+            var directory = await FindArchivedDirectoryAsync(resourceId, cancellationToken);
+            if (directory is not null)
             {
-                if (!await _resolver.ResolveAsync(Describe(folder), ContentPermission.Delete, cancellationToken))
+                if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Delete, cancellationToken))
                 {
-                    await AuditAsync(resourceId, ContentResourceType.Folder, "Restore", false, null, cancellationToken);
+                    await AuditAsync(resourceId, ContentResourceType.Directory, "Restore", false, null, cancellationToken);
                     return TrashOperationResult.Failure(TrashOperationStatus.NotPermitted);
                 }
 
@@ -165,7 +165,7 @@ namespace Storage.DomainService.Services
                         .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
                     cancellationToken: cancellationToken);
 
-                await AuditAsync(resourceId, ContentResourceType.Folder, "Restore", true, null, cancellationToken);
+                await AuditAsync(resourceId, ContentResourceType.Directory, "Restore", true, null, cancellationToken);
                 return TrashOperationResult.Success();
             }
 
@@ -195,19 +195,19 @@ namespace Storage.DomainService.Services
 
         public async Task<TrashOperationResult> DeleteFromTrashAsync(string resourceId, CancellationToken cancellationToken = default)
         {
-            var folder = await FindArchivedFolderAsync(resourceId, cancellationToken);
-            if (folder is not null)
+            var directory = await FindArchivedDirectoryAsync(resourceId, cancellationToken);
+            if (directory is not null)
             {
-                if (!await _resolver.ResolveAsync(Describe(folder), ContentPermission.Delete, cancellationToken))
+                if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Delete, cancellationToken))
                 {
-                    await AuditAsync(resourceId, ContentResourceType.Folder, "Delete", false, "permanent refused", cancellationToken);
+                    await AuditAsync(resourceId, ContentResourceType.Directory, "Delete", false, "permanent refused", cancellationToken);
                     return TrashOperationResult.Failure(TrashOperationStatus.NotPermitted);
                 }
 
                 await Directories.DeleteOneAsync(
                     Builders<Directory>.Filter.Eq(d => d.ItemId, resourceId), cancellationToken);
                 await _accessRepository.RevokeAllForResourceAsync(resourceId, cancellationToken);
-                await AuditAsync(resourceId, ContentResourceType.Folder, "Delete", true, "permanent", cancellationToken);
+                await AuditAsync(resourceId, ContentResourceType.Directory, "Delete", true, "permanent", cancellationToken);
                 return TrashOperationResult.Success();
             }
 
@@ -235,7 +235,7 @@ namespace Storage.DomainService.Services
         /// in their filters.
         /// </summary>
         private async Task<VisibleChildrenPage> AssemblePageAsync(
-            FilterDefinition<Directory> folderFilter,
+            FilterDefinition<Directory> directoryFilter,
             FilterDefinition<File> fileFilter,
             StructureType? type,
             string? cursor,
@@ -249,18 +249,18 @@ namespace Storage.DomainService.Services
 
             if (type != StructureType.File)
             {
-                var folders = await (await Directories.FindAsync(
-                        folderFilter,
+                var directorys = await (await Directories.FindAsync(
+                        directoryFilter,
                         new FindOptions<Directory> { Limit = MaxScan, Sort = Builders<Directory>.Sort.Ascending(d => d.Name) },
                         cancellationToken))
                     .ToListAsync(cancellationToken);
 
-                candidates.AddRange(folders.Select(f => new VisibleChildItem
+                candidates.AddRange(directorys.Select(f => new VisibleChildItem
                 {
                     ItemId = f.ItemId,
                     Name = f.Name ?? string.Empty,
                     Type = StructureType.Directory,
-                    ParentDirectoryId = f.ParentDirectoryID,
+                    ParentDirectoryId = f.ParentId,
                     SizeInBytes = f.SizeInBytes,
                     CreatedDate = f.CreatedDate,
                     LastUpdatedDate = f.LastUpdatedDate,
@@ -281,7 +281,7 @@ namespace Storage.DomainService.Services
                     ItemId = f.ItemId,
                     Name = f.Name ?? string.Empty,
                     Type = StructureType.File,
-                    ParentDirectoryId = f.ParentDirectoryID,
+                    ParentDirectoryId = f.DirectoryId,
                     SizeInBytes = f.SizeInBytes,
                     Extension = f.Extension,
                     ContentType = f.ContentType,
@@ -360,17 +360,17 @@ namespace Storage.DomainService.Services
         {
             var descriptors = new List<ContentResourceDescriptor>(candidates.Count);
 
-            var folderIds = candidates.Where(c => c.Type == StructureType.Directory).Select(c => c.ItemId).ToList();
+            var directoryIds = candidates.Where(c => c.Type == StructureType.Directory).Select(c => c.ItemId).ToList();
             var fileIds = candidates.Where(c => c.Type == StructureType.File).Select(c => c.ItemId).ToList();
 
-            if (folderIds.Count > 0)
+            if (directoryIds.Count > 0)
             {
-                var folders = await (await Directories.FindAsync(
-                        Builders<Directory>.Filter.In(d => d.ItemId, folderIds),
+                var directorys = await (await Directories.FindAsync(
+                        Builders<Directory>.Filter.In(d => d.ItemId, directoryIds),
                         cancellationToken: cancellationToken))
                     .ToListAsync(cancellationToken);
 
-                descriptors.AddRange(folders.Select(Describe));
+                descriptors.AddRange(directorys.Select(Describe));
             }
 
             if (fileIds.Count > 0)
@@ -386,7 +386,7 @@ namespace Storage.DomainService.Services
             return descriptors;
         }
 
-        private async Task<Directory?> FindArchivedFolderAsync(string resourceId, CancellationToken cancellationToken) =>
+        private async Task<Directory?> FindArchivedDirectoryAsync(string resourceId, CancellationToken cancellationToken) =>
             await (await Directories.FindAsync(
                     Builders<Directory>.Filter.And(
                         Builders<Directory>.Filter.Eq(d => d.ItemId, resourceId),
@@ -402,12 +402,12 @@ namespace Storage.DomainService.Services
                     cancellationToken: cancellationToken))
                 .FirstOrDefaultAsync(cancellationToken);
 
-        private static ContentResourceDescriptor Describe(Directory folder) => new()
+        private static ContentResourceDescriptor Describe(Directory directory) => new()
         {
-            ResourceId = folder.ItemId,
-            AncestorIds = folder.AncestorIds ?? new List<string>(),
-            InheritsParentAccess = folder.InheritsParentAccess,
-            CreatedBy = folder.CreatedBy,
+            ResourceId = directory.ItemId,
+            AncestorIds = directory.AncestorIds ?? new List<string>(),
+            InheritsParentAccess = directory.InheritsParentAccess,
+            CreatedBy = directory.CreatedBy,
         };
 
         private static ContentResourceDescriptor Describe(File file) => new()

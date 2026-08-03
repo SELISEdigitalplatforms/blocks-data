@@ -53,7 +53,7 @@ public class ContentCursorTests
     }
 
     [Fact]
-    public void Folders_sort_ahead_of_files()
+    public void Directorys_sort_ahead_of_files()
     {
         // Even when the file's name would otherwise come first.
         ContentCursor.Compare(StructureType.Directory, "zzz", "a", StructureType.File, "aaa", "b")
@@ -91,6 +91,6 @@ public class ContentCursorTests
         position.IsBefore(StructureType.File, "m", "id-6").Should().BeTrue();
         position.IsBefore(StructureType.File, "m", "id-5").Should().BeFalse("the boundary item itself was already returned");
         position.IsBefore(StructureType.File, "l", "id-9").Should().BeFalse();
-        position.IsBefore(StructureType.Directory, "z", "id-9").Should().BeFalse("folders sort ahead of files");
+        position.IsBefore(StructureType.Directory, "z", "id-9").Should().BeFalse("directorys sort ahead of files");
     }
 }

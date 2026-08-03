@@ -52,7 +52,7 @@ namespace Storage.DomainService.Services
     }
 
     /// <summary>
-    /// Access administration for folders and files: who may do what, and the audit trail
+    /// Access administration for directorys and files: who may do what, and the audit trail
     /// behind every change.
     /// </summary>
     /// <remarks>
@@ -264,7 +264,7 @@ namespace Storage.DomainService.Services
 
         private async Task<bool> SetInheritanceAsync(ResourceHandle resource, bool inherits, CancellationToken cancellationToken)
         {
-            if (resource.Type == ContentResourceType.Folder)
+            if (resource.Type == ContentResourceType.Directory)
             {
                 var result = await Directories.UpdateOneAsync(
                     Builders<Directory>.Filter.Eq(d => d.ItemId, resource.Descriptor.ResourceId),
@@ -286,18 +286,18 @@ namespace Storage.DomainService.Services
         {
             if (string.IsNullOrEmpty(resourceId)) return null;
 
-            var folder = await Directories
+            var directory = await Directories
                 .Find(Builders<Directory>.Filter.Eq(d => d.ItemId, resourceId))
                 .FirstOrDefaultAsync(cancellationToken);
 
-            if (folder is not null)
+            if (directory is not null)
             {
-                return new ResourceHandle(ContentResourceType.Folder, new ContentResourceDescriptor
+                return new ResourceHandle(ContentResourceType.Directory, new ContentResourceDescriptor
                 {
-                    ResourceId = folder.ItemId,
-                    AncestorIds = folder.AncestorIds ?? new(),
-                    InheritsParentAccess = folder.InheritsParentAccess,
-                    CreatedBy = folder.CreatedBy,
+                    ResourceId = directory.ItemId,
+                    AncestorIds = directory.AncestorIds ?? new(),
+                    InheritsParentAccess = directory.InheritsParentAccess,
+                    CreatedBy = directory.CreatedBy,
                 });
             }
 

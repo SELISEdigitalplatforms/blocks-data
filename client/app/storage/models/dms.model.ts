@@ -2,7 +2,7 @@
 // server/Storage.DomainService/Storage/DmsContent{Requests,Responses}.cs; JSON is
 // camelCase, so the names match apart from that.
 
-export type DmsItemType = "folder" | "file";
+export type DmsItemType = "directory" | "file";
 
 export type ContentPermission = "View" | "Download" | "Edit" | "Delete" | "Manage" | "Owner";
 
@@ -36,11 +36,11 @@ export interface DmsItemBase {
   permissions: DmsPermissionFlags;
 }
 
-export interface DmsFolderItem extends DmsItemBase {
-  type: "folder";
+export interface DmsDirectoryItem extends DmsItemBase {
+  type: "directory";
   description?: string;
   moduleName?: string;
-  childFolderCount: number;
+  childDirectoryCount: number;
   childFileCount: number;
   sizeInBytes: number;
   allowedFileExtensions?: string[];
@@ -54,7 +54,7 @@ export interface DmsFileItem extends DmsItemBase {
   currentVersion: number;
 }
 
-export type DmsItem = DmsFolderItem | DmsFileItem;
+export type DmsItem = DmsDirectoryItem | DmsFileItem;
 
 export interface DmsChildrenResponse {
   items: DmsItem[];
@@ -63,7 +63,7 @@ export interface DmsChildrenResponse {
   hasMore: boolean;
 }
 
-export interface DmsFolderDetail extends DmsFolderItem {
+export interface DmsDirectoryDetail extends DmsDirectoryItem {
   ancestorIds: string[];
 }
 
@@ -81,7 +81,7 @@ export interface AccessPolicyDto {
   createdDate?: string;
 }
 
-export interface CreateFolderDto {
+export interface CreateDirectoryDto {
   name: string;
   parentDirectoryId?: string;
   configurationName?: string;
@@ -93,25 +93,25 @@ export interface CreateFolderDto {
   projectKey?: string;
 }
 
-export interface UpdateFolderDto {
-  folderId: string;
+export interface UpdateDirectoryDto {
+  directoryId: string;
   name?: string;
   description?: string;
 }
 
-export interface MoveFolderDto {
-  folderId: string;
-  targetFolderId?: string;
+export interface MoveDirectoryDto {
+  directoryId: string;
+  targetDirectoryId?: string;
 }
 
-export interface DeleteFolderDto {
-  folderId: string;
+export interface DeleteDirectoryDto {
+  directoryId: string;
   permanent?: boolean;
 }
 
 export interface GrantAccessDto {
   resourceId: string;
-  resourceType?: "Folder" | "File";
+  resourceType?: "Directory" | "File";
   principalType: ContentPrincipalType;
   principalId?: string;
   permission: ContentPermission;
@@ -123,7 +123,7 @@ export interface GrantAccessDto {
 
 export interface ShareContentDto {
   resourceId: string;
-  resourceType?: "Folder" | "File";
+  resourceType?: "Directory" | "File";
   principalType: ContentPrincipalType;
   principalId?: string;
   permission: ContentPermission;
@@ -146,10 +146,10 @@ export interface FileVersionsResponse {
 
 export interface DmsChildrenQuery {
   /**
-   * The folder whose children to list. Empty/undefined lists the root, which is what the
-   * storage page renders before any folder has been opened.
+   * The directory whose children to list. Empty/undefined lists the root, which is what the
+   * storage page renders before any directory has been opened.
    */
-  folderId?: string;
+  directoryId?: string;
   cursor?: string;
   limit?: number;
   type?: DmsItemType;
@@ -158,7 +158,7 @@ export interface DmsChildrenQuery {
 
 export interface ContentSearchQuery {
   query: string;
-  folderId?: string;
+  directoryId?: string;
   type?: DmsItemType;
   cursor?: string;
   limit?: number;
@@ -190,9 +190,9 @@ export const NO_PERMISSIONS: DmsPermissionFlags = {
  */
 export function resolveItemType(item: { type?: string; typeString?: string }): DmsItemType {
   const raw = (item.type ?? item.typeString ?? "").toString().toLowerCase();
-  return raw === "folder" || raw === "directory" ? "folder" : "file";
+  return raw === "directory" || raw === "directory" ? "directory" : "file";
 }
 
-export function isFolder(item: DmsItem): item is DmsFolderItem {
-  return item.type === "folder";
+export function isDirectory(item: DmsItem): item is DmsDirectoryItem {
+  return item.type === "directory";
 }

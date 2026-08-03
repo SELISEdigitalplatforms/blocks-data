@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const updateFolder = vi.fn();
+const updateDirectory = vi.fn();
 const showSuccessToast = vi.fn();
 const showErrorToast = vi.fn();
 
@@ -11,19 +11,19 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 
 vi.mock("@/storage/hooks/use-dms", () => ({
-  useUpdateDmsFolder: () => ({ mutateAsync: updateFolder, isPending: false }),
+  useUpdateDmsDirectory: () => ({ mutateAsync: updateDirectory, isPending: false }),
 }));
 
-import { RenameFolderDialog } from "./rename-folder-dialog";
+import { RenameDirectoryDialog } from "./rename-directory-dialog";
 
-const folder = {
+const directory = {
   itemId: "dir-1",
   name: "Old Name",
-  type: "folder",
+  type: "directory",
   inheritsParentAccess: true,
   isArchived: false,
   isActive: true,
-  childFolderCount: 0,
+  childDirectoryCount: 0,
   childFileCount: 0,
   sizeInBytes: 0,
   permissions: {
@@ -36,15 +36,15 @@ const folder = {
   },
 } as never;
 
-describe("RenameFolderDialog", () => {
+describe("RenameDirectoryDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    updateFolder.mockResolvedValue({ folderId: "dir-1" });
+    updateDirectory.mockResolvedValue({ directoryId: "dir-1" });
   });
 
   it("seeds the input with the current name", () => {
     render(
-      <RenameFolderDialog open onOpenChange={vi.fn()} folder={folder} />,
+      <RenameDirectoryDialog open onOpenChange={vi.fn()} directory={directory} />,
     );
 
     const input = screen.getByDisplayValue("Old Name") as HTMLInputElement;
@@ -53,7 +53,7 @@ describe("RenameFolderDialog", () => {
 
   it("disables Save when the name is unchanged", () => {
     render(
-      <RenameFolderDialog open onOpenChange={vi.fn()} folder={folder} />,
+      <RenameDirectoryDialog open onOpenChange={vi.fn()} directory={directory} />,
     );
 
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
@@ -63,7 +63,7 @@ describe("RenameFolderDialog", () => {
     const onOpenChange = vi.fn();
     const onDone = vi.fn();
     render(
-      <RenameFolderDialog open onOpenChange={onOpenChange} folder={folder} onDone={onDone} />,
+      <RenameDirectoryDialog open onOpenChange={onOpenChange} directory={directory} onDone={onDone} />,
     );
 
     const input = screen.getByDisplayValue("Old Name");
@@ -71,7 +71,7 @@ describe("RenameFolderDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() =>
-      expect(updateFolder).toHaveBeenCalledWith({ folderId: "dir-1", name: "New Name" }),
+      expect(updateDirectory).toHaveBeenCalledWith({ directoryId: "dir-1", name: "New Name" }),
     );
     expect(showSuccessToast).toHaveBeenCalled();
     expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -79,9 +79,9 @@ describe("RenameFolderDialog", () => {
   });
 
   it("reports an error when the rename fails", async () => {
-    updateFolder.mockRejectedValue(new Error("boom"));
+    updateDirectory.mockRejectedValue(new Error("boom"));
     render(
-      <RenameFolderDialog open onOpenChange={vi.fn()} folder={folder} />,
+      <RenameDirectoryDialog open onOpenChange={vi.fn()} directory={directory} />,
     );
 
     const input = screen.getByDisplayValue("Old Name");

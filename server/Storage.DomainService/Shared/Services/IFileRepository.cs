@@ -25,7 +25,7 @@ namespace Storage.DomainService.Services
         Task<StorageConfiguration> GetDefaultConfiguration();
 
         /// <summary>
-        /// Keyset-paginated child files of a folder. An empty <paramref name="parentId"/> lists
+        /// Keyset-paginated child files of a directory. An empty <paramref name="parentId"/> lists
         /// files parked at the root level. <paramref name="afterName"/>/<paramref name="afterId"/>
         /// continue from a previous page boundary; null starts at the beginning. Returned sorted
         /// by name then id, the same key the cursor encodes.
@@ -38,7 +38,7 @@ namespace Storage.DomainService.Services
             string? search,
             CancellationToken cancellationToken = default);
 
-        /// <summary>Raw, unfiltered child file count for a folder, used as informational metadata.</summary>
+        /// <summary>Raw, unfiltered child file count for a directory, used as informational metadata.</summary>
         Task<long> CountChildrenAsync(string parentId, string? search, CancellationToken cancellationToken = default);
     }
 }

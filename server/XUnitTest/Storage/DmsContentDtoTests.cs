@@ -24,7 +24,7 @@ public class DmsContentDtoTests
             ItemId = "policy-1",
             TenantId = "tenant-1",
             ResourceId = "dir-1",
-            ResourceType = ContentResourceType.Folder,
+            ResourceType = ContentResourceType.Directory,
             PrincipalType = ContentPrincipalType.Role,
             PrincipalId = "editors",
             Permission = ContentPermission.Manage,
@@ -39,7 +39,7 @@ public class DmsContentDtoTests
 
         dto.ItemId.Should().Be("policy-1");
         dto.ResourceId.Should().Be("dir-1");
-        dto.ResourceType.Should().Be(ContentResourceType.Folder);
+        dto.ResourceType.Should().Be(ContentResourceType.Directory);
         dto.PrincipalType.Should().Be(ContentPrincipalType.Role);
         dto.PrincipalId.Should().Be("editors");
         dto.Permission.Should().Be(ContentPermission.Manage);
@@ -118,24 +118,24 @@ public class DmsContentDtoTests
     }
 
     [Fact]
-    public void A_folder_item_carries_folder_fields_and_leaves_the_file_ones_null()
+    public void A_directory_item_carries_directory_fields_and_leaves_the_file_ones_null()
     {
         var item = new DmsItem
         {
             ItemId = "dir-1",
             Name = "Reports",
-            Type = "folder",
-            ParentFolderId = "root",
+            Type = "directory",
+            ParentDirectoryId = "root",
             SizeInBytes = 4096,
-            ChildFolderCount = 2,
+            ChildDirectoryCount = 2,
             ChildFileCount = 5,
             CreatedBy = "user-1",
             CreatedDate = DateTime.UtcNow,
             LastUpdatedDate = DateTime.UtcNow,
         };
 
-        item.Type.Should().Be("folder");
-        item.ChildFolderCount.Should().Be(2);
+        item.Type.Should().Be("directory");
+        item.ChildDirectoryCount.Should().Be(2);
         item.ChildFileCount.Should().Be(5);
         item.Extension.Should().BeNull();
         item.ContentType.Should().BeNull();
@@ -144,14 +144,14 @@ public class DmsContentDtoTests
     }
 
     [Fact]
-    public void A_file_item_carries_file_fields_and_leaves_the_folder_ones_null()
+    public void A_file_item_carries_file_fields_and_leaves_the_directory_ones_null()
     {
         var item = new DmsItem
         {
             ItemId = "file-1",
             Name = "doc.txt",
             Type = "file",
-            ParentFolderId = "dir-1",
+            ParentDirectoryId = "dir-1",
             SizeInBytes = 42,
             Extension = "txt",
             ContentType = "text/plain",
@@ -163,7 +163,7 @@ public class DmsContentDtoTests
         item.Extension.Should().Be("txt");
         item.ContentType.Should().Be("text/plain");
         item.CurrentVersion.Should().Be(3);
-        item.ChildFolderCount.Should().BeNull();
+        item.ChildDirectoryCount.Should().BeNull();
         item.ChildFileCount.Should().BeNull();
         item.Permissions.CanDownload.Should().BeTrue();
         item.Permissions.CanEdit.Should().BeFalse();
@@ -214,7 +214,7 @@ public class DmsContentDtoTests
     {
         // These defaults are what a caller gets when it omits paging entirely, so they
         // have to sit inside the ranges the validators accept.
-        new GetFolderChildrenRequest().Limit.Should().Be(50);
+        new GetDirectoryChildrenRequest().Limit.Should().Be(50);
         new ContentSearchRequest().Limit.Should().Be(50);
         new TrashRequest().Limit.Should().Be(50);
         new GetFileVersionsRequest().Limit.Should().Be(25);
@@ -236,20 +236,20 @@ public class DmsContentDtoTests
     [Fact]
     public void Optional_request_fields_start_empty()
     {
-        var create = new CreateFolderRequest { Name = "Reports" };
+        var create = new CreateDirectoryRequest { Name = "Reports" };
 
-        create.ParentFolderId.Should().BeNull();
+        create.ParentDirectoryId.Should().BeNull();
         create.Description.Should().BeNull();
         create.AllowedFileExtensions.Should().BeNull("no restriction is the default");
 
-        var move = new MoveFolderRequest { FolderId = "dir-1" };
-        move.TargetFolderId.Should().BeNull("the top level is a legitimate destination");
+        var move = new MoveDirectoryRequest { DirectoryId = "dir-1" };
+        move.TargetDirectoryId.Should().BeNull("the top level is a legitimate destination");
 
         var search = new ContentSearchRequest { Query = "report" };
-        search.FolderId.Should().BeNull();
+        search.DirectoryId.Should().BeNull();
         search.Type.Should().BeNull("both kinds are searched unless narrowed");
 
-        var update = new UpdateFolderRequest { FolderId = "dir-1" };
+        var update = new UpdateDirectoryRequest { DirectoryId = "dir-1" };
         update.Name.Should().BeNull();
 
         var version = new CreateFileVersionRequest { FileId = "file-1" };
@@ -264,13 +264,13 @@ public class DmsContentDtoTests
         var toggle = new ToggleInheritanceRequest { ResourceId = "dir-1" };
         toggle.InheritsParentAccess.Should().BeFalse();
 
-        var moveFile = new MoveFileRequest { FileId = "file-1", TargetFolderId = "dir-2" };
-        moveFile.TargetFolderId.Should().Be("dir-2");
+        var moveFile = new MoveFileRequest { FileId = "file-1", TargetDirectoryId = "dir-2" };
+        moveFile.TargetDirectoryId.Should().Be("dir-2");
     }
 
     [Theory]
-    [InlineData("folder", StructureType.Directory)]
-    [InlineData("FOLDER", StructureType.Directory)]
+    [InlineData("directory", StructureType.Directory)]
+    [InlineData("DIRECTORY", StructureType.Directory)]
     [InlineData("file", StructureType.File)]
     [InlineData(null, null)]
     [InlineData("", null)]

@@ -23,7 +23,7 @@ namespace Storage.DomainService.Services
     /// <remarks>
     /// No Mongo access lives here. Reads go through <see cref="IDirectoryRepository"/> and
     /// <see cref="IFileRepository"/>, so the listing concerns (access resolution, merging
-    /// folders-ahead-of-files, pagination cursor) sit one layer above the data access ones
+    /// directorys-ahead-of-files, pagination cursor) sit one layer above the data access ones
     /// (filter building, keyset predicates, tenant scoping). Each page is assembled by reading
     /// a bounded slice of both kinds and merging on the shared sort key; access filtering happens
     /// after the read, which means a page can come back short, so the loop keeps pulling until it
@@ -34,7 +34,7 @@ namespace Storage.DomainService.Services
         internal const int MaxLimit = 200;
 
         // Bounds the work done for a page whose children are mostly invisible, so a
-        // heavily restricted folder cannot turn one request into an unbounded scan.
+        // heavily restricted directory cannot turn one request into an unbounded scan.
         private const int MaxRoundsPerPage = 20;
 
         private readonly IDirectoryRepository _directoryRepository;
@@ -61,15 +61,15 @@ namespace Storage.DomainService.Services
         {
             limit = Math.Clamp(limit, 1, MaxLimit);
 
-            // The root listing has no parent folder to gate visibility against, so it is
+            // The root listing has no parent directory to gate visibility against, so it is
             // open to any caller that already holds the endpoint permission; per-item
-            // resolution below still hides folders the caller may not see. Root listings
-            // also default to folders only, because files only acquire a parent on upload.
+            // resolution below still hides directorys the caller may not see. Root listings
+            // also default to directorys only, because files only acquire a parent on upload.
             var isRoot = string.IsNullOrWhiteSpace(parentId);
 
             // The pure-inherit shortcut below is only sound for children of a parent the
             // caller can already see: it assumes a child's effective policy is a superset
-            // of the parent's. Without this gate any caller could list any folder's
+            // of the parent's. Without this gate any caller could list any directory's
             // inheriting children, so the parent check is load bearing, not defensive.
             Directory? parent = null;
             if (!isRoot)
@@ -163,9 +163,9 @@ namespace Storage.DomainService.Services
         /// them into one ordered stream.
         /// </summary>
         /// <remarks>
-        /// Folders sort ahead of files, so the cursor's type says which kinds can still
-        /// contribute: once the position is in the files, no folder can follow. Each repo applies
-        /// both the keyset predicate and the limit inside the query, so a folder with many
+        /// Directorys sort ahead of files, so the cursor's type says which kinds can still
+        /// contribute: once the position is in the files, no directory can follow. Each repo applies
+        /// both the keyset predicate and the limit inside the query, so a directory with many
         /// thousands of children never loads more than a page at a time.
         /// </remarks>
         private async Task<List<ChildRow>> ReadMergedSliceAsync(
@@ -208,12 +208,12 @@ namespace Storage.DomainService.Services
                 .ToList();
         }
 
-        private static ContentResourceDescriptor Describe(Directory folder) => new()
+        private static ContentResourceDescriptor Describe(Directory directory) => new()
         {
-            ResourceId = folder.ItemId,
-            AncestorIds = folder.AncestorIds ?? new List<string>(),
-            InheritsParentAccess = folder.InheritsParentAccess,
-            CreatedBy = folder.CreatedBy,
+            ResourceId = directory.ItemId,
+            AncestorIds = directory.AncestorIds ?? new List<string>(),
+            InheritsParentAccess = directory.InheritsParentAccess,
+            CreatedBy = directory.CreatedBy,
         };
 
         private sealed class ChildRow
@@ -234,7 +234,7 @@ namespace Storage.DomainService.Services
                     ItemId = d.ItemId,
                     Name = d.Name ?? string.Empty,
                     Type = StructureType.Directory,
-                    ParentDirectoryId = d.ParentDirectoryID,
+                    ParentDirectoryId = d.ParentId,
                     SizeInBytes = d.SizeInBytes,
                     CreatedDate = d.CreatedDate,
                     LastUpdatedDate = d.LastUpdatedDate,
@@ -259,7 +259,7 @@ namespace Storage.DomainService.Services
                     ItemId = f.ItemId,
                     Name = f.Name ?? string.Empty,
                     Type = StructureType.File,
-                    ParentDirectoryId = f.ParentDirectoryID,
+                    ParentDirectoryId = f.DirectoryId,
                     SizeInBytes = f.SizeInBytes,
                     Extension = f.Extension,
                     ContentType = f.ContentType,

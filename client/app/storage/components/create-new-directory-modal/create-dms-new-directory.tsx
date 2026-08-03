@@ -22,18 +22,18 @@ import {
   FormMessage,
 } from "@/components/ui-kits/form/form";
 import { useForm } from "react-hook-form";
-import { useCreateDmsFolder } from "@/storage/hooks/use-dms";
-import { CreateFolderDto } from "@/storage/models/dms.model";
+import { useCreateDmsDirectory } from "@/storage/hooks/use-dms";
+import { CreateDirectoryDto } from "@/storage/models/dms.model";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 
-const createFolderSchema = z.object({
-  name: z.string().min(1, "Folder name is required"),
+const createDirectorySchema = z.object({
+  name: z.string().min(1, "Directory name is required"),
 });
 
-type CreateFolderFormData = z.infer<typeof createFolderSchema>;
+type CreateDirectoryFormData = z.infer<typeof createDirectorySchema>;
 
-type CreateDmsFolderModalProps = {
+type CreateDmsDirectoryModalProps = {
   open: boolean;
   onOpenChange: (value: boolean) => void;
   parentId: string;
@@ -41,18 +41,18 @@ type CreateDmsFolderModalProps = {
   onSuccess?: () => void;
 };
 
-export const CreateDmsNewFolder = ({
+export const CreateDmsNewDirectory = ({
   open,
   onOpenChange,
   parentId,
   configurationName,
   onSuccess,
-}: CreateDmsFolderModalProps) => {
+}: CreateDmsDirectoryModalProps) => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
-  const { mutateAsync: createDmsFolderMutate, isPending } =
-    useCreateDmsFolder();
-  const form = useForm<CreateFolderFormData>({
-    resolver: zodResolver(createFolderSchema),
+  const { mutateAsync: createDmsDirectoryMutate, isPending } =
+    useCreateDmsDirectory();
+  const form = useForm<CreateDirectoryFormData>({
+    resolver: zodResolver(createDirectorySchema),
     defaultValues: {
       name: "",
     },
@@ -61,21 +61,21 @@ export const CreateDmsNewFolder = ({
 
   const { isValid } = form.formState;
 
-  const onSubmit = async (data: CreateFolderFormData) => {
+  const onSubmit = async (data: CreateDirectoryFormData) => {
     try {
-      // The folder service routes a payload with a parent to /Folders/CreateFolder and one
-      // without to /Folders/CreateRootFolder, so the empty root id creates a root folder
+      // The directory service routes a payload with a parent to /Directorys/CreateDirectory and one
+      // without to /Directorys/CreateRootDirectory, so the empty root id creates a root directory
       // rather than being sent as a nested one with a blank parent.
-      const payload: CreateFolderDto = {
+      const payload: CreateDirectoryDto = {
         name: data.name,
         parentDirectoryId: parentId || undefined,
-        description: "Folder creation",
+        description: "Directory creation",
         configurationName,
         projectKey,
       };
 
-      await createDmsFolderMutate(payload);
-      showSuccessToast({ description: "Folder created successfully." });
+      await createDmsDirectoryMutate(payload);
+      showSuccessToast({ description: "Directory created successfully." });
 
       form.reset();
       onOpenChange(false);
@@ -96,7 +96,7 @@ export const CreateDmsNewFolder = ({
       }}
       >
         <DialogHeader>
-          <DialogTitle>Create Folder</DialogTitle>
+          <DialogTitle>Create Directory</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -109,9 +109,9 @@ export const CreateDmsNewFolder = ({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Folder Name</FormLabel>
+                  <FormLabel>Directory Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter folder name" {...field} />
+                    <Input placeholder="Enter directory name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

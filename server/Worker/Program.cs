@@ -43,7 +43,7 @@ IHostBuilder CreateHostBuilder(string[] args) =>
             services.AddSingleton<IConsumer<MigrationCompletionEvent>, MigrationCompletionEventConsumer>();
             services.AddSingleton<IConsumer<SchemaExportEvent>, SchemaExportEventConsumer>();
             services.AddSingleton<IConsumer<SchemaImportEvent>, SchemaImportEventConsumer>();
-            services.AddSingleton<IConsumer<CreateDefaultFolderEvent>, CreateDefaultFolderEventConsumer>();
+            services.AddSingleton<IConsumer<CreateDefaultDirectoryEvent>, CreateDefaultDirectoryEventConsumer>();
             services.AddSingleton<ICloudBuildSecret>(cloudBuildSecret);
             services.AddStorageDomainServices();
             services.RegisterSchemaServices();

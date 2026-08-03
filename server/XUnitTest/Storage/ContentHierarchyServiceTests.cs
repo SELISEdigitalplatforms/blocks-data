@@ -42,14 +42,14 @@ public class ContentHierarchyServiceTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private Task Folder(string id, string name, string? parent, string tenantId = "tenant-1")
+    private Task Directory(string id, string name, string? parent, string tenantId = "tenant-1")
         => _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
         {
             ItemId = id,
             TenantId = tenantId,
             Name = name,
             SystemName = name.ToLowerInvariant(),
-            ParentDirectoryID = parent,
+            ParentId = parent,
             Type = StructureType.Directory,
             CreatedBy = "user-1",
             CreatedDate = DateTime.UtcNow,
@@ -62,7 +62,7 @@ public class ContentHierarchyServiceTests : IDisposable
             TenantId = "tenant-1",
             Name = name,
             SystemName = name.ToLowerInvariant(),
-            ParentDirectoryID = parent,
+            DirectoryId = parent,
             Type = StructureType.File,
             CreatedBy = "user-1",
             CreatedDate = DateTime.UtcNow,
@@ -77,18 +77,18 @@ public class ContentHierarchyServiceTests : IDisposable
     /// <summary>root -> a -> b -> c, with one file in each of a and c.</summary>
     private async Task BuildChain()
     {
-        await Folder("root", "root", null);
-        await Folder("a", "alpha", "root");
-        await Folder("b", "beta", "a");
-        await Folder("c", "gamma", "b");
+        await Directory("root", "root", null);
+        await Directory("a", "alpha", "root");
+        await Directory("b", "beta", "a");
+        await Directory("c", "gamma", "b");
         await FileIn("f-a", "in-a.txt", "a");
         await FileIn("f-c", "in-c.txt", "c");
     }
 
     [Fact]
-    public async Task A_root_folder_has_no_ancestors()
+    public async Task A_root_directory_has_no_ancestors()
     {
-        await Folder("root", "root", null);
+        await Directory("root", "root", null);
 
         (await _hierarchy.GetAncestorsAsync("root")).Should().BeEmpty();
     }
@@ -104,7 +104,7 @@ public class ContentHierarchyServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task An_unknown_folder_has_no_ancestors()
+    public async Task An_unknown_directory_has_no_ancestors()
     {
         (await _hierarchy.GetAncestorsAsync("nope")).Should().BeEmpty();
         (await _hierarchy.GetAncestorsAsync(string.Empty)).Should().BeEmpty();
@@ -128,19 +128,19 @@ public class ContentHierarchyServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Rebuilding_also_writes_ancestry_onto_the_files_in_each_folder()
+    public async Task Rebuilding_also_writes_ancestry_onto_the_files_in_each_directory()
     {
         await BuildChain();
 
         await _hierarchy.RebuildAncestorPathsAsync("root");
 
-        // A file's ancestry ends at its own folder, which is what inheritance walks.
+        // A file's ancestry ends at its own directory, which is what inheritance walks.
         (await ReadFile("f-a")).AncestorIds.Should().Equal("root", "a");
         (await ReadFile("f-c")).AncestorIds.Should().Equal("root", "a", "b", "c");
     }
 
     [Fact]
-    public async Task Rebuilding_from_a_middle_folder_keeps_the_ancestry_above_it()
+    public async Task Rebuilding_from_a_middle_directory_keeps_the_ancestry_above_it()
     {
         await BuildChain();
 
@@ -148,11 +148,11 @@ public class ContentHierarchyServiceTests : IDisposable
 
         (await Read("b")).AncestorIds.Should().Equal("root", "a");
         (await Read("c")).AncestorIds.Should().Equal("root", "a", "b");
-        (await Read("a")).AncestorIds.Should().BeEmpty("nothing above the starting folder is rewritten");
+        (await Read("a")).AncestorIds.Should().BeEmpty("nothing above the starting directory is rewritten");
     }
 
     [Fact]
-    public async Task Rebuilding_an_unknown_folder_changes_nothing()
+    public async Task Rebuilding_an_unknown_directory_changes_nothing()
     {
         await BuildChain();
 
@@ -174,10 +174,10 @@ public class ContentHierarchyServiceTests : IDisposable
     [Fact]
     public async Task Rebuilding_terminates_on_a_hierarchy_that_is_already_cyclic()
     {
-        // Two folders pointing at each other, which no valid operation produces but bad
+        // Two directorys pointing at each other, which no valid operation produces but bad
         // data can. Without the visited set this walk never returns.
-        await Folder("x", "ex", "y");
-        await Folder("y", "why", "x");
+        await Directory("x", "ex", "y");
+        await Directory("y", "why", "x");
 
         var work = _hierarchy.RebuildAncestorPathsAsync("x");
         var finished = await Task.WhenAny(work, Task.Delay(TimeSpan.FromSeconds(10)));
@@ -187,15 +187,15 @@ public class ContentHierarchyServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Moving_a_folder_rewrites_the_subtree_beneath_it()
+    public async Task Moving_a_directory_rewrites_the_subtree_beneath_it()
     {
         await BuildChain();
-        await Folder("dest", "destination", "root");
+        await Directory("dest", "destination", "root");
         await _hierarchy.RebuildAncestorPathsAsync("root");
 
-        var result = await _hierarchy.MoveFolderAsync("b", "dest");
+        var result = await _hierarchy.MoveDirectoryAsync("b", "dest");
 
-        result.Should().Be(MoveFolderResult.Moved);
+        result.Should().Be(MoveDirectoryResult.Moved);
         (await Read("b")).AncestorIds.Should().Equal("root", "dest");
         (await Read("b")).FullPath.Should().Be("/root/destination/beta");
         (await Read("c")).AncestorIds.Should().Equal("root", "dest", "b");
@@ -204,22 +204,22 @@ public class ContentHierarchyServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Moving_a_folder_into_its_own_descendant_is_refused()
+    public async Task Moving_a_directory_into_its_own_descendant_is_refused()
     {
         await BuildChain();
 
-        var result = await _hierarchy.MoveFolderAsync("a", "c");
+        var result = await _hierarchy.MoveDirectoryAsync("a", "c");
 
-        result.Should().Be(MoveFolderResult.WouldCreateCycle);
-        (await Read("a")).ParentDirectoryID.Should().Be("root", "the move must not be applied");
+        result.Should().Be(MoveDirectoryResult.WouldCreateCycle);
+        (await Read("a")).ParentId.Should().Be("root", "the move must not be applied");
     }
 
     [Fact]
-    public async Task Moving_a_folder_into_itself_is_refused()
+    public async Task Moving_a_directory_into_itself_is_refused()
     {
         await BuildChain();
 
-        (await _hierarchy.MoveFolderAsync("a", "a")).Should().Be(MoveFolderResult.WouldCreateCycle);
+        (await _hierarchy.MoveDirectoryAsync("a", "a")).Should().Be(MoveDirectoryResult.WouldCreateCycle);
     }
 
     [Fact]
@@ -227,42 +227,42 @@ public class ContentHierarchyServiceTests : IDisposable
     {
         await BuildChain();
 
-        (await _hierarchy.MoveFolderAsync("a", "nowhere")).Should().Be(MoveFolderResult.TargetNotFound);
-        (await Read("a")).ParentDirectoryID.Should().Be("root");
+        (await _hierarchy.MoveDirectoryAsync("a", "nowhere")).Should().Be(MoveDirectoryResult.TargetNotFound);
+        (await Read("a")).ParentId.Should().Be("root");
     }
 
     [Fact]
-    public async Task Moving_a_folder_that_does_not_exist_is_refused()
+    public async Task Moving_a_directory_that_does_not_exist_is_refused()
     {
         await BuildChain();
 
-        (await _hierarchy.MoveFolderAsync("nope", "root")).Should().Be(MoveFolderResult.SourceNotFound);
+        (await _hierarchy.MoveDirectoryAsync("nope", "root")).Should().Be(MoveDirectoryResult.SourceNotFound);
     }
 
     [Fact]
     public async Task Moving_onto_a_name_already_used_in_the_target_is_refused()
     {
         await BuildChain();
-        await Folder("dest", "destination", "root");
-        await Folder("clash", "beta", "dest");
+        await Directory("dest", "destination", "root");
+        await Directory("clash", "beta", "dest");
 
-        var result = await _hierarchy.MoveFolderAsync("b", "dest");
+        var result = await _hierarchy.MoveDirectoryAsync("b", "dest");
 
-        result.Should().Be(MoveFolderResult.NameConflict);
-        (await Read("b")).ParentDirectoryID.Should().Be("a");
+        result.Should().Be(MoveDirectoryResult.NameConflict);
+        (await Read("b")).ParentId.Should().Be("a");
     }
 
     [Fact]
-    public async Task Moving_a_folder_to_the_top_level_clears_its_ancestry()
+    public async Task Moving_a_directory_to_the_top_level_clears_its_ancestry()
     {
         await BuildChain();
         await _hierarchy.RebuildAncestorPathsAsync("root");
 
-        var result = await _hierarchy.MoveFolderAsync("b", null);
+        var result = await _hierarchy.MoveDirectoryAsync("b", null);
 
-        result.Should().Be(MoveFolderResult.Moved);
+        result.Should().Be(MoveDirectoryResult.Moved);
         var moved = await Read("b");
-        moved.ParentDirectoryID.Should().BeNull();
+        moved.ParentId.Should().BeNull();
         moved.AncestorIds.Should().BeEmpty();
         moved.FullPath.Should().Be("/beta");
         (await Read("c")).AncestorIds.Should().Equal("b");

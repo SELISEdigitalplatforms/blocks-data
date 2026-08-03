@@ -11,20 +11,20 @@ using Directory = Storage.DomainService.Entities.Directory;
 namespace XUnitTest.Api
 {
     /// <summary>
-    /// Unit tests for <see cref="DirectorysController"/>. The controller's own job is mapping
+    /// Unit tests for <see cref="DirectoriesController"/>. The controller's own job is mapping
     /// a service outcome onto a status code, and the mapping carries meaning: a refusal to
     /// read reports 404 rather than 403, because 403 would confirm that a directory exists to
     /// a caller who may not see it. The create split is the other piece of real logic here.
     /// </summary>
-    public class DirectorysControllerTests
+    public class DirectoriesControllerTests
     {
         private readonly Mock<IDirectoryManagementService> _directorys = new();
         private readonly Mock<IContentListingService> _listing = new();
         private readonly Mock<IContentHierarchyService> _hierarchy = new();
-        private readonly DirectorysController _sut;
+        private readonly DirectoriesController _sut;
 
-        public DirectorysControllerTests() =>
-            _sut = new DirectorysController(_directorys.Object, _listing.Object, _hierarchy.Object);
+        public DirectoriesControllerTests() =>
+            _sut = new DirectoriesController(_directorys.Object, _listing.Object, _hierarchy.Object);
 
         private static Directory Directory(string id = "dir-1") => new()
         {

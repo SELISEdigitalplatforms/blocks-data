@@ -1,5 +1,6 @@
 using Blocks.Genesis;
 using DomainService.Storage.Dms;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Services;
@@ -32,7 +33,8 @@ namespace Api.Controllers
 
         /// <summary>Name search across directorys and files the caller may view.</summary>
         [HttpGet]
-        [ProtectedEndPoint("blocks-data::search-content")]
+        // [ProtectedEndPoint("blocks-data::search-content")]
+        [Authorize]
         public async Task<IActionResult> SearchContent([FromQuery] ContentSearchRequest request)
         {
             var page = await _contentDiscoveryService.SearchAsync(
@@ -43,7 +45,8 @@ namespace Api.Controllers
 
         /// <summary>Archived directorys and files the caller may view.</summary>
         [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-trash")]
+        // [ProtectedEndPoint("blocks-data::get-trash")]
+        [Authorize]
         public async Task<IActionResult> GetTrash([FromQuery] TrashRequest request)
         {
             var page = await _contentDiscoveryService.GetTrashAsync(ContentKind.FromApiString(request.Type), request.Cursor, request.Limit);
@@ -54,6 +57,7 @@ namespace Api.Controllers
         /// <summary>Returns an archived item to its original parent.</summary>
         [HttpPost]
         [ProtectedEndPoint("blocks-data::restore-content")]
+        [Authorize]
         public async Task<IActionResult> RestoreFromTrash([FromBody] RestoreFromTrashRequest request)
         {
             var result = await _contentDiscoveryService.RestoreAsync(request.ResourceId);
@@ -63,7 +67,8 @@ namespace Api.Controllers
 
         /// <summary>Removes an archived item for good.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::delete-from-trash")]
+        // [ProtectedEndPoint("blocks-data::delete-from-trash")]
+        [Authorize]
         public async Task<IActionResult> DeleteFromTrash([FromBody] DeleteFromTrashRequest request)
         {
             var result = await _contentDiscoveryService.DeleteFromTrashAsync(request.ResourceId);
@@ -73,7 +78,8 @@ namespace Api.Controllers
 
         /// <summary>The access entries on a resource.</summary>
         [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-access-policies")]
+        // [ProtectedEndPoint("blocks-data::get-access-policies")]
+        [Authorize]
         public async Task<IActionResult> GetAccessPolicies([FromQuery] GetAccessPoliciesRequest request)
         {
             var policies = await _contentManagementService.GetAccessAsync(request.ResourceId);
@@ -83,7 +89,8 @@ namespace Api.Controllers
 
         /// <summary>Creates an access entry. Requires Manage on the resource.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::grant-access")]
+        // [ProtectedEndPoint("blocks-data::grant-access")]
+        [Authorize]
         public async Task<IActionResult> GrantAccess([FromBody] GrantAccessRequest request)
         {
             var result = await _contentManagementService.GrantAccessAsync(ToPolicy(request));
@@ -93,7 +100,8 @@ namespace Api.Controllers
 
         /// <summary>Updates an existing access entry.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::update-access-policy")]
+        // [ProtectedEndPoint("blocks-data::update-access-policy")]
+        [Authorize]
         public async Task<IActionResult> UpdateAccessPolicy([FromBody] GrantAccessRequest request)
         {
             var result = await _contentManagementService.UpdateAccessAsync(ToPolicy(request));
@@ -103,7 +111,8 @@ namespace Api.Controllers
 
         /// <summary>Deletes an access entry.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::revoke-access-policy")]
+        // [ProtectedEndPoint("blocks-data::revoke-access-policy")]
+        [Authorize]
         public async Task<IActionResult> RevokeAccessPolicy([FromBody] RevokeAccessRequest request)
         {
             var result = await _contentManagementService.RevokeAccessAsync(request.ResourceId, request.PolicyItemId);
@@ -113,7 +122,8 @@ namespace Api.Controllers
 
         /// <summary>The operations the calling user holds on a resource.</summary>
         [HttpGet]
-        [ProtectedEndPoint("blocks-data::resolve-access")]
+        // [ProtectedEndPoint("blocks-data::resolve-access")]
+        [Authorize]
         public async Task<IActionResult> ResolveAccess([FromQuery] string resourceId)
         {
             var flags = await _contentManagementService.ResolveAccessAsync(resourceId);
@@ -128,7 +138,8 @@ namespace Api.Controllers
 
         /// <summary>Switches a resource between inheriting its parent's access and standing alone.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::toggle-inheritance")]
+        // [ProtectedEndPoint("blocks-data::toggle-inheritance")]
+        [Authorize]
         public async Task<IActionResult> ToggleInheritance([FromBody] ToggleInheritanceRequest request)
         {
             var result = await _contentManagementService.ToggleInheritanceAsync(
@@ -139,7 +150,8 @@ namespace Api.Controllers
 
         /// <summary>Grants a principal an allow entry and records it as a share.</summary>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::share-content")]
+        // [ProtectedEndPoint("blocks-data::share-content")]
+        [Authorize]
         public async Task<IActionResult> ShareContent([FromBody] ShareContentRequest request)
         {
             var result = await _contentManagementService.ShareContentAsync(

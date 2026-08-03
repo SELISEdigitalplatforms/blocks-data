@@ -2,7 +2,7 @@ import { API_BASES } from "@/constants/endpoint.constant";
 
 const STORAGE_SUBPATH = "/Storage";
 const FILES_SUBPATH = "/Files";
-const FOLDERS_SUBPATH = "/Directorys";
+const FOLDERS_SUBPATH = "/Directories";
 const CONTENT_SUBPATH = "/Content";
 
 // Storage Configuration endpoints (IDP host; paths under /api/Storage)
@@ -29,7 +29,7 @@ export const STORAGE_FILE_ENDPOINTS = {
   UPLOAD_PUBLIC_CERTIFICATE: `${API_BASES.UDS}/Certificate/UploadCertificate`,
 } as const;
 
-// DMS directory endpoints (see DirectorysController).
+// DMS directory endpoints (see DirectoriesController).
 export const FOLDER_ENDPOINTS = {
   GET: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetDirectory`,
   CHILDREN: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetDirectoryChildren`,
@@ -61,4 +61,19 @@ export const DMS_FILE_ENDPOINTS = {
   CREATE_FILE_VERSION: `${API_BASES.UDS}${FILES_SUBPATH}/CreateFileVersion`,
   COPY_FILE: `${API_BASES.UDS}${FILES_SUBPATH}/CopyFile`,
   MOVE_FILE: `${API_BASES.UDS}${FILES_SUBPATH}/MoveFile`,
+} as const;
+
+// IAM principal pickers — used to populate the manage-access dialog so the user
+// picks real users / roles / organizations instead of typing an opaque id. These
+// hit the IAM service via the dedicated `idpService` HttpClient, whose baseURL
+// is already the IAM origin — so the paths here are RELATIVE (the HttpClient
+// prepends its baseURL; using `API_BASES.IDP` would double the origin).
+const IAM_SUBPATH = "/api/iam";
+export const IAM_ENDPOINTS = {
+  // POST with a GetUsersRequest JSON body → { data: IamUser[], totalCount }.
+  USERS: `${IAM_SUBPATH}/users`,
+  // POST with a GetRolesRequest JSON body → { data: IamRole[], totalCount }.
+  ROLES: `${IAM_SUBPATH}/roles`,
+  // GET with query params (PascalCase) → { organizations, totalCount, isSuccess }.
+  ORGANIZATIONS: `${IAM_SUBPATH}/organizations`,
 } as const;

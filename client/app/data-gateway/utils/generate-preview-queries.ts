@@ -267,8 +267,8 @@ export function generateGraphQLQuery(
     (field.name.startsWith("update") || field.name.startsWith("delete"));
 
   // Detect a legacy `input` arg (filter/sort/pageNo/pageSize) on queries.
-  // When present, the matching top-level fields are also excluded to avoid
-  // duplicating them alongside the new where/order/paging rendering.
+  // When modern top-level args (where/order/paging) are also present, prefer
+  // them and skip the legacy expansion to avoid duplicating where/order/paging.
   const legacyInputArg = field.args.find((a) => a.name === "input");
   const legacyInputType = legacyInputArg
     ? typeMap.get(resolveBaseTypeName(legacyInputArg.type) || "")
@@ -277,9 +277,13 @@ export function generateGraphQLQuery(
     legacyInputType?.kind === "INPUT_OBJECT"
       ? legacyInputType.inputFields ?? []
       : [];
+  const hasModernTopLevelArgs = field.args.some(
+    (a) => a.name === "where" || a.name === "order" || a.name === "paging",
+  );
   const hasLegacyInput =
     operationType === "query" &&
     !!legacyInputArg &&
+    !hasModernTopLevelArgs &&
     legacyInputFields.some(
       (f) =>
         f.name === "filter" ||

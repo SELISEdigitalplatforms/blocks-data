@@ -554,5 +554,73 @@ describe("generate-preview-queries", () => {
       expect(orderCount).toBe(1);
       expect(pageNoCount).toBe(1);
     });
+
+    it("prefers modern top-level where/order/paging and does not duplicate when paired with a legacy `input` arg", () => {
+      const mixedMap = new Map<string, IntrospectionType>();
+      mixedMap.set(
+        "Query",
+        makeType({
+          kind: "OBJECT",
+          name: "Query",
+          fields: [
+            sf("getDomains", ref("OBJECT", "DomainResult"), [
+              arg("where", scalar("String")),
+              arg("order", list(scalar("String"))),
+              arg("paging", ref("INPUT_OBJECT", "PagingInput")),
+              arg("input", ref("INPUT_OBJECT", "DomainInput")),
+            ]),
+          ],
+        }),
+      );
+      mixedMap.set(
+        "DomainInput",
+        makeType({
+          kind: "INPUT_OBJECT",
+          name: "DomainInput",
+          inputFields: [
+            { name: "filter", description: null, type: scalar("String"), defaultValue: null },
+            { name: "sort", description: null, type: scalar("String"), defaultValue: null },
+            { name: "pageNo", description: null, type: scalar("Int"), defaultValue: null },
+            { name: "pageSize", description: null, type: scalar("Int"), defaultValue: null },
+          ],
+        }),
+      );
+      mixedMap.set(
+        "PagingInput",
+        makeType({
+          kind: "INPUT_OBJECT",
+          name: "PagingInput",
+          inputFields: [
+            { name: "pageNo", description: null, type: nn(scalar("Int")), defaultValue: null },
+            { name: "pageSize", description: null, type: nn(scalar("Int")), defaultValue: null },
+          ],
+        }),
+      );
+      mixedMap.set(
+        "DomainResult",
+        makeType({
+          kind: "OBJECT",
+          name: "DomainResult",
+          fields: [sf("items", scalar("String"))],
+        }),
+      );
+
+      const field = mixedMap.get("Query")!.fields!.find((f) => f.name === "getDomains")!;
+      const out = generateGraphQLQuery(field, mixedMap, "query");
+
+      const whereCount = (out.match(/where:/g) || []).length;
+      const orderCount = (out.match(/order:/g) || []).length;
+      const pagingCount = (out.match(/paging:/g) || []).length;
+      const pageNoCount = (out.match(/pageNo:/g) || []).length;
+      const pageSizeCount = (out.match(/pageSize:/g) || []).length;
+      expect(whereCount).toBe(1);
+      expect(orderCount).toBe(1);
+      expect(pagingCount).toBe(1);
+      expect(pageNoCount).toBe(1);
+      expect(pageSizeCount).toBe(1);
+      expect(out).not.toContain("input:");
+      expect(out).not.toContain("filter:");
+      expect(out).not.toContain("sort:");
+    });
   });
 });

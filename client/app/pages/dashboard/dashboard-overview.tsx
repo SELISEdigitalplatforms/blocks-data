@@ -2,7 +2,7 @@ import { ProjectDetail } from "@/components/project-detail/project-detail";
 import { useGetProject, useValidateCNameProject } from "@/hooks/use-project";
 import { showErrorToast } from "@/hooks/use-toast";
 import { getDomain } from "@/lib/domain";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useCallback, useEffect } from "react";
 
 export const DashboardOverview = () => {
@@ -31,7 +31,7 @@ export const DashboardOverview = () => {
       });
     } catch (error) {
       if (error && typeof error === "object" && "errors" in error) {
-        showErrorToast({ errors: (error as any).errors });
+        showErrorToast({ errors: (error as { errors?: unknown }).errors });
       }
     }
   }, [

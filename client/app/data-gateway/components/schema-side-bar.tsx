@@ -8,7 +8,7 @@ import { useDebounce } from "@/hooks/use-debounce";
 import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Plus, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";

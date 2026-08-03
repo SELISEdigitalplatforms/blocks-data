@@ -1,11 +1,11 @@
 import { getRuntimeEnv } from "@/lib/runtime-env";
-import { useAuthStore } from "@/store/useAuthStore";
+import { useAuthStore } from "@/store/use-auth-store";
 import { OIDCSignin } from "@blocks-idp/authentication/pages/oidc/oidc-signin";
 import { OIDCPermissionWrapper } from "@blocks-idp/authentication/pages/oidc/permission-wrapper";
 import { authService } from "@blocks-idp/authentication/services/auth.service";
 import { Loader } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router";
 
 export default function OidcIndexPage() {
   const [searchParams] = useSearchParams();

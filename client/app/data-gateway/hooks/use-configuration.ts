@@ -1,5 +1,5 @@
 import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   buildClientSchema,
@@ -614,16 +614,16 @@ export const useGraphQLIntrospection = (options: {
 
 /** Raw introspection JSON for the Schemas drawer; cached until configurations reload invalidates it. */
 export const useRawIntrospectionQuery = (options: {
-  projectShortKey: string;
+  projectKey: string;
   enabled?: boolean;
 }) => {
   return useQuery({
-    queryKey: ["graphql-raw-introspection", options.projectShortKey],
+    queryKey: ["graphql-raw-introspection", options.projectKey],
     queryFn: () =>
       configurationService.executeGraphQLOperation(
         getIntrospectionQuery(),
       ),
-    enabled: !!options.projectShortKey && (options.enabled ?? true),
+    enabled: !!options.projectKey && (options.enabled ?? true),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 30 * 60 * 1000,
     retry: 1,

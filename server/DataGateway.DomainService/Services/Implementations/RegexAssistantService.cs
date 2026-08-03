@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -16,6 +17,7 @@ namespace DataGateway.DomainService.Services.RegexAssistant
         private readonly string _chatGptTemperature;
         private readonly HttpClient _httpClient;
         private readonly ICloudBuildSecret _cloudBuildSecret;
+        private string _lastErrorMessage;
 
         public RegexAssistantService(
             ILogger<RegexAssistantService> logger,
@@ -69,7 +71,8 @@ namespace DataGateway.DomainService.Services.RegexAssistant
                     return null;
                 }
 
-                var output = FormatRegexPattern(regexPattern);
+                var output = FormatRegexPattern(regexPattern, out var errorMessage);
+                _lastErrorMessage = errorMessage;
                 _logger.LogInformation($"GenerateRegexPattern: Formatting complete - Output: {output}");
                 return output;
             }
@@ -93,7 +96,7 @@ namespace DataGateway.DomainService.Services.RegexAssistant
                     return null;
                 }
 
-                var encryptedSecret = await GetEncryptedSecret();
+                var encryptedSecret = await GetEncryptedSecretAsync();
                 if (string.IsNullOrEmpty(encryptedSecret))
                 {
                     _logger.LogError("ChatGPT encrypted secret is not configured in vault. Please configure 'ChatGptEncryptedSecret' and 'ChatGptEncryptionKey' in Azure Vault.");
@@ -149,7 +152,7 @@ namespace DataGateway.DomainService.Services.RegexAssistant
             return null;
         }
 
-        private async Task<string> GetEncryptedSecret()
+        private async Task<string> GetEncryptedSecretAsync()
         {
             return _cloudBuildSecret.ChatGptEncryptedSecret;
         }
@@ -216,8 +219,10 @@ namespace DataGateway.DomainService.Services.RegexAssistant
             return context;
         }
 
-        private static string FormatRegexPattern(string aiText)
+        private static string FormatRegexPattern(string aiText, out string errorMessage)
         {
+            errorMessage = null;
+
             if (string.IsNullOrWhiteSpace(aiText))
             {
                 return string.Empty;
@@ -225,18 +230,44 @@ namespace DataGateway.DomainService.Services.RegexAssistant
 
             var trimmed = aiText.Trim();
 
-            // Remove common wrapper patterns
+            // Remove common code-block wrappers first so we can inspect the raw inner content.
             if (trimmed.StartsWith("```"))
             {
-                // Extract content between code blocks
-                var match = System.Text.RegularExpressions.Regex.Match(trimmed, @"```(?:regex)?\s*(.*?)\s*```", System.Text.RegularExpressions.RegexOptions.Singleline);
-                if (match.Success)
+                var codeMatch = System.Text.RegularExpressions.Regex.Match(
+                    trimmed,
+                    @"```(?:regex)?\s*(.*?)\s*```",
+                    System.Text.RegularExpressions.RegexOptions.Singleline,
+                    TimeSpan.FromSeconds(1));
+                if (codeMatch.Success)
                 {
-                    trimmed = match.Groups[1].Value.Trim();
+                    trimmed = codeMatch.Groups[1].Value.Trim();
                 }
             }
 
-            // Remove quotes if present
+            // Preferred: AI returns a JSON object with `pattern` + `errorMessage`.
+            if (trimmed.StartsWith("{") && trimmed.EndsWith("}"))
+            {
+                try
+                {
+                    var obj = JObject.Parse(trimmed);
+                    var patternToken = obj["pattern"] ?? obj["Pattern"];
+                    if (patternToken != null && !string.IsNullOrWhiteSpace(patternToken.ToString()))
+                    {
+                        var errorToken = obj["errorMessage"] ?? obj["ErrorMessage"];
+                        if (errorToken != null && !string.IsNullOrWhiteSpace(errorToken.ToString()))
+                        {
+                            errorMessage = errorToken.ToString().Trim();
+                        }
+                        return patternToken.ToString().Trim();
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Fall through to legacy plain-text parsing.
+                }
+            }
+
+            // Legacy: strip surrounding quotes if present (plain regex response).
             if ((trimmed.StartsWith("\"") && trimmed.EndsWith("\"")) ||
                 (trimmed.StartsWith("'") && trimmed.EndsWith("'")))
             {
@@ -245,6 +276,8 @@ namespace DataGateway.DomainService.Services.RegexAssistant
 
             return trimmed.Trim();
         }
+
+        public string GetLastErrorMessage() => _lastErrorMessage;
 
         private static void TemperatureValidator(double temperature)
         {

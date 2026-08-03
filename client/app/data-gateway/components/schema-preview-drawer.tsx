@@ -19,15 +19,14 @@ import {
 } from "@/components/ui-kits/tabs/tabs";
 import { useGetProject } from "@/hooks/use-project";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { Eye, Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import atomDark from "react-syntax-highlighter/dist/esm/styles/prism/atom-dark";
 import prism from "react-syntax-highlighter/dist/esm/styles/prism/prism";
-import { useRawIntrospectionQuery } from "../hooks/use-configuration";
 import { SchemaPreviewDrawerProps } from "../models/schema-preview.types";
 import { buildPreviewSections } from "../utils/generate-preview-queries";
 import { formatPreviewJson } from "../utils/graphql-template.utils";
@@ -89,6 +88,9 @@ export function SchemaPreviewDrawer({
   className,
   open,
   onOpenChange,
+  rawIntrospection: rawIntrospectionProp,
+  isGatewayIntrospectionPending: isGatewayIntrospectionPendingProp,
+  isGatewayIntrospectionFetching: isGatewayIntrospectionFetchingProp,
 }: SchemaPreviewDrawerProps) {
   const handleCloseAutoFocus = (event: Event) => {
     event.preventDefault();
@@ -136,11 +138,12 @@ export function SchemaPreviewDrawer({
 
   const formattedJson = useMemo(() => formatPreviewJson(previewData), [previewData]);
 
-  const { data: rawIntrospection, isFetching: isGatewayIntrospectionFetching, isPending: isGatewayIntrospectionPending } =
-    useRawIntrospectionQuery({ projectShortKey, enabled: isEntity && !!schemaName });
+  const rawIntrospection = rawIntrospectionProp;
+  const isGatewayIntrospectionFetching = isGatewayIntrospectionFetchingProp ?? false;
+  const isGatewayIntrospectionPending = isGatewayIntrospectionPendingProp ?? false;
 
   const isGatewaySchemaLoading =
-    isEntity && !!schemaName && !!projectShortKey &&
+    isEntity && !!schemaName && !!projectShortKey && !!rawIntrospectionProp &&
     (isGatewayIntrospectionPending || (isGatewayIntrospectionFetching && rawIntrospection === undefined));
 
   const sections = useMemo(

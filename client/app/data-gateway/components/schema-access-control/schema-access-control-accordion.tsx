@@ -18,7 +18,7 @@ import {
 } from "@/components/ui-kits/table/table";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { LOGICAL_OPERATOR } from "@/data-gateway/constants/schema-access-control";
 import { useDeletePolicy } from "@/data-gateway/hooks/use-configuration";
 import type { IPolicyItem } from "@/data-gateway/models/data-service";

@@ -1,8 +1,8 @@
-import { BlocksAppLayout } from "@seliseblocks/blocks-kit";
-import { NuqsAdapter } from "nuqs/adapters/react-router/v6";
+import { BlocksAppLayout } from "@seliseblocks/genesis-os";
+import { NuqsAdapter } from "nuqs/adapters/react-router/v8";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { RouterProvider } from "react-router-dom";
+import { RouterProvider } from "react-router/dom";
 import { Toaster } from "./components/ui-kits/toaster/toaster";
 import { TooltipProvider } from "./components/ui-kits/tooltip/tooltip";
 import { ThemeProvider } from "./hooks/use-theme";

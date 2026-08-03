@@ -1,3 +1,4 @@
+using Blocks.Genesis;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Services;
@@ -34,8 +35,8 @@ public class SchemaConfigurationController : ControllerBase
     /// Use this endpoint after making changes to schema definitions or data sources to refresh the schema and clear deployment badges in the UI.
     /// </summary>
     /// <returns>Returns a success response if the schema is reloaded and changes are resolved, or an error message if the operation fails.</returns>
-    [Authorize]
     [HttpPost("reload")]
+    [ProtectedEndPoint("blocks-data::reload-data-gateway-server")]
     [ProducesResponseType(typeof(ServiceResponse<bool>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ReloadDataGatewayServerAsync()

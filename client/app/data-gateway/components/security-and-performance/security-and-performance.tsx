@@ -15,7 +15,7 @@ import { Schema } from "@/data-gateway/models/security-and-performance";
 import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Globe, Lock, Plus, ShieldAlert, Users } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -75,6 +75,7 @@ const SecurityAndPerformance = ({
   onSchemaCreated,
 }: SecurityAndPerformanceProps) => {
   const [isAddSchemaModalOpen, setIsAddSchemaModalOpen] = useState(false);
+  const [addSchemaInstance, setAddSchemaInstance] = useState(0);
   const [pageNo, setPageNo] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const queryClient = useQueryClient();
@@ -154,7 +155,13 @@ const SecurityAndPerformance = ({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => setIsAddSchemaModalOpen(true)}>
+            <Button
+              size="sm"
+              onClick={() => {
+                setAddSchemaInstance((n) => n + 1);
+                setIsAddSchemaModalOpen(true);
+              }}
+            >
               <Plus className="h-4 w-4" /> Add Schema
             </Button>
             <Button size="sm" variant="outline" onClick={onNavigateToSchemas}>
@@ -182,7 +189,10 @@ const SecurityAndPerformance = ({
             <Button
               size="sm"
               className="shrink-0 bg-primary/90 shadow-[0_0_16px_-2px_rgba(99,102,241,0.4)] hover:bg-primary"
-              onClick={() => setIsAddSchemaModalOpen(true)}
+              onClick={() => {
+                setAddSchemaInstance((n) => n + 1);
+                setIsAddSchemaModalOpen(true);
+              }}
             >
               <Plus className="h-3.5 w-3.5" /> Add Schema
             </Button>
@@ -232,11 +242,14 @@ const SecurityAndPerformance = ({
       )}
 
       <Dialog open={isAddSchemaModalOpen} onOpenChange={setIsAddSchemaModalOpen}>
-        <AddEditSchemaModal
-          mode="add"
-          onSubmit={onSchemaCreate}
-          onCancel={() => setIsAddSchemaModalOpen(false)}
-        />
+        {isAddSchemaModalOpen && (
+          <AddEditSchemaModal
+            key={addSchemaInstance}
+            mode="add"
+            onSubmit={onSchemaCreate}
+            onCancel={() => setIsAddSchemaModalOpen(false)}
+          />
+        )}
       </Dialog>
     </div>
   );

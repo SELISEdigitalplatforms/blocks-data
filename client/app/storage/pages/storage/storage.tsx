@@ -1,14 +1,15 @@
 "use client";
 
 import { FilterChangeHandler } from "@/components/filter-toolbar";
+import { Button } from "@/components/ui-kits/button/button";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { LogMenu } from "@/service-logs";
+import { useStoragePath } from "@/hooks/use-scoped-path";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { IStorageConfiguration } from "@/storage/models/storage.model";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
-import { useStoragePath } from "@/hooks/use-scoped-path";
 import {
   filterStorageConfigurations,
   type StorageFilterValues,
@@ -113,12 +114,12 @@ export function Storage() {
   };
 
   const handleRemove = (id: string) => {
-    console.log("Remove configuration:", id);
+    console.error("Remove configuration:", id);
     // TODO: Implement remove logic
   };
 
   const handleDisconnect = (id: string) => {
-    console.log("Disconnect storage:", id);
+    console.error("Disconnect storage:", id);
     // TODO: Implement disconnect logic
   };
 
@@ -129,19 +130,19 @@ export function Storage() {
           <h1 className="text-2xl font-semibold">Storage</h1>
         </div>
         <div className="flex items-center gap-2">
-          {/* <Button
+          <Button
             size="sm"
             variant="outline"
             onClick={() =>
               window.open(
-                `${process.env.NEXT_PUBLIC_API_BASE_URL}/uds/v1/swagger/index.html`,
+                `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`,
                 "_blank",
               )
             }
           >
             API Docs
-          </Button> */}
-          <LogMenu link="/app/services/storage/logs" />{" "}
+          </Button>
+          {/* <LogMenu link="/app/services/storage/logs" />{" "} */}
         </div>
       </div>
 
@@ -151,7 +152,7 @@ export function Storage() {
           onChange={onChange}
           onReset={onReset}
           onAddConfiguration={() => setOpen(true)}
-          onConnectStorage={() => console.log("Connect to storage")}
+          onConnectStorage={() => console.error("Connect to storage")}
         />
 
         {loading ? (

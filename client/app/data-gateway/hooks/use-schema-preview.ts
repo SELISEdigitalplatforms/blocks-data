@@ -1,15 +1,50 @@
 import { useMemo } from "react";
 import { PropertyRow } from "../models/schema-structure.types";
 import { getPreviewFieldType } from "../utils/schema-structure.utils";
+import { buildPreviewJsonFromIntrospection } from "../utils/generate-preview-queries";
+
+interface IntrospectionPreviewSource {
+  rawIntrospection?: unknown;
+  schemaName?: string;
+}
 
 export const useSchemaPreview = (
   properties: PropertyRow[],
   dtoPreviewMap: Map<string, Record<string, unknown>>,
+  introspectionSource?: IntrospectionPreviewSource,
 ) => {
+  const introspectionPreview = useMemo(() => {
+    if (!introspectionSource?.rawIntrospection || !introspectionSource?.schemaName) {
+      return null;
+    }
+    return buildPreviewJsonFromIntrospection(
+      introspectionSource?.rawIntrospection,
+      introspectionSource?.schemaName,
+    );
+  }, [introspectionSource?.rawIntrospection, introspectionSource?.schemaName]);
+
   const previewData = useMemo(() => {
     const structure: Record<string, unknown> = {};
 
     const safeProperties = Array.isArray(properties) ? properties : [];
+
+    if (introspectionPreview) {
+      safeProperties.forEach((property) => {
+        const fieldName = property?.name?.trim();
+        if (!fieldName) {
+          return;
+        }
+        if (fieldName in introspectionPreview) {
+          structure[fieldName] = introspectionPreview[fieldName];
+          return;
+        }
+
+        const rawType = property?.type?.trim();
+        const previewType = getPreviewFieldType(rawType);
+        structure[fieldName] = property?.isArray ? [previewType || ""] : previewType || "";
+      });
+      return structure;
+    }
 
     safeProperties.forEach((property) => {
       const fieldName = property?.name?.trim();
@@ -34,7 +69,7 @@ export const useSchemaPreview = (
     });
 
     return structure;
-  }, [dtoPreviewMap, properties]);
+  }, [dtoPreviewMap, properties, introspectionPreview]);
 
   const templateFields = useMemo(
     () =>

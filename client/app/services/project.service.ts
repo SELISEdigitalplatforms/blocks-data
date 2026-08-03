@@ -1,6 +1,6 @@
 import { PROJECT_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
 import { http } from "@/lib/http-client";
-import { IGetProjectPayload, IGetProjectResponse, IProjectGroup } from "@/models/project.model";
+import { IGetProjectResponse, IProjectGroup } from "@/models/project.model";
 
 export class ProjectService {
   getProjects(page = 0, pageSize = 100, tenantGroupId = ""): Promise<IProjectGroup[]> {
@@ -8,7 +8,7 @@ export class ProjectService {
     return http.get(url, undefined, { absoluteUrl: true });
   }
 
-  getProject(payload: IGetProjectPayload): Promise<IGetProjectResponse> {
+  getProject(payload: { projectId: string }): Promise<IGetProjectResponse> {
     const url = `${PROJECT_ENDPOINTS.GET}?projectId=${payload.projectId}`;
     return http.get(url, undefined, { absoluteUrl: true });
   }

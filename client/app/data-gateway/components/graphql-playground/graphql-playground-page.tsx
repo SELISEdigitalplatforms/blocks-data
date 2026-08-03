@@ -8,7 +8,7 @@ import {
   TabsTrigger,
 } from "@/components/ui-kits/tabs/tabs";
 import { useGetProject } from "@/hooks/use-project";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import type { EditorProps } from "@monaco-editor/react";
 import { isListType, isNonNullType, isObjectType } from "graphql";
 import { BookOpen, Keyboard, Play, Trash2 } from "lucide-react";
@@ -69,9 +69,16 @@ interface ResponseTab {
 }
 
 export const GraphQLPlaygroundPage = () => {
-  const [query, setQuery] = useState(
-    `# Write your GraphQL query/mutation here`,
-  );
+  const [query, setQuery] = useState(() => {
+    if (typeof window !== "undefined") {
+      const storedQuery = localStorage.getItem("graphql-playground-query");
+      if (storedQuery) {
+        localStorage.removeItem("graphql-playground-query");
+        return storedQuery;
+      }
+    }
+    return `# Write your GraphQL query/mutation here`;
+  });
   const [responses, setResponses] = useState<ResponseTab[]>([]);
   const [activeResponseTab, setActiveResponseTab] = useState<string>("");
   const [isCleanDataModalOpen, setIsCleanDataModalOpen] = useState(false);
@@ -97,15 +104,18 @@ export const GraphQLPlaygroundPage = () => {
   }, [projectData, selectedProject?.itemId, setSelectedProject]);
   const [monacoTheme, setMonacoTheme] = useState<
     NonNullable<EditorProps["theme"]>
-  >("light");
+  >(() =>
+    typeof document !== "undefined" &&
+    document.documentElement.classList.contains("dark")
+      ? "vs-dark"
+      : "light",
+  );
 
   useEffect(() => {
     const resolveTheme = () =>
       document.documentElement.classList.contains("dark")
         ? "vs-dark"
         : "light";
-
-    setMonacoTheme(resolveTheme());
 
     const observer = new MutationObserver(() => {
       setMonacoTheme(resolveTheme());
@@ -124,10 +134,9 @@ export const GraphQLPlaygroundPage = () => {
   const {
     data: schemasIntrospectionData,
     isPending: isSchemasIntrospectionPending,
-    isFetching: isSchemasIntrospectionFetching,
   } = useRawIntrospectionQuery({
-    projectShortKey,
-    enabled: isSchemasDrawerOpen && !!projectShortKey,
+    projectKey,
+    enabled: !!projectKey,
   });
 
   const handleFetchSchemas = () => {
@@ -137,9 +146,7 @@ export const GraphQLPlaygroundPage = () => {
   const isSchemasDrawerLoading =
     isSchemasDrawerOpen &&
     !!projectShortKey &&
-    (isSchemasIntrospectionPending ||
-      (isSchemasIntrospectionFetching &&
-        schemasIntrospectionData === undefined));
+    (isSchemasIntrospectionPending || schemasIntrospectionData === undefined);
 
   const handleUseQueryFromSchemas = useCallback((queryText: string) => {
     setQuery(queryText);
@@ -151,18 +158,8 @@ export const GraphQLPlaygroundPage = () => {
   // Fetch introspected schema for accurate autocompletion
   const { data: introspectedSchema } = useGraphQLIntrospection({
     projectShortKey,
-    enabled: !!projectShortKey && !!projectKey,
+    enabled: !!projectShortKey,
   });
-
-  // Load query from localStorage if coming from "Try in Playground"
-  useEffect(() => {
-    const storedQuery = localStorage.getItem("graphql-playground-query");
-    if (storedQuery) {
-      setQuery(storedQuery);
-      // Clear the stored query after loading
-      localStorage.removeItem("graphql-playground-query");
-    }
-  }, []);
 
   // Fetch entity schemas
   const { data: schemaListResponse } = useSchemaList({
@@ -412,7 +409,7 @@ export const GraphQLPlaygroundPage = () => {
     }
 
     // Step 1: Find the input: [ or input: { block
-    const inputStartMatch = queryText.match(/(input\s*:\s*[\{\[])/i);
+    const inputStartMatch = queryText.match(/(input\s*:\s*[{[])/i);
     if (!inputStartMatch || inputStartMatch.index === undefined) {
       return queryText;
     }
@@ -801,7 +798,7 @@ export const GraphQLPlaygroundPage = () => {
                       operationCtx === "query" ? "Query" : "Mutation";
                     const argSuggestions = getArgumentSuggestions(
                       opMatch,
-                      parentTypeName as any,
+                      parentTypeName,
                       introspectedSchema,
                     );
                     argSuggestions.forEach((s: IntrospectionSuggestion) => {
@@ -878,7 +875,7 @@ export const GraphQLPlaygroundPage = () => {
                           isNonNullType(returnType) ||
                           isListType(returnType)
                         ) {
-                          returnType = (returnType as any).ofType;
+                          returnType = (returnType as unknown as { ofType: typeof returnType }).ofType;
                         }
 
                         if (isObjectType(returnType)) {
@@ -891,11 +888,11 @@ export const GraphQLPlaygroundPage = () => {
                                 isNonNullType(itemType) ||
                                 isListType(itemType)
                               ) {
-                                itemType = (itemType as any).ofType;
+                                itemType = (itemType as unknown as { ofType: typeof itemType }).ofType;
                               }
                               if (isObjectType(itemType)) {
                                 const fieldSuggestions = getFieldSuggestions(
-                                  (itemType as any).name,
+                                  (itemType as { name: string }).name,
                                   introspectedSchema,
                                 );
                                 fieldSuggestions.forEach((s) => {
@@ -908,7 +905,7 @@ export const GraphQLPlaygroundPage = () => {
                           } else {
                             // Directly inside the operation return type
                             const fieldSuggestions = getFieldSuggestions(
-                              (returnType as any).name,
+                              (returnType as { name: string }).name,
                               introspectedSchema,
                               { omitPaginationMirrorFields: true },
                             );
@@ -1206,9 +1203,9 @@ export const GraphQLPlaygroundPage = () => {
                 label: `get${schemaName}s`,
                 kind: monaco.languages.CompletionItemKind.Function,
                 insertText: `get${schemaName}s(
-  input: {
-    filter: "{}" # stringify mongo filter
-    sort: "{}" # stringify mongo sorting
+  where: {}
+  order: []
+  paging: {
     pageNo: 1
     pageSize: 10
   }
@@ -1253,7 +1250,7 @@ export const GraphQLPlaygroundPage = () => {
                 label: `update${schemaName}`,
                 kind: monaco.languages.CompletionItemKind.Function,
                 insertText: `update${schemaName}(
-  filter: "{}" # stringify mongo filter
+  where: {}
   input: {
     \${1}
   }
@@ -1274,7 +1271,7 @@ export const GraphQLPlaygroundPage = () => {
                 label: `delete${schemaName}`,
                 kind: monaco.languages.CompletionItemKind.Function,
                 insertText: `delete${schemaName}(
-  filter: "{}" # stringify mongo filter
+  where: {}
 ) {
   acknowledged
   totalImpactedData
@@ -1513,7 +1510,7 @@ export const GraphQLPlaygroundPage = () => {
               size="sm"
               variant="ghost"
               onClick={handleFetchSchemas}
-              disabled={!projectShortKey || isSchemasDrawerLoading}
+              disabled={isSchemasDrawerLoading}
               className="h-7 gap-1.5 border border-border/40 px-3 text-xs text-muted-foreground/70 hover:border-border/60 hover:text-foreground"
             >
               <BookOpen className="h-3.5 w-3.5" />

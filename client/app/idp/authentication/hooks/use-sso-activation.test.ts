@@ -6,13 +6,13 @@ import { useSsoActivation } from "./use-sso-activation";
 const mockPush = vi.fn();
 const mockReplace = vi.fn();
 const mockGet = vi.fn();
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useNavigate: vi.fn(() => mockPush),
   useSearchParams: vi.fn(() => [{ get: mockGet }]),
 }));
 
 const mockSetAuthenticated = vi.fn();
-vi.mock("@/store/useAuthStore", () => ({
+vi.mock("@/store/use-auth-store", () => ({
   useAuthStore: vi.fn(() => ({ setAuthenticated: mockSetAuthenticated })),
 }));
 
@@ -108,7 +108,7 @@ describe("useSsoActivation", () => {
       wrapper: createWrapper(),
     });
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/login"));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/login"));
   });
 
   it("should return isPending state", () => {

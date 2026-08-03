@@ -30,7 +30,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui-kits/table/table";
+import { useStoragePath } from "@/hooks/use-scoped-path";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { CreateDmsNewFolder } from "@/storage/components/create-new-folder-modal/create-dms-new-folder";
 import { FilePreviewModal } from "@/storage/components/file-preview-modal";
 import { UploadDmsFileModal } from "@/storage/components/upload-dms-file-modal";
@@ -45,8 +47,7 @@ import {
   IDmsFileAndFolderInfo,
   IGetDmsFileAndFolderResponse,
 } from "@/storage/models/storage.model";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
-import { useStoragePath } from "@/hooks/use-scoped-path";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 
 import {
   FileText,
@@ -62,7 +63,7 @@ import {
   Video,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useGetStorageConfigurations } from "../../hooks/use-storage-configuration";
 import {
   FileGridSkeleton,
@@ -443,18 +444,18 @@ export function StorageDetail() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          {/* <Button
+          <Button
             variant="outline"
             size="sm"
             onClick={() =>
               window.open(
-                `${process.env.NEXT_PUBLIC_API_BASE_URL}/storage/v1/swagger/index.html`,
+                `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`,
                 "_blank",
               )
             }
           >
             API Docs
-          </Button> */}
+          </Button>
           {/* <LogMenu link="/services/storage/logs" /> */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

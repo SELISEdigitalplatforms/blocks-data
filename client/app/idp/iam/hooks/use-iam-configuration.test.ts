@@ -13,11 +13,13 @@ import { useGetIamConfiguration, useSaveIamConfiguration } from "./use-iam-confi
 vi.mock("@blocks-idp/iam/services/configuration.service", () =>
   mockIamConfigurationServiceFactory(),
 );
-vi.mock("@/store/useProjectStore", () => mockProjectStoreFactory());
+vi.mock("@/store/use-project-store", () => mockProjectStoreFactory());
 
 describe("use-iam-configuration hooks", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
+    // clearAllMocks (not resetAllMocks) so the useProjectStore factory's
+    // mockReturnValue survives between tests.
+    vi.clearAllMocks();
   });
 
   describe("useGetIamConfiguration", () => {
@@ -47,6 +49,7 @@ describe("use-iam-configuration hooks", () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(configurationService.saveIamConfiguration).toHaveBeenCalledWith(
         mockSaveIamConfigPayload,
+        expect.anything(),
       );
     });
   });

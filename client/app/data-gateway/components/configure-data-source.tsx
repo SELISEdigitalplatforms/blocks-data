@@ -24,7 +24,7 @@ import {
 } from "@/components/ui-kits/radio-group/radio-group";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Settings2 } from "lucide-react";
@@ -174,10 +174,17 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
             <FormField
               control={sourceForm.control}
               name="dbConnectionString"
-              rules={{ required: "Connection string is required" }}
+              rules={{
+                required: "Connection string is required",
+                validate: (value) =>
+                  value?.trim().length > 0 ||
+                  "Connection string is required",
+              }}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Connection string</FormLabel>
+                  <FormLabel>
+                    Connection string <span className="text-red-500">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Write here" {...field} />
                   </FormControl>
@@ -189,10 +196,17 @@ const ConfigureDataSourceModal: React.FC<DataSourceProps> = ({
             <FormField
               control={sourceForm.control}
               name="databaseName"
-              rules={{ required: "Database name is required" }}
+              rules={{
+                required: "Database name is required",
+                validate: (value) =>
+                  value?.trim().length > 0 ||
+                  "Database name is required",
+              }}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Database name</FormLabel>
+                  <FormLabel>
+                    Database name <span className="text-red-500">*</span>
+                  </FormLabel>
                   <FormControl>
                     <Input placeholder="Write here" {...field} />
                   </FormControl>

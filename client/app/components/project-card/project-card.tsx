@@ -1,6 +1,6 @@
 import { Card, CardTitle } from "@/components/ui-kits/card/card";
 import { Button } from "@/components/ui-kits/button/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { IProject } from "@/identifier/models/project.model";
 import {
   Tooltip,
@@ -9,7 +9,7 @@ import {
   TooltipContent,
 } from "@/components/ui-kits/tooltip/tooltip";
 import { environmentOptions } from "@/constants/environment-options";
-import { useProjectStore } from "@/store/useProjectStore";
+import { useProjectStore } from "@/store/use-project-store";
 import { ChevronRight, Settings2 } from "lucide-react";
 
 type ProjectCardProps = {

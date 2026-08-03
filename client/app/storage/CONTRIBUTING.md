@@ -85,13 +85,13 @@ feat(storage): add sftp provider support - issue(#512)
 
 ## Coding Guidelines
 
-1. **Layer your code** — Add a service method first, then a hook, then a component. Never call the `http` client directly from a component.
-2. **Model your data** — Add TypeScript interfaces to `models/storage.model.ts` before implementing any service method or component.
-3. **Name consistently** — Files use `kebab-case`. Hooks are prefixed with `use-`. Service classes are suffixed with `Service`.
-4. **Respect the two-step upload pattern** — Pre-signed URL generation (`getPreSignedUrlForUpload`) and the actual upload (`uploadFile`) must remain two separate operations to keep cloud credentials off the client.
-5. **Write tests alongside code** — Every new service method and hook must have a corresponding test file in the same directory. Use Vitest + React Testing Library + MSW.
-6. **Use the shared `http` client** — Import from `@/lib/http-client`. Do not introduce alternative HTTP libraries or call `fetch` directly.
-7. **Strategy-aware saves** — When adding a new `StorageStrategyType`, update the reset-values logic in `StorageConfiguration.save()` so stale credential fields are cleared on save.
+1. **Layer your code**: Add a service method first, then a hook, then a component. Never call the `http` client directly from a component.
+2. **Model your data**: Add TypeScript interfaces to `models/storage.model.ts` before implementing any service method or component.
+3. **Name consistently**: Files use `kebab-case`. Hooks are prefixed with `use-`. Service classes are suffixed with `Service`.
+4. **Respect the two-step upload pattern**: Pre-signed URL generation (`getPreSignedUrlForUpload`) and the actual upload (`uploadFile`) must remain two separate operations to keep cloud credentials off the client.
+5. **Write tests alongside code**: Every new service method and hook must have a corresponding test file in the same directory. Use Vitest + React Testing Library + MSW.
+6. **Use the shared `http` client**: Import from `@/lib/http-client`. Do not introduce alternative HTTP libraries or call `fetch` directly.
+7. **Strategy-aware saves**: When adding a new `StorageStrategyType`, update the reset-values logic in `StorageConfiguration.save()` so stale credential fields are cleared on save.
 
 ## Code Review Process
 

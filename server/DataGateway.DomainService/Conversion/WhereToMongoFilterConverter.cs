@@ -164,83 +164,15 @@ public static class WhereToMongoFilterConverter
         return new BsonDocument(fieldName, new BsonDocument(clauses));
     }
 
-    /// <summary>
-    /// HotChocolate may pass CLR operation inputs (with Optional fields) or dictionary trees;
-    /// normalize to a case-insensitive key dictionary for mapping.
-    /// </summary>
     private static IReadOnlyDictionary<string, object?>? CoerceOperationDictionary(object value) =>
         value switch
         {
-            StringOperationFilterInput s => Flatten(s),
-            NumberOperationFilterInput n => Flatten(n),
-            IntOperationFilterInput i => Flatten(i),
-            BooleanOperationFilterInput b => Flatten(b),
-            DateTimeOperationFilterInput dt => Flatten(dt),
             IReadOnlyDictionary<string, object?> d => d,
             IDictionary<string, object?> dict =>
                 dict as IReadOnlyDictionary<string, object?>
                 ?? dict.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
             _ => null
         };
-
-    private static Dictionary<string, object?> Flatten(StringOperationFilterInput x)
-    {
-        var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        if (x.Eq.HasValue) d["eq"] = x.Eq.Value;
-        if (x.Neq.HasValue) d["neq"] = x.Neq.Value;
-        if (x.Contains.HasValue) d["contains"] = x.Contains.Value;
-        if (x.StartsWith.HasValue) d["startsWith"] = x.StartsWith.Value;
-        if (x.EndsWith.HasValue) d["endsWith"] = x.EndsWith.Value;
-        if (x.In.HasValue) d["in"] = x.In.Value;
-        return d;
-    }
-
-    private static Dictionary<string, object?> Flatten(NumberOperationFilterInput x)
-    {
-        var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        if (x.Eq.HasValue) d["eq"] = x.Eq.Value;
-        if (x.Neq.HasValue) d["neq"] = x.Neq.Value;
-        if (x.Gt.HasValue) d["gt"] = x.Gt.Value;
-        if (x.Gte.HasValue) d["gte"] = x.Gte.Value;
-        if (x.Lt.HasValue) d["lt"] = x.Lt.Value;
-        if (x.Lte.HasValue) d["lte"] = x.Lte.Value;
-        if (x.In.HasValue) d["in"] = x.In.Value;
-        return d;
-    }
-
-    private static Dictionary<string, object?> Flatten(IntOperationFilterInput x)
-    {
-        var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        if (x.Eq.HasValue) d["eq"] = x.Eq.Value;
-        if (x.Neq.HasValue) d["neq"] = x.Neq.Value;
-        if (x.Gt.HasValue) d["gt"] = x.Gt.Value;
-        if (x.Gte.HasValue) d["gte"] = x.Gte.Value;
-        if (x.Lt.HasValue) d["lt"] = x.Lt.Value;
-        if (x.Lte.HasValue) d["lte"] = x.Lte.Value;
-        if (x.In.HasValue) d["in"] = x.In.Value;
-        return d;
-    }
-
-    private static Dictionary<string, object?> Flatten(BooleanOperationFilterInput x)
-    {
-        var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        if (x.Eq.HasValue) d["eq"] = x.Eq.Value;
-        if (x.Neq.HasValue) d["neq"] = x.Neq.Value;
-        return d;
-    }
-
-    private static Dictionary<string, object?> Flatten(DateTimeOperationFilterInput x)
-    {
-        var d = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        if (x.Eq.HasValue) d["eq"] = x.Eq.Value;
-        if (x.Neq.HasValue) d["neq"] = x.Neq.Value;
-        if (x.Gt.HasValue) d["gt"] = x.Gt.Value;
-        if (x.Gte.HasValue) d["gte"] = x.Gte.Value;
-        if (x.Lt.HasValue) d["lt"] = x.Lt.Value;
-        if (x.Lte.HasValue) d["lte"] = x.Lte.Value;
-        if (x.In.HasValue) d["in"] = x.In.Value;
-        return d;
-    }
 
     private static string MapOperatorToMongo(string opKey)
     {

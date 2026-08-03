@@ -19,7 +19,7 @@ vi.mock("../hooks/use-configuration", () => ({
   useSchemaList: (...a: unknown[]) => useSchemaListMock(...(a as [])),
 }));
 
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
 }));
 

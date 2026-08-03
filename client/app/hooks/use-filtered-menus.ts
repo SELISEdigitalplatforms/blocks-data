@@ -1,6 +1,6 @@
 import { Menu } from "@/models/menu-models";
 import { useMemo } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 
 export function useFilteredMenus(menus: Menu[]): Menu[] {
   const { pathname } = useLocation();

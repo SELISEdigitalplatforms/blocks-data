@@ -5,7 +5,7 @@ let orgResult: { data: unknown; isLoading: boolean };
 vi.mock("@blocks-idp/iam/hooks/use-organization", () => ({
   useGetOrganizationById: () => orgResult,
 }));
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
 }));
 vi.mock("@/components/breadcrumb/breadcrumb", () => ({ default: () => <nav data-testid="breadcrumb" /> }));

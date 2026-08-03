@@ -26,7 +26,7 @@ const mocks = vi.hoisted(() => ({
 
 // `@/lib/http-client` builds `new HttpClient(...)` at import time and the iam
 // services pulled in by the drawer import it — stub the class + the store.
-vi.mock("@seliseblocks/blocks-kit", () => ({
+vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({
     selectedProject: {
       itemId: "p1",

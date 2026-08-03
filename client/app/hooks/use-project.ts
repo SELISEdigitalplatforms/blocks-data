@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { projectService } from "@/services/project.service";
 import { projectService as crossProjectService } from "@/identifier/services/project.service";
 import { useProjectStore } from "@/store/use-project-store";

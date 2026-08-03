@@ -5,7 +5,7 @@ import { Braces, List, RefreshCw, Table2 } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { useExecuteGraphQL } from "@/data-gateway/hooks/use-configuration";
-import { useProjectStore } from "@seliseblocks/blocks-kit";
+import { useProjectStore } from "@seliseblocks/genesis-os";
 import { HttpError } from "@/lib/http-client";
 import { DataListView } from "./data-list-view";
 import { DataJsonView } from "./data-json-view";

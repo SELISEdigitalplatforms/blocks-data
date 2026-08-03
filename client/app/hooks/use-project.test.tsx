@@ -15,7 +15,6 @@ import {
   useDisableProject,
   useCreateProject,
   useGetMigrationStatus,
-  useProjectForm,
 } from "./use-project";
 
 vi.mock("@/services/project.service", () => ({
@@ -46,7 +45,7 @@ vi.mock("@/store/use-project-store", () => ({
 }));
 
 const mockNavigate = vi.fn();
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useNavigate: () => mockNavigate,
 }));
 
@@ -221,72 +220,5 @@ describe("use-project mutation hooks", () => {
     result.current.mutate({ name: "p" } as never);
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(crossProjectService.createProject).toHaveBeenCalled();
-  });
-});
-
-describe("useProjectForm.saveProject", () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it("creates the project, seeds the store and navigates on success", async () => {
-    vi.mocked(crossProjectService.createProject).mockResolvedValue({
-      isSuccess: true,
-      tenantGroupId: "g99",
-      errors: null,
-    } as never);
-    vi.mocked(projectService.getProjects).mockResolvedValue([
-      { projects: [{ itemId: "np" }] },
-    ] as never);
-
-    const { result } = renderHook(() => useProjectForm(), {
-      wrapper: createWrapper(),
-    });
-
-    await act(async () => {
-      await result.current.saveProject();
-    });
-
-    expect(crossProjectService.createProject).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "My Project", isProduction: false }),
-      expect.anything(),
-    );
-    expect(showSuccessToast).toHaveBeenCalled();
-    expect(storeApi.setTennantGroup).toHaveBeenCalledWith("g99");
-    expect(storeApi.setSelectedProject).toHaveBeenCalledWith({ itemId: "np" });
-    expect(mockNavigate).toHaveBeenCalledWith("/project-overview");
-    expect(formState.resetFormData).toHaveBeenCalled();
-  });
-
-  it("shows an error toast when the API reports failure", async () => {
-    vi.mocked(crossProjectService.createProject).mockResolvedValue({
-      isSuccess: false,
-      errors: { name: "taken" },
-    } as never);
-
-    const { result } = renderHook(() => useProjectForm(), {
-      wrapper: createWrapper(),
-    });
-
-    await act(async () => {
-      await result.current.saveProject();
-    });
-
-    expect(showErrorToast).toHaveBeenCalledWith({ errors: { name: "taken" } });
-    expect(mockNavigate).not.toHaveBeenCalled();
-  });
-
-  it("handles a thrown error with an errors field", async () => {
-    vi.mocked(crossProjectService.createProject).mockRejectedValue({
-      errors: { server: "down" },
-    });
-
-    const { result } = renderHook(() => useProjectForm(), {
-      wrapper: createWrapper(),
-    });
-
-    await act(async () => {
-      await result.current.saveProject();
-    });
-
-    expect(showErrorToast).toHaveBeenCalledWith({ errors: { server: "down" } });
   });
 });

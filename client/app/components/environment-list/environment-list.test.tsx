@@ -13,7 +13,7 @@ vi.mock("@/hooks/use-project", () => ({
 vi.mock("@/store/use-project-store", () => ({
   useProjectStore: () => storeState,
 }));
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useNavigate: () => vi.fn(),
   useLocation: () => ({ pathname: "/dashboard" }),
 }));

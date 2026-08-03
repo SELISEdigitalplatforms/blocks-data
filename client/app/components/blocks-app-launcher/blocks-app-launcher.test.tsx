@@ -10,7 +10,7 @@ vi.mock("@/lib/runtime-env", () => ({
 vi.mock("@/hooks/use-toast", () => ({
   showErrorToast: (...a: unknown[]) => showErrorToast(...a),
 }));
-vi.mock("react-router-dom", () => ({
+vi.mock("react-router", () => ({
   useLocation: () => ({ pathname: "/dashboard" }),
 }));
 

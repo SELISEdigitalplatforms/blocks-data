@@ -58,12 +58,13 @@ export const OIDC_FLOW_ENDPOINTS = {
 
 // ─── Legacy re-export (backward compat for oauth.service) ───────────────────
 
-export const IDP_ENDPOINTS = {
-  AUTHENTICATION: {
-    GET_SOCIAL_LOGIN_ENDPOINT: AUTH_ENDPOINTS.GET_SOCIAL_LOGIN_ENDPOINT,
-    TOKEN: AUTH_ENDPOINTS.TOKEN,
-  },
-};
+// DEADCODE 2026-07-29: legacy re-export with no remaining references in client or e2e; commented pending review
+// export const IDP_ENDPOINTS = {
+//   AUTHENTICATION: {
+//     GET_SOCIAL_LOGIN_ENDPOINT: AUTH_ENDPOINTS.GET_SOCIAL_LOGIN_ENDPOINT,
+//     TOKEN: AUTH_ENDPOINTS.TOKEN,
+//   },
+// };
 
 
 export const IMPERSONATE_ENDPOINTS = {

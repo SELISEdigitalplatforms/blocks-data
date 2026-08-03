@@ -46,7 +46,7 @@ import {
 const mockGetState = vi.fn(() => ({
   selectedProject: { tenantId: "t1", tenantSlug: "slug1" },
 }));
-vi.mock("@seliseblocks/blocks-kit", () => {
+vi.mock("@seliseblocks/genesis-os", () => {
   const useProjectStore = () => mockGetState();
   (useProjectStore as unknown as { getState: () => unknown }).getState = () =>
     mockGetState();
@@ -365,7 +365,7 @@ describe("use-configuration hooks", () => {
       );
 
       const { result } = renderHook(
-        () => useRawIntrospectionQuery({ projectShortKey: "slug1" }),
+        () => useRawIntrospectionQuery({ projectKey: "slug1" }),
         { wrapper: createWrapper() },
       );
 

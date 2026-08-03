@@ -15,6 +15,13 @@ namespace Storage.DomainService.Services
         public DateTime CreatedDate { get; set; }
         public DateTime LastUpdatedDate { get; set; }
         public string? CreatedBy { get; set; }
+        /// <summary>
+        /// True for directories seeded from the default templates (Cloud/Construct/etc).
+        /// The frontend uses this to disable destructive row actions (move/rename/delete)
+        /// on system roots. Driven by <c>ModuleName</c> presence: user-created directories
+        /// never carry a module name through the create flow.
+        /// </summary>
+        public bool IsDefault { get; set; }
         public ContentPermissionFlags Permissions { get; set; } = new();
     }
 

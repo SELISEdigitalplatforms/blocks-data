@@ -264,6 +264,34 @@ public class DirectoryManagementServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Renaming_a_default_directory_is_refused()
+    {
+        // Default directories carry a "default" tag (set by the seed-template consumer);
+        // their name is part of the tenant contract and cannot be changed.
+        await SeedDirectory("cloud", name: "Cloud");
+        await Directories.UpdateOneAsync(
+            d => d.ItemId == "cloud", Builders<Directory>.Update.Set(d => d.Tags, new List<string> { "default" }));
+
+        var result = await _directorys.UpdateDirectoryAsync("cloud", "Cloudy", null);
+
+        result.Status.Should().Be(DirectoryOperationStatus.IsDefault);
+        (await Load("cloud")).Name.Should().Be("Cloud");
+    }
+
+    [Fact]
+    public async Task Deleting_a_default_directory_is_refused()
+    {
+        await SeedDirectory("cloud", name: "Cloud");
+        await Directories.UpdateOneAsync(
+            d => d.ItemId == "cloud", Builders<Directory>.Update.Set(d => d.Tags, new List<string> { "default" }));
+
+        var result = await _directorys.DeleteDirectoryAsync("cloud", permanent: true);
+
+        result.Status.Should().Be(DirectoryOperationStatus.IsDefault);
+        (await Load("cloud")).IsArchived.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Renaming_a_directory_to_its_own_name_is_not_a_conflict()
     {
         await SeedDirectory("a", name: "Alpha");

@@ -88,7 +88,7 @@ vi.mock("@/storage/hooks/use-dms", () => ({
     mocks.lastChildrenQuery = { directoryId, search: options?.search };
 
     const legacy = (mocks.dmsState.response ?? null) as {
-      dmsFileAndDirectoryInfos?: IDmsFileAndDirectoryInfo[];
+      dmsFileAndDirectoryInfos?: (IDmsFileAndDirectoryInfo & { isDefault?: boolean })[];
       totalCount?: number;
     } | null;
 
@@ -105,6 +105,7 @@ vi.mock("@/storage/hooks/use-dms", () => ({
       inheritsParentAccess: true,
       isArchived: false,
       isActive: true,
+      isDefault: item.isDefault,
       permissions: mocks.permissions,
     }));
 
@@ -615,6 +616,26 @@ describe("StorageDetail", () => {
         description: "Directory Deleted successfully",
       }),
     );
+  });
+
+  it("hides move, rename and delete on a default directory", async () => {
+    // Default directories (Cloud/Construct/etc) are system roots: the destructive
+    // row actions are removed so a user can't unanchor the tree from the UI.
+    mocks.dmsState.response = {
+      dmsFileAndDirectoryInfos: [
+        { ...makeDirectory({ name: "Cloud", itemId: "cloud-root" }), isDefault: true },
+      ] as never,
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "More options" }));
+
+    // Manage access stays available (sharing a default directory is allowed); only
+    // move/rename/delete are gated off.
+    expect(screen.queryByText("Move")).not.toBeInTheDocument();
+    expect(screen.queryByText("Rename")).not.toBeInTheDocument();
+    expect(screen.queryByText("Delete")).not.toBeInTheDocument();
   });
 
   it("does not raise its own toast when the listing fails", () => {

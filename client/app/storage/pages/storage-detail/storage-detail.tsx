@@ -373,6 +373,9 @@ export function StorageDetail() {
     const dmsItem = dmsItemsById.get(row.itemId);
     const actions = itemActions(row);
     const isDirectoryRow = row.type === DmsItemType.Directory;
+    // Default directories (Cloud/Construct/etc) are seeded system roots: they anchor
+    // the tree and shouldn't be moved, renamed or deleted from the UI.
+    const isProtected = isDirectoryRow && (dmsItem as { isDefault?: boolean } | undefined)?.isDefault === true;
 
     return (
       <>
@@ -387,7 +390,7 @@ export function StorageDetail() {
             Versions
           </DropdownMenuItem>
         )}
-        {dmsItem && actions.canMove && (
+        {dmsItem && actions.canMove && !isProtected && (
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
@@ -420,7 +423,7 @@ export function StorageDetail() {
             Manage access
           </DropdownMenuItem>
         )}
-        {dmsItem && isDirectoryRow && actions.canRename && (
+        {dmsItem && isDirectoryRow && actions.canRename && !isProtected && (
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
@@ -431,7 +434,7 @@ export function StorageDetail() {
             Rename
           </DropdownMenuItem>
         )}
-        {actions.canDelete && (
+        {actions.canDelete && !isProtected && (
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();

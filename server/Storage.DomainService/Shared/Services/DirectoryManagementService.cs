@@ -19,6 +19,11 @@ namespace Storage.DomainService.Services
         ParentNotFound = 4,
         /// <summary>Permanent deletion refused because the directory still has children.</summary>
         NotEmpty = 5,
+        /// <summary>
+        /// The directory is a default/system root (seeded from a template). It anchors the
+        /// tenant tree and cannot be moved, renamed or deleted.
+        /// </summary>
+        IsDefault = 6,
     }
 
     public sealed class DirectoryOperationResult
@@ -211,6 +216,13 @@ namespace Storage.DomainService.Services
                 return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound);
             }
 
+            // Default directories are system roots: their name is part of the tenant
+            // contract, so renaming them is refused outright.
+            if (IsDefaultDirectory(directory))
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.IsDefault);
+            }
+
             if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Edit, cancellationToken))
             {
                 await AuditAsync(directoryId, ContentResourceType.Directory, "Edit", false, null, cancellationToken);
@@ -267,6 +279,13 @@ namespace Storage.DomainService.Services
             if (directory is null)
             {
                 return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound);
+            }
+
+            // Default directories are system roots: deleting one would unanchor the
+            // tenant tree, so it is refused regardless of permissions.
+            if (IsDefaultDirectory(directory))
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.IsDefault);
             }
 
             if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Delete, cancellationToken))
@@ -353,6 +372,16 @@ namespace Storage.DomainService.Services
             return await (await Directories.FindAsync(filter, cancellationToken: cancellationToken))
                 .FirstOrDefaultAsync(cancellationToken);
         }
+
+        /// <summary>
+        /// A directory counts as a default/system root when its <see cref="BaseEntity.Tags"/>
+        /// array contains the marker <c>"default"</c>. Default directories are cloned from the
+        /// seed templates (Cloud/Construct/etc) which tag themselves this way; user-created
+        /// directories never carry the tag, so it is a stable marker for "this anchors the
+        /// tenant tree". Such directories cannot be moved, renamed or deleted.
+        /// </summary>
+        private static bool IsDefaultDirectory(Directory directory)
+            => directory.Tags?.Contains("default", StringComparer.OrdinalIgnoreCase) == true;
 
         private async Task<bool> SiblingNameTakenAsync(
             string? parentDirectoryId, string systemName, string? excludingItemId, CancellationToken cancellationToken)

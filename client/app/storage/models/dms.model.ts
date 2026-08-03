@@ -33,6 +33,11 @@ export interface DmsItemBase {
   createdDate?: string;
   lastUpdatedDate?: string;
   tags?: string[];
+  /**
+   * True for directories seeded from the default templates (Cloud/Construct/etc).
+   * The storage page disables destructive row actions (move/rename/delete) on these.
+   */
+  isDefault?: boolean;
   permissions: DmsPermissionFlags;
 }
 

@@ -239,6 +239,7 @@ namespace Storage.DomainService.Services
                     CreatedDate = d.CreatedDate,
                     LastUpdatedDate = d.LastUpdatedDate,
                     CreatedBy = d.CreatedBy,
+                    IsDefault = d.Tags != null && d.Tags.Contains("default", StringComparer.OrdinalIgnoreCase),
                 },
                 Descriptor = new ContentResourceDescriptor
                 {

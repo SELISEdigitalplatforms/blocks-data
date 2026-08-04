@@ -81,6 +81,17 @@ type FilterValues = {
   fileType: string[];
 };
 
+function getPreviewUrl(response: unknown): string | null {
+  if (!response || typeof response !== "object") {
+    return null;
+  }
+
+  const value = response as { url?: unknown; Url?: unknown; downloadUrl?: unknown };
+  const url = value.url ?? value.Url ?? value.downloadUrl;
+
+  return typeof url === "string" && url.trim() ? url : null;
+}
+
 const getFileIcon = (extension: string, size: "sm" | "lg" = "lg") => {
   const sizeClass = size === "sm" ? "h-5 w-5" : "h-10 w-10";
   const ext = extension?.toLowerCase() || "";
@@ -254,14 +265,19 @@ export function StorageDetail() {
 
     try {
       const response = await fetchFile({
-        itemId: file.fileStorageId,
+        // DMS entries use fileStorageId for the underlying storage file. Older
+        // entries can omit it, in which case itemId is the compatible fallback.
+        itemId: file.fileStorageId || file.itemId,
         projectKey,
         configurationName: storage?.name,
       });
 
-      if (response?.url) {
-        setFilePreviewUrl(response.url);
+      const previewUrl = getPreviewUrl(response);
+      if (!previewUrl) {
+        throw new Error("The file preview URL was not returned.");
       }
+
+      setFilePreviewUrl(previewUrl);
     } catch (error) {
       return showErrorToast({ errors: error });
     } finally {

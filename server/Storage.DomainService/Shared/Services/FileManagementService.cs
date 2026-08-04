@@ -33,6 +33,8 @@ namespace Storage.DomainService.Services
         private readonly IValidator<LocalStorageUploadRequest> _localStorageRequestValidator;
         private readonly IValidator<UpdateFileRequest> _fileRequestValidator;
         private readonly IMessageClient _messageClient;
+        private readonly IContentAccessResolver _accessResolver;
+        private readonly IContentAccessRepository _accessRepository;
 
         private const string ConfigurationNotFound = "configuration_not_found";
 
@@ -45,7 +47,9 @@ namespace Storage.DomainService.Services
             IValidator<GetPreSignedUrlForUploadRequest> requestValidator,
             IValidator<LocalStorageUploadRequest> localStorageRequestValidator,
             IValidator<UpdateFileRequest> fileRequestValidator,
-            IMessageClient messageClient
+            IMessageClient messageClient,
+            IContentAccessResolver accessResolver,
+            IContentAccessRepository accessRepository
             )
         {
             _fileRepository = fileRepository;
@@ -57,6 +61,8 @@ namespace Storage.DomainService.Services
             _localStorageRequestValidator = localStorageRequestValidator;
             _fileRequestValidator = fileRequestValidator;
             _messageClient = messageClient;
+            _accessResolver = accessResolver;
+            _accessRepository = accessRepository;
         }
 
 
@@ -69,6 +75,10 @@ namespace Storage.DomainService.Services
 
             request.ItemId = string.IsNullOrEmpty(request.ItemId) ? Guid.NewGuid().ToString() : request.ItemId;
             var existingFile = await _fileRepository.GetFileByItemIdAsync(request.ItemId);
+            if (existingFile is not null && !await AuthorizeFileAsync(existingFile, ContentPermission.Edit, "Upload", default))
+                return AccessDenied<GetPreSignedUrlForUploadResponse>();
+            if (existingFile is null && !await AuthorizeParentEditAsync(request.ParentDirectoryId, "Upload", default))
+                return AccessDenied<GetPreSignedUrlForUploadResponse>();
             return existingFile != null
                 ? await HandleExistingFileAsync(request, existingFile)
                 : await HandleNewFileAsync(request);
@@ -140,6 +150,7 @@ namespace Storage.DomainService.Services
             var storageServiceProvider = GetStorageService(configuration);
 
             var fileInfo = GetFileInfo(existingFile.ItemId, newFileVersion.ItemId, existingFile.Name, existingFile.AccessModifier, StorageStrategyCategory.Cloud);
+            newFileVersion.StorageKey = fileInfo.filePath;
             var preSignedUrl = storageServiceProvider.GeneratePreSignedUploadUrlAsync(fileInfo.filePath, fileInfo.expiry);
 
             await Task.WhenAll(_versionRepository.CreateFileVersionAsync(newFileVersion));
@@ -154,8 +165,6 @@ namespace Storage.DomainService.Services
 
         private async Task<GetPreSignedUrlForUploadResponse> HandleNewFileAsync(GetPreSignedUrlForUploadRequest request)
         {
-            var file = CreateNewFile(request);
-            var fileVersion = CreateNewFileVersion(file.ItemId, 0);
             var configuration = await GetConfigurationAsync(request.ConfigurationName);
 
             if (configuration == null)
@@ -163,9 +172,14 @@ namespace Storage.DomainService.Services
                 return CreateErrorResponse<GetPreSignedUrlForUploadResponse>("Configuration", ConfigurationNotFound);
             }
 
+            var file = await CreateNewFileAsync(request);
+            file.ConfigurationName = configuration.Name;
+            var fileVersion = CreateNewFileVersion(file.ItemId, 0);
+
             var storageServiceProvider = GetStorageService(configuration);
 
             var fileInfo = GetFileInfo(file.ItemId, fileVersion.ItemId, file.Name, file.AccessModifier, StorageStrategyCategory.Cloud);
+            fileVersion.StorageKey = fileInfo.filePath;
             var preSignedUrl = storageServiceProvider.GeneratePreSignedUploadUrlAsync(fileInfo.filePath, TimeSpan.FromDays(3));
 
             file.Url = preSignedUrl;
@@ -191,7 +205,12 @@ namespace Storage.DomainService.Services
             return _storageServiceFactory.GetStorageService(configuration);
         }
 
-        private File CreateNewFile(dynamic request)
+        /// <summary>
+        /// Builds a new file with the parent's cached ancestry. This keeps a freshly
+        /// uploaded file in the same access-inheritance chain as its directory from its
+        /// first read; previously it stayed at an empty ancestry until a later rebuild.
+        /// </summary>
+        private async Task<File> CreateNewFileAsync(dynamic request)
         {
             var now = DateTime.UtcNow;
             var userId = BlocksContext.GetContext()?.UserId ?? string.Empty;
@@ -203,10 +222,18 @@ namespace Storage.DomainService.Services
                 ? new Dictionary<string, MetaValue>()
                 : JsonSerializer.Deserialize<Dictionary<string, MetaValue>>(request.MetaData) ?? new Dictionary<string, MetaValue>();
 
+            var parentId = string.IsNullOrWhiteSpace(request.ParentDirectoryId)
+                ? null
+                : (string)request.ParentDirectoryId;
+            var parent = parentId is null ? null : await _directoryRepository.GetDirectoryByItemIDAsync(parentId);
+            var ancestorIds = parent is null
+                ? new List<string>()
+                : (parent.AncestorIds ?? new List<string>()).Concat(new[] { parent.ItemId }).ToList();
+
             return new File
             {
                 Name = request.Name,
-                DirectoryId = string.IsNullOrWhiteSpace(request.ParentDirectoryId) ? string.Empty : request.ParentDirectoryId,
+                DirectoryId = parentId ?? string.Empty,
                 SystemName = request.Name.ToLower(),
                 Type = StructureType.File,
                 TypeString = StructureType.File.ToString(),
@@ -226,6 +253,10 @@ namespace Storage.DomainService.Services
                     ? AccessModifier.Private
                     : Enum.Parse<AccessModifier>(request.AccessModifier),
                 CurrentVersion = 0,
+                AncestorIds = ancestorIds,
+                InheritsParentAccess = true,
+                Extension = Path.GetExtension((string)request.Name).TrimStart('.'),
+                ConfigurationName = request.ConfigurationName,
                 AdditionalProperties = request.AdditionalProperties ?? new Dictionary<string, string>(),
             };
         }
@@ -258,6 +289,7 @@ namespace Storage.DomainService.Services
                     TenantId = BlocksContext.GetContext()?.TenantId ?? string.Empty,
                     CreateDate = DateTime.UtcNow,
                     CreatedBy = BlocksContext.GetContext()?.UserId ?? string.Empty,
+                    UploadedBy = BlocksContext.GetContext()?.UserId ?? string.Empty,
                     Tags = null,
                     Language = "EN"
                 });
@@ -271,6 +303,9 @@ namespace Storage.DomainService.Services
             }
 
             var result = _fileRepository.GetRequiredFiles([request.FileId], request.Version);
+            var file = await _fileRepository.GetFileByItemIdAsync(request.FileId);
+            if (file is null || !await AuthorizeFileAsync(file, ContentPermission.Download, "Download", default))
+                return AccessDenied<FileResponse>();
             var configuration = await _configurationRepository.GetConfigurationByNameAsync(request.ConfigurationName ?? Constants.DefaultConfigurationName);
 
             if (configuration == null)
@@ -293,6 +328,13 @@ namespace Storage.DomainService.Services
             {
                 finalfileResponse.Add(CreateErrorResponse<FileResponse>("empty_file_id", "file_id_should_not_be_empty"));
                 return finalfileResponse;
+            }
+
+            foreach (var fileId in request.FileIds)
+            {
+                var file = await _fileRepository.GetFileByItemIdAsync(fileId);
+                if (file is null || !await AuthorizeFileAsync(file, ContentPermission.Download, "Download", default))
+                    return new List<FileResponse> { AccessDenied<FileResponse>() };
             }
 
             var result = _fileRepository.GetRequiredFiles(request.FileIds, null);
@@ -405,6 +447,9 @@ namespace Storage.DomainService.Services
                 return CreateErrorResponse<BaseResponse>("file_not_found", $"file_with_id_{deleteFileRequest.FileId}_not_exist");
             }
 
+            if (!await AuthorizeFileAsync(existingFile, ContentPermission.Delete, "Delete", default))
+                return AccessDenied<BaseResponse>();
+
             var storageService = GetStorageService(configuration);
             var context = BlocksContext.GetContext();
             var tenantId = context?.TenantId ?? string.Empty;
@@ -513,6 +558,10 @@ namespace Storage.DomainService.Services
             }
 
             var existingFile = string.IsNullOrEmpty(request.ItemId) ? null : await _fileRepository.GetFileByItemIdAsync(request.ItemId);
+            if (existingFile is not null && !await AuthorizeFileAsync(existingFile, ContentPermission.Edit, "Upload", default))
+                return AccessDenied<LocalStorageUploadResponse>();
+            if (existingFile is null && !await AuthorizeParentEditAsync(request.ParentDirectoryId, "Upload", default))
+                return AccessDenied<LocalStorageUploadResponse>();
             return (existingFile != null
                 ? await HandleExistingFileForLocalStorageAsync(request, existingFile)
                 : await HandleNewFileForLocalStorageAsync(request));
@@ -532,6 +581,7 @@ namespace Storage.DomainService.Services
             var storageServiceProvider = GetStorageService(configuration);
             var context = BlocksContext.GetContext();
             var tenantId = context?.TenantId ?? string.Empty;
+            newFileVersion.StorageKey = BuildLocalStorageKey(tenantId, existingFile.ItemId, newFileVersion.No, request.Name);
             bool success = await storageServiceProvider.UploadFileToSftpAsync(request.Name, tenantId, existingFile.ItemId, newFileVersion.No.ToString(), request.File);
 
             if (success)
@@ -556,18 +606,20 @@ namespace Storage.DomainService.Services
             if (string.IsNullOrEmpty(request.ItemId))
                 request.ItemId = Guid.NewGuid().ToString();
 
-            var file = CreateNewFile(request);
-            var fileVersion = CreateNewFileVersion(file.ItemId, 0);
-
             var configuration = await GetLocalStorageConfiguration(request.ConfigurationName);
             if (configuration == null)
             {
                 return CreateErrorResponse<LocalStorageUploadResponse>("Configuration", ConfigurationNotFound);
             }
 
+            var file = await CreateNewFileAsync(request);
+            file.ConfigurationName = configuration.Name;
+            var fileVersion = CreateNewFileVersion(file.ItemId, 0);
+
             var storageServiceProvider = GetStorageService(configuration);
             var context = BlocksContext.GetContext();
             var tenantId = context?.TenantId ?? string.Empty;
+            fileVersion.StorageKey = BuildLocalStorageKey(tenantId, file.ItemId, fileVersion.No, request.Name);
             bool success = await storageServiceProvider.UploadFileToSftpAsync(request.Name, tenantId, file.ItemId, fileVersion.No.ToString(), request.File);
 
             if (success)
@@ -612,6 +664,9 @@ namespace Storage.DomainService.Services
 
             if (existingFile == null)
                 return CreateErrorResponse<DownloadFileResponse>("file_not_found", $"file_with_id_{signatureString.ItemId}_not_exist");
+
+            if (!await AuthorizeFileAsync(existingFile, ContentPermission.Download, "Download", default))
+                return AccessDenied<DownloadFileResponse>();
 
             // Validate access rights
             if (!ValidateAccess(existingFile.TenantId, request.ConfigurationName, signatureString, out var accessError))
@@ -803,11 +858,14 @@ namespace Storage.DomainService.Services
                 return new BaseMutationResponse
                 {
                     Errors = new Dictionary<string, string>
-            {
-                { "ItemId", "Not found" }
-            }
+                    {
+                        { "ItemId", "Not found" }
+                    }
                 };
             }
+
+            if (!await AuthorizeFileAsync(file, ContentPermission.Edit, "Edit", default))
+                return AccessDenied<BaseMutationResponse>();
 
             // Assuming your File entity has a dictionary property or allows storing additional properties
             file.AdditionalProperties = command.AdditionalProperties ?? file.AdditionalProperties;
@@ -835,6 +893,13 @@ namespace Storage.DomainService.Services
                 };
             }
 
+            if (!await AuthorizeFileAsync(existingFile, ContentPermission.Edit, "Edit", default))
+                return new CreateFileVersionResponse
+                {
+                    IsSuccess = false,
+                    Errors = new Dictionary<string, string> { { "access", "forbidden" } },
+                };
+
             var latestFileVersionNumber = await _versionRepository.GetLatestFileVersionNumberAsync(existingFile.ItemId);
             var newFileVersion = CreateNewFileVersion(existingFile.ItemId, latestFileVersionNumber);
 
@@ -850,6 +915,7 @@ namespace Storage.DomainService.Services
             var storageServiceProvider = GetStorageService(configuration);
 
             var fileInfo = GetFileInfo(existingFile.ItemId, newFileVersion.ItemId, existingFile.Name, existingFile.AccessModifier, StorageStrategyCategory.Cloud);
+            newFileVersion.StorageKey = fileInfo.filePath;
             var preSignedUrl = storageServiceProvider.GeneratePreSignedUploadUrlAsync(fileInfo.filePath, fileInfo.expiry);
 
             await _versionRepository.CreateFileVersionAsync(newFileVersion);
@@ -861,5 +927,49 @@ namespace Storage.DomainService.Services
                 IsSuccess = true
             };
         }
+
+        private async Task<bool> AuthorizeParentEditAsync(string? directoryId, string action, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(directoryId)) return true; // root upload remains IAM-gated.
+            var directory = await _directoryRepository.GetDirectoryByItemIDAsync(directoryId);
+            if (directory is null) return false;
+            return await AuthorizeAsync(new ContentResourceDescriptor
+            {
+                ResourceId = directory.ItemId, AncestorIds = directory.AncestorIds ?? new(),
+                InheritsParentAccess = directory.InheritsParentAccess, CreatedBy = directory.CreatedBy,
+            }, ContentResourceType.Directory, ContentPermission.Edit, action, cancellationToken);
+        }
+
+        private Task<bool> AuthorizeFileAsync(File file, ContentPermission permission, string action, CancellationToken cancellationToken) =>
+            AuthorizeAsync(new ContentResourceDescriptor
+            {
+                ResourceId = file.ItemId, AncestorIds = file.AncestorIds ?? new(),
+                InheritsParentAccess = file.InheritsParentAccess, CreatedBy = file.CreatedBy,
+            }, ContentResourceType.File, permission, action, cancellationToken);
+
+        private async Task<bool> AuthorizeAsync(ContentResourceDescriptor resource, ContentResourceType resourceType,
+            ContentPermission permission, string action, CancellationToken cancellationToken)
+        {
+            var granted = await _accessResolver.ResolveAsync(resource, permission, cancellationToken);
+            var context = BlocksContext.GetContext();
+            var userId = context?.UserId ?? string.Empty;
+            await _accessRepository.WriteAuditAsync(new ContentAuditLog
+            {
+                ItemId = Guid.NewGuid().ToString(), TenantId = context?.TenantId ?? string.Empty,
+                ResourceId = resource.ResourceId, ResourceType = resourceType, UserId = userId,
+                Action = action, Granted = granted, Detail = permission.ToString(),
+                CreatedDate = DateTime.UtcNow, CreatedBy = userId,
+            }, cancellationToken);
+            return granted;
+        }
+
+        private static T AccessDenied<T>() where T : BaseResponse, new() => new()
+        {
+            IsSuccess = false,
+            Errors = new Dictionary<string, string> { { "access", "forbidden" } },
+        };
+
+        private static string BuildLocalStorageKey(string tenantId, string fileId, long version, string fileName) =>
+            $"{tenantId}/{fileId}/{version}/{fileName.TrimStart('/')}";
     }
 }

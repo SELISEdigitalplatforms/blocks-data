@@ -143,6 +143,7 @@ namespace Api.Controllers
                 MoveDirectoryResult.WouldCreateCycle => BadRequest(new { message = "A directory cannot be moved inside itself." }),
                 MoveDirectoryResult.NameConflict => Conflict(new { message = "A directory with that name already exists in the target." }),
                 MoveDirectoryResult.IsDefault => BadRequest(new { message = "This is a default directory and cannot be moved." }),
+                MoveDirectoryResult.NotPermitted => Forbid(),
                 MoveDirectoryResult.TargetNotFound => NotFound(new { message = $"Target directory not found: {request.TargetDirectoryId}" }),
                 _ => NotFound(new { message = $"Directory not found: {request.DirectoryId}" }),
             };

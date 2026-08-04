@@ -318,7 +318,7 @@ describe("StorageDetail", () => {
   it("shows the empty state when there are no directorys or files", () => {
     mocks.dmsState.response = { dmsFileAndDirectoryInfos: [], totalCount: 0 };
     renderDetail();
-    expect(screen.getByText("No directorys and files found")).toBeInTheDocument();
+    expect(screen.getByText("No directories and files found")).toBeInTheDocument();
   });
 
   it("renders skeletons while the DMS data is loading", () => {
@@ -330,7 +330,7 @@ describe("StorageDetail", () => {
     const { container } = renderDetail();
 
     expect(screen.queryByText("HiddenDirectory")).not.toBeInTheDocument();
-    expect(screen.queryByText("No directorys and files found")).not.toBeInTheDocument();
+    expect(screen.queryByText("No directories and files found")).not.toBeInTheDocument();
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
   });
 

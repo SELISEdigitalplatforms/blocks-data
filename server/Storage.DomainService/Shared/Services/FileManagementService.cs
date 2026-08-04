@@ -467,16 +467,6 @@ namespace Storage.DomainService.Services
             await _fileRepository.DeleteFileAsync(existingFile);
         }
 
-        private async Task CleanupDatabaseBulkAsync(IEnumerable<File> files)
-        {
-            var fileList = files.ToList();
-            var itemIds = fileList.Select(f => f.ItemId).ToList();
-
-            await Task.WhenAll(itemIds.Select(_versionRepository.DeleteFileVersionsAsync));
-
-            await _fileRepository.DeleteFilesAsync(fileList);
-        }
-
         private T CreateErrorResponse<T>(string fieldName, string errorMessage) where T : BaseResponse, new()
         {
             return new T

@@ -406,23 +406,6 @@ namespace Storage.DomainService.Services
             return await Directories.CountDocumentsAsync(filter, cancellationToken: cancellationToken) > 0;
         }
 
-        private async Task<bool> HasChildrenAsync(string directoryId, CancellationToken cancellationToken)
-        {
-            var directorys = await Directories.CountDocumentsAsync(
-                Builders<Directory>.Filter.And(
-                    Builders<Directory>.Filter.Eq(d => d.ParentId, directoryId)),
-                cancellationToken: cancellationToken);
-
-            if (directorys > 0)
-            {
-                return true;
-            }
-
-            return await Files.CountDocumentsAsync(
-                Builders<File>.Filter.Eq(f => f.DirectoryId, directoryId),
-                cancellationToken: cancellationToken) > 0;
-        }
-
         private static ContentResourceDescriptor Describe(Directory directory) => new()
         {
             ResourceId = directory.ItemId,

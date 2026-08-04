@@ -77,6 +77,9 @@ namespace Storage.DomainService.Services
         /// </summary>
         internal const int MaxScan = 1000;
 
+        private const string RestoreAuditAction = "Restore";
+        private const string DeleteAuditAction = "Delete";
+
         private readonly IDbContextProvider _dbContextProvider;
         private readonly IContentAccessResolver _resolver;
         private readonly IContentAccessRepository _accessRepository;
@@ -153,7 +156,7 @@ namespace Storage.DomainService.Services
             {
                 if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Delete, cancellationToken))
                 {
-                    await AuditAsync(resourceId, ContentResourceType.Directory, "Restore", false, null, cancellationToken);
+                    await AuditAsync(resourceId, ContentResourceType.Directory, RestoreAuditAction, false, null, cancellationToken);
                     return TrashOperationResult.Failure(TrashOperationStatus.NotPermitted);
                 }
 
@@ -165,7 +168,7 @@ namespace Storage.DomainService.Services
                         .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
                     cancellationToken: cancellationToken);
 
-                await AuditAsync(resourceId, ContentResourceType.Directory, "Restore", true, null, cancellationToken);
+                await AuditAsync(resourceId, ContentResourceType.Directory, RestoreAuditAction, true, null, cancellationToken);
                 return TrashOperationResult.Success();
             }
 
@@ -177,7 +180,7 @@ namespace Storage.DomainService.Services
 
             if (!await _resolver.ResolveAsync(Describe(file), ContentPermission.Delete, cancellationToken))
             {
-                await AuditAsync(resourceId, ContentResourceType.File, "Restore", false, null, cancellationToken);
+                await AuditAsync(resourceId, ContentResourceType.File, RestoreAuditAction, false, null, cancellationToken);
                 return TrashOperationResult.Failure(TrashOperationStatus.NotPermitted);
             }
 
@@ -189,7 +192,7 @@ namespace Storage.DomainService.Services
                     .Set(f => f.LastUpdatedDate, DateTime.UtcNow),
                 cancellationToken: cancellationToken);
 
-            await AuditAsync(resourceId, ContentResourceType.File, "Restore", true, null, cancellationToken);
+            await AuditAsync(resourceId, ContentResourceType.File, RestoreAuditAction, true, null, cancellationToken);
             return TrashOperationResult.Success();
         }
 
@@ -200,14 +203,14 @@ namespace Storage.DomainService.Services
             {
                 if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Delete, cancellationToken))
                 {
-                    await AuditAsync(resourceId, ContentResourceType.Directory, "Delete", false, "permanent refused", cancellationToken);
+                    await AuditAsync(resourceId, ContentResourceType.Directory, DeleteAuditAction, false, "permanent refused", cancellationToken);
                     return TrashOperationResult.Failure(TrashOperationStatus.NotPermitted);
                 }
 
                 await Directories.DeleteOneAsync(
                     Builders<Directory>.Filter.Eq(d => d.ItemId, resourceId), cancellationToken);
                 await _accessRepository.RevokeAllForResourceAsync(resourceId, cancellationToken);
-                await AuditAsync(resourceId, ContentResourceType.Directory, "Delete", true, "permanent", cancellationToken);
+                await AuditAsync(resourceId, ContentResourceType.Directory, DeleteAuditAction, true, "permanent", cancellationToken);
                 return TrashOperationResult.Success();
             }
 
@@ -219,13 +222,13 @@ namespace Storage.DomainService.Services
 
             if (!await _resolver.ResolveAsync(Describe(file), ContentPermission.Delete, cancellationToken))
             {
-                await AuditAsync(resourceId, ContentResourceType.File, "Delete", false, "permanent refused", cancellationToken);
+                await AuditAsync(resourceId, ContentResourceType.File, DeleteAuditAction, false, "permanent refused", cancellationToken);
                 return TrashOperationResult.Failure(TrashOperationStatus.NotPermitted);
             }
 
             await Files.DeleteOneAsync(Builders<File>.Filter.Eq(f => f.ItemId, resourceId), cancellationToken);
             await _accessRepository.RevokeAllForResourceAsync(resourceId, cancellationToken);
-            await AuditAsync(resourceId, ContentResourceType.File, "Delete", true, "permanent", cancellationToken);
+            await AuditAsync(resourceId, ContentResourceType.File, DeleteAuditAction, true, "permanent", cancellationToken);
             return TrashOperationResult.Success();
         }
 

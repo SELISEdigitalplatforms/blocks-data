@@ -915,7 +915,7 @@ export function StorageDetail() {
         </ScrollArea>
         {!isDmsLoading && rows.length === 0 && (
           <div className="flex h-full items-center justify-center">
-            <p className="text-muted-foreground">No directorys and files found</p>
+            <p className="text-muted-foreground">No directories and files found</p>
           </div>
         )}
         {childrenQuery.hasNextPage && (

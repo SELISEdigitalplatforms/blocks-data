@@ -1,5 +1,6 @@
 using Blocks.Genesis;
 using MongoDB.Driver;
+using Storage.DomainService.Entities;
 using Directory = Storage.DomainService.Entities.Directory;
 using File = Storage.DomainService.Entities.File;
 
@@ -19,6 +20,7 @@ namespace Storage.DomainService.Services
         /// The source is a default/system root (seeded from a template) and cannot be moved.
         /// </summary>
         IsDefault = 5,
+        NotPermitted = 6,
     }
 
     public interface IContentHierarchyService
@@ -55,10 +57,15 @@ namespace Storage.DomainService.Services
         internal const int MaxDepth = 256;
 
         private readonly IDbContextProvider _dbContextProvider;
+        private readonly IContentAccessResolver? _resolver;
+        private readonly IContentAccessRepository? _accessRepository;
 
-        public ContentHierarchyService(IDbContextProvider dbContextProvider)
+        public ContentHierarchyService(IDbContextProvider dbContextProvider,
+            IContentAccessResolver? resolver = null, IContentAccessRepository? accessRepository = null)
         {
             _dbContextProvider = dbContextProvider;
+            _resolver = resolver;
+            _accessRepository = accessRepository;
         }
 
         private IMongoCollection<Directory> Directories =>
@@ -154,6 +161,9 @@ namespace Storage.DomainService.Services
                 return MoveDirectoryResult.IsDefault;
             }
 
+            if (!await AuthorizeMoveAsync(directory, ContentPermission.Delete, cancellationToken))
+                return MoveDirectoryResult.NotPermitted;
+
             if (string.Equals(directoryId, newParentId, StringComparison.Ordinal))
             {
                 return MoveDirectoryResult.WouldCreateCycle;
@@ -163,6 +173,9 @@ namespace Storage.DomainService.Services
             {
                 var target = await FindDirectoryAsync(newParentId, cancellationToken);
                 if (target is null) return MoveDirectoryResult.TargetNotFound;
+
+                if (!await AuthorizeMoveAsync(target, ContentPermission.Edit, cancellationToken))
+                    return MoveDirectoryResult.NotPermitted;
 
                 // Moving a directory beneath itself detaches the whole subtree from the root
                 // and leaves a ring that no walk can escape, so it is refused rather than
@@ -243,5 +256,33 @@ namespace Storage.DomainService.Services
 
         private static string BuildPath(IEnumerable<string> ancestorNames, string? name) =>
             "/" + string.Join('/', ancestorNames.Concat(new[] { name ?? string.Empty }).Where(n => !string.IsNullOrEmpty(n)));
+
+        private async Task<bool> AuthorizeMoveAsync(Directory directory, ContentPermission permission, CancellationToken cancellationToken)
+        {
+            // Optional parameters preserve the standalone hierarchy-repair use case. The DI
+            // registration supplies both dependencies, so API moves are always authorized.
+            if (_resolver is null || _accessRepository is null) return true;
+            var granted = await _resolver.ResolveAsync(new ContentResourceDescriptor
+            {
+                ResourceId = directory.ItemId, AncestorIds = directory.AncestorIds ?? new(),
+                InheritsParentAccess = directory.InheritsParentAccess, CreatedBy = directory.CreatedBy,
+            }, permission, cancellationToken);
+            var context = BlocksContext.GetContext();
+            var userId = context?.UserId ?? string.Empty;
+            await _accessRepository.WriteAuditAsync(new ContentAuditLog
+            {
+                ItemId = Guid.NewGuid().ToString(),
+                TenantId = context?.TenantId ?? string.Empty,
+                ResourceId = directory.ItemId,
+                ResourceType = ContentResourceType.Directory,
+                UserId = userId,
+                Action = "Move",
+                Granted = granted,
+                Detail = permission.ToString(),
+                CreatedDate = DateTime.UtcNow,
+                CreatedBy = userId,
+            }, cancellationToken);
+            return granted;
+        }
     }
 }

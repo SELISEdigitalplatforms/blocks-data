@@ -189,6 +189,7 @@ namespace Api.Controllers
             FileOperationStatus.TargetNotFound => NotFound(new { message = "Target directory not found." }),
             FileOperationStatus.NameConflict => Conflict(new { message = "A file with that name already exists in the target directory." }),
             FileOperationStatus.ExtensionNotAllowed => BadRequest(new { message = "The target directory does not allow this file extension." }),
+            FileOperationStatus.NotPermitted => Forbid(),
             _ => BadRequest(new { message = "The file operation could not be completed." }),
         };
     }

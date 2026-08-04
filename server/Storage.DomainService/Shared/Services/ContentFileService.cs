@@ -15,6 +15,7 @@ namespace Storage.DomainService.Services
         NameConflict = 3,
         /// <summary>The target directory does not permit this file's extension.</summary>
         ExtensionNotAllowed = 4,
+        NotPermitted = 5,
     }
 
     public sealed class FileOperationResult
@@ -54,11 +55,14 @@ namespace Storage.DomainService.Services
 
         private readonly IDbContextProvider _dbContextProvider;
         private readonly IContentAccessRepository _accessRepository;
+        private readonly IContentAccessResolver? _resolver;
 
-        public ContentFileService(IDbContextProvider dbContextProvider, IContentAccessRepository accessRepository)
+        public ContentFileService(IDbContextProvider dbContextProvider, IContentAccessRepository accessRepository,
+            IContentAccessResolver? resolver = null)
         {
             _dbContextProvider = dbContextProvider;
             _accessRepository = accessRepository;
+            _resolver = resolver;
         }
 
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
@@ -72,6 +76,10 @@ namespace Storage.DomainService.Services
         {
             var page = new FileVersionPage();
             if (string.IsNullOrEmpty(fileId)) return page;
+
+            var file = await FindFileAsync(fileId, cancellationToken);
+            if (file is null || !await AuthorizeAsync(file, ContentPermission.View, "ViewVersions", cancellationToken))
+                return page;
 
             limit = Math.Clamp(limit, 1, MaxVersionPageSize);
 
@@ -109,6 +117,10 @@ namespace Storage.DomainService.Services
             var target = await FindDirectoryAsync(targetDirectoryId, cancellationToken);
             if (target is null) return FileOperationResult.Failure(FileOperationStatus.TargetNotFound);
 
+            if (!await AuthorizeAsync(file, ContentPermission.Delete, "Move", cancellationToken)
+                || !await AuthorizeAsync(target, ContentPermission.Edit, "Move", cancellationToken))
+                return FileOperationResult.Failure(FileOperationStatus.NotPermitted);
+
             var rejection = await ValidateTargetAsync(file, target, excludeFileId: fileId, cancellationToken);
             if (rejection is not null) return FileOperationResult.Failure(rejection.Value);
 
@@ -131,6 +143,10 @@ namespace Storage.DomainService.Services
 
             var target = await FindDirectoryAsync(targetDirectoryId, cancellationToken);
             if (target is null) return FileOperationResult.Failure(FileOperationStatus.TargetNotFound);
+
+            if (!await AuthorizeAsync(source, ContentPermission.View, "Copy", cancellationToken)
+                || !await AuthorizeAsync(target, ContentPermission.Edit, "Copy", cancellationToken))
+                return FileOperationResult.Failure(FileOperationStatus.NotPermitted);
 
             var rejection = await ValidateTargetAsync(source, target, excludeFileId: null, cancellationToken);
             if (rejection is not null) return FileOperationResult.Failure(rejection.Value);
@@ -287,5 +303,35 @@ namespace Storage.DomainService.Services
                 : Directories
                     .Find(Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId))
                     .FirstOrDefaultAsync(cancellationToken);
+
+        private async Task<bool> AuthorizeAsync(File file, ContentPermission permission, string action, CancellationToken cancellationToken) =>
+            await AuthorizeAsync(new ContentResourceDescriptor
+            {
+                ResourceId = file.ItemId, AncestorIds = file.AncestorIds ?? new(),
+                InheritsParentAccess = file.InheritsParentAccess, CreatedBy = file.CreatedBy,
+            }, ContentResourceType.File, permission, action, cancellationToken);
+
+        private async Task<bool> AuthorizeAsync(Directory directory, ContentPermission permission, string action, CancellationToken cancellationToken) =>
+            await AuthorizeAsync(new ContentResourceDescriptor
+            {
+                ResourceId = directory.ItemId, AncestorIds = directory.AncestorIds ?? new(),
+                InheritsParentAccess = directory.InheritsParentAccess, CreatedBy = directory.CreatedBy,
+            }, ContentResourceType.Directory, permission, action, cancellationToken);
+
+        private async Task<bool> AuthorizeAsync(ContentResourceDescriptor resource, ContentResourceType type,
+            ContentPermission permission, string action, CancellationToken cancellationToken)
+        {
+            // The resolver is supplied by DI for API operations. Keeping it optional lets
+            // hierarchy/data-repair callers use this service without an ambient identity.
+            if (_resolver is null) return true;
+            var granted = await _resolver.ResolveAsync(resource, permission, cancellationToken);
+            await _accessRepository.WriteAuditAsync(new ContentAuditLog
+            {
+                ItemId = Guid.NewGuid().ToString(), TenantId = TenantId, ResourceId = resource.ResourceId,
+                ResourceType = type, UserId = UserId, Action = action, Granted = granted,
+                Detail = permission.ToString(), CreatedDate = DateTime.UtcNow, CreatedBy = UserId,
+            }, cancellationToken);
+            return granted;
+        }
     }
 }

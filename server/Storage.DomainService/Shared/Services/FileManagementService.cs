@@ -196,9 +196,7 @@ namespace Storage.DomainService.Services
             var now = DateTime.UtcNow;
             var userId = BlocksContext.GetContext()?.UserId ?? string.Empty;
 
-            var tags = string.IsNullOrWhiteSpace(request.Tags)
-                ? new List<string>()
-                : JsonSerializer.Deserialize<List<string>>(request.Tags) ?? new List<string>();
+            var tags = ParseTags(request.Tags);
 
 
             var meta = string.IsNullOrWhiteSpace(request.MetaData)
@@ -230,6 +228,22 @@ namespace Storage.DomainService.Services
                 CurrentVersion = 0,
                 AdditionalProperties = request.AdditionalProperties ?? new Dictionary<string, string>(),
             };
+        }
+
+        private static List<string> ParseTags(string? tags)
+        {
+            if (string.IsNullOrWhiteSpace(tags))
+                return new List<string>();
+
+            var trimmedTags = tags.Trim();
+
+            // Upload clients historically send a JSON array (for example, ["tag-1"]),
+            // while some callers provide one tag as plain text. Treat plain text as one
+            // tag instead of attempting to deserialize it as JSON.
+            if (!trimmedTags.StartsWith("[", StringComparison.Ordinal))
+                return new List<string> { trimmedTags };
+
+            return JsonSerializer.Deserialize<List<string>>(trimmedTags) ?? new List<string>();
         }
 
         private FileVersion CreateNewFileVersion(string fileId, long versionNumber)

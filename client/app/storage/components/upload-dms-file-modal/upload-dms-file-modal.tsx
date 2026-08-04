@@ -11,7 +11,7 @@ import {
   DialogClose,
 } from "@/components/ui-kits/dialog/dialog";
 import { Button } from "@/components/ui-kits/button/button";
-import { CloudUpload, LoaderCircle, XCircle } from "lucide-react";
+import { CloudUpload, FileText, LoaderCircle, XCircle } from "lucide-react";
 import { FileUploader, FileInput } from "@/components/file-uploader/file-uploader";
 import { showSuccessToast, showErrorToast } from "@/hooks/use-toast";
 import { useGetPreSignedUrlForUpload, useUploadFile } from "@/storage/hooks/use-storage-file";
@@ -52,6 +52,15 @@ export const UploadDmsFileModal = ({
   }, [files]);
 
   const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && !isUploading) {
+      setFiles([]);
+      setPreviews([]);
+    }
+
+    onOpenChange(nextOpen);
+  };
 
   const processFile = async (file: File) => {
     try {
@@ -107,7 +116,7 @@ export const UploadDmsFileModal = ({
       // Reset state
       setFiles([]);
       setPreviews([]);
-      onOpenChange(false);
+      handleOpenChange(false);
 
       // Trigger refresh callback
       if (onUploadSuccess) {
@@ -129,95 +138,105 @@ export const UploadDmsFileModal = ({
   const disabled = files.length === 0 || isUploading;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="gap-6"
+        className="max-w-lg gap-0 overflow-hidden p-0"
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           (document.activeElement as HTMLElement | null)?.blur();
           document.body.style.pointerEvents = "";
         }}
       >
-        <DialogHeader>
-          <DialogTitle>Upload File</DialogTitle>
-          <DialogDescription>Upload files to your DMS workspace</DialogDescription>
+        <DialogHeader className="border-b bg-muted/30 px-6 py-5 pr-12">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <CloudUpload className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="space-y-1">
+              <DialogTitle>Upload File</DialogTitle>
+              <DialogDescription>
+                Add up to 10 files to this directory. Each file can be up to 100 MB.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div
-          aria-busy={isUploading}
-          className={isUploading ? "pointer-events-none opacity-60" : undefined}
-        >
-          <FileUploader
-            value={files}
-            onValueChange={(next) => setFiles(next || [])}
-            dropzoneOptions={{
-              maxFiles: 10,
-              maxSize: 100 * 1024 * 1024, // 100MB
-              multiple: true,
-            }}
+        <div className="space-y-4 px-6 py-5">
+          <div
+            aria-busy={isUploading}
+            className={isUploading ? "pointer-events-none opacity-60" : undefined}
           >
-            <FileInput className="flex w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed p-4">
-              <CloudUpload className="h-8 w-8 text-low-emphasis" />
-              <p className="text-sm leading-5">
-                <span className="font-semibold text-primary">Click to upload</span>
-                <span className="font-normal"> or drag and drop</span>
+            <FileUploader
+              value={files}
+              onValueChange={(next) => setFiles(next || [])}
+              dropzoneOptions={{
+                maxFiles: 10,
+                maxSize: 100 * 1024 * 1024,
+                multiple: true,
+              }}
+            >
+              <FileInput className="flex min-h-36 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-primary/30 bg-primary/[0.03] px-4 py-6 text-center transition-colors hover:border-primary/60 hover:bg-primary/[0.06]">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <CloudUpload className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <p className="text-sm font-medium">Choose files or drag them here</p>
+                <span className="text-xs text-muted-foreground">All file types supported</span>
+              </FileInput>
+            </FileUploader>
+          </div>
+
+          {files.length > 0 ? (
+            <section aria-label="Files ready to upload" className="space-y-2">
+              <p className="text-sm font-medium">
+                Ready to upload{" "}
+                <span className="font-normal text-muted-foreground">({files.length})</span>
               </p>
-              <span className="text-xs text-muted-foreground">
-                Upload any file type (Max 10 files, 100MB each)
-              </span>
-            </FileInput>
-          </FileUploader>
+              <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
+                {files.map((file, index) => (
+                  <li
+                    key={`${file.name}-${index}`}
+                    className="flex items-center gap-3 rounded-lg border bg-muted/20 px-3 py-2"
+                  >
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-background text-muted-foreground">
+                      <FileText className="h-4 w-4" aria-hidden="true" />
+                    </div>
+                    <span className="min-w-0 flex-1 truncate text-sm" title={file.name}>
+                      {file.name}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() => removeFile(index)}
+                      disabled={isUploading}
+                      className="rounded-full text-muted-foreground transition-colors hover:text-destructive disabled:pointer-events-none"
+                    >
+                      <XCircle className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {isUploading ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground"
+            >
+              <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Uploading {files.length} {files.length === 1 ? "file" : "files"}…
+            </div>
+          ) : null}
         </div>
 
-        {files.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-4">
-            {files.map((f, i) => (
-              <div key={i} className="flex flex-col items-center">
-                <div className="relative h-32 w-32 overflow-hidden rounded border bg-muted/30 p-4">
-                  <button
-                    onClick={() => removeFile(i)}
-                    disabled={isUploading}
-                    className="absolute right-0 top-0 z-10 rounded-full bg-white text-gray-400 shadow hover:text-gray-600"
-                  >
-                    <XCircle className="h-5 w-5" />
-                  </button>
-                  <div className="flex h-full w-full items-center justify-center">
-                    <span className="text-xs text-muted-foreground">
-                      {f.name.split(".").pop()?.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-                <p className="mt-1 w-32 truncate text-center text-xs" title={f.name}>
-                  {f.name}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {isUploading ? (
-          <div
-            role="status"
-            aria-live="polite"
-            className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
-          >
-            <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Uploading {files.length} {files.length === 1 ? "file" : "files"}…
-          </div>
-        ) : null}
-
-        <DialogFooter className="flex flex-col justify-end gap-2 sm:flex-row">
+        <DialogFooter className="border-t bg-muted/20 px-6 py-4 sm:gap-2">
           <DialogClose asChild>
-            <Button variant="outline" disabled={isUploading} className="w-full sm:w-20" size="sm">
+            <Button variant="outline" disabled={isUploading}>
               Cancel
             </Button>
           </DialogClose>
-          <Button
-            onClick={uploadFileHandler}
-            disabled={disabled}
-            className="w-full sm:w-20"
-            size="sm"
-          >
+          <Button onClick={uploadFileHandler} disabled={disabled}>
             {isUploading ? "Uploading..." : "Upload"}
           </Button>
         </DialogFooter>

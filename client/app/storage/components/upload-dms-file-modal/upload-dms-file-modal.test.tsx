@@ -40,8 +40,9 @@ function addFile(name = "doc.txt") {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  (globalThis as unknown as { URL: { createObjectURL: unknown; revokeObjectURL: unknown } }).URL.createObjectURL =
-    vi.fn(() => "blob:url");
+  (
+    globalThis as unknown as { URL: { createObjectURL: unknown; revokeObjectURL: unknown } }
+  ).URL.createObjectURL = vi.fn(() => "blob:url");
   (globalThis as unknown as { URL: { revokeObjectURL: unknown } }).URL.revokeObjectURL = vi.fn();
   presignedMutate.mockResolvedValue({
     isSuccess: true,
@@ -69,8 +70,7 @@ describe("UploadDmsFileModal", () => {
     render(<UploadDmsFileModal {...baseProps} />);
     addFile();
     await waitFor(() => expect(screen.getByText("doc.txt")).toBeInTheDocument());
-    const removeBtn = document.body.querySelector(".rounded-full") as HTMLButtonElement;
-    fireEvent.click(removeBtn);
+    fireEvent.click(screen.getByRole("button", { name: "Remove doc.txt" }));
     await waitFor(() => expect(screen.queryByText("doc.txt")).not.toBeInTheDocument());
   });
 
@@ -78,7 +78,11 @@ describe("UploadDmsFileModal", () => {
     const onOpenChange = vi.fn();
     const onUploadSuccess = vi.fn();
     render(
-      <UploadDmsFileModal {...baseProps} onOpenChange={onOpenChange} onUploadSuccess={onUploadSuccess} />,
+      <UploadDmsFileModal
+        {...baseProps}
+        onOpenChange={onOpenChange}
+        onUploadSuccess={onUploadSuccess}
+      />,
     );
     addFile();
     await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());

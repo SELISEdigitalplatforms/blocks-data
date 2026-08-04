@@ -156,8 +156,16 @@ vi.mock("@/storage/components/upload-dms-file-modal", () => ({
 }));
 
 vi.mock("@/storage/components/file-preview-modal", () => ({
-  FilePreviewModal: ({ open, fileName }: { open: boolean; fileName: string }) => (
-    <div data-testid="preview-modal" data-open={String(open)}>
+  FilePreviewModal: ({
+    open,
+    fileName,
+    fileUrl,
+  }: {
+    open: boolean;
+    fileName: string;
+    fileUrl: string | null;
+  }) => (
+    <div data-testid="preview-modal" data-open={String(open)} data-url={fileUrl ?? ""}>
       {fileName}
     </div>
   ),
@@ -503,6 +511,32 @@ describe("StorageDetail", () => {
     );
     await waitFor(() =>
       expect(screen.getByTestId("preview-modal")).toHaveAttribute("data-open", "true"),
+    );
+  });
+
+  it("uses a compatible preview URL and falls back to the item ID when needed", async () => {
+    const user = userEvent.setup();
+    mocks.fetchFile.mockResolvedValue({ Url: "https://files/report.pdf" });
+    mocks.dmsState.response = {
+      dmsFileAndDirectoryInfos: [
+        makeFile({ name: "legacy.pdf", itemId: "file-legacy", fileStorageId: "" }),
+      ],
+      totalCount: 1,
+    };
+    renderDetail();
+
+    await user.click(await screen.findByText("legacy.pdf"));
+
+    await waitFor(() =>
+      expect(mocks.fetchFile).toHaveBeenCalledWith(
+        expect.objectContaining({ itemId: "file-legacy" }),
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("preview-modal")).toHaveAttribute(
+        "data-url",
+        "https://files/report.pdf",
+      ),
     );
   });
 

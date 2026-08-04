@@ -8,7 +8,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogClose,
+  DialogFooter,
 } from "@/components/ui-kits/dialog/dialog";
 
 import { Button } from "@/components/ui-kits/button/button";
@@ -26,7 +28,7 @@ import { useCreateDmsDirectory } from "@/storage/hooks/use-dms";
 import { CreateDirectoryDto } from "@/storage/models/dms.model";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
-import { LoaderCircle } from "lucide-react";
+import { FolderPlus, LoaderCircle } from "lucide-react";
 
 const createDirectorySchema = z.object({
   name: z.string().min(1, "Directory name is required"),
@@ -61,6 +63,14 @@ export const CreateDmsNewDirectory = ({
 
   const { isValid } = form.formState;
 
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && !isPending) {
+      form.reset();
+    }
+
+    onOpenChange(nextOpen);
+  };
+
   const onSubmit = async (data: CreateDirectoryFormData) => {
     try {
       // The directory service routes a payload with a parent to /Directories/CreateDirectory and one
@@ -78,7 +88,7 @@ export const CreateDmsNewDirectory = ({
       showSuccessToast({ description: "Directory created successfully." });
 
       form.reset();
-      onOpenChange(false);
+      handleOpenChange(false);
       onSuccess?.();
     } catch (error) {
       form.reset();
@@ -87,21 +97,32 @@ export const CreateDmsNewDirectory = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
+        className="max-w-lg gap-0 overflow-hidden p-0"
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           (document.activeElement as HTMLElement | null)?.blur();
           document.body.style.pointerEvents = "";
         }}
       >
-        <DialogHeader>
-          <DialogTitle>Create Directory</DialogTitle>
+        <DialogHeader className="border-b bg-muted/30 px-6 py-5 pr-12">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FolderPlus className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="space-y-1">
+              <DialogTitle>Create Directory</DialogTitle>
+              <DialogDescription>
+                Keep related files together with a clear, descriptive name.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
           <form
-            className="flex flex-col gap-4"
+            className="space-y-5 px-6 py-5"
             onSubmit={form.handleSubmit(onSubmit)}
             aria-busy={isPending}
           >
@@ -110,9 +131,14 @@ export const CreateDmsNewDirectory = ({
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Directory Name</FormLabel>
+                  <FormLabel>Directory name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter directory name" disabled={isPending} {...field} />
+                    <Input
+                      placeholder="Enter directory name"
+                      disabled={isPending}
+                      autoFocus
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -122,25 +148,22 @@ export const CreateDmsNewDirectory = ({
               <div
                 role="status"
                 aria-live="polite"
-                className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
+                className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground"
               >
                 <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
                 Creating directory…
               </div>
             ) : null}
-            <div className="mt-6 flex w-full items-center justify-end">
-              <div className="flex flex-row gap-2">
-                <DialogClose asChild>
-                  <Button variant="outline" disabled={isPending}>
-                    Cancel
-                  </Button>
-                </DialogClose>
-
-                <Button type="submit" variant="default" disabled={!isValid || isPending}>
-                  {isPending ? "Creating…" : "Create"}
+            <DialogFooter className="-mx-6 -mb-5 mt-6 border-t bg-muted/20 px-6 py-4 sm:gap-2">
+              <DialogClose asChild>
+                <Button variant="outline" disabled={isPending}>
+                  Cancel
                 </Button>
-              </div>
-            </div>
+              </DialogClose>
+              <Button type="submit" variant="default" disabled={!isValid || isPending}>
+                {isPending ? "Creating…" : "Create"}
+              </Button>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>

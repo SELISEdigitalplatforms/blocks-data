@@ -57,6 +57,17 @@ namespace Storage.DomainService.Services
             return await collection.Find(filter).SingleOrDefaultAsync();
         }
 
+        public async Task<Directory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default)
+        {
+            var b = Builders<Directory>.Filter;
+            var filter = (b.Eq(d => d.ModuleName, moduleName) | b.Eq(d => d.Description, moduleName))
+                         & b.Eq(d => d.IsArchived, false);
+
+            var collection = _dbContextProvider.GetCollection<Directory>(CollectionName);
+            return await (await collection.FindAsync(filter, cancellationToken: cancellationToken))
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
         public async Task<Directory?> FindByIdAsync(string directoryId, bool includeArchived, CancellationToken cancellationToken = default)
         {
             var b = Builders<Directory>.Filter;

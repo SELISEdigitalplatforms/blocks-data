@@ -8,6 +8,13 @@ namespace Storage.DomainService.Services
         Task CreateDirectoriesAsync(List<Directory> directories);
         Task<List<Directory>> GetDirectories(string directoryId);
         Task<Directory> GetDirectoryByItemIDAsync(string itemID);
+
+        /// <summary>
+        /// Finds the default directory assigned to a module. Legacy default-directory data
+        /// stores the module key in <c>Description</c>; newer data may use
+        /// <c>ModuleName</c>, so implementations must support both forms.
+        /// </summary>
+        Task<Directory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default);
         Task UpdateDirectory(Directory directory);
 
         /// <summary>

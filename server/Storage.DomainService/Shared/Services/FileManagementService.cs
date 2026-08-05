@@ -68,6 +68,29 @@ namespace Storage.DomainService.Services
 
         public async Task<GetPreSignedUrlForUploadResponse> GetPerSignedUrlForUploadAsync(GetPreSignedUrlForUploadRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.ParentDirectoryId))
+            {
+                // Clients can target a module without knowing its physical directory id. The
+                // seeded defaults use the enum name as Description (for example
+                // "Default_Construct"), while newer directories may populate ModuleName.
+                var defaultDirectory = await _directoryRepository
+                    .GetDefaultDirectoryByModuleNameAsync(request.ModuleName.ToString());
+
+                if (defaultDirectory is null)
+                {
+                    return new GetPreSignedUrlForUploadResponse
+                    {
+                        IsSuccess = false,
+                        Errors = new Dictionary<string, string>
+                        {
+                            [nameof(request.ParentDirectoryId)] = "default_directory_not_found"
+                        }
+                    };
+                }
+
+                request.ParentDirectoryId = defaultDirectory.ItemId;
+            }
+
             var validationResult = await ValidateRequestAsync(request);
 
             if (!validationResult.IsSuccess)

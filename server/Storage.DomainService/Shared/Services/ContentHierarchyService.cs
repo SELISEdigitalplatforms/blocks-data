@@ -153,6 +153,9 @@ namespace Storage.DomainService.Services
         {
             var directory = await FindDirectoryAsync(directoryId, cancellationToken);
             if (directory is null) return MoveDirectoryResult.SourceNotFound;
+            var sourceParent = string.IsNullOrEmpty(directory.ParentId)
+                ? null
+                : await FindDirectoryAsync(directory.ParentId, cancellationToken);
 
             // Default directories are system roots and cannot be relocated. They are
             // marked by a "default" entry in their Tags array.
@@ -169,9 +172,10 @@ namespace Storage.DomainService.Services
                 return MoveDirectoryResult.WouldCreateCycle;
             }
 
+            Directory? target = null;
             if (!string.IsNullOrEmpty(newParentId))
             {
-                var target = await FindDirectoryAsync(newParentId, cancellationToken);
+                target = await FindDirectoryAsync(newParentId, cancellationToken);
                 if (target is null) return MoveDirectoryResult.TargetNotFound;
 
                 if (!await AuthorizeMoveAsync(target, ContentPermission.Edit, cancellationToken))
@@ -203,6 +207,7 @@ namespace Storage.DomainService.Services
                 cancellationToken: cancellationToken);
 
             await RebuildAncestorPathsAsync(directoryId, cancellationToken);
+            await RefreshAffectedDirectoryCachesAsync(sourceParent, target, cancellationToken);
             return MoveDirectoryResult.Moved;
         }
 
@@ -249,6 +254,52 @@ namespace Storage.DomainService.Services
                 cancellationToken: cancellationToken);
 
             return (int)result.ModifiedCount;
+        }
+
+        /// <summary>
+        /// Restores the denormalised listing caches after a move. Direct-child counts change
+        /// only on the two parents, while subtree size changes for every ancestor on each
+        /// affected branch.
+        /// </summary>
+        private async Task RefreshAffectedDirectoryCachesAsync(Directory? sourceParent, Directory? targetParent,
+            CancellationToken cancellationToken)
+        {
+            var directoryIds = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var parent in new[] { sourceParent, targetParent }.Where(p => p is not null))
+            {
+                directoryIds.Add(parent!.ItemId);
+                var ancestors = await GetAncestorsAsync(parent.ItemId, cancellationToken);
+                foreach (var ancestor in ancestors)
+                    directoryIds.Add(ancestor.ItemId);
+            }
+
+            foreach (var directoryId in directoryIds)
+                await RefreshDirectoryCacheAsync(directoryId, cancellationToken);
+        }
+
+        private async Task RefreshDirectoryCacheAsync(string directoryId, CancellationToken cancellationToken)
+        {
+            var activeDirectories = Builders<Directory>.Filter.Eq(d => d.ParentId, directoryId)
+                & Builders<Directory>.Filter.Eq(d => d.IsArchived, false);
+            var activeDirectFiles = Builders<File>.Filter.Eq(f => f.DirectoryId, directoryId)
+                & Builders<File>.Filter.Eq(f => f.IsArchived, false);
+            var activeSubtreeFiles = Builders<File>.Filter.Eq(f => f.IsArchived, false)
+                & (Builders<File>.Filter.AnyEq(f => f.AncestorIds, directoryId)
+                    | Builders<File>.Filter.Eq(f => f.DirectoryId, directoryId));
+
+            var childDirectoryCount = await Directories.CountDocumentsAsync(activeDirectories, cancellationToken: cancellationToken);
+            var childFileCount = await Files.CountDocumentsAsync(activeDirectFiles, cancellationToken: cancellationToken);
+            var files = await Files.Find(activeSubtreeFiles).ToListAsync(cancellationToken);
+            var sizeInBytes = files.Sum(f => f.SizeInBytes);
+
+            await Directories.UpdateOneAsync(
+                Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId),
+                Builders<Directory>.Update
+                    .Set(d => d.ChildDirectoryCount, checked((int)childDirectoryCount))
+                    .Set(d => d.ChildFileCount, checked((int)childFileCount))
+                    .Set(d => d.SizeInBytes, sizeInBytes),
+                cancellationToken: cancellationToken);
         }
 
         private static List<string> Append(IEnumerable<string> existing, string id) =>

@@ -55,7 +55,7 @@ public class ContentHierarchyServiceTests : IDisposable
             CreatedDate = DateTime.UtcNow,
         });
 
-    private Task FileIn(string id, string name, string parent)
+    private Task FileIn(string id, string name, string parent, long sizeInBytes = 0)
         => _db.GetCollection<File>("Files").InsertOneAsync(new File
         {
             ItemId = id,
@@ -64,6 +64,7 @@ public class ContentHierarchyServiceTests : IDisposable
             SystemName = name.ToLowerInvariant(),
             DirectoryId = parent,
             Type = StructureType.File,
+            SizeInBytes = sizeInBytes,
             CreatedBy = "user-1",
             CreatedDate = DateTime.UtcNow,
         });
@@ -201,6 +202,35 @@ public class ContentHierarchyServiceTests : IDisposable
         (await Read("c")).AncestorIds.Should().Equal("root", "dest", "b");
         (await Read("c")).FullPath.Should().Be("/root/destination/beta/gamma");
         (await ReadFile("f-c")).AncestorIds.Should().Equal("root", "dest", "b", "c");
+    }
+
+    [Fact]
+    public async Task Moving_a_directory_recalculates_source_target_and_ancestor_caches()
+    {
+        await Directory("root", "root", null);
+        await Directory("source", "source", "root");
+        await Directory("moved", "moved", "source");
+        await Directory("target", "target", "root");
+        await FileIn("source-file", "source.txt", "source", 10);
+        await FileIn("moved-file", "moved.txt", "moved", 20);
+        await _hierarchy.RebuildAncestorPathsAsync("root");
+
+        var result = await _hierarchy.MoveDirectoryAsync("moved", "target");
+
+        result.Should().Be(MoveDirectoryResult.Moved);
+        var source = await Read("source");
+        source.ChildDirectoryCount.Should().Be(0);
+        source.ChildFileCount.Should().Be(1);
+        source.SizeInBytes.Should().Be(10);
+
+        var target = await Read("target");
+        target.ChildDirectoryCount.Should().Be(1);
+        target.ChildFileCount.Should().Be(0);
+        target.SizeInBytes.Should().Be(20);
+
+        var root = await Read("root");
+        root.ChildDirectoryCount.Should().Be(2);
+        root.SizeInBytes.Should().Be(30);
     }
 
     [Fact]

@@ -114,6 +114,8 @@ namespace Storage.DomainService.Services
             var file = await FindFileAsync(fileId, cancellationToken);
             if (file is null) return FileOperationResult.Failure(FileOperationStatus.FileNotFound);
 
+            var source = await FindDirectoryAsync(file.DirectoryId ?? string.Empty, cancellationToken);
+
             var target = await FindDirectoryAsync(targetDirectoryId, cancellationToken);
             if (target is null) return FileOperationResult.Failure(FileOperationStatus.TargetNotFound);
 
@@ -132,6 +134,8 @@ namespace Storage.DomainService.Services
                     .Set(f => f.LastUpdatedDate, DateTime.UtcNow)
                     .Set(f => f.LastUpdatedBy, UserId),
                 cancellationToken: cancellationToken);
+
+            await RefreshAffectedDirectoryCachesAsync(source, target, cancellationToken);
 
             return new FileOperationResult { Status = FileOperationStatus.Succeeded };
         }
@@ -291,6 +295,50 @@ namespace Storage.DomainService.Services
 
         private static List<string> AncestryOf(Directory target) =>
             (target.AncestorIds ?? new List<string>()).Concat(new[] { target.ItemId }).ToList();
+
+        private async Task RefreshAffectedDirectoryCachesAsync(Directory? source, Directory target,
+            CancellationToken cancellationToken)
+        {
+            var directoryIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var directory in new[] { source, target }.Where(d => d is not null))
+            {
+                var current = directory!;
+                for (var depth = 0; depth < ContentHierarchyService.MaxDepth && current is not null; depth++)
+                {
+                    if (!directoryIds.Add(current.ItemId)) break;
+                    current = string.IsNullOrEmpty(current.ParentId)
+                        ? null
+                        : await FindDirectoryAsync(current.ParentId, cancellationToken);
+                }
+            }
+
+            foreach (var directoryId in directoryIds)
+                await RefreshDirectoryCacheAsync(directoryId, cancellationToken);
+        }
+
+        private async Task RefreshDirectoryCacheAsync(string directoryId, CancellationToken cancellationToken)
+        {
+            var bDirectory = Builders<Directory>.Filter;
+            var bFile = Builders<File>.Filter;
+            var childDirectoryCount = await Directories.CountDocumentsAsync(
+                bDirectory.Eq(d => d.ParentId, directoryId) & bDirectory.Eq(d => d.IsArchived, false),
+                cancellationToken: cancellationToken);
+            var childFileCount = await Files.CountDocumentsAsync(
+                bFile.Eq(f => f.DirectoryId, directoryId) & bFile.Eq(f => f.IsArchived, false),
+                cancellationToken: cancellationToken);
+            var subtreeFiles = await Files.Find(
+                    bFile.Eq(f => f.IsArchived, false)
+                    & (bFile.AnyEq(f => f.AncestorIds, directoryId) | bFile.Eq(f => f.DirectoryId, directoryId)))
+                .ToListAsync(cancellationToken);
+
+            await Directories.UpdateOneAsync(
+                bDirectory.Eq(d => d.ItemId, directoryId),
+                Builders<Directory>.Update
+                    .Set(d => d.ChildDirectoryCount, checked((int)childDirectoryCount))
+                    .Set(d => d.ChildFileCount, checked((int)childFileCount))
+                    .Set(d => d.SizeInBytes, subtreeFiles.Sum(f => f.SizeInBytes)),
+                cancellationToken: cancellationToken);
+        }
 
         private Task<File> FindFileAsync(string fileId, CancellationToken cancellationToken) =>
             string.IsNullOrEmpty(fileId)

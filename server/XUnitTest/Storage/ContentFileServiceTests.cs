@@ -95,6 +95,9 @@ public class ContentFileServiceTests : IDisposable
     private async Task<File> ReadFile(string id) =>
         await _db.GetCollection<File>("Files").Find(f => f.ItemId == id).SingleAsync();
 
+    private async Task<Directory> ReadDirectory(string id) =>
+        await _db.GetCollection<Directory>("Directories").Find(d => d.ItemId == id).SingleAsync();
+
     // Versions
 
     [Fact]
@@ -178,6 +181,24 @@ public class ContentFileServiceTests : IDisposable
         var moved = await ReadFile("file-1");
         moved.DirectoryId.Should().Be("dir-2");
         moved.AncestorIds.Should().Equal("root", "dir-2");
+    }
+
+    [Fact]
+    public async Task Moving_a_file_recalculates_source_and_target_directory_caches()
+    {
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "target");
+        await FileDoc("file-1", "doc.txt", "dir-1");
+
+        var result = await _files.MoveFileAsync("file-1", "dir-2");
+
+        result.Status.Should().Be(FileOperationStatus.Succeeded);
+        var source = await ReadDirectory("dir-1");
+        source.ChildFileCount.Should().Be(0);
+        source.SizeInBytes.Should().Be(0);
+        var target = await ReadDirectory("dir-2");
+        target.ChildFileCount.Should().Be(1);
+        target.SizeInBytes.Should().Be(42);
     }
 
     [Fact]

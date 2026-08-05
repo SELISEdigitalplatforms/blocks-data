@@ -21,13 +21,13 @@ namespace Api.Controllers
     /// </remarks>
     [ApiController]
     [Route("[controller]/[action]")]
-    public class DirectoriesController : ControllerBase
+    public class DirectoryController : ControllerBase
     {
         private readonly IDirectoryManagementService _directoryManagementService;
         private readonly IContentListingService _contentListingService;
         private readonly IContentHierarchyService _contentHierarchyService;
 
-        public DirectoriesController(
+        public DirectoryController(
             IDirectoryManagementService directoryManagementService,
             IContentListingService contentListingService,
             IContentHierarchyService contentHierarchyService)

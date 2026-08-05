@@ -2,7 +2,7 @@ import { API_BASES } from "@/constants/endpoint.constant";
 
 const STORAGE_SUBPATH = "/Storage";
 const FILES_SUBPATH = "/Files";
-const FOLDERS_SUBPATH = "/Directories";
+const FOLDERS_SUBPATH = "/Directory";
 const CONTENT_SUBPATH = "/Content";
 
 // Storage Configuration endpoints (IDP host; paths under /api/Storage)
@@ -29,7 +29,7 @@ export const STORAGE_FILE_ENDPOINTS = {
   UPLOAD_PUBLIC_CERTIFICATE: `${API_BASES.UDS}/Certificate/UploadCertificate`,
 } as const;
 
-// DMS directory endpoints (see DirectoriesController).
+// DMS directory endpoints (see DirectoryController).
 export const FOLDER_ENDPOINTS = {
   GET: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetDirectory`,
   CHILDREN: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetDirectoryChildren`,

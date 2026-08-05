@@ -73,8 +73,8 @@ export const CreateDmsNewDirectory = ({
 
   const onSubmit = async (data: CreateDirectoryFormData) => {
     try {
-      // The directory service routes a payload with a parent to /Directories/CreateDirectory and one
-      // without to /Directories/CreateRootDirectory, so the empty root id creates a root directory
+      // The directory service routes a payload with a parent to /Directory/CreateDirectory and one
+      // without to /Directory/CreateRootDirectory, so the empty root id creates a root directory
       // rather than being sent as a nested one with a blank parent.
       const payload: CreateDirectoryDto = {
         name: data.name,

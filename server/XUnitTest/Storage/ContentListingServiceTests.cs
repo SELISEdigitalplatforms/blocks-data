@@ -190,9 +190,10 @@ public class ContentListingServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task A_child_that_neither_inherits_nor_grants_anything_is_hidden()
+    public async Task A_non_inheriting_child_restricted_to_another_user_is_hidden()
     {
         await AddFile("file-1", "secret.txt", inherits: false);
+        await Grant("file-1", ContentPermission.View, principalId: "user-2");
 
         var page = await _listing.GetVisibleChildrenAsync("root");
 
@@ -230,6 +231,7 @@ public class ContentListingServiceTests : IDisposable
             CreatedBy = "someone-else",
             CreatedDate = DateTime.UtcNow,
         });
+        await Grant("private", ContentPermission.View, principalId: "user-2");
         await AddFile("file-1", "hidden.txt", parent: "private");
 
         var page = await _listing.GetVisibleChildrenAsync("private");
@@ -263,6 +265,7 @@ public class ContentListingServiceTests : IDisposable
     public async Task A_child_that_stops_inheriting_is_hidden_unless_it_grants_access_directly()
     {
         await AddFile("file-1", "detached.txt", inherits: false);
+        await Grant("file-1", ContentPermission.View, principalId: "user-2");
 
         (await _listing.GetVisibleChildrenAsync("root")).Items.Should().BeEmpty();
 

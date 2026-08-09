@@ -93,6 +93,19 @@ public class ContentManagementServiceTests : IDisposable
     private async Task<List<ContentAuditLog>> Audit(string resourceId) =>
         await _accessRepository.GetAuditForResourceAsync(resourceId);
 
+    private Task RestrictToAnotherUser(string resourceId = "dir-1") =>
+        _accessRepository.GrantAsync(new ContentAccessPolicy
+        {
+            ItemId = Guid.NewGuid().ToString(),
+            TenantId = "tenant-1",
+            ResourceId = resourceId,
+            ResourceType = ContentResourceType.Directory,
+            PrincipalType = ContentPrincipalType.User,
+            PrincipalId = "user-2",
+            Permission = ContentPermission.Owner,
+            Effect = ContentEffect.Allow,
+        });
+
     // Authorisation
 
     [Fact]
@@ -107,11 +120,13 @@ public class ContentManagementServiceTests : IDisposable
     public async Task A_caller_without_manage_cannot_grant_and_the_attempt_is_audited()
     {
         await OwnedDirectory(createdBy: "someone-else");
+        await RestrictToAnotherUser();
 
         var result = await _management.GrantAccessAsync(Policy());
 
         result.Status.Should().Be(ContentAccessOperationStatus.NotPermitted);
-        (await _accessRepository.GetByResourceAsync("dir-1")).Should().BeEmpty();
+        (await _accessRepository.GetByResourceAsync("dir-1"))
+            .Should().ContainSingle(p => p.PrincipalId == "user-2");
 
         var audit = await Audit("dir-1");
         audit.Should().ContainSingle();
@@ -309,6 +324,7 @@ public class ContentManagementServiceTests : IDisposable
     public async Task Sharing_without_manage_is_refused()
     {
         await OwnedDirectory(createdBy: "someone-else");
+        await RestrictToAnotherUser();
 
         var result = await _management.ShareContentAsync(
             "dir-1", ContentResourceType.Directory, ContentPrincipalType.User, "user-9", ContentPermission.View);
@@ -402,6 +418,7 @@ public class ContentManagementServiceTests : IDisposable
     public async Task Listing_entries_requires_manage()
     {
         await OwnedDirectory(createdBy: "someone-else");
+        await RestrictToAnotherUser();
 
         (await _management.GetAccessAsync("dir-1")).Should().BeEmpty();
     }

@@ -165,6 +165,7 @@ namespace XUnitTest.Worker
             // Act
             await service.StartAsync(cts.Token);
             await WaitForSendAsyncAsync(mockHttpHandler, TimeSpan.FromSeconds(5));
+            await WaitForLogAsync(mockLogger, LogLevel.Debug, "Ping success", TimeSpan.FromSeconds(5));
             await service.StopAsync(cts.Token);
 
             // Assert
@@ -200,6 +201,7 @@ namespace XUnitTest.Worker
             // Act
             await service.StartAsync(cts.Token);
             await WaitForSendAsyncAsync(mockHttpHandler, TimeSpan.FromSeconds(5));
+            await WaitForLogAsync(mockLogger, LogLevel.Warning, "client error", TimeSpan.FromSeconds(5));
             await service.StopAsync(cts.Token);
 
             // Assert
@@ -231,6 +233,7 @@ namespace XUnitTest.Worker
             // Act
             await service.StartAsync(cts.Token);
             await WaitForSendAsyncAsync(mockHttpHandler, TimeSpan.FromSeconds(5));
+            await WaitForLogAsync(mockLogger, LogLevel.Error, "server error", TimeSpan.FromSeconds(5));
             await service.StopAsync(cts.Token);
 
             // Assert
@@ -269,6 +272,7 @@ namespace XUnitTest.Worker
             // Act
             await service.StartAsync(cts.Token);
             await WaitForSendAsyncAsync(mockHttpHandler, TimeSpan.FromSeconds(5));
+            await WaitForLogAsync(mockLogger, LogLevel.Warning, "timed out", TimeSpan.FromSeconds(5));
             await service.StopAsync(cts.Token);
 
             // Assert
@@ -303,6 +307,7 @@ namespace XUnitTest.Worker
             // Act
             await service.StartAsync(cts.Token);
             await WaitForSendAsyncAsync(mockHttpHandler, TimeSpan.FromSeconds(5));
+            await WaitForLogAsync(mockLogger, LogLevel.Error, "request failed", TimeSpan.FromSeconds(5));
             await service.StopAsync(cts.Token);
 
             // Assert
@@ -500,6 +505,28 @@ namespace XUnitTest.Worker
 
             throw new TimeoutException(
                 $"HttpMessageHandler.SendAsync was not invoked within {timeout}.");
+        }
+
+        private static async Task WaitForLogAsync(
+            Mock<ILogger<PeriodicPingBackgroundService>> logger, LogLevel level, string message, TimeSpan timeout)
+        {
+            var deadline = DateTime.UtcNow + timeout;
+            while (DateTime.UtcNow < deadline)
+            {
+                if (logger.Invocations.Any(invocation =>
+                    invocation.Method.Name == nameof(ILogger.Log)
+                    && invocation.Arguments.Count >= 3
+                    && invocation.Arguments[0] is LogLevel loggedLevel
+                    && loggedLevel == level
+                    && invocation.Arguments[2]?.ToString()?.Contains(message, StringComparison.Ordinal) == true))
+                {
+                    return;
+                }
+
+                await Task.Delay(25);
+            }
+
+            throw new TimeoutException($"Expected {level} log containing '{message}' was not written within {timeout}.");
         }
 
         #endregion

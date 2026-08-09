@@ -106,6 +106,21 @@ public class DirectoryManagementServiceTests : IDisposable
     private Task<Directory> Load(string id) =>
         Directories.Find(d => d.ItemId == id).FirstOrDefaultAsync();
 
+    // Resources with no policy are public. Seed a policy for another principal when a
+    // test needs a resource the current caller cannot access.
+    private Task RestrictToAnotherUser(string resourceId) =>
+        _accessRepository.GrantAsync(new ContentAccessPolicy
+        {
+            ItemId = Guid.NewGuid().ToString(),
+            TenantId = "tenant-1",
+            ResourceId = resourceId,
+            ResourceType = ContentResourceType.Directory,
+            PrincipalType = ContentPrincipalType.User,
+            PrincipalId = "user-2",
+            Permission = ContentPermission.Owner,
+            Effect = ContentEffect.Allow,
+        });
+
     // ---------- Create ----------
 
     [Fact]
@@ -142,8 +157,9 @@ public class DirectoryManagementServiceTests : IDisposable
     [Fact]
     public async Task Creating_under_a_parent_the_caller_cannot_edit_is_refused()
     {
-        // Owned by somebody else and carrying no grant, so Edit does not resolve.
+        // Owned by somebody else and restricted to a different user, so Edit does not resolve.
         await SeedDirectory("root", createdBy: "someone-else");
+        await RestrictToAnotherUser("root");
 
         var result = await _directorys.CreateDirectoryAsync("Leaf", "root");
 
@@ -222,6 +238,7 @@ public class DirectoryManagementServiceTests : IDisposable
         // Saying "forbidden" would confirm the directory exists, which is enough to map a
         // tree the caller has no access to.
         await SeedDirectory("dir-1", createdBy: "someone-else");
+        await RestrictToAnotherUser("dir-1");
 
         var result = await _directorys.GetDirectoryAsync("dir-1");
 
@@ -319,6 +336,7 @@ public class DirectoryManagementServiceTests : IDisposable
     public async Task Updating_a_directory_the_caller_cannot_edit_is_refused()
     {
         await SeedDirectory("dir-1", createdBy: "someone-else");
+        await RestrictToAnotherUser("dir-1");
 
         var result = await _directorys.UpdateDirectoryAsync("dir-1", "New", null);
 
@@ -394,6 +412,7 @@ public class DirectoryManagementServiceTests : IDisposable
     public async Task Deleting_a_directory_the_caller_cannot_delete_is_refused()
     {
         await SeedDirectory("dir-1", createdBy: "someone-else");
+        await RestrictToAnotherUser("dir-1");
 
         var result = await _directorys.DeleteDirectoryAsync("dir-1");
 

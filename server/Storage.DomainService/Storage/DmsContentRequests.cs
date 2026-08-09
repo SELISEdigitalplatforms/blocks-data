@@ -1,5 +1,6 @@
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
+using Storage.DomainService.Shared.Enums;
 
 // Namespaced apart from the legacy storage DTOs: a CreateDirectoryRequest already
 // exists there for the directory methods that SPEC B5 retires in the post-migration
@@ -19,7 +20,7 @@ namespace DomainService.Storage.Dms
 
         public string? Description { get; set; }
         public string? ConfigurationName { get; set; }
-        public string? ModuleName { get; set; }
+        public ModuleName? ModuleName { get; set; }
 
         /// <summary>Extensions this directory accepts. Empty means no restriction.</summary>
         public string[]? AllowedFileExtensions { get; set; }
@@ -35,6 +36,12 @@ namespace DomainService.Storage.Dms
     public class GetDirectoryChildrenRequest
     {
         public string DirectoryId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Optional module root to list when <see cref="DirectoryId"/> is not supplied.
+        /// The API resolves this to the module's default directory before listing.
+        /// </summary>
+        public ModuleName? ModuleName { get; set; }
 
         /// <summary>Opaque continuation token from the previous page. Null starts at the beginning.</summary>
         public string? Cursor { get; set; }
@@ -131,6 +138,16 @@ namespace DomainService.Storage.Dms
         public int Limit { get; set; } = 50;
 
         /// <summary>Narrows the trash to directorys or files. Both when omitted. Accepts "directory" / "file".</summary>
+        public string? Type { get; set; }
+    }
+
+    /// <summary>Cursor-paginated content explicitly shared with the calling principal.</summary>
+    public class SharedContentRequest
+    {
+        public string? Cursor { get; set; }
+        public int Limit { get; set; } = 50;
+
+        /// <summary>Narrows results to directorys or files. Both when omitted.</summary>
         public string? Type { get; set; }
     }
 

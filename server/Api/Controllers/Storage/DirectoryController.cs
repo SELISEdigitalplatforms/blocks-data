@@ -42,17 +42,34 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::create-directory")]
         public async Task<IActionResult> CreateDirectory([FromBody] CreateDirectoryRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request?.ParentDirectoryId))
+            if (request is null) return BadRequest();
+
+            if (string.IsNullOrWhiteSpace(request.ParentDirectoryId))
             {
-                // A root directory needs the stronger permission, which this action does not
-                // carry. Directing the caller at CreateRootDirectory keeps the two grants
-                // genuinely separate rather than branching inside one endpoint.
-                return BadRequest(new { message = "A parent directory is required. Use CreateRootDirectory to start a new tree." });
+                if (request.ModuleName.HasValue)
+                {
+                    var defaultDirectory = await _directoryManagementService
+                        .GetDefaultDirectoryByModuleNameAsync(request.ModuleName.Value.ToString());
+
+                    if (defaultDirectory is null)
+                    {
+                        return NotFound(new { message = $"Default directory not found for module: {request.ModuleName}" });
+                    }
+
+                    request.ParentDirectoryId = defaultDirectory.ItemId;
+                }
+                else
+                {
+                    // A root directory needs the stronger permission, which this action does not
+                    // carry. Directing the caller at CreateRootDirectory keeps the two grants
+                    // genuinely separate rather than branching inside one endpoint.
+                    return BadRequest(new { message = "A parent directory is required. Use CreateRootDirectory to start a new tree." });
+                }
             }
 
             var result = await _directoryManagementService.CreateDirectoryAsync(
                 request.Name, request.ParentDirectoryId, request.Description,
-                request.ConfigurationName, request.ModuleName, request.AllowedFileExtensions);
+                request.ConfigurationName, request.ModuleName?.ToString(), request.AllowedFileExtensions);
 
             return MapCreate(result);
         }
@@ -64,7 +81,7 @@ namespace Api.Controllers
         {
             var result = await _directoryManagementService.CreateDirectoryAsync(
                 request.Name, null, request.Description,
-                request.ConfigurationName, request.ModuleName, request.AllowedFileExtensions);
+                request.ConfigurationName, request.ModuleName?.ToString(), request.AllowedFileExtensions);
 
             return MapCreate(result);
         }
@@ -89,6 +106,19 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::get-directory-children")]
         public async Task<IActionResult> GetDirectoryChildren([FromQuery] GetDirectoryChildrenRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.DirectoryId) && request.ModuleName.HasValue)
+            {
+                var defaultDirectory = await _directoryManagementService
+                    .GetDefaultDirectoryByModuleNameAsync(request.ModuleName.Value.ToString());
+
+                if (defaultDirectory is null)
+                {
+                    return NotFound(new { message = $"Default directory not found for module: {request.ModuleName}" });
+                }
+
+                request.DirectoryId = defaultDirectory.ItemId;
+            }
+
             var page = await _contentListingService.GetVisibleChildrenAsync(
                 request.DirectoryId, request.Cursor, request.Limit, ContentKind.FromApiString(request.Type), request.Search);
 

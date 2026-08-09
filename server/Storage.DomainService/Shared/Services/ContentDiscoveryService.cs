@@ -45,6 +45,15 @@ namespace Storage.DomainService.Services
             StructureType? type = null, string? cursor = null, int limit = 50,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Live content explicitly shared with the calling user, one of their roles, or
+        /// their active organization. Public content and content merely owned by the caller
+        /// are deliberately excluded.
+        /// </summary>
+        Task<VisibleChildrenPage> GetSharedAsync(
+            StructureType? type = null, string? cursor = null, int limit = 50,
+            CancellationToken cancellationToken = default);
+
         Task<TrashOperationResult> RestoreAsync(string resourceId, CancellationToken cancellationToken = default);
 
         Task<TrashOperationResult> DeleteFromTrashAsync(string resourceId, CancellationToken cancellationToken = default);
@@ -149,6 +158,16 @@ namespace Storage.DomainService.Services
             return AssemblePageAsync(directoryFilter, fileFilter, type, cursor, limit, cancellationToken);
         }
 
+        public Task<VisibleChildrenPage> GetSharedAsync(
+            StructureType? type = null, string? cursor = null, int limit = 50,
+            CancellationToken cancellationToken = default)
+        {
+            var directoryFilter = Builders<Directory>.Filter.Eq(d => d.IsArchived, false);
+            var fileFilter = Builders<File>.Filter.Eq(f => f.IsArchived, false);
+
+            return AssemblePageAsync(directoryFilter, fileFilter, type, cursor, limit, cancellationToken, sharedOnly: true);
+        }
+
         public async Task<TrashOperationResult> RestoreAsync(string resourceId, CancellationToken cancellationToken = default)
         {
             var directory = await FindArchivedDirectoryAsync(resourceId, cancellationToken);
@@ -243,7 +262,8 @@ namespace Storage.DomainService.Services
             StructureType? type,
             string? cursor,
             int limit,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool sharedOnly = false)
         {
             if (limit < 1) limit = 1;
             if (limit > 200) limit = 200;
@@ -297,6 +317,16 @@ namespace Storage.DomainService.Services
 
             candidates.Sort((a, b) => ContentCursor.Compare(a.Type, a.Name, a.ItemId, b.Type, b.Name, b.ItemId));
 
+            // This view is an inbox of content someone else shared with the caller. A
+            // creator's own resources belong in their normal directory/search results,
+            // even if an access entry also happens to match them.
+            if (sharedOnly)
+            {
+                candidates = candidates
+                    .Where(c => !string.Equals(c.CreatedBy, UserId, StringComparison.Ordinal))
+                    .ToList();
+            }
+
             var start = ContentCursor.Decode(cursor);
             if (start is not null)
             {
@@ -307,6 +337,9 @@ namespace Storage.DomainService.Services
 
             var descriptors = (await BuildDescriptorsAsync(candidates, cancellationToken))
                 .ToDictionary(d => d.ResourceId, StringComparer.Ordinal);
+            var sharedPolicyResourceIds = sharedOnly
+                ? await GetMatchingShareResourceIdsAsync(descriptors.Values, cancellationToken)
+                : null;
 
             // Full resolution per candidate, not FilterVisibleAsync. That method implements
             // the listing shortcut, which treats a purely inheriting resource as visible
@@ -318,6 +351,11 @@ namespace Storage.DomainService.Services
             foreach (var candidate in candidates)
             {
                 if (!descriptors.TryGetValue(candidate.ItemId, out var descriptor))
+                {
+                    continue;
+                }
+
+                if (sharedOnly && !HasMatchingShare(descriptor, sharedPolicyResourceIds!))
                 {
                     continue;
                 }
@@ -354,6 +392,53 @@ namespace Storage.DomainService.Services
                 TotalChildCount = page.Count,
             };
         }
+
+        private async Task<HashSet<string>> GetMatchingShareResourceIdsAsync(
+            IEnumerable<ContentResourceDescriptor> descriptors, CancellationToken cancellationToken)
+        {
+            var descriptorList = descriptors.ToList();
+            var resourceIds = descriptorList
+                .SelectMany(RelevantResourceIds)
+                .Distinct(StringComparer.Ordinal);
+            var policies = await _accessRepository.GetByResourcesAsync(resourceIds, cancellationToken);
+            var context = BlocksContext.GetContext();
+
+            return policies
+                .Where(p => p.Effect == ContentEffect.Allow)
+                .Where(p => p.Permission >= ContentPermission.View)
+                .Where(p => MatchesSharePrincipal(p, context))
+                .Select(p => p.ResourceId)
+                .ToHashSet(StringComparer.Ordinal);
+        }
+
+        private static bool HasMatchingShare(
+            ContentResourceDescriptor descriptor, IReadOnlySet<string> sharedPolicyResourceIds) =>
+            RelevantResourceIds(descriptor).Any(sharedPolicyResourceIds.Contains);
+
+        private static IEnumerable<string> RelevantResourceIds(ContentResourceDescriptor descriptor)
+        {
+            yield return descriptor.ResourceId;
+
+            if (!descriptor.InheritsParentAccess) yield break;
+
+            for (var i = descriptor.AncestorIds.Count - 1; i >= 0; i--)
+            {
+                yield return descriptor.AncestorIds[i];
+            }
+        }
+
+        private static bool MatchesSharePrincipal(ContentAccessPolicy policy, BlocksContext? context) => policy.PrincipalType switch
+        {
+            ContentPrincipalType.User => !string.IsNullOrEmpty(policy.PrincipalId)
+                                        && string.Equals(policy.PrincipalId, context?.UserId, StringComparison.Ordinal),
+            ContentPrincipalType.Role => !string.IsNullOrEmpty(policy.PrincipalId)
+                                        && context?.Roles is not null
+                                        && context.Roles.Contains(policy.PrincipalId, StringComparer.Ordinal),
+            ContentPrincipalType.Organization => !string.IsNullOrEmpty(policy.PrincipalId)
+                                                && !string.IsNullOrEmpty(context?.OrganizationId)
+                                                && string.Equals(policy.PrincipalId, context.OrganizationId, StringComparison.Ordinal),
+            _ => false,
+        };
 
         /// <summary>
         /// Loads the ancestry and inheritance flags the resolver needs, in two queries

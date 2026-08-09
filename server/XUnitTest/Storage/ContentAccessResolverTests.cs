@@ -81,13 +81,18 @@ public class ContentAccessResolverTests : IDisposable
     }
 
     [Fact]
-    public async Task A_resource_with_no_entries_is_denied_by_default()
+    public async Task A_resource_with_no_entries_is_accessible_to_everyone()
     {
         SetupPolicies();
 
-        var allowed = await _resolver.ResolveAsync(Resource(), ContentPermission.View);
+        var flags = await _resolver.ResolveFlagsAsync(Resource());
 
-        allowed.Should().BeFalse();
+        flags.CanView.Should().BeTrue();
+        flags.CanDownload.Should().BeTrue();
+        flags.CanEdit.Should().BeTrue();
+        flags.CanDelete.Should().BeTrue();
+        flags.CanManage.Should().BeTrue();
+        flags.CanOwner.Should().BeTrue();
     }
 
     [Fact]
@@ -156,18 +161,18 @@ public class ContentAccessResolverTests : IDisposable
     }
 
     [Fact]
-    public async Task Turning_inheritance_off_ignores_every_ancestor_entry()
+    public async Task Turning_inheritance_off_without_own_entries_is_accessible_to_everyone()
     {
         SetupPolicies(Ace("root-1", ContentPrincipalType.Everyone, null, ContentPermission.View));
 
         var allowed = await _resolver.ResolveAsync(
             Resource(inherits: false, ancestors: "root-1"), ContentPermission.View);
 
-        allowed.Should().BeFalse();
+        allowed.Should().BeTrue();
     }
 
     [Fact]
-    public async Task An_expired_entry_is_never_consulted()
+    public async Task An_expired_entry_leaves_the_resource_accessible_to_everyone()
     {
         // Expiry is enforced in the repository query, so the resolver should ask for
         // active entries and never receive the expired one.
@@ -175,7 +180,7 @@ public class ContentAccessResolverTests : IDisposable
 
         var allowed = await _resolver.ResolveAsync(Resource(), ContentPermission.View);
 
-        allowed.Should().BeFalse();
+        allowed.Should().BeTrue();
         _repository.Verify(r => r.GetByResourcesAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -380,7 +385,7 @@ public class ContentAccessResolverTests : IDisposable
 
         var visible = await _resolver.FilterVisibleAsync(children);
 
-        visible.Select(c => c.ResourceId).Should().Equal("own-1", "pure-1", "pure-2", "gated-1");
+        visible.Select(c => c.ResourceId).Should().Equal("own-1", "pure-1", "pure-2", "gated-1", "gated-2");
 
         _repository.Verify(r => r.GetResourceIdsWithPoliciesAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()), Times.Once);
         _repository.Verify(r => r.GetByResourcesAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()), Times.Once);

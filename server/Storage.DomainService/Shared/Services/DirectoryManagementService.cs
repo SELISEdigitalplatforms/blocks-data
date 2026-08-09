@@ -66,6 +66,12 @@ namespace Storage.DomainService.Services
         /// <summary>The directory plus the operations the caller holds on it.</summary>
         Task<DirectoryOperationResult> GetDirectoryAsync(string directoryId, CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// Finds the default directory assigned to a module. Legacy default directories use
+        /// <c>Description</c> for the module key; newer ones use <c>ModuleName</c>.
+        /// </summary>
+        Task<Directory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default);
+
         Task<DirectoryOperationResult> UpdateDirectoryAsync(
             string directoryId, string? name, string? description, CancellationToken cancellationToken = default);
 
@@ -205,6 +211,18 @@ namespace Storage.DomainService.Services
             }
 
             return DirectoryOperationResult.Success(directory.ItemId, directory, flags);
+        }
+
+        public async Task<Directory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(moduleName)) return null;
+
+            var filter = (Builders<Directory>.Filter.Eq(d => d.ModuleName, moduleName)
+                          | Builders<Directory>.Filter.Eq(d => d.Description, moduleName))
+                         & Builders<Directory>.Filter.Eq(d => d.IsArchived, false);
+
+            return await (await Directories.FindAsync(filter, cancellationToken: cancellationToken))
+                .FirstOrDefaultAsync(cancellationToken);
         }
 
         public async Task<DirectoryOperationResult> UpdateDirectoryAsync(

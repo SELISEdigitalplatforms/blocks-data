@@ -168,6 +168,15 @@ namespace Storage.DomainService.Storage.Validators
         }
     }
 
+    public class SharedContentRequestValidator : AbstractValidator<SharedContentRequest>
+    {
+        public SharedContentRequestValidator()
+        {
+            RuleFor(r => r.Limit).InclusiveBetween(1, DmsValidationRules.MaxPageSize);
+            RuleFor(r => r.Cursor).Must(DmsValidationRules.BeADecodableCursor).WithMessage("Cursor is not a valid continuation token.");
+        }
+    }
+
     public class RestoreFromTrashRequestValidator : AbstractValidator<RestoreFromTrashRequest>
     {
         public RestoreFromTrashRequestValidator()

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
+using Storage.DomainService.Shared.Enums;
 using Storage.DomainService.Services;
 using Directory = Storage.DomainService.Entities.Directory;
 
@@ -61,6 +62,42 @@ namespace XUnitTest.Api
             var result = await _sut.CreateDirectory(new CreateDirectoryRequest { Name = "Reports", ParentDirectoryId = "root" });
 
             result.Should().BeOfType<CreatedResult>();
+        }
+
+        [Fact]
+        public async Task CreateDirectory_WithoutAParent_UsesTheSuppliedModuleDefaultDirectory()
+        {
+            _directorys
+                .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Directory("module-root"));
+            _directorys.Setup(f => f.CreateDirectoryAsync(
+                    "Reports", "module-root", null, null, "DataGateway", null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(DirectoryOperationResult.Success("new-id"));
+            var request = new CreateDirectoryRequest { Name = "Reports", ModuleName = ModuleName.DataGateway };
+
+            var result = await _sut.CreateDirectory(request);
+
+            result.Should().BeOfType<CreatedResult>();
+            request.ParentDirectoryId.Should().Be("module-root");
+        }
+
+        [Fact]
+        public async Task CreateDirectory_WithoutAParent_ReturnsNotFoundWhenTheModuleHasNoDefaultDirectory()
+        {
+            _directorys
+                .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Directory?)null);
+
+            var result = await _sut.CreateDirectory(new CreateDirectoryRequest
+            {
+                Name = "Reports",
+                ModuleName = ModuleName.DataGateway,
+            });
+
+            result.Should().BeOfType<NotFoundObjectResult>();
+            _directorys.Verify(f => f.CreateDirectoryAsync(
+                It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<string?>(), It.IsAny<string[]?>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
@@ -138,6 +175,36 @@ namespace XUnitTest.Api
             body.HasMore.Should().BeTrue();
             body.NextCursor.Should().Be("next");
             body.TotalChildCount.Should().Be(9);
+        }
+
+        [Fact]
+        public async Task GetDirectoryChildren_ResolvesAndAssignsTheModuleDefaultDirectory()
+        {
+            _directorys
+                .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(Directory("module-root"));
+            _listing.Setup(l => l.GetVisibleChildrenAsync(
+                    "module-root", null, 50, null, null, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new VisibleChildrenPage());
+            var request = new GetDirectoryChildrenRequest { ModuleName = ModuleName.DataGateway };
+
+            var result = await _sut.GetDirectoryChildren(request);
+
+            result.Should().BeOfType<OkObjectResult>();
+            request.DirectoryId.Should().Be("module-root");
+        }
+
+        [Fact]
+        public async Task GetDirectoryChildren_ReturnsNotFoundWhenTheModuleHasNoDefaultDirectory()
+        {
+            _directorys
+                .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Directory?)null);
+
+            var result = await _sut.GetDirectoryChildren(new GetDirectoryChildrenRequest { ModuleName = ModuleName.DataGateway });
+
+            result.Should().BeOfType<NotFoundObjectResult>();
+            _listing.VerifyNoOtherCalls();
         }
 
         [Theory]
@@ -231,6 +298,24 @@ namespace XUnitTest.Api
             result.Should().BeOfType<OkObjectResult>();
             _discovery.Verify(d => d.GetTrashAsync(
                 StructureType.Directory, null, 50, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetSharedContent_ForwardsPaginationAndType()
+        {
+            _discovery.Setup(d => d.GetSharedAsync(
+                    StructureType.File, "cursor", 10, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new VisibleChildrenPage { TotalChildCount = 1 });
+
+            var result = await _sut.GetSharedContent(new SharedContentRequest
+            {
+                Type = "file",
+                Cursor = "cursor",
+                Limit = 10,
+            }) as OkObjectResult;
+
+            result!.Value.Should().BeOfType<ChildrenResponse>()
+                .Which.TotalChildCount.Should().Be(1);
         }
 
         [Theory]

@@ -333,6 +333,9 @@
         <member name="M:Api.Controllers.ContentController.GetTrash(DomainService.Storage.Dms.TrashRequest)">
             <summary>Archived directorys and files the caller may view.</summary>
         </member>
+        <member name="M:Api.Controllers.ContentController.GetSharedContent(DomainService.Storage.Dms.SharedContentRequest)">
+            <summary>Live files and directorys explicitly shared with the caller.</summary>
+        </member>
         <member name="M:Api.Controllers.ContentController.RestoreFromTrash(DomainService.Storage.Dms.RestoreFromTrashRequest)">
             <summary>Returns an archived item to its original parent.</summary>
         </member>

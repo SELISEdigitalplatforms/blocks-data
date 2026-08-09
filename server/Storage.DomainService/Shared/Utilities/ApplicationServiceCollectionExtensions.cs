@@ -31,6 +31,7 @@ namespace Storage.DomainService.Utilities
             services.AddTransient<IValidator<ToggleInheritanceRequest>, ToggleInheritanceRequestValidator>();
             services.AddTransient<IValidator<ContentSearchRequest>, ContentSearchRequestValidator>();
             services.AddTransient<IValidator<TrashRequest>, TrashRequestValidator>();
+            services.AddTransient<IValidator<SharedContentRequest>, SharedContentRequestValidator>();
             services.AddTransient<IValidator<RestoreFromTrashRequest>, RestoreFromTrashRequestValidator>();
             services.AddTransient<IValidator<CreateFileVersionRequest>, CreateFileVersionRequestValidator>();
             services.AddTransient<IValidator<GetFileVersionsRequest>, GetFileVersionsRequestValidator>();

@@ -164,14 +164,14 @@ public class ContentDiscoveryServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Search_never_returns_content_the_caller_cannot_view()
+    public async Task Search_returns_unrestricted_content_to_everyone()
     {
         await SeedFile("mine", "report-mine.pdf");
         await SeedFile("theirs", "report-theirs.pdf", createdBy: "someone-else");
 
         var page = await _discovery.SearchAsync("report");
 
-        page.Items.Should().ContainSingle().Which.ItemId.Should().Be("mine");
+        page.Items.Select(item => item.ItemId).Should().BeEquivalentTo("mine", "theirs");
     }
 
     [Fact]
@@ -191,6 +191,48 @@ public class ContentDiscoveryServiceTests : IDisposable
         });
 
         (await _discovery.SearchAsync("report")).Items.Should().ContainSingle();
+    }
+
+    // ---------- Shared content ----------
+
+    [Fact]
+    public async Task Shared_content_includes_user_role_and_organization_grants_but_not_unrestricted_content()
+    {
+        await SeedFile("user-share", "user.pdf", createdBy: "someone-else");
+        await SeedFile("role-share", "role.pdf", createdBy: "someone-else");
+        await SeedFile("org-share", "org.pdf", createdBy: "someone-else");
+        await SeedFile("public", "public.pdf", createdBy: "someone-else");
+        await SeedFile("own-share", "own.pdf");
+
+        await _accessRepository.GrantAsync(new ContentAccessPolicy
+        {
+            ItemId = "user-policy", TenantId = "tenant-1", ResourceId = "user-share",
+            ResourceType = ContentResourceType.File, PrincipalType = ContentPrincipalType.User,
+            PrincipalId = "user-1", Permission = ContentPermission.View, Effect = ContentEffect.Allow,
+        });
+        await _accessRepository.GrantAsync(new ContentAccessPolicy
+        {
+            ItemId = "role-policy", TenantId = "tenant-1", ResourceId = "role-share",
+            ResourceType = ContentResourceType.File, PrincipalType = ContentPrincipalType.Role,
+            PrincipalId = "editor", Permission = ContentPermission.View, Effect = ContentEffect.Allow,
+        });
+        await _accessRepository.GrantAsync(new ContentAccessPolicy
+        {
+            ItemId = "org-policy", TenantId = "tenant-1", ResourceId = "org-share",
+            ResourceType = ContentResourceType.File, PrincipalType = ContentPrincipalType.Organization,
+            PrincipalId = "org-1", Permission = ContentPermission.View, Effect = ContentEffect.Allow,
+        });
+        await _accessRepository.GrantAsync(new ContentAccessPolicy
+        {
+            ItemId = "own-policy", TenantId = "tenant-1", ResourceId = "own-share",
+            ResourceType = ContentResourceType.File, PrincipalType = ContentPrincipalType.User,
+            PrincipalId = "user-1", Permission = ContentPermission.View, Effect = ContentEffect.Allow,
+        });
+
+        var page = await _discovery.GetSharedAsync();
+
+        page.Items.Select(item => item.ItemId).Should().BeEquivalentTo("user-share", "role-share", "org-share");
+        page.Items.Should().OnlyContain(item => item.Permissions.CanView);
     }
 
     [Fact]
@@ -249,6 +291,7 @@ public class ContentDiscoveryServiceTests : IDisposable
     public async Task The_trash_hides_other_peoples_content()
     {
         await SeedFile("theirs", "theirs.pdf", createdBy: "someone-else", archived: true);
+        await GrantViewToAnotherUserAsync("theirs");
 
         (await _discovery.GetTrashAsync()).Items.Should().BeEmpty();
     }
@@ -287,6 +330,7 @@ public class ContentDiscoveryServiceTests : IDisposable
     public async Task Restoring_content_the_caller_cannot_delete_is_refused()
     {
         await SeedFile("theirs", "theirs.pdf", createdBy: "someone-else", archived: true);
+        await GrantViewToAnotherUserAsync("theirs");
 
         var result = await _discovery.RestoreAsync("theirs");
 
@@ -321,12 +365,25 @@ public class ContentDiscoveryServiceTests : IDisposable
     public async Task Emptying_content_the_caller_cannot_delete_is_refused()
     {
         await SeedFile("theirs", "theirs.pdf", createdBy: "someone-else", archived: true);
+        await GrantViewToAnotherUserAsync("theirs");
 
         var result = await _discovery.DeleteFromTrashAsync("theirs");
 
         result.Status.Should().Be(TrashOperationStatus.NotPermitted);
         (await Files.CountDocumentsAsync(f => f.ItemId == "theirs")).Should().Be(1);
     }
+
+    private Task GrantViewToAnotherUserAsync(string resourceId) => _accessRepository.GrantAsync(new ContentAccessPolicy
+    {
+        ItemId = $"{resourceId}-other-user-policy",
+        TenantId = "tenant-1",
+        ResourceId = resourceId,
+        ResourceType = ContentResourceType.File,
+        PrincipalType = ContentPrincipalType.User,
+        PrincipalId = "user-2",
+        Permission = ContentPermission.View,
+        Effect = ContentEffect.Allow,
+    });
 
     [Fact]
     public async Task Trash_operations_are_audited()

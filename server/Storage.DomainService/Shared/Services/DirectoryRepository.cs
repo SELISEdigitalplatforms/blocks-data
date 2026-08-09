@@ -38,14 +38,14 @@ namespace Storage.DomainService.Services
         public async Task UpdateDirectory(Directory directory)
         {
             var filter = Builders<Directory>.Filter.Eq(e => e.ItemId, directory.ItemId);
-            var collection = _dbContextProvider.GetCollection<Directory>(string.Format("{0}s", typeof(Directory).Name));
+            var collection = _dbContextProvider.GetCollection<Directory>(CollectionName);
             await collection.ReplaceOneAsync(filter, directory, new ReplaceOptions { IsUpsert = true });
         }
 
         public async Task<List<Directory>> GetDirectories(string directoryId)
         {
             var filter = Builders<Directory>.Filter.Eq(e => e.ParentId, directoryId);
-            var collection = _dbContextProvider.GetCollection<Directory>(string.Format("{0}s", typeof(Directory).Name));
+            var collection = _dbContextProvider.GetCollection<Directory>(CollectionName);
             var directories = collection.Find(filter);
             return await directories.ToListAsync();
         }
@@ -53,7 +53,7 @@ namespace Storage.DomainService.Services
         public async Task<Directory> GetDirectoryByItemIDAsync(string itemID)
         {
             FilterDefinition<Directory> filter = Builders<Directory>.Filter.Eq("_id", itemID);
-            var collection = _dbContextProvider.GetCollection<Directory>(string.Format("{0}s", typeof(Directory).Name));
+            var collection = _dbContextProvider.GetCollection<Directory>(CollectionName);
             return await collection.Find(filter).SingleOrDefaultAsync();
         }
 

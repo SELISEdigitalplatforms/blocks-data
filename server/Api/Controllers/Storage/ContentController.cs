@@ -52,6 +52,18 @@ namespace Api.Controllers
             return Ok(ChildrenResponse.From(page));
         }
 
+        /// <summary>Live files and directorys explicitly shared with the caller.</summary>
+        [HttpGet]
+        // [ProtectedEndPoint("blocks-data::get-shared-content")]
+        [Authorize]
+        public async Task<IActionResult> GetSharedContent([FromQuery] SharedContentRequest request)
+        {
+            var page = await _contentDiscoveryService.GetSharedAsync(
+                ContentKind.FromApiString(request.Type), request.Cursor, request.Limit);
+
+            return Ok(ChildrenResponse.From(page));
+        }
+
         /// <summary>Returns an archived item to its original parent.</summary>
         [HttpPost]
         [ProtectedEndPoint("blocks-data::restore-content")]

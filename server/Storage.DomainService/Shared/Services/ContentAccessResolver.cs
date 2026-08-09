@@ -177,6 +177,11 @@ namespace Storage.DomainService.Services
 
         private static bool Decide(IReadOnlyCollection<ContentAccessPolicy> candidates, ContentPermission operation)
         {
+            // Resources without an access policy are public. This is equivalent to an
+            // implicit Everyone Allow at every permission level, but does not persist a
+            // synthetic entry or interfere with an explicit policy when one exists.
+            if (candidates.Count == 0) return true;
+
             var context = BlocksContext.GetContext();
 
             var matching = candidates

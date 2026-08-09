@@ -183,12 +183,24 @@ namespace Api.Controllers
                 : MapFileOperation(result.Status);
         }
 
+        /// <summary>Renames a file without moving it or changing its stored content.</summary>
+        [HttpPost]
+        [ProtectedEndPoint("blocks-data::rename-file")]
+        public async Task<IActionResult> RenameFile([FromBody] RenameFileRequest request)
+        {
+            var result = await _contentFileService.RenameFileAsync(request.FileId, request.Name);
+            return result.Status == FileOperationStatus.Succeeded
+                ? Ok(new { fileId = request.FileId })
+                : MapFileOperation(result.Status);
+        }
+
         private IActionResult MapFileOperation(FileOperationStatus status) => status switch
         {
             FileOperationStatus.FileNotFound => NotFound(new { message = "File not found." }),
             FileOperationStatus.TargetNotFound => NotFound(new { message = "Target directory not found." }),
             FileOperationStatus.NameConflict => Conflict(new { message = "A file with that name already exists in the target directory." }),
             FileOperationStatus.ExtensionNotAllowed => BadRequest(new { message = "The target directory does not allow this file extension." }),
+            FileOperationStatus.InvalidName => BadRequest(new { message = "A file name is required." }),
             FileOperationStatus.NotPermitted => Forbid(),
             _ => BadRequest(new { message = "The file operation could not be completed." }),
         };

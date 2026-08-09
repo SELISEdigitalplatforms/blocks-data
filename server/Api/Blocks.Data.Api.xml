@@ -472,6 +472,9 @@
         <member name="M:Api.Controllers.FilesController.MoveFile(DomainService.Storage.Dms.MoveFileRequest)">
             <summary>Re-parents a file into another directory.</summary>
         </member>
+        <member name="M:Api.Controllers.FilesController.RenameFile(DomainService.Storage.Dms.RenameFileRequest)">
+            <summary>Renames a file without moving it or changing its stored content.</summary>
+        </member>
         <member name="T:BlocksTemplate.Api.Controllers.RegexAssistantController">
             <summary>
             Controller for assisting with regex pattern generation using AI.

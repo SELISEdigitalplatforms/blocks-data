@@ -16,6 +16,7 @@ namespace Storage.DomainService.Services
         /// <summary>The target directory does not permit this file's extension.</summary>
         ExtensionNotAllowed = 4,
         NotPermitted = 5,
+        InvalidName = 6,
     }
 
     public sealed class FileOperationResult
@@ -41,6 +42,8 @@ namespace Storage.DomainService.Services
         Task<FileVersionPage> GetVersionsAsync(string fileId, string? cursor = null, int limit = 25, CancellationToken cancellationToken = default);
 
         Task<FileOperationResult> MoveFileAsync(string fileId, string targetDirectoryId, CancellationToken cancellationToken = default);
+
+        Task<FileOperationResult> RenameFileAsync(string fileId, string name, CancellationToken cancellationToken = default);
 
         Task<FileOperationResult> CopyFileAsync(string fileId, string targetDirectoryId, bool copyAccessPolicies = false, CancellationToken cancellationToken = default);
     }
@@ -136,6 +139,40 @@ namespace Storage.DomainService.Services
                 cancellationToken: cancellationToken);
 
             await RefreshAffectedDirectoryCachesAsync(source, target, cancellationToken);
+
+            return new FileOperationResult { Status = FileOperationStatus.Succeeded };
+        }
+
+        public async Task<FileOperationResult> RenameFileAsync(string fileId, string name, CancellationToken cancellationToken = default)
+        {
+            var file = await FindFileAsync(fileId, cancellationToken);
+            if (file is null) return FileOperationResult.Failure(FileOperationStatus.FileNotFound);
+
+            var trimmedName = name?.Trim();
+            if (string.IsNullOrEmpty(trimmedName)) return FileOperationResult.Failure(FileOperationStatus.InvalidName);
+
+            if (!await AuthorizeAsync(file, ContentPermission.Edit, "Rename", cancellationToken))
+                return FileOperationResult.Failure(FileOperationStatus.NotPermitted);
+
+            var systemName = trimmedName.ToLowerInvariant();
+            var b = Builders<File>.Filter;
+            var clash = b.Eq(f => f.DirectoryId, file.DirectoryId)
+                        & b.Eq(f => f.SystemName, systemName)
+                        & b.Eq(f => f.IsArchived, false)
+                        & b.Ne(f => f.ItemId, file.ItemId);
+
+            if (await Files.Find(clash).AnyAsync(cancellationToken))
+                return FileOperationResult.Failure(FileOperationStatus.NameConflict);
+
+            await Files.UpdateOneAsync(
+                b.Eq(f => f.ItemId, fileId),
+                Builders<File>.Update
+                    .Set(f => f.Name, trimmedName)
+                    .Set(f => f.SystemName, systemName)
+                    .Set(f => f.Extension, Path.GetExtension(trimmedName).TrimStart('.'))
+                    .Set(f => f.LastUpdatedDate, DateTime.UtcNow)
+                    .Set(f => f.LastUpdatedBy, UserId),
+                cancellationToken: cancellationToken);
 
             return new FileOperationResult { Status = FileOperationStatus.Succeeded };
         }

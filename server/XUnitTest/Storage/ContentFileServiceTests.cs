@@ -169,6 +169,32 @@ public class ContentFileServiceTests : IDisposable
     // Move
 
     [Fact]
+    public async Task Renaming_a_file_updates_its_name_system_name_and_extension()
+    {
+        await FileDoc("file-1", "old.txt", "dir-1");
+
+        var result = await _files.RenameFileAsync("file-1", " Report.PDF ");
+
+        result.Status.Should().Be(FileOperationStatus.Succeeded);
+        var renamed = await ReadFile("file-1");
+        renamed.Name.Should().Be("Report.PDF");
+        renamed.SystemName.Should().Be("report.pdf");
+        renamed.Extension.Should().Be("PDF");
+    }
+
+    [Fact]
+    public async Task Renaming_onto_an_existing_sibling_is_refused()
+    {
+        await FileDoc("file-1", "old.txt", "dir-1");
+        await FileDoc("file-2", "taken.txt", "dir-1");
+
+        var result = await _files.RenameFileAsync("file-1", "TAKEN.TXT");
+
+        result.Status.Should().Be(FileOperationStatus.NameConflict);
+        (await ReadFile("file-1")).Name.Should().Be("old.txt");
+    }
+
+    [Fact]
     public async Task Moving_a_file_repoints_it_and_rewrites_its_ancestry()
     {
         await Directory("dir-1", "source");

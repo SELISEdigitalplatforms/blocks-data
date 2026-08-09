@@ -199,6 +199,28 @@ namespace XUnitTest.Api
         }
 
         [Fact]
+        public async Task RenameFile_ReturnsTheFileIdOnSuccess()
+        {
+            var request = new RenameFileRequest { FileId = "f1", Name = "renamed.txt" };
+            _contentFiles.Setup(c => c.RenameFileAsync("f1", "renamed.txt", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new FileOperationResult { Status = FileOperationStatus.Succeeded });
+
+            var result = await _sut.RenameFile(request);
+
+            result.Should().BeOfType<OkObjectResult>().Which.Value.Should().BeEquivalentTo(new { fileId = "f1" });
+        }
+
+        [Fact]
+        public async Task RenameFile_ReturnsConflictWhenTheNameAlreadyExists()
+        {
+            _contentFiles.Setup(c => c.RenameFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(FileOperationResult.Failure(FileOperationStatus.NameConflict));
+
+            (await _sut.RenameFile(new RenameFileRequest { FileId = "f1", Name = "existing.txt" }))
+                .Should().BeOfType<ConflictObjectResult>();
+        }
+
+        [Fact]
         public async Task CopyFile_ReturnsTheNewFileIdOnSuccess()
         {
             var request = new CopyFileRequest { FileId = "f1", TargetDirectoryId = "dir-1", CopyAccessPolicies = true };

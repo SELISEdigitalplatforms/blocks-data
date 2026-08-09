@@ -92,6 +92,15 @@ namespace Storage.DomainService.Storage.Validators
         }
     }
 
+    public class RenameFileRequestValidator : AbstractValidator<RenameFileRequest>
+    {
+        public RenameFileRequestValidator()
+        {
+            RuleFor(r => r.FileId).NotEmpty();
+            RuleFor(r => r.Name).NotEmpty().MaximumLength(DmsValidationRules.MaxNameLength);
+        }
+    }
+
     public class MoveDirectoryRequestValidator : AbstractValidator<MoveDirectoryRequest>
     {
         public MoveDirectoryRequestValidator()

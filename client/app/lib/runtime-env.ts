@@ -28,7 +28,8 @@ export type RuntimeKey =
   | "BLOCKS_RELEASE_CALLBACK_URL"
   | "BLOCKS_STUDIO_BASE_URL"
   | "BLOCKS_STUDIO_CALLBACK_URL"
-  | "BLOCKS_DATA_IMPORT_SAMPLE_FILE";
+  | "BLOCKS_DATA_IMPORT_SAMPLE_FILE"
+  | "BLOCKS_GRAPHQL_PUBLIC_URL";
 
 const isPlaceholder = (value?: string) =>
   !!value && value.startsWith(PLACEHOLDER_PREFIX) && value.endsWith("__");
@@ -49,8 +50,7 @@ const stripPortFromUrl = (url: string) => {
   }
 };
 
-const ensureTrailingSlash = (url: string) =>
-  url.endsWith("/") ? url : `${url}/`;
+const ensureTrailingSlash = (url: string) => (url.endsWith("/") ? url : `${url}/`);
 
 const isLocalEnv = () => {
   if (import.meta.env.DEV) return true;
@@ -63,10 +63,7 @@ const isLocalEnv = () => {
   return false;
 };
 
-export const getRuntimeEnv = (
-  key: RuntimeKey,
-  options: GetRuntimeEnvOptions = {},
-): string => {
+export const getRuntimeEnv = (key: RuntimeKey, options: GetRuntimeEnvOptions = {}): string => {
   let value = "";
   const windowValue =
     typeof window !== "undefined"

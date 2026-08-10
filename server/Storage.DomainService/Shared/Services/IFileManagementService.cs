@@ -13,6 +13,12 @@ namespace Storage.DomainService.Services
         Task<FileResponse?> GetUrlForDownloadFileAsync(GetFileRequest request);
         Task<List<FileResponse>?> GetMultipleUrlsForDownloadFilesAsync(GetFilesRequest request);
         Task<BaseResponse> DeleteFileAsync(DeleteFileRequest deleteFileRequest);
+        /// <summary>
+        /// Deletes a file as part of a directory cascade. The caller's Delete permission on
+        /// the directory has already been verified, so an independently shared child must
+        /// not prevent the subtree from being removed.
+        /// </summary>
+        Task<BaseResponse> DeleteFileForDirectoryCascadeAsync(DeleteFileRequest deleteFileRequest);
         Task<LocalStorageUploadResponse> UploadFileToLocalStorageAsync(LocalStorageUploadRequest request);
         Task<DownloadFileResponse> DownloadFileFromLocalStorageAsync(DownloadFileRequest request);
         Task<GetFilesInfoResponse> GetFilesInfoAsync(GetFilesInfoRequest query);

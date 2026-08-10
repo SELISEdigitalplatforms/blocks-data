@@ -46,7 +46,7 @@ public class DirectoryManagementServiceTests : IDisposable
         var versionRepo = new FileVersionRepository(provider.Object);
         var fileManagementMock = new Mock<IFileManagementService>();
         fileManagementMock
-            .Setup(f => f.DeleteFileAsync(It.IsAny<DeleteFileRequest>()))
+            .Setup(f => f.DeleteFileForDirectoryCascadeAsync(It.IsAny<DeleteFileRequest>()))
             .ReturnsAsync((DeleteFileRequest req) =>
             {
                 var file = fileRepo.GetFileByItemIdAsync(req.FileId).GetAwaiter().GetResult();

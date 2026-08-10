@@ -2,88 +2,12 @@ using Blocks.Genesis;
 using DomainService.Storage;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
+using Storage.DomainService.Enums;
 using Directory = Storage.DomainService.Entities.Directory;
 using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
 {
-    /// <summary>Why a directory operation was refused, so callers can map it to a status code.</summary>
-    public enum DirectoryOperationStatus
-    {
-        Succeeded = 0,
-        NotFound = 1,
-        /// <summary>The caller lacks the permission the operation requires.</summary>
-        NotPermitted = 2,
-        /// <summary>A sibling already uses this name.</summary>
-        NameConflict = 3,
-        ParentNotFound = 4,
-        /// <summary>Permanent deletion refused because the directory still has children.</summary>
-        NotEmpty = 5,
-        /// <summary>
-        /// The directory is a default/system root (seeded from a template). It anchors the
-        /// tenant tree and cannot be moved, renamed or deleted.
-        /// </summary>
-        IsDefault = 6,
-    }
-
-    public sealed class DirectoryOperationResult
-    {
-        public DirectoryOperationStatus Status { get; init; }
-        public string? DirectoryId { get; init; }
-        public Directory? Directory { get; init; }
-        public ContentPermissionFlags? Permissions { get; init; }
-        public bool IsSuccess => Status == DirectoryOperationStatus.Succeeded;
-
-        public static DirectoryOperationResult Failure(DirectoryOperationStatus status) => new() { Status = status };
-
-        public static DirectoryOperationResult Success(
-            string? directoryId = null, Directory? directory = null, ContentPermissionFlags? permissions = null) =>
-            new()
-            {
-                Status = DirectoryOperationStatus.Succeeded,
-                DirectoryId = directoryId,
-                Directory = directory,
-                Permissions = permissions,
-            };
-    }
-
-    public interface IDirectoryManagementService
-    {
-        /// <summary>
-        /// Creates a directory. A root directory is gated at the endpoint by
-        /// <c>blocks-data::create-root-directory</c>; a nested directory additionally requires
-        /// Edit on the parent, which is checked here.
-        /// </summary>
-        Task<DirectoryOperationResult> CreateDirectoryAsync(
-            string name,
-            string? parentDirectoryId,
-            string? description = null,
-            string? configurationName = null,
-            string? moduleName = null,
-            string[]? allowedFileExtensions = null,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>The directory plus the operations the caller holds on it.</summary>
-        Task<DirectoryOperationResult> GetDirectoryAsync(string directoryId, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Finds the default directory assigned to a module. Legacy default directories use
-        /// <c>Description</c> for the module key; newer ones use <c>ModuleName</c>.
-        /// </summary>
-        Task<Directory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default);
-
-        Task<DirectoryOperationResult> UpdateDirectoryAsync(
-            string directoryId, string? name, string? description, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Moves the directory to the trash, or removes it outright when
-        /// <paramref name="permanent"/> is set. Permanent deletion is refused while the
-        /// directory still has children, so a subtree cannot be lost in one call.
-        /// </summary>
-        Task<DirectoryOperationResult> DeleteDirectoryAsync(
-            string directoryId, bool permanent = true, CancellationToken cancellationToken = default);
-    }
-
     /// <summary>
     /// Directory lifecycle: create, read, rename and delete.
     /// </summary>
@@ -91,10 +15,8 @@ namespace Storage.DomainService.Services
     /// Directory operations live here rather than on <c>FileManagementService</c>, which now
     /// owns only file-level concerns.
     ///
-    /// Deletion is soft by default. Permanent deletion refuses a directory that still has
-    /// children rather than cascading, because a cascade behind a single request is how a
-    /// subtree disappears by accident; the caller empties the directory first, or the trash
-    /// keeps it recoverable.
+    /// Deletion is soft by default. A permanent delete removes the directory and every
+    /// descendant after the caller's Delete permission on the requested directory is verified.
     /// </remarks>
     public class DirectoryManagementService : IDirectoryManagementService
     {
@@ -337,7 +259,7 @@ namespace Storage.DomainService.Services
 
                 foreach (var file in doomedFiles)
                 {
-                    await _fileManagementService.DeleteFileAsync(new DeleteFileRequest
+                    await _fileManagementService.DeleteFileForDirectoryCascadeAsync(new DeleteFileRequest
                     {
                         FileId = file.ItemId,
                         ConfigurationName = file.ConfigurationName,

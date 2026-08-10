@@ -446,7 +446,13 @@ namespace Storage.DomainService.Services
             }
         }
 
-        public async Task<BaseResponse> DeleteFileAsync(DeleteFileRequest deleteFileRequest)
+        public Task<BaseResponse> DeleteFileAsync(DeleteFileRequest deleteFileRequest)
+            => DeleteFileAsync(deleteFileRequest, authorizeFile: true);
+
+        public Task<BaseResponse> DeleteFileForDirectoryCascadeAsync(DeleteFileRequest deleteFileRequest)
+            => DeleteFileAsync(deleteFileRequest, authorizeFile: false);
+
+        private async Task<BaseResponse> DeleteFileAsync(DeleteFileRequest deleteFileRequest, bool authorizeFile)
         {
             if (string.IsNullOrWhiteSpace(deleteFileRequest.FileId))
             {
@@ -470,7 +476,7 @@ namespace Storage.DomainService.Services
                 return CreateErrorResponse<BaseResponse>("file_not_found", $"file_with_id_{deleteFileRequest.FileId}_not_exist");
             }
 
-            if (!await AuthorizeFileAsync(existingFile, ContentPermission.Delete, "Delete", default))
+            if (authorizeFile && !await AuthorizeFileAsync(existingFile, ContentPermission.Delete, "Delete", default))
                 return AccessDenied<BaseResponse>();
 
             var storageService = GetStorageService(configuration);
@@ -533,6 +539,7 @@ namespace Storage.DomainService.Services
         {
             await _versionRepository.DeleteFileVersionsAsync(existingFile.ItemId);
             await _fileRepository.DeleteFileAsync(existingFile);
+            await _accessRepository.RevokeAllForResourceAsync(existingFile.ItemId);
         }
 
         private T CreateErrorResponse<T>(string fieldName, string errorMessage) where T : BaseResponse, new()

@@ -2,6 +2,7 @@ using Blocks.Genesis;
 using DomainService.Storage.Dms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 
 namespace Api.Controllers

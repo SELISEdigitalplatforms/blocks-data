@@ -11,16 +11,12 @@ import {
   DrawerTrigger,
 } from "@/components/ui-kits/drawer/drawer";
 import { ScrollArea } from "@/components/ui-kits/scroll-area/scroll-area";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui-kits/tabs/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { useGetProject } from "@/hooks/use-project";
+import { useDataGatewayPath } from "@/hooks/use-scoped-path";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
-import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { Eye, Pencil, Play, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
@@ -30,7 +26,6 @@ import prism from "react-syntax-highlighter/dist/esm/styles/prism/prism";
 import { SchemaPreviewDrawerProps } from "../models/schema-preview.types";
 import { buildPreviewSections } from "../utils/generate-preview-queries";
 import { formatPreviewJson } from "../utils/graphql-template.utils";
-import { getGraphqlGatewayExecuteOrigin } from "@/constants/endpoint.constant";
 
 const OPERATIONS = [
   {
@@ -41,7 +36,8 @@ const OPERATIONS = [
     activeBg: "bg-blue-50 dark:bg-blue-950/50",
     activeText: "text-blue-700 dark:text-blue-300",
     indicatorColor: "bg-blue-500",
-    badgeBg: "bg-blue-500/10 text-blue-700 border border-blue-400/30 dark:text-blue-300/80 dark:border-blue-500/20",
+    badgeBg:
+      "bg-blue-500/10 text-blue-700 border border-blue-400/30 dark:text-blue-300/80 dark:border-blue-500/20",
     sectionBorder: "border-l-2 border-blue-400/50",
   },
   {
@@ -52,7 +48,8 @@ const OPERATIONS = [
     activeBg: "bg-emerald-50 dark:bg-emerald-950/50",
     activeText: "text-emerald-700 dark:text-emerald-300",
     indicatorColor: "bg-emerald-500",
-    badgeBg: "bg-emerald-500/10 text-emerald-700 border border-emerald-400/30 dark:text-emerald-300/80 dark:border-emerald-500/20",
+    badgeBg:
+      "bg-emerald-500/10 text-emerald-700 border border-emerald-400/30 dark:text-emerald-300/80 dark:border-emerald-500/20",
     sectionBorder: "border-l-2 border-emerald-400/50",
   },
   {
@@ -63,7 +60,8 @@ const OPERATIONS = [
     activeBg: "bg-amber-50 dark:bg-amber-950/50",
     activeText: "text-amber-700 dark:text-amber-300",
     indicatorColor: "bg-amber-500",
-    badgeBg: "bg-amber-500/10 text-amber-700 border border-amber-400/30 dark:text-amber-300/80 dark:border-amber-500/20",
+    badgeBg:
+      "bg-amber-500/10 text-amber-700 border border-amber-400/30 dark:text-amber-300/80 dark:border-amber-500/20",
     sectionBorder: "border-l-2 border-amber-400/50",
   },
   {
@@ -74,7 +72,8 @@ const OPERATIONS = [
     activeBg: "bg-red-50 dark:bg-red-950/50",
     activeText: "text-red-700 dark:text-red-300",
     indicatorColor: "bg-red-500",
-    badgeBg: "bg-rose-500/10 text-rose-700 border border-rose-400/30 dark:text-rose-300/80 dark:border-rose-500/20",
+    badgeBg:
+      "bg-rose-500/10 text-rose-700 border border-rose-400/30 dark:text-rose-300/80 dark:border-rose-500/20",
     sectionBorder: "border-l-2 border-red-400/50",
   },
 ] as const;
@@ -115,7 +114,7 @@ export function SchemaPreviewDrawer({
   const defaultTab = isEntity ? "request-format" : "schema-structure";
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [activeOperationTab, setActiveOperationTab] = useState<string>("query");
-  const requestUrl = `${getGraphqlGatewayExecuteOrigin()}/data/v4/gateway`;
+  const requestUrl = getRuntimeEnv("BLOCKS_GRAPHQL_PUBLIC_URL");
   const navigate = useNavigate();
   const dataGatewayPath = useDataGatewayPath();
 
@@ -143,11 +142,16 @@ export function SchemaPreviewDrawer({
   const isGatewayIntrospectionPending = isGatewayIntrospectionPendingProp ?? false;
 
   const isGatewaySchemaLoading =
-    isEntity && !!schemaName && !!projectShortKey && !!rawIntrospectionProp &&
-    (isGatewayIntrospectionPending || (isGatewayIntrospectionFetching && rawIntrospection === undefined));
+    isEntity &&
+    !!schemaName &&
+    !!projectShortKey &&
+    !!rawIntrospectionProp &&
+    (isGatewayIntrospectionPending ||
+      (isGatewayIntrospectionFetching && rawIntrospection === undefined));
 
   const sections = useMemo(
-    () => rawIntrospection && schemaName ? buildPreviewSections(rawIntrospection, schemaName) : [],
+    () =>
+      rawIntrospection && schemaName ? buildPreviewSections(rawIntrospection, schemaName) : [],
     [schemaName, rawIntrospection],
   );
 
@@ -196,8 +200,11 @@ export function SchemaPreviewDrawer({
           </div>
 
           {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="relative flex flex-1 flex-col overflow-hidden">
-
+          <Tabs
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="relative flex flex-1 flex-col overflow-hidden"
+          >
             {/* Tab switcher */}
             {isEntity && (
               <div className="shrink-0 border-b border-border/40 px-6 pt-3">
@@ -222,16 +229,38 @@ export function SchemaPreviewDrawer({
             <TabsContent value="schema-structure" className="flex-1 overflow-hidden p-6">
               <div className="group relative h-full">
                 <div className="absolute right-4 top-3 z-50 opacity-0 transition-opacity group-hover:opacity-100">
-                  <CopyToClipboardButton textToCopy={formattedJson}>{" "}</CopyToClipboardButton>
+                  <CopyToClipboardButton textToCopy={formattedJson}> </CopyToClipboardButton>
                 </div>
                 <ScrollArea className="h-full rounded-sm border border-border/60 bg-muted/30 pr-4">
                   <div className="block p-5 pr-20 dark:hidden">
-                    <SyntaxHighlighter language="json" style={prism} customStyle={{ margin: 0, background: "transparent", padding: 0, fontSize: "0.75rem", lineHeight: 1.6 }} wrapLongLines>
+                    <SyntaxHighlighter
+                      language="json"
+                      style={prism}
+                      customStyle={{
+                        margin: 0,
+                        background: "transparent",
+                        padding: 0,
+                        fontSize: "0.75rem",
+                        lineHeight: 1.6,
+                      }}
+                      wrapLongLines
+                    >
                       {formattedJson}
                     </SyntaxHighlighter>
                   </div>
                   <div className="hidden p-5 pr-20 dark:block">
-                    <SyntaxHighlighter language="json" style={atomDark} customStyle={{ margin: 0, background: "transparent", padding: 0, fontSize: "0.75rem", lineHeight: 1.6 }} wrapLongLines>
+                    <SyntaxHighlighter
+                      language="json"
+                      style={atomDark}
+                      customStyle={{
+                        margin: 0,
+                        background: "transparent",
+                        padding: 0,
+                        fontSize: "0.75rem",
+                        lineHeight: 1.6,
+                      }}
+                      wrapLongLines
+                    >
                       {formattedJson}
                     </SyntaxHighlighter>
                   </div>
@@ -241,17 +270,20 @@ export function SchemaPreviewDrawer({
 
             {/* Request Format */}
             <TabsContent value="request-format" className="flex flex-1 flex-col overflow-hidden">
-
               {/* Connection info */}
               <div className="shrink-0 space-y-2 border-b border-border/40 px-6 py-3">
                 <div className="flex items-center gap-3 text-xs">
-                  <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-widest text-foreground">URL</span>
+                  <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-widest text-foreground">
+                    URL
+                  </span>
                   <CopyToClipboardButton textToCopy={requestUrl} isHoverable>
                     <code className="font-mono text-foreground">{requestUrl}</code>
                   </CopyToClipboardButton>
                 </div>
                 <div className="flex items-center gap-3 text-xs">
-                  <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-widest text-foreground">Header</span>
+                  <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-widest text-foreground">
+                    Header
+                  </span>
                   <CopyToClipboardButton textToCopy={`x-blocks-key: ${projectKey}`} isHoverable>
                     <code className="font-mono text-foreground">x-blocks-key: {projectKey}</code>
                   </CopyToClipboardButton>
@@ -260,7 +292,6 @@ export function SchemaPreviewDrawer({
 
               {/* Operations layout */}
               <div className="flex flex-1 overflow-hidden">
-
                 {/* Vertical sidebar */}
                 <div className="flex shrink-0 flex-col border-r border-border/40 py-2">
                   {OPERATIONS.map(({ value, label, icon: Icon, iconColor, indicatorColor }) => {
@@ -278,9 +309,19 @@ export function SchemaPreviewDrawer({
                         )}
                       >
                         {isActive && (
-                          <span className={cn("absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 rounded-l-full", indicatorColor)} />
+                          <span
+                            className={cn(
+                              "absolute right-0 top-1/2 h-4 w-px -translate-y-1/2 rounded-l-full",
+                              indicatorColor,
+                            )}
+                          />
                         )}
-                        <Icon className={cn("h-4 w-4 transition-colors", isActive ? iconColor : "text-foreground/60")} />
+                        <Icon
+                          className={cn(
+                            "h-4 w-4 transition-colors",
+                            isActive ? iconColor : "text-foreground/60",
+                          )}
+                        />
                         <span>{label}</span>
                       </button>
                     );
@@ -299,8 +340,12 @@ export function SchemaPreviewDrawer({
                       <div className="space-y-3 p-4">
                         {filteredSections.length === 0 ? (
                           <div className="flex flex-col items-center justify-center gap-2 py-16 text-foreground/70">
-                            <activeOperation.icon className={cn("h-7 w-7 opacity-40", activeOperation.iconColor)} />
-                            <span className="text-xs text-foreground/70">No examples available</span>
+                            <activeOperation.icon
+                              className={cn("h-7 w-7 opacity-40", activeOperation.iconColor)}
+                            />
+                            <span className="text-xs text-foreground/70">
+                              No examples available
+                            </span>
                           </div>
                         ) : (
                           filteredSections.map((section) => (
@@ -314,11 +359,18 @@ export function SchemaPreviewDrawer({
                               {/* Section header */}
                               <div className="flex items-center justify-between gap-2 border-b border-border/60 bg-muted/40 px-3 py-2">
                                 <div className="flex items-center gap-2">
-                                  <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1", activeOperation.badgeBg)}>
+                                  <span
+                                    className={cn(
+                                      "rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1",
+                                      activeOperation.badgeBg,
+                                    )}
+                                  >
                                     {section.title}
                                   </span>
                                   {section.description && (
-                                    <span className="text-xs text-foreground/70">{section.description}</span>
+                                    <span className="text-xs text-foreground/70">
+                                      {section.description}
+                                    </span>
                                   )}
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -331,7 +383,9 @@ export function SchemaPreviewDrawer({
                                     <Play className="h-3 w-3" />
                                     Playground
                                   </Button>
-                                  <CopyToClipboardButton textToCopy={section.code}>{" "}</CopyToClipboardButton>
+                                  <CopyToClipboardButton textToCopy={section.code}>
+                                    {" "}
+                                  </CopyToClipboardButton>
                                 </div>
                               </div>
 
@@ -340,7 +394,13 @@ export function SchemaPreviewDrawer({
                                 <SyntaxHighlighter
                                   language="graphql"
                                   style={prism}
-                                  customStyle={{ margin: 0, background: "transparent", padding: "14px 16px", fontSize: "0.775rem", lineHeight: 1.6 }}
+                                  customStyle={{
+                                    margin: 0,
+                                    background: "transparent",
+                                    padding: "14px 16px",
+                                    fontSize: "0.775rem",
+                                    lineHeight: 1.6,
+                                  }}
                                   wrapLongLines
                                 >
                                   {section.code}
@@ -350,7 +410,13 @@ export function SchemaPreviewDrawer({
                                 <SyntaxHighlighter
                                   language="graphql"
                                   style={atomDark}
-                                  customStyle={{ margin: 0, background: "transparent", padding: "14px 16px", fontSize: "0.775rem", lineHeight: 1.6 }}
+                                  customStyle={{
+                                    margin: 0,
+                                    background: "transparent",
+                                    padding: "14px 16px",
+                                    fontSize: "0.775rem",
+                                    lineHeight: 1.6,
+                                  }}
                                   wrapLongLines
                                 >
                                   {section.code}

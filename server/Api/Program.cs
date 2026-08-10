@@ -124,6 +124,7 @@ static void ApplyFrontendRuntimeSettings(IConfiguration configuration, string we
         ["__BLOCKS_STUDIO_BASE_URL__"] = section["BLOCKS_STUDIO_BASE_URL"],
         ["__BLOCKS_STUDIO_CALLBACK_URL__"] = section["BLOCKS_STUDIO_CALLBACK_URL"],
         ["__BLOCKS_DATA_IMPORT_SAMPLE_FILE__"] = section["BLOCKS_DATA_IMPORT_SAMPLE_FILE"],
+        ["__BLOCKS_GRAPHQL_PUBLIC_URL__"] = section["BLOCKS_GRAPHQL_PUBLIC_URL"],
         ["__BLOCKS_IAM_CLIENT_ID__"] = section["BLOCKS_IAM_CLIENT_ID"],
         ["__BLOCKS_DATA_CLIENT_ID__"] = section["BLOCKS_DATA_CLIENT_ID"],
         ["__BLOCKS_LOCALIZATION_CLIENT_ID__"] = section["BLOCKS_LOCALIZATION_CLIENT_ID"],

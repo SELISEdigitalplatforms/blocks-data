@@ -2,7 +2,7 @@
 
 namespace Storage.DomainService.Services
 {
-    public interface IDirectoryRepository
+    public interface IFileDirectoryRepository
     {
         Task CreateDirectoryAsync(FileDirectory directory);
         Task CreateDirectoriesAsync(List<FileDirectory> directories);

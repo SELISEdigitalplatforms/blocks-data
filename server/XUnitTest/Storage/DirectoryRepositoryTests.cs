@@ -14,7 +14,7 @@ namespace XUnitTest.Storage;
 public class DirectoryRepositoryTests
 {
     private readonly IMongoDatabase _database;
-    private readonly DirectoryRepository _repository;
+    private readonly FileDirectoryRepository _repository;
 
     public DirectoryRepositoryTests(MongoFixture fixture)
     {
@@ -24,7 +24,7 @@ public class DirectoryRepositoryTests
         provider.Setup(p => p.GetCollection<FileDirectory>(It.IsAny<string>()))
             .Returns((string name) => _database.GetCollection<FileDirectory>(name));
 
-        _repository = new DirectoryRepository(provider.Object);
+        _repository = new FileDirectoryRepository(provider.Object);
     }
 
     [Fact]

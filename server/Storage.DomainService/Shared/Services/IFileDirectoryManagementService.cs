@@ -3,7 +3,7 @@ using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 
 namespace Storage.DomainService.Services;
 
-public interface IDirectoryManagementService
+public interface IFileDirectoryManagementService
 {
     /// <summary>
     /// Creates a directory. A root directory is gated at the endpoint by

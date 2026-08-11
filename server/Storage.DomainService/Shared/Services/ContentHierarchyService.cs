@@ -43,7 +43,7 @@ namespace Storage.DomainService.Services
     /// </summary>
     /// <remarks>
     /// Placed alongside the other content services rather than on
-    /// <c>DirectoryRepository</c> as the specification sketches, because it spans the
+    /// <c>FileDirectoryRepository</c> as the specification sketches, because it spans the
     /// directory and file collections and carries real logic that deserves direct test
     /// coverage; the existing repositories are thin wrappers marked
     /// <c>ExcludeFromCodeCoverage</c>.

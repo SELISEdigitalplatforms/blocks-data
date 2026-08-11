@@ -21,7 +21,7 @@ namespace Storage.DomainService.Services
     /// Cursor-paginated children listing that only returns what the caller may see.
     /// </summary>
     /// <remarks>
-    /// No Mongo access lives here. Reads go through <see cref="IDirectoryRepository"/> and
+    /// No Mongo access lives here. Reads go through <see cref="IFileDirectoryRepository"/> and
     /// <see cref="IFileRepository"/>, so the listing concerns (access resolution, merging
     /// directorys-ahead-of-files, pagination cursor) sit one layer above the data access ones
     /// (filter building, keyset predicates, tenant scoping). Each page is assembled by reading
@@ -37,12 +37,12 @@ namespace Storage.DomainService.Services
         // heavily restricted directory cannot turn one request into an unbounded scan.
         private const int MaxRoundsPerPage = 20;
 
-        private readonly IDirectoryRepository _directoryRepository;
+        private readonly IFileDirectoryRepository _directoryRepository;
         private readonly IFileRepository _fileRepository;
         private readonly IContentAccessResolver _resolver;
 
         public ContentListingService(
-            IDirectoryRepository directoryRepository,
+            IFileDirectoryRepository directoryRepository,
             IFileRepository fileRepository,
             IContentAccessResolver resolver)
         {

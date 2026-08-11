@@ -10,11 +10,11 @@ namespace Worker.Consumers;
 public class CreateDefaultDirectoryEventConsumer : IConsumer<CreateDefaultDirectoryEvent>
 {
     private readonly ILogger<CreateDefaultDirectoryEventConsumer> _logger;
-    private readonly IDirectoryRepository _directoryRepository;
+    private readonly IFileDirectoryRepository _directoryRepository;
 
     public CreateDefaultDirectoryEventConsumer(
         ILogger<CreateDefaultDirectoryEventConsumer> logger,
-        IDirectoryRepository directoryRepository)
+        IFileDirectoryRepository directoryRepository)
     {
         _logger = logger;
         _directoryRepository = directoryRepository;

@@ -114,7 +114,7 @@ public class StorageValidatorTests
     [Fact]
     public void LocalStorageUpload_MissingExtension_Fails()
     {
-        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IDirectoryRepository>());
+        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IFileDirectoryRepository>());
         var request = new LocalStorageUploadRequest { Name = "noext", File = Mock.Of<IFormFile>() };
         validator.Validate(request).IsValid.Should().BeFalse();
     }
@@ -122,7 +122,7 @@ public class StorageValidatorTests
     [Fact]
     public void LocalStorageUpload_UnsupportedExtension_Fails()
     {
-        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IDirectoryRepository>());
+        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IFileDirectoryRepository>());
         var request = new LocalStorageUploadRequest { Name = "malware.exe", File = Mock.Of<IFormFile>() };
         validator.Validate(request).IsValid.Should().BeFalse();
     }
@@ -130,7 +130,7 @@ public class StorageValidatorTests
     [Fact]
     public void LocalStorageUpload_Valid_Passes()
     {
-        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IDirectoryRepository>());
+        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IFileDirectoryRepository>());
         var request = new LocalStorageUploadRequest { Name = "document.pdf", File = Mock.Of<IFormFile>() };
         validator.Validate(request).IsValid.Should().BeTrue();
     }

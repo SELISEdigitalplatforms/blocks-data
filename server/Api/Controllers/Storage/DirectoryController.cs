@@ -24,12 +24,12 @@ namespace Api.Controllers
     [Route("[controller]/[action]")]
     public class DirectoryController : ControllerBase
     {
-        private readonly IDirectoryManagementService _directoryManagementService;
+        private readonly IFileDirectoryManagementService _directoryManagementService;
         private readonly IContentListingService _contentListingService;
         private readonly IContentHierarchyService _contentHierarchyService;
 
         public DirectoryController(
-            IDirectoryManagementService directoryManagementService,
+            IFileDirectoryManagementService directoryManagementService,
             IContentListingService contentListingService,
             IContentHierarchyService contentHierarchyService)
         {

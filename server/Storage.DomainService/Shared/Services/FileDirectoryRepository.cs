@@ -8,7 +8,7 @@ using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 namespace Storage.DomainService.Services
 {
     [ExcludeFromCodeCoverage]
-    public class DirectoryRepository : IDirectoryRepository
+    public class FileDirectoryRepository : IFileDirectoryRepository
     {
         // The live collection is "FileDirectories" (the storage services and every test insert into
         // this name). The generic convention "typeof(T).Name + 's'" would yield "Directorys"
@@ -17,7 +17,7 @@ namespace Storage.DomainService.Services
 
         private readonly IDbContextProvider _dbContextProvider;
 
-        public DirectoryRepository(IDbContextProvider dbContextProvider)
+        public FileDirectoryRepository(IDbContextProvider dbContextProvider)
         {
             _dbContextProvider = dbContextProvider;
         }

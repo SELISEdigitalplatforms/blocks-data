@@ -12,7 +12,7 @@ namespace XUnitTest.Worker;
 
 public class CreateDefaultDirectoryEventConsumerTests
 {
-    private readonly Mock<IDirectoryRepository> _directoryRepository = new();
+    private readonly Mock<IFileDirectoryRepository> _directoryRepository = new();
     private readonly CreateDefaultDirectoryEventConsumer _consumer;
 
     public CreateDefaultDirectoryEventConsumerTests()

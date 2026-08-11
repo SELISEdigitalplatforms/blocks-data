@@ -28,7 +28,7 @@ namespace Storage.DomainService.Services
         private readonly IFileRepository _fileRepository;
         private readonly IFileVersionRepository _versionRepository;
         private readonly IStorageServiceFactory _storageServiceFactory;
-        private readonly IDirectoryRepository _directoryRepository;
+        private readonly IFileDirectoryRepository _directoryRepository;
         private readonly IValidator<GetPreSignedUrlForUploadRequest> _requestValidator;
         private readonly IValidator<LocalStorageUploadRequest> _localStorageRequestValidator;
         private readonly IValidator<UpdateFileRequest> _fileRequestValidator;
@@ -43,7 +43,7 @@ namespace Storage.DomainService.Services
             IStorageServiceFactory storageServiceFactory,
             IFileVersionRepository versionRepository,
             IConfigurationRepository configurationRepository,
-            IDirectoryRepository directoryRepository,
+            IFileDirectoryRepository directoryRepository,
             IValidator<GetPreSignedUrlForUploadRequest> requestValidator,
             IValidator<LocalStorageUploadRequest> localStorageRequestValidator,
             IValidator<UpdateFileRequest> fileRequestValidator,

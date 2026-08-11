@@ -19,7 +19,7 @@ namespace XUnitTest.Api
     /// </summary>
     public class DirectoryControllerTests
     {
-        private readonly Mock<IDirectoryManagementService> _directorys = new();
+        private readonly Mock<IFileDirectoryManagementService> _directorys = new();
         private readonly Mock<IContentListingService> _listing = new();
         private readonly Mock<IContentHierarchyService> _hierarchy = new();
         private readonly DirectoryController _sut;

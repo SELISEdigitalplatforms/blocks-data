@@ -41,14 +41,14 @@ namespace Storage.DomainService.Utilities
             services.AddSingleton<IFileManagementService, FileManagementService>();
             services.AddSingleton<IFileRepository, FileRepository>();
             services.AddSingleton<IFileVersionRepository, FileVersionRepository>();
-            services.AddSingleton<IDirectoryRepository, DirectoryRepository>();
+            services.AddSingleton<IFileDirectoryRepository, FileDirectoryRepository>();
             services.AddSingleton<IContentAccessRepository, ContentAccessRepository>();
             services.AddSingleton<IContentAccessResolver, ContentAccessResolver>();
             services.AddSingleton<IContentListingService, ContentListingService>();
             services.AddSingleton<IContentHierarchyService, ContentHierarchyService>();
             services.AddSingleton<IContentFileService, ContentFileService>();
             services.AddSingleton<IContentManagementService, ContentManagementService>();
-            services.AddSingleton<IDirectoryManagementService, DirectoryManagementService>();
+            services.AddSingleton<IFileDirectoryManagementService, FileDirectoryManagementService>();
             services.AddSingleton<IContentDiscoveryService, ContentDiscoveryService>();
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
             services.AddSingleton<IConfigurationRepository, ConfigurationRepository>();

@@ -39,10 +39,10 @@ public class ContentListingServiceTests : IDisposable
 
         _accessRepository = new ContentAccessRepository(provider.Object);
         // The listing service now reads through the repositories rather than the provider, so the
-        // wiring mirrors production: real DirectoryRepository / FileRepository backed by the same
+        // wiring mirrors production: real FileDirectoryRepository / FileRepository backed by the same
         // mock provider, which keeps the test's existing "FileDirectories" / "Files" inserts valid.
         _listing = new ContentListingService(
-            new DirectoryRepository(provider.Object),
+            new FileDirectoryRepository(provider.Object),
             new FileRepository(provider.Object),
             new ContentAccessResolver(_accessRepository));
 

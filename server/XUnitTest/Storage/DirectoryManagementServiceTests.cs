@@ -24,7 +24,7 @@ public class DirectoryManagementServiceTests : IDisposable
 {
     private readonly IMongoDatabase _db;
     private readonly ContentAccessRepository _accessRepository;
-    private readonly DirectoryManagementService _directorys;
+    private readonly FileDirectoryManagementService _directorys;
 
     public DirectoryManagementServiceTests(MongoFixture fixture)
     {
@@ -56,7 +56,7 @@ public class DirectoryManagementServiceTests : IDisposable
                 return new BaseResponse { IsSuccess = true };
             });
 
-        _directorys = new DirectoryManagementService(
+        _directorys = new FileDirectoryManagementService(
             provider.Object, new ContentAccessResolver(_accessRepository), _accessRepository, fileManagementMock.Object);
 
         BlocksTestContext.Set(userId: "user-1", tenantId: "tenant-1", organizationId: "org-1", roles: new[] { "editor" });
@@ -442,7 +442,7 @@ public class DirectoryManagementServiceTests : IDisposable
     public void A_path_is_built_from_the_parent_without_doubling_separators(
         string? parentPath, string name, string expected)
     {
-        DirectoryManagementService.BuildPath(parentPath, name).Should().Be(expected);
+        FileDirectoryManagementService.BuildPath(parentPath, name).Should().Be(expected);
     }
 
     [Theory]
@@ -451,6 +451,6 @@ public class DirectoryManagementServiceTests : IDisposable
     [InlineData(null, "New", "/New")]
     public void A_rename_replaces_only_the_last_path_segment(string? fullPath, string newName, string expected)
     {
-        DirectoryManagementService.RenameLeaf(fullPath, newName).Should().Be(expected);
+        FileDirectoryManagementService.RenameLeaf(fullPath, newName).Should().Be(expected);
     }
 }

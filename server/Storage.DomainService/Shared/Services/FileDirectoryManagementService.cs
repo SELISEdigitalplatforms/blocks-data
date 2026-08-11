@@ -18,14 +18,14 @@ namespace Storage.DomainService.Services
     /// Deletion is soft by default. A permanent delete removes the directory and every
     /// descendant after the caller's Delete permission on the requested directory is verified.
     /// </remarks>
-    public class DirectoryManagementService : IDirectoryManagementService
+    public class FileDirectoryManagementService : IFileDirectoryManagementService
     {
         private readonly IDbContextProvider _dbContextProvider;
         private readonly IContentAccessResolver _resolver;
         private readonly IContentAccessRepository _accessRepository;
         private readonly IFileManagementService _fileManagementService;
 
-        public DirectoryManagementService(
+        public FileDirectoryManagementService(
             IDbContextProvider dbContextProvider,
             IContentAccessResolver resolver,
             IContentAccessRepository accessRepository,

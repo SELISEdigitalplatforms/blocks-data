@@ -26,7 +26,7 @@ namespace Blocks.Extension.DependencyInjection
             services.AddSingleton<IFileManagementService, FileManagementService>();
             services.AddSingleton<IFileRepository, FileRepository>();
             services.AddSingleton<IFileVersionRepository, FileVersionRepository>();
-            services.AddSingleton<IDirectoryRepository, DirectoryRepository>();
+            services.AddSingleton<IFileDirectoryRepository, FileDirectoryRepository>();
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
             services.AddSingleton<IConfigurationRepository, ConfigurationRepository>();
             services.AddTransient<AzureBlobStorageService>();

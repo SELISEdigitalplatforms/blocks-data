@@ -447,27 +447,18 @@ namespace Storage.DomainService.Services
         }
 
         public Task<BaseResponse> DeleteFileAsync(DeleteFileRequest deleteFileRequest)
-            => DeleteFileAsync(deleteFileRequest, authorizeFile: true);
+            => DeleteFileAsync(deleteFileRequest, authorizeFile: true, forcePermanent: false);
 
         public Task<BaseResponse> DeleteFileForDirectoryCascadeAsync(DeleteFileRequest deleteFileRequest)
-            => DeleteFileAsync(deleteFileRequest, authorizeFile: false);
+            => DeleteFileAsync(deleteFileRequest, authorizeFile: false, forcePermanent: true);
 
-        private async Task<BaseResponse> DeleteFileAsync(DeleteFileRequest deleteFileRequest, bool authorizeFile)
+        private async Task<BaseResponse> DeleteFileAsync(
+            DeleteFileRequest deleteFileRequest, bool authorizeFile, bool forcePermanent)
         {
             if (string.IsNullOrWhiteSpace(deleteFileRequest.FileId))
             {
                 return CreateErrorResponse<BaseResponse>("empty_file_id", "file_id_should_not_be_empty");
             }
-
-            var configuration = await GetConfigurationAsync(deleteFileRequest.ConfigurationName);
-
-            if (configuration == null)
-            {
-                return CreateErrorResponse<BaseResponse>("Configuration", ConfigurationNotFound);
-            }
-
-            if (!StorageTypes.TryGetCategory(configuration.StorageStrategy, out var category))
-                return CreateErrorResponse<BaseResponse>("StorageStrategy", "wrong_storage_strategy_config");
 
             var existingFile = await _fileRepository.GetFileByItemIdAsync(deleteFileRequest.FileId);
 
@@ -478,6 +469,26 @@ namespace Storage.DomainService.Services
 
             if (authorizeFile && !await AuthorizeFileAsync(existingFile, ContentPermission.Delete, "Delete", default))
                 return AccessDenied<BaseResponse>();
+
+            var permanent = forcePermanent || deleteFileRequest.Permanent;
+            if (!permanent)
+            {
+                existingFile.IsArchived = true;
+                existingFile.LastUpdatedBy = BlocksContext.GetContext()?.UserId ?? string.Empty;
+                existingFile.LastUpdatedDate = DateTime.UtcNow;
+                await _fileRepository.UpdateFileAsync(existingFile);
+
+                return CreateSuccessResponse<BaseResponse>();
+            }
+
+            var configuration = await GetConfigurationAsync(deleteFileRequest.ConfigurationName ?? existingFile.ConfigurationName);
+            if (configuration == null)
+            {
+                return CreateErrorResponse<BaseResponse>("Configuration", ConfigurationNotFound);
+            }
+
+            if (!StorageTypes.TryGetCategory(configuration.StorageStrategy, out var category))
+                return CreateErrorResponse<BaseResponse>("StorageStrategy", "wrong_storage_strategy_config");
 
             var storageService = GetStorageService(configuration);
             var context = BlocksContext.GetContext();

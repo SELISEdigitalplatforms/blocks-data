@@ -81,6 +81,7 @@ namespace XUnitTest.Api
         public async Task DeleteFile_ForwardsTheRequest()
         {
             var request = new DeleteFileRequest { FileId = "f1" };
+            request.Permanent.Should().BeTrue();
             var expected = new BaseResponse { IsSuccess = true };
             _files.Setup(f => f.DeleteFileAsync(request)).ReturnsAsync(expected);
 

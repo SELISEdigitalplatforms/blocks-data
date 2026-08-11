@@ -34,4 +34,8 @@ public interface IFileDirectoryManagementService
     /// <summary>Moves the directory to the trash, or permanently removes its entire subtree.</summary>
     Task<DirectoryOperationResult> DeleteDirectoryAsync(
         string directoryId, bool permanent = true, CancellationToken cancellationToken = default);
+
+    /// <summary>Restores a trashed directory and every directory and file beneath it.</summary>
+    Task<DirectoryOperationResult> RestoreDirectoryAsync(
+        string directoryId, CancellationToken cancellationToken = default);
 }

@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Blocks.Genesis;
+using DomainService.Storage;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
@@ -92,15 +93,21 @@ namespace Storage.DomainService.Services
         private readonly IDbContextProvider _dbContextProvider;
         private readonly IContentAccessResolver _resolver;
         private readonly IContentAccessRepository _accessRepository;
+        private readonly IFileManagementService _fileManagementService;
+        private readonly IFileDirectoryManagementService _fileDirectoryManagementService;
 
         public ContentDiscoveryService(
             IDbContextProvider dbContextProvider,
             IContentAccessResolver resolver,
-            IContentAccessRepository accessRepository)
+            IContentAccessRepository accessRepository,
+            IFileManagementService fileManagementService,
+            IFileDirectoryManagementService fileDirectoryManagementService)
         {
             _dbContextProvider = dbContextProvider;
             _resolver = resolver;
             _accessRepository = accessRepository;
+            _fileManagementService = fileManagementService;
+            _fileDirectoryManagementService = fileDirectoryManagementService;
         }
 
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
@@ -173,22 +180,13 @@ namespace Storage.DomainService.Services
             var directory = await FindArchivedDirectoryAsync(resourceId, cancellationToken);
             if (directory is not null)
             {
-                if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Delete, cancellationToken))
+                var restore = await _fileDirectoryManagementService.RestoreDirectoryAsync(resourceId, cancellationToken);
+                return restore.Status switch
                 {
-                    await AuditAsync(resourceId, ContentResourceType.Directory, RestoreAuditAction, false, null, cancellationToken);
-                    return TrashOperationResult.Failure(TrashOperationStatus.NotPermitted);
-                }
-
-                await Directories.UpdateOneAsync(
-                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, resourceId),
-                    Builders<FileDirectory>.Update
-                        .Set(d => d.IsArchived, false)
-                        .Set(d => d.LastUpdatedBy, UserId)
-                        .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
-                    cancellationToken: cancellationToken);
-
-                await AuditAsync(resourceId, ContentResourceType.Directory, RestoreAuditAction, true, null, cancellationToken);
-                return TrashOperationResult.Success();
+                    DirectoryOperationStatus.Succeeded => TrashOperationResult.Success(),
+                    DirectoryOperationStatus.NotPermitted => TrashOperationResult.Failure(TrashOperationStatus.NotPermitted),
+                    _ => TrashOperationResult.Failure(TrashOperationStatus.NotFound),
+                };
             }
 
             var file = await FindArchivedFileAsync(resourceId, cancellationToken);
@@ -220,17 +218,14 @@ namespace Storage.DomainService.Services
             var directory = await FindArchivedDirectoryAsync(resourceId, cancellationToken);
             if (directory is not null)
             {
-                if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Delete, cancellationToken))
+                var deletion = await _fileDirectoryManagementService.DeleteDirectoryAsync(
+                    resourceId, permanent: true, cancellationToken: cancellationToken);
+                return deletion.Status switch
                 {
-                    await AuditAsync(resourceId, ContentResourceType.Directory, DeleteAuditAction, false, "permanent refused", cancellationToken);
-                    return TrashOperationResult.Failure(TrashOperationStatus.NotPermitted);
-                }
-
-                await Directories.DeleteOneAsync(
-                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, resourceId), cancellationToken);
-                await _accessRepository.RevokeAllForResourceAsync(resourceId, cancellationToken);
-                await AuditAsync(resourceId, ContentResourceType.Directory, DeleteAuditAction, true, "permanent", cancellationToken);
-                return TrashOperationResult.Success();
+                    DirectoryOperationStatus.Succeeded => TrashOperationResult.Success(),
+                    DirectoryOperationStatus.NotPermitted => TrashOperationResult.Failure(TrashOperationStatus.NotPermitted),
+                    _ => TrashOperationResult.Failure(TrashOperationStatus.NotFound),
+                };
             }
 
             var file = await FindArchivedFileAsync(resourceId, cancellationToken);
@@ -245,8 +240,17 @@ namespace Storage.DomainService.Services
                 return TrashOperationResult.Failure(TrashOperationStatus.NotPermitted);
             }
 
-            await Files.DeleteOneAsync(Builders<File>.Filter.Eq(f => f.ItemId, resourceId), cancellationToken);
-            await _accessRepository.RevokeAllForResourceAsync(resourceId, cancellationToken);
+            var deletion = await _fileManagementService.DeleteFileAsync(new DeleteFileRequest
+            {
+                FileId = file.ItemId,
+                ConfigurationName = file.ConfigurationName,
+                Permanent = true,
+            });
+            if (!deletion.IsSuccess)
+            {
+                return TrashOperationResult.Failure(TrashOperationStatus.NotFound);
+            }
+
             await AuditAsync(resourceId, ContentResourceType.File, DeleteAuditAction, true, "permanent", cancellationToken);
             return TrashOperationResult.Success();
         }

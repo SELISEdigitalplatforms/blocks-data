@@ -358,6 +358,27 @@ public class DirectoryManagementServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_soft_delete_and_restore_apply_to_every_descendant()
+    {
+        await SeedDirectory("root");
+        await SeedDirectory("child", parentId: "root", ancestorIds: new List<string> { "root" });
+        await SeedFile("root-file", "root");
+        await SeedFile("child-file", "child");
+
+        (await _directorys.DeleteDirectoryAsync("root", permanent: false)).IsSuccess.Should().BeTrue();
+        (await Load("root")).IsArchived.Should().BeTrue();
+        (await Load("child")).IsArchived.Should().BeTrue();
+        (await Files.Find(f => f.ItemId == "root-file").FirstAsync()).IsArchived.Should().BeTrue();
+        (await Files.Find(f => f.ItemId == "child-file").FirstAsync()).IsArchived.Should().BeTrue();
+
+        (await _directorys.RestoreDirectoryAsync("root")).IsSuccess.Should().BeTrue();
+        (await Load("root")).IsArchived.Should().BeFalse();
+        (await Load("child")).IsArchived.Should().BeFalse();
+        (await Files.Find(f => f.ItemId == "root-file").FirstAsync()).IsArchived.Should().BeFalse();
+        (await Files.Find(f => f.ItemId == "child-file").FirstAsync()).IsArchived.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task A_permanent_delete_cascades_to_files_inside_the_directory()
     {
         await SeedDirectory("dir-1", archived: true);

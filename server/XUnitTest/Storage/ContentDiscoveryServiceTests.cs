@@ -1,4 +1,5 @@
 using Blocks.Genesis;
+using DomainService.Storage;
 using FluentAssertions;
 using MongoDB.Driver;
 using Moq;
@@ -22,6 +23,7 @@ public class ContentDiscoveryServiceTests : IDisposable
 {
     private readonly IMongoDatabase _db;
     private readonly ContentAccessRepository _accessRepository;
+    private readonly Mock<IFileManagementService> _fileManagement = new();
     private readonly ContentDiscoveryService _discovery;
 
     public ContentDiscoveryServiceTests(MongoFixture fixture)
@@ -35,8 +37,27 @@ public class ContentDiscoveryServiceTests : IDisposable
         provider.Setup(p => p.GetCollection<ContentAuditLog>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAuditLog>(n));
 
         _accessRepository = new ContentAccessRepository(provider.Object);
+        _fileManagement
+            .Setup(f => f.DeleteFileAsync(It.IsAny<DeleteFileRequest>()))
+            .ReturnsAsync((DeleteFileRequest request) =>
+            {
+                Files.DeleteOneAsync(f => f.ItemId == request.FileId).GetAwaiter().GetResult();
+                _accessRepository.RevokeAllForResourceAsync(request.FileId).GetAwaiter().GetResult();
+                return new BaseResponse { IsSuccess = true };
+            });
+        _fileManagement
+            .Setup(f => f.DeleteFileForDirectoryCascadeAsync(It.IsAny<DeleteFileRequest>()))
+            .ReturnsAsync((DeleteFileRequest request) =>
+            {
+                Files.DeleteOneAsync(f => f.ItemId == request.FileId).GetAwaiter().GetResult();
+                _accessRepository.RevokeAllForResourceAsync(request.FileId).GetAwaiter().GetResult();
+                return new BaseResponse { IsSuccess = true };
+            });
+        var resolver = new ContentAccessResolver(_accessRepository);
+        var directoryManagement = new FileDirectoryManagementService(
+            provider.Object, resolver, _accessRepository, _fileManagement.Object);
         _discovery = new ContentDiscoveryService(
-            provider.Object, new ContentAccessResolver(_accessRepository), _accessRepository);
+            provider.Object, resolver, _accessRepository, _fileManagement.Object, directoryManagement);
 
         BlocksTestContext.Set(userId: "user-1", tenantId: "tenant-1", organizationId: "org-1", roles: new[] { "editor" });
     }
@@ -379,6 +400,8 @@ public class ContentDiscoveryServiceTests : IDisposable
         result.IsSuccess.Should().BeTrue();
         (await Files.CountDocumentsAsync(f => f.ItemId == "file-1")).Should().Be(0);
         (await _accessRepository.GetByResourceAsync("file-1")).Should().BeEmpty();
+        _fileManagement.Verify(f => f.DeleteFileAsync(It.Is<DeleteFileRequest>(request =>
+            request.FileId == "file-1" && request.Permanent)), Times.Once);
     }
 
     [Fact]

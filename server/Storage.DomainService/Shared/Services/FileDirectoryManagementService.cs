@@ -278,12 +278,26 @@ namespace Storage.DomainService.Services
             }
             else
             {
-                await Directories.UpdateOneAsync(
-                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId),
+                var descendantDirectoryFilter = DescendantDirectoryFilter(directoryId);
+                var descendantDirectories = await (await Directories.FindAsync(
+                    descendantDirectoryFilter, cancellationToken: cancellationToken))
+                    .ToListAsync(cancellationToken);
+                var descendantDirectoryIds = descendantDirectories.Select(d => d.ItemId).ToList();
+
+                await Directories.UpdateManyAsync(
+                    descendantDirectoryFilter,
                     Builders<FileDirectory>.Update
                         .Set(d => d.IsArchived, true)
                         .Set(d => d.LastUpdatedBy, UserId)
                         .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
+                    cancellationToken: cancellationToken);
+
+                await Files.UpdateManyAsync(
+                    DescendantFileFilter(descendantDirectoryIds),
+                    Builders<File>.Update
+                        .Set(f => f.IsArchived, true)
+                        .Set(f => f.LastUpdatedBy, UserId)
+                        .Set(f => f.LastUpdatedDate, DateTime.UtcNow),
                     cancellationToken: cancellationToken);
                 await AuditAsync(directoryId, ContentResourceType.Directory, "Delete", true, "trashed", cancellationToken);
             }
@@ -296,6 +310,47 @@ namespace Storage.DomainService.Services
                     cancellationToken: cancellationToken);
             }
 
+            return DirectoryOperationResult.Success(directoryId);
+        }
+
+        public async Task<DirectoryOperationResult> RestoreDirectoryAsync(
+            string directoryId, CancellationToken cancellationToken = default)
+        {
+            var directory = await LoadDirectoryAsync(directoryId, cancellationToken, includeArchived: true);
+            if (directory is null || !directory.IsArchived)
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound);
+            }
+
+            if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Delete, cancellationToken))
+            {
+                await AuditAsync(directoryId, ContentResourceType.Directory, "Restore", false, null, cancellationToken);
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotPermitted);
+            }
+
+            var descendantDirectoryFilter = DescendantDirectoryFilter(directoryId);
+            var descendantDirectories = await (await Directories.FindAsync(
+                descendantDirectoryFilter, cancellationToken: cancellationToken))
+                .ToListAsync(cancellationToken);
+            var descendantDirectoryIds = descendantDirectories.Select(d => d.ItemId).ToList();
+
+            await Directories.UpdateManyAsync(
+                descendantDirectoryFilter,
+                Builders<FileDirectory>.Update
+                    .Set(d => d.IsArchived, false)
+                    .Set(d => d.LastUpdatedBy, UserId)
+                    .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
+                cancellationToken: cancellationToken);
+
+            await Files.UpdateManyAsync(
+                DescendantFileFilter(descendantDirectoryIds),
+                Builders<File>.Update
+                    .Set(f => f.IsArchived, false)
+                    .Set(f => f.LastUpdatedBy, UserId)
+                    .Set(f => f.LastUpdatedDate, DateTime.UtcNow),
+                cancellationToken: cancellationToken);
+
+            await AuditAsync(directoryId, ContentResourceType.Directory, "Restore", true, "subtree", cancellationToken);
             return DirectoryOperationResult.Success(directoryId);
         }
 
@@ -312,6 +367,16 @@ namespace Storage.DomainService.Services
             return await (await Directories.FindAsync(filter, cancellationToken: cancellationToken))
                 .FirstOrDefaultAsync(cancellationToken);
         }
+
+        private static FilterDefinition<FileDirectory> DescendantDirectoryFilter(string directoryId) =>
+            Builders<FileDirectory>.Filter.Or(
+                Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId),
+                Builders<FileDirectory>.Filter.AnyEq(d => d.AncestorIds, directoryId));
+
+        private static FilterDefinition<File> DescendantFileFilter(IReadOnlyCollection<string> directoryIds) =>
+            Builders<File>.Filter.Or(
+                Builders<File>.Filter.AnyIn(f => f.AncestorIds, directoryIds),
+                Builders<File>.Filter.In(f => f.DirectoryId, directoryIds));
 
         /// <summary>
         /// A directory counts as a default/system root when its <see cref="BaseEntity.Tags"/>

@@ -79,7 +79,7 @@ namespace Api.Controllers
         }
 
         /// <summary>
-        /// Deletes a file based on the provided request.
+        /// Moves a file to trash, or permanently removes it when <c>Permanent</c> is true.
         /// </summary>
         /// <param name="request">The request containing file deletion details.</param>
         /// <returns>A response indicating the result of the delete operation.</returns>

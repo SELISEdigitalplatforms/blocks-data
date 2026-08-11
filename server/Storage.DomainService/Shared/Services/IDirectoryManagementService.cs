@@ -1,5 +1,5 @@
 using Storage.DomainService.Entities;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 
 namespace Storage.DomainService.Services;
 
@@ -26,7 +26,7 @@ public interface IDirectoryManagementService
     /// Finds the default directory assigned to a module. Legacy default directories use
     /// <c>Description</c> for the module key; newer ones use <c>ModuleName</c>.
     /// </summary>
-    Task<Directory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default);
+    Task<FileDirectory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default);
 
     Task<DirectoryOperationResult> UpdateDirectoryAsync(
         string directoryId, string? name, string? description, CancellationToken cancellationToken = default);

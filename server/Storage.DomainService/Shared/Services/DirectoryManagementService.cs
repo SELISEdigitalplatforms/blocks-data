@@ -3,7 +3,7 @@ using DomainService.Storage;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
@@ -40,7 +40,7 @@ namespace Storage.DomainService.Services
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
         private static string UserId => BlocksContext.GetContext()?.UserId ?? string.Empty;
 
-        private IMongoCollection<Directory> Directories => _dbContextProvider.GetCollection<Directory>("Directories");
+        private IMongoCollection<FileDirectory> Directories => _dbContextProvider.GetCollection<FileDirectory>("FileDirectories");
         private IMongoCollection<File> Files => _dbContextProvider.GetCollection<File>("Files");
 
         public async Task<DirectoryOperationResult> CreateDirectoryAsync(
@@ -53,7 +53,7 @@ namespace Storage.DomainService.Services
             CancellationToken cancellationToken = default)
         {
             var systemName = ToSystemName(name);
-            Directory? parent = null;
+            FileDirectory? parent = null;
 
             if (!string.IsNullOrWhiteSpace(parentDirectoryId))
             {
@@ -80,7 +80,7 @@ namespace Storage.DomainService.Services
                 ? new List<string>()
                 : new List<string>(parent.AncestorIds) { parent.ItemId };
 
-            var directory = Directory.CreateNew(new DirectoryOptions
+            var directory = FileDirectory.CreateNew(new DirectoryOptions
             {
                 ItemId = Guid.NewGuid().ToString(),
                 Name = name,
@@ -105,8 +105,8 @@ namespace Storage.DomainService.Services
             if (parent is not null)
             {
                 await Directories.UpdateOneAsync(
-                    Builders<Directory>.Filter.Eq(d => d.ItemId, parent.ItemId),
-                    Builders<Directory>.Update.Inc(d => d.ChildDirectoryCount, 1),
+                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, parent.ItemId),
+                    Builders<FileDirectory>.Update.Inc(d => d.ChildDirectoryCount, 1),
                     cancellationToken: cancellationToken);
             }
 
@@ -135,13 +135,13 @@ namespace Storage.DomainService.Services
             return DirectoryOperationResult.Success(directory.ItemId, directory, flags);
         }
 
-        public async Task<Directory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default)
+        public async Task<FileDirectory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(moduleName)) return null;
 
-            var filter = (Builders<Directory>.Filter.Eq(d => d.ModuleName, moduleName)
-                          | Builders<Directory>.Filter.Eq(d => d.Description, moduleName))
-                         & Builders<Directory>.Filter.Eq(d => d.IsArchived, false);
+            var filter = (Builders<FileDirectory>.Filter.Eq(d => d.ModuleName, moduleName)
+                          | Builders<FileDirectory>.Filter.Eq(d => d.Description, moduleName))
+                         & Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false);
 
             return await (await Directories.FindAsync(filter, cancellationToken: cancellationToken))
                 .FirstOrDefaultAsync(cancellationToken);
@@ -169,7 +169,7 @@ namespace Storage.DomainService.Services
                 return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotPermitted);
             }
 
-            var updates = new List<UpdateDefinition<Directory>>();
+            var updates = new List<UpdateDefinition<FileDirectory>>();
             var renamed = !string.IsNullOrWhiteSpace(name) && !string.Equals(name, directory.Name, StringComparison.Ordinal);
 
             if (renamed)
@@ -180,14 +180,14 @@ namespace Storage.DomainService.Services
                     return DirectoryOperationResult.Failure(DirectoryOperationStatus.NameConflict);
                 }
 
-                updates.Add(Builders<Directory>.Update.Set(d => d.Name, name));
-                updates.Add(Builders<Directory>.Update.Set(d => d.SystemName, systemName));
-                updates.Add(Builders<Directory>.Update.Set(d => d.FullPath, RenameLeaf(directory.FullPath, name!)));
+                updates.Add(Builders<FileDirectory>.Update.Set(d => d.Name, name));
+                updates.Add(Builders<FileDirectory>.Update.Set(d => d.SystemName, systemName));
+                updates.Add(Builders<FileDirectory>.Update.Set(d => d.FullPath, RenameLeaf(directory.FullPath, name!)));
             }
 
             if (description is not null)
             {
-                updates.Add(Builders<Directory>.Update.Set(d => d.Description, description));
+                updates.Add(Builders<FileDirectory>.Update.Set(d => d.Description, description));
             }
 
             if (updates.Count == 0)
@@ -195,12 +195,12 @@ namespace Storage.DomainService.Services
                 return DirectoryOperationResult.Success(directory.ItemId, directory);
             }
 
-            updates.Add(Builders<Directory>.Update.Set(d => d.LastUpdatedBy, UserId));
-            updates.Add(Builders<Directory>.Update.Set(d => d.LastUpdatedDate, DateTime.UtcNow));
+            updates.Add(Builders<FileDirectory>.Update.Set(d => d.LastUpdatedBy, UserId));
+            updates.Add(Builders<FileDirectory>.Update.Set(d => d.LastUpdatedDate, DateTime.UtcNow));
 
             await Directories.UpdateOneAsync(
-                Builders<Directory>.Filter.Eq(d => d.ItemId, directory.ItemId),
-                Builders<Directory>.Update.Combine(updates),
+                Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directory.ItemId),
+                Builders<FileDirectory>.Update.Combine(updates),
                 cancellationToken: cancellationToken);
 
             await AuditAsync(directoryId, ContentResourceType.Directory, "Edit", true,
@@ -239,9 +239,9 @@ namespace Storage.DomainService.Services
                 // Cascade: permanently delete the directory and every descendant
                 // (subdirectories and files) in one pass. Descendants are identified via
                 // the cached AncestorIds array, which contains the deleted directory's id.
-                var descendantDirectoryFilter = Builders<Directory>.Filter.Or(
-                    Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId),
-                    Builders<Directory>.Filter.AnyEq(d => d.AncestorIds, directoryId));
+                var descendantDirectoryFilter = Builders<FileDirectory>.Filter.Or(
+                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId),
+                    Builders<FileDirectory>.Filter.AnyEq(d => d.AncestorIds, directoryId));
                 var doomedDirectories = await (await Directories.FindAsync(descendantDirectoryFilter, cancellationToken: cancellationToken))
                     .ToListAsync(cancellationToken);
                 var doomedDirectoryIds = doomedDirectories.Select(d => d.ItemId).ToList();
@@ -279,8 +279,8 @@ namespace Storage.DomainService.Services
             else
             {
                 await Directories.UpdateOneAsync(
-                    Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId),
-                    Builders<Directory>.Update
+                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId),
+                    Builders<FileDirectory>.Update
                         .Set(d => d.IsArchived, true)
                         .Set(d => d.LastUpdatedBy, UserId)
                         .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
@@ -291,22 +291,22 @@ namespace Storage.DomainService.Services
             if (!string.IsNullOrWhiteSpace(directory.ParentId))
             {
                 await Directories.UpdateOneAsync(
-                    Builders<Directory>.Filter.Eq(d => d.ItemId, directory.ParentId),
-                    Builders<Directory>.Update.Inc(d => d.ChildDirectoryCount, -1),
+                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directory.ParentId),
+                    Builders<FileDirectory>.Update.Inc(d => d.ChildDirectoryCount, -1),
                     cancellationToken: cancellationToken);
             }
 
             return DirectoryOperationResult.Success(directoryId);
         }
 
-        private async Task<Directory?> LoadDirectoryAsync(
+        private async Task<FileDirectory?> LoadDirectoryAsync(
             string directoryId, CancellationToken cancellationToken, bool includeArchived = false)
         {
-            var filter = Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId);
+            var filter = Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId);
 
             if (!includeArchived)
             {
-                filter &= Builders<Directory>.Filter.Eq(d => d.IsArchived, false);
+                filter &= Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false);
             }
 
             return await (await Directories.FindAsync(filter, cancellationToken: cancellationToken))
@@ -320,7 +320,7 @@ namespace Storage.DomainService.Services
         /// directories never carry the tag, so it is a stable marker for "this anchors the
         /// tenant tree". Such directories cannot be moved, renamed or deleted.
         /// </summary>
-        private static bool IsDefaultDirectory(Directory directory)
+        private static bool IsDefaultDirectory(FileDirectory directory)
             => directory.Tags?.Contains("default", StringComparer.OrdinalIgnoreCase) == true;
 
         private async Task<bool> SiblingNameTakenAsync(
@@ -330,23 +330,23 @@ namespace Storage.DomainService.Services
             // against "" here would mean no root directory ever matched another, so duplicate
             // root names would all be accepted.
             var parentFilter = string.IsNullOrWhiteSpace(parentDirectoryId)
-                ? Builders<Directory>.Filter.Eq(d => d.ParentId, null)
-                : Builders<Directory>.Filter.Eq(d => d.ParentId, parentDirectoryId);
+                ? Builders<FileDirectory>.Filter.Eq(d => d.ParentId, null)
+                : Builders<FileDirectory>.Filter.Eq(d => d.ParentId, parentDirectoryId);
 
-            var filter = Builders<Directory>.Filter.And(
+            var filter = Builders<FileDirectory>.Filter.And(
                 parentFilter,
-                Builders<Directory>.Filter.Eq(d => d.SystemName, systemName),
-                Builders<Directory>.Filter.Eq(d => d.IsArchived, false));
+                Builders<FileDirectory>.Filter.Eq(d => d.SystemName, systemName),
+                Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false));
 
             if (!string.IsNullOrWhiteSpace(excludingItemId))
             {
-                filter &= Builders<Directory>.Filter.Ne(d => d.ItemId, excludingItemId);
+                filter &= Builders<FileDirectory>.Filter.Ne(d => d.ItemId, excludingItemId);
             }
 
             return await Directories.CountDocumentsAsync(filter, cancellationToken: cancellationToken) > 0;
         }
 
-        private static ContentResourceDescriptor Describe(Directory directory) => new()
+        private static ContentResourceDescriptor Describe(FileDirectory directory) => new()
         {
             ResourceId = directory.ItemId,
             AncestorIds = directory.AncestorIds ?? new List<string>(),
@@ -356,7 +356,7 @@ namespace Storage.DomainService.Services
 
         /// <summary>
         /// The lookup key for sibling uniqueness. This has to match what
-        /// <see cref="Directory.CreateNew(DirectoryOptions)"/> stores, which is the name
+        /// <see cref="FileDirectory.CreateNew(DirectoryOptions)"/> stores, which is the name
         /// lowercased, or the duplicate check would compare against a value that is never
         /// written and silently allow two siblings with the same name.
         /// </summary>

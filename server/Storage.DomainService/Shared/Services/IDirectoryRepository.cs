@@ -1,28 +1,28 @@
-﻿using Directory = Storage.DomainService.Entities.Directory;
+﻿using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 
 namespace Storage.DomainService.Services
 {
     public interface IDirectoryRepository
     {
-        Task CreateDirectoryAsync(Directory directory);
-        Task CreateDirectoriesAsync(List<Directory> directories);
-        Task<List<Directory>> GetDirectories(string directoryId);
-        Task<Directory> GetDirectoryByItemIDAsync(string itemID);
+        Task CreateDirectoryAsync(FileDirectory directory);
+        Task CreateDirectoriesAsync(List<FileDirectory> directories);
+        Task<List<FileDirectory>> GetDirectories(string directoryId);
+        Task<FileDirectory> GetDirectoryByItemIDAsync(string itemID);
 
         /// <summary>
         /// Finds the default directory assigned to a module. Legacy default-directory data
         /// stores the module key in <c>Description</c>; newer data may use
         /// <c>ModuleName</c>, so implementations must support both forms.
         /// </summary>
-        Task<Directory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default);
-        Task UpdateDirectory(Directory directory);
+        Task<FileDirectory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default);
+        Task UpdateDirectory(FileDirectory directory);
 
         /// <summary>
         /// Loads a directory by id within the caller's tenant. Archived directorys are excluded
         /// unless <paramref name="includeArchived"/> is set, so a trashed directory cannot be
         /// confused for a live one on the read paths that do not expect it.
         /// </summary>
-        Task<Directory?> FindByIdAsync(string directoryId, bool includeArchived, CancellationToken cancellationToken = default);
+        Task<FileDirectory?> FindByIdAsync(string directoryId, bool includeArchived, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Keyset-paginated children of a directory. An empty <paramref name="parentId"/> lists
@@ -30,7 +30,7 @@ namespace Storage.DomainService.Services
         /// a previous page boundary; null starts at the beginning. Returned sorted by name then
         /// id, the same key the cursor encodes.
         /// </summary>
-        Task<List<Directory>> FindChildrenAsync(
+        Task<List<FileDirectory>> FindChildrenAsync(
             string parentId,
             string? afterName,
             string? afterId,
@@ -47,6 +47,6 @@ namespace Storage.DomainService.Services
         /// clone the template tree (seeded with <c>ConfigurationName "Azure"</c>) for a
         /// newly added storage configuration.
         /// </summary>
-        Task<List<Directory>> GetByConfigurationNameAsync(string configurationName, CancellationToken cancellationToken = default);
+        Task<List<FileDirectory>> GetByConfigurationNameAsync(string configurationName, CancellationToken cancellationToken = default);
     }
 }

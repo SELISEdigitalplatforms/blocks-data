@@ -157,24 +157,24 @@ namespace DomainService.Storage.Dms
         public PermissionFlags Permissions { get; set; } = new();
 
         public static DirectoryDetailResponse From(
-            global::Storage.DomainService.Entities.Directory directory, ContentPermissionFlags? flags) => new()
-        {
-            ItemId = directory.ItemId,
-            Name = directory.Name ?? string.Empty,
-            ParentDirectoryId = string.IsNullOrWhiteSpace(directory.ParentId) ? null : directory.ParentId,
-            Description = directory.Description,
-            FullPath = directory.FullPath ?? string.Empty,
-            AncestorIds = directory.AncestorIds ?? new List<string>(),
-            InheritsParentAccess = directory.InheritsParentAccess,
-            ChildDirectoryCount = directory.ChildDirectoryCount,
-            ChildFileCount = directory.ChildFileCount,
-            SizeInBytes = directory.SizeInBytes,
-            AllowedFileExtensions = directory.AllowedFileExtensions,
-            CreatedDate = directory.CreatedDate,
-            LastUpdatedDate = directory.LastUpdatedDate,
-            CreatedBy = directory.CreatedBy,
-            Permissions = PermissionFlags.From(flags),
-        };
+            global::Storage.DomainService.Entities.FileDirectory directory, ContentPermissionFlags? flags) => new()
+            {
+                ItemId = directory.ItemId,
+                Name = directory.Name ?? string.Empty,
+                ParentDirectoryId = string.IsNullOrWhiteSpace(directory.ParentId) ? null : directory.ParentId,
+                Description = directory.Description,
+                FullPath = directory.FullPath ?? string.Empty,
+                AncestorIds = directory.AncestorIds ?? new List<string>(),
+                InheritsParentAccess = directory.InheritsParentAccess,
+                ChildDirectoryCount = directory.ChildDirectoryCount,
+                ChildFileCount = directory.ChildFileCount,
+                SizeInBytes = directory.SizeInBytes,
+                AllowedFileExtensions = directory.AllowedFileExtensions,
+                CreatedDate = directory.CreatedDate,
+                LastUpdatedDate = directory.LastUpdatedDate,
+                CreatedBy = directory.CreatedBy,
+                Permissions = PermissionFlags.From(flags),
+            };
     }
 
     public class AccessPolicyDto

@@ -5,7 +5,7 @@ using Storage.DomainService.Enums;
 namespace Storage.DomainService.Entities
 {
     [BsonIgnoreExtraElements]
-    public class Directory : Structure
+    public class FileDirectory : Structure
     {
         public string TenantId { get; set; }
 
@@ -30,9 +30,9 @@ namespace Storage.DomainService.Entities
         public int ChildFileCount { get; set; }
         public long SizeInBytes { get; set; }
 
-        public static Directory CreateNew(DirectoryOptions directoryOptions)
+        public static FileDirectory CreateNew(DirectoryOptions directoryOptions)
         {
-            return new Directory
+            return new FileDirectory
             {
                 Name = directoryOptions.Name,
                 ParentId = string.IsNullOrEmpty(directoryOptions.ParentId) ? null : directoryOptions.ParentId,
@@ -60,9 +60,9 @@ namespace Storage.DomainService.Entities
             };
         }
 
-        public static Directory CreateNew(string itemId)
+        public static FileDirectory CreateNew(string itemId)
         {
-            return new Directory { ItemId = itemId };
+            return new FileDirectory { ItemId = itemId };
         }
     }
 

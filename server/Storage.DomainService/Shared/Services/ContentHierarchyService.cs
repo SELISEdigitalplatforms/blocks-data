@@ -1,7 +1,7 @@
 using Blocks.Genesis;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
@@ -26,7 +26,7 @@ namespace Storage.DomainService.Services
     public interface IContentHierarchyService
     {
         /// <summary>Ancestors of a directory, ordered root first. Empty for a root directory.</summary>
-        Task<List<Directory>> GetAncestorsAsync(string directoryId, CancellationToken cancellationToken = default);
+        Task<List<FileDirectory>> GetAncestorsAsync(string directoryId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Recomputes cached ancestry and path for a directory and everything beneath it.
@@ -68,15 +68,15 @@ namespace Storage.DomainService.Services
             _accessRepository = accessRepository;
         }
 
-        private IMongoCollection<Directory> Directories =>
-            _dbContextProvider.GetCollection<Directory>("Directories");
+        private IMongoCollection<FileDirectory> Directories =>
+            _dbContextProvider.GetCollection<FileDirectory>("FileDirectories");
 
         private IMongoCollection<File> Files =>
             _dbContextProvider.GetCollection<File>("Files");
 
-        public async Task<List<Directory>> GetAncestorsAsync(string directoryId, CancellationToken cancellationToken = default)
+        public async Task<List<FileDirectory>> GetAncestorsAsync(string directoryId, CancellationToken cancellationToken = default)
         {
-            var chain = new List<Directory>();
+            var chain = new List<FileDirectory>();
             if (string.IsNullOrEmpty(directoryId)) return chain;
 
             var current = await FindDirectoryAsync(directoryId, cancellationToken);
@@ -129,7 +129,7 @@ namespace Storage.DomainService.Services
                 var (parentId, parentAncestors, parentPath) = queue.Dequeue();
 
                 var children = await Directories
-                    .Find(Builders<Directory>.Filter.Eq(d => d.ParentId, parentId))
+                    .Find(Builders<FileDirectory>.Filter.Eq(d => d.ParentId, parentId))
                     .ToListAsync(cancellationToken);
 
                 foreach (var child in children)
@@ -172,7 +172,7 @@ namespace Storage.DomainService.Services
                 return MoveDirectoryResult.WouldCreateCycle;
             }
 
-            Directory? target = null;
+            FileDirectory? target = null;
             if (!string.IsNullOrEmpty(newParentId))
             {
                 target = await FindDirectoryAsync(newParentId, cancellationToken);
@@ -191,17 +191,17 @@ namespace Storage.DomainService.Services
 
                 var clash = await Directories
                     .Find(
-                        Builders<Directory>.Filter.Eq(d => d.ParentId, newParentId)
-                        & Builders<Directory>.Filter.Eq(d => d.Name, directory.Name)
-                        & Builders<Directory>.Filter.Ne(d => d.ItemId, directoryId))
+                        Builders<FileDirectory>.Filter.Eq(d => d.ParentId, newParentId)
+                        & Builders<FileDirectory>.Filter.Eq(d => d.Name, directory.Name)
+                        & Builders<FileDirectory>.Filter.Ne(d => d.ItemId, directoryId))
                     .AnyAsync(cancellationToken);
 
                 if (clash) return MoveDirectoryResult.NameConflict;
             }
 
             await Directories.UpdateOneAsync(
-                Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId),
-                Builders<Directory>.Update
+                Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId),
+                Builders<FileDirectory>.Update
                     .Set(d => d.ParentId, string.IsNullOrEmpty(newParentId) ? null : newParentId)
                     .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
                 cancellationToken: cancellationToken);
@@ -230,15 +230,15 @@ namespace Storage.DomainService.Services
             return false;
         }
 
-        private Task<Directory> FindDirectoryAsync(string directoryId, CancellationToken cancellationToken) =>
-            Directories.Find(Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId))
+        private Task<FileDirectory> FindDirectoryAsync(string directoryId, CancellationToken cancellationToken) =>
+            Directories.Find(Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId))
                 .FirstOrDefaultAsync(cancellationToken);
 
         private async Task<int> ApplyDirectoryAsync(string directoryId, List<string> ancestorIds, string fullPath, CancellationToken cancellationToken)
         {
             var result = await Directories.UpdateOneAsync(
-                Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId),
-                Builders<Directory>.Update
+                Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId),
+                Builders<FileDirectory>.Update
                     .Set(d => d.AncestorIds, ancestorIds)
                     .Set(d => d.FullPath, fullPath),
                 cancellationToken: cancellationToken);
@@ -261,7 +261,7 @@ namespace Storage.DomainService.Services
         /// only on the two parents, while subtree size changes for every ancestor on each
         /// affected branch.
         /// </summary>
-        private async Task RefreshAffectedDirectoryCachesAsync(Directory? sourceParent, Directory? targetParent,
+        private async Task RefreshAffectedDirectoryCachesAsync(FileDirectory? sourceParent, FileDirectory? targetParent,
             CancellationToken cancellationToken)
         {
             var directoryIds = new HashSet<string>(StringComparer.Ordinal);
@@ -280,8 +280,8 @@ namespace Storage.DomainService.Services
 
         private async Task RefreshDirectoryCacheAsync(string directoryId, CancellationToken cancellationToken)
         {
-            var activeDirectories = Builders<Directory>.Filter.Eq(d => d.ParentId, directoryId)
-                & Builders<Directory>.Filter.Eq(d => d.IsArchived, false);
+            var activeDirectories = Builders<FileDirectory>.Filter.Eq(d => d.ParentId, directoryId)
+                & Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false);
             var activeDirectFiles = Builders<File>.Filter.Eq(f => f.DirectoryId, directoryId)
                 & Builders<File>.Filter.Eq(f => f.IsArchived, false);
             var activeSubtreeFiles = Builders<File>.Filter.Eq(f => f.IsArchived, false)
@@ -294,8 +294,8 @@ namespace Storage.DomainService.Services
             var sizeInBytes = files.Sum(f => f.SizeInBytes);
 
             await Directories.UpdateOneAsync(
-                Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId),
-                Builders<Directory>.Update
+                Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId),
+                Builders<FileDirectory>.Update
                     .Set(d => d.ChildDirectoryCount, checked((int)childDirectoryCount))
                     .Set(d => d.ChildFileCount, checked((int)childFileCount))
                     .Set(d => d.SizeInBytes, sizeInBytes),
@@ -308,15 +308,17 @@ namespace Storage.DomainService.Services
         private static string BuildPath(IEnumerable<string> ancestorNames, string? name) =>
             "/" + string.Join('/', ancestorNames.Concat(new[] { name ?? string.Empty }).Where(n => !string.IsNullOrEmpty(n)));
 
-        private async Task<bool> AuthorizeMoveAsync(Directory directory, ContentPermission permission, CancellationToken cancellationToken)
+        private async Task<bool> AuthorizeMoveAsync(FileDirectory directory, ContentPermission permission, CancellationToken cancellationToken)
         {
             // Optional parameters preserve the standalone hierarchy-repair use case. The DI
             // registration supplies both dependencies, so API moves are always authorized.
             if (_resolver is null || _accessRepository is null) return true;
             var granted = await _resolver.ResolveAsync(new ContentResourceDescriptor
             {
-                ResourceId = directory.ItemId, AncestorIds = directory.AncestorIds ?? new(),
-                InheritsParentAccess = directory.InheritsParentAccess, CreatedBy = directory.CreatedBy,
+                ResourceId = directory.ItemId,
+                AncestorIds = directory.AncestorIds ?? new(),
+                InheritsParentAccess = directory.InheritsParentAccess,
+                CreatedBy = directory.CreatedBy,
             }, permission, cancellationToken);
             var context = BlocksContext.GetContext();
             var userId = context?.UserId ?? string.Empty;

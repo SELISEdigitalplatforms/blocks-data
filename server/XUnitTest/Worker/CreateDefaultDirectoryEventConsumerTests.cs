@@ -6,7 +6,7 @@ using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
 using Worker.Consumers;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 
 namespace XUnitTest.Worker;
 
@@ -30,7 +30,7 @@ public class CreateDefaultDirectoryEventConsumerTests
         ProjectKey = "proj-1",
     };
 
-    private static Directory Directory(string itemId, string? parentId, string name) => new()
+    private static FileDirectory Directory(string itemId, string? parentId, string name) => new()
     {
         ItemId = itemId,
         ParentId = parentId,
@@ -39,19 +39,19 @@ public class CreateDefaultDirectoryEventConsumerTests
         ConfigurationName = "Azure",
     };
 
-    private void GivenTemplates(params Directory[] directorys)
+    private void GivenTemplates(params FileDirectory[] directorys)
     {
         _directoryRepository
             .Setup(r => r.GetByConfigurationNameAsync("Azure", It.IsAny<CancellationToken>()))
             .ReturnsAsync(directorys.ToList());
     }
 
-    private List<Directory> CaptureSaved()
+    private List<FileDirectory> CaptureSaved()
     {
-        var captured = new List<Directory>();
+        var captured = new List<FileDirectory>();
         _directoryRepository
-            .Setup(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()))
-            .Callback<List<Directory>>(captured.AddRange)
+            .Setup(r => r.CreateDirectoriesAsync(It.IsAny<List<FileDirectory>>()))
+            .Callback<List<FileDirectory>>(captured.AddRange)
             .Returns(Task.CompletedTask);
         return captured;
     }
@@ -65,7 +65,7 @@ public class CreateDefaultDirectoryEventConsumerTests
 
         await _consumer.Consume(Event());
 
-        _directoryRepository.Verify(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()), Times.Once);
+        _directoryRepository.Verify(r => r.CreateDirectoriesAsync(It.IsAny<List<FileDirectory>>()), Times.Once);
         var root = saved.Single();
         root.Name.Should().Be("Documents");
         root.ConfigurationName.Should().Be("S3Compatible");
@@ -117,7 +117,7 @@ public class CreateDefaultDirectoryEventConsumerTests
 
         await _consumer.Consume(Event());
 
-        _directoryRepository.Verify(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()), Times.Never);
+        _directoryRepository.Verify(r => r.CreateDirectoriesAsync(It.IsAny<List<FileDirectory>>()), Times.Never);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class CreateDefaultDirectoryEventConsumerTests
         var act = () => _consumer.Consume(Event());
 
         await act.Should().NotThrowAsync();
-        _directoryRepository.Verify(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()), Times.Never);
+        _directoryRepository.Verify(r => r.CreateDirectoriesAsync(It.IsAny<List<FileDirectory>>()), Times.Never);
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public class CreateDefaultDirectoryEventConsumerTests
     {
         GivenTemplates(Directory("root-1", null, "Documents"));
         _directoryRepository
-            .Setup(r => r.CreateDirectoriesAsync(It.IsAny<List<Directory>>()))
+            .Setup(r => r.CreateDirectoriesAsync(It.IsAny<List<FileDirectory>>()))
             .ThrowsAsync(new InvalidOperationException("write failed"));
 
         var act = () => _consumer.Consume(Event());

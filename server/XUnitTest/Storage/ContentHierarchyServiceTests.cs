@@ -5,7 +5,7 @@ using Moq;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using XUnitTest.Infrastructure;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace XUnitTest.Storage;
@@ -27,8 +27,8 @@ public class ContentHierarchyServiceTests : IDisposable
         _db = fixture.CreateDatabase();
 
         var provider = new Mock<IDbContextProvider>();
-        provider.Setup(p => p.GetCollection<Directory>(It.IsAny<string>()))
-            .Returns((string n) => _db.GetCollection<Directory>(n));
+        provider.Setup(p => p.GetCollection<FileDirectory>(It.IsAny<string>()))
+            .Returns((string n) => _db.GetCollection<FileDirectory>(n));
         provider.Setup(p => p.GetCollection<File>(It.IsAny<string>()))
             .Returns((string n) => _db.GetCollection<File>(n));
 
@@ -43,7 +43,7 @@ public class ContentHierarchyServiceTests : IDisposable
     }
 
     private Task Directory(string id, string name, string? parent, string tenantId = "tenant-1")
-        => _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+        => _db.GetCollection<FileDirectory>("FileDirectories").InsertOneAsync(new FileDirectory
         {
             ItemId = id,
             TenantId = tenantId,
@@ -69,8 +69,8 @@ public class ContentHierarchyServiceTests : IDisposable
             CreatedDate = DateTime.UtcNow,
         });
 
-    private async Task<Directory> Read(string id) =>
-        await _db.GetCollection<Directory>("Directories").Find(d => d.ItemId == id).SingleAsync();
+    private async Task<FileDirectory> Read(string id) =>
+        await _db.GetCollection<FileDirectory>("FileDirectories").Find(d => d.ItemId == id).SingleAsync();
 
     private async Task<File> ReadFile(string id) =>
         await _db.GetCollection<File>("Files").Find(f => f.ItemId == id).SingleAsync();
@@ -276,9 +276,9 @@ public class ContentHierarchyServiceTests : IDisposable
         // of where they are being moved to.
         await BuildChain();
         await Directory("cloud", "Cloud", "root");
-        await _db.GetCollection<Directory>("Directories").UpdateOneAsync(
+        await _db.GetCollection<FileDirectory>("FileDirectories").UpdateOneAsync(
             d => d.ItemId == "cloud",
-            Builders<Directory>.Update.Set(d => d.Tags, new List<string> { "default" }));
+            Builders<FileDirectory>.Update.Set(d => d.Tags, new List<string> { "default" }));
 
         var result = await _hierarchy.MoveDirectoryAsync("cloud", "dest");
 

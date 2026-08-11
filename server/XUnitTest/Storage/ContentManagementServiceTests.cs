@@ -6,7 +6,7 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using XUnitTest.Infrastructure;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace XUnitTest.Storage;
@@ -28,7 +28,7 @@ public class ContentManagementServiceTests : IDisposable
         _db = fixture.CreateDatabase();
 
         var provider = new Mock<IDbContextProvider>();
-        provider.Setup(p => p.GetCollection<Directory>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<Directory>(n));
+        provider.Setup(p => p.GetCollection<FileDirectory>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<FileDirectory>(n));
         provider.Setup(p => p.GetCollection<File>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<File>(n));
         provider.Setup(p => p.GetCollection<ContentAccessPolicy>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAccessPolicy>(n));
         provider.Setup(p => p.GetCollection<ContentAuditLog>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAuditLog>(n));
@@ -47,7 +47,7 @@ public class ContentManagementServiceTests : IDisposable
 
     /// <summary>A directory the caller created, so they hold Manage through ownership.</summary>
     private Task OwnedDirectory(string id = "dir-1", string createdBy = "user-1", bool inherits = true)
-        => _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+        => _db.GetCollection<FileDirectory>("FileDirectories").InsertOneAsync(new FileDirectory
         {
             ItemId = id,
             TenantId = "tenant-1",
@@ -344,7 +344,7 @@ public class ContentManagementServiceTests : IDisposable
         var result = await _management.ToggleInheritanceAsync("dir-1", inherits: false);
 
         result.Status.Should().Be(ContentAccessOperationStatus.WouldOrphanResource);
-        var directory = await _db.GetCollection<Directory>("Directories").Find(d => d.ItemId == "dir-1").SingleAsync();
+        var directory = await _db.GetCollection<FileDirectory>("FileDirectories").Find(d => d.ItemId == "dir-1").SingleAsync();
         directory.InheritsParentAccess.Should().BeTrue("the refused change must not be written");
     }
 
@@ -357,7 +357,7 @@ public class ContentManagementServiceTests : IDisposable
         var result = await _management.ToggleInheritanceAsync("dir-1", inherits: false);
 
         result.Status.Should().Be(ContentAccessOperationStatus.Succeeded);
-        var directory = await _db.GetCollection<Directory>("Directories").Find(d => d.ItemId == "dir-1").SingleAsync();
+        var directory = await _db.GetCollection<FileDirectory>("FileDirectories").Find(d => d.ItemId == "dir-1").SingleAsync();
         directory.InheritsParentAccess.Should().BeFalse();
         (await Audit("dir-1")).Should().Contain(a => a.Detail != null && a.Detail.Contains("InheritsParentAccess=False"));
     }

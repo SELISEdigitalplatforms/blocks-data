@@ -7,7 +7,7 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Shared.Enums;
 using Storage.DomainService.Services;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 
 namespace XUnitTest.Api
 {
@@ -27,7 +27,7 @@ namespace XUnitTest.Api
         public DirectoryControllerTests() =>
             _sut = new DirectoryController(_directorys.Object, _listing.Object, _hierarchy.Object);
 
-        private static Directory Directory(string id = "dir-1") => new()
+        private static FileDirectory Directory(string id = "dir-1") => new()
         {
             ItemId = id,
             Name = "Reports",
@@ -86,7 +86,7 @@ namespace XUnitTest.Api
         {
             _directorys
                 .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((Directory?)null);
+                .ReturnsAsync((FileDirectory?)null);
 
             var result = await _sut.CreateDirectory(new CreateDirectoryRequest
             {
@@ -199,7 +199,7 @@ namespace XUnitTest.Api
         {
             _directorys
                 .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((Directory?)null);
+                .ReturnsAsync((FileDirectory?)null);
 
             var result = await _sut.GetDirectoryChildren(new GetDirectoryChildrenRequest { ModuleName = ModuleName.DataGateway });
 
@@ -279,7 +279,11 @@ namespace XUnitTest.Api
 
             var result = await _sut.SearchContent(new ContentSearchRequest
             {
-                Query = "report", DirectoryId = "dir-1", Type = "file", Cursor = "cursor", Limit = 10,
+                Query = "report",
+                DirectoryId = "dir-1",
+                Type = "file",
+                Cursor = "cursor",
+                Limit = 10,
             }) as OkObjectResult;
 
             result!.Value.Should().BeOfType<ChildrenResponse>()
@@ -470,7 +474,8 @@ namespace XUnitTest.Api
 
             var result = await _sut.ToggleInheritance(new ToggleInheritanceRequest
             {
-                ResourceId = "res-1", InheritsParentAccess = false,
+                ResourceId = "res-1",
+                InheritsParentAccess = false,
             });
 
             result.Should().BeOfType<OkObjectResult>();
@@ -484,7 +489,8 @@ namespace XUnitTest.Api
 
             var result = await _sut.ToggleInheritance(new ToggleInheritanceRequest
             {
-                ResourceId = "res-1", InheritsParentAccess = false,
+                ResourceId = "res-1",
+                InheritsParentAccess = false,
             });
 
             result.Should().BeOfType<BadRequestObjectResult>();

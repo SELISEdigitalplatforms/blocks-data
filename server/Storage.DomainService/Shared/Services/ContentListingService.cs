@@ -1,7 +1,7 @@
 using Blocks.Genesis;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
@@ -71,7 +71,7 @@ namespace Storage.DomainService.Services
             // caller can already see: it assumes a child's effective policy is a superset
             // of the parent's. Without this gate any caller could list any directory's
             // inheriting children, so the parent check is load bearing, not defensive.
-            Directory? parent = null;
+            FileDirectory? parent = null;
             if (!isRoot)
             {
                 parent = await _directoryRepository.FindByIdAsync(parentId, includeArchived: false, cancellationToken);
@@ -136,7 +136,7 @@ namespace Storage.DomainService.Services
             return page;
         }
 
-        private async Task<bool> CanViewAsync(Directory parent, CancellationToken cancellationToken)
+        private async Task<bool> CanViewAsync(FileDirectory parent, CancellationToken cancellationToken)
             => await _resolver.ResolveAsync(Describe(parent), ContentPermission.View, cancellationToken);
 
         private async Task<long> CountChildrenAsync(string parentId, StructureType? type, string? search, CancellationToken cancellationToken)
@@ -208,7 +208,7 @@ namespace Storage.DomainService.Services
                 .ToList();
         }
 
-        private static ContentResourceDescriptor Describe(Directory directory) => new()
+        private static ContentResourceDescriptor Describe(FileDirectory directory) => new()
         {
             ResourceId = directory.ItemId,
             AncestorIds = directory.AncestorIds ?? new List<string>(),
@@ -224,7 +224,7 @@ namespace Storage.DomainService.Services
             public required VisibleChildItem Item { get; init; }
             public required ContentResourceDescriptor Descriptor { get; init; }
 
-            public static ChildRow From(Directory d) => new()
+            public static ChildRow From(FileDirectory d) => new()
             {
                 ItemId = d.ItemId,
                 Name = d.Name ?? string.Empty,

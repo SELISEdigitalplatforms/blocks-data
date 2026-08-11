@@ -3,7 +3,7 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 
 namespace Worker.Consumers;
 
@@ -46,12 +46,12 @@ public class CreateDefaultDirectoryEventConsumer : IConsumer<CreateDefaultDirect
 
     /// <summary>
     /// Walks the template tree rooted at <c>ParentDirectoryID == null</c> and produces a flat
-    /// list of cloned <see cref="Directory"/> documents with fresh ids, cached ancestry and
+    /// list of cloned <see cref="FileDirectory"/> documents with fresh ids, cached ancestry and
     /// full paths, ready for bulk insert.
     /// </summary>
-    private static List<Directory> BuildDirectories(List<Directory> templates, string storageStrategy)
+    private static List<FileDirectory> BuildDirectories(List<FileDirectory> templates, string storageStrategy)
     {
-        var directories = new List<Directory>();
+        var directories = new List<FileDirectory>();
         var context = BlocksContext.GetContext();
         var userId = context?.UserId ?? string.Empty;
         var tenantId = context?.TenantId ?? string.Empty;
@@ -71,12 +71,12 @@ public class CreateDefaultDirectoryEventConsumer : IConsumer<CreateDefaultDirect
     /// <summary>
     /// Recursively clones the template directory tree. Children are matched by their template
     /// <c>ParentDirectoryID</c> against the parent's *template* <c>ItemId</c>, while each
-    /// cloned <see cref="Directory"/> carries a fresh GUID and points at the parent's *new*
+    /// cloned <see cref="FileDirectory"/> carries a fresh GUID and points at the parent's *new*
     /// id. Root templates carry a null or empty parent id.
     /// </summary>
     private static void BuildChildren(
-        List<Directory> templates,
-        List<Directory> directories,
+        List<FileDirectory> templates,
+        List<FileDirectory> directories,
         string? templateParentId,
         string? newParentId,
         List<string> ancestorIds,
@@ -99,7 +99,7 @@ public class CreateDefaultDirectoryEventConsumer : IConsumer<CreateDefaultDirect
                 ? $"/{template.Name}"
                 : $"{parentFullPath}/{template.Name}";
 
-            directories.Add(new Directory
+            directories.Add(new FileDirectory
             {
                 ItemId = newItemId,
                 Name = template.Name,

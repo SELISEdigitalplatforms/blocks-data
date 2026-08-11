@@ -1,7 +1,7 @@
 using Blocks.Genesis;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
@@ -72,7 +72,7 @@ namespace Storage.DomainService.Services
         private static string UserId => BlocksContext.GetContext()?.UserId ?? string.Empty;
 
         private IMongoCollection<File> Files => _dbContextProvider.GetCollection<File>("Files");
-        private IMongoCollection<Directory> Directories => _dbContextProvider.GetCollection<Directory>("Directories");
+        private IMongoCollection<FileDirectory> Directories => _dbContextProvider.GetCollection<FileDirectory>("FileDirectories");
         private IMongoCollection<FileVersion> Versions => _dbContextProvider.GetCollection<FileVersion>("FileVersions");
 
         public async Task<FileVersionPage> GetVersionsAsync(string fileId, string? cursor = null, int limit = 25, CancellationToken cancellationToken = default)
@@ -304,7 +304,7 @@ namespace Storage.DomainService.Services
         }
 
         /// <summary>Returns the rejection reason, or null when the target accepts the file.</summary>
-        private async Task<FileOperationStatus?> ValidateTargetAsync(File file, Directory target, string? excludeFileId, CancellationToken cancellationToken)
+        private async Task<FileOperationStatus?> ValidateTargetAsync(File file, FileDirectory target, string? excludeFileId, CancellationToken cancellationToken)
         {
             if (target.AllowedFileExtensions is { Length: > 0 })
             {
@@ -330,10 +330,10 @@ namespace Storage.DomainService.Services
                 : null;
         }
 
-        private static List<string> AncestryOf(Directory target) =>
+        private static List<string> AncestryOf(FileDirectory target) =>
             (target.AncestorIds ?? new List<string>()).Concat(new[] { target.ItemId }).ToList();
 
-        private async Task RefreshAffectedDirectoryCachesAsync(Directory? source, Directory target,
+        private async Task RefreshAffectedDirectoryCachesAsync(FileDirectory? source, FileDirectory target,
             CancellationToken cancellationToken)
         {
             var directoryIds = new HashSet<string>(StringComparer.Ordinal);
@@ -355,7 +355,7 @@ namespace Storage.DomainService.Services
 
         private async Task RefreshDirectoryCacheAsync(string directoryId, CancellationToken cancellationToken)
         {
-            var bDirectory = Builders<Directory>.Filter;
+            var bDirectory = Builders<FileDirectory>.Filter;
             var bFile = Builders<File>.Filter;
             var childDirectoryCount = await Directories.CountDocumentsAsync(
                 bDirectory.Eq(d => d.ParentId, directoryId) & bDirectory.Eq(d => d.IsArchived, false),
@@ -370,7 +370,7 @@ namespace Storage.DomainService.Services
 
             await Directories.UpdateOneAsync(
                 bDirectory.Eq(d => d.ItemId, directoryId),
-                Builders<Directory>.Update
+                Builders<FileDirectory>.Update
                     .Set(d => d.ChildDirectoryCount, checked((int)childDirectoryCount))
                     .Set(d => d.ChildFileCount, checked((int)childFileCount))
                     .Set(d => d.SizeInBytes, subtreeFiles.Sum(f => f.SizeInBytes)),
@@ -382,25 +382,29 @@ namespace Storage.DomainService.Services
                 ? Task.FromResult<File>(null!)
                 : Files.Find(Builders<File>.Filter.Eq(f => f.ItemId, fileId)).FirstOrDefaultAsync(cancellationToken);
 
-        private Task<Directory> FindDirectoryAsync(string directoryId, CancellationToken cancellationToken) =>
+        private Task<FileDirectory> FindDirectoryAsync(string directoryId, CancellationToken cancellationToken) =>
             string.IsNullOrEmpty(directoryId)
-                ? Task.FromResult<Directory>(null!)
+                ? Task.FromResult<FileDirectory>(null!)
                 : Directories
-                    .Find(Builders<Directory>.Filter.Eq(d => d.ItemId, directoryId))
+                    .Find(Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId))
                     .FirstOrDefaultAsync(cancellationToken);
 
         private async Task<bool> AuthorizeAsync(File file, ContentPermission permission, string action, CancellationToken cancellationToken) =>
             await AuthorizeAsync(new ContentResourceDescriptor
             {
-                ResourceId = file.ItemId, AncestorIds = file.AncestorIds ?? new(),
-                InheritsParentAccess = file.InheritsParentAccess, CreatedBy = file.CreatedBy,
+                ResourceId = file.ItemId,
+                AncestorIds = file.AncestorIds ?? new(),
+                InheritsParentAccess = file.InheritsParentAccess,
+                CreatedBy = file.CreatedBy,
             }, ContentResourceType.File, permission, action, cancellationToken);
 
-        private async Task<bool> AuthorizeAsync(Directory directory, ContentPermission permission, string action, CancellationToken cancellationToken) =>
+        private async Task<bool> AuthorizeAsync(FileDirectory directory, ContentPermission permission, string action, CancellationToken cancellationToken) =>
             await AuthorizeAsync(new ContentResourceDescriptor
             {
-                ResourceId = directory.ItemId, AncestorIds = directory.AncestorIds ?? new(),
-                InheritsParentAccess = directory.InheritsParentAccess, CreatedBy = directory.CreatedBy,
+                ResourceId = directory.ItemId,
+                AncestorIds = directory.AncestorIds ?? new(),
+                InheritsParentAccess = directory.InheritsParentAccess,
+                CreatedBy = directory.CreatedBy,
             }, ContentResourceType.Directory, permission, action, cancellationToken);
 
         private async Task<bool> AuthorizeAsync(ContentResourceDescriptor resource, ContentResourceType type,
@@ -412,9 +416,16 @@ namespace Storage.DomainService.Services
             var granted = await _resolver.ResolveAsync(resource, permission, cancellationToken);
             await _accessRepository.WriteAuditAsync(new ContentAuditLog
             {
-                ItemId = Guid.NewGuid().ToString(), TenantId = TenantId, ResourceId = resource.ResourceId,
-                ResourceType = type, UserId = UserId, Action = action, Granted = granted,
-                Detail = permission.ToString(), CreatedDate = DateTime.UtcNow, CreatedBy = UserId,
+                ItemId = Guid.NewGuid().ToString(),
+                TenantId = TenantId,
+                ResourceId = resource.ResourceId,
+                ResourceType = type,
+                UserId = UserId,
+                Action = action,
+                Granted = granted,
+                Detail = permission.ToString(),
+                CreatedDate = DateTime.UtcNow,
+                CreatedBy = UserId,
             }, cancellationToken);
             return granted;
         }

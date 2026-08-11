@@ -6,7 +6,7 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using XUnitTest.Infrastructure;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace XUnitTest.Storage;
@@ -32,15 +32,15 @@ public class ContentListingServiceTests : IDisposable
             .Returns((string n) => _db.GetCollection<ContentAccessPolicy>(n));
         provider.Setup(p => p.GetCollection<ContentAuditLog>(It.IsAny<string>()))
             .Returns((string n) => _db.GetCollection<ContentAuditLog>(n));
-        provider.Setup(p => p.GetCollection<Directory>(It.IsAny<string>()))
-            .Returns((string n) => _db.GetCollection<Directory>(n));
+        provider.Setup(p => p.GetCollection<FileDirectory>(It.IsAny<string>()))
+            .Returns((string n) => _db.GetCollection<FileDirectory>(n));
         provider.Setup(p => p.GetCollection<File>(It.IsAny<string>()))
             .Returns((string n) => _db.GetCollection<File>(n));
 
         _accessRepository = new ContentAccessRepository(provider.Object);
         // The listing service now reads through the repositories rather than the provider, so the
         // wiring mirrors production: real DirectoryRepository / FileRepository backed by the same
-        // mock provider, which keeps the test's existing "Directories" / "Files" inserts valid.
+        // mock provider, which keeps the test's existing "FileDirectories" / "Files" inserts valid.
         _listing = new ContentListingService(
             new DirectoryRepository(provider.Object),
             new FileRepository(provider.Object),
@@ -53,7 +53,7 @@ public class ContentListingServiceTests : IDisposable
         AddRoot().GetAwaiter().GetResult();
     }
 
-    private Task AddRoot() => _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+    private Task AddRoot() => _db.GetCollection<FileDirectory>("FileDirectories").InsertOneAsync(new FileDirectory
     {
         ItemId = "root",
         TenantId = "tenant-1",
@@ -74,7 +74,7 @@ public class ContentListingServiceTests : IDisposable
     }
 
     private async Task AddDirectory(string id, string name, string parent = "root", string createdBy = "someone-else", bool inherits = true, bool archived = false)
-        => await _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+        => await _db.GetCollection<FileDirectory>("FileDirectories").InsertOneAsync(new FileDirectory
         {
             ItemId = id,
             TenantId = "tenant-1",
@@ -138,7 +138,7 @@ public class ContentListingServiceTests : IDisposable
         // takes a directory id, and an empty one now means "the root", so the page can load
         // before the user has opened any directory. Root listings default to directorys, because
         // files only have a parent once they have been uploaded into one.
-        await _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+        await _db.GetCollection<FileDirectory>("FileDirectories").InsertOneAsync(new FileDirectory
         {
             ItemId = "cloud",
             TenantId = "tenant-1",
@@ -152,7 +152,7 @@ public class ContentListingServiceTests : IDisposable
             CreatedBy = "user-1",
             CreatedDate = DateTime.UtcNow,
         });
-        await _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+        await _db.GetCollection<FileDirectory>("FileDirectories").InsertOneAsync(new FileDirectory
         {
             // Migrated rows can carry an empty parent id rather than null.
             ItemId = "construct",
@@ -218,7 +218,7 @@ public class ContentListingServiceTests : IDisposable
     {
         // Without this the pure-inherit shortcut would hand every inheriting child to a
         // caller who was never granted the directory in the first place.
-        await _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+        await _db.GetCollection<FileDirectory>("FileDirectories").InsertOneAsync(new FileDirectory
         {
             ItemId = "private",
             TenantId = "tenant-1",

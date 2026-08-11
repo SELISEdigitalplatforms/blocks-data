@@ -6,7 +6,7 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using XUnitTest.Infrastructure;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace XUnitTest.Storage;
@@ -29,7 +29,7 @@ public class ContentFileServiceTests : IDisposable
 
         var provider = new Mock<IDbContextProvider>();
         provider.Setup(p => p.GetCollection<File>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<File>(n));
-        provider.Setup(p => p.GetCollection<Directory>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<Directory>(n));
+        provider.Setup(p => p.GetCollection<FileDirectory>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<FileDirectory>(n));
         provider.Setup(p => p.GetCollection<FileVersion>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<FileVersion>(n));
         provider.Setup(p => p.GetCollection<ContentAccessPolicy>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAccessPolicy>(n));
         provider.Setup(p => p.GetCollection<ContentAuditLog>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAuditLog>(n));
@@ -47,7 +47,7 @@ public class ContentFileServiceTests : IDisposable
     }
 
     private Task Directory(string id, string name, string[]? allowedExtensions = null, List<string>? ancestors = null)
-        => _db.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+        => _db.GetCollection<FileDirectory>("FileDirectories").InsertOneAsync(new FileDirectory
         {
             ItemId = id,
             TenantId = "tenant-1",
@@ -95,8 +95,8 @@ public class ContentFileServiceTests : IDisposable
     private async Task<File> ReadFile(string id) =>
         await _db.GetCollection<File>("Files").Find(f => f.ItemId == id).SingleAsync();
 
-    private async Task<Directory> ReadDirectory(string id) =>
-        await _db.GetCollection<Directory>("Directories").Find(d => d.ItemId == id).SingleAsync();
+    private async Task<FileDirectory> ReadDirectory(string id) =>
+        await _db.GetCollection<FileDirectory>("FileDirectories").Find(d => d.ItemId == id).SingleAsync();
 
     // Versions
 

@@ -6,7 +6,7 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using XUnitTest.Infrastructure;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace XUnitTest.Storage;
@@ -29,7 +29,7 @@ public class ContentDiscoveryServiceTests : IDisposable
         _db = fixture.CreateDatabase();
 
         var provider = new Mock<IDbContextProvider>();
-        provider.Setup(p => p.GetCollection<Directory>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<Directory>(n));
+        provider.Setup(p => p.GetCollection<FileDirectory>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<FileDirectory>(n));
         provider.Setup(p => p.GetCollection<File>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<File>(n));
         provider.Setup(p => p.GetCollection<ContentAccessPolicy>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAccessPolicy>(n));
         provider.Setup(p => p.GetCollection<ContentAuditLog>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAuditLog>(n));
@@ -47,13 +47,13 @@ public class ContentDiscoveryServiceTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private IMongoCollection<Directory> Directories => _db.GetCollection<Directory>("Directories");
+    private IMongoCollection<FileDirectory> Directories => _db.GetCollection<FileDirectory>("FileDirectories");
     private IMongoCollection<File> Files => _db.GetCollection<File>("Files");
 
     private Task SeedDirectory(
         string id, string name, string createdBy = "user-1", bool archived = false,
         List<string>? ancestorIds = null)
-        => Directories.InsertOneAsync(new Directory
+        => Directories.InsertOneAsync(new FileDirectory
         {
             ItemId = id,
             TenantId = "tenant-1",
@@ -206,27 +206,47 @@ public class ContentDiscoveryServiceTests : IDisposable
 
         await _accessRepository.GrantAsync(new ContentAccessPolicy
         {
-            ItemId = "user-policy", TenantId = "tenant-1", ResourceId = "user-share",
-            ResourceType = ContentResourceType.File, PrincipalType = ContentPrincipalType.User,
-            PrincipalId = "user-1", Permission = ContentPermission.View, Effect = ContentEffect.Allow,
+            ItemId = "user-policy",
+            TenantId = "tenant-1",
+            ResourceId = "user-share",
+            ResourceType = ContentResourceType.File,
+            PrincipalType = ContentPrincipalType.User,
+            PrincipalId = "user-1",
+            Permission = ContentPermission.View,
+            Effect = ContentEffect.Allow,
         });
         await _accessRepository.GrantAsync(new ContentAccessPolicy
         {
-            ItemId = "role-policy", TenantId = "tenant-1", ResourceId = "role-share",
-            ResourceType = ContentResourceType.File, PrincipalType = ContentPrincipalType.Role,
-            PrincipalId = "editor", Permission = ContentPermission.View, Effect = ContentEffect.Allow,
+            ItemId = "role-policy",
+            TenantId = "tenant-1",
+            ResourceId = "role-share",
+            ResourceType = ContentResourceType.File,
+            PrincipalType = ContentPrincipalType.Role,
+            PrincipalId = "editor",
+            Permission = ContentPermission.View,
+            Effect = ContentEffect.Allow,
         });
         await _accessRepository.GrantAsync(new ContentAccessPolicy
         {
-            ItemId = "org-policy", TenantId = "tenant-1", ResourceId = "org-share",
-            ResourceType = ContentResourceType.File, PrincipalType = ContentPrincipalType.Organization,
-            PrincipalId = "org-1", Permission = ContentPermission.View, Effect = ContentEffect.Allow,
+            ItemId = "org-policy",
+            TenantId = "tenant-1",
+            ResourceId = "org-share",
+            ResourceType = ContentResourceType.File,
+            PrincipalType = ContentPrincipalType.Organization,
+            PrincipalId = "org-1",
+            Permission = ContentPermission.View,
+            Effect = ContentEffect.Allow,
         });
         await _accessRepository.GrantAsync(new ContentAccessPolicy
         {
-            ItemId = "own-policy", TenantId = "tenant-1", ResourceId = "own-share",
-            ResourceType = ContentResourceType.File, PrincipalType = ContentPrincipalType.User,
-            PrincipalId = "user-1", Permission = ContentPermission.View, Effect = ContentEffect.Allow,
+            ItemId = "own-policy",
+            TenantId = "tenant-1",
+            ResourceId = "own-share",
+            ResourceType = ContentResourceType.File,
+            PrincipalType = ContentPrincipalType.User,
+            PrincipalId = "user-1",
+            Permission = ContentPermission.View,
+            Effect = ContentEffect.Allow,
         });
 
         var page = await _discovery.GetSharedAsync();

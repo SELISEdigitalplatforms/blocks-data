@@ -3,7 +3,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
 using XUnitTest.Infrastructure;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace XUnitTest.Storage;
@@ -38,7 +38,7 @@ public class DmsEntityExtensionTests
     [Fact]
     public void Directory_defaults_are_safe_for_documents_written_before_the_new_fields()
     {
-        var directory = new Directory();
+        var directory = new FileDirectory();
 
         directory.InheritsParentAccess.Should().BeTrue();
         directory.IsActive.Should().BeTrue();
@@ -54,7 +54,7 @@ public class DmsEntityExtensionTests
     public void Directory_factory_carries_the_new_options_through()
     {
         var createdAt = DateTime.UtcNow;
-        var directory = Directory.CreateNew(new DirectoryOptions
+        var directory = FileDirectory.CreateNew(new DirectoryOptions
         {
             Name = "Reports",
             ParentId = "parent-1",
@@ -85,7 +85,7 @@ public class DmsEntityExtensionTests
     [Fact]
     public void Directory_factory_defaults_the_new_options_when_they_are_not_supplied()
     {
-        var directory = Directory.CreateNew(new DirectoryOptions
+        var directory = FileDirectory.CreateNew(new DirectoryOptions
         {
             Name = "Inbox",
             ItemId = "dir-2",
@@ -190,8 +190,8 @@ public class DmsEntityExtensionTests
     [Fact]
     public async Task Directory_round_trips_its_new_fields()
     {
-        var typed = _db.GetCollection<Directory>("Directories");
-        var directory = new Directory
+        var typed = _db.GetCollection<FileDirectory>("FileDirectories");
+        var directory = new FileDirectory
         {
             ItemId = Guid.NewGuid().ToString(),
             Name = "Reports",

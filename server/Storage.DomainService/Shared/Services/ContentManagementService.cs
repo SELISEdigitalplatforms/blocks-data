@@ -1,7 +1,7 @@
 using Blocks.Genesis;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
@@ -82,7 +82,7 @@ namespace Storage.DomainService.Services
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
         private static string UserId => BlocksContext.GetContext()?.UserId ?? string.Empty;
 
-        private IMongoCollection<Directory> Directories => _dbContextProvider.GetCollection<Directory>("Directories");
+        private IMongoCollection<FileDirectory> Directories => _dbContextProvider.GetCollection<FileDirectory>("FileDirectories");
         private IMongoCollection<File> Files => _dbContextProvider.GetCollection<File>("Files");
 
         public async Task<ContentAccessOperationResult> GrantAccessAsync(ContentAccessPolicy policy, CancellationToken cancellationToken = default)
@@ -267,8 +267,8 @@ namespace Storage.DomainService.Services
             if (resource.Type == ContentResourceType.Directory)
             {
                 var result = await Directories.UpdateOneAsync(
-                    Builders<Directory>.Filter.Eq(d => d.ItemId, resource.Descriptor.ResourceId),
-                    Builders<Directory>.Update.Set(d => d.InheritsParentAccess, inherits).Set(d => d.LastUpdatedDate, DateTime.UtcNow),
+                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, resource.Descriptor.ResourceId),
+                    Builders<FileDirectory>.Update.Set(d => d.InheritsParentAccess, inherits).Set(d => d.LastUpdatedDate, DateTime.UtcNow),
                     cancellationToken: cancellationToken);
 
                 return result.MatchedCount > 0;
@@ -287,7 +287,7 @@ namespace Storage.DomainService.Services
             if (string.IsNullOrEmpty(resourceId)) return null;
 
             var directory = await Directories
-                .Find(Builders<Directory>.Filter.Eq(d => d.ItemId, resourceId))
+                .Find(Builders<FileDirectory>.Filter.Eq(d => d.ItemId, resourceId))
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (directory is not null)

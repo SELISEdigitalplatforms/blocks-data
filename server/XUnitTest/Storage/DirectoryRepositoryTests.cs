@@ -6,7 +6,7 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using XUnitTest.Infrastructure;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 
 namespace XUnitTest.Storage;
 
@@ -21,8 +21,8 @@ public class DirectoryRepositoryTests
         _database = fixture.CreateDatabase();
 
         var provider = new Mock<IDbContextProvider>();
-        provider.Setup(p => p.GetCollection<Directory>(It.IsAny<string>()))
-            .Returns((string name) => _database.GetCollection<Directory>(name));
+        provider.Setup(p => p.GetCollection<FileDirectory>(It.IsAny<string>()))
+            .Returns((string name) => _database.GetCollection<FileDirectory>(name));
 
         _repository = new DirectoryRepository(provider.Object);
     }
@@ -51,7 +51,7 @@ public class DirectoryRepositoryTests
     }
 
     private Task AddDirectoryAsync(string itemId, string? description = null, string? moduleName = null) =>
-        _database.GetCollection<Directory>("Directories").InsertOneAsync(new Directory
+        _database.GetCollection<FileDirectory>("FileDirectories").InsertOneAsync(new FileDirectory
         {
             ItemId = itemId,
             Name = itemId,

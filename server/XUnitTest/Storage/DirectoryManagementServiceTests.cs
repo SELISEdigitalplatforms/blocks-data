@@ -8,7 +8,7 @@ using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
 using XUnitTest.Infrastructure;
-using Directory = Storage.DomainService.Entities.Directory;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
 using File = Storage.DomainService.Entities.File;
 
 namespace XUnitTest.Storage;
@@ -31,7 +31,7 @@ public class DirectoryManagementServiceTests : IDisposable
         _db = fixture.CreateDatabase();
 
         var provider = new Mock<IDbContextProvider>();
-        provider.Setup(p => p.GetCollection<Directory>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<Directory>(n));
+        provider.Setup(p => p.GetCollection<FileDirectory>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<FileDirectory>(n));
         provider.Setup(p => p.GetCollection<File>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<File>(n));
         provider.Setup(p => p.GetCollection<FileVersion>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<FileVersion>(n));
         provider.Setup(p => p.GetCollection<ContentAccessPolicy>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAccessPolicy>(n));
@@ -68,14 +68,14 @@ public class DirectoryManagementServiceTests : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private IMongoCollection<Directory> Directories => _db.GetCollection<Directory>("Directories");
+    private IMongoCollection<FileDirectory> Directories => _db.GetCollection<FileDirectory>("FileDirectories");
     private IMongoCollection<File> Files => _db.GetCollection<File>("Files");
 
     private Task SeedDirectory(
         string id, string? parentId = null, string createdBy = "user-1",
         bool inherits = true, bool archived = false, string? name = null,
         List<string>? ancestorIds = null)
-        => Directories.InsertOneAsync(new Directory
+        => Directories.InsertOneAsync(new FileDirectory
         {
             ItemId = id,
             TenantId = "tenant-1",
@@ -103,7 +103,7 @@ public class DirectoryManagementServiceTests : IDisposable
             CreatedDate = DateTime.UtcNow,
         });
 
-    private Task<Directory> Load(string id) =>
+    private Task<FileDirectory> Load(string id) =>
         Directories.Find(d => d.ItemId == id).FirstOrDefaultAsync();
 
     // Resources with no policy are public. Seed a policy for another principal when a
@@ -144,7 +144,7 @@ public class DirectoryManagementServiceTests : IDisposable
         await SeedDirectory("root", name: "Root");
         await SeedDirectory("mid", parentId: "root", name: "Mid", ancestorIds: new List<string> { "root" });
         await Directories.UpdateOneAsync(
-            d => d.ItemId == "mid", Builders<Directory>.Update.Set(d => d.FullPath, "/Root/Mid"));
+            d => d.ItemId == "mid", Builders<FileDirectory>.Update.Set(d => d.FullPath, "/Root/Mid"));
 
         var result = await _directorys.CreateDirectoryAsync("Leaf", "mid");
 
@@ -259,7 +259,7 @@ public class DirectoryManagementServiceTests : IDisposable
     {
         await SeedDirectory("dir-1", name: "Old");
         await Directories.UpdateOneAsync(
-            d => d.ItemId == "dir-1", Builders<Directory>.Update.Set(d => d.FullPath, "/Root/Old"));
+            d => d.ItemId == "dir-1", Builders<FileDirectory>.Update.Set(d => d.FullPath, "/Root/Old"));
 
         var result = await _directorys.UpdateDirectoryAsync("dir-1", "New", null);
 
@@ -289,7 +289,7 @@ public class DirectoryManagementServiceTests : IDisposable
         // their name is part of the tenant contract and cannot be changed.
         await SeedDirectory("cloud", name: "Cloud");
         await Directories.UpdateOneAsync(
-            d => d.ItemId == "cloud", Builders<Directory>.Update.Set(d => d.Tags, new List<string> { "default" }));
+            d => d.ItemId == "cloud", Builders<FileDirectory>.Update.Set(d => d.Tags, new List<string> { "default" }));
 
         var result = await _directorys.UpdateDirectoryAsync("cloud", "Cloudy", null);
 
@@ -302,7 +302,7 @@ public class DirectoryManagementServiceTests : IDisposable
     {
         await SeedDirectory("cloud", name: "Cloud");
         await Directories.UpdateOneAsync(
-            d => d.ItemId == "cloud", Builders<Directory>.Update.Set(d => d.Tags, new List<string> { "default" }));
+            d => d.ItemId == "cloud", Builders<FileDirectory>.Update.Set(d => d.Tags, new List<string> { "default" }));
 
         var result = await _directorys.DeleteDirectoryAsync("cloud", permanent: true);
 

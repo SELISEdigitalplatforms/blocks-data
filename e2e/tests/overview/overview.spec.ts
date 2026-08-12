@@ -1,14 +1,11 @@
 import { test, expect } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
+import { login } from "../../support/auth";
 
 test.describe("overview", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
   test.beforeEach(async ({ page }) => {
-    // The chromium project depends on "setup" and reuses the session it saved
-    // to fixtures/auth.json, so this is already authenticated.
-    await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Your Blocks Projects" })).toBeVisible({
-      timeout: 50000,
-    });
+    await login(page);
     await openEnvironment(page);
   });
 

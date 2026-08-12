@@ -40,11 +40,11 @@ test.describe("Authentication", () => {
         await loginCta.click().catch(() => {});
       }
       reachedOidc = await emailField
-        .waitFor({ state: "visible", timeout: 20_000 })
+        .waitFor({ state: "visible", timeout: 30_000 })
         .then(() => true)
         .catch(() => false);
     }
-    await emailField.waitFor({ timeout: 20_000 });
+    await emailField.waitFor({ timeout: 30_000 });
     await emailField.fill(username!);
     await page.locator("#oidc-password").fill(password!);
     await page.getByRole("button", { name: "Login", exact: true }).click();
@@ -62,16 +62,16 @@ test.describe("Authentication", () => {
 
     // 4. Back on Blocks Data, authenticated. /login/callback redirects to
     //    /app/console (router.tsx: CallbackPage defaultRedirectUrl).
-    await page.waitForURL("**/app/console", { timeout: 45_000 });
+    await page.waitForURL("**/app/console", { timeout: 60_000 });
     await expect(page).toHaveURL(/\/app\/console/);
 
     // Assert the console actually rendered — not just that the route changed.
     // blocks-data mounts <ConsolePage /> without `canCreateProject`, so the
     // "Welcome to SELISE Blocks" empty state is unreachable here and the
     // heading is always "Your Blocks Projects" (blocks-kit self-project.tsx).
-    await expect(
-      page.getByRole("heading", { name: "Your Blocks Projects" }),
-    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("heading", { name: "Your Blocks Projects" })).toBeVisible({
+      timeout: 20_000,
+    });
 
     // Persist the authenticated session for future specs to reuse.
     await page.context().storageState({ path: "fixtures/auth.json" });

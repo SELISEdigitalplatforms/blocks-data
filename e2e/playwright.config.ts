@@ -24,6 +24,10 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // The default 30s per-test budget (covers beforeEach too) is too tight for
+  // login() and openEnvironment(), which can each legitimately take up to
+  // 30s against this shared, occasionally-slow dev host.
+  timeout: 90_000,
   // Serial: these tests mutate shared backend state (create/delete real
   // records on dev), so running them in parallel would race.
   workers: 1,

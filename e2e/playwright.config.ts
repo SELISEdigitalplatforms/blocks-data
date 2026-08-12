@@ -21,9 +21,13 @@ const autoStartServer = process.env.E2E_NO_WEBSERVER !== "1";
 
 export default defineConfig({
   testDir: "./tests",
-  fullyParallel: true,
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // The default 30s per-test budget (covers beforeEach too) is too tight for
+  // login() and openEnvironment(), which can each legitimately take up to
+  // 30s against this shared, occasionally-slow dev host.
+  timeout: 90_000,
   // Serial: these tests mutate shared backend state (create/delete real
   // records on dev), so running them in parallel would race.
   workers: 1,
@@ -72,7 +76,7 @@ export default defineConfig({
     {
       name: "setup",
       testMatch: /auth[\\/]login\.spec\.ts/,
-      use: { ...devices["Desktop Chrome"] },
+      use: { ...devices["Desktop Chrome"], headless: false },
     },
     // All other tests run authenticated by reusing that saved session, and
     // only after "setup" (login) has succeeded.
@@ -83,6 +87,7 @@ export default defineConfig({
       use: {
         ...devices["Desktop Chrome"],
         storageState: "fixtures/auth.json",
+        headless: false,
       },
     },
   ],

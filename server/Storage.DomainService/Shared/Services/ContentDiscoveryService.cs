@@ -218,9 +218,9 @@ namespace Storage.DomainService.Services
             var directory = await FindArchivedDirectoryAsync(resourceId, cancellationToken);
             if (directory is not null)
             {
-                var deletion = await _fileDirectoryManagementService.DeleteDirectoryAsync(
+                var directoryDeletion = await _fileDirectoryManagementService.DeleteDirectoryAsync(
                     resourceId, permanent: true, cancellationToken: cancellationToken);
-                return deletion.Status switch
+                return directoryDeletion.Status switch
                 {
                     DirectoryOperationStatus.Succeeded => TrashOperationResult.Success(),
                     DirectoryOperationStatus.NotPermitted => TrashOperationResult.Failure(TrashOperationStatus.NotPermitted),

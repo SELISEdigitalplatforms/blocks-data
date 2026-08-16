@@ -14,7 +14,7 @@ using System.Text;
 namespace XUnitTest.Api
 {
     /// <summary>
-    /// Unit tests for <see cref="FilesController"/>. Most actions are thin pass-throughs to
+    /// Unit tests for <see cref="FileController"/>. Most actions are thin pass-throughs to
     /// <see cref="IFileManagementService"/>, so those assert the forwarding and the returned value.
     /// The interesting cases are the ones with logic of their own: DownloadFile choosing between
     /// NotFound and a file result, UpdateFileAdditionalInfo mapping success onto Ok or BadRequest,
@@ -24,9 +24,9 @@ namespace XUnitTest.Api
     {
         private readonly Mock<IFileManagementService> _files = new();
         private readonly Mock<IFileService> _fileService = new();
-        private readonly FilesController _sut;
+        private readonly FileController _sut;
 
-        public FilesControllerTests() => _sut = new FilesController(_files.Object, _fileService.Object);
+        public FilesControllerTests() => _sut = new FileController(_files.Object, _fileService.Object);
 
         [Fact]
         public async Task GetFile_ForwardsTheRequestAndReturnsTheResponse()
@@ -170,8 +170,8 @@ namespace XUnitTest.Api
 #pragma warning restore CS0618
 
             alias.Should().BeOfType<OkObjectResult>();
-        _files.Verify(f => f.UpdateFileAsync(command), Times.Once);
-    }
+            _files.Verify(f => f.UpdateFileAsync(command), Times.Once);
+        }
 
         // ---------------- DMS file endpoints (move / copy / versions / create-version) ----------------
 

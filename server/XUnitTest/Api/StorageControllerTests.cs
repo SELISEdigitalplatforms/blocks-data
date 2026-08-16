@@ -17,10 +17,10 @@ namespace XUnitTest.Api;
 /// </summary>
 public class StorageControllerTests
 {
-    private static (FilesController Controller, Mock<IFileManagementService> Service) BuildFiles()
+    private static (FileController Controller, Mock<IFileManagementService> Service) BuildFiles()
     {
         var service = new Mock<IFileManagementService>();
-        return (new FilesController(service.Object, Mock.Of<IFileService>()), service);
+        return (new FileController(service.Object, Mock.Of<IFileService>()), service);
     }
 
     // ---------------- FilesController: pass-through actions ----------------

@@ -21,7 +21,7 @@ namespace Api.Controllers
     /// caller cannot open.
     /// </remarks>
     [ApiController]
-    [Route("[controller]")]
+    [Route("directory")]
     public class DirectoryController : ControllerBase
     {
         private readonly IFileDirectoryManagementService _directoryManagementService;
@@ -36,7 +36,6 @@ namespace Api.Controllers
         }
 
         /// <summary>Creates a directory beneath an existing parent.</summary>
-        [HttpPost("CreateDirectory")]
         [HttpPost("create-directory")]
         [ProtectedEndPoint("blocks-data::directory::create-directory")]
         public async Task<IActionResult> CreateDirectory([FromBody] CreateDirectoryRequest request)
@@ -74,7 +73,7 @@ namespace Api.Controllers
         }
 
         /// <summary>Creates a directory at the root of the tenant.</summary>
-        [HttpPost("CreateRootDirectory")]
+        [ApiExplorerSettings(IgnoreApi = true)]
         [HttpPost("create-root-directory")]
         [ProtectedEndPoint("blocks-data::directory::create-root-directory")]
         public async Task<IActionResult> CreateRootDirectory([FromBody] CreateDirectoryRequest request)
@@ -87,7 +86,6 @@ namespace Api.Controllers
         }
 
         /// <summary>Directory details plus the operations the caller holds on it.</summary>
-        [HttpGet("GetDirectory")]
         [HttpGet("get-directory")]
         [ProtectedEndPoint("blocks-data::directory::get-directory")]
         public async Task<IActionResult> GetDirectory([FromQuery] string directoryId)
@@ -103,7 +101,6 @@ namespace Api.Controllers
         }
 
         /// <summary>Renames a directory or updates its description.</summary>
-        [HttpPost("UpdateDirectory")]
         [HttpPost("update-directory")]
         [ProtectedEndPoint("blocks-data::directory::update-directory")]
         public async Task<IActionResult> UpdateDirectory([FromBody] UpdateDirectoryRequest request)
@@ -122,7 +119,6 @@ namespace Api.Controllers
         }
 
         /// <summary>Moves a directory to the trash, or removes it permanently.</summary>
-        [HttpPost("DeleteDirectory")]
         [HttpPost("delete-directory")]
         [ProtectedEndPoint("blocks-data::directory::delete-directory")]
         public async Task<IActionResult> DeleteDirectory([FromBody] DeleteDirectoryRequest request)
@@ -140,7 +136,6 @@ namespace Api.Controllers
         }
 
         /// <summary>Re-parents a directory and rewrites the cached ancestry beneath it.</summary>
-        [HttpPost("MoveDirectory")]
         [HttpPost("move-directory")]
         [ProtectedEndPoint("blocks-data::directory::move-directory")]
         public async Task<IActionResult> MoveDirectory([FromBody] MoveDirectoryRequest request)

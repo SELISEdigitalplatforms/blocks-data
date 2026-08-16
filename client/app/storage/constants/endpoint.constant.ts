@@ -43,7 +43,7 @@ export const FOLDER_ENDPOINTS = {
 // Directory-children listing lives here too: DirectoryController.GetDirectoryChildren
 // was removed and its listing folded into ObjectController.GetObject.
 export const OBJECT_ENDPOINTS = {
-  CHILDREN: `${API_BASES.UDS}${OBJECT_SUBPATH}/GetObject`,
+  CHILDREN: `${API_BASES.UDS}${OBJECT_SUBPATH}/GetObjects`,
   SEARCH: `${API_BASES.UDS}${OBJECT_SUBPATH}/SearchObject`,
   TRASH: `${API_BASES.UDS}${OBJECT_SUBPATH}/GetTrash`,
   RESTORE: `${API_BASES.UDS}${OBJECT_SUBPATH}/RestoreFromTrash`,

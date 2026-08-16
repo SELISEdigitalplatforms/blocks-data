@@ -20,7 +20,7 @@ namespace Storage.DomainService.Services
         {
             ArgumentNullException.ThrowIfNull(resource);
 
-            if (IsOwnerByCreation(resource)) return true;
+            if (IsImpersonated() || IsOwnerByCreation(resource)) return true;
 
             var candidates = await BuildCandidatesAsync(resource, cancellationToken);
             return Decide(candidates, operation);
@@ -30,7 +30,7 @@ namespace Storage.DomainService.Services
         {
             ArgumentNullException.ThrowIfNull(resource);
 
-            if (IsOwnerByCreation(resource)) return AllPermissions();
+            if (IsImpersonated() || IsOwnerByCreation(resource)) return AllPermissions();
 
             var candidates = await BuildCandidatesAsync(resource, cancellationToken);
             return FlagsFrom(candidates);
@@ -60,6 +60,8 @@ namespace Storage.DomainService.Services
         public async Task<List<ObjectResourceDescriptor>> FilterVisibleAsync(IReadOnlyList<ObjectResourceDescriptor> children, CancellationToken cancellationToken = default)
         {
             if (children is null || children.Count == 0) return new List<ObjectResourceDescriptor>();
+
+            if (IsImpersonated()) return children.ToList();
 
             var context = BlocksContext.GetContext();
             var userId = context?.UserId;
@@ -232,6 +234,10 @@ namespace Storage.DomainService.Services
                                                  && string.Equals(policy.PrincipalId, context.OrganizationId, StringComparison.Ordinal),
             _ => false,
         };
+
+        // Impersonated sessions act with the impersonated user's own full access, so
+        // policy resolution is skipped rather than evaluated against the acting principal.
+        private static bool IsImpersonated() => BlocksContext.GetContext()?.Impersonated == true;
 
         private static bool IsOwnerByCreation(ObjectResourceDescriptor resource) =>
             IsOwnerByCreation(resource, BlocksContext.GetContext()?.UserId);

@@ -226,7 +226,7 @@ namespace XUnitTest.Api
                     "dir-1", StructureType.File, "report", "cursor-1", 25, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new VisibleChildrenPage { HasMore = true, NextCursor = "next", TotalChildCount = 9 });
 
-            var result = await _sut.GetObject(new GetObjectRequest
+            var result = await _sut.GetObjects(new GetObjectRequest
             {
                 ParentDirectoryId = "dir-1",
                 Cursor = "cursor-1",
@@ -252,7 +252,7 @@ namespace XUnitTest.Api
                 .ReturnsAsync(new VisibleChildrenPage());
             var request = new GetObjectRequest { ModuleName = ModuleName.DataGateway };
 
-            var result = await _sut.GetObject(request);
+            var result = await _sut.GetObjects(request);
 
             result.Should().BeOfType<OkObjectResult>();
             request.ParentDirectoryId.Should().Be("module-root");
@@ -265,7 +265,7 @@ namespace XUnitTest.Api
                 .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
                 .ReturnsAsync((FileDirectory?)null);
 
-            var result = await _sut.GetObject(new GetObjectRequest { ModuleName = ModuleName.DataGateway });
+            var result = await _sut.GetObjects(new GetObjectRequest { ModuleName = ModuleName.DataGateway });
 
             result.Should().BeOfType<NotFoundObjectResult>();
             _discovery.VerifyNoOtherCalls();

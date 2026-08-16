@@ -16,6 +16,6 @@ namespace Storage.DomainService.Services
         public DateTime LastUpdatedDate { get; set; }
         public string? CreatedBy { get; set; }
         public bool IsDefault { get; set; }
-        public ContentPermissionFlags Permissions { get; set; } = new();
+        public ObjectPermissionFlags Permissions { get; set; } = new();
     }
 }

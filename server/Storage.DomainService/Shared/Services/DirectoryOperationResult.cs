@@ -9,13 +9,13 @@ public sealed class DirectoryOperationResult
     public DirectoryOperationStatus Status { get; init; }
     public string? DirectoryId { get; init; }
     public FileDirectory? Directory { get; init; }
-    public ContentPermissionFlags? Permissions { get; init; }
+    public ObjectPermissionFlags? Permissions { get; init; }
     public bool IsSuccess => Status == DirectoryOperationStatus.Succeeded;
 
     public static DirectoryOperationResult Failure(DirectoryOperationStatus status) => new() { Status = status };
 
     public static DirectoryOperationResult Success(
-        string? directoryId = null, FileDirectory? directory = null, ContentPermissionFlags? permissions = null) =>
+        string? directoryId = null, FileDirectory? directory = null, ObjectPermissionFlags? permissions = null) =>
         new()
         {
             Status = DirectoryOperationStatus.Succeeded,

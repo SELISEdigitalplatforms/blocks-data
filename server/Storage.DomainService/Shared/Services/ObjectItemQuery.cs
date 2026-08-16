@@ -10,7 +10,7 @@ namespace Storage.DomainService.Services
         public StructureType? Type { get; init; }
         public bool? IsArchived { get; init; }
         public string? Search { get; init; }
-        public ContentCursor? Cursor { get; init; }
+        public ObjectCursor? Cursor { get; init; }
         public int Take { get; init; }
     }
 }

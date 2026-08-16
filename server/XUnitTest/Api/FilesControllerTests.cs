@@ -23,10 +23,10 @@ namespace XUnitTest.Api
     public class FilesControllerTests
     {
         private readonly Mock<IFileManagementService> _files = new();
-        private readonly Mock<IContentFileService> _contentFiles = new();
+        private readonly Mock<IFileService> _fileService = new();
         private readonly FilesController _sut;
 
-        public FilesControllerTests() => _sut = new FilesController(_files.Object, _contentFiles.Object);
+        public FilesControllerTests() => _sut = new FilesController(_files.Object, _fileService.Object);
 
         [Fact]
         public async Task GetFile_ForwardsTheRequestAndReturnsTheResponse()
@@ -179,7 +179,7 @@ namespace XUnitTest.Api
         public async Task MoveFile_ReturnsOkAndTheFileIdOnSuccess()
         {
             var request = new MoveFileRequest { FileId = "f1", TargetDirectoryId = "dir-1" };
-            _contentFiles.Setup(c => c.MoveFileAsync("f1", "dir-1", It.IsAny<CancellationToken>()))
+            _fileService.Setup(c => c.MoveFileAsync("f1", "dir-1", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new FileOperationResult { Status = FileOperationStatus.Succeeded });
 
             var result = await _sut.MoveFile(request);
@@ -191,7 +191,7 @@ namespace XUnitTest.Api
         [Fact]
         public async Task MoveFile_ReturnsNotFoundWhenTheFileIsMissing()
         {
-            _contentFiles.Setup(c => c.MoveFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            _fileService.Setup(c => c.MoveFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(FileOperationResult.Failure(FileOperationStatus.FileNotFound));
 
             var result = await _sut.MoveFile(new MoveFileRequest { FileId = "x", TargetDirectoryId = "dir-1" });
@@ -203,7 +203,7 @@ namespace XUnitTest.Api
         public async Task RenameFile_ReturnsTheFileIdOnSuccess()
         {
             var request = new RenameFileRequest { FileId = "f1", Name = "renamed.txt" };
-            _contentFiles.Setup(c => c.RenameFileAsync("f1", "renamed.txt", It.IsAny<CancellationToken>()))
+            _fileService.Setup(c => c.RenameFileAsync("f1", "renamed.txt", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new FileOperationResult { Status = FileOperationStatus.Succeeded });
 
             var result = await _sut.RenameFile(request);
@@ -214,7 +214,7 @@ namespace XUnitTest.Api
         [Fact]
         public async Task RenameFile_ReturnsConflictWhenTheNameAlreadyExists()
         {
-            _contentFiles.Setup(c => c.RenameFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            _fileService.Setup(c => c.RenameFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(FileOperationResult.Failure(FileOperationStatus.NameConflict));
 
             (await _sut.RenameFile(new RenameFileRequest { FileId = "f1", Name = "existing.txt" }))
@@ -225,7 +225,7 @@ namespace XUnitTest.Api
         public async Task CopyFile_ReturnsTheNewFileIdOnSuccess()
         {
             var request = new CopyFileRequest { FileId = "f1", TargetDirectoryId = "dir-1", CopyAccessPolicies = true };
-            _contentFiles.Setup(c => c.CopyFileAsync("f1", "dir-1", true, It.IsAny<CancellationToken>()))
+            _fileService.Setup(c => c.CopyFileAsync("f1", "dir-1", true, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new FileOperationResult { Status = FileOperationStatus.Succeeded, NewFileId = "copy-1" });
 
             var result = await _sut.CopyFile(request);
@@ -237,7 +237,7 @@ namespace XUnitTest.Api
         [Fact]
         public async Task CopyFile_ReturnsConflictOnANameClash()
         {
-            _contentFiles.Setup(c => c.CopyFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            _fileService.Setup(c => c.CopyFileAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(FileOperationResult.Failure(FileOperationStatus.NameConflict));
 
             var result = await _sut.CopyFile(new CopyFileRequest { FileId = "f1", TargetDirectoryId = "dir-1" });
@@ -254,7 +254,7 @@ namespace XUnitTest.Api
                 NextCursor = "1",
                 HasMore = true,
             };
-            _contentFiles.Setup(c => c.GetVersionsAsync("f1", "5", 10, It.IsAny<CancellationToken>()))
+            _fileService.Setup(c => c.GetVersionsAsync("f1", "5", 10, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(page);
 
             var result = await _sut.GetFileVersions(new GetFileVersionsRequest { FileId = "f1", Cursor = "5", Limit = 10 });

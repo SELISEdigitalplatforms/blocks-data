@@ -53,7 +53,7 @@ namespace Storage.DomainService.Services
 
             if (query.Cursor is { } cursor)
             {
-                // ContentCursor sorts directories before files, then ordinal name/id.
+                // ObjectCursor sorts directories before files, then ordinal name/id.
                 filter &= b.Or(
                     b.Lt(i => i.Type, cursor.Type),
                     b.And(b.Eq(i => i.Type, cursor.Type), b.Gt(i => i.Name, cursor.Name)),

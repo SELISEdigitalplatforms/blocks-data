@@ -33,8 +33,8 @@ namespace Storage.DomainService.Services
         private readonly IValidator<LocalStorageUploadRequest> _localStorageRequestValidator;
         private readonly IValidator<UpdateFileRequest> _fileRequestValidator;
         private readonly IMessageClient _messageClient;
-        private readonly IContentAccessResolver _accessResolver;
-        private readonly IContentAccessRepository _accessRepository;
+        private readonly IObjectAccessResolver _accessResolver;
+        private readonly IObjectAccessRepository _accessRepository;
         private readonly IObjectItemWriter? _objectItems;
 
         private const string ConfigurationNotFound = "configuration_not_found";
@@ -49,8 +49,8 @@ namespace Storage.DomainService.Services
             IValidator<LocalStorageUploadRequest> localStorageRequestValidator,
             IValidator<UpdateFileRequest> fileRequestValidator,
             IMessageClient messageClient,
-            IContentAccessResolver accessResolver,
-            IContentAccessRepository accessRepository,
+            IObjectAccessResolver accessResolver,
+            IObjectAccessRepository accessRepository,
             IObjectItemWriter? objectItems = null
             )
         {
@@ -101,7 +101,7 @@ namespace Storage.DomainService.Services
 
             request.ItemId = string.IsNullOrEmpty(request.ItemId) ? Guid.NewGuid().ToString() : request.ItemId;
             var existingFile = await _fileRepository.GetFileByItemIdAsync(request.ItemId);
-            if (existingFile is not null && !await AuthorizeFileAsync(existingFile, ContentPermission.Edit, "Upload", default))
+            if (existingFile is not null && !await AuthorizeFileAsync(existingFile, ObjectPermission.Edit, "Upload", default))
                 return AccessDenied<GetPreSignedUrlForUploadResponse>();
             if (existingFile is null && !await AuthorizeParentEditAsync(request.ParentDirectoryId, "Upload", default))
                 return AccessDenied<GetPreSignedUrlForUploadResponse>();
@@ -331,7 +331,7 @@ namespace Storage.DomainService.Services
 
             var result = _fileRepository.GetRequiredFiles([request.FileId], request.Version);
             var file = await _fileRepository.GetFileByItemIdAsync(request.FileId);
-            if (file is null || !await AuthorizeFileAsync(file, ContentPermission.Download, "Download", default))
+            if (file is null || !await AuthorizeFileAsync(file, ObjectPermission.Download, "Download", default))
                 return AccessDenied<FileResponse>();
             var configuration = await _configurationRepository.GetConfigurationByNameAsync(request.ConfigurationName ?? Constants.DefaultConfigurationName);
 
@@ -360,7 +360,7 @@ namespace Storage.DomainService.Services
             foreach (var fileId in request.FileIds)
             {
                 var file = await _fileRepository.GetFileByItemIdAsync(fileId);
-                if (file is null || !await AuthorizeFileAsync(file, ContentPermission.Download, "Download", default))
+                if (file is null || !await AuthorizeFileAsync(file, ObjectPermission.Download, "Download", default))
                     return new List<FileResponse> { AccessDenied<FileResponse>() };
             }
 
@@ -471,7 +471,7 @@ namespace Storage.DomainService.Services
                 return CreateErrorResponse<BaseResponse>("file_not_found", $"file_with_id_{deleteFileRequest.FileId}_not_exist");
             }
 
-            if (authorizeFile && !await AuthorizeFileAsync(existingFile, ContentPermission.Delete, "Delete", default))
+            if (authorizeFile && !await AuthorizeFileAsync(existingFile, ObjectPermission.Delete, "Delete", default))
                 return AccessDenied<BaseResponse>();
 
             var permanent = forcePermanent || deleteFileRequest.Permanent;
@@ -607,7 +607,7 @@ namespace Storage.DomainService.Services
             }
 
             var existingFile = string.IsNullOrEmpty(request.ItemId) ? null : await _fileRepository.GetFileByItemIdAsync(request.ItemId);
-            if (existingFile is not null && !await AuthorizeFileAsync(existingFile, ContentPermission.Edit, "Upload", default))
+            if (existingFile is not null && !await AuthorizeFileAsync(existingFile, ObjectPermission.Edit, "Upload", default))
                 return AccessDenied<LocalStorageUploadResponse>();
             if (existingFile is null && !await AuthorizeParentEditAsync(request.ParentDirectoryId, "Upload", default))
                 return AccessDenied<LocalStorageUploadResponse>();
@@ -715,7 +715,7 @@ namespace Storage.DomainService.Services
             if (existingFile == null)
                 return CreateErrorResponse<DownloadFileResponse>("file_not_found", $"file_with_id_{signatureString.ItemId}_not_exist");
 
-            if (!await AuthorizeFileAsync(existingFile, ContentPermission.Download, "Download", default))
+            if (!await AuthorizeFileAsync(existingFile, ObjectPermission.Download, "Download", default))
                 return AccessDenied<DownloadFileResponse>();
 
             // Validate access rights
@@ -914,7 +914,7 @@ namespace Storage.DomainService.Services
                 };
             }
 
-            if (!await AuthorizeFileAsync(file, ContentPermission.Edit, "Edit", default))
+            if (!await AuthorizeFileAsync(file, ObjectPermission.Edit, "Edit", default))
                 return AccessDenied<BaseMutationResponse>();
 
             // Assuming your File entity has a dictionary property or allows storing additional properties
@@ -944,7 +944,7 @@ namespace Storage.DomainService.Services
                 };
             }
 
-            if (!await AuthorizeFileAsync(existingFile, ContentPermission.Edit, "Edit", default))
+            if (!await AuthorizeFileAsync(existingFile, ObjectPermission.Edit, "Edit", default))
                 return new CreateFileVersionResponse
                 {
                     IsSuccess = false,
@@ -984,27 +984,27 @@ namespace Storage.DomainService.Services
             if (string.IsNullOrWhiteSpace(directoryId)) return true; // root upload remains IAM-gated.
             var directory = await _directoryRepository.GetDirectoryByItemIDAsync(directoryId);
             if (directory is null) return false;
-            return await AuthorizeAsync(new ContentResourceDescriptor
+            return await AuthorizeAsync(new ObjectResourceDescriptor
             {
                 ResourceId = directory.ItemId, AncestorIds = directory.AncestorIds ?? new(),
                 InheritsParentAccess = directory.InheritsParentAccess, CreatedBy = directory.CreatedBy,
-            }, ContentResourceType.Directory, ContentPermission.Edit, action, cancellationToken);
+            }, ObjectResourceType.Directory, ObjectPermission.Edit, action, cancellationToken);
         }
 
-        private Task<bool> AuthorizeFileAsync(File file, ContentPermission permission, string action, CancellationToken cancellationToken) =>
-            AuthorizeAsync(new ContentResourceDescriptor
+        private Task<bool> AuthorizeFileAsync(File file, ObjectPermission permission, string action, CancellationToken cancellationToken) =>
+            AuthorizeAsync(new ObjectResourceDescriptor
             {
                 ResourceId = file.ItemId, AncestorIds = file.AncestorIds ?? new(),
                 InheritsParentAccess = file.InheritsParentAccess, CreatedBy = file.CreatedBy,
-            }, ContentResourceType.File, permission, action, cancellationToken);
+            }, ObjectResourceType.File, permission, action, cancellationToken);
 
-        private async Task<bool> AuthorizeAsync(ContentResourceDescriptor resource, ContentResourceType resourceType,
-            ContentPermission permission, string action, CancellationToken cancellationToken)
+        private async Task<bool> AuthorizeAsync(ObjectResourceDescriptor resource, ObjectResourceType resourceType,
+            ObjectPermission permission, string action, CancellationToken cancellationToken)
         {
             var granted = await _accessResolver.ResolveAsync(resource, permission, cancellationToken);
             var context = BlocksContext.GetContext();
             var userId = context?.UserId ?? string.Empty;
-            await _accessRepository.WriteAuditAsync(new ContentAuditLog
+            await _accessRepository.WriteAuditAsync(new ObjectAuditLog
             {
                 ItemId = Guid.NewGuid().ToString(), TenantId = context?.TenantId ?? string.Empty,
                 ResourceId = resource.ResourceId, ResourceType = resourceType, UserId = userId,

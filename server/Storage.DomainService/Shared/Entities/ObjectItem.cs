@@ -3,7 +3,7 @@ using Storage.DomainService.Enums;
 namespace Storage.DomainService.Entities
 {
     /// <summary>
-    /// Denormalized read model for content views. Files and directories remain the
+    /// Denormalized read model for object views. Files and directories remain the
     /// authoritative write entities; each has exactly one ObjectItem projection.
     /// </summary>
     public class ObjectItem

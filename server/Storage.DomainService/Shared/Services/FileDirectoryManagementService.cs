@@ -21,15 +21,15 @@ namespace Storage.DomainService.Services
     public class FileDirectoryManagementService : IFileDirectoryManagementService
     {
         private readonly IDbContextProvider _dbContextProvider;
-        private readonly IContentAccessResolver _resolver;
-        private readonly IContentAccessRepository _accessRepository;
+        private readonly IObjectAccessResolver _resolver;
+        private readonly IObjectAccessRepository _accessRepository;
         private readonly IFileManagementService _fileManagementService;
         private readonly IObjectItemWriter? _objectItems;
 
         public FileDirectoryManagementService(
             IDbContextProvider dbContextProvider,
-            IContentAccessResolver resolver,
-            IContentAccessRepository accessRepository,
+            IObjectAccessResolver resolver,
+            IObjectAccessRepository accessRepository,
             IFileManagementService fileManagementService,
             IObjectItemWriter? objectItems = null)
         {
@@ -66,9 +66,9 @@ namespace Storage.DomainService.Services
                     return DirectoryOperationResult.Failure(DirectoryOperationStatus.ParentNotFound);
                 }
 
-                if (!await _resolver.ResolveAsync(Describe(parent), ContentPermission.Edit, cancellationToken))
+                if (!await _resolver.ResolveAsync(Describe(parent), ObjectPermission.Edit, cancellationToken))
                 {
-                    await AuditAsync(parent.ItemId, ContentResourceType.Directory, "Edit", false,
+                    await AuditAsync(parent.ItemId, ObjectResourceType.Directory, "Edit", false,
                         $"create directory '{name}' refused", cancellationToken);
                     return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotPermitted);
                 }
@@ -114,7 +114,7 @@ namespace Storage.DomainService.Services
                     cancellationToken: cancellationToken);
             }
 
-            await AuditAsync(directory.ItemId, ContentResourceType.Directory, "Edit", true, "directory created", cancellationToken);
+            await AuditAsync(directory.ItemId, ObjectResourceType.Directory, "Edit", true, "directory created", cancellationToken);
 
             return DirectoryOperationResult.Success(directory.ItemId, directory);
         }
@@ -132,7 +132,7 @@ namespace Storage.DomainService.Services
             {
                 // Refused reads report NotFound rather than NotPermitted, so a caller cannot
                 // use this endpoint to discover that a directory exists.
-                await AuditAsync(directoryId, ContentResourceType.Directory, "View", false, null, cancellationToken);
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "View", false, null, cancellationToken);
                 return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound);
             }
 
@@ -167,9 +167,9 @@ namespace Storage.DomainService.Services
                 return DirectoryOperationResult.Failure(DirectoryOperationStatus.IsDefault);
             }
 
-            if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Edit, cancellationToken))
+            if (!await _resolver.ResolveAsync(Describe(directory), ObjectPermission.Edit, cancellationToken))
             {
-                await AuditAsync(directoryId, ContentResourceType.Directory, "Edit", false, null, cancellationToken);
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "Edit", false, null, cancellationToken);
                 return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotPermitted);
             }
 
@@ -208,7 +208,7 @@ namespace Storage.DomainService.Services
                 cancellationToken: cancellationToken);
             await SyncDirectoryAsync(directory.ItemId, cancellationToken);
 
-            await AuditAsync(directoryId, ContentResourceType.Directory, "Edit", true,
+            await AuditAsync(directoryId, ObjectResourceType.Directory, "Edit", true,
                 renamed ? $"renamed to '{name}'" : "metadata updated", cancellationToken);
 
             // A rename changes the stored path of every descendant. Callers that care about
@@ -233,9 +233,9 @@ namespace Storage.DomainService.Services
                 return DirectoryOperationResult.Failure(DirectoryOperationStatus.IsDefault);
             }
 
-            if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Delete, cancellationToken))
+            if (!await _resolver.ResolveAsync(Describe(directory), ObjectPermission.Delete, cancellationToken))
             {
-                await AuditAsync(directoryId, ContentResourceType.Directory, "Delete", false, null, cancellationToken);
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "Delete", false, null, cancellationToken);
                 return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotPermitted);
             }
 
@@ -280,7 +280,7 @@ namespace Storage.DomainService.Services
                 // Delete the directory and all its subdirectories.
                 await Directories.DeleteManyAsync(descendantDirectoryFilter, cancellationToken);
 
-                await AuditAsync(directoryId, ContentResourceType.Directory, "Delete", true, "permanent (cascade)", cancellationToken);
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "Delete", true, "permanent (cascade)", cancellationToken);
             }
             else
             {
@@ -309,7 +309,7 @@ namespace Storage.DomainService.Services
                     await _objectItems.SetArchiveByDirectoryIdsAsync(descendantDirectoryIds, true, cancellationToken);
                 foreach (var id in descendantDirectoryIds)
                     await SyncDirectoryAsync(id, cancellationToken);
-                await AuditAsync(directoryId, ContentResourceType.Directory, "Delete", true, "trashed", cancellationToken);
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "Delete", true, "trashed", cancellationToken);
             }
 
             if (!string.IsNullOrWhiteSpace(directory.ParentId))
@@ -332,9 +332,9 @@ namespace Storage.DomainService.Services
                 return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound);
             }
 
-            if (!await _resolver.ResolveAsync(Describe(directory), ContentPermission.Delete, cancellationToken))
+            if (!await _resolver.ResolveAsync(Describe(directory), ObjectPermission.Delete, cancellationToken))
             {
-                await AuditAsync(directoryId, ContentResourceType.Directory, "Restore", false, null, cancellationToken);
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "Restore", false, null, cancellationToken);
                 return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotPermitted);
             }
 
@@ -364,7 +364,7 @@ namespace Storage.DomainService.Services
             foreach (var id in descendantDirectoryIds)
                 await SyncDirectoryAsync(id, cancellationToken);
 
-            await AuditAsync(directoryId, ContentResourceType.Directory, "Restore", true, "subtree", cancellationToken);
+            await AuditAsync(directoryId, ObjectResourceType.Directory, "Restore", true, "subtree", cancellationToken);
             return DirectoryOperationResult.Success(directoryId);
         }
 
@@ -433,7 +433,7 @@ namespace Storage.DomainService.Services
             return await Directories.CountDocumentsAsync(filter, cancellationToken: cancellationToken) > 0;
         }
 
-        private static ContentResourceDescriptor Describe(FileDirectory directory) => new()
+        private static ObjectResourceDescriptor Describe(FileDirectory directory) => new()
         {
             ResourceId = directory.ItemId,
             AncestorIds = directory.AncestorIds ?? new List<string>(),
@@ -464,9 +464,9 @@ namespace Storage.DomainService.Services
         }
 
         private Task AuditAsync(
-            string resourceId, ContentResourceType resourceType, string action, bool granted,
+            string resourceId, ObjectResourceType resourceType, string action, bool granted,
             string? detail, CancellationToken cancellationToken) =>
-            _accessRepository.WriteAuditAsync(new ContentAuditLog
+            _accessRepository.WriteAuditAsync(new ObjectAuditLog
             {
                 ItemId = Guid.NewGuid().ToString(),
                 TenantId = TenantId,

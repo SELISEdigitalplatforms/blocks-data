@@ -17,17 +17,17 @@ namespace Api.Controllers
     public class FilesController : ControllerBase
     {
         private readonly IFileManagementService _fileManagementService;
-        private readonly IContentFileService _contentFileService;
+        private readonly IFileService _fileService;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FilesController"/> class.
         /// </summary>
         /// <param name="fileManagementService">Service for managing file operations.</param>
-        /// <param name="contentFileService">Service for file version, move and copy operations.</param>
-        public FilesController(IFileManagementService fileManagementService, IContentFileService contentFileService)
+        /// <param name="fileService">Service for file version, move and copy operations.</param>
+        public FilesController(IFileManagementService fileManagementService, IFileService fileService)
         {
             _fileManagementService = fileManagementService;
-            _contentFileService = contentFileService;
+            _fileService = fileService;
         }
 
         /// <summary>
@@ -143,7 +143,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::get-file-versions")]
         public async Task<IActionResult> GetFileVersions([FromQuery] GetFileVersionsRequest request)
         {
-            var page = await _contentFileService.GetVersionsAsync(request.FileId, request.Cursor, request.Limit);
+            var page = await _fileService.GetVersionsAsync(request.FileId, request.Cursor, request.Limit);
             return Ok(new FileVersionsResponse
             {
                 Items = page.Items.Select(FileVersionDto.From).ToList(),
@@ -166,7 +166,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::copy-file")]
         public async Task<IActionResult> CopyFile([FromBody] CopyFileRequest request)
         {
-            var result = await _contentFileService.CopyFileAsync(request.FileId, request.TargetDirectoryId, request.CopyAccessPolicies);
+            var result = await _fileService.CopyFileAsync(request.FileId, request.TargetDirectoryId, request.CopyAccessPolicies);
             return result.Status == FileOperationStatus.Succeeded
                 ? Ok(new { fileId = result.NewFileId })
                 : MapFileOperation(result.Status);
@@ -177,7 +177,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::move-file")]
         public async Task<IActionResult> MoveFile([FromBody] MoveFileRequest request)
         {
-            var result = await _contentFileService.MoveFileAsync(request.FileId, request.TargetDirectoryId);
+            var result = await _fileService.MoveFileAsync(request.FileId, request.TargetDirectoryId);
             return result.Status == FileOperationStatus.Succeeded
                 ? Ok(new { fileId = request.FileId })
                 : MapFileOperation(result.Status);
@@ -188,7 +188,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::rename-file")]
         public async Task<IActionResult> RenameFile([FromBody] RenameFileRequest request)
         {
-            var result = await _contentFileService.RenameFileAsync(request.FileId, request.Name);
+            var result = await _fileService.RenameFileAsync(request.FileId, request.Name);
             return result.Status == FileOperationStatus.Succeeded
                 ? Ok(new { fileId = request.FileId })
                 : MapFileOperation(result.Status);

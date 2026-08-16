@@ -25,14 +25,14 @@ namespace Api.Controllers
     public class DirectoryController : ControllerBase
     {
         private readonly IFileDirectoryManagementService _directoryManagementService;
-        private readonly IContentHierarchyService _contentHierarchyService;
+        private readonly IObjectHierarchyService _objectHierarchyService;
 
         public DirectoryController(
             IFileDirectoryManagementService directoryManagementService,
-            IContentHierarchyService contentHierarchyService)
+            IObjectHierarchyService objectHierarchyService)
         {
             _directoryManagementService = directoryManagementService;
-            _contentHierarchyService = contentHierarchyService;
+            _objectHierarchyService = objectHierarchyService;
         }
 
         /// <summary>Creates a directory beneath an existing parent.</summary>
@@ -120,7 +120,7 @@ namespace Api.Controllers
         /// <summary>Moves a directory to the trash, or removes it permanently.</summary>
         [HttpPost]
         [ProtectedEndPoint("blocks-data::delete-directory")]
-        public async Task<IActionResult> DeleteDirectory([FromBody] DeleteDirectoryContentRequest request)
+        public async Task<IActionResult> DeleteDirectory([FromBody] DeleteDirectoryObjectRequest request)
         {
             var result = await _directoryManagementService.DeleteDirectoryAsync(request.DirectoryId, request.Permanent);
 
@@ -139,7 +139,7 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::move-directory")]
         public async Task<IActionResult> MoveDirectory([FromBody] MoveDirectoryRequest request)
         {
-            var result = await _contentHierarchyService.MoveDirectoryAsync(request.DirectoryId, request.TargetDirectoryId);
+            var result = await _objectHierarchyService.MoveDirectoryAsync(request.DirectoryId, request.TargetDirectoryId);
 
             return result switch
             {

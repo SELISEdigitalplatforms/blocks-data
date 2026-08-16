@@ -20,8 +20,8 @@ namespace XUnitTest.Api
     public class DirectoryControllerTests
     {
         private readonly Mock<IFileDirectoryManagementService> _directorys = new();
-        private readonly Mock<IContentListingService> _listing = new();
-        private readonly Mock<IContentHierarchyService> _hierarchy = new();
+        private readonly Mock<IObjectListingService> _listing = new();
+        private readonly Mock<IObjectHierarchyService> _hierarchy = new();
         private readonly DirectoryController _sut;
 
         public DirectoryControllerTests() =>
@@ -135,7 +135,7 @@ namespace XUnitTest.Api
         {
             _directorys.Setup(f => f.GetDirectoryAsync("dir-1", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(DirectoryOperationResult.Success(
-                    "dir-1", Directory(), new ContentPermissionFlags { CanView = true, CanEdit = true }));
+                    "dir-1", Directory(), new ObjectPermissionFlags { CanView = true, CanEdit = true }));
 
             var result = await _sut.GetDirectory("dir-1") as OkObjectResult;
 
@@ -234,7 +234,7 @@ namespace XUnitTest.Api
                     ? DirectoryOperationResult.Success("dir-1")
                     : DirectoryOperationResult.Failure(status));
 
-            var result = await _sut.DeleteDirectory(new DeleteDirectoryContentRequest { DirectoryId = "dir-1", Permanent = true });
+            var result = await _sut.DeleteDirectory(new DeleteDirectoryObjectRequest { DirectoryId = "dir-1", Permanent = true });
 
             result.Should().BeOfType(expected);
         }
@@ -257,27 +257,27 @@ namespace XUnitTest.Api
     }
 
     /// <summary>
-    /// Unit tests for <see cref="ContentController"/>. The access actions each map a
+    /// Unit tests for <see cref="ObjectController"/>. The access actions each map a
     /// refusal reason onto a distinct status, and those distinctions are what an
     /// administrator sees when a grant is rejected, so they are asserted individually
     /// rather than as a single "not success" case.
     /// </summary>
-    public class ContentControllerTests
+    public class ObjectControllerTests
     {
-        private readonly Mock<IContentManagementService> _management = new();
-        private readonly Mock<IContentDiscoveryService> _discovery = new();
-        private readonly ContentController _sut;
+        private readonly Mock<IObjectManagementService> _management = new();
+        private readonly Mock<IObjectDiscoveryService> _discovery = new();
+        private readonly ObjectController _sut;
 
-        public ContentControllerTests() => _sut = new ContentController(_management.Object, _discovery.Object);
+        public ObjectControllerTests() => _sut = new ObjectController(_management.Object, _discovery.Object);
 
         [Fact]
-        public async Task SearchContent_ForwardsEveryArgument()
+        public async Task SearchObject_ForwardsEveryArgument()
         {
             _discovery.Setup(d => d.SearchAsync(
                     "report", "dir-1", StructureType.File, "cursor", 10, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new VisibleChildrenPage { TotalChildCount = 3 });
 
-            var result = await _sut.SearchContent(new ContentSearchRequest
+            var result = await _sut.SearchObject(new ObjectSearchRequest
             {
                 Query = "report",
                 DirectoryId = "dir-1",
@@ -305,13 +305,13 @@ namespace XUnitTest.Api
         }
 
         [Fact]
-        public async Task GetSharedContent_ForwardsPaginationAndType()
+        public async Task GetSharedObject_ForwardsPaginationAndType()
         {
             _discovery.Setup(d => d.GetSharedAsync(
                     StructureType.File, "cursor", 10, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new VisibleChildrenPage { TotalChildCount = 1 });
 
-            var result = await _sut.GetSharedContent(new SharedContentRequest
+            var result = await _sut.GetSharedObject(new SharedObjectRequest
             {
                 Type = "file",
                 Cursor = "cursor",
@@ -356,17 +356,17 @@ namespace XUnitTest.Api
         public async Task GetAccessPolicies_ReturnsTheWireShapeRatherThanTheEntity()
         {
             _management.Setup(m => m.GetAccessAsync("res-1", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<ContentAccessPolicy>
+                .ReturnsAsync(new List<ObjectAccessPolicy>
                 {
                     new()
                     {
                         ItemId = "policy-1",
                         TenantId = "tenant-1",
                         ResourceId = "res-1",
-                        PrincipalType = ContentPrincipalType.Role,
+                        PrincipalType = ObjectPrincipalType.Role,
                         PrincipalId = "editors",
-                        Permission = ContentPermission.Edit,
-                        Effect = ContentEffect.Allow,
+                        Permission = ObjectPermission.Edit,
+                        Effect = ObjectEffect.Allow,
                     },
                 });
 
@@ -379,41 +379,41 @@ namespace XUnitTest.Api
         [Fact]
         public async Task GrantAccess_MapsTheRequestOntoAPolicyAndReturns201()
         {
-            ContentAccessPolicy? captured = null;
-            _management.Setup(m => m.GrantAccessAsync(It.IsAny<ContentAccessPolicy>(), It.IsAny<CancellationToken>()))
-                .Callback<ContentAccessPolicy, CancellationToken>((p, _) => captured = p)
-                .ReturnsAsync(ContentAccessOperationResult.Success("policy-1"));
+            ObjectAccessPolicy? captured = null;
+            _management.Setup(m => m.GrantAccessAsync(It.IsAny<ObjectAccessPolicy>(), It.IsAny<CancellationToken>()))
+                .Callback<ObjectAccessPolicy, CancellationToken>((p, _) => captured = p)
+                .ReturnsAsync(ObjectAccessOperationResult.Success("policy-1"));
 
             var result = await _sut.GrantAccess(new GrantAccessRequest
             {
                 ResourceId = "res-1",
-                ResourceType = ContentResourceType.Directory,
-                PrincipalType = ContentPrincipalType.User,
+                ResourceType = ObjectResourceType.Directory,
+                PrincipalType = ObjectPrincipalType.User,
                 PrincipalId = "user-2",
-                Permission = ContentPermission.Download,
-                Effect = ContentEffect.Deny,
+                Permission = ObjectPermission.Download,
+                Effect = ObjectEffect.Deny,
                 Priority = 7,
             });
 
             result.Should().BeOfType<CreatedResult>();
             captured!.ResourceId.Should().Be("res-1");
             captured.PrincipalId.Should().Be("user-2");
-            captured.Permission.Should().Be(ContentPermission.Download);
-            captured.Effect.Should().Be(ContentEffect.Deny);
+            captured.Permission.Should().Be(ObjectPermission.Download);
+            captured.Effect.Should().Be(ObjectEffect.Deny);
             captured.Priority.Should().Be(7);
         }
 
         [Theory]
-        [InlineData(ContentAccessOperationStatus.SelfDenyRejected, typeof(BadRequestObjectResult))]
-        [InlineData(ContentAccessOperationStatus.PrincipalRequired, typeof(BadRequestObjectResult))]
-        [InlineData(ContentAccessOperationStatus.WouldOrphanResource, typeof(BadRequestObjectResult))]
-        [InlineData(ContentAccessOperationStatus.PolicyNotFound, typeof(NotFoundObjectResult))]
-        [InlineData(ContentAccessOperationStatus.ResourceNotFound, typeof(NotFoundObjectResult))]
+        [InlineData(ObjectAccessOperationStatus.SelfDenyRejected, typeof(BadRequestObjectResult))]
+        [InlineData(ObjectAccessOperationStatus.PrincipalRequired, typeof(BadRequestObjectResult))]
+        [InlineData(ObjectAccessOperationStatus.WouldOrphanResource, typeof(BadRequestObjectResult))]
+        [InlineData(ObjectAccessOperationStatus.PolicyNotFound, typeof(NotFoundObjectResult))]
+        [InlineData(ObjectAccessOperationStatus.ResourceNotFound, typeof(NotFoundObjectResult))]
         public async Task GrantAccess_MapsEachRefusalReasonOntoItsOwnStatus(
-            ContentAccessOperationStatus status, Type expected)
+            ObjectAccessOperationStatus status, Type expected)
         {
-            _management.Setup(m => m.GrantAccessAsync(It.IsAny<ContentAccessPolicy>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(ContentAccessOperationResult.Failure(status));
+            _management.Setup(m => m.GrantAccessAsync(It.IsAny<ObjectAccessPolicy>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ObjectAccessOperationResult.Failure(status));
 
             var result = await _sut.GrantAccess(new GrantAccessRequest { ResourceId = "res-1" });
 
@@ -423,8 +423,8 @@ namespace XUnitTest.Api
         [Fact]
         public async Task UpdateAccessPolicy_ReturnsOkRatherThanCreated()
         {
-            _management.Setup(m => m.UpdateAccessAsync(It.IsAny<ContentAccessPolicy>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(ContentAccessOperationResult.Success("policy-1"));
+            _management.Setup(m => m.UpdateAccessAsync(It.IsAny<ObjectAccessPolicy>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ObjectAccessOperationResult.Success("policy-1"));
 
             var result = await _sut.UpdateAccessPolicy(new GrantAccessRequest { ResourceId = "res-1", PolicyItemId = "policy-1" });
 
@@ -435,7 +435,7 @@ namespace XUnitTest.Api
         public async Task RevokeAccessPolicy_ForwardsBothIdentifiers()
         {
             _management.Setup(m => m.RevokeAccessAsync("res-1", "policy-1", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(ContentAccessOperationResult.Success("policy-1"));
+                .ReturnsAsync(ObjectAccessOperationResult.Success("policy-1"));
 
             var result = await _sut.RevokeAccessPolicy(new RevokeAccessRequest { ResourceId = "res-1", PolicyItemId = "policy-1" });
 
@@ -447,7 +447,7 @@ namespace XUnitTest.Api
         public async Task ResolveAccess_ReturnsTheFlags()
         {
             _management.Setup(m => m.ResolveAccessAsync("res-1", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new ContentPermissionFlags { CanView = true, CanDownload = true });
+                .ReturnsAsync(new ObjectPermissionFlags { CanView = true, CanDownload = true });
 
             var result = await _sut.ResolveAccess("res-1") as OkObjectResult;
 
@@ -461,7 +461,7 @@ namespace XUnitTest.Api
         public async Task ResolveAccess_ReportsNotFoundForAnUnknownResource()
         {
             _management.Setup(m => m.ResolveAccessAsync("res-1", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((ContentPermissionFlags?)null);
+                .ReturnsAsync((ObjectPermissionFlags?)null);
 
             (await _sut.ResolveAccess("res-1")).Should().BeOfType<NotFoundObjectResult>();
         }
@@ -470,7 +470,7 @@ namespace XUnitTest.Api
         public async Task ToggleInheritance_ForwardsTheFlag()
         {
             _management.Setup(m => m.ToggleInheritanceAsync("res-1", false, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(ContentAccessOperationResult.Success());
+                .ReturnsAsync(ObjectAccessOperationResult.Success());
 
             var result = await _sut.ToggleInheritance(new ToggleInheritanceRequest
             {
@@ -485,7 +485,7 @@ namespace XUnitTest.Api
         public async Task ToggleInheritance_RefusesToStrandAResource()
         {
             _management.Setup(m => m.ToggleInheritanceAsync("res-1", false, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(ContentAccessOperationResult.Failure(ContentAccessOperationStatus.WouldOrphanResource));
+                .ReturnsAsync(ObjectAccessOperationResult.Failure(ObjectAccessOperationStatus.WouldOrphanResource));
 
             var result = await _sut.ToggleInheritance(new ToggleInheritanceRequest
             {
@@ -497,21 +497,21 @@ namespace XUnitTest.Api
         }
 
         [Fact]
-        public async Task ShareContent_ForwardsEveryArgument()
+        public async Task ShareObject_ForwardsEveryArgument()
         {
             var expires = new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-            _management.Setup(m => m.ShareContentAsync(
-                    "res-1", ContentResourceType.File, ContentPrincipalType.Role, "editors",
-                    ContentPermission.Download, expires, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(ContentAccessOperationResult.Success("policy-1"));
+            _management.Setup(m => m.ShareObjectAsync(
+                    "res-1", ObjectResourceType.File, ObjectPrincipalType.Role, "editors",
+                    ObjectPermission.Download, expires, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ObjectAccessOperationResult.Success("policy-1"));
 
-            var result = await _sut.ShareContent(new ShareContentRequest
+            var result = await _sut.ShareObject(new ShareObjectRequest
             {
                 ResourceId = "res-1",
-                ResourceType = ContentResourceType.File,
-                PrincipalType = ContentPrincipalType.Role,
+                ResourceType = ObjectResourceType.File,
+                PrincipalType = ObjectPrincipalType.Role,
                 PrincipalId = "editors",
-                Permission = ContentPermission.Download,
+                Permission = ObjectPermission.Download,
                 ExpiresAt = expires,
             });
 

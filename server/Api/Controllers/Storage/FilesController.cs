@@ -13,7 +13,7 @@ namespace Api.Controllers
     /// Controller for managing file-related operations such as downloading, uploading, and deleting files.
     /// </summary>
     [ApiController]
-    [Route("file")]
+    [Route("files")]
     public class FileController : ControllerBase
     {
         private readonly IFileManagementService _fileManagementService;

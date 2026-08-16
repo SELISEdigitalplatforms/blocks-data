@@ -34,7 +34,7 @@ public class ConfigurationController : ControllerBase
     /// </summary>
     /// <returns>Returns the data source configuration details, including the connection string, database name, and project key, or an error message if the data source is not found.</returns>
     [HttpGet]
-    [ProtectedEndPoint("blocks-data::get-configuration")]
+    [ProtectedEndPoint("blocks-data::configuration::get-configuration")]
     [ProducesResponseType(typeof(ServiceResponse<DataGatewayConfigurationResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetConfigurationAsync()
@@ -57,7 +57,7 @@ public class ConfigurationController : ControllerBase
     /// <param name="request">The data source details to be saved. Required fields: ItemId (unique identifier), ConnectionString (database connection string), DatabaseName (name of the database), ProjectKey (project identifier).</param>
     /// <returns>Returns a success response if the data source is created, or an error message if the operation fails.</returns>
     [HttpPost]
-    [ProtectedEndPoint("blocks-data::create-data-source")]
+    [ProtectedEndPoint("blocks-data::configuration::create-data-source")]
     [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -80,7 +80,7 @@ public class ConfigurationController : ControllerBase
     /// <param name="request">The updated data source details. Required fields: ItemId (unique identifier), ConnectionString, DatabaseName, ProjectKey, IsActive.</param>
     /// <returns>Returns a success response if the data source is updated, or an error message if the operation fails.</returns>
     [HttpPut]
-    [ProtectedEndPoint("blocks-data::update-data-source")]
+    [ProtectedEndPoint("blocks-data::configuration::update-data-source")]
     [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]

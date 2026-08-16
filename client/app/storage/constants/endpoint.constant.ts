@@ -1,9 +1,9 @@
 import { API_BASES } from "@/constants/endpoint.constant";
 
 const STORAGE_SUBPATH = "/Storage";
-const FILES_SUBPATH = "/file";
+const FILES_SUBPATH = "/files";
 const FOLDERS_SUBPATH = "/directory";
-const OBJECT_SUBPATH = "/object";
+const OBJECT_SUBPATH = "/objects";
 
 // Storage Configuration endpoints (IDP host; paths under /api/Storage)
 export const STORAGE_CONFIG_ENDPOINTS = {

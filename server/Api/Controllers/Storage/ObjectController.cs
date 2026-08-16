@@ -35,10 +35,10 @@ namespace Api.Controllers
         }
 
         /// <summary>Access-resolved, cursor-paginated files and directories under one parent.</summary>
-        [HttpGet("GetObject")]
-        [HttpGet("get-object")]
-        [ProtectedEndPoint("blocks-data::object::get-object")]
-        public async Task<IActionResult> GetObject([FromQuery] GetObjectRequest request)
+        [HttpGet("GetObjects")]
+        [HttpGet("get-objects")]
+        [ProtectedEndPoint("blocks-data::object::get-objects")]
+        public async Task<IActionResult> GetObjects([FromQuery] GetObjectRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.ParentDirectoryId) && request.ModuleName.HasValue)
             {

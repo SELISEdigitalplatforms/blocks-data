@@ -436,7 +436,7 @@
             access to a directory they cannot Manage.
             </remarks>
         </member>
-        <member name="M:Api.Controllers.ObjectController.GetObject(DomainService.Storage.Dms.GetObjectRequest)">
+        <member name="M:Api.Controllers.ObjectController.GetObjects(DomainService.Storage.Dms.GetObjectRequest)">
             <summary>Access-resolved, cursor-paginated files and directories under one parent.</summary>
         </member>
         <member name="M:Api.Controllers.ObjectController.SearchObject(DomainService.Storage.Dms.ObjectSearchRequest)">

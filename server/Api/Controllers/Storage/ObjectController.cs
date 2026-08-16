@@ -17,7 +17,7 @@ namespace Api.Controllers
     /// access to a directory they cannot Manage.
     /// </remarks>
     [ApiController]
-    [Route("object")]
+    [Route("objects")]
     public class ObjectController : ControllerBase
     {
         private readonly IObjectManagementService _objectManagementService;

@@ -17,7 +17,7 @@ describe("DmsContentService", () => {
     await service.search({ query: "report", directoryId: "dir-1", type: "file", limit: 10 });
 
     const url = (http.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-    expect(url).toContain("/object/search-objects");
+    expect(url).toContain("/objects/search-objects");
     expect(url).toContain("query=report");
     expect(url).toContain("directoryId=dir-1");
     expect(url).toContain("type=file");
@@ -27,14 +27,14 @@ describe("DmsContentService", () => {
   it("asks for the whole trash when no filter is given", async () => {
     await service.getTrash();
 
-    expect(http.get).toHaveBeenCalledWith(expect.stringContaining("/object/get-trash"));
+    expect(http.get).toHaveBeenCalledWith(expect.stringContaining("/objects/get-trash"));
   });
 
   it("restores by resource id", async () => {
     await service.restore("res-1");
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/object/restore-from-trash"),
+      expect.stringContaining("/objects/restore-from-trash"),
       { resourceId: "res-1" },
     );
   });
@@ -45,7 +45,7 @@ describe("DmsContentService", () => {
     await service.deletePermanently("res-1");
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/object/delete-from-trash"),
+      expect.stringContaining("/objects/delete-from-trash"),
       { resourceId: "res-1" },
     );
   });
@@ -73,14 +73,14 @@ describe("DmsContentService", () => {
 
     await service.grantAccess(payload);
 
-    expect(http.post).toHaveBeenCalledWith(expect.stringContaining("/object/grant-access"), payload);
+    expect(http.post).toHaveBeenCalledWith(expect.stringContaining("/objects/grant-access"), payload);
   });
 
   it("revokes with both the resource and the policy id", async () => {
     await service.revokeAccessPolicy("res-1", "policy-1");
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/object/revoke-access-policy"),
+      expect.stringContaining("/objects/revoke-access-policy"),
       { resourceId: "res-1", policyItemId: "policy-1" },
     );
   });
@@ -89,7 +89,7 @@ describe("DmsContentService", () => {
     await service.toggleInheritance("res-1", false);
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/object/toggle-inheritance"),
+      expect.stringContaining("/objects/toggle-inheritance"),
       { resourceId: "res-1", inheritsParentAccess: false },
     );
   });
@@ -98,7 +98,7 @@ describe("DmsContentService", () => {
     await service.copyFile("file-1", "dir-2");
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/file/copy-file"),
+      expect.stringContaining("/files/copy-file"),
       { fileId: "file-1", targetDirectoryId: "dir-2", copyAccessPolicies: false },
     );
   });
@@ -116,7 +116,7 @@ describe("DmsContentService", () => {
     await service.getFileVersions("file-1", "cursor-1", 10);
 
     const url = (http.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-    expect(url).toContain("/file/get-file-versions");
+    expect(url).toContain("/files/get-file-versions");
     expect(url).toContain("fileId=file-1");
     expect(url).toContain("cursor=cursor-1");
     expect(url).toContain("limit=10");
@@ -133,7 +133,7 @@ describe("DmsContentService", () => {
     });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/object/update-access-policy"),
+      expect.stringContaining("/objects/update-access-policy"),
       expect.objectContaining({ policyItemId: "policy-1" }),
     );
   });
@@ -142,7 +142,7 @@ describe("DmsContentService", () => {
     await service.resolveAccess("res-1");
 
     expect(http.get).toHaveBeenCalledWith(
-      expect.stringContaining("/object/resolve-access?resourceId=res-1"),
+      expect.stringContaining("/objects/resolve-access?resourceId=res-1"),
     );
   });
 
@@ -159,7 +159,7 @@ describe("DmsContentService", () => {
     await service.shareObject(payload);
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/object/share-object"),
+      expect.stringContaining("/objects/share-object"),
       payload,
     );
   });
@@ -168,7 +168,7 @@ describe("DmsContentService", () => {
     await service.createFileVersion("file-1", "azure");
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/file/create-file-version"),
+      expect.stringContaining("/files/create-file-version"),
       { fileId: "file-1", configurationName: "azure" },
     );
   });
@@ -177,7 +177,7 @@ describe("DmsContentService", () => {
     await service.moveFile("file-1", "dir-2");
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/file/move-file"),
+      expect.stringContaining("/files/move-file"),
       { fileId: "file-1", targetDirectoryId: "dir-2" },
     );
   });

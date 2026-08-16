@@ -33,7 +33,7 @@ public class MockDataController : ControllerBase
     /// </summary>
     /// <returns>Returns the mock data for the project.</returns>
     [HttpGet]
-    [ProtectedEndPoint("blocks-data::get-mock-data")]
+    [ProtectedEndPoint("blocks-data::mock-data::get-mock-data")]
     [ProducesResponseType(typeof(ServiceResponse<MockDataResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetMockDataAsync()
@@ -51,7 +51,7 @@ public class MockDataController : ControllerBase
     [HttpPost("delete")]
     // Deprecated: use POST mock-data/delete. DELETE with a request body is dropped by many proxies/clients.
     [HttpDelete]
-    [ProtectedEndPoint("blocks-data::delete-mock-data")]
+    [ProtectedEndPoint("blocks-data::mock-data::delete-mock-data")]
     [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> DeleteMockData([FromBody] DeleteMockDataRequest request)

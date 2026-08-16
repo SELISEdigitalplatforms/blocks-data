@@ -34,13 +34,6 @@ type StorageCardProps = {
   onDisconnect?: (id: string) => void;
 };
 
-// Provider icon mapping (not currently used - component uses inline SVGs)
-// const providerIcons: Record<StorageStrategyType, string> = {
-//   Amazon: "aws",
-//   Azure: "azure",
-//   SftpStorage: "sftp",
-// };
-
 // Provider color classes for the icon background
 const providerColors: Record<StorageStrategyType, string> = {
   Amazon: "bg-orange-100 text-orange-600",

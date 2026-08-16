@@ -153,7 +153,6 @@ describe("generate-preview-queries", () => {
       expect(buildInputValue(ref("INPUT_OBJECT", "Foo"), map, 0, "", new Set(), "where")).toBe("{}");
       // depth guard collapses.
       expect(buildInputValue(ref("INPUT_OBJECT", "Foo"), map, 6, "", new Set())).toBe("{}");
-      // visited (recursion) guard collapses.
       expect(buildInputValue(ref("INPUT_OBJECT", "Foo"), map, 0, "", new Set(["Foo"]))).toBe("{}");
       // empty input object collapses.
       expect(buildInputValue(ref("INPUT_OBJECT", "Empty"), map, 0, "", new Set())).toBe("{}");

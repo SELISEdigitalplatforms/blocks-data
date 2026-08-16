@@ -72,6 +72,17 @@ describe("PermissionGroupSection", () => {
     expect(onTrigger).toHaveBeenCalled();
   });
 
+  it.each([["{Enter}"], [" "]])("fires onTrigger when %s is pressed on the header", async (key) => {
+    const user = userEvent.setup();
+    renderGroup({ name: "Roles", permissions: [perm("read")] });
+
+    const header = screen.getByText("Roles").closest('[role="button"]') as HTMLElement;
+    header.focus();
+    await user.keyboard(key);
+
+    expect(onTrigger).toHaveBeenCalled();
+  });
+
   it("disables the group checkbox when not in edit mode", () => {
     state.isEditMode = false;
     renderGroup({ name: "Users", permissions: [perm("read")] });

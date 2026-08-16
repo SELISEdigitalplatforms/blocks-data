@@ -189,9 +189,6 @@ export default function ImportSchemaModal({
     }
   };
 
-  // const checkActivity = () => {
-  //   router.push(`/services/language?languageActivity=activity`);
-  // };
 
   return (
     <DialogContent className="rounded-sm border border-border/40 sm:max-w-[440px]">

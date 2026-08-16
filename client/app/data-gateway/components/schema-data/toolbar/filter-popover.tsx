@@ -111,8 +111,6 @@ function resolveFieldCategory(
   return "string";
 }
 
-// Wraps an ISO string in a sentinel so buildFilterString can replace it with
-// ISODate("...") — which is not valid JSON but required by the backend parser.
 const ISO_DATE_SENTINEL = "__ISODATE:";
 function isoDateMarker(iso: string): string {
   return `${ISO_DATE_SENTINEL}${iso}__`;

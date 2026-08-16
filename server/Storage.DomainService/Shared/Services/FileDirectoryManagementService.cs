@@ -1,0 +1,482 @@
+using Blocks.Genesis;
+using DomainService.Storage;
+using MongoDB.Driver;
+using Storage.DomainService.Entities;
+using Storage.DomainService.Enums;
+using FileDirectory = Storage.DomainService.Entities.FileDirectory;
+using File = Storage.DomainService.Entities.File;
+
+namespace Storage.DomainService.Services
+{
+    /// <summary>
+    /// Directory lifecycle: create, read, rename and delete.
+    /// </summary>
+    /// <remarks>
+    /// Directory operations live here rather than on <c>FileManagementService</c>, which now
+    /// owns only file-level concerns.
+    ///
+    /// Deletion is soft by default. A permanent delete removes the directory and every
+    /// descendant after the caller's Delete permission on the requested directory is verified.
+    /// </remarks>
+    public class FileDirectoryManagementService : IFileDirectoryManagementService
+    {
+        private readonly IDbContextProvider _dbContextProvider;
+        private readonly IObjectAccessResolver _resolver;
+        private readonly IObjectAccessRepository _accessRepository;
+        private readonly IFileManagementService _fileManagementService;
+        private readonly IObjectItemWriter? _objectItems;
+
+        public FileDirectoryManagementService(
+            IDbContextProvider dbContextProvider,
+            IObjectAccessResolver resolver,
+            IObjectAccessRepository accessRepository,
+            IFileManagementService fileManagementService,
+            IObjectItemWriter? objectItems = null)
+        {
+            _dbContextProvider = dbContextProvider;
+            _resolver = resolver;
+            _accessRepository = accessRepository;
+            _fileManagementService = fileManagementService;
+            _objectItems = objectItems;
+        }
+
+        private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
+        private static string UserId => BlocksContext.GetContext()?.UserId ?? string.Empty;
+
+        private IMongoCollection<FileDirectory> Directories => _dbContextProvider.GetCollection<FileDirectory>("FileDirectories");
+        private IMongoCollection<File> Files => _dbContextProvider.GetCollection<File>("Files");
+
+        public async Task<DirectoryOperationResult> CreateDirectoryAsync(
+            string name,
+            string? parentDirectoryId,
+            string? description = null,
+            string? configurationName = null,
+            string? moduleName = null,
+            string[]? allowedFileExtensions = null,
+            CancellationToken cancellationToken = default)
+        {
+            var systemName = ToSystemName(name);
+            FileDirectory? parent = null;
+
+            if (!string.IsNullOrWhiteSpace(parentDirectoryId))
+            {
+                parent = await LoadDirectoryAsync(parentDirectoryId!, cancellationToken);
+                if (parent is null)
+                {
+                    return DirectoryOperationResult.Failure(DirectoryOperationStatus.ParentNotFound);
+                }
+
+                if (!await _resolver.ResolveAsync(Describe(parent), ObjectPermission.Edit, cancellationToken))
+                {
+                    await AuditAsync(parent.ItemId, ObjectResourceType.Directory, "Edit", false,
+                        $"create directory '{name}' refused", cancellationToken);
+                    return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotPermitted);
+                }
+            }
+
+            if (await SiblingNameTakenAsync(parentDirectoryId, systemName, null, cancellationToken))
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NameConflict);
+            }
+
+            var ancestorIds = parent is null
+                ? new List<string>()
+                : new List<string>(parent.AncestorIds) { parent.ItemId };
+
+            var directory = FileDirectory.CreateNew(new DirectoryOptions
+            {
+                ItemId = Guid.NewGuid().ToString(),
+                Name = name,
+                ParentId = parentDirectoryId ?? string.Empty,
+                TenantId = TenantId,
+                CreatedBy = UserId,
+                CreateDate = DateTime.UtcNow,
+                AncestorIds = ancestorIds,
+                FullPath = BuildPath(parent?.FullPath, name),
+                Description = description,
+                ConfigurationName = configurationName,
+                ModuleName = moduleName,
+                AllowedFileExtensions = allowedFileExtensions ?? Array.Empty<string>(),
+            });
+
+            // CreateNew derives SystemName from the untrimmed name; set it from the same
+            // value the uniqueness check used so the two can never drift.
+            directory.SystemName = systemName;
+
+            await Directories.InsertOneAsync(directory, cancellationToken: cancellationToken);
+            if (_objectItems is not null) await _objectItems.UpsertAsync(directory, cancellationToken);
+
+            if (parent is not null)
+            {
+                await Directories.UpdateOneAsync(
+                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, parent.ItemId),
+                    Builders<FileDirectory>.Update.Inc(d => d.ChildDirectoryCount, 1),
+                    cancellationToken: cancellationToken);
+            }
+
+            await AuditAsync(directory.ItemId, ObjectResourceType.Directory, "Edit", true, "directory created", cancellationToken);
+
+            return DirectoryOperationResult.Success(directory.ItemId, directory);
+        }
+
+        public async Task<DirectoryOperationResult> GetDirectoryAsync(string directoryId, CancellationToken cancellationToken = default)
+        {
+            var directory = await LoadDirectoryAsync(directoryId, cancellationToken);
+            if (directory is null)
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound);
+            }
+
+            var flags = await _resolver.ResolveFlagsAsync(Describe(directory), cancellationToken);
+            if (!flags.CanView)
+            {
+                // Refused reads report NotFound rather than NotPermitted, so a caller cannot
+                // use this endpoint to discover that a directory exists.
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "View", false, null, cancellationToken);
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound);
+            }
+
+            return DirectoryOperationResult.Success(directory.ItemId, directory, flags);
+        }
+
+        public async Task<FileDirectory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(moduleName)) return null;
+
+            var filter = (Builders<FileDirectory>.Filter.Eq(d => d.ModuleName, moduleName)
+                          | Builders<FileDirectory>.Filter.Eq(d => d.Description, moduleName))
+                         & Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false);
+
+            return await (await Directories.FindAsync(filter, cancellationToken: cancellationToken))
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        public async Task<DirectoryOperationResult> UpdateDirectoryAsync(
+            string directoryId, string? name, string? description, CancellationToken cancellationToken = default)
+        {
+            var directory = await LoadDirectoryAsync(directoryId, cancellationToken);
+            if (directory is null)
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound);
+            }
+
+            // Default directories are system roots: their name is part of the tenant
+            // contract, so renaming them is refused outright.
+            if (IsDefaultDirectory(directory))
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.IsDefault);
+            }
+
+            if (!await _resolver.ResolveAsync(Describe(directory), ObjectPermission.Edit, cancellationToken))
+            {
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "Edit", false, null, cancellationToken);
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotPermitted);
+            }
+
+            var updates = new List<UpdateDefinition<FileDirectory>>();
+            var renamed = !string.IsNullOrWhiteSpace(name) && !string.Equals(name, directory.Name, StringComparison.Ordinal);
+
+            if (renamed)
+            {
+                var systemName = ToSystemName(name!);
+                if (await SiblingNameTakenAsync(directory.ParentId, systemName, directory.ItemId, cancellationToken))
+                {
+                    return DirectoryOperationResult.Failure(DirectoryOperationStatus.NameConflict);
+                }
+
+                updates.Add(Builders<FileDirectory>.Update.Set(d => d.Name, name));
+                updates.Add(Builders<FileDirectory>.Update.Set(d => d.SystemName, systemName));
+                updates.Add(Builders<FileDirectory>.Update.Set(d => d.FullPath, RenameLeaf(directory.FullPath, name!)));
+            }
+
+            if (description is not null)
+            {
+                updates.Add(Builders<FileDirectory>.Update.Set(d => d.Description, description));
+            }
+
+            if (updates.Count == 0)
+            {
+                return DirectoryOperationResult.Success(directory.ItemId, directory);
+            }
+
+            updates.Add(Builders<FileDirectory>.Update.Set(d => d.LastUpdatedBy, UserId));
+            updates.Add(Builders<FileDirectory>.Update.Set(d => d.LastUpdatedDate, DateTime.UtcNow));
+
+            await Directories.UpdateOneAsync(
+                Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directory.ItemId),
+                Builders<FileDirectory>.Update.Combine(updates),
+                cancellationToken: cancellationToken);
+            await SyncDirectoryAsync(directory.ItemId, cancellationToken);
+
+            await AuditAsync(directoryId, ObjectResourceType.Directory, "Edit", true,
+                renamed ? $"renamed to '{name}'" : "metadata updated", cancellationToken);
+
+            // A rename changes the stored path of every descendant. Callers that care about
+            // descendant paths run the hierarchy rebuild; it is not done inline because a
+            // rename near the root would turn one request into an unbounded write.
+            return DirectoryOperationResult.Success(directory.ItemId, directory);
+        }
+
+        public async Task<DirectoryOperationResult> DeleteDirectoryAsync(
+            string directoryId, bool permanent = true, CancellationToken cancellationToken = default)
+        {
+            var directory = await LoadDirectoryAsync(directoryId, cancellationToken, includeArchived: true);
+            if (directory is null)
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound);
+            }
+
+            // Default directories are system roots: deleting one would unanchor the
+            // tenant tree, so it is refused regardless of permissions.
+            if (IsDefaultDirectory(directory))
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.IsDefault);
+            }
+
+            if (!await _resolver.ResolveAsync(Describe(directory), ObjectPermission.Delete, cancellationToken))
+            {
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "Delete", false, null, cancellationToken);
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotPermitted);
+            }
+
+            if (permanent)
+            {
+                // Cascade: permanently delete the directory and every descendant
+                // (subdirectories and files) in one pass. Descendants are identified via
+                // the cached AncestorIds array, which contains the deleted directory's id.
+                var descendantDirectoryFilter = Builders<FileDirectory>.Filter.Or(
+                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId),
+                    Builders<FileDirectory>.Filter.AnyEq(d => d.AncestorIds, directoryId));
+                var doomedDirectories = await (await Directories.FindAsync(descendantDirectoryFilter, cancellationToken: cancellationToken))
+                    .ToListAsync(cancellationToken);
+                var doomedDirectoryIds = doomedDirectories.Select(d => d.ItemId).ToList();
+
+                // Delete every descendant file through the file-management service so that
+                // the stored object (Azure/S3/local), the FileVersion rows, and the File
+                // document are all removed. Each file carries its own ConfigurationName,
+                // so the correct storage provider is resolved per file.
+                var doomedFiles = await (await Files.FindAsync(
+                    Builders<File>.Filter.Or(
+                        Builders<File>.Filter.AnyIn(f => f.AncestorIds, doomedDirectoryIds),
+                        Builders<File>.Filter.In(f => f.DirectoryId, doomedDirectoryIds)),
+                    cancellationToken: cancellationToken))
+                    .ToListAsync(cancellationToken);
+
+                foreach (var file in doomedFiles)
+                {
+                    await _fileManagementService.DeleteFileForDirectoryCascadeAsync(new DeleteFileRequest
+                    {
+                        FileId = file.ItemId,
+                        ConfigurationName = file.ConfigurationName,
+                    });
+                }
+
+                foreach (var id in doomedDirectoryIds)
+                {
+                    await _accessRepository.RevokeAllForResourceAsync(id, cancellationToken);
+                    if (_objectItems is not null) await _objectItems.DeleteAsync(id, cancellationToken);
+                }
+
+                // Delete the directory and all its subdirectories.
+                await Directories.DeleteManyAsync(descendantDirectoryFilter, cancellationToken);
+
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "Delete", true, "permanent (cascade)", cancellationToken);
+            }
+            else
+            {
+                var descendantDirectoryFilter = DescendantDirectoryFilter(directoryId);
+                var descendantDirectories = await (await Directories.FindAsync(
+                    descendantDirectoryFilter, cancellationToken: cancellationToken))
+                    .ToListAsync(cancellationToken);
+                var descendantDirectoryIds = descendantDirectories.Select(d => d.ItemId).ToList();
+
+                await Directories.UpdateManyAsync(
+                    descendantDirectoryFilter,
+                    Builders<FileDirectory>.Update
+                        .Set(d => d.IsArchived, true)
+                        .Set(d => d.LastUpdatedBy, UserId)
+                        .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
+                    cancellationToken: cancellationToken);
+
+                await Files.UpdateManyAsync(
+                    DescendantFileFilter(descendantDirectoryIds),
+                    Builders<File>.Update
+                        .Set(f => f.IsArchived, true)
+                        .Set(f => f.LastUpdatedBy, UserId)
+                        .Set(f => f.LastUpdatedDate, DateTime.UtcNow),
+                    cancellationToken: cancellationToken);
+                if (_objectItems is not null)
+                    await _objectItems.SetArchiveByDirectoryIdsAsync(descendantDirectoryIds, true, cancellationToken);
+                foreach (var id in descendantDirectoryIds)
+                    await SyncDirectoryAsync(id, cancellationToken);
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "Delete", true, "trashed", cancellationToken);
+            }
+
+            if (!string.IsNullOrWhiteSpace(directory.ParentId))
+            {
+                await Directories.UpdateOneAsync(
+                    Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directory.ParentId),
+                    Builders<FileDirectory>.Update.Inc(d => d.ChildDirectoryCount, -1),
+                    cancellationToken: cancellationToken);
+            }
+
+            return DirectoryOperationResult.Success(directoryId);
+        }
+
+        public async Task<DirectoryOperationResult> RestoreDirectoryAsync(
+            string directoryId, CancellationToken cancellationToken = default)
+        {
+            var directory = await LoadDirectoryAsync(directoryId, cancellationToken, includeArchived: true);
+            if (directory is null || !directory.IsArchived)
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotFound);
+            }
+
+            if (!await _resolver.ResolveAsync(Describe(directory), ObjectPermission.Delete, cancellationToken))
+            {
+                await AuditAsync(directoryId, ObjectResourceType.Directory, "Restore", false, null, cancellationToken);
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.NotPermitted);
+            }
+
+            var descendantDirectoryFilter = DescendantDirectoryFilter(directoryId);
+            var descendantDirectories = await (await Directories.FindAsync(
+                descendantDirectoryFilter, cancellationToken: cancellationToken))
+                .ToListAsync(cancellationToken);
+            var descendantDirectoryIds = descendantDirectories.Select(d => d.ItemId).ToList();
+
+            await Directories.UpdateManyAsync(
+                descendantDirectoryFilter,
+                Builders<FileDirectory>.Update
+                    .Set(d => d.IsArchived, false)
+                    .Set(d => d.LastUpdatedBy, UserId)
+                    .Set(d => d.LastUpdatedDate, DateTime.UtcNow),
+                cancellationToken: cancellationToken);
+
+            await Files.UpdateManyAsync(
+                DescendantFileFilter(descendantDirectoryIds),
+                Builders<File>.Update
+                    .Set(f => f.IsArchived, false)
+                    .Set(f => f.LastUpdatedBy, UserId)
+                    .Set(f => f.LastUpdatedDate, DateTime.UtcNow),
+                cancellationToken: cancellationToken);
+            if (_objectItems is not null)
+                await _objectItems.SetArchiveByDirectoryIdsAsync(descendantDirectoryIds, false, cancellationToken);
+            foreach (var id in descendantDirectoryIds)
+                await SyncDirectoryAsync(id, cancellationToken);
+
+            await AuditAsync(directoryId, ObjectResourceType.Directory, "Restore", true, "subtree", cancellationToken);
+            return DirectoryOperationResult.Success(directoryId);
+        }
+
+        private async Task<FileDirectory?> LoadDirectoryAsync(
+            string directoryId, CancellationToken cancellationToken, bool includeArchived = false)
+        {
+            var filter = Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId);
+
+            if (!includeArchived)
+            {
+                filter &= Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false);
+            }
+
+            return await (await Directories.FindAsync(filter, cancellationToken: cancellationToken))
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        private async Task SyncDirectoryAsync(string directoryId, CancellationToken cancellationToken)
+        {
+            if (_objectItems is null) return;
+            var directory = await Directories.Find(Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId))
+                .FirstOrDefaultAsync(cancellationToken);
+            if (directory is not null) await _objectItems.UpsertAsync(directory, cancellationToken);
+        }
+
+        private static FilterDefinition<FileDirectory> DescendantDirectoryFilter(string directoryId) =>
+            Builders<FileDirectory>.Filter.Or(
+                Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId),
+                Builders<FileDirectory>.Filter.AnyEq(d => d.AncestorIds, directoryId));
+
+        private static FilterDefinition<File> DescendantFileFilter(IReadOnlyCollection<string> directoryIds) =>
+            Builders<File>.Filter.Or(
+                Builders<File>.Filter.AnyIn(f => f.AncestorIds, directoryIds),
+                Builders<File>.Filter.In(f => f.DirectoryId, directoryIds));
+
+        /// <summary>
+        /// A directory counts as a default/system root when its <see cref="BaseEntity.Tags"/>
+        /// array contains the marker <c>"default"</c>. Default directories are cloned from the
+        /// seed templates (Cloud/Construct/etc) which tag themselves this way; user-created
+        /// directories never carry the tag, so it is a stable marker for "this anchors the
+        /// tenant tree". Such directories cannot be moved, renamed or deleted.
+        /// </summary>
+        private static bool IsDefaultDirectory(FileDirectory directory)
+            => directory.Tags?.Contains("default", StringComparer.OrdinalIgnoreCase) == true;
+
+        private async Task<bool> SiblingNameTakenAsync(
+            string? parentDirectoryId, string systemName, string? excludingItemId, CancellationToken cancellationToken)
+        {
+            // Directory.CreateNew stores a root directory's parent as null, not "". Comparing
+            // against "" here would mean no root directory ever matched another, so duplicate
+            // root names would all be accepted.
+            var parentFilter = string.IsNullOrWhiteSpace(parentDirectoryId)
+                ? Builders<FileDirectory>.Filter.Eq(d => d.ParentId, null)
+                : Builders<FileDirectory>.Filter.Eq(d => d.ParentId, parentDirectoryId);
+
+            var filter = Builders<FileDirectory>.Filter.And(
+                parentFilter,
+                Builders<FileDirectory>.Filter.Eq(d => d.SystemName, systemName),
+                Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false));
+
+            if (!string.IsNullOrWhiteSpace(excludingItemId))
+            {
+                filter &= Builders<FileDirectory>.Filter.Ne(d => d.ItemId, excludingItemId);
+            }
+
+            return await Directories.CountDocumentsAsync(filter, cancellationToken: cancellationToken) > 0;
+        }
+
+        private static ObjectResourceDescriptor Describe(FileDirectory directory) => new()
+        {
+            ResourceId = directory.ItemId,
+            AncestorIds = directory.AncestorIds ?? new List<string>(),
+            InheritsParentAccess = directory.InheritsParentAccess,
+            CreatedBy = directory.CreatedBy,
+        };
+
+        /// <summary>
+        /// The lookup key for sibling uniqueness. This has to match what
+        /// <see cref="FileDirectory.CreateNew(DirectoryOptions)"/> stores, which is the name
+        /// lowercased, or the duplicate check would compare against a value that is never
+        /// written and silently allow two siblings with the same name.
+        /// </summary>
+        public static string ToSystemName(string name) => (name ?? string.Empty).Trim().ToLowerInvariant();
+
+        public static string BuildPath(string? parentPath, string name) =>
+            string.IsNullOrWhiteSpace(parentPath) ? $"/{name}" : $"{parentPath.TrimEnd('/')}/{name}";
+
+        public static string RenameLeaf(string? fullPath, string newName)
+        {
+            if (string.IsNullOrWhiteSpace(fullPath))
+            {
+                return $"/{newName}";
+            }
+
+            var lastSlash = fullPath.LastIndexOf('/');
+            return lastSlash <= 0 ? $"/{newName}" : $"{fullPath[..lastSlash]}/{newName}";
+        }
+
+        private Task AuditAsync(
+            string resourceId, ObjectResourceType resourceType, string action, bool granted,
+            string? detail, CancellationToken cancellationToken) =>
+            _accessRepository.WriteAuditAsync(new ObjectAuditLog
+            {
+                ItemId = Guid.NewGuid().ToString(),
+                TenantId = TenantId,
+                ResourceId = resourceId,
+                ResourceType = resourceType,
+                UserId = UserId,
+                Action = action,
+                Granted = granted,
+                Detail = detail,
+                CreatedDate = DateTime.UtcNow,
+            }, cancellationToken);
+    }
+}

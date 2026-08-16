@@ -1,6 +1,6 @@
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 
-export const FolderGridSkeleton = () => (
+export const DirectoryGridSkeleton = () => (
   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
     {Array.from({ length: 4 }).map((_, index) => (
       <div
@@ -17,7 +17,7 @@ export const FolderGridSkeleton = () => (
   </div>
 );
 
-export const FolderListSkeleton = () => (
+export const DirectoryListSkeleton = () => (
   <div className="rounded-lg border bg-background">
     <div className="grid grid-cols-[2fr,1fr,1fr,1fr,auto] gap-4 border-b bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground">
       <div>Name</div>

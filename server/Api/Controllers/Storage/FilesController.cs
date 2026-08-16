@@ -35,6 +35,7 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
+        [HttpGet("GetFile"), Obsolete("Use get-file instead.")]
         [HttpGet("get-file")]
         [ProtectedEndPoint("blocks-data::file::get-file")]
         public async Task<FileResponse?> GetFile([FromQuery] GetFileRequest request)
@@ -47,6 +48,7 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
+        [HttpPost("GetFiles"), Obsolete("Use get-files instead.")]
         [HttpPost("get-files")]
         [ProtectedEndPoint("blocks-data::file::get-files")]
         public async Task<List<FileResponse>?> GetFiles([FromBody] GetFilesRequest request)
@@ -59,6 +61,7 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
+        [HttpPost("GetFilesInfo"), Obsolete("Use get-files-info instead.")]
         [HttpPost("get-files-info")]
         [ProtectedEndPoint("blocks-data::file::get-files-info")]
         public async Task<GetFilesInfoResponse> GetFilesInfo([FromBody] GetFilesInfoRequest request)
@@ -71,6 +74,7 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing upload details.</param>
         /// <returns>A response containing the pre-signed URL for upload.</returns>
+        [HttpPost("GetPreSignedUrlForUpload"), Obsolete("Use get-pre-signed-url-for-upload instead.")]
         [HttpPost("get-pre-signed-url-for-upload")]
         [ProtectedEndPoint("blocks-data::file::get-pre-signed-url-for-upload")]
         public async Task<GetPreSignedUrlForUploadResponse> GetPreSignedUrlForUpload([FromBody] GetPreSignedUrlForUploadRequest request)
@@ -83,6 +87,7 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing file deletion details.</param>
         /// <returns>A response indicating the result of the delete operation.</returns>
+        [HttpPost("DeleteFile"), Obsolete("Use delete-file instead.")]
         [HttpPost("delete-file")]
         [ProtectedEndPoint("blocks-data::file::delete-file")]
         public async Task<BaseResponse> DeleteFile([FromBody] DeleteFileRequest request)
@@ -95,6 +100,7 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing the file stream and metadata for the upload.</param>
         /// <returns>A response containing the details of the uploaded file.</returns>
+        [HttpPost("UploadFileToLocalStorage"), Obsolete("Use upload-file-to-local-storage instead.")]
         [HttpPost("upload-file-to-local-storage")]
         [ProtectedEndPoint("blocks-data::file::upload-file-to-local-storage")]
         public async Task<LocalStorageUploadResponse> UploadFileToLocalStorage([FromForm] LocalStorageUploadRequest request)
@@ -108,6 +114,7 @@ namespace Api.Controllers
         /// <param name="request">The request containing file download details.</param>
         /// <returns>A response containing the file stream and metadata of the downloaded file.</returns>
         [ApiExplorerSettings(IgnoreApi = true)]
+        [HttpGet("DownloadFile"), Obsolete("Use download-file instead.")]
         [HttpGet("download-file")]
         [ProtectedEndPoint("blocks-data::file::download-file")]
         public async Task<IActionResult> DownloadFile([FromQuery] DownloadFileRequest request)
@@ -122,6 +129,13 @@ namespace Api.Controllers
             return File(fileResponse.FileStream, "application/octet-stream", fileResponse.FileName);
         }
 
+
+        /// <summary>
+        /// Updates additional information for a file, such as metadata or custom attributes.
+        /// </summary>
+        /// <param name="command"></param>
+        /// <returns></returns>
+        [HttpPost("UpdateFileAdditionalInfo"), Obsolete("Use update-file-additional-info instead.")]
         [HttpPost("update-file-additional-info")]
         [ProtectedEndPoint("blocks-data::file::update-file-additional-info")]
         public async Task<IActionResult> UpdateFileAdditionalInfo([FromBody] UpdateFileRequest command)
@@ -131,14 +145,12 @@ namespace Api.Controllers
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
-        // Deprecated: use /Files/UpdateFileAdditionalInfo. Kept so the leaked camelCase URL keeps working.
-        // No kebab-case route here: it would collide with UpdateFileAdditionalInfo's own kebab route above.
-        [HttpPost("updateFileAdditionalInfo")]
-        [ProtectedEndPoint("blocks-data::file::update-file-additional-info")]
-        public Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
-            => UpdateFileAdditionalInfo(command);
-
-        /// <summary>Cursor-paginated version history of a file, newest first.</summary>
+        /// <summary>
+        /// Retrieves the version history of a file, including details about each version and pagination information.
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [HttpGet("GetFileVersions"), Obsolete("Use get-file-versions instead.")]
         [HttpGet("get-file-versions")]
         [ProtectedEndPoint("blocks-data::file::get-file-versions")]
         public async Task<IActionResult> GetFileVersions([FromQuery] GetFileVersionsRequest request)
@@ -152,7 +164,12 @@ namespace Api.Controllers
             });
         }
 
-        /// <summary>Creates the next version of a file and returns a presigned upload URL.</summary>
+        /// <summary>
+        /// Creates a new version of a file, allowing for version control and tracking of changes over time.
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [HttpPost("CreateFileVersion"), Obsolete("Use create-file-version instead.")]
         [HttpPost("create-file-version")]
         [ProtectedEndPoint("blocks-data::file::create-file-version")]
         public async Task<IActionResult> CreateFileVersion([FromBody] CreateFileVersionRequest request)
@@ -161,7 +178,12 @@ namespace Api.Controllers
             return result.IsSuccess ? Ok(result) : BadRequest(result);
         }
 
-        /// <summary>Copies a file into another directory without duplicating its stored bytes.</summary>
+        /// <summary>
+        /// Copies a file into another directory without duplicating its stored bytes.
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [HttpPost("CopyFile"), Obsolete("Use copy-file instead.")]
         [HttpPost("copy-file")]
         [ProtectedEndPoint("blocks-data::file::copy-file")]
         public async Task<IActionResult> CopyFile([FromBody] CopyFileRequest request)
@@ -172,7 +194,12 @@ namespace Api.Controllers
                 : MapFileOperation(result.Status);
         }
 
-        /// <summary>Re-parents a file into another directory.</summary>
+        /// <summary>
+        /// Moves a file to another directory without changing its stored bytes.
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [HttpPost("MoveFile"), Obsolete("Use move-file instead.")]
         [HttpPost("move-file")]
         [ProtectedEndPoint("blocks-data::file::move-file")]
         public async Task<IActionResult> MoveFile([FromBody] MoveFileRequest request)
@@ -183,7 +210,12 @@ namespace Api.Controllers
                 : MapFileOperation(result.Status);
         }
 
-        /// <summary>Renames a file without moving it or changing its stored content.</summary>
+        /// <summary>
+        /// Renames a file, allowing for changing its name while keeping it in the same directory and preserving its stored bytes.
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [HttpPost("RenameFile"), Obsolete("Use rename-file instead.")]
         [HttpPost("rename-file")]
         [ProtectedEndPoint("blocks-data::file::rename-file")]
         public async Task<IActionResult> RenameFile([FromBody] RenameFileRequest request)

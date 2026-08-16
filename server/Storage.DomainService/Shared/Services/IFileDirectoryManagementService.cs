@@ -7,7 +7,7 @@ public interface IFileDirectoryManagementService
 {
     /// <summary>
     /// Creates a directory. A root directory is gated at the endpoint by
-    /// <c>blocks-data::create-root-directory</c>; a nested directory additionally requires
+    /// <c>blocks-data::directory::create-root-directory</c>; a nested directory additionally requires
     /// Edit on the parent, which is checked here.
     /// </summary>
     Task<DirectoryOperationResult> CreateDirectoryAsync(

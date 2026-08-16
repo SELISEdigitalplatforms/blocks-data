@@ -13,7 +13,7 @@ namespace Api.Controllers
     /// Controller for managing file-related operations such as downloading, uploading, and deleting files.
     /// </summary>
     [ApiController]
-    [Route("[controller]/[action]")]
+    [Route("[controller]")]
     public class FilesController : ControllerBase
     {
         private readonly IFileManagementService _fileManagementService;
@@ -35,8 +35,9 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
-        [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-file")]
+        [HttpGet("GetFile")]
+        [HttpGet("get-file")]
+        [ProtectedEndPoint("blocks-data::file::get-file")]
         public async Task<FileResponse?> GetFile([FromQuery] GetFileRequest request)
         {
             return await _fileManagementService.GetUrlForDownloadFileAsync(request);
@@ -47,8 +48,9 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::get-files")]
+        [HttpPost("GetFiles")]
+        [HttpPost("get-files")]
+        [ProtectedEndPoint("blocks-data::file::get-files")]
         public async Task<List<FileResponse>?> GetFiles([FromBody] GetFilesRequest request)
         {
             return await _fileManagementService.GetMultipleUrlsForDownloadFilesAsync(request);
@@ -59,8 +61,9 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing file details.</param>
         /// <returns>A response containing the file details or null if not found.</returns>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::get-files-info")]
+        [HttpPost("GetFilesInfo")]
+        [HttpPost("get-files-info")]
+        [ProtectedEndPoint("blocks-data::file::get-files-info")]
         public async Task<GetFilesInfoResponse> GetFilesInfo([FromBody] GetFilesInfoRequest request)
         {
             return await _fileManagementService.GetFilesInfoAsync(request);
@@ -71,8 +74,9 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing upload details.</param>
         /// <returns>A response containing the pre-signed URL for upload.</returns>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::get-pre-signed-url-for-upload")]
+        [HttpPost("GetPreSignedUrlForUpload")]
+        [HttpPost("get-pre-signed-url-for-upload")]
+        [ProtectedEndPoint("blocks-data::file::get-pre-signed-url-for-upload")]
         public async Task<GetPreSignedUrlForUploadResponse> GetPreSignedUrlForUpload([FromBody] GetPreSignedUrlForUploadRequest request)
         {
             return await _fileManagementService.GetPerSignedUrlForUploadAsync(request);
@@ -83,8 +87,9 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing file deletion details.</param>
         /// <returns>A response indicating the result of the delete operation.</returns>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::delete-file")]
+        [HttpPost("DeleteFile")]
+        [HttpPost("delete-file")]
+        [ProtectedEndPoint("blocks-data::file::delete-file")]
         public async Task<BaseResponse> DeleteFile([FromBody] DeleteFileRequest request)
         {
             return await _fileManagementService.DeleteFileAsync(request);
@@ -95,8 +100,9 @@ namespace Api.Controllers
         /// </summary>
         /// <param name="request">The request containing the file stream and metadata for the upload.</param>
         /// <returns>A response containing the details of the uploaded file.</returns>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::upload-file-to-local-storage")]
+        [HttpPost("UploadFileToLocalStorage")]
+        [HttpPost("upload-file-to-local-storage")]
+        [ProtectedEndPoint("blocks-data::file::upload-file-to-local-storage")]
         public async Task<LocalStorageUploadResponse> UploadFileToLocalStorage([FromForm] LocalStorageUploadRequest request)
         {
             return await _fileManagementService.UploadFileToLocalStorageAsync(request);
@@ -108,8 +114,9 @@ namespace Api.Controllers
         /// <param name="request">The request containing file download details.</param>
         /// <returns>A response containing the file stream and metadata of the downloaded file.</returns>
         [ApiExplorerSettings(IgnoreApi = true)]
-        [HttpGet]
-        [ProtectedEndPoint("blocks-data::download-file")]
+        [HttpGet("DownloadFile")]
+        [HttpGet("download-file")]
+        [ProtectedEndPoint("blocks-data::file::download-file")]
         public async Task<IActionResult> DownloadFile([FromQuery] DownloadFileRequest request)
         {
             var fileResponse = await _fileManagementService.DownloadFileFromLocalStorageAsync(request);
@@ -122,8 +129,9 @@ namespace Api.Controllers
             return File(fileResponse.FileStream, "application/octet-stream", fileResponse.FileName);
         }
 
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::update-file-additional-info")]
+        [HttpPost("UpdateFileAdditionalInfo")]
+        [HttpPost("update-file-additional-info")]
+        [ProtectedEndPoint("blocks-data::file::update-file-additional-info")]
         public async Task<IActionResult> UpdateFileAdditionalInfo([FromBody] UpdateFileRequest command)
         {
             if (command == null) return BadRequest();
@@ -132,15 +140,17 @@ namespace Api.Controllers
         }
 
         // Deprecated: use /Files/UpdateFileAdditionalInfo. Kept so the leaked camelCase URL keeps working.
+        // No kebab-case route here: it would collide with UpdateFileAdditionalInfo's own kebab route above.
         [Obsolete("Renamed to UpdateFileAdditionalInfo.")]
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::update-file-additional-info")]
+        [HttpPost("updateFileAdditionalInfo")]
+        [ProtectedEndPoint("blocks-data::file::update-file-additional-info")]
         public Task<IActionResult> updateFileAdditionalInfo([FromBody] UpdateFileRequest command)
             => UpdateFileAdditionalInfo(command);
 
         /// <summary>Cursor-paginated version history of a file, newest first.</summary>
-        [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-file-versions")]
+        [HttpGet("GetFileVersions")]
+        [HttpGet("get-file-versions")]
+        [ProtectedEndPoint("blocks-data::file::get-file-versions")]
         public async Task<IActionResult> GetFileVersions([FromQuery] GetFileVersionsRequest request)
         {
             var page = await _fileService.GetVersionsAsync(request.FileId, request.Cursor, request.Limit);
@@ -153,8 +163,9 @@ namespace Api.Controllers
         }
 
         /// <summary>Creates the next version of a file and returns a presigned upload URL.</summary>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::create-file-version")]
+        [HttpPost("CreateFileVersion")]
+        [HttpPost("create-file-version")]
+        [ProtectedEndPoint("blocks-data::file::create-file-version")]
         public async Task<IActionResult> CreateFileVersion([FromBody] CreateFileVersionRequest request)
         {
             var result = await _fileManagementService.CreateFileVersionAsync(request);
@@ -162,8 +173,9 @@ namespace Api.Controllers
         }
 
         /// <summary>Copies a file into another directory without duplicating its stored bytes.</summary>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::copy-file")]
+        [HttpPost("CopyFile")]
+        [HttpPost("copy-file")]
+        [ProtectedEndPoint("blocks-data::file::copy-file")]
         public async Task<IActionResult> CopyFile([FromBody] CopyFileRequest request)
         {
             var result = await _fileService.CopyFileAsync(request.FileId, request.TargetDirectoryId, request.CopyAccessPolicies);
@@ -173,8 +185,9 @@ namespace Api.Controllers
         }
 
         /// <summary>Re-parents a file into another directory.</summary>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::move-file")]
+        [HttpPost("MoveFile")]
+        [HttpPost("move-file")]
+        [ProtectedEndPoint("blocks-data::file::move-file")]
         public async Task<IActionResult> MoveFile([FromBody] MoveFileRequest request)
         {
             var result = await _fileService.MoveFileAsync(request.FileId, request.TargetDirectoryId);
@@ -184,8 +197,9 @@ namespace Api.Controllers
         }
 
         /// <summary>Renames a file without moving it or changing its stored content.</summary>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::rename-file")]
+        [HttpPost("RenameFile")]
+        [HttpPost("rename-file")]
+        [ProtectedEndPoint("blocks-data::file::rename-file")]
         public async Task<IActionResult> RenameFile([FromBody] RenameFileRequest request)
         {
             var result = await _fileService.RenameFileAsync(request.FileId, request.Name);

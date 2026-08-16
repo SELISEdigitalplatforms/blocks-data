@@ -23,6 +23,7 @@ public class ObjectDiscoveryServiceTests : IDisposable
 {
     private readonly IMongoDatabase _db;
     private readonly ObjectAccessRepository _accessRepository;
+    private readonly ObjectItemRepository _objectItems;
     private readonly Mock<IFileManagementService> _fileManagement = new();
     private readonly ObjectDiscoveryService _discovery;
 
@@ -35,8 +36,10 @@ public class ObjectDiscoveryServiceTests : IDisposable
         provider.Setup(p => p.GetCollection<File>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<File>(n));
         provider.Setup(p => p.GetCollection<ObjectAccessPolicy>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ObjectAccessPolicy>(n));
         provider.Setup(p => p.GetCollection<ObjectAuditLog>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ObjectAuditLog>(n));
+        provider.Setup(p => p.GetCollection<ObjectItem>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ObjectItem>(n));
 
         _accessRepository = new ObjectAccessRepository(provider.Object);
+        _objectItems = new ObjectItemRepository(provider.Object);
         _fileManagement
             .Setup(f => f.DeleteFileAsync(It.IsAny<DeleteFileRequest>()))
             .ReturnsAsync((DeleteFileRequest request) =>
@@ -57,7 +60,7 @@ public class ObjectDiscoveryServiceTests : IDisposable
         var directoryManagement = new FileDirectoryManagementService(
             provider.Object, resolver, _accessRepository, _fileManagement.Object);
         _discovery = new ObjectDiscoveryService(
-            provider.Object, resolver, _accessRepository, _fileManagement.Object, directoryManagement);
+            provider.Object, resolver, _accessRepository, _fileManagement.Object, directoryManagement, _objectItems);
 
         BlocksTestContext.Set(userId: "user-1", tenantId: "tenant-1", organizationId: "org-1", roles: new[] { "editor" });
     }
@@ -71,10 +74,11 @@ public class ObjectDiscoveryServiceTests : IDisposable
     private IMongoCollection<FileDirectory> Directories => _db.GetCollection<FileDirectory>("FileDirectories");
     private IMongoCollection<File> Files => _db.GetCollection<File>("Files");
 
-    private Task SeedDirectory(
+    private async Task SeedDirectory(
         string id, string name, string createdBy = "user-1", bool archived = false,
         List<string>? ancestorIds = null)
-        => Directories.InsertOneAsync(new FileDirectory
+    {
+        var directory = new FileDirectory
         {
             ItemId = id,
             TenantId = "tenant-1",
@@ -86,12 +90,16 @@ public class ObjectDiscoveryServiceTests : IDisposable
             IsArchived = archived,
             CreatedBy = createdBy,
             CreatedDate = DateTime.UtcNow,
-        });
+        };
+        await Directories.InsertOneAsync(directory);
+        await _objectItems.UpsertAsync(ObjectItem.From(directory));
+    }
 
-    private Task SeedFile(
+    private async Task SeedFile(
         string id, string name, string createdBy = "user-1", bool archived = false,
         List<string>? ancestorIds = null)
-        => Files.InsertOneAsync(new File
+    {
+        var file = new File
         {
             ItemId = id,
             TenantId = "tenant-1",
@@ -102,7 +110,10 @@ public class ObjectDiscoveryServiceTests : IDisposable
             IsArchived = archived,
             CreatedBy = createdBy,
             CreatedDate = DateTime.UtcNow,
-        });
+        };
+        await Files.InsertOneAsync(file);
+        await _objectItems.UpsertAsync(ObjectItem.From(file));
+    }
 
     // ---------- Search ----------
 

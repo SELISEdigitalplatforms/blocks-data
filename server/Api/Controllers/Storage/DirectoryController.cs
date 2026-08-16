@@ -120,7 +120,7 @@ namespace Api.Controllers
         /// <summary>Moves a directory to the trash, or removes it permanently.</summary>
         [HttpPost]
         [ProtectedEndPoint("blocks-data::delete-directory")]
-        public async Task<IActionResult> DeleteDirectory([FromBody] DeleteDirectoryObjectRequest request)
+        public async Task<IActionResult> DeleteDirectory([FromBody] DeleteDirectoryRequest request)
         {
             var result = await _directoryManagementService.DeleteDirectoryAsync(request.DirectoryId, request.Permanent);
 

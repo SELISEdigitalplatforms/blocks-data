@@ -22,13 +22,16 @@ namespace Api.Controllers
     {
         private readonly IObjectManagementService _objectManagementService;
         private readonly IObjectDiscoveryService _objectDiscoveryService;
+        private readonly IFileDirectoryManagementService _directoryManagementService;
 
         public ObjectController(
             IObjectManagementService objectManagementService,
-            IObjectDiscoveryService objectDiscoveryService)
+            IObjectDiscoveryService objectDiscoveryService,
+            IFileDirectoryManagementService directoryManagementService)
         {
             _objectManagementService = objectManagementService;
             _objectDiscoveryService = objectDiscoveryService;
+            _directoryManagementService = directoryManagementService;
         }
 
         /// <summary>Access-resolved, cursor-paginated files and directories under one parent.</summary>
@@ -36,6 +39,19 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::get-object")]
         public async Task<IActionResult> GetObject([FromQuery] GetObjectRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.ParentDirectoryId) && request.ModuleName.HasValue)
+            {
+                var defaultDirectory = await _directoryManagementService
+                    .GetDefaultDirectoryByModuleNameAsync(request.ModuleName.Value.ToString());
+
+                if (defaultDirectory is null)
+                {
+                    return NotFound(new { message = $"Default directory not found for module: {request.ModuleName}" });
+                }
+
+                request.ParentDirectoryId = defaultDirectory.ItemId;
+            }
+
             var page = await _objectDiscoveryService.GetObjectAsync(
                 request.ParentDirectoryId, ObjectKind.FromApiString(request.Type), request.Search,
                 request.Cursor, request.Limit);

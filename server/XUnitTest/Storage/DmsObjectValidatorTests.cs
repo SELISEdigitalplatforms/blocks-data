@@ -89,24 +89,24 @@ public class DmsObjectValidatorTests
     [Fact]
     public void A_children_request_accepts_an_empty_directory_for_root_listings()
     {
-        var validator = new GetDirectoryChildrenRequestValidator();
+        var validator = new GetObjectRequestValidator();
 
-        // An empty directory id selects the root listing rather than being rejected, so the
-        // storage page can call the same endpoint before any directory has been opened.
-        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "" }).IsValid.Should().BeTrue();
-        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Limit = 0 }).IsValid.Should().BeFalse();
-        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Limit = 201 }).IsValid.Should().BeFalse();
-        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Limit = 50 }).IsValid.Should().BeTrue();
+        // An empty parent directory id selects the root listing rather than being rejected,
+        // so the storage page can call the same endpoint before any directory has been opened.
+        validator.Validate(new GetObjectRequest { ParentDirectoryId = "" }).IsValid.Should().BeTrue();
+        validator.Validate(new GetObjectRequest { ParentDirectoryId = "dir-1", Limit = 0 }).IsValid.Should().BeFalse();
+        validator.Validate(new GetObjectRequest { ParentDirectoryId = "dir-1", Limit = 201 }).IsValid.Should().BeFalse();
+        validator.Validate(new GetObjectRequest { ParentDirectoryId = "dir-1", Limit = 50 }).IsValid.Should().BeTrue();
     }
 
     [Fact]
     public void A_cursor_is_accepted_when_it_decodes_and_rejected_when_it_does_not()
     {
-        var validator = new GetDirectoryChildrenRequestValidator();
+        var validator = new GetObjectRequestValidator();
 
-        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Cursor = null }).IsValid.Should().BeTrue();
-        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Cursor = ValidCursor() }).IsValid.Should().BeTrue();
-        validator.Validate(new GetDirectoryChildrenRequest { DirectoryId = "dir-1", Cursor = "obviously not base64 !!" }).IsValid.Should().BeFalse();
+        validator.Validate(new GetObjectRequest { ParentDirectoryId = "dir-1", Cursor = null }).IsValid.Should().BeTrue();
+        validator.Validate(new GetObjectRequest { ParentDirectoryId = "dir-1", Cursor = ValidCursor() }).IsValid.Should().BeTrue();
+        validator.Validate(new GetObjectRequest { ParentDirectoryId = "dir-1", Cursor = "obviously not base64 !!" }).IsValid.Should().BeFalse();
     }
 
     // Copy and move

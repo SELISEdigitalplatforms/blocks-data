@@ -20,12 +20,11 @@ namespace XUnitTest.Api
     public class DirectoryControllerTests
     {
         private readonly Mock<IFileDirectoryManagementService> _directorys = new();
-        private readonly Mock<IObjectListingService> _listing = new();
         private readonly Mock<IObjectHierarchyService> _hierarchy = new();
         private readonly DirectoryController _sut;
 
         public DirectoryControllerTests() =>
-            _sut = new DirectoryController(_directorys.Object, _listing.Object, _hierarchy.Object);
+            _sut = new DirectoryController(_directorys.Object, _hierarchy.Object);
 
         private static FileDirectory Directory(string id = "dir-1") => new()
         {
@@ -155,58 +154,6 @@ namespace XUnitTest.Api
             (await _sut.GetDirectory("dir-1")).Should().BeOfType<NotFoundObjectResult>();
         }
 
-        [Fact]
-        public async Task GetDirectoryChildren_ForwardsEveryListingArgument()
-        {
-            _listing.Setup(l => l.GetVisibleChildrenAsync(
-                    "dir-1", "cursor-1", 25, StructureType.File, "report", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new VisibleChildrenPage { HasMore = true, NextCursor = "next", TotalChildCount = 9 });
-
-            var result = await _sut.GetDirectoryChildren(new GetDirectoryChildrenRequest
-            {
-                DirectoryId = "dir-1",
-                Cursor = "cursor-1",
-                Limit = 25,
-                Type = "file",
-                Search = "report",
-            }) as OkObjectResult;
-
-            var body = result!.Value.Should().BeOfType<ChildrenResponse>().Subject;
-            body.HasMore.Should().BeTrue();
-            body.NextCursor.Should().Be("next");
-            body.TotalChildCount.Should().Be(9);
-        }
-
-        [Fact]
-        public async Task GetDirectoryChildren_ResolvesAndAssignsTheModuleDefaultDirectory()
-        {
-            _directorys
-                .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
-                .ReturnsAsync(Directory("module-root"));
-            _listing.Setup(l => l.GetVisibleChildrenAsync(
-                    "module-root", null, 50, null, null, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new VisibleChildrenPage());
-            var request = new GetDirectoryChildrenRequest { ModuleName = ModuleName.DataGateway };
-
-            var result = await _sut.GetDirectoryChildren(request);
-
-            result.Should().BeOfType<OkObjectResult>();
-            request.DirectoryId.Should().Be("module-root");
-        }
-
-        [Fact]
-        public async Task GetDirectoryChildren_ReturnsNotFoundWhenTheModuleHasNoDefaultDirectory()
-        {
-            _directorys
-                .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
-                .ReturnsAsync((FileDirectory?)null);
-
-            var result = await _sut.GetDirectoryChildren(new GetDirectoryChildrenRequest { ModuleName = ModuleName.DataGateway });
-
-            result.Should().BeOfType<NotFoundObjectResult>();
-            _listing.VerifyNoOtherCalls();
-        }
-
         [Theory]
         [InlineData(DirectoryOperationStatus.Succeeded, typeof(OkObjectResult))]
         [InlineData(DirectoryOperationStatus.NameConflict, typeof(ConflictObjectResult))]
@@ -234,7 +181,7 @@ namespace XUnitTest.Api
                     ? DirectoryOperationResult.Success("dir-1")
                     : DirectoryOperationResult.Failure(status));
 
-            var result = await _sut.DeleteDirectory(new DeleteDirectoryObjectRequest { DirectoryId = "dir-1", Permanent = true });
+            var result = await _sut.DeleteDirectory(new DeleteDirectoryRequest { DirectoryId = "dir-1", Permanent = true });
 
             result.Should().BeOfType(expected);
         }
@@ -266,9 +213,63 @@ namespace XUnitTest.Api
     {
         private readonly Mock<IObjectManagementService> _management = new();
         private readonly Mock<IObjectDiscoveryService> _discovery = new();
+        private readonly Mock<IFileDirectoryManagementService> _directorys = new();
         private readonly ObjectController _sut;
 
-        public ObjectControllerTests() => _sut = new ObjectController(_management.Object, _discovery.Object);
+        public ObjectControllerTests() =>
+            _sut = new ObjectController(_management.Object, _discovery.Object, _directorys.Object);
+
+        [Fact]
+        public async Task GetObject_ForwardsEveryListingArgument()
+        {
+            _discovery.Setup(d => d.GetObjectAsync(
+                    "dir-1", StructureType.File, "report", "cursor-1", 25, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new VisibleChildrenPage { HasMore = true, NextCursor = "next", TotalChildCount = 9 });
+
+            var result = await _sut.GetObject(new GetObjectRequest
+            {
+                ParentDirectoryId = "dir-1",
+                Cursor = "cursor-1",
+                Limit = 25,
+                Type = "file",
+                Search = "report",
+            }) as OkObjectResult;
+
+            var body = result!.Value.Should().BeOfType<ChildrenResponse>().Subject;
+            body.HasMore.Should().BeTrue();
+            body.NextCursor.Should().Be("next");
+            body.TotalChildCount.Should().Be(9);
+        }
+
+        [Fact]
+        public async Task GetObject_ResolvesAndAssignsTheModuleDefaultDirectory()
+        {
+            _directorys
+                .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new FileDirectory { ItemId = "module-root" });
+            _discovery.Setup(d => d.GetObjectAsync(
+                    "module-root", null, null, null, 50, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new VisibleChildrenPage());
+            var request = new GetObjectRequest { ModuleName = ModuleName.DataGateway };
+
+            var result = await _sut.GetObject(request);
+
+            result.Should().BeOfType<OkObjectResult>();
+            request.ParentDirectoryId.Should().Be("module-root");
+        }
+
+        [Fact]
+        public async Task GetObject_ReturnsNotFoundWhenTheModuleHasNoDefaultDirectory()
+        {
+            _directorys
+                .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
+                .ReturnsAsync((FileDirectory?)null);
+
+            var result = await _sut.GetObject(new GetObjectRequest { ModuleName = ModuleName.DataGateway });
+
+            result.Should().BeOfType<NotFoundObjectResult>();
+            _discovery.VerifyNoOtherCalls();
+        }
 
         [Fact]
         public async Task SearchObject_ForwardsEveryArgument()

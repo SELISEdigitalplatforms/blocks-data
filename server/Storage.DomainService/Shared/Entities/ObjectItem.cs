@@ -1,3 +1,4 @@
+using MongoDB.Bson.Serialization.Attributes;
 using Storage.DomainService.Enums;
 
 namespace Storage.DomainService.Entities
@@ -6,6 +7,7 @@ namespace Storage.DomainService.Entities
     /// Denormalized read model for object views. Files and directories remain the
     /// authoritative write entities; each has exactly one ObjectItem projection.
     /// </summary>
+    [BsonIgnoreExtraElements]
     public class ObjectItem
     {
         public string ItemId { get; set; } = string.Empty;

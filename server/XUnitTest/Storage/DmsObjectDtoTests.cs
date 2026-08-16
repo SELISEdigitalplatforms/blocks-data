@@ -214,7 +214,7 @@ public class DmsObjectDtoTests
     {
         // These defaults are what a caller gets when it omits paging entirely, so they
         // have to sit inside the ranges the validators accept.
-        new GetDirectoryChildrenRequest().Limit.Should().Be(50);
+        new GetObjectRequest().Limit.Should().Be(50);
         new ObjectSearchRequest().Limit.Should().Be(50);
         new TrashRequest().Limit.Should().Be(50);
         new GetFileVersionsRequest().Limit.Should().Be(25);

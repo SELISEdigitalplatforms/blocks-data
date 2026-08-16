@@ -6,48 +6,6 @@ using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
 {
-    public enum FileOperationStatus
-    {
-        Succeeded = 0,
-        FileNotFound = 1,
-        TargetNotFound = 2,
-        /// <summary>A file with the same name already sits in the target directory.</summary>
-        NameConflict = 3,
-        /// <summary>The target directory does not permit this file's extension.</summary>
-        ExtensionNotAllowed = 4,
-        NotPermitted = 5,
-        InvalidName = 6,
-    }
-
-    public sealed class FileOperationResult
-    {
-        public FileOperationStatus Status { get; init; }
-        /// <summary>Set only when a copy succeeded: the item id of the new file.</summary>
-        public string? NewFileId { get; init; }
-
-        public static FileOperationResult Failure(FileOperationStatus status) => new() { Status = status };
-    }
-
-    public sealed class FileVersionPage
-    {
-        public List<FileVersion> Items { get; set; } = new();
-        /// <summary>Null when there are no older versions left.</summary>
-        public string? NextCursor { get; set; }
-        public bool HasMore { get; set; }
-    }
-
-    public interface IContentFileService
-    {
-        /// <summary>Versions of a file, newest first.</summary>
-        Task<FileVersionPage> GetVersionsAsync(string fileId, string? cursor = null, int limit = 25, CancellationToken cancellationToken = default);
-
-        Task<FileOperationResult> MoveFileAsync(string fileId, string targetDirectoryId, CancellationToken cancellationToken = default);
-
-        Task<FileOperationResult> RenameFileAsync(string fileId, string name, CancellationToken cancellationToken = default);
-
-        Task<FileOperationResult> CopyFileAsync(string fileId, string targetDirectoryId, bool copyAccessPolicies = false, CancellationToken cancellationToken = default);
-    }
-
     /// <summary>
     /// File-level operations that sit above the storage provider: version history, move,
     /// and copy.
@@ -59,13 +17,15 @@ namespace Storage.DomainService.Services
         private readonly IDbContextProvider _dbContextProvider;
         private readonly IContentAccessRepository _accessRepository;
         private readonly IContentAccessResolver? _resolver;
+        private readonly IObjectItemWriter? _objectItems;
 
         public ContentFileService(IDbContextProvider dbContextProvider, IContentAccessRepository accessRepository,
-            IContentAccessResolver? resolver = null)
+            IContentAccessResolver? resolver = null, IObjectItemWriter? objectItems = null)
         {
             _dbContextProvider = dbContextProvider;
             _accessRepository = accessRepository;
             _resolver = resolver;
+            _objectItems = objectItems;
         }
 
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
@@ -139,6 +99,13 @@ namespace Storage.DomainService.Services
                 cancellationToken: cancellationToken);
 
             await RefreshAffectedDirectoryCachesAsync(source, target, cancellationToken);
+            if (_objectItems is not null)
+            {
+                file.DirectoryId = target.ItemId;
+                file.AncestorIds = AncestryOf(target);
+                file.LastUpdatedDate = DateTime.UtcNow;
+                await _objectItems.UpsertAsync(file, cancellationToken);
+            }
 
             return new FileOperationResult { Status = FileOperationStatus.Succeeded };
         }
@@ -173,6 +140,13 @@ namespace Storage.DomainService.Services
                     .Set(f => f.LastUpdatedDate, DateTime.UtcNow)
                     .Set(f => f.LastUpdatedBy, UserId),
                 cancellationToken: cancellationToken);
+            if (_objectItems is not null)
+            {
+                file.Name = trimmedName;
+                file.Extension = Path.GetExtension(trimmedName).TrimStart('.');
+                file.LastUpdatedDate = DateTime.UtcNow;
+                await _objectItems.UpsertAsync(file, cancellationToken);
+            }
 
             return new FileOperationResult { Status = FileOperationStatus.Succeeded };
         }
@@ -228,6 +202,7 @@ namespace Storage.DomainService.Services
             };
 
             await Files.InsertOneAsync(copy, cancellationToken: cancellationToken);
+            if (_objectItems is not null) await _objectItems.UpsertAsync(copy, cancellationToken);
             await CopyVersionsAsync(source, copyId, now, cancellationToken);
 
             if (copyAccessPolicies)

@@ -24,17 +24,20 @@ namespace Storage.DomainService.Services
         private readonly IContentAccessResolver _resolver;
         private readonly IContentAccessRepository _accessRepository;
         private readonly IFileManagementService _fileManagementService;
+        private readonly IObjectItemWriter? _objectItems;
 
         public FileDirectoryManagementService(
             IDbContextProvider dbContextProvider,
             IContentAccessResolver resolver,
             IContentAccessRepository accessRepository,
-            IFileManagementService fileManagementService)
+            IFileManagementService fileManagementService,
+            IObjectItemWriter? objectItems = null)
         {
             _dbContextProvider = dbContextProvider;
             _resolver = resolver;
             _accessRepository = accessRepository;
             _fileManagementService = fileManagementService;
+            _objectItems = objectItems;
         }
 
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
@@ -101,6 +104,7 @@ namespace Storage.DomainService.Services
             directory.SystemName = systemName;
 
             await Directories.InsertOneAsync(directory, cancellationToken: cancellationToken);
+            if (_objectItems is not null) await _objectItems.UpsertAsync(directory, cancellationToken);
 
             if (parent is not null)
             {
@@ -202,6 +206,7 @@ namespace Storage.DomainService.Services
                 Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directory.ItemId),
                 Builders<FileDirectory>.Update.Combine(updates),
                 cancellationToken: cancellationToken);
+            await SyncDirectoryAsync(directory.ItemId, cancellationToken);
 
             await AuditAsync(directoryId, ContentResourceType.Directory, "Edit", true,
                 renamed ? $"renamed to '{name}'" : "metadata updated", cancellationToken);
@@ -269,6 +274,7 @@ namespace Storage.DomainService.Services
                 foreach (var id in doomedDirectoryIds)
                 {
                     await _accessRepository.RevokeAllForResourceAsync(id, cancellationToken);
+                    if (_objectItems is not null) await _objectItems.DeleteAsync(id, cancellationToken);
                 }
 
                 // Delete the directory and all its subdirectories.
@@ -299,6 +305,10 @@ namespace Storage.DomainService.Services
                         .Set(f => f.LastUpdatedBy, UserId)
                         .Set(f => f.LastUpdatedDate, DateTime.UtcNow),
                     cancellationToken: cancellationToken);
+                if (_objectItems is not null)
+                    await _objectItems.SetArchiveByDirectoryIdsAsync(descendantDirectoryIds, true, cancellationToken);
+                foreach (var id in descendantDirectoryIds)
+                    await SyncDirectoryAsync(id, cancellationToken);
                 await AuditAsync(directoryId, ContentResourceType.Directory, "Delete", true, "trashed", cancellationToken);
             }
 
@@ -349,6 +359,10 @@ namespace Storage.DomainService.Services
                     .Set(f => f.LastUpdatedBy, UserId)
                     .Set(f => f.LastUpdatedDate, DateTime.UtcNow),
                 cancellationToken: cancellationToken);
+            if (_objectItems is not null)
+                await _objectItems.SetArchiveByDirectoryIdsAsync(descendantDirectoryIds, false, cancellationToken);
+            foreach (var id in descendantDirectoryIds)
+                await SyncDirectoryAsync(id, cancellationToken);
 
             await AuditAsync(directoryId, ContentResourceType.Directory, "Restore", true, "subtree", cancellationToken);
             return DirectoryOperationResult.Success(directoryId);
@@ -366,6 +380,14 @@ namespace Storage.DomainService.Services
 
             return await (await Directories.FindAsync(filter, cancellationToken: cancellationToken))
                 .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        private async Task SyncDirectoryAsync(string directoryId, CancellationToken cancellationToken)
+        {
+            if (_objectItems is null) return;
+            var directory = await Directories.Find(Builders<FileDirectory>.Filter.Eq(d => d.ItemId, directoryId))
+                .FirstOrDefaultAsync(cancellationToken);
+            if (directory is not null) await _objectItems.UpsertAsync(directory, cancellationToken);
         }
 
         private static FilterDefinition<FileDirectory> DescendantDirectoryFilter(string directoryId) =>

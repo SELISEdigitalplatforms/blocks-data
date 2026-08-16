@@ -6,17 +6,6 @@ using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
 {
-    public interface IContentListingService
-    {
-        Task<VisibleChildrenPage> GetVisibleChildrenAsync(
-            string parentId,
-            string? cursor = null,
-            int limit = 50,
-            StructureType? type = null,
-            string? search = null,
-            CancellationToken cancellationToken = default);
-    }
-
     /// <summary>
     /// Cursor-paginated children listing that only returns what the caller may see.
     /// </summary>

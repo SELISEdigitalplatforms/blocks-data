@@ -10,56 +10,6 @@ using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
 {
-    /// <summary>Why a trash operation was refused.</summary>
-    public enum TrashOperationStatus
-    {
-        Succeeded = 0,
-        NotFound = 1,
-        NotPermitted = 2,
-    }
-
-    public sealed class TrashOperationResult
-    {
-        public TrashOperationStatus Status { get; init; }
-        public bool IsSuccess => Status == TrashOperationStatus.Succeeded;
-
-        public static TrashOperationResult Failure(TrashOperationStatus status) => new() { Status = status };
-        public static TrashOperationResult Success() => new() { Status = TrashOperationStatus.Succeeded };
-    }
-
-    public interface IContentDiscoveryService
-    {
-        /// <summary>
-        /// Name search across directorys and files, restricted to what the caller may view.
-        /// Optionally scoped to one subtree.
-        /// </summary>
-        Task<VisibleChildrenPage> SearchAsync(
-            string query,
-            string? directoryId = null,
-            StructureType? type = null,
-            string? cursor = null,
-            int limit = 50,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>Archived directorys and files the caller may view.</summary>
-        Task<VisibleChildrenPage> GetTrashAsync(
-            StructureType? type = null, string? cursor = null, int limit = 50,
-            CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Live content explicitly shared with the calling user, one of their roles, or
-        /// their active organization. Public content and content merely owned by the caller
-        /// are deliberately excluded.
-        /// </summary>
-        Task<VisibleChildrenPage> GetSharedAsync(
-            StructureType? type = null, string? cursor = null, int limit = 50,
-            CancellationToken cancellationToken = default);
-
-        Task<TrashOperationResult> RestoreAsync(string resourceId, CancellationToken cancellationToken = default);
-
-        Task<TrashOperationResult> DeleteFromTrashAsync(string resourceId, CancellationToken cancellationToken = default);
-    }
-
     /// <summary>
     /// Finding content: search by name, and the trash.
     /// </summary>
@@ -95,19 +45,22 @@ namespace Storage.DomainService.Services
         private readonly IContentAccessRepository _accessRepository;
         private readonly IFileManagementService _fileManagementService;
         private readonly IFileDirectoryManagementService _fileDirectoryManagementService;
+        private readonly IObjectItemRepository? _objectItems;
 
         public ContentDiscoveryService(
             IDbContextProvider dbContextProvider,
             IContentAccessResolver resolver,
             IContentAccessRepository accessRepository,
             IFileManagementService fileManagementService,
-            IFileDirectoryManagementService fileDirectoryManagementService)
+            IFileDirectoryManagementService fileDirectoryManagementService,
+            IObjectItemRepository? objectItems = null)
         {
             _dbContextProvider = dbContextProvider;
             _resolver = resolver;
             _accessRepository = accessRepository;
             _fileManagementService = fileManagementService;
             _fileDirectoryManagementService = fileDirectoryManagementService;
+            _objectItems = objectItems;
         }
 
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
@@ -149,8 +102,13 @@ namespace Storage.DomainService.Services
                 fileFilter &= Builders<File>.Filter.AnyEq(f => f.AncestorIds, directoryId);
             }
 
-            return AssemblePageAsync(directoryFilter, fileFilter, type, cursor, limit, cancellationToken);
+            return AssembleObjectItemPageAsync(null, false, directoryId, type, query, false, cursor, limit, cancellationToken);
         }
+
+        public Task<VisibleChildrenPage> GetContentAsync(
+            string? parentDirectoryId, StructureType? type = null, string? search = null,
+            string? cursor = null, int limit = 50, CancellationToken cancellationToken = default) =>
+            AssembleObjectItemPageAsync(parentDirectoryId, true, null, type, search, false, cursor, limit, cancellationToken);
 
         public Task<VisibleChildrenPage> GetTrashAsync(
             StructureType? type = null, string? cursor = null, int limit = 50,
@@ -162,7 +120,7 @@ namespace Storage.DomainService.Services
             var fileFilter = Builders<File>.Filter.And(
                 Builders<File>.Filter.Eq(f => f.IsArchived, true));
 
-            return AssemblePageAsync(directoryFilter, fileFilter, type, cursor, limit, cancellationToken);
+            return AssembleObjectItemPageAsync(null, false, null, type, null, true, cursor, limit, cancellationToken);
         }
 
         public Task<VisibleChildrenPage> GetSharedAsync(
@@ -172,8 +130,85 @@ namespace Storage.DomainService.Services
             var directoryFilter = Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false);
             var fileFilter = Builders<File>.Filter.Eq(f => f.IsArchived, false);
 
-            return AssemblePageAsync(directoryFilter, fileFilter, type, cursor, limit, cancellationToken, sharedOnly: true);
+            return AssembleObjectItemPageAsync(null, false, null, type, null, false, cursor, limit, cancellationToken, sharedOnly: true);
         }
+
+        private async Task<VisibleChildrenPage> AssembleObjectItemPageAsync(
+            string? parentDirectoryId, bool filterByParent, string? directoryId, StructureType? type, string? search, bool archived,
+            string? cursor, int limit, CancellationToken cancellationToken, bool sharedOnly = false)
+        {
+            if (_objectItems is null)
+            {
+                throw new InvalidOperationException("ObjectItem repository is required for content discovery.");
+            }
+
+            limit = Math.Clamp(limit, 1, 200);
+            if (!string.IsNullOrWhiteSpace(parentDirectoryId))
+            {
+                var parent = await Directories.Find(Builders<FileDirectory>.Filter.Eq(d => d.ItemId, parentDirectoryId)
+                    & Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false)).FirstOrDefaultAsync(cancellationToken);
+                if (parent is null || !await _resolver.ResolveAsync(Describe(parent), ContentPermission.View, cancellationToken))
+                    return new VisibleChildrenPage();
+            }
+
+            var rows = await _objectItems.FindPageAsync(new ObjectItemQuery
+            {
+                ParentDirectoryId = parentDirectoryId,
+                FilterByParent = filterByParent,
+                DirectoryId = directoryId,
+                Type = type,
+                Search = search,
+                IsArchived = archived,
+                Cursor = ContentCursor.Decode(cursor),
+                Take = limit + 1,
+            }, cancellationToken);
+
+            var descriptors = rows.ToDictionary(i => i.ItemId, Describe, StringComparer.Ordinal);
+            var sharedIds = sharedOnly
+                ? await GetMatchingShareResourceIdsAsync(descriptors.Values, cancellationToken)
+                : null;
+            var visible = new List<VisibleChildItem>();
+            foreach (var row in rows)
+            {
+                var descriptor = descriptors[row.ItemId];
+                if (sharedOnly && (string.Equals(row.CreatedBy, UserId, StringComparison.Ordinal)
+                    || !HasMatchingShare(descriptor, sharedIds!))) continue;
+
+                var flags = await _resolver.ResolveFlagsAsync(descriptor, cancellationToken);
+                if (!flags.CanView) continue;
+                visible.Add(ToVisibleItem(row, flags));
+                if (visible.Count > limit) break;
+            }
+
+            var hasMore = visible.Count > limit || rows.Count > limit;
+            if (visible.Count > limit) visible.RemoveAt(visible.Count - 1);
+            var last = visible.LastOrDefault();
+            return new VisibleChildrenPage
+            {
+                Items = visible,
+                HasMore = hasMore,
+                NextCursor = hasMore && last is not null
+                    ? new ContentCursor { Type = last.Type, Name = last.Name, ItemId = last.ItemId }.Encode() : null,
+                TotalChildCount = visible.Count,
+            };
+        }
+
+        private static ContentResourceDescriptor Describe(ObjectItem item) => new()
+        {
+            ResourceId = item.ItemId,
+            AncestorIds = item.AncestorIds ?? new List<string>(),
+            InheritsParentAccess = item.InheritsParentAccess,
+            CreatedBy = item.CreatedBy,
+        };
+
+        private static VisibleChildItem ToVisibleItem(ObjectItem item, ContentPermissionFlags flags) => new()
+        {
+            ItemId = item.ItemId, Name = item.Name, Type = item.Type,
+            ParentDirectoryId = item.ParentDirectoryId, SizeInBytes = item.SizeInBytes,
+            Extension = item.Extension, ContentType = item.ContentType,
+            CreatedDate = item.CreatedDate, LastUpdatedDate = item.LastUpdatedDate,
+            CreatedBy = item.CreatedBy, IsDefault = item.IsDefault, Permissions = flags,
+        };
 
         public async Task<TrashOperationResult> RestoreAsync(string resourceId, CancellationToken cancellationToken = default)
         {

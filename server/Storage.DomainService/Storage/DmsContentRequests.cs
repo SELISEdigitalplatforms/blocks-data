@@ -33,16 +33,14 @@ namespace DomainService.Storage.Dms
         public string? Description { get; set; }
     }
 
-    public class GetDirectoryChildrenRequest
+    public class GetContentRequest
     {
-        public string DirectoryId { get; set; } = string.Empty;
+        public string? ParentDirectoryId { get; set; }
 
         /// <summary>
         /// Optional module root to list when <see cref="DirectoryId"/> is not supplied.
         /// The API resolves this to the module's default directory before listing.
         /// </summary>
-        public ModuleName? ModuleName { get; set; }
-
         /// <summary>Opaque continuation token from the previous page. Null starts at the beginning.</summary>
         public string? Cursor { get; set; }
 

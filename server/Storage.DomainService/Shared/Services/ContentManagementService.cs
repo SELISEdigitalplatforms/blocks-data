@@ -6,51 +6,6 @@ using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
 {
-    public enum ContentAccessOperationStatus
-    {
-        Succeeded = 0,
-        ResourceNotFound = 1,
-        /// <summary>The caller does not hold Manage on the resource.</summary>
-        NotPermitted = 2,
-        /// <summary>The grant would deny a principal who owns the resource.</summary>
-        SelfDenyRejected = 3,
-        /// <summary>A Role, User or Organization grant was authored without a principal.</summary>
-        PrincipalRequired = 4,
-        /// <summary>Inheritance cannot be switched off while nothing else grants access.</summary>
-        WouldOrphanResource = 5,
-        PolicyNotFound = 6,
-    }
-
-    public sealed class ContentAccessOperationResult
-    {
-        public ContentAccessOperationStatus Status { get; init; }
-        public string? PolicyItemId { get; init; }
-        public bool IsSuccess => Status == ContentAccessOperationStatus.Succeeded;
-
-        public static ContentAccessOperationResult Failure(ContentAccessOperationStatus status) => new() { Status = status };
-        public static ContentAccessOperationResult Success(string? policyItemId = null) =>
-            new() { Status = ContentAccessOperationStatus.Succeeded, PolicyItemId = policyItemId };
-    }
-
-    public interface IContentManagementService
-    {
-        Task<ContentAccessOperationResult> GrantAccessAsync(ContentAccessPolicy policy, CancellationToken cancellationToken = default);
-        Task<ContentAccessOperationResult> UpdateAccessAsync(ContentAccessPolicy policy, CancellationToken cancellationToken = default);
-        Task<ContentAccessOperationResult> RevokeAccessAsync(string resourceId, string policyItemId, CancellationToken cancellationToken = default);
-
-        /// <summary>Grants a principal an allow entry and records it as a share.</summary>
-        Task<ContentAccessOperationResult> ShareContentAsync(
-            string resourceId, ContentResourceType resourceType, ContentPrincipalType principalType,
-            string? principalId, ContentPermission permission, DateTime? expiresAt = null,
-            CancellationToken cancellationToken = default);
-
-        Task<ContentAccessOperationResult> ToggleInheritanceAsync(string resourceId, bool inherits, CancellationToken cancellationToken = default);
-
-        Task<ContentPermissionFlags?> ResolveAccessAsync(string resourceId, CancellationToken cancellationToken = default);
-
-        Task<List<ContentAccessPolicy>> GetAccessAsync(string resourceId, CancellationToken cancellationToken = default);
-    }
-
     /// <summary>
     /// Access administration for directorys and files: who may do what, and the audit trail
     /// behind every change.
@@ -68,15 +23,17 @@ namespace Storage.DomainService.Services
         private readonly IDbContextProvider _dbContextProvider;
         private readonly IContentAccessRepository _accessRepository;
         private readonly IContentAccessResolver _resolver;
+        private readonly IObjectItemWriter? _objectItems;
 
         public ContentManagementService(
             IDbContextProvider dbContextProvider,
             IContentAccessRepository accessRepository,
-            IContentAccessResolver resolver)
+            IContentAccessResolver resolver, IObjectItemWriter? objectItems = null)
         {
             _dbContextProvider = dbContextProvider;
             _accessRepository = accessRepository;
             _resolver = resolver;
+            _objectItems = objectItems;
         }
 
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
@@ -202,6 +159,7 @@ namespace Storage.DomainService.Services
 
             var updated = await SetInheritanceAsync(resource!, inherits, cancellationToken);
             if (!updated) return ContentAccessOperationResult.Failure(ContentAccessOperationStatus.ResourceNotFound);
+            if (_objectItems is not null) await _objectItems.SetInheritanceAsync(resourceId, inherits, cancellationToken);
 
             await AuditAsync(resourceId, ResourceTypeOf(resource!), "Manage", true,
                 $"InheritsParentAccess={inherits}", cancellationToken);

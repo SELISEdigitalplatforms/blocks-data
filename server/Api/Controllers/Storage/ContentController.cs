@@ -31,6 +31,17 @@ namespace Api.Controllers
             _contentDiscoveryService = contentDiscoveryService;
         }
 
+        /// <summary>Access-resolved, cursor-paginated files and directories under one parent.</summary>
+        [HttpGet]
+        [ProtectedEndPoint("blocks-data::get-content")]
+        public async Task<IActionResult> GetContent([FromQuery] GetContentRequest request)
+        {
+            var page = await _contentDiscoveryService.GetContentAsync(
+                request.ParentDirectoryId, ContentKind.FromApiString(request.Type), request.Search,
+                request.Cursor, request.Limit);
+            return Ok(ChildrenResponse.From(page));
+        }
+
         /// <summary>Name search across directorys and files the caller may view.</summary>
         [HttpGet]
         [ProtectedEndPoint("blocks-data::search-content")]

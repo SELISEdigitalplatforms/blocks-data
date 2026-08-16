@@ -22,7 +22,7 @@ namespace Storage.DomainService.Utilities
             services.AddTransient<IValidator<UpdateFileRequest>, UpdateFileRequestValidator>();
             services.AddTransient<IValidator<global::DomainService.Storage.Dms.CreateDirectoryRequest>, CreateDirectoryRequestValidator>();
             services.AddTransient<IValidator<UpdateDirectoryRequest>, UpdateDirectoryRequestValidator>();
-            services.AddTransient<IValidator<GetDirectoryChildrenRequest>, GetDirectoryChildrenRequestValidator>();
+            services.AddTransient<IValidator<GetContentRequest>, GetContentRequestValidator>();
             services.AddTransient<IValidator<CopyFileRequest>, CopyFileRequestValidator>();
             services.AddTransient<IValidator<MoveFileRequest>, MoveFileRequestValidator>();
             services.AddTransient<IValidator<RenameFileRequest>, RenameFileRequestValidator>();
@@ -44,7 +44,8 @@ namespace Storage.DomainService.Utilities
             services.AddSingleton<IFileDirectoryRepository, FileDirectoryRepository>();
             services.AddSingleton<IContentAccessRepository, ContentAccessRepository>();
             services.AddSingleton<IContentAccessResolver, ContentAccessResolver>();
-            services.AddSingleton<IContentListingService, ContentListingService>();
+            services.AddSingleton<IObjectItemRepository, ObjectItemRepository>();
+            services.AddSingleton<IObjectItemWriter, ObjectItemWriter>();
             services.AddSingleton<IContentHierarchyService, ContentHierarchyService>();
             services.AddSingleton<IContentFileService, ContentFileService>();
             services.AddSingleton<IContentManagementService, ContentManagementService>();

@@ -25,16 +25,13 @@ namespace Api.Controllers
     public class DirectoryController : ControllerBase
     {
         private readonly IFileDirectoryManagementService _directoryManagementService;
-        private readonly IContentListingService _contentListingService;
         private readonly IContentHierarchyService _contentHierarchyService;
 
         public DirectoryController(
             IFileDirectoryManagementService directoryManagementService,
-            IContentListingService contentListingService,
             IContentHierarchyService contentHierarchyService)
         {
             _directoryManagementService = directoryManagementService;
-            _contentListingService = contentListingService;
             _contentHierarchyService = contentHierarchyService;
         }
 
@@ -100,30 +97,6 @@ namespace Api.Controllers
             }
 
             return Ok(DirectoryDetailResponse.From(result.Directory, result.Permissions));
-        }
-
-        /// <summary>Access-resolved, cursor-paginated children of a directory.</summary>
-        [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-directory-children")]
-        public async Task<IActionResult> GetDirectoryChildren([FromQuery] GetDirectoryChildrenRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.DirectoryId) && request.ModuleName.HasValue)
-            {
-                var defaultDirectory = await _directoryManagementService
-                    .GetDefaultDirectoryByModuleNameAsync(request.ModuleName.Value.ToString());
-
-                if (defaultDirectory is null)
-                {
-                    return NotFound(new { message = $"Default directory not found for module: {request.ModuleName}" });
-                }
-
-                request.DirectoryId = defaultDirectory.ItemId;
-            }
-
-            var page = await _contentListingService.GetVisibleChildrenAsync(
-                request.DirectoryId, request.Cursor, request.Limit, ContentKind.FromApiString(request.Type), request.Search);
-
-            return Ok(ChildrenResponse.From(page));
         }
 
         /// <summary>Renames a directory or updates its description.</summary>

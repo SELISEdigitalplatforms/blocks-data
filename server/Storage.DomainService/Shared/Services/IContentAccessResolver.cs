@@ -2,33 +2,6 @@ using Storage.DomainService.Entities;
 
 namespace Storage.DomainService.Services
 {
-    /// <summary>The six operations a caller can hold on one resource.</summary>
-    public sealed class ContentPermissionFlags
-    {
-        public bool CanView { get; set; }
-        public bool CanDownload { get; set; }
-        public bool CanEdit { get; set; }
-        public bool CanDelete { get; set; }
-        public bool CanManage { get; set; }
-        public bool CanOwner { get; set; }
-    }
-
-    /// <summary>
-    /// Describes the resource being resolved, so the resolver does not have to know
-    /// whether it came from the file or the directory collection.
-    /// </summary>
-    public sealed class ContentResourceDescriptor
-    {
-        public string ResourceId { get; set; } = string.Empty;
-
-        /// <summary>Ancestor ids ordered root first, ending at the immediate parent.</summary>
-        public List<string> AncestorIds { get; set; } = new();
-
-        public bool InheritsParentAccess { get; set; } = true;
-
-        public string? CreatedBy { get; set; }
-    }
-
     public interface IContentAccessResolver
     {
         /// <summary>True when the caller may perform <paramref name="operation"/> on the resource.</summary>

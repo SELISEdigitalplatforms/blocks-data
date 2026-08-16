@@ -35,6 +35,7 @@ namespace Storage.DomainService.Services
         private readonly IMessageClient _messageClient;
         private readonly IContentAccessResolver _accessResolver;
         private readonly IContentAccessRepository _accessRepository;
+        private readonly IObjectItemWriter? _objectItems;
 
         private const string ConfigurationNotFound = "configuration_not_found";
 
@@ -49,7 +50,8 @@ namespace Storage.DomainService.Services
             IValidator<UpdateFileRequest> fileRequestValidator,
             IMessageClient messageClient,
             IContentAccessResolver accessResolver,
-            IContentAccessRepository accessRepository
+            IContentAccessRepository accessRepository,
+            IObjectItemWriter? objectItems = null
             )
         {
             _fileRepository = fileRepository;
@@ -63,6 +65,7 @@ namespace Storage.DomainService.Services
             _messageClient = messageClient;
             _accessResolver = accessResolver;
             _accessRepository = accessRepository;
+            _objectItems = objectItems;
         }
 
 
@@ -209,6 +212,7 @@ namespace Storage.DomainService.Services
 
             await Task.WhenAll(_fileRepository.CreateFileAsync(file),
                                _versionRepository.CreateFileVersionAsync(fileVersion));
+            if (_objectItems is not null) await _objectItems.UpsertAsync(file);
 
             return new GetPreSignedUrlForUploadResponse
             {
@@ -477,6 +481,7 @@ namespace Storage.DomainService.Services
                 existingFile.LastUpdatedBy = BlocksContext.GetContext()?.UserId ?? string.Empty;
                 existingFile.LastUpdatedDate = DateTime.UtcNow;
                 await _fileRepository.UpdateFileAsync(existingFile);
+                if (_objectItems is not null) await _objectItems.UpsertAsync(existingFile);
 
                 return CreateSuccessResponse<BaseResponse>();
             }
@@ -496,7 +501,10 @@ namespace Storage.DomainService.Services
 
             bool success = await DeleteSingleFileFromStorageAsync(storageService, category, existingFile, tenantId);
             if (success)
+            {
                 await CleanupDatabaseAsync(existingFile);
+                if (_objectItems is not null) await _objectItems.DeleteAsync(existingFile.ItemId);
+            }
 
             if (!string.IsNullOrWhiteSpace(deleteFileRequest.EventQueueName))
             {
@@ -666,6 +674,7 @@ namespace Storage.DomainService.Services
             if (success)
             {
                 await Task.WhenAll(_fileRepository.CreateFileAsync(file), _versionRepository.CreateFileVersionAsync(fileVersion));
+                if (_objectItems is not null) await _objectItems.UpsertAsync(file);
             }
             else
             {
@@ -914,6 +923,7 @@ namespace Storage.DomainService.Services
             file.LastUpdatedBy = BlocksContext.GetContext()?.UserId ?? file.ItemId;
 
             await _fileRepository.UpdateFileAsync(file);
+            if (_objectItems is not null) await _objectItems.UpsertAsync(file);
 
 
             return new BaseMutationResponse

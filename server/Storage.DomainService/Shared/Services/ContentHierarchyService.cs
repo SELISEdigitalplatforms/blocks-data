@@ -6,37 +6,6 @@ using File = Storage.DomainService.Entities.File;
 
 namespace Storage.DomainService.Services
 {
-    /// <summary>Outcome of a move, so callers can distinguish refusals from failures.</summary>
-    public enum MoveDirectoryResult
-    {
-        Moved = 0,
-        SourceNotFound = 1,
-        TargetNotFound = 2,
-        /// <summary>The target is the directory itself or one of its descendants.</summary>
-        WouldCreateCycle = 3,
-        /// <summary>A sibling in the target already uses this name.</summary>
-        NameConflict = 4,
-        /// <summary>
-        /// The source is a default/system root (seeded from a template) and cannot be moved.
-        /// </summary>
-        IsDefault = 5,
-        NotPermitted = 6,
-    }
-
-    public interface IContentHierarchyService
-    {
-        /// <summary>Ancestors of a directory, ordered root first. Empty for a root directory.</summary>
-        Task<List<FileDirectory>> GetAncestorsAsync(string directoryId, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Recomputes cached ancestry and path for a directory and everything beneath it.
-        /// Safe to run on an already-consistent subtree.
-        /// </summary>
-        Task<int> RebuildAncestorPathsAsync(string directoryId, CancellationToken cancellationToken = default);
-
-        Task<MoveDirectoryResult> MoveDirectoryAsync(string directoryId, string? newParentId, CancellationToken cancellationToken = default);
-    }
-
     /// <summary>
     /// Maintains the denormalised <c>AncestorIds</c> and <c>FullPath</c> that access
     /// inheritance and breadcrumbs read.
@@ -59,13 +28,16 @@ namespace Storage.DomainService.Services
         private readonly IDbContextProvider _dbContextProvider;
         private readonly IContentAccessResolver? _resolver;
         private readonly IContentAccessRepository? _accessRepository;
+        private readonly IObjectItemWriter? _objectItems;
 
         public ContentHierarchyService(IDbContextProvider dbContextProvider,
-            IContentAccessResolver? resolver = null, IContentAccessRepository? accessRepository = null)
+            IContentAccessResolver? resolver = null, IContentAccessRepository? accessRepository = null,
+            IObjectItemWriter? objectItems = null)
         {
             _dbContextProvider = dbContextProvider;
             _resolver = resolver;
             _accessRepository = accessRepository;
+            _objectItems = objectItems;
         }
 
         private IMongoCollection<FileDirectory> Directories =>
@@ -242,6 +214,11 @@ namespace Storage.DomainService.Services
                     .Set(d => d.AncestorIds, ancestorIds)
                     .Set(d => d.FullPath, fullPath),
                 cancellationToken: cancellationToken);
+            if (_objectItems is not null)
+            {
+                var directory = await FindDirectoryAsync(directoryId, cancellationToken);
+                if (directory is not null) await _objectItems.UpsertAsync(directory, cancellationToken);
+            }
 
             return (int)result.ModifiedCount;
         }

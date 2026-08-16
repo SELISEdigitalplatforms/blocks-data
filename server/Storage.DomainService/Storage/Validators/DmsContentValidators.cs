@@ -63,9 +63,9 @@ namespace Storage.DomainService.Storage.Validators
         }
     }
 
-    public class GetDirectoryChildrenRequestValidator : AbstractValidator<GetDirectoryChildrenRequest>
+    public class GetContentRequestValidator : AbstractValidator<GetContentRequest>
     {
-        public GetDirectoryChildrenRequestValidator()
+        public GetContentRequestValidator()
         {
             // An empty directory id lists root directorys, so it is allowed rather than rejected.
             RuleFor(r => r.Limit).InclusiveBetween(1, DmsValidationRules.MaxPageSize);

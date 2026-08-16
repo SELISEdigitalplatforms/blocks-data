@@ -49,7 +49,8 @@ describe("DmsDirectoryService", () => {
     });
 
     const url = (http.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-    expect(url).toContain("directoryId=dir-1");
+    expect(url).toContain("/Object/GetObject");
+    expect(url).toContain("parentDirectoryId=dir-1");
     expect(url).toContain("cursor=c1");
     expect(url).toContain("limit=25");
     expect(url).toContain("type=file");

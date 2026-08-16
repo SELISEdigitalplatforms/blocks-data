@@ -49,7 +49,7 @@ vi.mock("../services/dms-content.service", () => ({
     getAccessPolicies: vi.fn(),
     grantAccess: vi.fn(),
     revokeAccessPolicy: vi.fn(),
-    shareContent: vi.fn(),
+    shareObject: vi.fn(),
     toggleInheritance: vi.fn(),
     getFileVersions: vi.fn(),
     copyFile: vi.fn(),
@@ -75,7 +75,7 @@ import {
   useMoveFile,
   useRestoreFromTrash,
   useRevokeAccess,
-  useShareContent,
+  useShareObject,
   useToggleInheritance,
   useUpdateDmsDirectory,
 } from "./use-dms";
@@ -368,10 +368,10 @@ describe("the mutations", () => {
     expect(dmsContentService.revokeAccessPolicy).toHaveBeenCalledWith("res-1", "policy-1");
   });
 
-  it("shares content", async () => {
-    vi.mocked(dmsContentService.shareContent).mockResolvedValue({ itemId: "policy-1" });
+  it("shares an object", async () => {
+    vi.mocked(dmsContentService.shareObject).mockResolvedValue({ itemId: "policy-1" });
 
-    const { result } = renderHook(() => useShareContent("res-1"), { wrapper: createWrapper() });
+    const { result } = renderHook(() => useShareObject("res-1"), { wrapper: createWrapper() });
     await result.current.mutateAsync({
       resourceId: "res-1",
       principalType: "User",
@@ -379,7 +379,7 @@ describe("the mutations", () => {
       permission: "View",
     });
 
-    expect(dmsContentService.shareContent).toHaveBeenCalled();
+    expect(dmsContentService.shareObject).toHaveBeenCalled();
   });
 
   it("toggles inheritance against its resource", async () => {

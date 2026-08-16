@@ -1,21 +1,21 @@
 import { http } from "@/lib/http-client";
-import { CONTENT_ENDPOINTS, DMS_FILE_ENDPOINTS } from "../constants/endpoint.constant";
+import { OBJECT_ENDPOINTS, DMS_FILE_ENDPOINTS } from "../constants/endpoint.constant";
 import {
   AccessPolicyDto,
-  ContentSearchQuery,
+  ObjectSearchQuery,
   DmsChildrenResponse,
   DmsPermissionFlags,
   FileVersionsResponse,
   GrantAccessDto,
-  ShareContentDto,
+  ShareObjectDto,
   TrashQuery,
 } from "../models/dms.model";
 import { toQuery } from "./dms-directory.service";
 
 export class DmsContentService {
-  search(query: ContentSearchQuery): Promise<DmsChildrenResponse> {
+  search(query: ObjectSearchQuery): Promise<DmsChildrenResponse> {
     return http.get(
-      `${CONTENT_ENDPOINTS.SEARCH}${toQuery({
+      `${OBJECT_ENDPOINTS.SEARCH}${toQuery({
         query: query.query,
         directoryId: query.directoryId,
         type: query.type,
@@ -27,7 +27,7 @@ export class DmsContentService {
 
   getTrash(query: TrashQuery = {}): Promise<DmsChildrenResponse> {
     return http.get(
-      `${CONTENT_ENDPOINTS.TRASH}${toQuery({
+      `${OBJECT_ENDPOINTS.TRASH}${toQuery({
         type: query.type,
         cursor: query.cursor,
         limit: query.limit,
@@ -36,39 +36,39 @@ export class DmsContentService {
   }
 
   restore(resourceId: string): Promise<{ resourceId: string }> {
-    return http.post(CONTENT_ENDPOINTS.RESTORE, { resourceId });
+    return http.post(OBJECT_ENDPOINTS.RESTORE, { resourceId });
   }
 
   deletePermanently(resourceId: string): Promise<{ resourceId: string }> {
-    return http.post(CONTENT_ENDPOINTS.DELETE_PERMANENT, { resourceId });
+    return http.post(OBJECT_ENDPOINTS.DELETE_PERMANENT, { resourceId });
   }
 
   getAccessPolicies(resourceId: string, includeInherited = true): Promise<AccessPolicyDto[]> {
-    return http.get(`${CONTENT_ENDPOINTS.POLICIES}${toQuery({ resourceId, includeInherited })}`);
+    return http.get(`${OBJECT_ENDPOINTS.POLICIES}${toQuery({ resourceId, includeInherited })}`);
   }
 
   grantAccess(payload: GrantAccessDto): Promise<{ itemId: string }> {
-    return http.post(CONTENT_ENDPOINTS.GRANT, payload);
+    return http.post(OBJECT_ENDPOINTS.GRANT, payload);
   }
 
   updateAccessPolicy(payload: GrantAccessDto): Promise<{ itemId: string }> {
-    return http.post(CONTENT_ENDPOINTS.UPDATE_POLICY, payload);
+    return http.post(OBJECT_ENDPOINTS.UPDATE_POLICY, payload);
   }
 
   revokeAccessPolicy(resourceId: string, policyItemId: string): Promise<{ itemId: string }> {
-    return http.post(CONTENT_ENDPOINTS.REVOKE, { resourceId, policyItemId });
+    return http.post(OBJECT_ENDPOINTS.REVOKE, { resourceId, policyItemId });
   }
 
   resolveAccess(resourceId: string): Promise<DmsPermissionFlags> {
-    return http.get(`${CONTENT_ENDPOINTS.RESOLVE}${toQuery({ resourceId })}`);
+    return http.get(`${OBJECT_ENDPOINTS.RESOLVE}${toQuery({ resourceId })}`);
   }
 
   toggleInheritance(resourceId: string, inheritsParentAccess: boolean): Promise<{ itemId: string }> {
-    return http.post(CONTENT_ENDPOINTS.INHERITANCE, { resourceId, inheritsParentAccess });
+    return http.post(OBJECT_ENDPOINTS.INHERITANCE, { resourceId, inheritsParentAccess });
   }
 
-  shareContent(payload: ShareContentDto): Promise<{ itemId: string }> {
-    return http.post(CONTENT_ENDPOINTS.SHARE, payload);
+  shareObject(payload: ShareObjectDto): Promise<{ itemId: string }> {
+    return http.post(OBJECT_ENDPOINTS.SHARE, payload);
   }
 
   getFileVersions(fileId: string, cursor?: string, limit?: number): Promise<FileVersionsResponse> {

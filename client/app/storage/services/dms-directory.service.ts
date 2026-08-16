@@ -1,5 +1,5 @@
 import { http } from "@/lib/http-client";
-import { FOLDER_ENDPOINTS } from "../constants/endpoint.constant";
+import { FOLDER_ENDPOINTS, OBJECT_ENDPOINTS } from "../constants/endpoint.constant";
 import {
   CreateDirectoryDto,
   DeleteDirectoryDto,
@@ -34,8 +34,8 @@ export class DmsDirectoryService {
 
   getChildren(query: DmsChildrenQuery): Promise<DmsChildrenResponse> {
     return http.get(
-      `${FOLDER_ENDPOINTS.CHILDREN}${toQuery({
-        directoryId: query.directoryId,
+      `${OBJECT_ENDPOINTS.CHILDREN}${toQuery({
+        parentDirectoryId: query.directoryId,
         cursor: query.cursor,
         limit: query.limit,
         type: query.type,

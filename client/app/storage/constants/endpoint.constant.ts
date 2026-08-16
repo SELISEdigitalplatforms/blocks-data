@@ -3,7 +3,7 @@ import { API_BASES } from "@/constants/endpoint.constant";
 const STORAGE_SUBPATH = "/Storage";
 const FILES_SUBPATH = "/Files";
 const FOLDERS_SUBPATH = "/Directory";
-const CONTENT_SUBPATH = "/Content";
+const OBJECT_SUBPATH = "/Object";
 
 // Storage Configuration endpoints (IDP host; paths under /api/Storage)
 export const STORAGE_CONFIG_ENDPOINTS = {
@@ -32,7 +32,6 @@ export const STORAGE_FILE_ENDPOINTS = {
 // DMS directory endpoints (see DirectoryController).
 export const FOLDER_ENDPOINTS = {
   GET: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetDirectory`,
-  CHILDREN: `${API_BASES.UDS}${FOLDERS_SUBPATH}/GetDirectoryChildren`,
   CREATE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/CreateDirectory`,
   CREATE_ROOT: `${API_BASES.UDS}${FOLDERS_SUBPATH}/CreateRootDirectory`,
   UPDATE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/UpdateDirectory`,
@@ -40,19 +39,22 @@ export const FOLDER_ENDPOINTS = {
   DELETE: `${API_BASES.UDS}${FOLDERS_SUBPATH}/DeleteDirectory`,
 } as const;
 
-// DMS sharing, access policy, search and trash endpoints (see ContentController).
-export const CONTENT_ENDPOINTS = {
-  SEARCH: `${API_BASES.UDS}${CONTENT_SUBPATH}/SearchContent`,
-  TRASH: `${API_BASES.UDS}${CONTENT_SUBPATH}/GetTrash`,
-  RESTORE: `${API_BASES.UDS}${CONTENT_SUBPATH}/RestoreFromTrash`,
-  DELETE_PERMANENT: `${API_BASES.UDS}${CONTENT_SUBPATH}/DeleteFromTrash`,
-  POLICIES: `${API_BASES.UDS}${CONTENT_SUBPATH}/GetAccessPolicies`,
-  GRANT: `${API_BASES.UDS}${CONTENT_SUBPATH}/GrantAccess`,
-  UPDATE_POLICY: `${API_BASES.UDS}${CONTENT_SUBPATH}/UpdateAccessPolicy`,
-  REVOKE: `${API_BASES.UDS}${CONTENT_SUBPATH}/RevokeAccessPolicy`,
-  RESOLVE: `${API_BASES.UDS}${CONTENT_SUBPATH}/ResolveAccess`,
-  INHERITANCE: `${API_BASES.UDS}${CONTENT_SUBPATH}/ToggleInheritance`,
-  SHARE: `${API_BASES.UDS}${CONTENT_SUBPATH}/ShareContent`,
+// DMS listing, sharing, access policy, search and trash endpoints (see ObjectController).
+// Directory-children listing lives here too: DirectoryController.GetDirectoryChildren
+// was removed and its listing folded into ObjectController.GetObject.
+export const OBJECT_ENDPOINTS = {
+  CHILDREN: `${API_BASES.UDS}${OBJECT_SUBPATH}/GetObject`,
+  SEARCH: `${API_BASES.UDS}${OBJECT_SUBPATH}/SearchObject`,
+  TRASH: `${API_BASES.UDS}${OBJECT_SUBPATH}/GetTrash`,
+  RESTORE: `${API_BASES.UDS}${OBJECT_SUBPATH}/RestoreFromTrash`,
+  DELETE_PERMANENT: `${API_BASES.UDS}${OBJECT_SUBPATH}/DeleteFromTrash`,
+  POLICIES: `${API_BASES.UDS}${OBJECT_SUBPATH}/GetAccessPolicies`,
+  GRANT: `${API_BASES.UDS}${OBJECT_SUBPATH}/GrantAccess`,
+  UPDATE_POLICY: `${API_BASES.UDS}${OBJECT_SUBPATH}/UpdateAccessPolicy`,
+  REVOKE: `${API_BASES.UDS}${OBJECT_SUBPATH}/RevokeAccessPolicy`,
+  RESOLVE: `${API_BASES.UDS}${OBJECT_SUBPATH}/ResolveAccess`,
+  INHERITANCE: `${API_BASES.UDS}${OBJECT_SUBPATH}/ToggleInheritance`,
+  SHARE: `${API_BASES.UDS}${OBJECT_SUBPATH}/ShareObject`,
 } as const;
 
 // File endpoints added by the DMS revamp, alongside the existing ones above.

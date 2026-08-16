@@ -17,7 +17,7 @@ describe("DmsContentService", () => {
     await service.search({ query: "report", directoryId: "dir-1", type: "file", limit: 10 });
 
     const url = (http.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-    expect(url).toContain("/Content/SearchContent");
+    expect(url).toContain("/Object/SearchObject");
     expect(url).toContain("query=report");
     expect(url).toContain("directoryId=dir-1");
     expect(url).toContain("type=file");
@@ -27,14 +27,14 @@ describe("DmsContentService", () => {
   it("asks for the whole trash when no filter is given", async () => {
     await service.getTrash();
 
-    expect(http.get).toHaveBeenCalledWith(expect.stringContaining("/Content/GetTrash"));
+    expect(http.get).toHaveBeenCalledWith(expect.stringContaining("/Object/GetTrash"));
   });
 
   it("restores by resource id", async () => {
     await service.restore("res-1");
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Content/RestoreFromTrash"),
+      expect.stringContaining("/Object/RestoreFromTrash"),
       { resourceId: "res-1" },
     );
   });
@@ -45,7 +45,7 @@ describe("DmsContentService", () => {
     await service.deletePermanently("res-1");
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Content/DeleteFromTrash"),
+      expect.stringContaining("/Object/DeleteFromTrash"),
       { resourceId: "res-1" },
     );
   });
@@ -73,14 +73,14 @@ describe("DmsContentService", () => {
 
     await service.grantAccess(payload);
 
-    expect(http.post).toHaveBeenCalledWith(expect.stringContaining("/Content/GrantAccess"), payload);
+    expect(http.post).toHaveBeenCalledWith(expect.stringContaining("/Object/GrantAccess"), payload);
   });
 
   it("revokes with both the resource and the policy id", async () => {
     await service.revokeAccessPolicy("res-1", "policy-1");
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Content/RevokeAccessPolicy"),
+      expect.stringContaining("/Object/RevokeAccessPolicy"),
       { resourceId: "res-1", policyItemId: "policy-1" },
     );
   });
@@ -89,7 +89,7 @@ describe("DmsContentService", () => {
     await service.toggleInheritance("res-1", false);
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Content/ToggleInheritance"),
+      expect.stringContaining("/Object/ToggleInheritance"),
       { resourceId: "res-1", inheritsParentAccess: false },
     );
   });
@@ -133,7 +133,7 @@ describe("DmsContentService", () => {
     });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Content/UpdateAccessPolicy"),
+      expect.stringContaining("/Object/UpdateAccessPolicy"),
       expect.objectContaining({ policyItemId: "policy-1" }),
     );
   });
@@ -142,7 +142,7 @@ describe("DmsContentService", () => {
     await service.resolveAccess("res-1");
 
     expect(http.get).toHaveBeenCalledWith(
-      expect.stringContaining("/Content/ResolveAccess?resourceId=res-1"),
+      expect.stringContaining("/Object/ResolveAccess?resourceId=res-1"),
     );
   });
 
@@ -156,10 +156,10 @@ describe("DmsContentService", () => {
       permission: "View" as const,
     };
 
-    await service.shareContent(payload);
+    await service.shareObject(payload);
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Content/ShareContent"),
+      expect.stringContaining("/Object/ShareObject"),
       payload,
     );
   });

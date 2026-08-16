@@ -324,7 +324,7 @@
              Creating a root directory is a separate permission from creating a nested one.
              Anyone with Edit on a parent may add a subdirectory, but starting a new tree at the
              root is a tenant-level act, so it is gated by
-             <c>blocks-data::create-root-directory</c> and assigned to the owner role only.
+             <c>blocks-data::directory::create-root-directory</c> and assigned to the owner role only.
             
              Reads that the caller may not see report 404 rather than 403 throughout. Saying
              "forbidden" would confirm that a directory exists, which is enough to map a tree the
@@ -343,7 +343,7 @@
         <member name="M:Api.Controllers.DirectoryController.UpdateDirectory(DomainService.Storage.Dms.UpdateDirectoryRequest)">
             <summary>Renames a directory or updates its description.</summary>
         </member>
-        <member name="M:Api.Controllers.DirectoryController.DeleteDirectory(DomainService.Storage.Dms.DeleteDirectoryObjectRequest)">
+        <member name="M:Api.Controllers.DirectoryController.DeleteDirectory(DomainService.Storage.Dms.DeleteDirectoryRequest)">
             <summary>Moves a directory to the trash, or removes it permanently.</summary>
         </member>
         <member name="M:Api.Controllers.DirectoryController.MoveDirectory(DomainService.Storage.Dms.MoveDirectoryRequest)">
@@ -432,7 +432,7 @@
             <remarks>
             Every action here is authorised twice: the endpoint permission decides who may
             call it at all, and the service resolves the caller's access to the specific
-            resource. Holding <c>blocks-data::grant-access</c> does not let anyone grant
+            resource. Holding <c>blocks-data::object::grant-access</c> does not let anyone grant
             access to a directory they cannot Manage.
             </remarks>
         </member>

@@ -13,14 +13,14 @@ namespace Storage.DomainService.Services
         private IMongoCollection<ObjectItem> Items => _dbContextProvider.GetCollection<ObjectItem>(CollectionName);
 
         public Task UpsertAsync(ObjectItem item, CancellationToken cancellationToken = default) =>
-            Items.ReplaceOneAsync(Builders<ObjectItem>.Filter.Eq(i => i.ItemId, item.ItemId), item,
+            Items.ReplaceOneAsync(Builders<ObjectItem>.Filter.Eq(i => i.ObjectReferenceId, item.ObjectReferenceId), item,
                 new ReplaceOptions { IsUpsert = true }, cancellationToken);
 
-        public Task DeleteAsync(string itemId, CancellationToken cancellationToken = default) =>
-            Items.DeleteOneAsync(Builders<ObjectItem>.Filter.Eq(i => i.ItemId, itemId), cancellationToken);
+        public Task DeleteAsync(string objectReferenceId, CancellationToken cancellationToken = default) =>
+            Items.DeleteOneAsync(Builders<ObjectItem>.Filter.Eq(i => i.ObjectReferenceId, objectReferenceId), cancellationToken);
 
-        public Task SetInheritanceAsync(string itemId, bool inherits, CancellationToken cancellationToken = default) =>
-            Items.UpdateOneAsync(Builders<ObjectItem>.Filter.Eq(i => i.ItemId, itemId),
+        public Task SetInheritanceAsync(string objectReferenceId, bool inherits, CancellationToken cancellationToken = default) =>
+            Items.UpdateOneAsync(Builders<ObjectItem>.Filter.Eq(i => i.ObjectReferenceId, objectReferenceId),
                 Builders<ObjectItem>.Update.Set(i => i.InheritsParentAccess, inherits)
                     .Set(i => i.LastUpdatedDate, DateTime.UtcNow), cancellationToken: cancellationToken);
 
@@ -28,7 +28,7 @@ namespace Storage.DomainService.Services
         {
             if (directoryIds.Count == 0) return Task.CompletedTask;
             var b = Builders<ObjectItem>.Filter;
-            var filter = b.Or(b.In(i => i.ItemId, directoryIds), b.In(i => i.ParentDirectoryId, directoryIds), b.AnyIn(i => i.AncestorIds, directoryIds));
+            var filter = b.Or(b.In(i => i.ObjectReferenceId, directoryIds), b.In(i => i.ParentDirectoryId, directoryIds), b.AnyIn(i => i.AncestorIds, directoryIds));
             return Items.UpdateManyAsync(filter, Builders<ObjectItem>.Update
                 .Set(i => i.IsArchived, isArchived).Set(i => i.LastUpdatedDate, DateTime.UtcNow), cancellationToken: cancellationToken);
         }
@@ -54,11 +54,11 @@ namespace Storage.DomainService.Services
                 filter &= b.Or(
                     b.Lt(i => i.Type, cursor.Type),
                     b.And(b.Eq(i => i.Type, cursor.Type), b.Gt(i => i.Name, cursor.Name)),
-                    b.And(b.Eq(i => i.Type, cursor.Type), b.Eq(i => i.Name, cursor.Name), b.Gt(i => i.ItemId, cursor.ItemId)));
+                    b.And(b.Eq(i => i.Type, cursor.Type), b.Eq(i => i.Name, cursor.Name), b.Gt(i => i.ObjectReferenceId, cursor.ItemId)));
             }
 
             return Items.Find(filter)
-                .SortByDescending(i => i.Type).ThenBy(i => i.Name).ThenBy(i => i.ItemId)
+                .SortByDescending(i => i.Type).ThenBy(i => i.Name).ThenBy(i => i.ObjectReferenceId)
                 .Limit(query.Take).ToListAsync(cancellationToken);
         }
     }

@@ -7,8 +7,8 @@ namespace Storage.DomainService.Services
     {
         Task UpsertAsync(File file, CancellationToken cancellationToken = default);
         Task UpsertAsync(FileDirectory directory, CancellationToken cancellationToken = default);
-        Task DeleteAsync(string itemId, CancellationToken cancellationToken = default);
-        Task SetInheritanceAsync(string itemId, bool inherits, CancellationToken cancellationToken = default);
+        Task DeleteAsync(string objectReferenceId, CancellationToken cancellationToken = default);
+        Task SetInheritanceAsync(string objectReferenceId, bool inherits, CancellationToken cancellationToken = default);
         Task SetArchiveByDirectoryIdsAsync(IReadOnlyCollection<string> directoryIds, bool isArchived, CancellationToken cancellationToken = default);
     }
 }

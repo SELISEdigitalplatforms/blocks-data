@@ -1,3 +1,4 @@
+using Blocks.Genesis;
 using MongoDB.Bson.Serialization.Attributes;
 using Storage.DomainService.Enums;
 
@@ -5,12 +6,15 @@ namespace Storage.DomainService.Entities
 {
     /// <summary>
     /// Denormalized read model for object views. Files and directories remain the
-    /// authoritative write entities; each has exactly one ObjectItem projection.
+    /// authoritative write entities; each has exactly one ObjectItem projection,
+    /// keyed back to its source via <see cref="ObjectReferenceId"/>. ItemId (from
+    /// BaseEntity) is the projection's own identity, not the source File/FileDirectory id.
     /// </summary>
     [BsonIgnoreExtraElements]
-    public class ObjectItem
+    public class ObjectItem : BaseEntity
     {
-        public string ItemId { get; set; } = string.Empty;
+        /// <summary>The ItemId of the source File or FileDirectory this projection was built from.</summary>
+        public string ObjectReferenceId { get; set; } = string.Empty;
         public string TenantId { get; set; } = string.Empty;
         public StructureType Type { get; set; }
         public string? ParentDirectoryId { get; set; }
@@ -20,17 +24,15 @@ namespace Storage.DomainService.Entities
         public bool IsArchived { get; set; }
         public bool IsActive { get; set; } = true;
         public bool InheritsParentAccess { get; set; } = true;
-        public string CreatedBy { get; set; } = string.Empty;
         public long SizeInBytes { get; set; }
         public string? Extension { get; set; }
         public string? ContentType { get; set; }
         public bool IsDefault { get; set; }
-        public DateTime CreatedDate { get; set; }
-        public DateTime LastUpdatedDate { get; set; }
 
         public static ObjectItem From(File file) => new()
         {
             ItemId = file.ItemId,
+            ObjectReferenceId = file.ItemId,
             TenantId = file.TenantId,
             Type = StructureType.File,
             ParentDirectoryId = string.IsNullOrWhiteSpace(file.DirectoryId) ? null : file.DirectoryId,
@@ -50,6 +52,7 @@ namespace Storage.DomainService.Entities
         public static ObjectItem From(FileDirectory directory) => new()
         {
             ItemId = directory.ItemId,
+            ObjectReferenceId = directory.ItemId,
             TenantId = directory.TenantId,
             Type = StructureType.Directory,
             ParentDirectoryId = string.IsNullOrWhiteSpace(directory.ParentId) ? null : directory.ParentId,

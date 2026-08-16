@@ -125,14 +125,14 @@ namespace Storage.DomainService.Services
                 Take = limit + 1,
             }, cancellationToken);
 
-            var descriptors = rows.ToDictionary(i => i.ItemId, Describe, StringComparer.Ordinal);
+            var descriptors = rows.ToDictionary(i => i.ObjectReferenceId, Describe, StringComparer.Ordinal);
             var sharedIds = sharedOnly
                 ? await GetMatchingShareResourceIdsAsync(descriptors.Values, cancellationToken)
                 : null;
             var visible = new List<VisibleChildItem>();
             foreach (var row in rows)
             {
-                var descriptor = descriptors[row.ItemId];
+                var descriptor = descriptors[row.ObjectReferenceId];
                 if (sharedOnly && (string.Equals(row.CreatedBy, UserId, StringComparison.Ordinal)
                     || !HasMatchingShare(descriptor, sharedIds!))) continue;
 
@@ -157,7 +157,7 @@ namespace Storage.DomainService.Services
 
         private static ObjectResourceDescriptor Describe(ObjectItem item) => new()
         {
-            ResourceId = item.ItemId,
+            ResourceId = item.ObjectReferenceId,
             AncestorIds = item.AncestorIds ?? new List<string>(),
             InheritsParentAccess = item.InheritsParentAccess,
             CreatedBy = item.CreatedBy,
@@ -165,7 +165,7 @@ namespace Storage.DomainService.Services
 
         private static VisibleChildItem ToVisibleItem(ObjectItem item, ObjectPermissionFlags flags) => new()
         {
-            ItemId = item.ItemId, Name = item.Name, Type = item.Type,
+            ItemId = item.ObjectReferenceId, Name = item.Name, Type = item.Type,
             ParentDirectoryId = item.ParentDirectoryId, SizeInBytes = item.SizeInBytes,
             Extension = item.Extension, ContentType = item.ContentType,
             CreatedDate = item.CreatedDate, LastUpdatedDate = item.LastUpdatedDate,

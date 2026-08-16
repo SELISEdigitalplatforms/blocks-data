@@ -278,7 +278,7 @@ namespace XUnitTest.Api
                     "report", "dir-1", StructureType.File, "cursor", 10, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new VisibleChildrenPage { TotalChildCount = 3 });
 
-            var result = await _sut.SearchObject(new ObjectSearchRequest
+            var result = await _sut.SearchObjects(new ObjectSearchRequest
             {
                 Query = "report",
                 DirectoryId = "dir-1",
@@ -312,7 +312,7 @@ namespace XUnitTest.Api
                     StructureType.File, "cursor", 10, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new VisibleChildrenPage { TotalChildCount = 1 });
 
-            var result = await _sut.GetSharedObject(new SharedObjectRequest
+            var result = await _sut.GetSharedObjects(new SharedObjectRequest
             {
                 Type = "file",
                 Cursor = "cursor",

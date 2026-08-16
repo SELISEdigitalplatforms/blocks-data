@@ -16,7 +16,6 @@ namespace Storage.DomainService.Entities
         public string? ParentDirectoryId { get; set; }
         public List<string> AncestorIds { get; set; } = new();
         public string Name { get; set; } = string.Empty;
-        public string SortName { get; set; } = string.Empty;
         public string FullPath { get; set; } = string.Empty;
         public bool IsArchived { get; set; }
         public bool IsActive { get; set; } = true;
@@ -37,7 +36,6 @@ namespace Storage.DomainService.Entities
             ParentDirectoryId = string.IsNullOrWhiteSpace(file.DirectoryId) ? null : file.DirectoryId,
             AncestorIds = file.AncestorIds ?? new(),
             Name = file.Name ?? string.Empty,
-            SortName = (file.Name ?? string.Empty).ToLowerInvariant(),
             IsArchived = file.IsArchived,
             IsActive = file.IsActive,
             InheritsParentAccess = file.InheritsParentAccess,
@@ -57,7 +55,6 @@ namespace Storage.DomainService.Entities
             ParentDirectoryId = string.IsNullOrWhiteSpace(directory.ParentId) ? null : directory.ParentId,
             AncestorIds = directory.AncestorIds ?? new(),
             Name = directory.Name ?? string.Empty,
-            SortName = (directory.Name ?? string.Empty).ToLowerInvariant(),
             FullPath = directory.FullPath ?? string.Empty,
             IsArchived = directory.IsArchived,
             IsActive = directory.IsActive,

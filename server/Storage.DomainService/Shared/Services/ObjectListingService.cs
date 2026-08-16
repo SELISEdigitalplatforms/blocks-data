@@ -1,4 +1,3 @@
-using Blocks.Genesis;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using FileDirectory = Storage.DomainService.Entities.FileDirectory;
@@ -131,8 +130,6 @@ namespace Storage.DomainService.Services
         private async Task<long> CountChildrenAsync(string parentId, StructureType? type, string? search, CancellationToken cancellationToken)
         {
             long total = 0;
-            var ctx = BlocksContext.GetContext();
-            Console.WriteLine($"TenantId: {ctx.TenantId}, original TenantId: {ctx.OriginalTenantId}, UserId: {ctx.UserId}, Roles: {string.Join(", ", ctx.Roles)}");
 
             if (type is null or StructureType.Directory)
             {

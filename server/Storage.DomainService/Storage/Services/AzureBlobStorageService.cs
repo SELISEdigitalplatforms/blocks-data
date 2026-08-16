@@ -24,13 +24,6 @@ namespace DomainService.Storage
             _containerClient.CreateIfNotExists(PublicAccessType.Blob);
         }
 
-        public async Task<string> UploadFileAsync(Stream fileStream, string fileName, string contentType)
-        {
-            var blobClient = _containerClient.GetBlobClient(fileName);
-            await blobClient.UploadAsync(fileStream, new BlobHttpHeaders { ContentType = contentType });
-            return blobClient.Uri.ToString();
-        }
-
         public async Task<Stream?> DownloadFileAsync(string fileName, string? projectKey = null, string? itemId = null, string? versionId = null)
         {
             var blobClient = _containerClient.GetBlobClient(fileName);

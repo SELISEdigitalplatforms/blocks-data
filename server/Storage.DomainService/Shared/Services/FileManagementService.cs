@@ -831,8 +831,6 @@ namespace Storage.DomainService.Services
                 errorMessage = ("signature", "invalid_configuration");
             }
 
-            //Add more validation logic here if needed
-
             return true;
         }
 

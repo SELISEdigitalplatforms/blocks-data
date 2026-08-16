@@ -80,13 +80,6 @@ namespace Storage.DomainService.Services
             return await collection.Find(filter).SingleOrDefaultAsync();
         }
 
-        public async Task<List<File>> GetFiles(string parentDirectoryId)
-        {
-            var filter = Builders<File>.Filter.Eq(e => e.DirectoryId, parentDirectoryId);
-            var collection = _dbContextProvider.GetCollection<File>(string.Format("{0}s", typeof(File).Name));
-            return await collection.Find(filter).ToListAsync();
-        }
-
         public async Task UpdateFileAsync(File file)
         {
             var filter = Builders<File>.Filter.Eq(e => e.ItemId, file.ItemId);
@@ -233,14 +226,6 @@ namespace Storage.DomainService.Services
             var filter = Builders<File>.Filter.In(f => f.ItemId, itemIds);
             var collection = _dbContextProvider.GetCollection<File>(string.Format("{0}s", typeof(File).Name));
             await collection.DeleteManyAsync(filter);
-        }
-
-        public async Task<StorageConfiguration> GetDefaultConfiguration()
-        {
-            var filter = Builders<StorageConfiguration>.Filter.Eq(e => e.Name, "Default");
-            var collection = _dbContextProvider.GetCollection<StorageConfiguration>(string.Format("{0}s", typeof(StorageConfiguration).Name));
-            var config = await collection.Find(filter).FirstOrDefaultAsync();
-            return config;
         }
 
         public async Task<List<File>> FindChildrenAsync(

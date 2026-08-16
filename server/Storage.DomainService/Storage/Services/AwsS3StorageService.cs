@@ -2,7 +2,6 @@
 using Amazon.S3.Model;
 using Blocks.Genesis;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Utilities;
 using System.Diagnostics.CodeAnalysis;
@@ -15,7 +14,7 @@ namespace DomainService.Storage
         protected readonly AmazonS3Client _s3Client;
         protected readonly string _bucketName;
 
-        public AwsS3StorageService(IConfiguration configuration)
+        public AwsS3StorageService()
         {
             var accessKey = StorageProvider.AccessKey;
             var secretKey = StorageProvider.SecretKey;

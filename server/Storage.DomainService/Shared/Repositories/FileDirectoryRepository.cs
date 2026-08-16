@@ -22,32 +22,11 @@ namespace Storage.DomainService.Services
             _dbContextProvider = dbContextProvider;
         }
 
-        public async Task CreateDirectoryAsync(FileDirectory directory)
-        {
-            var entities = _dbContextProvider.GetCollection<FileDirectory>(CollectionName);
-            await entities.InsertOneAsync(directory);
-        }
-
         public async Task CreateDirectoriesAsync(List<FileDirectory> directories)
         {
             if (directories.Count == 0) return;
             var entities = _dbContextProvider.GetCollection<FileDirectory>(CollectionName);
             await entities.InsertManyAsync(directories);
-        }
-
-        public async Task UpdateDirectory(FileDirectory directory)
-        {
-            var filter = Builders<FileDirectory>.Filter.Eq(e => e.ItemId, directory.ItemId);
-            var collection = _dbContextProvider.GetCollection<FileDirectory>(CollectionName);
-            await collection.ReplaceOneAsync(filter, directory, new ReplaceOptions { IsUpsert = true });
-        }
-
-        public async Task<List<FileDirectory>> GetDirectories(string directoryId)
-        {
-            var filter = Builders<FileDirectory>.Filter.Eq(e => e.ParentId, directoryId);
-            var collection = _dbContextProvider.GetCollection<FileDirectory>(CollectionName);
-            var directories = collection.Find(filter);
-            return await directories.ToListAsync();
         }
 
         public async Task<FileDirectory> GetDirectoryByItemIDAsync(string itemID)

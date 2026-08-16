@@ -44,13 +44,6 @@ namespace Storage.DomainService.Services
             return collection.Find(filter).Project<FileVersion>(projection).ToEnumerable();
         }
 
-        public async Task<FileVersion> GetLatestFileVersionIdAsync(string fileId, long versionNumber)
-        {
-            var filter = Builders<FileVersion>.Filter.Eq(e => e.FileId, fileId) & Builders<FileVersion>.Filter.Eq(e => e.No, versionNumber);
-            var collection = _dbContextProvider.GetCollection<FileVersion>(string.Format("{0}s", typeof(FileVersion).Name));
-            return await collection.Find(filter).SingleOrDefaultAsync();
-        }
-
         public async Task<long> GetLatestFileVersionNumberAsync(string fileId)
         {
             var updateFilter = Builders<BsonDocument>.Filter.Eq("_id", fileId);

@@ -59,11 +59,6 @@ namespace Storage.DomainService.Entities
                 Description = directoryOptions.Description,
             };
         }
-
-        public static FileDirectory CreateNew(string itemId)
-        {
-            return new FileDirectory { ItemId = itemId };
-        }
     }
 
 }

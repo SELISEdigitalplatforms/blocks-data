@@ -4,9 +4,7 @@ namespace Storage.DomainService.Services
 {
     public interface IFileDirectoryRepository
     {
-        Task CreateDirectoryAsync(FileDirectory directory);
         Task CreateDirectoriesAsync(List<FileDirectory> directories);
-        Task<List<FileDirectory>> GetDirectories(string directoryId);
         Task<FileDirectory> GetDirectoryByItemIDAsync(string itemID);
 
         /// <summary>
@@ -15,7 +13,6 @@ namespace Storage.DomainService.Services
         /// <c>ModuleName</c>, so implementations must support both forms.
         /// </summary>
         Task<FileDirectory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default);
-        Task UpdateDirectory(FileDirectory directory);
 
         /// <summary>
         /// Loads a directory by id within the caller's tenant. Archived directorys are excluded

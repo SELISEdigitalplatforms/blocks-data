@@ -17,12 +17,10 @@ namespace Storage.DomainService.Services
         Task DeleteFileAsync(File file);
         Task<File> GetFileByItemIdAsync(string itemId);
         Task<File> GetFileByItemIdAsync(string itemId, string tenantId);
-        Task<List<File>> GetFiles(string parentDirectoryId);
         (IEnumerable<BsonDocument>, FileResponse[]) GetRequiredFiles(IEnumerable<string> fileIds, long? version);
         Task<(IQueryable<T>?, long)> GetFilesInfoAsync<T, R>(R query) where R : BaseGetsRequest<GetFilesInfoFilter>;
         Task<FileVersion> GetFileVersions(string fileStorageId);
         Task DeleteFilesAsync(IEnumerable<File> files);
-        Task<StorageConfiguration> GetDefaultConfiguration();
 
         /// <summary>
         /// Keyset-paginated child files of a directory. An empty <paramref name="parentId"/> lists

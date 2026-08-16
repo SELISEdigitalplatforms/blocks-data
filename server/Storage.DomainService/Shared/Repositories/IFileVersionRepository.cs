@@ -9,6 +9,5 @@ namespace Storage.DomainService.Services
         IEnumerable<string> GetFileVersionIds(string fileId);
         IEnumerable<FileVersion> GetFileVersions(string fileId);
         Task<long> GetLatestFileVersionNumberAsync(string fileId);
-        Task<FileVersion> GetLatestFileVersionIdAsync(string fileId, long versionNumber);
     }
 }

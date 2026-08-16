@@ -12,9 +12,6 @@ namespace Storage.DomainService.Services
         public ObjectItemRepository(IDbContextProvider dbContextProvider) => _dbContextProvider = dbContextProvider;
         private IMongoCollection<ObjectItem> Items => _dbContextProvider.GetCollection<ObjectItem>(CollectionName);
 
-        public Task<ObjectItem?> FindByIdAsync(string itemId, CancellationToken cancellationToken = default) =>
-            Items.Find(Builders<ObjectItem>.Filter.Eq(i => i.ItemId, itemId)).FirstOrDefaultAsync(cancellationToken);
-
         public Task UpsertAsync(ObjectItem item, CancellationToken cancellationToken = default) =>
             Items.ReplaceOneAsync(Builders<ObjectItem>.Filter.Eq(i => i.ItemId, item.ItemId), item,
                 new ReplaceOptions { IsUpsert = true }, cancellationToken);

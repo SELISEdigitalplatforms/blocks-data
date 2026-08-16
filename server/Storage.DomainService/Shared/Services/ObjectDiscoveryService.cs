@@ -1,7 +1,5 @@
-using System.Text.RegularExpressions;
 using Blocks.Genesis;
 using DomainService.Storage;
-using MongoDB.Bson;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
@@ -30,13 +28,6 @@ namespace Storage.DomainService.Services
     /// </remarks>
     public class ObjectDiscoveryService : IObjectDiscoveryService
     {
-        /// <summary>
-        /// Upper bound on candidates examined per request. Search and trash both scan
-        /// before filtering by access, so without a ceiling a broad query on a large
-        /// tenant would walk the whole collection.
-        /// </summary>
-        internal const int MaxScan = 1000;
-
         private const string RestoreAuditAction = "Restore";
         private const string DeleteAuditAction = "Delete";
 
@@ -82,26 +73,6 @@ namespace Storage.DomainService.Services
                 return Task.FromResult(new VisibleChildrenPage());
             }
 
-            // Escaped so a query like "report(1)" is matched as text rather than compiled
-            // as a group, and so a pathological pattern cannot be supplied by a caller.
-            var pattern = new BsonRegularExpression(Regex.Escape(query.Trim()), "i");
-
-            var directoryFilter = Builders<FileDirectory>.Filter.And(
-                Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false),
-                Builders<FileDirectory>.Filter.Regex(d => d.Name, pattern));
-
-            var fileFilter = Builders<File>.Filter.And(
-                Builders<File>.Filter.Eq(f => f.IsArchived, false),
-                Builders<File>.Filter.Regex(f => f.Name, pattern));
-
-            if (!string.IsNullOrWhiteSpace(directoryId))
-            {
-                // AncestorIds holds the whole chain, so this scopes to the subtree without
-                // a recursive walk. The directory itself is not a result of its own search.
-                directoryFilter &= Builders<FileDirectory>.Filter.AnyEq(d => d.AncestorIds, directoryId);
-                fileFilter &= Builders<File>.Filter.AnyEq(f => f.AncestorIds, directoryId);
-            }
-
             return AssembleObjectItemPageAsync(null, false, directoryId, type, query, false, cursor, limit, cancellationToken);
         }
 
@@ -114,12 +85,6 @@ namespace Storage.DomainService.Services
             StructureType? type = null, string? cursor = null, int limit = 50,
             CancellationToken cancellationToken = default)
         {
-            var directoryFilter = Builders<FileDirectory>.Filter.And(
-                Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, true));
-
-            var fileFilter = Builders<File>.Filter.And(
-                Builders<File>.Filter.Eq(f => f.IsArchived, true));
-
             return AssembleObjectItemPageAsync(null, false, null, type, null, true, cursor, limit, cancellationToken);
         }
 
@@ -127,9 +92,6 @@ namespace Storage.DomainService.Services
             StructureType? type = null, string? cursor = null, int limit = 50,
             CancellationToken cancellationToken = default)
         {
-            var directoryFilter = Builders<FileDirectory>.Filter.Eq(d => d.IsArchived, false);
-            var fileFilter = Builders<File>.Filter.Eq(f => f.IsArchived, false);
-
             return AssembleObjectItemPageAsync(null, false, null, type, null, false, cursor, limit, cancellationToken, sharedOnly: true);
         }
 
@@ -290,148 +252,6 @@ namespace Storage.DomainService.Services
             return TrashOperationResult.Success();
         }
 
-        /// <summary>
-        /// Runs both collection queries, merges them on the shared sort key, filters by
-        /// access and cuts a page. Shared by search and trash because the two differ only
-        /// in their filters.
-        /// </summary>
-        private async Task<VisibleChildrenPage> AssemblePageAsync(
-            FilterDefinition<FileDirectory> directoryFilter,
-            FilterDefinition<File> fileFilter,
-            StructureType? type,
-            string? cursor,
-            int limit,
-            CancellationToken cancellationToken,
-            bool sharedOnly = false)
-        {
-            if (limit < 1) limit = 1;
-            if (limit > 200) limit = 200;
-
-            var candidates = new List<VisibleChildItem>();
-
-            if (type != StructureType.File)
-            {
-                var directorys = await (await Directories.FindAsync(
-                        directoryFilter,
-                        new FindOptions<FileDirectory> { Limit = MaxScan, Sort = Builders<FileDirectory>.Sort.Ascending(d => d.Name) },
-                        cancellationToken))
-                    .ToListAsync(cancellationToken);
-
-                candidates.AddRange(directorys.Select(f => new VisibleChildItem
-                {
-                    ItemId = f.ItemId,
-                    Name = f.Name ?? string.Empty,
-                    Type = StructureType.Directory,
-                    ParentDirectoryId = f.ParentId,
-                    SizeInBytes = f.SizeInBytes,
-                    CreatedDate = f.CreatedDate,
-                    LastUpdatedDate = f.LastUpdatedDate,
-                    CreatedBy = f.CreatedBy,
-                    IsDefault = f.Tags != null && f.Tags.Contains("default", StringComparer.OrdinalIgnoreCase),
-                }));
-            }
-
-            if (type != StructureType.Directory)
-            {
-                var files = await (await Files.FindAsync(
-                        fileFilter,
-                        new FindOptions<File> { Limit = MaxScan, Sort = Builders<File>.Sort.Ascending(f => f.Name) },
-                        cancellationToken))
-                    .ToListAsync(cancellationToken);
-
-                candidates.AddRange(files.Select(f => new VisibleChildItem
-                {
-                    ItemId = f.ItemId,
-                    Name = f.Name ?? string.Empty,
-                    Type = StructureType.File,
-                    ParentDirectoryId = f.DirectoryId,
-                    SizeInBytes = f.SizeInBytes,
-                    Extension = f.Extension,
-                    ContentType = f.ContentType,
-                    CreatedDate = f.CreatedDate,
-                    LastUpdatedDate = f.LastUpdatedDate,
-                    CreatedBy = f.CreatedBy,
-                }));
-            }
-
-            candidates.Sort((a, b) => ObjectCursor.Compare(a.Type, a.Name, a.ItemId, b.Type, b.Name, b.ItemId));
-
-            // This view is an inbox of objects someone else shared with the caller. A
-            // creator's own resources belong in their normal directory/search results,
-            // even if an access entry also happens to match them.
-            if (sharedOnly)
-            {
-                candidates = candidates
-                    .Where(c => !string.Equals(c.CreatedBy, UserId, StringComparison.Ordinal))
-                    .ToList();
-            }
-
-            var start = ObjectCursor.Decode(cursor);
-            if (start is not null)
-            {
-                candidates = candidates
-                    .Where(c => ObjectCursor.Compare(c.Type, c.Name, c.ItemId, start.Type, start.Name, start.ItemId) > 0)
-                    .ToList();
-            }
-
-            var descriptors = (await BuildDescriptorsAsync(candidates, cancellationToken))
-                .ToDictionary(d => d.ResourceId, StringComparer.Ordinal);
-            var sharedPolicyResourceIds = sharedOnly
-                ? await GetMatchingShareResourceIdsAsync(descriptors.Values, cancellationToken)
-                : null;
-
-            // Full resolution per candidate, not FilterVisibleAsync. That method implements
-            // the listing shortcut, which treats a purely inheriting resource as visible
-            // because its parent already was. Search and trash have no such parent: they
-            // reach across the whole tenant, so an item inheriting from an ancestor the
-            // caller cannot see would be admitted by the shortcut. Resolving View outright
-            // is the only correct answer here.
-            var visible = new List<VisibleChildItem>();
-            foreach (var candidate in candidates)
-            {
-                if (!descriptors.TryGetValue(candidate.ItemId, out var descriptor))
-                {
-                    continue;
-                }
-
-                if (sharedOnly && !HasMatchingShare(descriptor, sharedPolicyResourceIds!))
-                {
-                    continue;
-                }
-
-                var flags = await _resolver.ResolveFlagsAsync(descriptor, cancellationToken);
-                if (!flags.CanView)
-                {
-                    continue;
-                }
-
-                candidate.Permissions = flags;
-                visible.Add(candidate);
-
-                // Stop once a full page plus its lookahead is confirmed, so a broad query
-                // does not resolve every candidate it scanned.
-                if (visible.Count > limit)
-                {
-                    break;
-                }
-            }
-
-            var page = visible.Take(limit).ToList();
-            var hasMore = visible.Count > limit;
-
-            var last = page.LastOrDefault();
-
-            return new VisibleChildrenPage
-            {
-                Items = page,
-                HasMore = hasMore,
-                NextCursor = hasMore && last is not null
-                    ? new ObjectCursor { Type = last.Type, Name = last.Name, ItemId = last.ItemId }.Encode()
-                    : null,
-                TotalChildCount = page.Count,
-            };
-        }
-
         private async Task<HashSet<string>> GetMatchingShareResourceIdsAsync(
             IEnumerable<ObjectResourceDescriptor> descriptors, CancellationToken cancellationToken)
         {
@@ -478,41 +298,6 @@ namespace Storage.DomainService.Services
                                                 && string.Equals(policy.PrincipalId, context.OrganizationId, StringComparison.Ordinal),
             _ => false,
         };
-
-        /// <summary>
-        /// Loads the ancestry and inheritance flags the resolver needs, in two queries
-        /// rather than one per candidate.
-        /// </summary>
-        private async Task<List<ObjectResourceDescriptor>> BuildDescriptorsAsync(
-            List<VisibleChildItem> candidates, CancellationToken cancellationToken)
-        {
-            var descriptors = new List<ObjectResourceDescriptor>(candidates.Count);
-
-            var directoryIds = candidates.Where(c => c.Type == StructureType.Directory).Select(c => c.ItemId).ToList();
-            var fileIds = candidates.Where(c => c.Type == StructureType.File).Select(c => c.ItemId).ToList();
-
-            if (directoryIds.Count > 0)
-            {
-                var directorys = await (await Directories.FindAsync(
-                        Builders<FileDirectory>.Filter.In(d => d.ItemId, directoryIds),
-                        cancellationToken: cancellationToken))
-                    .ToListAsync(cancellationToken);
-
-                descriptors.AddRange(directorys.Select(Describe));
-            }
-
-            if (fileIds.Count > 0)
-            {
-                var files = await (await Files.FindAsync(
-                        Builders<File>.Filter.In(f => f.ItemId, fileIds),
-                        cancellationToken: cancellationToken))
-                    .ToListAsync(cancellationToken);
-
-                descriptors.AddRange(files.Select(Describe));
-            }
-
-            return descriptors;
-        }
 
         private async Task<FileDirectory?> FindArchivedDirectoryAsync(string resourceId, CancellationToken cancellationToken) =>
             await (await Directories.FindAsync(

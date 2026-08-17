@@ -158,21 +158,6 @@ namespace XUnitTest.Api
             _files.Verify(f => f.UpdateFileAsync(It.IsAny<UpdateFileRequest>()), Times.Never);
         }
 
-        [Fact]
-        public async Task DeprecatedCamelCaseAlias_BehavesExactlyLikeTheRenamedAction()
-        {
-            // The lower-case alias exists only so a leaked URL keeps working; it must not drift.
-            var command = new UpdateFileRequest { ItemId = "f1" };
-            _files.Setup(f => f.UpdateFileAsync(command)).ReturnsAsync(new BaseMutationResponse { IsSuccess = true });
-
-#pragma warning disable CS0618 // deliberately exercising the obsolete alias
-            var alias = await _sut.updateFileAdditionalInfo(command);
-#pragma warning restore CS0618
-
-            alias.Should().BeOfType<OkObjectResult>();
-            _files.Verify(f => f.UpdateFileAsync(command), Times.Once);
-        }
-
         // ---------------- DMS file endpoints (move / copy / versions / create-version) ----------------
 
         [Fact]

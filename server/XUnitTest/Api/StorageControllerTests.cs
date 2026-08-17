@@ -229,9 +229,7 @@ public class StorageControllerTests
         service.Setup(s => s.UpdateFileAsync(command))
             .ReturnsAsync(new BaseMutationResponse { IsSuccess = true });
 
-#pragma warning disable CS0618 // the alias is deliberately kept for the leaked camelCase URL
-        var result = await controller.updateFileAdditionalInfo(command);
-#pragma warning restore CS0618
+        var result = await controller.UpdateFileAdditionalInfo(command);
 
         result.Should().BeOfType<OkObjectResult>();
         service.Verify(s => s.UpdateFileAsync(command), Times.Once);

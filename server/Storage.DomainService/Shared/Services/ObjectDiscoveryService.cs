@@ -37,6 +37,7 @@ namespace Storage.DomainService.Services
         private readonly IFileManagementService _fileManagementService;
         private readonly IFileDirectoryManagementService _fileDirectoryManagementService;
         private readonly IObjectItemRepository? _objectItems;
+        private readonly IObjectItemWriter? _objectItemWriter;
 
         public ObjectDiscoveryService(
             IDbContextProvider dbContextProvider,
@@ -44,7 +45,8 @@ namespace Storage.DomainService.Services
             IObjectAccessRepository accessRepository,
             IFileManagementService fileManagementService,
             IFileDirectoryManagementService fileDirectoryManagementService,
-            IObjectItemRepository? objectItems = null)
+            IObjectItemRepository? objectItems = null,
+            IObjectItemWriter? objectItemWriter = null)
         {
             _dbContextProvider = dbContextProvider;
             _resolver = resolver;
@@ -52,6 +54,7 @@ namespace Storage.DomainService.Services
             _fileManagementService = fileManagementService;
             _fileDirectoryManagementService = fileDirectoryManagementService;
             _objectItems = objectItems;
+            _objectItemWriter = objectItemWriter;
         }
 
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
@@ -198,13 +201,18 @@ namespace Storage.DomainService.Services
                 return TrashOperationResult.Failure(TrashOperationStatus.NotPermitted);
             }
 
+            file.IsArchived = false;
+            file.LastUpdatedBy = UserId;
+            file.LastUpdatedDate = DateTime.UtcNow;
+
             await Files.UpdateOneAsync(
                 Builders<File>.Filter.Eq(f => f.ItemId, resourceId),
                 Builders<File>.Update
-                    .Set(f => f.IsArchived, false)
-                    .Set(f => f.LastUpdatedBy, UserId)
-                    .Set(f => f.LastUpdatedDate, DateTime.UtcNow),
+                    .Set(f => f.IsArchived, file.IsArchived)
+                    .Set(f => f.LastUpdatedBy, file.LastUpdatedBy)
+                    .Set(f => f.LastUpdatedDate, file.LastUpdatedDate),
                 cancellationToken: cancellationToken);
+            if (_objectItemWriter is not null) await _objectItemWriter.UpsertAsync(file, cancellationToken);
 
             await AuditAsync(resourceId, ObjectResourceType.File, RestoreAuditAction, true, null, cancellationToken);
             return TrashOperationResult.Success();

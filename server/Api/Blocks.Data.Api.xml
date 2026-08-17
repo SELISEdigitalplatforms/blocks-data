@@ -410,20 +410,47 @@
             <param name="request">The request containing file download details.</param>
             <returns>A response containing the file stream and metadata of the downloaded file.</returns>
         </member>
+        <member name="M:Api.Controllers.FileController.UpdateFileAdditionalInfo(Storage.DomainService.Storage.UpdateFileRequest)">
+            <summary>
+            Updates additional information for a file, such as metadata or custom attributes.
+            </summary>
+            <param name="command"></param>
+            <returns></returns>
+        </member>
         <member name="M:Api.Controllers.FileController.GetFileVersions(DomainService.Storage.Dms.GetFileVersionsRequest)">
-            <summary>Cursor-paginated version history of a file, newest first.</summary>
+            <summary>
+            Retrieves the version history of a file, including details about each version and pagination information.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
         </member>
         <member name="M:Api.Controllers.FileController.CreateFileVersion(DomainService.Storage.Dms.CreateFileVersionRequest)">
-            <summary>Creates the next version of a file and returns a presigned upload URL.</summary>
+            <summary>
+            Creates a new version of a file, allowing for version control and tracking of changes over time.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
         </member>
         <member name="M:Api.Controllers.FileController.CopyFile(DomainService.Storage.Dms.CopyFileRequest)">
-            <summary>Copies a file into another directory without duplicating its stored bytes.</summary>
+            <summary>
+            Copies a file into another directory without duplicating its stored bytes.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
         </member>
         <member name="M:Api.Controllers.FileController.MoveFile(DomainService.Storage.Dms.MoveFileRequest)">
-            <summary>Re-parents a file into another directory.</summary>
+            <summary>
+            Moves a file to another directory without changing its stored bytes.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
         </member>
         <member name="M:Api.Controllers.FileController.RenameFile(DomainService.Storage.Dms.RenameFileRequest)">
-            <summary>Renames a file without moving it or changing its stored content.</summary>
+            <summary>
+            Renames a file, allowing for changing its name while keeping it in the same directory and preserving its stored bytes.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
         </member>
         <member name="T:Api.Controllers.ObjectController">
             <summary>

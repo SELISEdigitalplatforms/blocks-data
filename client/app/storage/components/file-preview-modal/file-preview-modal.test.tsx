@@ -17,9 +17,10 @@ beforeEach(() => {
 });
 
 describe("FilePreviewModal", () => {
-  it("shows a skeleton while loading", () => {
+  it("shows progress while the preview URL is loading", () => {
     render(<FilePreviewModal {...baseProps} isLoading />);
-    expect(document.body.querySelector(".animate-pulse")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Loading file preview" })).toBeInTheDocument();
+    expect(screen.getByText("Preparing preview")).toBeInTheDocument();
   });
 
   it("shows a fallback message when there is no file URL", () => {
@@ -40,6 +41,11 @@ describe("FilePreviewModal", () => {
     render(<FilePreviewModal {...baseProps} fileExtension=".png" fileName="pic.png" />);
     const img = document.body.querySelector("img") as HTMLImageElement;
     expect(img).toHaveAttribute("src", "https://files/x");
+  });
+
+  it("recognizes extensions without a leading dot", () => {
+    render(<FilePreviewModal {...baseProps} fileExtension="png" fileName="pic.png" />);
+    expect(document.body.querySelector("img")).toBeInTheDocument();
   });
 
   it("renders a video player for video extensions", () => {
@@ -69,10 +75,10 @@ describe("FilePreviewModal", () => {
     spy.mockRestore();
   });
 
-  it("offers a download link for unsupported types", () => {
+  it("offers an open-in-new-tab link for unsupported types", () => {
     render(<FilePreviewModal {...baseProps} fileExtension=".xyz" fileName="thing.xyz" />);
-    const link = screen.getByRole("link", { name: "Download File" });
+    const link = screen.getByRole("link", { name: "Open in new tab" });
     expect(link).toHaveAttribute("href", "https://files/x");
-    expect(link).toHaveAttribute("download", "thing.xyz");
+    expect(link).toHaveAttribute("target", "_blank");
   });
 });

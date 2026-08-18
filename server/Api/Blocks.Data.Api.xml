@@ -316,72 +316,191 @@
             <param name="id">The unique identifier of the schema definition to delete.</param>
             <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
         </member>
-        <member name="T:Api.Controllers.FilesController">
+        <member name="T:Api.Controllers.DirectoryController">
+             <summary>
+             Directory operations: create, read, list children, rename, move and delete.
+             </summary>
+             <remarks>
+             Creating a root directory is a separate permission from creating a nested one.
+             Anyone with Edit on a parent may add a subdirectory, but starting a new tree at the
+             root is a tenant-level act, so it is gated by
+             <c>blocks-data::directory::create-root-directory</c> and assigned to the owner role only.
+            
+             Reads that the caller may not see report 404 rather than 403 throughout. Saying
+             "forbidden" would confirm that a directory exists, which is enough to map a tree the
+             caller cannot open.
+             </remarks>
+        </member>
+        <member name="M:Api.Controllers.DirectoryController.CreateDirectory(DomainService.Storage.Dms.CreateDirectoryRequest)">
+            <summary>Creates a directory beneath an existing parent.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoryController.CreateRootDirectory(DomainService.Storage.Dms.CreateDirectoryRequest)">
+            <summary>Creates a directory at the root of the tenant.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoryController.GetDirectory(System.String)">
+            <summary>Directory details plus the operations the caller holds on it.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoryController.UpdateDirectory(DomainService.Storage.Dms.UpdateDirectoryRequest)">
+            <summary>Renames a directory or updates its description.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoryController.DeleteDirectory(DomainService.Storage.Dms.DeleteDirectoryRequest)">
+            <summary>Moves a directory to the trash, or removes it permanently.</summary>
+        </member>
+        <member name="M:Api.Controllers.DirectoryController.MoveDirectory(DomainService.Storage.Dms.MoveDirectoryRequest)">
+            <summary>Re-parents a directory and rewrites the cached ancestry beneath it.</summary>
+        </member>
+        <member name="T:Api.Controllers.FileController">
             <summary>
             Controller for managing file-related operations such as downloading, uploading, and deleting files.
             </summary>
         </member>
-        <member name="M:Api.Controllers.FilesController.#ctor(Storage.DomainService.Services.IFileManagementService)">
+        <member name="M:Api.Controllers.FileController.#ctor(Storage.DomainService.Services.IFileManagementService,Storage.DomainService.Services.IFileService)">
             <summary>
-            Initializes a new instance of the <see cref="T:Api.Controllers.FilesController"/> class.
+            Initializes a new instance of the <see cref="T:Api.Controllers.FileController"/> class.
             </summary>
             <param name="fileManagementService">Service for managing file operations.</param>
+            <param name="fileService">Service for file version, move and copy operations.</param>
         </member>
-        <member name="M:Api.Controllers.FilesController.GetFile(DomainService.Storage.GetFileRequest)">
+        <member name="M:Api.Controllers.FileController.GetFile(DomainService.Storage.GetFileRequest)">
             <summary>
             Retrieves a file for download based on the provided request.
             </summary>
             <param name="request">The request containing file details.</param>
             <returns>A response containing the file details or null if not found.</returns>
         </member>
-        <member name="M:Api.Controllers.FilesController.GetFiles(DomainService.Storage.GetFilesRequest)">
+        <member name="M:Api.Controllers.FileController.GetFiles(DomainService.Storage.GetFilesRequest)">
             <summary>
             Retrieves multiple files for download based on the provided request.
             </summary>
             <param name="request">The request containing file details.</param>
             <returns>A response containing the file details or null if not found.</returns>
         </member>
-        <member name="M:Api.Controllers.FilesController.GetFilesInfo(Storage.DomainService.Storage.GetFilesInfoRequest)">
+        <member name="M:Api.Controllers.FileController.GetFilesInfo(Storage.DomainService.Storage.GetFilesInfoRequest)">
             <summary>
             Retrieves multiple files Information.
             </summary>
             <param name="request">The request containing file details.</param>
             <returns>A response containing the file details or null if not found.</returns>
         </member>
-        <member name="M:Api.Controllers.FilesController.GetPreSignedUrlForUpload(DomainService.Storage.GetPreSignedUrlForUploadRequest)">
+        <member name="M:Api.Controllers.FileController.GetPreSignedUrlForUpload(DomainService.Storage.GetPreSignedUrlForUploadRequest)">
             <summary>
             Generates a pre-signed URL for uploading a file.
             </summary>
             <param name="request">The request containing upload details.</param>
             <returns>A response containing the pre-signed URL for upload.</returns>
         </member>
-        <member name="M:Api.Controllers.FilesController.DeleteFile(DomainService.Storage.DeleteFileRequest)">
+        <member name="M:Api.Controllers.FileController.DeleteFile(DomainService.Storage.DeleteFileRequest)">
             <summary>
-            Deletes a file based on the provided request.
+            Moves a file to trash, or permanently removes it when <c>Permanent</c> is true.
             </summary>
             <param name="request">The request containing file deletion details.</param>
             <returns>A response indicating the result of the delete operation.</returns>
         </member>
-        <member name="M:Api.Controllers.FilesController.UploadFileToLocalStorage(DomainService.Storage.LocalStorageUploadRequest)">
+        <member name="M:Api.Controllers.FileController.UploadFileToLocalStorage(DomainService.Storage.LocalStorageUploadRequest)">
             <summary>
             Uploads a file to local storage.
             </summary>
             <param name="request">The request containing the file stream and metadata for the upload.</param>
             <returns>A response containing the details of the uploaded file.</returns>
         </member>
-        <member name="M:Api.Controllers.FilesController.DownloadFile(DomainService.Storage.DownloadFileRequest)">
+        <member name="M:Api.Controllers.FileController.DownloadFile(DomainService.Storage.DownloadFileRequest)">
             <summary>
             Downloads a file from local storage based on the provided request. (This endpoint is for internal use only!)
             </summary>
             <param name="request">The request containing file download details.</param>
             <returns>A response containing the file stream and metadata of the downloaded file.</returns>
         </member>
-        <member name="M:Api.Controllers.FilesController.DeleteFolder(DomainService.Storage.DeleteFolderRequest)">
+        <member name="M:Api.Controllers.FileController.UpdateFileAdditionalInfo(Storage.DomainService.Storage.UpdateFileRequest)">
             <summary>
-            Deletes a folder based on the provided request.
+            Updates additional information for a file, such as metadata or custom attributes.
             </summary>
-            <param name="request">The request containing folder deletion details (folder id, optional configuration and project key).</param>
-            <returns>A <see cref="T:Blocks.Genesis.BaseResponse"/> indicating whether the delete operation succeeded and any associated errors.</returns>
+            <param name="command"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Api.Controllers.FileController.GetFileVersions(DomainService.Storage.Dms.GetFileVersionsRequest)">
+            <summary>
+            Retrieves the version history of a file, including details about each version and pagination information.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Api.Controllers.FileController.CreateFileVersion(DomainService.Storage.Dms.CreateFileVersionRequest)">
+            <summary>
+            Creates a new version of a file, allowing for version control and tracking of changes over time.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Api.Controllers.FileController.CopyFile(DomainService.Storage.Dms.CopyFileRequest)">
+            <summary>
+            Copies a file into another directory without duplicating its stored bytes.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Api.Controllers.FileController.MoveFile(DomainService.Storage.Dms.MoveFileRequest)">
+            <summary>
+            Moves a file to another directory without changing its stored bytes.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Api.Controllers.FileController.RenameFile(DomainService.Storage.Dms.RenameFileRequest)">
+            <summary>
+            Renames a file, allowing for changing its name while keeping it in the same directory and preserving its stored bytes.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Api.Controllers.ObjectController">
+            <summary>
+            Sharing, access policies, search and the trash.
+            </summary>
+            <remarks>
+            Every action here is authorised twice: the endpoint permission decides who may
+            call it at all, and the service resolves the caller's access to the specific
+            resource. Holding <c>blocks-data::object::grant-access</c> does not let anyone grant
+            access to a directory they cannot Manage.
+            </remarks>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.GetObjects(DomainService.Storage.Dms.GetObjectRequest)">
+            <summary>Access-resolved, cursor-paginated files and directories under one parent.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.SearchObjects(DomainService.Storage.Dms.ObjectSearchRequest)">
+            <summary>Name search across directorys and files the caller may view.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.GetTrash(DomainService.Storage.Dms.TrashRequest)">
+            <summary>Archived directorys and files the caller may view.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.GetSharedObjects(DomainService.Storage.Dms.SharedObjectRequest)">
+            <summary>Live files and directorys explicitly shared with the caller.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.RestoreFromTrash(DomainService.Storage.Dms.RestoreFromTrashRequest)">
+            <summary>Returns an archived item to its original parent.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.DeleteFromTrash(DomainService.Storage.Dms.DeleteFromTrashRequest)">
+            <summary>Removes an archived item for good.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.GetAccessPolicies(DomainService.Storage.Dms.GetAccessPoliciesRequest)">
+            <summary>The access entries on a resource.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.GrantAccess(DomainService.Storage.Dms.GrantAccessRequest)">
+            <summary>Creates an access entry. Requires Manage on the resource.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.UpdateAccessPolicy(DomainService.Storage.Dms.GrantAccessRequest)">
+            <summary>Updates an existing access entry.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.RevokeAccessPolicy(DomainService.Storage.Dms.RevokeAccessRequest)">
+            <summary>Deletes an access entry.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.ResolveAccess(System.String)">
+            <summary>The operations the calling user holds on a resource.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.ToggleInheritance(DomainService.Storage.Dms.ToggleInheritanceRequest)">
+            <summary>Switches a resource between inheriting its parent's access and standing alone.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.ShareObject(DomainService.Storage.Dms.ShareObjectRequest)">
+            <summary>Grants a principal an allow entry and records it as a share.</summary>
         </member>
         <member name="T:BlocksTemplate.Api.Controllers.RegexAssistantController">
             <summary>

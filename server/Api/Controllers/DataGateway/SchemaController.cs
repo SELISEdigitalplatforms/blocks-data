@@ -37,7 +37,7 @@ namespace Api.Controllers
         /// <param name="request">Request parameters for pagination and filtering: Keyword (search term), PageNo, PageSize, SortBy, SortDescending.</param>
         /// <returns>Returns a paginated list of schema definitions.</returns>
         [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-schema-definitions")]
+        [ProtectedEndPoint("blocks-data::schema::get-schema-definitions")]
         [ProducesResponseType(typeof(ServiceResponse<PaginationResponse<SchemaDefinitionResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetSchemaDefinitions([FromQuery] GetSchemaDefinitionListRequest request)
@@ -53,7 +53,7 @@ namespace Api.Controllers
         /// <param name="request">Request parameters for pagination and filtering.</param>
         /// <returns>Returns a paginated list of schema definitions and an aggregation of access-level counts.</returns>
         [HttpGet("aggregation")]
-        [ProtectedEndPoint("blocks-data::get-schema-definitions-summary")]
+        [ProtectedEndPoint("blocks-data::schema::get-schema-definitions-summary")]
         [ProducesResponseType(typeof(ServiceResponse<SchemaDefinitionListResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetSchemaDefinitionsSummary([FromQuery] GetSchemaDefinitionListRequest request)
@@ -76,7 +76,7 @@ namespace Api.Controllers
         /// <param name="id">The unique identifier of the schema definition to retrieve.</param>
         /// <returns>Returns the schema definition details if found, or an error message if not found.</returns>
         [HttpGet("get-by-id")]
-        [ProtectedEndPoint("blocks-data::get-schema-definition-by-id")]
+        [ProtectedEndPoint("blocks-data::schema::get-schema-definition-by-id")]
         [ProducesResponseType(typeof(ServiceResponse<SchemaDefinitionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetSchemaDefinitionByIdAsync([FromQuery] string id)
@@ -93,7 +93,7 @@ namespace Api.Controllers
         /// </summary>
         /// <returns></returns>
         [HttpGet("unadapted-change-logs")]
-        [ProtectedEndPoint("blocks-data::get-unadapted-change-logs")]
+        [ProtectedEndPoint("blocks-data::schema::get-unadapted-change-logs")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -107,7 +107,7 @@ namespace Api.Controllers
         /// Retrieves a list of all Entity-type schema collections with basic info.
         /// </summary>
         [HttpGet("info")]
-        [ProtectedEndPoint("blocks-data::get-entity-collections")]
+        [ProtectedEndPoint("blocks-data::schema::get-entity-collections")]
         [ProducesResponseType(typeof(ServiceResponse<CollectionListResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -116,7 +116,6 @@ namespace Api.Controllers
             if (string.IsNullOrWhiteSpace(projectKey))
                 return StatusCode((int)HttpStatusCode.BadRequest, new { Message = InvalidProjectKeyMessage });
 
-            // _changeControllerContext.ChangeContext(new ProjectKeyModel { ProjectKey = projectKey });
             var response = await _schemaService.GetEntityCollectionsAsync();
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -125,7 +124,7 @@ namespace Api.Controllers
         /// Retrieves the details of a specific Entity-type schema by its collection name, including all fields.
         /// </summary>
         [HttpGet("info-by-name")]
-        [ProtectedEndPoint("blocks-data::get-entity-collection-by-name")]
+        [ProtectedEndPoint("blocks-data::schema::get-entity-collection-by-name")]
         [ProducesResponseType(typeof(ServiceResponse<CollectionDetailResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -148,7 +147,7 @@ namespace Api.Controllers
         /// <param name="request">Schema definition details: SchemaName, CollectionName, Fields (list of Name, Type, IsArray), SchemaType (Entity or Dto).</param>
         /// <returns>Returns the created schema definition or an error message if the operation fails.</returns>
         [HttpPost("define")]
-        [ProtectedEndPoint("blocks-data::create-schema-definition")]
+        [ProtectedEndPoint("blocks-data::schema::create-schema-definition")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -164,7 +163,7 @@ namespace Api.Controllers
         /// <param name="request">Field definitions to be saved: ItemId (schema identifier), Fields (list of field definitions).</param>
         /// <returns>Returns a success response if the fields are saved, or an error message if the operation fails.</returns>
         [HttpPost("info")]
-        [ProtectedEndPoint("blocks-data::create-schema")]
+        [ProtectedEndPoint("blocks-data::schema::create-schema")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -180,7 +179,7 @@ namespace Api.Controllers
         /// <param name="request">Field definitions to be saved: ItemId (schema identifier), Fields (list of field definitions).</param>
         /// <returns>Returns a success response if the fields are saved, or an error message if the operation fails.</returns>
         [HttpPost("fields")]
-        [ProtectedEndPoint("blocks-data::save-schema-fields")]
+        [ProtectedEndPoint("blocks-data::schema::save-schema-fields")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -201,7 +200,7 @@ namespace Api.Controllers
         /// <param name="request">Updated schema definition: ItemId (unique identifier), SchemaName, CollectionName, Fields, SchemaType.</param>
         /// <returns>Returns the updated schema definition or an error message if the operation fails.</returns>
         [HttpPut("define")]
-        [ProtectedEndPoint("blocks-data::update-schema-definition")]
+        [ProtectedEndPoint("blocks-data::schema::update-schema-definition")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -217,7 +216,7 @@ namespace Api.Controllers
         /// <param name="request">Updated schema definition: ItemId (unique identifier), SchemaName, CollectionName, Fields, SchemaType.</param>
         /// <returns>Returns the updated schema definition or an error message if the operation fails.</returns>
         [HttpPut("info")]
-        [ProtectedEndPoint("blocks-data::update-schema")]
+        [ProtectedEndPoint("blocks-data::schema::update-schema")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -236,7 +235,7 @@ namespace Api.Controllers
         /// <param name="id">The unique identifier of the schema definition to delete.</param>
         /// <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
         [HttpDelete]
-        [ProtectedEndPoint("blocks-data::delete-schema-definition")]
+        [ProtectedEndPoint("blocks-data::schema::delete-schema-definition")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> DeleteSchemaDefinitionAsync([FromQuery] string id)

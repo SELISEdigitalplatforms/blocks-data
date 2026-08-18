@@ -6,7 +6,7 @@ namespace DomainService.Storage.Validators
 {
     public class LocalStorageUploadRequestValidator : AbstractValidator<LocalStorageUploadRequest>
     {
-        public LocalStorageUploadRequestValidator(IDirectoryRepository directoryRepository)
+        public LocalStorageUploadRequestValidator(IFileDirectoryRepository directoryRepository)
         {
 
             RuleFor(x => x.Name)

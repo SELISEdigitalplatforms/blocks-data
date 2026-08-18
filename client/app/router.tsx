@@ -11,6 +11,8 @@ import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
 import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
 import DataGatewaySchemasPage from "./routes/dashboard/data-gateway-schemas";
 import StoragePage from "./routes/dashboard/storage-page";
+import StorageSearchPage from "./routes/dashboard/storage-search-page";
+import StorageTrashPage from "./routes/dashboard/storage-trash-page";
 
 // Console pages
 import {
@@ -110,6 +112,8 @@ export const router = createBrowserRouter([
                     element: <DataGatewayEditDataSourcePage />,
                   },
                   { path: "storage", element: <StoragePage /> },
+                  { path: "storage/search", element: <StorageSearchPage /> },
+                  { path: "storage/trash", element: <StorageTrashPage /> },
                 ],
               },
             ],

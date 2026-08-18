@@ -38,7 +38,7 @@ namespace Api.Controllers.DataGateway
         /// <param name="request">Export options: ProjectKey, MessageCoRelationId, ExportOptions (Schema | AccessPolicies | ValidationRules | All).</param>
         /// <returns>Returns Acknowledged=true and the fileId that can be used to download the exported file.</returns>
         [HttpPost("export")]
-        [ProtectedEndPoint("blocks-data::export-schemas")]
+        [ProtectedEndPoint("blocks-data::schema-exchange::export-schemas")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -56,7 +56,7 @@ namespace Api.Controllers.DataGateway
         /// <param name="request">Import parameters: ProjectKey, FileId of the exported schema file, MessageCoRelationId.</param>
         /// <returns>Returns Acknowledged=true when the import has been queued.</returns>
         [HttpPost("import")]
-        [ProtectedEndPoint("blocks-data::import-schemas")]
+        [ProtectedEndPoint("blocks-data::schema-exchange::import-schemas")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]

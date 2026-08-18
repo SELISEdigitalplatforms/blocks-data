@@ -60,7 +60,6 @@ describe("PermissionsList", () => {
     expect(screen.getByText("Endpoint")).toBeInTheDocument();
     // custom source badge.
     expect(screen.getByText("Custom")).toBeInTheDocument();
-    // roles.length rendered.
     expect(screen.getByText("2")).toBeInTheDocument();
     // first tag + overflow counter.
     expect(screen.getByText("alpha")).toBeInTheDocument();

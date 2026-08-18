@@ -18,8 +18,6 @@ import { UserActionMenu } from "./user-action-menu";
 import { UserDevices } from "../user-devices";
 import { UserHistories } from "../user-histories";
 import { UserMemberships } from "../user-memberships";
-// import { UserRoles } from "../user-roles";
-// import { UserPermissions } from "../user-permssions";
 
 const Menu = [
   {

@@ -33,7 +33,7 @@ namespace BlocksTemplate.Api.Controllers
         [HttpPost("generate-regex")]
         // Deprecated: use regex/generate-regex. Kept for backward compatibility.
         [HttpPost("generateregex")]
-        [ProtectedEndPoint("blocks-data::generate-regex")]
+        [ProtectedEndPoint("blocks-data::regex-assistant::generate-regex")]
         public async Task<IActionResult> GenerateRegex([FromBody] RegexAssistantRequest request)
         {
             if (string.IsNullOrWhiteSpace(request?.Description))

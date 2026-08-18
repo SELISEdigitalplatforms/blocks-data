@@ -6,8 +6,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Services;
-using Storage.DomainService.Shared.Enums;
-using Storage.DomainService.Shared.Services;
 using Storage.DomainService.Utilities;
 using StorageStorage = Storage.DomainService.Storage;
 
@@ -95,39 +93,6 @@ public class StorageServiceFactoryTests
     }
 }
 
-public class DmsArtifactBuilderFactoryTests
-{
-    private static IServiceProvider BuildProvider()
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton(Mock.Of<IFileRepository>());
-        services.AddTransient<FileArtifactBuilder>();
-        services.AddTransient<FolderArtifactBuilder>();
-        return services.BuildServiceProvider();
-    }
-
-    [Fact]
-    public void CreateArtifactBuilder_File_ReturnsFileBuilder()
-    {
-        var factory = new StorageStorage.DmsArtifactBuilderFactory(BuildProvider());
-        factory.CreateArtifactBuilder(DmsArtifactType.File).Should().BeOfType<FileArtifactBuilder>();
-    }
-
-    [Fact]
-    public void CreateArtifactBuilder_Folder_ReturnsFolderBuilder()
-    {
-        var factory = new StorageStorage.DmsArtifactBuilderFactory(BuildProvider());
-        factory.CreateArtifactBuilder(DmsArtifactType.Folder).Should().BeOfType<FolderArtifactBuilder>();
-    }
-
-    [Fact]
-    public void CreateArtifactBuilder_Unknown_ReturnsNull()
-    {
-        var factory = new StorageStorage.DmsArtifactBuilderFactory(BuildProvider());
-        factory.CreateArtifactBuilder((DmsArtifactType)999).Should().BeNull();
-    }
-}
-
 public class StorageValidatorTests
 {
     [Fact]
@@ -149,7 +114,7 @@ public class StorageValidatorTests
     [Fact]
     public void LocalStorageUpload_MissingExtension_Fails()
     {
-        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IDirectoryRepository>());
+        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IFileDirectoryRepository>());
         var request = new LocalStorageUploadRequest { Name = "noext", File = Mock.Of<IFormFile>() };
         validator.Validate(request).IsValid.Should().BeFalse();
     }
@@ -157,7 +122,7 @@ public class StorageValidatorTests
     [Fact]
     public void LocalStorageUpload_UnsupportedExtension_Fails()
     {
-        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IDirectoryRepository>());
+        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IFileDirectoryRepository>());
         var request = new LocalStorageUploadRequest { Name = "malware.exe", File = Mock.Of<IFormFile>() };
         validator.Validate(request).IsValid.Should().BeFalse();
     }
@@ -165,7 +130,7 @@ public class StorageValidatorTests
     [Fact]
     public void LocalStorageUpload_Valid_Passes()
     {
-        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IDirectoryRepository>());
+        var validator = new LocalStorageUploadRequestValidator(Mock.Of<IFileDirectoryRepository>());
         var request = new LocalStorageUploadRequest { Name = "document.pdf", File = Mock.Of<IFormFile>() };
         validator.Validate(request).IsValid.Should().BeTrue();
     }

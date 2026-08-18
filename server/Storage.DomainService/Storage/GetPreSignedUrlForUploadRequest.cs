@@ -31,7 +31,7 @@ namespace DomainService.Storage
         public string AccessModifier { get; set; } = "Private";
 
         public string? ConfigurationName { get; set; } = null;
-        public ModuleName ModuleName { get; set; } = ModuleName.Default_Cloud;
+        public ModuleName ModuleName { get; set; } = ModuleName.Default_Construct;
         public Dictionary<string, string> AdditionalProperties { get; set; } = new Dictionary<string, string>();
     }
 }

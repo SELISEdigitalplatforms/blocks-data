@@ -34,7 +34,7 @@ namespace Api.Controllers
         /// <param name="request">Request parameters for pagination and filtering: SchemaId, FieldName, Keyword, PageNo, PageSize, SortBy, SortDescending.</param>
         /// <returns>Returns a paginated list of data validations.</returns>
         [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-data-validations")]
+        [ProtectedEndPoint("blocks-data::data-validation::get-data-validations")]
         [ProducesResponseType(typeof(ServiceResponse<PaginationResponse<DataValidationResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetDataValidations([FromQuery] GetDataValidationListRequest request)
@@ -49,7 +49,7 @@ namespace Api.Controllers
         /// <param name="validationId">The unique identifier of the data validation to retrieve.</param>
         /// <returns>Returns the data validation details if found, or an error message if not found.</returns>
         [HttpGet("get-by-id")]
-        [ProtectedEndPoint("blocks-data::get-data-validation-by-id")]
+        [ProtectedEndPoint("blocks-data::data-validation::get-data-validation-by-id")]
         [ProducesResponseType(typeof(ServiceResponse<DataValidationResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetDataValidationByIdAsync([FromQuery] string validationId)
@@ -68,7 +68,7 @@ namespace Api.Controllers
         /// <param name="schemaId">The schema ID to get validations for.</param>
         /// <returns>Returns a list of data validations for the schema.</returns>
         [HttpGet("by-schema-id")]
-        [ProtectedEndPoint("blocks-data::get-validations-by-schema-id")]
+        [ProtectedEndPoint("blocks-data::data-validation::get-validations-by-schema-id")]
         [ProducesResponseType(typeof(ServiceResponse<List<DataValidationResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetValidationsBySchemaIdAsync([FromQuery] string schemaId)
@@ -87,7 +87,7 @@ namespace Api.Controllers
         /// <param name="fieldName">The field name.</param>
         /// <returns>Returns the data validation for the specified field.</returns>
         [HttpGet("by-schema-and-field")]
-        [ProtectedEndPoint("blocks-data::get-validation-by-schema-and-field")]
+        [ProtectedEndPoint("blocks-data::data-validation::get-validation-by-schema-and-field")]
         [ProducesResponseType(typeof(ServiceResponse<DataValidationResponse>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetValidationBySchemaAndFieldAsync([FromQuery] string schemaId, [FromQuery] string fieldName)
         {
@@ -107,7 +107,7 @@ namespace Api.Controllers
         /// <param name="request">Data validation details: SchemaId, FieldName, Validations (list of validation rules).</param>
         /// <returns>Returns the created data validation or an error message if the operation fails.</returns>
         [HttpPost]
-        [ProtectedEndPoint("blocks-data::create-data-validation")]
+        [ProtectedEndPoint("blocks-data::data-validation::create-data-validation")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -125,7 +125,7 @@ namespace Api.Controllers
         /// <param name="request">Updated data validation: ItemId (unique identifier), SchemaId, FieldName, Validations.</param>
         /// <returns>Returns the updated data validation or an error message if the operation fails.</returns>
         [HttpPut]
-        [ProtectedEndPoint("blocks-data::update-data-validation")]
+        [ProtectedEndPoint("blocks-data::data-validation::update-data-validation")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
@@ -144,7 +144,7 @@ namespace Api.Controllers
         /// <param name="validationId">The unique identifier of the data validation to delete.</param>
         /// <returns>Returns a success response if the validation is deleted, or an error message if the operation fails.</returns>
         [HttpDelete]
-        [ProtectedEndPoint("blocks-data::delete-data-validation")]
+        [ProtectedEndPoint("blocks-data::data-validation::delete-data-validation")]
         [ProducesResponseType(typeof(ServiceResponse<ActionResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> DeleteDataValidationAsync([FromQuery] string validationId)

@@ -1,7 +1,6 @@
 import { http } from "@/lib/http-client";
 import {
   IDeleteFilePayload,
-  IDeleteFolderPayload,
   IDeleteResourceResponse,
   IGetFileByFileIDPayload,
   IGetFileByFileIDResponse,
@@ -23,10 +22,6 @@ export class StorageFile {
 
   deleteFileByFileId(payload: IDeleteFilePayload): Promise<IDeleteResourceResponse> {
     return http.post(STORAGE_FILE_ENDPOINTS.DELETE_FILE, payload);
-  }
-
-  deleteFolderByFileId(payload: IDeleteFolderPayload): Promise<IDeleteResourceResponse> {
-    return http.post(STORAGE_FILE_ENDPOINTS.DELETE_FOLDER, payload);
   }
 
   getPreSignedUrlForUpload(

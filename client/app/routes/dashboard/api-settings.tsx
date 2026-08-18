@@ -191,14 +191,11 @@ export default function ApiSettingsPage() {
         const groupEndpoints = endpoints.filter((ep) =>
           ids.includes(ep.itemId),
         );
+        // Only stays on when every endpoint in the group has it on; mixed or
+        // empty selections default to false.
         const captchaState =
-          groupEndpoints.length > 0
-            ? groupEndpoints.every((ep) => ep.isCaptchaRequired)
-              ? true
-              : groupEndpoints.some((ep) => ep.isCaptchaRequired)
-                ? false // default to false if mixed states
-                : false
-            : false;
+          groupEndpoints.length > 0 &&
+          groupEndpoints.every((ep) => ep.isCaptchaRequired);
 
         const result = await bulkUpdate({
           projectKey: tenantId,
@@ -234,14 +231,11 @@ export default function ApiSettingsPage() {
         const groupEndpoints = endpoints.filter((ep) =>
           ids.includes(ep.itemId),
         );
+        // Only stays on when every endpoint in the group has it on; mixed or
+        // empty selections default to false.
         const mfaState =
-          groupEndpoints.length > 0
-            ? groupEndpoints.every((ep) => ep.isMFARequired)
-              ? true
-              : groupEndpoints.some((ep) => ep.isMFARequired)
-                ? false // default to false if mixed states
-                : false
-            : false;
+          groupEndpoints.length > 0 &&
+          groupEndpoints.every((ep) => ep.isMFARequired);
 
         const result = await bulkUpdate({
           projectKey: tenantId,
@@ -309,14 +303,11 @@ export default function ApiSettingsPage() {
       const selectedEndpoints = endpoints.filter((ep) =>
         selectedArray.includes(ep.itemId),
       );
+      // Only stays on when every selected endpoint has it on; mixed or empty
+      // selections default to false.
       const captchaState =
-        selectedEndpoints.length > 0
-          ? selectedEndpoints.every((ep) => ep.isCaptchaRequired)
-            ? true
-            : selectedEndpoints.some((ep) => ep.isCaptchaRequired)
-              ? false // default to false if mixed states
-              : false
-          : false;
+        selectedEndpoints.length > 0 &&
+        selectedEndpoints.every((ep) => ep.isCaptchaRequired);
 
       const result = await bulkUpdate({
         projectKey: tenantId,
@@ -345,14 +336,11 @@ export default function ApiSettingsPage() {
       const selectedEndpoints = endpoints.filter((ep) =>
         selectedArray.includes(ep.itemId),
       );
+      // Only stays on when every selected endpoint has it on; mixed or empty
+      // selections default to false.
       const mfaState =
-        selectedEndpoints.length > 0
-          ? selectedEndpoints.every((ep) => ep.isMFARequired)
-            ? true
-            : selectedEndpoints.some((ep) => ep.isMFARequired)
-              ? false // default to false if mixed states
-              : false
-          : false;
+        selectedEndpoints.length > 0 &&
+        selectedEndpoints.every((ep) => ep.isMFARequired);
 
       const result = await bulkUpdate({
         projectKey: tenantId,

@@ -95,6 +95,19 @@ public class StorageServiceFactoryTests
 
 public class StorageValidatorTests
 {
+    [Theory]
+    [InlineData(nameof(GetPreSignedUrlForUploadRequest.Tags))]
+    [InlineData(nameof(GetPreSignedUrlForUploadRequest.MetaData))]
+    [InlineData(nameof(GetPreSignedUrlForUploadRequest.ParentDirectoryId))]
+    public void GetPreSignedUrlForUpload_OptionalFieldsAreNullable(string propertyName)
+    {
+        var property = typeof(GetPreSignedUrlForUploadRequest).GetProperty(propertyName)!;
+
+        new System.Reflection.NullabilityInfoContext()
+            .Create(property)
+            .WriteState.Should().Be(System.Reflection.NullabilityState.Nullable);
+    }
+
     [Fact]
     public void GetPreSignedUrlForUpload_NameRequired()
     {

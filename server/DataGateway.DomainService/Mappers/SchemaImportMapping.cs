@@ -26,6 +26,7 @@ public static class SchemaImportMapping
         IsArray = f.IsArray,
         IsPIIData = f.IsPIIData,
         IsUniqueData = f.IsUniqueData,
+        RequiredOn = f.RequiredOn,
         Description = f.Description,
         IsReferenceField = f.IsReferenceField,
         ReadAccessLevel = f.ReadAccessLevel,

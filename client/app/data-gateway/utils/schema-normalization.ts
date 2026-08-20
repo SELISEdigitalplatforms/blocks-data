@@ -35,6 +35,7 @@ export const normalizeSchemaFields = (fields: IRemoteSchemaField[] = []): IField
     isArray: field.isArray,
     isPIIData: field.isPIIData ?? false,
     isUniqueData: field.isUniqueData ?? false,
+    requiredOn: field.requiredOn ?? "None",
     description: field.description ?? "",
     readAccess: normalizeAccessRuleSet(field.readAccess),
     writeAccess: normalizeAccessRuleSet(field.writeAccess),
@@ -79,10 +80,7 @@ export const getValidationDisplayInfo = (
 });
 
 /** Build validation fieldName from ancestor path (supports arbitrary nesting depth) */
-export const buildValidationFieldName = (
-  ancestorPath: string[],
-  fieldName: string,
-): string =>
+export const buildValidationFieldName = (ancestorPath: string[], fieldName: string): string =>
   ancestorPath.length ? `${ancestorPath.join(".")}.${fieldName}` : fieldName;
 
 type ParentNestedField = {
@@ -95,6 +93,7 @@ type ParentNestedField = {
   writeAccessLevel?: number;
   editAccessLevel?: number;
   deleteAccessLevel?: number;
+  requiredOn?: IField["requiredOn"];
   fields?: ParentNestedField[];
 };
 
@@ -108,6 +107,7 @@ const parentToField = (p: ParentNestedField): IField => ({
   writeAccessLevel: p.writeAccessLevel,
   editAccessLevel: p.editAccessLevel,
   deleteAccessLevel: p.deleteAccessLevel,
+  requiredOn: p.requiredOn ?? "None",
   fields: p.fields?.length ? mergeFieldsWithParentData([], p.fields) : undefined,
 });
 
@@ -137,6 +137,7 @@ export const mergeFieldsWithParentData = (
       writeAccessLevel: parentField.writeAccessLevel ?? f.writeAccessLevel,
       editAccessLevel: parentField.editAccessLevel ?? f.editAccessLevel,
       deleteAccessLevel: parentField.deleteAccessLevel ?? f.deleteAccessLevel,
+      requiredOn: parentField.requiredOn ?? f.requiredOn ?? "None",
       fields: mergedNested,
     };
   });

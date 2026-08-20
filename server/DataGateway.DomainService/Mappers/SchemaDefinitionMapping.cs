@@ -196,6 +196,7 @@ public static class SchemaDefinitionMapping
             IsArray = field.IsArray,
             IsPIIData = field.IsPIIData,
             IsUniqueData = field.IsUniqueData,
+            RequiredOn = field.RequiredOn,
             Description = !string.IsNullOrEmpty(field.Description)
                 ? field.Description
                 : DefaultValueInjection.DefaultFieldDescriptions.TryGetValue(field.Name, out var fallback)

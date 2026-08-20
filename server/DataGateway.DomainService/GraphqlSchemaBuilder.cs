@@ -132,6 +132,7 @@ public class GraphqlSchemaBuilder
                 Name = f.Name,
                 Type = f.Type,
                 IsArray = f.IsArray,
+                RequiredOn = f.RequiredOn,
                 ValidationRule = validations.FirstOrDefault(v => v.SchemaId == s.ItemId && v.FieldName == f.Name) ?? null,
                 ReadAccessLevel = f.ReadAccessLevel,
                 WriteAccessLevel = f.WriteAccessLevel,

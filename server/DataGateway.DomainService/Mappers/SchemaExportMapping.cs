@@ -55,6 +55,7 @@ public static class SchemaExportMapping
                     IsArray = field.IsArray,
                     IsPIIData = field.IsPIIData,
                     IsUniqueData = field.IsUniqueData,
+                    RequiredOn = field.RequiredOn,
                     Description = field.Description,
                     IsReferenceField = field.IsReferenceField,
                     ReadAccessLevel = field.ReadAccessLevel,

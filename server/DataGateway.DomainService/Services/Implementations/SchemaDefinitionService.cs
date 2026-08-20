@@ -108,10 +108,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
                 existingField.IsArray = field.IsArray;
                 existingField.IsPIIData = field.IsPIIData;
                 existingField.IsUniqueData = field.IsUniqueData;
+                existingField.RequiredOn = field.RequiredOn;
                 existingField.Description = field.Description;
             }
             else
-                schema.Fields.Add(new FieldDefinition { Name = field.Name, Type = field.Type, IsArray = field.IsArray, IsPIIData = field.IsPIIData, IsUniqueData = field.IsUniqueData, Description = field.Description });
+                schema.Fields.Add(new FieldDefinition { Name = field.Name, Type = field.Type, IsArray = field.IsArray, IsPIIData = field.IsPIIData, IsUniqueData = field.IsUniqueData, RequiredOn = field.RequiredOn, Description = field.Description });
         }
 
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
@@ -134,7 +135,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         var schema = new SchemaDefinition
         {
             CollectionName = request.CollectionName,
-            Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description }).ToList() ?? [],
+            Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, RequiredOn = f.RequiredOn, Description = f.Description }).ToList() ?? [],
             SchemaName = request.SchemaName,
             SchemaType = request.SchemaType
         };
@@ -163,7 +164,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Invalid schema name").SetHttpStatusCode(400);
 
         schema.CollectionName = request.CollectionName;
-        schema.Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description }).ToList() ?? [];
+        schema.Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, RequiredOn = f.RequiredOn, Description = f.Description }).ToList() ?? [];
         schema.SchemaName = request.SchemaName;
         schema.SchemaType = request.SchemaType;
         schema.InjectDefaultValue();

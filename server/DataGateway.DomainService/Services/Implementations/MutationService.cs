@@ -170,8 +170,7 @@ public class MutationService : IMutationService
         if (inputs == null || inputs.Count == 0)
             return new BulkActionResponse { Acknowledged = true, TotalImpactedData = 0 };
 
-        foreach (var input in inputs)
-            ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
+        ValidateMutationInputsOrThrow(inputs, schema, OperationLabelCreate);
 
         await ValidateUniquenessOrThrowAsync(schema, inputs, null, OperationLabelCreate);
 
@@ -403,7 +402,83 @@ public class MutationService : IMutationService
     private void ValidateMutationInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel)
     {
         var r = input.Validate(schema);
+        AddRequiredFieldErrors(input, schema, operationLabel, r);
         if (!r.IsValid) { _logger.LogWarning("Validation failed for {Op} on schema {SchemaName}: {Errors}", operationLabel, schema.SchemaName, r.ErrorMessage); MutationValidationHelper.ThrowValidationError(r); }
+    }
+
+    private void ValidateMutationInputsOrThrow(IEnumerable<Dictionary<string, object?>> inputs, SchemaDefinitionExtended schema, string operationLabel)
+    {
+        var combined = new DataValidationResult();
+        foreach (var input in inputs)
+        {
+            var result = input.Validate(schema);
+            AddRequiredFieldErrors(input, schema, operationLabel, result);
+            combined.Errors.AddRange(result.Errors);
+        }
+
+        if (!combined.IsValid)
+            MutationValidationHelper.ThrowValidationError(combined);
+    }
+
+    private static void AddRequiredFieldErrors(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel, DataValidationResult result)
+    {
+        if (schema.SchemaType != SchemaType.Entity)
+            return;
+
+        AddRequiredFieldErrors(input, schema.Fields, operationLabel == OperationLabelCreate, result, string.Empty);
+    }
+
+    private static void AddRequiredFieldErrors(
+        IDictionary<string, object?> input,
+        IEnumerable<FieldDefinitionResponse> fields,
+        bool isInsert,
+        DataValidationResult result,
+        string pathPrefix)
+    {
+        var operation = isInsert ? "insert" : "update";
+        foreach (var field in fields)
+        {
+            var fieldPath = string.IsNullOrEmpty(pathPrefix) ? field.Name : $"{pathPrefix}.{field.Name}";
+            var isRequired = isInsert
+                ? field.RequiredOn is RequiredOn.Insert or RequiredOn.Both
+                : field.RequiredOn is RequiredOn.Update or RequiredOn.Both;
+
+            if (!input.TryGetValue(field.Name, out var value) || IsEmptyRequiredValue(value))
+            {
+                if (isRequired)
+                    result.AddError(fieldPath, $"Field '{fieldPath}' is required for {operation}.", "Required");
+                continue;
+            }
+
+            if (field.Fields.Count == 0)
+                continue;
+
+            if (value is IDictionary<string, object?> nested)
+            {
+                AddRequiredFieldErrors(nested, field.Fields, isInsert, result, fieldPath);
+            }
+            else if (value is System.Collections.IEnumerable items && value is not string)
+            {
+                var index = 0;
+                foreach (var item in items)
+                {
+                    if (item is IDictionary<string, object?> nestedItem)
+                        AddRequiredFieldErrors(nestedItem, field.Fields, isInsert, result, $"{fieldPath}[{index}]");
+                    index++;
+                }
+            }
+        }
+    }
+
+    private static bool IsEmptyRequiredValue(object? value)
+    {
+        if (value is null || value is string text && string.IsNullOrWhiteSpace(text))
+            return true;
+        if (value is System.Collections.IDictionary dictionary)
+            return dictionary.Count == 0;
+        if (value is System.Collections.ICollection collection)
+            return collection.Count == 0;
+        return false;
     }
 
     private void ApplyClsRestrictionsToInput(Dictionary<string, object?> input, SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)

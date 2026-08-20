@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useSchemaDetails } from "../hooks/use-configuration";
-import { ISchemaDetails } from "../models/data-service";
+import { IField, ISchemaDetails } from "../models/data-service";
+import type { IUpdateSchemaStructure } from "../models/data-service";
 import {
   createEmptyAccessRuleSet,
   mergeFieldsWithParentData,
@@ -45,6 +46,7 @@ export type ParentFieldWithNestedPayload = {
     writeAccessLevel?: number;
     editAccessLevel?: number;
     deleteAccessLevel?: number;
+    requiredOn?: IField["requiredOn"];
   }>;
 };
 
@@ -66,6 +68,9 @@ interface ChildSchemaExpandableContentProps {
   /** Root entity schema name for policy APIs when this table is embedded under a parent */
   policyEntitySchemaName?: string;
   onOpenStandaloneSchemaEditor?: (schemaId: string) => void;
+  allowEditing?: boolean;
+  allowRequiredness?: boolean;
+  onNestedSchemaChange?: (payload: IUpdateSchemaStructure | null) => void;
 }
 
 export function ChildSchemaExpandableContent({
@@ -79,6 +84,9 @@ export function ChildSchemaExpandableContent({
   hideAccessValidation,
   policyEntitySchemaName,
   onOpenStandaloneSchemaEditor,
+  allowEditing,
+  allowRequiredness,
+  onNestedSchemaChange,
 }: ChildSchemaExpandableContentProps) {
   const [schemaDetails, setSchemaDetails] = useState<ISchemaDetails>(() =>
     createEmptySchemaDetails(projectKey),
@@ -133,6 +141,9 @@ export function ChildSchemaExpandableContent({
         hideAccessValidation={hideAccessValidation}
         policyEntitySchemaName={policyEntitySchemaName ?? schemaDetails.schemaName}
         onOpenStandaloneSchemaEditor={onOpenStandaloneSchemaEditor}
+        showEmbeddedEditor={allowEditing}
+        allowNestedRequiredness={allowRequiredness}
+        onNestedSchemaChange={onNestedSchemaChange}
       />
     </div>
   );

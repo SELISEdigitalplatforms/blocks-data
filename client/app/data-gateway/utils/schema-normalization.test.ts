@@ -112,9 +112,7 @@ describe("schema-normalization", () => {
     });
 
     it("returns own count when there are no nested fields", () => {
-      expect(
-        getTotalValidationRulesIncludingNested({ totalValidationRules: 2 } as IField),
-      ).toBe(2);
+      expect(getTotalValidationRulesIncludingNested({ totalValidationRules: 2 } as IField)).toBe(2);
     });
 
     it("treats missing totalValidationRules as 0", () => {
@@ -140,7 +138,9 @@ describe("schema-normalization", () => {
 
     it("true when the field itself has an active validation", () => {
       expect(
-        hasActiveValidationIncludingNested({ validationRule: validationRule([false, true]) } as IField),
+        hasActiveValidationIncludingNested({
+          validationRule: validationRule([false, true]),
+        } as IField),
       ).toBe(true);
     });
 
@@ -195,9 +195,10 @@ describe("schema-normalization", () => {
     });
 
     it("materializes parent fields when child list is empty", () => {
-      const result = mergeFieldsWithParentData([], [
-        { name: "title", readAccessLevel: 2, fields: [{ name: "sub" }] },
-      ]);
+      const result = mergeFieldsWithParentData(
+        [],
+        [{ name: "title", readAccessLevel: 2, fields: [{ name: "sub" }] }],
+      );
       expect(result).toHaveLength(1);
       expect(result[0]).toMatchObject({
         name: "title",

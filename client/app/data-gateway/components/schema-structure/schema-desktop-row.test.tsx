@@ -40,6 +40,7 @@ function makeField(overrides: Partial<IField> = {}): IField {
     isArray: false,
     isPIIData: false,
     isUniqueData: false,
+    requiredOn: "None",
     description: "",
     ...overrides,
   };
@@ -143,6 +144,41 @@ describe("SchemaDesktopRow", () => {
     expect(arraySwitch).toHaveAttribute("aria-checked", "true");
   });
 
+  it("renders an expanded child property using its dotted entity path", () => {
+    render(
+      <Harness
+        properties={[makeField({ name: "city" })]}
+        isEditMode
+        displayNamePrefix="address"
+      />,
+    );
+    expect(screen.getByDisplayValue("address.city")).toHaveAttribute("readonly");
+  });
+
+  it("edits and reloads each requiredness mode for top-level entity fields", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(
+      <Harness properties={[makeField()]} isEditMode showRequiredness />,
+    );
+    const select = screen.getByRole("combobox", { name: "Required on for email" });
+    for (const mode of ["Insert", "Update", "Both", "None"]) {
+      await user.click(select);
+      await user.click(screen.getByRole("option", { name: mode }));
+      expect(select).toHaveTextContent(mode);
+    }
+    unmount();
+
+    render(
+      <Harness properties={[makeField({ requiredOn: "Both" })]} showRequiredness />,
+    );
+    expect(screen.getByRole("combobox", { name: "Required on for email" })).toHaveTextContent("Both");
+  });
+
+  it("does not render requiredness for DTO or nested field rows", () => {
+    render(<Harness properties={[makeField()]} showRequiredness={false} />);
+    expect(screen.queryByRole("combobox", { name: /Required on/ })).not.toBeInTheDocument();
+  });
+
   it("disables PII/unique for child types while leaving IsArray editable", () => {
     render(
       <Harness
@@ -154,6 +190,29 @@ describe("SchemaDesktopRow", () => {
     expect(screen.getByRole("switch", { name: "IsPII for email" })).toBeDisabled();
     expect(screen.getByRole("switch", { name: "IsUnique for email" })).toBeDisabled();
     expect(screen.getByRole("switch", { name: "IsArray for email" })).not.toBeDisabled();
+  });
+
+  it("allows requiredness and expansion for a child type in edit mode", async () => {
+    const user = userEvent.setup();
+    const onToggleExpand = vi.fn();
+    render(
+      <Harness
+        properties={[makeField({ type: "Address" })]}
+        isEditMode
+        showRequiredness
+        childSchema={addressSchema}
+        onToggleExpand={onToggleExpand}
+      />,
+    );
+
+    const requiredOn = screen.getByRole("combobox", { name: "Required on for email" });
+    expect(requiredOn).not.toBeDisabled();
+    await user.click(requiredOn);
+    await user.click(screen.getByRole("option", { name: "Both" }));
+    expect(requiredOn).toHaveTextContent("Both");
+
+    await user.click(screen.getByRole("button", { name: "Expand Address attributes" }));
+    expect(onToggleExpand).toHaveBeenCalledWith(0);
   });
 
   it("fires onToggleExpand when the expand control is clicked for a child type", async () => {

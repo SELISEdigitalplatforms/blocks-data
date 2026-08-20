@@ -18,6 +18,8 @@ vi.mock("./schema-structure", () => ({
     policyEntitySchemaName?: string;
     hideAccessValidation?: boolean;
     compactView?: boolean;
+    showEmbeddedEditor?: boolean;
+    allowNestedRequiredness?: boolean;
   }) => (
     <div data-testid="schema-structure">
       <span data-testid="ss-fields">
@@ -29,6 +31,8 @@ vi.mock("./schema-structure", () => ({
       <span data-testid="ss-policy">{String(props.policyEntitySchemaName)}</span>
       <span data-testid="ss-hide">{String(props.hideAccessValidation)}</span>
       <span data-testid="ss-compact">{String(props.compactView)}</span>
+      <span data-testid="ss-editor">{String(props.showEmbeddedEditor)}</span>
+      <span data-testid="ss-required">{String(props.allowNestedRequiredness)}</span>
       <span data-testid="ss-access">
         {JSON.stringify(
           (props.fields ?? []).map((f) => ({
@@ -229,5 +233,20 @@ describe("ChildSchemaExpandableContent", () => {
     );
 
     expect(screen.getByTestId("ss-policy")).toHaveTextContent("Policy");
+  });
+
+  it("exposes the embedded child editor when the parent is being edited", () => {
+    useSchemaDetails.mockReturnValue({ data: undefined, isLoading: false });
+    render(
+      <ChildSchemaExpandableContent
+        schemaId="s1"
+        projectKey="p1"
+        allowEditing
+        allowRequiredness
+      />,
+    );
+
+    expect(screen.getByTestId("ss-editor")).toHaveTextContent("true");
+    expect(screen.getByTestId("ss-required")).toHaveTextContent("true");
   });
 });

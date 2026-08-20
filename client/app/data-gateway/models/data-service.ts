@@ -90,6 +90,7 @@ export interface IField {
   isArray: boolean;
   isPIIData?: boolean;
   isUniqueData?: boolean;
+  requiredOn?: RequiredOn;
   description?: string;
   readAccess?: IDataAccessRuleSet;
   writeAccess?: IDataAccessRuleSet;
@@ -157,6 +158,7 @@ export interface IRemoteSchemaField {
   isArray: boolean;
   isPIIData?: boolean;
   isUniqueData?: boolean;
+  requiredOn?: RequiredOn;
   description?: string;
   readAccess?: IDataAccessRuleSetDto | null;
   writeAccess?: IDataAccessRuleSetDto | null;
@@ -173,6 +175,8 @@ export interface IRemoteSchemaField {
   /** Nested fields for custom/child type properties */
   fields?: IRemoteSchemaField[];
 }
+
+export type RequiredOn = "None" | "Insert" | "Update" | "Both";
 
 export interface IGetSchemaDetailsResponse extends IDataServiceConfigurationResponse {
   data: {

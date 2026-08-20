@@ -18,7 +18,8 @@ internal static class TestSupport
         SchemaAccessLevel write = SchemaAccessLevel.Inherited,
         SchemaAccessLevel edit = SchemaAccessLevel.Inherited,
         List<FieldDefinitionResponse>? children = null,
-        bool isUnique = false)
+        bool isUnique = false,
+        RequiredOn requiredOn = RequiredOn.None)
     {
         return new FieldDefinitionResponse
         {
@@ -29,6 +30,7 @@ internal static class TestSupport
             WriteAccessLevel = write,
             EditAccessLevel = edit,
             IsUniqueData = isUnique,
+            RequiredOn = requiredOn,
             Fields = children ?? new List<FieldDefinitionResponse>()
         };
     }

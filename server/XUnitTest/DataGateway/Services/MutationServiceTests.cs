@@ -52,6 +52,14 @@ public class MutationServiceTests
 
     private static async Task SeedAsync(DbRepository repo)
     {
+        var address = new SchemaDefinition
+        {
+            ItemId = Guid.NewGuid().ToString(),
+            SchemaName = "Address",
+            CollectionName = "Addresses",
+            SchemaType = SchemaType.Dto,
+            Fields = new() { new FieldDefinition { Name = "City", Type = "String" } }
+        };
         var person = new SchemaDefinition
         {
             ItemId = Guid.NewGuid().ToString(),
@@ -63,9 +71,11 @@ public class MutationServiceTests
                 new FieldDefinition { Name = "Name", Type = "String" },
                 new FieldDefinition { Name = "Age", Type = "Int" },
                 new FieldDefinition { Name = "Email", Type = "String" }
+                ,new FieldDefinition { Name = "Active", Type = "Boolean" }
+                ,new FieldDefinition { Name = "Address", Type = "Address" }
             }
         };
-        await repo.InsertManyAsync(new List<SchemaDefinition> { person });
+        await repo.InsertManyAsync(new List<SchemaDefinition> { address, person });
     }
 
     private static ISchema BuildHcSchema(DbRepository repo)
@@ -145,6 +155,73 @@ public class MutationServiceTests
         var act = () => NewService(repo, pub).InsertAsync(schema, ctx.Object, _insertInput);
 
         await act.Should().ThrowAsync<GraphQLException>();
+        repo.Verify(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InsertAsync_RequiredFieldsMissingOrEmpty_ReturnsAllErrorsWithoutWriting()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        var schema = Schema(fields: new()
+        {
+            Field("Name", requiredOn: RequiredOn.Insert),
+            Field("Email", requiredOn: RequiredOn.Both)
+        });
+        var ctx = ContextWith(ObjectLiteral("{ Email: \"   \" }"));
+
+        var act = () => NewService(repo, pub).InsertAsync(schema, ctx.Object, _insertInput);
+
+        var exception = await act.Should().ThrowAsync<GraphQLException>();
+        var error = exception.Which.Errors.Single();
+        error.Code.Should().Be(GraphQlConstant.ValidationErrorErrorCode);
+        error.Message.Should().Be("Required fields are missing or empty.");
+        var validationErrors = (object[])error.Extensions!["validationErrors"]!;
+        validationErrors.Should().HaveCount(2);
+        repo.Verify(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InsertAsync_RequiredFieldsAcceptZeroAndFalse()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        repo.Setup(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()))
+            .ReturnsAsync((string _, BsonDocument document) => document);
+        var schema = Schema(fields: new()
+        {
+            Field("Age", "Int", requiredOn: RequiredOn.Insert),
+            Field("Active", "Boolean", requiredOn: RequiredOn.Insert)
+        });
+        var ctx = ContextWith(ObjectLiteral("{ Age: 0, Active: false }"));
+
+        var result = await NewService(repo, pub).InsertAsync(schema, ctx.Object, _insertInput);
+
+        result.Acknowledged.Should().BeTrue();
+        repo.Verify(r => r.InsertAsync("Persons", It.IsAny<BsonDocument>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task InsertAsync_RequiredNestedField_ReturnsPathAndDoesNotWrite()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        var schema = Schema(fields: new()
+        {
+            Field("Address", "Address", children: new()
+            {
+                Field("City", requiredOn: RequiredOn.Insert)
+            })
+        });
+        var ctx = ContextWith(ObjectLiteral("{ Address: { } }"));
+
+        var act = () => NewService(repo, pub).InsertAsync(schema, ctx.Object, _insertInput);
+
+        var exception = await act.Should().ThrowAsync<GraphQLException>();
+        var validationErrors = (object[])exception.Which.Errors.Single()
+            .Extensions!["validationErrors"]!;
+        validationErrors.Single().Should().Match<object>(error =>
+            error.ToString()!.Contains("Address.City", StringComparison.Ordinal));
         repo.Verify(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()), Times.Never);
     }
 
@@ -292,6 +369,20 @@ public class MutationServiceTests
     }
 
     [Fact]
+    public async Task BulkInsertAsync_OneInvalidRecord_RejectsWholeOperation()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        var schema = Schema(fields: new() { Field("Name", requiredOn: RequiredOn.Insert) });
+        var ctx = ContextWith(ListLiteral("[ { Name: \"A\" }, { Age: 2 } ]"));
+
+        var act = () => NewService(repo, pub).BulkInsertAsync(schema, ctx.Object, _insertInput);
+
+        await act.Should().ThrowAsync<GraphQLException>();
+        repo.Verify(r => r.InsertManyAsync(It.IsAny<string>(), It.IsAny<List<BsonDocument>>()), Times.Never);
+    }
+
+    [Fact]
     public async Task BulkUpdateAsync_Found_UpdatesMany()
     {
         var repo = Repo();
@@ -325,6 +416,26 @@ public class MutationServiceTests
         var result = await NewService(repo, pub).BulkUpdateAsync(schema, ctx.Object, _insertInput);
 
         result.Acknowledged.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task UpdateAsync_RequiredFieldOmitted_DoesNotWrite()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        repo.Setup(r => r.GetItemAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>()))
+            .ReturnsAsync(PersonDoc("id-1", "Old", 20));
+        var schema = Schema(fields: new()
+        {
+            Field("Name", requiredOn: RequiredOn.Update),
+            Field("Age", "Int")
+        });
+        var ctx = ContextWith(ObjectLiteral("{ Age: 21 }"));
+
+        var act = () => NewService(repo, pub).UpdateAsync(schema, ctx.Object, _insertInput);
+
+        await act.Should().ThrowAsync<GraphQLException>();
+        repo.Verify(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>()), Times.Never);
     }
 
     [Fact]

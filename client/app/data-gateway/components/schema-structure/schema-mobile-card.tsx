@@ -32,6 +32,7 @@ import { FieldAccessTarget } from "../../models/schema-access.types";
 import { IField, IDataAccessRuleSet, IFieldValidationRule } from "../../models/data-service";
 import { PropertyRow } from "../../models/schema-structure.types";
 import { PropertyTypeSelector } from "./property-type-selector";
+import { RequiredOnSelector } from "./required-on-selector";
 import { ISchemaDetails } from "../../models/data-service";
 import { useReadonlyExpanded } from "../../hooks/use-readonly-expanded";
 import {
@@ -85,6 +86,8 @@ interface SchemaMobileCardProps {
   showAccessValidationColumn?: boolean;
   /** Original field from schema API (fallback for nested validation count) */
   originalFieldFromSchema?: IField | null;
+  showRequiredness?: boolean;
+  displayNamePrefix?: string;
   /** True when this card is inside an embedded child schema panel (mobile visual tier) */
   isNestedAttributePanel?: boolean;
 }
@@ -124,6 +127,8 @@ export function SchemaMobileCard({
   showAccessColumn = true,
   showAccessValidationColumn = true,
   originalFieldFromSchema,
+  showRequiredness = false,
+  displayNamePrefix,
   isNestedAttributePanel = false,
 }: SchemaMobileCardProps) {
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();
@@ -246,8 +251,9 @@ export function SchemaMobileCard({
                       return occurrences <= 1 || "Duplicate property name not allowed";
                     },
                   })}
+                  value={displayNamePrefix ? `${displayNamePrefix}.${name}` : name}
                   placeholder="Click to edit"
-                  readOnly={!isEditMode || isReadOnly}
+                  readOnly={!isEditMode || isReadOnly || Boolean(displayNamePrefix)}
                   onChange={(e) => {
                     const filtered = e.target.value
                       .replace(/[^A-Za-z0-9_]/g, "")
@@ -293,29 +299,52 @@ export function SchemaMobileCard({
               <div className="min-w-0 space-y-1">
                 <label className="text-xs text-muted-foreground">Property type</label>
                 {isEditMode ? (
-                  <PropertyTypeSelector
-                    index={index}
-                    value={watch(`properties.${index}.type`)}
-                    isOpen={openMobileTypePopoverIndex === index}
-                    onOpenChange={(open) => {
-                      if (!open) {
-                        setOpenMobileTypePopoverIndex(null);
-                      } else if (isEditMode && !isReadOnly) {
-                        setOpenMobileTypePopoverIndex(index);
-                      }
-                    }}
-                    onSelect={(type) => {
-                      setValue(`properties.${index}.type`, type, { shouldDirty: true });
-                      setOpenMobileTypePopoverIndex(null);
-                    }}
-                    isReadOnly={isReadOnly}
-                    isEditMode={isEditMode}
-                    schemaItems={schemaItems}
-                    onSearchChange={onTypeSearchChange}
-                    searchText={searchText}
-                    isMobile={true}
-                    isChildType={isChildType}
-                  />
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <div className="min-w-0 flex-1">
+                      <PropertyTypeSelector
+                        index={index}
+                        value={watch(`properties.${index}.type`)}
+                        isOpen={openMobileTypePopoverIndex === index}
+                        onOpenChange={(open) => {
+                          if (!open) {
+                            setOpenMobileTypePopoverIndex(null);
+                          } else if (!isReadOnly) {
+                            setOpenMobileTypePopoverIndex(index);
+                          }
+                        }}
+                        onSelect={(type) => {
+                          setValue(`properties.${index}.type`, type, { shouldDirty: true });
+                          setOpenMobileTypePopoverIndex(null);
+                        }}
+                        isReadOnly={isReadOnly}
+                        isEditMode={isEditMode}
+                        schemaItems={schemaItems}
+                        onSearchChange={onTypeSearchChange}
+                        searchText={searchText}
+                        isMobile
+                        isChildType={isChildType}
+                      />
+                    </div>
+                    {isChildType && resolvedChildSchema && onToggleExpand && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onToggleExpand(index)}
+                        aria-label={
+                          isExpanded
+                            ? `Collapse ${resolvedChildSchema.schemaName}`
+                            : `Expand ${resolvedChildSchema.schemaName} attributes`
+                        }
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 ) : (
                   <div
                     className={cn(
@@ -506,6 +535,24 @@ export function SchemaMobileCard({
                   )}
                 </Tooltip>
               </div>
+
+              {showRequiredness && (
+                <div className="min-w-0 space-y-1">
+                  <label className="text-xs text-muted-foreground">Required on</label>
+                  <RequiredOnSelector
+                    value={watch(`properties.${index}.requiredOn`) ?? "None"}
+                    onSelect={(value) =>
+                      setValue(`properties.${index}.requiredOn`, value, {
+                        shouldDirty: true,
+                      })
+                    }
+                    isReadOnly={isReadOnly}
+                    isEditMode={isEditMode}
+                    ariaLabel={`Required on for ${name || "property"}`}
+                    isMobile
+                  />
+                </div>
+              )}
 
               {/* Description */}
               <div className="min-w-0 space-y-1">

@@ -32,6 +32,7 @@ import { FieldAccessTarget } from "../../models/schema-access.types";
 import { IField, IDataAccessRuleSet, IFieldValidationRule } from "../../models/data-service";
 import { PropertyRow } from "../../models/schema-structure.types";
 import { PropertyTypeSelector } from "./property-type-selector";
+import { RequiredOnSelector } from "./required-on-selector";
 import { ISchemaDetails } from "../../models/data-service";
 import { useReadonlyExpanded } from "../../hooks/use-readonly-expanded";
 import {
@@ -88,6 +89,8 @@ interface SchemaDesktopRowProps {
   visibleColumnCount: number;
   /** Original field from schema API (fallback for nested validation count when form strips it) */
   originalFieldFromSchema?: IField | null;
+  showRequiredness?: boolean;
+  displayNamePrefix?: string;
 }
 
 export function SchemaDesktopRow({
@@ -127,6 +130,8 @@ export function SchemaDesktopRow({
   showAccessValidationColumn = true,
   visibleColumnCount,
   originalFieldFromSchema,
+  showRequiredness = false,
+  displayNamePrefix,
 }: SchemaDesktopRowProps) {
   const compactCellClass = "py-3 align-middle";
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();
@@ -246,8 +251,9 @@ export function SchemaDesktopRow({
                     return occurrences <= 1 || "Duplicate property name not allowed";
                   },
                 })}
+                value={displayNamePrefix ? `${displayNamePrefix}.${name}` : name}
                 placeholder="Click to edit"
-                readOnly={!isEditMode || isReadOnly}
+                readOnly={!isEditMode || isReadOnly || Boolean(displayNamePrefix)}
                 onChange={(e) => {
                   const filtered = e.target.value
                     .replace(/[^A-Za-z0-9_]/g, "")
@@ -317,7 +323,7 @@ export function SchemaDesktopRow({
                     isChildType={isChildType}
                   />
                 </div>
-                {!isEditMode && isChildType && resolvedChildSchema && onToggleExpand && (
+                {isChildType && resolvedChildSchema && onToggleExpand && (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -463,6 +469,22 @@ export function SchemaDesktopRow({
               )}
             </Tooltip>
           </TableCell>
+
+          {showRequiredness && (
+            <TableCell className={cn(compactCellClass, "px-3")}>
+              <RequiredOnSelector
+                value={watch(`properties.${index}.requiredOn`) ?? "None"}
+                onSelect={(value) =>
+                  setValue(`properties.${index}.requiredOn`, value, {
+                    shouldDirty: true,
+                  })
+                }
+                isReadOnly={isReadOnly}
+                isEditMode={isEditMode}
+                ariaLabel={`Required on for ${name || "property"}`}
+              />
+            </TableCell>
+          )}
 
           {/* Description */}
           <TableCell className={cn(compactCellClass, "px-3 md:px-3")}>

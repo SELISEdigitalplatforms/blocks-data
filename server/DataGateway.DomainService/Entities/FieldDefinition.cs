@@ -1,6 +1,7 @@
 using System;
 using DataGateway.DomainService.Models;
 using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson;
 
 namespace DataGateway.DomainService.Entities;
 
@@ -12,6 +13,8 @@ public class FieldDefinition //: FieldAccessInformation
     public bool IsArray { get; set; }
     public bool IsPIIData { get; set; }
     public bool IsUniqueData { get; set; }
+    [BsonRepresentation(BsonType.String)]
+    public RequiredOn RequiredOn { get; set; } = RequiredOn.None;
     public string Description { get; set; } = string.Empty;
     public bool IsReferenceField { get; set; }
     public string ReferenceFieldType { get; set; } = string.Empty;

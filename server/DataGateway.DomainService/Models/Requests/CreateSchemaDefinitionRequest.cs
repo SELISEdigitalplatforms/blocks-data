@@ -14,5 +14,6 @@ public class FieldDefinitionRequest
     public bool IsArray { get; set; }
     public bool IsPIIData { get; set; }
     public bool IsUniqueData { get; set; }
+    public RequiredOn RequiredOn { get; set; } = RequiredOn.None;
     public string Description { get; set; } = string.Empty;
 }

@@ -112,6 +112,7 @@ vi.mock("./schema-structure/schema-desktop-row", () => ({
             data-index={p.index}
             data-access-validation={String(p.showAccessValidationColumn)}
             data-access-column={String(p.showAccessColumn)}
+            data-edit={String(p.isEditMode)}
           >
             <span data-testid={`row-name-${p.index}`}>{name}</span>
             <button type="button" onClick={() => p.onDelete(p.index)}>
@@ -123,18 +124,10 @@ vi.mock("./schema-structure/schema-desktop-row", () => ({
             <button type="button" onClick={() => p.onToggleExpand?.(p.index)}>
               {`expand-${p.index}`}
             </button>
-            <button
-              type="button"
-              onClick={() =>
-                p.onOpenAccessDrawer({ name }, "Manage access")
-              }
-            >
+            <button type="button" onClick={() => p.onOpenAccessDrawer({ name }, "Manage access")}>
               {`access-${p.index}`}
             </button>
-            <button
-              type="button"
-              onClick={() => p.onOpenValidationDrawer(name)}
-            >
+            <button type="button" onClick={() => p.onOpenValidationDrawer(name)}>
               {`validation-${p.index}`}
             </button>
           </div>
@@ -156,7 +149,24 @@ vi.mock("./schema-data", () => ({
 
 vi.mock("./child-schema-expandable-content", () => ({
   ChildSchemaExpandableContent: (p: Record<string, unknown>) => (
-    <div data-testid="child-content">{p.schemaId}</div>
+    <div data-testid="child-content">
+      {p.schemaId}
+      <button
+        type="button"
+        onClick={() =>
+          p.onNestedSchemaChange?.({
+            schemaDefinitionItemId: p.schemaId,
+            projectKey: p.projectKey,
+            fields: [
+              { name: "Name", type: "String", isArray: false },
+              { name: "Id", type: "String", isArray: false },
+            ],
+          })
+        }
+      >
+        change-child-fields
+      </button>
+    </div>
   ),
 }));
 
@@ -266,19 +276,12 @@ describe("SchemaStructureTable", () => {
   it("enters edit mode from the header and shows the bottom add-property button", async () => {
     const user = userEvent.setup();
     renderTable();
-    expect(
-      screen.queryByRole("button", { name: "+ Add property" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ Add property" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "toggle-edit" }));
 
-    expect(screen.getByTestId("schema-header")).toHaveAttribute(
-      "data-edit",
-      "true",
-    );
-    expect(
-      screen.getByRole("button", { name: "+ Add property" }),
-    ).toBeInTheDocument();
+    expect(screen.getByTestId("schema-header")).toHaveAttribute("data-edit", "true");
+    expect(screen.getByRole("button", { name: "+ Add property" })).toBeInTheDocument();
   });
 
   it("appends a new property row when add-property is clicked", async () => {
@@ -333,16 +336,10 @@ describe("SchemaStructureTable", () => {
   it("opens the preview drawer from the header", async () => {
     const user = userEvent.setup();
     renderTable();
-    expect(screen.getByTestId("preview-drawer")).toHaveAttribute(
-      "data-open",
-      "false",
-    );
+    expect(screen.getByTestId("preview-drawer")).toHaveAttribute("data-open", "false");
 
     await user.click(screen.getByRole("button", { name: "open-preview" }));
-    expect(screen.getByTestId("preview-drawer")).toHaveAttribute(
-      "data-open",
-      "true",
-    );
+    expect(screen.getByTestId("preview-drawer")).toHaveAttribute("data-open", "true");
   });
 
   it("opens the validation drawer for a field", async () => {
@@ -364,9 +361,7 @@ describe("SchemaStructureTable", () => {
     const drawers = screen.getAllByTestId("access-drawer");
     expect(
       drawers.some(
-        (d) =>
-          d.getAttribute("data-open") === "true" &&
-          d.getAttribute("data-fields") === "age",
+        (d) => d.getAttribute("data-open") === "true" && d.getAttribute("data-fields") === "age",
       ),
     ).toBe(true);
   });
@@ -417,19 +412,14 @@ describe("SchemaStructureTable", () => {
     const user = userEvent.setup();
     renderTable({ schemaType: 2, schemaName: "Address", fields: [] });
 
-    expect(
-      screen.getAllByText(/Click Add Property to set one up/i).length,
-    ).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Click Add Property to set one up/i).length).toBeGreaterThan(0);
 
     // EmptySchemaPropertyState is an inline component, so it remounts on every
     // parent render; let mount-time re-renders settle before the first click.
     await new Promise((r) => setTimeout(r, 50));
     await user.click(screen.getAllByRole("button", { name: "Add Property" })[0]);
 
-    expect(screen.getByTestId("schema-header")).toHaveAttribute(
-      "data-edit",
-      "true",
-    );
+    expect(screen.getByTestId("schema-header")).toHaveAttribute("data-edit", "true");
     await waitFor(() => expect(rows()).toHaveLength(1));
   });
 
@@ -453,9 +443,7 @@ describe("SchemaStructureTable", () => {
 
     // Inline empty-state component remounts on every render; let it settle.
     await new Promise((r) => setTimeout(r, 50));
-    await user.click(
-      screen.getAllByRole("button", { name: "Open child schema" })[0],
-    );
+    await user.click(screen.getAllByRole("button", { name: "Open child schema" })[0]);
     expect(onOpenStandaloneSchemaEditor).toHaveBeenCalledWith("s1");
   });
 
@@ -473,9 +461,48 @@ describe("SchemaStructureTable", () => {
     renderTable({ compactView: true });
     expect(screen.queryByTestId("schema-header")).not.toBeInTheDocument();
     expect(rows()).toHaveLength(2);
-    expect(
-      screen.queryByRole("button", { name: "+ Add property" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+ Add property" })).not.toBeInTheDocument();
+  });
+
+  it("embeds edited child fields under their parent in the save payload", async () => {
+    const user = userEvent.setup();
+    mutateAsync.mockResolvedValue({ isSuccess: true });
+    renderTable({
+      fields: [{ name: "CookieName", type: "Address", isArray: true }],
+    });
+
+    await user.click(screen.getByRole("button", { name: "toggle-edit" }));
+    await user.click(screen.getByRole("button", { name: "expand-0" }));
+    await user.click((await screen.findAllByRole("button", { name: "change-child-fields" }))[0]);
+    await user.click(screen.getByRole("button", { name: "header-save" }));
+    await user.click(await screen.findByRole("button", { name: "Update" }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fields: [
+          expect.objectContaining({
+            name: "CookieName",
+            fields: [
+              expect.objectContaining({ name: "Name" }),
+              expect.objectContaining({ name: "Id" }),
+            ],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("automatically enables child fields without rendering a second action header", async () => {
+    renderTable({
+      schemaType: 2,
+      compactView: true,
+      showEmbeddedEditor: true,
+      allowNestedRequiredness: true,
+    });
+
+    expect(screen.queryByTestId("schema-header")).not.toBeInTheDocument();
+    await waitFor(() => expect(rows()[0]).toHaveAttribute("data-edit", "true"));
   });
 
   it("expands a child-schema row to render nested content", async () => {

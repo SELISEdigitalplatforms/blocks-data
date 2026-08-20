@@ -9,7 +9,9 @@ public static class MutationValidationHelper
     {
         throw new GraphQLException(
             ErrorBuilder.New()
-                .SetMessage(validationResult.ErrorMessage)
+                .SetMessage(validationResult.Errors.Any(e => e.ValidationType == "Required")
+                    ? "Required fields are missing or empty."
+                    : validationResult.ErrorMessage)
                 .SetCode(GraphQlConstant.ValidationErrorErrorCode)
                 .SetExtension("validationErrors", validationResult.Errors.Select(e => new { field = e.FieldName, message = e.Message, validationType = e.ValidationType }).ToArray())
                 .Build());

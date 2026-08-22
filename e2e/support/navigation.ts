@@ -1,29 +1,36 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test"
+import { openSharedProjectDashboard } from "./suite-helpers"
+import { e2eBaseUrl } from "./env"
 
 /**
- * Click an environment card on the console (e.g. "Development") and land on
- * its Project Details page.
+ * Land on the shared suite project's dashboard (Project Details).
  *
- * The button can render before its click handler is wired up (a hydration
- * race on this shared, occasionally-slow dev host), so the click can be a
- * no-op. Retry a few times before failing outright, the same pattern used
- * for the login CTA in tests/auth/login.spec.ts.
+ * Prefers the data-setup fixture. Falls back to clicking an environment chip
+ * on the console when no fixture exists (e.g. isolated debugging).
  */
 export async function openEnvironment(
   page: Page,
   name: string | RegExp = /Development/,
 ): Promise<void> {
-  const envButton = page.getByRole("button", { name }).first();
-  const detailsHeading = page.getByRole("heading", { name: "Project Details" });
+  try {
+    await openSharedProjectDashboard(page)
+    return
+  } catch {
+    // Fall through to console chip click.
+  }
 
-  let reached = false;
+  await page.goto(`${e2eBaseUrl()}/app/console`, { waitUntil: "domcontentloaded" })
+  const envButton = page.getByRole("button", { name }).first()
+  const detailsHeading = page.getByRole("heading", { name: "Project Details" })
+
+  let reached = false
   for (let attempt = 0; attempt < 3 && !reached; attempt++) {
-    await envButton.click();
+    await envButton.click()
     reached = await detailsHeading
       .waitFor({ state: "visible", timeout: 10_000 })
       .then(() => true)
-      .catch(() => false);
+      .catch(() => false)
   }
 
-  await expect(detailsHeading).toBeVisible({ timeout: 10_000 });
+  await expect(detailsHeading).toBeVisible({ timeout: 10_000 })
 }

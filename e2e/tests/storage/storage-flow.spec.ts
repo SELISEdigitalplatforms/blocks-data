@@ -1,6 +1,6 @@
-import { test, expect, Page } from "@playwright/test";
-import { loginFresh } from "../../support/auth-helpers";
-import { openEnvironment } from "../../support/navigation";
+import { type Page } from "@playwright/test"
+import { test, expect } from "../../support/test-base"
+import { openEnvironment } from "../../support/navigation"
 
 /**
  * One continuous flow test for the "Storage" menu item: open Add
@@ -14,19 +14,16 @@ async function openStorage(page: Page) {
   // The breadcrumb (also an aria-navigation region) can carry its own
   // "Storage" link once inside a sub-route. The sidebar link renders first
   // in DOM order, so .first() reliably targets it.
-  await page.getByRole("link", { name: "Storage" }).first().click();
-  await expect(page.getByRole("button", { name: "Add" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("link", { name: "Storage" }).first().click()
+  await expect(page.getByRole("button", { name: "Add" })).toBeVisible({ timeout: 30_000 })
 }
 
 test.describe("flow: Storage menu", () => {
-  test.use({ storageState: { cookies: [], origins: [] } });
-
   test("Storage — full flow", async ({ page }) => {
-    test.setTimeout(300_000);
+    test.setTimeout(300_000)
 
-    await loginFresh(page);
-    await openEnvironment(page);
-    await openStorage(page);
+    await openEnvironment(page)
+    await openStorage(page)
 
     await test.step("Add Configuration form validates required fields before it can be saved", async () => {
       await page.getByRole("button", { name: "Add" }).click();

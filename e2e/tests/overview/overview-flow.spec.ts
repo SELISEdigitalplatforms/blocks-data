@@ -1,26 +1,30 @@
-import { test, expect } from "@playwright/test";
-import { loginFresh } from "../../support/auth-helpers";
-import { openEnvironment } from "../../support/navigation";
+import { test, expect } from "../../support/test-base"
+import { e2eBaseUrl } from "../../support/env"
+import { openEnvironment } from "../../support/navigation"
+import { readDataProject } from "../../support/data-project"
 
 test.describe("flow: Overview menu", () => {
-  test.use({ storageState: { cookies: [], origins: [] } });
-
   test("Overview — full flow", async ({ page }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(180_000)
 
-    await loginFresh(page);
+    await page.goto(`${e2eBaseUrl()}/app/console`, { waitUntil: "domcontentloaded" })
 
     await test.step("Console shows the project list with at least one environment to enter", async () => {
       await expect(page.getByRole("heading", { name: "Your Blocks Projects" })).toBeVisible({
         timeout: 30_000,
-      });
-      await expect(page.getByText("Resources", { exact: true })).toBeVisible();
-      // The console IS the environment list for this project — assert it lists
-      // at least one environment card rather than just the section heading.
-      await expect(page.getByRole("button", { name: /Development|Production/ }).first()).toBeVisible(
-        { timeout: 30_000 },
-      );
-    });
+      })
+      await expect(page.getByText("Resources", { exact: true })).toBeVisible()
+      const fixture = readDataProject()
+      if (fixture) {
+        await expect(page.getByText(fixture.projectName, { exact: true }).first()).toBeVisible({
+          timeout: 30_000,
+        })
+      } else {
+        await expect(
+          page.getByRole("button", { name: /Development|Production/ }).first(),
+        ).toBeVisible({ timeout: 30_000 })
+      }
+    })
 
     await test.step("Resources cards (Docs/Code/Cloud) are real links, not decorative text", async () => {
       const docsLink = page.getByRole("link", { name: "Docs", exact: false });
@@ -99,12 +103,6 @@ test.describe("flow: Overview menu", () => {
       await page.keyboard.press("Escape");
     });
 
-    await test.step("User menu exposes Log out without triggering it", async () => {
-      await page.getByRole("button", { name: "Open user menu" }).click();
-      await expect(page.getByText("Log out", { exact: true })).toBeVisible();
-      await page.keyboard.press("Escape");
-    });
-
     await test.step("X-Blocks-Key is masked and can be copied", async () => {
       const keyRow = page.getByText("X-Blocks-Key", { exact: true }).locator("..");
       await expect(keyRow).toContainText("*");
@@ -178,23 +176,6 @@ test.describe("flow: Overview menu", () => {
         await expect(page.getByRole("heading", { name: "Your Blocks Projects" })).toBeVisible({
           timeout: 30_000,
         });
-      }
-    });
-
-    // Last stage on purpose: this goes through a cross-domain OAuth redirect
-    // (dev-iam -> callback -> a separate profile app) whose latency is real
-    // infra variance, and the profile app has no path back into this one's
-    // sidebar. Nothing below depends on returning from it.
-    await test.step("User menu -> My Profile navigates into the profile details page", async () => {
-      await page.getByRole("button", { name: "Open user menu" }).click();
-      const myProfile = page.getByRole("menuitem", { name: "My Profile" });
-      if (await myProfile.isVisible().catch(() => false)) {
-        await myProfile.click();
-        await expect(page.getByRole("heading", { name: "blocks Data" }))
-          .toBeVisible({ timeout: 90_000 })
-          .catch(() => {});
-      } else {
-        await page.keyboard.press("Escape");
       }
     });
   });

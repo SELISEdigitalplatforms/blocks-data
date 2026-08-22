@@ -1,6 +1,6 @@
-import { test, expect, Page } from "@playwright/test";
-import { loginFresh } from "../../support/auth-helpers";
-import { openEnvironment } from "../../support/navigation";
+import { type Page } from "@playwright/test"
+import { test, expect } from "../../support/test-base"
+import { openEnvironment } from "../../support/navigation"
 
 /**
  * One continuous flow test for the "Data Gateway" menu item: configure a
@@ -14,10 +14,10 @@ async function openDataGateway(page: Page) {
   // Gateway" link once inside a sub-route, so `navigation` role alone doesn't
   // disambiguate. The sidebar link renders first in DOM order, so .first()
   // reliably targets it (same approach the original spec used).
-  await page.getByRole("link", { name: "Data Gateway" }).first().click();
+  await page.getByRole("link", { name: "Data Gateway" }).first().click()
   await expect(page.getByRole("main").getByText("Data Gateway", { exact: true })).toBeVisible({
     timeout: 30_000,
-  });
+  })
 }
 
 // "Data Gateway" renders two different landing views depending on prior
@@ -43,14 +43,11 @@ async function selectSchema(page: Page, schemaName: string): Promise<boolean> {
 }
 
 test.describe("flow: Data Gateway menu", () => {
-  test.use({ storageState: { cookies: [], origins: [] } });
-
   test("Data Gateway — full flow", async ({ page }) => {
-    test.setTimeout(300_000);
+    test.setTimeout(300_000)
 
-    await loginFresh(page);
-    await openEnvironment(page);
-    await openDataGateway(page);
+    await openEnvironment(page)
+    await openDataGateway(page)
 
     await test.step("Configure the data source (create-mode dialog, or edit-mode page if one already exists)", async () => {
       const configureButton = page.getByRole("button", { name: "Configure" }).first();

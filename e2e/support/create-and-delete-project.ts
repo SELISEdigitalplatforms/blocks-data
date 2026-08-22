@@ -1,45 +1,40 @@
-import { Page, expect, test } from "@playwright/test";
-// import { ensureAuthenticatedOnCurrentOrigin } from "./login-helper"
+import { Page, expect, test } from "@playwright/test"
+import { e2eBaseUrl, e2eOsBaseUrl, e2eProjectId } from "./env"
+import { ensureAuthenticated, ensureAuthenticatedOnCurrentOrigin } from "./login-helper"
 
-const ORPHAN_PROJECT_PATTERN = /Test Project \d+/g;
-const OS_APP_NAME = /^(?:Blocks\s+)?OS(?:\s+OS)?$/i;
-const HOME_APP_NAME = /Utilities/i;
-const HOME_APP_URL = /dev-utilities|localhost/;
-
-async function listOrphanProjectNames(page: Page): Promise<string[]> {
-  const bodyText = await page
-    .locator("body")
-    .innerText()
-    .catch(() => "");
-  return [...new Set([...bodyText.matchAll(ORPHAN_PROJECT_PATTERN)].map((match) => match[0]))];
-}
+const ORPHAN_PROJECT_PATTERN = /Test Project \d+/g
+const ENV_BUTTON =
+  /Development|Testing|Staging|IAT|UAT|Production|Pre-Prod|Prod Shadow/
 
 const isVisibleNow = async (locator: {
-  isVisible: (opts: { timeout: number }) => Promise<boolean>;
-}) => locator.isVisible({ timeout: 500 }).catch(() => false);
+  isVisible: (opts: { timeout: number }) => Promise<boolean>
+}) => locator.isVisible({ timeout: 500 }).catch(() => false)
 
-const isUtilitiesApp = (page: Page) => /dev-utilities|localhost/i.test(page.url());
+async function listOrphanProjectNames(page: Page): Promise<string[]> {
+  const bodyText = await page.locator("body").innerText().catch(() => "")
+  return [...new Set([...bodyText.matchAll(ORPHAN_PROJECT_PATTERN)].map((match) => match[0]))]
+}
 
-export async function ensureConsole(page: Page) {
-  const href = page.url();
-  const isHttp = /^https?:/.test(href);
+function consoleBase(host: "data" | "os" = "data") {
+  return host === "os" ? e2eOsBaseUrl() : e2eBaseUrl()
+}
 
-  if (isHttp) {
-    const url = new URL(href);
-    if (/\/app\/console\/?$/.test(url.pathname)) {
-      await expect(page.getByRole("heading", { name: "Your Blocks Projects" })).toBeVisible({
-        timeout: 30_000,
-      });
-      return;
-    }
-    await page.goto(`${url.origin}/app/console`);
-  } else {
-    await page.goto("/app/console");
+/** Blocks console on Data or OS. */
+export async function ensureConsole(page: Page, host: "data" | "os" = "data") {
+  const base = consoleBase(host)
+  const href = page.url()
+  const onConsole =
+    /^https?:/.test(href) &&
+    new URL(href).origin === new URL(base).origin &&
+    /\/app\/console\/?$/.test(new URL(href).pathname)
+
+  if (!onConsole) {
+    await page.goto(`${base}/app/console`, { waitUntil: "domcontentloaded" })
   }
 
-  await expect(page.getByRole("heading", { name: "Your Blocks Projects" })).toBeVisible({
-    timeout: 30_000,
-  });
+  await expect(
+    page.getByRole("heading", { name: /Your Blocks Projects|Welcome to SELISE Blocks/ }),
+  ).toBeVisible({ timeout: 20_000 })
 }
 
 export function namedProjectCard(page: Page, projectName: string) {
@@ -47,260 +42,328 @@ export function namedProjectCard(page: Page, projectName: string) {
     .locator("div")
     .filter({ has: page.getByText(projectName, { exact: true }) })
     .filter({
-      has: page.getByRole("button", {
-        name: /Development|Testing|Staging|IAT|UAT|Production|Pre-Prod|Prod Shadow/,
-      }),
+      has: page.getByRole("button", { name: ENV_BUTTON }),
     })
-    .last();
+    .last()
 }
 
-async function waitForProjectCard(page: Page, projectName: string) {
-  for (let attempt = 0; attempt < 12; attempt++) {
-    await ensureConsole(page);
+async function waitForProjectCard(page: Page, projectName: string, host: "data" | "os" = "data") {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    await ensureConsole(page, host)
 
-    const card = namedProjectCard(page, projectName);
-    if (await card.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      return card;
+    const card = namedProjectCard(page, projectName)
+    if (await card.isVisible({ timeout: 1_500 }).catch(() => false)) {
+      return card
     }
 
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(1_500);
+    if (attempt < 5) {
+      await page.reload({ waitUntil: "domcontentloaded" })
+      await page.waitForTimeout(500)
+    }
   }
 
-  throw new Error(`Project "${projectName}" did not appear on the console`);
+  throw new Error(`Project "${projectName}" did not appear on the ${host} console`)
 }
 
-async function waitForDashboardReady(page: Page, projectName: string) {
-  await expect(page).toHaveURL(/\/app\/(?!project\/)[^/]+\/dashboard/, { timeout: 30_000 });
-
-  if (isUtilitiesApp(page)) {
-    await expect(page.getByText(/^workspace$/i)).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(projectName, { exact: true }).first()).toBeVisible({
-      timeout: 30_000,
-    });
-    return;
-  }
-
+/** Data project dashboard — Project Details / X-Blocks-Key visible. */
+async function waitForDataDashboardReady(page: Page, projectName: string) {
+  await expect(page).toHaveURL(/\/app\/(?!project\/)[^/]+\/dashboard/, { timeout: 20_000 })
   await expect(
     page
-      .getByRole("button", { name: "Delete", exact: true })
-      .or(page.getByText(/X-Blocks-Key/))
+      .getByRole("heading", { name: "Project Details" })
+      .or(page.getByText("X-Blocks-Key", { exact: true }))
       .first(),
-  ).toBeVisible({ timeout: 30_000 });
+  ).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByText(projectName, { exact: true }).first()).toBeVisible({
+    timeout: 20_000,
+  })
 }
 
-export async function openNamedProjectDashboard(page: Page, projectName: string) {
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const card = await waitForProjectCard(page, projectName);
-    const development = card.getByRole("button", { name: /Development/ }).first();
-    await expect(development).toBeVisible({ timeout: 15_000 });
-    await development.click({ force: true });
+/** OS project dashboard — project name heading + Delete button. */
+async function waitForOsDashboardReady(page: Page, projectName: string) {
+  await expect(page).toHaveURL(/\/app\/(?!project\/)[^/]+\/dashboard/, { timeout: 20_000 })
+  await expect(page.getByRole("heading", { name: projectName })).toBeVisible({ timeout: 20_000 })
+  await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeVisible({
+    timeout: 20_000,
+  })
+}
 
+async function readProjectNameFromDashboard(page: Page): Promise<string> {
+  const sidebarProject = page.getByRole("button", { name: /^Project / })
+  if (await sidebarProject.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    const label = await sidebarProject.innerText()
+    return label.replace(/^Project\s+/i, "").trim()
+  }
+
+  const details = page
+    .locator("main")
+    .filter({ has: page.getByRole("heading", { name: "Project Details" }) })
+  const nameBlock = details.getByText(/^Name\s+\S/, { exact: false }).first()
+  if (await nameBlock.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    return (await nameBlock.innerText()).replace(/^Name\s+/, "").trim()
+  }
+
+  throw new Error(`Could not read project name from dashboard: ${page.url()}`)
+}
+
+async function openProjectById(page: Page, projectId: string) {
+  await page.goto(`${e2eBaseUrl()}/app/${projectId}/dashboard`, { waitUntil: "domcontentloaded" })
+  const projectName = await readProjectNameFromDashboard(page)
+  await expect(
+    page
+      .getByRole("heading", { name: "Project Details" })
+      .or(page.getByText("X-Blocks-Key", { exact: true }))
+      .first(),
+  ).toBeVisible({ timeout: 20_000 })
+  return { projectName, dashboardUrl: page.url(), itemId: projectId }
+}
+
+export async function openNamedProjectDashboard(
+  page: Page,
+  projectName: string,
+  options?: { dashboardUrl?: string },
+) {
+  if (options?.dashboardUrl) {
+    await page.goto(options.dashboardUrl, { waitUntil: "domcontentloaded" })
     try {
-      await waitForDashboardReady(page, projectName);
-      return;
-    } catch (error) {
-      if (attempt === 3) throw error;
+      await waitForDataDashboardReady(page, projectName)
+      return
+    } catch {
+      // Fall through to card navigation.
     }
   }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const card = await waitForProjectCard(page, projectName, "data")
+    const envButton = card.getByRole("button", { name: ENV_BUTTON }).first()
+    await expect(envButton).toBeVisible({ timeout: 10_000 })
+    await envButton.click({ force: true })
+
+    try {
+      await waitForDataDashboardReady(page, projectName)
+      return
+    } catch (error) {
+      if (attempt === 2) throw error
+    }
+  }
+}
+
+async function openOsProjectDashboard(page: Page, projectName: string) {
+  await ensureConsole(page, "os")
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const card = await waitForProjectCard(page, projectName, "os")
+    const envButton = card.getByRole("button", { name: ENV_BUTTON }).first()
+    await expect(envButton).toBeVisible({ timeout: 10_000 })
+    await envButton.click({ force: true })
+
+    try {
+      await waitForOsDashboardReady(page, projectName)
+      return
+    } catch (error) {
+      if (attempt === 2) throw error
+    }
+  }
+}
+
+async function deleteProjectOnOs(page: Page, projectName: string): Promise<boolean> {
+  await page.goto(`${e2eOsBaseUrl()}/app/console`, { waitUntil: "domcontentloaded" })
+  await ensureAuthenticatedOnCurrentOrigin(page)
+  await openOsProjectDashboard(page, projectName)
+
+  await page.getByRole("button", { name: "Delete", exact: true }).click()
+  await expect(page.getByRole("heading", { name: "Delete this environment?" })).toBeVisible()
+  await page.getByRole("button", { name: "Delete", exact: true }).last().click()
+  await expect(page.getByText("Successfully deleted", { exact: true })).toBeVisible({
+    timeout: 15_000,
+  })
+  await expect(page).toHaveURL(/\/app\/console$/, { timeout: 15_000 })
+  return true
 }
 
 async function clickAppSwitcherAndNavigate(page: Page, appNamePattern: RegExp) {
-  const appSwitcher = page.getByRole("button", { name: "SELISE Blocks apps" });
-  await expect(appSwitcher).toBeVisible({ timeout: 10_000 });
-  await appSwitcher.click();
+  const appSwitcher = page.getByRole("button", { name: "SELISE Blocks apps" })
+  await expect(appSwitcher).toBeVisible({ timeout: 10_000 })
+  await appSwitcher.click()
 
-  const appLink = page
-    .getByRole("link", { name: appNamePattern })
-    .or(page.getByRole("button", { name: appNamePattern }))
-    .or(page.getByText(appNamePattern))
-    .first();
-  await expect(appLink).toBeVisible({ timeout: 5_000 });
-  await appLink.click();
+  const appLink = page.getByText(appNamePattern).first()
+  await expect(appLink).toBeVisible({ timeout: 5_000 })
+  await appLink.click()
 }
 
 async function freeProjectSlotIfNeeded(page: Page) {
-  await ensureConsole(page);
+  await ensureConsole(page, "data")
 
-  const welcomeHeading = page.getByRole("heading", { name: "Welcome to SELISE Blocks" });
-  if (await isVisibleNow(welcomeHeading)) return;
+  const welcomeHeading = page.getByRole("heading", { name: "Welcome to SELISE Blocks" })
+  if (await isVisibleNow(welcomeHeading)) return
 
-  const addProjectButton = page.getByText("Add Project", { exact: true }).first();
-  if (await isVisibleNow(addProjectButton)) return;
+  const addProjectButton = page.getByText("Add Project", { exact: true }).first()
+  if (await isVisibleNow(addProjectButton)) return
+
+  const atProjectLimit = page.getByText("Please delete an existing project to create a new one.")
+  if (!(await isVisibleNow(atProjectLimit))) return
 
   for (let attempt = 0; attempt < 8; attempt++) {
-    const orphanNames = await listOrphanProjectNames(page);
-    if (orphanNames.length === 0) break;
+    const orphanNames = await listOrphanProjectNames(page)
+    if (orphanNames.length === 0) break
 
-    await deleteCreatedProject(page, orphanNames[0]);
-    await ensureConsole(page);
+    await deleteCreatedProject(page, orphanNames[0]).catch(() => {})
+    await ensureConsole(page, "data")
 
-    if (await isVisibleNow(addProjectButton)) return;
+    if (await isVisibleNow(addProjectButton)) return
   }
 
-  await expect(addProjectButton).toBeVisible({ timeout: 15_000 });
+  await expect(addProjectButton).toBeVisible({ timeout: 15_000 })
 }
 
 /**
- * Creates a project via the OS-hosted wizard (Utilities redirects to OS for this).
+ * Creates a project via the OS-hosted wizard (Data redirects to OS for this).
  *
  * Flow:
- *   Utilities console → "Add Project" → OS create-project wizard →
- *   project created on OS environments page → app switcher → Utilities →
- *   Utilities console → click the new project → Utilities dashboard
+ *   Data console → "Add Project" → redirected to OS create-project wizard →
+ *   fill wizard → project created on OS environments page →
+ *   app switcher → click Data → Data console → click the new project →
+ *   Data dashboard
  */
 export async function createProject(page: Page) {
   await test.step("Start a new project (redirects to OS)", async () => {
-    const welcomeHeading = page.getByRole("heading", { name: "Welcome to SELISE Blocks" });
-    const createProjectButton = page.getByRole("button", { name: "Create a project" });
-    const addProjectButton = page.getByText("Add Project", { exact: true }).first();
-    const consoleHeading = page.getByRole("heading", { name: "Your Blocks Projects" });
+    await ensureAuthenticated(page)
+    await ensureConsole(page, "data")
 
-    await Promise.race([
-      welcomeHeading.waitFor({ state: "visible", timeout: 50_000 }),
-      addProjectButton.waitFor({ state: "visible", timeout: 50_000 }),
-      consoleHeading.waitFor({ state: "visible", timeout: 50_000 }),
-    ]);
+    const welcomeHeading = page.getByRole("heading", { name: "Welcome to SELISE Blocks" })
+    const createProjectButton = page.getByRole("button", { name: "Create a project" })
+    const addProjectButton = page.getByText("Add Project", { exact: true }).first()
 
-    await freeProjectSlotIfNeeded(page);
+    await freeProjectSlotIfNeeded(page)
 
     if (await welcomeHeading.isVisible().catch(() => false)) {
-      await createProjectButton.click();
+      await createProjectButton.click()
     } else {
-      await expect(addProjectButton).toBeVisible({ timeout: 15_000 });
-      await addProjectButton.click();
+      await expect(addProjectButton).toBeVisible({ timeout: 15_000 })
+      await addProjectButton.click()
     }
-    await page.waitForURL((url) => url.pathname.endsWith("/app/create-project"), {
-      timeout: 45_000,
-    });
-  });
+    await expect(page).toHaveURL(/\/app\/create-project$/, { timeout: 15_000 })
+  })
 
-  const projectName = `Test Project ${Date.now()}`;
+  const projectName = `Test Project ${Date.now()}`
   await test.step("Name the project and accept the agreements", async () => {
     await expect(page.getByRole("heading", { name: "Name your project" })).toBeVisible({
       timeout: 30_000,
-    });
-    const nameInput = page.locator('[placeholder="Enter your project name"]:visible');
-    await nameInput.fill(projectName);
+    })
+    const nameInput = page.locator('[placeholder="Enter your project name"]:visible')
+    await nameInput.fill(projectName)
 
-    await page.getByRole("checkbox", { name: "I confirm that I will use" }).click();
-    await page.getByRole("checkbox", { name: "I accept the Terms of services" }).click();
+    await page.getByRole("checkbox", { name: "I confirm that I will use" }).click()
+    await page.getByRole("checkbox", { name: "I accept the Terms of services" }).click()
 
-    const continueButton = page.getByRole("button", { name: "Continue", exact: true });
-    await expect(continueButton).toBeEnabled();
-    await continueButton.click();
-  });
+    const continueButton = page.getByRole("button", { name: "Continue", exact: true })
+    await expect(continueButton).toBeEnabled()
+    await continueButton.click()
+  })
 
   await test.step("Skip optional repositories", async () => {
     await expect(page.getByRole("heading", { name: "Add resource" })).toBeVisible({
       timeout: 30_000,
-    });
-    await page.getByRole("button", { name: "Continue", exact: true }).click();
-  });
+    })
+    await page.getByRole("button", { name: "Continue", exact: true }).click()
+  })
 
   await test.step("Select Development and submit", async () => {
     await expect(
       page.getByText("Select environments", { exact: true }).and(page.locator(":visible")),
-    ).toBeVisible({ timeout: 30_000 });
+    ).toBeVisible({ timeout: 30_000 })
 
-    await page.getByText("Development", { exact: true }).and(page.locator(":visible")).click();
-    const submitButton = page.getByRole("button", { name: "Submit" });
-    await expect(submitButton).toBeEnabled();
-    await submitButton.click();
-  });
+    await page.getByText("Development", { exact: true }).and(page.locator(":visible")).click()
+    const submitButton = page.getByRole("button", { name: "Submit" })
+    await expect(submitButton).toBeEnabled()
+    await submitButton.click()
+  })
 
   await test.step("Wait for create success (on OS)", async () => {
     await expect(page.getByText("Your project has been created.", { exact: true })).toBeVisible({
       timeout: 30_000,
-    });
+    })
     await expect(page).toHaveURL(/\/app\/project\/[^/]+\/environments$/, {
       timeout: 20_000,
-    });
-  });
+    })
+  })
 
-  await test.step("Switch back to Utilities via app switcher", async () => {
-    await clickAppSwitcherAndNavigate(page, HOME_APP_NAME);
+  await test.step("Switch back to Data via app switcher", async () => {
+    await clickAppSwitcherAndNavigate(page, /Data/i)
+    await page.waitForURL(/dev-data|localhost/i, { timeout: 30_000 })
+    await ensureConsole(page, "data")
+  })
 
-    await page.waitForURL(HOME_APP_URL, { timeout: 30_000 });
-    await expect(page.getByRole("heading", { name: "Your Blocks Projects" })).toBeVisible({
-      timeout: 30_000,
-    });
-  });
+  await test.step("Open the newly created project on Data", async () => {
+    await openNamedProjectDashboard(page, projectName)
+  })
 
-  await test.step("Open the newly created project on Utilities", async () => {
-    await openNamedProjectDashboard(page, projectName);
-  });
-
-  return { projectName };
+  return { projectName, dashboardUrl: page.url() }
 }
 
-async function deleteProjectOnCurrentApp(page: Page, projectName: string) {
-  await ensureConsole(page);
-  await openNamedProjectDashboard(page, projectName);
+/** Reuse an existing project, or create one when Add Project is available. */
+export async function reuseOrCreateSharedProject(
+  page: Page,
+): Promise<{ projectName: string; dashboardUrl: string; itemId: string }> {
+  await ensureAuthenticated(page)
 
-  await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeVisible({
-    timeout: 30_000,
-  });
-
-  await page.getByRole("button", { name: "Delete", exact: true }).click();
-
-  await expect(page.getByRole("heading", { name: "Delete this environment?" })).toBeVisible();
-
-  await page.getByRole("button", { name: "Delete", exact: true }).last().click();
-
-  await expect(page.getByText("Successfully deleted", { exact: true })).toBeVisible({
-    timeout: 20_000,
-  });
-  await expect(page).toHaveURL(/\/app\/console$/, { timeout: 20_000 });
-}
-
-async function deleteOrphanTestProjectsOnOs(page: Page) {
-  for (let attempt = 0; attempt < 8; attempt++) {
-    await ensureConsole(page);
-    const orphanNames = await listOrphanProjectNames(page);
-    if (orphanNames.length === 0) return;
-
-    await deleteProjectOnCurrentApp(page, orphanNames[0]);
+  const configuredProjectId = e2eProjectId()
+  if (configuredProjectId) {
+    return openProjectById(page, configuredProjectId)
   }
 
-  await ensureConsole(page);
-  const leftover = await listOrphanProjectNames(page);
-  if (leftover.length > 0) {
-    throw new Error(`Failed to delete leftover e2e projects: ${leftover.join(", ")}`);
+  await ensureConsole(page, "data")
+
+  const reuseName = process.env.E2E_REUSE_PROJECT_NAME?.trim()
+  if (reuseName) {
+    await openNamedProjectDashboard(page, reuseName)
+    const itemId = new URL(page.url()).pathname.split("/")[2] ?? ""
+    return { projectName: reuseName, dashboardUrl: page.url(), itemId }
   }
+
+  const testProjects = await listOrphanProjectNames(page)
+  if (testProjects.length > 0) {
+    const projectName = testProjects[testProjects.length - 1]!
+    await openNamedProjectDashboard(page, projectName)
+    const itemId = new URL(page.url()).pathname.split("/")[2] ?? ""
+    return { projectName, dashboardUrl: page.url(), itemId }
+  }
+
+  const addProjectButton = page.getByText("Add Project", { exact: true }).first()
+  if (await addProjectButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    const created = await createProject(page)
+    const itemId = new URL(created.dashboardUrl).pathname.split("/")[2] ?? ""
+    return { ...created, itemId }
+  }
+
+  throw new Error(
+    "No project to reuse and Add Project is unavailable. " +
+      "Set E2E_REUSE_PROJECT_NAME (e.g. test) or E2E_PROJECT_ID, or free a console slot.",
+  )
 }
 
-export async function deleteCreatedProject(page: Page, projectName?: string) {
-  await test.step("Open the app console before teardown", async () => {
-    await ensureConsole(page);
-  });
+/** Delete project on Blocks OS (only place with project Delete UI). */
+export async function deleteCreatedProject(
+  page: Page,
+  projectName?: string,
+  options?: { itemId?: string },
+): Promise<boolean> {
+  if (!projectName) return false
+  void options
 
-  await test.step("Switch to Blocks OS and delete e2e projects", async () => {
-    await clickAppSwitcherAndNavigate(page, OS_APP_NAME);
-    await page.waitForURL(/dev-os/, { timeout: 30_000 });
-    // await ensureAuthenticatedOnCurrentOrigin(page);
-    await ensureConsole(page);
-
-    if (projectName) {
-      await deleteProjectOnCurrentApp(page, projectName);
-      await expect(page.getByText(projectName, { exact: true })).toHaveCount(0, {
-        timeout: 20_000,
-      });
+  return test.step("Delete project on Blocks OS", async () => {
+    try {
+      const deleted = await deleteProjectOnOs(page, projectName)
+      if (deleted) {
+        await ensureConsole(page, "os")
+        await expect(page.getByText(projectName, { exact: true })).toHaveCount(0, {
+          timeout: 10_000,
+        })
+      }
+      return deleted
+    } catch (error) {
+      console.warn(`[e2e] Failed to delete project "${projectName}" on OS:`, error)
+      return false
     }
-
-    await deleteOrphanTestProjectsOnOs(page);
-  });
-
-  await test.step("Return to Utilities and verify e2e projects are gone", async () => {
-    await clickAppSwitcherAndNavigate(page, HOME_APP_NAME);
-    await page.waitForURL(HOME_APP_URL, { timeout: 30_000 });
-    await ensureConsole(page);
-
-    if (projectName) {
-      await expect(page.getByText(projectName, { exact: true })).toHaveCount(0, {
-        timeout: 20_000,
-      });
-    }
-    await expect(page.getByText(/^Test Project \d+$/)).toHaveCount(0, { timeout: 10_000 });
-  });
+  })
 }

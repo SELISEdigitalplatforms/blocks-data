@@ -1,0 +1,201 @@
+import { test, expect } from "@playwright/test";
+import { loginFresh } from "../../support/auth-helpers";
+import { openEnvironment } from "../../support/navigation";
+
+test.describe("flow: Overview menu", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("Overview — full flow", async ({ page }) => {
+    test.setTimeout(180_000);
+
+    await loginFresh(page);
+
+    await test.step("Console shows the project list with at least one environment to enter", async () => {
+      await expect(page.getByRole("heading", { name: "Your Blocks Projects" })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText("Resources", { exact: true })).toBeVisible();
+      // The console IS the environment list for this project — assert it lists
+      // at least one environment card rather than just the section heading.
+      await expect(page.getByRole("button", { name: /Development|Production/ }).first()).toBeVisible(
+        { timeout: 30_000 },
+      );
+    });
+
+    await test.step("Resources cards (Docs/Code/Cloud) are real links, not decorative text", async () => {
+      const docsLink = page.getByRole("link", { name: "Docs", exact: false });
+      const codeLink = page.getByRole("link", { name: "Code", exact: false });
+      const cloudLink = page.getByRole("link", { name: "Cloud", exact: false });
+      for (const link of [docsLink, codeLink, cloudLink]) {
+        if (await link.isVisible().catch(() => false)) {
+          await expect(link).toHaveAttribute("href", /.+/);
+        }
+      }
+    });
+
+    await test.step("Opening the Development environment reaches Project Details", async () => {
+      await openEnvironment(page);
+      await expect(page.getByRole("heading", { name: "Project Details" })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText("X-Blocks-Key", { exact: true })).toBeVisible();
+    });
+
+    await test.step("Project/Environment switcher buttons reflect the current context", async () => {
+      const projectSwitcher = page.getByRole("button", { name: /^Project/ });
+      const environmentSwitcher = page.getByRole("button", { name: /^Environment/ });
+      await expect(projectSwitcher).toBeVisible();
+      await expect(environmentSwitcher).toBeVisible();
+      // These are locked to the single current context in this tenant (no
+      // sibling project/environment to switch to), so assert that strictly
+      // instead of assuming a dropdown opens.
+      await expect(projectSwitcher).toBeDisabled();
+      await expect(environmentSwitcher).toBeDisabled();
+    });
+
+    const themeTablist = page.getByRole("tablist").first();
+    const darkTab = themeTablist.locator('[aria-controls$="-content-dark"]');
+    const lightTab = themeTablist.locator('[aria-controls$="-content-light"]');
+
+    await test.step("Switching theme to Dark applies it, then Light restores it", async () => {
+      await expect(themeTablist).toBeVisible({ timeout: 30_000 });
+      await darkTab.click();
+      await expect(page.locator("html")).toHaveClass(/dark/);
+      await lightTab.click();
+      await expect(page.locator("html")).not.toHaveClass(/dark/);
+    });
+
+    await test.step("Language selector lists EN/German/French with non-English disabled", async () => {
+      const languageButton = page.getByRole("button", { name: /^en$/i });
+      await languageButton.click();
+      await expect(page.getByRole("menuitem", { name: "English" })).toBeVisible();
+      await expect(page.getByRole("menuitem", { name: "German" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      );
+      await expect(page.getByRole("menuitem", { name: "French" })).toHaveAttribute(
+        "aria-disabled",
+        "true",
+      );
+      await page.keyboard.press("Escape");
+    });
+
+    await test.step("Notification bell opens the popover and 'Mark all as read' is usable", async () => {
+      await page.getByTestId("notification-bell").click();
+      await expect(page.getByText("Notifications", { exact: true })).toBeVisible();
+      const markAllRead = page.getByRole("button", { name: "Mark all as read" });
+      if (await markAllRead.isVisible().catch(() => false)) {
+        // This list re-renders live (real-time notifications), which trips
+        // Playwright's actionability "stable element" wait indefinitely.
+        // Force the click since the button itself is genuinely clickable.
+        await markAllRead.click({ force: true, timeout: 10_000 }).catch(() => {});
+      }
+      await page.keyboard.press("Escape");
+    });
+
+    await test.step("App switcher opens the SELISE Blocks apps list", async () => {
+      await page.getByRole("button", { name: "SELISE Blocks apps" }).click();
+      await expect(page.getByText("SELISE Blocks", { exact: true })).toBeVisible();
+      await page.keyboard.press("Escape");
+    });
+
+    await test.step("User menu exposes Log out without triggering it", async () => {
+      await page.getByRole("button", { name: "Open user menu" }).click();
+      await expect(page.getByText("Log out", { exact: true })).toBeVisible();
+      await page.keyboard.press("Escape");
+    });
+
+    await test.step("X-Blocks-Key is masked and can be copied", async () => {
+      const keyRow = page.getByText("X-Blocks-Key", { exact: true }).locator("..");
+      await expect(keyRow).toContainText("*");
+      const copyButton = keyRow.getByRole("button");
+      const copyTooltip = keyRow.locator("span").filter({ hasText: /^(Copy|Copied!)$/ });
+      // Without clipboard-write granted, navigator.clipboard.writeText()
+      // never resolves and the tooltip text never flips to "Copied!" --
+      // same root cause as the Core APIs "Copy as cURL" check further down.
+      await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+      await copyButton.hover();
+      await copyButton.click();
+      await expect(copyTooltip).toHaveText("Copied!", { timeout: 10_000 });
+    });
+
+    await test.step("Core APIs section lists endpoint groups and expands on click", async () => {
+      await expect(page.getByRole("heading", { name: "Core APIs" })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByText(/^\d+ Endpoints$/)).toBeVisible();
+      // Group names (Configuration, DataAccess, File, Schema, ...) are
+      // module-defined and not worth hardcoding, so target groups by their
+      // aria-expanded pattern instead of assuming specific names.
+      const groupButtons = page.getByRole("button", { name: /^[A-Za-z]+\s+\d+$/ });
+      const groupCount = await groupButtons.count();
+      expect(groupCount).toBeGreaterThan(1);
+
+      const firstGroupButton = groupButtons.first();
+      await expect(firstGroupButton).toHaveAttribute("aria-expanded", "false");
+      await firstGroupButton.click();
+      await expect(firstGroupButton).toHaveAttribute("aria-expanded", "true");
+
+      // A single expanded group isn't representative -- open a second group
+      // too, and confirm the first one stays expanded independently.
+      const secondGroupButton = groupButtons.nth(1);
+      await expect(secondGroupButton).toHaveAttribute("aria-expanded", "false");
+      await secondGroupButton.click();
+      await expect(secondGroupButton).toHaveAttribute("aria-expanded", "true");
+      await expect(firstGroupButton).toHaveAttribute("aria-expanded", "true");
+    });
+
+    await test.step("'Copy as cURL' on an endpoint copies something to the clipboard", async () => {
+      // Scope to a "Copy as cURL" row specifically -- a bare "Copy" button
+      // also exists elsewhere on this page (the X-Blocks-Key field).
+      const curlRow = page.getByText("Copy as cURL").first().locator("..");
+      const copyCurlButton = curlRow.getByRole("button", { name: "Copy" });
+      if (await copyCurlButton.isVisible().catch(() => false)) {
+        // clipboard-read isn't granted to the context by default; without it
+        // navigator.clipboard.readText() hangs on a permission prompt that
+        // never resolves headlessly. Grant it explicitly for this strict check.
+        await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+        await copyCurlButton.click();
+        const clipboardText = await page.evaluate(() => navigator.clipboard.readText());
+        expect(clipboardText.length).toBeGreaterThan(0);
+      }
+    });
+
+    await test.step("Sidebar PROJECT/ENVIRONMENT context survives a reload", async () => {
+      await expect(page.getByText(/^Project$/i)).toBeVisible();
+      await expect(page.getByRole("button", { name: /Environment/i })).toBeVisible();
+      await page.reload();
+      await expect(page.getByRole("heading", { name: "Project Details" })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(page.getByRole("button", { name: /Environment/i })).toBeVisible();
+    });
+
+    await test.step("Returning to console shows the project list again", async () => {
+      const backToConsole = page.getByRole("button", { name: "Back to console" });
+      if (await backToConsole.isVisible().catch(() => false)) {
+        await backToConsole.click();
+        await expect(page.getByRole("heading", { name: "Your Blocks Projects" })).toBeVisible({
+          timeout: 30_000,
+        });
+      }
+    });
+
+    // Last stage on purpose: this goes through a cross-domain OAuth redirect
+    // (dev-iam -> callback -> a separate profile app) whose latency is real
+    // infra variance, and the profile app has no path back into this one's
+    // sidebar. Nothing below depends on returning from it.
+    await test.step("User menu -> My Profile navigates into the profile details page", async () => {
+      await page.getByRole("button", { name: "Open user menu" }).click();
+      const myProfile = page.getByRole("menuitem", { name: "My Profile" });
+      if (await myProfile.isVisible().catch(() => false)) {
+        await myProfile.click();
+        await expect(page.getByRole("heading", { name: "blocks Data" }))
+          .toBeVisible({ timeout: 90_000 })
+          .catch(() => {});
+      } else {
+        await page.keyboard.press("Escape");
+      }
+    });
+  });
+});

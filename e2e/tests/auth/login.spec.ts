@@ -1,3 +1,4 @@
+import { createProject } from "../../support/create-and-delete-project";
 import { expect, test } from "../../support/test-base";
 
 const username = process.env.E2E_USERNAME;
@@ -71,6 +72,14 @@ test.describe("Authentication", () => {
     // heading is always "Your Blocks Projects" (blocks-kit self-project.tsx).
     await expect(page.getByRole("heading", { name: "Your Blocks Projects" })).toBeVisible({
       timeout: 20_000,
+    });
+
+    await createProject(page);
+
+    await page.getByRole("button", { name: "Open user menu" }).click();
+    await page.getByText("Log out").click();
+    await expect(page.getByRole("heading", { name: "BLOCKS DATA" })).toBeVisible({
+      timeout: 30_000,
     });
 
     // Persist the authenticated session for future specs to reuse.

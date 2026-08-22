@@ -9,7 +9,10 @@ import { expect, type Page } from "@playwright/test";
  * no-op. Retry a few times before failing outright, the same pattern used
  * for the login CTA in tests/auth/login.spec.ts.
  */
-export async function openEnvironment(page: Page, name: string | RegExp = /Development/): Promise<void> {
+export async function openEnvironment(
+  page: Page,
+  name: string | RegExp = /Development/,
+): Promise<void> {
   const envButton = page.getByRole("button", { name }).first();
   const detailsHeading = page.getByRole("heading", { name: "Project Details" });
 

@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useSchemaDetails } from "../hooks/use-configuration";
-import { ISchemaDetails } from "../models/data-service";
+import { IField, ISchemaDetails } from "../models/data-service";
 import {
   createEmptyAccessRuleSet,
   mergeFieldsWithParentData,
@@ -39,12 +38,19 @@ const createEmptySchemaDetails = (projectKey: string): ISchemaDetails => ({
 export type ParentFieldWithNestedPayload = {
   fields?: Array<{
     name: string;
+    type?: string;
+    isArray?: boolean;
+    isPIIData?: boolean;
+    isUniqueData?: boolean;
+    requiredOn?: IField["requiredOn"];
+    description?: string;
     validationRule?: unknown;
     totalValidationRules?: number;
     readAccessLevel?: number;
     writeAccessLevel?: number;
     editAccessLevel?: number;
     deleteAccessLevel?: number;
+    fields?: ParentFieldWithNestedPayload["fields"];
   }>;
 };
 
@@ -80,15 +86,10 @@ export function ChildSchemaExpandableContent({
   policyEntitySchemaName,
   onOpenStandaloneSchemaEditor,
 }: ChildSchemaExpandableContentProps) {
-  const [schemaDetails, setSchemaDetails] = useState<ISchemaDetails>(() =>
-    createEmptySchemaDetails(projectKey),
-  );
   const { data: schemaDetailsQuery, isLoading } = useSchemaDetails(schemaId, projectKey);
-
-  useEffect(() => {
-    if (schemaDetailsQuery?.data) {
-      const res = schemaDetailsQuery.data;
-      setSchemaDetails({
+  const res = schemaDetailsQuery?.data;
+  const schemaDetails: ISchemaDetails = res
+    ? {
         id: res.id,
         schemaName: res.schemaName,
         schemaType: res.schemaType,
@@ -110,9 +111,8 @@ export function ChildSchemaExpandableContent({
         writeAccessLevel: res.writeAccessLevel,
         editAccessLevel: res.editAccessLevel,
         deleteAccessLevel: res.deleteAccessLevel,
-      });
-    }
-  }, [schemaDetailsQuery, projectKey]);
+      }
+    : createEmptySchemaDetails(projectKey);
 
   const fieldsWithParentValidation = mergeFieldsWithParentData(
     schemaDetails.fields ?? [],

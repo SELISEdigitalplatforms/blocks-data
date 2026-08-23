@@ -201,6 +201,7 @@ public static class SchemaDefinitionMapping
                 : DefaultValueInjection.DefaultFieldDescriptions.TryGetValue(field.Name, out var fallback)
                     ? fallback
                     : string.Empty,
+            RequiredOn = field.RequiredOn,
             ReadAccessLevel = field.ReadAccessLevel,
             WriteAccessLevel = field.WriteAccessLevel,
             EditAccessLevel = field.EditAccessLevel,

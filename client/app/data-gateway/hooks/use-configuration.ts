@@ -189,6 +189,9 @@ export const useSchemaDetails = (
     queryKey: ["schema-details", id, projectKey],
     queryFn: () => configurationService.getSchemaDetails(id, projectKey),
     enabled: !!id && !!projectKey && isEnabled,
+    // Schema details include denormalized Child fields. Always refresh when a
+    // schema view mounts so Entity expansions cannot reuse an older Child shape.
+    refetchOnMount: "always",
   });
 };
 
@@ -203,6 +206,21 @@ const invalidateSchemaList = (
       // query key shape: ["schema-list", keyword, pageNo, pageSize, sortDescending, sortBy, projectKey, schemaType]
       const keyProject = key[6];
       return !projectKey || keyProject === projectKey;
+    },
+  });
+
+const invalidateSchemaDetailsForProject = (
+  queryClient: ReturnType<typeof useQueryClient>,
+  projectKey: string,
+) =>
+  queryClient.invalidateQueries({
+    predicate: (query) => {
+      const key = query.queryKey;
+      return (
+        Array.isArray(key) &&
+        key[0] === "schema-details" &&
+        (!projectKey || key[2] === projectKey)
+      );
     },
   });
 
@@ -231,12 +249,15 @@ export const useUpdateSchema = () => {
   return useMutation({
     mutationFn: configurationService.updateSchema,
     onSuccess: (_data, variables: ICreateSchemaPayload) => {
-      invalidateSchemaList(queryClient, projectKey);
+      const mutationProjectKey = variables.projectKey || projectKey;
+      invalidateSchemaList(queryClient, mutationProjectKey);
       queryClient.invalidateQueries({
-        queryKey: ["schema-details", variables.itemId, projectKey],
+        queryKey: ["schema-details", variables.itemId, mutationProjectKey],
       });
+      // Child schema changes may alter every Entity that embeds that Child.
+      invalidateSchemaDetailsForProject(queryClient, mutationProjectKey);
       queryClient.invalidateQueries({
-        queryKey: ["unadapted-change-logs", projectKey],
+        queryKey: ["unadapted-change-logs", mutationProjectKey],
       });
     },
   });
@@ -248,12 +269,21 @@ export const useUpdateSchemaStructure = () => {
 
   return useMutation({
     mutationFn: configurationService.updateSchemaStructure,
-    onSuccess: (_data, variables: IUpdateSchemaStructure) => {
+    onSuccess: async (_data, variables: IUpdateSchemaStructure) => {
+      const mutationProjectKey = variables.projectKey || projectKey;
+      // Mutations run against a cached GraphQL executor. Rebuild it after any
+      // schema-structure change so Child requiredness is enforced immediately
+      // by every Entity that embeds the Child.
+      await configurationService.reloadSchemas();
       queryClient.invalidateQueries({
-        queryKey: ["schema-details", variables.schemaDefinitionItemId, projectKey],
+        queryKey: ["schema-details", variables.schemaDefinitionItemId, mutationProjectKey],
       });
+      // Updating a Child schema also refreshes the embedded reference fields of
+      // every Entity that uses it. Mark all cached details for this project stale
+      // so navigating back to an Entity fetches its updated hierarchy.
+      invalidateSchemaDetailsForProject(queryClient, mutationProjectKey);
       queryClient.invalidateQueries({
-        queryKey: ["unadapted-change-logs", projectKey],
+        queryKey: ["unadapted-change-logs", mutationProjectKey],
       });
     },
   });

@@ -5,11 +5,11 @@ namespace DataGateway.DomainService.Helpers;
 
 public static class MutationValidationHelper
 {
-    public static void ThrowValidationError(DataValidationResult validationResult)
+    public static void ThrowValidationError(DataValidationResult validationResult, string? message = null)
     {
         throw new GraphQLException(
             ErrorBuilder.New()
-                .SetMessage(validationResult.ErrorMessage)
+                .SetMessage(message ?? validationResult.ErrorMessage)
                 .SetCode(GraphQlConstant.ValidationErrorErrorCode)
                 .SetExtension("validationErrors", validationResult.Errors.Select(e => new { field = e.FieldName, message = e.Message, validationType = e.ValidationType }).ToArray())
                 .Build());

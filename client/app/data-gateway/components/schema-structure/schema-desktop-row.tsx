@@ -8,6 +8,7 @@ import {
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { Input } from "@/components/ui-kits/input/input";
 import { Switch } from "@/components/ui-kits/switch/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-kits/select/select";
 import { TableCell, TableRow } from "@/components/ui-kits/table/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/tooltip/tooltip";
 import { cn } from "@/lib/utils";
@@ -350,6 +351,22 @@ export function SchemaDesktopRow({
                 )}
               </div>
             </div>
+          </TableCell>
+
+          {/* IsArray */}
+          <TableCell className={compactCellClass}>
+              {isPrimitiveType && <Select
+                value={watch(`properties.${index}.requiredOn`) ?? "None"}
+                onValueChange={(value) => setValue(`properties.${index}.requiredOn`, value as IField["requiredOn"], { shouldDirty: true })}
+                disabled={!isEditMode || isReadOnly}
+              >
+                <SelectTrigger aria-label={`IsRequired for ${name || "property"}`} className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(["None", "Insert", "Update", "Both"] as const).map((mode) => <SelectItem key={mode} value={mode}>{mode}</SelectItem>)}
+                </SelectContent>
+              </Select>}
           </TableCell>
 
           {/* IsArray */}

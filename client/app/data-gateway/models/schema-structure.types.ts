@@ -1,4 +1,4 @@
-import { IDataAccessRuleSet } from "./data-service";
+import { IDataAccessRuleSet, RequiredOn } from "./data-service";
 
 export type PropertyRow = {
   name: string;
@@ -7,6 +7,7 @@ export type PropertyRow = {
   isPIIData?: boolean;
   isUniqueData?: boolean;
   description?: string;
+  requiredOn?: RequiredOn;
   totalRoles?: number;
   totalUsers?: number;
   totalPermissions?: number;
@@ -23,6 +24,7 @@ export const defaultProperty: PropertyRow = {
   isPIIData: false,
   isUniqueData: false,
   description: "",
+  requiredOn: "None",
   totalRoles: 0,
   totalUsers: 0,
   totalPermissions: 0,

@@ -8,6 +8,7 @@ import {
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { Input } from "@/components/ui-kits/input/input";
 import { Switch } from "@/components/ui-kits/switch/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-kits/select/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/tooltip/tooltip";
 import { cn } from "@/lib/utils";
 import { useId } from "react";
@@ -362,6 +363,24 @@ export function SchemaMobileCard({
                   </div>
                 )}
               </div>
+
+              {isPrimitiveType && (
+                <div className="min-w-0 space-y-1">
+                  <label className="text-xs text-muted-foreground">IsRequired</label>
+                  <Select
+                    value={watch(`properties.${index}.requiredOn`) ?? "None"}
+                    onValueChange={(value) => setValue(`properties.${index}.requiredOn`, value as IField["requiredOn"], { shouldDirty: true })}
+                    disabled={!isEditMode || isReadOnly}
+                  >
+                    <SelectTrigger aria-label={`IsRequired for ${name || "property"}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(["None", "Insert", "Update", "Both"] as const).map((mode) => <SelectItem key={mode} value={mode}>{mode}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* IsArray */}
               <div className="flex min-h-[35px] items-center justify-between gap-3">

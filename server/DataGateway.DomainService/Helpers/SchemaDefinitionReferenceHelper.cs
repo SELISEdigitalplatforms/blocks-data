@@ -40,6 +40,7 @@ public class SchemaDefinitionReferenceHelper
                 existingField.IsArray = innerField.IsArray;
                 existingField.IsPIIData = innerField.IsPIIData;
                 existingField.IsUniqueData = innerField.IsUniqueData;
+                existingField.RequiredOn = innerField.RequiredOn;
                 existingField.Description = innerField.Description;
             }
         }
@@ -141,6 +142,7 @@ public class SchemaDefinitionReferenceHelper
             IsArray = field.IsArray,
             IsPIIData = field.IsPIIData,
             IsUniqueData = field.IsUniqueData,
+            RequiredOn = field.RequiredOn,
             Description = field.Description,
             IsReferenceField = true,
             ReferenceFieldType = referenceFieldType,

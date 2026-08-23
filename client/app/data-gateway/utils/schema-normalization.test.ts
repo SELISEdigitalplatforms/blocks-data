@@ -222,6 +222,37 @@ describe("schema-normalization", () => {
       expect(merged[1]).toBe(children[1]);
     });
 
+    it("uses the entity nested field as the source of truth for field metadata", () => {
+      const children = [{
+        name: "HouseNo",
+        type: "String",
+        isArray: false,
+        isPIIData: false,
+        isUniqueData: false,
+        requiredOn: "None",
+        description: "stale",
+      } as IField];
+
+      const [merged] = mergeFieldsWithParentData(children, [{
+        name: "HouseNo",
+        type: "Int",
+        isArray: true,
+        isPIIData: true,
+        isUniqueData: true,
+        requiredOn: "Both",
+        description: "current",
+      }]);
+
+      expect(merged).toMatchObject({
+        type: "Int",
+        isArray: true,
+        isPIIData: true,
+        isUniqueData: true,
+        requiredOn: "Both",
+        description: "current",
+      });
+    });
+
     it("recursively merges nested fields", () => {
       const children = [
         {

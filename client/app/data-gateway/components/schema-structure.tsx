@@ -230,17 +230,10 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   useEffect(() => {
     // Compute a hash of fields to avoid unnecessary form resets when only the
     // array reference changes (e.g. after validation API refetches schema details).
-    const fieldsHash = JSON.stringify(
-      (schemaDetails.fields ?? []).map((f) => ({
-        name: f.name,
-        type: f.type,
-        isArray: f.isArray,
-        totalValidationRules: f.totalValidationRules,
-        readAccessLevel: f.readAccessLevel,
-        writeAccessLevel: f.writeAccessLevel,
-        editAccessLevel: f.editAccessLevel,
-      })),
-    );
+    // Include the complete recursive hierarchy. Child metadata can change while
+    // the parent field itself remains unchanged, and the expanded editor must
+    // reset from that refreshed nested response.
+    const fieldsHash = JSON.stringify(schemaDetails.fields ?? []);
     if (fieldsHash === previousFieldsHashRef.current) {
       return; // fields content unchanged — skip reset to preserve expanded state
     }
@@ -446,15 +439,15 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const shouldHideAccessValidation = hideAccessValidation || isChildTabOnly;
   const hasDesktopColumns = totalFieldLength > 0 || isEditMode;
   const visibleColumnCount =
-    7 + (isEditMode ? 1 : 0) + (shouldHideAccessValidation ? 0 : 1);
+    8 + (isEditMode ? 1 : 0) + (shouldHideAccessValidation ? 0 : 1);
   // Wider IsArray / IsPII / IsUnique columns so labels and toggles do not crowd (main + nested).
   const desktopColumnWidths = isEditMode
     ? shouldHideAccessValidation
-      ? ["5%", "19%", "16%", "10%", "10%", "10%", "25%", "5%"]
-      : ["5%", "17%", "14%", "10%", "10%", "10%", "18%", "10%", "6%"]
+      ? ["4%", "16%", "13%", "11%", "9%", "9%", "9%", "24%", "5%"]
+      : ["4%", "14%", "12%", "11%", "9%", "9%", "9%", "16%", "10%", "6%"]
     : shouldHideAccessValidation
-      ? ["20%", "17%", "10%", "10%", "10%", "28%", "5%"]
-      : ["18%", "16%", "10%", "10%", "10%", "20%", "11%", "5%"];
+      ? ["17%", "14%", "12%", "9%", "9%", "9%", "25%", "5%"]
+      : ["15%", "13%", "11%", "9%", "9%", "9%", "17%", "11%", "6%"];
   const emptyStateMobile =
     (totalFieldLength === readonlyFieldsCount || totalFieldLength === 0) &&
     !isEditMode;
@@ -654,6 +647,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                         )}
                         <TableHead>Property name</TableHead>
                         <TableHead>Property type</TableHead>
+                        <TableHead>IsRequired</TableHead>
                         <TableHead className="whitespace-nowrap px-3 text-center md:px-3">
                           IsArray
                         </TableHead>

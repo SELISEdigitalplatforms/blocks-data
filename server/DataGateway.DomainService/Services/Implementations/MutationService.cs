@@ -10,6 +10,7 @@ using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
+using System.Collections;
 
 namespace DataGateway.DomainService.Services;
 
@@ -402,8 +403,114 @@ public class MutationService : IMutationService
 
     private void ValidateMutationInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel)
     {
+        ValidateRequiredFieldsOrThrow(input, schema, operationLabel);
         var r = input.Validate(schema);
         if (!r.IsValid) { _logger.LogWarning("Validation failed for {Op} on schema {SchemaName}: {Errors}", operationLabel, schema.SchemaName, r.ErrorMessage); MutationValidationHelper.ThrowValidationError(r); }
+    }
+
+    private static void ValidateRequiredFieldsOrThrow(
+        Dictionary<string, object?> input,
+        SchemaDefinitionExtended schema,
+        string operationLabel)
+    {
+        if (schema.SchemaType != SchemaType.Entity)
+            return;
+
+        var isInsert = operationLabel == OperationLabelCreate;
+        var result = new DataValidationResult();
+        ValidateRequiredFields(schema.Fields, input, string.Empty, isInsert, result);
+
+        if (!result.IsValid)
+            MutationValidationHelper.ThrowValidationError(result, "Required fields are missing or empty.");
+    }
+
+    private static void ValidateRequiredFields(
+        IReadOnlyList<FieldDefinitionResponse> fields,
+        IReadOnlyDictionary<string, object?>? input,
+        string parentPath,
+        bool isInsert,
+        DataValidationResult result)
+    {
+        foreach (var field in fields)
+        {
+            var path = string.IsNullOrEmpty(parentPath) ? field.Name : $"{parentPath}.{field.Name}";
+            object? value = null;
+            var hasValue = input is not null && input.TryGetValue(field.Name, out value);
+            var applies = field.RequiredOn == RequiredOn.Both ||
+                          (isInsert && field.RequiredOn == RequiredOn.Insert) ||
+                          (!isInsert && field.RequiredOn == RequiredOn.Update);
+
+            if (applies && (!hasValue || IsEmptyRequiredValue(value)))
+            {
+                var operation = isInsert ? "insert" : "update";
+                AddRequiredError(result, path, operation);
+            }
+
+            if (field.Fields.Count == 0)
+                continue;
+
+            if (!hasValue || value is null)
+            {
+                ValidateRequiredFields(field.Fields, null, path, isInsert, result);
+                continue;
+            }
+
+            if (TryGetDictionary(value, out var nestedInput))
+            {
+                ValidateRequiredFields(field.Fields, nestedInput, path, isInsert, result);
+                continue;
+            }
+
+            if (value is IEnumerable nestedItems && value is not string)
+            {
+                var foundNestedObject = false;
+                foreach (var item in nestedItems)
+                {
+                    if (!TryGetDictionary(item, out var nestedItem)) continue;
+                    foundNestedObject = true;
+                    ValidateRequiredFields(field.Fields, nestedItem, path, isInsert, result);
+                }
+                if (!foundNestedObject)
+                    ValidateRequiredFields(field.Fields, null, path, isInsert, result);
+            }
+        }
+    }
+
+    private static bool TryGetDictionary(object? value, out IReadOnlyDictionary<string, object?> dictionary)
+    {
+        if (value is IReadOnlyDictionary<string, object?> readOnly)
+        {
+            dictionary = readOnly;
+            return true;
+        }
+        if (value is IDictionary<string, object?> mutable)
+        {
+            dictionary = new Dictionary<string, object?>(mutable);
+            return true;
+        }
+        dictionary = null!;
+        return false;
+    }
+
+    private static void AddRequiredError(DataValidationResult result, string path, string operation)
+    {
+        if (result.Errors.Any(error => error.FieldName == path && error.ValidationType == "Required"))
+            return;
+        result.AddError(path, $"Field '{path}' is required for {operation}.", "Required");
+    }
+
+    private static bool IsEmptyRequiredValue(object? value)
+    {
+        if (value is null) return true;
+        if (value is string text) return string.IsNullOrWhiteSpace(text);
+        if (value is IDictionary dictionary) return dictionary.Count == 0;
+        if (value is IEnumerable enumerable)
+        {
+            var iterator = enumerable.GetEnumerator();
+            try { return !iterator.MoveNext(); }
+            finally { (iterator as IDisposable)?.Dispose(); }
+        }
+        return false;
     }
 
     private void ApplyClsRestrictionsToInput(Dictionary<string, object?> input, SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)

@@ -1,42 +1,23 @@
-import { expect, type Page } from "@playwright/test";
-
-const username = process.env.E2E_USERNAME;
-const password = process.env.E2E_PASSWORD;
+import { expect, type Page } from "@playwright/test"
+import { loginFresh as loginThroughOidcFresh, ensureAuthenticated } from "./login-helper"
 
 /**
  * Ensure the page is authenticated against E2E_USERNAME/E2E_PASSWORD.
  *
- * The chromium project reuses a session saved to fixtures/auth.json by the
- * "setup" project (playwright.config.ts). This helper is therefore idempotent:
- * when that session is still valid it returns as soon as the console renders,
- * and only drives the login form when it isn't (a cold start, or a session
- * that expired partway through a long suite run).
+ * Prefer the suite `storageState` from fixtures/data-session.json. This helper
+ * is idempotent: when that session is still valid it returns as soon as the
+ * console renders, and only drives OIDC when it isn't.
  */
 export async function login(page: Page): Promise<void> {
-  if (!username || !password) {
-    throw new Error(
-      "E2E_USERNAME / E2E_PASSWORD are not set. Fill them in e2e/.env.e2e before running.",
-    );
-  }
+  await ensureAuthenticated(page)
+}
 
-  await page.goto("/");
-
-  const loginCta = page.getByRole("button", { name: "Log in to your account" });
-  const consoleHeading = page.getByRole("heading", { name: "Your Blocks Projects" });
-
-  const needsLogin = await Promise.race([
-    loginCta.waitFor({ state: "visible", timeout: 30_000 }).then(() => true),
-    consoleHeading.waitFor({ state: "visible", timeout: 30_000 }).then(() => false),
-  ]);
-
-  if (!needsLogin) {
-    return;
-  }
-
-  await loginCta.click();
-  await page.getByRole("textbox", { name: "Work Email" }).fill(username);
-  await page.getByRole("textbox", { name: "Password" }).fill(password);
-  await page.getByRole("button", { name: "Login", exact: true }).click();
-
-  await expect(consoleHeading).toBeVisible({ timeout: 50_000 });
+/** Fresh OIDC login (no saved session). Prefer suite setup for feature specs. */
+export async function loginFresh(page: Page): Promise<void> {
+  await loginThroughOidcFresh(page)
+  await expect(
+    page.getByRole("heading", {
+      name: /Your Blocks Projects|Welcome to SELISE Blocks/,
+    }),
+  ).toBeVisible({ timeout: 30_000 })
 }

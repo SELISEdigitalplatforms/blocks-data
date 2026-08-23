@@ -373,6 +373,63 @@ public class SchemaDefinitionReferenceHelperTests
     }
 
     [Fact]
+    public async Task ApplyChangesToReferenceEntityFields_PropagatesRequiredOnToEntity()
+    {
+        var dto = new SchemaDefinition
+        {
+            SchemaName = "Address",
+            SchemaType = SchemaType.Dto,
+            Fields = new()
+            {
+                new FieldDefinition
+                {
+                    Name = "HouseNo",
+                    Type = "Int",
+                    RequiredOn = RequiredOn.Both,
+                    IsPIIData = true,
+                    IsUniqueData = true
+                }
+            }
+        };
+        var entity = new SchemaDefinition
+        {
+            ItemId = "entity-1",
+            SchemaName = "Domain",
+            SchemaType = SchemaType.Entity,
+            Fields = new()
+            {
+                new FieldDefinition { Name = "Address", Type = "Address" },
+                new FieldDefinition
+                {
+                    Name = "Address.HouseNo",
+                    Type = "String",
+                    RequiredOn = RequiredOn.None,
+                    IsReferenceField = true
+                }
+            }
+        };
+
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(
+                It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 100, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { entity });
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(
+                It.IsAny<FilterDefinition<SchemaDefinition>>(), ""))
+            .ReturnsAsync(dto);
+        _repo.Setup(r => r.UpdateAsync(It.IsAny<SchemaDefinition>(), ""))
+            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+
+        await _helper.ApplyChangesToReferenceEntityFields(dto);
+
+        _repo.Verify(r => r.UpdateAsync(
+            It.Is<SchemaDefinition>(updated => updated.Fields.Any(field =>
+                field.Name == "Address.HouseNo" &&
+                field.Type == "Int" &&
+                field.RequiredOn == RequiredOn.Both &&
+                field.IsPIIData &&
+                field.IsUniqueData)), ""), Times.Once);
+    }
+
+    [Fact]
     public async Task MapDtoSchemasReferencesToResponse_NoDtos_NoOp()
     {
         var items = new List<SchemaDefinitionResponse> { new() { SchemaName = "Person", SchemaType = SchemaType.Entity } };

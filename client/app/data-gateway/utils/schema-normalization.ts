@@ -36,6 +36,7 @@ export const normalizeSchemaFields = (fields: IRemoteSchemaField[] = []): IField
     isPIIData: field.isPIIData ?? false,
     isUniqueData: field.isUniqueData ?? false,
     description: field.description ?? "",
+    requiredOn: field.requiredOn ?? "None",
     readAccess: normalizeAccessRuleSet(field.readAccess),
     writeAccess: normalizeAccessRuleSet(field.writeAccess),
     deleteAccess: normalizeAccessRuleSet(field.deleteAccess),
@@ -89,6 +90,10 @@ type ParentNestedField = {
   name: string;
   type?: string;
   isArray?: boolean;
+  isPIIData?: boolean;
+  isUniqueData?: boolean;
+  requiredOn?: IField["requiredOn"];
+  description?: string;
   validationRule?: unknown;
   totalValidationRules?: number;
   readAccessLevel?: number;
@@ -102,6 +107,10 @@ const parentToField = (p: ParentNestedField): IField => ({
   name: p.name,
   type: p.type ?? "String",
   isArray: p.isArray ?? false,
+  isPIIData: p.isPIIData ?? false,
+  isUniqueData: p.isUniqueData ?? false,
+  requiredOn: p.requiredOn ?? "None",
+  description: p.description ?? "",
   validationRule: (p.validationRule as IField["validationRule"]) ?? null,
   totalValidationRules: p.totalValidationRules ?? 0,
   readAccessLevel: p.readAccessLevel,
@@ -131,6 +140,12 @@ export const mergeFieldsWithParentData = (
         : f.fields;
     return {
       ...f,
+      type: parentField.type ?? f.type,
+      isArray: parentField.isArray ?? f.isArray,
+      isPIIData: parentField.isPIIData ?? f.isPIIData,
+      isUniqueData: parentField.isUniqueData ?? f.isUniqueData,
+      requiredOn: parentField.requiredOn ?? f.requiredOn,
+      description: parentField.description ?? f.description,
       validationRule: (parentField.validationRule as IField["validationRule"]) ?? f.validationRule,
       totalValidationRules: parentField.totalValidationRules ?? f.totalValidationRules,
       readAccessLevel: parentField.readAccessLevel ?? f.readAccessLevel,

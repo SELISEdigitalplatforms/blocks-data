@@ -295,7 +295,8 @@ export interface IPolicyRule {
   leftOperand: string;
   operator: number;
   rightSource: number;
-  rightOperand: string | string[];
+  rightOperand: string;
+  rightOperands?: string[];
   staticValue: string | string[] | null;
   description?: string;
 }

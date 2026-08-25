@@ -5,7 +5,7 @@ import {
   findFieldAtDottedPath,
   resolveFieldAccessLevel,
 } from "./schema-access-control.utils";
-import type { IField, IPolicyRule } from "@/data-gateway/models/data-service";
+import type { IField, IPolicyRule } from "../models/data-service";
 
 const rule = (overrides: Partial<IPolicyRule>): IPolicyRule => ({
   leftSource: 0,
@@ -47,10 +47,10 @@ describe("schema-access-control.utils", () => {
       ).toBe("Auth's userId equals Schema Fields's ownerId");
     });
 
-    it("joins array right operands", () => {
+    it("renders a single schema-field right operand", () => {
       expect(
-        ruleToText(rule({ operator: 0, rightSource: 1, rightOperand: ["a", "b"] })),
-      ).toBe("Auth's email equals Schema Fields's a, b");
+        ruleToText(rule({ operator: 0, rightSource: 1, rightOperand: "a" })),
+      ).toBe("Auth's email equals Schema Fields's a");
     });
 
     it("falls back to placeholders for unknown sources/operators", () => {
@@ -89,12 +89,12 @@ describe("schema-access-control.utils", () => {
       expect(row.compareValue).toBe("a, b");
     });
 
-    it("joins schema-field array operands with a bare comma for IN operators", () => {
+    it("maps the schema-field operand for IN operators", () => {
       const row = policyRuleToFormRow(
-        rule({ operator: 8, rightSource: 1, rightOperand: ["a", "b"] }),
+        rule({ operator: 8, rightSource: 1, rightOperand: "AllowedRoles" }),
       );
       expect(row.compareSource).toBe("schema-field");
-      expect(row.compareValue).toBe("a,b");
+      expect(row.compareValue).toBe("AllowedRoles");
     });
 
     it("reads staticValue directly for direct-value operators (START_WITH)", () => {

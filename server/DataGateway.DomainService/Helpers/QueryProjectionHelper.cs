@@ -86,11 +86,15 @@ public static class QueryProjectionHelper
         foreach (var rule in ruleGroup.Rules)
         {
             TryAddSchemaFieldToProjection(projection, requestedFieldPaths, evaluationOnlyFieldPaths, rule.LeftSource, rule.LeftOperand);
-            TryAddSchemaFieldToProjection(projection, requestedFieldPaths, evaluationOnlyFieldPaths, rule.RightSource, rule.RightOperand);
+            foreach (var rightOperand in GetRightOperands(rule))
+                TryAddSchemaFieldToProjection(projection, requestedFieldPaths, evaluationOnlyFieldPaths, rule.RightSource, rightOperand);
         }
         foreach (var nestedGroup in ruleGroup.NestedGroups)
             AddRuleOperandFieldsToProjection(nestedGroup, projection, requestedFieldPaths, evaluationOnlyFieldPaths);
     }
+
+    private static IEnumerable<string> GetRightOperands(PolicyRule rule) =>
+        rule.RightOperands.Count > 0 ? rule.RightOperands : [rule.RightOperand];
 
     /// <summary>
     /// Adds a schema field to projection if it's a SCHEMA_FIELD operand; marks as evaluation-only if not requested.

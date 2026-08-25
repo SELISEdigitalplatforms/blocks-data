@@ -31,8 +31,8 @@ export function ruleToText(rule: IPolicyRule): string {
 
   // Auth or Schema Field → show source label + field name
   const rightSource = NUMBER_TO_SOURCE_LABEL[rule.rightSource] ?? `Source(${rule.rightSource})`;
-  const rightOperandDisplay = Array.isArray(rule.rightOperand)
-    ? rule.rightOperand.join(", ")
+  const rightOperandDisplay = rule.rightOperands?.length
+    ? rule.rightOperands.join(", ")
     : rule.rightOperand;
   return `${source}'s ${field} ${operator} ${rightSource}'s ${rightOperandDisplay}`;
 }
@@ -53,10 +53,9 @@ export function policyRuleToFormRow(rule: IPolicyRule) {
         ? rule.staticValue.join(", ")
         : ((rule.staticValue as string) ?? "");
   } else {
-    compareValue =
-      isContain && Array.isArray(rule.rightOperand)
-        ? rule.rightOperand.join(",")
-        : ((rule.rightOperand as string) ?? "");
+    compareValue = rule.rightOperands?.length
+      ? rule.rightOperands.join(",")
+      : (rule.rightOperand ?? "");
   }
 
   return {

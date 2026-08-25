@@ -78,6 +78,8 @@ npm run codegen -- <E2E_BASE_URL>/login
 
 | Variable | Effect |
 |---|---|
+| `E2E_BASE_URL` | Blocks **Data** host. Dev: `https://dev-data.blocksdevelopers.com`. Prod: `https://data.seliseblocks.com`. |
+| `E2E_OS_BASE_URL` | Blocks **OS** host (optional). Derived from Data when omitted: `dev-data`→`dev-os`, `data.`→`os.`. |
 | `E2E_NO_WEBSERVER=1` | Don't auto-start the app; you manage the server. |
 | `E2E_PAUSE_MS` | How long the browser holds after **each** test so you can see the result. Defaults to **10 s in headed mode**, 0 when headless; set a number to override either way; `0` disables. |
 | `E2E_SLOWMO` | Milliseconds of delay per action, to watch the steps themselves. |

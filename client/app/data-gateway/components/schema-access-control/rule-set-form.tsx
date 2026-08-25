@@ -262,9 +262,11 @@ export const RuleSetForm = ({
             );
           }
           if (category === FIELD_TYPE_CATEGORY.ARRAY) {
+            // Collection operators can compare against either one string or
+            // another string-array schema field.
             return (
               getFieldTypeCategory(f.type, false) ===
-                FIELD_TYPE_CATEGORY.STRING && !f.isArray
+              FIELD_TYPE_CATEGORY.STRING
             );
           }
           if (category === FIELD_TYPE_CATEGORY.NUMERIC) {
@@ -293,7 +295,8 @@ export const RuleSetForm = ({
       const isDirectValue = directValueOps.includes(r.operator);
       const isStatic = r.compareSource === RULE_SOURCE_TYPES.STATIC_VALUE;
 
-      let rightOperand: string | string[] = "";
+      let rightOperand = "";
+      let rightOperands: string[] = [];
       let staticValue: string | string[] | null = null;
 
       if (isDirectValue) {
@@ -305,10 +308,11 @@ export const RuleSetForm = ({
             .map((v) => v.trim())
             .filter(Boolean);
         } else {
-          rightOperand = r.compareValue
+          rightOperands = r.compareValue
             .split(",")
             .map((v) => v.trim())
             .filter(Boolean);
+          rightOperand = rightOperands[0] ?? "";
         }
       } else {
         rightOperand = !isStatic ? r.compareValue : "";
@@ -323,6 +327,7 @@ export const RuleSetForm = ({
           SOURCE_TYPE_TO_NUMBER[r.compareSource] ??
           SOURCE_TYPE_TO_NUMBER[RULE_SOURCE_TYPES.STATIC_VALUE],
         rightOperand,
+        rightOperands,
         staticValue,
       };
     });
@@ -876,14 +881,9 @@ export const RuleSetForm = ({
                                                           const updated =
                                                             isSelected
                                                               ? selectedInValues.filter(
-                                                                  (v) =>
-                                                                    v !==
-                                                                    opt.value,
+                                                                  (v) => v !== opt.value,
                                                                 )
-                                                              : [
-                                                                  ...selectedInValues,
-                                                                  opt.value,
-                                                                ];
+                                                              : [...selectedInValues, opt.value];
                                                           field.onChange(
                                                             updated.join(","),
                                                           );

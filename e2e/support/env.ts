@@ -74,3 +74,42 @@ export function e2eCredentials(): { email: string; password: string } {
     password: requireEnv("E2E_PASSWORD"),
   }
 }
+
+/**
+ * Optional SFTP credentials for creating a *real* Storage configuration.
+ *
+ * Storage configurations have no working Delete/Remove in the UI (only a
+ * commented-out stub), so creating one in a shared environment is permanent.
+ * Tests that need a real configuration to exist (to reach the file browser)
+ * should only create one when these are explicitly supplied -- otherwise
+ * they should skip that coverage rather than silently pollute the shared
+ * project. Once any run does supply them and creates the configuration, it
+ * persists, so later runs can find and reuse it without resupplying creds.
+ */
+export function e2eStorageSftpCredentials():
+  | {
+      name: string
+      host: string
+      port: string
+      userName: string
+      password: string
+      remoteBasePath: string
+    }
+  | undefined {
+  const host = process.env.E2E_STORAGE_SFTP_HOST?.trim()
+  const port = process.env.E2E_STORAGE_SFTP_PORT?.trim()
+  const userName = process.env.E2E_STORAGE_SFTP_USERNAME?.trim()
+  const password = process.env.E2E_STORAGE_SFTP_PASSWORD?.trim()
+  const remoteBasePath = process.env.E2E_STORAGE_SFTP_REMOTE_PATH?.trim()
+
+  if (!host || !port || !userName || !password || !remoteBasePath) return undefined
+
+  return {
+    name: process.env.E2E_STORAGE_SFTP_NAME?.trim() || "e2e-sftp",
+    host,
+    port,
+    userName,
+    password,
+    remoteBasePath,
+  }
+}

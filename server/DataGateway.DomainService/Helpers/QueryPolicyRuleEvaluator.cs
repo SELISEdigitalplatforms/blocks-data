@@ -40,8 +40,14 @@ public static class QueryPolicyRuleEvaluator
     public static bool EvaluateSingleRuleForRow(PolicyRule rule, IDictionary<string, object> rowData)
     {
         var leftValue = ResolveRuleOperandValue(rule.LeftSource, rule.LeftOperand, rule.StaticValue, rowData);
-        var rightValue = ResolveRuleOperandValue(rule.RightSource, rule.RightOperand, rule.StaticValue, rowData);
-        return DataAccessPolicyHelper.EvaluateCondition(leftValue, rule.Operator, rightValue);
+        var rightOperands = rule.RightOperands.Count > 0 ? rule.RightOperands : [rule.RightOperand];
+        var results = rightOperands.Select(operand => DataAccessPolicyHelper.EvaluateCondition(
+            leftValue,
+            rule.Operator,
+            ResolveRuleOperandValue(rule.RightSource, operand, rule.StaticValue, rowData)));
+        return rule.Operator is PolicyOperator.NOT_IN or PolicyOperator.NOT_CONTAIN
+            ? results.All(result => result)
+            : results.Any(result => result);
     }
 
     /// <summary>

@@ -48,6 +48,27 @@ public class DataAccessPolicyHelperFilterBoostTests
         result.DataFilter.Contains("$expr").Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(PolicyOperator.CONTAIN, "$setIsSubset")]
+    [InlineData(PolicyOperator.NOT_CONTAIN, "$setIntersection")]
+    [InlineData(PolicyOperator.IN, "$setIntersection")]
+    [InlineData(PolicyOperator.NOT_IN, "$setIntersection")]
+    public void EvaluatePolicies_ArrayFieldVsArrayField_BuildsCollectionExpr(
+        PolicyOperator op,
+        string expectedExpression)
+    {
+        var rule = Rule(ConditionSource.SCHEMA_FIELD, "RequiredRoles", op,
+            ConditionSource.SCHEMA_FIELD, rightOperand: "AllowedRoles");
+        var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
+            Group(PolicyLogicalOperator.AND, rule));
+
+        var result = new List<DataAccessPolicy> { policy }
+            .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+
+        result.DataFilter.Contains("$expr").Should().BeTrue();
+        result.DataFilter["$expr"].ToString().Should().Contain(expectedExpression);
+    }
+
     [Fact]
     public void EvaluatePolicies_StaticVsSchemaField_Normalized()
     {
@@ -129,6 +150,55 @@ public class DataAccessPolicyHelperTokenExprBoostTests
         {
             var filter = DataAccessPolicyHelper.BuildConditionFilter("Role", PolicyOperator.IN, "{{token.roles}}");
             filter["Role"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(2);
+        }
+        finally { ClearContext(); }
+    }
+
+    [Theory]
+    [InlineData(PolicyOperator.CONTAIN, "$setIsSubset")]
+    [InlineData(PolicyOperator.NOT_CONTAIN, "$setIntersection")]
+    [InlineData(PolicyOperator.IN, "$setIntersection")]
+    [InlineData(PolicyOperator.NOT_IN, "$setIntersection")]
+    public void EvaluatePolicies_RolesVsArraySchemaField_BuildsCollectionExpr(
+        PolicyOperator op,
+        string expectedExpression)
+    {
+        ClearContext();
+        SetContext(roles: new[] { "admin", "user" });
+        try
+        {
+            var rule = Rule(ConditionSource.AUTH, "roles", op,
+                ConditionSource.SCHEMA_FIELD, rightOperand: "AllowedRoles");
+            var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
+                Group(PolicyLogicalOperator.AND, rule));
+
+            var result = new List<DataAccessPolicy> { policy }
+                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+
+            result.DataFilter.Contains("$expr").Should().BeTrue();
+            result.DataFilter["$expr"].ToString().Should().Contain(expectedExpression);
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public void EvaluatePolicies_RolesInMultipleSchemaFields_CombinesWithOr()
+    {
+        ClearContext();
+        SetContext(roles: new[] { "admin", "user" });
+        try
+        {
+            var rule = Rule(ConditionSource.AUTH, "roles", PolicyOperator.IN,
+                ConditionSource.SCHEMA_FIELD, rightOperand: "PrimaryRole");
+            rule.RightOperands = ["PrimaryRole", "AllowedRoles"];
+            var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
+                Group(PolicyLogicalOperator.AND, rule));
+
+            var result = new List<DataAccessPolicy> { policy }
+                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+
+            result.DataFilter.Contains("$or").Should().BeTrue();
+            result.DataFilter["$or"].AsBsonArray.Should().HaveCount(2);
         }
         finally { ClearContext(); }
     }

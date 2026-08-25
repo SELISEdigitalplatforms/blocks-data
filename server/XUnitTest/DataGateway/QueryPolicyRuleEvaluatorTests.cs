@@ -177,5 +177,25 @@ public class QueryPolicyRuleEvaluatorTests
             }
             finally { ClearContext(); }
         }
+
+        [Fact]
+        public void EvaluateSingleRuleForRow_RolesInMultipleScalarAndArrayFields_AnyMatch()
+        {
+            SetContext(roles: new[] { "admin", "user" });
+            try
+            {
+                var rule = Rule(ConditionSource.AUTH, "roles", PolicyOperator.IN,
+                    ConditionSource.SCHEMA_FIELD, rightOperand: "PrimaryRole");
+                rule.RightOperands = ["PrimaryRole", "AllowedRoles"];
+
+                QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(rule,
+                    new Dictionary<string, object>
+                    {
+                        ["PrimaryRole"] = "guest",
+                        ["AllowedRoles"] = new[] { "editor", "admin" }
+                    }).Should().BeTrue();
+            }
+            finally { ClearContext(); }
+        }
     }
 }

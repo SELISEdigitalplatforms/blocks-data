@@ -204,6 +204,20 @@ public static class DataAccessPolicyHelper
                 };
             }
 
+            if (compareValue is not string && ConvertToStringArray(compareValue) is not null &&
+                IsCollectionOperator(rule.Operator))
+            {
+                return new PolicyEvaluationResult
+                {
+                    IsAccessGranted = true,
+                    DataFilter = BuildArrayComparisonFilter(
+                        FieldArrayExpression(rule.LeftOperand),
+                        ConvertToBsonValue(compareValue),
+                        rule.Operator),
+                    RequiresDataFilter = true
+                };
+            }
+
             var dataFilter = BuildConditionFilter(rule.LeftOperand, rule.Operator, compareValue);
 
             return new PolicyEvaluationResult
@@ -247,7 +261,21 @@ public static class DataAccessPolicyHelper
             // Build filter: SchemaField <operator> TokenValue
             // We need to reverse the operator since we're building: SchemaField op TokenValue
             // from the rule: TokenValue op SchemaField
-            var dataFilter = BuildConditionFilter(rule.RightOperand, GetReversedOperator(rule.Operator), tokenValue);
+            var rightOperands = rule.RightOperands.Count > 0 ? rule.RightOperands : [rule.RightOperand];
+            var tokenArray = ConvertToStringArray(tokenValue);
+            var filters = rightOperands.Select(rightOperand =>
+                tokenArray is not null && IsCollectionOperator(rule.Operator)
+                    ? BuildArrayComparisonFilter(
+                        new BsonArray(tokenArray),
+                        FieldArrayExpression(rightOperand),
+                        rule.Operator)
+                    : BuildConditionFilter(rightOperand, GetReversedOperator(rule.Operator), tokenValue)).ToList();
+            var combineOperator = rule.Operator is PolicyOperator.NOT_IN or PolicyOperator.NOT_CONTAIN
+                ? "$and"
+                : "$or";
+            var dataFilter = filters.Count == 1
+                ? filters[0]
+                : new BsonDocument(combineOperator, new BsonArray(filters));
 
             return new PolicyEvaluationResult
             {
@@ -607,6 +635,7 @@ public static class DataAccessPolicyHelper
                 // Example: auth roles ["user", "hr-admin"] IN static roles ["admin", "hr-admin", "manager"]
                 // Returns TRUE because "hr-admin" is in both arrays
                 PolicyOperator.IN => leftArray.Any(l => rightArray.Contains(l, StringComparer.OrdinalIgnoreCase)),
+                PolicyOperator.NOT_IN => !leftArray.Any(l => rightArray.Contains(l, StringComparer.OrdinalIgnoreCase)),
 
                 _ => false
             };
@@ -738,6 +767,14 @@ public static class DataAccessPolicyHelper
         PolicyOperator op,
         string rightField)
     {
+        if (IsCollectionOperator(op))
+        {
+            return BuildArrayComparisonFilter(
+                FieldArrayExpression(leftField),
+                FieldArrayExpression(rightField),
+                op);
+        }
+
         var mongoOp = op switch
         {
             PolicyOperator.EQUAL => "$eq",
@@ -752,6 +789,54 @@ public static class DataAccessPolicyHelper
         return new BsonDocument("$expr", new BsonDocument(mongoOp,
             new BsonArray { $"${leftField}", $"${rightField}" }));
     }
+
+    private static bool IsCollectionOperator(PolicyOperator op) => op is
+        PolicyOperator.CONTAIN or PolicyOperator.NOT_CONTAIN or
+        PolicyOperator.IN or PolicyOperator.NOT_IN;
+
+    private static BsonDocument FieldArrayExpression(string fieldName)
+    {
+        var field = new BsonString($"${fieldName}");
+        return new BsonDocument("$cond", new BsonArray
+        {
+            new BsonDocument("$isArray", field),
+            field,
+            new BsonDocument("$cond", new BsonArray
+            {
+                new BsonDocument("$eq", new BsonArray { field, BsonNull.Value }),
+                new BsonArray(),
+                new BsonArray { field }
+            })
+        });
+    }
+
+    private static BsonDocument BuildArrayComparisonFilter(
+        BsonValue left,
+        BsonValue right,
+        PolicyOperator op)
+    {
+        BsonValue expression = op switch
+        {
+            PolicyOperator.CONTAIN => new BsonDocument("$setIsSubset", new BsonArray { right, left }),
+            PolicyOperator.NOT_CONTAIN => BuildNoArrayIntersectionExpression(left, right),
+            PolicyOperator.IN => new BsonDocument("$gt", new BsonArray
+            {
+                new BsonDocument("$size", new BsonDocument("$setIntersection", new BsonArray { left, right })),
+                0
+            }),
+            PolicyOperator.NOT_IN => BuildNoArrayIntersectionExpression(left, right),
+            _ => BsonBoolean.False
+        };
+
+        return new BsonDocument("$expr", expression);
+    }
+
+    private static BsonDocument BuildNoArrayIntersectionExpression(BsonValue left, BsonValue right) =>
+        new("$eq", new BsonArray
+        {
+            new BsonDocument("$size", new BsonDocument("$setIntersection", new BsonArray { left, right })),
+            0
+        });
 
     /// <summary>
     /// Gets the reversed operator for normalizing operand order.

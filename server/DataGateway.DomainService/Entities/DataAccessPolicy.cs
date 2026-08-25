@@ -152,6 +152,12 @@ public class PolicyRule
     /// </summary>
     public string RightOperand { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Optional multiple right-side field operands. When empty, RightOperand
+    /// remains the backward-compatible single operand.
+    /// </summary>
+    public List<string> RightOperands { get; set; } = [];
+
     private object? _staticValue;
 
     /// <summary>

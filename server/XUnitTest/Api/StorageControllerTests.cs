@@ -17,10 +17,10 @@ namespace XUnitTest.Api;
 /// </summary>
 public class StorageControllerTests
 {
-    private static (FilesController Controller, Mock<IFileManagementService> Service) BuildFiles()
+    private static (FileController Controller, Mock<IFileManagementService> Service) BuildFiles()
     {
         var service = new Mock<IFileManagementService>();
-        return (new FilesController(service.Object, Mock.Of<IContentFileService>()), service);
+        return (new FileController(service.Object, Mock.Of<IFileService>()), service);
     }
 
     // ---------------- FilesController: pass-through actions ----------------
@@ -229,9 +229,7 @@ public class StorageControllerTests
         service.Setup(s => s.UpdateFileAsync(command))
             .ReturnsAsync(new BaseMutationResponse { IsSuccess = true });
 
-#pragma warning disable CS0618 // the alias is deliberately kept for the leaked camelCase URL
-        var result = await controller.updateFileAdditionalInfo(command);
-#pragma warning restore CS0618
+        var result = await controller.UpdateFileAdditionalInfo(command);
 
         result.Should().BeOfType<OkObjectResult>();
         service.Verify(s => s.UpdateFileAsync(command), Times.Once);

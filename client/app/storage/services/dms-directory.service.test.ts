@@ -36,7 +36,7 @@ describe("DmsDirectoryService", () => {
   it("reads a directory by id", async () => {
     await service.getDirectory("dir-1");
 
-    expect(http.get).toHaveBeenCalledWith(expect.stringContaining("/Directory/GetDirectory?directoryId=dir-1"));
+    expect(http.get).toHaveBeenCalledWith(expect.stringContaining("/directory/get-directory?directoryId=dir-1"));
   });
 
   it("passes every listing filter through", async () => {
@@ -49,7 +49,8 @@ describe("DmsDirectoryService", () => {
     });
 
     const url = (http.get as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
-    expect(url).toContain("directoryId=dir-1");
+    expect(url).toContain("/objects/get-objects");
+    expect(url).toContain("parentDirectoryId=dir-1");
     expect(url).toContain("cursor=c1");
     expect(url).toContain("limit=25");
     expect(url).toContain("type=file");
@@ -60,7 +61,7 @@ describe("DmsDirectoryService", () => {
     await service.createDirectory({ name: "Reports", parentDirectoryId: "root" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Directory/CreateDirectory"),
+      expect.stringContaining("/directory/create-directory"),
       expect.objectContaining({ name: "Reports", parentDirectoryId: "root" }),
     );
   });
@@ -71,7 +72,7 @@ describe("DmsDirectoryService", () => {
     await service.createDirectory({ name: "Reports" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Directory/CreateRootDirectory"),
+      expect.stringContaining("/directory/create-root-directory"),
       expect.objectContaining({ name: "Reports" }),
     );
   });
@@ -80,7 +81,7 @@ describe("DmsDirectoryService", () => {
     await service.deleteDirectory({ directoryId: "dir-1" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Directory/DeleteDirectory"),
+      expect.stringContaining("/directory/delete-directory"),
       { directoryId: "dir-1", permanent: true },
     );
   });
@@ -95,7 +96,7 @@ describe("DmsDirectoryService", () => {
     await service.moveDirectory({ directoryId: "dir-1" });
 
     expect(http.post).toHaveBeenCalledWith(
-      expect.stringContaining("/Directory/MoveDirectory"),
+      expect.stringContaining("/directory/move-directory"),
       { directoryId: "dir-1" },
     );
   });

@@ -91,6 +91,7 @@ export interface IField {
   isPIIData?: boolean;
   isUniqueData?: boolean;
   description?: string;
+  requiredOn?: RequiredOn;
   readAccess?: IDataAccessRuleSet;
   writeAccess?: IDataAccessRuleSet;
   deleteAccess?: IDataAccessRuleSet;
@@ -106,6 +107,8 @@ export interface IField {
   /** Nested fields for custom/child type properties */
   fields?: IField[];
 }
+
+export type RequiredOn = "None" | "Insert" | "Update" | "Both";
 
 export interface ISchemaDetails {
   id: string;
@@ -158,6 +161,7 @@ export interface IRemoteSchemaField {
   isPIIData?: boolean;
   isUniqueData?: boolean;
   description?: string;
+  requiredOn?: RequiredOn;
   readAccess?: IDataAccessRuleSetDto | null;
   writeAccess?: IDataAccessRuleSetDto | null;
   deleteAccess?: IDataAccessRuleSetDto | null;
@@ -291,7 +295,8 @@ export interface IPolicyRule {
   leftOperand: string;
   operator: number;
   rightSource: number;
-  rightOperand: string | string[];
+  rightOperand: string;
+  rightOperands?: string[];
   staticValue: string | string[] | null;
   description?: string;
 }

@@ -1,4 +1,5 @@
 using Blocks.Genesis;
+using DataGateway.DomainService.Entities;
 
 namespace DataGateway.DomainService.Models;
 
@@ -15,4 +16,5 @@ public class FieldDefinitionRequest
     public bool IsPIIData { get; set; }
     public bool IsUniqueData { get; set; }
     public string Description { get; set; } = string.Empty;
+    public RequiredOn RequiredOn { get; set; } = RequiredOn.None;
 }

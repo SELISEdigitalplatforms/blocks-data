@@ -9,14 +9,14 @@ import { dmsContentService } from "../services/dms-content.service";
 import { dmsDirectoryService } from "../services/dms-directory.service";
 import { iamPrincipalService } from "../services/iam-principal.service";
 import {
-  ContentSearchQuery,
+  ObjectSearchQuery,
   CreateDirectoryDto,
   DeleteDirectoryDto,
   DmsChildrenResponse,
   DmsItemType,
   GrantAccessDto,
   MoveDirectoryDto,
-  ShareContentDto,
+  ShareObjectDto,
   TrashQuery,
   UpdateDirectoryDto,
 } from "../models/dms.model";
@@ -77,7 +77,7 @@ export const useDmsDirectory = (directoryId: string | undefined) => {
   });
 };
 
-export const useDmsSearch = (query: ContentSearchQuery) => {
+export const useDmsSearch = (query: ObjectSearchQuery) => {
   const projectKey = getProjectKey();
 
   return useInfiniteQuery({
@@ -223,13 +223,13 @@ export const useRevokeAccess = (resourceId: string) => {
   });
 };
 
-export const useShareContent = (resourceId: string) => {
+export const useShareObject = (resourceId: string) => {
   const queryClient = useQueryClient();
   const projectKey = getProjectKey();
 
   return useMutation({
     mutationKey: ["dms", "access", "share"],
-    mutationFn: (payload: ShareContentDto) => dmsContentService.shareContent(payload),
+    mutationFn: (payload: ShareObjectDto) => dmsContentService.shareObject(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dmsPoliciesKey(projectKey, resourceId) });
     },

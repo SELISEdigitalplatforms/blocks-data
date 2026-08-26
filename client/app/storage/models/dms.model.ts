@@ -1,14 +1,14 @@
-// Wire shapes for the DMS content endpoints. These mirror the backend contracts in
-// server/Storage.DomainService/Storage/DmsContent{Requests,Responses}.cs; JSON is
+// Wire shapes for the DMS object endpoints. These mirror the backend contracts in
+// server/Storage.DomainService/Storage/*.cs (Dms*Request/Response types); JSON is
 // camelCase, so the names match apart from that.
 
 export type DmsItemType = "directory" | "file";
 
-export type ContentPermission = "View" | "Download" | "Edit" | "Delete" | "Manage" | "Owner";
+export type ObjectPermission = "View" | "Download" | "Edit" | "Delete" | "Manage" | "Owner";
 
-export type ContentPrincipalType = "User" | "Role" | "Everyone" | "Organization";
+export type ObjectPrincipalType = "User" | "Role" | "Everyone" | "Organization";
 
-export type ContentEffect = "Allow" | "Deny";
+export type ObjectEffect = "Allow" | "Deny";
 
 /** The six operations the current user holds on one item. */
 export interface DmsPermissionFlags {
@@ -75,10 +75,10 @@ export interface DmsDirectoryDetail extends DmsDirectoryItem {
 export interface AccessPolicyDto {
   itemId: string;
   resourceId?: string;
-  principalType: ContentPrincipalType;
+  principalType: ObjectPrincipalType;
   principalId?: string;
-  permission: ContentPermission;
-  effect: ContentEffect;
+  permission: ObjectPermission;
+  effect: ObjectEffect;
   priority: number;
   expiresAt?: string;
   isInherited: boolean;
@@ -117,21 +117,21 @@ export interface DeleteDirectoryDto {
 export interface GrantAccessDto {
   resourceId: string;
   resourceType?: "Directory" | "File";
-  principalType: ContentPrincipalType;
+  principalType: ObjectPrincipalType;
   principalId?: string;
-  permission: ContentPermission;
-  effect: ContentEffect;
+  permission: ObjectPermission;
+  effect: ObjectEffect;
   expiresAt?: string;
   priority?: number;
   policyItemId?: string;
 }
 
-export interface ShareContentDto {
+export interface ShareObjectDto {
   resourceId: string;
   resourceType?: "Directory" | "File";
-  principalType: ContentPrincipalType;
+  principalType: ObjectPrincipalType;
   principalId?: string;
-  permission: ContentPermission;
+  permission: ObjectPermission;
   expiresAt?: string;
 }
 
@@ -161,7 +161,7 @@ export interface DmsChildrenQuery {
   search?: string;
 }
 
-export interface ContentSearchQuery {
+export interface ObjectSearchQuery {
   query: string;
   directoryId?: string;
   type?: DmsItemType;

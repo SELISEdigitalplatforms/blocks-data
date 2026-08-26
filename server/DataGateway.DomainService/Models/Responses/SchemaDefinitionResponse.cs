@@ -40,6 +40,7 @@ public class FieldDefinitionResponse
     public bool IsPIIData { get; set; }
     public bool IsUniqueData { get; set; }
     public string Description { get; set; }
+    public RequiredOn RequiredOn { get; set; } = RequiredOn.None;
 	public List<FieldDefinitionResponse> Fields { get; set; } = [];
     public SchemaAccessLevel ReadAccessLevel { get; set; }
     public SchemaAccessLevel WriteAccessLevel { get; set; }

@@ -1,7 +1,5 @@
 using Amazon;
 using Amazon.S3;
-using Blocks.Genesis;
-using Microsoft.Extensions.Configuration;
 using Storage.DomainService.Utilities;
 using System.Diagnostics.CodeAnalysis;
 
@@ -10,7 +8,7 @@ namespace DomainService.Storage
     [ExcludeFromCodeCoverage]
     public class AwsS3CompatibleStorageService : AwsS3StorageService
     {
-        public AwsS3CompatibleStorageService(IConfiguration configuration)
+        public AwsS3CompatibleStorageService()
             : base(CreateS3Client())
         {
         }

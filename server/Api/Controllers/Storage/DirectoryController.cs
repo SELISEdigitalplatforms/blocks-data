@@ -14,33 +14,30 @@ namespace Api.Controllers
     /// Creating a root directory is a separate permission from creating a nested one.
     /// Anyone with Edit on a parent may add a subdirectory, but starting a new tree at the
     /// root is a tenant-level act, so it is gated by
-    /// <c>blocks-data::create-root-directory</c> and assigned to the owner role only.
+    /// <c>blocks-data::directory::create-root-directory</c> and assigned to the owner role only.
     ///
     /// Reads that the caller may not see report 404 rather than 403 throughout. Saying
     /// "forbidden" would confirm that a directory exists, which is enough to map a tree the
     /// caller cannot open.
     /// </remarks>
     [ApiController]
-    [Route("[controller]/[action]")]
+    [Route("directory")]
     public class DirectoryController : ControllerBase
     {
         private readonly IFileDirectoryManagementService _directoryManagementService;
-        private readonly IContentListingService _contentListingService;
-        private readonly IContentHierarchyService _contentHierarchyService;
+        private readonly IObjectHierarchyService _objectHierarchyService;
 
         public DirectoryController(
             IFileDirectoryManagementService directoryManagementService,
-            IContentListingService contentListingService,
-            IContentHierarchyService contentHierarchyService)
+            IObjectHierarchyService objectHierarchyService)
         {
             _directoryManagementService = directoryManagementService;
-            _contentListingService = contentListingService;
-            _contentHierarchyService = contentHierarchyService;
+            _objectHierarchyService = objectHierarchyService;
         }
 
         /// <summary>Creates a directory beneath an existing parent.</summary>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::create-directory")]
+        [HttpPost("create-directory")]
+        [ProtectedEndPoint("blocks-data::directory::create-directory")]
         public async Task<IActionResult> CreateDirectory([FromBody] CreateDirectoryRequest request)
         {
             if (request is null) return BadRequest();
@@ -76,8 +73,9 @@ namespace Api.Controllers
         }
 
         /// <summary>Creates a directory at the root of the tenant.</summary>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::create-root-directory")]
+        [ApiExplorerSettings(IgnoreApi = true)]
+        [HttpPost("create-root-directory")]
+        [ProtectedEndPoint("blocks-data::directory::create-root-directory")]
         public async Task<IActionResult> CreateRootDirectory([FromBody] CreateDirectoryRequest request)
         {
             var result = await _directoryManagementService.CreateDirectoryAsync(
@@ -88,8 +86,8 @@ namespace Api.Controllers
         }
 
         /// <summary>Directory details plus the operations the caller holds on it.</summary>
-        [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-directory")]
+        [HttpGet("get-directory")]
+        [ProtectedEndPoint("blocks-data::directory::get-directory")]
         public async Task<IActionResult> GetDirectory([FromQuery] string directoryId)
         {
             var result = await _directoryManagementService.GetDirectoryAsync(directoryId);
@@ -102,33 +100,9 @@ namespace Api.Controllers
             return Ok(DirectoryDetailResponse.From(result.Directory, result.Permissions));
         }
 
-        /// <summary>Access-resolved, cursor-paginated children of a directory.</summary>
-        [HttpGet]
-        [ProtectedEndPoint("blocks-data::get-directory-children")]
-        public async Task<IActionResult> GetDirectoryChildren([FromQuery] GetDirectoryChildrenRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.DirectoryId) && request.ModuleName.HasValue)
-            {
-                var defaultDirectory = await _directoryManagementService
-                    .GetDefaultDirectoryByModuleNameAsync(request.ModuleName.Value.ToString());
-
-                if (defaultDirectory is null)
-                {
-                    return NotFound(new { message = $"Default directory not found for module: {request.ModuleName}" });
-                }
-
-                request.DirectoryId = defaultDirectory.ItemId;
-            }
-
-            var page = await _contentListingService.GetVisibleChildrenAsync(
-                request.DirectoryId, request.Cursor, request.Limit, ContentKind.FromApiString(request.Type), request.Search);
-
-            return Ok(ChildrenResponse.From(page));
-        }
-
         /// <summary>Renames a directory or updates its description.</summary>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::update-directory")]
+        [HttpPost("update-directory")]
+        [ProtectedEndPoint("blocks-data::directory::update-directory")]
         public async Task<IActionResult> UpdateDirectory([FromBody] UpdateDirectoryRequest request)
         {
             var result = await _directoryManagementService.UpdateDirectoryAsync(
@@ -145,9 +119,9 @@ namespace Api.Controllers
         }
 
         /// <summary>Moves a directory to the trash, or removes it permanently.</summary>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::delete-directory")]
-        public async Task<IActionResult> DeleteDirectory([FromBody] DeleteDirectoryContentRequest request)
+        [HttpPost("delete-directory")]
+        [ProtectedEndPoint("blocks-data::directory::delete-directory")]
+        public async Task<IActionResult> DeleteDirectory([FromBody] DeleteDirectoryRequest request)
         {
             var result = await _directoryManagementService.DeleteDirectoryAsync(request.DirectoryId, request.Permanent);
 
@@ -162,11 +136,11 @@ namespace Api.Controllers
         }
 
         /// <summary>Re-parents a directory and rewrites the cached ancestry beneath it.</summary>
-        [HttpPost]
-        [ProtectedEndPoint("blocks-data::move-directory")]
+        [HttpPost("move-directory")]
+        [ProtectedEndPoint("blocks-data::directory::move-directory")]
         public async Task<IActionResult> MoveDirectory([FromBody] MoveDirectoryRequest request)
         {
-            var result = await _contentHierarchyService.MoveDirectoryAsync(request.DirectoryId, request.TargetDirectoryId);
+            var result = await _objectHierarchyService.MoveDirectoryAsync(request.DirectoryId, request.TargetDirectoryId);
 
             return result switch
             {

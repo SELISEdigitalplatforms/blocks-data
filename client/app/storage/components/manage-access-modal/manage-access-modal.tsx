@@ -32,16 +32,16 @@ import {
   useToggleInheritance,
 } from "../../hooks/use-dms";
 import {
-  ContentEffect,
-  ContentPermission,
-  ContentPrincipalType,
+  ObjectEffect,
+  ObjectPermission,
+  ObjectPrincipalType,
   DmsItem,
 } from "../../models/dms.model";
 import { PrincipalPicker } from "../principal-picker/principal-picker";
 
-const PRINCIPAL_TYPES: ContentPrincipalType[] = ["User", "Role", "Organization", "Everyone"];
-const PERMISSIONS: ContentPermission[] = ["View", "Download", "Edit", "Delete", "Manage", "Owner"];
-const EFFECTS: ContentEffect[] = ["Allow", "Deny"];
+const PRINCIPAL_TYPES: ObjectPrincipalType[] = ["User", "Role", "Organization", "Everyone"];
+const PERMISSIONS: ObjectPermission[] = ["View", "Download", "Edit", "Delete", "Manage", "Owner"];
+const EFFECTS: ObjectEffect[] = ["Allow", "Deny"];
 
 export interface ManageAccessModalProps {
   open: boolean;
@@ -69,9 +69,9 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
   const revoke = useRevokeAccess(item.itemId);
   const toggleInheritance = useToggleInheritance(item.itemId);
 
-  const [principalType, setPrincipalType] = useState<ContentPrincipalType>("User");
-  const [permission, setPermission] = useState<ContentPermission>("View");
-  const [effect, setEffect] = useState<ContentEffect>("Allow");
+  const [principalType, setPrincipalType] = useState<ObjectPrincipalType>("User");
+  const [permission, setPermission] = useState<ObjectPermission>("View");
+  const [effect, setEffect] = useState<ObjectEffect>("Allow");
   const [selectedPrincipals, setSelectedPrincipals] = useState<string[]>([]);
 
   const rows = policies.data ?? [];
@@ -83,7 +83,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
   // role slug are not interchangeable, so carrying one over to the next list
   // would create invalid grants. Done in the change handler (rather than an
   // effect) to avoid cascading renders.
-  const handlePrincipalTypeChange = (next: ContentPrincipalType) => {
+  const handlePrincipalTypeChange = (next: ObjectPrincipalType) => {
     setPrincipalType(next);
     setSelectedPrincipals([]);
     setSearch("");
@@ -260,7 +260,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
                   <span className="text-xs text-muted-foreground">What can they do?</span>
                   <Select
                     value={permission}
-                    onValueChange={(v) => setPermission(v as ContentPermission)}
+                    onValueChange={(v) => setPermission(v as ObjectPermission)}
                   >
                     <SelectTrigger id="permission" aria-label="Permission">
                       <SelectValue />
@@ -279,7 +279,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
                   <span className="text-xs text-muted-foreground">
                     Should this rule allow or deny?
                   </span>
-                  <Select value={effect} onValueChange={(v) => setEffect(v as ContentEffect)}>
+                  <Select value={effect} onValueChange={(v) => setEffect(v as ObjectEffect)}>
                     <SelectTrigger id="effect" aria-label="Effect">
                       <SelectValue />
                     </SelectTrigger>

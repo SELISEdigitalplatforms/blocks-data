@@ -78,17 +78,43 @@ npm run codegen -- <E2E_BASE_URL>/login
 
 | Variable | Effect |
 |---|---|
+| `E2E_BASE_URL` | Blocks **Data** host. Dev: `https://dev-data.blocksdevelopers.com`. Prod: `https://data.seliseblocks.com`. |
+| `E2E_OS_BASE_URL` | Blocks **OS** host (optional). Derived from Data when omitted: `dev-data`→`dev-os`, `data.`→`os.`. |
 | `E2E_NO_WEBSERVER=1` | Don't auto-start the app; you manage the server. |
 | `E2E_PAUSE_MS` | How long the browser holds after **each** test so you can see the result. Defaults to **10 s in headed mode**, 0 when headless; set a number to override either way; `0` disables. |
 | `E2E_SLOWMO` | Milliseconds of delay per action, to watch the steps themselves. |
+
+## Lifecycle
+
+Playwright projects: **`data-setup` → `data` → `data-teardown`**
+
+1. **Suite setup** (`tests/suite/suite.setup.spec.ts`) — OIDC login, reuse or create one shared project, write `data-project.json`, then save `data-session.json` **after** the dashboard is open (so localStorage keeps project/env).
+2. **Features** (`tests/overview`, `tests/storage`, …) — use session; open shared dashboard with a direct `goto` to `/app/{itemId}/dashboard`.
+3. **Session / context recovery** — login gate or console bounce → re-auth if needed, one env-chip open to reseed localStorage, persist session (never create a new project).
+4. **Suite teardown** (`tests/suite/suite.teardown.spec.ts`) — delete on **Blocks OS** only when every `data` test passed (unless `E2E_KEEP_PROJECT=1`).
 
 ## Layout
 
 ```
 e2e/
-  tests/auth/login.spec.ts   # login through dev-iam -> /app/console
-  support/test-base.ts       # shared test/expect with the headed pause
-  fixtures/                  # auth storage state (gitignored)
-  global-setup.ts            # points the served SPA at the local :5000 host
-  playwright.config.ts       # baseURL + creds from .env.e2e
+  tests/
+    auth/login.spec.ts            # standalone auth smoke (project "setup")
+    suite/
+      suite.setup.spec.ts         # login + shared project
+      suite.teardown.spec.ts      # OS delete when suite passed
+    overview/                     # feature specs
+    storage/
+    data-gateway/
+  support/
+    env.ts                        # Data URL + OS derivation
+    login-helper.ts
+    create-and-delete-project.ts
+    data-project.ts               # data-session / data-project fixtures
+    suite-helpers.ts              # openSharedProjectDashboard
+    navigation.ts                 # openEnvironment
+    test-base.ts                  # pause + mark failures for project "data"
+  fixtures/                       # gitignored
+  global-setup.ts                 # points the served SPA at the local :5000 host
+  playwright.config.ts            # baseURL + creds from .env.e2e
+  SPEC-multi-env.md
 ```

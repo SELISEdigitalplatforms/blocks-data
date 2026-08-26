@@ -23,7 +23,7 @@ namespace XUnitTest.Storage;
 public class DirectoryManagementServiceTests : IDisposable
 {
     private readonly IMongoDatabase _db;
-    private readonly ContentAccessRepository _accessRepository;
+    private readonly ObjectAccessRepository _accessRepository;
     private readonly FileDirectoryManagementService _directorys;
 
     public DirectoryManagementServiceTests(MongoFixture fixture)
@@ -34,10 +34,10 @@ public class DirectoryManagementServiceTests : IDisposable
         provider.Setup(p => p.GetCollection<FileDirectory>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<FileDirectory>(n));
         provider.Setup(p => p.GetCollection<File>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<File>(n));
         provider.Setup(p => p.GetCollection<FileVersion>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<FileVersion>(n));
-        provider.Setup(p => p.GetCollection<ContentAccessPolicy>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAccessPolicy>(n));
-        provider.Setup(p => p.GetCollection<ContentAuditLog>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ContentAuditLog>(n));
+        provider.Setup(p => p.GetCollection<ObjectAccessPolicy>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ObjectAccessPolicy>(n));
+        provider.Setup(p => p.GetCollection<ObjectAuditLog>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<ObjectAuditLog>(n));
 
-        _accessRepository = new ContentAccessRepository(provider.Object);
+        _accessRepository = new ObjectAccessRepository(provider.Object);
 
         // The real FileManagementService has heavy storage-provider dependencies; for the
         // directory cascade tests we only need DeleteFileAsync to remove the File + its
@@ -57,7 +57,7 @@ public class DirectoryManagementServiceTests : IDisposable
             });
 
         _directorys = new FileDirectoryManagementService(
-            provider.Object, new ContentAccessResolver(_accessRepository), _accessRepository, fileManagementMock.Object);
+            provider.Object, new ObjectAccessResolver(_accessRepository), _accessRepository, fileManagementMock.Object);
 
         BlocksTestContext.Set(userId: "user-1", tenantId: "tenant-1", organizationId: "org-1", roles: new[] { "editor" });
     }
@@ -109,16 +109,16 @@ public class DirectoryManagementServiceTests : IDisposable
     // Resources with no policy are public. Seed a policy for another principal when a
     // test needs a resource the current caller cannot access.
     private Task RestrictToAnotherUser(string resourceId) =>
-        _accessRepository.GrantAsync(new ContentAccessPolicy
+        _accessRepository.GrantAsync(new ObjectAccessPolicy
         {
             ItemId = Guid.NewGuid().ToString(),
             TenantId = "tenant-1",
             ResourceId = resourceId,
-            ResourceType = ContentResourceType.Directory,
-            PrincipalType = ContentPrincipalType.User,
+            ResourceType = ObjectResourceType.Directory,
+            PrincipalType = ObjectPrincipalType.User,
             PrincipalId = "user-2",
-            Permission = ContentPermission.Owner,
-            Effect = ContentEffect.Allow,
+            Permission = ObjectPermission.Owner,
+            Effect = ObjectEffect.Allow,
         });
 
     // ---------- Create ----------
@@ -409,16 +409,16 @@ public class DirectoryManagementServiceTests : IDisposable
     public async Task A_permanent_delete_of_an_empty_directory_removes_it_and_its_access_entries()
     {
         await SeedDirectory("dir-1", archived: true);
-        await _accessRepository.GrantAsync(new ContentAccessPolicy
+        await _accessRepository.GrantAsync(new ObjectAccessPolicy
         {
             ItemId = "policy-1",
             TenantId = "tenant-1",
             ResourceId = "dir-1",
-            ResourceType = ContentResourceType.Directory,
-            PrincipalType = ContentPrincipalType.User,
+            ResourceType = ObjectResourceType.Directory,
+            PrincipalType = ObjectPrincipalType.User,
             PrincipalId = "user-2",
-            Permission = ContentPermission.View,
-            Effect = ContentEffect.Allow,
+            Permission = ObjectPermission.View,
+            Effect = ObjectEffect.Allow,
         });
 
         var result = await _directorys.DeleteDirectoryAsync("dir-1", permanent: true);

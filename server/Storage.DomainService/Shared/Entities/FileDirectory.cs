@@ -59,47 +59,6 @@ namespace Storage.DomainService.Entities
                 Description = directoryOptions.Description,
             };
         }
-
-        public static FileDirectory CreateNew(string itemId)
-        {
-            return new FileDirectory { ItemId = itemId };
-        }
     }
 
-    public class DirectoryOptions
-    {
-        public string Name { get; set; }
-        public string ParentId { get; set; }
-        public Dictionary<string, MetaValue> MetaData { get; set; }
-        public string ItemId { get; set; }
-        public string TenantId { get; set; }
-        public DateTime CreateDate { get; set; }
-        public string CreatedBy { get; set; }
-        public List<string> Tags { get; set; }
-        public string Language { get; set; }
-        public string[] AllowedFileExtensions { get; set; }
-        public List<string>? AncestorIds { get; set; }
-        public string? FullPath { get; set; }
-        public bool InheritsParentAccess { get; set; } = true;
-        public string? ConfigurationName { get; set; }
-        public string? ModuleName { get; set; }
-        public string? Description { get; set; }
-    }
-
-    [BsonIgnoreExtraElements]
-    public class Structure : BaseEntity
-    {
-        public Structure()
-        {
-            MetaData = new Dictionary<string, MetaValue>();
-        }
-
-        public Dictionary<string, MetaValue> MetaData { get; set; }
-        public string Name { get; set; }
-        public string? ParentId { get; set; }
-        public string SystemName { get; set; }
-        public StructureType Type { get; set; }
-        public string TypeString { get; set; }
-        public string[] AllowedFileExtensions { get; set; }
-    }
 }

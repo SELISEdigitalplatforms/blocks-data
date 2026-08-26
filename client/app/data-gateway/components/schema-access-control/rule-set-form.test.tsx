@@ -36,6 +36,7 @@ const schemaFields = [
   { name: "title", type: "String", isArray: false },
   { name: "count", type: "Int", isArray: false },
   { name: "tags", type: "String", isArray: true },
+  { name: "AllowedRoles", type: "String", isArray: true },
 ];
 
 // A policy exercising every render branch: equal-static, is-null, in-static,
@@ -53,7 +54,7 @@ const editingPolicy = {
       { leftSource: 0, leftOperand: "userId", operator: 0, rightSource: 2, rightOperand: "", staticValue: "abc" },
       { leftSource: 1, leftOperand: "title", operator: 12, rightSource: 2, rightOperand: "", staticValue: null },
       { leftSource: 0, leftOperand: "roles", operator: 8, rightSource: 2, rightOperand: "", staticValue: ["a", "b"] },
-      { leftSource: 0, leftOperand: "roles", operator: 8, rightSource: 0, rightOperand: ["email"], staticValue: null },
+      { leftSource: 0, leftOperand: "roles", operator: 8, rightSource: 0, rightOperand: "email", staticValue: null },
       { leftSource: 1, leftOperand: "title", operator: 10, rightSource: 2, rightOperand: "", staticValue: "pre" },
     ],
     nestedGroups: [],
@@ -318,6 +319,40 @@ describe("RuleSetForm create flow", () => {
     // IN => 8, trimmed static array.
     expect(rule.operator).toBe(8);
     expect(rule.staticValue).toEqual(["a", "b", "c"]);
+  });
+
+  it("allows Auth Roles IN an array schema field", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Role intersection" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "Roles");
+    await pick(user, 2, /^In$/);
+    await pick(user, 3, "Schema Fields");
+
+    await user.click(screen.getByRole("button", { name: "Select fields" }));
+    await user.click(await screen.findByText("title"));
+    await user.click(await screen.findByText("AllowedRoles"));
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    expect(createPolicy.mock.calls[0][0].ruleGroup.rules[0]).toMatchObject({
+      leftSource: 0,
+      leftOperand: "roles",
+      operator: 8,
+      rightSource: 1,
+      rightOperand: "title",
+      rightOperands: ["title", "AllowedRoles"],
+      staticValue: null,
+    });
   });
 
   it("shows an error toast when create returns a failure", async () => {

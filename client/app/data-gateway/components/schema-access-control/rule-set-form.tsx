@@ -17,6 +17,7 @@ import {
   FormMessage,
 } from "@/components/ui-kits/form/form";
 import { Input } from "@/components/ui-kits/input/input";
+import { PrincipalSelector } from "@/data-gateway/components/schema-access-control/principal-selector";
 import { Label } from "@/components/ui-kits/label/label";
 import {
   Popover,
@@ -530,6 +531,30 @@ export const RuleSetForm = ({
                         "START_WITH",
                         "END_WITH",
                       ].includes(operatorValue);
+                      /**
+                       * Tenant-scoped principal selector eligibility.
+                       *
+                       * Requires the operator to be in a POSITIVE eligible set rather than merely
+                       * "not excluded", so nothing queries IAM before an operator is chosen.
+                       *
+                       * `roles` is an ARRAY field, so its operator surface is
+                       * CONTAIN/NOT_CONTAIN (+ IN/NOT_IN, which getFilteredOperators adds) - it
+                       * has no EQUAL. The spec's H1/example name EQUAL for roles, which this UI
+                       * cannot produce; CONTAIN/NOT_CONTAIN are its scalar operators.
+                       * `userId` is a STRING field, so EQUAL/NOT_EQUAL and also IN/NOT_IN are
+                       * reachable - hence userId can legitimately be multi-select.
+                       */
+                      const principalScalarOps =
+                        leftField === "roles"
+                          ? ["CONTAIN", "NOT_CONTAIN"]
+                          : ["EQUAL", "NOT_EQUAL"];
+                      const showPrincipalSelector =
+                        source === RULE_SOURCE_TYPES.AUTH &&
+                        (leftField === "roles" || leftField === "userId") &&
+                        isCompareStatic &&
+                        (principalScalarOps.includes(operatorValue) ||
+                          IN_OPERATORS.includes(operatorValue));
+
                       const selectedInValues =
                         isInOp && compareValue
                           ? compareValue
@@ -811,6 +836,26 @@ export const RuleSetForm = ({
                                         placeholder={placeholder}
                                         value={field.value}
                                         onChange={field.onChange}
+                                      />
+                                    );
+                                  }
+
+                                  // auth.roles / auth.userId + Static Value → tenant-scoped
+                                  // principal selector instead of free text. Placed ahead of the
+                                  // static-value branches below; every other rule shape falls
+                                  // through to its existing widget untouched.
+                                  if (showPrincipalSelector) {
+                                    return (
+                                      <PrincipalSelector
+                                        entity={
+                                          leftField === "roles"
+                                            ? "role"
+                                            : "user"
+                                        }
+                                        projectKey={projectKey}
+                                        value={field.value}
+                                        onChange={field.onChange}
+                                        multiple={isInOp}
                                       />
                                     );
                                   }

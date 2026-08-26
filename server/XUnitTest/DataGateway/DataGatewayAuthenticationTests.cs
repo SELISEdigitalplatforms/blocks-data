@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Blocks.Genesis;
 using DataGateway.DomainService.Authentication;
+using DataGateway.DomainService.Repositories;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
@@ -122,7 +123,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         var tenants = new Mock<ITenants>();
         tenants.Setup(t => t.GetTenantByID("missing")).Returns((Tenant?)null);
         var cache = CacheReturning(null);
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object);
+        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object, new Mock<IGqlDbRepository>().Object);
 
         var principal = await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer("abc"), "missing");
 
@@ -136,7 +137,7 @@ public class DataGatewayAuthenticationTests : IDisposable
     {
         var tenants = new Mock<ITenants>();
         tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, CacheReturning(null).Object);
+        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, CacheReturning(null).Object, new Mock<IGqlDbRepository>().Object);
 
         var principal = await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer(null), "tenant-1");
 
@@ -149,7 +150,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         var tenants = new Mock<ITenants>();
         tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
         var cache = CacheReturning([1, 2, 3, 4]);
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object);
+        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object, new Mock<IGqlDbRepository>().Object);
 
         var principal = await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer("abc"), "tenant-1");
 
@@ -164,7 +165,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         var tenants = new Mock<ITenants>();
         tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
         var cache = CacheReturning(certificate.Export(X509ContentType.Pkcs12, CertificatePassword));
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object);
+        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object, new Mock<IGqlDbRepository>().Object);
 
         var foreignToken = WriteToken(otherCertificate, Issuer, "api://blocks-protected-api");
 
@@ -181,7 +182,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         var tenants = new Mock<ITenants>();
         tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
         var cache = CacheReturning(certificate.Export(X509ContentType.Pkcs12, CertificatePassword));
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object);
+        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object, new Mock<IGqlDbRepository>().Object);
 
         var token = WriteToken(certificate, Issuer, "api://someone-else");
 
@@ -198,7 +199,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         var tenants = new Mock<ITenants>();
         tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
         var cache = CacheReturning(certificate.Export(X509ContentType.Pkcs12, CertificatePassword));
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object);
+        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object, new Mock<IGqlDbRepository>().Object);
 
         var token = WriteToken(certificate, Issuer, "api://blocks-protected-api");
 

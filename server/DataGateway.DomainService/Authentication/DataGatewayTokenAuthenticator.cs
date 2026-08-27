@@ -1,6 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
-using System.Security.Cryptography.X509Certificates;
 using Blocks.Genesis;
 using DataGateway.DomainService.Repositories;
 using Microsoft.AspNetCore.Http;
@@ -20,19 +19,24 @@ namespace DataGateway.DomainService.Authentication;
 /// </summary>
 public class DataGatewayTokenAuthenticator
 {
-    private const string Public_Cert_Cache_Prefix = "tetocertpublic::";
     private const string PermissionsClaimType = "permissions";
     private const string PermissionsCollectionName = "Permissions";
     private const int MaxRolePermissionsFetch = 5000;
 
     private readonly ITenants _tenants;
     private readonly ICacheClient _cacheClient;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly IGqlDbRepository _repository;
 
-    public DataGatewayTokenAuthenticator(ITenants tenants, ICacheClient cacheClient, IGqlDbRepository repository)
+    public DataGatewayTokenAuthenticator(
+        ITenants tenants,
+        ICacheClient cacheClient,
+        IHttpClientFactory httpClientFactory,
+        IGqlDbRepository repository)
     {
         _tenants = tenants;
         _cacheClient = cacheClient;
+        _httpClientFactory = httpClientFactory;
         _repository = repository;
     }
 
@@ -49,10 +53,17 @@ public class DataGatewayTokenAuthenticator
             if (!string.IsNullOrEmpty(token))
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                string cacheKey = $"{Public_Cert_Cache_Prefix}{tenant.TenantId}";
-                var certificateData = await _cacheClient.CacheDatabase().StringGetAsync(cacheKey);
+                var publicCert = await JwtBearerAuthenticationExtension.GetCertificateAsync(
+                    tenant.TenantId,
+                    _tenants,
+                    _cacheClient.CacheDatabase(),
+                    _httpClientFactory).ConfigureAwait(false);
+                if (publicCert == null)
+                {
+                    return null;
+                }
+
                 var validationParams = tenant.JwtTokenParameters;
-                var publicCert = X509CertificateLoader.LoadPkcs12(certificateData, validationParams.PublicCertificatePassword);
                 var tokenValidationParameters = new TokenValidationParameters { ValidateLifetime = true, ClockSkew = TimeSpan.Zero, IssuerSigningKey = new X509SecurityKey(publicCert), ValidateIssuerSigningKey = true, ValidateIssuer = true, ValidIssuer = validationParams?.Issuer, ValidAudience = DomainResolver.GetAudience(tenant), ValidateAudience = true, SaveSigninToken = true };
                 var validatedToken = tokenHandler.ValidateToken(token, tokenValidationParameters, out _);
                 if (validatedToken is not null)

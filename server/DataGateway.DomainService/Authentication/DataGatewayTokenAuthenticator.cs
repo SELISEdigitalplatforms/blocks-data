@@ -26,13 +26,13 @@ public class DataGatewayTokenAuthenticator
     private readonly ITenants _tenants;
     private readonly ICacheClient _cacheClient;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IGqlDbRepository _repository;
+    private readonly IDbRepository _repository;
 
     public DataGatewayTokenAuthenticator(
         ITenants tenants,
         ICacheClient cacheClient,
         IHttpClientFactory httpClientFactory,
-        IGqlDbRepository repository)
+        IDbRepository repository)
     {
         _tenants = tenants;
         _cacheClient = cacheClient;

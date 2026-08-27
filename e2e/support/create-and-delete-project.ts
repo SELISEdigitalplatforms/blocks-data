@@ -2,39 +2,62 @@ import { Page, expect, test } from "@playwright/test"
 import { e2eBaseUrl, e2eOsBaseUrl, e2eProjectId } from "./env"
 import { ensureAuthenticated, ensureAuthenticatedOnCurrentOrigin } from "./login-helper"
 
-const ORPHAN_PROJECT_PATTERN = /Test Project \d+/g
 const ENV_BUTTON =
   /Development|Testing|Staging|IAT|UAT|Production|Pre-Prod|Prod Shadow/
 
-const isVisibleNow = async (locator: {
-  isVisible: (opts: { timeout: number }) => Promise<boolean>
-}) => locator.isVisible({ timeout: 500 }).catch(() => false)
+const isVisibleNow = async (locator: { isVisible: (opts: { timeout: number }) => Promise<boolean> }) =>
+  locator.isVisible({ timeout: 500 }).catch(() => false)
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+/** Match e2e-created names: `Test Project 123` and `${PROJECT_NAME} 123`. */
+function orphanProjectPatterns(): RegExp[] {
+  const prefixes = new Set(["Test Project"])
+  const configured = process.env.PROJECT_NAME?.trim()
+  if (configured) prefixes.add(configured)
+  return [...prefixes].map((prefix) => new RegExp(`${escapeRegExp(prefix)} \\d+`, "g"))
+}
 
 async function listOrphanProjectNames(page: Page): Promise<string[]> {
   const bodyText = await page.locator("body").innerText().catch(() => "")
-  return [...new Set([...bodyText.matchAll(ORPHAN_PROJECT_PATTERN)].map((match) => match[0]))]
+  const names = new Set<string>()
+  for (const pattern of orphanProjectPatterns()) {
+    for (const match of bodyText.matchAll(pattern)) {
+      names.add(match[0])
+    }
+  }
+  return [...names]
 }
 
-function consoleBase(host: "data" | "os" = "data") {
-  return host === "os" ? e2eOsBaseUrl() : e2eBaseUrl()
+function addProjectControl(page: Page) {
+  return page.getByText("Add Project", { exact: true }).first()
 }
 
-/** Blocks console on Data or OS. */
+/** Wait until the console project grid has painted (Add Project and/or an env chip). */
+async function waitForConsoleProjectsReady(page: Page) {
+  // Do not use locator.or() + toBeVisible — when both sides match, Playwright
+  // strict mode fails ("resolved to 2 elements").
+  await Promise.race([
+    addProjectControl(page).waitFor({ state: "visible", timeout: 20_000 }),
+    page.getByRole("button", { name: ENV_BUTTON }).first().waitFor({ state: "visible", timeout: 20_000 }),
+  ])
+}
+
+/** Blocks console on Data or OS — re-authenticates when the session expired. */
 export async function ensureConsole(page: Page, host: "data" | "os" = "data") {
-  const base = consoleBase(host)
-  const href = page.url()
-  const onConsole =
-    /^https?:/.test(href) &&
-    new URL(href).origin === new URL(base).origin &&
-    /\/app\/console\/?$/.test(new URL(href).pathname)
-
-  if (!onConsole) {
+  if (host === "os") {
+    const base = e2eOsBaseUrl()
     await page.goto(`${base}/app/console`, { waitUntil: "domcontentloaded" })
+    await ensureAuthenticatedOnCurrentOrigin(page)
+    await expect(
+      page.getByRole("heading", { name: /Your Blocks Projects|Welcome to SELISE Blocks/ }),
+    ).toBeVisible({ timeout: 20_000 })
+    return
   }
 
-  await expect(
-    page.getByRole("heading", { name: /Your Blocks Projects|Welcome to SELISE Blocks/ }),
-  ).toBeVisible({ timeout: 20_000 })
+  await ensureAuthenticated(page)
 }
 
 export function namedProjectCard(page: Page, projectName: string) {
@@ -65,17 +88,48 @@ async function waitForProjectCard(page: Page, projectName: string, host: "data" 
   throw new Error(`Project "${projectName}" did not appear on the ${host} console`)
 }
 
-/** Data project dashboard — Project Details / X-Blocks-Key visible. */
-async function waitForDataDashboardReady(page: Page, projectName: string) {
-  await expect(page).toHaveURL(/\/app\/(?!project\/)[^/]+\/dashboard/, { timeout: 20_000 })
-  await expect(
+const consoleProjectsHeading = (page: Page) =>
+  page.getByRole("heading", { name: /Your Blocks Projects|Welcome to SELISE Blocks/ })
+
+/** Data project dashboard — Project Details / X-Blocks-Key (fails fast if bounced to console). */
+export async function waitForDataDashboardReady(page: Page, projectName: string) {
+  const ready = page
+    .getByRole("heading", { name: "Project Details" })
+    .or(page.getByText("X-Blocks-Key", { exact: true }))
+    .first()
+
+  const bouncedToConsole = async () => {
+    if (/\/app\/console\/?$/i.test(new URL(page.url()).pathname)) return true
+    return consoleProjectsHeading(page).isVisible({ timeout: 500 }).catch(() => false)
+  }
+
+  const outcome = await Promise.race([
+    ready.waitFor({ state: "visible", timeout: 30_000 }).then(() => "ready" as const),
     page
-      .getByRole("heading", { name: "Project Details" })
-      .or(page.getByText("X-Blocks-Key", { exact: true }))
-      .first(),
-  ).toBeVisible({ timeout: 20_000 })
+      .waitForURL(/\/app\/console\/?$/i, { timeout: 30_000 })
+      .then(() => "console" as const)
+      .catch(() => null),
+    consoleProjectsHeading(page)
+      .waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => "console" as const)
+      .catch(() => null),
+  ])
+
+  if (outcome === "console" || (await bouncedToConsole())) {
+    throw new Error(
+      `Expected project dashboard for "${projectName}" but landed on the console. ` +
+        "Suite setup must persist storageState after opening the shared project " +
+        "(project/environment localStorage). Re-run data-setup.",
+    )
+  }
+
+  if (outcome !== "ready") {
+    await expect(ready).toBeVisible({ timeout: 1_000 })
+  }
+
+  await expect(page).toHaveURL(/\/app\/(?!project\/)[^/]+\/dashboard/, { timeout: 10_000 })
   await expect(page.getByText(projectName, { exact: true }).first()).toBeVisible({
-    timeout: 20_000,
+    timeout: 30_000,
   })
 }
 
@@ -183,15 +237,21 @@ async function deleteProjectOnOs(page: Page, projectName: string): Promise<boole
 
 async function freeProjectSlotIfNeeded(page: Page) {
   await ensureConsole(page, "data")
+  await waitForConsoleProjectsReady(page)
 
   const welcomeHeading = page.getByRole("heading", { name: "Welcome to SELISE Blocks" })
   if (await isVisibleNow(welcomeHeading)) return
 
-  const addProjectButton = page.getByText("Add Project", { exact: true }).first()
+  const addProjectButton = addProjectControl(page)
   if (await isVisibleNow(addProjectButton)) return
 
   const atProjectLimit = page.getByText("Please delete an existing project to create a new one.")
-  if (!(await isVisibleNow(atProjectLimit))) return
+  const limitVisible = await isVisibleNow(atProjectLimit)
+
+  // Slot full: either the explicit limit banner, or Add Project simply missing.
+  if (!limitVisible && (await addProjectButton.isVisible({ timeout: 2_000 }).catch(() => false))) {
+    return
+  }
 
   for (let attempt = 0; attempt < 8; attempt++) {
     const orphanNames = await listOrphanProjectNames(page)
@@ -199,6 +259,7 @@ async function freeProjectSlotIfNeeded(page: Page) {
 
     await deleteCreatedProject(page, orphanNames[0]).catch(() => {})
     await ensureConsole(page, "data")
+    await waitForConsoleProjectsReady(page)
 
     if (await isVisibleNow(addProjectButton)) return
   }
@@ -211,17 +272,18 @@ async function freeProjectSlotIfNeeded(page: Page) {
  *
  * Flow:
  *   Data console → "Add Project" → redirected to OS create-project wizard →
- *   fill wizard → project created on OS environments page →
+ *   fill wizard → project created on OS (environments or console) →
  *   navigate to Data console → open the new project → Data dashboard
  */
 export async function createProject(page: Page) {
   await test.step("Start a new project (redirects to OS)", async () => {
     await ensureAuthenticated(page)
     await ensureConsole(page, "data")
+    await waitForConsoleProjectsReady(page)
 
     const welcomeHeading = page.getByRole("heading", { name: "Welcome to SELISE Blocks" })
     const createProjectButton = page.getByRole("button", { name: "Create a project" })
-    const addProjectButton = page.getByText("Add Project", { exact: true }).first()
+    const addProjectButton = addProjectControl(page)
 
     await freeProjectSlotIfNeeded(page)
 
@@ -307,6 +369,7 @@ export async function reuseOrCreateSharedProject(
   }
 
   await ensureConsole(page, "data")
+  await waitForConsoleProjectsReady(page)
 
   const reuseName = process.env.E2E_REUSE_PROJECT_NAME?.trim()
   if (reuseName) {
@@ -323,17 +386,20 @@ export async function reuseOrCreateSharedProject(
     return { projectName, dashboardUrl: page.url(), itemId }
   }
 
-  const addProjectButton = page.getByText("Add Project", { exact: true }).first()
-  if (await addProjectButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
+  // Prefer create: createProject waits for Add Project (15s) and frees orphan slots.
+  // Do not gate on a short isVisible(2s) — the control can still be painting.
+  try {
     const created = await createProject(page)
     const itemId = new URL(created.dashboardUrl).pathname.split("/")[2] ?? ""
     return { ...created, itemId }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+    throw new Error(
+      "Could not create a shared project (Add Project missing or create failed). " +
+        "Set E2E_REUSE_PROJECT_NAME (e.g. test) or E2E_PROJECT_ID, or free a console slot. " +
+        `Cause: ${detail}`,
+    )
   }
-
-  throw new Error(
-    "No project to reuse and Add Project is unavailable. " +
-      "Set E2E_REUSE_PROJECT_NAME (e.g. test) or E2E_PROJECT_ID, or free a console slot.",
-  )
 }
 
 /** Delete project on Blocks OS (only place with project Delete UI). */

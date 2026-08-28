@@ -42,6 +42,7 @@ import {
   MoveCopyMode,
 } from "@/storage/components/move-copy-dialog/move-copy-dialog";
 import { RenameDirectoryDialog } from "@/storage/components/rename-directory-dialog";
+import { RenameFileDialog } from "@/storage/components/rename-file-dialog";
 import {
   DmsFileItem,
   DmsDirectoryItem,
@@ -178,6 +179,7 @@ export function StorageDetail() {
   const [versionsFile, setVersionsFile] = useState<DmsItem | null>(null);
   const [transfer, setTransfer] = useState<{ item: DmsItem; mode: MoveCopyMode } | null>(null);
   const [renameDirectory, setRenameDirectory] = useState<DmsDirectoryItem | null>(null);
+  const [renameFile, setRenameFile] = useState<DmsFileItem | null>(null);
   const [isCreateDirectoryModalOpen, setIsCreateDirectoryModalOpen] = useState(false);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<IDmsFileAndDirectoryInfo | null>(null);
@@ -424,11 +426,15 @@ export function StorageDetail() {
             Manage access
           </DropdownMenuItem>
         )}
-        {dmsItem && isDirectoryRow && actions.canRename && !isProtected && (
+        {dmsItem && actions.canRename && !isProtected && (
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
-              setRenameDirectory(dmsItem as DmsDirectoryItem);
+              if (isDirectoryRow) {
+                setRenameDirectory(dmsItem as DmsDirectoryItem);
+              } else {
+                setRenameFile(dmsItem as DmsFileItem);
+              }
             }}
             className="cursor-pointer"
           >
@@ -962,6 +968,13 @@ export function StorageDetail() {
         open={!!renameDirectory}
         onOpenChange={(open) => !open && setRenameDirectory(null)}
         directory={renameDirectory}
+        onDone={() => childrenQuery.refetch()}
+      />
+
+      <RenameFileDialog
+        open={!!renameFile}
+        onOpenChange={(open) => !open && setRenameFile(null)}
+        file={renameFile}
         onDone={() => childrenQuery.refetch()}
       />
 

@@ -121,6 +121,10 @@ namespace Storage.DomainService.Services
                                                  {
                                                      { "$first", "$_id" }
                                                  } },
+                                { "StorageKey", new BsonDocument
+                                                 {
+                                                     { "$first", "$StorageKey" }
+                                                 } },
                                 {
                                     "MaxVersion", new BsonDocument
                                                  {

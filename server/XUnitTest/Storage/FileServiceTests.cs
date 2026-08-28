@@ -195,6 +195,37 @@ public class FileServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Renaming_a_file_creates_a_new_version_that_shares_the_latest_storage_key()
+    {
+        // A rename doesn't touch bytes, so the new version is zero-copy: it just points at
+        // the same object key as the version it came from, like a file copy's versions do.
+        await FileDoc("file-1", "old.txt", "dir-1");
+        await Version("file-1", 1, "Private/file-1/v1/old.txt");
+        await Version("file-1", 2, "Private/file-1/v2/old.txt");
+
+        var result = await _files.RenameFileAsync("file-1", "new.txt");
+
+        result.Status.Should().Be(FileOperationStatus.Succeeded);
+        var versions = await _files.GetVersionsAsync("file-1");
+        versions.Items.Select(v => v.No).Should().Equal(3, 2, 1);
+        versions.Items[0].StorageKey.Should().Be("Private/file-1/v2/old.txt");
+        (await ReadFile("file-1")).CurrentVersion.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task Renaming_a_file_with_no_prior_versions_still_creates_one()
+    {
+        await FileDoc("file-1", "old.txt", "dir-1");
+
+        var result = await _files.RenameFileAsync("file-1", "new.txt");
+
+        result.Status.Should().Be(FileOperationStatus.Succeeded);
+        var versions = await _files.GetVersionsAsync("file-1");
+        versions.Items.Should().ContainSingle();
+        versions.Items[0].StorageKey.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Moving_a_file_repoints_it_and_rewrites_its_ancestry()
     {
         await Directory("dir-1", "source");

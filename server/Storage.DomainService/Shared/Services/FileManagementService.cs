@@ -389,9 +389,12 @@ namespace Storage.DomainService.Services
                 var fileId = fileVersionAggregate["_id"].AsString;
                 var latestVersion = fileVersionAggregate["VersionId"].AsString;
                 var latestVersionNo = fileVersionAggregate["MaxVersion"].IsBsonNull ? 0 : fileVersionAggregate["MaxVersion"].AsInt64;
+                var storageKey = fileVersionAggregate.Contains("StorageKey") && !fileVersionAggregate["StorageKey"].IsBsonNull
+                    ? fileVersionAggregate["StorageKey"].AsString
+                    : null;
                 var fileResponse = responses.First(f => f.ItemId.Equals(fileId));
 
-                var fileUrlResponse = await GetFileUrlResponse(configuration, projectKey, fileResponse, latestVersionNo, latestVersion);
+                var fileUrlResponse = await GetFileUrlResponse(configuration, projectKey, fileResponse, latestVersionNo, latestVersion, storageKey);
 
                 if (fileUrlResponse.Errors != null)
                 {
@@ -410,7 +413,7 @@ namespace Storage.DomainService.Services
             return finalfileResponse;
         }
 
-        private async Task<FileResponse> GetFileUrlResponse(StorageConfiguration configuration, string? projectKey, FileResponse fileResponse, long latestVersionNo, string latestVersion)
+        private async Task<FileResponse> GetFileUrlResponse(StorageConfiguration configuration, string? projectKey, FileResponse fileResponse, long latestVersionNo, string latestVersion, string? storageKey)
         {
             var storageServiceProvider = _storageServiceFactory.GetStorageService(configuration);
 
@@ -426,7 +429,11 @@ namespace Storage.DomainService.Services
             _ = StorageTypes.TryGetCategory(configuration.StorageStrategy, out var category);
             var fileInfo = GetFileInfo(fileResponse.ItemId, latestVersion, fileResponse.Name, fileResponse.AccessModifier, category);
 
-            fileUrlRequest.FileName = fileInfo.filePath;
+            // The version's own StorageKey is the object key it was actually uploaded to.
+            // Recomputing the path from the file's current Name breaks once the file has been
+            // renamed, since the blob itself is never moved. Only legacy/migrated rows without
+            // a persisted StorageKey fall back to the recomputed path.
+            fileUrlRequest.FileName = !string.IsNullOrEmpty(storageKey) ? storageKey : fileInfo.filePath;
             fileUrlRequest.ExpiryDuration = fileInfo.expiry;
 
             fileResponse.Url = await storageServiceProvider.GetDownloadUrlAsync(fileUrlRequest) ?? "";

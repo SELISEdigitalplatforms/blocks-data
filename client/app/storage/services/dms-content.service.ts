@@ -93,6 +93,10 @@ export class DmsContentService {
   moveFile(fileId: string, targetDirectoryId: string): Promise<{ fileId: string }> {
     return http.post(DMS_FILE_ENDPOINTS.MOVE_FILE, { fileId, targetDirectoryId });
   }
+
+  renameFile(fileId: string, name: string): Promise<{ fileId: string }> {
+    return http.post(DMS_FILE_ENDPOINTS.RENAME_FILE, { fileId, name });
+  }
 }
 
 export const dmsContentService = new DmsContentService();

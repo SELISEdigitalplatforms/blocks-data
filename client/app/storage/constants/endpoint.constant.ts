@@ -63,6 +63,7 @@ export const DMS_FILE_ENDPOINTS = {
   CREATE_FILE_VERSION: `${API_BASES.UDS}${FILES_SUBPATH}/create-file-version`,
   COPY_FILE: `${API_BASES.UDS}${FILES_SUBPATH}/copy-file`,
   MOVE_FILE: `${API_BASES.UDS}${FILES_SUBPATH}/move-file`,
+  RENAME_FILE: `${API_BASES.UDS}${FILES_SUBPATH}/rename-file`,
 } as const;
 
 // IAM principal pickers — used to populate the manage-access dialog so the user

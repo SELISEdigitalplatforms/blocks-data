@@ -291,6 +291,20 @@ export const useMoveFile = () => {
   });
 };
 
+export const useRenameFile = () => {
+  const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
+
+  return useMutation({
+    mutationKey: ["dms", "file", "rename"],
+    mutationFn: (payload: { fileId: string; name: string }) =>
+      dmsContentService.renameFile(payload.fileId, payload.name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: dmsChildrenKey(projectKey) });
+    },
+  });
+};
+
 // ---- IAM principal pickers (back the manage-access dialog) ----
 //
 // Each query is keyed by the search term so typing re-queries the IAM service.

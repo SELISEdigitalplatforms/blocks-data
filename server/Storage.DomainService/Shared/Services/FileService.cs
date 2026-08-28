@@ -131,15 +131,25 @@ namespace Storage.DomainService.Services
             if (await Files.Find(clash).AnyAsync(cancellationToken))
                 return FileOperationResult.Failure(FileOperationStatus.NameConflict);
 
-            await Files.UpdateOneAsync(
+            var latestVersion = await Versions
+                .Find(Builders<FileVersion>.Filter.Eq(v => v.FileId, file.ItemId))
+                .SortByDescending(v => v.No)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            var updatedFile = await Files.FindOneAndUpdateAsync(
                 b.Eq(f => f.ItemId, fileId),
                 Builders<File>.Update
                     .Set(f => f.Name, trimmedName)
                     .Set(f => f.SystemName, systemName)
                     .Set(f => f.Extension, Path.GetExtension(trimmedName).TrimStart('.'))
                     .Set(f => f.LastUpdatedDate, DateTime.UtcNow)
-                    .Set(f => f.LastUpdatedBy, UserId),
-                cancellationToken: cancellationToken);
+                    .Set(f => f.LastUpdatedBy, UserId)
+                    .Inc(f => f.CurrentVersion, 1L),
+                new FindOneAndUpdateOptions<File> { ReturnDocument = ReturnDocument.After },
+                cancellationToken);
+
+            await CreateRenameVersionAsync(file.ItemId, updatedFile.CurrentVersion, latestVersion, cancellationToken);
+
             if (_objectItems is not null)
             {
                 file.Name = trimmedName;
@@ -149,6 +159,29 @@ namespace Storage.DomainService.Services
             }
 
             return new FileOperationResult { Status = FileOperationStatus.Succeeded };
+        }
+
+        /// <summary>
+        /// A rename doesn't change bytes, so the new version row points at the same object key
+        /// as the version it came from — the same no-duplicate-upload approach as
+        /// <see cref="CopyVersionsAsync"/>.
+        /// </summary>
+        private async Task CreateRenameVersionAsync(string fileId, long newVersionNo, FileVersion? latestVersion, CancellationToken cancellationToken)
+        {
+            var version = FileVersion.CreateNew(fileId, newVersionNo, new FileVersionOptions
+            {
+                ItemId = Guid.NewGuid().ToString(),
+                TenantId = latestVersion?.TenantId ?? TenantId,
+                CreateDate = DateTime.UtcNow,
+                CreatedBy = UserId,
+                Language = latestVersion?.Language ?? "en",
+                Tags = latestVersion?.Tags,
+                StorageKey = latestVersion?.StorageKey,
+                UploadedBy = UserId,
+            });
+            version.SizeInBytes = latestVersion?.SizeInBytes ?? 0;
+
+            await Versions.InsertOneAsync(version, cancellationToken: cancellationToken);
         }
 
         public async Task<FileOperationResult> CopyFileAsync(string fileId, string targetDirectoryId, bool copyAccessPolicies = false, CancellationToken cancellationToken = default)

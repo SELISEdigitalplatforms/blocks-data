@@ -93,7 +93,7 @@ namespace Storage.DomainService.Services
 
         private static readonly ProjectionDefinition<FileResponse> filesProjection = Builders<FileResponse>.Projection
                .Include(file => file.AccessModifier)
-               .Include(file => file.CreateDate)
+               .Include(file => file.CreatedDate)
                .Include(file => file.CreatedBy)
                .Include(file => file.ItemId)
                .Include(file => file.Language)
@@ -120,6 +120,10 @@ namespace Storage.DomainService.Services
                                 { "VersionId", new BsonDocument
                                                  {
                                                      { "$first", "$_id" }
+                                                 } },
+                                { "StorageKey", new BsonDocument
+                                                 {
+                                                     { "$first", "$StorageKey" }
                                                  } },
                                 {
                                     "MaxVersion", new BsonDocument

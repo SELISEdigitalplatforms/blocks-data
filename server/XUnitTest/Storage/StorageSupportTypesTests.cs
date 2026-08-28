@@ -130,7 +130,7 @@ public class StorageSupportTypesTests
             SystemName = "a-1.txt",
             Type = 1,
             TypeString = "File",
-            CreateDate = created,
+            CreatedDate = created,
             CreatedBy = "user-1",
             Language = "en",
             TenantId = "tenant-1",
@@ -148,7 +148,7 @@ public class StorageSupportTypesTests
         response.SystemName.Should().Be("a-1.txt");
         response.Type.Should().Be(1);
         response.TypeString.Should().Be("File");
-        response.CreateDate.Should().Be(created);
+        response.CreatedDate.Should().Be(created);
         response.CreatedBy.Should().Be("user-1");
         response.Language.Should().Be("en");
         response.TenantId.Should().Be("tenant-1");

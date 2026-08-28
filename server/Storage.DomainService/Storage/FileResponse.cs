@@ -21,7 +21,7 @@ namespace DomainService.Storage
         public string SystemName { get; set; }
         public int Type { get; set; }
         public string TypeString { get; set; }
-        public DateTime CreateDate { get; set; }
+        public DateTime CreatedDate { get; set; }
         public string CreatedBy { get; set; }
         public string Language { get; set; }
         public string TenantId { get; set; }

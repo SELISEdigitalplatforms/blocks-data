@@ -200,7 +200,7 @@ namespace Storage.DomainService.Services
 
             var file = await CreateNewFileAsync(request);
             file.ConfigurationName = configuration.Name;
-            var fileVersion = CreateNewFileVersion(file.ItemId, 0);
+            var fileVersion = CreateNewFileVersion(file.ItemId, 1);
 
             var storageServiceProvider = GetStorageService(configuration);
 
@@ -279,7 +279,7 @@ namespace Storage.DomainService.Services
                 AccessModifier = string.IsNullOrWhiteSpace(request.AccessModifier)
                     ? AccessModifier.Private
                     : Enum.Parse<AccessModifier>(request.AccessModifier),
-                CurrentVersion = 0,
+                CurrentVersion = 1,
                 AncestorIds = ancestorIds,
                 InheritsParentAccess = true,
                 Extension = Path.GetExtension((string)request.Name).TrimStart('.'),
@@ -670,7 +670,7 @@ namespace Storage.DomainService.Services
 
             var file = await CreateNewFileAsync(request);
             file.ConfigurationName = configuration.Name;
-            var fileVersion = CreateNewFileVersion(file.ItemId, 0);
+            var fileVersion = CreateNewFileVersion(file.ItemId, 1);
 
             var storageServiceProvider = GetStorageService(configuration);
             var context = BlocksContext.GetContext();

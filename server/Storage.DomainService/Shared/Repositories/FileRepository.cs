@@ -93,7 +93,7 @@ namespace Storage.DomainService.Services
 
         private static readonly ProjectionDefinition<FileResponse> filesProjection = Builders<FileResponse>.Projection
                .Include(file => file.AccessModifier)
-               .Include(file => file.CreateDate)
+               .Include(file => file.CreatedDate)
                .Include(file => file.CreatedBy)
                .Include(file => file.ItemId)
                .Include(file => file.Language)

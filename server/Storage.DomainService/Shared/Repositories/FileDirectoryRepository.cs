@@ -39,7 +39,14 @@ namespace Storage.DomainService.Services
         public async Task<FileDirectory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default)
         {
             var b = Builders<FileDirectory>.Filter;
-            var filter = (b.Eq(d => d.ModuleName, moduleName) | b.Eq(d => d.Description, moduleName))
+            string[] descriptionNames = moduleName switch
+            {
+                "OS_Cloud" => ["OS_Cloud", "IAM_Cloud"],
+                "IAM_Cloud" => ["IAM_Cloud", "OS_Cloud"],
+                _ => [moduleName],
+            };
+
+            var filter = (b.Eq(d => d.ModuleName, moduleName) | b.In(d => d.Description, descriptionNames))
                          & b.Eq(d => d.IsArchived, false);
 
             var collection = _dbContextProvider.GetCollection<FileDirectory>(CollectionName);

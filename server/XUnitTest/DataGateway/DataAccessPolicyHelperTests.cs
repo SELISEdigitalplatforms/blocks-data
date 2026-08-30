@@ -160,10 +160,12 @@ public class DataAccessPolicyHelperFilterTests
     [Fact]
     public void BuildConditionFilter_Equality_ExpandsCommaDelimitedPrincipalAlternatives()
     {
-        DataAccessPolicyHelper.BuildConditionFilter("OwnerId", PolicyOperator.EQUAL, "u1,u2")
-            .Should().Be(new BsonDocument("OwnerId", new BsonDocument("$in", new BsonArray { "u1", "u2" })));
-        DataAccessPolicyHelper.BuildConditionFilter("OwnerId", PolicyOperator.NOT_EQUAL, "u1,u2")
-            .Should().Be(new BsonDocument("OwnerId", new BsonDocument("$nin", new BsonArray { "u1", "u2" })));
+        Assert.Equal(
+            new BsonDocument("OwnerId", new BsonDocument("$in", new BsonArray { "u1", "u2" })),
+            DataAccessPolicyHelper.BuildConditionFilter("OwnerId", PolicyOperator.EQUAL, "u1,u2"));
+        Assert.Equal(
+            new BsonDocument("OwnerId", new BsonDocument("$nin", new BsonArray { "u1", "u2" })),
+            DataAccessPolicyHelper.BuildConditionFilter("OwnerId", PolicyOperator.NOT_EQUAL, "u1,u2"));
     }
 
     [Fact]

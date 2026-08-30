@@ -173,8 +173,8 @@ public class DataAccessPolicyHelperOperatorTests
         DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, 2.5m)["f"].Should().Be(new BsonDecimal128(2.5m));
         DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, true)["f"].Should().Be(BsonBoolean.True);
         DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc))["f"].BsonType.Should().Be(BsonType.DateTime);
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, new[] { "a", "b" })["f"].AsBsonArray.Count.Should().Be(2);
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, new List<string> { "a" })["f"].AsBsonArray.Count.Should().Be(1);
+        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, new[] { "a", "b" })["f"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(2);
+        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, new List<string> { "a" })["f"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(1);
         DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, Guid.Empty)["f"].BsonType.Should().Be(BsonType.String);
     }
 

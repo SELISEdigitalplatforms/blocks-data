@@ -6,6 +6,7 @@ import {
   CommandList,
 } from "@/components/ui-kits/command/command";
 import { Input } from "@/components/ui-kits/input/input";
+import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import {
   Popover,
   PopoverContent,
@@ -17,6 +18,7 @@ import {
   useStoredPrincipals,
   type PrincipalEntity,
   type PrincipalOption,
+  type UserPrincipalValue,
 } from "@/data-gateway/hooks/use-principal-options";
 
 export const PRINCIPAL_MESSAGES = {
@@ -36,6 +38,7 @@ interface PrincipalSelectorProps {
   value: string;
   onChange: (next: string) => void;
   multiple: boolean;
+  userValueField?: UserPrincipalValue;
 }
 
 const splitValue = (value: string): string[] =>
@@ -54,6 +57,7 @@ const PrincipalSelectorInner = ({
   value,
   onChange,
   multiple,
+  userValueField,
 }: PrincipalSelectorProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -71,8 +75,14 @@ const PrincipalSelectorInner = ({
     projectKey,
     search,
     enabled: open,
+    userValueField,
   });
-  const stored = useStoredPrincipals({ entity, projectKey, values: selectedValues });
+  const stored = useStoredPrincipals({
+    entity,
+    projectKey,
+    values: selectedValues,
+    userValueField,
+  });
 
   const failedMessage =
     entity === "role"
@@ -157,36 +167,6 @@ const PrincipalSelectorInner = ({
         </div>
         <Command shouldFilter={false}>
           <CommandList>
-            {/*
-              Selected values are listed here as well as in the trigger, because an UNAVAILABLE
-              value can never appear in the browse results - without this group there would be no
-              way to deselect it, and a deleted role or user would be stuck in the policy forever.
-            */}
-            {selectedValues.length > 0 && (
-              <CommandGroup heading="Selected">
-                {selectedValues.map((selected) => (
-                  <CommandItem
-                    key={`selected-${selected}`}
-                    value={`selected-${selected}`}
-                    data-testid={`selected-option-${selected}`}
-                    onSelect={() =>
-                      toggle({
-                        value: selected,
-                        primaryLabel: "",
-                        secondaryLabel: "",
-                      })
-                    }
-                  >
-                    <div className="flex flex-col">
-                      <span>{labelFor(selected)}</span>
-                      <span className="text-xs text-muted-foreground">
-                        Click to remove
-                      </span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
             {browse.isForbidden ? (
               <div className="p-3 text-sm text-destructive">
                 {PRINCIPAL_MESSAGES.FORBIDDEN}
@@ -225,6 +205,14 @@ const PrincipalSelectorInner = ({
                       onSelect={() => toggle(option)}
                       className={cn(isSelected && "bg-accent")}
                     >
+                      {multiple && (
+                        <Checkbox
+                          checked={isSelected}
+                          tabIndex={-1}
+                          aria-label={`${isSelected ? "Deselect" : "Select"} ${option.primaryLabel}`}
+                          className="pointer-events-none mr-2 shrink-0"
+                        />
+                      )}
                       <div className="flex flex-col">
                         <span>{option.primaryLabel}</span>
                         <span className="text-xs text-muted-foreground">

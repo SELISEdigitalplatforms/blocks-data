@@ -304,10 +304,9 @@ export const RuleSetForm = ({
         staticValue = r.compareValue || null;
       } else if (isContain) {
         if (isStatic) {
-          staticValue = r.compareValue
-            .split(",")
-            .map((v) => v.trim())
-            .filter(Boolean);
+          // The policy API stores principal multi-selections as a single,
+          // comma-delimited value; the backend expands it during evaluation.
+          staticValue = r.compareValue;
         } else {
           rightOperands = r.compareValue
             .split(",")
@@ -550,7 +549,9 @@ export const RuleSetForm = ({
                           : ["EQUAL", "NOT_EQUAL"];
                       const showPrincipalSelector =
                         source === RULE_SOURCE_TYPES.AUTH &&
-                        (leftField === "roles" || leftField === "userId") &&
+                        (leftField === "roles" ||
+                          leftField === "userId" ||
+                          leftField === "email") &&
                         isCompareStatic &&
                         (principalScalarOps.includes(operatorValue) ||
                           IN_OPERATORS.includes(operatorValue));
@@ -852,10 +853,15 @@ export const RuleSetForm = ({
                                             ? "role"
                                             : "user"
                                         }
+                                        userValueField={
+                                          leftField === "email"
+                                            ? "email"
+                                            : "itemId"
+                                        }
                                         projectKey={projectKey}
                                         value={field.value}
                                         onChange={field.onChange}
-                                        multiple={isInOp}
+                                        multiple
                                       />
                                     );
                                   }

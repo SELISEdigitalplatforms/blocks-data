@@ -184,13 +184,14 @@ describe("RuleSetForm", () => {
     // Rule group carries all five mapped rules with the AND operator.
     expect(payload.ruleGroup.logicalOperator).toBe(0);
     expect(payload.ruleGroup.rules).toHaveLength(5);
-    // Direct-value op keeps staticValue, IN + static splits to an array.
+    // Direct-value op keeps staticValue; IN + static uses the API's
+    // comma-delimited wire format.
     const startWith = payload.ruleGroup.rules.find((r: { operator: number }) => r.operator === 10);
     expect(startWith.staticValue).toBe("pre");
     const inStatic = payload.ruleGroup.rules.find(
       (r: { operator: number; rightSource: number }) => r.operator === 8 && r.rightSource === 2,
     );
-    expect(inStatic.staticValue).toEqual(["a", "b"]);
+    expect(inStatic.staticValue).toBe("a, b");
 
     await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
     expect(onCancel).toHaveBeenCalled();
@@ -384,9 +385,9 @@ describe("RuleSetForm create flow", () => {
 
     await waitFor(() => expect(createPolicy).toHaveBeenCalled());
     const rule = createPolicy.mock.calls[0][0].ruleGroup.rules[0];
-    // IN => 8, static array in selection order.
+    // IN => 8, comma-delimited static value in selection order.
     expect(rule.operator).toBe(8);
-    expect(rule.staticValue).toEqual(["a", "b", "c"]);
+    expect(rule.staticValue).toBe("a,b,c");
   });
 
   it("allows Auth Roles IN an array schema field", async () => {
@@ -629,15 +630,17 @@ describe("RuleSetForm — compareValue resets that guard the principal selector"
     await startRule(user);
 
     // Build a plain string rule and type free text into it.
-    await pick(user, 0, "Auth");
-    await pick(user, 1, "Email");
+    await pick(user, 0, "Schema Fields");
+    await pick(user, 1, "title");
     await pick(user, 2, /^Equal$/);
     await pick(user, 3, "Static Value");
     fireEvent.change(screen.getByPlaceholderText("Enter value"), {
       target: { value: "not-a-user-id" },
     });
 
-    // Switch the field to UserId: the selector must appear EMPTY, not carrying the old text.
+    // Switch the source and field to Auth.UserId: the selector must appear
+    // EMPTY, not carrying the old text.
+    await pick(user, 0, "Auth");
     await pick(user, 1, "UserId");
 
     expect(screen.queryByDisplayValue("not-a-user-id")).not.toBeInTheDocument();

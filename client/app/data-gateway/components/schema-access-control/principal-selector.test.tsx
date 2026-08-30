@@ -116,6 +116,8 @@ describe("PrincipalSelector — happy path", () => {
     const { onChange } = renderSelector({ multiple: true, value: "editor" });
 
     await userEvent.click(screen.getByRole("button"));
+    expect(await screen.findByRole("checkbox", { name: "Deselect Editor" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Select Reviewer" })).not.toBeChecked();
     await userEvent.click(await screen.findByText("Reviewer"));
 
     expect(onChange).toHaveBeenCalledWith("editor,reviewer");
@@ -414,7 +416,7 @@ describe("PrincipalSelector — review cycle 1 regressions", () => {
     expect(onChange).not.toHaveBeenCalledWith("");
   });
 
-  it("an unavailable value can still be removed from a multi-select", async () => {
+  it("does not render a separate Selected list", async () => {
     getRoles.mockImplementation((payload: { filter?: { slugs?: string[] } }) =>
       Promise.resolve(
         payload.filter?.slugs
@@ -428,24 +430,9 @@ describe("PrincipalSelector — review cycle 1 regressions", () => {
     });
 
     await userEvent.click(screen.getByRole("button"));
-    // The unavailable slug is listed under "Selected" precisely so it can be deselected.
-    const selected = await screen.findByTestId("selected-option-legacy-role");
-    expect(selected).toHaveTextContent(/legacy-role/);
-    await userEvent.click(selected);
-
-    expect(onChange).toHaveBeenCalledWith("editor");
-  });
-
-  it("an unavailable single value can be cleared", async () => {
-    getRoles.mockResolvedValue({ data: [], totalCount: 0, errors: null });
-    const { onChange } = renderSelector({ value: "legacy-role" });
-
-    await userEvent.click(screen.getByRole("button"));
-    const selected = await screen.findByTestId("selected-option-legacy-role");
-    expect(selected).toHaveTextContent(/legacy-role/);
-    await userEvent.click(selected);
-
-    expect(onChange).toHaveBeenCalledWith("");
+    expect(screen.queryByText("Selected")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("selected-option-legacy-role")).not.toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("a lookup that returns a DIFFERENT user is not treated as resolved", async () => {

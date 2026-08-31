@@ -492,6 +492,53 @@ describe("GraphQLPlaygroundPage", () => {
     expect(tags.insertText).toContain("[{");
   });
 
+  it("offers valid null filter completions for nested DTOs (fallback)", async () => {
+    entityItems = [
+      {
+        schemaName: "Product",
+        fields: [{ name: "Address", type: "Address", isArray: false }],
+      },
+    ];
+    dtoItems = [
+      {
+        schemaName: "Address",
+        fields: [{ name: "StreetNo", type: "String", isArray: true }],
+      },
+    ];
+    await renderMounted();
+
+    const childResult = completionProvider.provideCompletionItems(
+      makeModel("query {\n  getProducts(where: {\n    "),
+      position,
+    );
+    expect(
+      childResult.suggestions.find((s: { label: string }) => s.label === "Address: null")
+        ?.insertText,
+    ).toBe("Address: null");
+
+    const addressResult = completionProvider.provideCompletionItems(
+      makeModel("query {\n  getProducts(where: { Address: {\n    "),
+      position,
+    );
+    expect(
+      addressResult.suggestions.find((s: { label: string }) => s.label === "StreetNo")
+        ?.insertText,
+    ).toBe('StreetNo: {\n  eq: "${1}"\n}');
+    expect(
+      addressResult.suggestions.find((s: { label: string }) => s.label === "StreetNo")
+        ?.insertText,
+    ).not.toContain("eq: [");
+
+    const leafResult = completionProvider.provideCompletionItems(
+      makeModel("query {\n  getProducts(where: { Address: { StreetNo: {\n    "),
+      position,
+    );
+    expect(
+      leafResult.suggestions.find((s: { label: string }) => s.label === "eq: null")
+        ?.insertText,
+    ).toBe("eq: null");
+  });
+
   it("suggests nested DTO fields inside an items selection block (fallback)", async () => {
     entityItems = [
       {

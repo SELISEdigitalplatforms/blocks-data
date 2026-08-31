@@ -81,13 +81,21 @@ public static class WhereToMongoFilterConverter
                 ?? throw Invalid($"Field '{fullPath}' is not defined on the schema.");
 
             var value = kv.Value;
-            if (value is null) continue;
-
             var dbFieldName = key == nameof(Entities.GraphQlBaseEntity.ItemId)
                 ? (string.IsNullOrEmpty(pathPrefix)
                     ? GraphQlConstant.DbEntityIdFieldName
                     : $"{pathPrefix}.{GraphQlConstant.DbEntityIdFieldName}")
                 : fullPath;
+
+            // A nullable child-filter input can be supplied explicitly as null. Keep that
+            // distinct from an omitted field and translate it to a Mongo null predicate.
+            if (value is null)
+            {
+                if (!GraphQlTypeHelper.IsScalar(fieldDef.Type))
+                    elements.Add(new BsonElement(dbFieldName, new BsonDocument("$eq", BsonNull.Value)));
+                continue;
+            }
+
             if (GraphQlTypeHelper.IsScalar(fieldDef.Type))
             {
                 var opBson = ConvertScalarOperation(fieldDef.Type, dbFieldName, value);
@@ -173,14 +181,19 @@ public static class WhereToMongoFilterConverter
 
         foreach (var op in opDict)
         {
-            if (op.Value is null) continue;
             var opKey = op.Key;
             if (string.IsNullOrWhiteSpace(opKey) || !allowedOps.Contains(opKey))
                 throw Invalid($"Unsupported or invalid operator: '{opKey}' for type {scalarType}.");
 
             var mongoOp = MapOperatorToMongo(opKey);
             BsonValue bsonVal;
-            if (mongoOp == "$regex")
+            if (op.Value is null)
+            {
+                if (mongoOp is not ("$eq" or "$ne"))
+                    throw Invalid($"Operator '{opKey}' does not support a null value.");
+                bsonVal = BsonNull.Value;
+            }
+            else if (mongoOp == "$regex")
             {
                 var str = op.Value?.ToString() ?? string.Empty;
                 var lowerOp = opKey.ToLowerInvariant();
@@ -264,11 +277,28 @@ public static class WhereToMongoFilterConverter
                 continue;
             }
 
+            // Hot Chocolate uses Optional<T> to preserve the difference between an
+            // omitted operation and an explicitly supplied null operation value.
+            var isOptional = IsOptional(propValue);
+            if (isOptional && IsUnsetOptional(propValue))
+                continue;
+            if (!isOptional && propValue is null)
+                continue;
             result[prop.Name] = UnwrapOptional(propValue);
         }
 
         return result.Count == 0 ? null : result;
     }
+
+    private static bool IsUnsetOptional(object? value)
+    {
+        return IsOptional(value) && value!.GetType().GetProperty("HasValue")?.GetValue(value) is false;
+    }
+
+    private static bool IsOptional(object? value) =>
+        value is not null &&
+        value.GetType().IsGenericType &&
+        value.GetType().GetGenericTypeDefinition() == typeof(Optional<>);
 
     private static object? UnwrapOptional(object? value)
     {

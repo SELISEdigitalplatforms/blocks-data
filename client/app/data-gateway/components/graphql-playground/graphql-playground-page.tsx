@@ -1066,6 +1066,18 @@ export const GraphQLPlaygroundPage = () => {
                       monaco.languages.CompletionItemKind.Keyword,
                     ),
                   );
+                  ["eq", "neq"].forEach((operator) => {
+                    if (operatorNames.includes(operator)) {
+                      addFallback(
+                        `${operator}: null`,
+                        `${operator}: null`,
+                        operator === "eq"
+                          ? "Match null or missing values"
+                          : "Match non-null values",
+                        monaco.languages.CompletionItemKind.Value,
+                      );
+                    }
+                  });
                 } else {
                   fields.forEach((field) => {
                     const nested =
@@ -1073,12 +1085,28 @@ export const GraphQLPlaygroundPage = () => {
                       !!dtoByName.get(field.type.trim())?.fields.length;
                     addFallback(
                       field.name,
-                      `${field.name}: {\n  \${1}\n}`,
+                      nested
+                        ? `${field.name}: {\n  \${1}\n}`
+                        : `${field.name}: {\n  eq: ${
+                            ["string", "id", "datetime"].includes(field.type.trim().toLowerCase())
+                              ? '"${1}"'
+                              : field.type.trim().toLowerCase() === "boolean"
+                                ? "${1|true,false,null|}"
+                                : "${1}"
+                          }\n}`,
                       nested ? `Filter fields inside ${field.type}` : `Filter ${field.name} (${field.type})`,
                       nested
                         ? monaco.languages.CompletionItemKind.Class
                         : monaco.languages.CompletionItemKind.Field,
                     );
+                    if (nested) {
+                      addFallback(
+                        `${field.name}: null`,
+                        `${field.name}: null`,
+                        `Match records where ${field.name} is null or missing`,
+                        monaco.languages.CompletionItemKind.Value,
+                      );
+                    }
                   });
                   if (path.length === 0) {
                     ["and", "or"].forEach((operator) =>

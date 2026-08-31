@@ -1,6 +1,7 @@
 using DataGateway.DomainService.Conversion;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
+using HotChocolate;
 using MongoDB.Bson;
 using static XUnitTest.DataGateway.TestSupport;
 
@@ -154,6 +155,92 @@ public class WhereToMongoFilterConverterTests
         Assert.Equal(
             new BsonDocument("Address.City", new BsonDocument("$eq", "NYC")),
             result);
+    }
+
+    [Fact]
+    public void Convert_NullNestedObject_ProducesNullEquality()
+    {
+        var where = new Dictionary<string, object?> { ["Address"] = null };
+
+        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+
+        Assert.Equal(
+            new BsonDocument("Address", new BsonDocument("$eq", BsonNull.Value)),
+            result);
+    }
+
+    [Fact]
+    public void Convert_NullNestedScalarEquality_ProducesDottedNullEquality()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["Address"] = new Dictionary<string, object?>
+            {
+                ["City"] = new Dictionary<string, object?> { ["eq"] = null }
+            }
+        };
+
+        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+
+        Assert.Equal(
+            new BsonDocument("Address.City", new BsonDocument("$eq", BsonNull.Value)),
+            result);
+    }
+
+    [Fact]
+    public void Convert_NullNestedScalarNotEqual_ProducesDottedNotEqual()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["Address"] = new Dictionary<string, object?>
+            {
+                ["City"] = new Dictionary<string, object?> { ["neq"] = null }
+            }
+        };
+
+        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+
+        Assert.Equal(
+            new BsonDocument("Address.City", new BsonDocument("$ne", BsonNull.Value)),
+            result);
+    }
+
+    [Fact]
+    public void Convert_ExplicitNullOptional_ProducesNullEqualityAndSkipsUnsetOperators()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["Address"] = new Dictionary<string, object?>
+            {
+                ["City"] = new StringOperationFilterInput
+                {
+                    Eq = new Optional<string?>(null)
+                }
+            }
+        };
+
+        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+
+        Assert.Equal(
+            new BsonDocument("Address.City", new BsonDocument("$eq", BsonNull.Value)),
+            result);
+    }
+
+    [Fact]
+    public void Convert_NullWithNonEqualityOperator_ThrowsInvalidWhereFilter()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["Address"] = new Dictionary<string, object?>
+            {
+                ["City"] = new Dictionary<string, object?> { ["contains"] = null }
+            }
+        };
+
+        var act = () => WhereToMongoFilterConverter.Convert(where, PersonSchema());
+
+        act.Should().Throw<InvalidWhereFilterException>()
+            .WithMessage("*does not support a null value*");
     }
 
     [Fact]

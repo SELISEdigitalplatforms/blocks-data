@@ -80,6 +80,26 @@ public class DataAccessPolicyHelperConditionTests
     }
 
     [Fact]
+    public void EvaluateCondition_In_AcceptsCommaDelimitedWireValue()
+    {
+        DataAccessPolicyHelper.EvaluateCondition(
+            "user-2", PolicyOperator.IN, "user-1, user-2").Should().BeTrue();
+        DataAccessPolicyHelper.EvaluateCondition(
+            "user-3", PolicyOperator.IN, "user-1,user-2").Should().BeFalse();
+    }
+
+    [Fact]
+    public void EvaluateCondition_Equality_AcceptsCommaDelimitedPrincipalAlternatives()
+    {
+        DataAccessPolicyHelper.EvaluateCondition(
+            "user-2", PolicyOperator.EQUAL, "user-1,user-2").Should().BeTrue();
+        DataAccessPolicyHelper.EvaluateCondition(
+            "user-2", PolicyOperator.NOT_EQUAL, "user-1,user-2").Should().BeFalse();
+        DataAccessPolicyHelper.EvaluateCondition(
+            "user-3", PolicyOperator.NOT_EQUAL, "user-1,user-2").Should().BeTrue();
+    }
+
+    [Fact]
     public void EvaluateCondition_ArrayLeft_Contain_All()
     {
         // left roles array CONTAIN right => all right elements exist in left
@@ -135,6 +155,17 @@ public class DataAccessPolicyHelperFilterTests
 
         var ninFilter = DataAccessPolicyHelper.BuildConditionFilter("Status", PolicyOperator.NOT_IN, new object[] { "a" });
         ninFilter["Status"].AsBsonDocument.Contains("$nin").Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildConditionFilter_Equality_ExpandsCommaDelimitedPrincipalAlternatives()
+    {
+        Assert.Equal(
+            new BsonDocument("OwnerId", new BsonDocument("$in", new BsonArray { "u1", "u2" })),
+            DataAccessPolicyHelper.BuildConditionFilter("OwnerId", PolicyOperator.EQUAL, "u1,u2"));
+        Assert.Equal(
+            new BsonDocument("OwnerId", new BsonDocument("$nin", new BsonArray { "u1", "u2" })),
+            DataAccessPolicyHelper.BuildConditionFilter("OwnerId", PolicyOperator.NOT_EQUAL, "u1,u2"));
     }
 
     [Fact]

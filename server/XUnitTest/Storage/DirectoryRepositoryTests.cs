@@ -50,6 +50,21 @@ public class DirectoryRepositoryTests
         result!.ItemId.Should().Be("data-gateway");
     }
 
+    [Theory]
+    [InlineData("OS_Cloud", "IAM_Cloud")]
+    [InlineData("IAM_Cloud", "OS_Cloud")]
+    public async Task GetDefaultDirectoryByModuleNameAsync_treats_os_and_iam_cloud_descriptions_as_equivalent(
+        string moduleName,
+        string description)
+    {
+        await AddDirectoryAsync("cloud-directory", description: description);
+
+        var result = await _repository.GetDefaultDirectoryByModuleNameAsync(moduleName);
+
+        result.Should().NotBeNull();
+        result!.ItemId.Should().Be("cloud-directory");
+    }
+
     private Task AddDirectoryAsync(string itemId, string? description = null, string? moduleName = null) =>
         _database.GetCollection<FileDirectory>("FileDirectories").InsertOneAsync(new FileDirectory
         {

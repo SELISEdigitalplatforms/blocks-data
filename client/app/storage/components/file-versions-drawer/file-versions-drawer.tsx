@@ -9,6 +9,9 @@ import {
 } from "@/components/ui-kits/sheet/sheet";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { useProjectStore } from "@seliseblocks/genesis-os";
+import { userService } from "@blocks-idp/iam/services/user.service";
 import { useFileVersions } from "../../hooks/use-dms";
 import { DmsItem, FileVersionDto } from "../../models/dms.model";
 
@@ -48,11 +51,44 @@ export function FileVersionsDrawer({
   onDownloadVersion,
 }: Readonly<FileVersionsDrawerProps>) {
   const query = useFileVersions(open ? file.itemId : undefined);
+  const projectKey = useProjectStore().selectedProject?.tenantId;
 
   const versions = useMemo(
     () => query.data?.pages.flatMap((page) => page.items) ?? [],
     [query.data],
   );
+
+  // Versions only carry the raw uploader id; resolve each one to a display
+  // name/email the same way schema-access-drawer resolves access-control ids,
+  // since there's no batch user-lookup endpoint to fetch them all at once.
+  const uploaderIds = useMemo(
+    () => Array.from(new Set(versions.map((v) => v.uploadedBy).filter((id): id is string => !!id))),
+    [versions],
+  );
+
+  const uploaderQueries = useQueries({
+    queries:
+      projectKey && uploaderIds.length > 0
+        ? uploaderIds.map((id) => ({
+            queryKey: ["user", projectKey, id],
+            queryFn: () => userService.getUserById({ id, projectKey }),
+            staleTime: 5 * 60_000,
+          }))
+        : [],
+  });
+
+  const uploaderLabels = useMemo(() => {
+    const map = new Map<string, string>();
+    uploaderIds.forEach((id, index) => {
+      const user = uploaderQueries[index]?.data?.data;
+      if (!user) return;
+
+      const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+      const label = name || user.userName || user.email || id;
+      map.set(id, user.email && user.email !== label ? `${label} (${user.email})` : label);
+    });
+    return map;
+  }, [uploaderIds, uploaderQueries]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -79,7 +115,7 @@ export function FileVersionsDrawer({
                   </span>
                   {version.uploadedBy ? (
                     <span className="truncate text-xs text-muted-foreground">
-                      by {version.uploadedBy}
+                      by {uploaderLabels.get(version.uploadedBy) ?? version.uploadedBy}
                     </span>
                   ) : null}
                 </span>

@@ -204,7 +204,7 @@ public static class DataAccessPolicyHelper
                 };
             }
 
-            if (compareValue is not string && ConvertToStringArray(compareValue) is not null &&
+            if (ConvertToStringArray(compareValue) is not null &&
                 IsCollectionOperator(rule.Operator))
             {
                 return new PolicyEvaluationResult
@@ -561,6 +561,19 @@ public static class DataAccessPolicyHelper
         if (leftValue is null || rightValue is null)
             return false;
 
+        // Principal selectors send multiple values as one comma-delimited
+        // string. For scalar equality, treat those values as alternatives.
+        var commaDelimitedRight = ConvertToStringArray(rightValue);
+        if (ConvertToStringArray(leftValue) is null && commaDelimitedRight is { Length: > 0 })
+        {
+            return op switch
+            {
+                PolicyOperator.EQUAL => commaDelimitedRight.Any(value => CompareEquals(leftValue, value)),
+                PolicyOperator.NOT_EQUAL => commaDelimitedRight.All(value => !CompareEquals(leftValue, value)),
+                _ => EvaluateConditionWithoutPrincipalAlternatives(leftValue, op, rightValue)
+            };
+        }
+
         // Handle array-based comparisons (for Roles, Permissions)
         // Try to convert left value to string array (handles object[], List<object>, etc.)
         var leftArray = ConvertToStringArray(leftValue);
@@ -589,6 +602,16 @@ public static class DataAccessPolicyHelper
         };
     }
 
+    private static bool EvaluateConditionWithoutPrincipalAlternatives(
+        object leftValue, PolicyOperator op, object rightValue) => op switch
+    {
+        PolicyOperator.CONTAIN => CompareContains(leftValue, rightValue),
+        PolicyOperator.NOT_CONTAIN => !CompareContains(leftValue, rightValue),
+        PolicyOperator.IN => CompareIn(leftValue, rightValue),
+        PolicyOperator.NOT_IN => !CompareIn(leftValue, rightValue),
+        _ => false
+    };
+
     /// <summary>
     /// Evaluates conditions where the left operand is an array (e.g., Roles, Permissions).
     /// 
@@ -601,20 +624,6 @@ public static class DataAccessPolicyHelper
     /// </summary>
     private static bool EvaluateArrayCondition(string[] leftArray, PolicyOperator op, object? rightValue)
     {
-        // Handle single string value on the right
-        if (rightValue is string stringValue)
-        {
-            return op switch
-            {
-                PolicyOperator.EQUAL => leftArray.Length == 1 && string.Equals(leftArray[0], stringValue, StringComparison.OrdinalIgnoreCase),
-                PolicyOperator.NOT_EQUAL => !(leftArray.Length == 1 && string.Equals(leftArray[0], stringValue, StringComparison.OrdinalIgnoreCase)),
-                PolicyOperator.CONTAIN => leftArray.Contains(stringValue, StringComparer.OrdinalIgnoreCase),
-                PolicyOperator.NOT_CONTAIN => !leftArray.Contains(stringValue, StringComparer.OrdinalIgnoreCase),
-                PolicyOperator.IN => leftArray.Contains(stringValue, StringComparer.OrdinalIgnoreCase),
-                _ => false
-            };
-        }
-
         // Try to convert right value to string array (handles object[], List<object>, BsonArray, etc.)
         var rightArray = ConvertToStringArray(rightValue);
         if (rightArray != null && rightArray.Length > 0)
@@ -641,6 +650,20 @@ public static class DataAccessPolicyHelper
             };
         }
 
+        // Handle a single (non-comma-delimited) string value on the right.
+        if (rightValue is string stringValue)
+        {
+            return op switch
+            {
+                PolicyOperator.EQUAL => leftArray.Length == 1 && string.Equals(leftArray[0], stringValue, StringComparison.OrdinalIgnoreCase),
+                PolicyOperator.NOT_EQUAL => !(leftArray.Length == 1 && string.Equals(leftArray[0], stringValue, StringComparison.OrdinalIgnoreCase)),
+                PolicyOperator.CONTAIN => leftArray.Contains(stringValue, StringComparer.OrdinalIgnoreCase),
+                PolicyOperator.NOT_CONTAIN => !leftArray.Contains(stringValue, StringComparer.OrdinalIgnoreCase),
+                PolicyOperator.IN => leftArray.Contains(stringValue, StringComparer.OrdinalIgnoreCase),
+                _ => false
+            };
+        }
+
         return false;
     }
 
@@ -656,9 +679,14 @@ public static class DataAccessPolicyHelper
         if (value is string[] strArray)
             return strArray;
 
-        // Single string - not an array
-        if (value is string)
-            return null;
+        // Comma-delimited values are the wire format used by the policy editor
+        // for multi-select right-side operands. A plain string remains scalar.
+        if (value is string stringValue)
+        {
+            if (!stringValue.Contains(',')) return null;
+            var values = stringValue.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            return values.Length > 0 ? values : null;
+        }
 
         // IEnumerable<string>
         if (value is IEnumerable<string> strEnumerable)
@@ -736,6 +764,15 @@ public static class DataAccessPolicyHelper
     /// </summary>
     public static BsonDocument BuildConditionFilter(string fieldName, PolicyOperator op, object? value)
     {
+        var commaDelimitedValues = ConvertToStringArray(value);
+        if (commaDelimitedValues is { Length: > 0 })
+        {
+            if (op == PolicyOperator.EQUAL)
+                return new BsonDocument(fieldName, new BsonDocument("$in", new BsonArray(commaDelimitedValues)));
+            if (op == PolicyOperator.NOT_EQUAL)
+                return new BsonDocument(fieldName, new BsonDocument("$nin", new BsonArray(commaDelimitedValues)));
+        }
+
         var resolvedValue = ResolveBsonValue(value);
 
         return op switch

@@ -85,6 +85,11 @@ public static class ServiceRegistry
         serviceCollection.AddHttpResponseFormatter<AuthHttpResponseFormatter>();
         serviceCollection.AddGraphQLServer()
             .DisableIntrospection()
+            .ModifyCostOptions(options =>
+            {
+                options.MaxFieldCost = 3000;
+                options.MaxTypeCost = 3000;
+            })
             .ConfigureSchemaAsync(ConfigureGraphQLSchemaAsync);
 
         // A separate GraphQL schema/executor is served per tenant (identified by the x-blocks-key

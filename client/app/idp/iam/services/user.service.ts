@@ -1,4 +1,4 @@
-import { http } from "@/lib/http-client";
+import { http, serviceInstances } from "@/lib/http-client";
 import { parseMongoDBString } from "@/lib/utils";
 import {
   IAccountResendActivationPayload,
@@ -31,14 +31,12 @@ import {
 } from "@blocks-idp/iam/models/user";
 import { USER_ENDPOINTS } from "../constants/endpoint.constant";
 import { UserAccountService } from "./account.service";
-import { useAuthStore } from "@/store/use-auth-store";
-import { useQuery } from "@tanstack/react-query";
 
 export class UserService {
   constructor(public account: UserAccountService) {}
 
   getUsers(payload: IGetUsersPayload): Promise<IGetUsersResponse> {
-    return http.post(USER_ENDPOINTS.GET_USERS, payload)
+    return serviceInstances.idpService.post(USER_ENDPOINTS.GET_USERS, payload)
   }
 
   getUser(): Promise<{ data: User }> {
@@ -54,10 +52,8 @@ export class UserService {
   }
 
   getUserById(payload: IGetUserByIdPayload): Promise<IGetUserByIdResponse> {
-    return http.get(
-      `${USER_ENDPOINTS.GET_USER}?id=${payload.id}&ProjectKey=${payload.projectKey}`,
-      undefined,
-      { absoluteUrl: true },
+    return serviceInstances.idpService.get(
+      `${USER_ENDPOINTS.GET_USER_BY_ID}/${encodeURIComponent(payload.id)}`,
     )
   }
 

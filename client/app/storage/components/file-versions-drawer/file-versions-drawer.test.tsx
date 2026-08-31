@@ -8,6 +8,9 @@ const mocks = vi.hoisted(() => ({
   hasNextPage: false,
   fetchNextPage: vi.fn(),
   lastFileId: undefined as string | undefined,
+  // Controls what the uploader-id resolver queries report, in the same order
+  // as the deduped uploader ids the component derives from `versions`.
+  userQueries: [] as unknown[],
 }));
 
 vi.mock("../../hooks/use-dms", () => ({
@@ -21,6 +24,20 @@ vi.mock("../../hooks/use-dms", () => ({
       fetchNextPage: mocks.fetchNextPage,
     };
   },
+}));
+
+vi.mock("@seliseblocks/genesis-os", () => ({
+  useProjectStore: () => ({
+    selectedProject: { itemId: "p1", tenantId: "t1", tenantSlug: "slug1", name: "Proj" },
+  }),
+}));
+
+vi.mock("@tanstack/react-query", () => ({
+  useQueries: () => mocks.userQueries,
+}));
+
+vi.mock("@blocks-idp/iam/services/user.service", () => ({
+  userService: { getUserById: vi.fn() },
 }));
 
 import { FileVersionsDrawer } from "./file-versions-drawer";
@@ -42,6 +59,7 @@ describe("FileVersionsDrawer", () => {
     mocks.versions = [];
     mocks.isLoading = false;
     mocks.hasNextPage = false;
+    mocks.userQueries = [];
   });
 
   it("does not query until it is opened", () => {
@@ -63,6 +81,20 @@ describe("FileVersionsDrawer", () => {
     expect(await screen.findByText("v2")).toBeInTheDocument();
     expect(screen.getByText("by user-1")).toBeInTheDocument();
     expect(screen.getByText("4.0 KB")).toBeInTheDocument();
+  });
+
+  it("resolves the uploader id to a display name and email", async () => {
+    mocks.versions = [version({ uploadedBy: "user-1" })];
+    mocks.userQueries = [
+      {
+        data: {
+          data: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com", userName: "ada" },
+        },
+      },
+    ];
+    render(<FileVersionsDrawer open onOpenChange={vi.fn()} file={file} />);
+
+    expect(await screen.findByText("by Ada Lovelace (ada@example.com)")).toBeInTheDocument();
   });
 
   it("says so when a file has no recorded versions", async () => {

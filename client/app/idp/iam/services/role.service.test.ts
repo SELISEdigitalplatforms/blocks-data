@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockHttpClientFactory } from "@/test-utils/__mocks__";
-import { http } from "@/lib/http-client";
+import { http, serviceInstances } from "@/lib/http-client";
 import { RoleService } from "./role.service";
 import { ROLE_ENDPOINTS } from "../constants/endpoint.constant";
 import {
@@ -32,16 +32,36 @@ describe("RoleService", () => {
   // ─── getRoles ─────────────────────────────────────────────────────────────
   describe("getRoles", () => {
     it("should POST to the correct endpoint with payload", async () => {
-      vi.mocked(http.post).mockResolvedValue(mockRolesResponse);
+      vi.mocked(serviceInstances.idpService.post).mockResolvedValue(mockRolesResponse);
 
       const result = await service.getRoles(mockGetRolesPayload);
 
-      expect(http.post).toHaveBeenCalledWith(ROLE_ENDPOINTS.GET_ROLES, mockGetRolesPayload);
+      expect(ROLE_ENDPOINTS.GET_ROLES).toBe("/api/iam/roles");
+      expect(serviceInstances.idpService.post).toHaveBeenCalledWith(
+        "/api/iam/roles",
+        {
+          ...mockGetRolesPayload,
+          filter: { search: "" },
+        },
+      );
+      expect(http.post).not.toHaveBeenCalled();
       expect(result).toEqual(mockRolesResponse);
     });
 
+    it("should preserve an existing filter and search value", async () => {
+      vi.mocked(serviceInstances.idpService.post).mockResolvedValue(mockRolesResponse);
+      const payload = {
+        ...mockGetRolesPayload,
+        filter: { search: "admin", slugs: ["admin"] },
+      };
+
+      await service.getRoles(payload);
+
+      expect(serviceInstances.idpService.post).toHaveBeenCalledWith("/api/iam/roles", payload);
+    });
+
     it("should throw when the API call fails", async () => {
-      vi.mocked(http.post).mockRejectedValue(new Error("Network error"));
+      vi.mocked(serviceInstances.idpService.post).mockRejectedValue(new Error("Network error"));
 
       await expect(service.getRoles(mockGetRolesPayload)).rejects.toThrow("Network error");
     });

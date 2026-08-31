@@ -30,6 +30,7 @@ import {
 import { showErrorToast } from "@/hooks/use-toast";
 import { useGraphLogAnalytics } from "../../hooks/use-graph-log-analytics";
 import { GraphLogGranularity } from "../../models/graph-log-analytics";
+import { failureKindLabel } from "../../models/graph-log-history";
 import { formatDayLabel } from "./graph-log-formatters";
 
 const CHART_CONFIG = {
@@ -70,11 +71,17 @@ export const GraphAnalyticsOverview = ({ from, to }: GraphAnalyticsOverviewProps
   );
 
   const operationStats = useMemo(() => analytics?.operationStats ?? [], [analytics?.operationStats]);
+  const failureStats = useMemo(() => analytics?.failureStats ?? [], [analytics?.failureStats]);
+  const totalFailures = failureStats.reduce((total, stat) => total + stat.count, 0);
   const maxCalls = Math.max(1, ...operationStats.map((stat) => stat.calls));
   const errorRateStats = useMemo(
     () => [...operationStats].sort((a, b) => b.errorRate - a.errorRate),
     [operationStats],
   );
+
+  const failureEmptyMessage = isError
+    ? "Couldn't load data. Please try again."
+    : "No failed requests in this range.";
 
   const tableEmptyMessage = isError
     ? "Couldn't load data. Please try again."
@@ -129,6 +136,38 @@ export const GraphAnalyticsOverview = ({ from, to }: GraphAnalyticsOverviewProps
                 />
               </BarChart>
             </ChartContainer>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Failures by reason</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex h-20 items-center justify-center">
+              <SpinnerLoader />
+            </div>
+          ) : failureStats.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{failureEmptyMessage}</p>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {failureStats.map((stat) => (
+                <div
+                  key={stat.failureKind}
+                  className="flex min-w-[140px] flex-col gap-1 rounded-sm border border-border/50 px-4 py-3"
+                >
+                  <span className="text-2xl font-semibold text-destructive">{stat.count}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {failureKindLabel(stat.failureKind)}
+                  </span>
+                  <span className="text-xs text-muted-foreground/60">
+                    {Math.round((stat.count / totalFailures) * 100)}% of failures
+                  </span>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

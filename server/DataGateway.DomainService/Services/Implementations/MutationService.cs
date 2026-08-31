@@ -434,7 +434,12 @@ public class MutationService : IMutationService
         {
             _logger.LogWarning("Access denied for {Op} on schema {SchemaName}: {Error}",
                 operationLabel.ToUpperInvariant(), schema.SchemaName, rlsResult.ErrorMessage);
-            throw new GraphQLException(ErrorBuilder.New().SetMessage(rlsResult.ErrorMessage ?? $"You don't have permission to {operationLabel} records in this entity.").SetCode(GraphQlConstant.UnauthorizedErrorCode).Build());
+            var message = rlsResult.ErrorMessage ?? $"You don't have permission to {operationLabel} records in this entity.";
+            GatewayOperationActivity.MarkFailed(
+                Activity.Current, GatewayFailureKind.Authorization, message, GraphQlConstant.UnauthorizedErrorCode);
+
+            throw new GraphQLException(
+                ErrorBuilder.New().SetMessage(message).SetCode(GraphQlConstant.UnauthorizedErrorCode).Build());
         }
     }
 

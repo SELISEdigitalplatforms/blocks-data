@@ -23,6 +23,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     private const string GatewayOperationAttributePath = "Attributes.GatewayOperation";
     private const string UnknownSchemaName = "(unknown)";
     private const string FailedResponseStatus = "failed";
+    private const string UnknownFailureKind = GatewayFailureKind.Unknown;
 
     // Safety cap on how many trace documents a single analytics request will pull into memory for
     // in-process aggregation. A UI-driven date range picker keeps normal usage well under this.
@@ -85,7 +86,8 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         var projection = Builders<BsonDocument>.Projection
             .Include("Timestamp")
             .Include($"{GatewayOperationAttributePath}.SchemaName")
-            .Include($"{GatewayOperationAttributePath}.ResponseStatus");
+            .Include($"{GatewayOperationAttributePath}.ResponseStatus")
+            .Include($"{GatewayOperationAttributePath}.FailureKind");
 
         var documents = await collection
             .Find(filter)
@@ -97,6 +99,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         {
             RequestsOverTime = BuildRequestsOverTime(documents, from, to, isWeekly),
             OperationStats = BuildOperationStats(documents),
+            FailureStats = BuildFailureStats(documents),
         };
     }
 
@@ -170,6 +173,23 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             .OrderByDescending(stat => stat.Calls)
             .ToList();
 
+    /// <summary>
+    /// Failed requests grouped by why they failed. Older traces predate the failure classification,
+    /// so a failure with no recorded kind counts as "unknown" rather than being dropped.
+    /// </summary>
+    private static List<GraphLogFailureStat> BuildFailureStats(List<BsonDocument> documents) =>
+        documents
+            .Select(doc => GetNestedDocument(GetNestedDocument(doc, "Attributes"), "GatewayOperation"))
+            .Where(gatewayOperation => GetString(gatewayOperation, "ResponseStatus") == FailedResponseStatus)
+            .GroupBy(gatewayOperation =>
+            {
+                var failureKind = GetString(gatewayOperation, "FailureKind");
+                return string.IsNullOrWhiteSpace(failureKind) ? UnknownFailureKind : failureKind;
+            })
+            .Select(group => new GraphLogFailureStat { FailureKind = group.Key, Count = group.Count() })
+            .OrderByDescending(stat => stat.Count)
+            .ToList();
+
     private static FilterDefinition<BsonDocument> BuildFilter(GetGraphLogHistoryRequest request)
     {
         var builder = Builders<BsonDocument>.Filter;
@@ -186,6 +206,9 @@ public class GraphLogHistoryService : IGraphLogHistoryService
 
         if (!string.IsNullOrWhiteSpace(request.ResponseStatus))
             filters.Add(builder.Eq($"{GatewayOperationAttributePath}.ResponseStatus", request.ResponseStatus));
+
+        if (!string.IsNullOrWhiteSpace(request.FailureKind))
+            filters.Add(builder.Eq($"{GatewayOperationAttributePath}.FailureKind", request.FailureKind));
 
         if (request.From.HasValue)
             filters.Add(builder.Gte("Timestamp", ToUtc(request.From.Value)));
@@ -239,6 +262,9 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             OperationQuery = GetString(gatewayOperation, "OperationQuery"),
             MongoQuery = GetString(gatewayOperation, "MongoQuery"),
             ResponseStatus = GetString(gatewayOperation, "ResponseStatus"),
+            FailureKind = GetString(gatewayOperation, "FailureKind"),
+            FailureCode = GetString(gatewayOperation, "FailureCode"),
+            FailureMessage = GetString(gatewayOperation, "FailureMessage"),
             StatusCode = GetStatusCode(attributes),
             // Payload sizes are span-level attributes written by the request pipeline, not part of
             // the GatewayOperation tag. Their keys contain dots, so they're read off the Attributes

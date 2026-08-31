@@ -20,9 +20,15 @@ export interface IGraphLogOperationStat {
   errorRate: number;
 }
 
+export interface IGraphLogFailureStat {
+  failureKind: string;
+  count: number;
+}
+
 export interface IGraphLogAnalyticsData {
   requestsOverTime: IGraphLogRequestsOverTimeBucket[];
   operationStats: IGraphLogOperationStat[];
+  failureStats: IGraphLogFailureStat[];
 }
 
 export interface IGraphLogAnalyticsResponse {

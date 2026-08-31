@@ -34,11 +34,7 @@ internal static class SchemaAccessMiddlewareHelper
         if (!IsValidTenant(httpContext))
         {
             Console.WriteLine($"{middlewareName}: tenant is not valid");
-            throw new GraphQLException(
-                ErrorBuilder.New()
-                    .SetMessage("Tenant is not valid.")
-                    .SetCode(GraphQlConstant.UnauthorizedErrorCode)
-                    .Build());
+            throw Rejected(GatewayFailureKind.Authentication, "Tenant is not valid.");
         }
 
         if (accessLevel == SchemaAccessLevel.Public)
@@ -54,14 +50,26 @@ internal static class SchemaAccessMiddlewareHelper
         if (!isAuthenticated)
         {
             Console.WriteLine($"{middlewareName}: user is not authenticated");
-            throw new GraphQLException(
-                ErrorBuilder.New()
-                    .SetMessage("User is not authenticated.")
-                    .SetCode(GraphQlConstant.UnauthorizedErrorCode)
-                    .Build());
+            throw Rejected(GatewayFailureKind.Authentication, "User is not authenticated.");
         }
 
         await next(context);
+    }
+
+    /// <summary>
+    /// Builds the GraphQL error for a rejected request and records why on the request log, so the
+    /// log distinguishes "we don't know who you are" from the other ways a request can fail.
+    /// </summary>
+    private static GraphQLException Rejected(string failureKind, string message)
+    {
+        GatewayOperationActivity.MarkFailed(
+            Activity.Current, failureKind, message, GraphQlConstant.UnauthorizedErrorCode);
+
+        return new GraphQLException(
+            ErrorBuilder.New()
+                .SetMessage(message)
+                .SetCode(GraphQlConstant.UnauthorizedErrorCode)
+                .Build());
     }
 
     private static bool IsValidTenant(HttpContext? httpContext)

@@ -24,9 +24,12 @@ import { Pagination } from "@/data-gateway/components/shared/pagination";
 import { showErrorToast } from "@/hooks/use-toast";
 import { useGraphLogHistory } from "../../hooks/use-graph-log-history";
 import {
+  FAILURE_KIND_LABELS,
+  GraphLogFailureKind,
   GraphLogOperationType,
   GraphLogResponseStatus,
   IGraphLogHistoryItem,
+  failureKindLabel,
 } from "../../models/graph-log-history";
 import { GraphLogDetailsSheet } from "./graph-log-details-sheet";
 import {
@@ -54,6 +57,7 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
   const [pageSize, setPageSize] = useState(10);
   const [operationType, setOperationType] = useState<GraphLogOperationType | typeof ALL>(ALL);
   const [responseStatus, setResponseStatus] = useState<GraphLogResponseStatus | typeof ALL>(ALL);
+  const [failureKind, setFailureKind] = useState<GraphLogFailureKind | typeof ALL>(ALL);
   const [selectedItem, setSelectedItem] = useState<IGraphLogHistoryItem | null>(null);
 
   // A new date range invalidates the current page number. Adjusting during render (rather than in
@@ -72,6 +76,7 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
     pageSize,
     operationType: operationType === ALL ? undefined : operationType,
     responseStatus: responseStatus === ALL ? undefined : responseStatus,
+    failureKind: failureKind === ALL ? undefined : failureKind,
   });
 
   useEffect(() => {
@@ -129,6 +134,26 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Select
+                value={failureKind}
+                onValueChange={(value) => {
+                  setFailureKind(value as GraphLogFailureKind | typeof ALL);
+                  setPageNo(1);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[150px] text-xs" aria-label="Failure reason">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All reasons</SelectItem>
+                  {Object.entries(FAILURE_KIND_LABELS).map(([kind, label]) => (
+                    <SelectItem key={kind} value={kind}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -181,10 +206,17 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
                       <TableCell className="text-muted-foreground">
                         {item.operationType || "—"}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant={item.responseStatus === "failed" ? "error" : "success"}>
-                          {item.responseStatus || "unknown"}
-                        </Badge>
+                      <TableCell title={item.failureMessage || undefined}>
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge variant={item.responseStatus === "failed" ? "error" : "success"}>
+                            {item.responseStatus || "unknown"}
+                          </Badge>
+                          {item.responseStatus === "failed" && (
+                            <span className="whitespace-nowrap text-xs text-muted-foreground">
+                              {failureKindLabel(item.failureKind || "unknown")}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className={statusCodeClass(item.statusCode)}>
                         {item.statusCode || "—"}

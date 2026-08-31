@@ -6,6 +6,9 @@ public class GetGraphLogHistoryRequest : BasePaginationRequest
     public string? EntityName { get; set; }
     public string? OperationType { get; set; }
     public string? ResponseStatus { get; set; }
+
+    /// <summary>One of the <see cref="Helpers.GatewayFailureKind"/> values.</summary>
+    public string? FailureKind { get; set; }
     public DateTime? From { get; set; }
     public DateTime? To { get; set; }
 

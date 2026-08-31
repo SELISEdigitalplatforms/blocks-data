@@ -28,6 +28,7 @@ class GraphLogService {
     if (payload.schemaName) params.set("SchemaName", payload.schemaName);
     if (payload.operationType) params.set("OperationType", payload.operationType);
     if (payload.responseStatus) params.set("ResponseStatus", payload.responseStatus);
+    if (payload.failureKind) params.set("FailureKind", payload.failureKind);
 
     return http.get(`${GRAPH_LOG_ENDPOINTS.HISTORY}?${params.toString()}`);
   }

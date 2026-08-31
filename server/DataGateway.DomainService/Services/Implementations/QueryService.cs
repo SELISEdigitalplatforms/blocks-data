@@ -189,9 +189,16 @@ public class QueryService : IQueryService
         if (rlsResult.IsAccessGranted) return;
 
         _logger.LogWarning("Access denied for READ on schema {SchemaName}: {Error}", schema.SchemaName, rlsResult.ErrorMessage);
+        var message = rlsResult.ErrorMessage ?? "You don't have permission to read records in this entity.";
+        GatewayOperationActivity.MarkFailed(
+            System.Diagnostics.Activity.Current,
+            GatewayFailureKind.Authorization,
+            message,
+            GraphQlConstant.UnauthorizedErrorCode);
+
         throw new GraphQLException(
             ErrorBuilder.New()
-                .SetMessage(rlsResult.ErrorMessage ?? "You don't have permission to read records in this entity.")
+                .SetMessage(message)
                 .SetCode(GraphQlConstant.UnauthorizedErrorCode)
                 .Build());
     }

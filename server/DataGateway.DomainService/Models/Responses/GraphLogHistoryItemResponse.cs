@@ -27,6 +27,19 @@ public class GraphLogHistoryItemResponse
     public string ResponseStatus { get; set; } = string.Empty;
 
     /// <summary>
+    /// Why the request failed — one of the <see cref="Helpers.GatewayFailureKind"/> values
+    /// ("authentication", "authorization", "validation", "bad_request", "unhandled", "unknown").
+    /// Empty when the request succeeded.
+    /// </summary>
+    public string FailureKind { get; set; } = string.Empty;
+
+    /// <summary>The GraphQL error code behind <see cref="FailureKind"/>.</summary>
+    public string FailureCode { get; set; } = string.Empty;
+
+    /// <summary>Human-readable failure reason.</summary>
+    public string FailureMessage { get; set; } = string.Empty;
+
+    /// <summary>
     /// HTTP status code the gateway replied with, from the span's "http.response.status_code"
     /// attribute (0 when the span carries no status code).
     /// </summary>

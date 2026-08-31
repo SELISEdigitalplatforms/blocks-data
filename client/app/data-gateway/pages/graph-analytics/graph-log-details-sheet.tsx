@@ -10,7 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui-kits/sheet/sheet";
-import { IGraphLogHistoryItem } from "../../models/graph-log-history";
+import { IGraphLogHistoryItem, failureKindLabel } from "../../models/graph-log-history";
 import {
   formatDateTimeWithSeconds,
   formatDuration,
@@ -75,6 +75,9 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
               <Badge variant={failed ? "error" : "success"}>
                 {item.responseStatus || "unknown"}
               </Badge>
+              {failed && item.failureKind && (
+                <Badge variant="error">{failureKindLabel(item.failureKind)}</Badge>
+              )}
               {item.operationType && <Badge variant="secondary">{item.operationType}</Badge>}
               <Badge variant="secondary">{item.inAppRequest ? "In-app" : "External"}</Badge>
             </div>
@@ -88,10 +91,15 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
               <Field label="Response size" value={formatSize(item.responseSize)} />
               <Field label="DB response size" value={formatSize(item.databaseResponseSize)} />
               <Field label="Status code" value={item.statusCode || "—"} />
+              {failed && <Field label="Error code" value={item.failureCode || "—"} />}
               <Field label="Started" value={formatDateTimeWithSeconds(item.startTime)} />
               <Field label="Ended" value={formatDateTimeWithSeconds(item.endTime)} />
               <Field label="Trace ID" value={item.traceId || "—"} />
             </div>
+
+            {item.failureMessage && (
+              <Field label="Failure reason" value={item.failureMessage} />
+            )}
 
             {item.statusDescription && (
               <Field label="Status description" value={item.statusDescription} />

@@ -1,4 +1,11 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render as rtlRender,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,6 +28,10 @@ vi.mock("@/data-gateway/hooks/use-configuration", () => ({
 }));
 vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-1" } }),
+  // The form now reaches the IAM role/user services (via the principal selector), and
+  // app/lib/http-client.ts constructs HttpClient instances at import time - so this partial
+  // mock has to supply a constructible stub or the module graph throws on load.
+  HttpClient: class {},
 }));
 vi.mock("@/hooks/use-toast", () => ({
   showSuccessToast: (...a: unknown[]) => showSuccessToast(...a),
@@ -30,7 +41,34 @@ vi.mock("./schema-access-control-accordion", () => ({
   SchemaAccessControlAccordion: () => <div data-testid="sac-accordion" />,
 }));
 
+// auth.roles / auth.userId + static value now render the tenant-scoped principal selector, which
+// reaches the IAM role/user services. Stubbed so these form tests stay about the form.
+const getRoles = vi.fn(async () => ({ data: [], totalCount: 0, errors: null }));
+const getUsers = vi.fn(async () => ({ data: [], totalCount: 0, errors: null }));
+const getUserById = vi.fn(async () => ({ data: undefined, errors: null }));
+vi.mock("@blocks-idp/iam/services/role.service", () => ({
+  roleService: { getRoles: (...a: unknown[]) => getRoles(...a) },
+}));
+vi.mock("@blocks-idp/iam/services/user.service", () => ({
+  userService: {
+    getUsers: (...a: unknown[]) => getUsers(...a),
+    getUserById: (...a: unknown[]) => getUserById(...a),
+  },
+}));
+
 import { RuleSetForm } from "./rule-set-form";
+
+/** The principal selector uses React Query, so the form now needs a client in tests. */
+const render = (ui: ReactElement) =>
+  rtlRender(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
+      }
+    >
+      {ui}
+    </QueryClientProvider>,
+  );
 
 const schemaFields = [
   { name: "title", type: "String", isArray: false },
@@ -111,10 +149,13 @@ describe("RuleSetForm", () => {
     expect(screen.getByRole("button", { name: "Update" })).toBeInTheDocument();
     // Direct-value (START_WITH) rule shows its dedicated prefix input.
     expect(screen.getByPlaceholderText("Enter prefix")).toBeInTheDocument();
-    // IN + static rule renders the comma-separated input.
+    // auth.roles + IN + static now renders the principal multi-select instead of free text, and
+    // hydrates the stored slugs verbatim - this is the H5 edit path, where the stored values must
+    // survive even before (or without) resolution against IAM.
     expect(
-      screen.getByPlaceholderText("Enter comma-separated values"),
-    ).toBeInTheDocument();
+      screen.queryByPlaceholderText("Enter comma-separated values"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /a, b/ })).toBeInTheDocument();
     // Five rules => five remove buttons.
     expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(5);
   });
@@ -143,13 +184,14 @@ describe("RuleSetForm", () => {
     // Rule group carries all five mapped rules with the AND operator.
     expect(payload.ruleGroup.logicalOperator).toBe(0);
     expect(payload.ruleGroup.rules).toHaveLength(5);
-    // Direct-value op keeps staticValue, IN + static splits to an array.
+    // Direct-value op keeps staticValue; IN + static uses the API's
+    // comma-delimited wire format.
     const startWith = payload.ruleGroup.rules.find((r: { operator: number }) => r.operator === 10);
     expect(startWith.staticValue).toBe("pre");
     const inStatic = payload.ruleGroup.rules.find(
       (r: { operator: number; rightSource: number }) => r.operator === 8 && r.rightSource === 2,
     );
-    expect(inStatic.staticValue).toEqual(["a", "b"]);
+    expect(inStatic.staticValue).toBe("a, b");
 
     await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
     expect(onCancel).toHaveBeenCalled();
@@ -206,9 +248,23 @@ describe("RuleSetForm create flow", () => {
     await pick(user, 2, /^Equal$/);
     await pick(user, 3, "Static Value");
 
-    fireEvent.change(screen.getByPlaceholderText("Enter value"), {
-      target: { value: "user-123" },
-    });
+    // auth.userId + static value is now a tenant-scoped user selector, not free text (H3).
+    getUsers.mockResolvedValue({
+      data: [
+        {
+          itemId: "user-123",
+          firstName: "Ada",
+          lastName: "Lovelace",
+          userName: "ada",
+          email: "ada@example.com",
+          active: true,
+        },
+      ],
+      totalCount: 1,
+      errors: null,
+    } as never);
+    await user.click(screen.getByRole("button", { name: /Select user/ }));
+    await user.click(await screen.findByText("Ada Lovelace"));
 
     const saveBtn = screen.getByRole("button", { name: "Save" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
@@ -305,10 +361,23 @@ describe("RuleSetForm create flow", () => {
     await pick(user, 2, /^In$/);
     await pick(user, 3, "Static Value");
 
-    const listInput = await screen.findByPlaceholderText(
-      "Enter comma-separated values",
-    );
-    fireEvent.change(listInput, { target: { value: "a, b , c" } });
+    // auth.roles + IN is now a tenant-scoped multi-select of role slugs (H2). The mapping below is
+    // unchanged: the selector writes the same comma-delimited form state the free-text input did,
+    // and buildRuleGroup still splits it into an ordered string[].
+    getRoles.mockResolvedValue({
+      data: [
+        { itemId: "r-a", name: "Role A", slug: "a", description: "" },
+        { itemId: "r-b", name: "Role B", slug: "b", description: "" },
+        { itemId: "r-c", name: "Role C", slug: "c", description: "" },
+      ],
+      totalCount: 3,
+      errors: null,
+    } as never);
+
+    await user.click(screen.getByRole("button", { name: /Select role/ }));
+    await user.click(await screen.findByText("Role A"));
+    await user.click(await screen.findByText("Role B"));
+    await user.click(await screen.findByText("Role C"));
 
     const saveBtn = screen.getByRole("button", { name: "Save" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
@@ -316,9 +385,9 @@ describe("RuleSetForm create flow", () => {
 
     await waitFor(() => expect(createPolicy).toHaveBeenCalled());
     const rule = createPolicy.mock.calls[0][0].ruleGroup.rules[0];
-    // IN => 8, trimmed static array.
+    // IN => 8, comma-delimited static value in selection order.
     expect(rule.operator).toBe(8);
-    expect(rule.staticValue).toEqual(["a", "b", "c"]);
+    expect(rule.staticValue).toBe("a,b,c");
   });
 
   it("allows Auth Roles IN an array schema field", async () => {
@@ -528,5 +597,132 @@ describe("RuleSetForm create flow", () => {
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
     await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+  });
+});
+
+/**
+ * These five resets were incidental before the principal selector existed. They are now
+ * load-bearing: each one is what stops a compareValue created under a DIFFERENT rule shape from
+ * being reinterpreted as a role slug or user id and silently resubmitted into an access policy.
+ * They are pinned here so a future refactor cannot quietly remove them.
+ */
+describe("RuleSetForm — compareValue resets that guard the principal selector", () => {
+  const pick = async (
+    user: ReturnType<typeof userEvent.setup>,
+    index: number,
+    name: RegExp | string,
+  ) => {
+    const combos = screen.getAllByRole("combobox");
+    await user.click(combos[index]);
+    await user.click(await screen.findByRole("option", { name }));
+  };
+
+  const startRule = async (user: ReturnType<typeof userEvent.setup>) => {
+    render(<RuleSetForm {...baseProps} onCancel={vi.fn()} />);
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Guards" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+  };
+
+  it("changing the FIELD clears compareValue, so free text cannot reach the selector", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    await startRule(user);
+
+    // Build a plain string rule and type free text into it.
+    await pick(user, 0, "Schema Fields");
+    await pick(user, 1, "title");
+    await pick(user, 2, /^Equal$/);
+    await pick(user, 3, "Static Value");
+    fireEvent.change(screen.getByPlaceholderText("Enter value"), {
+      target: { value: "not-a-user-id" },
+    });
+
+    // Switch the source and field to Auth.UserId: the selector must appear
+    // EMPTY, not carrying the old text.
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+
+    expect(screen.queryByDisplayValue("not-a-user-id")).not.toBeInTheDocument();
+    expect(screen.queryByText(/not-a-user-id/)).not.toBeInTheDocument();
+  });
+
+  it("crossing the IN boundary clears compareValue, so a multi-value string cannot land in a single-select", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    getRoles.mockResolvedValue({
+      data: [
+        { itemId: "r-a", name: "Role A", slug: "a", description: "" },
+        { itemId: "r-b", name: "Role B", slug: "b", description: "" },
+      ],
+      totalCount: 2,
+      errors: null,
+    } as never);
+    await startRule(user);
+
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "Roles");
+    await pick(user, 2, /^In$/);
+    await pick(user, 3, "Static Value");
+    await user.click(screen.getByRole("button", { name: /Select role/ }));
+    await user.click(await screen.findByText("Role A"));
+    await user.click(await screen.findByText("Role B"));
+
+    // IN -> CONTAIN crosses the boundary: "a,b" must NOT survive into the single-select, or
+    // buildRuleGroup would emit the literal scalar "a,b" as one role slug.
+    await pick(user, 2, /^Contain$/);
+
+    expect(screen.queryByRole("button", { name: /a, b/ })).not.toBeInTheDocument();
+  });
+
+  it("changing the COMPARE SOURCE clears compareValue — the reset that closes the direct-value -> EQUAL path", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    await startRule(user);
+
+    // START_WITH takes direct text and hides the compare source entirely.
+    // (REGEX would be the same shape but is commented out of RULE_OPERATORS, so it is not
+    // reachable in the UI at all - START_WITH is the live form of this hazard.)
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+    await pick(user, 2, /^Start With$/);
+    fireEvent.change(screen.getByPlaceholderText("Enter prefix"), {
+      target: { value: "admin-prefix" },
+    });
+
+    // Moving to EQUAL leaves compareValue intact (no branch clears it) but compareSource is empty,
+    // so the selector cannot mount yet.
+    await pick(user, 2, /^Equal$/);
+    expect(screen.queryByRole("button", { name: /Select user/ })).not.toBeInTheDocument();
+
+    // Choosing a compare source is the step that wipes the carried direct-value text.
+    await pick(user, 3, "Static Value");
+    expect(screen.queryByDisplayValue("admin-prefix")).not.toBeInTheDocument();
+    expect(screen.queryByText(/admin-prefix/)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * Hydration bypasses every onValueChange handler, so a persisted rule can land straight in the
+ * selector carrying a value that is not a real principal. The contract is preservation: show it,
+ * mark it, never rewrite or drop it.
+ */
+describe("RuleSetForm — hydrated values that are not real principals", () => {
+  it("keeps a persisted non-principal userId value verbatim instead of silently dropping it", async () => {
+    render(<RuleSetForm {...baseProps} editingPolicy={editingPolicy} />);
+
+    // Fixture rule 0 is auth.userId EQUAL static "abc" - not a real user id.
+    expect(await screen.findByRole("button", { name: /abc/ })).toBeInTheDocument();
+
+    const nameInput = screen.getByDisplayValue("My Rule Set");
+    fireEvent.change(nameInput, { target: { value: "Renamed again" } });
+    const updateBtn = screen.getByRole("button", { name: "Update" });
+    await waitFor(() => expect(updateBtn).toBeEnabled());
+    fireEvent.click(updateBtn);
+
+    await waitFor(() => expect(updatePolicy).toHaveBeenCalled());
+    const rules = updatePolicy.mock.calls[0][0].ruleGroup.rules;
+    const userIdRule = rules.find(
+      (r: { leftOperand: string }) => r.leftOperand === "userId",
+    );
+    expect(userIdRule.staticValue).toBe("abc");
   });
 });

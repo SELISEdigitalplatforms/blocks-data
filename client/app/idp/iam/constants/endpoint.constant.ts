@@ -9,8 +9,9 @@ const IAM_CONFIG_SUBPATH = "/IAM";
 // ─── User endpoints (user.service) ──────────────────────────────────────────
 
 export const USER_ENDPOINTS = {
-  GET_USERS: `${API_BASES.IDP}${IAM_SUBPATH}/users`,
+  GET_USERS: "/api/iam/users",
   GET_USER: `${API_BASES.IDP}/iam/me`,
+  GET_USER_BY_ID: "/api/iam/users",
   USER_INFO: `/api/idp/UserInfo`,
   CREATE: `${API_BASES.IDP}${IAM_SUBPATH}/Create`,
   UPDATE: `${API_BASES.IDP}${IAM_SUBPATH}/Update`,
@@ -40,7 +41,10 @@ export const ACCOUNT_ENDPOINTS = {
 // ─── Role endpoints (role.service) ──────────────────────────────────────────
 
 export const ROLE_ENDPOINTS = {
-  GET_ROLES: `${API_BASES.IDP}${IAM_SUBPATH}/GetRoles`,
+  // Role lists are requested through the IAM HttpClient, whose base URL is the
+  // configured IAM origin. Keep this path relative to avoid prefixing it with
+  // the Blocks Data origin.
+  GET_ROLES: "/api/iam/roles",
   GET_ROLE: `${API_BASES.IDP}${IAM_SUBPATH}/GetRole`,
   CREATE_ROLE: `${API_BASES.IDP}${IAM_SUBPATH}/CreateRole`,
   UPDATE_ROLE: `${API_BASES.IDP}${IAM_SUBPATH}/UpdateRole`,

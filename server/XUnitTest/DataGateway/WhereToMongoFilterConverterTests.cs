@@ -151,7 +151,57 @@ public class WhereToMongoFilterConverterTests
             }
         };
         var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
-        result!.Contains("Address").Should().BeTrue();
+        Assert.Equal(
+            new BsonDocument("Address.City", new BsonDocument("$eq", "NYC")),
+            result);
+    }
+
+    [Fact]
+    public void Convert_NestedSiblingFields_UsesDottedPathsWithImplicitAnd()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["Address"] = new Dictionary<string, object?>
+            {
+                ["City"] = new Dictionary<string, object?> { ["eq"] = "NYC" },
+                ["Zip"] = new Dictionary<string, object?> { ["in"] = new[] { "10001", "10002" } }
+            }
+        };
+
+        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+
+        result!["$and"].AsBsonArray.Should().Contain(x => x.AsBsonDocument.Contains("Address.City"));
+        result["$and"].AsBsonArray.Should().Contain(x => x.AsBsonDocument.Contains("Address.Zip"));
+    }
+
+    [Fact]
+    public void Convert_NestedItemId_MapsOnlyLeafToUnderscoreId()
+    {
+        var schema = Schema(fields: new()
+        {
+            Field("Child", "Child", children: new() { Field("ItemId", "ID") })
+        });
+        var where = new Dictionary<string, object?>
+        {
+            ["Child"] = new Dictionary<string, object?>
+            {
+                ["ItemId"] = new Dictionary<string, object?> { ["eq"] = "abc" }
+            }
+        };
+
+        var result = WhereToMongoFilterConverter.Convert(where, schema);
+
+        result!.Contains("Child._id").Should().BeTrue();
+    }
+
+    [Fact]
+    public void Convert_ScalarWithoutOperationObject_ThrowsInvalidWhereFilter()
+    {
+        var act = () => WhereToMongoFilterConverter.Convert(
+            new Dictionary<string, object?> { ["Name"] = "unsafe" }, PersonSchema());
+
+        act.Should().Throw<InvalidWhereFilterException>()
+            .Which.Code.Should().Be("INVALID_WHERE_FILTER");
     }
 
     [Fact]
@@ -227,10 +277,11 @@ public class WhereToMongoFilterConverterTests
     }
 
     [Fact]
-    public void Convert_ScalarValueNotDictionary_Skipped()
+    public void Convert_ScalarValueNotDictionary_Throws()
     {
         var where = new Dictionary<string, object?> { ["Name"] = "John" };
-        WhereToMongoFilterConverter.Convert(where, ExtendedSchema()).Should().BeNull();
+        var act = () => WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        act.Should().Throw<InvalidWhereFilterException>();
     }
 
     [Fact]

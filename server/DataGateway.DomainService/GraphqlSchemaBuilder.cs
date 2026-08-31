@@ -66,8 +66,10 @@ public class GraphqlSchemaBuilder
                 s => s.GetSchemaNameForProject(),
                 s => new EntityFilterInputType(s));
 
+            var childFilterInputTypes = BuildChildFilterInputTypes(dbSchemas);
+
             BuildOnlySchemaType(schemaBuilder, customSchemas);
-            BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes);
+            BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes, childFilterInputTypes);
 
             var queryType = BuildQueryType(dbSchemas, outputTypes, entityFilterInputTypes);
             var mutationType = BuildMutationType(dbSchemas, insertInputTypes, updateInputTypes, deleteInputTypes, entityFilterInputTypes);
@@ -78,6 +80,11 @@ public class GraphqlSchemaBuilder
             _logger.LogInformation("GraphQL schema built for tenant: {TenantId}", tenantId);
             await AdaptSchemaChangeLogsToServerAsync();
             _logger.LogInformation("Schema change logs adapted to server successfully");
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("SCHEMA_FILTER_CYCLE", StringComparison.Ordinal))
+        {
+            _logger.LogError(ex, "Rejected cyclic GraphQL filter schema for tenant: {TenantId}", tenantId);
+            throw;
         }
         catch (Exception ex)
         {
@@ -336,7 +343,8 @@ public class GraphqlSchemaBuilder
 
     private static void BuildFilterAndSortTypes(
         ISchemaBuilder schemaBuilder,
-        Dictionary<string, EntityFilterInputType> entityFilterInputTypes)
+        Dictionary<string, EntityFilterInputType> entityFilterInputTypes,
+        IReadOnlyCollection<ChildSchemaFilterInputType> childFilterInputTypes)
     {
         schemaBuilder.AddType<SortDirectionType>();
         schemaBuilder.AddType<DynamicSortInputType>();
@@ -349,6 +357,47 @@ public class GraphqlSchemaBuilder
         schemaBuilder.AddType<DateTimeOperationFilterInputType>();
         foreach (var type in entityFilterInputTypes.Values)
             schemaBuilder.AddType(type);
+        foreach (var type in childFilterInputTypes)
+            schemaBuilder.AddType(type);
+    }
+
+    private static IReadOnlyCollection<ChildSchemaFilterInputType> BuildChildFilterInputTypes(
+        IEnumerable<SchemaDefinitionExtended> schemas)
+    {
+        var definitions = new Dictionary<string, IReadOnlyList<FieldDefinitionResponse>>(StringComparer.Ordinal);
+
+        foreach (var schema in schemas)
+            Collect(schema.Fields, new HashSet<List<FieldDefinitionResponse>>(ReferenceEqualityComparer.Instance), definitions, schema.SchemaName);
+
+        return definitions.Select(x => new ChildSchemaFilterInputType(x.Key, x.Value)).ToArray();
+
+        static void Collect(
+            List<FieldDefinitionResponse> fields,
+            HashSet<List<FieldDefinitionResponse>> ancestors,
+            Dictionary<string, IReadOnlyList<FieldDefinitionResponse>> definitions,
+            string path)
+        {
+            if (!ancestors.Add(fields))
+                throw new InvalidOperationException($"SCHEMA_FILTER_CYCLE: cyclic child schema reference at '{path}'.");
+
+            foreach (var field in fields.Where(f => !GraphQlTypeHelper.IsScalar(f.Type) && f.Fields.Count > 0))
+            {
+                if (definitions.TryGetValue(field.Type, out var existing))
+                {
+                    var existingShape = existing.Select(f => (f.Name, f.Type)).ToArray();
+                    var currentShape = field.Fields.Select(f => (f.Name, f.Type)).ToArray();
+                    if (!existingShape.SequenceEqual(currentShape))
+                        throw new InvalidOperationException($"Conflicting filter definitions for child schema '{field.Type}'.");
+                }
+                else
+                {
+                    definitions.Add(field.Type, field.Fields);
+                    Collect(field.Fields, ancestors, definitions, $"{path}.{field.Name}");
+                }
+            }
+
+            ancestors.Remove(fields);
+        }
     }
 
     private ObjectType BuildQueryType(

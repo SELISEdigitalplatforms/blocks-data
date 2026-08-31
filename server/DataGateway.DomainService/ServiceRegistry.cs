@@ -15,7 +15,6 @@ using Blocks.Genesis;
 using DataGateway.DomainService.Authentication;
 using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Helpers;
-using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Execution.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using k8s;
@@ -43,6 +42,7 @@ public static class ServiceRegistry
         serviceCollection.AddScoped<IDataAccessService, DataAccessService>();
         serviceCollection.AddScoped<IMockDataService, MockDataService>();
         serviceCollection.AddScoped<IDataValidationService, DataValidationService>();
+        serviceCollection.AddScoped<IGraphLogHistoryService, GraphLogHistoryService>();
         serviceCollection.AddHttpClient<IRegexAssistantService, RegexAssistantService>();
         serviceCollection.AddSingleton<ISchemaExportService, SchemaExportService>();
         serviceCollection.AddSingleton<ISchemaImportService, SchemaImportService>();
@@ -85,7 +85,11 @@ public static class ServiceRegistry
         serviceCollection.AddHttpResponseFormatter<AuthHttpResponseFormatter>();
         serviceCollection.AddGraphQLServer()
             .DisableIntrospection()
-            .ConfigureSchemaAsync(ConfigureGraphQLSchemaAsync);
+            .ConfigureSchemaAsync(ConfigureGraphQLSchemaAsync)
+            // Rides HotChocolate's own instrumentation hook (already part of its implicit default
+            // pipeline) instead of a custom request middleware, so nothing about the pipeline
+            // itself needs to be touched or rebuilt.
+            .AddDiagnosticEventListener<GatewayActivityDiagnosticEventListener>();
 
         // A separate GraphQL schema/executor is served per tenant (identified by the x-blocks-key
         // header). Replace the executor options monitor so an executor can be resolved for any tenant

@@ -35,6 +35,10 @@ public class QueryService : IQueryService
         IResolverContext ctx,
         SchemaDefinitionExtended schema)
     {
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(System.Diagnostics.Activity.Current);
+        gatewayOperation.SchemaName = ctx.Selection.Field.Name;
+        gatewayOperation.EntityName = schema.SchemaName;
+
         try
         {
             _logger.LogInformation("Getting data for schema {SchemaName}", schema.SchemaName);
@@ -49,6 +53,14 @@ public class QueryService : IQueryService
             var mongoSort = GetMongoSort(schema, queryInput.Order, queryInput.Sort);
             var (skip, limit) = ComputePagination(queryInput.PageNo, queryInput.PageSize);
 
+            gatewayOperation.CollectionName = schema.CollectionName;
+            gatewayOperation.MongoQuery = new BsonDocument
+            {
+                { "filter", mongoFilter },
+                { "projection", mongoProjection },
+                { "sort", mongoSort ?? (BsonValue)BsonNull.Value }
+            }.ToString();
+
             var (documents, totalCount) = await _repository.GetItemsWithCountAsync(
                 schema.CollectionName,
                 mongoFilter,
@@ -58,6 +70,8 @@ public class QueryService : IQueryService
                 limit);
 
             var items = BuildResultItems(documents, schema, evaluationOnlyFieldPaths);
+
+            gatewayOperation.ResponseSize = documents.Sum(d => d.ToBson().Length);
 
             _logger.LogInformation("Data retrieved for schema {SchemaName}", schema.SchemaName);
 

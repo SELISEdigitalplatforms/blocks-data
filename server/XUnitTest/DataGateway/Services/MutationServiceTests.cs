@@ -10,6 +10,7 @@ using DataGateway.DomainService.Resolvers;
 using DataGateway.DomainService.Services;
 using FluentAssertions;
 using HotChocolate;
+using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using HotChocolate.Types;
@@ -98,7 +99,13 @@ public class MutationServiceTests
 
     private static Mock<IResolverContext> ContextWith(IValueNode inputLiteral)
     {
+        var field = new Mock<IObjectField>();
+        field.Setup(f => f.Name).Returns("mutationField");
+        var selection = new Mock<ISelection>();
+        selection.Setup(s => s.Field).Returns(field.Object);
+
         var ctx = new Mock<IResolverContext>();
+        ctx.Setup(c => c.Selection).Returns(selection.Object);
         ctx.Setup(c => c.ArgumentLiteral<IValueNode>(GraphQlConstant.InputFieldName)).Returns(inputLiteral);
         ctx.Setup(c => c.ArgumentValue<object?>(GraphQlConstant.WhereFieldName)).Returns((object?)null);
         ctx.Setup(c => c.ArgumentValue<string?>(GraphQlConstant.FilterFieldName)).Returns((string?)null);

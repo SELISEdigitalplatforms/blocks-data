@@ -10,8 +10,10 @@ import {
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useDataGatewayPath } from "@/hooks/use-scoped-path";
-import { Download, FolderInput, MoreVertical, Settings } from "lucide-react";
-import { useState } from "react";
+import { getRuntimeEnv } from "@/lib/runtime-env";
+import { cn } from "@/lib/utils";
+import { BarChart3, BookOpen, Download, FolderInput, MoreVertical, Settings } from "lucide-react";
+import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import ExportSchemaModal from "./export-schema/export-schema-modal";
 import ImportSchemaModal from "./import-schema-modal";
@@ -28,6 +30,15 @@ const GraphQLIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+export interface DataGatewayAction {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  active?: boolean;
+}
+
+const inlineButtonClass = "gap-2 px-4 border-border/40 transition-colors";
+
 export const DataGatewayActions = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -39,8 +50,30 @@ export const DataGatewayActions = () => {
 
   const isPlayground = location.pathname.includes("/playground");
   const isConfigure = location.pathname.includes("/configuration");
+  const isAnalytics = location.pathname.includes("/analytics");
 
-  const ACTIONS = [
+  // The two actions that stay buttons on desktop — API Docs opens the Swagger UI in a new tab, and
+  // Playground is the action people reach for most.
+  const INLINE_ACTIONS: DataGatewayAction[] = [
+    {
+      label: "API Docs",
+      icon: <BookOpen className="h-4 w-4" />,
+      onClick: () =>
+        window.open(
+          `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`,
+          "_blank",
+        ),
+    },
+    {
+      label: "Playground",
+      icon: <GraphQLIcon className="h-4 w-4" />,
+      onClick: () => navigate(`${dataGatewayPath}/playground`),
+      active: isPlayground,
+    },
+  ];
+
+  // Everything else lives behind the overflow menu, on every screen size.
+  const OVERFLOW_ACTIONS: DataGatewayAction[] = [
     {
       label: "Import",
       icon: <FolderInput className="h-4 w-4" />,
@@ -48,19 +81,17 @@ export const DataGatewayActions = () => {
         setImportModalInstance((n) => n + 1);
         setIsImportModalOpen(true);
       },
-      active: false,
     },
     {
       label: "Export",
       icon: <Download className="h-4 w-4" />,
       onClick: () => setIsExportModalOpen(true),
-      active: false,
     },
     {
-      label: "Playground",
-      icon: <GraphQLIcon className="h-4 w-4" />,
-      onClick: () => navigate(`${dataGatewayPath}/playground`),
-      active: isPlayground,
+      label: "Analytics",
+      icon: <BarChart3 className="h-4 w-4" />,
+      onClick: () => navigate(`${dataGatewayPath}/analytics`),
+      active: isAnalytics,
     },
     {
       label: "Configure",
@@ -70,45 +101,72 @@ export const DataGatewayActions = () => {
     },
   ];
 
+  const mobileMenuActions = [...INLINE_ACTIONS, ...OVERFLOW_ACTIONS];
+
+  const renderMenuItems = (actions: DataGatewayAction[]) =>
+    actions.map(({ label, icon, onClick, active }) => (
+      <DropdownMenuItem
+        key={label}
+        className={cn("cursor-pointer gap-2", active && "text-primary")}
+        onClick={onClick}
+      >
+        {icon} {label}
+      </DropdownMenuItem>
+    ));
+
+  const menuTrigger = (label: string) => (
+    <DropdownMenuTrigger asChild>
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        className="h-8 w-8 border-border/40 text-muted-foreground/70 hover:border-border/60 hover:text-foreground"
+        aria-label={label}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </Button>
+    </DropdownMenuTrigger>
+  );
+
   return (
     <>
       <div className="flex shrink-0 items-center gap-2">
-        {/* Mobile: collapsed menu */}
+        {/* Mobile: every action collapsed into one menu */}
         <div className="xl:hidden">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="outline" size="icon" className="h-8 w-8 border-border/40" aria-label="Actions">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
+            {menuTrigger("Actions")}
             <DropdownMenuContent align="end" className="w-48">
-              {ACTIONS.map(({ label, icon, onClick, active }) => (
-                <DropdownMenuItem key={label} className="cursor-pointer gap-2" onClick={onClick}>
-                  {icon} {label}
-                </DropdownMenuItem>
-              ))}
+              {renderMenuItems(mobileMenuActions)}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
-        {/* Desktop: inline buttons */}
+        {/* Desktop: inline buttons plus an overflow menu for the rest */}
         <div className="hidden items-center gap-2 xl:flex">
-          {ACTIONS.map(({ label, icon, onClick, active }) => (
+          {INLINE_ACTIONS.map(({ label, icon, onClick, active }) => (
             <Button
               key={label}
               size="sm"
               variant="outline"
-              className={`gap-2 px-4 border-border/40 transition-colors ${
+              className={cn(
+                inlineButtonClass,
                 active
                   ? "border-primary/40 bg-primary/5 text-primary shadow-[0_0_12px_-2px_rgba(99,102,241,0.2)]"
-                  : "text-muted-foreground/70 hover:border-border/60 hover:text-foreground"
-              }`}
+                  : "text-muted-foreground/70 hover:border-border/60 hover:text-foreground",
+              )}
               onClick={onClick}
             >
               {icon}
               {label}
             </Button>
           ))}
+
+          <DropdownMenu>
+            {menuTrigger("More actions")}
+            <DropdownMenuContent align="end" className="w-48">
+              {renderMenuItems(OVERFLOW_ACTIONS)}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

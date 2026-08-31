@@ -224,6 +224,26 @@
             <param name="validationId">The unique identifier of the data validation to delete.</param>
             <returns>Returns a success response if the validation is deleted, or an error message if the operation fails.</returns>
         </member>
+        <member name="T:Api.Controllers.GraphLogController">
+            <summary>
+            Exposes GraphQL request history (query/mutation traces) for the current tenant, read from
+            the trace store that <c>Blocks.Genesis.MongoDBTraceExporter</c> writes to.
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.GraphLogController.GetHistory(DataGateway.DomainService.Models.GetGraphLogHistoryRequest)">
+            <summary>
+            Retrieves a paginated, most-recent-first list of GraphQL request history for the
+            current tenant. Supports filtering by SchemaName (GraphQL field name), EntityName,
+            OperationType ("query"/"mutation"), ResponseStatus ("success"/"failed"), and a
+            From/To timestamp range.
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.GraphLogController.GetAnalytics(DataGateway.DomainService.Models.GetGraphLogAnalyticsRequest)">
+            <summary>
+            Retrieves aggregated GraphQL request analytics for the current tenant: a requests-over-time
+            series (success vs. failed, bucketed daily or weekly) and per-field call/error stats.
+            </summary>
+        </member>
         <member name="T:Api.Controllers.SchemaController">
             <summary>
             OperateSchemaController is responsible for managing schema operations.

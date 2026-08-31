@@ -4,7 +4,9 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using FluentAssertions;
 using HotChocolate;
+using HotChocolate.Execution.Processing;
 using HotChocolate.Resolvers;
+using HotChocolate.Types;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
@@ -57,8 +59,14 @@ public class SchemaAccessMiddlewareTests : IDisposable
         var accessor = new HttpContextAccessor { HttpContext = httpContext };
         services.AddSingleton<IHttpContextAccessor>(accessor);
 
+        var field = new Mock<IObjectField>();
+        field.Setup(f => f.Name).Returns("testField");
+        var selection = new Mock<ISelection>();
+        selection.Setup(s => s.Field).Returns(field.Object);
+
         var context = new Mock<IMiddlewareContext>();
         context.SetupGet(c => c.Services).Returns(services.BuildServiceProvider());
+        context.SetupGet(c => c.Selection).Returns(selection.Object);
         return context;
     }
 

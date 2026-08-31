@@ -184,18 +184,6 @@ describe("SchemaDetailsPage - interactions", () => {
     expect(screen.getAllByTestId("open-standalone").length).toBeGreaterThan(0);
   });
 
-  it("opens API docs in a new window", async () => {
-    const user = userEvent.setup();
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
-    renderPage();
-    await user.click(screen.getByRole("button", { name: /API Docs/ }));
-    expect(openSpy).toHaveBeenCalledWith(
-      "http://api/swagger/index.html",
-      "_blank",
-    );
-    openSpy.mockRestore();
-  });
-
   it("creates an Entity schema and navigates to it on success", async () => {
     const user = userEvent.setup();
     renderPage();

@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Blocks.Genesis;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Resolvers;
@@ -13,8 +15,18 @@ internal static class SchemaAccessMiddlewareHelper
         IMiddlewareContext context,
         FieldDelegate next,
         SchemaAccessLevel accessLevel,
-        string middlewareName)
+        string middlewareName,
+        string entityName)
     {
+        // Runs before QueryService/MutationService ever gets invoked, so this is the only chance
+        // to record what a request was for when access is denied here (tenant/auth checks below)
+        // — those services never get a chance to set it themselves. CollectionName/MongoQuery
+        // are left for QueryService/MutationService to set once execution actually reaches the
+        // point of building a Mongo query.
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
+        gatewayOperation.SchemaName = context.Selection.Field.Name;
+        gatewayOperation.EntityName = entityName;
+
         Console.WriteLine($"Invoking {middlewareName}");
         Console.WriteLine($"{middlewareName}: accessLevel: {accessLevel}");
         var httpContextAccessor = context.Services.GetService<IHttpContextAccessor>();
@@ -35,7 +47,7 @@ internal static class SchemaAccessMiddlewareHelper
             return;
         }
 
-		Console.WriteLine($"{middlewareName}: accessLevel is not public");
+        Console.WriteLine($"{middlewareName}: accessLevel is not public");
         var isAuthenticated = IsAuthenticated(httpContext);
         Console.WriteLine($"{middlewareName}: isAuthenticated: {isAuthenticated}");
 

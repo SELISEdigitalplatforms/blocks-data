@@ -11,6 +11,7 @@ using HotChocolate.Resolvers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using System.Collections;
+using System.Diagnostics;
 
 namespace DataGateway.DomainService.Services;
 
@@ -42,6 +43,10 @@ public class MutationService : IMutationService
         IResolverContext context,
         InputObjectType inputType)
     {
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
+        gatewayOperation.SchemaName = context.Selection.Field.Name;
+        gatewayOperation.EntityName = schema.SchemaName;
+
         _logger.LogInformation("Inserting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.WRITE, OperationLabelCreate);
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
@@ -52,11 +57,15 @@ public class MutationService : IMutationService
         MutationInputHelper.EnsureDefaultListsForInsert(input);
 
         var document = InputToBsonDocument(input);
+        gatewayOperation.CollectionName = schema.CollectionName;
+        gatewayOperation.MongoQuery = new BsonDocument { { "insert", document } }.ToString();
         await _repository.InsertAsync(schema.CollectionName, document);
         var itemId = document[GraphQlConstant.DbEntityIdFieldName].ToString();
 
         await _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted,
             dataDocuments: new List<BsonDocument> { document });
+
+        gatewayOperation.ResponseSize = document.ToBson().Length;
 
         _logger.LogInformation("Data inserted for schema {SchemaName}", schema.SchemaName);
 
@@ -69,6 +78,10 @@ public class MutationService : IMutationService
         IResolverContext context,
         InputObjectType inputType)
     {
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
+        gatewayOperation.SchemaName = context.Selection.Field.Name;
+        gatewayOperation.EntityName = schema.SchemaName;
+
         _logger.LogInformation("Updating data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.EDIT, OperationLabelUpdate);
         var filter = MutationFilterHelper.BuildFilterWithRls(context, schema, PolicyOperation.EDIT, EvaluateRlsPolicies);
@@ -84,9 +97,13 @@ public class MutationService : IMutationService
         input.InjectDefaultValueOnUpdate();
 
         var document = InputToBsonDocument(input);
+        gatewayOperation.CollectionName = schema.CollectionName;
+        gatewayOperation.MongoQuery = new BsonDocument { { "filter", filter }, { "update", document } }.ToString();
         var response = await _repository.UpdateAsync(schema.CollectionName, filter, document);
         response.ItemId = existingDocument[GraphQlConstant.DbEntityIdFieldName]?.ToString();
         await PublishUpdateEventAsync(schema, existingDocument, document, response.ItemId ?? string.Empty, response.Acknowledged);
+
+        gatewayOperation.ResponseSize = document.ToBson().Length;
 
         _logger.LogInformation("Data updated for schema {SchemaName}", schema.SchemaName);
 
@@ -99,9 +116,15 @@ public class MutationService : IMutationService
         IResolverContext context,
         InputObjectType inputType)
     {
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
+        gatewayOperation.SchemaName = context.Selection.Field.Name;
+        gatewayOperation.EntityName = schema.SchemaName;
+
         _logger.LogInformation("Deleting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.DELETE, OperationLabelDelete);
         var filter = MutationFilterHelper.BuildFilterWithRls(context, schema, PolicyOperation.DELETE, EvaluateRlsPolicies);
+        gatewayOperation.CollectionName = schema.CollectionName;
+        gatewayOperation.MongoQuery = new BsonDocument { { "filter", filter } }.ToString();
         var sort = new BsonDocument();
         var matchingDocuments = await _repository.GetItemsAsync(schema.CollectionName, filter, sort);
         if (matchingDocuments is null || matchingDocuments.Count == 0)
@@ -125,6 +148,8 @@ public class MutationService : IMutationService
             await _eventPublisher.PublishAsync(schema, DataChangeOperation.Deleted,
                 dataDocuments: new List<BsonDocument> { firstDocument! });
 
+        gatewayOperation.ResponseSize = firstDocument!.ToBson().Length;
+
         _logger.LogInformation("Data deleted for schema {SchemaName}", schema.SchemaName);
 
         return response;
@@ -136,9 +161,15 @@ public class MutationService : IMutationService
         IResolverContext context,
         InputObjectType inputType)
     {
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
+        gatewayOperation.SchemaName = context.Selection.Field.Name;
+        gatewayOperation.EntityName = schema.SchemaName;
+
         _logger.LogInformation("Bulk deleting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.DELETE, OperationLabelDelete);
         var filter = MutationFilterHelper.BuildFilterWithRls(context, schema, PolicyOperation.DELETE, EvaluateRlsPolicies);
+        gatewayOperation.CollectionName = schema.CollectionName;
+        gatewayOperation.MongoQuery = new BsonDocument { { "filter", filter } }.ToString();
         var existingDocuments = await _repository.GetItemsAsync(schema.CollectionName, filter);
         if (existingDocuments is null || !existingDocuments.Any())
             return MutationInputHelper.ActionResponseNotFound(OperationLabelDelete);
@@ -153,6 +184,8 @@ public class MutationService : IMutationService
             await _eventPublisher.PublishAsync(schema, DataChangeOperation.Deleted,
                 dataDocuments: existingDocuments.ToList());
 
+        gatewayOperation.ResponseSize = existingDocuments.Sum(d => d.ToBson().Length);
+
         _logger.LogInformation("Data bulk deleted for schema {SchemaName}", schema.SchemaName);
 
         return bulkResponse;
@@ -164,6 +197,10 @@ public class MutationService : IMutationService
         IResolverContext context,
         InputObjectType inputType)
     {
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
+        gatewayOperation.SchemaName = context.Selection.Field.Name;
+        gatewayOperation.EntityName = schema.SchemaName;
+
         _logger.LogInformation("Bulk inserting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.WRITE, OperationLabelCreate);
         var listNode = context.ArgumentLiteral<IValueNode>(GraphQlConstant.InputFieldName) as ListValueNode;
@@ -185,9 +222,13 @@ public class MutationService : IMutationService
             documents.Add(InputToBsonDocument(input));
         }
 
+        gatewayOperation.CollectionName = schema.CollectionName;
+        gatewayOperation.MongoQuery = new BsonDocument { { "insertMany", new BsonArray(documents) } }.ToString();
         var response = await _repository.InsertManyAsync(schema.CollectionName, documents);
         if (response.Acknowledged && documents.Count > 0)
             await _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted, dataDocuments: documents);
+
+        gatewayOperation.ResponseSize = documents.Sum(d => d.ToBson().Length);
 
         _logger.LogInformation("Data bulk inserted for schema {SchemaName}", schema.SchemaName);
 
@@ -200,9 +241,15 @@ public class MutationService : IMutationService
         IResolverContext context,
         InputObjectType inputType)
     {
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
+        gatewayOperation.SchemaName = context.Selection.Field.Name;
+        gatewayOperation.EntityName = schema.SchemaName;
+
         _logger.LogInformation("Bulk updating data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.EDIT, OperationLabelUpdate);
         var filter = MutationFilterHelper.BuildFilterWithRls(context, schema, PolicyOperation.EDIT, EvaluateRlsPolicies);
+        gatewayOperation.CollectionName = schema.CollectionName;
+        gatewayOperation.MongoQuery = new BsonDocument { { "filter", filter } }.ToString();
         var existingDocuments = await _repository.GetItemsAsync(schema.CollectionName, filter);
         if (existingDocuments is null || existingDocuments.Count == 0)
             return MutationInputHelper.ActionResponseNotFound(OperationLabelUpdate);
@@ -218,6 +265,7 @@ public class MutationService : IMutationService
         input.InjectDefaultValueOnUpdate();
 
         var document = InputToBsonDocument(input);
+        gatewayOperation.MongoQuery = new BsonDocument { { "filter", filter }, { "update", document } }.ToString();
         var response = await _repository.UpdateManyAsync(schema.CollectionName, filter, document);
         if (response.Acknowledged)
         {
@@ -233,6 +281,8 @@ public class MutationService : IMutationService
                 .ToList();
             await _eventPublisher.PublishAsync(schema, DataChangeOperation.Updated, updatedDocuments: updatedDocuments);
         }
+
+        gatewayOperation.ResponseSize = document.ToBson().Length * existingDocuments.Count;
 
         _logger.LogInformation("Data bulk updated for schema {SchemaName}", schema.SchemaName);
 

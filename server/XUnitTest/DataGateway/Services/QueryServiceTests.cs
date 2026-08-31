@@ -9,6 +9,7 @@ using HotChocolate;
 using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
+using HotChocolate.Types;
 using Microsoft.Extensions.Logging.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -46,8 +47,12 @@ public class QueryServiceTests
         object? order = null,
         PaginationInput? paging = null)
     {
+        var fieldNode = ParseQueryField(query);
         var selection = new Mock<ISelection>();
-        selection.Setup(s => s.SyntaxNode).Returns(ParseQueryField(query));
+        selection.Setup(s => s.SyntaxNode).Returns(fieldNode);
+        var field = new Mock<IObjectField>();
+        field.Setup(f => f.Name).Returns(fieldNode.Name.Value);
+        selection.Setup(s => s.Field).Returns(field.Object);
         var ctx = new Mock<IResolverContext>();
         ctx.Setup(c => c.Selection).Returns(selection.Object);
         ctx.Setup(c => c.ScopedContextData).Returns(ImmutableDictionary<string, object?>.Empty);

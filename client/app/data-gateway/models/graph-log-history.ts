@@ -59,6 +59,8 @@ export interface IGraphLogHistoryItem {
   failureCode: string;
   /** Human-readable failure reason. */
   failureMessage: string;
+  /** Documents returned (query) or affected (mutation). */
+  documentCount: number;
   /** HTTP status code of the reply, 0 when the span didn't record one. */
   statusCode: number;
   /** Request body size in bytes ("request.size.bytes" on the span). */
@@ -68,6 +70,22 @@ export interface IGraphLogHistoryItem {
   /** Bytes read back from the database, from the GatewayOperation tag's own ResponseSize. */
   databaseResponseSize: number;
   inAppRequest: boolean;
+  /** Schema introspection rather than data access; kept in the log, excluded from analytics. */
+  isIntrospection: boolean;
+  /** Caller's username/email from the token; empty when unauthenticated. */
+  userName: string;
+  /** Caller's user id from the token; empty when unauthenticated. */
+  userId: string;
+  /** Raw User-Agent of the client that made the request. */
+  userAgent: string;
+  /** Milliseconds spent evaluating access policies. */
+  policyMs: number;
+  /** Milliseconds spent validating input. */
+  validationMs: number;
+  /** Milliseconds spent in MongoDB. */
+  databaseMs: number;
+  /** Milliseconds spent publishing data-change events. */
+  publishMs: number;
 }
 
 export interface IGraphLogHistoryData {

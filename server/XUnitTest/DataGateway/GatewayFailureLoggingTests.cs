@@ -1,4 +1,7 @@
 using System.Diagnostics;
+using System.Globalization;
+using DataGateway.DomainService.Services;
+using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models;
@@ -6,6 +9,7 @@ using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Responses;
 using FluentAssertions;
 using HotChocolate;
+using HotChocolate.Language;
 using HotChocolate.Execution.Processing;
 using HotChocolate.Resolvers;
 using HotChocolate.Types;
@@ -148,5 +152,159 @@ public class GatewayFailureLoggingTests : IDisposable
         context.SetupGet(c => c.Services).Returns(services.BuildServiceProvider());
         context.SetupGet(c => c.Selection).Returns(selection.Object);
         return context;
+    }
+}
+
+/// <summary>
+/// Introspection is tooling fetching the schema, not data access, and one introspection response
+/// can outweigh a day of real traffic — so analytics leaves it out. Detection has to be exact:
+/// treating the everyday "__typename" as introspection would silently drop real traffic.
+/// </summary>
+public class IntrospectionDetectionTests
+{
+    [Theory]
+    [InlineData("query IntrospectionQuery { __schema { queryType { name } } }")]
+    [InlineData("{ __type(name: \"BlxDrive\") { name } }")]
+    [InlineData("query Q { ...F } fragment F on Query { __schema { types { name } } }")]
+    public void RecognisesIntrospection(string query)
+    {
+        GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query))
+            .Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("query { getBlxDrives { items { ItemId __typename } } }")]
+    [InlineData("mutation { insertBlxDrive(input: { UserId: \"u1\" }) { itemId } }")]
+    [InlineData("{ getBlxDrives { items { ItemId } totalCount } }")]
+    public void LeavesRealTrafficAlone(string query)
+    {
+        GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query))
+            .Should().BeFalse();
+    }
+}
+
+/// <summary>
+/// Phase timing has to partition a request's duration rather than double-count it, which is the
+/// whole basis of the "where the time goes" breakdown.
+/// </summary>
+public class GatewayPhaseTimingTests
+{
+    [Fact]
+    public void OuterPhasesExcludeTheDatabaseTimeTheyContain()
+    {
+        using var activity = new Activity("request").Start();
+
+        using (GatewayOperationActivity.Measure(GatewayPhase.Policy))
+        {
+            Thread.Sleep(20);
+            using (GatewayOperationActivity.Measure(GatewayPhase.Database))
+            {
+                Thread.Sleep(40);
+            }
+        }
+
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(activity);
+        gatewayOperation.DatabaseMs.Should().BeGreaterThanOrEqualTo(40);
+        // Policy saw ~60ms of wall time but only ~20ms of it was its own.
+        gatewayOperation.PolicyMs.Should().BeLessThan(gatewayOperation.DatabaseMs);
+    }
+
+    [Fact]
+    public void NestedDatabaseScopesAreCountedOnce()
+    {
+        using var activity = new Activity("request").Start();
+
+        // One repository method delegating to another.
+        using (GatewayOperationActivity.Measure(GatewayPhase.Database))
+        {
+            using (GatewayOperationActivity.Measure(GatewayPhase.Database))
+            {
+                Thread.Sleep(40);
+            }
+        }
+
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(activity);
+        gatewayOperation.DatabaseMs.Should().BeGreaterThanOrEqualTo(40).And.BeLessThan(80);
+    }
+
+    [Fact]
+    public void SequentialScopesInTheSamePhaseAccumulate()
+    {
+        using var activity = new Activity("request").Start();
+
+        for (var i = 0; i < 2; i++)
+        {
+            using (GatewayOperationActivity.Measure(GatewayPhase.Database))
+            {
+                Thread.Sleep(20);
+            }
+        }
+
+        GatewayOperationActivity.GetOrCreate(activity).DatabaseMs.Should().BeGreaterThanOrEqualTo(40);
+    }
+
+    [Fact]
+    public void MeasuringWithoutAnActivityIsANoOp()
+    {
+        Activity.Current = null;
+
+        using (GatewayOperationActivity.Measure(GatewayPhase.Database))
+        {
+            Thread.Sleep(5);
+        }
+
+        // Nothing to assert beyond "it did not throw" — there is no request to attribute this to.
+        Activity.Current.Should().BeNull();
+    }
+}
+
+/// <summary>
+/// The bucketing every analytics series shares. Getting this wrong misaligns the charts against
+/// each other, so the key and step are pinned down here rather than left to the callers.
+/// </summary>
+public class GraphLogBucketingTests
+{
+    [Theory]
+    [InlineData("hourly", "2026-08-30T19:09:57Z", "2026-08-30T19:00:00")]
+    [InlineData("daily", "2026-08-30T19:09:57Z", "2026-08-30T00:00:00")]
+    [InlineData("weekly", "2026-08-30T19:09:57Z", "2026-08-24T00:00:00")] // Monday of that week
+    public void KeyOfSnapsATimestampToItsBucket(string granularity, string timestamp, string expected)
+    {
+        var bucketing = GraphLogBucketing.Parse(granularity);
+
+        var key = bucketing.KeyOf(DateTime.Parse(timestamp, styles: DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal));
+
+        key.Should().Be(DateTime.Parse(expected));
+    }
+
+    [Fact]
+    public void AnUnknownGranularityFallsBackToDaily()
+    {
+        GraphLogBucketing.Parse("fortnightly").Should().BeSameAs(GraphLogBucketing.Daily);
+        GraphLogBucketing.Parse(null).Should().BeSameAs(GraphLogBucketing.Daily);
+    }
+
+    [Fact]
+    public void RangeFillsEveryBucketIncludingTheEmptyOnes()
+    {
+        var from = new DateTime(2026, 8, 30, 22, 15, 0, DateTimeKind.Utc);
+        var to = new DateTime(2026, 8, 31, 1, 5, 0, DateTimeKind.Utc);
+
+        var buckets = GraphLogBucketing.Hourly.Range(from, to).ToList();
+
+        buckets.Should().HaveCount(4);
+        buckets[0].Should().Be(new DateTime(2026, 8, 30, 22, 0, 0, DateTimeKind.Utc));
+        buckets[^1].Should().Be(new DateTime(2026, 8, 31, 1, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void HourlyDefaultsToTheLastDayRatherThanTheLastWeek()
+    {
+        var rangeEnd = new DateTime(2026, 8, 31, 12, 30, 0, DateTimeKind.Utc);
+
+        GraphLogBucketing.Hourly.DefaultRangeStart(rangeEnd)
+            .Should().Be(new DateTime(2026, 8, 30, 12, 0, 0, DateTimeKind.Utc));
+        GraphLogBucketing.Daily.DefaultRangeStart(rangeEnd)
+            .Should().Be(new DateTime(2026, 8, 24, 0, 0, 0, DateTimeKind.Utc));
     }
 }

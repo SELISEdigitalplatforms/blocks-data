@@ -11,6 +11,7 @@ import {
   SheetTitle,
 } from "@/components/ui-kits/sheet/sheet";
 import { IGraphLogHistoryItem, failureKindLabel } from "../../models/graph-log-history";
+import { PhaseBreakdown, toPhaseRows } from "./graph-phase-breakdown";
 import {
   formatDateTimeWithSeconds,
   formatDuration,
@@ -87,6 +88,7 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
               <Field label="Duration" value={formatDuration(item.duration)} />
               <Field label="Entity" value={item.entityName || "—"} />
               <Field label="Collection" value={item.collectionName || "—"} />
+              <Field label="Documents" value={item.documentCount ?? 0} />
               <Field label="Request size" value={formatSize(item.requestSize)} />
               <Field label="Response size" value={formatSize(item.responseSize)} />
               <Field label="DB response size" value={formatSize(item.databaseResponseSize)} />
@@ -95,6 +97,29 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
               <Field label="Started" value={formatDateTimeWithSeconds(item.startTime)} />
               <Field label="Ended" value={formatDateTimeWithSeconds(item.endTime)} />
               <Field label="Trace ID" value={item.traceId || "—"} />
+            </div>
+
+            <Field
+              label="Caller"
+              value={item.userName || item.userId || "Unauthenticated"}
+            />
+
+            {item.userAgent && <Field label="Client" value={item.userAgent} />}
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground/60">
+                Where the time went
+              </span>
+              <PhaseBreakdown
+                phases={toPhaseRows({
+                  databaseMs: item.databaseMs,
+                  policyMs: item.policyMs,
+                  validationMs: item.validationMs,
+                  publishMs: item.publishMs,
+                  totalMs: item.duration,
+                })}
+                total={item.duration}
+              />
             </div>
 
             {item.failureMessage && (

@@ -29,6 +29,13 @@ public static class GatewayFailureKind
 
     /// <summary>Failed, but with no signal that maps onto any of the above.</summary>
     public const string Unknown = "unknown";
+
+    /// <summary>
+    /// Whether a failure was the gateway refusing on purpose rather than something breaking.
+    /// Rejecting bad input belongs here with the access checks: it is the gateway working.
+    /// </summary>
+    public static bool IsDenial(string? failureKind) =>
+        failureKind is Authentication or Authorization or Validation;
 }
 
 /// <summary>
@@ -80,7 +87,52 @@ public sealed class GatewayOperation
     public string FailureMessage { get; set; } = string.Empty;
 
     public int ResponseSize { get; set; }
+
+    /// <summary>
+    /// How many documents the request returned (query) or affected (mutation). Paired with
+    /// <see cref="ResponseSize"/> it separates "one huge document" from "ten thousand small ones",
+    /// which are different problems with different fixes.
+    /// </summary>
+    public int DocumentCount { get; set; }
+
     public bool InAppRequest { get; set; }
+
+    /// <summary>
+    /// Whether the request was a schema introspection query (a GraphQL IDE or codegen tool fetching
+    /// the schema) rather than data access. Analytics leaves these out: one introspection response
+    /// can outweigh a day of real traffic.
+    /// </summary>
+    public bool IsIntrospection { get; set; }
+
+    /// <summary>
+    /// Who made the request, from the access token. Empty for an unauthenticated caller — a public
+    /// schema read carries no identity at all, which is itself worth seeing in the log.
+    /// </summary>
+    public string UserId { get; set; } = string.Empty;
+
+    /// <summary>The caller's username/email from the token, for a readable label.</summary>
+    public string UserName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Milliseconds spent evaluating access policies (schema access level, row/field-level rules).
+    /// Excludes any database time those checks themselves spent — see <see cref="PhaseScope"/>.
+    /// </summary>
+    public double PolicyMs { get; set; }
+
+    /// <summary>Milliseconds spent validating mutation input, excluding its database time.</summary>
+    public double ValidationMs { get; set; }
+
+    /// <summary>Milliseconds spent in MongoDB.</summary>
+    public double DatabaseMs { get; set; }
+
+    /// <summary>Milliseconds spent publishing data-change events, excluding its database time.</summary>
+    public double PublishMs { get; set; }
+
+    /// <summary>
+    /// How many database scopes are currently open. Some repository methods delegate to others, so
+    /// the time has to be attributed once, by the outermost scope.
+    /// </summary>
+    internal int DatabaseDepth { get; set; }
 
     /// <summary>
     /// Converts to a plain <see cref="Dictionary{TKey,TValue}"/> so the activity tag carries a
@@ -102,8 +154,89 @@ public sealed class GatewayOperation
         [nameof(FailureCode)] = FailureCode,
         [nameof(FailureMessage)] = FailureMessage,
         [nameof(ResponseSize)] = ResponseSize,
+        [nameof(DocumentCount)] = DocumentCount,
         [nameof(InAppRequest)] = InAppRequest,
+        [nameof(IsIntrospection)] = IsIntrospection,
+        [nameof(UserId)] = UserId,
+        [nameof(UserName)] = UserName,
+        [nameof(PolicyMs)] = PolicyMs,
+        [nameof(ValidationMs)] = ValidationMs,
+        [nameof(DatabaseMs)] = DatabaseMs,
+        [nameof(PublishMs)] = PublishMs,
     };
+}
+
+/// <summary>The parts of a request's duration that are measured separately.</summary>
+public enum GatewayPhase
+{
+    Policy,
+    Validation,
+    Database,
+    Publish,
+}
+
+/// <summary>
+/// Times one phase of a request and adds it to the request log on dispose. Phases are recorded so
+/// they do not overlap: database time is measured at the leaf, any outer phase subtracts the
+/// database time that accumulated inside it, and nested database scopes are attributed once — so
+/// the phases plus a remainder add up to the request's duration instead of double-counting.
+/// </summary>
+public readonly struct PhaseScope : IDisposable
+{
+    private readonly GatewayOperation _gatewayOperation;
+    private readonly GatewayPhase _phase;
+    private readonly long _startedAt;
+    private readonly double _databaseMsAtStart;
+    private readonly bool _isNestedDatabaseScope;
+
+    internal PhaseScope(GatewayOperation gatewayOperation, GatewayPhase phase)
+    {
+        _gatewayOperation = gatewayOperation;
+        _phase = phase;
+        _startedAt = Stopwatch.GetTimestamp();
+        _databaseMsAtStart = gatewayOperation.DatabaseMs;
+
+        _isNestedDatabaseScope = phase == GatewayPhase.Database && gatewayOperation.DatabaseDepth > 0;
+        if (phase == GatewayPhase.Database)
+            gatewayOperation.DatabaseDepth++;
+    }
+
+    public void Dispose()
+    {
+        var elapsedMs = Stopwatch.GetElapsedTime(_startedAt).TotalMilliseconds;
+
+        if (_phase == GatewayPhase.Database)
+        {
+            _gatewayOperation.DatabaseDepth--;
+
+            // The enclosing database scope already covers this time.
+            if (_isNestedDatabaseScope)
+                return;
+        }
+        else
+        {
+            elapsedMs -= _gatewayOperation.DatabaseMs - _databaseMsAtStart;
+        }
+
+        if (elapsedMs <= 0)
+            return;
+
+        switch (_phase)
+        {
+            case GatewayPhase.Policy:
+                _gatewayOperation.PolicyMs += elapsedMs;
+                break;
+            case GatewayPhase.Validation:
+                _gatewayOperation.ValidationMs += elapsedMs;
+                break;
+            case GatewayPhase.Database:
+                _gatewayOperation.DatabaseMs += elapsedMs;
+                break;
+            case GatewayPhase.Publish:
+                _gatewayOperation.PublishMs += elapsedMs;
+                break;
+        }
+    }
 }
 
 /// <summary>
@@ -136,6 +269,13 @@ public static class GatewayOperationActivity
     /// </summary>
     public static void Tag(Activity? activity, GatewayOperation gatewayOperation) =>
         activity?.SetTag(PropertyName, gatewayOperation.ToDictionary());
+
+    /// <summary>
+    /// Times a phase of the current request: <c>using var _ = GatewayOperationActivity.Measure(...)</c>.
+    /// A no-op (recorded onto a throwaway operation) when there is no ambient activity.
+    /// </summary>
+    public static PhaseScope Measure(GatewayPhase phase) =>
+        new(GetOrCreate(Activity.Current), phase);
 
     /// <summary>
     /// Records why a request failed. The first caller wins: the check that rejected the request is

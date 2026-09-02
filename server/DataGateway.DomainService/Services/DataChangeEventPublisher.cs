@@ -43,6 +43,8 @@ public class DataChangeEventPublisher : IDataChangeEventPublisher
         List<BsonDocument>? dataDocuments = null,
         List<UpdatedDocument>? updatedDocuments = null)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Publish);
+
         try
         {
             var projectKey = TenantContext.GetTenantId();

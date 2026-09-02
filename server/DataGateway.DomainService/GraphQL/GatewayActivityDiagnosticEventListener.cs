@@ -71,7 +71,12 @@ internal sealed class GatewayActivityDiagnosticEventListener : ExecutionDiagnost
         {
             _gatewayOperation.OperationType = context.Operation?.Type.ToString().ToLowerInvariant();
             _gatewayOperation.OperationQuery = context.Document?.ToString();
-            _gatewayOperation.InAppRequest = !(BlocksContext.GetContext()?.Impersonated ?? false);
+            _gatewayOperation.IsIntrospection = context.Document is not null
+                && GraphQLIntrospectionHelper.ContainsIntrospectionQuery(context.Document);
+            var blocksContext = BlocksContext.GetContext();
+            _gatewayOperation.InAppRequest = !(blocksContext?.Impersonated ?? false);
+            _gatewayOperation.UserId = blocksContext?.UserId ?? string.Empty;
+            _gatewayOperation.UserName = blocksContext?.UserName ?? string.Empty;
 
             var errors = (context.Result as IOperationResult)?.Errors;
             // An error event during execution already flipped the status; keep it, so a logged

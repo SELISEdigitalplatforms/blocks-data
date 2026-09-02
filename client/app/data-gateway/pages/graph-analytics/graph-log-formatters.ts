@@ -45,8 +45,26 @@ export const formatDayLabel = (value: string) => {
   return Number.isNaN(date.getTime()) ? EMPTY : format(date, DAY);
 };
 
+/**
+ * Axis label for a bucket. Hourly buckets are instants, so they convert to the viewer's timezone;
+ * day and week buckets are calendar dates and must not (see formatDayLabel).
+ */
+export const formatBucketLabel = (value: string, granularity: string) => {
+  if (granularity !== "hourly") return formatDayLabel(value);
+
+  const date = toDate(value);
+  return date ? format(date, "d MMM HH:mm") : EMPTY;
+};
+
 /** Date-range picker label: "24 Aug 2026". */
 export const formatCalendarDate = (date: Date) => format(date, CALENDAR_DATE);
+
+/**
+ * Whether a time series should draw a marker per point. A line needs two points to draw anything,
+ * so a range where only one bucket saw traffic renders as an empty plot without markers. They are
+ * dropped once the series is dense enough for them to read as noise.
+ */
+export const showSeriesMarkers = (pointCount: number) => pointCount <= 32;
 
 /** Durations are recorded in milliseconds. */
 export const formatDuration = (durationMs: number) =>

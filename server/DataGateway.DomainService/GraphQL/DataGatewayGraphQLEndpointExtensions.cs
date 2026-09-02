@@ -62,7 +62,7 @@ public static class DataGatewayGraphQLEndpointExtensions
             && !isAuthenticated)
         {
             const string message = "you are not authorized to introspect the schema";
-            LogRejected(GatewayFailureKind.Authentication, message, "introspection");
+            LogRejected(GatewayFailureKind.Authentication, message, "introspection", isIntrospection: true);
 
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             await context.Response.WriteAsJsonAsync(new
@@ -100,11 +100,16 @@ public static class DataGatewayGraphQLEndpointExtensions
     /// normally writes the log never gets to see these, so they would otherwise be missing from the
     /// request history entirely.
     /// </summary>
-    private static void LogRejected(string failureKind, string message, string? operationType = null)
+    private static void LogRejected(
+        string failureKind,
+        string message,
+        string? operationType = null,
+        bool isIntrospection = false)
     {
         var gatewayOperation = GatewayOperationActivity.MarkFailed(
             Activity.Current, failureKind, message);
         gatewayOperation.OperationType ??= operationType;
+        gatewayOperation.IsIntrospection = isIntrospection;
 
         GatewayOperationActivity.Tag(Activity.Current, gatewayOperation);
     }

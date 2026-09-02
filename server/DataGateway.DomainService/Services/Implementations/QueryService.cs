@@ -44,12 +44,21 @@ public class QueryService : IQueryService
             _logger.LogInformation("Getting data for schema {SchemaName}", schema.SchemaName);
 
             var queryInput = GetQueryInputFromContext(ctx);
-            var rlsResult = EvaluateRlsPolicies(schema, PolicyOperation.READ);
-            EnsureReadAccess(rlsResult, schema);
 
-            var userFilterBson = GetUserFilterBson(schema, queryInput.Where, queryInput.Filter);
-            var mongoFilter = BuildMongoFilter(schema, userFilterBson, rlsResult);
-            var mongoProjection = QueryProjectionHelper.BuildMongoProjectionWithCls(ctx, schema, out var evaluationOnlyFieldPaths);
+            PolicyEvaluationResult rlsResult;
+            BsonDocument mongoFilter;
+            BsonDocument? mongoProjection;
+            HashSet<string> evaluationOnlyFieldPaths;
+            using (GatewayOperationActivity.Measure(GatewayPhase.Policy))
+            {
+                rlsResult = EvaluateRlsPolicies(schema, PolicyOperation.READ);
+                EnsureReadAccess(rlsResult, schema);
+
+                var userFilterBson = GetUserFilterBson(schema, queryInput.Where, queryInput.Filter);
+                mongoFilter = BuildMongoFilter(schema, userFilterBson, rlsResult);
+                mongoProjection = QueryProjectionHelper.BuildMongoProjectionWithCls(
+                    ctx, schema, out evaluationOnlyFieldPaths);
+            }
             var mongoSort = GetMongoSort(schema, queryInput.Order, queryInput.Sort);
             var (skip, limit) = ComputePagination(queryInput.PageNo, queryInput.PageSize);
 
@@ -72,6 +81,7 @@ public class QueryService : IQueryService
             var items = BuildResultItems(documents, schema, evaluationOnlyFieldPaths);
 
             gatewayOperation.ResponseSize = documents.Sum(d => d.ToBson().Length);
+            gatewayOperation.DocumentCount = documents.Count;
 
             _logger.LogInformation("Data retrieved for schema {SchemaName}", schema.SchemaName);
 

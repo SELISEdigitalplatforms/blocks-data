@@ -58,5 +58,35 @@ public class GraphLogHistoryItemResponse
     /// </summary>
     public long DatabaseResponseSize { get; set; }
 
+    /// <summary>Documents returned (query) or affected (mutation). 0 on traces recorded before this was captured.</summary>
+    public int DocumentCount { get; set; }
+
     public bool InAppRequest { get; set; }
+
+    /// <summary>
+    /// Whether this was a schema introspection query rather than data access. Kept in the history
+    /// but excluded from analytics.
+    /// </summary>
+    public bool IsIntrospection { get; set; }
+
+    /// <summary>Caller's username/email from the token; empty for an unauthenticated request.</summary>
+    public string UserName { get; set; } = string.Empty;
+
+    /// <summary>Caller's user id from the token; empty for an unauthenticated request.</summary>
+    public string UserId { get; set; } = string.Empty;
+
+    /// <summary>Raw User-Agent of the client that made the request.</summary>
+    public string UserAgent { get; set; } = string.Empty;
+
+    /// <summary>Milliseconds spent evaluating access policies.</summary>
+    public double PolicyMs { get; set; }
+
+    /// <summary>Milliseconds spent validating input.</summary>
+    public double ValidationMs { get; set; }
+
+    /// <summary>Milliseconds spent in MongoDB.</summary>
+    public double DatabaseMs { get; set; }
+
+    /// <summary>Milliseconds spent publishing data-change events.</summary>
+    public double PublishMs { get; set; }
 }

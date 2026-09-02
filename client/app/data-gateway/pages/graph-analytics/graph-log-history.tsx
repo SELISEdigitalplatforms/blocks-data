@@ -29,7 +29,6 @@ import {
   GraphLogOperationType,
   GraphLogResponseStatus,
   IGraphLogHistoryItem,
-  failureKindLabel,
 } from "../../models/graph-log-history";
 import { GraphLogDetailsSheet } from "./graph-log-details-sheet";
 import {
@@ -202,21 +201,22 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="font-medium">{item.schemaName || "—"}</TableCell>
+                      <TableCell className="font-medium">
+                        {item.schemaName || (item.isIntrospection ? (
+                          <span className="italic text-muted-foreground">introspection</span>
+                        ) : (
+                          "—"
+                        ))}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">
                         {item.operationType || "—"}
                       </TableCell>
+                      {/* Just the outcome here — the reason is a row-detail question, and a second
+                          line per row made the table hard to scan. */}
                       <TableCell title={item.failureMessage || undefined}>
-                        <div className="flex flex-col items-start gap-1">
-                          <Badge variant={item.responseStatus === "failed" ? "error" : "success"}>
-                            {item.responseStatus || "unknown"}
-                          </Badge>
-                          {item.responseStatus === "failed" && (
-                            <span className="whitespace-nowrap text-xs text-muted-foreground">
-                              {failureKindLabel(item.failureKind || "unknown")}
-                            </span>
-                          )}
-                        </div>
+                        <Badge variant={item.responseStatus === "failed" ? "error" : "success"}>
+                          {item.responseStatus || "unknown"}
+                        </Badge>
                       </TableCell>
                       <TableCell className={statusCodeClass(item.statusCode)}>
                         {item.statusCode || "—"}

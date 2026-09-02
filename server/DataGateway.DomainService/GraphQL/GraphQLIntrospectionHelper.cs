@@ -34,9 +34,16 @@ internal static class GraphQLIntrospectionHelper
         return false;
     }
 
-    private static bool ContainsIntrospectionQuery(string query)
+    private static bool ContainsIntrospectionQuery(string query) =>
+        ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query));
+
+    /// <summary>
+    /// Whether a parsed document asks for schema introspection (<c>__schema</c> / <c>__type</c>,
+    /// including through fragments). Note this is a field-name match, so the everyday
+    /// <c>__typename</c> is correctly not treated as introspection.
+    /// </summary>
+    public static bool ContainsIntrospectionQuery(DocumentNode document)
     {
-        var document = Utf8GraphQLParser.Parse(query);
         var fragments = document.Definitions
             .OfType<FragmentDefinitionNode>()
             .ToDictionary(fragment => fragment.Name.Value, fragment => fragment);

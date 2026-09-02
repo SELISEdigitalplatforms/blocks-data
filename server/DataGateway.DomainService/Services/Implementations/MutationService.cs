@@ -66,6 +66,7 @@ public class MutationService : IMutationService
             dataDocuments: new List<BsonDocument> { document });
 
         gatewayOperation.ResponseSize = document.ToBson().Length;
+        gatewayOperation.DocumentCount = 1;
 
         _logger.LogInformation("Data inserted for schema {SchemaName}", schema.SchemaName);
 
@@ -104,6 +105,7 @@ public class MutationService : IMutationService
         await PublishUpdateEventAsync(schema, existingDocument, document, response.ItemId ?? string.Empty, response.Acknowledged);
 
         gatewayOperation.ResponseSize = document.ToBson().Length;
+        gatewayOperation.DocumentCount = 1;
 
         _logger.LogInformation("Data updated for schema {SchemaName}", schema.SchemaName);
 
@@ -149,6 +151,7 @@ public class MutationService : IMutationService
                 dataDocuments: new List<BsonDocument> { firstDocument! });
 
         gatewayOperation.ResponseSize = firstDocument!.ToBson().Length;
+        gatewayOperation.DocumentCount = 1;
 
         _logger.LogInformation("Data deleted for schema {SchemaName}", schema.SchemaName);
 
@@ -185,6 +188,7 @@ public class MutationService : IMutationService
                 dataDocuments: existingDocuments.ToList());
 
         gatewayOperation.ResponseSize = existingDocuments.Sum(d => d.ToBson().Length);
+        gatewayOperation.DocumentCount = existingDocuments.Count;
 
         _logger.LogInformation("Data bulk deleted for schema {SchemaName}", schema.SchemaName);
 
@@ -229,6 +233,7 @@ public class MutationService : IMutationService
             await _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted, dataDocuments: documents);
 
         gatewayOperation.ResponseSize = documents.Sum(d => d.ToBson().Length);
+        gatewayOperation.DocumentCount = documents.Count;
 
         _logger.LogInformation("Data bulk inserted for schema {SchemaName}", schema.SchemaName);
 
@@ -283,6 +288,7 @@ public class MutationService : IMutationService
         }
 
         gatewayOperation.ResponseSize = document.ToBson().Length * existingDocuments.Count;
+        gatewayOperation.DocumentCount = existingDocuments.Count;
 
         _logger.LogInformation("Data bulk updated for schema {SchemaName}", schema.SchemaName);
 
@@ -371,6 +377,8 @@ public class MutationService : IMutationService
         IReadOnlyList<string>? excludeIds,
         string operationLabel)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Validation);
+
         var uniqueFields = schema.Fields
             .Where(f => f.IsUniqueData && GraphQlTypeHelper.IsScalar(f.Type) && !f.IsArray)
             .ToList();
@@ -429,6 +437,8 @@ public class MutationService : IMutationService
 
     private void PrepareMutation(SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Policy);
+
         var rlsResult = EvaluateRlsPolicies(schema, operation);
         if (!rlsResult.IsAccessGranted)
         {
@@ -458,6 +468,8 @@ public class MutationService : IMutationService
 
     private void ValidateMutationInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Validation);
+
         ValidateRequiredFieldsOrThrow(input, schema, operationLabel);
         var r = input.Validate(schema);
         if (!r.IsValid) { _logger.LogWarning("Validation failed for {Op} on schema {SchemaName}: {Errors}", operationLabel, schema.SchemaName, r.ErrorMessage); MutationValidationHelper.ThrowValidationError(r); }
@@ -570,6 +582,8 @@ public class MutationService : IMutationService
 
     private void ApplyClsRestrictionsToInput(Dictionary<string, object?> input, SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Policy);
+
         var allPaths = MutationInputHelper.GetAllPathsFromInput(input, prefix: "");
         var clsResult = MutationInputHelper.EvaluateClsPoliciesForInput(schema, operation, allPaths);
         var removedFieldNames = MutationInputHelper.RemoveExcludedPathsFromInput(input, clsResult.ExcludedFields);

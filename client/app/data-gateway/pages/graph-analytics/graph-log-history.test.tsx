@@ -36,7 +36,16 @@ const ITEM: IGraphLogHistoryItem = {
   requestSize: 615,
   responseSize: 189,
   databaseResponseSize: 0,
+  documentCount: 10,
   inAppRequest: true,
+  isIntrospection: false,
+  userName: "ana@example.com",
+  userId: "u-1",
+  userAgent: "Mozilla/5.0 (Macintosh) Chrome/151",
+  policyMs: 12.5,
+  validationMs: 0,
+  databaseMs: 940.2,
+  publishMs: 0,
 };
 
 function mockResult(items: IGraphLogHistoryItem[], totalCount = items.length) {
@@ -75,8 +84,8 @@ describe("GraphLogHistory", () => {
     // Request size lives in the details panel only.
     expect(screen.queryByText("615 B")).not.toBeInTheDocument();
     expect(screen.getByText("failed")).toBeInTheDocument();
-    // A bare "failed" isn't actionable, so the reason rides along with it.
-    expect(screen.getByText("Authentication")).toBeInTheDocument();
+    // The reason is a detail-panel question; a second line per row made the table hard to scan.
+    expect(screen.queryByText("Authentication")).not.toBeInTheDocument();
     expect(screen.getByText("In-app")).toBeInTheDocument();
     expect(screen.getByText("1 request")).toBeInTheDocument();
   });
@@ -107,6 +116,19 @@ describe("GraphLogHistory", () => {
     expect(within(details).getByText("POST /api/gateway")).toBeInTheDocument();
     expect(within(details).getByText(ITEM.traceId)).toBeInTheDocument();
     expect(within(details).getByText("615 B")).toBeInTheDocument();
+    expect(within(details).getByText("10")).toBeInTheDocument();
+    expect(within(details).getByText("ana@example.com")).toBeInTheDocument();
+    expect(within(details).getByText(/Chrome\/151/)).toBeInTheDocument();
+    // The total is only useful next to where it went, so the request carries the same phase
+    // breakdown the Performance tab shows for the range.
+    expect(within(details).getByText("Where the time went")).toBeInTheDocument();
+    expect(within(details).getByText("Database")).toBeInTheDocument();
+    expect(within(details).getByText("940 ms")).toBeInTheDocument();
+    expect(within(details).getByText("63%")).toBeInTheDocument();
+    // 1490 total − 940 db − 13 policy leaves the gateway and the wire.
+    expect(within(details).getByText("Gateway & transport")).toBeInTheDocument();
+    expect(within(details).getByText("538 ms")).toBeInTheDocument();
+    expect(within(details).getByText("Authentication")).toBeInTheDocument();
     expect(within(details).getByText("AUTH_NOT_AUTHENTICATED")).toBeInTheDocument();
     expect(within(details).getByText("User is not authenticated.")).toBeInTheDocument();
     expect(within(details).getByText(/query GetBlxDrives/)).toBeInTheDocument();
@@ -124,6 +146,15 @@ describe("GraphLogHistory", () => {
     expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ failureKind: "validation", pageNo: 1 }),
     );
+  });
+
+  it("names introspection rows, which carry no schema of their own", () => {
+    mockResult([
+      { ...ITEM, schemaName: "", isIntrospection: true, responseStatus: "success" },
+    ]);
+    render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);
+
+    expect(screen.getByText("introspection")).toBeInTheDocument();
   });
 
   it("shows an empty state when the range has no requests", () => {

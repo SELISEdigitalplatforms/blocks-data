@@ -5,6 +5,9 @@ public class GetGraphLogAnalyticsRequest
     public DateTime? From { get; set; }
     public DateTime? To { get; set; }
 
-    /// <summary>"daily" (default) or "weekly" — bucket size for <see cref="Responses.GraphLogAnalyticsResponse.RequestsOverTime"/>.</summary>
+    /// <summary>
+    /// "hourly", "daily" (default) or "weekly" — bucket size for every series in
+    /// <see cref="Responses.GraphLogAnalyticsResponse"/>.
+    /// </summary>
     public string Granularity { get; set; } = "daily";
 }

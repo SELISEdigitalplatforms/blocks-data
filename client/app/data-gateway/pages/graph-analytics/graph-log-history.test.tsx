@@ -20,7 +20,6 @@ const ITEM: IGraphLogHistoryItem = {
   endTime: "2026-08-30T19:09:57.099Z",
   duration: 1490.289,
   operationName: "POST /api/gateway",
-  status: "Unset",
   statusDescription: "",
   schemaName: "getBlxDrives",
   entityName: "BlxDrive",
@@ -39,8 +38,6 @@ const ITEM: IGraphLogHistoryItem = {
   documentCount: 10,
   inAppRequest: true,
   isIntrospection: false,
-  userName: "ana@example.com",
-  userId: "u-1",
   userAgent: "Mozilla/5.0 (Macintosh) Chrome/151",
   policyMs: 12.5,
   validationMs: 0,
@@ -117,7 +114,6 @@ describe("GraphLogHistory", () => {
     expect(within(details).getByText(ITEM.traceId)).toBeInTheDocument();
     expect(within(details).getByText("615 B")).toBeInTheDocument();
     expect(within(details).getByText("10")).toBeInTheDocument();
-    expect(within(details).getByText("ana@example.com")).toBeInTheDocument();
     expect(within(details).getByText(/Chrome\/151/)).toBeInTheDocument();
     // The total is only useful next to where it went, so the request carries the same phase
     // breakdown the Performance tab shows for the range.

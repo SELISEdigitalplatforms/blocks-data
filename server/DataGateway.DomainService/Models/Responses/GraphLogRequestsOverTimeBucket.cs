@@ -6,9 +6,6 @@ public class GraphLogRequestsOverTimeBucket
     public DateTime Date { get; set; }
     public int Success { get; set; }
 
-    /// <summary>Everything that did not succeed: <see cref="Denied"/> plus <see cref="Errored"/>.</summary>
-    public int Failed { get; set; }
-
     /// <summary>
     /// Refused on purpose — authentication, authorization or validation. Split out from
     /// <see cref="Errored"/> because the two mean different things and go to different people.

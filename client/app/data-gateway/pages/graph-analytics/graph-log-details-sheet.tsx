@@ -99,11 +99,6 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
               <Field label="Trace ID" value={item.traceId || "—"} />
             </div>
 
-            <Field
-              label="Caller"
-              value={item.userName || item.userId || "Unauthenticated"}
-            />
-
             {item.userAgent && <Field label="Client" value={item.userAgent} />}
 
             <div className="flex flex-col gap-2">

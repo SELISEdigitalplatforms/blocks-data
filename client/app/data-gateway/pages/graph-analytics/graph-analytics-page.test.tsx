@@ -36,8 +36,8 @@ import { GraphAnalytics } from "./graph-analytics-page";
 
 const ANALYTICS: IGraphLogAnalyticsData = {
   requestsOverTime: [
-    { date: "2026-08-30T00:00:00Z", success: 6, failed: 4, denied: 3, errored: 1 },
-    { date: "2026-08-31T00:00:00Z", success: 0, failed: 0, denied: 0, errored: 0 },
+    { date: "2026-08-30T00:00:00Z", success: 6, denied: 3, errored: 1 },
+    { date: "2026-08-31T00:00:00Z", success: 0, denied: 0, errored: 0 },
   ],
   operationStats: [
     {
@@ -65,7 +65,7 @@ const ANALYTICS: IGraphLogAnalyticsData = {
   failureHotspots: [
     { schemaName: "getBlxDrives", failureKind: "authorization", count: 2, externalCount: 1 },
   ],
-  latency: { p50: 420, p95: 1540.5, p99: 2000, max: 2311.9, average: 780.2 },
+  latency: { p50: 420, p95: 1540.5, p99: 2000, max: 2311.9 },
   latencyOverTime: [{ date: "2026-08-30T00:00:00Z", p50: 420, p95: 1540.5, p99: 2000 }],
   throughput: { requestBytes: 6150, responseBytes: 20474, totalBytes: 26624 },
   throughputOverTime: [

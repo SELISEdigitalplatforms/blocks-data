@@ -96,7 +96,6 @@ public class GraphLogLatencySummary
     public double P95 { get; set; }
     public double P99 { get; set; }
     public double Max { get; set; }
-    public double Average { get; set; }
 }
 
 /// <summary>Response-time percentiles for one time bucket. Zeroes mean the bucket had no requests.</summary>

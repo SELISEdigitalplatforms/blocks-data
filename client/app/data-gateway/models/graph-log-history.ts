@@ -44,7 +44,6 @@ export interface IGraphLogHistoryItem {
   /** Wall-clock time of the request, in milliseconds. */
   duration: number;
   operationName: string;
-  status: string;
   statusDescription: string;
   schemaName: string;
   entityName: string;
@@ -72,10 +71,6 @@ export interface IGraphLogHistoryItem {
   inAppRequest: boolean;
   /** Schema introspection rather than data access; kept in the log, excluded from analytics. */
   isIntrospection: boolean;
-  /** Caller's username/email from the token; empty when unauthenticated. */
-  userName: string;
-  /** Caller's user id from the token; empty when unauthenticated. */
-  userId: string;
   /** Raw User-Agent of the client that made the request. */
   userAgent: string;
   /** Milliseconds spent evaluating access policies. */

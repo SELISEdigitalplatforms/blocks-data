@@ -9,8 +9,6 @@ export interface IGetGraphLogAnalyticsPayload {
 export interface IGraphLogRequestsOverTimeBucket {
   date: string;
   success: number;
-  /** Everything that did not succeed: `denied` plus `errored`. */
-  failed: number;
   /** Refused on purpose — authentication, authorization or validation. */
   denied: number;
   /** Failed because something broke. */
@@ -63,7 +61,6 @@ export interface IGraphLogLatencySummary {
   p95: number;
   p99: number;
   max: number;
-  average: number;
 }
 
 /** Response-time percentiles for one time bucket. */

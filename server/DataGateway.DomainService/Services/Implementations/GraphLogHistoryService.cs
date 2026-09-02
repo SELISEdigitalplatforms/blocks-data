@@ -205,7 +205,6 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                     Success = stats.Success,
                     Denied = stats.Denied,
                     Errored = stats.Errored,
-                    Failed = stats.Denied + stats.Errored,
                 };
             })
             .ToList();
@@ -315,7 +314,6 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             P95 = Percentile(durations, 95),
             P99 = Percentile(durations, 99),
             Max = Math.Round(durations[^1], 2),
-            Average = Math.Round(durations.Average(), 2),
         };
     }
 
@@ -584,7 +582,6 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             EndTime = GetDateTime(doc, "EndTime"),
             Duration = GetDouble(doc, "Duration"),
             OperationName = GetString(doc, "OperationName"),
-            Status = GetString(doc, "Status"),
             StatusDescription = GetString(doc, "StatusDescription"),
             SchemaName = GetString(gatewayOperation, "SchemaName"),
             EntityName = GetString(gatewayOperation, "EntityName"),
@@ -604,8 +601,6 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             ResponseSize = GetInt64(attributes, "response.size.bytes"),
             DatabaseResponseSize = GetInt64(gatewayOperation, "ResponseSize"),
             DocumentCount = (int)GetInt64(gatewayOperation, "DocumentCount"),
-            UserName = GetString(gatewayOperation, "UserName"),
-            UserId = GetString(gatewayOperation, "UserId"),
             UserAgent = GetString(attributes, "user_agent.original"),
             PolicyMs = GetDouble(gatewayOperation, "PolicyMs"),
             ValidationMs = GetDouble(gatewayOperation, "ValidationMs"),

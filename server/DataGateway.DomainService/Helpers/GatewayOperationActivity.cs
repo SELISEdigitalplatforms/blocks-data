@@ -105,15 +105,6 @@ public sealed class GatewayOperation
     public bool IsIntrospection { get; set; }
 
     /// <summary>
-    /// Who made the request, from the access token. Empty for an unauthenticated caller — a public
-    /// schema read carries no identity at all, which is itself worth seeing in the log.
-    /// </summary>
-    public string UserId { get; set; } = string.Empty;
-
-    /// <summary>The caller's username/email from the token, for a readable label.</summary>
-    public string UserName { get; set; } = string.Empty;
-
-    /// <summary>
     /// Milliseconds spent evaluating access policies (schema access level, row/field-level rules).
     /// Excludes any database time those checks themselves spent — see <see cref="PhaseScope"/>.
     /// </summary>
@@ -157,8 +148,6 @@ public sealed class GatewayOperation
         [nameof(DocumentCount)] = DocumentCount,
         [nameof(InAppRequest)] = InAppRequest,
         [nameof(IsIntrospection)] = IsIntrospection,
-        [nameof(UserId)] = UserId,
-        [nameof(UserName)] = UserName,
         [nameof(PolicyMs)] = PolicyMs,
         [nameof(ValidationMs)] = ValidationMs,
         [nameof(DatabaseMs)] = DatabaseMs,

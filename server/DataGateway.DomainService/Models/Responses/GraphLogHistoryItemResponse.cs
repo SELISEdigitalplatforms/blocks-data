@@ -15,7 +15,6 @@ public class GraphLogHistoryItemResponse
     public DateTime EndTime { get; set; }
     public double Duration { get; set; }
     public string OperationName { get; set; } = string.Empty;
-    public string Status { get; set; } = string.Empty;
     public string StatusDescription { get; set; } = string.Empty;
 
     public string SchemaName { get; set; } = string.Empty;
@@ -68,12 +67,6 @@ public class GraphLogHistoryItemResponse
     /// but excluded from analytics.
     /// </summary>
     public bool IsIntrospection { get; set; }
-
-    /// <summary>Caller's username/email from the token; empty for an unauthenticated request.</summary>
-    public string UserName { get; set; } = string.Empty;
-
-    /// <summary>Caller's user id from the token; empty for an unauthenticated request.</summary>
-    public string UserId { get; set; } = string.Empty;
 
     /// <summary>Raw User-Agent of the client that made the request.</summary>
     public string UserAgent { get; set; } = string.Empty;

@@ -20,6 +20,7 @@ import type { User } from "@blocks-idp/iam/models/user";
 export const PRINCIPAL_PAGE_SIZE = 20;
 
 export type PrincipalEntity = "role" | "user";
+export type UserPrincipalValue = "itemId" | "email";
 
 export interface PrincipalOption {
   /** The value persisted into the policy: role slug, or user itemId. */
@@ -42,10 +43,13 @@ export const roleToOption = (role: IRole): PrincipalOption => ({
   secondaryLabel: role.slug,
 });
 
-export const userToOption = (user: User): PrincipalOption => {
+export const userToOption = (
+  user: User,
+  valueField: UserPrincipalValue = "itemId",
+): PrincipalOption => {
   const fullName = `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim();
   return {
-    value: user.itemId,
+    value: valueField === "email" ? user.email : user.itemId,
     primaryLabel: fullName || user.userName || user.email,
     secondaryLabel: user.email,
   };
@@ -122,16 +126,18 @@ export const usePrincipalOptions = ({
   projectKey,
   search,
   enabled,
+  userValueField = "itemId",
 }: {
   entity: PrincipalEntity;
   projectKey: string;
   search: string;
   enabled: boolean;
+  userValueField?: UserPrincipalValue;
 }) => {
   const normalizedSearch = search.trim();
 
   const query = useInfiniteQuery({
-    queryKey: ["principal-options", entity, projectKey, normalizedSearch],
+    queryKey: ["principal-options", entity, userValueField, projectKey, normalizedSearch],
     enabled: enabled && Boolean(projectKey),
     initialPageParam: 0,
     getNextPageParam: nextPageParam,
@@ -158,7 +164,7 @@ export const usePrincipalOptions = ({
       });
       const data = response?.data ?? [];
       return {
-        options: data.map(userToOption),
+          options: data.map((user) => userToOption(user, userValueField)),
         rawCount: data.length,
         totalCount: response?.totalCount ?? 0,
       };
@@ -191,15 +197,17 @@ export const useStoredPrincipals = ({
   entity,
   projectKey,
   values,
+  userValueField = "itemId",
 }: {
   entity: PrincipalEntity;
   projectKey: string;
   values: string[];
+  userValueField?: UserPrincipalValue;
 }) => {
   const wanted = Array.from(new Set(values.filter(Boolean)));
 
   const query = useQuery({
-    queryKey: ["principal-stored", entity, projectKey, [...wanted].sort()],
+    queryKey: ["principal-stored", entity, userValueField, projectKey, [...wanted].sort()],
     enabled: Boolean(projectKey) && wanted.length > 0,
     queryFn: async (): Promise<Record<string, StoredValueState>> => {
       const states: Record<string, StoredValueState> = {};
@@ -234,6 +242,26 @@ export const useStoredPrincipals = ({
             ? { status: "resolved", option }
             : { status: "unavailable" };
         }
+        return states;
+      }
+
+      if (userValueField === "email") {
+        await Promise.all(
+          wanted.map(async (value) => {
+            const response = await userService.getUsers({
+              projectKey,
+              page: 0,
+              pageSize: PRINCIPAL_PAGE_SIZE,
+              filter: { name: "", email: value },
+            });
+            const user = (response?.data ?? []).find(
+              (candidate) => candidate.email.toLowerCase() === value.toLowerCase(),
+            );
+            states[value] = user
+              ? { status: "resolved", option: userToOption(user, "email") }
+              : { status: "unavailable" };
+          }),
+        );
         return states;
       }
 

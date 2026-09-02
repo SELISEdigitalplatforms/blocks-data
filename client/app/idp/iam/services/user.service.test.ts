@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockHttpClientFactory } from "@/test-utils/__mocks__";
-import { http } from "@/lib/http-client";
+import { http, serviceInstances } from "@/lib/http-client";
 import { UserService } from "./user.service";
 import { UserAccountService } from "./account.service";
 import { USER_ENDPOINTS } from "../constants/endpoint.constant";
@@ -45,16 +45,20 @@ describe("UserService", () => {
   // ─── getUsers ─────────────────────────────────────────────────────────────
   describe("getUsers", () => {
     it("should POST to the correct endpoint with payload", async () => {
-      vi.mocked(http.post).mockResolvedValue(mockUsersResponse);
+      vi.mocked(serviceInstances.idpService.post).mockResolvedValue(mockUsersResponse);
 
       const result = await service.getUsers(mockGetUsersPayload);
 
-      expect(http.post).toHaveBeenCalledWith(USER_ENDPOINTS.GET_USERS, mockGetUsersPayload);
+      expect(serviceInstances.idpService.post).toHaveBeenCalledWith(
+        "/api/iam/users",
+        mockGetUsersPayload,
+      );
+      expect(http.post).not.toHaveBeenCalled();
       expect(result).toEqual(mockUsersResponse);
     });
 
     it("should throw when the API call fails", async () => {
-      vi.mocked(http.post).mockRejectedValue(new Error("Network error"));
+      vi.mocked(serviceInstances.idpService.post).mockRejectedValue(new Error("Network error"));
 
       await expect(service.getUsers(mockGetUsersPayload)).rejects.toThrow("Network error");
     });
@@ -87,20 +91,18 @@ describe("UserService", () => {
   describe("getUserById", () => {
     it("should GET with correct query params", async () => {
       const payload = { id: MOCK_USER_ITEM_ID, projectKey: TEST_PROJECT_KEY };
-      vi.mocked(http.get).mockResolvedValue({ data: mockUser });
+      vi.mocked(serviceInstances.idpService.get).mockResolvedValue({ data: mockUser });
 
       const result = await service.getUserById(payload);
 
-      expect(http.get).toHaveBeenCalledWith(
-        `${USER_ENDPOINTS.GET_USER}?id=${payload.id}&ProjectKey=${payload.projectKey}`,
-        undefined,
-        { absoluteUrl: true },
+      expect(serviceInstances.idpService.get).toHaveBeenCalledWith(
+        `/api/iam/users/${MOCK_USER_ITEM_ID}`,
       );
       expect(result).toEqual({ data: mockUser });
     });
 
     it("should throw when the API call fails", async () => {
-      vi.mocked(http.get).mockRejectedValue(new Error("Network error"));
+      vi.mocked(serviceInstances.idpService.get).mockRejectedValue(new Error("Network error"));
 
       await expect(
         service.getUserById({ id: MOCK_USER_ITEM_ID, projectKey: TEST_PROJECT_KEY }),

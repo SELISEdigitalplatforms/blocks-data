@@ -1,4 +1,4 @@
-import { http } from "@/lib/http-client";
+import { http, serviceInstances } from "@/lib/http-client";
 import {
   CreateRolePayload,
   GetRolesPayload,
@@ -13,7 +13,13 @@ import { ROLE_ENDPOINTS } from "../constants/endpoint.constant";
 
 export class RoleService {
   getRoles(payload: GetRolesPayload): Promise<GetRolesResponse> {
-    return http.post(ROLE_ENDPOINTS.GET_ROLES, payload);
+    return serviceInstances.idpService.post(ROLE_ENDPOINTS.GET_ROLES, {
+      ...payload,
+      filter: {
+        ...payload.filter,
+        search: payload.filter?.search ?? "",
+      },
+    });
   }
 
   getRoleById(payload: IGetRolePayload): Promise<IGetRoleResponse> {

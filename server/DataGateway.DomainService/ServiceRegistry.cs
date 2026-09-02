@@ -85,6 +85,11 @@ public static class ServiceRegistry
         serviceCollection.AddHttpResponseFormatter<AuthHttpResponseFormatter>();
         serviceCollection.AddGraphQLServer()
             .DisableIntrospection()
+            .ModifyCostOptions(options =>
+            {
+                options.MaxFieldCost = 3000;
+                options.MaxTypeCost = 3000;
+            })
             .ConfigureSchemaAsync(ConfigureGraphQLSchemaAsync)
             // Rides HotChocolate's own instrumentation hook (already part of its implicit default
             // pipeline) instead of a custom request middleware, so nothing about the pipeline

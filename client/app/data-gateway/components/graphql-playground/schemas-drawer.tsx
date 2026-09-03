@@ -143,7 +143,7 @@ function CollapsibleSection({
   );
 }
 
-const MAX_NESTING_DEPTH = 6;
+const MAX_NESTING_DEPTH = 30;
 
 function InlineTypeFields({
   typeName,

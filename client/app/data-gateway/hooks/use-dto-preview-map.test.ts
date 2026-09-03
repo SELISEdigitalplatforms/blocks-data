@@ -42,9 +42,7 @@ describe("useDtoPreviewMap", () => {
 
     const { result } = renderHook(() => useDtoPreviewMap("pk"));
 
-    expect(result.current.schemaItems.map((i) => i.schemaName)).toEqual([
-      "AddressDto",
-    ]);
+    expect(result.current.schemaItems.map((i) => i.schemaName)).toEqual(["AddressDto"]);
   });
 
   it("should build a preview map with primitive field types", () => {
@@ -129,10 +127,9 @@ describe("useDtoPreviewMap", () => {
 
     const { result } = renderHook(() => useDtoPreviewMap("pk"));
 
-    // Circular reference resolves to the primitive fallback rather than looping.
+    // Circular edges are omitted rather than being misrepresented as scalars.
     const a = result.current.dtoPreviewMap.get("A");
-    expect(a).toBeDefined();
-    expect(a).toHaveProperty("toB");
+    expect(a).toEqual({ toB: {} });
   });
 
   it("should skip fields with no name", () => {
@@ -140,7 +137,10 @@ describe("useDtoPreviewMap", () => {
       {
         schemaName: "AddressDto",
         schemaType: DTO,
-        fields: [{ name: "", type: "String" }, { name: "city", type: "String" }],
+        fields: [
+          { name: "", type: "String" },
+          { name: "city", type: "String" },
+        ],
       },
     ]);
 

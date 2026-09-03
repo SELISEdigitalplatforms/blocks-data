@@ -15,7 +15,6 @@ import {
   isScalarType,
 } from "graphql";
 import {
-  KNOWN_ARG_COMMENTS,
   COLLAPSIBLE_FILTER_FIELD,
   COLLAPSIBLE_LIST_FIELDS,
   LOGICAL_OPERATOR_FIELDS,
@@ -28,6 +27,8 @@ import {
   mongoStringLiteralForField,
   paginationDefaultForField,
 } from "./graphql-constants";
+
+const MAX_NESTING_DEPTH = 30;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,10 +106,24 @@ const buildInputObjectSampleLines = (
   lineIndent: string,
   useSampleValues: boolean,
   tabStopBase: number,
+  visited: Set<string> = new Set(),
+  depth: number = 0,
 ): string => {
+  if (depth >= MAX_NESTING_DEPTH) return "";
+
+  const nextVisited = new Set(visited).add(inputType.name);
   const fields = Object.values(inputType.getFields());
   return fields
-    .map((f, fi) => buildNestedInputFieldLine(f, lineIndent, useSampleValues, tabStopBase + fi))
+    .map((f, fi) =>
+      buildNestedInputFieldLine(
+        f,
+        lineIndent,
+        useSampleValues,
+        tabStopBase + fi,
+        nextVisited,
+        depth,
+      ),
+    )
     .join("\n");
 };
 
@@ -117,10 +132,12 @@ const buildNestedInputFieldLine = (
   lineIndent: string,
   useSampleValues: boolean,
   fStop: number,
+  visited: Set<string> = new Set(),
+  depth: number = 0,
 ): string => {
   const fType = resolveTypeString(f.type);
   const fNamed = getNamedType(f.type);
-  const fComment = KNOWN_ARG_COMMENTS[f.name] ? `  ${KNOWN_ARG_COMMENTS[f.name]}` : "";
+  const fComment = "";
   const fIsList = isDeepListType(f.type);
 
   if (f.name === COLLAPSIBLE_FILTER_FIELD && isInputObjectType(fNamed)) {
@@ -136,14 +153,34 @@ const buildNestedInputFieldLine = (
   }
 
   if (fIsList && isInputObjectType(fNamed)) {
+    if (depth + 1 >= MAX_NESTING_DEPTH || visited.has(fNamed.name)) {
+      return `${lineIndent}${f.name}: []${fComment}`;
+    }
     const innerIndent = lineIndent + "  ";
-    const innerBody = buildInputObjectSampleLines(fNamed, innerIndent, useSampleValues, fStop);
+    const innerBody = buildInputObjectSampleLines(
+      fNamed,
+      innerIndent,
+      useSampleValues,
+      fStop,
+      visited,
+      depth + 1,
+    );
     return `${lineIndent}${f.name}: [{\n${innerBody}\n${lineIndent}}]${fComment}`;
   }
 
   if (!fIsList && isInputObjectType(fNamed)) {
+    if (depth + 1 >= MAX_NESTING_DEPTH || visited.has(fNamed.name)) {
+      return `${lineIndent}${f.name}: {}${fComment}`;
+    }
     const innerIndent = lineIndent + "  ";
-    const innerBody = buildInputObjectSampleLines(fNamed, innerIndent, useSampleValues, fStop);
+    const innerBody = buildInputObjectSampleLines(
+      fNamed,
+      innerIndent,
+      useSampleValues,
+      fStop,
+      visited,
+      depth + 1,
+    );
     return `${lineIndent}${f.name}: {\n${innerBody}\n${lineIndent}}${fComment}`;
   }
 
@@ -239,7 +276,7 @@ const buildArgumentSnippet = (
     const typeStr = resolveTypeString(arg.type);
     const namedType = getNamedType(arg.type);
     const tabStop = i + 1;
-    const comment = KNOWN_ARG_COMMENTS[arg.name] ? `  ${KNOWN_ARG_COMMENTS[arg.name]}` : "";
+    const comment = "";
 
     // Collapse list-typed args like `order` to empty array
     if (COLLAPSIBLE_LIST_FIELDS.has(arg.name) && isDeepListType(arg.type)) {
@@ -272,7 +309,7 @@ const buildArgumentSnippet = (
 
         const fType = resolveTypeString(f.type);
         const fNamed = getNamedType(f.type);
-        const fComment = KNOWN_ARG_COMMENTS[f.name] ? `  ${KNOWN_ARG_COMMENTS[f.name]}` : "";
+        const fComment = "";
         const fIsList = isDeepListType(f.type);
 
         // Collapse where sub-field to empty object
@@ -353,24 +390,28 @@ const buildArgumentSnippet = (
   return `(\n  ${parts.join("\n  ")}\n)`;
 };
 
-/** Max nesting depth for object field blocks in generated selection snippets (0 = root return type). */
-const MAX_FIELD_SNIPPET_DEPTH = 4;
-
 /** Pagination mirrors of input args; keep them in result selection snippets. */
 export const OMIT_PAGINATION_MIRROR_SELECTION_FIELDS = new Set<string>([]);
 
 /**
  * Build a default field selection snippet for an object type.
- * Recurses up to nested objects through depth 4 (e.g. Result → items → nested objects → deeper selections).
+ * Expands every acyclic object level. Recursive type cycles terminate with
+ * __typename so generated snippets always remain valid GraphQL.
  */
 const buildFieldSelectionSnippet = (
   type: GraphQLNamedType,
   indent: string = "  ",
+  visited: Set<string> = new Set(),
   depth: number = 0,
 ): string => {
-  if (!isObjectType(type) || depth > MAX_FIELD_SNIPPET_DEPTH) return "";
+  if (!isObjectType(type)) return "";
+  if (depth >= MAX_NESTING_DEPTH || visited.has(type.name)) {
+    return `${indent}__typename`;
+  }
 
   const fields = Object.values(type.getFields());
+  if (fields.length === 0) return `${indent}__typename`;
+  const nextVisited = new Set(visited).add(type.name);
 
   // Preferred order for result type fields
   const preferredOrder = [
@@ -398,20 +439,21 @@ const buildFieldSelectionSnippet = (
   const lines: string[] = [];
 
   for (const field of sortedFields) {
-    if (depth === 0 && OMIT_PAGINATION_MIRROR_SELECTION_FIELDS.has(field.name)) continue;
+    if (visited.size === 0 && OMIT_PAGINATION_MIRROR_SELECTION_FIELDS.has(field.name)) continue;
 
     const namedType = getNamedType(field.type);
 
-    if (isObjectType(namedType) && depth < MAX_FIELD_SNIPPET_DEPTH) {
+    if (isObjectType(namedType)) {
       // Recurse for nested objects (list element types unwrap to named object)
-      const nested = buildFieldSelectionSnippet(namedType, indent + "  ", depth + 1);
-      if (nested) {
-        lines.push(`${indent}${field.name} {`);
-        lines.push(nested);
-        lines.push(`${indent}}`);
-      } else {
-        lines.push(`${indent}${field.name}`);
-      }
+      const nested = buildFieldSelectionSnippet(
+        namedType,
+        indent + "  ",
+        nextVisited,
+        depth + 1,
+      );
+      lines.push(`${indent}${field.name} {`);
+      lines.push(nested || `${indent}  __typename`);
+      lines.push(`${indent}}`);
     } else {
       lines.push(`${indent}${field.name}`);
     }
@@ -505,7 +547,7 @@ export const getFieldSuggestions = (
 
       let insertText: string;
       if (isNestedObject) {
-        const nested = buildFieldSelectionSnippet(namedType, "  ", 0);
+        const nested = buildFieldSelectionSnippet(namedType, "  ");
         insertText = nested ? `${field.name} {\n${nested}\n}` : field.name;
       } else {
         insertText = field.name;
@@ -645,9 +687,7 @@ export const getInputFieldSuggestions = (
         if (LOGICAL_OPERATOR_FIELDS.has(field.name) && fIsList) {
           insertText = `${field.name}: [{}]`;
         } else {
-          insertText = fIsList
-            ? `${field.name}: [{\n  \${1}\n}]`
-            : `${field.name}: {\n  \${1}\n}`;
+          insertText = fIsList ? `${field.name}: [{\n  \${1}\n}]` : `${field.name}: {\n  \${1}\n}`;
         }
         isSnippet = true;
       } else if (

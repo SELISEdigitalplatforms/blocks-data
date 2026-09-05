@@ -192,6 +192,27 @@ describe("ManageAccessModal", () => {
     );
   });
 
+  it("sends the global sentinel when a role applies to all organizations", async () => {
+    const user = userEvent.setup();
+    mocks.grant.mockResolvedValue({ itemId: "policy-global-role" });
+    render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
+
+    await user.click(screen.getByRole("button", { name: "Role" }));
+    await user.click(screen.getByRole("combobox", { name: "Select role" }));
+    await user.click(await screen.findByText("Editors"));
+    await user.click(screen.getByRole("button", { name: "Add access rule" }));
+
+    await waitFor(() =>
+      expect(mocks.grant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          principalType: "Role",
+          principalId: "editors",
+          organizationId: "default",
+        }),
+      ),
+    );
+  });
+
   it("grants for Everyone without a selection", async () => {
     const user = userEvent.setup();
     mocks.grant.mockResolvedValue({ itemId: "policy-e" });

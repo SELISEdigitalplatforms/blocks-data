@@ -27,7 +27,7 @@ public class DmsObjectDtoTests
             ResourceType = ObjectResourceType.Directory,
             PrincipalType = ObjectPrincipalType.Role,
             PrincipalId = "editors",
-            RoleOrganizationId = "org-1",
+            OrganizationId = "org-1",
             Permission = ObjectPermission.Manage,
             Effect = ObjectEffect.Deny,
             Priority = 7,
@@ -71,6 +71,19 @@ public class DmsObjectDtoTests
         });
 
         dto.ExpiresAt.Should().BeNull();
+    }
+
+    [Fact]
+    public void A_global_role_policy_does_not_expose_the_default_sentinel_as_an_organization()
+    {
+        var dto = AccessPolicyDto.From(new ObjectAccessPolicy
+        {
+            PrincipalType = ObjectPrincipalType.Role,
+            PrincipalId = "editors",
+            OrganizationId = "default",
+        });
+
+        dto.OrganizationId.Should().BeNull();
     }
 
     [Fact]

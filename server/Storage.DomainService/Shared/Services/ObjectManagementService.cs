@@ -38,6 +38,7 @@ namespace Storage.DomainService.Services
 
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
         private static string UserId => BlocksContext.GetContext()?.UserId ?? string.Empty;
+        private static string ContextOrganizationId => BlocksContext.GetContext()?.OrganizationId ?? string.Empty;
 
         private IMongoCollection<FileDirectory> Directories => _dbContextProvider.GetCollection<FileDirectory>("FileDirectories");
         private IMongoCollection<File> Files => _dbContextProvider.GetCollection<File>("Files");
@@ -45,6 +46,7 @@ namespace Storage.DomainService.Services
         public async Task<ObjectAccessOperationResult> GrantAccessAsync(ObjectAccessPolicy policy, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(policy);
+            policy.OrganizationId = ResolveOrganizationId(policy.OrganizationId);
 
             var (resource, failure) = await AuthoriseManageAsync(policy.ResourceId, cancellationToken);
             if (failure is not null) return failure;
@@ -66,6 +68,7 @@ namespace Storage.DomainService.Services
         public async Task<ObjectAccessOperationResult> UpdateAccessAsync(ObjectAccessPolicy policy, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(policy);
+            policy.OrganizationId = ResolveOrganizationId(policy.OrganizationId);
 
             var (resource, failure) = await AuthoriseManageAsync(policy.ResourceId, cancellationToken);
             if (failure is not null) return failure;
@@ -115,6 +118,7 @@ namespace Storage.DomainService.Services
             string? principalId, ObjectPermission permission, DateTime? expiresAt,
             string? organizationId, CancellationToken cancellationToken = default)
         {
+            var hasExplicitOrganizationScope = HasOrganizationScope(organizationId);
             var policy = new ObjectAccessPolicy
             {
                 ItemId = Guid.NewGuid().ToString(),
@@ -122,7 +126,7 @@ namespace Storage.DomainService.Services
                 ResourceType = resourceType,
                 PrincipalType = principalType,
                 PrincipalId = principalId,
-                RoleOrganizationId = string.IsNullOrWhiteSpace(organizationId) ? null : organizationId,
+                OrganizationId = ResolveOrganizationId(organizationId),
                 Permission = permission,
                 Effect = ObjectEffect.Allow,
                 ExpiresAt = expiresAt,
@@ -130,6 +134,11 @@ namespace Storage.DomainService.Services
 
             var (resource, failure) = await AuthoriseManageAsync(resourceId, cancellationToken);
             if (failure is not null) return failure;
+
+            if (hasExplicitOrganizationScope && principalType != ObjectPrincipalType.Role)
+            {
+                return ObjectAccessOperationResult.Failure(ObjectAccessOperationStatus.InvalidOrganizationScope);
+            }
 
             var rejection = await ValidatePolicyAsync(resource!, policy, cancellationToken);
             if (rejection is not null) return rejection;
@@ -221,15 +230,9 @@ namespace Storage.DomainService.Services
                 return ObjectAccessOperationResult.Failure(ObjectAccessOperationStatus.PrincipalRequired);
             }
 
-            if (!string.IsNullOrWhiteSpace(policy.RoleOrganizationId)
-                && policy.PrincipalType != ObjectPrincipalType.Role)
-            {
-                return ObjectAccessOperationResult.Failure(ObjectAccessOperationStatus.InvalidOrganizationScope);
-            }
-
             if (policy.Effect == ObjectEffect.Deny
                 && await _resolver.WouldCreateSelfDenyAsync(resource.Descriptor, policy.PrincipalType,
-                    policy.PrincipalId, policy.RoleOrganizationId, cancellationToken))
+                    policy.PrincipalId, policy.OrganizationId, cancellationToken))
             {
                 return ObjectAccessOperationResult.Failure(ObjectAccessOperationStatus.SelfDenyRejected);
             }
@@ -311,7 +314,14 @@ namespace Storage.DomainService.Services
         private static string DescribePrincipal(ObjectAccessPolicy policy) =>
             $"{policy.Effect} {policy.Permission} to {policy.PrincipalType}"
             + (string.IsNullOrEmpty(policy.PrincipalId) ? string.Empty : $" {policy.PrincipalId}")
-            + (string.IsNullOrEmpty(policy.RoleOrganizationId) ? string.Empty : $" in organization {policy.RoleOrganizationId}");
+            + (!HasOrganizationScope(policy.OrganizationId) ? string.Empty : $" in organization {policy.OrganizationId}");
+
+        private static bool HasOrganizationScope(string? organizationId) =>
+            !string.IsNullOrWhiteSpace(organizationId)
+            && !string.Equals(organizationId, "default", StringComparison.OrdinalIgnoreCase);
+
+        private static string ResolveOrganizationId(string? organizationId) =>
+            string.IsNullOrWhiteSpace(organizationId) ? ContextOrganizationId : organizationId;
 
         private sealed record ResourceHandle(ObjectResourceType Type, ObjectResourceDescriptor Descriptor);
     }

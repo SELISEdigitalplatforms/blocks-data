@@ -56,7 +56,7 @@ public class ObjectAccessResolverTests : IDisposable
             ResourceType = ObjectResourceType.File,
             PrincipalType = principalType,
             PrincipalId = principalId,
-            RoleOrganizationId = organizationId,
+            OrganizationId = organizationId ?? "default",
             Permission = permission,
             Effect = effect,
             Priority = priority,

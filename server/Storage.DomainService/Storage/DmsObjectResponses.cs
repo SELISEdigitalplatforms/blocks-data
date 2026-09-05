@@ -199,7 +199,11 @@ namespace DomainService.Storage.Dms
             ResourceType = policy.ResourceType,
             PrincipalType = policy.PrincipalType,
             PrincipalId = policy.PrincipalId,
-            OrganizationId = policy.RoleOrganizationId,
+            OrganizationId = policy.PrincipalType == ObjectPrincipalType.Role
+                             && !string.IsNullOrWhiteSpace(policy.OrganizationId)
+                             && !string.Equals(policy.OrganizationId, "default", StringComparison.OrdinalIgnoreCase)
+                ? policy.OrganizationId
+                : null,
             Permission = policy.Permission,
             Effect = policy.Effect,
             Priority = policy.Priority,

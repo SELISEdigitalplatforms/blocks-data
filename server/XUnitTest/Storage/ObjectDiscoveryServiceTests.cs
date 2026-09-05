@@ -298,7 +298,7 @@ public class ObjectDiscoveryServiceTests : IDisposable
             ItemId = "matching-policy", TenantId = "tenant-1",
             ResourceId = "matching-role-org", ResourceType = ObjectResourceType.File,
             PrincipalType = ObjectPrincipalType.Role, PrincipalId = "editor",
-            RoleOrganizationId = "org-1", Permission = ObjectPermission.View,
+            OrganizationId = "org-1", Permission = ObjectPermission.View,
             Effect = ObjectEffect.Allow,
         });
         await _accessRepository.GrantAsync(new ObjectAccessPolicy
@@ -306,7 +306,7 @@ public class ObjectDiscoveryServiceTests : IDisposable
             ItemId = "other-policy", TenantId = "tenant-1",
             ResourceId = "other-role-org", ResourceType = ObjectResourceType.File,
             PrincipalType = ObjectPrincipalType.Role, PrincipalId = "editor",
-            RoleOrganizationId = "org-2", Permission = ObjectPermission.View,
+            OrganizationId = "org-2", Permission = ObjectPermission.View,
             Effect = ObjectEffect.Allow,
         });
 

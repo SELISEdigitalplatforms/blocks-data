@@ -137,8 +137,10 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
             principalType,
             principalId,
             organizationId:
-              principalType === "Role" && roleOrganizationId !== GLOBAL_ROLE_SCOPE
-                ? roleOrganizationId
+              principalType === "Role"
+                ? roleOrganizationId === GLOBAL_ROLE_SCOPE
+                  ? "default"
+                  : roleOrganizationId
                 : undefined,
             permission,
             effect,

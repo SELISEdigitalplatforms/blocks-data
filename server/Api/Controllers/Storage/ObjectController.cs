@@ -196,7 +196,7 @@ namespace Api.Controllers
             ResourceType = request.ResourceType,
             PrincipalType = request.PrincipalType,
             PrincipalId = request.PrincipalId,
-            RoleOrganizationId = request.OrganizationId,
+            OrganizationId = request.OrganizationId ?? BlocksContext.GetContext()?.OrganizationId ?? string.Empty,
             Permission = request.Permission,
             Effect = request.Effect,
             Priority = request.Priority,

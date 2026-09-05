@@ -47,7 +47,8 @@ public class ObjectAccessResolverTests : IDisposable
         string? principalId,
         ObjectPermission permission,
         ObjectEffect effect = ObjectEffect.Allow,
-        int priority = 0) => new()
+        int priority = 0,
+        string? organizationId = null) => new()
         {
             ItemId = Guid.NewGuid().ToString(),
             TenantId = "tenant-1",
@@ -55,6 +56,7 @@ public class ObjectAccessResolverTests : IDisposable
             ResourceType = ObjectResourceType.File,
             PrincipalType = principalType,
             PrincipalId = principalId,
+            RoleOrganizationId = organizationId,
             Permission = permission,
             Effect = effect,
             Priority = priority,
@@ -202,6 +204,35 @@ public class ObjectAccessResolverTests : IDisposable
         var allowed = await _resolver.ResolveAsync(Resource(), ObjectPermission.View);
 
         allowed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task An_organization_scoped_role_matches_the_role_in_the_active_organization()
+    {
+        SetupPolicies(Ace("file-1", ObjectPrincipalType.Role, "editor", ObjectPermission.View,
+            organizationId: "org-1"));
+
+        (await _resolver.ResolveAsync(Resource(), ObjectPermission.View)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task An_organization_scoped_role_does_not_match_the_same_role_in_another_organization()
+    {
+        SetupPolicies(Ace("file-1", ObjectPrincipalType.Role, "editor", ObjectPermission.View,
+            organizationId: "org-2"));
+
+        (await _resolver.ResolveAsync(Resource(), ObjectPermission.View)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Global_and_organization_scoped_entries_for_the_same_role_are_resolved_independently()
+    {
+        SetupPolicies(
+            Ace("file-1", ObjectPrincipalType.Role, "editor", ObjectPermission.View,
+                ObjectEffect.Deny, priority: 10, organizationId: "org-2"),
+            Ace("file-1", ObjectPrincipalType.Role, "editor", ObjectPermission.View));
+
+        (await _resolver.ResolveAsync(Resource(), ObjectPermission.View)).Should().BeTrue();
     }
 
     [Fact]

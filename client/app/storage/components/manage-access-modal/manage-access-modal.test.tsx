@@ -169,6 +169,29 @@ describe("ManageAccessModal", () => {
     );
   });
 
+  it("grants a role only within the selected organization", async () => {
+    const user = userEvent.setup();
+    mocks.grant.mockResolvedValue({ itemId: "policy-role-org" });
+    render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
+
+    await user.click(screen.getByRole("button", { name: "Role" }));
+    await user.click(screen.getByRole("combobox", { name: "Select role" }));
+    await user.click(await screen.findByText("Editors"));
+    await user.click(screen.getByRole("combobox", { name: "Role scope" }));
+    await user.click(await screen.findByText("Acme"));
+    await user.click(screen.getByRole("button", { name: "Add access rule" }));
+
+    await waitFor(() =>
+      expect(mocks.grant).toHaveBeenCalledWith(
+        expect.objectContaining({
+          principalType: "Role",
+          principalId: "editors",
+          organizationId: "o1",
+        }),
+      ),
+    );
+  });
+
   it("grants for Everyone without a selection", async () => {
     const user = userEvent.setup();
     mocks.grant.mockResolvedValue({ itemId: "policy-e" });

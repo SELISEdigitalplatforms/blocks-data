@@ -135,6 +135,33 @@ namespace Storage.DomainService.Storage.Validators
                 .When(r => r.PrincipalType != ObjectPrincipalType.Everyone)
                 .WithMessage("A principal is required for every principal type except Everyone.");
 
+            RuleFor(r => r.OrganizationId)
+                .Must(string.IsNullOrWhiteSpace)
+                .When(r => r.PrincipalType != ObjectPrincipalType.Role)
+                .WithMessage("OrganizationId can only be used with a Role principal.");
+
+            RuleFor(r => r.ExpiresAt)
+                .Must(e => e is null || e > DateTime.UtcNow)
+                .WithMessage("An expiry must be in the future.");
+        }
+    }
+
+    public class ShareObjectRequestValidator : AbstractValidator<ShareObjectRequest>
+    {
+        public ShareObjectRequestValidator()
+        {
+            RuleFor(r => r.ResourceId).NotEmpty();
+            RuleFor(r => r.ResourceType).IsInEnum();
+            RuleFor(r => r.PrincipalType).IsInEnum();
+            RuleFor(r => r.Permission).IsInEnum();
+            RuleFor(r => r.PrincipalId)
+                .NotEmpty()
+                .When(r => r.PrincipalType != ObjectPrincipalType.Everyone)
+                .WithMessage("A principal is required for every principal type except Everyone.");
+            RuleFor(r => r.OrganizationId)
+                .Must(string.IsNullOrWhiteSpace)
+                .When(r => r.PrincipalType != ObjectPrincipalType.Role)
+                .WithMessage("OrganizationId can only be used with a Role principal.");
             RuleFor(r => r.ExpiresAt)
                 .Must(e => e is null || e > DateTime.UtcNow)
                 .WithMessage("An expiry must be in the future.");

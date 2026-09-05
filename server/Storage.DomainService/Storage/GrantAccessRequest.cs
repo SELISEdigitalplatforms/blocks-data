@@ -11,6 +11,9 @@ namespace DomainService.Storage.Dms
         /// <summary>Required for every principal kind except Everyone.</summary>
         public string? PrincipalId { get; set; }
 
+        /// <summary>For Role principals, optionally limits the entry to this organization.</summary>
+        public string? OrganizationId { get; set; }
+
         public ObjectPermission Permission { get; set; }
         public ObjectEffect Effect { get; set; } = ObjectEffect.Allow;
         public int Priority { get; set; }

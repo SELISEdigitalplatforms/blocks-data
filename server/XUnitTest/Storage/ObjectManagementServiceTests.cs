@@ -321,6 +321,32 @@ public class ObjectManagementServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Sharing_with_a_role_and_organization_persists_the_organization_scope()
+    {
+        await OwnedDirectory();
+
+        await _management.ShareObjectAsync(
+            "dir-1", ObjectResourceType.Directory, ObjectPrincipalType.Role, "r2",
+            ObjectPermission.View, expiresAt: null, organizationId: "o2");
+
+        var stored = (await _accessRepository.GetByResourceAsync("dir-1")).Single();
+        stored.PrincipalId.Should().Be("r2");
+        stored.RoleOrganizationId.Should().Be("o2");
+    }
+
+    [Fact]
+    public async Task Organization_scope_is_rejected_for_a_non_role_principal()
+    {
+        await OwnedDirectory();
+
+        var result = await _management.ShareObjectAsync(
+            "dir-1", ObjectResourceType.Directory, ObjectPrincipalType.User, "user-9",
+            ObjectPermission.View, expiresAt: null, organizationId: "o2");
+
+        result.Status.Should().Be(ObjectAccessOperationStatus.InvalidOrganizationScope);
+    }
+
+    [Fact]
     public async Task Sharing_without_manage_is_refused()
     {
         await OwnedDirectory(createdBy: "someone-else");

@@ -27,6 +27,7 @@ public class DmsObjectDtoTests
             ResourceType = ObjectResourceType.Directory,
             PrincipalType = ObjectPrincipalType.Role,
             PrincipalId = "editors",
+            RoleOrganizationId = "org-1",
             Permission = ObjectPermission.Manage,
             Effect = ObjectEffect.Deny,
             Priority = 7,
@@ -42,6 +43,7 @@ public class DmsObjectDtoTests
         dto.ResourceType.Should().Be(ObjectResourceType.Directory);
         dto.PrincipalType.Should().Be(ObjectPrincipalType.Role);
         dto.PrincipalId.Should().Be("editors");
+        dto.OrganizationId.Should().Be("org-1");
         dto.Permission.Should().Be(ObjectPermission.Manage);
         dto.Effect.Should().Be(ObjectEffect.Deny);
         dto.Priority.Should().Be(7);

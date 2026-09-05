@@ -38,6 +38,11 @@ namespace Storage.DomainService.Services
 
         public async Task<bool> WouldCreateSelfDenyAsync(ObjectResourceDescriptor resource, ObjectPrincipalType principalType, string? principalId, CancellationToken cancellationToken = default)
         {
+            return await WouldCreateSelfDenyAsync(resource, principalType, principalId, null, cancellationToken);
+        }
+
+        public async Task<bool> WouldCreateSelfDenyAsync(ObjectResourceDescriptor resource, ObjectPrincipalType principalType, string? principalId, string? roleOrganizationId, CancellationToken cancellationToken = default)
+        {
             ArgumentNullException.ThrowIfNull(resource);
 
             // A Deny aimed at a specific user is a self-deny when that user created the
@@ -54,7 +59,8 @@ namespace Storage.DomainService.Services
                 p.Permission == ObjectPermission.Owner
                 && p.Effect == ObjectEffect.Allow
                 && p.PrincipalType == principalType
-                && string.Equals(p.PrincipalId, principalId, StringComparison.Ordinal));
+                && string.Equals(p.PrincipalId, principalId, StringComparison.Ordinal)
+                && string.Equals(p.RoleOrganizationId, roleOrganizationId, StringComparison.Ordinal));
         }
 
         public async Task<List<ObjectResourceDescriptor>> FilterVisibleAsync(IReadOnlyList<ObjectResourceDescriptor> children, CancellationToken cancellationToken = default)
@@ -148,7 +154,7 @@ namespace Storage.DomainService.Services
             ObjectResourceDescriptor resource,
             IReadOnlyDictionary<string, List<ObjectAccessPolicy>> policiesById)
         {
-            var winners = new Dictionary<(ObjectPrincipalType, string, ObjectPermission), ObjectAccessPolicy>();
+            var winners = new Dictionary<(ObjectPrincipalType, string, string, ObjectPermission), ObjectAccessPolicy>();
 
             foreach (var resourceId in RelevantResourceIds(resource))
             {
@@ -156,7 +162,8 @@ namespace Storage.DomainService.Services
 
                 foreach (var policy in policies)
                 {
-                    var key = (policy.PrincipalType, policy.PrincipalId ?? string.Empty, policy.Permission);
+                    var key = (policy.PrincipalType, policy.PrincipalId ?? string.Empty,
+                        policy.RoleOrganizationId ?? string.Empty, policy.Permission);
 
                     if (!winners.TryGetValue(key, out var existing))
                     {
@@ -226,7 +233,9 @@ namespace Storage.DomainService.Services
                                          && string.Equals(policy.PrincipalId, context?.UserId, StringComparison.Ordinal),
             ObjectPrincipalType.Role => !string.IsNullOrEmpty(policy.PrincipalId)
                                          && context?.Roles is not null
-                                         && context.Roles.Contains(policy.PrincipalId, StringComparer.Ordinal),
+                                         && context.Roles.Contains(policy.PrincipalId, StringComparer.Ordinal)
+                                         && (string.IsNullOrEmpty(policy.RoleOrganizationId)
+                                             || string.Equals(policy.RoleOrganizationId, context.OrganizationId, StringComparison.Ordinal)),
             // Only the caller's active organization matches. A missing active org never does,
             // so an entry authored with an empty principal cannot grant access by accident.
             ObjectPrincipalType.Organization => !string.IsNullOrEmpty(policy.PrincipalId)

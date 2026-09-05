@@ -184,6 +184,7 @@ namespace DomainService.Storage.Dms
         public ObjectResourceType ResourceType { get; set; }
         public ObjectPrincipalType PrincipalType { get; set; }
         public string? PrincipalId { get; set; }
+        public string? OrganizationId { get; set; }
         public ObjectPermission Permission { get; set; }
         public ObjectEffect Effect { get; set; }
         public int Priority { get; set; }
@@ -198,6 +199,7 @@ namespace DomainService.Storage.Dms
             ResourceType = policy.ResourceType,
             PrincipalType = policy.PrincipalType,
             PrincipalId = policy.PrincipalId,
+            OrganizationId = policy.RoleOrganizationId,
             Permission = policy.Permission,
             Effect = policy.Effect,
             Priority = policy.Priority,

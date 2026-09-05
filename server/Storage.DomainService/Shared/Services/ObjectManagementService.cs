@@ -106,6 +106,15 @@ namespace Storage.DomainService.Services
             string? principalId, ObjectPermission permission, DateTime? expiresAt = null,
             CancellationToken cancellationToken = default)
         {
+            return await ShareObjectAsync(resourceId, resourceType, principalType, principalId,
+                permission, expiresAt, null, cancellationToken);
+        }
+
+        public async Task<ObjectAccessOperationResult> ShareObjectAsync(
+            string resourceId, ObjectResourceType resourceType, ObjectPrincipalType principalType,
+            string? principalId, ObjectPermission permission, DateTime? expiresAt,
+            string? organizationId, CancellationToken cancellationToken = default)
+        {
             var policy = new ObjectAccessPolicy
             {
                 ItemId = Guid.NewGuid().ToString(),
@@ -113,6 +122,7 @@ namespace Storage.DomainService.Services
                 ResourceType = resourceType,
                 PrincipalType = principalType,
                 PrincipalId = principalId,
+                RoleOrganizationId = string.IsNullOrWhiteSpace(organizationId) ? null : organizationId,
                 Permission = permission,
                 Effect = ObjectEffect.Allow,
                 ExpiresAt = expiresAt,
@@ -211,8 +221,15 @@ namespace Storage.DomainService.Services
                 return ObjectAccessOperationResult.Failure(ObjectAccessOperationStatus.PrincipalRequired);
             }
 
+            if (!string.IsNullOrWhiteSpace(policy.RoleOrganizationId)
+                && policy.PrincipalType != ObjectPrincipalType.Role)
+            {
+                return ObjectAccessOperationResult.Failure(ObjectAccessOperationStatus.InvalidOrganizationScope);
+            }
+
             if (policy.Effect == ObjectEffect.Deny
-                && await _resolver.WouldCreateSelfDenyAsync(resource.Descriptor, policy.PrincipalType, policy.PrincipalId, cancellationToken))
+                && await _resolver.WouldCreateSelfDenyAsync(resource.Descriptor, policy.PrincipalType,
+                    policy.PrincipalId, policy.RoleOrganizationId, cancellationToken))
             {
                 return ObjectAccessOperationResult.Failure(ObjectAccessOperationStatus.SelfDenyRejected);
             }
@@ -293,7 +310,8 @@ namespace Storage.DomainService.Services
 
         private static string DescribePrincipal(ObjectAccessPolicy policy) =>
             $"{policy.Effect} {policy.Permission} to {policy.PrincipalType}"
-            + (string.IsNullOrEmpty(policy.PrincipalId) ? string.Empty : $" {policy.PrincipalId}");
+            + (string.IsNullOrEmpty(policy.PrincipalId) ? string.Empty : $" {policy.PrincipalId}")
+            + (string.IsNullOrEmpty(policy.RoleOrganizationId) ? string.Empty : $" in organization {policy.RoleOrganizationId}");
 
         private sealed record ResourceHandle(ObjectResourceType Type, ObjectResourceDescriptor Descriptor);
     }

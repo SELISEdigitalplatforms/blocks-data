@@ -288,6 +288,34 @@ public class ObjectDiscoveryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Shared_objects_include_a_role_share_only_in_its_scoped_organization()
+    {
+        await SeedFile("matching-role-org", "matching.pdf", createdBy: "someone-else");
+        await SeedFile("other-role-org", "other.pdf", createdBy: "someone-else");
+
+        await _accessRepository.GrantAsync(new ObjectAccessPolicy
+        {
+            ItemId = "matching-policy", TenantId = "tenant-1",
+            ResourceId = "matching-role-org", ResourceType = ObjectResourceType.File,
+            PrincipalType = ObjectPrincipalType.Role, PrincipalId = "editor",
+            RoleOrganizationId = "org-1", Permission = ObjectPermission.View,
+            Effect = ObjectEffect.Allow,
+        });
+        await _accessRepository.GrantAsync(new ObjectAccessPolicy
+        {
+            ItemId = "other-policy", TenantId = "tenant-1",
+            ResourceId = "other-role-org", ResourceType = ObjectResourceType.File,
+            PrincipalType = ObjectPrincipalType.Role, PrincipalId = "editor",
+            RoleOrganizationId = "org-2", Permission = ObjectPermission.View,
+            Effect = ObjectEffect.Allow,
+        });
+
+        var page = await _discovery.GetSharedAsync();
+
+        page.Items.Select(item => item.ItemId).Should().Equal("matching-role-org");
+    }
+
+    [Fact]
     public async Task An_empty_query_returns_nothing_rather_than_everything()
     {
         await SeedFile("file-1", "report.pdf");

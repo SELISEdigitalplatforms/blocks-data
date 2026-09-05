@@ -29,6 +29,14 @@ namespace Storage.DomainService.Entities
         /// <summary>User id, role slug or organization id. Null when the principal is Everyone.</summary>
         public string? PrincipalId { get; set; }
 
+        /// <summary>
+        /// Optional organization scope for a Role principal. Null keeps the historical
+        /// tenant-wide role behaviour; when set, both this value and the role must match.
+        /// This is deliberately separate from BaseEntity.OrganizationId, which describes
+        /// entity ownership rather than the principal's scope.
+        /// </summary>
+        public string? RoleOrganizationId { get; set; }
+
         [BsonRepresentation(BsonType.String)]
         public ObjectPermission Permission { get; set; }
 

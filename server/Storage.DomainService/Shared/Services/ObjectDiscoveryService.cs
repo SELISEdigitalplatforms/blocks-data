@@ -300,7 +300,9 @@ namespace Storage.DomainService.Services
                                         && string.Equals(policy.PrincipalId, context?.UserId, StringComparison.Ordinal),
             ObjectPrincipalType.Role => !string.IsNullOrEmpty(policy.PrincipalId)
                                         && context?.Roles is not null
-                                        && context.Roles.Contains(policy.PrincipalId, StringComparer.Ordinal),
+                                        && context.Roles.Contains(policy.PrincipalId, StringComparer.Ordinal)
+                                        && (string.IsNullOrEmpty(policy.RoleOrganizationId)
+                                            || string.Equals(policy.RoleOrganizationId, context.OrganizationId, StringComparison.Ordinal)),
             ObjectPrincipalType.Organization => !string.IsNullOrEmpty(policy.PrincipalId)
                                                 && !string.IsNullOrEmpty(context?.OrganizationId)
                                                 && string.Equals(policy.PrincipalId, context.OrganizationId, StringComparison.Ordinal),

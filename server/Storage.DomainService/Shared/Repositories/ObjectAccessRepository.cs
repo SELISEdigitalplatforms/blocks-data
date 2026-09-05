@@ -51,7 +51,8 @@ namespace Storage.DomainService.Services
                         keys.Ascending(p => p.TenantId).Ascending(p => p.ResourceId)),
                     // Supports revoking every grant held by one principal.
                     new CreateIndexModel<ObjectAccessPolicy>(
-                        keys.Ascending(p => p.TenantId).Ascending(p => p.PrincipalType).Ascending(p => p.PrincipalId)),
+                        keys.Ascending(p => p.TenantId).Ascending(p => p.PrincipalType)
+                            .Ascending(p => p.PrincipalId).Ascending(p => p.RoleOrganizationId)),
                 },
                 cancellationToken);
         }

@@ -34,6 +34,17 @@ const SDL = `
     gt: Int
   }
 
+  input StringOperationFilterInput {
+    eq: String
+    neq: String
+    contains: String
+    in: [String]
+  }
+
+  input AddressFilterInput {
+    streetNo: StringOperationFilterInput
+  }
+
   input OrderInput {
     field: String
     direction: String
@@ -47,10 +58,15 @@ const SDL = `
   input ItemWhere {
     name: StringFilter
     amount: IntFilter
+    address: AddressFilterInput
     filter: String
     sort: String
     or: [ItemWhere]
     and: [ItemWhere]
+  }
+
+  input PersonFilterInput {
+    address: AddressFilterInput
   }
 
   input ItemInput {
@@ -340,6 +356,34 @@ describe("introspection-utils", () => {
       const suggestions = getInputFieldSuggestions("StringFilter", schema);
       expect(byLabel(suggestions, "in")!.insertText).toContain('in: ["${1}"]');
       expect(byLabel(suggestions, "eq")!.insertText).toBe('eq: "${1}"');
+    });
+
+    it("offers explicit null completions for child filters and equality operators", () => {
+      const whereSuggestions = getInputFieldSuggestions("PersonFilterInput", schema);
+      expect(byLabel(whereSuggestions, "address: null")!.insertText).toBe("address: null");
+
+      const addressSuggestions = getInputFieldSuggestions("AddressFilterInput", schema);
+      expect(byLabel(addressSuggestions, "streetNo")!.insertText).toBe(
+        'streetNo: {\n  eq: "${1}"\n}',
+      );
+
+      const operationSuggestions = getInputFieldSuggestions("StringOperationFilterInput", schema);
+      expect(byLabel(operationSuggestions, "eq: null")!.insertText).toBe("eq: null");
+      expect(byLabel(operationSuggestions, "neq: null")!.insertText).toBe("neq: null");
+    });
+
+    it("keeps string-array leaf operators type-correct", () => {
+      // GraphQL exposes a String[] schema leaf through the same operation input:
+      // eq compares one array element, while in accepts a list of candidates.
+      const addressSuggestions = getInputFieldSuggestions("AddressFilterInput", schema);
+      const streetNo = byLabel(addressSuggestions, "streetNo")!;
+      expect(streetNo.insertText).toBe('streetNo: {\n  eq: "${1}"\n}');
+      expect(streetNo.insertText).not.toContain("eq: [");
+
+      const operators = getInputFieldSuggestions("StringOperationFilterInput", schema);
+      expect(byLabel(operators, "eq")!.insertText).toBe('eq: "${1}"');
+      expect(byLabel(operators, "contains")!.insertText).toBe('contains: "${1}"');
+      expect(byLabel(operators, "in")!.insertText).toContain('in: ["${1}"]');
     });
 
     it("returns [] for unknown or non-input types", () => {

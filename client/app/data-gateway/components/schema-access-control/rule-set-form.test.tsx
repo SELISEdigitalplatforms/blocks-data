@@ -402,7 +402,7 @@ describe("RuleSetForm create flow", () => {
     await pick(user, 0, "Auth");
     await pick(user, 1, "Roles");
     await pick(user, 2, /^In$/);
-    await pick(user, 3, "Schema Fields");
+    await pick(user, 3, "Products");
 
     await user.click(screen.getByRole("button", { name: "Select fields" }));
     await user.click(await screen.findByText("title"));
@@ -519,10 +519,10 @@ describe("RuleSetForm create flow", () => {
       target: { value: "Schema string set" },
     });
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
-    await pick(user, 0, "Schema Fields");
+    await pick(user, 0, "Products");
     await pick(user, 1, "title");
     await pick(user, 2, /^Equal$/);
-    await pick(user, 3, "Schema Fields");
+    await pick(user, 3, "Products");
     // Right side offers string/array schema fields (title, tags).
     await pick(user, 4, "tags");
 
@@ -540,7 +540,7 @@ describe("RuleSetForm create flow", () => {
       target: { value: "Numeric set" },
     });
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
-    await pick(user, 0, "Schema Fields");
+    await pick(user, 0, "Products");
     await pick(user, 1, "count");
     await pick(user, 2, /^Equal$/);
     // Numeric left operands cannot compare against Auth, so that option is gone.
@@ -548,7 +548,7 @@ describe("RuleSetForm create flow", () => {
     expect(
       screen.queryByRole("option", { name: "Auth" }),
     ).not.toBeInTheDocument();
-    await user.click(await screen.findByRole("option", { name: "Schema Fields" }));
+    await user.click(await screen.findByRole("option", { name: "Products" }));
     await pick(user, 4, "count");
 
     const saveBtn = screen.getByRole("button", { name: "Save" });
@@ -630,7 +630,7 @@ describe("RuleSetForm — compareValue resets that guard the principal selector"
     await startRule(user);
 
     // Build a plain string rule and type free text into it.
-    await pick(user, 0, "Schema Fields");
+    await pick(user, 0, "Products");
     await pick(user, 1, "title");
     await pick(user, 2, /^Equal$/);
     await pick(user, 3, "Static Value");

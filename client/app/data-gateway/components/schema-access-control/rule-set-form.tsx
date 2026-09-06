@@ -225,18 +225,32 @@ export const RuleSetForm = ({
     return RULE_OPERATORS.filter((op) => allowed.includes(op.value));
   };
 
+  /** Left-side source options with the schema field option labeled by the current schema's name */
+  const ruleSourceOptions = RULE_SOURCE_OPTIONS.map((opt) =>
+    opt.value === RULE_SOURCE_TYPES.SCHEMA_FIELD && schemaName
+      ? { ...opt, label: schemaName }
+      : opt,
+  );
+
+  /** Compare source options with the schema field option labeled by the current schema's name */
+  const compareSourceOptions = COMPARE_SOURCE_OPTIONS.map((opt) =>
+    opt.value === RULE_SOURCE_TYPES.SCHEMA_FIELD && schemaName
+      ? { ...opt, label: schemaName }
+      : opt,
+  );
+
   /** Filter compare source options by category */
   const getFilteredCompareSourceOptions = (
     category: FieldTypeCategory | undefined,
   ) => {
-    if (!category) return COMPARE_SOURCE_OPTIONS;
+    if (!category) return compareSourceOptions;
     // Numeric: no auth fields are numeric, so remove Auth
     if (category === FIELD_TYPE_CATEGORY.NUMERIC) {
-      return COMPARE_SOURCE_OPTIONS.filter(
+      return compareSourceOptions.filter(
         (o) => o.value !== RULE_SOURCE_TYPES.AUTH,
       );
     }
-    return COMPARE_SOURCE_OPTIONS;
+    return compareSourceOptions;
   };
 
   /** Filter right-side field options based on left operand category */
@@ -612,7 +626,7 @@ export const RuleSetForm = ({
                                     <SelectValue placeholder="Select source" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {RULE_SOURCE_OPTIONS.map((opt) => (
+                                    {ruleSourceOptions.map((opt) => (
                                       <SelectItem
                                         key={opt.value}
                                         value={opt.value}

@@ -29,7 +29,6 @@ import {
   useSchemaList,
 } from "../../hooks/use-configuration";
 import type { ISchemaDetails } from "../../models/data-service";
-import { LOGICAL_OPERATOR_FIELDS } from "../../utils/graphql-constants";
 import {
   detectCurrentFieldName,
   detectOperationContext,
@@ -998,140 +997,6 @@ export const GraphQLPlaygroundPage = () => {
             let currentSchemaName: string | null = null;
             const textForMatching = textBeforeCursor.replace(/\n/g, " ");
 
-            // Typed `where` fallback completion. Follow the same recursive
-            // entity/DTO contract exposed by GraphQL introspection so an
-            // unavailable gateway does not reduce filters to top-level fields.
-            const fallbackBlockPath = resolveInputBlockPath(textBeforeCursor);
-            if (fallbackBlockPath[0] === "where") {
-              const operationMatch = Array.from(
-                textForMatching.matchAll(
-                  /(?:get|updateMany|update|deleteMany|delete)(\w+?)(?:s)?\s*\(/g,
-                ),
-              ).pop();
-              const entityName = operationMatch?.[1];
-              const entitySchema = schemas.find((s) => s.schemaName === entityName);
-              const dtoByName = new Map(
-                dtoSchemas.map((s) => [s.schemaName.trim(), s] as const),
-              );
-
-              if (entitySchema) {
-                let fields = entitySchema.fields;
-                let leafType: string | null = null;
-                const path = fallbackBlockPath.slice(1).filter(
-                  (part) => !LOGICAL_OPERATOR_FIELDS.has(part) && !/^\d+$/.test(part),
-                );
-
-                for (const segment of path) {
-                  const field = fields.find((candidate) => candidate.name === segment);
-                  if (!field) {
-                    fields = [];
-                    leafType = null;
-                    break;
-                  }
-
-                  const nestedFields =
-                    field.fields && field.fields.length > 0
-                      ? field.fields
-                      : dtoByName.get(field.type.trim())?.fields;
-                  if (nestedFields && nestedFields.length > 0) {
-                    fields = nestedFields;
-                    leafType = null;
-                  } else {
-                    fields = [];
-                    leafType = field.type;
-                  }
-                }
-
-                const addFallback = (
-                  label: string,
-                  insertText: string,
-                  detail: string,
-                  kind: languages.CompletionItemKind,
-                ) => suggestions.push({
-                  label,
-                  kind,
-                  insertText,
-                  insertTextRules:
-                    monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                  documentation: detail,
-                  detail,
-                  sortText: `0_${label}`,
-                  range,
-                });
-
-                if (leafType) {
-                  const operatorNames =
-                    leafType === "String" || leafType === "ID"
-                      ? ["eq", "neq", "contains", "startsWith", "endsWith", "in"]
-                      : leafType === "Boolean"
-                        ? ["eq", "neq"]
-                        : ["eq", "neq", "gt", "gte", "lt", "lte", "in"];
-                  operatorNames.forEach((operator) =>
-                    addFallback(
-                      operator,
-                      operator === "in" ? `${operator}: [\${1}]` : `${operator}: \${1}`,
-                      `${leafType} filter operator`,
-                      monaco.languages.CompletionItemKind.Keyword,
-                    ),
-                  );
-                  ["eq", "neq"].forEach((operator) => {
-                    if (operatorNames.includes(operator)) {
-                      addFallback(
-                        `${operator}: null`,
-                        `${operator}: null`,
-                        operator === "eq"
-                          ? "Match null or missing values"
-                          : "Match non-null values",
-                        monaco.languages.CompletionItemKind.Value,
-                      );
-                    }
-                  });
-                } else {
-                  fields.forEach((field) => {
-                    const nested =
-                      (field.fields && field.fields.length > 0) ||
-                      !!dtoByName.get(field.type.trim())?.fields.length;
-                    addFallback(
-                      field.name,
-                      nested
-                        ? `${field.name}: {\n  \${1}\n}`
-                        : `${field.name}: {\n  eq: ${
-                            ["string", "id", "datetime"].includes(field.type.trim().toLowerCase())
-                              ? '"${1}"'
-                              : field.type.trim().toLowerCase() === "boolean"
-                                ? "${1|true,false,null|}"
-                                : "${1}"
-                          }\n}`,
-                      nested ? `Filter fields inside ${field.type}` : `Filter ${field.name} (${field.type})`,
-                      nested
-                        ? monaco.languages.CompletionItemKind.Class
-                        : monaco.languages.CompletionItemKind.Field,
-                    );
-                    if (nested) {
-                      addFallback(
-                        `${field.name}: null`,
-                        `${field.name}: null`,
-                        `Match records where ${field.name} is null or missing`,
-                        monaco.languages.CompletionItemKind.Value,
-                      );
-                    }
-                  });
-                  if (path.length === 0) {
-                    ["and", "or"].forEach((operator) =>
-                      addFallback(
-                        operator,
-                        `${operator}: [{\n  \${1}\n}]`,
-                        `Logical ${operator.toUpperCase()} conditions`,
-                        monaco.languages.CompletionItemKind.Keyword,
-                      ),
-                    );
-                  }
-                }
-
-                if (suggestions.length > 0) return { suggestions };
-              }
-            }
-
             const insertMatch = textForMatching.match(/insert(\w+)\s*\(/);
             const updateMatch = textForMatching.match(/update(\w+)\s*\(/);
             const getMatches = textForMatching.matchAll(/get(\w+?)s?\s*\(/g);
@@ -1442,7 +1307,6 @@ export const GraphQLPlaygroundPage = () => {
     generateFieldSnippet,
     isMonacoReady,
     dtoPreviewMap,
-    dtoSchemas,
     introspectedSchema,
     toMonacoItem,
   ]);

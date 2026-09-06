@@ -97,19 +97,6 @@ const isDeepListType = (type: GraphQLType): boolean => {
   return isListType(type);
 };
 
-const operationFilterEqValueSnippet = (inputType: GraphQLInputObjectType): string => {
-  const eqField = inputType.getFields().eq;
-  if (!eqField) return "${1}";
-  const eqType = getNamedType(eqField.type);
-  if (isScalarType(eqType)) {
-    if (eqType.name === "String" || eqType.name === "ID" || eqType.name === "DateTime") {
-      return '"${1}"';
-    }
-    if (eqType.name === "Boolean") return "${1|true,false,null|}";
-  }
-  return "${1}";
-};
-
 /**
  * Recursively build sample lines for a nested input object (mutation `input` block).
  * Expands list-of-input-object to `[{ ... }]` instead of `[]`.
@@ -686,7 +673,7 @@ export const getInputFieldSuggestions = (
   const type = schema.getType(typeName);
   if (!type || !isInputObjectType(type)) return [];
 
-  const suggestions = Object.values(type.getFields())
+  return Object.values(type.getFields())
     .filter((field) => !EXCLUDED_INPUT_SUBFIELDS.has(field.name))
     .map((field) => {
       const typeStr = resolveTypeString(field.type);
@@ -699,8 +686,6 @@ export const getInputFieldSuggestions = (
       if (isInputObjectType(namedType)) {
         if (LOGICAL_OPERATOR_FIELDS.has(field.name) && fIsList) {
           insertText = `${field.name}: [{}]`;
-        } else if (namedType.name.endsWith("OperationFilterInput")) {
-          insertText = `${field.name}: {\n  eq: ${operationFilterEqValueSnippet(namedType)}\n}`;
         } else {
           insertText = fIsList ? `${field.name}: [{\n  \${1}\n}]` : `${field.name}: {\n  \${1}\n}`;
         }
@@ -750,49 +735,6 @@ export const getInputFieldSuggestions = (
         sortText: `0_${field.name}`,
       };
     });
-
-  // Nested object filters support a direct null value as well as traversal into
-  // child fields. Surface both forms so users do not reach for Mongo's invalid
-  // GraphQL `$eq` spelling after accepting the expandable object snippet.
-  if (type.name.endsWith("FilterInput") && !type.name.endsWith("OperationFilterInput")) {
-    Object.values(type.getFields()).forEach((field) => {
-      const namedType = getNamedType(field.type);
-      if (
-        isInputObjectType(namedType) &&
-        namedType.name.endsWith("FilterInput") &&
-        !namedType.name.endsWith("OperationFilterInput") &&
-        !LOGICAL_OPERATOR_FIELDS.has(field.name)
-      ) {
-        suggestions.push({
-          label: `${field.name}: null`,
-          detail: "Match a null or missing child object",
-          documentation: `Filter records where ${field.name} is null or missing.`,
-          insertText: `${field.name}: null`,
-          isSnippet: false,
-          kind: "field" as const,
-          sortText: `1_${field.name}_null`,
-        });
-      }
-    });
-  }
-
-  if (type.name.endsWith("OperationFilterInput")) {
-    ["eq", "neq"].forEach((operator) => {
-      if (type.getFields()[operator]) {
-        suggestions.push({
-          label: `${operator}: null`,
-          detail: operator === "eq" ? "Match null or missing values" : "Match non-null values",
-          documentation: `${operator} comparison using a GraphQL null literal.`,
-          insertText: `${operator}: null`,
-          isSnippet: false,
-          kind: "field" as const,
-          sortText: `1_${operator}_null`,
-        });
-      }
-    });
-  }
-
-  return suggestions;
 };
 
 /**

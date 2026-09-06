@@ -68,34 +68,22 @@ public static class WhereToMongoFilterConverter
         {
             var key = kv.Key;
             if (string.IsNullOrWhiteSpace(key) || key.StartsWith("$", StringComparison.Ordinal))
-                throw Invalid($"Invalid or disallowed field name: '{key}'.");
+                throw new ArgumentException($"Invalid or disallowed field name: '{key}'.");
 
             if (LogicalOperators.Contains(key))
                 continue;
 
             var fullPath = string.IsNullOrEmpty(pathPrefix) ? key : $"{pathPrefix}.{key}";
             if (!allowedFields.Contains(key))
-                throw Invalid($"Field '{fullPath}' is not defined on the schema.");
+                throw new ArgumentException($"Field '{fullPath}' is not defined on the schema.");
 
             var fieldDef = GetFieldDefinition(schema, fullPath)
-                ?? throw Invalid($"Field '{fullPath}' is not defined on the schema.");
+                ?? throw new ArgumentException($"Field '{fullPath}' is not defined on the schema.");
 
             var value = kv.Value;
-            var dbFieldName = key == nameof(Entities.GraphQlBaseEntity.ItemId)
-                ? (string.IsNullOrEmpty(pathPrefix)
-                    ? GraphQlConstant.DbEntityIdFieldName
-                    : $"{pathPrefix}.{GraphQlConstant.DbEntityIdFieldName}")
-                : fullPath;
+            if (value is null) continue;
 
-            // A nullable child-filter input can be supplied explicitly as null. Keep that
-            // distinct from an omitted field and translate it to a Mongo null predicate.
-            if (value is null)
-            {
-                if (!GraphQlTypeHelper.IsScalar(fieldDef.Type))
-                    elements.Add(new BsonElement(dbFieldName, new BsonDocument("$eq", BsonNull.Value)));
-                continue;
-            }
-
+            var dbFieldName = key == nameof(Entities.GraphQlBaseEntity.ItemId) ? GraphQlConstant.DbEntityIdFieldName : key;
             if (GraphQlTypeHelper.IsScalar(fieldDef.Type))
             {
                 var opBson = ConvertScalarOperation(fieldDef.Type, dbFieldName, value);
@@ -104,21 +92,9 @@ public static class WhereToMongoFilterConverter
             }
             else
             {
-                if (CoerceWhereDictionary(value) is null)
-                    throw Invalid($"Field '{fullPath}' must be filtered using its child fields.");
                 var nested = Convert(value, schema, fullPath);
                 if (nested != null && nested.ElementCount > 0)
-                {
-                    if (nested.ElementCount == 1 && nested.GetElement(0).Name == "$and")
-                    {
-                        foreach (var clause in nested["$and"].AsBsonArray.Select(x => x.AsBsonDocument))
-                            elements.Add(clause.GetElement(0));
-                    }
-                    else
-                    {
-                        elements.AddRange(nested.Elements);
-                    }
-                }
+                    elements.Add(new BsonElement(key, nested));
             }
         }
 
@@ -171,9 +147,7 @@ public static class WhereToMongoFilterConverter
     private static BsonDocument? ConvertScalarOperation(string scalarType, string fieldName, object value)
     {
         var opDict = CoerceOperationDictionary(value);
-        if (opDict is null)
-            throw Invalid($"Scalar field '{fieldName}' must use an operation filter object.");
-        if (opDict.Count == 0)
+        if (opDict is null || opDict.Count == 0)
             return null;
 
         var allowedOps = GetAllowedOps(scalarType);
@@ -181,19 +155,14 @@ public static class WhereToMongoFilterConverter
 
         foreach (var op in opDict)
         {
+            if (op.Value is null) continue;
             var opKey = op.Key;
             if (string.IsNullOrWhiteSpace(opKey) || !allowedOps.Contains(opKey))
-                throw Invalid($"Unsupported or invalid operator: '{opKey}' for type {scalarType}.");
+                throw new ArgumentException($"Unsupported or invalid operator: '{opKey}' for type {scalarType}.");
 
             var mongoOp = MapOperatorToMongo(opKey);
             BsonValue bsonVal;
-            if (op.Value is null)
-            {
-                if (mongoOp is not ("$eq" or "$ne"))
-                    throw Invalid($"Operator '{opKey}' does not support a null value.");
-                bsonVal = BsonNull.Value;
-            }
-            else if (mongoOp == "$regex")
+            if (mongoOp == "$regex")
             {
                 var str = op.Value?.ToString() ?? string.Empty;
                 var lowerOp = opKey.ToLowerInvariant();
@@ -277,28 +246,11 @@ public static class WhereToMongoFilterConverter
                 continue;
             }
 
-            // Hot Chocolate uses Optional<T> to preserve the difference between an
-            // omitted operation and an explicitly supplied null operation value.
-            var isOptional = IsOptional(propValue);
-            if (isOptional && IsUnsetOptional(propValue))
-                continue;
-            if (!isOptional && propValue is null)
-                continue;
             result[prop.Name] = UnwrapOptional(propValue);
         }
 
         return result.Count == 0 ? null : result;
     }
-
-    private static bool IsUnsetOptional(object? value)
-    {
-        return IsOptional(value) && value!.GetType().GetProperty("HasValue")?.GetValue(value) is false;
-    }
-
-    private static bool IsOptional(object? value) =>
-        value is not null &&
-        value.GetType().IsGenericType &&
-        value.GetType().GetGenericTypeDefinition() == typeof(Optional<>);
 
     private static object? UnwrapOptional(object? value)
     {
@@ -337,11 +289,9 @@ public static class WhereToMongoFilterConverter
             "contains" => "$regex",
             "startswith" => "$regex",
             "endswith" => "$regex",
-            _ => throw Invalid($"Unsupported operator: '{opKey}'.")
+            _ => throw new ArgumentException($"Unsupported operator: '{opKey}'.")
         };
     }
-
-    private static InvalidWhereFilterException Invalid(string message) => new(message);
 
     private static HashSet<string> GetAllowedOps(string scalarType)
     {
@@ -386,9 +336,4 @@ public static class WhereToMongoFilterConverter
         }
         return last;
     }
-}
-
-public sealed class InvalidWhereFilterException(string message) : ArgumentException(message)
-{
-    public string Code => "INVALID_WHERE_FILTER";
 }

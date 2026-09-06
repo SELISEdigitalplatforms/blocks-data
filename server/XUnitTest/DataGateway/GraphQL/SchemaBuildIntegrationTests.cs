@@ -56,12 +56,7 @@ public class SchemaBuildIntegrationTests
                 new FieldDefinition { Name = "Active", Type = "Boolean" },
                 new FieldDefinition { Name = "Score", Type = "Float" },
                 new FieldDefinition { Name = "Birth", Type = "DateTime" },
-                new FieldDefinition { Name = "Home", Type = "Address" },
-                new FieldDefinition
-                {
-                    Name = "Home.City", Type = "String", IsReferenceField = true,
-                    ReferenceFieldType = "Address"
-                }
+                new FieldDefinition { Name = "Home", Type = "Address" }
             }
         };
         var product = new SchemaDefinition
@@ -127,11 +122,6 @@ public class SchemaBuildIntegrationTests
         // Custom Dto object type and its input variant were registered.
         schema.Types.Should().Contain(t => t.Name == "Address");
         schema.Types.Should().Contain(t => t.Name == "AddressInput");
-        var personFilter = schema.GetType<HotChocolate.Types.InputObjectType>("PersonFilterInput");
-        personFilter.Fields.Should().Contain(f => f.Name == "Home");
-        var addressFilter = schema.GetType<HotChocolate.Types.InputObjectType>("AddressFilterInput");
-        addressFilter.Fields.Should().Contain(f => f.Name == "City");
-        addressFilter.Fields.Should().NotContain(f => f.Name == "and" || f.Name == "or");
     }
 
     [Fact]

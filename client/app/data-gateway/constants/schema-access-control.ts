@@ -53,6 +53,9 @@ export const COMPARE_SOURCE_OPTIONS = [
   { label: "Static Value", value: RULE_SOURCE_TYPES.STATIC_VALUE },
 ];
 
+/** Mirrors GraphQlConstant.MaxNestedLevelIterationLimit (server/DataGateway.DomainService) */
+export const MAX_NESTED_FIELD_DEPTH = 3;
+
 export const FIELD_TYPE_CATEGORY = {
   STRING: "string",
   ARRAY: "array",

@@ -67,8 +67,16 @@ export const SAMPLE_VALUE_BY_TYPE: Record<string, string> = {
 // Props for the component
 export type AccessControlLevel = "row" | "column";
 
+/** Schema field for access-control rule building; `fields` holds nested child-schema properties */
+export interface SchemaAccessControlField {
+  name: string;
+  type?: string | null;
+  isArray?: boolean | null;
+  fields?: SchemaAccessControlField[];
+}
+
 export interface SchemaAccessControlViewProps {
-  schemaFields?: { name: string; type?: string | null; isArray?: boolean | null }[];
+  schemaFields?: SchemaAccessControlField[];
   schemaName: string;
   schemaId: string;
   level: AccessControlLevel;

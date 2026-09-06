@@ -598,6 +598,79 @@ describe("RuleSetForm create flow", () => {
     await user.click(saveBtn);
     await waitFor(() => expect(createPolicy).toHaveBeenCalled());
   });
+
+  it("offers nested child-schema properties as dotted-path field options, capped at MAX_NESTED_FIELD_DEPTH", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    const nestedSchemaFields = [
+      { name: "title", type: "String", isArray: false },
+      {
+        name: "AddressInfo",
+        type: "AddressInfo",
+        isArray: false,
+        fields: [
+          { name: "StreetNo", type: "String", isArray: false },
+          { name: "City", type: "String", isArray: false },
+          {
+            name: "Country",
+            type: "CountryInfo",
+            isArray: false,
+            fields: [
+              { name: "Name", type: "String", isArray: false },
+              {
+                // 4th nesting level - beyond MAX_NESTED_FIELD_DEPTH (3), so it
+                // and its descendants must not appear as selectable options.
+                name: "Region",
+                type: "RegionInfo",
+                isArray: false,
+                fields: [{ name: "Code", type: "String", isArray: false }],
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    render(<RuleSetForm {...baseProps} schemaFields={nestedSchemaFields} />);
+
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+      target: { value: "Nested set" },
+    });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Products");
+
+    await user.click(screen.getAllByRole("combobox")[1]);
+    // The composite "AddressInfo" node itself is not a selectable leaf...
+    expect(
+      screen.queryByRole("option", { name: "AddressInfo" }),
+    ).not.toBeInTheDocument();
+    // ...but its own and its nested child's scalar properties are, as dotted paths.
+    expect(
+      screen.getByRole("option", { name: "AddressInfo > StreetNo" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "AddressInfo > Country > Name" }),
+    ).toBeInTheDocument();
+    // A 4th-level property (beyond the depth cap) is dropped entirely.
+    expect(
+      screen.queryByRole("option", { name: /Region/ }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("option", { name: "AddressInfo > StreetNo" }),
+    );
+    await pick(user, 2, /^Equal$/);
+    await pick(user, 3, "Static Value");
+    fireEvent.change(screen.getByPlaceholderText("Enter value"), {
+      target: { value: "123" },
+    });
+
+    const saveBtn = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    expect(createPolicy.mock.calls[0][0].ruleGroup.rules[0]).toMatchObject({
+      leftOperand: "AddressInfo.StreetNo",
+    });
+  });
 });
 
 /**

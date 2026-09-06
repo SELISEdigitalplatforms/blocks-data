@@ -121,8 +121,7 @@ const QUERY_ONLY_SDL = `
 `;
 const queryOnlySchema = buildSchema(QUERY_ONLY_SDL);
 
-const byLabel = (list: { label: string }[], label: string) =>
-  list.find((s) => s.label === label);
+const byLabel = (list: { label: string }[], label: string) => list.find((s) => s.label === label);
 
 describe("introspection-utils", () => {
   describe("resolveFieldNameBeforeOpeningBrace", () => {
@@ -167,7 +166,7 @@ describe("introspection-utils", () => {
       expect(getItems.insertText).toContain("where: {}");
       expect(getItems.insertText).toContain("order: []");
       expect(getItems.insertText).toContain('filter: "{}"');
-      expect(getItems.insertText).toContain("# stringify mongo filter");
+      expect(getItems.insertText).not.toContain("#");
       expect(getItems.insertText).toContain("pageNo: 1");
       expect(getItems.insertText).toContain("pageSize: 10");
       expect(getItems.insertText).toContain("items");

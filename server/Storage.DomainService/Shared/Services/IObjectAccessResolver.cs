@@ -16,6 +16,7 @@ namespace Storage.DomainService.Services
         /// an entry that resolution would then treat as void.
         /// </summary>
         Task<bool> WouldCreateSelfDenyAsync(ObjectResourceDescriptor resource, ObjectPrincipalType principalType, string? principalId, CancellationToken cancellationToken = default);
+        Task<bool> WouldCreateSelfDenyAsync(ObjectResourceDescriptor resource, ObjectPrincipalType principalType, string? principalId, string? organizationId, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Resolves a page of children against an already-resolved parent, without issuing

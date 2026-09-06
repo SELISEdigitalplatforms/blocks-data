@@ -68,6 +68,8 @@ interface ResponseTab {
   content: string;
 }
 
+const MAX_NESTING_DEPTH = 30;
+
 export const GraphQLPlaygroundPage = () => {
   const [query, setQuery] = useState(() => {
     if (typeof window !== "undefined") {
@@ -77,7 +79,9 @@ export const GraphQLPlaygroundPage = () => {
         return storedQuery;
       }
     }
-    return `# Write your GraphQL query/mutation here`;
+    return `query {
+  __typename
+}`;
   });
   const [responses, setResponses] = useState<ResponseTab[]>([]);
   const [activeResponseTab, setActiveResponseTab] = useState<string>("");
@@ -211,7 +215,7 @@ export const GraphQLPlaygroundPage = () => {
       visited: Set<string> = new Set(),
       depth: number = 0,
     ): Record<string, unknown> | null => {
-      if (depth > 10 || visited.has(schemaName)) return null;
+      if (depth >= MAX_NESTING_DEPTH || visited.has(schemaName)) return null;
 
       const schema = schemaByName.get(schemaName);
       if (!schema) return null;
@@ -226,6 +230,8 @@ export const GraphQLPlaygroundPage = () => {
 
         // Check if field type is another DTO
         if (fieldTypeName && schemaByName.has(fieldTypeName)) {
+          if (visited.has(fieldTypeName)) return;
+
           const nestedStructure = buildDtoStructure(
             fieldTypeName,
             new Set(visited),
@@ -236,8 +242,6 @@ export const GraphQLPlaygroundPage = () => {
             dtoFields[field.name] = field.isArray
               ? [nestedStructure]
               : nestedStructure;
-          } else {
-            dtoFields[field.name] = field.isArray ? [""] : "";
           }
         } else {
           // Primitive type
@@ -268,7 +272,7 @@ export const GraphQLPlaygroundPage = () => {
   const generateFieldSnippet = useCallback(
     (schema: ISchemaDetails): string => {
       if (!schema.fields || schema.fields.length === 0) {
-        return "${1:# Select fields}";
+        return "__typename";
       }
 
       // Helper to recursively format nested objects (similar to schema-preview-drawer)
@@ -278,6 +282,10 @@ export const GraphQLPlaygroundPage = () => {
       ): string[] => {
         const indent = "      ".repeat(indentLevel);
         const lines: string[] = [];
+
+        if (Object.keys(obj).length === 0) {
+          return [`${indent}__typename`];
+        }
 
         Object.entries(obj).forEach(([key, value]) => {
           // Handle array of DTOs

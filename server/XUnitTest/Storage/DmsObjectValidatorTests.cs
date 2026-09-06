@@ -175,6 +175,33 @@ public class DmsObjectValidatorTests
     }
 
     [Fact]
+    public void An_organization_scope_is_valid_only_for_a_role_principal()
+    {
+        var validator = new GrantAccessRequestValidator();
+        var roleGrant = new GrantAccessRequest
+        {
+            ResourceId = "dir-1", ResourceType = ObjectResourceType.Directory,
+            PrincipalType = ObjectPrincipalType.Role, PrincipalId = "r2",
+            OrganizationId = "o2", Permission = ObjectPermission.View,
+        };
+
+        validator.Validate(roleGrant).IsValid.Should().BeTrue();
+        roleGrant.PrincipalType = ObjectPrincipalType.User;
+        validator.Validate(roleGrant).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_share_accepts_an_organization_scoped_role()
+    {
+        new ShareObjectRequestValidator().Validate(new ShareObjectRequest
+        {
+            ResourceId = "file-5", ResourceType = ObjectResourceType.File,
+            PrincipalType = ObjectPrincipalType.Role, PrincipalId = "r2",
+            OrganizationId = "o2", Permission = ObjectPermission.View,
+        }).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
     public void A_grant_with_an_undefined_enum_value_is_rejected()
     {
         // Guards against a client posting a number outside the contract, which would

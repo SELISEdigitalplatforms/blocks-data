@@ -300,12 +300,19 @@ namespace Storage.DomainService.Services
                                         && string.Equals(policy.PrincipalId, context?.UserId, StringComparison.Ordinal),
             ObjectPrincipalType.Role => !string.IsNullOrEmpty(policy.PrincipalId)
                                         && context?.Roles is not null
-                                        && context.Roles.Contains(policy.PrincipalId, StringComparer.Ordinal),
+                                        && context.Roles.Contains(policy.PrincipalId, StringComparer.Ordinal)
+                                        && (!HasOrganizationScope(policy)
+                                            || string.Equals(policy.OrganizationId, context.OrganizationId, StringComparison.Ordinal)),
             ObjectPrincipalType.Organization => !string.IsNullOrEmpty(policy.PrincipalId)
                                                 && !string.IsNullOrEmpty(context?.OrganizationId)
                                                 && string.Equals(policy.PrincipalId, context.OrganizationId, StringComparison.Ordinal),
             _ => false,
         };
+
+        private static bool HasOrganizationScope(ObjectAccessPolicy policy) =>
+            policy.PrincipalType == ObjectPrincipalType.Role
+            && !string.IsNullOrWhiteSpace(policy.OrganizationId)
+            && !string.Equals(policy.OrganizationId, "default", StringComparison.OrdinalIgnoreCase);
 
         private async Task<FileDirectory?> FindArchivedDirectoryAsync(string resourceId, CancellationToken cancellationToken) =>
             await (await Directories.FindAsync(

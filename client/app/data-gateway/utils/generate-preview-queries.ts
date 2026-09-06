@@ -18,11 +18,7 @@ import {
 } from "./graphql-constants";
 import type { TemplateSection } from "../models/schema-preview.types";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-const MAX_NESTING_DEPTH = 6;
+const MAX_NESTING_DEPTH = 30;
 
 // ---------------------------------------------------------------------------
 // Introspection types
@@ -107,6 +103,12 @@ export function resolveTypeName(typeRef: TypeRef | null): string {
   return typeRef.name || "unknown";
 }
 
+function isListTypeRef(typeRef: TypeRef | null): boolean {
+  if (!typeRef) return false;
+  if (typeRef.kind === "NON_NULL") return isListTypeRef(typeRef.ofType);
+  return typeRef.kind === "LIST";
+}
+
 // ---------------------------------------------------------------------------
 // Query generation
 // ---------------------------------------------------------------------------
@@ -168,6 +170,8 @@ export function buildInputValue(
 
   if (type.kind === "INPUT_OBJECT") {
     if (fieldName === COLLAPSIBLE_FILTER_FIELD) return "{}";
+    // GraphQL input types can be recursive. Expand every acyclic level and
+    // terminate only an actual cycle so deeply nested DTOs are not truncated.
     if (depth >= MAX_NESTING_DEPTH || visited.has(baseName)) return "{}";
 
     const nextVisited = new Set(visited).add(baseName);
@@ -203,12 +207,14 @@ export function buildSelectionSet(
   indent: string,
   visited: Set<string>,
 ): string[] {
+  // A recursive output type cannot be expanded infinitely. __typename is a
+  // real field on every object and keeps the generated selection executable.
   if (depth >= MAX_NESTING_DEPTH || visited.has(typeName)) {
-    return [`${indent}# ...`];
+    return [`${indent}__typename`];
   }
 
   const type = typeMap.get(typeName);
-  if (!type?.fields) return [];
+  if (!type?.fields?.length) return [`${indent}__typename`];
 
   const nextVisited = new Set(visited).add(typeName);
 
@@ -274,9 +280,7 @@ export function generateGraphQLQuery(
     ? typeMap.get(resolveBaseTypeName(legacyInputArg.type) || "")
     : undefined;
   const legacyInputFields =
-    legacyInputType?.kind === "INPUT_OBJECT"
-      ? legacyInputType.inputFields ?? []
-      : [];
+    legacyInputType?.kind === "INPUT_OBJECT" ? (legacyInputType.inputFields ?? []) : [];
   const hasModernTopLevelArgs = field.args.some(
     (a) => a.name === "where" || a.name === "order" || a.name === "paging",
   );
@@ -286,17 +290,12 @@ export function generateGraphQLQuery(
     !hasModernTopLevelArgs &&
     legacyInputFields.some(
       (f) =>
-        f.name === "filter" ||
-        f.name === "sort" ||
-        f.name === "pageNo" ||
-        f.name === "pageSize",
+        f.name === "filter" || f.name === "sort" || f.name === "pageNo" || f.name === "pageSize",
     );
   const legacyTopLevelFieldNames = new Set<string>(
     hasLegacyInput
       ? legacyInputFields
-          .filter((f) =>
-            ["filter", "sort", "pageNo", "pageSize"].includes(f.name),
-          )
+          .filter((f) => ["filter", "sort", "pageNo", "pageSize"].includes(f.name))
           .map((f) => f.name)
       : [],
   );
@@ -306,9 +305,7 @@ export function generateGraphQLQuery(
   let args = field.args;
   if (operationType === "query") {
     args = args.filter(
-      (a) =>
-        !EXCLUDED_QUERY_ARG_NAMES.has(a.name) &&
-        !legacyTopLevelFieldNames.has(a.name),
+      (a) => !EXCLUDED_QUERY_ARG_NAMES.has(a.name) && !legacyTopLevelFieldNames.has(a.name),
     );
   } else if (isFilterExcludedMutation) {
     args = args.filter((a) => !EXCLUDED_MUTATION_FILTER_ARG_NAMES.has(a.name));
@@ -335,21 +332,53 @@ export function generateGraphQLQuery(
     const pageSizeField = legacyInputFields.find((f) => f.name === "pageSize");
 
     if (whereField) {
-      const val = buildInputValue(whereField.type, typeMap, 0, "    ", new Set(), "where", isMutationInput);
+      const val = buildInputValue(
+        whereField.type,
+        typeMap,
+        0,
+        "    ",
+        new Set(),
+        "where",
+        isMutationInput,
+      );
       argLines.push(`    where: ${val}`);
     }
     if (orderField) {
-      const val = buildInputValue(orderField.type, typeMap, 0, "    ", new Set(), "order", isMutationInput);
+      const val = buildInputValue(
+        orderField.type,
+        typeMap,
+        0,
+        "    ",
+        new Set(),
+        "order",
+        isMutationInput,
+      );
       argLines.push(`    order: ${val}`);
     }
     if (pageNoField || pageSizeField) {
       const pagingLines: string[] = [];
       if (pageNoField) {
-        const val = buildInputValue(pageNoField.type, typeMap, 1, "      ", new Set(), "pageNo", isMutationInput);
+        const val = buildInputValue(
+          pageNoField.type,
+          typeMap,
+          1,
+          "      ",
+          new Set(),
+          "pageNo",
+          isMutationInput,
+        );
         pagingLines.push(`      pageNo: ${val}`);
       }
       if (pageSizeField) {
-        const val = buildInputValue(pageSizeField.type, typeMap, 1, "      ", new Set(), "pageSize", isMutationInput);
+        const val = buildInputValue(
+          pageSizeField.type,
+          typeMap,
+          1,
+          "      ",
+          new Set(),
+          "pageSize",
+          isMutationInput,
+        );
         pagingLines.push(`      pageSize: ${val}`);
       }
       argLines.push(`    paging: {\n${pagingLines.join("\n")}\n    }`);
@@ -363,7 +392,9 @@ export function generateGraphQLQuery(
   });
 
   const header =
-    argLines.length > 0 ? [`  ${field.name}(`, argLines.join("\n"), "  ) {"] : [`  ${field.name} {`];
+    argLines.length > 0
+      ? [`  ${field.name}(`, argLines.join("\n"), "  ) {"]
+      : [`  ${field.name} {`];
 
   const returnBase = resolveBaseTypeName(field.type);
   const selectionLines = returnBase
@@ -568,15 +599,23 @@ const findSchemaType = (
   return null;
 };
 
-const MAX_PREVIEW_DEPTH = 10;
-
 const buildPreviewValue = (
   typeRef: TypeRef | null,
   typeMap: Map<string, IntrospectionType>,
   depth: number,
   visited: Set<string>,
 ): unknown => {
-  if (!typeRef || depth > MAX_PREVIEW_DEPTH) return "";
+  if (!typeRef) return "";
+
+  if (depth >= MAX_NESTING_DEPTH) {
+    const baseName = resolveBaseTypeName(typeRef);
+    const resolved = baseName ? typeMap.get(baseName) : undefined;
+    const terminalValue =
+      resolved?.kind === "OBJECT" || resolved?.kind === "INPUT_OBJECT"
+        ? {}
+        : previewForScalar(baseName);
+    return isListTypeRef(typeRef) ? [terminalValue] : terminalValue;
+  }
 
   if (typeRef.kind === "NON_NULL") {
     return buildPreviewValue(typeRef.ofType, typeMap, depth, visited);
@@ -602,9 +641,8 @@ const buildPreviewValue = (
   if (resolved.kind === "OBJECT" || resolved.kind === "INPUT_OBJECT") {
     if (visited.has(baseName)) return {};
     const nextVisited = new Set(visited).add(baseName);
-    const fields = resolved.kind === "INPUT_OBJECT"
-      ? (resolved.inputFields ?? [])
-      : (resolved.fields ?? []);
+    const fields =
+      resolved.kind === "INPUT_OBJECT" ? (resolved.inputFields ?? []) : (resolved.fields ?? []);
     const result: Record<string, unknown> = {};
     fields.forEach((f) => {
       if (!f?.name) return;
@@ -636,9 +674,8 @@ export function buildPreviewJsonFromIntrospection(
   const rootType = findSchemaType(typeMap, schemaName);
   if (!rootType) return null;
 
-  const fields = rootType.kind === "INPUT_OBJECT"
-    ? (rootType.inputFields ?? [])
-    : (rootType.fields ?? []);
+  const fields =
+    rootType.kind === "INPUT_OBJECT" ? (rootType.inputFields ?? []) : (rootType.fields ?? []);
   if (fields.length === 0) return {};
 
   const preview: Record<string, unknown> = {};

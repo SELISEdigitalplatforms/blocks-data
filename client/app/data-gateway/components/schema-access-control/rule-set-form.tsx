@@ -150,17 +150,15 @@ interface SchemaFieldOption {
 const flattenSchemaFields = (
   items: SchemaField[],
   parentPath = "",
-  parentLabel = "",
   depth = 1,
 ): SchemaFieldOption[] =>
   items.flatMap((f) => {
     const value = parentPath ? `${parentPath}.${f.name}` : f.name;
-    const label = parentLabel ? `${parentLabel} > ${f.name}` : f.name;
     if (f.fields?.length) {
       if (depth >= MAX_NESTED_FIELD_DEPTH) return [];
-      return flattenSchemaFields(f.fields, value, label, depth + 1);
+      return flattenSchemaFields(f.fields, value, depth + 1);
     }
-    return [{ label, value, type: f.type, isArray: f.isArray }];
+    return [{ label: value, value, type: f.type, isArray: f.isArray }];
   });
 
 interface RuleSetFormProps {

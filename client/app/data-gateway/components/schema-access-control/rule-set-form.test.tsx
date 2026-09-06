@@ -644,10 +644,10 @@ describe("RuleSetForm create flow", () => {
     ).not.toBeInTheDocument();
     // ...but its own and its nested child's scalar properties are, as dotted paths.
     expect(
-      screen.getByRole("option", { name: "AddressInfo > StreetNo" }),
+      screen.getByRole("option", { name: "AddressInfo.StreetNo" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("option", { name: "AddressInfo > Country > Name" }),
+      screen.getByRole("option", { name: "AddressInfo.Country.Name" }),
     ).toBeInTheDocument();
     // A 4th-level property (beyond the depth cap) is dropped entirely.
     expect(
@@ -655,7 +655,7 @@ describe("RuleSetForm create flow", () => {
     ).not.toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("option", { name: "AddressInfo > StreetNo" }),
+      screen.getByRole("option", { name: "AddressInfo.StreetNo" }),
     );
     await pick(user, 2, /^Equal$/);
     await pick(user, 3, "Static Value");

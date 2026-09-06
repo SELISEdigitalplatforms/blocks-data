@@ -42,6 +42,7 @@ import {
   FIELD_TYPE_CATEGORY,
   IN_OPERATORS,
   LOGICAL_OPERATOR,
+  MAX_NESTED_FIELD_DEPTH,
   NULL_OPERATORS,
   OPERATORS_BY_CATEGORY,
   OPERATOR_TO_NUMBER,
@@ -130,7 +131,35 @@ interface SchemaField {
   name: string;
   type?: string | null;
   isArray?: boolean | null;
+  /** Nested properties for child-schema (object) fields, e.g. AddressInfo's own fields */
+  fields?: SchemaField[];
 }
+
+interface SchemaFieldOption {
+  label: string;
+  value: string;
+  type?: string | null;
+  isArray?: boolean | null;
+}
+
+/**
+ * Flattens a (possibly nested) schema field tree into dotted-path leaf options,
+ * e.g. AddressInfo.StreetNo, capped at MAX_NESTED_FIELD_DEPTH to mirror the
+ * server's GraphQlConstant.MaxNestedLevelIterationLimit.
+ */
+const flattenSchemaFields = (
+  items: SchemaField[],
+  parentPath = "",
+  depth = 1,
+): SchemaFieldOption[] =>
+  items.flatMap((f) => {
+    const value = parentPath ? `${parentPath}.${f.name}` : f.name;
+    if (f.fields?.length) {
+      if (depth >= MAX_NESTED_FIELD_DEPTH) return [];
+      return flattenSchemaFields(f.fields, value, depth + 1);
+    }
+    return [{ label: value, value, type: f.type, isArray: f.isArray }];
+  });
 
 interface RuleSetFormProps {
   onCancel?: () => void;
@@ -183,10 +212,12 @@ export const RuleSetForm = ({
     name: "rules",
   });
 
+  /** Schema fields flattened to dotted-path leaf options (e.g. AddressInfo.StreetNo) */
+  const schemaFieldOptions = flattenSchemaFields(schemaFields);
+
   const getFieldOptions = (source: string) => {
     if (source === RULE_SOURCE_TYPES.AUTH) return AUTH_FIELD_OPTIONS;
-    if (source === RULE_SOURCE_TYPES.SCHEMA_FIELD)
-      return schemaFields.map((f) => ({ label: f.name, value: f.name }));
+    if (source === RULE_SOURCE_TYPES.SCHEMA_FIELD) return schemaFieldOptions;
     return [];
   };
 
@@ -200,7 +231,7 @@ export const RuleSetForm = ({
       return AUTH_FIELD_OPTIONS.find((o) => o.value === fieldName)?.category;
     }
     if (source === RULE_SOURCE_TYPES.SCHEMA_FIELD) {
-      const sf = schemaFields.find((f) => f.name === fieldName);
+      const sf = schemaFieldOptions.find((f) => f.value === fieldName);
       return getFieldTypeCategory(sf?.type, sf?.isArray);
     }
     return undefined;
@@ -225,18 +256,32 @@ export const RuleSetForm = ({
     return RULE_OPERATORS.filter((op) => allowed.includes(op.value));
   };
 
+  /** Left-side source options with the schema field option labeled by the current schema's name */
+  const ruleSourceOptions = RULE_SOURCE_OPTIONS.map((opt) =>
+    opt.value === RULE_SOURCE_TYPES.SCHEMA_FIELD && schemaName
+      ? { ...opt, label: schemaName }
+      : opt,
+  );
+
+  /** Compare source options with the schema field option labeled by the current schema's name */
+  const compareSourceOptions = COMPARE_SOURCE_OPTIONS.map((opt) =>
+    opt.value === RULE_SOURCE_TYPES.SCHEMA_FIELD && schemaName
+      ? { ...opt, label: schemaName }
+      : opt,
+  );
+
   /** Filter compare source options by category */
   const getFilteredCompareSourceOptions = (
     category: FieldTypeCategory | undefined,
   ) => {
-    if (!category) return COMPARE_SOURCE_OPTIONS;
+    if (!category) return compareSourceOptions;
     // Numeric: no auth fields are numeric, so remove Auth
     if (category === FIELD_TYPE_CATEGORY.NUMERIC) {
-      return COMPARE_SOURCE_OPTIONS.filter(
+      return compareSourceOptions.filter(
         (o) => o.value !== RULE_SOURCE_TYPES.AUTH,
       );
     }
-    return COMPARE_SOURCE_OPTIONS;
+    return compareSourceOptions;
   };
 
   /** Filter right-side field options based on left operand category */
@@ -251,34 +296,30 @@ export const RuleSetForm = ({
       return AUTH_FIELD_OPTIONS;
     }
     if (cmpSource === RULE_SOURCE_TYPES.SCHEMA_FIELD) {
-      if (!category)
-        return schemaFields.map((f) => ({ label: f.name, value: f.name }));
-      return schemaFields
-        .filter((f) => {
-          const fCat = getFieldTypeCategory(f.type, f.isArray);
-          if (category === FIELD_TYPE_CATEGORY.STRING) {
-            return (
-              fCat === FIELD_TYPE_CATEGORY.STRING ||
-              fCat === FIELD_TYPE_CATEGORY.ARRAY
-            );
-          }
-          if (category === FIELD_TYPE_CATEGORY.ARRAY) {
-            // Collection operators can compare against either one string or
-            // another string-array schema field.
-            return (
-              getFieldTypeCategory(f.type, false) ===
-              FIELD_TYPE_CATEGORY.STRING
-            );
-          }
-          if (category === FIELD_TYPE_CATEGORY.NUMERIC) {
-            return (
-              getFieldTypeCategory(f.type, false) ===
-              FIELD_TYPE_CATEGORY.NUMERIC
-            );
-          }
-          return true;
-        })
-        .map((f) => ({ label: f.name, value: f.name }));
+      if (!category) return schemaFieldOptions;
+      return schemaFieldOptions.filter((f) => {
+        const fCat = getFieldTypeCategory(f.type, f.isArray);
+        if (category === FIELD_TYPE_CATEGORY.STRING) {
+          return (
+            fCat === FIELD_TYPE_CATEGORY.STRING ||
+            fCat === FIELD_TYPE_CATEGORY.ARRAY
+          );
+        }
+        if (category === FIELD_TYPE_CATEGORY.ARRAY) {
+          // Collection operators can compare against either one string or
+          // another string-array schema field.
+          return (
+            getFieldTypeCategory(f.type, false) === FIELD_TYPE_CATEGORY.STRING
+          );
+        }
+        if (category === FIELD_TYPE_CATEGORY.NUMERIC) {
+          return (
+            getFieldTypeCategory(f.type, false) ===
+            FIELD_TYPE_CATEGORY.NUMERIC
+          );
+        }
+        return true;
+      });
     }
     return [];
   };
@@ -612,7 +653,7 @@ export const RuleSetForm = ({
                                     <SelectValue placeholder="Select source" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {RULE_SOURCE_OPTIONS.map((opt) => (
+                                    {ruleSourceOptions.map((opt) => (
                                       <SelectItem
                                         key={opt.value}
                                         value={opt.value}

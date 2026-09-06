@@ -1,12 +1,21 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { debounce } from "@/lib/utils";
 import { useSchemaList } from "./use-configuration";
 import { ISchemaDetails, IField } from "../models/data-service";
 import { getPreviewFieldType } from "../utils/schema-structure.utils";
 
+const MAX_NESTING_DEPTH = 30;
+
 export const useDtoPreviewMap = (projectKey: string) => {
   const [searchText, setSearchTextState] = useState("");
-  const debouncedSetSearchText = useRef(debounce(setSearchTextState, 300)).current;
+  const [debouncedSetSearchText] = useState(() => debounce(setSearchTextState, 300));
+
+  useEffect(
+    () => () => {
+      debouncedSetSearchText.cancel();
+    },
+    [debouncedSetSearchText],
+  );
 
   const { data: schemaListQuery } = useSchemaList({
     keyword: searchText,
@@ -39,8 +48,7 @@ export const useDtoPreviewMap = (projectKey: string) => {
       visited: Set<string> = new Set(),
       depth: number = 0,
     ): Record<string, unknown> | null => {
-      // Prevent infinite recursion (max depth 10 levels)
-      if (depth > 10) {
+      if (depth >= MAX_NESTING_DEPTH) {
         return null;
       }
 
@@ -66,6 +74,12 @@ export const useDtoPreviewMap = (projectKey: string) => {
 
         // Check if this field type is another DTO
         if (fieldTypeName && schemaByName.has(fieldTypeName)) {
+          // A finite query/input cannot expand a circular DTO edge. Omit only
+          // that edge while preserving every acyclic level of the structure.
+          if (visited.has(fieldTypeName)) {
+            return;
+          }
+
           // Recursively build nested DTO structure
           const nestedStructure = buildDtoStructure(
             fieldTypeName,
@@ -76,10 +90,6 @@ export const useDtoPreviewMap = (projectKey: string) => {
           if (nestedStructure) {
             // If it's an array of DTOs, wrap in array
             dtoFields[field.name] = field.isArray ? [nestedStructure] : nestedStructure;
-          } else {
-            // Fallback to primitive type if recursion fails
-            const fieldType = getPreviewFieldType(field.type);
-            dtoFields[field.name] = field.isArray ? [fieldType || ""] : fieldType || "";
           }
         } else {
           // It's a primitive type

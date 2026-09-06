@@ -42,6 +42,7 @@ import { PrincipalPicker } from "../principal-picker/principal-picker";
 const PRINCIPAL_TYPES: ObjectPrincipalType[] = ["User", "Role", "Organization", "Everyone"];
 const PERMISSIONS: ObjectPermission[] = ["View", "Download", "Edit", "Delete", "Manage", "Owner"];
 const EFFECTS: ObjectEffect[] = ["Allow", "Deny"];
+const GLOBAL_ROLE_SCOPE = "__all_organizations__";
 
 export interface ManageAccessModalProps {
   open: boolean;
@@ -73,6 +74,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
   const [permission, setPermission] = useState<ObjectPermission>("View");
   const [effect, setEffect] = useState<ObjectEffect>("Allow");
   const [selectedPrincipals, setSelectedPrincipals] = useState<string[]>([]);
+  const [roleOrganizationId, setRoleOrganizationId] = useState(GLOBAL_ROLE_SCOPE);
 
   const rows = policies.data ?? [];
   const ownEntries = rows.filter((p) => !p.isInherited);
@@ -86,6 +88,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
   const handlePrincipalTypeChange = (next: ObjectPrincipalType) => {
     setPrincipalType(next);
     setSelectedPrincipals([]);
+    setRoleOrganizationId(GLOBAL_ROLE_SCOPE);
     setSearch("");
   };
 
@@ -95,7 +98,10 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
   const [search, setSearch] = useState("");
   const users = useIamUsers(search, open && principalType === "User");
   const roles = useIamRoles(search, open && principalType === "Role");
-  const organizations = useIamOrganizations(search, open && principalType === "Organization");
+  const organizations = useIamOrganizations(
+    principalType === "Organization" ? search : "",
+    open && (principalType === "Organization" || principalType === "Role"),
+  );
 
   const options =
     principalType === "User"
@@ -130,6 +136,12 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
             resourceType,
             principalType,
             principalId,
+            organizationId:
+              principalType === "Role"
+                ? roleOrganizationId === GLOBAL_ROLE_SCOPE
+                  ? "default"
+                  : roleOrganizationId
+                : undefined,
             permission,
             effect,
           }),
@@ -239,15 +251,40 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
             </div>
 
             {needsPrincipal ? (
-              <PrincipalPicker
-                label={`Select ${principalType.toLowerCase()}${principalType === "Organization" ? "s" : ""}`}
-                options={options}
-                selected={selectedPrincipals}
-                onChange={setSelectedPrincipals}
-                isLoading={isLoading}
-                onSearchChange={setSearch}
-                hint="You can select more than one. Each selection becomes its own rule."
-              />
+              <div className="space-y-4">
+                <PrincipalPicker
+                  label={`Select ${principalType.toLowerCase()}${principalType === "Organization" ? "s" : ""}`}
+                  options={options}
+                  selected={selectedPrincipals}
+                  onChange={setSelectedPrincipals}
+                  isLoading={isLoading}
+                  onSearchChange={setSearch}
+                  hint="You can select more than one. Each selection becomes its own rule."
+                />
+                {principalType === "Role" ? (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium" htmlFor="role-organization-scope">
+                      Role scope
+                    </label>
+                    <Select value={roleOrganizationId} onValueChange={setRoleOrganizationId}>
+                      <SelectTrigger id="role-organization-scope" aria-label="Role scope">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={GLOBAL_ROLE_SCOPE}>All organizations</SelectItem>
+                        {(organizations.data ?? []).map((organization) => (
+                          <SelectItem key={organization.value} value={organization.value}>
+                            {organization.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-muted-foreground">
+                      Choose an organization to grant the role only within that organization.
+                    </span>
+                  </div>
+                ) : null}
+              </div>
             ) : (
               <div className="rounded-lg border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
                 Everyone matches any authenticated caller. No selection is needed.
@@ -358,6 +395,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {policy.principalType}
+                          {policy.organizationId ? ` · Organization ${policy.organizationId}` : ""}
                           {policy.isInherited ? " · Inherited from parent" : " · Direct rule"}
                         </p>
                       </div>

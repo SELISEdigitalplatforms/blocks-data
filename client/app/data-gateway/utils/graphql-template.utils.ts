@@ -125,7 +125,7 @@ export const formatInputAssignments = (
   previewData?: SchemaPreviewPayload,
 ) => {
   if (!fields.length) {
-    return ["      # Add fields"];
+    return [];
   }
 
   return fields.map((field) => {
@@ -140,7 +140,7 @@ export const formatSelectionFields = (
   indentLevel = 1,
 ) => {
   if (!fields.length) {
-    return ["      # Select fields"];
+    return ["      __typename"];
   }
 
   const indent = "      ".repeat(indentLevel);
@@ -150,6 +150,10 @@ export const formatSelectionFields = (
   const formatNestedSelection = (obj: Record<string, unknown>, level: number): string[] => {
     const nestedIndent = "      ".repeat(level);
     const nestedLines: string[] = [];
+
+    if (Object.keys(obj).length === 0) {
+      return [`${nestedIndent}__typename`];
+    }
 
     Object.entries(obj).forEach(([key, value]) => {
       // Handle array of DTOs
@@ -253,7 +257,7 @@ export const buildUpdateMutation = (
   const lines = [
     "mutation {",
     `  update${operationName}(`,
-    '    filter: "{}" # stringify mongo filter',
+    '    filter: "{}"',
     "    input: {",
     ...formatInputAssignments(fields, previewData),
     "    }",
@@ -272,7 +276,7 @@ export const buildDeleteMutation = (operationName: string) => {
   const lines = [
     "mutation {",
     `  delete${operationName}(`,
-    '    filter: "{}" # stringify mongo filter',
+    '    filter: "{}"',
     "  ) {",
     "    acknowledged",
     "    totalImpactedData",
@@ -293,8 +297,8 @@ export const buildQuery = (
     "query {",
     `  get${operationName}(`,
     "    input: {",
-    '      filter: "{}" # stringify mongo filter',
-    '      sort: "{}" # stringify mongo sorting',
+    '      filter: "{}"',
+    '      sort: "{}"',
     "      pageNo: 1",
     "      pageSize: 10",
     "    }",

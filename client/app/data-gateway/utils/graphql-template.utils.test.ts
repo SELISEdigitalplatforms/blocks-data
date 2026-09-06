@@ -46,9 +46,9 @@ describe("graphql-template.utils", () => {
     });
 
     it("ignores fields whose name is not a string", () => {
-      expect(
-        normalizeTemplateFields([{ name: 123 as unknown as string }, { name: "ok" }]),
-      ).toEqual([{ name: "ok", type: undefined, isArray: false }]);
+      expect(normalizeTemplateFields([{ name: 123 as unknown as string }, { name: "ok" }])).toEqual(
+        [{ name: "ok", type: undefined, isArray: false }],
+      );
     });
   });
 
@@ -69,7 +69,7 @@ describe("graphql-template.utils", () => {
       expect(getSampleValueFromPreviewType("datetime")).toBe('"2024-01-01T00:00:00Z"');
     });
 
-    it("falls back to \"value\" for unknown or non-string values", () => {
+    it('falls back to "value" for unknown or non-string values', () => {
       expect(getSampleValueFromPreviewType("mystery")).toBe('"value"');
       expect(getSampleValueFromPreviewType(42)).toBe('"value"');
       expect(getSampleValueFromPreviewType(null)).toBe('"value"');
@@ -96,7 +96,7 @@ describe("graphql-template.utils", () => {
     it("formats a single nested DTO object", () => {
       const out = formatNestedObject({ addr: { city: "string" } }, 0);
       expect(out).toContain("addr: {");
-      expect(out).toContain("city: \"Sample text\"");
+      expect(out).toContain('city: "Sample text"');
     });
   });
 
@@ -107,10 +107,12 @@ describe("graphql-template.utils", () => {
     });
 
     it("wraps scalar samples in brackets for array fields", () => {
-      expect(getSampleValue({ name: "tags", type: "String", isArray: true })).toBe('["Sample text"]');
+      expect(getSampleValue({ name: "tags", type: "String", isArray: true })).toBe(
+        '["Sample text"]',
+      );
     });
 
-    it("falls back to \"value\" for unknown / missing types", () => {
+    it('falls back to "value" for unknown / missing types', () => {
       expect(getSampleValue({ name: "x", type: "Weird" })).toBe('"value"');
       expect(getSampleValue({ name: "x" })).toBe('"value"');
     });
@@ -124,13 +126,13 @@ describe("graphql-template.utils", () => {
     it("emits a single DTO block from preview data", () => {
       const out = getSampleValue({ name: "addr" }, { addr: { city: "string" } });
       expect(out.startsWith("{")).toBe(true);
-      expect(out).toContain("city: \"Sample text\"");
+      expect(out).toContain('city: "Sample text"');
     });
   });
 
   describe("formatInputAssignments", () => {
-    it("returns an add-fields placeholder when there are no fields", () => {
-      expect(formatInputAssignments([])).toEqual(["      # Add fields"]);
+    it("returns an empty input body when there are no fields", () => {
+      expect(formatInputAssignments([])).toEqual([]);
     });
 
     it("emits one indented assignment per field", () => {
@@ -141,15 +143,12 @@ describe("graphql-template.utils", () => {
   });
 
   describe("formatSelectionFields", () => {
-    it("returns a select-fields placeholder when empty", () => {
-      expect(formatSelectionFields([])).toEqual(["      # Select fields"]);
+    it("returns a valid selection when there are no known fields", () => {
+      expect(formatSelectionFields([])).toEqual(["      __typename"]);
     });
 
     it("lists simple fields with indentation", () => {
-      expect(formatSelectionFields([{ name: "a" }, { name: "b" }])).toEqual([
-        "      a",
-        "      b",
-      ]);
+      expect(formatSelectionFields([{ name: "a" }, { name: "b" }])).toEqual(["      a", "      b"]);
     });
 
     it("expands nested DTO selections from preview data", () => {
@@ -219,7 +218,10 @@ describe("graphql-template.utils", () => {
     it("excludes readonly fields from insert/update when schemaType is an entity (1)", () => {
       const sections = buildTemplateSections({
         schemaName: "Product",
-        fields: [{ name: "ItemId", type: "String" }, { name: "title", type: "String" }],
+        fields: [
+          { name: "ItemId", type: "String" },
+          { name: "title", type: "String" },
+        ],
         schemaType: 1,
       });
       const insert = sections.find((s) => s.title === "Insert")!;

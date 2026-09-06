@@ -145,6 +145,19 @@ public class ObjectManagementServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Granting_with_an_omitted_organization_uses_the_active_context_organization()
+    {
+        await OwnedDirectory();
+        var policy = Policy();
+        policy.OrganizationId = string.Empty;
+
+        await _management.GrantAccessAsync(policy);
+
+        (await _accessRepository.GetByResourceAsync("dir-1")).Single()
+            .OrganizationId.Should().Be("org-1");
+    }
+
+    [Fact]
     public async Task An_explicit_manage_grant_is_enough_to_administer_a_resource_owned_by_someone_else()
     {
         await OwnedDirectory(createdBy: "someone-else");
@@ -318,6 +331,58 @@ public class ObjectManagementServiceTests : IDisposable
             "dir-1", ObjectResourceType.Directory, ObjectPrincipalType.User, "user-9", ObjectPermission.View, expires);
 
         (await _accessRepository.GetByResourceAsync("dir-1")).Single().ExpiresAt.Should().BeCloseTo(expires, TimeSpan.FromSeconds(1));
+    }
+
+    [Fact]
+    public async Task Sharing_with_a_role_and_organization_persists_the_organization_scope()
+    {
+        await OwnedDirectory();
+
+        await _management.ShareObjectAsync(
+            "dir-1", ObjectResourceType.Directory, ObjectPrincipalType.Role, "r2",
+            ObjectPermission.View, expiresAt: null, organizationId: "o2");
+
+        var stored = (await _accessRepository.GetByResourceAsync("dir-1")).Single();
+        stored.PrincipalId.Should().Be("r2");
+        stored.OrganizationId.Should().Be("o2");
+    }
+
+    [Fact]
+    public async Task Sharing_with_a_role_defaults_to_the_active_context_organization()
+    {
+        await OwnedDirectory();
+
+        await _management.ShareObjectAsync(
+            "dir-1", ObjectResourceType.Directory, ObjectPrincipalType.Role, "r2",
+            ObjectPermission.View);
+
+        (await _accessRepository.GetByResourceAsync("dir-1")).Single()
+            .OrganizationId.Should().Be("org-1");
+    }
+
+    [Fact]
+    public async Task Default_organization_explicitly_keeps_a_role_share_global()
+    {
+        await OwnedDirectory();
+
+        await _management.ShareObjectAsync(
+            "dir-1", ObjectResourceType.Directory, ObjectPrincipalType.Role, "r2",
+            ObjectPermission.View, expiresAt: null, organizationId: "default");
+
+        (await _accessRepository.GetByResourceAsync("dir-1")).Single()
+            .OrganizationId.Should().Be("default");
+    }
+
+    [Fact]
+    public async Task Organization_scope_is_rejected_for_a_non_role_principal()
+    {
+        await OwnedDirectory();
+
+        var result = await _management.ShareObjectAsync(
+            "dir-1", ObjectResourceType.Directory, ObjectPrincipalType.User, "user-9",
+            ObjectPermission.View, expiresAt: null, organizationId: "o2");
+
+        result.Status.Should().Be(ObjectAccessOperationStatus.InvalidOrganizationScope);
     }
 
     [Fact]

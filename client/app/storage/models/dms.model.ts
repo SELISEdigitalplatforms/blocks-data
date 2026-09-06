@@ -77,6 +77,7 @@ export interface AccessPolicyDto {
   resourceId?: string;
   principalType: ObjectPrincipalType;
   principalId?: string;
+  organizationId?: string;
   permission: ObjectPermission;
   effect: ObjectEffect;
   priority: number;
@@ -119,6 +120,8 @@ export interface GrantAccessDto {
   resourceType?: "Directory" | "File";
   principalType: ObjectPrincipalType;
   principalId?: string;
+  /** Optional organization scope for a Role principal. */
+  organizationId?: string;
   permission: ObjectPermission;
   effect: ObjectEffect;
   expiresAt?: string;
@@ -131,6 +134,8 @@ export interface ShareObjectDto {
   resourceType?: "Directory" | "File";
   principalType: ObjectPrincipalType;
   principalId?: string;
+  /** Optional organization scope for a Role principal. */
+  organizationId?: string;
   permission: ObjectPermission;
   expiresAt?: string;
 }

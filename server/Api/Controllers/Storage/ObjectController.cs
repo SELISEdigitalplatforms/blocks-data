@@ -184,7 +184,7 @@ namespace Api.Controllers
         {
             var result = await _objectManagementService.ShareObjectAsync(
                 request.ResourceId, request.ResourceType, request.PrincipalType,
-                request.PrincipalId, request.Permission, request.ExpiresAt);
+                request.PrincipalId, request.Permission, request.ExpiresAt, request.OrganizationId);
 
             return MapAccess(result, created: true);
         }
@@ -196,6 +196,7 @@ namespace Api.Controllers
             ResourceType = request.ResourceType,
             PrincipalType = request.PrincipalType,
             PrincipalId = request.PrincipalId,
+            OrganizationId = request.OrganizationId ?? BlocksContext.GetContext()?.OrganizationId ?? string.Empty,
             Permission = request.Permission,
             Effect = request.Effect,
             Priority = request.Priority,
@@ -212,6 +213,8 @@ namespace Api.Controllers
                 BadRequest(new { message = "A deny cannot be aimed at the owner of the resource it is authored on." }),
             ObjectAccessOperationStatus.PrincipalRequired =>
                 BadRequest(new { message = "A principal is required for User, Role and Organization entries." }),
+            ObjectAccessOperationStatus.InvalidOrganizationScope =>
+                BadRequest(new { message = "OrganizationId can only be used with a Role principal." }),
             ObjectAccessOperationStatus.WouldOrphanResource =>
                 BadRequest(new { message = "Grant access on this resource before switching inheritance off." }),
             ObjectAccessOperationStatus.PolicyNotFound =>

@@ -9,6 +9,8 @@ namespace DomainService.Storage.Dms
         public ObjectResourceType ResourceType { get; set; }
         public ObjectPrincipalType PrincipalType { get; set; }
         public string? PrincipalId { get; set; }
+        /// <summary>For Role principals, optionally limits the share to this organization.</summary>
+        public string? OrganizationId { get; set; }
         public ObjectPermission Permission { get; set; }
         public DateTime? ExpiresAt { get; set; }
     }

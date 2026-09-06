@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parse } from "graphql";
 import {
   resolveBaseTypeName,
   resolveTypeName,
@@ -112,19 +113,30 @@ describe("generate-preview-queries", () => {
     });
 
     it("falls back to a string default when the base name is null", () => {
-      expect(buildInputValue(scalar(null as unknown as string), empty, 0, "", new Set())).toBe('""');
+      expect(buildInputValue(scalar(null as unknown as string), empty, 0, "", new Set())).toBe(
+        '""',
+      );
     });
 
     it("returns the first enum value or empty quotes", () => {
       const map = new Map<string, IntrospectionType>([
-        ["Status", makeType({ kind: "ENUM", name: "Status", enumValues: [{ name: "ACTIVE", description: null, isDeprecated: false, deprecationReason: null }] })],
+        [
+          "Status",
+          makeType({
+            kind: "ENUM",
+            name: "Status",
+            enumValues: [
+              { name: "ACTIVE", description: null, isDeprecated: false, deprecationReason: null },
+            ],
+          }),
+        ],
         ["Empty", makeType({ kind: "ENUM", name: "Empty", enumValues: [] })],
       ]);
       expect(buildInputValue(ref("ENUM", "Status"), map, 0, "", new Set())).toBe("ACTIVE");
       expect(buildInputValue(ref("ENUM", "Empty"), map, 0, "", new Set())).toBe('""');
     });
 
-    it("expands input objects and collapses where/depth/visited", () => {
+    it("expands input objects and collapses where/visited cycles", () => {
       const map = new Map<string, IntrospectionType>([
         [
           "Foo",
@@ -150,12 +162,42 @@ describe("generate-preview-queries", () => {
       expect(mut).toContain('a: "Sample text"');
 
       // where collapses regardless of type.
-      expect(buildInputValue(ref("INPUT_OBJECT", "Foo"), map, 0, "", new Set(), "where")).toBe("{}");
-      // depth guard collapses.
-      expect(buildInputValue(ref("INPUT_OBJECT", "Foo"), map, 6, "", new Set())).toBe("{}");
+      expect(buildInputValue(ref("INPUT_OBJECT", "Foo"), map, 0, "", new Set(), "where")).toBe(
+        "{}",
+      );
+      // Starting at a deep indentation level does not truncate the input.
+      expect(buildInputValue(ref("INPUT_OBJECT", "Foo"), map, 6, "", new Set())).toContain('a: ""');
+      expect(buildInputValue(ref("INPUT_OBJECT", "Foo"), map, 30, "", new Set())).toBe("{}");
       expect(buildInputValue(ref("INPUT_OBJECT", "Foo"), map, 0, "", new Set(["Foo"]))).toBe("{}");
       // empty input object collapses.
       expect(buildInputValue(ref("INPUT_OBJECT", "Empty"), map, 0, "", new Set())).toBe("{}");
+    });
+
+    it("expands acyclic input objects beyond the former depth limit", () => {
+      const deepMap = new Map<string, IntrospectionType>();
+      for (let i = 0; i < 9; i += 1) {
+        deepMap.set(
+          `Input${i}`,
+          makeType({
+            kind: "INPUT_OBJECT",
+            name: `Input${i}`,
+            inputFields:
+              i === 8
+                ? [{ name: "value", description: null, type: scalar("String"), defaultValue: null }]
+                : [
+                    {
+                      name: `level${i + 1}`,
+                      description: null,
+                      type: ref("INPUT_OBJECT", `Input${i + 1}`),
+                      defaultValue: null,
+                    },
+                  ],
+          }),
+        );
+      }
+
+      const input = buildInputValue(ref("INPUT_OBJECT", "Input0"), deepMap, 0, "", new Set());
+      expect(input).toContain('value: ""');
     });
   });
 
@@ -175,13 +217,13 @@ describe("generate-preview-queries", () => {
       ],
     ]);
 
-    it("returns [] for an unknown type or a type with no fields", () => {
-      expect(buildSelectionSet("Missing", map, 0, "  ", new Set())).toEqual([]);
+    it("returns a valid meta-field for an unknown or empty object type", () => {
+      expect(buildSelectionSet("Missing", map, 0, "  ", new Set())).toEqual(["  __typename"]);
     });
 
-    it("emits a comment when depth or recursion guards trip", () => {
-      expect(buildSelectionSet("Item", map, 6, "  ", new Set())).toEqual(["  # ..."]);
-      expect(buildSelectionSet("Item", map, 0, "  ", new Set(["Item"]))).toEqual(["  # ..."]);
+    it("uses a real field when a recursive type cycle is reached", () => {
+      expect(buildSelectionSet("Item", map, 0, "  ", new Set(["Item"]))).toEqual(["  __typename"]);
+      expect(buildSelectionSet("Item", map, 30, "  ", new Set())).toEqual(["  __typename"]);
     });
 
     it("recurses into nested object fields", () => {
@@ -193,6 +235,30 @@ describe("generate-preview-queries", () => {
       ]);
     });
 
+    it("expands acyclic object graphs beyond the former depth limit", () => {
+      const deepMap = new Map<string, IntrospectionType>();
+      for (let i = 0; i < 9; i += 1) {
+        deepMap.set(
+          `Level${i}`,
+          makeType({
+            kind: "OBJECT",
+            name: `Level${i}`,
+            fields:
+              i === 8
+                ? [sf("value", scalar("String"))]
+                : [sf(`level${i + 1}`, ref("OBJECT", `Level${i + 1}`))],
+          }),
+        );
+      }
+
+      const selection = buildSelectionSet("Level0", deepMap, 0, "  ", new Set());
+      expect(selection).toContain("                  value");
+      expect(selection.join("\n")).not.toContain("#");
+
+      const query = generateGraphQLQuery(sf("getDeep", ref("OBJECT", "Level0")), deepMap, "query");
+      expect(() => parse(query)).not.toThrow();
+    });
+
     it("orders known result fields by the preferred order", () => {
       const resultMap = new Map<string, IntrospectionType>([
         [
@@ -200,7 +266,11 @@ describe("generate-preview-queries", () => {
           makeType({
             kind: "OBJECT",
             name: "Result",
-            fields: [sf("custom", scalar("String")), sf("totalCount", scalar("Int")), sf("items", scalar("String"))],
+            fields: [
+              sf("custom", scalar("String")),
+              sf("totalCount", scalar("Int")),
+              sf("items", scalar("String")),
+            ],
           }),
         ],
       ]);
@@ -285,8 +355,18 @@ describe("generate-preview-queries", () => {
               { name: "title", description: null, type: scalar("String"), defaultValue: null },
               { name: "count", description: null, type: scalar("Int"), defaultValue: null },
               { name: "active", description: null, type: scalar("Boolean"), defaultValue: null },
-              { name: "status", description: null, type: ref("ENUM", "Status"), defaultValue: null },
-              { name: "where", description: null, type: ref("INPUT_OBJECT", "ProductWhere"), defaultValue: null },
+              {
+                name: "status",
+                description: null,
+                type: ref("ENUM", "Status"),
+                defaultValue: null,
+              },
+              {
+                name: "where",
+                description: null,
+                type: ref("INPUT_OBJECT", "ProductWhere"),
+                defaultValue: null,
+              },
             ],
           }),
           makeType({
@@ -397,9 +477,7 @@ describe("generate-preview-queries", () => {
               makeType({
                 kind: "OBJECT",
                 name: "Query",
-                fields: [
-                  sf("getproducts", ref("OBJECT", "ProductResult"), []),
-                ],
+                fields: [sf("getproducts", ref("OBJECT", "ProductResult"), [])],
               }),
               makeType({
                 kind: "OBJECT",
@@ -430,9 +508,7 @@ describe("generate-preview-queries", () => {
               makeType({
                 kind: "OBJECT",
                 name: "Query",
-                fields: [
-                  sf("getProduct", ref("OBJECT", "ProductResult"), []),
-                ],
+                fields: [sf("getProduct", ref("OBJECT", "ProductResult"), [])],
               }),
               makeType({
                 kind: "OBJECT",

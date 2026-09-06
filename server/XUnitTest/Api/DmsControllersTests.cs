@@ -503,7 +503,7 @@ namespace XUnitTest.Api
             var expires = new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc);
             _management.Setup(m => m.ShareObjectAsync(
                     "res-1", ObjectResourceType.File, ObjectPrincipalType.Role, "editors",
-                    ObjectPermission.Download, expires, It.IsAny<CancellationToken>()))
+                    ObjectPermission.Download, expires, "org-1", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(ObjectAccessOperationResult.Success("policy-1"));
 
             var result = await _sut.ShareObject(new ShareObjectRequest
@@ -512,6 +512,7 @@ namespace XUnitTest.Api
                 ResourceType = ObjectResourceType.File,
                 PrincipalType = ObjectPrincipalType.Role,
                 PrincipalId = "editors",
+                OrganizationId = "org-1",
                 Permission = ObjectPermission.Download,
                 ExpiresAt = expires,
             });

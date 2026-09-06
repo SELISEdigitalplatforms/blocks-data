@@ -268,6 +268,7 @@ namespace Storage.DomainService.Services
                 Url = string.Empty,
                 ItemId = request.ItemId,
                 TenantId = BlocksContext.GetContext()?.TenantId ?? string.Empty,
+                OrganizationId = BlocksContext.GetContext()?.OrganizationId ?? string.Empty,
                 CreatedDate = now,
                 CreatedBy = userId,
                 // A fresh upload is also the initial version of this file, not an

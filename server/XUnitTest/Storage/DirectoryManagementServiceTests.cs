@@ -134,6 +134,7 @@ public class DirectoryManagementServiceTests : IDisposable
         stored.ParentId.Should().BeNull();
         stored.FullPath.Should().Be("/Reports");
         stored.CreatedBy.Should().Be("user-1");
+        stored.OrganizationId.Should().Be("org-1");
         stored.LastUpdatedDate.Should().Be(stored.CreatedDate);
         stored.LastUpdatedBy.Should().Be(stored.CreatedBy);
     }

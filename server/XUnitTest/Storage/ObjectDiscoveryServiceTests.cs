@@ -93,9 +93,7 @@ public class ObjectDiscoveryServiceTests : IDisposable
             CreatedDate = DateTime.UtcNow,
         };
         await Directories.InsertOneAsync(directory);
-        var item = ObjectItem.From(directory);
-        item.OrganizationId = organizationId;
-        await _objectItems.UpsertAsync(item);
+        await _objectItems.UpsertAsync(ObjectItem.From(directory));
     }
 
     private async Task SeedFile(
@@ -116,9 +114,7 @@ public class ObjectDiscoveryServiceTests : IDisposable
             CreatedDate = DateTime.UtcNow,
         };
         await Files.InsertOneAsync(file);
-        var item = ObjectItem.From(file);
-        item.OrganizationId = organizationId;
-        await _objectItems.UpsertAsync(item);
+        await _objectItems.UpsertAsync(ObjectItem.From(file));
     }
 
     // ---------- Search ----------

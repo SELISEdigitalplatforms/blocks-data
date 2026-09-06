@@ -102,6 +102,7 @@ namespace Storage.DomainService.Services
             // CreateNew derives SystemName from the untrimmed name; set it from the same
             // value the uniqueness check used so the two can never drift.
             directory.SystemName = systemName;
+            directory.OrganizationId = BlocksContext.GetContext()?.OrganizationId ?? string.Empty;
 
             await Directories.InsertOneAsync(directory, cancellationToken: cancellationToken);
             if (_objectItems is not null) await _objectItems.UpsertAsync(directory, cancellationToken);

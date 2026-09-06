@@ -12,5 +12,6 @@ namespace Storage.DomainService.Services
         public string? Search { get; init; }
         public ObjectCursor? Cursor { get; init; }
         public int Take { get; init; }
+        public string? OrganizationId { get; set; }
     }
 }

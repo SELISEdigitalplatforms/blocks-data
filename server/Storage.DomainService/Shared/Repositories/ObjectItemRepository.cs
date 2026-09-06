@@ -37,6 +37,10 @@ namespace Storage.DomainService.Services
         {
             var b = Builders<ObjectItem>.Filter;
             var filter = b.Empty;
+            if (!string.IsNullOrWhiteSpace(query.OrganizationId))
+            {
+                filter &= b.Eq(i => i.OrganizationId, query.OrganizationId);
+            }
             if (query.IsArchived.HasValue) filter &= b.Eq(i => i.IsArchived, query.IsArchived.Value);
             if (query.Type.HasValue) filter &= b.Eq(i => i.Type, query.Type.Value);
             if (query.FilterByParent)

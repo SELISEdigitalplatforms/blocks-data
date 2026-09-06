@@ -76,30 +76,39 @@ namespace Storage.DomainService.Services
                 return Task.FromResult(new VisibleChildrenPage());
             }
 
-            return AssembleObjectItemPageAsync(null, false, directoryId, type, query, false, cursor, limit, cancellationToken);
+            var blocksContext = BlocksContext.GetContext();
+            var organizationId = blocksContext?.Impersonated == false ? blocksContext?.OrganizationId : string.Empty;
+            return AssembleObjectItemPageAsync(null, false, directoryId, organizationId, type, query, false, cursor, limit, cancellationToken);
         }
 
         public Task<VisibleChildrenPage> GetObjectAsync(
             string? parentDirectoryId, StructureType? type = null, string? search = null,
-            string? cursor = null, int limit = 50, CancellationToken cancellationToken = default) =>
-            AssembleObjectItemPageAsync(parentDirectoryId, true, null, type, search, false, cursor, limit, cancellationToken);
+            string? cursor = null, int limit = 50, CancellationToken cancellationToken = default)
+        {
+            var blocksContext = BlocksContext.GetContext();
+            var organizationId = blocksContext?.Impersonated == false ? blocksContext?.OrganizationId : string.Empty;
+
+            return AssembleObjectItemPageAsync(parentDirectoryId, true, null, organizationId, type, search, false, cursor, limit, cancellationToken);
+        }
 
         public Task<VisibleChildrenPage> GetTrashAsync(
             StructureType? type = null, string? cursor = null, int limit = 50,
             CancellationToken cancellationToken = default)
         {
-            return AssembleObjectItemPageAsync(null, false, null, type, null, true, cursor, limit, cancellationToken);
+            var blocksContext = BlocksContext.GetContext();
+            var organizationId = blocksContext?.Impersonated == false ? blocksContext?.OrganizationId : string.Empty;
+            return AssembleObjectItemPageAsync(null, false, null, organizationId, type, null, true, cursor, limit, cancellationToken);
         }
 
         public Task<VisibleChildrenPage> GetSharedAsync(
             StructureType? type = null, string? cursor = null, int limit = 50,
             CancellationToken cancellationToken = default)
         {
-            return AssembleObjectItemPageAsync(null, false, null, type, null, false, cursor, limit, cancellationToken, sharedOnly: true);
+            return AssembleObjectItemPageAsync(null, false, null, null, type, null, false, cursor, limit, cancellationToken, sharedOnly: true);
         }
 
         private async Task<VisibleChildrenPage> AssembleObjectItemPageAsync(
-            string? parentDirectoryId, bool filterByParent, string? directoryId, StructureType? type, string? search, bool archived,
+            string? parentDirectoryId, bool filterByParent, string? directoryId, string? organizationId, StructureType? type, string? search, bool archived,
             string? cursor, int limit, CancellationToken cancellationToken, bool sharedOnly = false)
         {
             if (_objectItems is null)
@@ -126,6 +135,7 @@ namespace Storage.DomainService.Services
                 IsArchived = archived,
                 Cursor = ObjectCursor.Decode(cursor),
                 Take = limit + 1,
+                OrganizationId = organizationId
             }, cancellationToken);
 
             var descriptors = rows.ToDictionary(i => i.ObjectReferenceId, Describe, StringComparer.Ordinal);
@@ -168,11 +178,18 @@ namespace Storage.DomainService.Services
 
         private static VisibleChildItem ToVisibleItem(ObjectItem item, ObjectPermissionFlags flags) => new()
         {
-            ItemId = item.ObjectReferenceId, Name = item.Name, Type = item.Type,
-            ParentDirectoryId = item.ParentDirectoryId, SizeInBytes = item.SizeInBytes,
-            Extension = item.Extension, ContentType = item.ContentType,
-            CreatedDate = item.CreatedDate, LastUpdatedDate = item.LastUpdatedDate,
-            CreatedBy = item.CreatedBy, IsDefault = item.IsDefault, Permissions = flags,
+            ItemId = item.ObjectReferenceId,
+            Name = item.Name,
+            Type = item.Type,
+            ParentDirectoryId = item.ParentDirectoryId,
+            SizeInBytes = item.SizeInBytes,
+            Extension = item.Extension,
+            ContentType = item.ContentType,
+            CreatedDate = item.CreatedDate,
+            LastUpdatedDate = item.LastUpdatedDate,
+            CreatedBy = item.CreatedBy,
+            IsDefault = item.IsDefault,
+            Permissions = flags,
         };
 
         public async Task<TrashOperationResult> RestoreAsync(string resourceId, CancellationToken cancellationToken = default)

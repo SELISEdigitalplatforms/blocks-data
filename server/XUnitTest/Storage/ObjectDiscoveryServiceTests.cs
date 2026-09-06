@@ -76,12 +76,13 @@ public class ObjectDiscoveryServiceTests : IDisposable
 
     private async Task SeedDirectory(
         string id, string name, string createdBy = "user-1", bool archived = false,
-        List<string>? ancestorIds = null)
+        List<string>? ancestorIds = null, string organizationId = "org-1")
     {
         var directory = new FileDirectory
         {
             ItemId = id,
             TenantId = "tenant-1",
+            OrganizationId = organizationId,
             Name = name,
             SystemName = name.ToLowerInvariant(),
             Type = StructureType.Directory,
@@ -92,17 +93,20 @@ public class ObjectDiscoveryServiceTests : IDisposable
             CreatedDate = DateTime.UtcNow,
         };
         await Directories.InsertOneAsync(directory);
-        await _objectItems.UpsertAsync(ObjectItem.From(directory));
+        var item = ObjectItem.From(directory);
+        item.OrganizationId = organizationId;
+        await _objectItems.UpsertAsync(item);
     }
 
     private async Task SeedFile(
         string id, string name, string createdBy = "user-1", bool archived = false,
-        List<string>? ancestorIds = null)
+        List<string>? ancestorIds = null, string organizationId = "org-1")
     {
         var file = new File
         {
             ItemId = id,
             TenantId = "tenant-1",
+            OrganizationId = organizationId,
             Name = name,
             Type = StructureType.File,
             AncestorIds = ancestorIds ?? new List<string>(),
@@ -112,10 +116,64 @@ public class ObjectDiscoveryServiceTests : IDisposable
             CreatedDate = DateTime.UtcNow,
         };
         await Files.InsertOneAsync(file);
-        await _objectItems.UpsertAsync(ObjectItem.From(file));
+        var item = ObjectItem.From(file);
+        item.OrganizationId = organizationId;
+        await _objectItems.UpsertAsync(item);
     }
 
     // ---------- Search ----------
+
+    [Fact]
+    public async Task Search_returns_only_objects_in_the_callers_organization()
+    {
+        await SeedFile("org-1-file", "report-one.pdf");
+        await SeedFile("org-2-file", "report-two.pdf", organizationId: "org-2");
+
+        var page = await _discovery.SearchAsync("report");
+
+        page.Items.Select(item => item.ItemId).Should().Equal("org-1-file");
+    }
+
+    [Fact]
+    public async Task Get_objects_returns_only_objects_in_the_callers_organization()
+    {
+        await SeedFile("org-1-file", "one.pdf");
+        await SeedFile("org-2-file", "two.pdf", organizationId: "org-2");
+
+        var page = await _discovery.GetObjectAsync(null);
+
+        page.Items.Select(item => item.ItemId).Should().Equal("org-1-file");
+    }
+
+    [Fact]
+    public async Task Trash_returns_only_objects_in_the_callers_organization()
+    {
+        await SeedFile("org-1-file", "one.pdf", archived: true);
+        await SeedFile("org-2-file", "two.pdf", archived: true, organizationId: "org-2");
+
+        var page = await _discovery.GetTrashAsync();
+
+        page.Items.Select(item => item.ItemId).Should().Equal("org-1-file");
+    }
+
+    [Fact]
+    public async Task Search_does_not_apply_an_organization_filter_while_impersonating()
+    {
+        await SeedFile("org-1-file", "report-one.pdf");
+        await SeedFile("org-2-file", "report-two.pdf", organizationId: "org-2");
+        BlocksContext.SetContext(BlocksContext.Create(
+            tenantId: "tenant-1", roles: new[] { "editor" }, userId: "user-1",
+            isAuthenticated: true, requestUri: "/graphql", organizationId: "org-1",
+            expireOn: DateTime.UtcNow.AddHours(1), email: "user@example.com",
+            permissions: Array.Empty<string>(), userName: "user", phoneNumber: "",
+            displayName: "User", oauthToken: "", originalTenantId: "tenant-1",
+            impersonated: true));
+
+        var page = await _discovery.SearchAsync("report");
+
+        page.Items.Select(item => item.ItemId)
+            .Should().BeEquivalentTo("org-1-file", "org-2-file");
+    }
 
     [Fact]
     public async Task Search_matches_a_substring_of_the_name()

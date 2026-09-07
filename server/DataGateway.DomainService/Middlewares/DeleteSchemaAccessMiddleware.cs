@@ -23,7 +23,8 @@ public class DeleteSchemaAccessMiddleware
             context,
             _next,
             _schema.DeleteAccessLevel,
-            nameof(DeleteSchemaAccessMiddleware));
+            nameof(DeleteSchemaAccessMiddleware),
+            _schema.SchemaName);
     }
 
 }

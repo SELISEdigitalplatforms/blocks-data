@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using DataGateway.DomainService.Helpers;
 using System.Collections.Immutable;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
@@ -9,6 +11,7 @@ using HotChocolate;
 using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
+using HotChocolate.Types;
 using Microsoft.Extensions.Logging.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -46,8 +49,12 @@ public class QueryServiceTests
         object? order = null,
         PaginationInput? paging = null)
     {
+        var fieldNode = ParseQueryField(query);
         var selection = new Mock<ISelection>();
-        selection.Setup(s => s.SyntaxNode).Returns(ParseQueryField(query));
+        selection.Setup(s => s.SyntaxNode).Returns(fieldNode);
+        var field = new Mock<IObjectField>();
+        field.Setup(f => f.Name).Returns(fieldNode.Name.Value);
+        selection.Setup(s => s.Field).Returns(field.Object);
         var ctx = new Mock<IResolverContext>();
         ctx.Setup(c => c.Selection).Returns(selection.Object);
         ctx.Setup(c => c.ScopedContextData).Returns(ImmutableDictionary<string, object?>.Empty);
@@ -87,6 +94,28 @@ public class QueryServiceTests
             result.Items.Should().HaveCount(2);
             result.PageNo.Should().Be(1);
             result.PageSize.Should().Be(2); // no PageSize supplied => falls back to item count
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public async Task GetDataAsync_RecordsHowManyDocumentsCameBack()
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        using var activity = new Activity("request").Start();
+        try
+        {
+            var schema = Schema(fields: new() { Field("Name"), Field("Age", "Int") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30), Doc("Bob", 25) }, 40_000);
+
+            await _service.GetDataAsync(Context().Object, schema);
+
+            // 2 returned out of 40,000 matched: the pair is what makes a missing-paging report
+            // possible, so the returned count has to be the page, not the match count.
+            var gatewayOperation = GatewayOperationActivity.GetOrCreate(activity);
+            gatewayOperation.DocumentCount.Should().Be(2);
+            gatewayOperation.ResponseSize.Should().BeGreaterThan(0);
         }
         finally { ClearContext(); }
     }

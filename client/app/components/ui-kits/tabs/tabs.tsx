@@ -44,6 +44,11 @@ const TabsContent = React.forwardRef<
   <TabsPrimitive.Content
     ref={ref}
     className={cn(
+      // Radix keeps inactive panels mounted and marks them with the `hidden` attribute, which only
+      // works while nothing sets `display`. A layout utility on the panel (flex, grid) overrides
+      // the browser's `[hidden] { display: none }`, leaving an empty box that still takes part in
+      // the parent's flex/grid gaps — so inactive tabs push the active one down. Force it closed.
+      "data-[state=inactive]:!hidden",
       "ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
       className,
     )}

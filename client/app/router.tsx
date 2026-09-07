@@ -6,6 +6,7 @@ import {
 } from "react-router";
 
 // Dashboard routes (protected)
+import DataGatewayAnalyticsPage from "./routes/dashboard/data-gateway-analytics";
 import DataGatewayEditDataSourcePage from "./routes/dashboard/data-gateway-edit-data-source";
 import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
 import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
@@ -106,6 +107,10 @@ export const router = createBrowserRouter([
                   {
                     path: "data-gateway/logs",
                     element: <DataGatewayLogsPage />,
+                  },
+                  {
+                    path: "data-gateway/analytics",
+                    element: <DataGatewayAnalyticsPage />,
                   },
                   {
                     path: "data-gateway/configuration",

@@ -65,6 +65,15 @@ export const DATA_VALIDATION_REGEX_ENDPOINTS = {
   GENERATE_REGEX: `${API_BASES.UDS}${VALIDATION_REGEX}/generate-regex`,
 } as const;
 
+// ─── Graph log endpoints ──────────────────────────────────────────────────────
+
+const GRAPH_LOG_SUBPATH = "/graph-log";
+
+export const GRAPH_LOG_ENDPOINTS = {
+  HISTORY: `${API_BASES.UDS}${GRAPH_LOG_SUBPATH}/history`,
+  ANALYTICS: `${API_BASES.UDS}${GRAPH_LOG_SUBPATH}/analytics`,
+} as const;
+
 // ─── Gateway & Configuration endpoints ────────────────────────────────────────
 
 const GATEWAY_SUBPATH = "/gateway";

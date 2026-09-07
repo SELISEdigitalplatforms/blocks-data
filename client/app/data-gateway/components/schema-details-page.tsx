@@ -5,13 +5,11 @@ import { Button } from "@/components/ui-kits/button/button";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { getRuntimeEnv } from "@/lib/runtime-env";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
-  BookOpen,
   ChevronRight,
   Logs,
 } from "lucide-react";
@@ -21,23 +19,6 @@ import { DataGatewayActions } from "./data-gateway-actions";
 
 const actionButtonClass =
   "gap-2 px-4 border-border/40 text-muted-foreground/70 hover:border-border/60 hover:text-foreground";
-
-const ApiDocsButton = () => (
-  <Button
-    size="sm"
-    variant="outline"
-    className={actionButtonClass}
-    onClick={() =>
-      window.open(
-        `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`,
-        "_blank",
-      )
-    }
-  >
-    <BookOpen className="h-4 w-4" />
-    API Docs
-  </Button>
-);
 
 const LogsButton = ({ link }: { link: string }) => (
   <Link to={link}>
@@ -273,7 +254,6 @@ export const SchemaDetailsPage = () => {
 
           {/* Action buttons */}
           <div className="flex items-center gap-2">
-            <ApiDocsButton />
             {/* <LogsButton link={`${dataGatewayPath}/logs`} /> */}
             <DataGatewayActions />
           </div>

@@ -31,11 +31,13 @@ public class GqlDbRepository : IGqlDbRepository
 
     public async Task<BsonDocument?> GetItemAsync(string collectionName, string id)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
         var filter = Builders<BsonDocument>.Filter.Eq(GraphQlConstant.DbEntityIdFieldName, id);
         return await GetItemAsync(collectionName, filter);
     }
     public async Task<BsonDocument?> GetItemAsync(string collectionName, FilterDefinition<BsonDocument> filter)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
         var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await collection.Find(filter).FirstOrDefaultAsync();
     }
@@ -48,6 +50,7 @@ public class GqlDbRepository : IGqlDbRepository
         int skip = 0,
         int limit = 10)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
         var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.GetItemsAsync(collection, filter, sort, projection, skip, limit);
     }
@@ -62,6 +65,7 @@ public class GqlDbRepository : IGqlDbRepository
         int skip = 0,
         int limit = 10)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
         var db = GetDatabase();
         var collection = db.GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.GetItemsWithCountAsync(collection, filter, sort, projection, skip, limit);
@@ -74,12 +78,14 @@ public class GqlDbRepository : IGqlDbRepository
 
     public async Task<BsonDocument> InsertAsync(string collectionName, BsonDocument data)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
         var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.InsertAsync(collection, data);
     }
 
     public async Task<BulkActionResponse> InsertManyAsync(string collectionName, List<BsonDocument> data)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
         if (data == null || data.Count == 0)
             return new BulkActionResponse { Acknowledged = true, TotalImpactedData = 0 };
 
@@ -107,6 +113,7 @@ public class GqlDbRepository : IGqlDbRepository
         BsonDocument filter,
         BsonDocument data)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
         var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.UpdateOneAsync(collection, filter, data);
     }
@@ -114,6 +121,7 @@ public class GqlDbRepository : IGqlDbRepository
             BsonDocument filter,
             BsonDocument data)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
         var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.UpdateManyAsync(collection, filter, data);
     }
@@ -124,11 +132,13 @@ public class GqlDbRepository : IGqlDbRepository
 
     public async Task<ActionResponse> DeleteAsync(string collectionName, BsonDocument filter)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
         var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.DeleteOneAsync(collection, filter);
     }
     public async Task<ActionResponse> DeleteManyAsync(string collectionName, BsonDocument filter)
     {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
         var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.DeleteManyAsync(collection, filter);
     }

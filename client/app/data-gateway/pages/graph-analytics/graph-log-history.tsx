@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { Card, CardContent } from "@/components/ui-kits/card/card";
@@ -26,9 +27,11 @@ import { useGraphLogHistory } from "../../hooks/use-graph-log-history";
 import {
   FAILURE_KIND_LABELS,
   GraphLogFailureKind,
+  GraphLogHistorySort,
   GraphLogOperationType,
-  GraphLogResponseStatus,
+  GraphLogOutcome,
   IGraphLogHistoryItem,
+  graphLogOutcome,
 } from "../../models/graph-log-history";
 import { GraphLogDetailsSheet } from "./graph-log-details-sheet";
 import {
@@ -40,6 +43,43 @@ import {
 } from "./graph-log-formatters";
 
 const ALL = "all";
+const STATUS_CODES = [200, 201, 204, 400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504];
+
+const outcomeVariant = (outcome: GraphLogOutcome) =>
+  outcome === "allowed" ? "success" : outcome === "denied" ? "info" : "error";
+
+const SortableTableHead = ({
+  field,
+  label,
+  activeField,
+  descending,
+  onSort,
+}: {
+  field: GraphLogHistorySort;
+  label: string;
+  activeField: GraphLogHistorySort;
+  descending: boolean;
+  onSort: (field: GraphLogHistorySort) => void;
+}) => {
+  const active = field === activeField;
+  const Icon = active ? (descending ? ArrowDown : ArrowUp) : ArrowUpDown;
+
+  return (
+    <TableHead aria-sort={active ? (descending ? "descending" : "ascending") : "none"}>
+      <button
+        type="button"
+        className="group inline-flex items-center gap-1.5 whitespace-nowrap font-medium hover:text-foreground"
+        onClick={() => onSort(field)}
+        aria-label={`Sort by ${label}`}
+      >
+        {label}
+        <Icon
+          className={`h-3.5 w-3.5 ${active ? "opacity-80" : "opacity-30 group-hover:opacity-70"}`}
+        />
+      </button>
+    </TableHead>
+  );
+};
 
 /** 2xx reads as normal; 4xx/5xx are worth spotting while scanning the column. */
 const statusCodeClass = (statusCode: number) =>
@@ -55,8 +95,11 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
   const [pageNo, setPageNo] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [operationType, setOperationType] = useState<GraphLogOperationType | typeof ALL>(ALL);
-  const [responseStatus, setResponseStatus] = useState<GraphLogResponseStatus | typeof ALL>(ALL);
+  const [outcome, setOutcome] = useState<GraphLogOutcome | typeof ALL>(ALL);
+  const [statusCode, setStatusCode] = useState<typeof ALL | string>(ALL);
   const [failureKind, setFailureKind] = useState<GraphLogFailureKind | typeof ALL>(ALL);
+  const [sortBy, setSortBy] = useState<GraphLogHistorySort>("time");
+  const [sortDescending, setSortDescending] = useState(true);
   const [selectedItem, setSelectedItem] = useState<IGraphLogHistoryItem | null>(null);
 
   // A new date range invalidates the current page number. Adjusting during render (rather than in
@@ -74,15 +117,30 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
     pageNo,
     pageSize,
     operationType: operationType === ALL ? undefined : operationType,
-    responseStatus: responseStatus === ALL ? undefined : responseStatus,
+    outcome: outcome === ALL ? undefined : outcome,
+    statusCode: statusCode === ALL ? undefined : Number(statusCode),
     failureKind: failureKind === ALL ? undefined : failureKind,
+    sortBy,
+    sortDescending,
   });
+
+  const handleSort = (field: GraphLogHistorySort) => {
+    if (field === sortBy) {
+      setSortDescending((current) => !current);
+    } else {
+      setSortBy(field);
+      setSortDescending(false);
+    }
+    setPageNo(1);
+  };
 
   useEffect(() => {
     if (isError) {
       showErrorToast({
         title: "Couldn't load request history",
-        errors: [error instanceof Error ? error.message : "Something went wrong. Please try again."],
+        errors: [
+          error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        ],
       });
     }
   }, [isError, error]);
@@ -118,9 +176,9 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
               </Select>
 
               <Select
-                value={responseStatus}
+                value={outcome}
                 onValueChange={(value) => {
-                  setResponseStatus(value as GraphLogResponseStatus | typeof ALL);
+                  setOutcome(value as GraphLogOutcome | typeof ALL);
                   setPageNo(1);
                 }}
               >
@@ -129,8 +187,29 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL}>All statuses</SelectItem>
-                  <SelectItem value="success">Success</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
+                  <SelectItem value="allowed">Allowed</SelectItem>
+                  <SelectItem value="denied">Denied</SelectItem>
+                  <SelectItem value="error">Error</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={statusCode}
+                onValueChange={(value) => {
+                  setStatusCode(value);
+                  setPageNo(1);
+                }}
+              >
+                <SelectTrigger className="h-8 w-[120px] text-xs" aria-label="Status code">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All codes</SelectItem>
+                  {STATUS_CODES.map((code) => (
+                    <SelectItem key={code} value={String(code)}>
+                      {code}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
@@ -164,14 +243,27 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Schema</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Code</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Size</TableHead>
-                  <TableHead>Source</TableHead>
+                  {(
+                    [
+                      ["time", "Time"],
+                      ["schema", "Schema"],
+                      ["type", "Type"],
+                      ["status", "Status"],
+                      ["code", "Code"],
+                      ["duration", "Duration"],
+                      ["size", "Size"],
+                      ["source", "Source"],
+                    ] as const
+                  ).map(([field, label]) => (
+                    <SortableTableHead
+                      key={field}
+                      field={field}
+                      label={label}
+                      activeField={sortBy}
+                      descending={sortDescending}
+                      onSort={handleSort}
+                    />
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -184,54 +276,60 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  items.map((item) => (
-                    <TableRow
-                      key={`${item.traceId}-${item.spanId}`}
-                      className="cursor-pointer"
-                      onClick={() => setSelectedItem(item)}
-                    >
-                      <TableCell
-                        className="whitespace-nowrap"
-                        title={formatDateTimeWithSeconds(item.timestamp)}
+                  items.map((item) => {
+                    const itemOutcome = graphLogOutcome(item);
+                    return (
+                      <TableRow
+                        key={`${item.traceId}-${item.spanId}`}
+                        className="cursor-pointer"
+                        onClick={() => setSelectedItem(item)}
                       >
-                        <div className="flex flex-col">
-                          <span>{formatDateTime(item.timestamp)}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {formatRelativeTime(item.timestamp)}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {item.schemaName || (item.isIntrospection ? (
-                          <span className="italic text-muted-foreground">introspection</span>
-                        ) : (
-                          "—"
-                        ))}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {item.operationType || "—"}
-                      </TableCell>
-                      {/* Just the outcome here — the reason is a row-detail question, and a second
-                          line per row made the table hard to scan. */}
-                      <TableCell title={item.failureMessage || undefined}>
-                        <Badge variant={item.responseStatus === "failed" ? "error" : "success"}>
-                          {item.responseStatus || "unknown"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className={statusCodeClass(item.statusCode)}>
-                        {item.statusCode || "—"}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {formatDuration(item.duration)}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {formatSize(item.responseSize)}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {item.inAppRequest ? "In-app" : "External"}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        <TableCell
+                          className="whitespace-nowrap"
+                          title={formatDateTimeWithSeconds(item.timestamp)}
+                        >
+                          <div className="flex flex-col">
+                            <span>{formatDateTime(item.timestamp)}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatRelativeTime(item.timestamp)}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {item.schemaName ||
+                            (item.isIntrospection ? (
+                              <span className="italic text-muted-foreground">introspection</span>
+                            ) : (
+                              "—"
+                            ))}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {item.operationType || "—"}
+                        </TableCell>
+                        {/* Just the outcome here — the reason remains available in row details. */}
+                        <TableCell title={item.failureMessage || undefined}>
+                          <Badge
+                            className="w-[108px] capitalize"
+                            variant={outcomeVariant(itemOutcome)}
+                          >
+                            {itemOutcome}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className={statusCodeClass(item.statusCode)}>
+                          {item.statusCode || "—"}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatDuration(item.duration)}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          {formatSize(item.responseSize)}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {item.inAppRequest ? "In-app" : "External"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

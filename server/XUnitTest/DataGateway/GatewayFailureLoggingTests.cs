@@ -239,6 +239,25 @@ public class GatewayGraphQlOperationMetadataTests
     }
 }
 
+public class GatewayGraphLogHistorySortTests
+{
+    [Theory]
+    [InlineData("time", "$Timestamp")]
+    [InlineData("schema", "SchemaName")]
+    [InlineData("type", "OperationType")]
+    [InlineData("status", "$switch")]
+    [InlineData("code", "http.response.status_code")]
+    [InlineData("duration", "$Duration")]
+    [InlineData("size", "response.size.bytes")]
+    [InlineData("source", "InAppRequest")]
+    [InlineData("not-a-column", "$Timestamp")]
+    public void UsesAnAllowlistedServerSortForEveryTableColumn(string requestedSort, string expected)
+    {
+        GraphLogHistoryService.GetHistorySortExpression(requestedSort).ToString()
+            .Should().Contain(expected);
+    }
+}
+
 /// <summary>
 /// Introspection is tooling fetching the schema, not data access, and one introspection response
 /// can outweigh a day of real traffic — so analytics leaves it out. Detection has to be exact:

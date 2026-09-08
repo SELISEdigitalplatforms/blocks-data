@@ -17,7 +17,7 @@ import {
   IGraphLogFailureStat,
   IGraphLogRequestsOverTimeBucket,
 } from "../../models/graph-log-analytics";
-import { failureKindLabel } from "../../models/graph-log-history";
+import { DENIED_FAILURE_KINDS, failureKindLabel } from "../../models/graph-log-history";
 import { formatBucketLabel } from "./graph-log-formatters";
 import { OUTCOME_COLORS } from "./graph-outcome-colors";
 
@@ -31,8 +31,6 @@ import { OUTCOME_COLORS } from "./graph-outcome-colors";
  * The server applies the same rule when bucketing (GatewayFailureKind.IsDenial); this set only
  * sorts the per-reason detail lines into the right tile.
  */
-const DENIED_KINDS = new Set(["authentication", "authorization", "validation", "bad_request"]);
-
 // Status colours, not a categorical ramp: these are states, and each ships with its own label.
 const CHART_CONFIG = {
   success: { label: "Allows", color: OUTCOME_COLORS.allows },
@@ -108,8 +106,12 @@ export const GraphAccessOutcomesCard = ({
     return {
       ...totals,
       total: totals.allowed + totals.denied + totals.errored,
-      deniedDetail: describe(failureStats.filter((stat) => DENIED_KINDS.has(stat.failureKind))),
-      erroredDetail: describe(failureStats.filter((stat) => !DENIED_KINDS.has(stat.failureKind))),
+      deniedDetail: describe(
+        failureStats.filter((stat) => DENIED_FAILURE_KINDS.has(stat.failureKind)),
+      ),
+      erroredDetail: describe(
+        failureStats.filter((stat) => !DENIED_FAILURE_KINDS.has(stat.failureKind)),
+      ),
     };
   }, [requestsOverTime, failureStats]);
 

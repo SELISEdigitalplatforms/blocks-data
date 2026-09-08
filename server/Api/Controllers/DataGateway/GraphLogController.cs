@@ -25,8 +25,8 @@ namespace Api.Controllers
         /// <summary>
         /// Retrieves a paginated, most-recent-first list of GraphQL request history for the
         /// current tenant. Supports filtering by SchemaName (GraphQL field name), EntityName,
-        /// OperationType ("query"/"mutation"), ResponseStatus ("success"/"failed"), and a
-        /// From/To timestamp range.
+        /// OperationType ("query"/"mutation"), Outcome ("allowed"/"denied"/"error"), exact
+        /// HTTP StatusCode, failure reason, sorting, and a From/To timestamp range.
         /// </summary>
         [HttpGet("history")]
         // [ProtectedEndPoint("blocks-data::graph-log::history")]

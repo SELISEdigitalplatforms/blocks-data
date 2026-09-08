@@ -4,10 +4,7 @@ import {
   IGetGraphLogAnalyticsPayload,
   IGraphLogAnalyticsResponse,
 } from "../models/graph-log-analytics";
-import {
-  IGetGraphLogHistoryPayload,
-  IGraphLogHistoryResponse,
-} from "../models/graph-log-history";
+import { IGetGraphLogHistoryPayload, IGraphLogHistoryResponse } from "../models/graph-log-history";
 
 class GraphLogService {
   getAnalytics(payload: IGetGraphLogAnalyticsPayload): Promise<IGraphLogAnalyticsResponse> {
@@ -27,8 +24,11 @@ class GraphLogService {
     if (payload.to) params.set("To", payload.to);
     if (payload.schemaName) params.set("SchemaName", payload.schemaName);
     if (payload.operationType) params.set("OperationType", payload.operationType);
-    if (payload.responseStatus) params.set("ResponseStatus", payload.responseStatus);
+    if (payload.outcome) params.set("Outcome", payload.outcome);
+    if (payload.statusCode) params.set("StatusCode", String(payload.statusCode));
     if (payload.failureKind) params.set("FailureKind", payload.failureKind);
+    params.set("SortBy", payload.sortBy);
+    params.set("SortDescending", String(payload.sortDescending));
 
     return http.get(`${GRAPH_LOG_ENDPOINTS.HISTORY}?${params.toString()}`);
   }

@@ -1,14 +1,12 @@
 export type GraphLogOperationType = "query" | "mutation";
 export type GraphLogResponseStatus = "success" | "failed";
+export type GraphLogOutcome = "allowed" | "denied" | "error";
+export type GraphLogHistorySort =
+  "time" | "schema" | "type" | "status" | "code" | "duration" | "size" | "source";
 
 /** Why a request failed — mirrors the server's GatewayFailureKind. */
 export type GraphLogFailureKind =
-  | "authentication"
-  | "authorization"
-  | "validation"
-  | "bad_request"
-  | "unhandled"
-  | "unknown";
+  "authentication" | "authorization" | "validation" | "bad_request" | "unhandled" | "unknown";
 
 /** Reader-facing names for each failure reason, used by the table, filter and details panel. */
 export const FAILURE_KIND_LABELS: Record<GraphLogFailureKind, string> = {
@@ -23,6 +21,20 @@ export const FAILURE_KIND_LABELS: Record<GraphLogFailureKind, string> = {
 export const failureKindLabel = (failureKind: string) =>
   FAILURE_KIND_LABELS[failureKind as GraphLogFailureKind] ?? failureKind;
 
+export const DENIED_FAILURE_KINDS = new Set<string>([
+  "authentication",
+  "authorization",
+  "validation",
+  "bad_request",
+]);
+
+export const graphLogOutcome = (
+  item: Pick<IGraphLogHistoryItem, "responseStatus" | "failureKind">,
+): GraphLogOutcome => {
+  if (item.responseStatus !== "failed") return "allowed";
+  return DENIED_FAILURE_KINDS.has(item.failureKind) ? "denied" : "error";
+};
+
 export interface IGetGraphLogHistoryPayload {
   from?: string;
   to?: string;
@@ -30,8 +42,11 @@ export interface IGetGraphLogHistoryPayload {
   pageSize: number;
   schemaName?: string;
   operationType?: GraphLogOperationType;
-  responseStatus?: GraphLogResponseStatus;
+  outcome?: GraphLogOutcome;
+  statusCode?: number;
   failureKind?: GraphLogFailureKind;
+  sortBy: GraphLogHistorySort;
+  sortDescending: boolean;
 }
 
 /** One GraphQL request, as recorded in the trace store. */

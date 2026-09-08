@@ -31,6 +31,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     private const string StatusCodesField = "StatusCodes";
     private const string HttpResponseStatusCodeAttribute = "http.response.status_code";
     private const string ResponseStatusCodeAttribute = "response.status.code";
+    private const string HistorySortValueField = "__historySortValue";
 
     /// <summary>
     /// Flattens each trace down to just the fields the in-memory aggregation reads — far cheaper
@@ -130,17 +131,22 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     {
         var collection = GetTenantTraceCollection();
         var filter = BuildFilter(request);
-        var sort = request.SortDescending
-            ? Builders<BsonDocument>.Sort.Descending(request.SortBy)
-            : Builders<BsonDocument>.Sort.Ascending(request.SortBy);
-
         var pageNo = request.PageNo < 1 ? 1 : request.PageNo;
         var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
+        var sortDirection = request.SortDescending ? -1 : 1;
 
         var totalCount = await collection.CountDocumentsAsync(filter);
         var documents = await collection
-            .Find(filter)
-            .Sort(sort)
+            .Aggregate()
+            .Match(filter)
+            .AppendStage<BsonDocument>(new BsonDocument("$set", new BsonDocument(
+                HistorySortValueField, GetHistorySortExpression(request.SortBy))))
+            .Sort(new BsonDocument
+            {
+                { HistorySortValueField, sortDirection },
+                // Stable paging when several rows have the same displayed value.
+                { "_id", sortDirection },
+            })
             .Skip((pageNo - 1) * pageSize)
             .Limit(pageSize)
             .ToListAsync();
@@ -556,6 +562,30 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         if (!string.IsNullOrWhiteSpace(request.ResponseStatus))
             filters.Add(builder.Eq($"{GatewayOperationAttributePath}.ResponseStatus", request.ResponseStatus));
 
+        if (!string.IsNullOrWhiteSpace(request.Outcome))
+        {
+            var responseStatusPath = $"{GatewayOperationAttributePath}.ResponseStatus";
+            var denial = BuildDenialFilter(builder);
+            filters.Add(request.Outcome.ToLowerInvariant() switch
+            {
+                "allowed" => builder.Eq(responseStatusPath, "success"),
+                "denied" => builder.And(
+                    builder.Eq(responseStatusPath, FailedResponseStatus), denial),
+                "error" => builder.And(
+                    builder.Eq(responseStatusPath, FailedResponseStatus), builder.Not(denial)),
+                _ => builder.Empty,
+            });
+        }
+
+        if (request.StatusCode.HasValue)
+        {
+            filters.Add(new BsonDocument("$expr", new BsonDocument("$eq", new BsonArray
+            {
+                GetStatusCodeExpression(),
+                request.StatusCode.Value,
+            })));
+        }
+
         if (!string.IsNullOrWhiteSpace(request.FailureKind))
         {
             var failureKindPath = $"{GatewayOperationAttributePath}.FailureKind";
@@ -584,6 +614,95 @@ public class GraphLogHistoryService : IGraphLogHistoryService
 
         return builder.And(filters);
     }
+
+    private static FilterDefinition<BsonDocument> BuildDenialFilter(
+        FilterDefinitionBuilder<BsonDocument> builder)
+    {
+        var failureKindPath = $"{GatewayOperationAttributePath}.FailureKind";
+        var failureCodePath = $"{GatewayOperationAttributePath}.FailureCode";
+        return builder.Or(
+            builder.In(failureKindPath, new[]
+            {
+                GatewayFailureKind.Authentication,
+                GatewayFailureKind.Authorization,
+                GatewayFailureKind.Validation,
+                GatewayFailureKind.BadRequest,
+            }),
+            builder.Regex(failureCodePath, new BsonRegularExpression("^HC")));
+    }
+
+    /// <summary>Allowlisted sort expressions for the columns exposed by request history.</summary>
+    internal static BsonValue GetHistorySortExpression(string? sortBy) =>
+        sortBy?.ToLowerInvariant() switch
+        {
+            "schema" => $"${GatewayOperationAttributePath}.SchemaName",
+            "type" => $"${GatewayOperationAttributePath}.OperationType",
+            "status" => GetOutcomeExpression(),
+            "code" => GetStatusCodeExpression(),
+            "duration" => "$Duration",
+            "size" => GetLiteralAttributeExpression(ResponseSizeAttribute),
+            "source" => $"${GatewayOperationAttributePath}.InAppRequest",
+            _ => "$Timestamp",
+        };
+
+    private static BsonDocument GetOutcomeExpression()
+    {
+        var responseStatus = $"${GatewayOperationAttributePath}.ResponseStatus";
+        var failureKind = $"${GatewayOperationAttributePath}.FailureKind";
+        var failureCode = $"${GatewayOperationAttributePath}.FailureCode";
+        var isDenied = new BsonDocument("$or", new BsonArray
+        {
+            new BsonDocument("$in", new BsonArray
+            {
+                failureKind,
+                new BsonArray
+                {
+                    GatewayFailureKind.Authentication,
+                    GatewayFailureKind.Authorization,
+                    GatewayFailureKind.Validation,
+                    GatewayFailureKind.BadRequest,
+                },
+            }),
+            new BsonDocument("$regexMatch", new BsonDocument
+            {
+                { "input", new BsonDocument("$ifNull", new BsonArray { failureCode, string.Empty }) },
+                { "regex", "^HC" },
+            }),
+        });
+
+        return new BsonDocument("$switch", new BsonDocument
+        {
+            {
+                "branches", new BsonArray
+                {
+                    new BsonDocument
+                    {
+                        { "case", new BsonDocument("$eq", new BsonArray { responseStatus, "success" }) },
+                        { "then", "allowed" },
+                    },
+                    new BsonDocument
+                    {
+                        { "case", isDenied },
+                        { "then", "denied" },
+                    },
+                }
+            },
+            { "default", "error" },
+        });
+    }
+
+    private static BsonDocument GetStatusCodeExpression() => new("$ifNull", new BsonArray
+    {
+        GetLiteralAttributeExpression(HttpResponseStatusCodeAttribute),
+        GetLiteralAttributeExpression(ResponseStatusCodeAttribute),
+        0,
+    });
+
+    private static BsonDocument GetLiteralAttributeExpression(string field) => new("$getField", new BsonDocument
+    {
+        { "field", field },
+        { "input", "$Attributes" },
+    });
 
     /// <summary>
     /// Traces are stored as UTC instants, and the UI sends plain calendar dates, which model binding

@@ -80,7 +80,7 @@ describe("GraphLogHistory", () => {
     expect(screen.getByText("189 B")).toBeInTheDocument();
     // Request size lives in the details panel only.
     expect(screen.queryByText("615 B")).not.toBeInTheDocument();
-    expect(screen.getByText("failed")).toBeInTheDocument();
+    expect(screen.getByText("denied")).toBeInTheDocument();
     // The reason is a detail-panel question; a second line per row made the table hard to scan.
     expect(screen.queryByText("Authentication")).not.toBeInTheDocument();
     expect(screen.getByText("In-app")).toBeInTheDocument();
@@ -97,8 +97,11 @@ describe("GraphLogHistory", () => {
       pageNo: 1,
       pageSize: 10,
       operationType: undefined,
-      responseStatus: undefined,
+      outcome: undefined,
+      statusCode: undefined,
       failureKind: undefined,
+      sortBy: "time",
+      sortDescending: true,
     });
   });
 
@@ -144,10 +147,50 @@ describe("GraphLogHistory", () => {
     );
   });
 
+  it("filters by allowed, denied, or error outcome", async () => {
+    const user = userEvent.setup();
+    mockResult([ITEM]);
+    render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);
+
+    await user.click(screen.getByRole("combobox", { name: "Response status" }));
+    await user.click(await screen.findByRole("option", { name: "Denied" }));
+
+    expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ outcome: "denied", pageNo: 1 }),
+    );
+  });
+
+  it("filters by HTTP status code", async () => {
+    const user = userEvent.setup();
+    mockResult([ITEM]);
+    render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);
+
+    await user.click(screen.getByRole("combobox", { name: "Status code" }));
+    await user.click(await screen.findByRole("option", { name: "401" }));
+
+    expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ statusCode: 401, pageNo: 1 }),
+    );
+  });
+
+  it("sorts by a column and toggles its direction", async () => {
+    const user = userEvent.setup();
+    mockResult([ITEM]);
+    render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);
+
+    await user.click(screen.getByRole("button", { name: "Sort by Schema" }));
+    expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sortBy: "schema", sortDescending: false, pageNo: 1 }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Sort by Schema" }));
+    expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sortBy: "schema", sortDescending: true, pageNo: 1 }),
+    );
+  });
+
   it("names introspection rows, which carry no schema of their own", () => {
-    mockResult([
-      { ...ITEM, schemaName: "", isIntrospection: true, responseStatus: "success" },
-    ]);
+    mockResult([{ ...ITEM, schemaName: "", isIntrospection: true, responseStatus: "success" }]);
     render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);
 
     expect(screen.getByText("introspection")).toBeInTheDocument();
@@ -167,8 +210,6 @@ describe("GraphLogHistory", () => {
 
     await user.click(screen.getByTitle("Next page"));
 
-    expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({ pageNo: 2 }),
-    );
+    expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(expect.objectContaining({ pageNo: 2 }));
   });
 });

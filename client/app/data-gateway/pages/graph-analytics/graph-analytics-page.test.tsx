@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeAll, beforeEach } from "vitest";
+import { MemoryRouter, useLocation } from "react-router";
 
 import { IGraphLogAnalyticsData } from "../../models/graph-log-analytics";
 
@@ -33,6 +34,19 @@ vi.mock("./graph-log-history", () => ({
 }));
 
 import { GraphAnalytics } from "./graph-analytics-page";
+
+const LocationSearch = () => {
+  const location = useLocation();
+  return <output data-testid="location-search">{location.search}</output>;
+};
+
+const renderAnalytics = (initialEntry = "/services/data-gateway/analytics") =>
+  render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <GraphAnalytics />
+      <LocationSearch />
+    </MemoryRouter>,
+  );
 
 const ANALYTICS: IGraphLogAnalyticsData = {
   requestsOverTime: [
@@ -103,7 +117,7 @@ describe("GraphAnalytics", () => {
 
   it("opens on traffic and keeps the other views one click away", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     const card = (name: string) => screen.getByRole("heading", { name });
 
@@ -128,7 +142,7 @@ describe("GraphAnalytics", () => {
 
   it("fetches once for the whole page, from the shared range and bucket size", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     const [from, to, granularity, utcOffsetMinutes] = useGraphLogAnalyticsMock.mock.calls.at(-1)!;
     expect(from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -144,7 +158,7 @@ describe("GraphAnalytics", () => {
 
   it("says the analytics exclude introspection, but not on the log tab", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     const note = /Schema introspection requests are excluded/;
     expect(screen.getByText(note)).toBeInTheDocument();
@@ -156,7 +170,7 @@ describe("GraphAnalytics", () => {
 
   it("keeps the date range on every tab", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     for (const tab of ["Performance", "Reliability", "Requests"]) {
       await openTab(user, tab);
@@ -166,7 +180,7 @@ describe("GraphAnalytics", () => {
 
   it("offers a bucket size only where something is bucketed over time", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     const bucketSize = () => screen.queryByRole("combobox", { name: "Bucket size" });
 
@@ -184,7 +198,7 @@ describe("GraphAnalytics", () => {
 
   it("surfaces the numbers each tab exists for", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     await openTab(user, "Reliability");
     expect(screen.getAllByText("Authorization")).toHaveLength(2);
@@ -217,7 +231,7 @@ describe("GraphAnalytics", () => {
   });
 
   it("separates requests the gateway refused from requests that broke", () => {
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     // Traffic opens on this card: volume and its composition are the same question.
     const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
@@ -260,12 +274,40 @@ describe("GraphAnalytics", () => {
       error: null,
     });
 
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
       .parentElement!;
     expect(within(card).getByText("Denies · 0%")).toBeInTheDocument();
     expect(within(card).getByText("Errors · 100%")).toBeInTheDocument();
     expect(within(card).getByText("1 syntax error · 1 others")).toBeInTheDocument();
+  });
+
+  it("restores the active tab from the URL and persists tab changes", async () => {
+    const user = userEvent.setup();
+    renderAnalytics("/services/data-gateway/analytics?source=alert&tab=performance");
+
+    expect(await screen.findByRole("heading", { name: "Response time" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Performance" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+
+    await openTab(user, "Requests");
+
+    expect(await screen.findByTestId("history")).toBeInTheDocument();
+    expect(screen.getByTestId("location-search")).toHaveTextContent(
+      "?source=alert&tab=requests",
+    );
+  });
+
+  it("replaces a missing or invalid tab with the traffic URL", async () => {
+    renderAnalytics("/services/data-gateway/analytics?tab=removed-view");
+
+    expect(await screen.findByTestId("location-search")).toHaveTextContent("?tab=traffic");
+    expect(screen.getByRole("tab", { name: "Traffic" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
   });
 });

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { DateRange } from "react-day-picker";
 import { format, subDays } from "date-fns";
+import { useSearchParams } from "react-router";
 
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
@@ -35,19 +36,51 @@ const toIsoDate = (date: Date) => format(date, "yyyy-MM-dd");
 
 /** Tabs whose charts are bucketed over time — the only ones the bucket-size control applies to. */
 const BUCKETED_TABS = new Set(["traffic", "performance", "reliability"]);
+const ANALYTICS_TABS = new Set(["traffic", "performance", "reliability", "requests"]);
+
+const isAnalyticsTab = (value: string | null): value is string =>
+  value !== null && ANALYTICS_TABS.has(value);
 
 export const GraphAnalytics = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const tab = isAnalyticsTab(requestedTab) ? requestedTab : "traffic";
+
   useEffect(() => {
     BREADCRUMB_CUSTOM_TITLES["/services/data-gateway"] = "Data Gateway";
     BREADCRUMB_CUSTOM_TITLES["/services/data-gateway/analytics"] = "Analytics";
   }, []);
+
+  // Keep even the default tab explicit in the URL, and repair stale/invalid tab links without
+  // adding a redundant browser-history entry.
+  useEffect(() => {
+    if (isAnalyticsTab(requestedTab)) return;
+
+    setSearchParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.set("tab", "traffic");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [requestedTab, setSearchParams]);
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 7),
     to: new Date(),
   });
   const [granularity, setGranularity] = useState<GraphLogGranularity>("daily");
-  const [tab, setTab] = useState("traffic");
+
+  const handleTabChange = (nextTab: string) => {
+    if (!isAnalyticsTab(nextTab)) return;
+
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set("tab", nextTab);
+      return next;
+    });
+  };
 
   const from = dateRange?.from ? toIsoDate(dateRange.from) : undefined;
   const to = dateRange?.to ? toIsoDate(dateRange.to) : undefined;
@@ -83,7 +116,7 @@ export const GraphAnalytics = () => {
 
       <Tabs
         value={tab}
-        onValueChange={setTab}
+        onValueChange={handleTabChange}
         className="flex flex-col gap-4"
       >
         {/* Both range controls sit with the tabs they filter — one range, one bucket size, every tab. */}
@@ -92,7 +125,7 @@ export const GraphAnalytics = () => {
             <TabsTrigger value="traffic">Traffic</TabsTrigger>
             <TabsTrigger value="performance">Performance</TabsTrigger>
             <TabsTrigger value="reliability">Reliability</TabsTrigger>
-            <TabsTrigger value="history">Requests</TabsTrigger>
+            <TabsTrigger value="requests">Requests</TabsTrigger>
           </TabsList>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -123,7 +156,7 @@ export const GraphAnalytics = () => {
 
         {/* The analytics tabs count application traffic only, so their totals are lower than the
             log's. Saying so once beats leaving the difference to be discovered. */}
-        {tab !== "history" && (
+        {tab !== "requests" && (
           <p className="text-xs text-muted-foreground/60">
             Schema introspection requests are excluded — see them under Requests.
           </p>
@@ -174,7 +207,7 @@ export const GraphAnalytics = () => {
           <GraphErrorRatesCard operationStats={operationStats} isError={isError} />
         </TabsContent>
 
-        <TabsContent value="history">
+        <TabsContent value="requests">
           <GraphLogHistory from={from} to={to} utcOffsetMinutes={utcOffsetMinutes} />
         </TabsContent>
       </Tabs>

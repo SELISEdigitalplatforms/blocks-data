@@ -22,7 +22,7 @@ export const FAILURE_KIND_LABELS: Record<GraphLogFailureKind, string> = {
   syntax_error: "Syntax error",
   bad_request: "Bad request",
   unhandled: "Server error",
-  unknown: "Unknown",
+  unknown: "Others",
 };
 
 export const failureKindLabel = (failureKind: string) =>
@@ -32,7 +32,6 @@ export const DENIED_FAILURE_KINDS = new Set<string>([
   "authentication",
   "authorization",
   "validation",
-  "syntax_error",
   "bad_request",
 ]);
 

@@ -237,4 +237,34 @@ describe("GraphAnalytics", () => {
       within(card).getByRole("img", { name: "Allowed, denied and errored requests over time" }),
     ).toBeInTheDocument();
   });
+
+  it("counts syntax failures as errors and labels unknown reasons as others", () => {
+    useGraphLogAnalyticsMock.mockReturnValue({
+      data: {
+        isSuccess: true,
+        data: {
+          ...ANALYTICS,
+          requestsOverTime: [
+            { date: "2026-08-30T00:00:00Z", success: 0, denied: 0, errored: 2 },
+          ],
+          failureStats: [
+            { failureKind: "syntax_error", count: 1 },
+            { failureKind: "unknown", count: 1 },
+          ],
+        },
+        errors: null,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    render(<GraphAnalytics />);
+
+    const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
+      .parentElement!;
+    expect(within(card).getByText("Denies · 0%")).toBeInTheDocument();
+    expect(within(card).getByText("Errors · 100%")).toBeInTheDocument();
+    expect(within(card).getByText("1 syntax error · 1 others")).toBeInTheDocument();
+  });
 });

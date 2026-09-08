@@ -629,10 +629,10 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 GatewayFailureKind.Authentication,
                 GatewayFailureKind.Authorization,
                 GatewayFailureKind.Validation,
-                GatewayFailureKind.SyntaxError,
-                GatewayFailureKind.BadRequest,
             }),
-            BuildGraphQlDocumentFailureFilter(builder));
+            builder.And(
+                builder.Eq(failureKindPath, GatewayFailureKind.BadRequest),
+                builder.Not(BuildGraphQlDocumentFailureFilter(builder))));
     }
 
     private static FilterDefinition<BsonDocument> BuildGraphQlDocumentFailureFilter(
@@ -665,20 +665,8 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         var failureKind = $"${GatewayOperationAttributePath}.FailureKind";
         var failureCode = $"${GatewayOperationAttributePath}.FailureCode";
         var failureMessage = $"${GatewayOperationAttributePath}.FailureMessage";
-        var isDenied = new BsonDocument("$or", new BsonArray
+        var isDocumentFailure = new BsonDocument("$or", new BsonArray
         {
-            new BsonDocument("$in", new BsonArray
-            {
-                failureKind,
-                new BsonArray
-                {
-                    GatewayFailureKind.Authentication,
-                    GatewayFailureKind.Authorization,
-                    GatewayFailureKind.Validation,
-                    GatewayFailureKind.SyntaxError,
-                    GatewayFailureKind.BadRequest,
-                },
-            }),
             new BsonDocument("$regexMatch", new BsonDocument
             {
                 { "input", new BsonDocument("$ifNull", new BsonArray { failureCode, string.Empty }) },
@@ -689,6 +677,28 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 { "input", new BsonDocument("$ifNull", new BsonArray { failureMessage, string.Empty }) },
                 { "regex", GraphQlDocumentErrorMessagePattern },
                 { "options", "i" },
+            }),
+        });
+        var isDenied = new BsonDocument("$or", new BsonArray
+        {
+            new BsonDocument("$in", new BsonArray
+            {
+                failureKind,
+                new BsonArray
+                {
+                    GatewayFailureKind.Authentication,
+                    GatewayFailureKind.Authorization,
+                    GatewayFailureKind.Validation,
+                },
+            }),
+            new BsonDocument("$and", new BsonArray
+            {
+                new BsonDocument("$eq", new BsonArray
+                {
+                    failureKind,
+                    GatewayFailureKind.BadRequest,
+                }),
+                new BsonDocument("$not", new BsonArray { isDocumentFailure }),
             }),
         });
 

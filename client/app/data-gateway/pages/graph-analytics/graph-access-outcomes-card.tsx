@@ -22,11 +22,9 @@ import { formatBucketLabel } from "./graph-log-formatters";
 import { OUTCOME_COLORS } from "./graph-outcome-colors";
 
 /**
- * A request the gateway refused on purpose, as opposed to one that broke. Validation and malformed
- * GraphQL documents belong here with the access checks: rejecting bad input is the gateway working,
- * not failing. Keeping these apart is the point of this card — a spike in denials is an access-control,
- * credentials or client story, while a spike in errors is an engineering one, and a single "failed"
- * number hides which.
+ * A request the gateway refused on purpose, as opposed to an error response. Authentication,
+ * authorization, validation and other bad requests are denials; GraphQL syntax errors are errors.
+ * Keeping these apart is the point of this card, and a single "failed" number hides which.
  *
  * The server applies the same rule when bucketing (GatewayFailureKind.IsDenial); this set only
  * sorts the per-reason detail lines into the right tile.

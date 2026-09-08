@@ -202,9 +202,9 @@ public class GatewayFailureLoggingTests : IDisposable
 public class GatewayGraphQlErrorClassificationTests
 {
     [Fact]
-    public void GraphQlSyntaxErrorsCountAsClientDenialsRatherThanGatewayErrors()
+    public void GraphQlSyntaxErrorsCountAsErrorsRatherThanClientDenials()
     {
-        GatewayFailureKind.IsDenial(GatewayFailureKind.SyntaxError).Should().BeTrue();
+        GatewayFailureKind.IsDenial(GatewayFailureKind.SyntaxError).Should().BeFalse();
     }
 
     [Fact]

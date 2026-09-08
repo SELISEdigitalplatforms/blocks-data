@@ -35,10 +35,11 @@ public static class GatewayFailureKind
 
     /// <summary>
     /// Whether a failure was the gateway refusing on purpose rather than something breaking.
-    /// Rejecting bad input belongs here with the access checks: it is the gateway working.
+    /// Authentication, authorization, validation and generic bad requests are denials; GraphQL
+    /// document syntax failures are reported as errors.
     /// </summary>
     public static bool IsDenial(string? failureKind) =>
-        failureKind is Authentication or Authorization or Validation or SyntaxError or BadRequest;
+        failureKind is Authentication or Authorization or Validation or BadRequest;
 
     /// <summary>
     /// Server errors are defined by the HTTP response, not merely by a GraphQL error carrying an

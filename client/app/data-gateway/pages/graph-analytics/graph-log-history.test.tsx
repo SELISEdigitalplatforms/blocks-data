@@ -87,6 +87,14 @@ describe("GraphLogHistory", () => {
     expect(screen.getByText("1 request")).toBeInTheDocument();
   });
 
+  it("shows a syntax failure as an error rather than a denial", () => {
+    mockResult([{ ...ITEM, failureKind: "syntax_error", failureCode: "HC0017", statusCode: 400 }]);
+    render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);
+
+    expect(screen.getByText("error")).toBeInTheDocument();
+    expect(screen.queryByText("denied")).not.toBeInTheDocument();
+  });
+
   it("passes the range and paging through to the query", () => {
     mockResult([ITEM], 25);
     render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);

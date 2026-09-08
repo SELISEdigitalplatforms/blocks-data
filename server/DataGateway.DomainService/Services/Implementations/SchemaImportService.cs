@@ -8,6 +8,7 @@ using DataGateway.DomainService.Models.Export;
 using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Repositories;
+using DataGateway.DomainService.Validators;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using System.Text.Json;
@@ -19,15 +20,18 @@ public class SchemaImportService : ISchemaImportService
     private readonly IMessageClient _messageClient;
     private readonly IDbRepository _dbRepository;
     private readonly ILogger<SchemaImportService> _logger;
+    private readonly SchemaImportValidator _schemaImportValidator;
 
     public SchemaImportService(
         IMessageClient messageClient,
         IDbRepository dbRepository,
-        ILogger<SchemaImportService> logger)
+        ILogger<SchemaImportService> logger,
+        SchemaImportValidator schemaImportValidator)
     {
         _messageClient = messageClient;
         _dbRepository = dbRepository;
         _logger = logger;
+        _schemaImportValidator = schemaImportValidator;
     }
 
     /// <inheritdoc />
@@ -77,7 +81,7 @@ public class SchemaImportService : ISchemaImportService
         }
 
         // 2. Validate documents
-        var validationErrors = ValidateDocuments(documents);
+        var validationErrors = await _schemaImportValidator.ValidateAsync(documents);
         if (validationErrors.Count > 0)
             throw new InvalidOperationException($"Import validation failed:\n{string.Join("\n", validationErrors)}");
 
@@ -261,67 +265,5 @@ public class SchemaImportService : ISchemaImportService
         var log = new SchemaChangeLog { SchemaId = schemaId, ChangeType = changeType, DoesServerAdaptChanges = false };
         log.InjectDefaultValue();
         changeLogs.Add(log);
-    }
-
-    private static List<string> ValidateDocuments(List<SchemaExportDocument> documents)
-    {
-        var errors = new List<string>();
-
-        for (int i = 0; i < documents.Count; i++)
-        {
-            var doc = documents[i];
-            var prefix = $"Document[{i}]";
-
-
-            if (string.IsNullOrWhiteSpace(doc.SchemaName))
-                errors.Add($"{prefix}: SchemaName is required.");
-
-            if (!Enum.IsDefined(doc.SchemaType))
-                errors.Add($"{prefix}: SchemaType '{doc.SchemaType}' is not a valid value.");
-
-            foreach (var policy in doc.RowLevelPolicies ?? [])
-            {
-                if (string.IsNullOrWhiteSpace(policy.PolicyName))
-                    errors.Add($"{prefix}: A row-level policy is missing a PolicyName.");
-
-                if (policy.RuleGroup == null)
-                    errors.Add($"{prefix}.Policy[{policy.PolicyName}]: RuleGroup is required.");
-            }
-
-            var seenFieldNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var field in doc.Fields)
-            {
-                if (string.IsNullOrWhiteSpace(field.Name))
-                    errors.Add($"{prefix}: A field is missing a Name.");
-                else if (!seenFieldNames.Add(field.Name))
-                    errors.Add($"{prefix}: Field name '{field.Name}' must be unique within a schema.");
-
-                if (string.IsNullOrWhiteSpace(field.Type))
-                    errors.Add($"{prefix}.{field.Name}: Field Type is required.");
-
-                if (field.AccessPolicies != null)
-                {
-                    foreach (var policy in field.AccessPolicies)
-                    {
-                        if (string.IsNullOrWhiteSpace(policy.PolicyName))
-                            errors.Add($"{prefix}.{field.Name}: An access policy is missing a PolicyName.");
-
-                        if (policy.RuleGroup == null)
-                            errors.Add($"{prefix}.{field.Name}.Policy[{policy.PolicyName}]: RuleGroup is required.");
-                    }
-                }
-
-                if (field.ValidationRules != null)
-                {
-                    foreach (var rule in field.ValidationRules)
-                    {
-                        if (!Enum.IsDefined(rule.Type))
-                            errors.Add($"{prefix}.{field.Name}: ValidationType '{rule.Type}' is not a valid value.");
-                    }
-                }
-            }
-        }
-
-        return errors;
     }
 }

@@ -5,6 +5,7 @@ using DataGateway.DomainService.Models.Events;
 using DataGateway.DomainService.Models.Export;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Services;
+using DataGateway.DomainService.Validators;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using MongoDB.Bson;
@@ -96,7 +97,7 @@ public class SchemaImportServiceTests
         _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<SchemaChangeLog>>(), "")).ReturnsAsync(new List<SchemaChangeLog>());
         _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<DataAccessPolicy>>(), "")).ReturnsAsync(new List<DataAccessPolicy>());
         _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<DataValidation>>(), "")).ReturnsAsync(new List<DataValidation>());
-        _service = new SchemaImportService(_message.Object, _repo.Object, NullLogger<SchemaImportService>.Instance);
+        _service = new SchemaImportService(_message.Object, _repo.Object, NullLogger<SchemaImportService>.Instance, new SchemaImportValidator(_repo.Object));
     }
 
     private static byte[] Json(object o) => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(o);

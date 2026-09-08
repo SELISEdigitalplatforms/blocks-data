@@ -45,6 +45,7 @@ public static class ServiceRegistry
         serviceCollection.AddScoped<IGraphLogHistoryService, GraphLogHistoryService>();
         serviceCollection.AddHttpClient<IRegexAssistantService, RegexAssistantService>();
         serviceCollection.AddSingleton<ISchemaExportService, SchemaExportService>();
+        serviceCollection.AddSingleton<SchemaImportValidator>();
         serviceCollection.AddSingleton<ISchemaImportService, SchemaImportService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
 

@@ -36,6 +36,8 @@ public class SchemaDefinitionServiceTests
         // reference helper resolves nested references; keep them absent by default
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync((SchemaDefinition?)null);
         _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 100, "")).ReturnsAsync(new List<SchemaDefinition>());
+        // no schema has any index by default; SaveFieldDefinitionAsync's field-deletion guard checks this
+        _repo.Setup(r => r.GetItemsAsync<SchemaIndexDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "")).ReturnsAsync(new List<SchemaIndexDefinition>());
         _repo.Setup(r => r.InsertAsync(It.IsAny<SchemaDefinition>(), "")).ReturnsAsync((SchemaDefinition s, string _) => s);
         _repo.Setup(r => r.UpdateAsync(It.IsAny<SchemaDefinition>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true });
 
@@ -139,6 +141,35 @@ public class SchemaDefinitionServiceTests
         schema.Fields.Should().NotContain(f => f.Name == "Old");
         schema.Fields.First(f => f.Name == "Keep").Type.Should().Be("Int");
         schema.Fields.Should().Contain(f => f.Name == "New");
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_DeletingFieldUsedByIndex_Returns400AndLeavesFieldsUnchanged()
+    {
+        var schema = new SchemaDefinition
+        {
+            ItemId = "1",
+            SchemaType = SchemaType.Entity,
+            Fields = new() { new FieldDefinition { Name = "email", Type = "String" } }
+        };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        _repo.Setup(r => r.GetItemsAsync<SchemaIndexDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaIndexDefinition>
+            {
+                new() { Name = "email_1", SchemaDefinitionItemId = "1", Fields = new() { new IndexFieldSpec { FieldName = "email", Direction = 1 } } }
+            });
+
+        var result = await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest
+        {
+            SchemaDefinitionItemId = "1",
+            DeletableFieldNames = new[] { "email" },
+            Fields = new()
+        });
+
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Contain("email_1");
+        schema.Fields.Should().Contain(f => f.Name == "email", "the field must stay untouched when its deletion is rejected");
     }
 
     [Fact]

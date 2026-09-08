@@ -38,6 +38,7 @@ public static class ServiceRegistry
         serviceCollection.AddScoped<IDataGatewayConfigurationService, DataGatewayConfigurationService>();
         serviceCollection.AddScoped<SchemaDefinitionReferenceHelper>();
         serviceCollection.AddScoped<ISchemaDefinitionService, SchemaDefinitionService>();
+        serviceCollection.AddScoped<ISchemaIndexService, SchemaIndexService>();
         serviceCollection.AddScoped<ISchemaChangeLogService, SchemaChangeLogService>();
         serviceCollection.AddScoped<IDataAccessService, DataAccessService>();
         serviceCollection.AddScoped<IMockDataService, MockDataService>();

@@ -8,10 +8,12 @@ import {
 } from "graphql";
 import {
   ICreateSchemaFieldValidationPayload,
+  ICreateSchemaIndexPayload,
   ICreateSchemaPayload,
   IDeleteMockDataPayload,
   IDeletePolicyPayload,
   IDeleteSchemaFieldValidationPayload,
+  IDeleteSchemaIndexPayload,
   IExecuteGraphQLPayload,
   IGetSchemaFieldValidationPayload,
   IGetSchemaListPayload,
@@ -657,6 +659,45 @@ export const useRawIntrospectionQuery = (options: {
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 30 * 60 * 1000,
     retry: 1,
+  });
+};
+
+export const useSchemaIndexes = (
+  schemaDefinitionItemId: string,
+  options?: { enabled?: boolean },
+) => {
+  return useQuery({
+    queryKey: ["schema-indexes", schemaDefinitionItemId],
+    queryFn: () => configurationService.getSchemaIndexes(schemaDefinitionItemId),
+    enabled: !!schemaDefinitionItemId && (options?.enabled ?? true),
+  });
+};
+
+export const useCreateSchemaIndex = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: ICreateSchemaIndexPayload) =>
+      configurationService.createSchemaIndex(payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["schema-indexes", variables.schemaDefinitionItemId],
+      });
+    },
+  });
+};
+
+export const useDeleteSchemaIndex = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: IDeleteSchemaIndexPayload) =>
+      configurationService.deleteSchemaIndex(payload),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["schema-indexes", variables.schemaDefinitionItemId],
+      });
+    },
   });
 };
 

@@ -3,6 +3,8 @@ export type GraphLogGranularity = "hourly" | "daily" | "weekly";
 export interface IGetGraphLogAnalyticsPayload {
   from?: string;
   to?: string;
+  /** Viewer offset from UTC in minutes; UTC+06:00 is 360. */
+  utcOffsetMinutes: number;
   granularity: GraphLogGranularity;
 }
 

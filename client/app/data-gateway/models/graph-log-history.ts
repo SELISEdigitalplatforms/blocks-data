@@ -45,6 +45,8 @@ export const graphLogOutcome = (
 export interface IGetGraphLogHistoryPayload {
   from?: string;
   to?: string;
+  /** Viewer offset from UTC in minutes; UTC+06:00 is 360. */
+  utcOffsetMinutes: number;
   pageNo: number;
   pageSize: number;
   schemaName?: string;

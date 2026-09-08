@@ -102,6 +102,7 @@ describe("GraphLogHistory", () => {
     expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith({
       from: "2026-08-24",
       to: "2026-08-31",
+      utcOffsetMinutes: expect.any(Number),
       pageNo: 1,
       pageSize: 10,
       operationType: undefined,

@@ -51,9 +51,16 @@ export const GraphAnalytics = () => {
 
   const from = dateRange?.from ? toIsoDate(dateRange.from) : undefined;
   const to = dateRange?.to ? toIsoDate(dateRange.to) : undefined;
+  // Date#getTimezoneOffset is UTC-minus-local; the API uses the conventional local-minus-UTC.
+  const utcOffsetMinutes = -(dateRange?.from ?? new Date()).getTimezoneOffset();
 
   // One query for every analytics tab: they are all views of the same range.
-  const { data, isLoading, isError, error } = useGraphLogAnalytics(from, to, granularity);
+  const { data, isLoading, isError, error } = useGraphLogAnalytics(
+    from,
+    to,
+    granularity,
+    utcOffsetMinutes,
+  );
   const analytics = data?.data;
 
   useEffect(() => {
@@ -168,7 +175,7 @@ export const GraphAnalytics = () => {
         </TabsContent>
 
         <TabsContent value="history">
-          <GraphLogHistory from={from} to={to} />
+          <GraphLogHistory from={from} to={to} utcOffsetMinutes={utcOffsetMinutes} />
         </TabsContent>
       </Tabs>
     </div>

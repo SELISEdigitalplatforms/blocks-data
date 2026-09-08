@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { GraphLatencyCard } from "./graph-latency-card";
@@ -29,6 +30,31 @@ describe("GraphLatencyCard", () => {
     expect(
       screen.getByRole("img", { name: "Response time percentiles over time" }),
     ).toBeInTheDocument();
+  });
+
+  it("explains every percentile with an example", async () => {
+    const user = userEvent.setup();
+    render(
+      <GraphLatencyCard
+        latency={LATENCY}
+        latencyOverTime={OVER_TIME}
+        granularity="daily"
+        isLoading={false}
+        isError={false}
+      />,
+    );
+
+    await user.hover(screen.getByRole("button", { name: "Explain response time percentiles" }));
+
+    await waitFor(() => {
+      const tooltip = screen.getByRole("tooltip");
+      expect(tooltip).toHaveTextContent("P50:");
+      expect(tooltip).toHaveTextContent("50 of 100 requests");
+      expect(tooltip).toHaveTextContent("P95:");
+      expect(tooltip).toHaveTextContent("95 of 100 requests");
+      expect(tooltip).toHaveTextContent("P99:");
+      expect(tooltip).toHaveTextContent("99 of 100 requests");
+    });
   });
 
   it("says so rather than drawing a flat line at zero when nothing was recorded", () => {

@@ -89,9 +89,15 @@ interface GraphLogHistoryProps {
   /** Same range the analytics tab uses, as ISO calendar dates. */
   from?: string;
   to?: string;
+  /** Viewer offset from UTC in minutes; UTC+06:00 is 360. */
+  utcOffsetMinutes?: number;
 }
 
-export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
+export const GraphLogHistory = ({
+  from,
+  to,
+  utcOffsetMinutes = -new Date().getTimezoneOffset(),
+}: GraphLogHistoryProps) => {
   const [pageNo, setPageNo] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [operationType, setOperationType] = useState<GraphLogOperationType | typeof ALL>(ALL);
@@ -114,6 +120,7 @@ export const GraphLogHistory = ({ from, to }: GraphLogHistoryProps) => {
   const { data, isLoading, isFetching, isError, error } = useGraphLogHistory({
     from,
     to,
+    utcOffsetMinutes,
     pageNo,
     pageSize,
     operationType: operationType === ALL ? undefined : operationType,

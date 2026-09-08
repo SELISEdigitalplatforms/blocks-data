@@ -11,6 +11,7 @@ class GraphLogService {
     const params = new URLSearchParams();
     if (payload.from) params.set("From", payload.from);
     if (payload.to) params.set("To", payload.to);
+    params.set("UtcOffsetMinutes", String(payload.utcOffsetMinutes));
     params.set("Granularity", payload.granularity);
 
     return http.get(`${GRAPH_LOG_ENDPOINTS.ANALYTICS}?${params.toString()}`);
@@ -22,6 +23,7 @@ class GraphLogService {
     params.set("PageSize", String(payload.pageSize));
     if (payload.from) params.set("From", payload.from);
     if (payload.to) params.set("To", payload.to);
+    params.set("UtcOffsetMinutes", String(payload.utcOffsetMinutes));
     if (payload.schemaName) params.set("SchemaName", payload.schemaName);
     if (payload.operationType) params.set("OperationType", payload.operationType);
     if (payload.outcome) params.set("Outcome", payload.outcome);

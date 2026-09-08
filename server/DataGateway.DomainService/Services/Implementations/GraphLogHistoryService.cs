@@ -162,19 +162,24 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     {
         var collection = GetTenantTraceCollection();
         var bucketing = GraphLogBucketing.Parse(request.Granularity);
+        var utcOffset = GetUtcOffset(request.UtcOffsetMinutes);
 
-        var rangeEnd = request.To.HasValue ? ToRangeEndExclusive(request.To.Value) : DateTime.UtcNow;
-        var from = request.From.HasValue
-            ? ToUtc(request.From.Value)
-            : bucketing.DefaultRangeStart(rangeEnd);
+        var rangeEndUtc = request.To.HasValue
+            ? ToRangeEndExclusive(request.To.Value, utcOffset)
+            : DateTime.UtcNow;
+        var rangeEndLocal = ToViewerTime(rangeEndUtc, utcOffset);
+        var fromLocal = request.From.HasValue
+            ? ToViewerTime(ToUtc(request.From.Value, utcOffset), utcOffset)
+            : bucketing.DefaultRangeStart(rangeEndLocal);
+        var fromUtc = ToUtc(fromLocal, utcOffset);
         // Last instant actually covered by the range — used for bucketing, where an exclusive end
         // would spill one empty bucket past the requested period.
-        var to = rangeEnd.AddTicks(-1);
+        var toLocal = rangeEndLocal.AddTicks(-1);
 
         var filter = Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Exists(GatewayOperationAttributePath),
-            Builders<BsonDocument>.Filter.Gte("Timestamp", from),
-            Builders<BsonDocument>.Filter.Lt("Timestamp", rangeEnd),
+            Builders<BsonDocument>.Filter.Gte("Timestamp", fromUtc),
+            Builders<BsonDocument>.Filter.Lt("Timestamp", rangeEndUtc),
             NotIntrospection);
 
         var documents = await collection
@@ -186,16 +191,16 @@ public class GraphLogHistoryService : IGraphLogHistoryService
 
         return new GraphLogAnalyticsResponse
         {
-            RequestsOverTime = BuildRequestsOverTime(documents, from, to, bucketing),
+            RequestsOverTime = BuildRequestsOverTime(documents, fromLocal, toLocal, bucketing, utcOffset),
             OperationStats = BuildOperationStats(documents),
             FailureStats = BuildFailureStats(documents),
             FailureHotspots = BuildFailureHotspots(documents),
             SchemaCoverage = BuildSchemaCoverage(documents, await GetDefinedEntityNamesAsync()),
             Timing = BuildTimingBreakdown(documents),
             Latency = BuildLatencySummary(documents),
-            LatencyOverTime = BuildLatencyOverTime(documents, from, to, bucketing),
+            LatencyOverTime = BuildLatencyOverTime(documents, fromLocal, toLocal, bucketing, utcOffset),
             Throughput = BuildThroughputSummary(documents),
-            ThroughputOverTime = BuildThroughputOverTime(documents, from, to, bucketing),
+            ThroughputOverTime = BuildThroughputOverTime(documents, fromLocal, toLocal, bucketing, utcOffset),
         };
     }
 
@@ -210,12 +215,13 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     }
 
     private static List<GraphLogRequestsOverTimeBucket> BuildRequestsOverTime(
-        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing)
+        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing,
+        TimeSpan utcOffset)
     {
         var buckets = new Dictionary<DateTime, (int Success, int Denied, int Errored)>();
         foreach (var doc in documents)
         {
-            var key = bucketing.KeyOf(GetDateTime(doc, "Timestamp"));
+            var key = bucketing.KeyOf(ToViewerTime(GetDateTime(doc, "Timestamp"), utcOffset));
             var current = buckets.GetValueOrDefault(key);
 
             buckets[key] = !HasFailed(doc)
@@ -231,7 +237,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 var stats = buckets.GetValueOrDefault(cursor);
                 return new GraphLogRequestsOverTimeBucket
                 {
-                    Date = cursor,
+                    Date = ToBucketResponseDate(cursor, bucketing, utcOffset),
                     Success = stats.Success,
                     Denied = stats.Denied,
                     Errored = stats.Errored,
@@ -245,10 +251,11 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     /// spike can be lined up against the traffic that caused it.
     /// </summary>
     private static List<GraphLogLatencyBucket> BuildLatencyOverTime(
-        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing)
+        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing,
+        TimeSpan utcOffset)
     {
         var buckets = documents
-            .GroupBy(doc => bucketing.KeyOf(GetDateTime(doc, "Timestamp")))
+            .GroupBy(doc => bucketing.KeyOf(ToViewerTime(GetDateTime(doc, "Timestamp"), utcOffset)))
             .ToDictionary(group => group.Key, group => SortedDurations(group));
 
         return bucketing.Range(from, to)
@@ -257,7 +264,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 var durations = buckets.GetValueOrDefault(cursor) ?? [];
                 return new GraphLogLatencyBucket
                 {
-                    Date = cursor,
+                    Date = ToBucketResponseDate(cursor, bucketing, utcOffset),
                     P50 = Percentile(durations, 50),
                     P95 = Percentile(durations, 95),
                     P99 = Percentile(durations, 99),
@@ -271,10 +278,11 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     /// GatewayOperation tag, so they are read straight off the Attributes document.
     /// </summary>
     private static List<GraphLogThroughputBucket> BuildThroughputOverTime(
-        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing)
+        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing,
+        TimeSpan utcOffset)
     {
         var buckets = documents
-            .GroupBy(doc => bucketing.KeyOf(GetDateTime(doc, "Timestamp")))
+            .GroupBy(doc => bucketing.KeyOf(ToViewerTime(GetDateTime(doc, "Timestamp"), utcOffset)))
             .ToDictionary(
                 group => group.Key,
                 group => (
@@ -287,7 +295,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 var bytes = buckets.GetValueOrDefault(cursor);
                 return new GraphLogThroughputBucket
                 {
-                    Date = cursor,
+                    Date = ToBucketResponseDate(cursor, bucketing, utcOffset),
                     RequestBytes = bytes.Request,
                     ResponseBytes = bytes.Response,
                 };
@@ -610,11 +618,13 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             });
         }
 
+        var utcOffset = GetUtcOffset(request.UtcOffsetMinutes);
+
         if (request.From.HasValue)
-            filters.Add(builder.Gte("Timestamp", ToUtc(request.From.Value)));
+            filters.Add(builder.Gte("Timestamp", ToUtc(request.From.Value, utcOffset)));
 
         if (request.To.HasValue)
-            filters.Add(builder.Lt("Timestamp", ToRangeEndExclusive(request.To.Value)));
+            filters.Add(builder.Lt("Timestamp", ToRangeEndExclusive(request.To.Value, utcOffset)));
 
         return builder.And(filters);
     }
@@ -737,25 +747,52 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     });
 
     /// <summary>
-    /// Traces are stored as UTC instants, and the UI sends plain calendar dates, which model binding
-    /// yields as <see cref="DateTimeKind.Unspecified"/>. Reading those as UTC keeps the range aligned
-    /// with the stored timestamps instead of drifting by the server's local offset.
+    /// Browser offsets are local-minus-UTC. Limit them to the range of real civil time zones so a
+    /// malformed query cannot overflow date arithmetic.
     /// </summary>
-    private static DateTime ToUtc(DateTime value) =>
-        value.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+    internal static TimeSpan GetUtcOffset(int? minutes) =>
+        TimeSpan.FromMinutes(Math.Clamp(minutes ?? 0, -12 * 60, 14 * 60));
+
+    /// <summary>Turns a stored UTC instant into the viewer's local wall-clock time.</summary>
+    internal static DateTime ToViewerTime(DateTime value, TimeSpan utcOffset)
+    {
+        var utc = value.Kind == DateTimeKind.Utc
+            ? value
             : value.ToUniversalTime();
+        return DateTime.SpecifyKind(utc.Add(utcOffset), DateTimeKind.Unspecified);
+    }
+
+    /// <summary>
+    /// Traces are stored as UTC instants, while date-picker values bind as unspecified local
+    /// calendar times. Convert only those unspecified values with the supplied viewer offset.
+    /// </summary>
+    internal static DateTime ToUtc(DateTime value, TimeSpan utcOffset) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value.Subtract(utcOffset), DateTimeKind.Utc),
+    };
 
     /// <summary>
     /// Exclusive upper bound for a requested range. A date-only "To" binds to midnight, so comparing
     /// against it directly would drop everything that happened during that last day; expand it to the
     /// start of the following day instead.
     /// </summary>
-    private static DateTime ToRangeEndExclusive(DateTime value)
+    internal static DateTime ToRangeEndExclusive(DateTime value, TimeSpan utcOffset)
     {
-        var utc = ToUtc(value);
-        return utc.TimeOfDay == TimeSpan.Zero ? utc.AddDays(1) : utc;
+        var exclusiveLocal = value.TimeOfDay == TimeSpan.Zero ? value.AddDays(1) : value;
+        return ToUtc(exclusiveLocal, utcOffset);
     }
+
+    /// <summary>
+    /// Daily and weekly values are calendar labels, so preserve their local date in the wire value.
+    /// Hourly values are instants and must convert back to UTC for the browser to render locally.
+    /// </summary>
+    internal static DateTime ToBucketResponseDate(
+        DateTime localBucket, GraphLogBucketing bucketing, TimeSpan utcOffset) =>
+        bucketing == GraphLogBucketing.Hourly
+            ? ToUtc(localBucket, utcOffset)
+            : DateTime.SpecifyKind(localBucket, DateTimeKind.Utc);
 
     private static GraphLogHistoryItemResponse MapToResponse(BsonDocument doc)
     {

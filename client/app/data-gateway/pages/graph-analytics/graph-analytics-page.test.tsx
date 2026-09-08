@@ -130,15 +130,16 @@ describe("GraphAnalytics", () => {
     const user = userEvent.setup();
     render(<GraphAnalytics />);
 
-    const [from, to, granularity] = useGraphLogAnalyticsMock.mock.calls.at(-1)!;
+    const [from, to, granularity, utcOffsetMinutes] = useGraphLogAnalyticsMock.mock.calls.at(-1)!;
     expect(from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(granularity).toBe("daily");
+    expect(utcOffsetMinutes).toEqual(expect.any(Number));
 
     await user.click(screen.getByRole("combobox", { name: "Bucket size" }));
     await user.click(await screen.findByRole("option", { name: "Hourly" }));
 
-    expect(useGraphLogAnalyticsMock).toHaveBeenLastCalledWith(from, to, "hourly");
+    expect(useGraphLogAnalyticsMock).toHaveBeenLastCalledWith(from, to, "hourly", utcOffsetMinutes);
   });
 
   it("says the analytics exclude introspection, but not on the log tab", async () => {

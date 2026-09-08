@@ -17,6 +17,12 @@ public class GetGraphLogHistoryRequest : BasePaginationRequest
     public DateTime? From { get; set; }
     public DateTime? To { get; set; }
 
+    /// <summary>
+    /// The viewer's offset from UTC, in minutes (for example, 360 for UTC+06:00). Date-only range
+    /// boundaries are interpreted in that local time rather than at UTC midnight.
+    /// </summary>
+    public int? UtcOffsetMinutes { get; set; }
+
     public GetGraphLogHistoryRequest()
     {
         SortBy = "Timestamp";

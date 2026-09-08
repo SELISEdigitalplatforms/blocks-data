@@ -468,4 +468,43 @@ public class GraphLogBucketingTests
         GraphLogBucketing.Daily.DefaultRangeStart(rangeEnd)
             .Should().Be(new DateTime(2026, 8, 24, 0, 0, 0, DateTimeKind.Utc));
     }
+
+    [Fact]
+    public void DailyBucketingUsesTheViewerDateRatherThanTheUtcDate()
+    {
+        var utcOffset = GraphLogHistoryService.GetUtcOffset(360);
+        var timestamp = new DateTime(2026, 9, 8, 18, 49, 0, DateTimeKind.Utc);
+
+        var localBucket = GraphLogBucketing.Daily.KeyOf(
+            GraphLogHistoryService.ToViewerTime(timestamp, utcOffset));
+        var responseDate = GraphLogHistoryService.ToBucketResponseDate(
+            localBucket, GraphLogBucketing.Daily, utcOffset);
+
+        localBucket.Should().Be(new DateTime(2026, 9, 9));
+        responseDate.Should().Be(new DateTime(2026, 9, 9, 0, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void DateOnlyRangeBoundariesAreMidnightInTheViewerTimezone()
+    {
+        var utcOffset = GraphLogHistoryService.GetUtcOffset(360);
+        var from = new DateTime(2026, 9, 2);
+        var to = new DateTime(2026, 9, 9);
+
+        GraphLogHistoryService.ToUtc(from, utcOffset)
+            .Should().Be(new DateTime(2026, 9, 1, 18, 0, 0, DateTimeKind.Utc));
+        GraphLogHistoryService.ToRangeEndExclusive(to, utcOffset)
+            .Should().Be(new DateTime(2026, 9, 9, 18, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void HourlyBucketResponseIsARealUtcInstantForLocalRendering()
+    {
+        var utcOffset = GraphLogHistoryService.GetUtcOffset(360);
+        var localBucket = new DateTime(2026, 9, 9, 0, 0, 0);
+
+        GraphLogHistoryService.ToBucketResponseDate(
+                localBucket, GraphLogBucketing.Hourly, utcOffset)
+            .Should().Be(new DateTime(2026, 9, 8, 18, 0, 0, DateTimeKind.Utc));
+    }
 }

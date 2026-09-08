@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { CircleHelp } from "lucide-react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
@@ -13,6 +14,12 @@ import {
   ChartTooltipContent,
 } from "@/components/ui-kits/chart/chart";
 import SpinnerLoader from "@/components/ui-kits/spinner-loader/spinner-loader";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui-kits/tooltip/tooltip";
 import {
   IGraphLogLatencyBucket,
   IGraphLogLatencySummary,
@@ -51,7 +58,7 @@ const Tile = ({
   color?: string;
   hint: string;
 }) => (
-  <div className="flex min-w-[130px] flex-col gap-1 rounded-sm border border-border/50 px-4 py-3">
+  <div className="flex h-full min-w-0 flex-col gap-1 rounded-sm border border-border/50 px-4 py-3">
     <div className="flex items-center gap-2">
       {color && (
         <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
@@ -86,7 +93,37 @@ export const GraphLatencyCard = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Response time</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          Response time
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Explain response time percentiles"
+                  className="text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <CircleHelp className="h-4 w-4" aria-hidden />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-sm space-y-2 p-3 text-xs font-normal" side="right">
+                <p className="font-semibold">Response-time percentiles</p>
+                <p>
+                  <strong>P50:</strong> 50% of requests completed in this time or less. Example: a
+                  P50 of 120 ms means 50 of 100 requests completed within 120 ms.
+                </p>
+                <p>
+                  <strong>P95:</strong> 95% of requests completed in this time or less. Example: a
+                  P95 of 800 ms means 95 of 100 requests completed within 800 ms; 5 were slower.
+                </p>
+                <p>
+                  <strong>P99:</strong> 99% of requests completed in this time or less. Example: a
+                  P99 of 2 s means 99 of 100 requests completed within 2 s; 1 was slower.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {isLoading ? (
@@ -101,7 +138,7 @@ export const GraphLatencyCard = ({
           <p className="text-sm text-muted-foreground">No requests in this range.</p>
         ) : (
           <>
-            <div className="flex flex-wrap gap-3">
+            <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <Tile
                 label="p50"
                 value={latency?.p50 ?? 0}

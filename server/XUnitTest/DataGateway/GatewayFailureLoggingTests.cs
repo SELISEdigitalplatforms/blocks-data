@@ -66,6 +66,19 @@ public class GatewayFailureLoggingTests : IDisposable
     }
 
     [Fact]
+    public void AnUnknownReasonCanBeReplacedWhenTheHttpPipelineLearnsItWasA5xx()
+    {
+        using var activity = new Activity("request").Start();
+
+        GatewayOperationActivity.MarkFailed(activity, GatewayFailureKind.Unknown, "Execution failed.");
+        GatewayOperationActivity.MarkFailed(activity, GatewayFailureKind.Unhandled, "HTTP 500.");
+
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(activity);
+        gatewayOperation.FailureKind.Should().Be(GatewayFailureKind.Unhandled);
+        gatewayOperation.FailureMessage.Should().Be("HTTP 500.");
+    }
+
+    [Fact]
     public void TaggingTwiceLeavesASingleGatewayOperationTag()
     {
         using var activity = new Activity("request").Start();
@@ -152,6 +165,77 @@ public class GatewayFailureLoggingTests : IDisposable
         context.SetupGet(c => c.Services).Returns(services.BuildServiceProvider());
         context.SetupGet(c => c.Selection).Returns(selection.Object);
         return context;
+    }
+}
+
+public class GatewayGraphQlErrorClassificationTests
+{
+    [Fact]
+    public void BadGraphQlDocumentsCountAsClientDenialsRatherThanGatewayErrors()
+    {
+        GatewayFailureKind.IsDenial(GatewayFailureKind.BadRequest).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HotChocolateDocumentErrorsAreBadRequestsEvenWhenTheyCarryAnException()
+    {
+        var error = ErrorBuilder.New()
+            .SetMessage("Variable `order` is not an input type.")
+            .SetCode("HC0017")
+            .SetException(new InvalidOperationException("schema validation detail"))
+            .Build();
+
+        GatewayActivityDiagnosticEventListener.Classify(error, StatusCodes.Status200OK)
+            .Should().Be(GatewayFailureKind.BadRequest);
+    }
+
+    [Theory]
+    [InlineData(StatusCodes.Status200OK, GatewayFailureKind.Unknown)]
+    [InlineData(StatusCodes.Status400BadRequest, GatewayFailureKind.Unknown)]
+    [InlineData(StatusCodes.Status500InternalServerError, GatewayFailureKind.Unhandled)]
+    [InlineData(StatusCodes.Status503ServiceUnavailable, GatewayFailureKind.Unhandled)]
+    public void Only5xxResponsesAreClassifiedAsServerErrors(int statusCode, string expected)
+    {
+        var error = ErrorBuilder.New()
+            .SetMessage("Unexpected execution error.")
+            .SetException(new InvalidOperationException("detail"))
+            .Build();
+
+        GatewayActivityDiagnosticEventListener.Classify(error, statusCode)
+            .Should().Be(expected);
+    }
+
+    [Fact]
+    public void TheReaderRepairsPreviouslyStoredHotChocolateErrors()
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                GatewayFailureKind.Unhandled, "HC0017", StatusCodes.Status200OK)
+            .Should().Be(GatewayFailureKind.BadRequest);
+    }
+
+    [Theory]
+    [InlineData(StatusCodes.Status200OK, GatewayFailureKind.Unknown)]
+    [InlineData(StatusCodes.Status502BadGateway, GatewayFailureKind.Unhandled)]
+    public void TheReaderOnlyShowsUnhandledAsServerErrorFor5xx(int statusCode, string expected)
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                GatewayFailureKind.Unhandled, string.Empty, statusCode)
+            .Should().Be(expected);
+    }
+}
+
+public class GatewayGraphQlOperationMetadataTests
+{
+    [Theory]
+    [InlineData("query getBrands($order: [BrandSortInput!]) { getBrands(order: $order) { totalCount } }", "getBrands")]
+    [InlineData("query getCategorys { getCategorys { totalCount } }", "getCategorys")]
+    [InlineData("query getProducts { getProducts { totalCount } }", "getProducts")]
+    [InlineData("query Q { ...Root } fragment Root on Query { getProducts { totalCount } }", "getProducts")]
+    public void RecoversTheSchemaFieldBeforeResolverExecution(string query, string expected)
+    {
+        var document = Utf8GraphQLParser.Parse(query);
+
+        GraphQLOperationHelper.GetFirstRootFieldName(document).Should().Be(expected);
     }
 }
 

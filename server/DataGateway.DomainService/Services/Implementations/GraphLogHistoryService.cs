@@ -28,6 +28,9 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     private const string RequestSizeAttribute = "request.size.bytes";
     private const string ResponseSizeAttribute = "response.size.bytes";
     private const string SizesField = "Sizes";
+    private const string StatusCodesField = "StatusCodes";
+    private const string HttpResponseStatusCodeAttribute = "http.response.status_code";
+    private const string ResponseStatusCodeAttribute = "response.status.code";
 
     /// <summary>
     /// Flattens each trace down to just the fields the in-memory aggregation reads — far cheaper
@@ -47,6 +50,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         { "SchemaName", $"${GatewayOperationAttributePath}.SchemaName" },
         { "ResponseStatus", $"${GatewayOperationAttributePath}.ResponseStatus" },
         { "FailureKind", $"${GatewayOperationAttributePath}.FailureKind" },
+        { "FailureCode", $"${GatewayOperationAttributePath}.FailureCode" },
         { "DocumentCount", $"${GatewayOperationAttributePath}.DocumentCount" },
         { "InAppRequest", $"${GatewayOperationAttributePath}.InAppRequest" },
         { "EntityName", $"${GatewayOperationAttributePath}.EntityName" },
@@ -65,6 +69,24 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                     {
                         "$$attribute.k",
                         new BsonArray { RequestSizeAttribute, ResponseSizeAttribute },
+                    })
+                },
+            })
+        },
+        {
+            StatusCodesField, new BsonDocument("$filter", new BsonDocument
+            {
+                { "input", new BsonDocument("$objectToArray", "$Attributes") },
+                { "as", "attribute" },
+                {
+                    "cond", new BsonDocument("$in", new BsonArray
+                    {
+                        "$$attribute.k",
+                        new BsonArray
+                        {
+                            HttpResponseStatusCodeAttribute,
+                            ResponseStatusCodeAttribute,
+                        },
                     })
                 },
             })
@@ -190,7 +212,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
 
             buckets[key] = !HasFailed(doc)
                 ? (current.Success + 1, current.Denied, current.Errored)
-                : GatewayFailureKind.IsDenial(GetString(doc, "FailureKind"))
+                : GatewayFailureKind.IsDenial(EffectiveFailureKind(doc))
                     ? (current.Success, current.Denied + 1, current.Errored)
                     : (current.Success, current.Denied, current.Errored + 1);
         }
@@ -342,7 +364,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 var calls = group.Count();
                 var failures = group.Where(HasFailed).ToList();
                 var failed = failures.Count;
-                var denied = failures.Count(doc => GatewayFailureKind.IsDenial(GetString(doc, "FailureKind")));
+                var denied = failures.Count(doc => GatewayFailureKind.IsDenial(EffectiveFailureKind(doc)));
                 var durations = SortedDurations(group);
 
                 return new GraphLogOperationStat
@@ -375,8 +397,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             .Where(HasFailed)
             .GroupBy(doc =>
             {
-                var failureKind = GetString(doc, "FailureKind");
-                return string.IsNullOrWhiteSpace(failureKind) ? UnknownFailureKind : failureKind;
+                return EffectiveFailureKind(doc);
             })
             .Select(group => new GraphLogFailureStat { FailureKind = group.Key, Count = group.Count() })
             .OrderByDescending(stat => stat.Count)
@@ -392,10 +413,9 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             .GroupBy(doc =>
             {
                 var schemaName = GetString(doc, "SchemaName");
-                var failureKind = GetString(doc, "FailureKind");
                 return (
                     SchemaName: string.IsNullOrWhiteSpace(schemaName) ? UnknownSchemaName : schemaName,
-                    FailureKind: string.IsNullOrWhiteSpace(failureKind) ? UnknownFailureKind : failureKind);
+                    FailureKind: EffectiveFailureKind(doc));
             })
             .Select(group => new GraphLogFailureHotspot
             {
@@ -537,7 +557,24 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             filters.Add(builder.Eq($"{GatewayOperationAttributePath}.ResponseStatus", request.ResponseStatus));
 
         if (!string.IsNullOrWhiteSpace(request.FailureKind))
-            filters.Add(builder.Eq($"{GatewayOperationAttributePath}.FailureKind", request.FailureKind));
+        {
+            var failureKindPath = $"{GatewayOperationAttributePath}.FailureKind";
+            var failureCodePath = $"{GatewayOperationAttributePath}.FailureCode";
+            var hotChocolateCode = builder.Regex(failureCodePath, new BsonRegularExpression("^HC"));
+
+            // Compatibility for traces written before HC document errors were correctly tagged.
+            // It also makes the reason filter agree with the normalized value returned in each row.
+            filters.Add(request.FailureKind switch
+            {
+                GatewayFailureKind.BadRequest => builder.Or(
+                    builder.Eq(failureKindPath, GatewayFailureKind.BadRequest),
+                    hotChocolateCode),
+                GatewayFailureKind.Unhandled => builder.And(
+                    builder.Eq(failureKindPath, GatewayFailureKind.Unhandled),
+                    builder.Not(hotChocolateCode)),
+                _ => builder.Eq(failureKindPath, request.FailureKind),
+            });
+        }
 
         if (request.From.HasValue)
             filters.Add(builder.Gte("Timestamp", ToUtc(request.From.Value)));
@@ -573,6 +610,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     {
         var attributes = GetNestedDocument(doc, "Attributes");
         var gatewayOperation = GetNestedDocument(attributes, "GatewayOperation");
+        var statusCode = GetStatusCode(attributes);
 
         return new GraphLogHistoryItemResponse
         {
@@ -590,10 +628,13 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             OperationQuery = GetString(gatewayOperation, "OperationQuery"),
             MongoQuery = GetString(gatewayOperation, "MongoQuery"),
             ResponseStatus = GetString(gatewayOperation, "ResponseStatus"),
-            FailureKind = GetString(gatewayOperation, "FailureKind"),
+            FailureKind = NormalizeFailureKind(
+                GetString(gatewayOperation, "FailureKind"),
+                GetString(gatewayOperation, "FailureCode"),
+                statusCode),
             FailureCode = GetString(gatewayOperation, "FailureCode"),
             FailureMessage = GetString(gatewayOperation, "FailureMessage"),
-            StatusCode = GetStatusCode(attributes),
+            StatusCode = statusCode,
             // Payload sizes are span-level attributes written by the request pipeline, not part of
             // the GatewayOperation tag. Their keys contain dots, so they're read off the Attributes
             // document by key rather than as a nested path.
@@ -624,6 +665,54 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             code = GetInt64(attributes, "response.status.code");
 
         return (int)code;
+    }
+
+    /// <summary>
+    /// Returns the reader-facing reason. Besides enforcing that only a 5xx is a server error, this
+    /// repairs already-stored HC document failures that older writers tagged as unhandled.
+    /// </summary>
+    internal static string NormalizeFailureKind(string failureKind, string failureCode, int statusCode)
+    {
+        if (failureCode.StartsWith("HC", StringComparison.Ordinal))
+            return GatewayFailureKind.BadRequest;
+
+        if (failureKind == GatewayFailureKind.Unhandled
+            && !GatewayFailureKind.IsServerErrorStatus(statusCode))
+            return UnknownFailureKind;
+
+        return string.IsNullOrWhiteSpace(failureKind) ? UnknownFailureKind : failureKind;
+    }
+
+    /// <summary>Normalized reason for one flattened analytics projection.</summary>
+    private static string EffectiveFailureKind(BsonDocument doc) => NormalizeFailureKind(
+        GetString(doc, "FailureKind"),
+        GetString(doc, "FailureCode"),
+        GetProjectedStatusCode(doc));
+
+    private static int GetProjectedStatusCode(BsonDocument doc)
+    {
+        if (!doc.TryGetValue(StatusCodesField, out var value) || value is not BsonArray statuses)
+            return 0;
+
+        var entries = statuses.OfType<BsonDocument>().ToList();
+        var statusCode = GetProjectedAttribute(entries, HttpResponseStatusCodeAttribute);
+        if (statusCode == 0)
+            statusCode = GetProjectedAttribute(entries, ResponseStatusCodeAttribute);
+
+        return (int)statusCode;
+    }
+
+    private static long GetProjectedAttribute(IEnumerable<BsonDocument> attributes, string key)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (GetString(attribute, "k") == key
+                && attribute.TryGetValue("v", out var value)
+                && value.IsNumeric)
+                return value.ToInt64();
+        }
+
+        return 0;
     }
 
     private static BsonDocument GetNestedDocument(BsonDocument doc, string field) =>

@@ -35,7 +35,15 @@ public static class GatewayFailureKind
     /// Rejecting bad input belongs here with the access checks: it is the gateway working.
     /// </summary>
     public static bool IsDenial(string? failureKind) =>
-        failureKind is Authentication or Authorization or Validation;
+        failureKind is Authentication or Authorization or Validation or BadRequest;
+
+    /// <summary>
+    /// Server errors are defined by the HTTP response, not merely by a GraphQL error carrying an
+    /// exception. Hot Chocolate uses exceptions internally for some invalid documents while still
+    /// returning a 2xx response, so treating every such error as a server fault mislabels caller
+    /// mistakes such as HC0017.
+    /// </summary>
+    public static bool IsServerErrorStatus(int statusCode) => statusCode is >= 500 and <= 599;
 }
 
 /// <summary>
@@ -267,8 +275,9 @@ public static class GatewayOperationActivity
         new(GetOrCreate(Activity.Current), phase);
 
     /// <summary>
-    /// Records why a request failed. The first caller wins: the check that rejected the request is
-    /// more specific than anything that can be inferred from the error it produces further out.
+    /// Records why a request failed. The first specific caller wins: the check that rejected the
+    /// request is more specific than anything inferred further out. "Unknown" is only a placeholder
+    /// and may be replaced when the outer HTTP pipeline later observes the definitive reason.
     /// </summary>
     public static GatewayOperation MarkFailed(
         Activity? activity,
@@ -279,7 +288,8 @@ public static class GatewayOperationActivity
         var gatewayOperation = GetOrCreate(activity);
         gatewayOperation.ResponseStatus = "failed";
 
-        if (string.IsNullOrEmpty(gatewayOperation.FailureKind))
+        if (string.IsNullOrEmpty(gatewayOperation.FailureKind)
+            || gatewayOperation.FailureKind == GatewayFailureKind.Unknown)
         {
             gatewayOperation.FailureKind = failureKind;
             gatewayOperation.FailureCode = failureCode ?? string.Empty;

@@ -4,6 +4,7 @@ using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Execution;
 using HotChocolate.Execution.Instrumentation;
+using HotChocolate.Language;
 using HotChocolate.Resolvers;
 
 namespace DataGateway.DomainService.GraphQL;
@@ -30,25 +31,30 @@ internal sealed class GatewayActivityDiagnosticEventListener : ExecutionDiagnost
 
     /// <summary>A resolver rejected or blew up; the error's own code says which.</summary>
     public override void ResolverError(IMiddlewareContext context, IError error) =>
-        MarkFailed(Classify(error), error);
+        MarkFailed(Classify(error, CurrentStatusCode), error);
 
     public override void TaskError(IExecutionTask task, IError error) =>
-        MarkFailed(Classify(error), error);
+        MarkFailed(Classify(error, CurrentStatusCode), error);
 
     /// <summary>An exception escaped the request pipeline entirely.</summary>
     public override void RequestError(IRequestContext context, Exception exception) =>
         GatewayOperationActivity.MarkFailed(
-            Activity.Current, GatewayFailureKind.Unhandled, exception.Message);
+            Activity.Current,
+            GatewayFailureKind.IsServerErrorStatus(CurrentStatusCode)
+                ? GatewayFailureKind.Unhandled
+                : GatewayFailureKind.Unknown,
+            exception.Message);
 
     private static void MarkFailed(string failureKind, IError error) =>
         GatewayOperationActivity.MarkFailed(Activity.Current, failureKind, error.Message, error.Code);
 
     /// <summary>
-    /// Reads a failure kind out of a GraphQL error. Used for errors nobody claimed explicitly: an
-    /// error carrying an exception is a server-side fault, and HotChocolate's own "HC…" codes mean
-    /// the document itself was unusable.
+    /// Reads a failure kind out of a GraphQL error. Used for errors nobody claimed explicitly.
+    /// HotChocolate's own "HC…" codes mean the document itself was unusable, even when its
+    /// implementation attaches an exception. An otherwise unexpected error is called a server
+    /// error only when the HTTP response is 5xx.
     /// </summary>
-    private static string Classify(IError error)
+    internal static string Classify(IError error, int statusCode)
     {
         var code = error.Code ?? string.Empty;
 
@@ -56,11 +62,14 @@ internal sealed class GatewayActivityDiagnosticEventListener : ExecutionDiagnost
         {
             GraphQlConstant.ValidationErrorErrorCode => GatewayFailureKind.Validation,
             GraphQlConstant.UnauthorizedErrorCode => GatewayFailureKind.Authentication,
-            _ when error.Exception is not null => GatewayFailureKind.Unhandled,
             _ when code.StartsWith("HC", StringComparison.Ordinal) => GatewayFailureKind.BadRequest,
+            _ when GatewayFailureKind.IsServerErrorStatus(statusCode) => GatewayFailureKind.Unhandled,
             _ => GatewayFailureKind.Unknown,
         };
     }
+
+    private static int CurrentStatusCode =>
+        RequestContextAccessor.Current.HttpContext?.Response.StatusCode ?? 0;
 
     private sealed class RequestScope(IRequestContext context) : IDisposable
     {
@@ -69,8 +78,18 @@ internal sealed class GatewayActivityDiagnosticEventListener : ExecutionDiagnost
 
         public void Dispose()
         {
-            _gatewayOperation.OperationType = context.Operation?.Type.ToString().ToLowerInvariant();
+            var documentOperation = GraphQLOperationHelper.GetFirstOperation(context.Document);
+            _gatewayOperation.OperationType = context.Operation?.Type.ToString().ToLowerInvariant()
+                ?? documentOperation?.Operation.ToString().ToLowerInvariant();
             _gatewayOperation.OperationQuery = context.Document?.ToString();
+            // Document validation happens before a resolver runs, so QueryService/MutationService
+            // cannot normally populate this field for malformed requests. Preserve the root field
+            // from the parsed document so those requests are still attributable in history.
+            if (string.IsNullOrWhiteSpace(_gatewayOperation.SchemaName))
+            {
+                _gatewayOperation.SchemaName = GraphQLOperationHelper.GetFirstRootFieldName(
+                    context.Document, documentOperation);
+            }
             _gatewayOperation.IsIntrospection = context.Document is not null
                 && GraphQLIntrospectionHelper.ContainsIntrospectionQuery(context.Document);
             _gatewayOperation.InAppRequest = !(BlocksContext.GetContext()?.Impersonated ?? false);
@@ -93,22 +112,85 @@ internal sealed class GatewayActivityDiagnosticEventListener : ExecutionDiagnost
 
         private void ClassifyResult(IError? error)
         {
+            if (error is not null)
+            {
+                _gatewayOperation.FailureKind = Classify(error, CurrentStatusCode);
+                _gatewayOperation.FailureCode = error.Code ?? string.Empty;
+                _gatewayOperation.FailureMessage = error.Message ?? string.Empty;
+                return;
+            }
+
             if (context.Exception is not null)
             {
-                _gatewayOperation.FailureKind = GatewayFailureKind.Unhandled;
+                _gatewayOperation.FailureKind = GatewayFailureKind.IsServerErrorStatus(CurrentStatusCode)
+                    ? GatewayFailureKind.Unhandled
+                    : GatewayFailureKind.Unknown;
                 _gatewayOperation.FailureMessage = context.Exception.Message;
                 return;
             }
 
-            if (error is null)
-            {
-                _gatewayOperation.FailureKind = GatewayFailureKind.Unknown;
-                return;
-            }
-
-            _gatewayOperation.FailureKind = Classify(error);
-            _gatewayOperation.FailureCode = error.Code ?? string.Empty;
-            _gatewayOperation.FailureMessage = error.Message ?? string.Empty;
+            _gatewayOperation.FailureKind = GatewayFailureKind.Unknown;
         }
+    }
+}
+
+/// <summary>Best-effort metadata recovery for documents that fail before resolver execution.</summary>
+internal static class GraphQLOperationHelper
+{
+    public static OperationDefinitionNode? GetFirstOperation(DocumentNode? document) =>
+        document?.Definitions.OfType<OperationDefinitionNode>().FirstOrDefault();
+
+    public static string? GetFirstRootFieldName(
+        DocumentNode? document,
+        OperationDefinitionNode? operation = null)
+    {
+        if (document is null)
+            return null;
+
+        operation ??= GetFirstOperation(document);
+        if (operation is null)
+            return null;
+
+        var fragments = document.Definitions
+            .OfType<FragmentDefinitionNode>()
+            .ToDictionary(fragment => fragment.Name.Value, fragment => fragment);
+
+        return FindFirstField(operation.SelectionSet, fragments, new HashSet<string>());
+    }
+
+    private static string? FindFirstField(
+        SelectionSetNode selectionSet,
+        IReadOnlyDictionary<string, FragmentDefinitionNode> fragments,
+        HashSet<string> visitedFragments)
+    {
+        foreach (var selection in selectionSet.Selections)
+        {
+            switch (selection)
+            {
+                case FieldNode field:
+                    return field.Name.Value;
+
+                case InlineFragmentNode inlineFragment:
+                {
+                    var fieldName = FindFirstField(
+                        inlineFragment.SelectionSet, fragments, visitedFragments);
+                    if (fieldName is not null)
+                        return fieldName;
+                    break;
+                }
+
+                case FragmentSpreadNode fragmentSpread
+                    when visitedFragments.Add(fragmentSpread.Name.Value)
+                         && fragments.TryGetValue(fragmentSpread.Name.Value, out var fragment):
+                {
+                    var fieldName = FindFirstField(fragment.SelectionSet, fragments, visitedFragments);
+                    if (fieldName is not null)
+                        return fieldName;
+                    break;
+                }
+            }
+        }
+
+        return null;
     }
 }

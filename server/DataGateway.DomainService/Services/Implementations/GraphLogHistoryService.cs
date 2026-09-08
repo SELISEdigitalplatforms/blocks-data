@@ -32,6 +32,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     private const string HttpResponseStatusCodeAttribute = "http.response.status_code";
     private const string ResponseStatusCodeAttribute = "response.status.code";
     private const string HistorySortValueField = "__historySortValue";
+    private const string GraphQlDocumentErrorMessagePattern = "is not an input type|syntax error";
 
     /// <summary>
     /// Flattens each trace down to just the fields the in-memory aggregation reads — far cheaper
@@ -52,6 +53,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         { "ResponseStatus", $"${GatewayOperationAttributePath}.ResponseStatus" },
         { "FailureKind", $"${GatewayOperationAttributePath}.FailureKind" },
         { "FailureCode", $"${GatewayOperationAttributePath}.FailureCode" },
+        { "FailureMessage", $"${GatewayOperationAttributePath}.FailureMessage" },
         { "DocumentCount", $"${GatewayOperationAttributePath}.DocumentCount" },
         { "InAppRequest", $"${GatewayOperationAttributePath}.InAppRequest" },
         { "EntityName", $"${GatewayOperationAttributePath}.EntityName" },
@@ -589,19 +591,21 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         if (!string.IsNullOrWhiteSpace(request.FailureKind))
         {
             var failureKindPath = $"{GatewayOperationAttributePath}.FailureKind";
-            var failureCodePath = $"{GatewayOperationAttributePath}.FailureCode";
-            var hotChocolateCode = builder.Regex(failureCodePath, new BsonRegularExpression("^HC"));
+            var documentFailure = BuildGraphQlDocumentFailureFilter(builder);
 
             // Compatibility for traces written before HC document errors were correctly tagged.
             // It also makes the reason filter agree with the normalized value returned in each row.
             filters.Add(request.FailureKind switch
             {
-                GatewayFailureKind.BadRequest => builder.Or(
+                GatewayFailureKind.SyntaxError => builder.Or(
+                    builder.Eq(failureKindPath, GatewayFailureKind.SyntaxError),
+                    documentFailure),
+                GatewayFailureKind.BadRequest => builder.And(
                     builder.Eq(failureKindPath, GatewayFailureKind.BadRequest),
-                    hotChocolateCode),
+                    builder.Not(documentFailure)),
                 GatewayFailureKind.Unhandled => builder.And(
                     builder.Eq(failureKindPath, GatewayFailureKind.Unhandled),
-                    builder.Not(hotChocolateCode)),
+                    builder.Not(documentFailure)),
                 _ => builder.Eq(failureKindPath, request.FailureKind),
             });
         }
@@ -619,17 +623,27 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         FilterDefinitionBuilder<BsonDocument> builder)
     {
         var failureKindPath = $"{GatewayOperationAttributePath}.FailureKind";
-        var failureCodePath = $"{GatewayOperationAttributePath}.FailureCode";
         return builder.Or(
             builder.In(failureKindPath, new[]
             {
                 GatewayFailureKind.Authentication,
                 GatewayFailureKind.Authorization,
                 GatewayFailureKind.Validation,
+                GatewayFailureKind.SyntaxError,
                 GatewayFailureKind.BadRequest,
             }),
-            builder.Regex(failureCodePath, new BsonRegularExpression("^HC")));
+            BuildGraphQlDocumentFailureFilter(builder));
     }
+
+    private static FilterDefinition<BsonDocument> BuildGraphQlDocumentFailureFilter(
+        FilterDefinitionBuilder<BsonDocument> builder) =>
+        builder.Or(
+            builder.Regex(
+                $"{GatewayOperationAttributePath}.FailureCode",
+                new BsonRegularExpression("^HC")),
+            builder.Regex(
+                $"{GatewayOperationAttributePath}.FailureMessage",
+                new BsonRegularExpression(GraphQlDocumentErrorMessagePattern, "i")));
 
     /// <summary>Allowlisted sort expressions for the columns exposed by request history.</summary>
     internal static BsonValue GetHistorySortExpression(string? sortBy) =>
@@ -650,6 +664,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         var responseStatus = $"${GatewayOperationAttributePath}.ResponseStatus";
         var failureKind = $"${GatewayOperationAttributePath}.FailureKind";
         var failureCode = $"${GatewayOperationAttributePath}.FailureCode";
+        var failureMessage = $"${GatewayOperationAttributePath}.FailureMessage";
         var isDenied = new BsonDocument("$or", new BsonArray
         {
             new BsonDocument("$in", new BsonArray
@@ -660,6 +675,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                     GatewayFailureKind.Authentication,
                     GatewayFailureKind.Authorization,
                     GatewayFailureKind.Validation,
+                    GatewayFailureKind.SyntaxError,
                     GatewayFailureKind.BadRequest,
                 },
             }),
@@ -667,6 +683,12 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             {
                 { "input", new BsonDocument("$ifNull", new BsonArray { failureCode, string.Empty }) },
                 { "regex", "^HC" },
+            }),
+            new BsonDocument("$regexMatch", new BsonDocument
+            {
+                { "input", new BsonDocument("$ifNull", new BsonArray { failureMessage, string.Empty }) },
+                { "regex", GraphQlDocumentErrorMessagePattern },
+                { "options", "i" },
             }),
         });
 
@@ -750,7 +772,8 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             FailureKind = NormalizeFailureKind(
                 GetString(gatewayOperation, "FailureKind"),
                 GetString(gatewayOperation, "FailureCode"),
-                statusCode),
+                statusCode,
+                GetString(gatewayOperation, "FailureMessage")),
             FailureCode = GetString(gatewayOperation, "FailureCode"),
             FailureMessage = GetString(gatewayOperation, "FailureMessage"),
             StatusCode = statusCode,
@@ -788,12 +811,32 @@ public class GraphLogHistoryService : IGraphLogHistoryService
 
     /// <summary>
     /// Returns the reader-facing reason. Besides enforcing that only a 5xx is a server error, this
-    /// repairs already-stored HC document failures that older writers tagged as unhandled.
+    /// repairs already-stored HC document failures that older writers tagged as unknown/unhandled.
     /// </summary>
-    internal static string NormalizeFailureKind(string failureKind, string failureCode, int statusCode)
+    internal static string NormalizeFailureKind(
+        string failureKind,
+        string failureCode,
+        int statusCode,
+        string failureMessage = "")
     {
-        if (failureCode.StartsWith("HC", StringComparison.Ordinal))
-            return GatewayFailureKind.BadRequest;
+        if (failureCode.StartsWith("HC", StringComparison.Ordinal)
+            || failureMessage.Contains("is not an input type", StringComparison.OrdinalIgnoreCase)
+            || failureMessage.Contains("syntax error", StringComparison.OrdinalIgnoreCase))
+            return GatewayFailureKind.SyntaxError;
+
+        // Specific classifications always win. Status is only a recovery signal for the old
+        // placeholder value; a truly absent reason remains Unknown as advertised by the UI.
+        if (failureKind == GatewayFailureKind.Unknown)
+        {
+            return statusCode switch
+            {
+                400 => GatewayFailureKind.BadRequest,
+                401 => GatewayFailureKind.Authentication,
+                403 => GatewayFailureKind.Authorization,
+                >= 500 and <= 599 => GatewayFailureKind.Unhandled,
+                _ => UnknownFailureKind,
+            };
+        }
 
         if (failureKind == GatewayFailureKind.Unhandled
             && !GatewayFailureKind.IsServerErrorStatus(statusCode))
@@ -806,7 +849,8 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     private static string EffectiveFailureKind(BsonDocument doc) => NormalizeFailureKind(
         GetString(doc, "FailureKind"),
         GetString(doc, "FailureCode"),
-        GetProjectedStatusCode(doc));
+        GetProjectedStatusCode(doc),
+        GetString(doc, "FailureMessage"));
 
     private static int GetProjectedStatusCode(BsonDocument doc)
     {

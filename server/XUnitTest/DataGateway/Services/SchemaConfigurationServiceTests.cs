@@ -270,6 +270,15 @@ public class SchemaConfigurationServiceTests
             .Should().Be(HttpStatusCode.OK);
     }
 
+    [Theory]
+    [InlineData("HC0011")]
+    [InlineData("HC0017")]
+    public void Formatter_Returns400ForHotChocolateDocumentErrors(string code)
+    {
+        new FormatterProbe().Determine(ResultWithErrorCodes(code), HttpStatusCode.OK)
+            .Should().Be(HttpStatusCode.BadRequest);
+    }
+
     [Fact]
     public void Formatter_FallsBackToTheProposedCodeWhenThereAreNoErrors()
     {

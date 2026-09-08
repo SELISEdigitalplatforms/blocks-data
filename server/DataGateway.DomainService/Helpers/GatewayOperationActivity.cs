@@ -20,8 +20,11 @@ public static class GatewayFailureKind
     /// <summary>The input was rejected by field validation, including uniqueness checks.</summary>
     public const string Validation = "validation";
 
-    /// <summary>The GraphQL document itself was unusable: syntax error, unknown field, bad
-    /// variables. The request never reached a resolver.</summary>
+    /// <summary>The GraphQL document could not be parsed or validated by Hot Chocolate. The
+    /// request never reached a resolver.</summary>
+    public const string SyntaxError = "syntax_error";
+
+    /// <summary>A non-GraphQL client request was malformed.</summary>
     public const string BadRequest = "bad_request";
 
     /// <summary>An unexpected, unhandled server-side error.</summary>
@@ -35,7 +38,7 @@ public static class GatewayFailureKind
     /// Rejecting bad input belongs here with the access checks: it is the gateway working.
     /// </summary>
     public static bool IsDenial(string? failureKind) =>
-        failureKind is Authentication or Authorization or Validation or BadRequest;
+        failureKind is Authentication or Authorization or Validation or SyntaxError or BadRequest;
 
     /// <summary>
     /// Server errors are defined by the HTTP response, not merely by a GraphQL error carrying an

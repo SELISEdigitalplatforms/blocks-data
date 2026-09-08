@@ -140,10 +140,10 @@ describe("GraphLogHistory", () => {
     render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);
 
     await user.click(screen.getByRole("combobox", { name: "Failure reason" }));
-    await user.click(await screen.findByRole("option", { name: "Validation" }));
+    await user.click(await screen.findByRole("option", { name: "Syntax error" }));
 
     expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({ failureKind: "validation", pageNo: 1 }),
+      expect.objectContaining({ failureKind: "syntax_error", pageNo: 1 }),
     );
   });
 

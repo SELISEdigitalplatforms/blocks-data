@@ -27,7 +27,7 @@ internal sealed class GatewayActivityDiagnosticEventListener : ExecutionDiagnost
 
     /// <summary>The GraphQL document could not be parsed — the request never ran.</summary>
     public override void SyntaxError(IRequestContext context, IError error) =>
-        MarkFailed(GatewayFailureKind.BadRequest, error);
+        MarkFailed(GatewayFailureKind.SyntaxError, error);
 
     /// <summary>A resolver rejected or blew up; the error's own code says which.</summary>
     public override void ResolverError(IMiddlewareContext context, IError error) =>
@@ -62,7 +62,7 @@ internal sealed class GatewayActivityDiagnosticEventListener : ExecutionDiagnost
         {
             GraphQlConstant.ValidationErrorErrorCode => GatewayFailureKind.Validation,
             GraphQlConstant.UnauthorizedErrorCode => GatewayFailureKind.Authentication,
-            _ when code.StartsWith("HC", StringComparison.Ordinal) => GatewayFailureKind.BadRequest,
+            _ when code.StartsWith("HC", StringComparison.Ordinal) => GatewayFailureKind.SyntaxError,
             _ when GatewayFailureKind.IsServerErrorStatus(statusCode) => GatewayFailureKind.Unhandled,
             _ => GatewayFailureKind.Unknown,
         };
@@ -104,7 +104,8 @@ internal sealed class GatewayActivityDiagnosticEventListener : ExecutionDiagnost
 
             // Whoever rejected the request already said why — only fill in what nobody claimed,
             // e.g. document validation errors, which raise no error event of their own.
-            if (hasFailed && string.IsNullOrEmpty(_gatewayOperation.FailureKind))
+            if (hasFailed && (string.IsNullOrEmpty(_gatewayOperation.FailureKind)
+                || _gatewayOperation.FailureKind == GatewayFailureKind.Unknown))
                 ClassifyResult(errors?.FirstOrDefault());
 
             GatewayOperationActivity.Tag(_activity, _gatewayOperation);

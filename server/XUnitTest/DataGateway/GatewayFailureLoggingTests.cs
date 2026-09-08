@@ -148,6 +148,36 @@ public class GatewayFailureLoggingTests : IDisposable
         gatewayOperation.FailureCode.Should().Be(GraphQlConstant.ValidationErrorErrorCode);
     }
 
+    [Fact]
+    public void ADocumentErrorReplacesTheEarlyUnknownPlaceholder()
+    {
+        SetContext();
+        SetBlocksCloud(false);
+        using var activity = new Activity("request").Start();
+        var error = ErrorBuilder.New()
+            .SetMessage("Variable `order` is not an input type.")
+            .SetCode("HC0017")
+            .Build();
+        var result = new Mock<IOperationResult>();
+        result.SetupGet(r => r.Errors).Returns([error]);
+        var context = new Mock<IRequestContext>();
+        context.SetupGet(c => c.Document).Returns(Utf8GraphQLParser.Parse(
+            "query getBrands($order: [BrandSortInput!]) { getBrands(order: $order) { totalCount } }"));
+        context.SetupGet(c => c.Result).Returns(result.Object);
+
+        var listener = new GatewayActivityDiagnosticEventListener();
+        using (var scope = listener.ExecuteRequest(context.Object))
+        {
+            listener.RequestError(context.Object, new InvalidOperationException("early pipeline error"));
+        }
+
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(activity);
+        gatewayOperation.FailureKind.Should().Be(GatewayFailureKind.SyntaxError);
+        gatewayOperation.FailureCode.Should().Be("HC0017");
+        gatewayOperation.FailureMessage.Should().Be("Variable `order` is not an input type.");
+        gatewayOperation.SchemaName.Should().Be("getBrands");
+    }
+
     private static Mock<IMiddlewareContext> MiddlewareContext(string blocksKey)
     {
         var httpContext = new DefaultHttpContext();
@@ -171,13 +201,13 @@ public class GatewayFailureLoggingTests : IDisposable
 public class GatewayGraphQlErrorClassificationTests
 {
     [Fact]
-    public void BadGraphQlDocumentsCountAsClientDenialsRatherThanGatewayErrors()
+    public void GraphQlSyntaxErrorsCountAsClientDenialsRatherThanGatewayErrors()
     {
-        GatewayFailureKind.IsDenial(GatewayFailureKind.BadRequest).Should().BeTrue();
+        GatewayFailureKind.IsDenial(GatewayFailureKind.SyntaxError).Should().BeTrue();
     }
 
     [Fact]
-    public void HotChocolateDocumentErrorsAreBadRequestsEvenWhenTheyCarryAnException()
+    public void HotChocolateDocumentErrorsAreSyntaxErrorsEvenWhenTheyCarryAnException()
     {
         var error = ErrorBuilder.New()
             .SetMessage("Variable `order` is not an input type.")
@@ -186,7 +216,7 @@ public class GatewayGraphQlErrorClassificationTests
             .Build();
 
         GatewayActivityDiagnosticEventListener.Classify(error, StatusCodes.Status200OK)
-            .Should().Be(GatewayFailureKind.BadRequest);
+            .Should().Be(GatewayFailureKind.SyntaxError);
     }
 
     [Theory]
@@ -210,7 +240,34 @@ public class GatewayGraphQlErrorClassificationTests
     {
         GraphLogHistoryService.NormalizeFailureKind(
                 GatewayFailureKind.Unhandled, "HC0017", StatusCodes.Status200OK)
+            .Should().Be(GatewayFailureKind.SyntaxError);
+    }
+
+    [Fact]
+    public void TheReaderRepairsOldDocumentErrorsWhoseCodeWasNotStored()
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                GatewayFailureKind.Unknown,
+                string.Empty,
+                StatusCodes.Status200OK,
+                "Variable `order` is not an input type.")
+            .Should().Be(GatewayFailureKind.SyntaxError);
+    }
+
+    [Fact]
+    public void TheReaderUses400ToRepairAnUnknownStoredReason()
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                GatewayFailureKind.Unknown, string.Empty, StatusCodes.Status400BadRequest)
             .Should().Be(GatewayFailureKind.BadRequest);
+    }
+
+    [Fact]
+    public void ATrulyEmptyStoredReasonRemainsUnknown()
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                string.Empty, string.Empty, StatusCodes.Status400BadRequest)
+            .Should().Be(GatewayFailureKind.Unknown);
     }
 
     [Theory]

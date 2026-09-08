@@ -27,6 +27,14 @@ public class AuthHttpResponseFormatter : DefaultHttpResponseFormatter
                     return HttpStatusCode.Forbidden;
                 }
             }
+
+            // Hot Chocolate's HCxxxx codes describe a GraphQL document that could not be parsed or
+            // validated. The request was understood by HTTP but is invalid GraphQL input, so expose
+            // it as a client error instead of the GraphQL transport's default 200 response.
+            if (codes.Any(code => code?.StartsWith("HC", StringComparison.Ordinal) == true))
+            {
+                return HttpStatusCode.BadRequest;
+            }
         }
 
         return base.OnDetermineStatusCode(result, format, proposedStatusCode);

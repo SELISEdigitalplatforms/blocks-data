@@ -6,13 +6,20 @@ export type GraphLogHistorySort =
 
 /** Why a request failed — mirrors the server's GatewayFailureKind. */
 export type GraphLogFailureKind =
-  "authentication" | "authorization" | "validation" | "bad_request" | "unhandled" | "unknown";
+  | "authentication"
+  | "authorization"
+  | "validation"
+  | "syntax_error"
+  | "bad_request"
+  | "unhandled"
+  | "unknown";
 
 /** Reader-facing names for each failure reason, used by the table, filter and details panel. */
 export const FAILURE_KIND_LABELS: Record<GraphLogFailureKind, string> = {
   authentication: "Authentication",
   authorization: "Authorization",
   validation: "Validation",
+  syntax_error: "Syntax error",
   bad_request: "Bad request",
   unhandled: "Server error",
   unknown: "Unknown",
@@ -25,6 +32,7 @@ export const DENIED_FAILURE_KINDS = new Set<string>([
   "authentication",
   "authorization",
   "validation",
+  "syntax_error",
   "bad_request",
 ]);
 

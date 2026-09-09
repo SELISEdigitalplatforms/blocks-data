@@ -12,6 +12,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
+using SortDirection = DataGateway.DomainService.Models.SortDirection;
 
 namespace XUnitTest.DataGateway.Services;
 
@@ -22,6 +23,7 @@ public class SchemaDefinitionServiceTests
     private readonly Mock<IRequestValidator> _validator = new();
     private readonly Mock<IProjectService> _project = new();
     private readonly Mock<ISchemaChangeLogService> _changeLog = new();
+    private readonly Mock<ISchemaIndexService> _schemaIndexService = new();
     private readonly SchemaDefinitionReferenceHelper _refHelper;
     private readonly SchemaDefinitionService _service;
 
@@ -36,13 +38,15 @@ public class SchemaDefinitionServiceTests
         // reference helper resolves nested references; keep them absent by default
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync((SchemaDefinition?)null);
         _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 100, "")).ReturnsAsync(new List<SchemaDefinition>());
-        // no schema has any index by default; SaveFieldDefinitionAsync's field-deletion guard checks this
-        _repo.Setup(r => r.GetItemsAsync<SchemaIndexDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "")).ReturnsAsync(new List<SchemaIndexDefinition>());
         _repo.Setup(r => r.InsertAsync(It.IsAny<SchemaDefinition>(), "")).ReturnsAsync((SchemaDefinition s, string _) => s);
         _repo.Setup(r => r.UpdateAsync(It.IsAny<SchemaDefinition>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true });
+        // no schema has any index by default; SaveFieldDefinitionAsync's field-deletion guard and
+        // its IsUniqueData reconciliation both go through ISchemaIndexService, never IDbRepository.
+        _schemaIndexService.Setup(s => s.GetIndexesAsync(It.IsAny<string>()))
+            .ReturnsAsync(new ServiceResponse<SchemaIndexListResponse>().SetSuccess(new SchemaIndexListResponse()));
 
         _refHelper = new SchemaDefinitionReferenceHelper(_repo.Object, _changeLog.Object);
-        _service = new SchemaDefinitionService(_repo.Object, _validator.Object, _project.Object, _changeLog.Object, _refHelper, NullLogger<SchemaDefinitionService>.Instance);
+        _service = new SchemaDefinitionService(_repo.Object, _validator.Object, _project.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance);
     }
 
     private void NameIsUnique() => _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync((SchemaDefinition?)null);
@@ -51,8 +55,9 @@ public class SchemaDefinitionServiceTests
     [Fact]
     public void Constructor_NullArgs_Throw()
     {
-        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(null!, _validator.Object, _project.Object, _changeLog.Object, _refHelper, NullLogger<SchemaDefinitionService>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(_repo.Object, _validator.Object, null!, _changeLog.Object, _refHelper, NullLogger<SchemaDefinitionService>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(null!, _validator.Object, _project.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(_repo.Object, _validator.Object, null!, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(_repo.Object, _validator.Object, _project.Object, _changeLog.Object, _refHelper, null!, NullLogger<SchemaDefinitionService>.Instance));
     }
 
     [Fact]
@@ -143,6 +148,9 @@ public class SchemaDefinitionServiceTests
         schema.Fields.Should().Contain(f => f.Name == "New");
     }
 
+    private static ServiceResponse<SchemaIndexListResponse> IndexListResponse(params SchemaIndexResponse[] indexes) =>
+        new ServiceResponse<SchemaIndexListResponse>().SetSuccess(new SchemaIndexListResponse { Indexes = indexes.ToList() });
+
     [Fact]
     public async Task SaveFieldDefinition_DeletingFieldUsedByIndex_Returns400AndLeavesFieldsUnchanged()
     {
@@ -153,11 +161,13 @@ public class SchemaDefinitionServiceTests
             Fields = new() { new FieldDefinition { Name = "email", Type = "String" } }
         };
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
-        _repo.Setup(r => r.GetItemsAsync<SchemaIndexDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
-            .ReturnsAsync(new List<SchemaIndexDefinition>
-            {
-                new() { Name = "email_1", SchemaDefinitionItemId = "1", Fields = new() { new IndexFieldSpec { FieldName = "email", Direction = 1 } } }
-            });
+        _schemaIndexService.Setup(s => s.GetIndexesAsync("1")).ReturnsAsync(IndexListResponse(new SchemaIndexResponse
+        {
+            ItemId = "idx-1",
+            Name = "email_1",
+            IsUnique = false,
+            Fields = new() { new IndexFieldResponse { FieldName = "email", Direction = SortDirection.ASC } }
+        }));
 
         var result = await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest
         {
@@ -170,6 +180,149 @@ public class SchemaDefinitionServiceTests
         result.HttpStatusCode.Should().Be(400);
         result.Message.Should().Contain("email_1");
         schema.Fields.Should().Contain(f => f.Name == "email", "the field must stay untouched when its deletion is rejected");
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_SetsFieldUnique_DelegatesIndexCreationToSchemaIndexService()
+    {
+        var schema = new SchemaDefinition
+        {
+            ItemId = "1",
+            SchemaType = SchemaType.Entity,
+            CollectionName = "Customers",
+            Fields = new() { new FieldDefinition { Name = "email", Type = "String", IsUniqueData = false } }
+        };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        _schemaIndexService.Setup(s => s.CreateIndexAsync(It.IsAny<CreateSchemaIndexRequest>()))
+            .ReturnsAsync(new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = "idx-1" }));
+
+        var result = await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest
+        {
+            SchemaDefinitionItemId = "1",
+            Fields = new() { new FieldDefinitionRequest { Name = "email", Type = "String", IsUniqueData = true } }
+        });
+
+        result.IsSuccess.Should().BeTrue();
+        _schemaIndexService.Verify(s => s.CreateIndexAsync(It.Is<CreateSchemaIndexRequest>(r =>
+            r.SchemaDefinitionItemId == "1" &&
+            r.IsUnique &&
+            r.Fields.Count == 1 &&
+            r.Fields[0].FieldName == "email" &&
+            r.Fields[0].Direction == SortDirection.ASC)), Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_UniqueIndexCreationFails_FieldSaveStillSucceeds()
+    {
+        var schema = new SchemaDefinition
+        {
+            ItemId = "1",
+            SchemaType = SchemaType.Entity,
+            CollectionName = "Customers",
+            Fields = new() { new FieldDefinition { Name = "email", Type = "String" } }
+        };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        _schemaIndexService.Setup(s => s.CreateIndexAsync(It.IsAny<CreateSchemaIndexRequest>()))
+            .ReturnsAsync(new ServiceResponse<ActionResponse>().SetErrorMessage("UNIQUE_INDEX_CONFLICT").SetHttpStatusCode(409));
+
+        var result = await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest
+        {
+            SchemaDefinitionItemId = "1",
+            Fields = new() { new FieldDefinitionRequest { Name = "email", Type = "String", IsUniqueData = true } }
+        });
+
+        result.IsSuccess.Should().BeTrue("the field save must succeed even when SchemaIndexService can't build the underlying index");
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_UnsetsFieldUnique_DelegatesIndexDeletionToSchemaIndexService()
+    {
+        var schema = new SchemaDefinition
+        {
+            ItemId = "1",
+            SchemaType = SchemaType.Entity,
+            CollectionName = "Customers",
+            Fields = new() { new FieldDefinition { Name = "email", Type = "String", IsUniqueData = true } }
+        };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        _schemaIndexService.Setup(s => s.GetIndexesAsync("1")).ReturnsAsync(IndexListResponse(new SchemaIndexResponse
+        {
+            ItemId = "idx-1",
+            Name = "email_1",
+            IsUnique = true,
+            Fields = new() { new IndexFieldResponse { FieldName = "email", Direction = SortDirection.ASC } }
+        }));
+        _schemaIndexService.Setup(s => s.DeleteIndexAsync("idx-1"))
+            .ReturnsAsync(new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true }));
+
+        var result = await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest
+        {
+            SchemaDefinitionItemId = "1",
+            Fields = new() { new FieldDefinitionRequest { Name = "email", Type = "String", IsUniqueData = false } }
+        });
+
+        result.IsSuccess.Should().BeTrue();
+        _schemaIndexService.Verify(s => s.DeleteIndexAsync("idx-1"), Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_DeletingFieldWithOnlyItsOwnUniqueIndex_IsAllowedAndDropsIndex()
+    {
+        var schema = new SchemaDefinition
+        {
+            ItemId = "1",
+            SchemaType = SchemaType.Entity,
+            CollectionName = "Customers",
+            Fields = new() { new FieldDefinition { Name = "email", Type = "String", IsUniqueData = true } }
+        };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        _schemaIndexService.Setup(s => s.GetIndexesAsync("1")).ReturnsAsync(IndexListResponse(new SchemaIndexResponse
+        {
+            ItemId = "idx-1",
+            Name = "email_1",
+            IsUnique = true,
+            Fields = new() { new IndexFieldResponse { FieldName = "email", Direction = SortDirection.ASC } }
+        }));
+        _schemaIndexService.Setup(s => s.DeleteIndexAsync("idx-1"))
+            .ReturnsAsync(new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true }));
+
+        var result = await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest
+        {
+            SchemaDefinitionItemId = "1",
+            DeletableFieldNames = new[] { "email" },
+            Fields = new()
+        });
+
+        result.IsSuccess.Should().BeTrue("a field's own single-field unique index must not block deleting that field");
+        schema.Fields.Should().NotContain(f => f.Name == "email");
+        _schemaIndexService.Verify(s => s.DeleteIndexAsync("idx-1"), Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_FieldStaysUniqueAcrossSaves_DoesNotResurrectAManuallyDeletedIndex()
+    {
+        // Simulates: the field's auto-managed index was deleted manually via the Indexes tab while
+        // IsUniqueData stayed checked. The frontend resubmits every field on every save, so a later,
+        // unrelated save that resends this field with IsUniqueData still true must NOT recreate the
+        // index — only an actual off->on transition should.
+        var schema = new SchemaDefinition
+        {
+            ItemId = "1",
+            SchemaType = SchemaType.Entity,
+            CollectionName = "Customers",
+            Fields = new() { new FieldDefinition { Name = "email", Type = "String", IsUniqueData = true } }
+        };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        _schemaIndexService.Setup(s => s.GetIndexesAsync("1")).ReturnsAsync(IndexListResponse());
+
+        var result = await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest
+        {
+            SchemaDefinitionItemId = "1",
+            Fields = new() { new FieldDefinitionRequest { Name = "email", Type = "String", IsUniqueData = true } }
+        });
+
+        result.IsSuccess.Should().BeTrue();
+        _schemaIndexService.Verify(s => s.CreateIndexAsync(It.IsAny<CreateSchemaIndexRequest>()), Times.Never);
     }
 
     [Fact]

@@ -437,6 +437,50 @@ export interface IDeleteSchemaFieldValidationPayload {
   projectKey: string;
 }
 
+// ── Schema Indexes ────────────────────────────────────────────────────────
+
+/** Wire form of the backend's SortDirection enum (JsonStringEnumConverter → member name). */
+export type IndexDirection = "ASC" | "DESC";
+
+export interface IIndexFieldPayload {
+  fieldName: string;
+  direction: IndexDirection;
+}
+
+export interface ISchemaIndex {
+  itemId: string;
+  name: string;
+  fields: IIndexFieldPayload[];
+  isUnique: boolean;
+  createdDate: string;
+}
+
+export interface IGetSchemaIndexesResponse {
+  isSuccess: boolean;
+  message?: string | null;
+  errors?: unknown;
+  data: { indexes: ISchemaIndex[] } | null;
+}
+
+export interface ICreateSchemaIndexPayload {
+  schemaDefinitionItemId: string;
+  fields: IIndexFieldPayload[];
+  isUnique: boolean;
+}
+
+export interface ISchemaIndexActionResponse {
+  isSuccess: boolean;
+  message?: string | null;
+  errors?: unknown;
+  data: { acknowledged: boolean; itemId: string } | null;
+}
+
+export interface IDeleteSchemaIndexPayload {
+  itemId: string;
+  /** Not sent to the API — used only to invalidate the right ["schema-indexes", id] query. */
+  schemaDefinitionItemId: string;
+}
+
 
 // ── Schema Export ──────────────────────────────────────────────────────────
 /** Mirrors backend `SchemaExportOption`. Value `All` (3) includes both optional sections together. */

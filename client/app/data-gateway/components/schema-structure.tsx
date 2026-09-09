@@ -28,6 +28,8 @@ import { sanitizeRuleSet } from "../utils/schema-access.utils";
 import SchemaAccessControlDrawer from "./schema-access-control-drawer";
 import { SchemaPreviewDrawer } from "./schema-preview-drawer";
 import { SchemaFieldValidationDrawer } from "./schema-fields-validation/schema-field-validation-drawer";
+import { SchemaIndexesTab } from "./schema-indexes/schema-indexes-tab";
+import { mapIndexRelatedErrorMessage } from "../utils/schema-index.utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { InfoCard } from "./info-card";
 import {
@@ -165,7 +167,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     projectKey,
   });
 
-  const [activeTab, setActiveTab] = useState<"attribute" | "data">("attribute");
+  const [activeTab, setActiveTab] = useState<"attribute" | "data" | "indexes">(
+    "attribute",
+  );
 
   useEffect(() => {
     setActiveTab("attribute");
@@ -372,7 +376,11 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         block: "start",
       });
     } else {
-      showErrorToast({ errors: res.errors });
+      // A field the user tried to delete is referenced by an existing index (Phase 1's
+      // FIELD_USED_BY_INDEX guard) surfaces via `message`, not `errors` — map it explicitly
+      // so this doesn't fall through to a generic "unexpected error" toast.
+      const mapped = mapIndexRelatedErrorMessage(res);
+      showErrorToast({ errors: mapped ?? res.errors });
     }
   };
 
@@ -603,6 +611,17 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                 schemaName={schemaDetails.schemaName}
                 fields={templateFields}
                 previewData={previewData}
+              />
+            </div>
+          )}
+
+          {/* Indexes Tab */}
+          {activeTab === "indexes" && (
+            <div className="mt-4 min-h-0 flex-1 overflow-auto px-0">
+              <SchemaIndexesTab
+                schemaDefinitionItemId={schemaDetails.id}
+                schemaType={schemaType}
+                fields={schemaDetails.fields}
               />
             </div>
           )}

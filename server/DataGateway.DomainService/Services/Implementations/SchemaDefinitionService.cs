@@ -97,7 +97,20 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             return SchemaNotFoundResponse();
 
         if (request.DeletableFieldNames?.Length > 0)
+        {
+            var indexFilter = new BsonDocument(nameof(SchemaIndexDefinition.SchemaDefinitionItemId), schema.ItemId);
+            var indexes = await _repository.GetItemsAsync<SchemaIndexDefinition>(indexFilter, null, null, 0, 1000);
+            var blockingIndexNames = indexes
+                .Where(i => i.Fields.Any(f => request.DeletableFieldNames.Contains(f.FieldName)))
+                .Select(i => i.Name)
+                .ToList();
+            if (blockingIndexNames.Count > 0)
+                return new ServiceResponse<ActionResponse>()
+                    .SetErrorMessage($"FIELD_USED_BY_INDEX: {string.Join(", ", blockingIndexNames)}")
+                    .SetHttpStatusCode(400);
+
             schema.Fields = schema.Fields.Where(f => !request.DeletableFieldNames.Contains(f.Name)).ToList();
+        }
 
         foreach (var field in request.Fields)
         {

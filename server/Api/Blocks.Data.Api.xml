@@ -336,6 +336,36 @@
             <param name="id">The unique identifier of the schema definition to delete.</param>
             <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
         </member>
+        <member name="T:Api.Controllers.SchemaIndexController">
+            <summary>
+            SchemaIndexController manages MongoDB indexes defined on a schema's data collection:
+            creating, listing, and deleting single-field or compound indexes.
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.SchemaIndexController.#ctor(DataGateway.DomainService.Services.ISchemaIndexService)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Api.Controllers.SchemaIndexController"/> class.
+            </summary>
+            <param name="schemaIndexService"></param>
+        </member>
+        <member name="M:Api.Controllers.SchemaIndexController.GetSchemaIndexes(System.String)">
+            <summary>
+            Retrieves every index defined on a schema.
+            </summary>
+            <param name="schemaDefinitionItemId">The unique identifier of the schema definition.</param>
+        </member>
+        <member name="M:Api.Controllers.SchemaIndexController.CreateSchemaIndex(DataGateway.DomainService.Models.CreateSchemaIndexRequest)">
+            <summary>
+            Creates a new index (single-field or compound) on an Entity-type schema's data collection.
+            </summary>
+            <param name="request">SchemaDefinitionItemId, ordered Fields (FieldName, Direction), and IsUnique.</param>
+        </member>
+        <member name="M:Api.Controllers.SchemaIndexController.DeleteSchemaIndex(System.String)">
+            <summary>
+            Deletes a schema index by its unique ID. This drops the underlying MongoDB index as well.
+            </summary>
+            <param name="itemId">The unique identifier of the schema index to delete.</param>
+        </member>
         <member name="T:Api.Controllers.DirectoryController">
              <summary>
              Directory operations: create, read, list children, rename, move and delete.

@@ -22,6 +22,13 @@ export const SCHEMA_ENDPOINTS = {
   UNADAPTED_CHANGE_LOGS: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/unadapted-change-logs`,
 } as const;
 
+// ─── Schema Index endpoints ───────────────────────────────────────────────────
+// Served by the backend's dedicated SchemaIndexController (route "schemas/indexes").
+
+export const SCHEMA_INDEX_ENDPOINTS = {
+  BASE: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/indexes`,
+} as const;
+
 // ─── Data Access endpoints ────────────────────────────────────────────────────
 
 const DATA_ACCESS_SUBPATH = "/data-access";

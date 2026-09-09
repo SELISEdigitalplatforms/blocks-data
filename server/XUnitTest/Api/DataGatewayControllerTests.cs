@@ -126,6 +126,41 @@ public class DataGatewayControllerTests
         Status(await controller.DeleteSchemaDefinitionAsync("")).Should().Be(400);
     }
 
+    // ---------------- SchemaIndexController ----------------
+
+    [Fact]
+    public async Task SchemaIndex_Get_ValidatesAndDelegates()
+    {
+        var svc = new Mock<ISchemaIndexService>();
+        svc.Setup(s => s.GetIndexesAsync("schema-1"))
+            .ReturnsAsync(new ServiceResponse<SchemaIndexListResponse>().SetSuccess(new SchemaIndexListResponse()));
+        var controller = new SchemaIndexController(svc.Object);
+
+        Status(await controller.GetSchemaIndexes("schema-1")).Should().Be(200);
+        Status(await controller.GetSchemaIndexes("")).Should().Be(400);
+    }
+
+    [Fact]
+    public async Task SchemaIndex_Create_Delegates()
+    {
+        var svc = new Mock<ISchemaIndexService>();
+        svc.Setup(s => s.CreateIndexAsync(It.IsAny<CreateSchemaIndexRequest>())).ReturnsAsync(Ok());
+        var controller = new SchemaIndexController(svc.Object);
+
+        Status(await controller.CreateSchemaIndex(new CreateSchemaIndexRequest())).Should().Be(200);
+    }
+
+    [Fact]
+    public async Task SchemaIndex_Delete_ValidatesAndDelegates()
+    {
+        var svc = new Mock<ISchemaIndexService>();
+        svc.Setup(s => s.DeleteIndexAsync("idx-1")).ReturnsAsync(Ok());
+        var controller = new SchemaIndexController(svc.Object);
+
+        Status(await controller.DeleteSchemaIndex("idx-1")).Should().Be(200);
+        Status(await controller.DeleteSchemaIndex("")).Should().Be(400);
+    }
+
     // ---------------- DataValidationController ----------------
 
     [Fact]

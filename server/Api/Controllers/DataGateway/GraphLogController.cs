@@ -29,8 +29,7 @@ namespace Api.Controllers
         /// HTTP StatusCode, failure reason, sorting, and a From/To timestamp range.
         /// </summary>
         [HttpGet("history")]
-        // [ProtectedEndPoint("blocks-data::graph-log::history")]
-        [Authorize]
+        [ProtectedEndPoint("blocks-data::graph-log::history")]
         [ProducesResponseType(typeof(ServiceResponse<PaginationResponse<GraphLogHistoryItemResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetHistory([FromQuery] GetGraphLogHistoryRequest request)
@@ -45,8 +44,7 @@ namespace Api.Controllers
         /// series (success vs. failed, bucketed daily or weekly) and per-field call/error stats.
         /// </summary>
         [HttpGet("analytics")]
-        // [ProtectedEndPoint("blocks-data::graph-log::analytics")]
-        [Authorize]
+        [ProtectedEndPoint("blocks-data::graph-log::analytics")]
         [ProducesResponseType(typeof(ServiceResponse<GraphLogAnalyticsResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetAnalytics([FromQuery] GetGraphLogAnalyticsRequest request)

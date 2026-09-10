@@ -95,6 +95,14 @@ describe("GraphLogHistory", () => {
     expect(screen.queryByText("denied")).not.toBeInTheDocument();
   });
 
+  it("shows a bad request as an error rather than a denial", () => {
+    mockResult([{ ...ITEM, failureKind: "bad_request", failureCode: "", statusCode: 400 }]);
+    render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);
+
+    expect(screen.getByText("error")).toBeInTheDocument();
+    expect(screen.queryByText("denied")).not.toBeInTheDocument();
+  });
+
   it("passes the range and paging through to the query", () => {
     mockResult([ITEM], 25);
     render(<GraphLogHistory from="2026-08-24" to="2026-08-31" />);

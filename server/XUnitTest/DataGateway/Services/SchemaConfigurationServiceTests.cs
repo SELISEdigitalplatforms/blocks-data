@@ -235,6 +235,18 @@ public class SchemaConfigurationServiceTests
         return result.Object;
     }
 
+    private static IOperationResult ResultWithError(string? code, string message)
+    {
+        var error = new Mock<IError>();
+        error.SetupGet(e => e.Code).Returns(code);
+        error.SetupGet(e => e.Message).Returns(message);
+
+        var result = new Mock<IOperationResult>();
+        result.SetupGet(r => r.Errors).Returns([error.Object]);
+        result.SetupGet(r => r.ContextData).Returns(new Dictionary<string, object?>());
+        return result.Object;
+    }
+
     [Fact]
     public void Formatter_Returns401ForTheUnauthenticatedErrorCode()
     {
@@ -276,6 +288,17 @@ public class SchemaConfigurationServiceTests
     public void Formatter_Returns400ForHotChocolateDocumentErrors(string code)
     {
         new FormatterProbe().Determine(ResultWithErrorCodes(code), HttpStatusCode.OK)
+            .Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public void Formatter_Returns400ForAnInputCoercionErrorWithoutAHotChocolateCode()
+    {
+        var result = ResultWithError(
+            null,
+            "The syntax node `EnumValue` is incompatible with the type `DynamicSortInput`.");
+
+        new FormatterProbe().Determine(result, HttpStatusCode.OK)
             .Should().Be(HttpStatusCode.BadRequest);
     }
 

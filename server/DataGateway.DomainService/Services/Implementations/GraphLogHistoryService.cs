@@ -32,7 +32,8 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     private const string HttpResponseStatusCodeAttribute = "http.response.status_code";
     private const string ResponseStatusCodeAttribute = "response.status.code";
     private const string HistorySortValueField = "__historySortValue";
-    private const string GraphQlDocumentErrorMessagePattern = "is not an input type|syntax error";
+    private const string GraphQlDocumentErrorMessagePattern =
+        "is not an input type|syntax error|does not exist on type|syntax node.*incompatible with the type";
 
     /// <summary>
     /// Flattens each trace down to just the fields the in-memory aggregation reads — far cheaper
@@ -633,16 +634,12 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         FilterDefinitionBuilder<BsonDocument> builder)
     {
         var failureKindPath = $"{GatewayOperationAttributePath}.FailureKind";
-        return builder.Or(
-            builder.In(failureKindPath, new[]
-            {
-                GatewayFailureKind.Authentication,
-                GatewayFailureKind.Authorization,
-                GatewayFailureKind.Validation,
-            }),
-            builder.And(
-                builder.Eq(failureKindPath, GatewayFailureKind.BadRequest),
-                builder.Not(BuildGraphQlDocumentFailureFilter(builder))));
+        return builder.In(failureKindPath, new[]
+        {
+            GatewayFailureKind.Authentication,
+            GatewayFailureKind.Authorization,
+            GatewayFailureKind.Validation,
+        });
     }
 
     private static FilterDefinition<BsonDocument> BuildGraphQlDocumentFailureFilter(
@@ -673,43 +670,15 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     {
         var responseStatus = $"${GatewayOperationAttributePath}.ResponseStatus";
         var failureKind = $"${GatewayOperationAttributePath}.FailureKind";
-        var failureCode = $"${GatewayOperationAttributePath}.FailureCode";
-        var failureMessage = $"${GatewayOperationAttributePath}.FailureMessage";
-        var isDocumentFailure = new BsonDocument("$or", new BsonArray
+        var isDenied = new BsonDocument("$in", new BsonArray
         {
-            new BsonDocument("$regexMatch", new BsonDocument
+            failureKind,
+            new BsonArray
             {
-                { "input", new BsonDocument("$ifNull", new BsonArray { failureCode, string.Empty }) },
-                { "regex", "^HC" },
-            }),
-            new BsonDocument("$regexMatch", new BsonDocument
-            {
-                { "input", new BsonDocument("$ifNull", new BsonArray { failureMessage, string.Empty }) },
-                { "regex", GraphQlDocumentErrorMessagePattern },
-                { "options", "i" },
-            }),
-        });
-        var isDenied = new BsonDocument("$or", new BsonArray
-        {
-            new BsonDocument("$in", new BsonArray
-            {
-                failureKind,
-                new BsonArray
-                {
-                    GatewayFailureKind.Authentication,
-                    GatewayFailureKind.Authorization,
-                    GatewayFailureKind.Validation,
-                },
-            }),
-            new BsonDocument("$and", new BsonArray
-            {
-                new BsonDocument("$eq", new BsonArray
-                {
-                    failureKind,
-                    GatewayFailureKind.BadRequest,
-                }),
-                new BsonDocument("$not", new BsonArray { isDocumentFailure }),
-            }),
+                GatewayFailureKind.Authentication,
+                GatewayFailureKind.Authorization,
+                GatewayFailureKind.Validation,
+            },
         });
 
         return new BsonDocument("$switch", new BsonDocument
@@ -866,9 +835,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         int statusCode,
         string failureMessage = "")
     {
-        if (failureCode.StartsWith("HC", StringComparison.Ordinal)
-            || failureMessage.Contains("is not an input type", StringComparison.OrdinalIgnoreCase)
-            || failureMessage.Contains("syntax error", StringComparison.OrdinalIgnoreCase))
+        if (GatewayFailureKind.IsGraphQlDocumentError(failureCode, failureMessage))
             return GatewayFailureKind.SyntaxError;
 
         // Specific classifications always win. Status is only a recovery signal for the old

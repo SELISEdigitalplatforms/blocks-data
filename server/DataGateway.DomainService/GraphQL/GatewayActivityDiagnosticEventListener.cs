@@ -62,7 +62,8 @@ internal sealed class GatewayActivityDiagnosticEventListener : ExecutionDiagnost
         {
             GraphQlConstant.ValidationErrorErrorCode => GatewayFailureKind.Validation,
             GraphQlConstant.UnauthorizedErrorCode => GatewayFailureKind.Authentication,
-            _ when code.StartsWith("HC", StringComparison.Ordinal) => GatewayFailureKind.SyntaxError,
+            _ when GatewayFailureKind.IsGraphQlDocumentError(code, error.Message) =>
+                GatewayFailureKind.SyntaxError,
             _ when GatewayFailureKind.IsServerErrorStatus(statusCode) => GatewayFailureKind.Unhandled,
             _ => GatewayFailureKind.Unknown,
         };

@@ -35,11 +35,32 @@ public static class GatewayFailureKind
 
     /// <summary>
     /// Whether a failure was the gateway refusing on purpose rather than something breaking.
-    /// Authentication, authorization, validation and generic bad requests are denials; GraphQL
-    /// document syntax failures are reported as errors.
+    /// Authentication, authorization and explicit input validation are denials. Malformed client
+    /// requests and GraphQL document failures are reported as errors.
     /// </summary>
     public static bool IsDenial(string? failureKind) =>
-        failureKind is Authentication or Authorization or Validation or BadRequest;
+        failureKind is Authentication or Authorization or Validation;
+
+    /// <summary>
+    /// Whether Hot Chocolate rejected the GraphQL document or an argument literal before the
+    /// resolver could run. Some versions attach an HCxxxx code, while input coercion and field
+    /// validation failures can arrive without a code and must be recognized by their stable
+    /// transport messages.
+    /// </summary>
+    public static bool IsGraphQlDocumentError(string? code, string? message)
+    {
+        if (code?.StartsWith("HC", StringComparison.Ordinal) == true)
+            return true;
+
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        return message.Contains("is not an input type", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("syntax error", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("does not exist on type", StringComparison.OrdinalIgnoreCase)
+            || (message.Contains("syntax node", StringComparison.OrdinalIgnoreCase)
+                && message.Contains("incompatible with the type", StringComparison.OrdinalIgnoreCase));
+    }
 
     /// <summary>
     /// Server errors are defined by the HTTP response, not merely by a GraphQL error carrying an

@@ -32,7 +32,6 @@ export const DENIED_FAILURE_KINDS = new Set<string>([
   "authentication",
   "authorization",
   "validation",
-  "bad_request",
 ]);
 
 export const graphLogOutcome = (

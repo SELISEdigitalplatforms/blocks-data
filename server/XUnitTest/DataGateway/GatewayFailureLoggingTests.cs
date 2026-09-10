@@ -201,10 +201,23 @@ public class GatewayFailureLoggingTests : IDisposable
 
 public class GatewayGraphQlErrorClassificationTests
 {
-    [Fact]
-    public void GraphQlSyntaxErrorsCountAsErrorsRatherThanClientDenials()
+    [Theory]
+    [InlineData(GatewayFailureKind.SyntaxError)]
+    [InlineData(GatewayFailureKind.BadRequest)]
+    [InlineData(GatewayFailureKind.Unhandled)]
+    [InlineData(GatewayFailureKind.Unknown)]
+    public void RequestAndExecutionErrorsDoNotCountAsDenials(string failureKind)
     {
-        GatewayFailureKind.IsDenial(GatewayFailureKind.SyntaxError).Should().BeFalse();
+        GatewayFailureKind.IsDenial(failureKind).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(GatewayFailureKind.Authentication)]
+    [InlineData(GatewayFailureKind.Authorization)]
+    [InlineData(GatewayFailureKind.Validation)]
+    public void ExplicitGatewayRejectionsCountAsDenials(string failureKind)
+    {
+        GatewayFailureKind.IsDenial(failureKind).Should().BeTrue();
     }
 
     [Fact]
@@ -214,6 +227,19 @@ public class GatewayGraphQlErrorClassificationTests
             .SetMessage("Variable `order` is not an input type.")
             .SetCode("HC0017")
             .SetException(new InvalidOperationException("schema validation detail"))
+            .Build();
+
+        GatewayActivityDiagnosticEventListener.Classify(error, StatusCodes.Status200OK)
+            .Should().Be(GatewayFailureKind.SyntaxError);
+    }
+
+    [Theory]
+    [InlineData("The syntax node `EnumValue` is incompatible with the type `DynamicSortInput`.")]
+    [InlineData("Field `LastUpdatedBys` does not exist on type `Product`.")]
+    public void HotChocolateDocumentErrorsWithoutCodesAreSyntaxErrors(string message)
+    {
+        var error = ErrorBuilder.New()
+            .SetMessage(message)
             .Build();
 
         GatewayActivityDiagnosticEventListener.Classify(error, StatusCodes.Status200OK)
@@ -252,6 +278,17 @@ public class GatewayGraphQlErrorClassificationTests
                 string.Empty,
                 StatusCodes.Status200OK,
                 "Variable `order` is not an input type.")
+            .Should().Be(GatewayFailureKind.SyntaxError);
+    }
+
+    [Fact]
+    public void TheReaderRepairsStoredInputCoercionErrorsWhoseCodeWasNotStored()
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                GatewayFailureKind.Unknown,
+                string.Empty,
+                StatusCodes.Status200OK,
+                "The syntax node `EnumValue` is incompatible with the type `DynamicSortInput`.")
             .Should().Be(GatewayFailureKind.SyntaxError);
     }
 

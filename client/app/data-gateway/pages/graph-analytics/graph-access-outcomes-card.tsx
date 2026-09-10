@@ -23,8 +23,9 @@ import { OUTCOME_COLORS } from "./graph-outcome-colors";
 
 /**
  * A request the gateway refused on purpose, as opposed to an error response. Authentication,
- * authorization, validation and other bad requests are denials; GraphQL syntax errors are errors.
- * Keeping these apart is the point of this card, and a single "failed" number hides which.
+ * authorization and explicit input validation are denials; malformed requests and GraphQL
+ * document failures are errors. Keeping these apart is the point of this card, and a single
+ * "failed" number hides which.
  *
  * The server applies the same rule when bucketing (GatewayFailureKind.IsDenial); this set only
  * sorts the per-reason detail lines into the right tile.
@@ -35,6 +36,16 @@ const CHART_CONFIG = {
   denied: { label: "Denies", color: OUTCOME_COLORS.denies },
   errored: { label: "Errors", color: OUTCOME_COLORS.errors },
 } satisfies ChartConfig;
+
+// A real non-zero outcome must remain visible even when a much larger successful-request segment
+// drives the Y-axis into the hundreds or thousands. The tooltip continues to show the exact count;
+// this minimum affects only the rendered height.
+const MIN_VISIBLE_OUTCOME_BAR_SIZE = 4;
+
+export const formatOutcomeShare = (count: number, total: number) => {
+  if (total <= 0 || count <= 0) return "0%";
+  return `${Math.round((count / total) * 1000) / 10}%`;
+};
 
 interface GraphAccessOutcomesCardProps {
   requestsOverTime?: IGraphLogRequestsOverTimeBucket[];
@@ -53,7 +64,7 @@ const Outcome = ({
 }: {
   label: string;
   count: number;
-  share: number;
+  share: string;
   detail: string;
   color: string;
 }) => (
@@ -63,7 +74,7 @@ const Outcome = ({
       {count}
     </span>
     <span className="text-xs text-muted-foreground">
-      {label} · {share}%
+      {label} · {share}
     </span>
     <span className="text-xs text-muted-foreground/60">{detail || "—"}</span>
   </div>
@@ -113,8 +124,7 @@ export const GraphAccessOutcomesCard = ({
     };
   }, [requestsOverTime, failureStats]);
 
-  const share = (count: number) =>
-    outcomes.total === 0 ? 0 : Math.round((count / outcomes.total) * 100);
+  const share = (count: number) => formatOutcomeShare(count, outcomes.total);
 
   return (
     <Card>
@@ -181,6 +191,9 @@ export const GraphAccessOutcomesCard = ({
                     name={CHART_CONFIG[key].label}
                     stackId="outcome"
                     fill={`var(--color-${key})`}
+                    minPointSize={(_stackEnd, index) =>
+                      chartData[index]?.[key] > 0 ? MIN_VISIBLE_OUTCOME_BAR_SIZE : 0
+                    }
                     // A hairline of the card colour keeps stacked segments from bleeding together.
                     stroke="hsl(var(--card))"
                     strokeWidth={2}

@@ -219,23 +219,20 @@ describe("GraphAnalytics", () => {
     const operationRow = screen
       .getAllByRole("row")
       .find((row) => row.textContent?.startsWith("getBlxDrives"))!;
-    expect(within(operationRow).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
-      "getBlxDrives",
-      "10",
-      "6",
-      "3",
-      "1",
-      "780 ms",
-      "1.54 s",
-    ]);
+    expect(
+      within(operationRow)
+        .getAllByRole("cell")
+        .map((cell) => cell.textContent),
+    ).toEqual(["getBlxDrives", "10", "6", "3", "1", "780 ms", "1.54 s"]);
   });
 
   it("separates requests the gateway refused from requests that broke", () => {
     renderAnalytics();
 
     // Traffic opens on this card: volume and its composition are the same question.
-    const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
-      .parentElement!;
+    const card = screen
+      .getByRole("heading", { name: "Requests over time" })
+      .closest("div")!.parentElement!;
 
     // 10 requests: 3 refused on purpose (2 by policy, 1 by validation) and 1 that broke,
     // leaving 6 served. Validation counts as a denial — rejecting bad input is the gateway
@@ -259,9 +256,7 @@ describe("GraphAnalytics", () => {
         isSuccess: true,
         data: {
           ...ANALYTICS,
-          requestsOverTime: [
-            { date: "2026-08-30T00:00:00Z", success: 0, denied: 0, errored: 2 },
-          ],
+          requestsOverTime: [{ date: "2026-08-30T00:00:00Z", success: 0, denied: 0, errored: 2 }],
           failureStats: [
             { failureKind: "syntax_error", count: 1 },
             { failureKind: "unknown", count: 1 },
@@ -276,11 +271,41 @@ describe("GraphAnalytics", () => {
 
     renderAnalytics();
 
-    const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
-      .parentElement!;
+    const card = screen
+      .getByRole("heading", { name: "Requests over time" })
+      .closest("div")!.parentElement!;
     expect(within(card).getByText("Denies · 0%")).toBeInTheDocument();
     expect(within(card).getByText("Errors · 100%")).toBeInTheDocument();
     expect(within(card).getByText("1 syntax error · 1 others")).toBeInTheDocument();
+  });
+
+  it("keeps rare denied and error outcomes visible beside high successful traffic", () => {
+    useGraphLogAnalyticsMock.mockReturnValue({
+      data: {
+        isSuccess: true,
+        data: {
+          ...ANALYTICS,
+          requestsOverTime: [{ date: "2026-09-10T00:00:00Z", success: 990, denied: 1, errored: 3 }],
+          failureStats: [
+            { failureKind: "validation", count: 1 },
+            { failureKind: "bad_request", count: 3 },
+          ],
+        },
+        errors: null,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderAnalytics();
+
+    const card = screen
+      .getByRole("heading", { name: "Requests over time" })
+      .closest("div")!.parentElement!;
+    expect(within(card).getByText("Allows · 99.6%")).toBeInTheDocument();
+    expect(within(card).getByText("Denies · 0.1%")).toBeInTheDocument();
+    expect(within(card).getByText("Errors · 0.3%")).toBeInTheDocument();
   });
 
   it("restores the active tab from the URL and persists tab changes", async () => {
@@ -296,18 +321,13 @@ describe("GraphAnalytics", () => {
     await openTab(user, "Requests");
 
     expect(await screen.findByTestId("history")).toBeInTheDocument();
-    expect(screen.getByTestId("location-search")).toHaveTextContent(
-      "?source=alert&tab=requests",
-    );
+    expect(screen.getByTestId("location-search")).toHaveTextContent("?source=alert&tab=requests");
   });
 
   it("replaces a missing or invalid tab with the traffic URL", async () => {
     renderAnalytics("/services/data-gateway/analytics?tab=removed-view");
 
     expect(await screen.findByTestId("location-search")).toHaveTextContent("?tab=traffic");
-    expect(screen.getByRole("tab", { name: "Traffic" })).toHaveAttribute(
-      "data-state",
-      "active",
-    );
+    expect(screen.getByRole("tab", { name: "Traffic" })).toHaveAttribute("data-state", "active");
   });
 });

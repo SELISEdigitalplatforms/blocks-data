@@ -226,6 +226,7 @@ scripts/scan.sh
 
 # local scan and coverage output, never committed
 results/
+/db-scripts/
 
 # --- AI agent instruction files (do not commit) ---
 QWEN.md

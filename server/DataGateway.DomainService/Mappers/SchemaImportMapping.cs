@@ -28,6 +28,7 @@ public static class SchemaImportMapping
         IsUniqueData = f.IsUniqueData,
         Description = f.Description,
         IsReferenceField = f.IsReferenceField,
+        ReferenceFieldType = f.ReferenceFieldType,
         ReadAccessLevel = f.ReadAccessLevel,
         WriteAccessLevel = f.WriteAccessLevel,
         EditAccessLevel = f.EditAccessLevel,

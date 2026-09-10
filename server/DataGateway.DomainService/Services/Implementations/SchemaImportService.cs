@@ -80,6 +80,11 @@ public class SchemaImportService : ISchemaImportService
             return 0;
         }
 
+        // Older export files did not include ReferenceFieldType. Reconstruct it from
+        // the schemas in the file so synthetic nodes in nested GraphQL filters retain
+        // their actual DTO type after import.
+        RestoreMissingReferenceFieldTypes(documents);
+
         // 2. Validate documents
         var validationErrors = await _schemaImportValidator.ValidateAsync(documents);
         if (validationErrors.Count > 0)
@@ -111,6 +116,46 @@ public class SchemaImportService : ISchemaImportService
 
         _logger.LogInformation("ProcessImportAsync: Imported {Count} schemas for fileId={FileId}", importedSchemas.Count, importEvent.FileId);
         return importedSchemas.Count;
+    }
+
+    private static void RestoreMissingReferenceFieldTypes(List<SchemaExportDocument> documents)
+    {
+        var schemasByName = documents
+            .Where(document => !string.IsNullOrWhiteSpace(document.SchemaName))
+            .GroupBy(document => document.SchemaName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var document in documents)
+        {
+            foreach (var field in document.Fields.Where(field =>
+                         field.IsReferenceField && string.IsNullOrWhiteSpace(field.ReferenceFieldType)))
+            {
+                var pathSegments = field.Name.Split('.');
+                var containingSchema = document;
+                var resolved = pathSegments.Length > 1;
+
+                // The last segment is the scalar field itself. Following every preceding
+                // segment leads to the DTO that contains that scalar field.
+                for (var index = 0; index < pathSegments.Length - 1; index++)
+                {
+                    var reference = containingSchema.Fields.FirstOrDefault(candidate =>
+                        !candidate.IsReferenceField &&
+                        string.Equals(candidate.Name, pathSegments[index], StringComparison.Ordinal));
+
+                    if (reference is null ||
+                        !schemasByName.TryGetValue(reference.Type, out var referencedSchema))
+                    {
+                        resolved = false;
+                        break;
+                    }
+
+                    containingSchema = referencedSchema;
+                }
+
+                if (resolved)
+                    field.ReferenceFieldType = containingSchema.SchemaName;
+            }
+        }
     }
 
     /// <summary>

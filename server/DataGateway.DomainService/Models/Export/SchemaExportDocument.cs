@@ -25,6 +25,7 @@ public class ExportFieldDefinition
     public bool IsUniqueData { get; set; }
     public string Description { get; set; } = string.Empty;
     public bool IsReferenceField { get; set; }
+    public string ReferenceFieldType { get; set; } = string.Empty;
     public SchemaAccessLevel ReadAccessLevel { get; set; }
     public SchemaAccessLevel WriteAccessLevel { get; set; }
     public SchemaAccessLevel EditAccessLevel { get; set; }

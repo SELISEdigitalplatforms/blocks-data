@@ -57,6 +57,7 @@ public static class SchemaExportMapping
                     IsUniqueData = field.IsUniqueData,
                     Description = field.Description,
                     IsReferenceField = field.IsReferenceField,
+                    ReferenceFieldType = field.ReferenceFieldType,
                     ReadAccessLevel = field.ReadAccessLevel,
                     WriteAccessLevel = field.WriteAccessLevel,
                     EditAccessLevel = field.EditAccessLevel,

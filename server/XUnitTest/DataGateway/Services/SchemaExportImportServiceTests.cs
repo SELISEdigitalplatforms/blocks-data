@@ -155,6 +155,68 @@ public class SchemaImportServiceTests
     }
 
     [Fact]
+    public async Task ProcessImport_ReferenceFieldPathLongerThanFiftyCharacters_Upserts()
+    {
+        const string referenceFieldPath =
+            "Signatories.Signature.SignaturePostInfoCoordinateFormFieldValues.CoordinateId";
+        var docs = new List<SchemaExportDocument>
+        {
+            new()
+            {
+                SchemaName = "Agreement",
+                CollectionName = "Agreements",
+                SchemaType = SchemaType.Entity,
+                Fields = new()
+                {
+                    new ExportFieldDefinition
+                    {
+                        Name = referenceFieldPath,
+                        Type = "String",
+                        IsReferenceField = true
+                    }
+                }
+            }
+        };
+
+        var count = await _service.ProcessImportAsync(
+            new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs));
+
+        count.Should().Be(1);
+        _repo.Verify(r => r.UpsertManyAsync(
+            It.Is<List<SchemaDefinition>>(schemas =>
+                schemas[0].Fields.Any(field => field.Name == referenceFieldPath)), ""), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessImport_ReferenceFieldWithSegmentLongerThanFiftyCharacters_Throws()
+    {
+        var docs = new List<SchemaExportDocument>
+        {
+            new()
+            {
+                SchemaName = "Agreement",
+                CollectionName = "Agreements",
+                SchemaType = SchemaType.Entity,
+                Fields = new()
+                {
+                    new ExportFieldDefinition
+                    {
+                        Name = $"Signatories.{new string('A', 51)}.CoordinateId",
+                        Type = "String",
+                        IsReferenceField = true
+                    }
+                }
+            }
+        };
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ProcessImportAsync(
+                new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs)));
+
+        exception.Message.Should().Contain("must be between 1 and 50 characters");
+    }
+
+    [Fact]
     public async Task ProcessImport_WithPoliciesAndValidations_InsertsThem()
     {
         var docs = new List<SchemaExportDocument>

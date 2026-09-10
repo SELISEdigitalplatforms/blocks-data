@@ -118,12 +118,13 @@ public class SchemaImportValidator
                     if (!seenFieldNames.Add(field.Name))
                         errors.Add($"{prefix}: Field name '{field.Name}' must be unique within a schema.");
 
-                    // Reference fields (e.g. "Address.City") denote a nested property of a custom
-                    // type and legitimately contain a dot; everything else must be a plain identifier.
-                    var nameToCheck = field.IsReferenceField ? field.Name.Split('.')[^1] : field.Name;
-                    if (field.Name.Length > 50)
+                    // Reference fields (e.g. "Address.City") are stored as dotted paths. Each
+                    // segment is an actual schema field name and must satisfy the normal field-name
+                    // rules, but the combined path may legitimately exceed 50 characters.
+                    var namesToCheck = field.IsReferenceField ? field.Name.Split('.') : [field.Name];
+                    if (namesToCheck.Any(name => name.Length is < 1 or > 50))
                         errors.Add($"{prefix}: Field name '{field.Name}' must be between 1 and 50 characters.");
-                    else if (!SchemaValidatorHelper.NameAllowedPattern.IsMatch(nameToCheck))
+                    else if (namesToCheck.Any(name => !SchemaValidatorHelper.NameAllowedPattern.IsMatch(name)))
                         errors.Add($"{prefix}: Field name '{field.Name}' may only contain letters, numbers, and underscore, and cannot start with a number.");
                 }
 

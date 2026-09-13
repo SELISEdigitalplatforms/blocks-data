@@ -49,16 +49,17 @@ describe("SchemaIndexesTab", () => {
     renderTab();
 
     expect(screen.getByText("0 of 15 custom indexes")).toBeInTheDocument();
-    expect(screen.getByText("_id_")).toBeInTheDocument();
+    expect(screen.getByText("ItemId(_id_)")).toBeInTheDocument();
     expect(screen.getByText("Unique")).toBeInTheDocument();
+    expect(screen.getByText("Default")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete index _id_" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add index/ })).toBeEnabled();
 
-    await user.click(screen.getByText("_id_").closest("button")!);
+    await user.click(screen.getByText("ItemId(_id_)").closest("button")!);
     const properties = screen.getByRole("list", {
-      name: "Properties and order for _id_",
+      name: "Properties for _id_",
     });
-    expect(within(properties).getByRole("listitem")).toHaveTextContent("1ItemId↑");
+    expect(within(properties).getByRole("listitem")).toHaveTextContent("ItemId↑");
   });
 
   it("shows full-row index summaries and expands ordered properties", async () => {
@@ -91,36 +92,37 @@ describe("SchemaIndexesTab", () => {
     });
     renderTab();
 
-    expect(screen.getByText("_id_")).toBeInTheDocument();
+    expect(screen.getByText("ItemId(_id_)")).toBeInTheDocument();
     expect(screen.getByText("email_1")).toBeInTheDocument();
     expect(screen.getByText("lastName_1_age_-1")).toBeInTheDocument();
     expect(screen.getAllByText("1 property")).toHaveLength(2);
     expect(screen.getByText("2 properties")).toBeInTheDocument();
+    expect(screen.getByText("Compound")).toBeInTheDocument();
     expect(screen.getAllByText("Unique")).toHaveLength(2);
     expect(screen.getByText("Non-unique")).toBeInTheDocument();
 
     await user.click(screen.getByText("email_1").closest("button")!);
 
     const emailProperties = screen.getByRole("list", {
-      name: "Properties and order for email_1",
+      name: "Properties for email_1",
     });
-    expect(within(emailProperties).getByRole("listitem")).toHaveTextContent("1email↑");
+    expect(within(emailProperties).getByRole("listitem")).toHaveTextContent("email↑");
 
     await user.click(screen.getByText("lastName_1_age_-1").closest("button")!);
 
     const compoundProperties = screen.getByRole("list", {
-      name: "Properties and order for lastName_1_age_-1",
+      name: "Properties for lastName_1_age_-1",
     });
     const orderedProperties = within(compoundProperties).getAllByRole("listitem");
-    expect(orderedProperties[0]).toHaveTextContent("1lastName↑");
-    expect(orderedProperties[1]).toHaveTextContent("2age↓");
+    expect(orderedProperties[0]).toHaveTextContent("lastName↑");
+    expect(orderedProperties[1]).toHaveTextContent("age↓");
   });
 
   it("disables Add index when the schema is Dto-type and shows an explanatory message", () => {
     useSchemaIndexes.mockReturnValue({ data: { data: { indexes: [] } }, isLoading: false });
     renderTab(2);
 
-    expect(screen.queryByText("_id_")).not.toBeInTheDocument();
+    expect(screen.queryByText("ItemId(_id_)")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add index/ })).toBeDisabled();
     expect(
       screen.getAllByText("Indexes are only supported on Entity schemas.").length,

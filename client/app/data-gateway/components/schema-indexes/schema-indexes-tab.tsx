@@ -166,15 +166,17 @@ export function SchemaIndexesTab({
               value={index.itemId || index.name}
               className="rounded-sm border border-border/30 bg-card shadow-sm"
             >
-              <div className="flex min-w-0 items-center">
-                <AccordionTrigger className="min-w-0 px-4 py-3 text-left hover:no-underline">
-                  <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 pr-4">
+              <div className="flex min-w-0 items-center [&>h3]:min-w-0 [&>h3]:flex-1">
+                <AccordionTrigger className="min-w-0 flex-row-reverse justify-end gap-3 px-4 py-3 text-left hover:no-underline">
+                  <div className="flex min-w-0 flex-1 items-center gap-4 pr-4">
                     <span className="truncate text-sm font-semibold" title={index.name}>
-                      {index.name}
+                      {index.isSystem ? "ItemId(_id_)" : index.name}
                     </span>
                     <span className="whitespace-nowrap text-xs text-muted-foreground">
                       {index.fields.length} {index.fields.length === 1 ? "property" : "properties"}
                     </span>
+                    {index.isSystem && <Badge variant="outline">Default</Badge>}
+                    {index.fields.length > 1 && <Badge variant="outline">Compound</Badge>}
                     <Badge variant={index.isUnique ? "secondary" : "outline"}>
                       {index.isUnique ? "Unique" : "Non-unique"}
                     </Badge>
@@ -203,21 +205,18 @@ export function SchemaIndexesTab({
 
               <AccordionContent className="border-t border-border/30 px-4 pb-4 pt-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Properties and order
+                  Properties
                 </p>
-                <ol
+                <ul
                   className="mt-2 flex flex-col gap-2"
-                  aria-label={`Properties and order for ${index.name}`}
+                  aria-label={`Properties for ${index.name}`}
                 >
                   {index.fields.map((field, position) => (
                     <li
                       key={`${field.fieldName}-${position}`}
                       className="flex min-w-0 items-center gap-2 text-sm"
                     >
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-xs text-muted-foreground">
-                        {position + 1}
-                      </span>
-                      <span className="min-w-0 flex-1 break-all">{field.fieldName}</span>
+                      <span className="min-w-0 break-all">{field.fieldName}</span>
                       <span
                         className="text-lg font-semibold leading-none text-muted-foreground"
                         aria-label={INDEX_DIRECTION_LABELS[field.direction]}
@@ -227,7 +226,7 @@ export function SchemaIndexesTab({
                       </span>
                     </li>
                   ))}
-                </ol>
+                </ul>
               </AccordionContent>
             </AccordionItem>
           ))}

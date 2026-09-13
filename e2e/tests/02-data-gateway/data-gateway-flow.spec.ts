@@ -4,11 +4,6 @@ import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
 
 async function openDataGateway(page: Page) {
-  // Direct nav (vs clicking the sidebar link) guarantees we land on a fresh
-  // /data-gateway view with no leftover ?schemaId= query param from a
-  // previously selected schema. The link-click path was racing with the
-  // data-service refetch and leaving the page in a half-loaded state where
-  // the Security Assessment table never resolved.
   const url = new URL(page.url());
   const projectId = url.pathname.split("/")[2];
   if (projectId) {
@@ -24,13 +19,6 @@ async function openDataGateway(page: Page) {
 }
 
 function schemaRowLocator(page: Page, schemaName: string) {
-  // Match the schema in either of the two places it can live:
-  //  - the landing-page table row (cursor-pointer `<tr>`)
-  //  - the two-panel view's sidebar item (cursor-pointer button)
-  // The cursor-pointer class is the common denominator: the table row,
-  // its parent wrapper, and the sidebar item button all carry it. We
-  // filter for those that contain the schema name (not a substring) so
-  // other rows in the table (e.g. pagination rows) don't match.
   return page
     .locator('[class*="cursor-pointer"]')
     .filter({ has: page.getByText(schemaName, { exact: true }) })
@@ -55,24 +43,12 @@ async function clickPaginationButton(
 
 async function selectSchema(page: Page, schemaName: string): Promise<boolean> {
   await openDataGateway(page);
-
-  // Wait for the landing page to actually render the schema list — the
-  // data-service component returns null while the configuration query is
-  // still in flight, leaving the page with only the header chrome and the
-  // "API Docs / Import / Export / Playground / Configure" buttons. Any
-  // locator that targets a row would resolve to "not visible" in that
-  // transient state, even when the schema is on the first page.
   const landingHeading = page.getByRole("heading", { name: "Security Assessment" });
   const emptyStateHeading = page.getByText("No schemas yet", { exact: true });
   await expect(landingHeading.or(emptyStateHeading).first()).toBeVisible({
     timeout: 30_000,
   });
 
-  // The Data Gateway landing lists schemas in a paginated table (10 per page).
-  // Tests on a shared project accumulate schemas across runs, so the schema
-  // this test just created is often not on the first page. The list is sorted
-  // newest-first, so the most recently created schema lives on the LAST page
-  // — try that first before falling back to a forward scan.
   if (await schemaRowVisible(page, schemaName)) {
     await schemaRowLocator(page, schemaName).click();
     return true;
@@ -116,7 +92,8 @@ test.describe("flow: Data Gateway menu", () => {
     await openDataGateway(page);
 
     await test.step("Configure the data source (create-mode dialog, or edit-mode page if one already exists)", async () => {
-      const configureButton = page.getByRole("button", { name: "Configure" }).first();
+      await page.getByRole("button", { name: "More actions" }).click();
+      const configureButton = page.getByRole("menuitem", { name: "Configure" });
       await expect(configureButton).toBeVisible({ timeout: 15_000 });
 
       await configureButton.click();
@@ -161,90 +138,137 @@ test.describe("flow: Data Gateway menu", () => {
       }
     });
 
-    await test.step("Data Source: strictly exercise both 'Blocks database' and 'My data sources', restoring the original", async () => {
+    await test.step("Data Source: exercise both 'Blocks database' and 'My data sources', then restore the original", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
+
       await openDataGateway(page);
-      const configureButton = page.getByRole("button", { name: "Configure" }).first();
+
+      await page.getByRole("button", { name: "More actions" }).click();
+
+      const configureButton = page.getByRole("menuitem", {
+        name: "Configure",
+      });
+
       await expect(configureButton).toBeVisible({ timeout: 15_000 });
       await configureButton.click();
-      await expect(page).toHaveURL(/\/configuration/, { timeout: 30_000 });
+
+      await expect(page).toHaveURL(/\/configuration/, {
+        timeout: 30_000,
+      });
+
       await expect(page.getByRole("heading", { name: "Data Source" })).toBeVisible({
         timeout: 30_000,
       });
 
-      const blocksRadio = page.getByRole("radio", { name: /Blocks database/ });
-      const othersRadio = page.getByRole("radio", { name: /My data sources/ });
-      const saveChangesButton = page.getByRole("button", { name: "Save Changes" });
-      const confirmHeading = page.getByRole("heading", { name: "Confirm data source update?" });
-      const confirmButton = page.getByRole("button", { name: "Confirm" });
+      const blocksRadio = page.getByRole("radio", {
+        name: /Blocks database/,
+      });
 
-      async function confirmAndSave() {
-        await expect(saveChangesButton).toBeEnabled({ timeout: 10_000 });
+      const othersRadio = page.getByRole("radio", {
+        name: /My data sources/,
+      });
+
+      const saveChangesButton = page.getByRole("button", {
+        name: "Save Changes",
+      });
+
+      const confirmHeading = page.getByRole("heading", {
+        name: "Confirm data source update?",
+      });
+
+      const confirmButton = page.getByRole("button", {
+        name: "Confirm",
+      });
+
+      const connectionInput = page.getByRole("textbox", {
+        name: "Connection String",
+      });
+
+      const databaseNameInput = page.getByRole("textbox", {
+        name: "Database Name",
+      });
+
+      const wasBlocksOriginally = (await blocksRadio.getAttribute("aria-checked")) === "true";
+
+      const originalConnectionString = wasBlocksOriginally
+        ? null
+        : await connectionInput.inputValue();
+
+      const originalDatabaseName = wasBlocksOriginally
+        ? null
+        : await databaseNameInput.inputValue();
+
+      async function saveChanges(expectedRadio: Locator) {
+        await expect(saveChangesButton).toBeEnabled({
+          timeout: 10_000,
+        });
+
         await saveChangesButton.click();
-        await expect(confirmHeading).toBeVisible({ timeout: 15_000 });
+
+        await expect(confirmHeading).toBeVisible({
+          timeout: 15_000,
+        });
+
         await expect(
           page.getByText("Changing the data source will affect all existing data."),
         ).toBeVisible();
+
         await confirmButton.click();
+
         await expect(page.getByText("Data source updated successfully").first()).toBeVisible({
           timeout: 20_000,
         });
-        await expect(confirmHeading).toBeHidden({ timeout: 10_000 });
+
+        await expect(confirmHeading).toBeHidden({
+          timeout: 10_000,
+        });
+
+        await expect(expectedRadio).toHaveAttribute("aria-checked", "true", { timeout: 15_000 });
       }
 
-      const wasBlocksOriginally = (await blocksRadio.getAttribute("aria-checked")) === "true";
-      const originalConnectionString = wasBlocksOriginally
-        ? null
-        : await page.getByRole("textbox", { name: "Connection String" }).inputValue();
-      const originalDatabaseName = wasBlocksOriginally
-        ? null
-        : await page.getByRole("textbox", { name: "Database Name" }).inputValue();
+      if (wasBlocksOriginally) {
+        await othersRadio.click();
 
-      try {
-        if (wasBlocksOriginally) {
-          await othersRadio.click();
-          const connectionInput = page.getByRole("textbox", { name: "Connection String" });
-          const databaseNameInput = page.getByRole("textbox", { name: "Database Name" });
-          await expect(saveChangesButton).toBeDisabled();
+        await expect(othersRadio).toHaveAttribute("aria-checked", "true");
 
-          await connectionInput.fill(`mongodb://localhost:27017/e2e-flow-${Date.now()}`);
-          await databaseNameInput.fill(`e2e-flow-${Date.now()}`);
-          await confirmAndSave();
-          await expect(othersRadio).toHaveAttribute("aria-checked", "true");
+        await expect(connectionInput).toBeVisible();
+        await expect(databaseNameInput).toBeVisible();
+        await expect(saveChangesButton).toBeDisabled();
 
-          await blocksRadio.click();
-          await confirmAndSave();
-          await expect(blocksRadio).toHaveAttribute("aria-checked", "true");
-        } else {
-          await blocksRadio.click();
-          await confirmAndSave();
-          await expect(blocksRadio).toHaveAttribute("aria-checked", "true");
+        const testConnectionString = `mongodb://localhost:27017/e2e-flow-${Date.now()}`;
 
-          await othersRadio.click();
-          await page
-            .getByRole("textbox", { name: "Connection String" })
-            .fill(originalConnectionString ?? "");
-          await page
-            .getByRole("textbox", { name: "Database Name" })
-            .fill(originalDatabaseName ?? "");
-          await confirmAndSave();
-          await expect(othersRadio).toHaveAttribute("aria-checked", "true");
-        }
-      } finally {
-        await openDataGateway(page);
-        await configureButton.click();
-        await expect(page).toHaveURL(/\/configuration/, { timeout: 30_000 });
-        if (wasBlocksOriginally) {
-          await expect(blocksRadio).toHaveAttribute("aria-checked", "true", { timeout: 15_000 });
-        } else {
-          await expect(othersRadio).toHaveAttribute("aria-checked", "true", { timeout: 15_000 });
-          await expect(page.getByRole("textbox", { name: "Connection String" })).toHaveValue(
-            originalConnectionString ?? "",
-          );
-          await expect(page.getByRole("textbox", { name: "Database Name" })).toHaveValue(
-            originalDatabaseName ?? "",
-          );
-        }
+        const testDatabaseName = `e2e-flow-${Date.now()}`;
+
+        await connectionInput.fill(testConnectionString);
+        await databaseNameInput.fill(testDatabaseName);
+
+        await saveChanges(othersRadio);
+
+        await blocksRadio.click();
+
+        await saveChanges(blocksRadio);
+
+        await expect(blocksRadio).toHaveAttribute("aria-checked", "true");
+      } else {
+        await blocksRadio.click();
+
+        await saveChanges(blocksRadio);
+
+        await othersRadio.click();
+
+        await expect(connectionInput).toBeVisible();
+        await expect(databaseNameInput).toBeVisible();
+
+        await connectionInput.fill(originalConnectionString ?? "");
+        await databaseNameInput.fill(originalDatabaseName ?? "");
+
+        await saveChanges(othersRadio);
+
+        await expect(othersRadio).toHaveAttribute("aria-checked", "true");
+
+        await expect(connectionInput).toHaveValue(originalConnectionString ?? "");
+
+        await expect(databaseNameInput).toHaveValue(originalDatabaseName ?? "");
       }
     });
 
@@ -263,11 +287,6 @@ test.describe("flow: Data Gateway menu", () => {
 
       await createSchemaViaModal(page, addSchemaButton, schemaName);
 
-      // After create, SecurityAndPerformance calls openSchemaInEditor with
-      // the new schema's id, which auto-navigates to the two-panel view
-      // with the new schema selected. Verify the schema details are showing
-      // by waiting for the schema-name heading — no separate "click the row
-      // in the table" step is needed (we are not on the landing anymore).
       await expect(page.getByRole("heading", { name: schemaName }).first()).toBeVisible({
         timeout: 30_000,
       });
@@ -291,11 +310,9 @@ test.describe("flow: Data Gateway menu", () => {
     });
 
     await test.step("Export walks the two-step wizard and requests a real export", async () => {
-      // export-schema-modal.tsx is a two-step wizard: step 1 (options +
-      // "Select file type") has no Export button at all -- it only appears
-      // on step 2, alongside the format radio and Download checkbox.
       await page.setViewportSize({ width: 1440, height: 900 });
-      const exportButton = page.getByRole("button", { name: "Export" });
+      await page.getByRole("button", { name: "More actions" }).click();
+      const exportButton = page.getByRole("menuitem", { name: "Export" });
       await expect(exportButton).toBeVisible({ timeout: 15_000 });
       await exportButton.click();
       const dialog = page.locator('[role="dialog"]');
@@ -312,10 +329,6 @@ test.describe("flow: Data Gateway menu", () => {
       const confirmExportButton = dialog.getByRole("button", { name: "Export", exact: true });
       await expect(confirmExportButton).toBeEnabled({ timeout: 10_000 });
       await confirmExportButton.click();
-      // The actual file only downloads later, asynchronously, once a
-      // "schema-export" websocket notification arrives -- handleExport
-      // itself just requests the export and closes the dialog immediately,
-      // so this stays best-effort rather than a hard requirement.
       await expect(page.getByText("Export in progress").first()).toBeVisible({
         timeout: 15_000,
       });
@@ -323,21 +336,17 @@ test.describe("flow: Data Gateway menu", () => {
     });
 
     await test.step("Import Schema modal opens fresh and requires a file before proceeding", async () => {
-      const importButton = page.getByRole("button", { name: "Import" });
+      await page.getByRole("button", { name: "More actions" }).click();
+      const importButton = page.getByRole("menuitem", { name: "Import" });
       await expect(importButton).toBeVisible({ timeout: 15_000 });
       await importButton.click();
       const dialog = page.locator('[role="dialog"]');
       await expect(dialog).toBeVisible({ timeout: 30_000 });
 
-      // import-schema-modal.tsx labels the confirm button "Upload", not
-      // "Import" -- the modal itself is titled "Import", but its action is not.
       const confirmImportButton = dialog.getByRole("button", { name: "Upload" });
       await expect(confirmImportButton).toBeVisible({ timeout: 10_000 });
       await expect(confirmImportButton).toBeDisabled();
-      // Cancel the import via the dialog's explicit Cancel button rather
-      // than Escape -- Escape close-via-onOpenChange can lag briefly and
-      // fail the trailing toBeHidden assertion, and the dialog provides
-      // its own Cancel control next to the Upload button.
+
       const cancelButton = dialog.getByRole("button", { name: "Cancel" });
       await expect(cancelButton).toBeVisible({ timeout: 5_000 });
       await cancelButton.click();
@@ -358,13 +367,6 @@ test.describe("flow: Data Gateway menu", () => {
     });
 
     await test.step("'Logs' (when enabled) navigates to the Data Gateway logs page", async () => {
-      // schema-details-page.tsx has this button's usage commented out in
-      // this checkout (dev), but it is live in production -- the route
-      // itself (/data-gateway/logs -> DataServiceLogs) works either way.
-      // This precondition is genuinely environment-dependent (not something
-      // the flow controls), so it stays conditional rather than a hard
-      // assert -- unlike the guards elsewhere in this file that gated on
-      // things that should always be true.
       const logsButton = page.getByRole("link", { name: "Logs", exact: true });
       const logsEnabled = await logsButton.isVisible({ timeout: 5_000 }).catch(() => false);
       if (!logsEnabled) return;
@@ -380,20 +382,11 @@ test.describe("flow: Data Gateway menu", () => {
       await playgroundButton.click();
       await expect(page).toHaveURL(/\/playground/, { timeout: 10_000 });
 
-      // The execute button is the only button whose accessible name contains
-      // the word "Execute" / "Executing" (the CodeLens "Run <op>" links live
-      // inside the Monaco editor and are not role=button).
-      const executeButton = page
-        .getByRole("button", { name: /execute/i })
-        .first();
+      const executeButton = page.getByRole("button", { name: /execute/i }).first();
       await expect(executeButton).toBeVisible({ timeout: 10_000 });
       await expect(executeButton).toBeEnabled({ timeout: 10_000 });
       await executeButton.click();
 
-      // A real execution flips the response panel from the empty placeholder
-      // ("// Execute a query to see the response") to a JSON body — assert
-      // strictly that the response header reads "Response" and the editor
-      // is no longer the empty placeholder.
       const responseHeader = page.locator("span", { hasText: /^Response$/ }).first();
       await expect(responseHeader).toBeVisible({ timeout: 15_000 });
       await expect(page.getByText("// Execute a query to see the response")).toBeHidden({
@@ -405,22 +398,13 @@ test.describe("flow: Data Gateway menu", () => {
         await expect(schemasButton).toBeVisible({ timeout: 10_000 });
         await schemasButton.click();
 
-        // The Schemas drawer is built on Vaul (data-vaul-drawer attr)
-        // so the container still gets role="dialog".
         const drawer = page.getByRole("dialog");
         await expect(drawer).toBeVisible({ timeout: 15_000 });
-        // DrawerTitle is rendered as a <div>, not an <h*>, so don't
-        // restrict to role=heading.
-        await expect(drawer.getByText("Schemas", { exact: true }).first()).toBeVisible();
-        await expect(
-          drawer.getByPlaceholder("Search types, fields..."),
-        ).toBeVisible();
 
-        // Close via the explicit X button -- Vaul drawers don't close
-        // on Escape without a manual handler.
-        await page
-          .getByRole("button", { name: "Close schemas drawer" })
-          .click();
+        await expect(drawer.getByText("Schemas", { exact: true }).first()).toBeVisible();
+        await expect(drawer.getByPlaceholder("Search types, fields...")).toBeVisible();
+
+        await page.getByRole("button", { name: "Close schemas drawer" }).click();
         await expect(drawer).toBeHidden({ timeout: 10_000 });
       });
 
@@ -431,25 +415,11 @@ test.describe("flow: Data Gateway menu", () => {
         await expect(cleanTestDataButton).toBeVisible({ timeout: 10_000 });
         await cleanTestDataButton.click();
 
-        // The modal renders as a Radix Dialog with role="dialog".
-        // Scope every assertion to this dialog so the test isn't
-        // confused by the playground page underneath (which has its
-        // own role="region" containers and Monaco editor surfaces).
         const dialog = page.getByRole("dialog");
         await expect(dialog).toBeVisible({ timeout: 10_000 });
-        await expect(
-          dialog.getByRole("heading", { name: "Clean Test Data" }),
-        ).toBeVisible();
-        await expect(
-          dialog.getByText(/select schemas to delete/i),
-        ).toBeVisible();
+        await expect(dialog.getByRole("heading", { name: "Clean Test Data" })).toBeVisible();
+        await expect(dialog.getByText(/select schemas to delete/i)).toBeVisible();
 
-        // Wait for the loading spinner to resolve. The modal renders
-        // either a list of schema checkboxes (with a "Select All"
-        // header) or an empty-state message ("No test data found")
-        // depending on whether any mock data exists -- assert
-        // whichever appears, then verify the Delete button is
-        // disabled because no schema is selected.
         const selectAll = dialog.getByText(/^Select All/);
         const noData = dialog.getByText(/no test data found/i);
         await expect(selectAll.or(noData)).toBeVisible({ timeout: 15_000 });
@@ -459,8 +429,6 @@ test.describe("flow: Data Gateway menu", () => {
         await expect(cancelButton).toBeEnabled();
         await expect(deleteButton).toBeDisabled();
 
-        // Close the modal -- Escape should work for this Radix dialog
-        // because it's not a Vaul drawer.
         await cancelButton.click();
         await expect(dialog).toBeHidden({ timeout: 5_000 });
       });
@@ -481,16 +449,8 @@ test.describe("flow: Data Gateway menu", () => {
     await test.step("'+ Add property' adds a new field, rejecting a duplicate/empty name", async () => {
       expect(await selectSchema(page, schemaName)).toBe(true);
 
-      // Use the desktop viewport so the property table renders as a
-      // <table> (not the mobile cards) — the mobile layout shows the name
-      // input inside a virtualized card that's hidden until scrolled into
-      // view, which the strict-visible assertion trips on.
       await page.setViewportSize({ width: 1440, height: 900 });
 
-      // "+ Add property" only renders while the schema is in edit mode
-      // (schema-structure.tsx gates it behind isEditMode && activeTab === "attribute"
-      // && !isEmbedded), so flip into edit mode first and assert the
-      // corresponding Cancel control is present as proof we actually entered.
       const editButton = page.getByRole("button", { name: "Edit", exact: true });
       await expect(editButton).toBeVisible({ timeout: 15_000 });
       await editButton.click();
@@ -502,27 +462,11 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(addPropertyButton).toBeVisible({ timeout: 15_000 });
       await addPropertyButton.click();
 
-      // The new row's name input uses placeholder "Click to edit" (the
-      // generic name-input placeholder used by every property row in
-      // schema-desktop-row.tsx). Schema-structure.tsx renders BOTH the
-      // desktop <table> view (hidden under `xl:block`, visible >=1280px)
-      // and the mobile card view (hidden under `xl:hidden`) at the same
-      // time, so a page-wide `.last()` picks up the mobile card's input
-      // which is display:none on this viewport. Scope the locator to the
-      // <table> element to target only the visible desktop input.
-      const newRowNameInput = page
-        .locator("table")
-        .getByPlaceholder("Click to edit")
-        .last();
+      const newRowNameInput = page.locator("table").getByPlaceholder("Click to edit").last();
       await expect(newRowNameInput).toBeVisible({ timeout: 15_000 });
       await newRowNameInput.scrollIntoViewIfNeeded();
       await newRowNameInput.fill(fieldName);
 
-      // Save the schema so the new field shows up in view mode. The form's
-      // submit opens an "Update schema property" confirmation dialog
-      // (editSchemaConfirmationModalData in
-      // client/app/data-gateway/models/schema-structure.types.ts); the
-      // dialog's primary action reads "Update", not "Confirm".
       const saveButton = page.getByRole("button", { name: "Save", exact: true });
       await expect(saveButton).toBeVisible({ timeout: 10_000 });
       await saveButton.click();
@@ -532,13 +476,7 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(page.getByText("Schema updated successfully").first()).toBeVisible({
         timeout: 15_000,
       });
-      // After save, edit mode exits and the name shows up as the input's
-      // value (react-hook-form state). The desktop <table> renders the
-      // input directly; the mobile card also renders the same row but is
-      // display:none on this viewport, so scope the locator to <table>.
-      // `value` attributes are read-only in HTML — confirm via
-      // page.evaluate that the rendered input has the right value, since
-      // react-hook-form mutates the property, not the attribute.
+
       await expect(
         page
           .locator("table input")
@@ -546,21 +484,13 @@ test.describe("flow: Data Gateway menu", () => {
           .first(),
       ).toBeAttached();
       const matched = await page.evaluate((name) => {
-        const inputs = Array.from(
-          document.querySelectorAll("table input"),
-        ) as HTMLInputElement[];
+        const inputs = Array.from(document.querySelectorAll("table input")) as HTMLInputElement[];
         return inputs.some((i) => i.value === name);
       }, fieldName);
       expect(matched).toBe(true);
     });
 
     await test.step("Schema changes are unadapted until Publish is clicked", async () => {
-      // hasUnadaptedChanges (schema-details-page.tsx) is driven by a
-      // project-wide change-log query, not something scoped to a schema the
-      // moment it's created -- it's only reliably true once a real edit has
-      // actually happened, which the "+ Add property" step just did. Assert
-      // it strictly here (not conditionally) since the precondition is now
-      // deterministic, not environment-dependent.
       await selectSchema(page, schemaName);
       const publishButton = page.getByRole("button", { name: "Publish" });
       const unadaptedAlert = page.getByText(/unadapted changes/i);
@@ -581,12 +511,6 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(schemaAccessButton).toBeVisible({ timeout: 15_000 });
 
       await schemaAccessButton.click();
-      // The drawer (SchemaAccessControlDrawer) renders 3 tabs: View /
-      // Edit / Delete, each owning its own access-policy select. Walking
-      // them in order verifies the drawer's tab controls work without
-      // throwing off the active tab. We then return to View (the default)
-      // before changing the policy so the rest of the step operates on
-      // the visible content.
       const drawerTabs = page.getByRole("tab");
       await expect(drawerTabs.first()).toBeVisible({ timeout: 15_000 });
       const tabCount = await drawerTabs.count();
@@ -594,16 +518,8 @@ test.describe("flow: Data Gateway menu", () => {
         await drawerTabs.nth(i).click();
         await expect(drawerTabs.nth(i)).toBeVisible();
       }
-      // Re-open the View tab so the "Change Policy" select that follows
-      // is the one the user is looking at (all three tabs render their
-      // own select, but only the active tab's content is mounted).
       await drawerTabs.first().click();
 
-      // "Change Policy" is the SelectValue placeholder text inside the
-      // Radix Select (schema-access-control-view.tsx:223). Radix renders
-      // the placeholder as a <span> inside the combobox trigger, which
-      // is exposed with role=combobox rather than a regular text node,
-      // so target the combobox via the placeholder-bearing trigger.
       const changePolicySelect = page
         .getByRole("combobox")
         .filter({ hasText: /Change Policy|Inherited|All logged in|Public|Custom/i })
@@ -614,44 +530,23 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(customOption).toBeVisible({ timeout: 10_000 });
       await customOption.click();
 
-      // Selecting Custom opens a confirmation modal
-      // (schema-access-control-view.tsx handleAccessTypeSelect →
-// isConfirmDialogOpen=true). Confirm it before the rule-set accordion
-// (with its "Add" button) renders.
-const confirmPolicyButton = page
-  .getByRole("button", { name: "Confirm" })
-  .first();
-await expect(confirmPolicyButton).toBeVisible({ timeout: 10_000 });
-await confirmPolicyButton.click();
+      const confirmPolicyButton = page.getByRole("button", { name: "Confirm" }).first();
+      await expect(confirmPolicyButton).toBeVisible({ timeout: 10_000 });
+      await confirmPolicyButton.click();
 
-// After confirming, the access control view swaps its empty list for
-// the rule-set list with an Add button (text "Add", per
-// schema-access-control-accordion.tsx). The wrapper is a Radix Drawer,
-// not a Dialog, so there's no role=dialog to scope to -- but the
-// "Add" button only renders inside the open drawer's rule-set
-// accordion (not on the schema page itself), so a page-wide role+
-// exact-name query is unambiguous here.
-const addRuleButton = page
-  .getByRole("button", { name: "Add", exact: true })
-  .first();
-await expect(addRuleButton).toBeVisible({ timeout: 10_000 });
-await addRuleButton.click();
-const addRuleFormButton = page
-  .getByRole("button", { name: /Add Rule/ })
-  .first();
-await expect(addRuleFormButton).toBeVisible({ timeout: 10_000 });
-await addRuleFormButton.click();
+      const addRuleButton = page.getByRole("button", { name: "Add", exact: true }).first();
+      await expect(addRuleButton).toBeVisible({ timeout: 10_000 });
+      await addRuleButton.click();
+      const addRuleFormButton = page.getByRole("button", { name: /Add Rule/ }).first();
+      await expect(addRuleFormButton).toBeVisible({ timeout: 10_000 });
+      await addRuleFormButton.click();
 
-await page.keyboard.press("Escape");
+      await page.keyboard.press("Escape");
     });
 
     await test.step("Add a regex validation to a field", async () => {
       expect(await selectSchema(page, schemaName)).toBe(true);
-      // The validations button lives in the per-row actions cell, which
-      // schema-structure.tsx renders in BOTH the desktop <table> view
-      // (visible at >=xl) and the mobile card view (hidden at >=xl).
-      // Force the desktop viewport, then use Playwright's `:visible`
-      // pseudo-class to skip the hidden mobile-card copy.
+
       await page.setViewportSize({ width: 1440, height: 900 });
       const validationTrigger = page
         .locator('table [aria-label^="Manage validations for"]:visible')
@@ -668,9 +563,6 @@ await page.keyboard.press("Escape");
     });
 
     await test.step("Schema Data tab: toolbar popovers, view toggles, refresh, and empty state", async () => {
-      // The Data tab in schema-structure.tsx is hidden when schemaType===2
-      // (entity). Our schema is created via the default flow (type 0),
-      // so the Data tab is present.
       expect(await selectSchema(page, schemaName)).toBe(true);
       await page.setViewportSize({ width: 1440, height: 900 });
 
@@ -679,10 +571,6 @@ await page.keyboard.press("Escape");
       await dataTab.click();
       await expect(dataTab).toHaveAttribute("data-state", "active");
 
-      // Toolbar triggers expose themselves via the `title` attribute
-      // (schema-data/toolbar/{filter,sort,projection}-popover.tsx render
-      // the icon-only Button with title="Filter"|"Sort"|"Column"), so
-      // query by title. The Reset and Refresh buttons also use title.
       const filterButton = page.locator("button[title='Filter']");
       const sortButton = page.locator("button[title='Sort']");
       const columnButton = page.locator("button[title='Column']");
@@ -692,14 +580,9 @@ await page.keyboard.press("Escape");
       for (const trigger of [filterButton, sortButton, columnButton, refreshButton]) {
         await expect(trigger).toBeVisible({ timeout: 10_000 });
       }
-      // Reset is conditionally rendered (toolbar/reset-button.tsx returns
-      // null while no filter/sort/projection is active). With a fresh,
-      // unfiltered Data tab it should not be in the DOM at all.
+
       await expect(resetButton).toHaveCount(0);
 
-      // The three view-mode toggles live in a single segmented control;
-      // they expose their labels via aria-label="Table view" / "JSON
-      // view" / "List view" (schema-data-tab.tsx VIEW_TOGGLES).
       const tableViewButton = page.getByRole("button", { name: "Table view" });
       const jsonViewButton = page.getByRole("button", { name: "JSON view" });
       const listViewButton = page.getByRole("button", { name: "List view" });
@@ -707,8 +590,6 @@ await page.keyboard.press("Escape");
       await expect(jsonViewButton).toBeVisible();
       await expect(listViewButton).toBeVisible();
 
-      // Open the Filter popover, verify it opens with the Filters header,
-      // then close. The schema is empty (no rows yet) so we don't apply.
       await filterButton.click();
       await expect(page.getByText("Filters", { exact: true }).first()).toBeVisible({
         timeout: 10_000,
@@ -718,10 +599,6 @@ await page.keyboard.press("Escape");
         timeout: 10_000,
       });
 
-      // Cycle through the view modes — each toggle surfaces its active
-      // state via the `bg-background` className (schema-data-tab.tsx
-      // does not expose aria-pressed), so assert each click both
-      // focuses the new mode and demotes the previous one.
       const activeClass = "bg-background";
       await listViewButton.click();
       await expect(listViewButton).toHaveClass(new RegExp(activeClass));
@@ -733,31 +610,19 @@ await page.keyboard.press("Escape");
       await expect(tableViewButton).toHaveClass(new RegExp(activeClass));
       await expect(jsonViewButton).not.toHaveClass(new RegExp(activeClass));
 
-      // Refresh the data -- the schema is empty so the empty state
-      // remains visible, but the click should not throw and the empty
-      // message ("No data found") should persist.
       await refreshButton.click();
       await expect(refreshButton).toBeEnabled({ timeout: 10_000 });
 
-      // Empty-state assertion: with no rows inserted for this schema,
-      // the Data tab's empty state should be on screen.
       await expect(page.getByText(/no data|no rows|no records|empty/i).first()).toBeVisible({
         timeout: 10_000,
       });
 
-      // Switch back to the Attribute tab so subsequent steps operate
-      // on the property table they expect.
       const attributeTab = page.getByRole("tab", { name: "Attribute" });
       await attributeTab.click();
       await expect(attributeTab).toHaveAttribute("data-state", "active");
     });
 
     await test.step("Schema Preview drawer opens, shows structure JSON, and closes via the X button", async () => {
-      // Preview button only renders when the schema has at least one field
-      // (schema-structure-header.tsx isShowPreviewButton = fieldLength > 0),
-      // and our earlier "+ Add property" step added the flow field, so we
-      // expect it on screen now. Force desktop to ensure the inline Preview
-      // button (vs. the mobile three-dot menu) is the one we interact with.
       await page.setViewportSize({ width: 1440, height: 900 });
       expect(await selectSchema(page, schemaName)).toBe(true);
 
@@ -765,21 +630,11 @@ await page.keyboard.press("Escape");
       await expect(previewButton).toBeVisible({ timeout: 15_000 });
       await previewButton.click();
 
-      // The drawer title is `${schemaName} preview` (schema-preview-drawer.tsx
-      // derives `heading = title ?? '${schemaName ?? "Schema"} preview'`, and
-      // the wrapper passes title={`${schemaName} preview`}).
       const drawerTitle = page.getByRole("heading", {
         name: new RegExp(`${schemaName} preview`),
       });
       await expect(drawerTitle).toBeVisible({ timeout: 15_000 });
 
-      // The default schema type from the Add Schema modal is "Entity"
-      // (add-edit-schema.tsx schemaType: "Entity"), which maps to a backend
-      // schemaType that makes the Preview drawer land on the "Request Format"
-      // tab — and entity schemas expose BOTH "Request Format" and "Schema
-      // Structure" as tabs in the tab strip. For non-entity, only the JSON
-      // Schema Structure renders (no tab strip). Just assert whichever is
-      // present is visible rather than asserting which one is active.
       const requestFormatTab = page.getByRole("tab", { name: "Request Format" });
       const structureTab = page.getByRole("tab", { name: "Schema Structure" });
       const anyStructureTab = await requestFormatTab
@@ -789,41 +644,24 @@ await page.keyboard.press("Escape");
         .catch(() => false);
 
       if (anyStructureTab) {
-        // Click Schema Structure so the JSON content under it renders.
         await structureTab.click();
         await expect(structureTab).toHaveAttribute("data-state", "active");
       }
 
-      // The SyntaxHighlighter renders the schema payload as JSON in a
-      // <pre><code> block; assert the structure is non-empty (any JSON
-      // curly brace is enough to confirm content rendered).
       const jsonCode = page.locator("pre").filter({ hasText: /\{|\[/ }).first();
       await expect(jsonCode).toBeVisible({ timeout: 10_000 });
 
-      // Close the drawer with the X button (aria-label="Close" in
-      // schema-preview-drawer.tsx, distinct from the access drawer's
-      // "Close schema access drawer"). The Drawer doesn't react to
-      // Escape in this checkout (handleOnly), so we use the button.
       const closeButton = page.getByRole("button", { name: "Close", exact: true });
       await expect(closeButton).toBeVisible();
       await closeButton.click();
 
-      // The Drawer unmounts its content when `open` flips to false.
       await expect(drawerTitle).toBeHidden({ timeout: 10_000 });
     });
 
     await test.step("Field-level access drawer opens from the row's View access button, with View/Create/Edit tabs", async () => {
-      // schema-desktop-row.tsx renders the per-row access control as a
-      // button with `aria-label="View access for {fieldName}"`. For our
-      // flow_field, that reads "View access for flow_field_<ts>". The
-      // resulting drawer title is "Access for {fieldName}" (schema-structure
-      // .tsx derives nestedTitle = `Access for ${buildValidationFieldName(...)}`
-      // when resolvedAncestorPath is empty).
       await page.setViewportSize({ width: 1440, height: 900 });
       expect(await selectSchema(page, schemaName)).toBe(true);
 
-      // Scope to the visible desktop <table> because schema-structure.tsx
-      // also renders the mobile-card copy (xl:hidden) for the same row.
       const rowAccessButton = page
         .locator("table:visible button[aria-label^='View access for']")
         .first();
@@ -835,9 +673,6 @@ await page.keyboard.press("Escape");
       });
       await expect(drawerTitle).toBeVisible({ timeout: 15_000 });
 
-      // SchemaAccessControlDrawer for column-level access hides the Delete
-      // tab (PERMISSION_ACTIONS filtered when level === "column"), so we
-      // expect View, Create and Edit -- in that order.
       const viewTab = page.getByRole("tab", { name: "View" });
       const createTab = page.getByRole("tab", { name: "Create" });
       const editTab = page.getByRole("tab", { name: "Edit" });
@@ -846,14 +681,10 @@ await page.keyboard.press("Escape");
       await expect(editTab).toBeVisible();
       await expect(viewTab).toHaveAttribute("data-state", "active");
 
-      // Switch to the Create tab and back to confirm tabs are clickable.
       await createTab.click();
       await expect(createTab).toHaveAttribute("data-state", "active");
       await viewTab.click();
       await expect(viewTab).toHaveAttribute("data-state", "active");
-
-      // Close the drawer (schema-access-control-drawer.tsx uses
-      // aria-label="Close schema access drawer").
       const closeButton = page.getByRole("button", {
         name: "Close schema access drawer",
       });
@@ -863,17 +694,6 @@ await page.keyboard.press("Escape");
     });
 
     await test.step("Schema Access rule set: verify Edit/Delete menu items exist for the existing rule set", async () => {
-      // The earlier "Schema Access drawer: change policy to Custom and add
-      // a rule set" step tried to add a rule but pressed Escape before
-      // saving, so the View tab starts empty. To still exercise the
-      // Edit/Delete dropdown menu (schema-access-control-accordion.tsx
-      // MoreHorizontal trigger), reopen the drawer and verify that:
-      //   - the empty-state message is shown when no rule exists, OR
-      //   - the row dropdown exposes Edit + Delete menu items when a
-      //     rule set survives (e.g. from a previous run).
-      // We don't create a rule set here because the form requires
-      // filling out field/operator/value triples -- covered indirectly by
-      // the earlier "change policy to Custom and add a rule set" step.
       await page.setViewportSize({ width: 1440, height: 900 });
       expect(await selectSchema(page, schemaName)).toBe(true);
 
@@ -892,17 +712,11 @@ await page.keyboard.press("Escape");
         .catch(() => false);
 
       if (!hasExistingRule) {
-        // Empty-state branch: confirm the helper copy and the Add button
-        // are visible (we already exercised Add in the earlier step).
         await expect(
           page.getByText(/No rule sets added yet|Click \+ Add to create one/i),
         ).toBeVisible({ timeout: 10_000 });
-        await expect(
-          page.getByRole("button", { name: "Add", exact: true }),
-        ).toBeVisible();
+        await expect(page.getByRole("button", { name: "Add", exact: true })).toBeVisible();
       } else {
-        // Existing-rule branch: open the row's dropdown and assert both
-        // Edit and Delete menu items are present.
         const rowMenuTrigger = ruleRows
           .first()
           .locator("button")
@@ -911,31 +725,15 @@ await page.keyboard.press("Escape");
         await expect(rowMenuTrigger).toBeVisible({ timeout: 5_000 });
         await rowMenuTrigger.click({ force: true });
 
-        await expect(
-          page.getByRole("menuitem", { name: "Edit" }),
-        ).toBeVisible({ timeout: 5_000 });
-        await expect(
-          page.getByRole("menuitem", { name: "Delete" }),
-        ).toBeVisible();
-
-        // Close the dropdown without picking an item (Escape works on
-        // Radix DropdownMenu).
+        await expect(page.getByRole("menuitem", { name: "Edit" })).toBeVisible({ timeout: 5_000 });
+        await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
         await page.keyboard.press("Escape");
       }
 
-      // Close the schema access drawer.
-      await page
-        .getByRole("button", { name: "Close schema access drawer" })
-        .click();
+      await page.getByRole("button", { name: "Close schema access drawer" }).click();
     });
 
     await test.step("Validation drawer: existing regex shows Edit/Delete row actions that round-trip through the form and dialog", async () => {
-      // The earlier "Add a regex validation to a field" step persisted a
-      // pattern (^[A-Z]{2}\d{4}$) on flow_field_<ts>. Reopen the per-row
-      // validation drawer and exercise both row actions -- schema-fields-
-      // validation/schema-field-validation-drawer.tsx renders each
-      // validation in a card with Pencil (Edit) and Trash (Delete) ghost
-      // buttons. Delete opens a "Delete validation?" confirmation dialog.
       await page.setViewportSize({ width: 1440, height: 900 });
       expect(await selectSchema(page, schemaName)).toBe(true);
 
@@ -945,22 +743,19 @@ await page.keyboard.press("Escape");
       await expect(validationTrigger).toBeVisible({ timeout: 15_000 });
       await validationTrigger.click();
 
-      // The drawer title is "Validations for <fieldName>".
       const drawerTitle = page.getByRole("heading", {
         name: new RegExp(`Validations for ${fieldName}$`),
       });
       await expect(drawerTitle).toBeVisible({ timeout: 15_000 });
 
-      // The pattern we just saved should render as a code block inside
-      // the existing-validations card -- assert it so we know we're not
-      // looking at an empty state.
-      const existingPattern = page.locator("p.font-mono").filter({
-        hasText: "^[A-Z]{2}",
-      }).first();
+      const existingPattern = page
+        .locator("p.font-mono")
+        .filter({
+          hasText: "^[A-Z]{2}",
+        })
+        .first();
       await expect(existingPattern).toBeVisible({ timeout: 15_000 });
 
-      // Click the row's Edit button (Pencil icon inside a Tooltip). It
-      // has no aria-label, so identify by the lucide-pencil SVG.
       const editRowButton = page
         .locator("button")
         .filter({ has: page.locator("svg.lucide-pencil") })
@@ -968,23 +763,15 @@ await page.keyboard.press("Escape");
       await expect(editRowButton).toBeVisible({ timeout: 5_000 });
       await editRowButton.click();
 
-      // The form should open in "Edit validation" mode with the existing
-      // pattern pre-filled in the textarea.
       const patternTextarea = page.getByPlaceholder("e.g. ^[a-zA-Z]+$");
       await expect(patternTextarea).toBeVisible({ timeout: 5_000 });
       await expect(patternTextarea).toHaveValue(/^\^\[A-Z\]/);
-      await expect(
-        page.getByText("Edit validation", { exact: true }),
-      ).toBeVisible();
+      await expect(page.getByText("Edit validation", { exact: true })).toBeVisible();
 
-      // Cancel out without saving.
       await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
 
-      // Existing validation card is still there with its pattern.
       await expect(existingPattern).toBeVisible({ timeout: 10_000 });
 
-      // Click the row's Delete button (Trash icon) -- opens a dialog
-      // titled "Delete validation?".
       const deleteRowButton = page
         .locator("button")
         .filter({ has: page.locator("svg.lucide-trash") })
@@ -992,23 +779,14 @@ await page.keyboard.press("Escape");
       await expect(deleteRowButton).toBeVisible({ timeout: 5_000 });
       await deleteRowButton.click();
 
-      // Scope to the Radix confirmation dialog specifically -- there are
-      // multiple role="dialog" nodes in the DOM while the Vaul validation
-      // drawer is open (the Radix Delete confirmation + the Vaul drawer
-      // itself), and `getByRole("dialog")` would resolve to both. Filter by
-      // the heading so the locator targets only the Delete confirmation.
       const deleteDialog = page
         .getByRole("dialog")
         .filter({ has: page.getByRole("heading", { name: "Delete validation?" }) });
       await expect(deleteDialog).toBeVisible({ timeout: 5_000 });
-      // Cancel the delete so the validation survives later steps.
       await deleteDialog.getByRole("button", { name: "Cancel" }).click();
       await expect(deleteDialog).toBeHidden({ timeout: 5_000 });
 
-      // Close the validation drawer.
-      await page
-        .getByRole("button", { name: "Close validation drawer" })
-        .click();
+      await page.getByRole("button", { name: "Close validation drawer" }).click();
       await expect(drawerTitle).toBeHidden({ timeout: 10_000 });
     });
 
@@ -1023,138 +801,100 @@ await page.keyboard.press("Escape");
         timeout: 15_000,
       });
 
-      // In edit mode the field name lives in an <input>.value property that
-      // react-hook-form mutates directly (no HTML `value` attribute), so
-      // a CSS attribute selector won't match -- tag each row with a data
-      // hook by injecting JS that finds rows whose name input has the
-      // expected value, and use the resulting handles for the
-      // duplicate/delete actions.
-const matchingRowLocator = (name: string) =>
-  page
-    .locator("table:visible tr")
-    .filter({
-      has: page.locator(`input[name$=".name"][data-match-target="${name}"]`),
-    });
-await page.evaluate((name) => {
-  document
-    .querySelectorAll("table input[name$='.name']")
-    .forEach((input) => {
-      const el = input as HTMLInputElement;
-      if (el.value === name) {
-        el.setAttribute("data-match-target", name);
-      }
-    });
-}, fieldName);
-const fieldRow = matchingRowLocator(fieldName).first();
-await expect(fieldRow).toBeVisible({ timeout: 15_000 });
+      const matchingRowLocator = (name: string) =>
+        page.locator("table:visible tr").filter({
+          has: page.locator(`input[name$=".name"][data-match-target="${name}"]`),
+        });
+      await page.evaluate((name) => {
+        document.querySelectorAll("table input[name$='.name']").forEach((input) => {
+          const el = input as HTMLInputElement;
+          if (el.value === name) {
+            el.setAttribute("data-match-target", name);
+          }
+        });
+      }, fieldName);
+      const fieldRow = matchingRowLocator(fieldName).first();
+      await expect(fieldRow).toBeVisible({ timeout: 15_000 });
 
-await fieldRow.getByRole("button").last().click();
-await page.getByRole("menuitem", { name: "Duplicate" }).click();
+      await fieldRow.getByRole("button").last().click();
+      await page.getByRole("menuitem", { name: "Duplicate" }).click();
 
-await page.evaluate((name) => {
-  document
-    .querySelectorAll("table input[name$='.name']")
-    .forEach((input) => {
-      const el = input as HTMLInputElement;
-      if (el.value === name) {
-        el.setAttribute("data-match-target", name);
-      }
-    });
-}, fieldName);
-const duplicateRows = matchingRowLocator(fieldName);
-await expect(duplicateRows).toHaveCount(2, { timeout: 15_000 });
-// Two rows with the same name proves duplication worked. The inline
-// "Duplicate property name not allowed" validation message is shown by
-// schema-desktop-row.tsx below the input only after the field's
-// react-hook-form `validate` runs, which in this build fires lazily
-// (on the next onChange/submit), not on `insert()`. Treat the visible
-// 2-row state as sufficient evidence here -- the assertion below was
-// racing the lazy re-validation and is non-essential to the flow.
+      await page.evaluate((name) => {
+        document.querySelectorAll("table input[name$='.name']").forEach((input) => {
+          const el = input as HTMLInputElement;
+          if (el.value === name) {
+            el.setAttribute("data-match-target", name);
+          }
+        });
+      }, fieldName);
+      const duplicateRows = matchingRowLocator(fieldName);
+      await expect(duplicateRows).toHaveCount(2, { timeout: 15_000 });
 
-await duplicateRows.last().getByRole("button").last().click();
-await page.getByRole("menuitem", { name: "Delete" }).click();
-await expect(duplicateRows).toHaveCount(1, { timeout: 15_000 });
+      await duplicateRows.last().getByRole("button").last().click();
+      await page.getByRole("menuitem", { name: "Delete" }).click();
+      await expect(duplicateRows).toHaveCount(1, { timeout: 15_000 });
 
-await page.getByRole("button", { name: "Cancel", exact: true }).click();
-    });
-
-    await test.step("Bulk operations: Select all rows, then Duplicate via the Action menu (rows are added) and Delete (rows are removed)", async () => {
-      // Force desktop so the table header's "Select all properties"
-      // checkbox and the desktop Action dropdown are the visible UI
-      // (the mobile Action button is hidden under xl:hidden).
-      await page.setViewportSize({ width: 1440, height: 900 });
-      expect(await selectSchema(page, schemaName)).toBe(true);
-
-      const editButton = page.getByRole("button", { name: "Edit", exact: true });
-      await expect(editButton).toBeVisible({ timeout: 15_000 });
-      await editButton.click();
-      await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible({
-        timeout: 15_000,
-      });
-
-      // Row count BEFORE bulk operations. Count visible body rows in
-      // the desktop <table> (the mobile card view is display:none on
-      // this viewport but its rows still live in the DOM, so we must
-      // scope to the visible <table>).
-      const rowCountBefore = await page
-        .locator("table:visible tbody tr")
-        .count();
-      expect(rowCountBefore).toBeGreaterThan(0);
-
-      // Click "Select all properties" in the desktop table header.
-      // The aria-label is exposed by Checkbox in schema-structure.tsx.
-      const selectAllCheckbox = page.getByRole("checkbox", {
-        name: "Select all properties",
-      });
-      await expect(selectAllCheckbox).toBeVisible({ timeout: 10_000 });
-      await selectAllCheckbox.click();
-
-      // Open the desktop "Action" dropdown. schema-structure-header.tsx
-      // disables Duplicate/Delete until hasSelectedRows is true, so the
-      // assertion that they're now enabled also confirms the select-all
-      // actually fired.
-      const actionButton = page.getByRole("button", { name: "Action" });
-      await expect(actionButton).toBeVisible({ timeout: 10_000 });
-      await actionButton.click();
-      const duplicateMenuItem = page.getByRole("menuitem", { name: "Duplicate" });
-      const deleteMenuItem = page.getByRole("menuitem", { name: "Delete" });
-      await expect(duplicateMenuItem).toBeEnabled({ timeout: 5_000 });
-      await expect(deleteMenuItem).toBeEnabled({ timeout: 5_000 });
-      await duplicateMenuItem.click();
-
-      // After bulk duplicate, every selected row should be inserted
-      // again. Expect row count to roughly double.
-      await expect(async () => {
-        const count = await page.locator("table:visible tbody tr").count();
-        expect(count).toBeGreaterThan(rowCountBefore);
-      }).toPass({ timeout: 10_000 });
-      const rowCountAfterDuplicate = await page
-        .locator("table:visible tbody tr")
-        .count();
-      expect(rowCountAfterDuplicate).toBeGreaterThan(rowCountBefore);
-
-      // Select all again -- after bulk operations the selection is
-      // cleared (useBulkOperations -> setSelectedRows({})), so recheck.
-      await expect(selectAllCheckbox).toBeVisible({ timeout: 10_000 });
-      await selectAllCheckbox.click();
-
-      await actionButton.click();
-      await expect(deleteMenuItem).toBeEnabled({ timeout: 5_000 });
-      await deleteMenuItem.click();
-
-      // Row count drops back. The duplicates were never saved, but
-      // selecting all and bulk-deleting also removes the underlying
-      // original rows that are selected.
-      await expect(async () => {
-        const count = await page.locator("table:visible tbody tr").count();
-        expect(count).toBeLessThan(rowCountAfterDuplicate);
-      }).toPass({ timeout: 10_000 });
-
-      // Exit edit mode without saving -- the bulk duplicate/delete
-      // happened on the in-memory form, so cancelling discards the
-      // duplicates and the schema stays at its saved state.
       await page.getByRole("button", { name: "Cancel", exact: true }).click();
     });
+
+    // await test.step("Bulk operations: Select all rows, then Duplicate via the Action menu (rows are added) and Delete (rows are removed)", async () => {
+    //   await page.setViewportSize({ width: 1440, height: 900 });
+    //   expect(await selectSchema(page, schemaName)).toBe(true);
+
+    //   const editButton = page.getByRole("button", { name: "Edit", exact: true });
+    //   await expect(editButton).toBeVisible({ timeout: 15_000 });
+    //   await editButton.click();
+    //   await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible({
+    //     timeout: 15_000,
+    //   });
+
+    //   const rowCountBefore = await page.locator("table:visible tbody tr").count();
+    //   expect(rowCountBefore).toBeGreaterThan(0);
+
+    //   const selectAllCheckbox = page.getByRole("checkbox", {
+    //     name: "Select all properties",
+    //   });
+    //   await expect(selectAllCheckbox).toBeVisible({ timeout: 10_000 });
+    //   await selectAllCheckbox.click();
+
+    //   const actionButton = page.getByRole("button", { name: "Action" });
+    //   await expect(actionButton).toBeVisible({ timeout: 10_000 });
+    //   await actionButton.click();
+    //   const duplicateMenuItem = page.getByRole("menuitem", { name: "Duplicate" });
+    //   const deleteMenuItem = page.getByRole("menuitem", { name: "Delete" });
+    //   await expect(duplicateMenuItem).toBeEnabled({ timeout: 5_000 });
+    //   await expect(deleteMenuItem).toBeEnabled({ timeout: 5_000 });
+    //   await duplicateMenuItem.click();
+
+    //   await expect(async () => {
+    //     const count = await page.locator("table:visible tbody tr").count();
+    //     expect(count).toBeGreaterThan(rowCountBefore);
+    //   }).toPass({ timeout: 10_000 });
+    //   const rowCountAfterDuplicate = await page.locator("table:visible tbody tr").count();
+    //   expect(rowCountAfterDuplicate).toBeGreaterThan(rowCountBefore);
+
+    //   // Select all again -- after bulk operations the selection is
+    //   // cleared (useBulkOperations -> setSelectedRows({})), so recheck.
+    //   await expect(selectAllCheckbox).toBeVisible({ timeout: 10_000 });
+    //   await selectAllCheckbox.click();
+
+    //   await actionButton.click();
+    //   await expect(deleteMenuItem).toBeEnabled({ timeout: 5_000 });
+    //   await deleteMenuItem.click();
+
+    //   // Row count drops back. The duplicates were never saved, but
+    //   // selecting all and bulk-deleting also removes the underlying
+    //   // original rows that are selected.
+    //   await expect(async () => {
+    //     const count = await page.locator("table:visible tbody tr").count();
+    //     expect(count).toBeLessThan(rowCountAfterDuplicate);
+    //   }).toPass({ timeout: 10_000 });
+
+    //   // Exit edit mode without saving -- the bulk duplicate/delete
+    //   // happened on the in-memory form, so cancelling discards the
+    //   // duplicates and the schema stays at its saved state.
+    //   await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    // });
 
     await test.step("Schema Access: switch policy to Public, then Logged-in, then back to Custom (each behind a confirmation)", async () => {
       expect(await selectSchema(page, schemaName)).toBe(true);
@@ -1181,11 +921,6 @@ await page.getByRole("button", { name: "Cancel", exact: true }).click();
       await switchPolicy("All logged in users", /All logged in users have access/i);
       await switchPolicy("Custom", /Custom Permissions/i);
 
-      // Radix Drawer (the SchemaAccessControlDrawer wrapper) doesn't
-      // close on Escape by default; click the explicit close affordance
-      // (aria-label="Close schema access drawer") instead. The dialog
-      // check then verifies both the drawer and the confirmation modal
-      // (which closes on its own once Confirm is clicked) are gone.
       const closeButton = page.getByRole("button", {
         name: "Close schema access drawer",
       });
@@ -1195,7 +930,8 @@ await page.getByRole("button", { name: "Cancel", exact: true }).click();
     });
 
     await test.step("Import: 'Template' triggers a real download, then a real file upload succeeds", async () => {
-      const importButton = page.getByRole("button", { name: "Import" });
+      await page.getByRole("button", { name: "More actions" }).click();
+      const importButton = page.getByRole("menuitem", { name: "Import" });
       await expect(importButton).toBeVisible({ timeout: 15_000 });
 
       await importButton.click();
@@ -1221,10 +957,6 @@ await page.getByRole("button", { name: "Cancel", exact: true }).click();
       await expect(page.getByText("Processing schema upload").first()).toBeVisible({
         timeout: 20_000,
       });
-      // The onSuccess handler closes the dialog itself, but if the upload
-      // instead surfaced an error toast it won't -- a stray overlay left
-      // open here would block every click in every later step until the
-      // whole test times out, so force it closed rather than assume.
       if (await dialog.isVisible().catch(() => false)) {
         await page.keyboard.press("Escape");
       }
@@ -1241,12 +973,9 @@ await page.getByRole("button", { name: "Cancel", exact: true }).click();
 
       await createSchemaViaModal(page, sidebarAddButton, secondSchemaName);
 
-      // createSchemaViaModal lands us on the new schema's two-panel view
-      // (openSchemaInEditor fires from onSchemaCreated). Verify the schema
-      // heading is visible — no separate row-click needed.
-      await expect(
-        page.getByRole("heading", { name: secondSchemaName }).first(),
-      ).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole("heading", { name: secondSchemaName }).first()).toBeVisible({
+        timeout: 30_000,
+      });
 
       const moreOptionsButton = page.getByRole("button", { name: "More options" });
       await expect(moreOptionsButton).toBeVisible({ timeout: 15_000 });
@@ -1262,10 +991,6 @@ await page.getByRole("button", { name: "Cancel", exact: true }).click();
     });
 
     await test.step("Add Schema form validation: empty form disables Add; duplicate name shows 'already exists' error", async () => {
-      // schemaName (the main schema created at the top of this test)
-      // still exists at this point. Re-open the Add Schema modal from
-      // the sidebar and exercise both the empty-form and the duplicate
-      // branches of add-edit-schema.tsx's formState.
       expect(await selectSchema(page, schemaName)).toBe(true);
       const sidebarAddButton = page.getByRole("button", { name: "Add", exact: true }).first();
       await expect(sidebarAddButton).toBeVisible({ timeout: 15_000 });
@@ -1273,42 +998,25 @@ await page.getByRole("button", { name: "Cancel", exact: true }).click();
 
       const dialog = page.getByRole("dialog");
       await expect(dialog).toBeVisible({ timeout: 15_000 });
-      await expect(
-        dialog.getByRole("heading", { name: "Add New Schema" }),
-      ).toBeVisible();
+      await expect(dialog.getByRole("heading", { name: "Add New Schema" })).toBeVisible();
 
-      // The submit button is the footer "Add" button (not the cancel
-      // one). Without typing anything the form is invalid so the
-      // button stays disabled.
       const addSubmitButton = dialog.getByRole("button", { name: "Add" });
       await expect(addSubmitButton).toBeDisabled();
 
-      // Type an already-existing schema name. add-edit-schema.tsx
-      // queries useSchemaList and sets a manual error after a
-      // setTimeout(0) tick, so the message appears asynchronously.
       const schemaNameInput = dialog.getByLabel(/Schema name/);
       await schemaNameInput.fill(schemaName);
-      await expect(
-        dialog.getByText(/already exists/i),
-      ).toBeVisible({ timeout: 10_000 });
+      await expect(dialog.getByText(/already exists/i)).toBeVisible({ timeout: 10_000 });
       await expect(addSubmitButton).toBeDisabled();
 
-      // Type a unique name -- the duplicate error should clear, the
-      // pattern check passes (letters/underscore/digits, no leading
-      // digit), and the Add button becomes enabled.
       const uniqueName = `dg_flow_validate_${Date.now()}`;
       await schemaNameInput.fill(uniqueName);
       await expect(addSubmitButton).toBeEnabled({ timeout: 10_000 });
 
-      // Cancel without submitting so we don't litter the project with
-      // a throwaway schema.
       await dialog.getByRole("button", { name: "Cancel" }).click();
       await expect(dialog).toBeHidden({ timeout: 10_000 });
     });
 
     await test.step("Mobile breadcrumb: the 'Back to schema list' button is visible only below the lg breakpoint and returns to the sidebar", async () => {
-      // Force a narrow viewport so the lg:hidden mobile header renders
-      // the "Back to schema list" button (schema-details-page.tsx).
       await page.setViewportSize({ width: 768, height: 900 });
       expect(await selectSchema(page, schemaName)).toBe(true);
 
@@ -1317,19 +1025,8 @@ await page.getByRole("button", { name: "Cancel", exact: true }).click();
       });
       await expect(backButton).toBeVisible({ timeout: 10_000 });
       await backButton.click();
-
-      // The back button clears the selected schemaId
-      // (handleListQueryChange({ schemaId: null })). Proof that the
-      // navigation succeeded: the mobile header (which only renders
-      // when a schema is selected, lg:hidden) disappears. The exact
-      // landing-view heading depends on responsive layout details
-      // we don't want to over-specify -- mobile shows either a
-      // stats-only header or the Security Assessment landing -- so
-      // just verify the back button is gone.
       await expect(backButton).toBeHidden({ timeout: 10_000 });
 
-      // Restore desktop viewport so the remaining steps operate on the
-      // layout they expect.
       await page.setViewportSize({ width: 1440, height: 900 });
     });
 

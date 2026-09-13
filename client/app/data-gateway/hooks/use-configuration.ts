@@ -670,6 +670,9 @@ export const useSchemaIndexes = (
     queryKey: ["schema-indexes", schemaDefinitionItemId],
     queryFn: () => configurationService.getSchemaIndexes(schemaDefinitionItemId),
     enabled: !!schemaDefinitionItemId && (options?.enabled ?? true),
+    // The indexes tab is mounted when selected; always refresh to reflect
+    // indexes created or removed elsewhere since the previous visit.
+    refetchOnMount: "always",
   });
 };
 

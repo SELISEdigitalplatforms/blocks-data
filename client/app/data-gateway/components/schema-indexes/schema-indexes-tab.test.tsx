@@ -51,7 +51,8 @@ describe("SchemaIndexesTab", () => {
     expect(screen.getByRole("button", { name: /Add index/ })).toBeEnabled();
   });
 
-  it("shows index names and ordered properties in cards", () => {
+  it("shows full-row index summaries and expands ordered properties", async () => {
+    const user = userEvent.setup();
     useSchemaIndexes.mockReturnValue({
       data: {
         data: {
@@ -80,21 +81,28 @@ describe("SchemaIndexesTab", () => {
     });
     renderTab();
 
-    expect(screen.getByRole("heading", { name: "email_1" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "lastName_1_age_-1" })).toBeInTheDocument();
+    expect(screen.getByText("email_1")).toBeInTheDocument();
+    expect(screen.getByText("lastName_1_age_-1")).toBeInTheDocument();
+    expect(screen.getByText("1 property")).toBeInTheDocument();
+    expect(screen.getByText("2 properties")).toBeInTheDocument();
     expect(screen.getByText("Unique")).toBeInTheDocument();
+    expect(screen.getByText("Non-unique")).toBeInTheDocument();
+
+    await user.click(screen.getByText("email_1").closest("button")!);
 
     const emailProperties = screen.getByRole("list", {
       name: "Properties and order for email_1",
     });
-    expect(within(emailProperties).getByRole("listitem")).toHaveTextContent("1emailAscending");
+    expect(within(emailProperties).getByRole("listitem")).toHaveTextContent("1email↑");
+
+    await user.click(screen.getByText("lastName_1_age_-1").closest("button")!);
 
     const compoundProperties = screen.getByRole("list", {
       name: "Properties and order for lastName_1_age_-1",
     });
     const orderedProperties = within(compoundProperties).getAllByRole("listitem");
-    expect(orderedProperties[0]).toHaveTextContent("1lastNameAscending");
-    expect(orderedProperties[1]).toHaveTextContent("2ageDescending");
+    expect(orderedProperties[0]).toHaveTextContent("1lastName↑");
+    expect(orderedProperties[1]).toHaveTextContent("2age↓");
   });
 
   it("disables Add index when the schema is Dto-type and shows an explanatory message", () => {
@@ -179,6 +187,6 @@ describe("SchemaIndexesTab", () => {
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
-    expect(screen.getByRole("heading", { name: "email_1" })).toBeInTheDocument();
+    expect(screen.getByText("email_1")).toBeInTheDocument();
   });
 });

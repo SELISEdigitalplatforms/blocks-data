@@ -1,9 +1,14 @@
 "use client";
 
 import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui-kits/accordion/accordion";
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { Button } from "@/components/ui-kits/button/button";
-import { Card } from "@/components/ui-kits/card/card";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import {
@@ -139,24 +144,34 @@ export function SchemaIndexesTab({
           </div>
         )
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <Accordion type="single" collapsible className="flex flex-col gap-2">
           {indexes.map((index) => (
-            <Card
-              key={index.itemId}
-              className="flex min-w-0 flex-col gap-3 p-4 shadow-none"
+            <AccordionItem
+              key={index.itemId || index.name}
+              value={index.itemId || index.name}
+              className="rounded-sm border border-border/30 bg-card shadow-sm"
             >
-              <div className="flex min-w-0 items-start justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <h3 className="break-all text-sm font-semibold">{index.name}</h3>
-                  {index.isUnique && <Badge variant="secondary">Unique</Badge>}
-                </div>
+              <div className="flex min-w-0 items-center">
+                <AccordionTrigger className="min-w-0 px-4 py-3 text-left hover:no-underline">
+                  <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 pr-4">
+                    <span className="truncate text-sm font-semibold" title={index.name}>
+                      {index.name}
+                    </span>
+                    <span className="whitespace-nowrap text-xs text-muted-foreground">
+                      {index.fields.length} {index.fields.length === 1 ? "property" : "properties"}
+                    </span>
+                    <Badge variant={index.isUnique ? "secondary" : "outline"}>
+                      {index.isUnique ? "Unique" : "Non-unique"}
+                    </Badge>
+                  </div>
+                </AccordionTrigger>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      className="mr-2 h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
                       aria-label={`Delete index ${index.name}`}
                       onClick={() => setPendingDeleteItemId(index.itemId)}
                     >
@@ -167,7 +182,7 @@ export function SchemaIndexesTab({
                 </Tooltip>
               </div>
 
-              <div className="border-t border-border/30 pt-3">
+              <AccordionContent className="border-t border-border/30 px-4 pb-4 pt-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Properties and order
                 </p>
@@ -184,16 +199,20 @@ export function SchemaIndexesTab({
                         {position + 1}
                       </span>
                       <span className="min-w-0 flex-1 break-all">{field.fieldName}</span>
-                      <Badge variant="outline" className="shrink-0 font-normal">
-                        {INDEX_DIRECTION_LABELS[field.direction]}
-                      </Badge>
+                      <span
+                        className="text-lg font-semibold leading-none text-muted-foreground"
+                        aria-label={INDEX_DIRECTION_LABELS[field.direction]}
+                        title={INDEX_DIRECTION_LABELS[field.direction]}
+                      >
+                        {field.direction === "ASC" ? "↑" : "↓"}
+                      </span>
                     </li>
                   ))}
                 </ol>
-              </div>
-            </Card>
+              </AccordionContent>
+            </AccordionItem>
           ))}
-        </div>
+        </Accordion>
       )}
 
       <Dialog

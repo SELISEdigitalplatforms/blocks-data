@@ -185,6 +185,31 @@ public class SchemaIndexServiceTests
     }
 
     [Fact]
+    public async Task CreateIndex_AssignsMetadataItemIdBeforeInsert()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(EntitySchema());
+        _repo.Setup(r => r.CreateIndexAsync("Customers", It.IsAny<List<(string, int)>>(), true, "email_1", ""))
+            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+
+        SchemaIndexDefinition? insertedDefinition = null;
+        _repo.Setup(r => r.InsertAsync(It.IsAny<SchemaIndexDefinition>(), ""))
+            .Callback<SchemaIndexDefinition, string>((definition, _) => insertedDefinition = definition)
+            .ReturnsAsync((SchemaIndexDefinition definition, string _) => definition);
+
+        var result = await _service.CreateIndexAsync(new CreateSchemaIndexRequest
+        {
+            SchemaDefinitionItemId = "schema-1",
+            IsUnique = true,
+            Fields = new() { new IndexFieldRequest { FieldName = "email" } }
+        });
+
+        result.IsSuccess.Should().BeTrue();
+        insertedDefinition.Should().NotBeNull();
+        insertedDefinition!.ItemId.Should().NotBeNullOrWhiteSpace();
+        result.Data!.ItemId.Should().Be(insertedDefinition.ItemId);
+    }
+
+    [Fact]
     public async Task CreateIndex_MongoDuplicateKeyOnUniqueBuild_Returns409AndPersistsNothing()
     {
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(EntitySchema());

@@ -82,6 +82,7 @@ public class SchemaIndexService : ISchemaIndexService
             IsUnique = request.IsUnique,
             Fields = keys.Select(k => new IndexFieldSpec { FieldName = k.FieldName, Direction = k.Direction }).ToList()
         };
+        indexDefinition.InjectDefaultValue();
         var inserted = await _repository.InsertAsync(indexDefinition);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaIndexCreate);
 

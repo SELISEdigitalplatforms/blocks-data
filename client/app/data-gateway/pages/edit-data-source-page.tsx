@@ -505,8 +505,7 @@ const EditDataSourcePage = () => {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground/50">
-                  Availability dates are read-only and can currently be changed only in the
-                  database.
+                  Availability dates are managed by Blocks and cannot be edited here.
                 </p>
               </div>
             </div>

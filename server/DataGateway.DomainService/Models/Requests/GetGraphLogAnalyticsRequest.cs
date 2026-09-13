@@ -12,6 +12,11 @@ public class GetGraphLogAnalyticsRequest
     public int? UtcOffsetMinutes { get; set; }
 
     /// <summary>
+    /// Includes operations initiated from Blocks Console. They are excluded by default.
+    /// </summary>
+    public bool IncludeBlocksConsole { get; set; }
+
+    /// <summary>
     /// "hourly", "daily" (default) or "weekly" — bucket size for every series in
     /// <see cref="Responses.GraphLogAnalyticsResponse"/>.
     /// </summary>

@@ -183,6 +183,7 @@ describe("GraphAnalytics", () => {
       to,
       "hourly",
       utcOffsetMinutes,
+      false,
       true,
     );
   });
@@ -206,7 +207,7 @@ describe("GraphAnalytics", () => {
     expect(
       screen.getByRole("heading", { name: "Analytics access unavailable" }),
     ).toBeInTheDocument();
-    expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(4)).toBe(false);
+    expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(5)).toBe(false);
   });
 
   it("says the analytics exclude introspection, but not on the log tab", async () => {
@@ -231,24 +232,27 @@ describe("GraphAnalytics", () => {
     }
   });
 
-  it("includes Blocks Console requests only when the Requests toggle is enabled", async () => {
+  it("shows the Blocks Console toggle on every tab and applies it to all analytics", async () => {
     const user = userEvent.setup();
     renderAnalytics();
-
-    await openTab(user, "Requests");
 
     const toggle = screen.getByRole("switch", {
       name: "Include Blocks Console operations",
     });
     expect(toggle).not.toBeChecked();
-    expect(screen.getByTestId("history")).toHaveAttribute(
-      "data-include-blocks-console",
-      "false",
-    );
+    expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(4)).toBe(false);
+
+    for (const tab of ["Performance", "Reliability", "Requests"]) {
+      await openTab(user, tab);
+      expect(
+        screen.getByRole("switch", { name: "Include Blocks Console operations" }),
+      ).toBeInTheDocument();
+    }
 
     await user.click(toggle);
 
     expect(toggle).toBeChecked();
+    expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(4)).toBe(true);
     expect(screen.getByTestId("history")).toHaveAttribute(
       "data-include-blocks-console",
       "true",

@@ -8,13 +8,29 @@ export const useGraphLogAnalytics = (
   to: string | undefined,
   granularity: GraphLogGranularity,
   utcOffsetMinutes: number,
+  includeBlocksConsole: boolean,
   enabled = true,
 ) => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   return useQuery({
-    queryKey: ["graph-log-analytics", from, to, granularity, utcOffsetMinutes, projectKey],
-    queryFn: () => graphLogService.getAnalytics({ from, to, granularity, utcOffsetMinutes }),
+    queryKey: [
+      "graph-log-analytics",
+      from,
+      to,
+      granularity,
+      utcOffsetMinutes,
+      includeBlocksConsole,
+      projectKey,
+    ],
+    queryFn: () =>
+      graphLogService.getAnalytics({
+        from,
+        to,
+        granularity,
+        utcOffsetMinutes,
+        includeBlocksConsole,
+      }),
     enabled: Boolean(from && to && enabled),
   });
 };

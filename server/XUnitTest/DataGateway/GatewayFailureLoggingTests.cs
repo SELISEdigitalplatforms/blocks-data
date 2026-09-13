@@ -375,8 +375,38 @@ public class GatewayGraphLogHistorySortTests
         rendered.Should().NotContain("Attributes.GatewayOperation.InAppRequest");
     }
 
+    [Fact]
+    public void ExcludesBlocksConsoleOperationsFromAnalyticsByDefault()
+    {
+        var rendered = RenderAnalyticsFilter(new GetGraphLogAnalyticsRequest());
+
+        rendered.Should().Contain("Attributes.GatewayOperation.InAppRequest");
+        rendered.Should().Contain("true");
+    }
+
+    [Fact]
+    public void IncludesBlocksConsoleOperationsInAnalyticsWhenRequested()
+    {
+        var rendered = RenderAnalyticsFilter(new GetGraphLogAnalyticsRequest
+        {
+            IncludeBlocksConsole = true
+        });
+
+        rendered.Should().NotContain("Attributes.GatewayOperation.InAppRequest");
+    }
+
     private static string RenderHistoryFilter(GetGraphLogHistoryRequest request) =>
         GraphLogHistoryService.BuildHistoryFilter(request)
+            .Render(new RenderArgs<BsonDocument>(
+                BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
+                BsonSerializer.SerializerRegistry))
+            .ToString();
+
+    private static string RenderAnalyticsFilter(GetGraphLogAnalyticsRequest request) =>
+        GraphLogHistoryService.BuildAnalyticsFilter(
+                request,
+                new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 9, 2, 0, 0, 0, DateTimeKind.Utc))
             .Render(new RenderArgs<BsonDocument>(
                 BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
                 BsonSerializer.SerializerRegistry))

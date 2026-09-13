@@ -32,8 +32,17 @@ vi.mock("../../components/data-gateway-actions", () => ({
 }));
 
 vi.mock("./graph-log-history", () => ({
-  GraphLogHistory: (props: { from?: string; to?: string }) => (
-    <div data-testid="history">{`${props.from}..${props.to}`}</div>
+  GraphLogHistory: (props: {
+    from?: string;
+    to?: string;
+    includeBlocksConsole?: boolean;
+  }) => (
+    <div
+      data-testid="history"
+      data-include-blocks-console={String(props.includeBlocksConsole)}
+    >
+      {`${props.from}..${props.to}`}
+    </div>
   ),
 }));
 
@@ -220,6 +229,30 @@ describe("GraphAnalytics", () => {
       await openTab(user, tab);
       expect(screen.getByRole("button", { name: /Date range/ })).toBeInTheDocument();
     }
+  });
+
+  it("includes Blocks Console requests only when the Requests toggle is enabled", async () => {
+    const user = userEvent.setup();
+    renderAnalytics();
+
+    await openTab(user, "Requests");
+
+    const toggle = screen.getByRole("switch", {
+      name: "Include Blocks Console operations",
+    });
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByTestId("history")).toHaveAttribute(
+      "data-include-blocks-console",
+      "false",
+    );
+
+    await user.click(toggle);
+
+    expect(toggle).toBeChecked();
+    expect(screen.getByTestId("history")).toHaveAttribute(
+      "data-include-blocks-console",
+      "true",
+    );
   });
 
   it("offers a bucket size only where something is bucketed over time", async () => {

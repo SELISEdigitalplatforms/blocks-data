@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui-kits/select/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
+import { Switch } from "@/components/ui-kits/switch/switch";
 import { showErrorToast } from "@/hooks/use-toast";
 import { DataGatewayActions } from "../../components/data-gateway-actions";
 import { useGetDataServiceConfiguration } from "../../hooks/use-configuration";
@@ -74,6 +75,7 @@ export const GraphAnalytics = () => {
     to: new Date(),
   });
   const [granularity, setGranularity] = useState<GraphLogGranularity>("daily");
+  const [includeBlocksConsole, setIncludeBlocksConsole] = useState(false);
   const { data: configurationData, isLoading: isConfigurationLoading } =
     useGetDataServiceConfiguration();
   const configuration = configurationData?.data as IDataSourceResponse | undefined;
@@ -162,6 +164,17 @@ export const GraphAnalytics = () => {
                     </SelectContent>
                   </Select>
                 )}
+                {tab === "requests" && (
+                  <label className="flex h-8 items-center gap-2 rounded-md border border-border/40 px-3 text-xs text-muted-foreground">
+                    <Switch
+                      size="sm"
+                      checked={includeBlocksConsole}
+                      onCheckedChange={setIncludeBlocksConsole}
+                      aria-label="Include Blocks Console operations"
+                    />
+                    Include Blocks Console
+                  </label>
+                )}
                 <DateRangeFilter
                   title="Date range"
                   date={dateRange}
@@ -225,7 +238,12 @@ export const GraphAnalytics = () => {
             </TabsContent>
 
             <TabsContent value="requests">
-              <GraphLogHistory from={from} to={to} utcOffsetMinutes={utcOffsetMinutes} />
+              <GraphLogHistory
+                from={from}
+                to={to}
+                utcOffsetMinutes={utcOffsetMinutes}
+                includeBlocksConsole={includeBlocksConsole}
+              />
             </TabsContent>
           </Tabs>
         </div>

@@ -29,6 +29,7 @@ class GraphLogService {
     if (payload.outcome) params.set("Outcome", payload.outcome);
     if (payload.statusCode) params.set("StatusCode", String(payload.statusCode));
     if (payload.failureKind) params.set("FailureKind", payload.failureKind);
+    params.set("IncludeBlocksConsole", String(payload.includeBlocksConsole));
     params.set("SortBy", payload.sortBy);
     params.set("SortDescending", String(payload.sortDescending));
 

@@ -133,7 +133,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     public async Task<PaginationResponse<GraphLogHistoryItemResponse>> GetHistoryAsync(GetGraphLogHistoryRequest request)
     {
         var collection = GetTenantTraceCollection();
-        var filter = BuildFilter(request);
+        var filter = BuildHistoryFilter(request);
         var pageNo = request.PageNo < 1 ? 1 : request.PageNo;
         var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
         var sortDirection = request.SortDescending ? -1 : 1;
@@ -556,10 +556,13 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             .GetCollection<BsonDocument>($"{nameof(SchemaDefinition)}s");
     }
 
-    private static FilterDefinition<BsonDocument> BuildFilter(GetGraphLogHistoryRequest request)
+    internal static FilterDefinition<BsonDocument> BuildHistoryFilter(GetGraphLogHistoryRequest request)
     {
         var builder = Builders<BsonDocument>.Filter;
         var filters = new List<FilterDefinition<BsonDocument>> { builder.Exists(GatewayOperationAttributePath) };
+
+        if (!request.IncludeBlocksConsole)
+            filters.Add(builder.Eq($"{GatewayOperationAttributePath}.InAppRequest", true));
 
         if (!string.IsNullOrWhiteSpace(request.SchemaName))
             filters.Add(builder.Eq($"{GatewayOperationAttributePath}.SchemaName", request.SchemaName));

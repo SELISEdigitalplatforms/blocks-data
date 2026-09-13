@@ -14,6 +14,10 @@ public class GetGraphLogHistoryRequest : BasePaginationRequest
 
     /// <summary>One of the <see cref="Helpers.GatewayFailureKind"/> values.</summary>
     public string? FailureKind { get; set; }
+    /// <summary>
+    /// Includes operations initiated from Blocks Console. They are excluded by default.
+    /// </summary>
+    public bool IncludeBlocksConsole { get; set; }
     public DateTime? From { get; set; }
     public DateTime? To { get; set; }
 

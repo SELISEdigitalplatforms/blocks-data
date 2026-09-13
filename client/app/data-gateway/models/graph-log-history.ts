@@ -53,6 +53,7 @@ export interface IGetGraphLogHistoryPayload {
   outcome?: GraphLogOutcome;
   statusCode?: number;
   failureKind?: GraphLogFailureKind;
+  includeBlocksConsole: boolean;
   sortBy: GraphLogHistorySort;
   sortDescending: boolean;
 }

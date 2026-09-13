@@ -16,6 +16,9 @@ using HotChocolate.Resolvers;
 using HotChocolate.Types;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Driver;
 using Moq;
 using static XUnitTest.DataGateway.TestSupport;
 
@@ -351,6 +354,33 @@ public class GatewayGraphLogHistorySortTests
         GraphLogHistoryService.GetHistorySortExpression(requestedSort).ToString()
             .Should().Contain(expected);
     }
+
+    [Fact]
+    public void ExcludesBlocksConsoleOperationsByDefault()
+    {
+        var rendered = RenderHistoryFilter(new GetGraphLogHistoryRequest());
+
+        rendered.Should().Contain("Attributes.GatewayOperation.InAppRequest");
+        rendered.Should().Contain("true");
+    }
+
+    [Fact]
+    public void IncludesBlocksConsoleOperationsWhenRequested()
+    {
+        var rendered = RenderHistoryFilter(new GetGraphLogHistoryRequest
+        {
+            IncludeBlocksConsole = true
+        });
+
+        rendered.Should().NotContain("Attributes.GatewayOperation.InAppRequest");
+    }
+
+    private static string RenderHistoryFilter(GetGraphLogHistoryRequest request) =>
+        GraphLogHistoryService.BuildHistoryFilter(request)
+            .Render(new RenderArgs<BsonDocument>(
+                BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
+                BsonSerializer.SerializerRegistry))
+            .ToString();
 }
 
 /// <summary>

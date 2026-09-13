@@ -23,12 +23,13 @@ describe("GraphLogService", () => {
       outcome: "denied",
       statusCode: 401,
       failureKind: "authentication",
+      includeBlocksConsole: true,
       sortBy: "schema",
       sortDescending: false,
     });
 
     expect(http.get).toHaveBeenCalledWith(
-      `${GRAPH_LOG_ENDPOINTS.HISTORY}?PageNo=2&PageSize=25&From=2026-09-01&To=2026-09-08&UtcOffsetMinutes=360&OperationType=query&Outcome=denied&StatusCode=401&FailureKind=authentication&SortBy=schema&SortDescending=false`,
+      `${GRAPH_LOG_ENDPOINTS.HISTORY}?PageNo=2&PageSize=25&From=2026-09-01&To=2026-09-08&UtcOffsetMinutes=360&OperationType=query&Outcome=denied&StatusCode=401&FailureKind=authentication&IncludeBlocksConsole=true&SortBy=schema&SortDescending=false`,
     );
   });
 

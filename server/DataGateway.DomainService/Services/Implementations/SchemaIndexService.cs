@@ -15,7 +15,8 @@ namespace DataGateway.DomainService.Services;
 /// </summary>
 public class SchemaIndexService : ISchemaIndexService
 {
-    private const int MaxIndexesPerSchema = 15;
+    /// <summary>Shared with SchemaDefinitionService's IsUniqueData auto-index reconciliation.</summary>
+    internal const int MaxIndexesPerSchema = 15;
 
     private readonly IDbRepository _repository;
     private readonly IRequestValidator _requestValidator;

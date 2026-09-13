@@ -9,6 +9,7 @@ using FluentValidation;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using SortDirection = DataGateway.DomainService.Models.SortDirection;
 
 namespace DataGateway.DomainService.Services;
 
@@ -21,6 +22,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     private readonly IRequestValidator _requestValidator;
     private readonly ISchemaChangeLogService _schemaChangeLogService;
     private readonly SchemaDefinitionReferenceHelper _referenceHelper;
+    private readonly ISchemaIndexService _schemaIndexService;
     private readonly ILogger<SchemaDefinitionService> _logger;
 
     public SchemaDefinitionService(
@@ -29,6 +31,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         IProjectService projectService,
         ISchemaChangeLogService schemaChangeLogService,
         SchemaDefinitionReferenceHelper referenceHelper,
+        ISchemaIndexService schemaIndexService,
         ILogger<SchemaDefinitionService> logger)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -36,6 +39,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         _ = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _schemaChangeLogService = schemaChangeLogService ?? throw new ArgumentNullException(nameof(schemaChangeLogService));
         _referenceHelper = referenceHelper ?? throw new ArgumentNullException(nameof(referenceHelper));
+        _schemaIndexService = schemaIndexService ?? throw new ArgumentNullException(nameof(schemaIndexService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -96,21 +100,50 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (schema == null)
             return SchemaNotFoundResponse();
 
+        var indexesResponse = await _schemaIndexService.GetIndexesAsync(schema.ItemId);
+        var existingIndexes = indexesResponse.Data?.Indexes ?? [];
+
         if (request.DeletableFieldNames?.Length > 0)
         {
-            var indexFilter = new BsonDocument(nameof(SchemaIndexDefinition.SchemaDefinitionItemId), schema.ItemId);
-            var indexes = await _repository.GetItemsAsync<SchemaIndexDefinition>(indexFilter, null, null, 0, 1000);
-            var blockingIndexNames = indexes
-                .Where(i => i.Fields.Any(f => request.DeletableFieldNames.Contains(f.FieldName)))
-                .Select(i => i.Name)
-                .ToList();
+            var blockingIndexNames = new List<string>();
+            var autoManagedIndexesToDrop = new List<SchemaIndexResponse>();
+
+            foreach (var deletedName in request.DeletableFieldNames)
+            {
+                foreach (var index in existingIndexes.Where(i => i.Fields.Any(f => f.FieldName == deletedName)))
+                {
+                    // A single-field unique index that exactly matches the field being deleted is
+                    // this field's own IsUniqueData-managed index (see ReconcileUniqueFieldIndexesAsync)
+                    // — it becomes moot once the field is gone, so it's dropped instead of blocking
+                    // the deletion. Any other index (compound, or a deliberate non-unique index)
+                    // still blocks, exactly as before.
+                    if (IsAutoManagedUniqueIndex(index, deletedName))
+                        autoManagedIndexesToDrop.Add(index);
+                    else
+                        blockingIndexNames.Add(index.Name);
+                }
+            }
+
             if (blockingIndexNames.Count > 0)
                 return new ServiceResponse<ActionResponse>()
-                    .SetErrorMessage($"FIELD_USED_BY_INDEX: {string.Join(", ", blockingIndexNames)}")
+                    .SetErrorMessage($"FIELD_USED_BY_INDEX: {string.Join(", ", blockingIndexNames.Distinct())}")
                     .SetHttpStatusCode(400);
+
+            foreach (var index in autoManagedIndexesToDrop.DistinctBy(i => i.ItemId))
+            {
+                await _schemaIndexService.DeleteIndexAsync(index.ItemId);
+                existingIndexes.Remove(index);
+            }
 
             schema.Fields = schema.Fields.Where(f => !request.DeletableFieldNames.Contains(f.Name)).ToList();
         }
+
+        // Captured before the merge below overwrites IsUniqueData, so the reconciliation step can
+        // tell an actual on/off transition apart from a field that was already (or still isn't)
+        // unique — see ReconcileUniqueFieldIndexesAsync for why that distinction matters.
+        var wasUniqueByFieldName = request.Fields.ToDictionary(
+            f => f.Name,
+            f => schema.Fields.FirstOrDefault(existing => existing.Name == f.Name)?.IsUniqueData ?? false);
 
         foreach (var field in request.Fields)
         {
@@ -131,8 +164,67 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
         var result = await _repository.UpdateAsync(schema);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaFieldUpdate);
+        await ReconcileUniqueFieldIndexesAsync(schema, existingIndexes, request.Fields, wasUniqueByFieldName);
         await _referenceHelper.ApplyChangesToReferenceEntityFields(schema);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = schema.ItemId });
+    }
+
+    private static bool IsAutoManagedUniqueIndex(SchemaIndexResponse index, string fieldName) =>
+        index.IsUnique && index.Fields.Count == 1 && index.Fields[0].FieldName == fieldName;
+
+    /// <summary>
+    /// Keeps a field's IsUniqueData flag in sync with a real MongoDB unique index on that field
+    /// alone — but only in reaction to an actual on/off transition in this request, never by
+    /// blanket-reconciling every field's current value. The frontend resubmits every field on
+    /// every save, so scanning current values unconditionally would silently recreate an index a
+    /// user had deliberately deleted from the Indexes tab the moment they saved any other field —
+    /// deletion has to stay meaningful. Only applies to Entity schemas (Dto schemas have no backing
+    /// data collection). Creation/deletion mechanics (field eligibility, the 15-index cap, duplicate
+    /// detection, and the real MongoDB work) are entirely SchemaIndexService's responsibility — this
+    /// method only decides *when* to call it. Per product decision, any failure it reports (a
+    /// pre-existing duplicate index, the cap being reached, an ineligible field, or actual duplicate
+    /// data in the collection) is skipped silently — the field save still succeeds, falling back to
+    /// the existing app-level uniqueness check in MutationService.
+    /// </summary>
+    private async Task ReconcileUniqueFieldIndexesAsync(
+        SchemaDefinition schema,
+        List<SchemaIndexResponse> existingIndexes,
+        List<FieldDefinitionRequest> touchedFields,
+        Dictionary<string, bool> wasUniqueByFieldName)
+    {
+        if (schema.SchemaType != SchemaType.Entity)
+            return;
+
+        foreach (var touched in touchedFields)
+        {
+            var wasUnique = wasUniqueByFieldName.TryGetValue(touched.Name, out var prev) && prev;
+            if (wasUnique == touched.IsUniqueData)
+                continue; // steady state — no transition, nothing to reconcile
+
+            var matchingIndex = existingIndexes.FirstOrDefault(i => IsAutoManagedUniqueIndex(i, touched.Name));
+
+            if (!touched.IsUniqueData)
+            {
+                if (matchingIndex != null)
+                {
+                    await _schemaIndexService.DeleteIndexAsync(matchingIndex.ItemId);
+                    existingIndexes.Remove(matchingIndex);
+                }
+                continue;
+            }
+
+            // Transitioned on. If a matching index already exists (e.g. created manually
+            // beforehand), there's nothing to do.
+            if (matchingIndex != null)
+                continue;
+
+            await _schemaIndexService.CreateIndexAsync(new CreateSchemaIndexRequest
+            {
+                SchemaDefinitionItemId = schema.ItemId,
+                Fields = [new IndexFieldRequest { FieldName = touched.Name, Direction = SortDirection.ASC }],
+                IsUnique = true
+            });
+        }
     }
 
     /// <inheritdoc />

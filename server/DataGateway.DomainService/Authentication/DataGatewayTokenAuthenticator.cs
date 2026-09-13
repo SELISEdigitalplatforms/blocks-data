@@ -75,7 +75,8 @@ public class DataGatewayTokenAuthenticator
                     }
                     var context = BlocksContext.CreateFromClaimsIdentity(identity);
                     BlocksContext.SetContext(context);
-                    JwtBearerAuthenticationExtension.StoreBlocksContextInActivity(context);
+                    if (context.Impersonated)
+                        JwtBearerAuthenticationExtension.StoreBlocksContextInActivity(context);
                 }
                 return validatedToken;
             }

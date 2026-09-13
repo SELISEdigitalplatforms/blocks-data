@@ -73,7 +73,9 @@ public class DataGatewayTokenAuthenticator
                     {
                         await AddRolePermissionClaimsAsync(identity);
                     }
-                    BlocksContext.SetContext(BlocksContext.CreateFromClaimsIdentity(identity));
+                    var context = BlocksContext.CreateFromClaimsIdentity(identity);
+                    BlocksContext.SetContext(context);
+                    JwtBearerAuthenticationExtension.StoreBlocksContextInActivity(context);
                 }
                 return validatedToken;
             }

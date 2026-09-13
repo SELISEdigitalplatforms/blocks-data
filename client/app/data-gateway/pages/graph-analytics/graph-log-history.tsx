@@ -91,12 +91,14 @@ interface GraphLogHistoryProps {
   to?: string;
   /** Viewer offset from UTC in minutes; UTC+06:00 is 360. */
   utcOffsetMinutes?: number;
+  includeBlocksConsole?: boolean;
 }
 
 export const GraphLogHistory = ({
   from,
   to,
   utcOffsetMinutes = -new Date().getTimezoneOffset(),
+  includeBlocksConsole = false,
 }: GraphLogHistoryProps) => {
   const [pageNo, setPageNo] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -110,7 +112,7 @@ export const GraphLogHistory = ({
 
   // A new date range invalidates the current page number. Adjusting during render (rather than in
   // an effect) avoids a throwaway fetch for a page that no longer exists.
-  const rangeKey = `${from}|${to}`;
+  const rangeKey = `${from}|${to}|${includeBlocksConsole}`;
   const [lastRangeKey, setLastRangeKey] = useState(rangeKey);
   if (rangeKey !== lastRangeKey) {
     setLastRangeKey(rangeKey);
@@ -127,6 +129,7 @@ export const GraphLogHistory = ({
     outcome: outcome === ALL ? undefined : outcome,
     statusCode: statusCode === ALL ? undefined : Number(statusCode),
     failureKind: failureKind === ALL ? undefined : failureKind,
+    includeBlocksConsole,
     sortBy,
     sortDescending,
   });
@@ -332,7 +335,7 @@ export const GraphLogHistory = ({
                           {formatSize(item.responseSize)}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {item.inAppRequest ? "In-app" : "External"}
+                          {item.inAppRequest ? "In-app" : "Blocks Console"}
                         </TableCell>
                       </TableRow>
                     );

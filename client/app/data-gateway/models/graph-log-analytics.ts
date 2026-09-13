@@ -6,6 +6,7 @@ export interface IGetGraphLogAnalyticsPayload {
   /** Viewer offset from UTC in minutes; UTC+06:00 is 360. */
   utcOffsetMinutes: number;
   granularity: GraphLogGranularity;
+  includeBlocksConsole: boolean;
 }
 
 export interface IGraphLogRequestsOverTimeBucket {

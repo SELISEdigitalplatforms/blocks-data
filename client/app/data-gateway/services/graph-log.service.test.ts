@@ -41,10 +41,11 @@ describe("GraphLogService", () => {
       to: "2026-09-09",
       utcOffsetMinutes: 360,
       granularity: "daily",
+      includeBlocksConsole: true,
     });
 
     expect(http.get).toHaveBeenCalledWith(
-      `${GRAPH_LOG_ENDPOINTS.ANALYTICS}?From=2026-09-02&To=2026-09-09&UtcOffsetMinutes=360&Granularity=daily`,
+      `${GRAPH_LOG_ENDPOINTS.ANALYTICS}?From=2026-09-02&To=2026-09-09&UtcOffsetMinutes=360&Granularity=daily&IncludeBlocksConsole=true`,
     );
   });
 });

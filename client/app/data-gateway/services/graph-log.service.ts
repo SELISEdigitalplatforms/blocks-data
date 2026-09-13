@@ -13,6 +13,7 @@ class GraphLogService {
     if (payload.to) params.set("To", payload.to);
     params.set("UtcOffsetMinutes", String(payload.utcOffsetMinutes));
     params.set("Granularity", payload.granularity);
+    params.set("IncludeBlocksConsole", String(payload.includeBlocksConsole));
 
     return http.get(`${GRAPH_LOG_ENDPOINTS.ANALYTICS}?${params.toString()}`);
   }

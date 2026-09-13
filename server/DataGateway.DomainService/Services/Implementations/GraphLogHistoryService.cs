@@ -177,11 +177,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         // would spill one empty bucket past the requested period.
         var toLocal = rangeEndLocal.AddTicks(-1);
 
-        var filter = Builders<BsonDocument>.Filter.And(
-            Builders<BsonDocument>.Filter.Exists(GatewayOperationAttributePath),
-            Builders<BsonDocument>.Filter.Gte("Timestamp", fromUtc),
-            Builders<BsonDocument>.Filter.Lt("Timestamp", rangeEndUtc),
-            NotIntrospection);
+        var filter = BuildAnalyticsFilter(request, fromUtc, rangeEndUtc);
 
         var documents = await collection
             .Aggregate()
@@ -629,6 +625,26 @@ public class GraphLogHistoryService : IGraphLogHistoryService
 
         if (request.To.HasValue)
             filters.Add(builder.Lt("Timestamp", ToRangeEndExclusive(request.To.Value, utcOffset)));
+
+        return builder.And(filters);
+    }
+
+    internal static FilterDefinition<BsonDocument> BuildAnalyticsFilter(
+        GetGraphLogAnalyticsRequest request,
+        DateTime fromUtc,
+        DateTime rangeEndUtc)
+    {
+        var builder = Builders<BsonDocument>.Filter;
+        var filters = new List<FilterDefinition<BsonDocument>>
+        {
+            builder.Exists(GatewayOperationAttributePath),
+            builder.Gte("Timestamp", fromUtc),
+            builder.Lt("Timestamp", rangeEndUtc),
+            NotIntrospection,
+        };
+
+        if (!request.IncludeBlocksConsole)
+            filters.Add(builder.Eq($"{GatewayOperationAttributePath}.InAppRequest", true));
 
         return builder.And(filters);
     }

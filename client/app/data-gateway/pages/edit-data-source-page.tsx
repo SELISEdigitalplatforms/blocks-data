@@ -500,7 +500,7 @@ const EditDataSourcePage = () => {
                       {formatAnalyticsDate(
                         (configData?.data as IDataSourceResponse | undefined)
                           ?.analyticsConfiguration?.validTill,
-                      ) ?? "No expiry (enabled indefinitely)"}
+                      ) ?? "Not set (analytics unavailable)"}
                     </p>
                   </div>
                 </div>

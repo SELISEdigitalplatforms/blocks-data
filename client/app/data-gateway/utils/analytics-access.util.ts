@@ -6,15 +6,16 @@ export const isAnalyticsAccessible = (
 ) => {
   if (!configuration) return false;
   if (!configuration.enableAnalytics) return false;
+  if (!configuration.validTill) return false;
 
   const enableDate = configuration.enableDate ? new Date(configuration.enableDate) : null;
-  const validTill = configuration.validTill ? new Date(configuration.validTill) : null;
+  const validTill = new Date(configuration.validTill);
 
   if (enableDate && (Number.isNaN(enableDate.getTime()) || now < enableDate)) {
     return false;
   }
 
-  if (validTill && (Number.isNaN(validTill.getTime()) || now > validTill)) {
+  if (Number.isNaN(validTill.getTime()) || now > validTill) {
     return false;
   }
 

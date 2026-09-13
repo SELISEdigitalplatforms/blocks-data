@@ -113,6 +113,15 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
         if (request.EnableAnalytics.HasValue)
         {
             dataServiceConfiguration.AnalyticsConfiguration ??= new AnalyticsConfiguration();
+            if (request.EnableAnalytics.Value
+                && !dataServiceConfiguration.AnalyticsConfiguration.EnableDate.HasValue
+                && !dataServiceConfiguration.AnalyticsConfiguration.ValidTill.HasValue)
+            {
+                var enableDate = DateTime.UtcNow;
+                dataServiceConfiguration.AnalyticsConfiguration.EnableDate = enableDate;
+                dataServiceConfiguration.AnalyticsConfiguration.ValidTill = enableDate.AddDays(14);
+            }
+
             dataServiceConfiguration.AnalyticsConfiguration.EnableAnalytics = request.EnableAnalytics.Value;
         }
 

@@ -46,7 +46,7 @@ describe("isAnalyticsAccessible", () => {
     ).toBe(false);
   });
 
-  it("treats a null valid-till as indefinite access", () => {
+  it("denies access when valid-till is null", () => {
     expect(
       isAnalyticsAccessible(
         {
@@ -56,7 +56,20 @@ describe("isAnalyticsAccessible", () => {
         },
         now,
       ),
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it("denies access when valid-till is not a valid date", () => {
+    expect(
+      isAnalyticsAccessible(
+        {
+          enableAnalytics: true,
+          enableDate: null,
+          validTill: "not-a-date",
+        },
+        now,
+      ),
+    ).toBe(false);
   });
 
   it("denies configurations without the nested analytics object", () => {

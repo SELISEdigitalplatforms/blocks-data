@@ -237,8 +237,9 @@ export const GraphAnalytics = () => {
                 Analytics access unavailable
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Analytics is not available for this project. Access is disabled or the analytics
-                access period has expired. Contact your administrator to enable or extend access.
+                Analytics is not available for this project. Access is disabled, expired, or does
+                not have a valid access period. Contact your administrator to enable or extend
+                access.
               </p>
             </div>
           </div>

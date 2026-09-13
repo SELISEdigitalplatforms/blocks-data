@@ -29,7 +29,8 @@ public class AnalyticsConfiguration
     {
         return EnableAnalytics
                && (!EnableDate.HasValue || utcNow >= EnableDate.Value)
-               && (!ValidTill.HasValue || utcNow <= ValidTill.Value);
+               && ValidTill.HasValue
+               && utcNow <= ValidTill.Value;
     }
 
 }

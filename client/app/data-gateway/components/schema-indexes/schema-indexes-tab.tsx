@@ -177,9 +177,7 @@ export function SchemaIndexesTab({
                     </span>
                     {index.isSystem && <Badge variant="outline">Default</Badge>}
                     {index.fields.length > 1 && <Badge variant="outline">Compound</Badge>}
-                    <Badge variant={index.isUnique ? "secondary" : "outline"}>
-                      {index.isUnique ? "Unique" : "Non-unique"}
-                    </Badge>
+                    {index.isUnique && <Badge variant="secondary">Unique</Badge>}
                   </div>
                 </AccordionTrigger>
                 {index.isSystem ? (
@@ -203,18 +201,18 @@ export function SchemaIndexesTab({
                 )}
               </div>
 
-              <AccordionContent className="border-t border-border/30 px-4 pb-4 pt-3">
+              <AccordionContent className="border-t border-border/30 pb-4 pl-11 pr-4 pt-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Properties
                 </p>
                 <ul
-                  className="mt-2 flex flex-col gap-2"
+                  className="mt-2 flex items-center gap-6 overflow-x-auto pb-1"
                   aria-label={`Properties for ${index.name}`}
                 >
                   {index.fields.map((field, position) => (
                     <li
                       key={`${field.fieldName}-${position}`}
-                      className="flex min-w-0 items-center gap-2 text-sm"
+                      className="flex shrink-0 items-center gap-2 text-sm"
                     >
                       <span className="min-w-0 break-all">{field.fieldName}</span>
                       <span

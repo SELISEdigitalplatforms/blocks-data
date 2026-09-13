@@ -99,7 +99,7 @@ describe("SchemaIndexesTab", () => {
     expect(screen.getByText("2 properties")).toBeInTheDocument();
     expect(screen.getByText("Compound")).toBeInTheDocument();
     expect(screen.getAllByText("Unique")).toHaveLength(2);
-    expect(screen.getByText("Non-unique")).toBeInTheDocument();
+    expect(screen.queryByText("Non-unique")).not.toBeInTheDocument();
 
     await user.click(screen.getByText("email_1").closest("button")!);
 

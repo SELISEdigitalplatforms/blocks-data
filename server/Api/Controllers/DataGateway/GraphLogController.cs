@@ -57,7 +57,7 @@ namespace Api.Controllers
             if (!await _configurationService.CanAccessAnalyticsAsync())
             {
                 var response = new ServiceResponse<GraphLogAnalyticsResponse>()
-                    .SetErrorMessage("Analytics is not available for this project. Access is disabled or the analytics access period has expired.")
+                    .SetErrorMessage("Analytics is not available for this project. Access is disabled, expired, or does not have a valid access period.")
                     .SetHttpStatusCode(StatusCodes.Status403Forbidden);
                 return StatusCode(response.HttpStatusCode, response);
             }

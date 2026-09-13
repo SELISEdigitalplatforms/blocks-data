@@ -248,6 +248,71 @@ public class DataGatewayConfigurationServiceTests
         _cache.Verify(c => c.RemoveKeyAsync("proj"), Times.Once);
     }
 
+    [Fact]
+    public async Task UpdateConfiguration_FirstEnable_SetsFourteenDayWindow()
+    {
+        DataServiceConfiguration? updated = null;
+        _repo.Setup(r => r.GetItemAsync<DataServiceConfiguration>(It.IsAny<string>(), ""))
+            .ReturnsAsync(new DataServiceConfiguration { ItemId = "c1" });
+        _repo.Setup(r => r.UpdateAsync(It.IsAny<DataServiceConfiguration>(), ""))
+            .Callback((DataServiceConfiguration c, string _) => updated = c)
+            .ReturnsAsync(new ActionResponse { Acknowledged = true, ItemId = "c1" });
+        _cache.Setup(c => c.KeyExistsAsync(It.IsAny<string>())).ReturnsAsync(false);
+        var beforeEnable = DateTime.UtcNow;
+
+        await _service.UpdateConfiguration(new UpdateDataGatewayConfigurationRequest
+        {
+            ItemId = "c1",
+            ConnectionString = "default",
+            DatabaseName = "default",
+            EnableAnalytics = true,
+            ProjectKey = "proj"
+        });
+
+        var afterEnable = DateTime.UtcNow;
+        updated!.AnalyticsConfiguration!.EnableAnalytics.Should().BeTrue();
+        updated.AnalyticsConfiguration.EnableDate.Should().BeOnOrAfter(beforeEnable);
+        updated.AnalyticsConfiguration.EnableDate.Should().BeOnOrBefore(afterEnable);
+        updated.AnalyticsConfiguration.ValidTill.Should()
+            .Be(updated.AnalyticsConfiguration.EnableDate!.Value.AddDays(14));
+    }
+
+    [Fact]
+    public async Task UpdateConfiguration_ReEnable_PreservesExistingWindow()
+    {
+        var enableDate = DateTime.UtcNow.AddDays(-30);
+        var validTill = enableDate.AddDays(14);
+        DataServiceConfiguration? updated = null;
+        _repo.Setup(r => r.GetItemAsync<DataServiceConfiguration>(It.IsAny<string>(), ""))
+            .ReturnsAsync(new DataServiceConfiguration
+            {
+                ItemId = "c1",
+                AnalyticsConfiguration = new AnalyticsConfiguration
+                {
+                    EnableAnalytics = false,
+                    EnableDate = enableDate,
+                    ValidTill = validTill
+                }
+            });
+        _repo.Setup(r => r.UpdateAsync(It.IsAny<DataServiceConfiguration>(), ""))
+            .Callback((DataServiceConfiguration c, string _) => updated = c)
+            .ReturnsAsync(new ActionResponse { Acknowledged = true, ItemId = "c1" });
+        _cache.Setup(c => c.KeyExistsAsync(It.IsAny<string>())).ReturnsAsync(false);
+
+        await _service.UpdateConfiguration(new UpdateDataGatewayConfigurationRequest
+        {
+            ItemId = "c1",
+            ConnectionString = "default",
+            DatabaseName = "default",
+            EnableAnalytics = true,
+            ProjectKey = "proj"
+        });
+
+        updated!.AnalyticsConfiguration!.EnableAnalytics.Should().BeTrue();
+        updated.AnalyticsConfiguration.EnableDate.Should().Be(enableDate);
+        updated.AnalyticsConfiguration.ValidTill.Should().Be(validTill);
+    }
+
     [Theory]
     [InlineData(true, -1, 1, true)]
     [InlineData(false, -1, 1, false)]
@@ -274,7 +339,7 @@ public class DataGatewayConfigurationServiceTests
     }
 
     [Fact]
-    public async Task CanAccessAnalytics_NullValidTill_AllowsIndefiniteAccess()
+    public async Task CanAccessAnalytics_NullValidTill_DeniesAccess()
     {
         _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<DataServiceConfiguration>>(), ""))
             .ReturnsAsync(new DataServiceConfiguration
@@ -287,7 +352,7 @@ public class DataGatewayConfigurationServiceTests
                 }
             });
 
-        (await _service.CanAccessAnalyticsAsync()).Should().BeTrue();
+        (await _service.CanAccessAnalyticsAsync()).Should().BeFalse();
     }
 }
 

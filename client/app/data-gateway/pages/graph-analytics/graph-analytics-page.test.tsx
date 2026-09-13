@@ -123,7 +123,7 @@ describe("GraphAnalytics", () => {
           analyticsConfiguration: {
             enableAnalytics: true,
             enableDate: "2020-01-01T00:00:00Z",
-            validTill: null,
+            validTill: "2099-01-01T00:00:00Z",
           },
         },
       },

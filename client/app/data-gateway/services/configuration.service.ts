@@ -9,11 +9,13 @@ import {
   DATA_VALIDATION_REGEX_ENDPOINTS,
   GATEWAY_ENDPOINTS,
   SCHEMA_ENDPOINTS,
+  SCHEMA_INDEX_ENDPOINTS,
 } from "../constants/endpoint.constant";
 import {
   ICreatePolicyPayload,
   ICreatePolicyResponse,
   ICreateSchemaFieldValidationPayload,
+  ICreateSchemaIndexPayload,
   ICreateSchemaPayload,
   ICreateSchemaResponse,
   IDataServiceConfiguration,
@@ -24,16 +26,19 @@ import {
   IDeletePolicyPayload,
   IDeletePolicyResponse,
   IDeleteSchemaFieldValidationPayload,
+  IDeleteSchemaIndexPayload,
   IGetPolicyResponse,
   IGetSchemaDetailsResponse,
   IGetSchemaFieldValidationPayload,
   IGetSchemaFieldValidationResponse,
+  IGetSchemaIndexesResponse,
   IGetSchemaListPayload,
   IGetSchemaListResponse,
   IGetUnAdaptedChangeLogsPayload,
   IMockDataResponse,
   ISchemaExportPayload,
   ISchemaExportResponse,
+  ISchemaIndexActionResponse,
   ISetDataAccessPayload,
   ISetDataAccessResponse,
   ISetRowColumnPermissionPayload,
@@ -229,6 +234,26 @@ class ConfigurationService {
     const url = `${API_BASES.UDS}/schema-exchange/import`;
     return http.post(url, payload);
   };
+
+  getSchemaIndexes(
+    schemaDefinitionItemId: string,
+  ): Promise<IGetSchemaIndexesResponse> {
+    const params = new URLSearchParams({ schemaDefinitionItemId });
+    return http.get(`${SCHEMA_INDEX_ENDPOINTS.BASE}?${params.toString()}`);
+  }
+
+  createSchemaIndex(
+    payload: ICreateSchemaIndexPayload,
+  ): Promise<ISchemaIndexActionResponse> {
+    return http.post(SCHEMA_INDEX_ENDPOINTS.BASE, payload);
+  }
+
+  deleteSchemaIndex(
+    payload: IDeleteSchemaIndexPayload,
+  ): Promise<ISchemaIndexActionResponse> {
+    const params = new URLSearchParams({ itemId: payload.itemId });
+    return http.delete(`${SCHEMA_INDEX_ENDPOINTS.BASE}?${params.toString()}`);
+  }
 }
 
 export const configurationService = new ConfigurationService();

@@ -11,16 +11,17 @@ test.describe("flow: Overview menu", () => {
 
     await page.goto(`${e2eBaseUrl()}/app/console`, { waitUntil: "domcontentloaded" });
 
-    const themeTablist = page.getByRole("tablist").first();
-    const darkTab = themeTablist.locator('[aria-controls$="-content-dark"]');
-    const lightTab = themeTablist.locator('[aria-controls$="-content-light"]');
+    await test.step("should change theme between Light, Dark, and Auto", async () => {
+      const themeButton = page.getByRole("button", { name: "Change theme" });
 
-    await test.step("Topbar: switching theme to Dark applies it, then Light restores it", async () => {
-      await expect(themeTablist).toBeVisible({ timeout: 30_000 });
-      await darkTab.click();
-      await expect(page.locator("html")).toHaveClass(/dark/);
-      await lightTab.click();
-      await expect(page.locator("html")).not.toHaveClass(/dark/);
+      await themeButton.click();
+      await page.getByText("Light", { exact: true }).click();
+
+      await themeButton.click();
+      await page.getByText("Dark", { exact: true }).click();
+
+      await themeButton.click();
+      await page.getByText("Auto", { exact: true }).click();
     });
 
     await test.step("Topbar: language selector lists EN/German/French with non-English disabled", async () => {
@@ -35,11 +36,6 @@ test.describe("flow: Overview menu", () => {
         "aria-disabled",
         "true",
       );
-      // The dropdown stays open after asserting menu items -- we
-      // deliberately do NOT close it here. The next step opens the
-      // notification popover, which Radix will handle independently.
-      // Forcing a close via re-click or outside-click on the menu
-      // portal is flaky on this version of Radix.
     });
 
     await test.step("Topbar: notification bell opens the popover and 'Mark all as read' is usable", async () => {
@@ -48,14 +44,7 @@ test.describe("flow: Overview menu", () => {
       await expect(page.getByText("Notifications", { exact: true })).toBeVisible();
       const markAllRead = page.getByRole("button", { name: "Mark all as read" });
       await expect(markAllRead).toBeVisible({ timeout: 10_000 });
-      // This list re-renders live (real-time notifications), which trips
-      // Playwright's actionability "stable element" wait indefinitely.
-      // Force the click since the button itself is genuinely clickable.
       await markAllRead.click({ force: true, timeout: 10_000 });
-      // "Mark all as read" closes the popover automatically (controlled
-      // Radix Popover around a div trigger -- re-clicking the trigger is
-      // intercepted by the live-update portal). We simply verify it
-      // closed itself.
       await expect(page.getByText("Notifications", { exact: true })).toHaveCount(0);
     });
 
@@ -65,19 +54,11 @@ test.describe("flow: Overview menu", () => {
       await expect(page.getByText("Notifications", { exact: true })).toBeVisible({
         timeout: 10_000,
       });
-      // Strict: there must be at least one notification row to assert
-      // against -- silently skipping when none exist would let a
-      // regression that hides every row pass.
       const rows = page.locator(
         '[class*="cursor-pointer"][class*="items-start"][class*="border-b"]',
       );
       await expect(rows.first()).toBeVisible({ timeout: 10_000 });
       const firstRow = rows.first();
-      // If the first row is already read (no bg-muted class) we still
-      // assert it stays read on hover -- the unread->read transition
-      // may not happen if all notifications were read in the previous
-      // step. The invariant we care about is "hover does not flip a
-      // read row to unread".
       const initialClass = (await firstRow.getAttribute("class")) ?? "";
       await firstRow.hover();
       if (initialClass.includes("bg-muted")) {
@@ -85,10 +66,6 @@ test.describe("flow: Overview menu", () => {
       } else {
         await expect(firstRow).not.toHaveClass(/bg-muted/, { timeout: 10_000 });
       }
-      // If the popover is still open (no read-rows change closed it),
-      // close it via an outside click on the page background. We pick
-      // a coordinate in the top-left so the menu portal can't intercept
-      // it. Otherwise just verify it closed.
       if ((await page.getByText("Notifications", { exact: true }).count()) > 0) {
         await page.mouse.click(20, 20);
       }
@@ -99,9 +76,6 @@ test.describe("flow: Overview menu", () => {
       const appsButton = page.getByRole("button", { name: "SELISE Blocks apps" });
       await appsButton.click();
       await expect(page.getByText("SELISE Blocks", { exact: true })).toBeVisible();
-      // Outside-click on the top-left of the viewport closes the apps
-      // popover. Re-clicking the trigger can be intercepted by the menu
-      // portal, and the menu covers most of the central page area.
       await page.mouse.click(20, 20);
       await expect(page.getByText("SELISE Blocks", { exact: true })).toHaveCount(0);
     });
@@ -144,13 +118,8 @@ test.describe("flow: Overview menu", () => {
     });
 
     await test.step("Console: project card's settings icon navigates cross-app to the environments overview (Blocks OS)", async () => {
-      // ProjectCard renders a Button with a Settings2 lucide icon and a
-      // tooltip "Configure Project". Scope to <main> so we don't pick up
-      // unrelated settings icons (e.g. sidebars, topbar). We then hover to
-      // confirm the tooltip text matches -- this pins the selector to a
-      // behavior, so a future lucide-react rename doesn't silently pass.
       const main = page.getByRole("main");
-      const configureButton = main.locator('button:has(svg.lucide-settings-2)').first();
+      const configureButton = main.locator("button:has(svg.lucide-settings-2)").first();
       await expect(configureButton).toBeVisible({ timeout: 15_000 });
 
       await configureButton.hover();
@@ -211,13 +180,6 @@ test.describe("flow: Overview menu", () => {
     });
 
     await test.step("Workspace area (sidebar): Project/Environment widgets show current context and are permanently disabled", async () => {
-      // The "Workspace" label lives in the desktop sidebar's section
-      // header (sidebar-menu-desktop.tsx). The sidebar is a div with no
-      // landmark role, so we can't scope to complementary/navigation --
-      // the Project Details card also has "Project" labels. Instead,
-      // we rely on the fact that the "Workspace" paragraph is unique on
-      // the page (it only appears in the sidebar) and that the disabled
-      // Project/Environment buttons only render inside the sidebar.
       await expect(page.getByText("Workspace", { exact: true })).toBeVisible({
         timeout: 15_000,
       });

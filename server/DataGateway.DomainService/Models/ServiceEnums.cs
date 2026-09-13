@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DataGateway.DomainService.Models;
 
 public enum SchemaType
@@ -28,7 +30,9 @@ public enum SchemaChangeType
     SchemaPolicyUpdate,
     SchemaFieldValidationCreate,
     SchemaFieldValidationUpdate,
-    SchemaFieldValidationDelete
+    SchemaFieldValidationDelete,
+    SchemaIndexCreate,
+    SchemaIndexDelete
 }
 
 public enum SchemaAccessLevel
@@ -125,6 +129,7 @@ public enum PolicyType
 /// <summary>
 /// Sort direction for typed order clauses.
 /// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum SortDirection
 {
     ASC,

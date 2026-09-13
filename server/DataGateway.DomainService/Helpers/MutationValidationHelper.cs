@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Responses;
 
@@ -7,6 +8,12 @@ public static class MutationValidationHelper
 {
     public static void ThrowValidationError(DataValidationResult validationResult, string? message = null)
     {
+        GatewayOperationActivity.MarkFailed(
+            Activity.Current,
+            GatewayFailureKind.Validation,
+            message ?? validationResult.ErrorMessage,
+            GraphQlConstant.ValidationErrorErrorCode);
+
         throw new GraphQLException(
             ErrorBuilder.New()
                 .SetMessage(message ?? validationResult.ErrorMessage)

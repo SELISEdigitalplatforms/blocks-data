@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using Blocks.Genesis;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Resolvers;
@@ -13,8 +15,18 @@ internal static class SchemaAccessMiddlewareHelper
         IMiddlewareContext context,
         FieldDelegate next,
         SchemaAccessLevel accessLevel,
-        string middlewareName)
+        string middlewareName,
+        string entityName)
     {
+        // Runs before QueryService/MutationService ever gets invoked, so this is the only chance
+        // to record what a request was for when access is denied here (tenant/auth checks below)
+        // — those services never get a chance to set it themselves. CollectionName/MongoQuery
+        // are left for QueryService/MutationService to set once execution actually reaches the
+        // point of building a Mongo query.
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
+        gatewayOperation.SchemaName = context.Selection.Field.Name;
+        gatewayOperation.EntityName = entityName;
+
         Console.WriteLine($"Invoking {middlewareName}");
         Console.WriteLine($"{middlewareName}: accessLevel: {accessLevel}");
         var httpContextAccessor = context.Services.GetService<IHttpContextAccessor>();
@@ -22,11 +34,7 @@ internal static class SchemaAccessMiddlewareHelper
         if (!IsValidTenant(httpContext))
         {
             Console.WriteLine($"{middlewareName}: tenant is not valid");
-            throw new GraphQLException(
-                ErrorBuilder.New()
-                    .SetMessage("Tenant is not valid.")
-                    .SetCode(GraphQlConstant.UnauthorizedErrorCode)
-                    .Build());
+            throw Rejected(GatewayFailureKind.Authentication, "Tenant is not valid.");
         }
 
         if (accessLevel == SchemaAccessLevel.Public)
@@ -35,21 +43,33 @@ internal static class SchemaAccessMiddlewareHelper
             return;
         }
 
-		Console.WriteLine($"{middlewareName}: accessLevel is not public");
+        Console.WriteLine($"{middlewareName}: accessLevel is not public");
         var isAuthenticated = IsAuthenticated(httpContext);
         Console.WriteLine($"{middlewareName}: isAuthenticated: {isAuthenticated}");
 
         if (!isAuthenticated)
         {
             Console.WriteLine($"{middlewareName}: user is not authenticated");
-            throw new GraphQLException(
-                ErrorBuilder.New()
-                    .SetMessage("User is not authenticated.")
-                    .SetCode(GraphQlConstant.UnauthorizedErrorCode)
-                    .Build());
+            throw Rejected(GatewayFailureKind.Authentication, "User is not authenticated.");
         }
 
         await next(context);
+    }
+
+    /// <summary>
+    /// Builds the GraphQL error for a rejected request and records why on the request log, so the
+    /// log distinguishes "we don't know who you are" from the other ways a request can fail.
+    /// </summary>
+    private static GraphQLException Rejected(string failureKind, string message)
+    {
+        GatewayOperationActivity.MarkFailed(
+            Activity.Current, failureKind, message, GraphQlConstant.UnauthorizedErrorCode);
+
+        return new GraphQLException(
+            ErrorBuilder.New()
+                .SetMessage(message)
+                .SetCode(GraphQlConstant.UnauthorizedErrorCode)
+                .Build());
     }
 
     private static bool IsValidTenant(HttpContext? httpContext)

@@ -4,5 +4,6 @@ public class UpdateDataGatewayConfigurationRequest : CreateDataGatewayConfigurat
 {
     public bool IsCollectionNameEditable { get; set; }
     public string CollectionNamePattern { get; set; } = string.Empty;
+    public bool? EnableAnalytics { get; set; }
 
 }

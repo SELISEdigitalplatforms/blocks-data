@@ -137,7 +137,6 @@ namespace Api.Controllers
             return StatusCode(response.HttpStatusCode, response);
         }
 
-
         #endregion
 
         #region Post
@@ -188,7 +187,6 @@ namespace Api.Controllers
             var response = await _schemaService.SaveFieldDefinitionAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
-
 
         #endregion
 

@@ -1,7 +1,9 @@
 using System.Collections.Immutable;
+using System.Diagnostics;
 using Blocks.Genesis;
 using DataGateway.DomainService;
 using DataGateway.DomainService.Entities;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Events;
@@ -10,6 +12,7 @@ using DataGateway.DomainService.Resolvers;
 using DataGateway.DomainService.Services;
 using FluentAssertions;
 using HotChocolate;
+using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using HotChocolate.Types;
@@ -98,7 +101,13 @@ public class MutationServiceTests
 
     private static Mock<IResolverContext> ContextWith(IValueNode inputLiteral)
     {
+        var field = new Mock<IObjectField>();
+        field.Setup(f => f.Name).Returns("mutationField");
+        var selection = new Mock<ISelection>();
+        selection.Setup(s => s.Field).Returns(field.Object);
+
         var ctx = new Mock<IResolverContext>();
+        ctx.Setup(c => c.Selection).Returns(selection.Object);
         ctx.Setup(c => c.ArgumentLiteral<IValueNode>(GraphQlConstant.InputFieldName)).Returns(inputLiteral);
         ctx.Setup(c => c.ArgumentValue<object?>(GraphQlConstant.WhereFieldName)).Returns((object?)null);
         ctx.Setup(c => c.ArgumentValue<string?>(GraphQlConstant.FilterFieldName)).Returns((string?)null);
@@ -274,6 +283,22 @@ public class MutationServiceTests
         result.TotalImpactedData.Should().Be(2);
         pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Inserted,
             It.IsAny<List<BsonDocument>>(), null), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkInsertAsync_RecordsHowManyDocumentsItWrote()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        repo.Setup(r => r.InsertManyAsync(It.IsAny<string>(), It.IsAny<List<BsonDocument>>()))
+            .ReturnsAsync(new BulkActionResponse { Acknowledged = true, TotalImpactedData = 2 });
+        var schema = Schema(fields: new() { Field("Name"), Field("Age", "Int") });
+        var ctx = ContextWith(ListLiteral("[ { Name: \"A\", Age: 1 }, { Name: \"B\", Age: 2 } ]"));
+        using var activity = new Activity("request").Start();
+
+        await NewService(repo, pub).BulkInsertAsync(schema, ctx.Object, _insertInput);
+
+        GatewayOperationActivity.GetOrCreate(activity).DocumentCount.Should().Be(2);
     }
 
     [Fact]

@@ -11,7 +11,15 @@ public class DataGatewayConfigurationResponse
     public string ProjectKey { get; set; } = string.Empty;
     public string ProjectShortKey { get; set; } = string.Empty;
     public string? ItemId { get; set; } = default!;
+    public AnalyticsConfigurationResponse AnalyticsConfiguration { get; set; } = new();
 
+}
+
+public class AnalyticsConfigurationResponse
+{
+    public bool EnableAnalytics { get; set; }
+    public DateTime? EnableDate { get; set; }
+    public DateTime? ValidTill { get; set; }
 }
 
 /// <summary>

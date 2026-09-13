@@ -5,6 +5,13 @@ export interface IDataServiceConfiguration {
   itemId?: string;
   isCollectionNameEditable?: boolean;
   collectionNamePattern?: string;
+  enableAnalytics?: boolean;
+}
+
+export interface IAnalyticsConfiguration {
+  enableAnalytics: boolean;
+  enableDate: string | null;
+  validTill: string | null;
 }
 
 export interface IDefaultResponse {
@@ -22,6 +29,7 @@ export interface IDataSourceResponse {
   isActive: boolean;
   isCollectionNameEditable?: boolean;
   collectionNamePattern?: string;
+  analyticsConfiguration?: IAnalyticsConfiguration;
 }
 
 export interface IDataSourceFormValues {
@@ -29,6 +37,7 @@ export interface IDataSourceFormValues {
   databaseName: string;
   isCollectionNameEditable: boolean;
   collectionNamePattern: string;
+  enableAnalytics: boolean;
 }
 
 export interface IUnadaptedChangeLogsResponse {
@@ -482,7 +491,6 @@ export interface IDeleteSchemaIndexPayload {
   schemaDefinitionItemId: string;
 }
 
-
 // ── Schema Export ──────────────────────────────────────────────────────────
 /** Mirrors backend `SchemaExportOption`. Value `All` (3) includes both optional sections together. */
 export const SchemaExportOption = {
@@ -496,8 +504,7 @@ export const SchemaExportOption = {
   All: 3,
 } as const;
 
-export type SchemaExportOptionValue =
-  (typeof SchemaExportOption)[keyof typeof SchemaExportOption];
+export type SchemaExportOptionValue = (typeof SchemaExportOption)[keyof typeof SchemaExportOption];
 
 export interface ISchemaExportPayload {
   projectKey: string;

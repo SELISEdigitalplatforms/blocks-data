@@ -126,8 +126,19 @@ public class DataGatewayConfigurationServiceTests
     {
         var connString = "mongodb://localhost";
         var encoded = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(connString));
+        var validTill = DateTime.UtcNow.AddDays(5);
         _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<DataServiceConfiguration>>(), ""))
-            .ReturnsAsync(new DataServiceConfiguration { DbConnectionString = encoded, DatabaseName = "db", ItemId = "c1" });
+            .ReturnsAsync(new DataServiceConfiguration
+            {
+                DbConnectionString = encoded,
+                DatabaseName = "db",
+                ItemId = "c1",
+                AnalyticsConfiguration = new AnalyticsConfiguration
+                {
+                    EnableAnalytics = false,
+                    ValidTill = validTill
+                }
+            });
         _project.Setup(p => p.GetTenantSlugAsync("proj")).ReturnsAsync("psk");
 
         var result = await _service.GetConfiguration("proj");
@@ -135,6 +146,8 @@ public class DataGatewayConfigurationServiceTests
         result.IsSuccess.Should().BeTrue();
         result.Data!.DbConnectionString.Should().Be(connString);
         result.Data.ProjectShortKey.Should().Be("psk");
+        result.Data.AnalyticsConfiguration.EnableAnalytics.Should().BeFalse();
+        result.Data.AnalyticsConfiguration.ValidTill.Should().Be(validTill);
     }
 
     [Fact]
@@ -161,8 +174,11 @@ public class DataGatewayConfigurationServiceTests
     [Fact]
     public async Task InsertConfiguration_New_InsertsAndCaches()
     {
+        DataServiceConfiguration? inserted = null;
         _repo.Setup(r => r.GetItemAsync<DataServiceConfiguration>(It.IsAny<string>(), "")).ReturnsAsync((DataServiceConfiguration?)null);
-        _repo.Setup(r => r.InsertAsync(It.IsAny<DataServiceConfiguration>(), "")).ReturnsAsync((DataServiceConfiguration c, string _) => c);
+        _repo.Setup(r => r.InsertAsync(It.IsAny<DataServiceConfiguration>(), ""))
+            .Callback((DataServiceConfiguration c, string _) => inserted = c)
+            .ReturnsAsync((DataServiceConfiguration c, string _) => c);
         _cache.Setup(c => c.KeyExistsAsync(It.IsAny<string>())).ReturnsAsync(false);
 
         var result = await _service.InsertConfiguration(new CreateDataGatewayConfigurationRequest
@@ -174,6 +190,10 @@ public class DataGatewayConfigurationServiceTests
         });
 
         result.IsSuccess.Should().BeTrue();
+        inserted.Should().NotBeNull();
+        inserted!.AnalyticsConfiguration!.EnableAnalytics.Should().BeTrue();
+        inserted.AnalyticsConfiguration.EnableDate.Should().Be(inserted.CreatedDate);
+        inserted.AnalyticsConfiguration.ValidTill.Should().Be(inserted.CreatedDate.AddDays(14));
         _repo.Verify(r => r.InsertAsync(It.IsAny<DataServiceConfiguration>(), ""), Times.Once);
         _cache.Verify(c => c.AddHashValueAsync("proj", It.IsAny<IEnumerable<StackExchange.Redis.HashEntry>>()), Times.Once);
     }
@@ -191,8 +211,22 @@ public class DataGatewayConfigurationServiceTests
     [Fact]
     public async Task UpdateConfiguration_Existing_Updates()
     {
-        _repo.Setup(r => r.GetItemAsync<DataServiceConfiguration>(It.IsAny<string>(), "")).ReturnsAsync(new DataServiceConfiguration { ItemId = "c1" });
-        _repo.Setup(r => r.UpdateAsync(It.IsAny<DataServiceConfiguration>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true, ItemId = "c1" });
+        var enableDate = DateTime.UtcNow.AddDays(-2);
+        var validTill = enableDate.AddDays(14);
+        DataServiceConfiguration? updated = null;
+        _repo.Setup(r => r.GetItemAsync<DataServiceConfiguration>(It.IsAny<string>(), "")).ReturnsAsync(new DataServiceConfiguration
+        {
+            ItemId = "c1",
+            AnalyticsConfiguration = new AnalyticsConfiguration
+            {
+                EnableAnalytics = true,
+                EnableDate = enableDate,
+                ValidTill = validTill
+            }
+        });
+        _repo.Setup(r => r.UpdateAsync(It.IsAny<DataServiceConfiguration>(), ""))
+            .Callback((DataServiceConfiguration c, string _) => updated = c)
+            .ReturnsAsync(new ActionResponse { Acknowledged = true, ItemId = "c1" });
         _cache.Setup(c => c.KeyExistsAsync(It.IsAny<string>())).ReturnsAsync(true);
         _cache.Setup(c => c.RemoveKeyAsync(It.IsAny<string>())).ReturnsAsync(true);
 
@@ -203,11 +237,57 @@ public class DataGatewayConfigurationServiceTests
             DatabaseName = "db",
             IsCollectionNameEditable = true,
             CollectionNamePattern = "p_{SchemaName}",
+            EnableAnalytics = false,
             ProjectKey = "proj"
         });
 
         result.IsSuccess.Should().BeTrue();
+        updated!.AnalyticsConfiguration!.EnableAnalytics.Should().BeFalse();
+        updated.AnalyticsConfiguration.EnableDate.Should().Be(enableDate);
+        updated.AnalyticsConfiguration.ValidTill.Should().Be(validTill);
         _cache.Verify(c => c.RemoveKeyAsync("proj"), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(true, -1, 1, true)]
+    [InlineData(false, -1, 1, false)]
+    [InlineData(true, -3, -1, false)]
+    [InlineData(true, 1, 3, false)]
+    public async Task CanAccessAnalytics_UsesEnabledAndAvailabilityWindow(
+        bool enabled,
+        int enableDateOffset,
+        int validTillOffset,
+        bool expected)
+    {
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<DataServiceConfiguration>>(), ""))
+            .ReturnsAsync(new DataServiceConfiguration
+            {
+                AnalyticsConfiguration = new AnalyticsConfiguration
+                {
+                    EnableAnalytics = enabled,
+                    EnableDate = DateTime.UtcNow.AddDays(enableDateOffset),
+                    ValidTill = DateTime.UtcNow.AddDays(validTillOffset)
+                }
+            });
+
+        (await _service.CanAccessAnalyticsAsync()).Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task CanAccessAnalytics_NullValidTill_AllowsIndefiniteAccess()
+    {
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<DataServiceConfiguration>>(), ""))
+            .ReturnsAsync(new DataServiceConfiguration
+            {
+                AnalyticsConfiguration = new AnalyticsConfiguration
+                {
+                    EnableAnalytics = true,
+                    EnableDate = DateTime.UtcNow.AddDays(-100),
+                    ValidTill = null
+                }
+            });
+
+        (await _service.CanAccessAnalyticsAsync()).Should().BeTrue();
     }
 }
 

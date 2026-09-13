@@ -4,11 +4,10 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const navigateMock = vi.fn();
+const useGetDataServiceConfigurationMock = vi.fn();
 
 vi.mock("react-router", async () => {
-  const actual = await vi.importActual<typeof import("react-router")>(
-    "react-router",
-  );
+  const actual = await vi.importActual<typeof import("react-router")>("react-router");
   return {
     ...actual,
     useNavigate: () => navigateMock,
@@ -25,6 +24,9 @@ vi.mock("@/hooks/use-scoped-path", () => ({
 }));
 
 vi.mock("@/lib/runtime-env", () => ({ getRuntimeEnv: () => "http://api" }));
+vi.mock("../hooks/use-configuration", () => ({
+  useGetDataServiceConfiguration: () => useGetDataServiceConfigurationMock(),
+}));
 
 // Stub the heavy import/export modals — we only care about the action buttons here.
 vi.mock("./export-schema/export-schema-modal", () => ({
@@ -47,6 +49,13 @@ function renderActions() {
 describe("DataGatewayActions", () => {
   beforeEach(() => {
     navigateMock.mockReset();
+    useGetDataServiceConfigurationMock.mockReturnValue({
+      data: {
+        data: {
+          analyticsConfiguration: { enableAnalytics: true },
+        },
+      },
+    });
   });
 
   it("keeps API Docs and Playground inline, the rest behind the overflow menu (desktop)", () => {
@@ -97,10 +106,7 @@ describe("DataGatewayActions", () => {
 
     await user.click(screen.getAllByRole("button", { name: /API Docs/ }).at(-1)!);
 
-    expect(openSpy).toHaveBeenCalledWith(
-      "http://api/swagger/index.html",
-      "_blank",
-    );
+    expect(openSpy).toHaveBeenCalledWith("http://api/swagger/index.html", "_blank");
     openSpy.mockRestore();
   });
 
@@ -109,9 +115,7 @@ describe("DataGatewayActions", () => {
     renderActions();
 
     // The desktop inline buttons are actual <button>s
-    const playground = screen
-      .getAllByRole("button", { name: /Playground/ })
-      .at(-1)!;
+    const playground = screen.getAllByRole("button", { name: /Playground/ }).at(-1)!;
     await user.click(playground);
     expect(navigateMock).toHaveBeenCalledWith("/data-gateway/playground");
   });
@@ -124,5 +128,21 @@ describe("DataGatewayActions", () => {
     await user.click(await screen.findByText("Export"));
 
     expect(await screen.findByTestId("export-modal")).toBeInTheDocument();
+  });
+
+  it("hides analytics when it is disabled", async () => {
+    useGetDataServiceConfigurationMock.mockReturnValue({
+      data: {
+        data: {
+          analyticsConfiguration: { enableAnalytics: false },
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderActions();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+
+    expect(screen.queryByText("Analytics")).not.toBeInTheDocument();
   });
 });

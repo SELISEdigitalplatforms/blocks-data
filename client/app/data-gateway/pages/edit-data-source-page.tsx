@@ -20,10 +20,7 @@ import {
   FormMessage,
 } from "@/components/ui-kits/form/form";
 import { Input } from "@/components/ui-kits/input/input";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui-kits/radio-group/radio-group";
+import { RadioGroup, RadioGroupItem } from "@/components/ui-kits/radio-group/radio-group";
 import { Switch } from "@/components/ui-kits/switch/switch";
 import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
@@ -32,6 +29,8 @@ import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import {
   AlertTriangle,
+  BarChart3,
+  CalendarDays,
   Database,
   Loader2,
   Server,
@@ -45,13 +44,19 @@ import {
   useGetDataServiceConfiguration,
   useUpdateDataSourceConfiguration,
 } from "../hooks/use-configuration";
-import {
-  IDataSourceFormValues,
-  IDataSourceResponse,
-} from "../models/data-service";
+import { IDataSourceFormValues, IDataSourceResponse } from "../models/data-service";
 
-const isDefaultConnection = (val: string | undefined | null) =>
-  !val || val === "default";
+const isDefaultConnection = (val: string | undefined | null) => !val || val === "default";
+
+const formatAnalyticsDate = (value: string | null | undefined) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Invalid date";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+};
 
 const EditDataSourcePage = () => {
   const navigate = useNavigate();
@@ -61,9 +66,7 @@ const EditDataSourcePage = () => {
   const { isPending: isUpdatePending, mutateAsync: updateDataSource } =
     useUpdateDataSourceConfiguration();
 
-  const [selectedSource, setSelectedSource] = useState<"blocks" | "others">(
-    "blocks",
-  );
+  const [selectedSource, setSelectedSource] = useState<"blocks" | "others">("blocks");
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
 
   const form = useForm<IDataSourceFormValues>({
@@ -73,6 +76,7 @@ const EditDataSourcePage = () => {
       databaseName: "",
       isCollectionNameEditable: false,
       collectionNamePattern: "sb_{SchemaName}s",
+      enableAnalytics: false,
     },
   });
 
@@ -86,6 +90,7 @@ const EditDataSourcePage = () => {
         databaseName: isBlocks ? "" : data.databaseName || "",
         isCollectionNameEditable: data.isCollectionNameEditable || false,
         collectionNamePattern: data.collectionNamePattern || "sb_{SchemaName}s",
+        enableAnalytics: data.analyticsConfiguration?.enableAnalytics ?? false,
       });
     }
   }, [isLoading, configData?.data, form]);
@@ -110,12 +115,11 @@ const EditDataSourcePage = () => {
 
       const payload = {
         projectKey,
-        connectionString:
-          selectedSource === "others" ? formData.dbConnectionString : "default",
-        databaseName:
-          selectedSource === "others" ? formData.databaseName : "default",
+        connectionString: selectedSource === "others" ? formData.dbConnectionString : "default",
+        databaseName: selectedSource === "others" ? formData.databaseName : "default",
         isCollectionNameEditable: formData.isCollectionNameEditable,
         collectionNamePattern: formData.collectionNamePattern,
+        enableAnalytics: formData.enableAnalytics,
         itemId,
       };
 
@@ -154,9 +158,7 @@ const EditDataSourcePage = () => {
 
   const isFormValid =
     selectedSource === "blocks" ||
-    (form.formState.isValid &&
-      !!form.watch("dbConnectionString") &&
-      !!form.watch("databaseName"));
+    (form.formState.isValid && !!form.watch("dbConnectionString") && !!form.watch("databaseName"));
 
   if (isLoading) {
     return (
@@ -185,9 +187,7 @@ const EditDataSourcePage = () => {
                     <Database className="h-4 w-4 text-indigo-400" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-semibold text-foreground">
-                      Data Source
-                    </h2>
+                    <h2 className="text-sm font-semibold text-foreground">Data Source</h2>
                     <p className="text-xs text-muted-foreground/60">
                       Select where your data will be stored and retrieved from.
                     </p>
@@ -198,9 +198,7 @@ const EditDataSourcePage = () => {
               <div className="relative px-6 py-5">
                 <RadioGroup
                   value={selectedSource}
-                  onValueChange={(v) =>
-                    setSelectedSource(v as "blocks" | "others")
-                  }
+                  onValueChange={(v) => setSelectedSource(v as "blocks" | "others")}
                   className="flex flex-col gap-3"
                 >
                   {/* Blocks database option */}
@@ -213,11 +211,7 @@ const EditDataSourcePage = () => {
                         : "border-border/30 hover:border-border/50 hover:bg-muted/10",
                     )}
                   >
-                    <RadioGroupItem
-                      id="blocks"
-                      value="blocks"
-                      className="mt-0"
-                    />
+                    <RadioGroupItem id="blocks" value="blocks" className="mt-0" />
                     <div
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-lg ring-1 transition-colors",
@@ -236,9 +230,7 @@ const EditDataSourcePage = () => {
                       />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">
-                        Blocks database
-                      </p>
+                      <p className="text-sm font-medium text-foreground">Blocks database</p>
                       <p className="text-xs text-muted-foreground/60">
                         Use the managed database provided by Blocks
                       </p>
@@ -255,11 +247,7 @@ const EditDataSourcePage = () => {
                         : "border-border/30 hover:border-border/50 hover:bg-muted/10",
                     )}
                   >
-                    <RadioGroupItem
-                      id="others"
-                      value="others"
-                      className="mt-0"
-                    />
+                    <RadioGroupItem id="others" value="others" className="mt-0" />
                     <div
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-lg ring-1 transition-colors",
@@ -278,12 +266,9 @@ const EditDataSourcePage = () => {
                       />
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-foreground">
-                        My data sources
-                      </p>
+                      <p className="text-sm font-medium text-foreground">My data sources</p>
                       <p className="text-xs text-muted-foreground/60">
-                        Connect your own database with a custom connection
-                        string
+                        Connect your own database with a custom connection string
                       </p>
                     </div>
                   </label>
@@ -347,9 +332,7 @@ const EditDataSourcePage = () => {
                     <Settings2 className="h-4 w-4 text-indigo-400" />
                   </div>
                   <div>
-                    <h2 className="text-sm font-semibold text-foreground">
-                      Collection Settings
-                    </h2>
+                    <h2 className="text-sm font-semibold text-foreground">Collection Settings</h2>
                     <p className="text-xs text-muted-foreground/60">
                       Configure how collection names are generated for schemas.
                     </p>
@@ -369,8 +352,7 @@ const EditDataSourcePage = () => {
                           Collection Name Editable
                         </FormLabel>
                         <FormDescription className="mt-0.5 text-xs text-muted-foreground/60">
-                          Allow users to edit collection names when creating or
-                          updating schemas
+                          Allow users to edit collection names when creating or updating schemas
                         </FormDescription>
                       </div>
                       <FormControl>
@@ -391,23 +373,14 @@ const EditDataSourcePage = () => {
                   rules={{
                     required: "Collection name pattern is required",
                     validate: (value) =>
-                      value.includes("{SchemaName}") ||
-                      "Pattern must contain {SchemaName}",
+                      value.includes("{SchemaName}") || "Pattern must contain {SchemaName}",
                   }}
                   render={({ field }) => {
                     const SCHEMA_NAME_PLACEHOLDER = "{SchemaName}";
-                    const idx =
-                      field.value?.indexOf(SCHEMA_NAME_PLACEHOLDER) ?? -1;
-                    const prefix =
-                      idx === -1
-                        ? field.value || ""
-                        : field.value.substring(0, idx);
+                    const idx = field.value?.indexOf(SCHEMA_NAME_PLACEHOLDER) ?? -1;
+                    const prefix = idx === -1 ? field.value || "" : field.value.substring(0, idx);
                     const postfix =
-                      idx === -1
-                        ? ""
-                        : field.value.substring(
-                            idx + SCHEMA_NAME_PLACEHOLDER.length,
-                          );
+                      idx === -1 ? "" : field.value.substring(idx + SCHEMA_NAME_PLACEHOLDER.length);
 
                     return (
                       <FormItem>
@@ -463,6 +436,81 @@ const EditDataSourcePage = () => {
               </div>
             </div>
 
+            {/* Analytics Settings Section */}
+            <div className="relative overflow-hidden rounded-sm border border-border/40 bg-card">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.03),transparent_60%)]" />
+              <div className="relative border-b border-border/40 px-6 py-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 ring-1 ring-indigo-500/20">
+                    <BarChart3 className="h-4 w-4 text-indigo-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">Analytics</h2>
+                    <p className="text-xs text-muted-foreground/60">
+                      View and manage analytics availability for this project.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative flex flex-col gap-4 px-6 py-5">
+                <FormField
+                  control={form.control}
+                  name="enableAnalytics"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-sm border border-border/30 bg-muted/10 px-4 py-3.5">
+                      <div>
+                        <FormLabel className="text-sm font-medium text-foreground">
+                          Enable Analytics
+                        </FormLabel>
+                        <FormDescription className="mt-0.5 text-xs text-muted-foreground/60">
+                          Show analytics in the menu and allow access during the configured period.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={isUpdatePending}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-sm border border-border/30 bg-muted/10 px-4 py-3.5">
+                    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground/50">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      Enable date
+                    </div>
+                    <p className="mt-2 text-sm text-foreground/80">
+                      {formatAnalyticsDate(
+                        (configData?.data as IDataSourceResponse | undefined)
+                          ?.analyticsConfiguration?.enableDate,
+                      ) ?? "Not set"}
+                    </p>
+                  </div>
+                  <div className="rounded-sm border border-border/30 bg-muted/10 px-4 py-3.5">
+                    <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground/50">
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      Valid till
+                    </div>
+                    <p className="mt-2 text-sm text-foreground/80">
+                      {formatAnalyticsDate(
+                        (configData?.data as IDataSourceResponse | undefined)
+                          ?.analyticsConfiguration?.validTill,
+                      ) ?? "No expiry (enabled indefinitely)"}
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground/50">
+                  Availability dates are read-only and can currently be changed only in the
+                  database.
+                </p>
+              </div>
+            </div>
+
             {/* Actions */}
             <div className="flex justify-end gap-2">
               <Button
@@ -508,9 +556,8 @@ const EditDataSourcePage = () => {
               Confirm data source update?
             </DialogTitle>
             <DialogDescription className="mt-2 text-left text-sm text-muted-foreground/70">
-              Changing the data source will affect all existing data. You will
-              need to manually migrate any required data to the new source. Are
-              you sure you want to proceed?
+              Changing the data source will affect all existing data. You will need to manually
+              migrate any required data to the new source. Are you sure you want to proceed?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4 flex flex-row gap-2">
@@ -522,16 +569,8 @@ const EditDataSourcePage = () => {
             >
               Cancel
             </Button>
-            <Button
-              size="sm"
-              onClick={handleConfirmSave}
-              disabled={isUpdatePending}
-            >
-              {isUpdatePending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Confirm"
-              )}
+            <Button size="sm" onClick={handleConfirmSave} disabled={isUpdatePending}>
+              {isUpdatePending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>

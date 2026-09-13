@@ -17,16 +17,23 @@ import { ReactNode, useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import ExportSchemaModal from "./export-schema/export-schema-modal";
 import ImportSchemaModal from "./import-schema-modal";
+import { useGetDataServiceConfiguration } from "../hooks/use-configuration";
+import { IDataSourceResponse } from "../models/data-service";
 
 const GraphQLIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 30 30" className={className} fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-    <path d="M4.08 22.864l-1.1-.636L15 .345l1.1.636zm-1.1 4.636L14.636 29.66l.636-1.1L3.616 26.4zm13.12 0L27.746 29.1l.636 1.1L16.736 28.4zm4.636-4.636l1.1.636L29.46 6.636 28.36 6zm-5.82-20.03l-.636-1.1L1.1 7.924l.636 1.1zM.5 9.636l-.636 1.1 11.63 6.72.636-1.1zm27.364 7.82l.636-1.1L16.87 9.636l-.636 1.1zm-13.82 6.1l1.274.012.012-13.82-1.274-.012z"/>
-    <circle cx="15" cy="1.833" r="2.5"/>
-    <circle cx="28.667" cy="9.5" r="2.5"/>
-    <circle cx="28.667" cy="20.5" r="2.5"/>
-    <circle cx="15" cy="28.167" r="2.5"/>
-    <circle cx="1.333" cy="20.5" r="2.5"/>
-    <circle cx="1.333" cy="9.5" r="2.5"/>
+  <svg
+    viewBox="0 0 30 30"
+    className={className}
+    fill="currentColor"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M4.08 22.864l-1.1-.636L15 .345l1.1.636zm-1.1 4.636L14.636 29.66l.636-1.1L3.616 26.4zm13.12 0L27.746 29.1l.636 1.1L16.736 28.4zm4.636-4.636l1.1.636L29.46 6.636 28.36 6zm-5.82-20.03l-.636-1.1L1.1 7.924l.636 1.1zM.5 9.636l-.636 1.1 11.63 6.72.636-1.1zm27.364 7.82l.636-1.1L16.87 9.636l-.636 1.1zm-13.82 6.1l1.274.012.012-13.82-1.274-.012z" />
+    <circle cx="15" cy="1.833" r="2.5" />
+    <circle cx="28.667" cy="9.5" r="2.5" />
+    <circle cx="28.667" cy="20.5" r="2.5" />
+    <circle cx="15" cy="28.167" r="2.5" />
+    <circle cx="1.333" cy="20.5" r="2.5" />
+    <circle cx="1.333" cy="9.5" r="2.5" />
   </svg>
 );
 
@@ -47,6 +54,11 @@ export const DataGatewayActions = () => {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importModalInstance, setImportModalInstance] = useState(0);
+  const { data: configurationData } = useGetDataServiceConfiguration();
+  const configuration = configurationData?.data as IDataSourceResponse | undefined;
+  const analyticsEnabled = Boolean(
+    configuration && (configuration.analyticsConfiguration?.enableAnalytics ?? false),
+  );
 
   const isPlayground = location.pathname.includes("/playground");
   const isConfigure = location.pathname.includes("/configuration");
@@ -59,10 +71,7 @@ export const DataGatewayActions = () => {
       label: "API Docs",
       icon: <BookOpen className="h-4 w-4" />,
       onClick: () =>
-        window.open(
-          `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`,
-          "_blank",
-        ),
+        window.open(`${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`, "_blank"),
     },
     {
       label: "Playground",
@@ -87,12 +96,16 @@ export const DataGatewayActions = () => {
       icon: <Download className="h-4 w-4" />,
       onClick: () => setIsExportModalOpen(true),
     },
-    {
-      label: "Analytics",
-      icon: <BarChart3 className="h-4 w-4" />,
-      onClick: () => navigate(`${dataGatewayPath}/analytics`),
-      active: isAnalytics,
-    },
+    ...(analyticsEnabled
+      ? [
+          {
+            label: "Analytics",
+            icon: <BarChart3 className="h-4 w-4" />,
+            onClick: () => navigate(`${dataGatewayPath}/analytics`),
+            active: isAnalytics,
+          },
+        ]
+      : []),
     {
       label: "Configure",
       icon: <Settings className="h-4 w-4" />,

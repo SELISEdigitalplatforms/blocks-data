@@ -16,10 +16,14 @@ namespace Api.Controllers
     public class GraphLogController : ControllerBase
     {
         private readonly IGraphLogHistoryService _graphLogHistoryService;
+        private readonly IDataGatewayConfigurationService _configurationService;
 
-        public GraphLogController(IGraphLogHistoryService graphLogHistoryService)
+        public GraphLogController(
+            IGraphLogHistoryService graphLogHistoryService,
+            IDataGatewayConfigurationService configurationService)
         {
             _graphLogHistoryService = graphLogHistoryService;
+            _configurationService = configurationService;
         }
 
         /// <summary>
@@ -46,9 +50,18 @@ namespace Api.Controllers
         [HttpGet("analytics")]
         [ProtectedEndPoint("blocks-data::graph-log::analytics")]
         [ProducesResponseType(typeof(ServiceResponse<GraphLogAnalyticsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(ServiceResponse<GraphLogAnalyticsResponse>), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetAnalytics([FromQuery] GetGraphLogAnalyticsRequest request)
         {
+            if (!await _configurationService.CanAccessAnalyticsAsync())
+            {
+                var response = new ServiceResponse<GraphLogAnalyticsResponse>()
+                    .SetErrorMessage("Analytics is not available for this project. Access is disabled or the analytics access period has expired.")
+                    .SetHttpStatusCode(StatusCodes.Status403Forbidden);
+                return StatusCode(response.HttpStatusCode, response);
+            }
+
             var analytics = await _graphLogHistoryService.GetAnalyticsAsync(request);
 
             return Ok(new ServiceResponse<GraphLogAnalyticsResponse>().SetSuccess(analytics));

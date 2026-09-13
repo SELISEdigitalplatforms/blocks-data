@@ -18,8 +18,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { showErrorToast } from "@/hooks/use-toast";
 import { DataGatewayActions } from "../../components/data-gateway-actions";
+import { useGetDataServiceConfiguration } from "../../hooks/use-configuration";
 import { useGraphLogAnalytics } from "../../hooks/use-graph-log-analytics";
+import { IDataSourceResponse } from "../../models/data-service";
 import { GraphLogGranularity } from "../../models/graph-log-analytics";
+import { isAnalyticsAccessible } from "../../utils/analytics-access.util";
 import { GraphAccessOutcomesCard } from "./graph-access-outcomes-card";
 import { GraphCoverageCard } from "./graph-coverage-card";
 import { GraphFailuresCard } from "./graph-failures-card";
@@ -71,6 +74,12 @@ export const GraphAnalytics = () => {
     to: new Date(),
   });
   const [granularity, setGranularity] = useState<GraphLogGranularity>("daily");
+  const { data: configurationData, isLoading: isConfigurationLoading } =
+    useGetDataServiceConfiguration();
+  const configuration = configurationData?.data as IDataSourceResponse | undefined;
+  const hasAnalyticsAccess = Boolean(
+    configuration && isAnalyticsAccessible(configuration.analyticsConfiguration),
+  );
 
   const handleTabChange = (nextTab: string) => {
     if (!isAnalyticsTab(nextTab)) return;
@@ -93,6 +102,7 @@ export const GraphAnalytics = () => {
     to,
     granularity,
     utcOffsetMinutes,
+    !isConfigurationLoading && hasAnalyticsAccess,
   );
   const analytics = data?.data;
 
@@ -100,7 +110,9 @@ export const GraphAnalytics = () => {
     if (isError) {
       showErrorToast({
         title: "Couldn't load analytics",
-        errors: [error instanceof Error ? error.message : "Something went wrong. Please try again."],
+        errors: [
+          error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        ],
       });
     }
   }, [isError, error]);
@@ -114,103 +126,124 @@ export const GraphAnalytics = () => {
         <DataGatewayActions />
       </div>
 
-      <Tabs
-        value={tab}
-        onValueChange={handleTabChange}
-        className="flex flex-col gap-4"
-      >
-        {/* Both range controls sit with the tabs they filter — one range, one bucket size, every tab. */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <TabsList>
-            <TabsTrigger value="traffic">Traffic</TabsTrigger>
-            <TabsTrigger value="performance">Performance</TabsTrigger>
-            <TabsTrigger value="reliability">Reliability</TabsTrigger>
-            <TabsTrigger value="requests">Requests</TabsTrigger>
-          </TabsList>
+      <div className="relative">
+        <div
+          className={
+            !isConfigurationLoading && !hasAnalyticsAccess
+              ? "pointer-events-none select-none blur-sm"
+              : undefined
+          }
+          aria-hidden={!isConfigurationLoading && !hasAnalyticsAccess}
+        >
+          <Tabs value={tab} onValueChange={handleTabChange} className="flex flex-col gap-4">
+            {/* Both range controls sit with the tabs they filter — one range, one bucket size, every tab. */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <TabsList>
+                <TabsTrigger value="traffic">Traffic</TabsTrigger>
+                <TabsTrigger value="performance">Performance</TabsTrigger>
+                <TabsTrigger value="reliability">Reliability</TabsTrigger>
+                <TabsTrigger value="requests">Requests</TabsTrigger>
+              </TabsList>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Usage and Requests have no time series, so a bucket size would be a dead control. */}
-            {BUCKETED_TABS.has(tab) && (
-              <Select
-                value={granularity}
-                onValueChange={(value) => setGranularity(value as GraphLogGranularity)}
-              >
-                <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Bucket size">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hourly">Hourly</SelectItem>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="weekly">Weekly</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Usage and Requests have no time series, so a bucket size would be a dead control. */}
+                {BUCKETED_TABS.has(tab) && (
+                  <Select
+                    value={granularity}
+                    onValueChange={(value) => setGranularity(value as GraphLogGranularity)}
+                  >
+                    <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Bucket size">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hourly">Hourly</SelectItem>
+                      <SelectItem value="daily">Daily</SelectItem>
+                      <SelectItem value="weekly">Weekly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                <DateRangeFilter
+                  title="Date range"
+                  date={dateRange}
+                  onDateChange={setDateRange}
+                  formatLabel={formatCalendarDate}
+                />
+              </div>
+            </div>
+
+            {/* The analytics tabs count application traffic only, so their totals are lower than the
+            log's. Saying so once beats leaving the difference to be discovered. */}
+            {tab !== "requests" && (
+              <p className="text-xs text-muted-foreground/60">
+                Schema introspection requests are excluded — see them under Requests.
+              </p>
             )}
-            <DateRangeFilter
-              title="Date range"
-              date={dateRange}
-              onDateChange={setDateRange}
-              formatLabel={formatCalendarDate}
-            />
-          </div>
+
+            <TabsContent value="traffic" className="flex flex-col gap-4">
+              <GraphAccessOutcomesCard
+                requestsOverTime={analytics?.requestsOverTime}
+                failureStats={analytics?.failureStats ?? []}
+                granularity={granularity}
+                isLoading={isLoading}
+                isError={isError}
+              />
+              <GraphOperationsCard operationStats={operationStats} isError={isError} />
+              <GraphCoverageCard
+                schemaCoverage={analytics?.schemaCoverage ?? []}
+                isLoading={isLoading}
+                isError={isError}
+              />
+            </TabsContent>
+
+            <TabsContent value="performance" className="flex flex-col gap-4">
+              <GraphLatencyCard
+                latency={analytics?.latency}
+                latencyOverTime={analytics?.latencyOverTime}
+                granularity={granularity}
+                isLoading={isLoading}
+                isError={isError}
+              />
+              <GraphTimingCard timing={analytics?.timing} isLoading={isLoading} isError={isError} />
+              <GraphTransferCard
+                throughput={analytics?.throughput}
+                throughputOverTime={analytics?.throughputOverTime}
+                granularity={granularity}
+                operationStats={operationStats}
+                isLoading={isLoading}
+                isError={isError}
+              />
+            </TabsContent>
+
+            <TabsContent value="reliability" className="flex flex-col gap-4">
+              <GraphFailuresCard
+                failureStats={analytics?.failureStats ?? []}
+                failureHotspots={analytics?.failureHotspots ?? []}
+                isLoading={isLoading}
+                isError={isError}
+              />
+              <GraphErrorRatesCard operationStats={operationStats} isError={isError} />
+            </TabsContent>
+
+            <TabsContent value="requests">
+              <GraphLogHistory from={from} to={to} utcOffsetMinutes={utcOffsetMinutes} />
+            </TabsContent>
+          </Tabs>
         </div>
 
-        {/* The analytics tabs count application traffic only, so their totals are lower than the
-            log's. Saying so once beats leaving the difference to be discovered. */}
-        {tab !== "requests" && (
-          <p className="text-xs text-muted-foreground/60">
-            Schema introspection requests are excluded — see them under Requests.
-          </p>
+        {!isConfigurationLoading && !hasAnalyticsAccess && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center p-6">
+            <div className="max-w-lg rounded-sm border border-border/60 bg-card/95 p-6 text-center shadow-xl backdrop-blur-md">
+              <h2 className="text-base font-semibold text-foreground">
+                Analytics access unavailable
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Analytics is not available for this project. Access is disabled or the analytics
+                access period has expired. Contact your administrator to enable or extend access.
+              </p>
+            </div>
+          </div>
         )}
-
-        <TabsContent value="traffic" className="flex flex-col gap-4">
-          <GraphAccessOutcomesCard
-            requestsOverTime={analytics?.requestsOverTime}
-            failureStats={analytics?.failureStats ?? []}
-            granularity={granularity}
-            isLoading={isLoading}
-            isError={isError}
-          />
-          <GraphOperationsCard operationStats={operationStats} isError={isError} />
-          <GraphCoverageCard
-            schemaCoverage={analytics?.schemaCoverage ?? []}
-            isLoading={isLoading}
-            isError={isError}
-          />
-        </TabsContent>
-
-        <TabsContent value="performance" className="flex flex-col gap-4">
-          <GraphLatencyCard
-            latency={analytics?.latency}
-            latencyOverTime={analytics?.latencyOverTime}
-            granularity={granularity}
-            isLoading={isLoading}
-            isError={isError}
-          />
-          <GraphTimingCard timing={analytics?.timing} isLoading={isLoading} isError={isError} />
-          <GraphTransferCard
-            throughput={analytics?.throughput}
-            throughputOverTime={analytics?.throughputOverTime}
-            granularity={granularity}
-            operationStats={operationStats}
-            isLoading={isLoading}
-            isError={isError}
-          />
-        </TabsContent>
-
-        <TabsContent value="reliability" className="flex flex-col gap-4">
-          <GraphFailuresCard
-            failureStats={analytics?.failureStats ?? []}
-            failureHotspots={analytics?.failureHotspots ?? []}
-            isLoading={isLoading}
-            isError={isError}
-          />
-          <GraphErrorRatesCard operationStats={operationStats} isError={isError} />
-        </TabsContent>
-
-        <TabsContent value="requests">
-          <GraphLogHistory from={from} to={to} utcOffsetMinutes={utcOffsetMinutes} />
-        </TabsContent>
-      </Tabs>
+      </div>
     </div>
   );
 };

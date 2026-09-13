@@ -9,4 +9,5 @@ public interface IDataGatewayConfigurationService
     Task<ServiceResponse<DataGatewayConfigurationResponse>> GetConfiguration(string projectKey);
     Task<ServiceResponse<ActionResponse>> InsertConfiguration(CreateDataGatewayConfigurationRequest request);
     Task<ServiceResponse<ActionResponse>> UpdateConfiguration(UpdateDataGatewayConfigurationRequest request);
+    Task<bool> CanAccessAnalyticsAsync();
 }

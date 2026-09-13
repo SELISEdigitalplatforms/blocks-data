@@ -14,9 +14,13 @@ beforeAll(() => {
 });
 
 const useGraphLogAnalyticsMock = vi.fn();
+const useGetDataServiceConfigurationMock = vi.fn();
 
 vi.mock("../../hooks/use-graph-log-analytics", () => ({
   useGraphLogAnalytics: (...args: unknown[]) => useGraphLogAnalyticsMock(...args),
+}));
+vi.mock("../../hooks/use-configuration", () => ({
+  useGetDataServiceConfiguration: () => useGetDataServiceConfigurationMock(),
 }));
 
 vi.mock("@/components/breadcrumb/breadcrumb", () => ({
@@ -113,6 +117,18 @@ describe("GraphAnalytics", () => {
       isError: false,
       error: null,
     });
+    useGetDataServiceConfigurationMock.mockReturnValue({
+      data: {
+        data: {
+          analyticsConfiguration: {
+            enableAnalytics: true,
+            enableDate: "2020-01-01T00:00:00Z",
+            validTill: null,
+          },
+        },
+      },
+      isLoading: false,
+    });
   });
 
   it("opens on traffic and keeps the other views one click away", async () => {
@@ -153,7 +169,35 @@ describe("GraphAnalytics", () => {
     await user.click(screen.getByRole("combobox", { name: "Bucket size" }));
     await user.click(await screen.findByRole("option", { name: "Hourly" }));
 
-    expect(useGraphLogAnalyticsMock).toHaveBeenLastCalledWith(from, to, "hourly", utcOffsetMinutes);
+    expect(useGraphLogAnalyticsMock).toHaveBeenLastCalledWith(
+      from,
+      to,
+      "hourly",
+      utcOffsetMinutes,
+      true,
+    );
+  });
+
+  it("locks the route and disables analytics loading when access is disabled", () => {
+    useGetDataServiceConfigurationMock.mockReturnValue({
+      data: {
+        data: {
+          analyticsConfiguration: {
+            enableAnalytics: false,
+            enableDate: null,
+            validTill: null,
+          },
+        },
+      },
+      isLoading: false,
+    });
+
+    renderAnalytics();
+
+    expect(
+      screen.getByRole("heading", { name: "Analytics access unavailable" }),
+    ).toBeInTheDocument();
+    expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(4)).toBe(false);
   });
 
   it("says the analytics exclude introspection, but not on the log tab", async () => {

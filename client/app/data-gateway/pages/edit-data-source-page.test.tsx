@@ -32,9 +32,7 @@ vi.mock("@/hooks/use-toast", () => ({
   showSuccessToast: (...a: unknown[]) => showSuccessToast(...a),
 }));
 vi.mock("react-router", async () => {
-  const actual = await vi.importActual<typeof import("react-router")>(
-    "react-router",
-  );
+  const actual = await vi.importActual<typeof import("react-router")>("react-router");
   return { ...actual, useNavigate: () => navigateMock };
 });
 
@@ -47,6 +45,11 @@ const loadedConfig = {
     ItemId: "cfg1",
     isCollectionNameEditable: false,
     collectionNamePattern: "sb_{SchemaName}s",
+    analyticsConfiguration: {
+      enableAnalytics: true,
+      enableDate: "2026-09-01T10:00:00Z",
+      validTill: "2026-09-15T10:00:00Z",
+    },
   },
 };
 
@@ -69,7 +72,7 @@ describe("EditDataSourcePage", () => {
     expect(document.querySelector("svg.animate-spin")).toBeInTheDocument();
   });
 
-  it("renders both data-source sections once loaded", () => {
+  it("renders the data-source, collection, and analytics sections once loaded", () => {
     useGetDataServiceConfiguration.mockReturnValue({
       data: loadedConfig,
       isLoading: false,
@@ -77,6 +80,9 @@ describe("EditDataSourcePage", () => {
     render(<EditDataSourcePage />);
     expect(screen.getByText("Data Source")).toBeInTheDocument();
     expect(screen.getByText("Collection Settings")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Analytics" })).toBeInTheDocument();
+    expect(screen.getByText("Enable date")).toBeInTheDocument();
+    expect(screen.getByText("Valid till")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save Changes" })).toBeEnabled();
   });
 
@@ -89,10 +95,9 @@ describe("EditDataSourcePage", () => {
     updateDataSource.mockResolvedValue({ isSuccess: true });
     render(<EditDataSourcePage />);
 
+    await user.click(screen.getByRole("switch", { name: "Enable Analytics" }));
     await user.click(screen.getByRole("button", { name: "Save Changes" }));
-    expect(
-      await screen.findByText("Confirm data source update?"),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("Confirm data source update?")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() =>
@@ -101,6 +106,7 @@ describe("EditDataSourcePage", () => {
           connectionString: "default",
           itemId: "cfg1",
           projectKey: "t1",
+          enableAnalytics: false,
         }),
       ),
     );
@@ -143,9 +149,7 @@ describe("EditDataSourcePage", () => {
       }),
     );
     expect(updateDataSource).not.toHaveBeenCalled();
-    expect(
-      screen.queryByText("Confirm data source update?"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Confirm data source update?")).not.toBeInTheDocument();
   });
 
   it("maps array error responses into readable messages", async () => {
@@ -182,9 +186,7 @@ describe("EditDataSourcePage", () => {
     await user.click(screen.getByRole("button", { name: "Save Changes" }));
     await user.click(screen.getByRole("button", { name: "Confirm" }));
 
-    await waitFor(() =>
-      expect(showErrorToast).toHaveBeenCalledWith({ errors: ["boom"] }),
-    );
+    await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors: ["boom"] }));
   });
 
   it("shows a generic message when an unexpected error is thrown", async () => {
@@ -256,9 +258,7 @@ describe("EditDataSourcePage", () => {
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
 
     await waitFor(() =>
-      expect(
-        screen.queryByText("Confirm data source update?"),
-      ).not.toBeInTheDocument(),
+      expect(screen.queryByText("Confirm data source update?")).not.toBeInTheDocument(),
     );
     expect(updateDataSource).not.toHaveBeenCalled();
   });

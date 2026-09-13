@@ -255,4 +255,46 @@ public class DataGatewayControllerTests
         }
         finally { ClearContext(); }
     }
+
+    // ---------------- GraphLogController ----------------
+
+    [Fact]
+    public async Task GraphLog_Analytics_WhenUnavailable_Returns403WithoutReadingAnalytics()
+    {
+        var history = new Mock<IGraphLogHistoryService>();
+        var configuration = new Mock<IDataGatewayConfigurationService>();
+        configuration.Setup(s => s.CanAccessAnalyticsAsync()).ReturnsAsync(false);
+        var controller = new GraphLogController(history.Object, configuration.Object);
+
+        Status(await controller.GetAnalytics(new GetGraphLogAnalyticsRequest())).Should().Be(403);
+        history.Verify(s => s.GetAnalyticsAsync(It.IsAny<GetGraphLogAnalyticsRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GraphLog_Analytics_WhenAvailable_ReturnsAnalytics()
+    {
+        var history = new Mock<IGraphLogHistoryService>();
+        var configuration = new Mock<IDataGatewayConfigurationService>();
+        configuration.Setup(s => s.CanAccessAnalyticsAsync()).ReturnsAsync(true);
+        history.Setup(s => s.GetAnalyticsAsync(It.IsAny<GetGraphLogAnalyticsRequest>()))
+            .ReturnsAsync(new GraphLogAnalyticsResponse());
+        var controller = new GraphLogController(history.Object, configuration.Object);
+
+        (await controller.GetAnalytics(new GetGraphLogAnalyticsRequest()))
+            .Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task GraphLog_History_RemainsAvailableWithoutAnalyticsCheck()
+    {
+        var history = new Mock<IGraphLogHistoryService>();
+        var configuration = new Mock<IDataGatewayConfigurationService>();
+        history.Setup(s => s.GetHistoryAsync(It.IsAny<GetGraphLogHistoryRequest>()))
+            .ReturnsAsync(new PaginationResponse<GraphLogHistoryItemResponse>(0, []));
+        var controller = new GraphLogController(history.Object, configuration.Object);
+
+        (await controller.GetHistory(new GetGraphLogHistoryRequest()))
+            .Should().BeOfType<OkObjectResult>();
+        configuration.Verify(s => s.CanAccessAnalyticsAsync(), Times.Never);
+    }
 }

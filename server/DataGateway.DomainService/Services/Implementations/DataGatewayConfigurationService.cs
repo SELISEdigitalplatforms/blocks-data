@@ -46,7 +46,13 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
             CollectionNamePattern = dataServiceConfiguration.CollectionNamePattern,
             ProjectKey = projectKey,
             ProjectShortKey = projectShortKey,
-            ItemId = dataServiceConfiguration.ItemId
+            ItemId = dataServiceConfiguration.ItemId,
+            AnalyticsConfiguration = new AnalyticsConfigurationResponse
+            {
+                EnableAnalytics = dataServiceConfiguration.AnalyticsConfiguration?.EnableAnalytics ?? false,
+                EnableDate = dataServiceConfiguration.AnalyticsConfiguration?.EnableDate,
+                ValidTill = dataServiceConfiguration.AnalyticsConfiguration?.ValidTill
+            }
         };
 
         return new ServiceResponse<DataGatewayConfigurationResponse>().SetSuccess(response);
@@ -73,6 +79,12 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
             DatabaseName = request.DatabaseName
         };
         dataServiceConfiguration.InjectDefaultValue();
+        dataServiceConfiguration.AnalyticsConfiguration = new AnalyticsConfiguration
+        {
+            EnableAnalytics = true,
+            EnableDate = dataServiceConfiguration.CreatedDate,
+            ValidTill = dataServiceConfiguration.CreatedDate.AddDays(14)
+        };
 
         var result = await _repository.InsertAsync(dataServiceConfiguration);
         await CacheDataSourceAsync(result, request.ProjectKey);
@@ -98,6 +110,11 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
         dataServiceConfiguration.DatabaseName = request.DatabaseName;
         dataServiceConfiguration.IsCollectionNameEditable = request.IsCollectionNameEditable;
         dataServiceConfiguration.CollectionNamePattern = request.CollectionNamePattern;
+        if (request.EnableAnalytics.HasValue)
+        {
+            dataServiceConfiguration.AnalyticsConfiguration ??= new AnalyticsConfiguration();
+            dataServiceConfiguration.AnalyticsConfiguration.EnableAnalytics = request.EnableAnalytics.Value;
+        }
 
         var result = await _repository.UpdateAsync(dataServiceConfiguration);
         await CacheDataSourceAsync(dataServiceConfiguration, request.ProjectKey);
@@ -107,6 +124,14 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
             Acknowledged = result.Acknowledged,
             TotalImpactedData = result.TotalImpactedData
         });
+    }
+
+    public async Task<bool> CanAccessAnalyticsAsync()
+    {
+        var filter = Builders<DataServiceConfiguration>.Filter.Eq(x => x.IsDeleted, false);
+        var dataServiceConfiguration = await _repository.GetItemAsync(filter);
+
+        return dataServiceConfiguration?.AnalyticsConfiguration?.IsAccessibleAt(DateTime.UtcNow) == true;
     }
 
     private async Task CacheDataSourceAsync(DataServiceConfiguration dataServiceConfiguration, string projectKey)

@@ -104,6 +104,7 @@ export const GraphAnalytics = () => {
     to,
     granularity,
     utcOffsetMinutes,
+    includeBlocksConsole,
     !isConfigurationLoading && hasAnalyticsAccess,
   );
   const analytics = data?.data;
@@ -164,17 +165,15 @@ export const GraphAnalytics = () => {
                     </SelectContent>
                   </Select>
                 )}
-                {tab === "requests" && (
-                  <label className="flex h-8 items-center gap-2 rounded-md border border-border/40 px-3 text-xs text-muted-foreground">
-                    <Switch
-                      size="sm"
-                      checked={includeBlocksConsole}
-                      onCheckedChange={setIncludeBlocksConsole}
-                      aria-label="Include Blocks Console operations"
-                    />
-                    Include Blocks Console
-                  </label>
-                )}
+                <label className="flex h-8 items-center gap-2 rounded-md border border-border/40 px-3 text-xs text-muted-foreground">
+                  <Switch
+                    size="sm"
+                    checked={includeBlocksConsole}
+                    onCheckedChange={setIncludeBlocksConsole}
+                    aria-label="Include Blocks Console operations"
+                  />
+                  Include Blocks Console
+                </label>
                 <DateRangeFilter
                   title="Date range"
                   date={dateRange}
@@ -184,8 +183,8 @@ export const GraphAnalytics = () => {
               </div>
             </div>
 
-            {/* The analytics tabs count application traffic only, so their totals are lower than the
-            log's. Saying so once beats leaving the difference to be discovered. */}
+            {/* Introspection stays excluded from aggregate analytics even when console operations
+            are included. The request log remains the place to inspect those individual calls. */}
             {tab !== "requests" && (
               <p className="text-xs text-muted-foreground/60">
                 Schema introspection requests are excluded — see them under Requests.

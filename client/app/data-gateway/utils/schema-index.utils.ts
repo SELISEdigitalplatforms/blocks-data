@@ -16,7 +16,8 @@ const INDEX_ERROR_MESSAGES: Record<string, (detail: string) => string> = {
   FIELD_NOT_INDEXABLE: (detail) =>
     detail ? `Field '${detail}' cannot be indexed.` : "One or more selected fields cannot be indexed.",
   INVALID_INDEX_FIELDS: () => "Select at least one field, with no field repeated.",
-  INDEX_ALREADY_EXISTS: () => "An index with this exact field combination already exists.",
+  INVALID_INDEX_NAME: () => "Index name cannot exceed 128 characters.",
+  INDEX_ALREADY_EXISTS: () => "An index with this name or exact property combination already exists.",
   INDEX_LIMIT_REACHED: () => "This schema already has the maximum of 15 indexes.",
   UNIQUE_INDEX_CONFLICT: () =>
     "Cannot create a unique index: this field combination already has duplicate values in existing data.",

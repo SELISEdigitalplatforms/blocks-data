@@ -21,6 +21,38 @@ public class CreateSchemaIndexRequestValidatorTests
         result.IsValid.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("customer_search")]
+    [InlineData("Customer search index")]
+    public void OptionalIndexName_ValidValue_Passes(string? name)
+    {
+        var result = _validator.Validate(new CreateSchemaIndexRequest
+        {
+            SchemaDefinitionItemId = "schema-1",
+            Name = name,
+            Fields = new() { new IndexFieldRequest { FieldName = "email" } }
+        });
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void IndexNameLongerThan128Characters_Fails()
+    {
+        var result = _validator.Validate(new CreateSchemaIndexRequest
+        {
+            SchemaDefinitionItemId = "schema-1",
+            Name = new string('a', 129),
+            Fields = new() { new IndexFieldRequest { FieldName = "email" } }
+        });
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "INVALID_INDEX_NAME");
+    }
+
     [Fact]
     public void MissingSchemaDefinitionItemId_Fails()
     {

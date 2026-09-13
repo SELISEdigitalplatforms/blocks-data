@@ -61,9 +61,11 @@ public class SchemaIndexService : ISchemaIndexService
         var keys = request.Fields
             .Select(f => (f.FieldName, Direction: f.Direction == SortDirection.DESC ? -1 : 1))
             .ToList();
-        var indexName = BuildIndexName(keys);
+        var indexName = string.IsNullOrWhiteSpace(request.Name)
+            ? BuildIndexName(keys)
+            : request.Name.Trim();
 
-        if (existingIndexes.Any(i => i.Name == indexName))
+        if (existingIndexes.Any(i => i.Name == indexName || HasSameKeys(i, keys)))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("INDEX_ALREADY_EXISTS").SetHttpStatusCode(409);
 
         try
@@ -130,6 +132,11 @@ public class SchemaIndexService : ISchemaIndexService
 
     private static string BuildIndexName(List<(string FieldName, int Direction)> keys) =>
         string.Join("_", keys.Select(k => $"{k.FieldName}_{k.Direction}"));
+
+    private static bool HasSameKeys(SchemaIndexDefinition index, List<(string FieldName, int Direction)> keys) =>
+        index.Fields.Count == keys.Count &&
+        index.Fields.Zip(keys).All(pair =>
+            pair.First.FieldName == pair.Second.FieldName && pair.First.Direction == pair.Second.Direction);
 
     private async Task<List<SchemaIndexDefinition>> GetIndexEntitiesAsync(string schemaDefinitionItemId)
     {

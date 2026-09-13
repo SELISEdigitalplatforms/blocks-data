@@ -185,7 +185,58 @@ public class SchemaIndexServiceTests
     }
 
     [Fact]
-    public async Task CreateIndex_AssignsMetadataItemIdBeforeInsert()
+    public async Task CreateIndex_CustomName_UsesTrimmedNameForMongoAndMetadata()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(EntitySchema());
+        _repo.Setup(r => r.CreateIndexAsync("Customers", It.IsAny<List<(string, int)>>(), false, "customer_email", ""))
+            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+
+        SchemaIndexDefinition? insertedDefinition = null;
+        _repo.Setup(r => r.InsertAsync(It.IsAny<SchemaIndexDefinition>(), ""))
+            .Callback<SchemaIndexDefinition, string>((definition, _) => insertedDefinition = definition)
+            .ReturnsAsync((SchemaIndexDefinition definition, string _) => definition);
+
+        var result = await _service.CreateIndexAsync(new CreateSchemaIndexRequest
+        {
+            SchemaDefinitionItemId = "schema-1",
+            Name = "  customer_email  ",
+            Fields = new() { new IndexFieldRequest { FieldName = "email" } }
+        });
+
+        result.IsSuccess.Should().BeTrue();
+        insertedDefinition!.Name.Should().Be("customer_email");
+        _repo.Verify(r => r.CreateIndexAsync("Customers", It.IsAny<List<(string, int)>>(), false, "customer_email", ""), Times.Once);
+    }
+
+    [Fact]
+    public async Task CreateIndex_CustomNameWithExistingKeyOrder_Returns409()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(EntitySchema());
+        _repo.Setup(r => r.GetItemsAsync<SchemaIndexDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaIndexDefinition>
+            {
+                new()
+                {
+                    Name = "existing_name",
+                    SchemaDefinitionItemId = "schema-1",
+                    Fields = new() { new IndexFieldSpec { FieldName = "email", Direction = 1 } }
+                }
+            });
+
+        var result = await _service.CreateIndexAsync(new CreateSchemaIndexRequest
+        {
+            SchemaDefinitionItemId = "schema-1",
+            Name = "different_name",
+            Fields = new() { new IndexFieldRequest { FieldName = "email" } }
+        });
+
+        result.HttpStatusCode.Should().Be(409);
+        result.Message.Should().Be("INDEX_ALREADY_EXISTS");
+        _repo.Verify(r => r.CreateIndexAsync(It.IsAny<string>(), It.IsAny<List<(string, int)>>(), It.IsAny<bool>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateIndex_AssignsDefaultMetadataBeforeInsert()
     {
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(EntitySchema());
         _repo.Setup(r => r.CreateIndexAsync("Customers", It.IsAny<List<(string, int)>>(), true, "email_1", ""))
@@ -206,6 +257,11 @@ public class SchemaIndexServiceTests
         result.IsSuccess.Should().BeTrue();
         insertedDefinition.Should().NotBeNull();
         insertedDefinition!.ItemId.Should().NotBeNullOrWhiteSpace();
+        insertedDefinition.CreatedDate.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        insertedDefinition.LastUpdatedDate.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        insertedDefinition.CreatedBy.Should().Be("user-1");
+        insertedDefinition.LastUpdatedBy.Should().Be("user-1");
+        insertedDefinition.OrganizationId.Should().Be("org-1");
         result.Data!.ItemId.Should().Be(insertedDefinition.ItemId);
     }
 

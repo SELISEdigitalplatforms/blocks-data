@@ -464,6 +464,7 @@ export interface IGetSchemaIndexesResponse {
 
 export interface ICreateSchemaIndexPayload {
   schemaDefinitionItemId: string;
+  name?: string;
   fields: IIndexFieldPayload[];
   isUnique: boolean;
 }

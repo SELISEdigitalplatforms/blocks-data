@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui-kits/button/button";
 import { Card } from "@/components/ui-kits/card/card";
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
+import { Input } from "@/components/ui-kits/input/input";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ import {
 } from "../../utils/schema-index.utils";
 
 const indexFormSchema = z.object({
+  name: z.string().trim().max(128, "Index name cannot exceed 128 characters"),
   fields: z
     .array(
       z.object({
@@ -61,6 +63,7 @@ export function SchemaIndexForm({
     resolver: zodResolver(indexFormSchema),
     mode: "onChange",
     defaultValues: {
+      name: "",
       fields: [{ fieldName: "", direction: "ASC" }],
       isUnique: false,
     },
@@ -76,6 +79,7 @@ export function SchemaIndexForm({
   const onSubmit = async (values: IndexFormValues) => {
     const payload: ICreateSchemaIndexPayload = {
       schemaDefinitionItemId,
+      ...(values.name ? { name: values.name } : {}),
       fields: values.fields,
       isUnique: values.isUnique,
     };
@@ -99,6 +103,25 @@ export function SchemaIndexForm({
   return (
     <Card className="flex flex-col gap-4 p-4 shadow-none">
       <p className="text-sm font-medium">Add index</p>
+
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="index-name" className="text-sm font-medium">
+          Index name <span className="font-normal text-muted-foreground">(optional)</span>
+        </label>
+        <Input
+          id="index-name"
+          placeholder="Generated from properties when left blank"
+          maxLength={128}
+          {...form.register("name")}
+        />
+        {form.formState.errors.name?.message ? (
+          <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Leave blank to use the default property-and-order name.
+          </p>
+        )}
+      </div>
 
       <div className="flex flex-col gap-3">
         {fields.map((fieldRow, index) => {

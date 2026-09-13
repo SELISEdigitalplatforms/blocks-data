@@ -60,6 +60,26 @@ describe("SchemaIndexForm", () => {
     expect(showSuccessToast).toHaveBeenCalled();
   });
 
+  it("uses a trimmed custom index name when one is provided", async () => {
+    const user = userEvent.setup();
+    createIndex.mockResolvedValue({ isSuccess: true, data: { acknowledged: true, itemId: "idx-1" } });
+    render(<SchemaIndexForm {...baseProps} onSaved={vi.fn()} onCancel={vi.fn()} />);
+
+    await user.type(screen.getByRole("textbox", { name: /Index name/ }), "  customer_email  ");
+    await user.click(screen.getAllByRole("combobox")[0]);
+    await user.click(screen.getByRole("option", { name: "email" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(createIndex).toHaveBeenCalledWith({
+        schemaDefinitionItemId: "schema-1",
+        name: "customer_email",
+        fields: [{ fieldName: "email", direction: "ASC" }],
+        isUnique: false,
+      }),
+    );
+  });
+
   it("adds a second field row for a compound index, up to the fields available", async () => {
     const user = userEvent.setup();
     render(<SchemaIndexForm {...baseProps} onSaved={vi.fn()} onCancel={vi.fn()} />);

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui-kits/tooltip/tooltip";
@@ -51,7 +51,7 @@ describe("SchemaIndexesTab", () => {
     expect(screen.getByRole("button", { name: /Add index/ })).toBeEnabled();
   });
 
-  it("lists existing single-field and compound indexes with direction and a Unique badge", () => {
+  it("shows index names and ordered properties in cards", () => {
     useSchemaIndexes.mockReturnValue({
       data: {
         data: {
@@ -80,10 +80,21 @@ describe("SchemaIndexesTab", () => {
     });
     renderTab();
 
-    expect(screen.getByText("email (Ascending) · Unique")).toBeInTheDocument();
-    expect(
-      screen.getByText("lastName (Ascending), age (Descending)"),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "email_1" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "lastName_1_age_-1" })).toBeInTheDocument();
+    expect(screen.getByText("Unique")).toBeInTheDocument();
+
+    const emailProperties = screen.getByRole("list", {
+      name: "Properties and order for email_1",
+    });
+    expect(within(emailProperties).getByRole("listitem")).toHaveTextContent("1emailAscending");
+
+    const compoundProperties = screen.getByRole("list", {
+      name: "Properties and order for lastName_1_age_-1",
+    });
+    const orderedProperties = within(compoundProperties).getAllByRole("listitem");
+    expect(orderedProperties[0]).toHaveTextContent("1lastNameAscending");
+    expect(orderedProperties[1]).toHaveTextContent("2ageDescending");
   });
 
   it("disables Add index when the schema is Dto-type and shows an explanatory message", () => {
@@ -168,6 +179,6 @@ describe("SchemaIndexesTab", () => {
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
-    expect(screen.getByText("email (Ascending)")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "email_1" })).toBeInTheDocument();
   });
 });

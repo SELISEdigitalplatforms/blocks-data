@@ -13,7 +13,7 @@ describe("mapIndexRelatedErrorMessage", () => {
       "This schema already has the maximum of 15 indexes.",
     );
     expect(mapIndexRelatedErrorMessage({ message: "INDEX_ALREADY_EXISTS" })).toBe(
-      "An index with this exact field combination already exists.",
+      "An index with this name or exact property combination already exists.",
     );
     expect(mapIndexRelatedErrorMessage({ message: "UNIQUE_INDEX_CONFLICT" })).toBe(
       "Cannot create a unique index: this field combination already has duplicate values in existing data.",
@@ -47,6 +47,11 @@ describe("mapIndexRelatedErrorMessage", () => {
         errors: [{ errorMessage: "INVALID_INDEX_FIELDS" }],
       }),
     ).toBe("Select at least one field, with no field repeated.");
+    expect(
+      mapIndexRelatedErrorMessage({
+        errors: [{ errorMessage: "INVALID_INDEX_NAME" }],
+      }),
+    ).toBe("Index name cannot exceed 128 characters.");
   });
 
   it("returns null for an unrecognized code, so callers can fall back to generic handling", () => {

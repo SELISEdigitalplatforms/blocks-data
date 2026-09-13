@@ -3,6 +3,7 @@ namespace DataGateway.DomainService.Models;
 public class CreateSchemaIndexRequest
 {
     public string SchemaDefinitionItemId { get; set; } = string.Empty;
+    public string? Name { get; set; }
     public List<IndexFieldRequest> Fields { get; set; } = [];
     public bool IsUnique { get; set; }
 }

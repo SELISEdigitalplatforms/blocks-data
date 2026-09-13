@@ -1,6 +1,7 @@
 using System.Net;
 using HotChocolate.AspNetCore.Serialization;
 using HotChocolate.Execution;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models.Constants;
 
 namespace DataGateway.DomainService.Middlewares;
@@ -12,9 +13,10 @@ public class AuthHttpResponseFormatter : DefaultHttpResponseFormatter
         FormatInfo format,
         HttpStatusCode? proposedStatusCode)
     {
-        if (result.Errors?.Count > 0)
+        var errors = result.Errors;
+        if (errors?.Count > 0)
         {
-            var codes = result.Errors.Select(error => error.Code).ToList();
+            var codes = errors.Select(error => error.Code).ToList();
             foreach (var code in codes)
             {
                 if (code == GraphQlConstant.UnauthorizedErrorCode)
@@ -26,6 +28,15 @@ public class AuthHttpResponseFormatter : DefaultHttpResponseFormatter
                 {
                     return HttpStatusCode.Forbidden;
                 }
+            }
+
+            // Invalid GraphQL input is an HTTP client error. Hot Chocolate normally supplies an
+            // HCxxxx code, but literal coercion errors can contain only a message (for example an
+            // EnumValue supplied where DynamicSortInput is required).
+            if (errors.Any(error =>
+                GatewayFailureKind.IsGraphQlDocumentError(error.Code, error.Message)))
+            {
+                return HttpStatusCode.BadRequest;
             }
         }
 

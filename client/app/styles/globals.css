@@ -67,6 +67,9 @@
     --chart-blue: 211 96% 70%;
     --chart-orange: 30 92% 57%;
     --chart-brown-gray: 345 7% 68%;
+    --outcome-allows: 142 72% 29%;
+    --outcome-denies: 41 96% 40%;
+    --outcome-errors: 0 74% 42%;
 
     --surface-app: 220 33% 96%;
     --error: 0 100% 60%;
@@ -158,6 +161,9 @@
     --chart-blue: 211 96% 70%;
     --chart-orange: 30 92% 57%;
     --chart-brown-gray: 345 7% 68%;
+    --outcome-allows: 142 76% 36%;
+    --outcome-denies: 49 89% 49%;
+    --outcome-errors: 2 71% 70%;
 
     --surface-app: 224 30% 3.5%;
     --error: 0 100% 60%;

@@ -14,4 +14,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+  <ItemGroup>
+    <!-- The unit tests cover a few internal helpers directly (e.g. introspection detection). -->
+    <InternalsVisibleTo Include="XUnitTest" />
+  </ItemGroup>
+
 </Project>

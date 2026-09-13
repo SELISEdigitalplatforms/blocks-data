@@ -224,6 +224,26 @@
             <param name="validationId">The unique identifier of the data validation to delete.</param>
             <returns>Returns a success response if the validation is deleted, or an error message if the operation fails.</returns>
         </member>
+        <member name="T:Api.Controllers.GraphLogController">
+            <summary>
+            Exposes GraphQL request history (query/mutation traces) for the current tenant, read from
+            the trace store that <c>Blocks.Genesis.MongoDBTraceExporter</c> writes to.
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.GraphLogController.GetHistory(DataGateway.DomainService.Models.GetGraphLogHistoryRequest)">
+            <summary>
+            Retrieves a paginated, most-recent-first list of GraphQL request history for the
+            current tenant. Supports filtering by SchemaName (GraphQL field name), EntityName,
+            OperationType ("query"/"mutation"), Outcome ("allowed"/"denied"/"error"), exact
+            HTTP StatusCode, failure reason, sorting, and a From/To timestamp range.
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.GraphLogController.GetAnalytics(DataGateway.DomainService.Models.GetGraphLogAnalyticsRequest)">
+            <summary>
+            Retrieves aggregated GraphQL request analytics for the current tenant: a requests-over-time
+            series (success vs. failed, bucketed daily or weekly) and per-field call/error stats.
+            </summary>
+        </member>
         <member name="T:Api.Controllers.SchemaController">
             <summary>
             OperateSchemaController is responsible for managing schema operations.
@@ -315,6 +335,36 @@
             </summary>
             <param name="id">The unique identifier of the schema definition to delete.</param>
             <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
+        </member>
+        <member name="T:Api.Controllers.SchemaIndexController">
+            <summary>
+            SchemaIndexController manages MongoDB indexes defined on a schema's data collection:
+            creating, listing, and deleting single-field or compound indexes.
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.SchemaIndexController.#ctor(DataGateway.DomainService.Services.ISchemaIndexService)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Api.Controllers.SchemaIndexController"/> class.
+            </summary>
+            <param name="schemaIndexService"></param>
+        </member>
+        <member name="M:Api.Controllers.SchemaIndexController.GetSchemaIndexes(System.String)">
+            <summary>
+            Retrieves every index defined on a schema.
+            </summary>
+            <param name="schemaDefinitionItemId">The unique identifier of the schema definition.</param>
+        </member>
+        <member name="M:Api.Controllers.SchemaIndexController.CreateSchemaIndex(DataGateway.DomainService.Models.CreateSchemaIndexRequest)">
+            <summary>
+            Creates a new index (single-field or compound) on an Entity-type schema's data collection.
+            </summary>
+            <param name="request">SchemaDefinitionItemId, ordered Fields (FieldName, Direction), and IsUnique.</param>
+        </member>
+        <member name="M:Api.Controllers.SchemaIndexController.DeleteSchemaIndex(System.String)">
+            <summary>
+            Deletes a schema index by its unique ID. This drops the underlying MongoDB index as well.
+            </summary>
+            <param name="itemId">The unique identifier of the schema index to delete.</param>
         </member>
         <member name="T:Api.Controllers.DirectoryController">
              <summary>

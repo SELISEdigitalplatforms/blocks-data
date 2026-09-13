@@ -8,6 +8,7 @@ using DataGateway.DomainService.Models.Export;
 using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Repositories;
+using DataGateway.DomainService.Validators;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using System.Text.Json;
@@ -19,15 +20,18 @@ public class SchemaImportService : ISchemaImportService
     private readonly IMessageClient _messageClient;
     private readonly IDbRepository _dbRepository;
     private readonly ILogger<SchemaImportService> _logger;
+    private readonly SchemaImportValidator _schemaImportValidator;
 
     public SchemaImportService(
         IMessageClient messageClient,
         IDbRepository dbRepository,
-        ILogger<SchemaImportService> logger)
+        ILogger<SchemaImportService> logger,
+        SchemaImportValidator schemaImportValidator)
     {
         _messageClient = messageClient;
         _dbRepository = dbRepository;
         _logger = logger;
+        _schemaImportValidator = schemaImportValidator;
     }
 
     /// <inheritdoc />
@@ -76,8 +80,13 @@ public class SchemaImportService : ISchemaImportService
             return 0;
         }
 
+        // Older export files did not include ReferenceFieldType. Reconstruct it from
+        // the schemas in the file so synthetic nodes in nested GraphQL filters retain
+        // their actual DTO type after import.
+        RestoreMissingReferenceFieldTypes(documents);
+
         // 2. Validate documents
-        var validationErrors = ValidateDocuments(documents);
+        var validationErrors = await _schemaImportValidator.ValidateAsync(documents);
         if (validationErrors.Count > 0)
             throw new InvalidOperationException($"Import validation failed:\n{string.Join("\n", validationErrors)}");
 
@@ -107,6 +116,46 @@ public class SchemaImportService : ISchemaImportService
 
         _logger.LogInformation("ProcessImportAsync: Imported {Count} schemas for fileId={FileId}", importedSchemas.Count, importEvent.FileId);
         return importedSchemas.Count;
+    }
+
+    private static void RestoreMissingReferenceFieldTypes(List<SchemaExportDocument> documents)
+    {
+        var schemasByName = documents
+            .Where(document => !string.IsNullOrWhiteSpace(document.SchemaName))
+            .GroupBy(document => document.SchemaName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var document in documents)
+        {
+            foreach (var field in document.Fields.Where(field =>
+                         field.IsReferenceField && string.IsNullOrWhiteSpace(field.ReferenceFieldType)))
+            {
+                var pathSegments = field.Name.Split('.');
+                var containingSchema = document;
+                var resolved = pathSegments.Length > 1;
+
+                // The last segment is the scalar field itself. Following every preceding
+                // segment leads to the DTO that contains that scalar field.
+                for (var index = 0; index < pathSegments.Length - 1; index++)
+                {
+                    var reference = containingSchema.Fields.FirstOrDefault(candidate =>
+                        !candidate.IsReferenceField &&
+                        string.Equals(candidate.Name, pathSegments[index], StringComparison.Ordinal));
+
+                    if (reference is null ||
+                        !schemasByName.TryGetValue(reference.Type, out var referencedSchema))
+                    {
+                        resolved = false;
+                        break;
+                    }
+
+                    containingSchema = referencedSchema;
+                }
+
+                if (resolved)
+                    field.ReferenceFieldType = containingSchema.SchemaName;
+            }
+        }
     }
 
     /// <summary>
@@ -261,67 +310,5 @@ public class SchemaImportService : ISchemaImportService
         var log = new SchemaChangeLog { SchemaId = schemaId, ChangeType = changeType, DoesServerAdaptChanges = false };
         log.InjectDefaultValue();
         changeLogs.Add(log);
-    }
-
-    private static List<string> ValidateDocuments(List<SchemaExportDocument> documents)
-    {
-        var errors = new List<string>();
-
-        for (int i = 0; i < documents.Count; i++)
-        {
-            var doc = documents[i];
-            var prefix = $"Document[{i}]";
-
-
-            if (string.IsNullOrWhiteSpace(doc.SchemaName))
-                errors.Add($"{prefix}: SchemaName is required.");
-
-            if (!Enum.IsDefined(doc.SchemaType))
-                errors.Add($"{prefix}: SchemaType '{doc.SchemaType}' is not a valid value.");
-
-            foreach (var policy in doc.RowLevelPolicies ?? [])
-            {
-                if (string.IsNullOrWhiteSpace(policy.PolicyName))
-                    errors.Add($"{prefix}: A row-level policy is missing a PolicyName.");
-
-                if (policy.RuleGroup == null)
-                    errors.Add($"{prefix}.Policy[{policy.PolicyName}]: RuleGroup is required.");
-            }
-
-            var seenFieldNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var field in doc.Fields)
-            {
-                if (string.IsNullOrWhiteSpace(field.Name))
-                    errors.Add($"{prefix}: A field is missing a Name.");
-                else if (!seenFieldNames.Add(field.Name))
-                    errors.Add($"{prefix}: Field name '{field.Name}' must be unique within a schema.");
-
-                if (string.IsNullOrWhiteSpace(field.Type))
-                    errors.Add($"{prefix}.{field.Name}: Field Type is required.");
-
-                if (field.AccessPolicies != null)
-                {
-                    foreach (var policy in field.AccessPolicies)
-                    {
-                        if (string.IsNullOrWhiteSpace(policy.PolicyName))
-                            errors.Add($"{prefix}.{field.Name}: An access policy is missing a PolicyName.");
-
-                        if (policy.RuleGroup == null)
-                            errors.Add($"{prefix}.{field.Name}.Policy[{policy.PolicyName}]: RuleGroup is required.");
-                    }
-                }
-
-                if (field.ValidationRules != null)
-                {
-                    foreach (var rule in field.ValidationRules)
-                    {
-                        if (!Enum.IsDefined(rule.Type))
-                            errors.Add($"{prefix}.{field.Name}: ValidationType '{rule.Type}' is not a valid value.");
-                    }
-                }
-            }
-        }
-
-        return errors;
     }
 }

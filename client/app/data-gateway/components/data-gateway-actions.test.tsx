@@ -4,11 +4,10 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const navigateMock = vi.fn();
+const useGetDataServiceConfigurationMock = vi.fn();
 
 vi.mock("react-router", async () => {
-  const actual = await vi.importActual<typeof import("react-router")>(
-    "react-router",
-  );
+  const actual = await vi.importActual<typeof import("react-router")>("react-router");
   return {
     ...actual,
     useNavigate: () => navigateMock,
@@ -22,6 +21,11 @@ vi.mock("@seliseblocks/genesis-os", () => ({
 
 vi.mock("@/hooks/use-scoped-path", () => ({
   useDataGatewayPath: () => "/data-gateway",
+}));
+
+vi.mock("@/lib/runtime-env", () => ({ getRuntimeEnv: () => "http://api" }));
+vi.mock("../hooks/use-configuration", () => ({
+  useGetDataServiceConfiguration: () => useGetDataServiceConfigurationMock(),
 }));
 
 // Stub the heavy import/export modals — we only care about the action buttons here.
@@ -45,15 +49,65 @@ function renderActions() {
 describe("DataGatewayActions", () => {
   beforeEach(() => {
     navigateMock.mockReset();
+    useGetDataServiceConfigurationMock.mockReturnValue({
+      data: {
+        data: {
+          analyticsConfiguration: { enableAnalytics: true },
+        },
+      },
+    });
   });
 
-  it("renders the primary action buttons (desktop)", () => {
+  it("keeps API Docs and Playground inline, the rest behind the overflow menu (desktop)", () => {
     renderActions();
-    // Buttons appear in both mobile menu-item and desktop variants; use getAllByText
-    expect(screen.getAllByText("Import").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Export").length).toBeGreaterThan(0);
+
+    expect(screen.getAllByText("API Docs").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Playground").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Configure").length).toBeGreaterThan(0);
+    // Menu contents only mount once the menu is opened.
+    expect(screen.queryByText("Import")).not.toBeInTheDocument();
+    expect(screen.queryByText("Export")).not.toBeInTheDocument();
+    expect(screen.queryByText("Analytics")).not.toBeInTheDocument();
+    expect(screen.queryByText("Configure")).not.toBeInTheDocument();
+  });
+
+  it("shows the overflow actions once the desktop menu is opened", async () => {
+    const user = userEvent.setup();
+    renderActions();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+
+    expect(await screen.findByText("Import")).toBeInTheDocument();
+    expect(screen.getByText("Export")).toBeInTheDocument();
+    expect(screen.getByText("Analytics")).toBeInTheDocument();
+    expect(screen.getByText("Configure")).toBeInTheDocument();
+  });
+
+  it("collapses every action, inline ones included, into the mobile menu", async () => {
+    const user = userEvent.setup();
+    renderActions();
+
+    await user.click(screen.getByRole("button", { name: "Actions" }));
+
+    const menuItems = await screen.findAllByRole("menuitem");
+    expect(menuItems.map((item) => item.textContent?.trim())).toEqual([
+      "API Docs",
+      "Playground",
+      "Import",
+      "Export",
+      "Analytics",
+      "Configure",
+    ]);
+  });
+
+  it("opens the swagger UI in a new tab from API Docs", async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    renderActions();
+
+    await user.click(screen.getAllByRole("button", { name: /API Docs/ }).at(-1)!);
+
+    expect(openSpy).toHaveBeenCalledWith("http://api/swagger/index.html", "_blank");
+    openSpy.mockRestore();
   });
 
   it("navigates to the playground route when Playground is clicked", async () => {
@@ -61,19 +115,34 @@ describe("DataGatewayActions", () => {
     renderActions();
 
     // The desktop inline buttons are actual <button>s
-    const playground = screen
-      .getAllByRole("button", { name: /Playground/ })
-      .at(-1)!;
+    const playground = screen.getAllByRole("button", { name: /Playground/ }).at(-1)!;
     await user.click(playground);
     expect(navigateMock).toHaveBeenCalledWith("/data-gateway/playground");
   });
 
-  it("opens the export modal when Export is clicked", async () => {
+  it("opens the export modal from the overflow menu", async () => {
     const user = userEvent.setup();
     renderActions();
 
-    const exportBtn = screen.getAllByRole("button", { name: /Export/ }).at(-1)!;
-    await user.click(exportBtn);
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByText("Export"));
+
     expect(await screen.findByTestId("export-modal")).toBeInTheDocument();
+  });
+
+  it("hides analytics when it is disabled", async () => {
+    useGetDataServiceConfigurationMock.mockReturnValue({
+      data: {
+        data: {
+          analyticsConfiguration: { enableAnalytics: false },
+        },
+      },
+    });
+    const user = userEvent.setup();
+    renderActions();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+
+    expect(screen.queryByText("Analytics")).not.toBeInTheDocument();
   });
 });

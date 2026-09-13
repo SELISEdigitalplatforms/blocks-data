@@ -126,6 +126,41 @@ public class DataGatewayControllerTests
         Status(await controller.DeleteSchemaDefinitionAsync("")).Should().Be(400);
     }
 
+    // ---------------- SchemaIndexController ----------------
+
+    [Fact]
+    public async Task SchemaIndex_Get_ValidatesAndDelegates()
+    {
+        var svc = new Mock<ISchemaIndexService>();
+        svc.Setup(s => s.GetIndexesAsync("schema-1"))
+            .ReturnsAsync(new ServiceResponse<SchemaIndexListResponse>().SetSuccess(new SchemaIndexListResponse()));
+        var controller = new SchemaIndexController(svc.Object);
+
+        Status(await controller.GetSchemaIndexes("schema-1")).Should().Be(200);
+        Status(await controller.GetSchemaIndexes("")).Should().Be(400);
+    }
+
+    [Fact]
+    public async Task SchemaIndex_Create_Delegates()
+    {
+        var svc = new Mock<ISchemaIndexService>();
+        svc.Setup(s => s.CreateIndexAsync(It.IsAny<CreateSchemaIndexRequest>())).ReturnsAsync(Ok());
+        var controller = new SchemaIndexController(svc.Object);
+
+        Status(await controller.CreateSchemaIndex(new CreateSchemaIndexRequest())).Should().Be(200);
+    }
+
+    [Fact]
+    public async Task SchemaIndex_Delete_ValidatesAndDelegates()
+    {
+        var svc = new Mock<ISchemaIndexService>();
+        svc.Setup(s => s.DeleteIndexAsync("idx-1")).ReturnsAsync(Ok());
+        var controller = new SchemaIndexController(svc.Object);
+
+        Status(await controller.DeleteSchemaIndex("idx-1")).Should().Be(200);
+        Status(await controller.DeleteSchemaIndex("")).Should().Be(400);
+    }
+
     // ---------------- DataValidationController ----------------
 
     [Fact]
@@ -219,5 +254,47 @@ public class DataGatewayControllerTests
             Status(await c.GetConfigurationAsync()).Should().Be(500);
         }
         finally { ClearContext(); }
+    }
+
+    // ---------------- GraphLogController ----------------
+
+    [Fact]
+    public async Task GraphLog_Analytics_WhenUnavailable_Returns403WithoutReadingAnalytics()
+    {
+        var history = new Mock<IGraphLogHistoryService>();
+        var configuration = new Mock<IDataGatewayConfigurationService>();
+        configuration.Setup(s => s.CanAccessAnalyticsAsync()).ReturnsAsync(false);
+        var controller = new GraphLogController(history.Object, configuration.Object);
+
+        Status(await controller.GetAnalytics(new GetGraphLogAnalyticsRequest())).Should().Be(403);
+        history.Verify(s => s.GetAnalyticsAsync(It.IsAny<GetGraphLogAnalyticsRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task GraphLog_Analytics_WhenAvailable_ReturnsAnalytics()
+    {
+        var history = new Mock<IGraphLogHistoryService>();
+        var configuration = new Mock<IDataGatewayConfigurationService>();
+        configuration.Setup(s => s.CanAccessAnalyticsAsync()).ReturnsAsync(true);
+        history.Setup(s => s.GetAnalyticsAsync(It.IsAny<GetGraphLogAnalyticsRequest>()))
+            .ReturnsAsync(new GraphLogAnalyticsResponse());
+        var controller = new GraphLogController(history.Object, configuration.Object);
+
+        (await controller.GetAnalytics(new GetGraphLogAnalyticsRequest()))
+            .Should().BeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task GraphLog_History_RemainsAvailableWithoutAnalyticsCheck()
+    {
+        var history = new Mock<IGraphLogHistoryService>();
+        var configuration = new Mock<IDataGatewayConfigurationService>();
+        history.Setup(s => s.GetHistoryAsync(It.IsAny<GetGraphLogHistoryRequest>()))
+            .ReturnsAsync(new PaginationResponse<GraphLogHistoryItemResponse>(0, []));
+        var controller = new GraphLogController(history.Object, configuration.Object);
+
+        (await controller.GetHistory(new GetGraphLogHistoryRequest()))
+            .Should().BeOfType<OkObjectResult>();
+        configuration.Verify(s => s.CanAccessAnalyticsAsync(), Times.Never);
     }
 }

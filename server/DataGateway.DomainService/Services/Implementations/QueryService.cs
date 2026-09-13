@@ -35,19 +35,40 @@ public class QueryService : IQueryService
         IResolverContext ctx,
         SchemaDefinitionExtended schema)
     {
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(System.Diagnostics.Activity.Current);
+        gatewayOperation.SchemaName = ctx.Selection.Field.Name;
+        gatewayOperation.EntityName = schema.SchemaName;
+
         try
         {
             _logger.LogInformation("Getting data for schema {SchemaName}", schema.SchemaName);
 
             var queryInput = GetQueryInputFromContext(ctx);
-            var rlsResult = EvaluateRlsPolicies(schema, PolicyOperation.READ);
-            EnsureReadAccess(rlsResult, schema);
 
-            var userFilterBson = GetUserFilterBson(schema, queryInput.Where, queryInput.Filter);
-            var mongoFilter = BuildMongoFilter(schema, userFilterBson, rlsResult);
-            var mongoProjection = QueryProjectionHelper.BuildMongoProjectionWithCls(ctx, schema, out var evaluationOnlyFieldPaths);
+            PolicyEvaluationResult rlsResult;
+            BsonDocument mongoFilter;
+            BsonDocument? mongoProjection;
+            HashSet<string> evaluationOnlyFieldPaths;
+            using (GatewayOperationActivity.Measure(GatewayPhase.Policy))
+            {
+                rlsResult = EvaluateRlsPolicies(schema, PolicyOperation.READ);
+                EnsureReadAccess(rlsResult, schema);
+
+                var userFilterBson = GetUserFilterBson(schema, queryInput.Where, queryInput.Filter);
+                mongoFilter = BuildMongoFilter(schema, userFilterBson, rlsResult);
+                mongoProjection = QueryProjectionHelper.BuildMongoProjectionWithCls(
+                    ctx, schema, out evaluationOnlyFieldPaths);
+            }
             var mongoSort = GetMongoSort(schema, queryInput.Order, queryInput.Sort);
             var (skip, limit) = ComputePagination(queryInput.PageNo, queryInput.PageSize);
+
+            gatewayOperation.CollectionName = schema.CollectionName;
+            gatewayOperation.MongoQuery = new BsonDocument
+            {
+                { "filter", mongoFilter },
+                { "projection", mongoProjection },
+                { "sort", mongoSort ?? (BsonValue)BsonNull.Value }
+            }.ToString();
 
             var (documents, totalCount) = await _repository.GetItemsWithCountAsync(
                 schema.CollectionName,
@@ -58,6 +79,9 @@ public class QueryService : IQueryService
                 limit);
 
             var items = BuildResultItems(documents, schema, evaluationOnlyFieldPaths);
+
+            gatewayOperation.ResponseSize = documents.Sum(d => d.ToBson().Length);
+            gatewayOperation.DocumentCount = documents.Count;
 
             _logger.LogInformation("Data retrieved for schema {SchemaName}", schema.SchemaName);
 
@@ -175,9 +199,16 @@ public class QueryService : IQueryService
         if (rlsResult.IsAccessGranted) return;
 
         _logger.LogWarning("Access denied for READ on schema {SchemaName}: {Error}", schema.SchemaName, rlsResult.ErrorMessage);
+        var message = rlsResult.ErrorMessage ?? "You don't have permission to read records in this entity.";
+        GatewayOperationActivity.MarkFailed(
+            System.Diagnostics.Activity.Current,
+            GatewayFailureKind.Authorization,
+            message,
+            GraphQlConstant.UnauthorizedErrorCode);
+
         throw new GraphQLException(
             ErrorBuilder.New()
-                .SetMessage(rlsResult.ErrorMessage ?? "You don't have permission to read records in this entity.")
+                .SetMessage(message)
                 .SetCode(GraphQlConstant.UnauthorizedErrorCode)
                 .Build());
     }

@@ -23,7 +23,8 @@ public class WriteSchemaAccessMiddleware
             context,
             _next,
             _schema.WriteAccessLevel,
-            nameof(WriteSchemaAccessMiddleware));
+            nameof(WriteSchemaAccessMiddleware),
+            _schema.SchemaName);
     }
 
 }

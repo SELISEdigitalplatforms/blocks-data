@@ -376,6 +376,38 @@ public class DbRepository : IDbRepository
     }
     #endregion
 
+    #region Index
+    public async Task<ActionResponse> CreateIndexAsync(string collectionName, List<(string FieldName, int Direction)> keys, bool isUnique, string indexName, string databaseName = "")
+    {
+        SetDatabase(databaseName);
+        var collection = _database.GetCollection<BsonDocument>(collectionName);
+
+        var keysBuilder = Builders<BsonDocument>.IndexKeys;
+        IndexKeysDefinition<BsonDocument> indexKeys = keys[0].Direction < 0
+            ? keysBuilder.Descending(keys[0].FieldName)
+            : keysBuilder.Ascending(keys[0].FieldName);
+        for (var i = 1; i < keys.Count; i++)
+        {
+            indexKeys = keys[i].Direction < 0
+                ? indexKeys.Descending(keys[i].FieldName)
+                : indexKeys.Ascending(keys[i].FieldName);
+        }
+
+        var model = new CreateIndexModel<BsonDocument>(indexKeys, new CreateIndexOptions { Name = indexName, Unique = isUnique });
+        await collection.Indexes.CreateOneAsync(model);
+
+        return new ActionResponse { Acknowledged = true, ItemId = indexName };
+    }
+
+    public async Task<ActionResponse> DropIndexAsync(string collectionName, string indexName, string databaseName = "")
+    {
+        SetDatabase(databaseName);
+        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        await collection.Indexes.DropOneAsync(indexName);
+        return new ActionResponse { Acknowledged = true, ItemId = indexName };
+    }
+    #endregion
+
     #region Private Methods
     private DbRepository SetDatabase(string databaseName)
     {

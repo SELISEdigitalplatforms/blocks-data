@@ -25,8 +25,8 @@ interface SchemaStructureHeaderProps {
   schemaType?: number;
   templateFields: Array<{ name: string; type?: string; isArray: boolean }>;
   previewData: Record<string, unknown>;
-  activeTab: "attribute" | "data";
-  onTabChange: (tab: "attribute" | "data") => void;
+  activeTab: "attribute" | "data" | "indexes";
+  onTabChange: (tab: "attribute" | "data" | "indexes") => void;
   onEditToggle: () => void;
   // onBulkManageAccess: () => void;
   onBulkDuplicate: () => void;
@@ -73,7 +73,10 @@ export function SchemaStructureHeader({
   const isShowPreviewButton = fieldLength > 0;
 
   const SchemaTabs = (
-    <Tabs value={activeTab} onValueChange={(v) => onTabChange(v as "attribute" | "data")}>
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => onTabChange(v as "attribute" | "data" | "indexes")}
+    >
       <TabsList className="h-8 gap-1 bg-transparent p-0">
         <TabsTrigger
           value="attribute"
@@ -89,6 +92,12 @@ export function SchemaStructureHeader({
             Data
           </TabsTrigger>
         )}
+        <TabsTrigger
+          value="indexes"
+          className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
+          Indexes
+        </TabsTrigger>
       </TabsList>
     </Tabs>
   );

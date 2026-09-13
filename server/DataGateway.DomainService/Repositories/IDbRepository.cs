@@ -85,4 +85,17 @@ public interface IDbRepository
     Task<ActionResponse> UpsertAsync(string collectionName, BsonDocument data, string databaseName = "");
     Task<ActionResponse> UpsertManyAsync<T>(List<T> data, string databaseName = "") where T : GraphQlBaseEntity;
     #endregion
+    #region Index
+    /// <summary>
+    /// Creates a MongoDB index on an arbitrary, user-defined data collection (not a
+    /// GraphQlBaseEntity-typed collection), for an ordered list of field name/direction pairs.
+    /// Direction is the raw Mongo sort value: 1 for ascending, -1 for descending.
+    /// </summary>
+    Task<ActionResponse> CreateIndexAsync(string collectionName, List<(string FieldName, int Direction)> keys, bool isUnique, string indexName, string databaseName = "");
+
+    /// <summary>
+    /// Drops a previously created index by name from the given data collection.
+    /// </summary>
+    Task<ActionResponse> DropIndexAsync(string collectionName, string indexName, string databaseName = "");
+    #endregion
 }

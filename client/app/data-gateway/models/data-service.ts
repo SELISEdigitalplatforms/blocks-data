@@ -5,6 +5,13 @@ export interface IDataServiceConfiguration {
   itemId?: string;
   isCollectionNameEditable?: boolean;
   collectionNamePattern?: string;
+  enableAnalytics?: boolean;
+}
+
+export interface IAnalyticsConfiguration {
+  enableAnalytics: boolean;
+  enableDate: string | null;
+  validTill: string | null;
 }
 
 export interface IDefaultResponse {
@@ -22,6 +29,7 @@ export interface IDataSourceResponse {
   isActive: boolean;
   isCollectionNameEditable?: boolean;
   collectionNamePattern?: string;
+  analyticsConfiguration?: IAnalyticsConfiguration;
 }
 
 export interface IDataSourceFormValues {
@@ -29,6 +37,7 @@ export interface IDataSourceFormValues {
   databaseName: string;
   isCollectionNameEditable: boolean;
   collectionNamePattern: string;
+  enableAnalytics: boolean;
 }
 
 export interface IUnadaptedChangeLogsResponse {
@@ -437,6 +446,50 @@ export interface IDeleteSchemaFieldValidationPayload {
   projectKey: string;
 }
 
+// ── Schema Indexes ────────────────────────────────────────────────────────
+
+/** Wire form of the backend's SortDirection enum (JsonStringEnumConverter → member name). */
+export type IndexDirection = "ASC" | "DESC";
+
+export interface IIndexFieldPayload {
+  fieldName: string;
+  direction: IndexDirection;
+}
+
+export interface ISchemaIndex {
+  itemId: string;
+  name: string;
+  fields: IIndexFieldPayload[];
+  isUnique: boolean;
+  createdDate: string;
+}
+
+export interface IGetSchemaIndexesResponse {
+  isSuccess: boolean;
+  message?: string | null;
+  errors?: unknown;
+  data: { indexes: ISchemaIndex[] } | null;
+}
+
+export interface ICreateSchemaIndexPayload {
+  schemaDefinitionItemId: string;
+  name?: string;
+  fields: IIndexFieldPayload[];
+  isUnique: boolean;
+}
+
+export interface ISchemaIndexActionResponse {
+  isSuccess: boolean;
+  message?: string | null;
+  errors?: unknown;
+  data: { acknowledged: boolean; itemId: string } | null;
+}
+
+export interface IDeleteSchemaIndexPayload {
+  itemId: string;
+  /** Not sent to the API — used only to invalidate the right ["schema-indexes", id] query. */
+  schemaDefinitionItemId: string;
+}
 
 // ── Schema Export ──────────────────────────────────────────────────────────
 /** Mirrors backend `SchemaExportOption`. Value `All` (3) includes both optional sections together. */
@@ -451,8 +504,7 @@ export const SchemaExportOption = {
   All: 3,
 } as const;
 
-export type SchemaExportOptionValue =
-  (typeof SchemaExportOption)[keyof typeof SchemaExportOption];
+export type SchemaExportOptionValue = (typeof SchemaExportOption)[keyof typeof SchemaExportOption];
 
 export interface ISchemaExportPayload {
   projectKey: string;

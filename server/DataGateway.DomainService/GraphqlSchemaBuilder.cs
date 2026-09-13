@@ -66,8 +66,10 @@ public class GraphqlSchemaBuilder
                 s => s.GetSchemaNameForProject(),
                 s => new EntityFilterInputType(s));
 
+            var childFilterInputTypes = BuildChildFilterInputTypes(dbSchemas, customSchemas);
+
             BuildOnlySchemaType(schemaBuilder, customSchemas);
-            BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes);
+            BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes, childFilterInputTypes);
 
             var queryType = BuildQueryType(dbSchemas, outputTypes, entityFilterInputTypes);
             var mutationType = BuildMutationType(dbSchemas, insertInputTypes, updateInputTypes, deleteInputTypes, entityFilterInputTypes);
@@ -78,6 +80,11 @@ public class GraphqlSchemaBuilder
             _logger.LogInformation("GraphQL schema built for tenant: {TenantId}", tenantId);
             await AdaptSchemaChangeLogsToServerAsync();
             _logger.LogInformation("Schema change logs adapted to server successfully");
+        }
+        catch (InvalidOperationException ex) when (ex.Message.StartsWith("SCHEMA_FILTER_CYCLE", StringComparison.Ordinal))
+        {
+            _logger.LogError(ex, "Rejected cyclic GraphQL filter schema for tenant: {TenantId}", tenantId);
+            throw;
         }
         catch (Exception ex)
         {
@@ -109,6 +116,11 @@ public class GraphqlSchemaBuilder
         {
             return [];
         }
+
+        // Legacy imports may contain flattened reference fields without the containing
+        // DTO type. Recover it in memory so GraphQL can build correctly even before
+        // those records are repaired by a subsequent import.
+        RestoreMissingReferenceFieldTypes(data);
 
         var validations = await _repository.GetItemsAsync<DataValidation>(
             new BsonDocument { { nameof(DataValidation.IsDeleted), false } },
@@ -171,6 +183,44 @@ public class GraphqlSchemaBuilder
         }
 
         return schemaDefinitions;
+    }
+
+    internal static void RestoreMissingReferenceFieldTypes(List<SchemaDefinition> schemas)
+    {
+        var schemasByName = schemas
+            .Where(schema => !string.IsNullOrWhiteSpace(schema.SchemaName))
+            .GroupBy(schema => schema.SchemaName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var schema in schemas)
+        {
+            foreach (var field in schema.Fields.Where(field =>
+                         field.IsReferenceField && string.IsNullOrWhiteSpace(field.ReferenceFieldType)))
+            {
+                var pathSegments = field.Name.Split('.');
+                var containingSchema = schema;
+                var resolved = pathSegments.Length > 1;
+
+                for (var index = 0; index < pathSegments.Length - 1; index++)
+                {
+                    var reference = containingSchema.Fields.FirstOrDefault(candidate =>
+                        !candidate.IsReferenceField &&
+                        string.Equals(candidate.Name, pathSegments[index], StringComparison.Ordinal));
+
+                    if (reference is null ||
+                        !schemasByName.TryGetValue(reference.Type, out var referencedSchema))
+                    {
+                        resolved = false;
+                        break;
+                    }
+
+                    containingSchema = referencedSchema;
+                }
+
+                if (resolved)
+                    field.ReferenceFieldType = containingSchema.SchemaName;
+            }
+        }
     }
 
     private void SetFieldsPolicies(SchemaDefinitionExtended schema, List<FieldDefinitionResponse> fields, IEnumerable<DataAccessPolicy> rlsSchemaPolicies, string schemaId, string parentFieldName)
@@ -336,7 +386,8 @@ public class GraphqlSchemaBuilder
 
     private static void BuildFilterAndSortTypes(
         ISchemaBuilder schemaBuilder,
-        Dictionary<string, EntityFilterInputType> entityFilterInputTypes)
+        Dictionary<string, EntityFilterInputType> entityFilterInputTypes,
+        IReadOnlyCollection<ChildSchemaFilterInputType> childFilterInputTypes)
     {
         schemaBuilder.AddType<SortDirectionType>();
         schemaBuilder.AddType<DynamicSortInputType>();
@@ -349,6 +400,69 @@ public class GraphqlSchemaBuilder
         schemaBuilder.AddType<DateTimeOperationFilterInputType>();
         foreach (var type in entityFilterInputTypes.Values)
             schemaBuilder.AddType(type);
+        foreach (var type in childFilterInputTypes)
+            schemaBuilder.AddType(type);
+    }
+
+    private static IReadOnlyCollection<ChildSchemaFilterInputType> BuildChildFilterInputTypes(
+        IEnumerable<SchemaDefinitionExtended> entitySchemas,
+        IEnumerable<SchemaDefinitionExtended> customSchemas)
+    {
+        var schemasByName = customSchemas
+            .GroupBy(schema => schema.SchemaName, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+        var definitions = new Dictionary<string, IReadOnlyList<FieldDefinitionResponse>>(StringComparer.Ordinal);
+
+        foreach (var entitySchema in entitySchemas)
+        {
+            foreach (var field in entitySchema.Fields.Where(field => !GraphQlTypeHelper.IsScalar(field.Type)))
+            {
+                if (schemasByName.TryGetValue(field.Type, out var childSchema))
+                {
+                    BuildCanonicalFields(
+                        childSchema,
+                        new HashSet<string>(StringComparer.Ordinal),
+                        $"{entitySchema.SchemaName}.{field.Name}");
+                }
+            }
+        }
+
+        return definitions.Select(x => new ChildSchemaFilterInputType(x.Key, x.Value)).ToArray();
+
+        IReadOnlyList<FieldDefinitionResponse> BuildCanonicalFields(
+            SchemaDefinitionExtended schema,
+            HashSet<string> ancestors,
+            string path)
+        {
+            if (definitions.TryGetValue(schema.SchemaName, out var existing))
+                return existing;
+
+            if (!ancestors.Add(schema.SchemaName))
+                throw new InvalidOperationException($"SCHEMA_FILTER_CYCLE: cyclic child schema reference at '{path}'.");
+
+            var fields = new List<FieldDefinitionResponse>();
+            foreach (var field in schema.Fields)
+            {
+                var canonicalField = new FieldDefinitionResponse
+                {
+                    Name = field.Name,
+                    Type = field.Type
+                };
+
+                if (!GraphQlTypeHelper.IsScalar(field.Type) &&
+                    schemasByName.TryGetValue(field.Type, out var childSchema))
+                {
+                    canonicalField.Fields = BuildCanonicalFields(
+                        childSchema, ancestors, $"{path}.{field.Name}").ToList();
+                }
+
+                fields.Add(canonicalField);
+            }
+
+            ancestors.Remove(schema.SchemaName);
+            definitions.Add(schema.SchemaName, fields);
+            return fields;
+        }
     }
 
     private ObjectType BuildQueryType(

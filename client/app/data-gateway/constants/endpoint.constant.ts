@@ -22,6 +22,13 @@ export const SCHEMA_ENDPOINTS = {
   UNADAPTED_CHANGE_LOGS: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/unadapted-change-logs`,
 } as const;
 
+// ─── Schema Index endpoints ───────────────────────────────────────────────────
+// Served by the backend's dedicated SchemaIndexController (route "schemas/indexes").
+
+export const SCHEMA_INDEX_ENDPOINTS = {
+  BASE: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/indexes`,
+} as const;
+
 // ─── Data Access endpoints ────────────────────────────────────────────────────
 
 const DATA_ACCESS_SUBPATH = "/data-access";
@@ -63,6 +70,15 @@ const VALIDATION_REGEX = "/regex";
 
 export const DATA_VALIDATION_REGEX_ENDPOINTS = {
   GENERATE_REGEX: `${API_BASES.UDS}${VALIDATION_REGEX}/generate-regex`,
+} as const;
+
+// ─── Graph log endpoints ──────────────────────────────────────────────────────
+
+const GRAPH_LOG_SUBPATH = "/graph-log";
+
+export const GRAPH_LOG_ENDPOINTS = {
+  HISTORY: `${API_BASES.UDS}${GRAPH_LOG_SUBPATH}/history`,
+  ANALYTICS: `${API_BASES.UDS}${GRAPH_LOG_SUBPATH}/analytics`,
 } as const;
 
 // ─── Gateway & Configuration endpoints ────────────────────────────────────────

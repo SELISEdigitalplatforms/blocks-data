@@ -15,6 +15,9 @@ interface DateRangeFilterProps<TData, TValue> {
   date: DateRange | undefined;
   // eslint-disable-next-line no-unused-vars
   onDateChange: (date: DateRange | undefined) => void;
+  /** Overrides the button's date label, for pages using their own date-time format. */
+  // eslint-disable-next-line no-unused-vars
+  formatLabel?: (date: Date) => string;
 }
 
 export function DateRangeFilter<TData, TValue>({
@@ -22,6 +25,7 @@ export function DateRangeFilter<TData, TValue>({
   title,
   date,
   onDateChange,
+  formatLabel = (value: Date) => formatDate(value, true),
 }: DateRangeFilterProps<TData, TValue>) {
   const isMobile = useIsMobile();
 
@@ -47,11 +51,11 @@ export function DateRangeFilter<TData, TValue>({
               <>
                 <Separator orientation="vertical" className="hidden h-4 sm:mx-2 sm:block" />
 
-                {formatDate(date.from, true)}
+                {formatLabel(date.from)}
                 {date.to && (
                   <>
                     {" - "}
-                    {formatDate(date.to, true)}
+                    {formatLabel(date.to)}
                   </>
                 )}
               </>

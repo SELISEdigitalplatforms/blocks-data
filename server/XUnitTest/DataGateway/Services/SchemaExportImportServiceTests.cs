@@ -5,6 +5,7 @@ using DataGateway.DomainService.Models.Events;
 using DataGateway.DomainService.Models.Export;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Services;
+using DataGateway.DomainService.Validators;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using MongoDB.Bson;
@@ -68,6 +69,36 @@ public class SchemaExportServiceTests
     }
 
     [Fact]
+    public async Task BuildExportBytes_ReferenceField_PreservesReferenceFieldType()
+    {
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition>
+            {
+                new()
+                {
+                    SchemaName = "Agreement",
+                    ItemId = "s1",
+                    Fields = new()
+                    {
+                        new FieldDefinition
+                        {
+                            Name = "Signatories.Signature.CoordinateId",
+                            Type = "String",
+                            IsReferenceField = true,
+                            ReferenceFieldType = "Signature"
+                        }
+                    }
+                }
+            });
+
+        var (bytes, _) = await _service.BuildExportBytesAsync(
+            new SchemaExportEvent { FileId = "f1", ProjectKey = "p", ExportOption = SchemaExportOption.Schema });
+
+        var documents = System.Text.Json.JsonSerializer.Deserialize<List<SchemaExportDocument>>(bytes);
+        documents![0].Fields[0].ReferenceFieldType.Should().Be("Signature");
+    }
+
+    [Fact]
     public async Task InsertExportRecord_Inserts()
     {
         _repo.Setup(r => r.InsertAsync(It.IsAny<SchemaExportRecord>(), "")).ReturnsAsync((SchemaExportRecord r, string _) => r);
@@ -96,7 +127,7 @@ public class SchemaImportServiceTests
         _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<SchemaChangeLog>>(), "")).ReturnsAsync(new List<SchemaChangeLog>());
         _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<DataAccessPolicy>>(), "")).ReturnsAsync(new List<DataAccessPolicy>());
         _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<DataValidation>>(), "")).ReturnsAsync(new List<DataValidation>());
-        _service = new SchemaImportService(_message.Object, _repo.Object, NullLogger<SchemaImportService>.Instance);
+        _service = new SchemaImportService(_message.Object, _repo.Object, NullLogger<SchemaImportService>.Instance, new SchemaImportValidator(_repo.Object));
     }
 
     private static byte[] Json(object o) => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(o);
@@ -151,6 +182,114 @@ public class SchemaImportServiceTests
 
         count.Should().Be(1);
         _repo.Verify(r => r.UpsertManyAsync(It.IsAny<List<SchemaDefinition>>(), ""), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessImport_ReferenceFieldPathLongerThanFiftyCharacters_Upserts()
+    {
+        const string referenceFieldPath =
+            "Signatories.Signature.SignaturePostInfoCoordinateFormFieldValues.CoordinateId";
+        var docs = new List<SchemaExportDocument>
+        {
+            new()
+            {
+                SchemaName = "Agreement",
+                CollectionName = "Agreements",
+                SchemaType = SchemaType.Entity,
+                Fields = new()
+                {
+                    new ExportFieldDefinition
+                    {
+                        Name = referenceFieldPath,
+                        Type = "String",
+                        IsReferenceField = true
+                    }
+                }
+            }
+        };
+
+        var count = await _service.ProcessImportAsync(
+            new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs));
+
+        count.Should().Be(1);
+        _repo.Verify(r => r.UpsertManyAsync(
+            It.Is<List<SchemaDefinition>>(schemas =>
+                schemas[0].Fields.Any(field => field.Name == referenceFieldPath)), ""), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessImport_ReferenceFieldWithSegmentLongerThanFiftyCharacters_Throws()
+    {
+        var docs = new List<SchemaExportDocument>
+        {
+            new()
+            {
+                SchemaName = "Agreement",
+                CollectionName = "Agreements",
+                SchemaType = SchemaType.Entity,
+                Fields = new()
+                {
+                    new ExportFieldDefinition
+                    {
+                        Name = $"Signatories.{new string('A', 51)}.CoordinateId",
+                        Type = "String",
+                        IsReferenceField = true
+                    }
+                }
+            }
+        };
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ProcessImportAsync(
+                new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs)));
+
+        exception.Message.Should().Contain("must be between 1 and 50 characters");
+    }
+
+    [Fact]
+    public async Task ProcessImport_LegacyNestedReferenceFields_RestoresReferenceFieldType()
+    {
+        var docs = new List<SchemaExportDocument>
+        {
+            new()
+            {
+                SchemaName = "Agreement",
+                CollectionName = "Agreements",
+                SchemaType = SchemaType.Entity,
+                Fields = new()
+                {
+                    new ExportFieldDefinition { Name = "Signatories", Type = "Signatory" },
+                    new ExportFieldDefinition
+                    {
+                        Name = "Signatories.Signature.CoordinateId",
+                        Type = "String",
+                        IsReferenceField = true
+                    }
+                }
+            },
+            new()
+            {
+                SchemaName = "Signatory",
+                SchemaType = SchemaType.Dto,
+                Fields = new() { new ExportFieldDefinition { Name = "Signature", Type = "Signature" } }
+            },
+            new()
+            {
+                SchemaName = "Signature",
+                SchemaType = SchemaType.Dto,
+                Fields = new() { new ExportFieldDefinition { Name = "CoordinateId", Type = "String" } }
+            }
+        };
+
+        var count = await _service.ProcessImportAsync(
+            new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs));
+
+        count.Should().Be(3);
+        _repo.Verify(r => r.UpsertManyAsync(
+            It.Is<List<SchemaDefinition>>(schemas => schemas
+                .Single(schema => schema.SchemaName == "Agreement")
+                .Fields.Single(field => field.Name == "Signatories.Signature.CoordinateId")
+                .ReferenceFieldType == "Signature"), ""), Times.Once);
     }
 
     [Fact]

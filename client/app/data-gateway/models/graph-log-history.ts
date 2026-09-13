@@ -1,11 +1,15 @@
 export type GraphLogOperationType = "query" | "mutation";
 export type GraphLogResponseStatus = "success" | "failed";
+export type GraphLogOutcome = "allowed" | "denied" | "error";
+export type GraphLogHistorySort =
+  "time" | "schema" | "type" | "status" | "code" | "duration" | "size" | "source";
 
 /** Why a request failed — mirrors the server's GatewayFailureKind. */
 export type GraphLogFailureKind =
   | "authentication"
   | "authorization"
   | "validation"
+  | "syntax_error"
   | "bad_request"
   | "unhandled"
   | "unknown";
@@ -15,23 +19,42 @@ export const FAILURE_KIND_LABELS: Record<GraphLogFailureKind, string> = {
   authentication: "Authentication",
   authorization: "Authorization",
   validation: "Validation",
+  syntax_error: "Syntax error",
   bad_request: "Bad request",
   unhandled: "Server error",
-  unknown: "Unknown",
+  unknown: "Others",
 };
 
 export const failureKindLabel = (failureKind: string) =>
   FAILURE_KIND_LABELS[failureKind as GraphLogFailureKind] ?? failureKind;
 
+export const DENIED_FAILURE_KINDS = new Set<string>([
+  "authentication",
+  "authorization",
+  "validation",
+]);
+
+export const graphLogOutcome = (
+  item: Pick<IGraphLogHistoryItem, "responseStatus" | "failureKind">,
+): GraphLogOutcome => {
+  if (item.responseStatus !== "failed") return "allowed";
+  return DENIED_FAILURE_KINDS.has(item.failureKind) ? "denied" : "error";
+};
+
 export interface IGetGraphLogHistoryPayload {
   from?: string;
   to?: string;
+  /** Viewer offset from UTC in minutes; UTC+06:00 is 360. */
+  utcOffsetMinutes: number;
   pageNo: number;
   pageSize: number;
   schemaName?: string;
   operationType?: GraphLogOperationType;
-  responseStatus?: GraphLogResponseStatus;
+  outcome?: GraphLogOutcome;
+  statusCode?: number;
   failureKind?: GraphLogFailureKind;
+  sortBy: GraphLogHistorySort;
+  sortDescending: boolean;
 }
 
 /** One GraphQL request, as recorded in the trace store. */

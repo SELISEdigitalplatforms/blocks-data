@@ -9,8 +9,9 @@ using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Responses;
 using FluentAssertions;
 using HotChocolate;
-using HotChocolate.Language;
+using HotChocolate.Execution;
 using HotChocolate.Execution.Processing;
+using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using HotChocolate.Types;
 using Microsoft.AspNetCore.Http;
@@ -63,6 +64,19 @@ public class GatewayFailureLoggingTests : IDisposable
         var gatewayOperation = GatewayOperationActivity.GetOrCreate(activity);
         gatewayOperation.FailureKind.Should().Be(GatewayFailureKind.Authorization);
         gatewayOperation.FailureMessage.Should().Be("Denied by policy.");
+    }
+
+    [Fact]
+    public void AnUnknownReasonCanBeReplacedWhenTheHttpPipelineLearnsItWasA5xx()
+    {
+        using var activity = new Activity("request").Start();
+
+        GatewayOperationActivity.MarkFailed(activity, GatewayFailureKind.Unknown, "Execution failed.");
+        GatewayOperationActivity.MarkFailed(activity, GatewayFailureKind.Unhandled, "HTTP 500.");
+
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(activity);
+        gatewayOperation.FailureKind.Should().Be(GatewayFailureKind.Unhandled);
+        gatewayOperation.FailureMessage.Should().Be("HTTP 500.");
     }
 
     [Fact]
@@ -135,6 +149,36 @@ public class GatewayFailureLoggingTests : IDisposable
         gatewayOperation.FailureCode.Should().Be(GraphQlConstant.ValidationErrorErrorCode);
     }
 
+    [Fact]
+    public void ADocumentErrorReplacesTheEarlyUnknownPlaceholder()
+    {
+        SetContext();
+        SetBlocksCloud(false);
+        using var activity = new Activity("request").Start();
+        var error = ErrorBuilder.New()
+            .SetMessage("Variable `order` is not an input type.")
+            .SetCode("HC0017")
+            .Build();
+        var result = new Mock<IOperationResult>();
+        result.SetupGet(r => r.Errors).Returns([error]);
+        var context = new Mock<IRequestContext>();
+        context.SetupGet(c => c.Document).Returns(Utf8GraphQLParser.Parse(
+            "query getBrands($order: [BrandSortInput!]) { getBrands(order: $order) { totalCount } }"));
+        context.SetupGet(c => c.Result).Returns(result.Object);
+
+        var listener = new GatewayActivityDiagnosticEventListener();
+        using (var scope = listener.ExecuteRequest(context.Object))
+        {
+            listener.RequestError(context.Object, new InvalidOperationException("early pipeline error"));
+        }
+
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(activity);
+        gatewayOperation.FailureKind.Should().Be(GatewayFailureKind.SyntaxError);
+        gatewayOperation.FailureCode.Should().Be("HC0017");
+        gatewayOperation.FailureMessage.Should().Be("Variable `order` is not an input type.");
+        gatewayOperation.SchemaName.Should().Be("getBrands");
+    }
+
     private static Mock<IMiddlewareContext> MiddlewareContext(string blocksKey)
     {
         var httpContext = new DefaultHttpContext();
@@ -152,6 +196,160 @@ public class GatewayFailureLoggingTests : IDisposable
         context.SetupGet(c => c.Services).Returns(services.BuildServiceProvider());
         context.SetupGet(c => c.Selection).Returns(selection.Object);
         return context;
+    }
+}
+
+public class GatewayGraphQlErrorClassificationTests
+{
+    [Theory]
+    [InlineData(GatewayFailureKind.SyntaxError)]
+    [InlineData(GatewayFailureKind.BadRequest)]
+    [InlineData(GatewayFailureKind.Unhandled)]
+    [InlineData(GatewayFailureKind.Unknown)]
+    public void RequestAndExecutionErrorsDoNotCountAsDenials(string failureKind)
+    {
+        GatewayFailureKind.IsDenial(failureKind).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(GatewayFailureKind.Authentication)]
+    [InlineData(GatewayFailureKind.Authorization)]
+    [InlineData(GatewayFailureKind.Validation)]
+    public void ExplicitGatewayRejectionsCountAsDenials(string failureKind)
+    {
+        GatewayFailureKind.IsDenial(failureKind).Should().BeTrue();
+    }
+
+    [Fact]
+    public void HotChocolateDocumentErrorsAreSyntaxErrorsEvenWhenTheyCarryAnException()
+    {
+        var error = ErrorBuilder.New()
+            .SetMessage("Variable `order` is not an input type.")
+            .SetCode("HC0017")
+            .SetException(new InvalidOperationException("schema validation detail"))
+            .Build();
+
+        GatewayActivityDiagnosticEventListener.Classify(error, StatusCodes.Status200OK)
+            .Should().Be(GatewayFailureKind.SyntaxError);
+    }
+
+    [Theory]
+    [InlineData("The syntax node `EnumValue` is incompatible with the type `DynamicSortInput`.")]
+    [InlineData("Field `LastUpdatedBys` does not exist on type `Product`.")]
+    public void HotChocolateDocumentErrorsWithoutCodesAreSyntaxErrors(string message)
+    {
+        var error = ErrorBuilder.New()
+            .SetMessage(message)
+            .Build();
+
+        GatewayActivityDiagnosticEventListener.Classify(error, StatusCodes.Status200OK)
+            .Should().Be(GatewayFailureKind.SyntaxError);
+    }
+
+    [Theory]
+    [InlineData(StatusCodes.Status200OK, GatewayFailureKind.Unknown)]
+    [InlineData(StatusCodes.Status400BadRequest, GatewayFailureKind.Unknown)]
+    [InlineData(StatusCodes.Status500InternalServerError, GatewayFailureKind.Unhandled)]
+    [InlineData(StatusCodes.Status503ServiceUnavailable, GatewayFailureKind.Unhandled)]
+    public void Only5xxResponsesAreClassifiedAsServerErrors(int statusCode, string expected)
+    {
+        var error = ErrorBuilder.New()
+            .SetMessage("Unexpected execution error.")
+            .SetException(new InvalidOperationException("detail"))
+            .Build();
+
+        GatewayActivityDiagnosticEventListener.Classify(error, statusCode)
+            .Should().Be(expected);
+    }
+
+    [Fact]
+    public void TheReaderRepairsPreviouslyStoredHotChocolateErrors()
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                GatewayFailureKind.Unhandled, "HC0017", StatusCodes.Status200OK)
+            .Should().Be(GatewayFailureKind.SyntaxError);
+    }
+
+    [Fact]
+    public void TheReaderRepairsOldDocumentErrorsWhoseCodeWasNotStored()
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                GatewayFailureKind.Unknown,
+                string.Empty,
+                StatusCodes.Status200OK,
+                "Variable `order` is not an input type.")
+            .Should().Be(GatewayFailureKind.SyntaxError);
+    }
+
+    [Fact]
+    public void TheReaderRepairsStoredInputCoercionErrorsWhoseCodeWasNotStored()
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                GatewayFailureKind.Unknown,
+                string.Empty,
+                StatusCodes.Status200OK,
+                "The syntax node `EnumValue` is incompatible with the type `DynamicSortInput`.")
+            .Should().Be(GatewayFailureKind.SyntaxError);
+    }
+
+    [Fact]
+    public void TheReaderUses400ToRepairAnUnknownStoredReason()
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                GatewayFailureKind.Unknown, string.Empty, StatusCodes.Status400BadRequest)
+            .Should().Be(GatewayFailureKind.BadRequest);
+    }
+
+    [Fact]
+    public void ATrulyEmptyStoredReasonRemainsUnknown()
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                string.Empty, string.Empty, StatusCodes.Status400BadRequest)
+            .Should().Be(GatewayFailureKind.Unknown);
+    }
+
+    [Theory]
+    [InlineData(StatusCodes.Status200OK, GatewayFailureKind.Unknown)]
+    [InlineData(StatusCodes.Status502BadGateway, GatewayFailureKind.Unhandled)]
+    public void TheReaderOnlyShowsUnhandledAsServerErrorFor5xx(int statusCode, string expected)
+    {
+        GraphLogHistoryService.NormalizeFailureKind(
+                GatewayFailureKind.Unhandled, string.Empty, statusCode)
+            .Should().Be(expected);
+    }
+}
+
+public class GatewayGraphQlOperationMetadataTests
+{
+    [Theory]
+    [InlineData("query getBrands($order: [BrandSortInput!]) { getBrands(order: $order) { totalCount } }", "getBrands")]
+    [InlineData("query getCategorys { getCategorys { totalCount } }", "getCategorys")]
+    [InlineData("query getProducts { getProducts { totalCount } }", "getProducts")]
+    [InlineData("query Q { ...Root } fragment Root on Query { getProducts { totalCount } }", "getProducts")]
+    public void RecoversTheSchemaFieldBeforeResolverExecution(string query, string expected)
+    {
+        var document = Utf8GraphQLParser.Parse(query);
+
+        GraphQLOperationHelper.GetFirstRootFieldName(document).Should().Be(expected);
+    }
+}
+
+public class GatewayGraphLogHistorySortTests
+{
+    [Theory]
+    [InlineData("time", "$Timestamp")]
+    [InlineData("schema", "SchemaName")]
+    [InlineData("type", "OperationType")]
+    [InlineData("status", "$switch")]
+    [InlineData("code", "http.response.status_code")]
+    [InlineData("duration", "$Duration")]
+    [InlineData("size", "response.size.bytes")]
+    [InlineData("source", "InAppRequest")]
+    [InlineData("not-a-column", "$Timestamp")]
+    public void UsesAnAllowlistedServerSortForEveryTableColumn(string requestedSort, string expected)
+    {
+        GraphLogHistoryService.GetHistorySortExpression(requestedSort).ToString()
+            .Should().Contain(expected);
     }
 }
 
@@ -306,5 +504,44 @@ public class GraphLogBucketingTests
             .Should().Be(new DateTime(2026, 8, 30, 12, 0, 0, DateTimeKind.Utc));
         GraphLogBucketing.Daily.DefaultRangeStart(rangeEnd)
             .Should().Be(new DateTime(2026, 8, 24, 0, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void DailyBucketingUsesTheViewerDateRatherThanTheUtcDate()
+    {
+        var utcOffset = GraphLogHistoryService.GetUtcOffset(360);
+        var timestamp = new DateTime(2026, 9, 8, 18, 49, 0, DateTimeKind.Utc);
+
+        var localBucket = GraphLogBucketing.Daily.KeyOf(
+            GraphLogHistoryService.ToViewerTime(timestamp, utcOffset));
+        var responseDate = GraphLogHistoryService.ToBucketResponseDate(
+            localBucket, GraphLogBucketing.Daily, utcOffset);
+
+        localBucket.Should().Be(new DateTime(2026, 9, 9));
+        responseDate.Should().Be(new DateTime(2026, 9, 9, 0, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void DateOnlyRangeBoundariesAreMidnightInTheViewerTimezone()
+    {
+        var utcOffset = GraphLogHistoryService.GetUtcOffset(360);
+        var from = new DateTime(2026, 9, 2);
+        var to = new DateTime(2026, 9, 9);
+
+        GraphLogHistoryService.ToUtc(from, utcOffset)
+            .Should().Be(new DateTime(2026, 9, 1, 18, 0, 0, DateTimeKind.Utc));
+        GraphLogHistoryService.ToRangeEndExclusive(to, utcOffset)
+            .Should().Be(new DateTime(2026, 9, 9, 18, 0, 0, DateTimeKind.Utc));
+    }
+
+    [Fact]
+    public void HourlyBucketResponseIsARealUtcInstantForLocalRendering()
+    {
+        var utcOffset = GraphLogHistoryService.GetUtcOffset(360);
+        var localBucket = new DateTime(2026, 9, 9, 0, 0, 0);
+
+        GraphLogHistoryService.ToBucketResponseDate(
+                localBucket, GraphLogBucketing.Hourly, utcOffset)
+            .Should().Be(new DateTime(2026, 9, 8, 18, 0, 0, DateTimeKind.Utc));
     }
 }

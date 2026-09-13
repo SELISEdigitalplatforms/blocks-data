@@ -20,8 +20,11 @@ public static class GatewayFailureKind
     /// <summary>The input was rejected by field validation, including uniqueness checks.</summary>
     public const string Validation = "validation";
 
-    /// <summary>The GraphQL document itself was unusable: syntax error, unknown field, bad
-    /// variables. The request never reached a resolver.</summary>
+    /// <summary>The GraphQL document could not be parsed or validated by Hot Chocolate. The
+    /// request never reached a resolver.</summary>
+    public const string SyntaxError = "syntax_error";
+
+    /// <summary>A non-GraphQL client request was malformed.</summary>
     public const string BadRequest = "bad_request";
 
     /// <summary>An unexpected, unhandled server-side error.</summary>
@@ -32,10 +35,40 @@ public static class GatewayFailureKind
 
     /// <summary>
     /// Whether a failure was the gateway refusing on purpose rather than something breaking.
-    /// Rejecting bad input belongs here with the access checks: it is the gateway working.
+    /// Authentication, authorization and explicit input validation are denials. Malformed client
+    /// requests and GraphQL document failures are reported as errors.
     /// </summary>
     public static bool IsDenial(string? failureKind) =>
         failureKind is Authentication or Authorization or Validation;
+
+    /// <summary>
+    /// Whether Hot Chocolate rejected the GraphQL document or an argument literal before the
+    /// resolver could run. Some versions attach an HCxxxx code, while input coercion and field
+    /// validation failures can arrive without a code and must be recognized by their stable
+    /// transport messages.
+    /// </summary>
+    public static bool IsGraphQlDocumentError(string? code, string? message)
+    {
+        if (code?.StartsWith("HC", StringComparison.Ordinal) == true)
+            return true;
+
+        if (string.IsNullOrWhiteSpace(message))
+            return false;
+
+        return message.Contains("is not an input type", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("syntax error", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("does not exist on type", StringComparison.OrdinalIgnoreCase)
+            || (message.Contains("syntax node", StringComparison.OrdinalIgnoreCase)
+                && message.Contains("incompatible with the type", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Server errors are defined by the HTTP response, not merely by a GraphQL error carrying an
+    /// exception. Hot Chocolate uses exceptions internally for some invalid documents while still
+    /// returning a 2xx response, so treating every such error as a server fault mislabels caller
+    /// mistakes such as HC0017.
+    /// </summary>
+    public static bool IsServerErrorStatus(int statusCode) => statusCode is >= 500 and <= 599;
 }
 
 /// <summary>
@@ -267,8 +300,9 @@ public static class GatewayOperationActivity
         new(GetOrCreate(Activity.Current), phase);
 
     /// <summary>
-    /// Records why a request failed. The first caller wins: the check that rejected the request is
-    /// more specific than anything that can be inferred from the error it produces further out.
+    /// Records why a request failed. The first specific caller wins: the check that rejected the
+    /// request is more specific than anything inferred further out. "Unknown" is only a placeholder
+    /// and may be replaced when the outer HTTP pipeline later observes the definitive reason.
     /// </summary>
     public static GatewayOperation MarkFailed(
         Activity? activity,
@@ -279,7 +313,8 @@ public static class GatewayOperationActivity
         var gatewayOperation = GetOrCreate(activity);
         gatewayOperation.ResponseStatus = "failed";
 
-        if (string.IsNullOrEmpty(gatewayOperation.FailureKind))
+        if (string.IsNullOrEmpty(gatewayOperation.FailureKind)
+            || gatewayOperation.FailureKind == GatewayFailureKind.Unknown)
         {
             gatewayOperation.FailureKind = failureKind;
             gatewayOperation.FailureCode = failureCode ?? string.Empty;

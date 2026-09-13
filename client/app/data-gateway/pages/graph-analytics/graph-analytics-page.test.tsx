@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi, beforeAll, beforeEach } from "vitest";
+import { MemoryRouter, useLocation } from "react-router";
 
 import { IGraphLogAnalyticsData } from "../../models/graph-log-analytics";
 
@@ -33,6 +34,19 @@ vi.mock("./graph-log-history", () => ({
 }));
 
 import { GraphAnalytics } from "./graph-analytics-page";
+
+const LocationSearch = () => {
+  const location = useLocation();
+  return <output data-testid="location-search">{location.search}</output>;
+};
+
+const renderAnalytics = (initialEntry = "/services/data-gateway/analytics") =>
+  render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <GraphAnalytics />
+      <LocationSearch />
+    </MemoryRouter>,
+  );
 
 const ANALYTICS: IGraphLogAnalyticsData = {
   requestsOverTime: [
@@ -103,7 +117,7 @@ describe("GraphAnalytics", () => {
 
   it("opens on traffic and keeps the other views one click away", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     const card = (name: string) => screen.getByRole("heading", { name });
 
@@ -128,22 +142,23 @@ describe("GraphAnalytics", () => {
 
   it("fetches once for the whole page, from the shared range and bucket size", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
-    const [from, to, granularity] = useGraphLogAnalyticsMock.mock.calls.at(-1)!;
+    const [from, to, granularity, utcOffsetMinutes] = useGraphLogAnalyticsMock.mock.calls.at(-1)!;
     expect(from).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(to).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(granularity).toBe("daily");
+    expect(utcOffsetMinutes).toEqual(expect.any(Number));
 
     await user.click(screen.getByRole("combobox", { name: "Bucket size" }));
     await user.click(await screen.findByRole("option", { name: "Hourly" }));
 
-    expect(useGraphLogAnalyticsMock).toHaveBeenLastCalledWith(from, to, "hourly");
+    expect(useGraphLogAnalyticsMock).toHaveBeenLastCalledWith(from, to, "hourly", utcOffsetMinutes);
   });
 
   it("says the analytics exclude introspection, but not on the log tab", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     const note = /Schema introspection requests are excluded/;
     expect(screen.getByText(note)).toBeInTheDocument();
@@ -155,7 +170,7 @@ describe("GraphAnalytics", () => {
 
   it("keeps the date range on every tab", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     for (const tab of ["Performance", "Reliability", "Requests"]) {
       await openTab(user, tab);
@@ -165,7 +180,7 @@ describe("GraphAnalytics", () => {
 
   it("offers a bucket size only where something is bucketed over time", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     const bucketSize = () => screen.queryByRole("combobox", { name: "Bucket size" });
 
@@ -183,7 +198,7 @@ describe("GraphAnalytics", () => {
 
   it("surfaces the numbers each tab exists for", async () => {
     const user = userEvent.setup();
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     await openTab(user, "Reliability");
     expect(screen.getAllByText("Authorization")).toHaveLength(2);
@@ -204,23 +219,20 @@ describe("GraphAnalytics", () => {
     const operationRow = screen
       .getAllByRole("row")
       .find((row) => row.textContent?.startsWith("getBlxDrives"))!;
-    expect(within(operationRow).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
-      "getBlxDrives",
-      "10",
-      "6",
-      "3",
-      "1",
-      "780 ms",
-      "1.54 s",
-    ]);
+    expect(
+      within(operationRow)
+        .getAllByRole("cell")
+        .map((cell) => cell.textContent),
+    ).toEqual(["getBlxDrives", "10", "6", "3", "1", "780 ms", "1.54 s"]);
   });
 
   it("separates requests the gateway refused from requests that broke", () => {
-    render(<GraphAnalytics />);
+    renderAnalytics();
 
     // Traffic opens on this card: volume and its composition are the same question.
-    const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
-      .parentElement!;
+    const card = screen
+      .getByRole("heading", { name: "Requests over time" })
+      .closest("div")!.parentElement!;
 
     // 10 requests: 3 refused on purpose (2 by policy, 1 by validation) and 1 that broke,
     // leaving 6 served. Validation counts as a denial — rejecting bad input is the gateway
@@ -236,5 +248,86 @@ describe("GraphAnalytics", () => {
     expect(
       within(card).getByRole("img", { name: "Allowed, denied and errored requests over time" }),
     ).toBeInTheDocument();
+  });
+
+  it("counts syntax failures as errors and labels unknown reasons as others", () => {
+    useGraphLogAnalyticsMock.mockReturnValue({
+      data: {
+        isSuccess: true,
+        data: {
+          ...ANALYTICS,
+          requestsOverTime: [{ date: "2026-08-30T00:00:00Z", success: 0, denied: 0, errored: 2 }],
+          failureStats: [
+            { failureKind: "syntax_error", count: 1 },
+            { failureKind: "unknown", count: 1 },
+          ],
+        },
+        errors: null,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderAnalytics();
+
+    const card = screen
+      .getByRole("heading", { name: "Requests over time" })
+      .closest("div")!.parentElement!;
+    expect(within(card).getByText("Denies · 0%")).toBeInTheDocument();
+    expect(within(card).getByText("Errors · 100%")).toBeInTheDocument();
+    expect(within(card).getByText("1 syntax error · 1 others")).toBeInTheDocument();
+  });
+
+  it("keeps rare denied and error outcomes visible beside high successful traffic", () => {
+    useGraphLogAnalyticsMock.mockReturnValue({
+      data: {
+        isSuccess: true,
+        data: {
+          ...ANALYTICS,
+          requestsOverTime: [{ date: "2026-09-10T00:00:00Z", success: 990, denied: 1, errored: 3 }],
+          failureStats: [
+            { failureKind: "validation", count: 1 },
+            { failureKind: "bad_request", count: 3 },
+          ],
+        },
+        errors: null,
+      },
+      isLoading: false,
+      isError: false,
+      error: null,
+    });
+
+    renderAnalytics();
+
+    const card = screen
+      .getByRole("heading", { name: "Requests over time" })
+      .closest("div")!.parentElement!;
+    expect(within(card).getByText("Allows · 99.6%")).toBeInTheDocument();
+    expect(within(card).getByText("Denies · 0.1%")).toBeInTheDocument();
+    expect(within(card).getByText("Errors · 0.3%")).toBeInTheDocument();
+  });
+
+  it("restores the active tab from the URL and persists tab changes", async () => {
+    const user = userEvent.setup();
+    renderAnalytics("/services/data-gateway/analytics?source=alert&tab=performance");
+
+    expect(await screen.findByRole("heading", { name: "Response time" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Performance" })).toHaveAttribute(
+      "data-state",
+      "active",
+    );
+
+    await openTab(user, "Requests");
+
+    expect(await screen.findByTestId("history")).toBeInTheDocument();
+    expect(screen.getByTestId("location-search")).toHaveTextContent("?source=alert&tab=requests");
+  });
+
+  it("replaces a missing or invalid tab with the traffic URL", async () => {
+    renderAnalytics("/services/data-gateway/analytics?tab=removed-view");
+
+    expect(await screen.findByTestId("location-search")).toHaveTextContent("?tab=traffic");
+    expect(screen.getByRole("tab", { name: "Traffic" })).toHaveAttribute("data-state", "active");
   });
 });

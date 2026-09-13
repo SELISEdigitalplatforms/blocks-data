@@ -25,12 +25,11 @@ namespace Api.Controllers
         /// <summary>
         /// Retrieves a paginated, most-recent-first list of GraphQL request history for the
         /// current tenant. Supports filtering by SchemaName (GraphQL field name), EntityName,
-        /// OperationType ("query"/"mutation"), ResponseStatus ("success"/"failed"), and a
-        /// From/To timestamp range.
+        /// OperationType ("query"/"mutation"), Outcome ("allowed"/"denied"/"error"), exact
+        /// HTTP StatusCode, failure reason, sorting, and a From/To timestamp range.
         /// </summary>
         [HttpGet("history")]
-        // [ProtectedEndPoint("blocks-data::graph-log::history")]
-        [Authorize]
+        [ProtectedEndPoint("blocks-data::graph-log::history")]
         [ProducesResponseType(typeof(ServiceResponse<PaginationResponse<GraphLogHistoryItemResponse>>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetHistory([FromQuery] GetGraphLogHistoryRequest request)
@@ -45,8 +44,7 @@ namespace Api.Controllers
         /// series (success vs. failed, bucketed daily or weekly) and per-field call/error stats.
         /// </summary>
         [HttpGet("analytics")]
-        // [ProtectedEndPoint("blocks-data::graph-log::analytics")]
-        [Authorize]
+        [ProtectedEndPoint("blocks-data::graph-log::analytics")]
         [ProducesResponseType(typeof(ServiceResponse<GraphLogAnalyticsResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetAnalytics([FromQuery] GetGraphLogAnalyticsRequest request)

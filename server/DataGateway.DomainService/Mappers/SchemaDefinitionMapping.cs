@@ -118,10 +118,12 @@ public static class SchemaDefinitionMapping
             else
             {
                 // Synthetic reference node (e.g. Child.L2Child with only Child.L2Child.Name and Child.L2Child.Qty)
+                var descendantPrefix = currentPath + ".";
                 fieldResponse = new FieldDefinitionResponse
                 {
                     Name = segment,
-                    Type = fields.FirstOrDefault(f => f.Name.StartsWith(currentPath))?.ReferenceFieldType ?? string.Empty,
+                    Type = fields.FirstOrDefault(f =>
+                        f.Name.StartsWith(descendantPrefix, StringComparison.Ordinal))?.ReferenceFieldType ?? string.Empty,
                     IsArray = false,
                     IsPIIData = false,
                     IsUniqueData = false,

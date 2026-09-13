@@ -28,6 +28,12 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     private const string RequestSizeAttribute = "request.size.bytes";
     private const string ResponseSizeAttribute = "response.size.bytes";
     private const string SizesField = "Sizes";
+    private const string StatusCodesField = "StatusCodes";
+    private const string HttpResponseStatusCodeAttribute = "http.response.status_code";
+    private const string ResponseStatusCodeAttribute = "response.status.code";
+    private const string HistorySortValueField = "__historySortValue";
+    private const string GraphQlDocumentErrorMessagePattern =
+        "is not an input type|syntax error|does not exist on type|syntax node.*incompatible with the type";
 
     /// <summary>
     /// Flattens each trace down to just the fields the in-memory aggregation reads — far cheaper
@@ -47,6 +53,8 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         { "SchemaName", $"${GatewayOperationAttributePath}.SchemaName" },
         { "ResponseStatus", $"${GatewayOperationAttributePath}.ResponseStatus" },
         { "FailureKind", $"${GatewayOperationAttributePath}.FailureKind" },
+        { "FailureCode", $"${GatewayOperationAttributePath}.FailureCode" },
+        { "FailureMessage", $"${GatewayOperationAttributePath}.FailureMessage" },
         { "DocumentCount", $"${GatewayOperationAttributePath}.DocumentCount" },
         { "InAppRequest", $"${GatewayOperationAttributePath}.InAppRequest" },
         { "EntityName", $"${GatewayOperationAttributePath}.EntityName" },
@@ -65,6 +73,24 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                     {
                         "$$attribute.k",
                         new BsonArray { RequestSizeAttribute, ResponseSizeAttribute },
+                    })
+                },
+            })
+        },
+        {
+            StatusCodesField, new BsonDocument("$filter", new BsonDocument
+            {
+                { "input", new BsonDocument("$objectToArray", "$Attributes") },
+                { "as", "attribute" },
+                {
+                    "cond", new BsonDocument("$in", new BsonArray
+                    {
+                        "$$attribute.k",
+                        new BsonArray
+                        {
+                            HttpResponseStatusCodeAttribute,
+                            ResponseStatusCodeAttribute,
+                        },
                     })
                 },
             })
@@ -108,17 +134,22 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     {
         var collection = GetTenantTraceCollection();
         var filter = BuildFilter(request);
-        var sort = request.SortDescending
-            ? Builders<BsonDocument>.Sort.Descending(request.SortBy)
-            : Builders<BsonDocument>.Sort.Ascending(request.SortBy);
-
         var pageNo = request.PageNo < 1 ? 1 : request.PageNo;
         var pageSize = request.PageSize < 1 ? 10 : request.PageSize;
+        var sortDirection = request.SortDescending ? -1 : 1;
 
         var totalCount = await collection.CountDocumentsAsync(filter);
         var documents = await collection
-            .Find(filter)
-            .Sort(sort)
+            .Aggregate()
+            .Match(filter)
+            .AppendStage<BsonDocument>(new BsonDocument("$set", new BsonDocument(
+                HistorySortValueField, GetHistorySortExpression(request.SortBy))))
+            .Sort(new BsonDocument
+            {
+                { HistorySortValueField, sortDirection },
+                // Stable paging when several rows have the same displayed value.
+                { "_id", sortDirection },
+            })
             .Skip((pageNo - 1) * pageSize)
             .Limit(pageSize)
             .ToListAsync();
@@ -132,19 +163,24 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     {
         var collection = GetTenantTraceCollection();
         var bucketing = GraphLogBucketing.Parse(request.Granularity);
+        var utcOffset = GetUtcOffset(request.UtcOffsetMinutes);
 
-        var rangeEnd = request.To.HasValue ? ToRangeEndExclusive(request.To.Value) : DateTime.UtcNow;
-        var from = request.From.HasValue
-            ? ToUtc(request.From.Value)
-            : bucketing.DefaultRangeStart(rangeEnd);
+        var rangeEndUtc = request.To.HasValue
+            ? ToRangeEndExclusive(request.To.Value, utcOffset)
+            : DateTime.UtcNow;
+        var rangeEndLocal = ToViewerTime(rangeEndUtc, utcOffset);
+        var fromLocal = request.From.HasValue
+            ? ToViewerTime(ToUtc(request.From.Value, utcOffset), utcOffset)
+            : bucketing.DefaultRangeStart(rangeEndLocal);
+        var fromUtc = ToUtc(fromLocal, utcOffset);
         // Last instant actually covered by the range — used for bucketing, where an exclusive end
         // would spill one empty bucket past the requested period.
-        var to = rangeEnd.AddTicks(-1);
+        var toLocal = rangeEndLocal.AddTicks(-1);
 
         var filter = Builders<BsonDocument>.Filter.And(
             Builders<BsonDocument>.Filter.Exists(GatewayOperationAttributePath),
-            Builders<BsonDocument>.Filter.Gte("Timestamp", from),
-            Builders<BsonDocument>.Filter.Lt("Timestamp", rangeEnd),
+            Builders<BsonDocument>.Filter.Gte("Timestamp", fromUtc),
+            Builders<BsonDocument>.Filter.Lt("Timestamp", rangeEndUtc),
             NotIntrospection);
 
         var documents = await collection
@@ -156,16 +192,16 @@ public class GraphLogHistoryService : IGraphLogHistoryService
 
         return new GraphLogAnalyticsResponse
         {
-            RequestsOverTime = BuildRequestsOverTime(documents, from, to, bucketing),
+            RequestsOverTime = BuildRequestsOverTime(documents, fromLocal, toLocal, bucketing, utcOffset),
             OperationStats = BuildOperationStats(documents),
             FailureStats = BuildFailureStats(documents),
             FailureHotspots = BuildFailureHotspots(documents),
             SchemaCoverage = BuildSchemaCoverage(documents, await GetDefinedEntityNamesAsync()),
             Timing = BuildTimingBreakdown(documents),
             Latency = BuildLatencySummary(documents),
-            LatencyOverTime = BuildLatencyOverTime(documents, from, to, bucketing),
+            LatencyOverTime = BuildLatencyOverTime(documents, fromLocal, toLocal, bucketing, utcOffset),
             Throughput = BuildThroughputSummary(documents),
-            ThroughputOverTime = BuildThroughputOverTime(documents, from, to, bucketing),
+            ThroughputOverTime = BuildThroughputOverTime(documents, fromLocal, toLocal, bucketing, utcOffset),
         };
     }
 
@@ -180,17 +216,18 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     }
 
     private static List<GraphLogRequestsOverTimeBucket> BuildRequestsOverTime(
-        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing)
+        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing,
+        TimeSpan utcOffset)
     {
         var buckets = new Dictionary<DateTime, (int Success, int Denied, int Errored)>();
         foreach (var doc in documents)
         {
-            var key = bucketing.KeyOf(GetDateTime(doc, "Timestamp"));
+            var key = bucketing.KeyOf(ToViewerTime(GetDateTime(doc, "Timestamp"), utcOffset));
             var current = buckets.GetValueOrDefault(key);
 
             buckets[key] = !HasFailed(doc)
                 ? (current.Success + 1, current.Denied, current.Errored)
-                : GatewayFailureKind.IsDenial(GetString(doc, "FailureKind"))
+                : GatewayFailureKind.IsDenial(EffectiveFailureKind(doc))
                     ? (current.Success, current.Denied + 1, current.Errored)
                     : (current.Success, current.Denied, current.Errored + 1);
         }
@@ -201,7 +238,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 var stats = buckets.GetValueOrDefault(cursor);
                 return new GraphLogRequestsOverTimeBucket
                 {
-                    Date = cursor,
+                    Date = ToBucketResponseDate(cursor, bucketing, utcOffset),
                     Success = stats.Success,
                     Denied = stats.Denied,
                     Errored = stats.Errored,
@@ -215,10 +252,11 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     /// spike can be lined up against the traffic that caused it.
     /// </summary>
     private static List<GraphLogLatencyBucket> BuildLatencyOverTime(
-        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing)
+        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing,
+        TimeSpan utcOffset)
     {
         var buckets = documents
-            .GroupBy(doc => bucketing.KeyOf(GetDateTime(doc, "Timestamp")))
+            .GroupBy(doc => bucketing.KeyOf(ToViewerTime(GetDateTime(doc, "Timestamp"), utcOffset)))
             .ToDictionary(group => group.Key, group => SortedDurations(group));
 
         return bucketing.Range(from, to)
@@ -227,7 +265,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 var durations = buckets.GetValueOrDefault(cursor) ?? [];
                 return new GraphLogLatencyBucket
                 {
-                    Date = cursor,
+                    Date = ToBucketResponseDate(cursor, bucketing, utcOffset),
                     P50 = Percentile(durations, 50),
                     P95 = Percentile(durations, 95),
                     P99 = Percentile(durations, 99),
@@ -241,10 +279,11 @@ public class GraphLogHistoryService : IGraphLogHistoryService
     /// GatewayOperation tag, so they are read straight off the Attributes document.
     /// </summary>
     private static List<GraphLogThroughputBucket> BuildThroughputOverTime(
-        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing)
+        List<BsonDocument> documents, DateTime from, DateTime to, GraphLogBucketing bucketing,
+        TimeSpan utcOffset)
     {
         var buckets = documents
-            .GroupBy(doc => bucketing.KeyOf(GetDateTime(doc, "Timestamp")))
+            .GroupBy(doc => bucketing.KeyOf(ToViewerTime(GetDateTime(doc, "Timestamp"), utcOffset)))
             .ToDictionary(
                 group => group.Key,
                 group => (
@@ -257,7 +296,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 var bytes = buckets.GetValueOrDefault(cursor);
                 return new GraphLogThroughputBucket
                 {
-                    Date = cursor,
+                    Date = ToBucketResponseDate(cursor, bucketing, utcOffset),
                     RequestBytes = bytes.Request,
                     ResponseBytes = bytes.Response,
                 };
@@ -342,7 +381,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
                 var calls = group.Count();
                 var failures = group.Where(HasFailed).ToList();
                 var failed = failures.Count;
-                var denied = failures.Count(doc => GatewayFailureKind.IsDenial(GetString(doc, "FailureKind")));
+                var denied = failures.Count(doc => GatewayFailureKind.IsDenial(EffectiveFailureKind(doc)));
                 var durations = SortedDurations(group);
 
                 return new GraphLogOperationStat
@@ -375,8 +414,7 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             .Where(HasFailed)
             .GroupBy(doc =>
             {
-                var failureKind = GetString(doc, "FailureKind");
-                return string.IsNullOrWhiteSpace(failureKind) ? UnknownFailureKind : failureKind;
+                return EffectiveFailureKind(doc);
             })
             .Select(group => new GraphLogFailureStat { FailureKind = group.Key, Count = group.Count() })
             .OrderByDescending(stat => stat.Count)
@@ -392,10 +430,9 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             .GroupBy(doc =>
             {
                 var schemaName = GetString(doc, "SchemaName");
-                var failureKind = GetString(doc, "FailureKind");
                 return (
                     SchemaName: string.IsNullOrWhiteSpace(schemaName) ? UnknownSchemaName : schemaName,
-                    FailureKind: string.IsNullOrWhiteSpace(failureKind) ? UnknownFailureKind : failureKind);
+                    FailureKind: EffectiveFailureKind(doc));
             })
             .Select(group => new GraphLogFailureHotspot
             {
@@ -536,43 +573,201 @@ public class GraphLogHistoryService : IGraphLogHistoryService
         if (!string.IsNullOrWhiteSpace(request.ResponseStatus))
             filters.Add(builder.Eq($"{GatewayOperationAttributePath}.ResponseStatus", request.ResponseStatus));
 
+        if (!string.IsNullOrWhiteSpace(request.Outcome))
+        {
+            var responseStatusPath = $"{GatewayOperationAttributePath}.ResponseStatus";
+            var denial = BuildDenialFilter(builder);
+            filters.Add(request.Outcome.ToLowerInvariant() switch
+            {
+                "allowed" => builder.Eq(responseStatusPath, "success"),
+                "denied" => builder.And(
+                    builder.Eq(responseStatusPath, FailedResponseStatus), denial),
+                "error" => builder.And(
+                    builder.Eq(responseStatusPath, FailedResponseStatus), builder.Not(denial)),
+                _ => builder.Empty,
+            });
+        }
+
+        if (request.StatusCode.HasValue)
+        {
+            filters.Add(new BsonDocument("$expr", new BsonDocument("$eq", new BsonArray
+            {
+                GetStatusCodeExpression(),
+                request.StatusCode.Value,
+            })));
+        }
+
         if (!string.IsNullOrWhiteSpace(request.FailureKind))
-            filters.Add(builder.Eq($"{GatewayOperationAttributePath}.FailureKind", request.FailureKind));
+        {
+            var failureKindPath = $"{GatewayOperationAttributePath}.FailureKind";
+            var documentFailure = BuildGraphQlDocumentFailureFilter(builder);
+
+            // Compatibility for traces written before HC document errors were correctly tagged.
+            // It also makes the reason filter agree with the normalized value returned in each row.
+            filters.Add(request.FailureKind switch
+            {
+                GatewayFailureKind.SyntaxError => builder.Or(
+                    builder.Eq(failureKindPath, GatewayFailureKind.SyntaxError),
+                    documentFailure),
+                GatewayFailureKind.BadRequest => builder.And(
+                    builder.Eq(failureKindPath, GatewayFailureKind.BadRequest),
+                    builder.Not(documentFailure)),
+                GatewayFailureKind.Unhandled => builder.And(
+                    builder.Eq(failureKindPath, GatewayFailureKind.Unhandled),
+                    builder.Not(documentFailure)),
+                _ => builder.Eq(failureKindPath, request.FailureKind),
+            });
+        }
+
+        var utcOffset = GetUtcOffset(request.UtcOffsetMinutes);
 
         if (request.From.HasValue)
-            filters.Add(builder.Gte("Timestamp", ToUtc(request.From.Value)));
+            filters.Add(builder.Gte("Timestamp", ToUtc(request.From.Value, utcOffset)));
 
         if (request.To.HasValue)
-            filters.Add(builder.Lt("Timestamp", ToRangeEndExclusive(request.To.Value)));
+            filters.Add(builder.Lt("Timestamp", ToRangeEndExclusive(request.To.Value, utcOffset)));
 
         return builder.And(filters);
     }
 
+    private static FilterDefinition<BsonDocument> BuildDenialFilter(
+        FilterDefinitionBuilder<BsonDocument> builder)
+    {
+        var failureKindPath = $"{GatewayOperationAttributePath}.FailureKind";
+        return builder.In(failureKindPath, new[]
+        {
+            GatewayFailureKind.Authentication,
+            GatewayFailureKind.Authorization,
+            GatewayFailureKind.Validation,
+        });
+    }
+
+    private static FilterDefinition<BsonDocument> BuildGraphQlDocumentFailureFilter(
+        FilterDefinitionBuilder<BsonDocument> builder) =>
+        builder.Or(
+            builder.Regex(
+                $"{GatewayOperationAttributePath}.FailureCode",
+                new BsonRegularExpression("^HC")),
+            builder.Regex(
+                $"{GatewayOperationAttributePath}.FailureMessage",
+                new BsonRegularExpression(GraphQlDocumentErrorMessagePattern, "i")));
+
+    /// <summary>Allowlisted sort expressions for the columns exposed by request history.</summary>
+    internal static BsonValue GetHistorySortExpression(string? sortBy) =>
+        sortBy?.ToLowerInvariant() switch
+        {
+            "schema" => $"${GatewayOperationAttributePath}.SchemaName",
+            "type" => $"${GatewayOperationAttributePath}.OperationType",
+            "status" => GetOutcomeExpression(),
+            "code" => GetStatusCodeExpression(),
+            "duration" => "$Duration",
+            "size" => GetLiteralAttributeExpression(ResponseSizeAttribute),
+            "source" => $"${GatewayOperationAttributePath}.InAppRequest",
+            _ => "$Timestamp",
+        };
+
+    private static BsonDocument GetOutcomeExpression()
+    {
+        var responseStatus = $"${GatewayOperationAttributePath}.ResponseStatus";
+        var failureKind = $"${GatewayOperationAttributePath}.FailureKind";
+        var isDenied = new BsonDocument("$in", new BsonArray
+        {
+            failureKind,
+            new BsonArray
+            {
+                GatewayFailureKind.Authentication,
+                GatewayFailureKind.Authorization,
+                GatewayFailureKind.Validation,
+            },
+        });
+
+        return new BsonDocument("$switch", new BsonDocument
+        {
+            {
+                "branches", new BsonArray
+                {
+                    new BsonDocument
+                    {
+                        { "case", new BsonDocument("$eq", new BsonArray { responseStatus, "success" }) },
+                        { "then", "allowed" },
+                    },
+                    new BsonDocument
+                    {
+                        { "case", isDenied },
+                        { "then", "denied" },
+                    },
+                }
+            },
+            { "default", "error" },
+        });
+    }
+
+    private static BsonDocument GetStatusCodeExpression() => new("$ifNull", new BsonArray
+    {
+        GetLiteralAttributeExpression(HttpResponseStatusCodeAttribute),
+        GetLiteralAttributeExpression(ResponseStatusCodeAttribute),
+        0,
+    });
+
+    private static BsonDocument GetLiteralAttributeExpression(string field) => new("$getField", new BsonDocument
+    {
+        { "field", field },
+        { "input", "$Attributes" },
+    });
+
     /// <summary>
-    /// Traces are stored as UTC instants, and the UI sends plain calendar dates, which model binding
-    /// yields as <see cref="DateTimeKind.Unspecified"/>. Reading those as UTC keeps the range aligned
-    /// with the stored timestamps instead of drifting by the server's local offset.
+    /// Browser offsets are local-minus-UTC. Limit them to the range of real civil time zones so a
+    /// malformed query cannot overflow date arithmetic.
     /// </summary>
-    private static DateTime ToUtc(DateTime value) =>
-        value.Kind == DateTimeKind.Unspecified
-            ? DateTime.SpecifyKind(value, DateTimeKind.Utc)
+    internal static TimeSpan GetUtcOffset(int? minutes) =>
+        TimeSpan.FromMinutes(Math.Clamp(minutes ?? 0, -12 * 60, 14 * 60));
+
+    /// <summary>Turns a stored UTC instant into the viewer's local wall-clock time.</summary>
+    internal static DateTime ToViewerTime(DateTime value, TimeSpan utcOffset)
+    {
+        var utc = value.Kind == DateTimeKind.Utc
+            ? value
             : value.ToUniversalTime();
+        return DateTime.SpecifyKind(utc.Add(utcOffset), DateTimeKind.Unspecified);
+    }
+
+    /// <summary>
+    /// Traces are stored as UTC instants, while date-picker values bind as unspecified local
+    /// calendar times. Convert only those unspecified values with the supplied viewer offset.
+    /// </summary>
+    internal static DateTime ToUtc(DateTime value, TimeSpan utcOffset) => value.Kind switch
+    {
+        DateTimeKind.Utc => value,
+        DateTimeKind.Local => value.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(value.Subtract(utcOffset), DateTimeKind.Utc),
+    };
 
     /// <summary>
     /// Exclusive upper bound for a requested range. A date-only "To" binds to midnight, so comparing
     /// against it directly would drop everything that happened during that last day; expand it to the
     /// start of the following day instead.
     /// </summary>
-    private static DateTime ToRangeEndExclusive(DateTime value)
+    internal static DateTime ToRangeEndExclusive(DateTime value, TimeSpan utcOffset)
     {
-        var utc = ToUtc(value);
-        return utc.TimeOfDay == TimeSpan.Zero ? utc.AddDays(1) : utc;
+        var exclusiveLocal = value.TimeOfDay == TimeSpan.Zero ? value.AddDays(1) : value;
+        return ToUtc(exclusiveLocal, utcOffset);
     }
+
+    /// <summary>
+    /// Daily and weekly values are calendar labels, so preserve their local date in the wire value.
+    /// Hourly values are instants and must convert back to UTC for the browser to render locally.
+    /// </summary>
+    internal static DateTime ToBucketResponseDate(
+        DateTime localBucket, GraphLogBucketing bucketing, TimeSpan utcOffset) =>
+        bucketing == GraphLogBucketing.Hourly
+            ? ToUtc(localBucket, utcOffset)
+            : DateTime.SpecifyKind(localBucket, DateTimeKind.Utc);
 
     private static GraphLogHistoryItemResponse MapToResponse(BsonDocument doc)
     {
         var attributes = GetNestedDocument(doc, "Attributes");
         var gatewayOperation = GetNestedDocument(attributes, "GatewayOperation");
+        var statusCode = GetStatusCode(attributes);
 
         return new GraphLogHistoryItemResponse
         {
@@ -590,10 +785,14 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             OperationQuery = GetString(gatewayOperation, "OperationQuery"),
             MongoQuery = GetString(gatewayOperation, "MongoQuery"),
             ResponseStatus = GetString(gatewayOperation, "ResponseStatus"),
-            FailureKind = GetString(gatewayOperation, "FailureKind"),
+            FailureKind = NormalizeFailureKind(
+                GetString(gatewayOperation, "FailureKind"),
+                GetString(gatewayOperation, "FailureCode"),
+                statusCode,
+                GetString(gatewayOperation, "FailureMessage")),
             FailureCode = GetString(gatewayOperation, "FailureCode"),
             FailureMessage = GetString(gatewayOperation, "FailureMessage"),
-            StatusCode = GetStatusCode(attributes),
+            StatusCode = statusCode,
             // Payload sizes are span-level attributes written by the request pipeline, not part of
             // the GatewayOperation tag. Their keys contain dots, so they're read off the Attributes
             // document by key rather than as a nested path.
@@ -624,6 +823,73 @@ public class GraphLogHistoryService : IGraphLogHistoryService
             code = GetInt64(attributes, "response.status.code");
 
         return (int)code;
+    }
+
+    /// <summary>
+    /// Returns the reader-facing reason. Besides enforcing that only a 5xx is a server error, this
+    /// repairs already-stored HC document failures that older writers tagged as unknown/unhandled.
+    /// </summary>
+    internal static string NormalizeFailureKind(
+        string failureKind,
+        string failureCode,
+        int statusCode,
+        string failureMessage = "")
+    {
+        if (GatewayFailureKind.IsGraphQlDocumentError(failureCode, failureMessage))
+            return GatewayFailureKind.SyntaxError;
+
+        // Specific classifications always win. Status is only a recovery signal for the old
+        // placeholder value; a truly absent reason remains Unknown as advertised by the UI.
+        if (failureKind == GatewayFailureKind.Unknown)
+        {
+            return statusCode switch
+            {
+                400 => GatewayFailureKind.BadRequest,
+                401 => GatewayFailureKind.Authentication,
+                403 => GatewayFailureKind.Authorization,
+                >= 500 and <= 599 => GatewayFailureKind.Unhandled,
+                _ => UnknownFailureKind,
+            };
+        }
+
+        if (failureKind == GatewayFailureKind.Unhandled
+            && !GatewayFailureKind.IsServerErrorStatus(statusCode))
+            return UnknownFailureKind;
+
+        return string.IsNullOrWhiteSpace(failureKind) ? UnknownFailureKind : failureKind;
+    }
+
+    /// <summary>Normalized reason for one flattened analytics projection.</summary>
+    private static string EffectiveFailureKind(BsonDocument doc) => NormalizeFailureKind(
+        GetString(doc, "FailureKind"),
+        GetString(doc, "FailureCode"),
+        GetProjectedStatusCode(doc),
+        GetString(doc, "FailureMessage"));
+
+    private static int GetProjectedStatusCode(BsonDocument doc)
+    {
+        if (!doc.TryGetValue(StatusCodesField, out var value) || value is not BsonArray statuses)
+            return 0;
+
+        var entries = statuses.OfType<BsonDocument>().ToList();
+        var statusCode = GetProjectedAttribute(entries, HttpResponseStatusCodeAttribute);
+        if (statusCode == 0)
+            statusCode = GetProjectedAttribute(entries, ResponseStatusCodeAttribute);
+
+        return (int)statusCode;
+    }
+
+    private static long GetProjectedAttribute(IEnumerable<BsonDocument> attributes, string key)
+    {
+        foreach (var attribute in attributes)
+        {
+            if (GetString(attribute, "k") == key
+                && attribute.TryGetValue("v", out var value)
+                && value.IsNumeric)
+                return value.ToInt64();
+        }
+
+        return 0;
     }
 
     private static BsonDocument GetNestedDocument(BsonDocument doc, string field) =>

@@ -27,7 +27,8 @@ public class GraphLogHistoryItemResponse
 
     /// <summary>
     /// Why the request failed — one of the <see cref="Helpers.GatewayFailureKind"/> values
-    /// ("authentication", "authorization", "validation", "bad_request", "unhandled", "unknown").
+    /// ("authentication", "authorization", "validation", "syntax_error", "bad_request",
+    /// "unhandled", "unknown").
     /// Empty when the request succeeded.
     /// </summary>
     public string FailureKind { get; set; } = string.Empty;

@@ -4,13 +4,12 @@ import { ReactNode } from "react";
 import { X } from "lucide-react";
 
 import { Badge } from "@/components/ui-kits/badge/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui-kits/sheet/sheet";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui-kits/sheet/sheet";
-import { IGraphLogHistoryItem, failureKindLabel } from "../../models/graph-log-history";
+  IGraphLogHistoryItem,
+  failureKindLabel,
+  graphLogOutcome,
+} from "../../models/graph-log-history";
 import { PhaseBreakdown, toPhaseRows } from "./graph-phase-breakdown";
 import {
   formatDateTimeWithSeconds,
@@ -45,6 +44,7 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
   if (!item) return null;
 
   const failed = item.responseStatus === "failed";
+  const outcome = graphLogOutcome(item);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -57,8 +57,7 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
                   {item.schemaName || item.operationName || "Request"}
                 </SheetTitle>
                 <span className="text-xs text-muted-foreground">
-                  {formatDateTimeWithSeconds(item.timestamp)} ·{" "}
-                  {formatRelativeTime(item.timestamp)}
+                  {formatDateTimeWithSeconds(item.timestamp)} · {formatRelativeTime(item.timestamp)}
                 </span>
               </div>
               <button
@@ -73,8 +72,13 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
 
           <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={failed ? "error" : "success"}>
-                {item.responseStatus || "unknown"}
+              <Badge
+                className="capitalize"
+                variant={
+                  outcome === "allowed" ? "success" : outcome === "denied" ? "info" : "error"
+                }
+              >
+                {outcome}
               </Badge>
               {failed && item.failureKind && (
                 <Badge variant="error">{failureKindLabel(item.failureKind)}</Badge>
@@ -117,9 +121,7 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
               />
             </div>
 
-            {item.failureMessage && (
-              <Field label="Failure reason" value={item.failureMessage} />
-            )}
+            {item.failureMessage && <Field label="Failure reason" value={item.failureMessage} />}
 
             {item.statusDescription && (
               <Field label="Status description" value={item.statusDescription} />

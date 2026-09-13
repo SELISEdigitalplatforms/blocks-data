@@ -1,3 +1,4 @@
+using DataGateway.DomainService;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Mappers;
 using DataGateway.DomainService.Models;
@@ -107,6 +108,67 @@ public class SchemaDefinitionMappingTests
         var l2 = child.Fields.First(f => f.Name == "L2");
         l2.Type.Should().Be("L2Type");
         l2.Fields.Select(f => f.Name).Should().Contain(new[] { "Name", "Qty" });
+    }
+
+    [Fact]
+    public void GetFieldDefinitionResponses_SyntheticReferenceNode_DoesNotMatchSiblingPrefix()
+    {
+        var fields = new List<FieldDefinition>
+        {
+            new() { Name = "Child", Type = "ChildType", IsReferenceField = false },
+            new() { Name = "Child.L2Code", Type = "String", IsReferenceField = true, ReferenceFieldType = "ChildType" },
+            new() { Name = "Child.L2.Name", Type = "String", IsReferenceField = true, ReferenceFieldType = "L2Type" }
+        };
+
+        var result = SchemaDefinitionMapping.GetFieldDefinitionResponses(
+            fields, new List<DataAccessPolicy>(), new List<DataValidation>(), "");
+
+        result.Single(field => field.Name == "Child")
+            .Fields.Single(field => field.Name == "L2")
+            .Type.Should().Be("L2Type");
+    }
+
+    [Fact]
+    public void RestoreMissingReferenceFieldTypes_LegacyNestedPath_ResolvesContainingType()
+    {
+        var schemas = new List<SchemaDefinition>
+        {
+            new()
+            {
+                SchemaName = "Agreement",
+                SchemaType = SchemaType.Entity,
+                Fields = new()
+                {
+                    new FieldDefinition { Name = "Signatories", Type = "Signatory" },
+                    new FieldDefinition { Name = "Signatories.SignatureColor", Type = "String", IsReferenceField = true },
+                    new FieldDefinition { Name = "Signatories.Signature.Value", Type = "String", IsReferenceField = true }
+                }
+            },
+            new()
+            {
+                SchemaName = "Signatory",
+                SchemaType = SchemaType.Dto,
+                Fields = new()
+                {
+                    new FieldDefinition { Name = "SignatureColor", Type = "String" },
+                    new FieldDefinition { Name = "Signature", Type = "Signature" }
+                }
+            },
+            new()
+            {
+                SchemaName = "Signature",
+                SchemaType = SchemaType.Dto,
+                Fields = new() { new FieldDefinition { Name = "Value", Type = "String" } }
+            }
+        };
+
+        GraphqlSchemaBuilder.RestoreMissingReferenceFieldTypes(schemas);
+
+        var fields = schemas[0].Fields;
+        fields.Single(field => field.Name == "Signatories.SignatureColor")
+            .ReferenceFieldType.Should().Be("Signatory");
+        fields.Single(field => field.Name == "Signatories.Signature.Value")
+            .ReferenceFieldType.Should().Be("Signature");
     }
 
     [Fact]

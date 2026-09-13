@@ -7,12 +7,13 @@ export const useGraphLogAnalytics = (
   from: string | undefined,
   to: string | undefined,
   granularity: GraphLogGranularity,
+  utcOffsetMinutes: number,
 ) => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   return useQuery({
-    queryKey: ["graph-log-analytics", from, to, granularity, projectKey],
-    queryFn: () => graphLogService.getAnalytics({ from, to, granularity }),
+    queryKey: ["graph-log-analytics", from, to, granularity, utcOffsetMinutes, projectKey],
+    queryFn: () => graphLogService.getAnalytics({ from, to, granularity, utcOffsetMinutes }),
     enabled: Boolean(from && to),
   });
 };

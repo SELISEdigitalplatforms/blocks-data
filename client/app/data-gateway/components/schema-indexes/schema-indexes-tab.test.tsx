@@ -43,12 +43,22 @@ describe("SchemaIndexesTab", () => {
     showSuccessToast.mockReset();
   });
 
-  it("shows the empty state and an Add index button when there are no indexes", () => {
+  it("shows the frontend-only ItemId index without counting it as a custom index", async () => {
+    const user = userEvent.setup();
     useSchemaIndexes.mockReturnValue({ data: { data: { indexes: [] } }, isLoading: false });
     renderTab();
 
-    expect(screen.getByText("No indexes yet")).toBeInTheDocument();
+    expect(screen.getByText("0 of 15 custom indexes")).toBeInTheDocument();
+    expect(screen.getByText("_id_")).toBeInTheDocument();
+    expect(screen.getByText("Unique")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete index _id_" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add index/ })).toBeEnabled();
+
+    await user.click(screen.getByText("_id_").closest("button")!);
+    const properties = screen.getByRole("list", {
+      name: "Properties and order for _id_",
+    });
+    expect(within(properties).getByRole("listitem")).toHaveTextContent("1ItemId↑");
   });
 
   it("shows full-row index summaries and expands ordered properties", async () => {
@@ -81,11 +91,12 @@ describe("SchemaIndexesTab", () => {
     });
     renderTab();
 
+    expect(screen.getByText("_id_")).toBeInTheDocument();
     expect(screen.getByText("email_1")).toBeInTheDocument();
     expect(screen.getByText("lastName_1_age_-1")).toBeInTheDocument();
-    expect(screen.getByText("1 property")).toBeInTheDocument();
+    expect(screen.getAllByText("1 property")).toHaveLength(2);
     expect(screen.getByText("2 properties")).toBeInTheDocument();
-    expect(screen.getByText("Unique")).toBeInTheDocument();
+    expect(screen.getAllByText("Unique")).toHaveLength(2);
     expect(screen.getByText("Non-unique")).toBeInTheDocument();
 
     await user.click(screen.getByText("email_1").closest("button")!);
@@ -109,6 +120,7 @@ describe("SchemaIndexesTab", () => {
     useSchemaIndexes.mockReturnValue({ data: { data: { indexes: [] } }, isLoading: false });
     renderTab(2);
 
+    expect(screen.queryByText("_id_")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add index/ })).toBeDisabled();
     expect(
       screen.getAllByText("Indexes are only supported on Entity schemas.").length,
@@ -126,6 +138,7 @@ describe("SchemaIndexesTab", () => {
     useSchemaIndexes.mockReturnValue({ data: { data: { indexes } }, isLoading: false });
     renderTab();
 
+    expect(screen.getByText("15 of 15 custom indexes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add index/ })).toBeDisabled();
   });
 

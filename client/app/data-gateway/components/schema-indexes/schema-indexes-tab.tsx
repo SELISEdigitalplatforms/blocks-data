@@ -23,6 +23,7 @@ import {
   useDeleteSchemaIndex,
   useSchemaIndexes,
 } from "../../hooks/use-configuration";
+import type { ISchemaIndex } from "../../models/data-service";
 import {
   INDEX_DIRECTION_LABELS,
   MAX_INDEXES_PER_SCHEMA,
@@ -32,6 +33,14 @@ import { SchemaIndexForm } from "./schema-index-form";
 
 /** Backend SchemaType.Dto — indexes are only supported on SchemaType.Entity (1). */
 const DTO_SCHEMA_TYPE = 2;
+
+const DEFAULT_ITEM_ID_INDEX: ISchemaIndex = {
+  itemId: "__default-item-id-index__",
+  name: "_id_",
+  fields: [{ fieldName: "ItemId", direction: "ASC" }],
+  isUnique: true,
+  createdDate: "",
+};
 
 interface SchemaIndexesTabProps {
   schemaDefinitionItemId: string;
@@ -55,6 +64,12 @@ export function SchemaIndexesTab({
 
   const indexes = data?.data?.indexes ?? [];
   const isDto = schemaType === DTO_SCHEMA_TYPE;
+  const displayedIndexes = isDto
+    ? indexes.map((index) => ({ ...index, isSystem: false }))
+    : [
+        { ...DEFAULT_ITEM_ID_INDEX, isSystem: true },
+        ...indexes.map((index) => ({ ...index, isSystem: false })),
+      ];
   const atLimit = indexes.length >= MAX_INDEXES_PER_SCHEMA;
   const addDisabled = isDto || atLimit;
   const availableFieldNames = fields.map((f) => f.name);
@@ -97,7 +112,7 @@ export function SchemaIndexesTab({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-muted-foreground">
-          {indexes.length} of {MAX_INDEXES_PER_SCHEMA} indexes
+          {indexes.length} of {MAX_INDEXES_PER_SCHEMA} custom indexes
         </p>
 
         {!isFormOpen &&
@@ -137,7 +152,7 @@ export function SchemaIndexesTab({
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-12 w-full" />
         </div>
-      ) : indexes.length === 0 ? (
+      ) : displayedIndexes.length === 0 ? (
         !isFormOpen && (
           <div className="flex items-center justify-center rounded-sm border border-dashed border-border/30 bg-muted/5 py-8 text-sm text-muted-foreground">
             No indexes yet
@@ -145,7 +160,7 @@ export function SchemaIndexesTab({
         )
       ) : (
         <Accordion type="single" collapsible className="flex flex-col gap-2">
-          {indexes.map((index) => (
+          {displayedIndexes.map((index) => (
             <AccordionItem
               key={index.itemId || index.name}
               value={index.itemId || index.name}
@@ -165,21 +180,25 @@ export function SchemaIndexesTab({
                     </Badge>
                   </div>
                 </AccordionTrigger>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="mr-2 h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                      aria-label={`Delete index ${index.name}`}
-                      onClick={() => setPendingDeleteItemId(index.itemId)}
-                    >
-                      <Trash className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>Delete</TooltipContent>
-                </Tooltip>
+                {index.isSystem ? (
+                  <span className="mr-2 h-8 w-8 shrink-0" aria-hidden="true" />
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="mr-2 h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label={`Delete index ${index.name}`}
+                        onClick={() => setPendingDeleteItemId(index.itemId)}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete</TooltipContent>
+                  </Tooltip>
+                )}
               </div>
 
               <AccordionContent className="border-t border-border/30 px-4 pb-4 pt-3">

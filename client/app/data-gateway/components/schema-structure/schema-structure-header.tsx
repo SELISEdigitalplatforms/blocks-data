@@ -92,12 +92,14 @@ export function SchemaStructureHeader({
             Data
           </TabsTrigger>
         )}
-        <TabsTrigger
-          value="indexes"
-          className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
-          Indexes
-        </TabsTrigger>
+        {schemaType !== 2 && (
+          <TabsTrigger
+            value="indexes"
+            className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
+            Indexes
+          </TabsTrigger>
+        )}
       </TabsList>
     </Tabs>
   );

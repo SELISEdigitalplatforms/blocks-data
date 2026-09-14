@@ -415,7 +415,7 @@ export function StorageDetail() {
             Copy
           </DropdownMenuItem>
         )}
-        {dmsItem && actions.canManageAccess && (
+        {dmsItem && actions.canManageAccess && !isProtected && (
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();

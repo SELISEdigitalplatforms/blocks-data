@@ -280,6 +280,7 @@ namespace Storage.DomainService.Services
                 AccessModifier = string.IsNullOrWhiteSpace(request.AccessModifier)
                     ? AccessModifier.Private
                     : Enum.Parse<AccessModifier>(request.AccessModifier),
+                ObjectAccessLevel = ParseObjectAccessLevel((string?)request.ObjectAccessLevel),
                 CurrentVersion = 1,
                 AncestorIds = ancestorIds,
                 InheritsParentAccess = true,
@@ -288,6 +289,13 @@ namespace Storage.DomainService.Services
                 AdditionalProperties = request.AdditionalProperties ?? new Dictionary<string, string>(),
             };
         }
+
+        /// <summary>Null/empty preserves the pre-existing (allow-all) default; an unrecognized
+        /// value is ignored the same way rather than throwing, since validation already refuses it.</summary>
+        private static ObjectAccessLevel? ParseObjectAccessLevel(string? value) =>
+            !string.IsNullOrWhiteSpace(value) && Enum.TryParse<ObjectAccessLevel>(value, true, out var parsed)
+                ? parsed
+                : null;
 
         private static List<string> ParseTags(string? tags)
         {
@@ -923,6 +931,13 @@ namespace Storage.DomainService.Services
             if (!await AuthorizeFileAsync(file, ObjectPermission.Edit, "Edit", default))
                 return AccessDenied<BaseMutationResponse>();
 
+            // Validated above by _fileRequestValidator: ObjectAccessLevel is either empty
+            // (clears the default back to legacy allow-all) or a recognized value.
+            if (command.UpdateObjectAccessLevel)
+            {
+                file.ObjectAccessLevel = ParseObjectAccessLevel(command.ObjectAccessLevel);
+            }
+
             // Assuming your File entity has a dictionary property or allows storing additional properties
             file.AdditionalProperties = command.AdditionalProperties ?? file.AdditionalProperties;
             file.LastUpdatedDate = DateTime.Now;
@@ -994,6 +1009,7 @@ namespace Storage.DomainService.Services
             {
                 ResourceId = directory.ItemId, AncestorIds = directory.AncestorIds ?? new(),
                 InheritsParentAccess = directory.InheritsParentAccess, CreatedBy = directory.CreatedBy,
+                OrganizationId = directory.OrganizationId, ObjectAccessLevel = directory.ObjectAccessLevel,
             }, ObjectResourceType.Directory, ObjectPermission.Edit, action, cancellationToken);
         }
 
@@ -1002,6 +1018,7 @@ namespace Storage.DomainService.Services
             {
                 ResourceId = file.ItemId, AncestorIds = file.AncestorIds ?? new(),
                 InheritsParentAccess = file.InheritsParentAccess, CreatedBy = file.CreatedBy,
+                OrganizationId = file.OrganizationId, ObjectAccessLevel = file.ObjectAccessLevel,
             }, ObjectResourceType.File, permission, action, cancellationToken);
 
         private async Task<bool> AuthorizeAsync(ObjectResourceDescriptor resource, ObjectResourceType resourceType,

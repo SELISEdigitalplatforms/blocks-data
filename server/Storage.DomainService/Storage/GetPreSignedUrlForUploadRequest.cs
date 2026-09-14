@@ -30,6 +30,12 @@ namespace DomainService.Storage
         /// </summary>
         public string AccessModifier { get; set; } = "Private";
 
+        /// <summary>
+        /// "Creator" or "Organization": the default access this file grants when unshared.
+        /// Null/empty preserves the pre-existing (allow-all) default.
+        /// </summary>
+        public string? ObjectAccessLevel { get; set; }
+
         public string? ConfigurationName { get; set; } = null;
         public ModuleName ModuleName { get; set; } = ModuleName.Default_Construct;
         public Dictionary<string, string> AdditionalProperties { get; set; } = new Dictionary<string, string>();

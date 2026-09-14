@@ -16,8 +16,15 @@ import { FileUploader, FileInput } from "@/components/file-uploader/file-uploade
 import { showSuccessToast, showErrorToast } from "@/hooks/use-toast";
 import { useGetPreSignedUrlForUpload, useUploadFile } from "@/storage/hooks/use-storage-file";
 import { isErrorWithErrors } from "@/lib/error";
+import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { ModuleName } from "@/constants/modules.constants";
+
+const GENERAL_ACCESS_OPTIONS = [
+  { value: "", label: "Default (unrestricted until shared)" },
+  { value: "Creator", label: "Only me, until I share it" },
+  { value: "Organization", label: "Anyone in my organization" },
+] as const;
 
 type UploadDmsFileModalProps = {
   open: boolean;
@@ -41,6 +48,7 @@ export const UploadDmsFileModal = ({
   const [files, setFiles] = useState<File[]>([]);
   const [, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [objectAccessLevel, setObjectAccessLevel] = useState("");
 
   const { mutateAsync: presignedMutate } = useGetPreSignedUrlForUpload();
   const { mutateAsync: uploadfileMutate } = useUploadFile();
@@ -57,6 +65,7 @@ export const UploadDmsFileModal = ({
     if (!nextOpen && !isUploading) {
       setFiles([]);
       setPreviews([]);
+      setObjectAccessLevel("");
     }
 
     onOpenChange(nextOpen);
@@ -70,6 +79,7 @@ export const UploadDmsFileModal = ({
         projectKey,
         configurationName: name,
         accessModifier: "Public",
+        objectAccessLevel: objectAccessLevel || undefined,
         metaData: "",
         parentDirectoryId: parentId || "",
         tags: "",
@@ -116,6 +126,7 @@ export const UploadDmsFileModal = ({
       // Reset state
       setFiles([]);
       setPreviews([]);
+      setObjectAccessLevel("");
       handleOpenChange(false);
 
       // Trigger refresh callback
@@ -183,6 +194,36 @@ export const UploadDmsFileModal = ({
                 <span className="text-xs text-muted-foreground">All file types supported</span>
               </FileInput>
             </FileUploader>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="text-sm font-medium">Default access</span>
+            <div
+              role="group"
+              aria-label="Default access"
+              className="inline-flex overflow-hidden rounded-sm border border-input"
+            >
+              {GENERAL_ACCESS_OPTIONS.map((o) => {
+                const active = objectAccessLevel === o.value;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => setObjectAccessLevel(o.value)}
+                    disabled={isUploading}
+                    className={cn(
+                      "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                    aria-pressed={active}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {files.length > 0 ? (

@@ -36,10 +36,26 @@ export const useUploadFileToLocalStorage = () => {
   });
 };
 
-export const useGetFile = (option: IGetFileByFileIDPayload) => {
+export const useGetFile = (
+  option: IGetFileByFileIDPayload,
+  options: { enabled?: boolean } = {},
+) => {
   return useQuery({
     queryKey: ["file", option.projectKey, option],
     queryFn: () => storageService.file.getFileByFileId(option),
+    enabled: options.enabled ?? true,
+  });
+};
+
+export const useUpdateFileAdditionalInfo = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["storage", "file", "updateAdditionalInfo"],
+    mutationFn: storageService.file.updateFileAdditionalInfo,
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["file", variables.projectKey] });
+    },
   });
 };
 

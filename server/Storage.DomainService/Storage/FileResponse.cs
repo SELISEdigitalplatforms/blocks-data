@@ -12,6 +12,10 @@ namespace DomainService.Storage
         [BsonRepresentation(BsonType.Int32)]
         public AccessModifier AccessModifier { get; set; }
 
+        /// <summary>The default access this file grants when unshared: "Creator",
+        /// "Organization", or null when it carries the pre-existing (allow-all) default.</summary>
+        public string? ObjectAccessLevel { get; set; }
+
         [BsonId]
         public string ItemId { get; set; }
         public string[] Tags { get; set; }

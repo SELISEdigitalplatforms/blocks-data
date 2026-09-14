@@ -69,6 +69,8 @@ export interface IGetPreSignedUrlForUploadPayload {
   parentDirectoryId: string;
   tags: string;
   accessModifier: string;
+  /** "Creator" or "Organization". Omitted preserves the pre-existing (allow-all) default. */
+  objectAccessLevel?: string;
   agentId?: string;
   additionalProperties?: Record<string, unknown>;
   moduleName: number;
@@ -103,6 +105,8 @@ export interface IGetFileByFileIDResponse {
   language: string;
   tenantId: string;
   sizeInBytes: number;
+  /** The default access this file grants when unshared: "Creator", "Organization", or unset. */
+  objectAccessLevel?: string;
   errors: unknown;
   isSuccess: boolean;
 }
@@ -201,6 +205,10 @@ export interface IUpdateFileAdditionalInfoPayload {
   itemId: string;
   additionalProperties: Record<string, unknown>;
   projectKey: string;
+  /** "Creator" or "Organization"; empty string clears it back to the legacy default. */
+  objectAccessLevel?: string;
+  /** Set to true to change objectAccessLevel with this request, including clearing it. */
+  updateObjectAccessLevel?: boolean;
 }
 
 export interface IUpdateFileAdditionalInfoResponse {

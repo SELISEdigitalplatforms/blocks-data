@@ -18,5 +18,6 @@ namespace Storage.DomainService.Entities
         public string? ConfigurationName { get; set; }
         public string? ModuleName { get; set; }
         public string? Description { get; set; }
+        public ObjectAccessLevel? ObjectAccessLevel { get; set; }
     }
 }

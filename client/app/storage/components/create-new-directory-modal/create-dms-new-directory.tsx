@@ -28,11 +28,19 @@ import { useCreateDmsDirectory } from "@/storage/hooks/use-dms";
 import { CreateDirectoryDto } from "@/storage/models/dms.model";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
+import { cn } from "@/lib/utils";
 import { FolderPlus, LoaderCircle } from "lucide-react";
 
 const createDirectorySchema = z.object({
   name: z.string().min(1, "Directory name is required"),
+  objectAccessLevel: z.union([z.literal("Creator"), z.literal("Organization"), z.literal("")]),
 });
+
+const GENERAL_ACCESS_OPTIONS = [
+  { value: "", label: "Default (unrestricted until shared)" },
+  { value: "Creator", label: "Only me, until I share it" },
+  { value: "Organization", label: "Anyone in my organization" },
+] as const;
 
 type CreateDirectoryFormData = z.infer<typeof createDirectorySchema>;
 
@@ -57,6 +65,7 @@ export const CreateDmsNewDirectory = ({
     resolver: zodResolver(createDirectorySchema),
     defaultValues: {
       name: "",
+      objectAccessLevel: "",
     },
     mode: "onChange",
   });
@@ -82,6 +91,7 @@ export const CreateDmsNewDirectory = ({
         description: "Directory creation",
         configurationName,
         projectKey,
+        objectAccessLevel: data.objectAccessLevel || undefined,
       };
 
       await createDmsDirectoryMutate(payload);
@@ -140,6 +150,42 @@ export const CreateDmsNewDirectory = ({
                       {...field}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="objectAccessLevel"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Default access</FormLabel>
+                  <div
+                    role="group"
+                    aria-label="Default access"
+                    className="inline-flex overflow-hidden rounded-sm border border-input"
+                  >
+                    {GENERAL_ACCESS_OPTIONS.map((o) => {
+                      const active = field.value === o.value;
+                      return (
+                        <button
+                          key={o.value}
+                          type="button"
+                          onClick={() => field.onChange(o.value)}
+                          disabled={isPending}
+                          className={cn(
+                            "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                            active
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+                          )}
+                          aria-pressed={active}
+                        >
+                          {o.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

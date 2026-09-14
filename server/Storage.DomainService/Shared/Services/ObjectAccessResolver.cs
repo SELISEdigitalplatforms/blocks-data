@@ -23,7 +23,7 @@ namespace Storage.DomainService.Services
             if (IsImpersonated() || IsOwnerByCreation(resource)) return true;
 
             var candidates = await BuildCandidatesAsync(resource, cancellationToken);
-            return Decide(candidates, operation);
+            return Decide(candidates, operation, resource);
         }
 
         public async Task<ObjectPermissionFlags> ResolveFlagsAsync(ObjectResourceDescriptor resource, CancellationToken cancellationToken = default)
@@ -33,7 +33,7 @@ namespace Storage.DomainService.Services
             if (IsImpersonated() || IsOwnerByCreation(resource)) return AllPermissions();
 
             var candidates = await BuildCandidatesAsync(resource, cancellationToken);
-            return FlagsFrom(candidates);
+            return FlagsFrom(candidates, resource);
         }
 
         public async Task<bool> WouldCreateSelfDenyAsync(ObjectResourceDescriptor resource, ObjectPrincipalType principalType, string? principalId, CancellationToken cancellationToken = default)
@@ -104,7 +104,7 @@ namespace Storage.DomainService.Services
                 }
 
                 var candidates = BuildCandidates(child, policiesById);
-                if (Decide(candidates, ObjectPermission.View)) visible.Add(child);
+                if (Decide(candidates, ObjectPermission.View, child)) visible.Add(child);
             }
 
             return visible;
@@ -184,12 +184,12 @@ namespace Storage.DomainService.Services
             return winners.Values.ToList();
         }
 
-        private static bool Decide(IReadOnlyCollection<ObjectAccessPolicy> candidates, ObjectPermission operation)
+        private static bool Decide(IReadOnlyCollection<ObjectAccessPolicy> candidates, ObjectPermission operation, ObjectResourceDescriptor? resource = null)
         {
-            // Resources without an access policy are public. This is equivalent to an
-            // implicit Everyone Allow at every permission level, but does not persist a
-            // synthetic entry or interfere with an explicit policy when one exists.
-            if (candidates.Count == 0) return true;
+            // Resources without an access policy fall back to their configured default scope.
+            // This does not persist a synthetic entry, and an explicit policy (checked below)
+            // always takes over the moment one exists, regardless of this default.
+            if (candidates.Count == 0) return DefaultAccessAllowed(resource);
 
             var context = BlocksContext.GetContext();
 
@@ -210,15 +210,40 @@ namespace Storage.DomainService.Services
             return matching.Any(p => p.Effect == ObjectEffect.Allow);
         }
 
-        private static ObjectPermissionFlags FlagsFrom(IReadOnlyCollection<ObjectAccessPolicy> candidates) => new()
+        private static ObjectPermissionFlags FlagsFrom(IReadOnlyCollection<ObjectAccessPolicy> candidates, ObjectResourceDescriptor? resource = null) => new()
         {
-            CanView = Decide(candidates, ObjectPermission.View),
-            CanDownload = Decide(candidates, ObjectPermission.Download),
-            CanEdit = Decide(candidates, ObjectPermission.Edit),
-            CanDelete = Decide(candidates, ObjectPermission.Delete),
-            CanManage = Decide(candidates, ObjectPermission.Manage),
-            CanOwner = Decide(candidates, ObjectPermission.Owner),
+            CanView = Decide(candidates, ObjectPermission.View, resource),
+            CanDownload = Decide(candidates, ObjectPermission.Download, resource),
+            CanEdit = Decide(candidates, ObjectPermission.Edit, resource),
+            CanDelete = Decide(candidates, ObjectPermission.Delete, resource),
+            CanManage = Decide(candidates, ObjectPermission.Manage, resource),
+            CanOwner = Decide(candidates, ObjectPermission.Owner, resource),
         };
+
+        /// <summary>
+        /// The fallback used only when a resource (and its inherited ancestors) carry no
+        /// access policy at all. A resource whose <see cref="ObjectResourceDescriptor.ObjectAccessLevel"/>
+        /// was never set (legacy items, and any item created before this default existed) keeps
+        /// the original behaviour: allow. Setting it to <see cref="ObjectAccessLevel.Creator"/> or
+        /// <see cref="ObjectAccessLevel.Organization"/> narrows that default without touching how
+        /// explicit policies are evaluated above.
+        /// </summary>
+        private static bool DefaultAccessAllowed(ObjectResourceDescriptor? resource)
+        {
+            if (resource?.ObjectAccessLevel is null) return true;
+
+            return resource.ObjectAccessLevel switch
+            {
+                // The true creator already returned true before Decide was ever reached
+                // (see IsOwnerByCreation in ResolveAsync/ResolveFlagsAsync/FilterVisibleAsync),
+                // so reaching this point means the caller is someone else.
+                ObjectAccessLevel.Creator => false,
+                ObjectAccessLevel.Organization => !string.IsNullOrEmpty(resource.OrganizationId)
+                    && !string.IsNullOrEmpty(BlocksContext.GetContext()?.OrganizationId)
+                    && string.Equals(resource.OrganizationId, BlocksContext.GetContext()?.OrganizationId, StringComparison.Ordinal),
+                _ => true,
+            };
+        }
 
         /// <summary>
         /// A held permission satisfies every operation at or below it in the hierarchy,

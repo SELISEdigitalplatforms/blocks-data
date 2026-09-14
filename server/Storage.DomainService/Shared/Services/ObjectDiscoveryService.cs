@@ -353,6 +353,8 @@ namespace Storage.DomainService.Services
             AncestorIds = directory.AncestorIds ?? new List<string>(),
             InheritsParentAccess = directory.InheritsParentAccess,
             CreatedBy = directory.CreatedBy,
+            OrganizationId = directory.OrganizationId,
+            ObjectAccessLevel = directory.ObjectAccessLevel,
         };
 
         private static ObjectResourceDescriptor Describe(File file) => new()
@@ -361,6 +363,8 @@ namespace Storage.DomainService.Services
             AncestorIds = file.AncestorIds ?? new List<string>(),
             InheritsParentAccess = file.InheritsParentAccess,
             CreatedBy = file.CreatedBy,
+            OrganizationId = file.OrganizationId,
+            ObjectAccessLevel = file.ObjectAccessLevel,
         };
 
         private Task AuditAsync(

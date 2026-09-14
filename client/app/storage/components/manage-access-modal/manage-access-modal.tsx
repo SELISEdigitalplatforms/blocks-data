@@ -20,17 +20,21 @@ import {
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { GitFork, ShieldCheck, UserPlus } from "lucide-react";
+import { useProjectStore } from "@seliseblocks/genesis-os";
+import { GitFork, Globe, ShieldCheck, UserPlus } from "lucide-react";
 import { useState } from "react";
 import {
   useAccessPolicies,
+  useDmsDirectory,
   useGrantAccess,
   useIamOrganizations,
   useIamRoles,
   useIamUsers,
   useRevokeAccess,
   useToggleInheritance,
+  useUpdateDmsDirectory,
 } from "../../hooks/use-dms";
+import { useGetFile, useUpdateFileAdditionalInfo } from "../../hooks/use-storage-file";
 import {
   ObjectEffect,
   ObjectPermission,
@@ -43,6 +47,12 @@ const PRINCIPAL_TYPES: ObjectPrincipalType[] = ["User", "Role", "Organization", 
 const PERMISSIONS: ObjectPermission[] = ["View", "Download", "Edit", "Delete", "Manage", "Owner"];
 const EFFECTS: ObjectEffect[] = ["Allow", "Deny"];
 const GLOBAL_ROLE_SCOPE = "__all_organizations__";
+
+const GENERAL_ACCESS_OPTIONS = [
+  { value: "", label: "Default (unrestricted until shared)" },
+  { value: "Creator", label: "Creator only, until shared" },
+  { value: "Organization", label: "Anyone in my organization" },
+] as const;
 
 export interface ManageAccessModalProps {
   open: boolean;
@@ -65,6 +75,7 @@ export interface ManageAccessModalProps {
  * principal becomes its own access policy on submit.
  */
 export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageAccessModalProps>) {
+  const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const policies = useAccessPolicies(open ? item.itemId : undefined);
   const grant = useGrantAccess(item.itemId);
   const revoke = useRevokeAccess(item.itemId);
@@ -75,6 +86,64 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
   const [effect, setEffect] = useState<ObjectEffect>("Allow");
   const [selectedPrincipals, setSelectedPrincipals] = useState<string[]>([]);
   const [roleOrganizationId, setRoleOrganizationId] = useState(GLOBAL_ROLE_SCOPE);
+
+  // General access: the default this item grants when nothing above has been
+  // explicitly added yet. Read from whichever detail endpoint matches the item
+  // kind, and kept in its own piece of state since the Select is edited before
+  // it's saved.
+  const directoryDetail = useDmsDirectory(item.type === "directory" ? item.itemId : undefined);
+  const fileDetail = useGetFile(
+    { itemId: item.itemId, projectKey },
+    { enabled: open && item.type === "file" && !!projectKey },
+  );
+  const currentAccessLevel =
+    item.type === "directory"
+      ? (directoryDetail.data?.objectAccessLevel ?? "")
+      : (fileDetail.data?.objectAccessLevel ?? "");
+  const isLoadingAccessLevel =
+    item.type === "directory" ? directoryDetail.isLoading : fileDetail.isLoading;
+
+  // Tracks only what the user has actively picked, keyed by item so switching to a
+  // different item (or reopening before a fetch resolves) falls back to the fetched
+  // value instead of carrying over a stale pick — no effect needed to keep this in sync.
+  const [override, setOverride] = useState<{ itemId: string; value: string } | null>(null);
+  const generalAccess =
+    override?.itemId === item.itemId ? override.value : currentAccessLevel;
+  const setGeneralAccess = (value: string) => setOverride({ itemId: item.itemId, value });
+
+  const updateDirectory = useUpdateDmsDirectory();
+  const updateFile = useUpdateFileAdditionalInfo();
+  const isSavingGeneralAccess = updateDirectory.isPending || updateFile.isPending;
+
+  const handleSaveGeneralAccess = async () => {
+    try {
+      if (item.type === "directory") {
+        await updateDirectory.mutateAsync({
+          directoryId: item.itemId,
+          objectAccessLevel: generalAccess,
+          updateObjectAccessLevel: true,
+        });
+      } else {
+        await updateFile.mutateAsync({
+          itemId: item.itemId,
+          projectKey,
+          additionalProperties: {},
+          objectAccessLevel: generalAccess,
+          updateObjectAccessLevel: true,
+        });
+      }
+      showSuccessToast({
+        title: "General access updated",
+        description:
+          GENERAL_ACCESS_OPTIONS.find((o) => o.value === generalAccess)?.label ?? "Updated.",
+      });
+    } catch {
+      showErrorToast({
+        title: "Could not update general access",
+        errors: "The change was not saved.",
+      });
+    }
+  };
 
   const rows = policies.data ?? [];
   const ownEntries = rows.filter((p) => !p.isInherited);
@@ -210,6 +279,61 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
             </div>
           </div>
         </DialogHeader>
+
+        <section className="space-y-3 border-b bg-muted/10 p-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Globe className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold">General access</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                The default this item grants before anything below is added. An explicit rule
+                for a person, role, or organization always overrides this.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div
+              role="group"
+              aria-label="General access"
+              className="inline-flex overflow-hidden rounded-sm border border-input"
+            >
+              {GENERAL_ACCESS_OPTIONS.map((o) => {
+                const active = generalAccess === o.value;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => setGeneralAccess(o.value)}
+                    disabled={isLoadingAccessLevel || isSavingGeneralAccess}
+                    className={cn(
+                      "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                    aria-pressed={active}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleSaveGeneralAccess}
+              disabled={
+                isLoadingAccessLevel ||
+                isSavingGeneralAccess ||
+                generalAccess === currentAccessLevel
+              }
+            >
+              {isSavingGeneralAccess ? "Saving..." : "Save"}
+            </Button>
+          </div>
+        </section>
 
         <div className="grid max-h-[calc(100vh-12rem)] overflow-y-auto lg:grid-cols-[1.1fr_0.9fr]">
           <section className="space-y-5 border-b p-6 lg:border-b-0 lg:border-r">

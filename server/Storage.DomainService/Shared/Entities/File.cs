@@ -15,6 +15,10 @@ namespace Storage.DomainService.Entities
 
         [BsonRepresentation(BsonType.String)]
         public AccessModifier AccessModifier { get; set; }
+
+        /// <summary>Default access when unshared. Null preserves pre-existing (allow-all) behaviour.</summary>
+        [BsonRepresentation(BsonType.String)]
+        public ObjectAccessLevel? ObjectAccessLevel { get; set; }
         public Dictionary<string, MetaValue>? MetaData { get; set; } = new Dictionary<string, MetaValue>();
         public string Name { get; set; }
         public string? DirectoryId { get; set; }

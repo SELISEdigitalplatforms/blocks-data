@@ -17,6 +17,7 @@ public interface IFileDirectoryManagementService
         string? configurationName = null,
         string? moduleName = null,
         string[]? allowedFileExtensions = null,
+        string? objectAccessLevel = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>The directory plus the operations the caller holds on it.</summary>
@@ -29,7 +30,8 @@ public interface IFileDirectoryManagementService
     Task<FileDirectory?> GetDefaultDirectoryByModuleNameAsync(string moduleName, CancellationToken cancellationToken = default);
 
     Task<DirectoryOperationResult> UpdateDirectoryAsync(
-        string directoryId, string? name, string? description, CancellationToken cancellationToken = default);
+        string directoryId, string? name, string? description, string? objectAccessLevel = null,
+        bool updateObjectAccessLevel = false, CancellationToken cancellationToken = default);
 
     /// <summary>Moves the directory to the trash, or permanently removes its entire subtree.</summary>
     Task<DirectoryOperationResult> DeleteDirectoryAsync(

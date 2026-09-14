@@ -1,5 +1,6 @@
 ﻿using FluentValidation;
 using Storage.DomainService.Services;
+using Storage.DomainService.Storage.Validators;
 using Storage.DomainService.Utilities;
 
 namespace DomainService.Storage.Validators
@@ -29,6 +30,10 @@ namespace DomainService.Storage.Validators
                 .NotEmpty()
                 .WithMessage("Configuration Name should not be empty. Remove this field only if you wish to use the default configuration.")
                 .When(x => x.ConfigurationName != null);
+
+            RuleFor(x => x.ObjectAccessLevel)
+                .Must(DmsValidationRules.BeAValidObjectAccessLevel)
+                .WithMessage("ObjectAccessLevel must be 'Creator' or 'Organization'.");
         }
     }
 }

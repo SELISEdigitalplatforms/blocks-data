@@ -30,6 +30,10 @@ namespace Storage.DomainService.Storage.Validators
             && name.Trim() == name
             && name != "."
             && name != "..";
+
+        /// <summary>Null/empty is valid: it means "no default scope" (today's allow-all behaviour).</summary>
+        internal static bool BeAValidObjectAccessLevel(string? value) =>
+            string.IsNullOrWhiteSpace(value) || Enum.TryParse<ObjectAccessLevel>(value, true, out _);
     }
 
     public class CreateDirectoryRequestValidator : AbstractValidator<global::DomainService.Storage.Dms.CreateDirectoryRequest>
@@ -43,6 +47,10 @@ namespace Storage.DomainService.Storage.Validators
                 .WithMessage("Name must not be blank, contain a path separator, or have leading or trailing whitespace.");
 
             RuleFor(r => r.Description).MaximumLength(2000);
+
+            RuleFor(r => r.ObjectAccessLevel)
+                .Must(DmsValidationRules.BeAValidObjectAccessLevel)
+                .WithMessage("ObjectAccessLevel must be 'Creator' or 'Organization'.");
         }
     }
 
@@ -60,6 +68,11 @@ namespace Storage.DomainService.Storage.Validators
                 .WithMessage("Name must not be blank, contain a path separator, or have leading or trailing whitespace.");
 
             RuleFor(r => r.Description).MaximumLength(2000);
+
+            RuleFor(r => r.ObjectAccessLevel)
+                .Must(DmsValidationRules.BeAValidObjectAccessLevel)
+                .When(r => r.UpdateObjectAccessLevel)
+                .WithMessage("ObjectAccessLevel must be 'Creator' or 'Organization'.");
         }
     }
 

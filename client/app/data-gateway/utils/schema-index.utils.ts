@@ -1,4 +1,5 @@
-import type { IndexDirection } from "../models/data-service";
+import type { IField, IndexDirection } from "../models/data-service";
+import { buildValidationFieldName } from "./schema-normalization";
 
 /**
  * The backend returns a bare error code (optionally with a ": <detail>" suffix) either as
@@ -62,3 +63,20 @@ export const INDEX_DIRECTION_LABELS: Record<IndexDirection, string> = {
 
 export const MAX_INDEX_FIELDS = 10;
 export const MAX_INDEXES_PER_SCHEMA = 15;
+
+/**
+ * Flattens a schema's field tree into dot-path field names (e.g. "assignee.email" for a field
+ * nested under a reference/child-schema field). Only leaf fields are returned: a field with
+ * nested `fields` is itself a reference/object field, which is never indexable server-side (see
+ * SchemaIndexService.IsFieldIndexable) — only its scalar descendants are.
+ */
+export function flattenIndexableFieldNames(
+  fields: IField[],
+  ancestorPath: string[] = [],
+): string[] {
+  return fields.flatMap((field) =>
+    field.fields?.length
+      ? flattenIndexableFieldNames(field.fields, [...ancestorPath, field.name])
+      : [buildValidationFieldName(ancestorPath, field.name)],
+  );
+}

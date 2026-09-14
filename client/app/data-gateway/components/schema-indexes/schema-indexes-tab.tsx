@@ -23,8 +23,9 @@ import {
   useDeleteSchemaIndex,
   useSchemaIndexes,
 } from "../../hooks/use-configuration";
-import type { ISchemaIndex } from "../../models/data-service";
+import type { IField, ISchemaIndex } from "../../models/data-service";
 import {
+  flattenIndexableFieldNames,
   INDEX_DIRECTION_LABELS,
   MAX_INDEXES_PER_SCHEMA,
   mapIndexRelatedErrorMessage,
@@ -45,7 +46,7 @@ const DEFAULT_ITEM_ID_INDEX: ISchemaIndex = {
 interface SchemaIndexesTabProps {
   schemaDefinitionItemId: string;
   schemaType?: number;
-  fields: Array<{ name: string }>;
+  fields: IField[];
 }
 
 export function SchemaIndexesTab({
@@ -72,7 +73,7 @@ export function SchemaIndexesTab({
       ];
   const atLimit = indexes.length >= MAX_INDEXES_PER_SCHEMA;
   const addDisabled = isDto || atLimit;
-  const availableFieldNames = fields.map((f) => f.name);
+  const availableFieldNames = flattenIndexableFieldNames(fields);
 
   const handleDelete = async () => {
     if (!pendingDeleteItemId) return;

@@ -1,3 +1,4 @@
+import { HttpError } from "@/lib/http-client";
 import type { IndexDirection } from "../models/data-service";
 
 /**
@@ -53,6 +54,19 @@ export function mapIndexRelatedErrorMessage(res: IndexErrorSource): string | nul
 
   const toMessage = INDEX_ERROR_MESSAGES[code];
   return toMessage ? toMessage(detail) : null;
+}
+
+/**
+ * The HTTP client throws on any non-2xx response (see HttpError), so a business-rule failure
+ * like a duplicate-key conflict on a unique index never reaches the resolved-response branch --
+ * it lands in a catch block instead. `HttpError.errors` holds the parsed backend response body
+ * in that case (the same `{ message, errors }` shape `mapIndexRelatedErrorMessage` expects), so
+ * this unwraps it before delegating. Returns null for non-HTTP errors or unrecognized codes, so
+ * the caller can fall back to its own generic error handling.
+ */
+export function mapIndexErrorFromException(error: unknown): string | null {
+  if (!(error instanceof HttpError)) return null;
+  return mapIndexRelatedErrorMessage((error.errors ?? {}) as IndexErrorSource);
 }
 
 export const INDEX_DIRECTION_LABELS: Record<IndexDirection, string> = {

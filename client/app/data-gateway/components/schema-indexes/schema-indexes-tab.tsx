@@ -27,6 +27,7 @@ import type { ISchemaIndex } from "../../models/data-service";
 import {
   INDEX_DIRECTION_LABELS,
   MAX_INDEXES_PER_SCHEMA,
+  mapIndexErrorFromException,
   mapIndexRelatedErrorMessage,
 } from "../../utils/schema-index.utils";
 import { SchemaIndexForm } from "./schema-index-form";
@@ -88,7 +89,8 @@ export function SchemaIndexesTab({
         showErrorToast({ errors: mapped ?? res.errors ?? "Failed to delete index." });
       }
     } catch (error) {
-      showErrorToast({ errors: error });
+      const mapped = mapIndexErrorFromException(error);
+      showErrorToast({ errors: mapped ?? error });
     } finally {
       setPendingDeleteItemId(null);
     }

@@ -10,8 +10,11 @@ using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
+using MongoDB.Driver;
 using System.Collections;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using System.Text.RegularExpressions;
 
 namespace DataGateway.DomainService.Services;
 
@@ -59,7 +62,14 @@ public class MutationService : IMutationService
         var document = InputToBsonDocument(input);
         gatewayOperation.CollectionName = schema.CollectionName;
         gatewayOperation.MongoQuery = new BsonDocument { { "insert", document } }.ToString();
-        await _repository.InsertAsync(schema.CollectionName, document);
+        try
+        {
+            await _repository.InsertAsync(schema.CollectionName, document);
+        }
+        catch (Exception ex) when (TryGetDuplicateKeyFieldNames(ex, out var duplicateFields))
+        {
+            ThrowUniqueConstraintViolation(schema.SchemaName, OperationLabelCreate, duplicateFields);
+        }
         var itemId = document[GraphQlConstant.DbEntityIdFieldName].ToString();
 
         await _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted,
@@ -100,7 +110,16 @@ public class MutationService : IMutationService
         var document = InputToBsonDocument(input);
         gatewayOperation.CollectionName = schema.CollectionName;
         gatewayOperation.MongoQuery = new BsonDocument { { "filter", filter }, { "update", document } }.ToString();
-        var response = await _repository.UpdateAsync(schema.CollectionName, filter, document);
+        ActionResponse response;
+        try
+        {
+            response = await _repository.UpdateAsync(schema.CollectionName, filter, document);
+        }
+        catch (Exception ex) when (TryGetDuplicateKeyFieldNames(ex, out var duplicateFields))
+        {
+            ThrowUniqueConstraintViolation(schema.SchemaName, OperationLabelUpdate, duplicateFields);
+            throw;
+        }
         response.ItemId = existingDocument[GraphQlConstant.DbEntityIdFieldName]?.ToString();
         await PublishUpdateEventAsync(schema, existingDocument, document, response.ItemId ?? string.Empty, response.Acknowledged);
 
@@ -228,7 +247,16 @@ public class MutationService : IMutationService
 
         gatewayOperation.CollectionName = schema.CollectionName;
         gatewayOperation.MongoQuery = new BsonDocument { { "insertMany", new BsonArray(documents) } }.ToString();
-        var response = await _repository.InsertManyAsync(schema.CollectionName, documents);
+        BulkActionResponse response;
+        try
+        {
+            response = await _repository.InsertManyAsync(schema.CollectionName, documents);
+        }
+        catch (Exception ex) when (TryGetDuplicateKeyFieldNames(ex, out var duplicateFields))
+        {
+            ThrowUniqueConstraintViolation(schema.SchemaName, OperationLabelCreate, duplicateFields);
+            throw;
+        }
         if (response.Acknowledged && documents.Count > 0)
             await _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted, dataDocuments: documents);
 
@@ -271,7 +299,16 @@ public class MutationService : IMutationService
 
         var document = InputToBsonDocument(input);
         gatewayOperation.MongoQuery = new BsonDocument { { "filter", filter }, { "update", document } }.ToString();
-        var response = await _repository.UpdateManyAsync(schema.CollectionName, filter, document);
+        ActionResponse response;
+        try
+        {
+            response = await _repository.UpdateManyAsync(schema.CollectionName, filter, document);
+        }
+        catch (Exception ex) when (TryGetDuplicateKeyFieldNames(ex, out var duplicateFields))
+        {
+            ThrowUniqueConstraintViolation(schema.SchemaName, OperationLabelUpdate, duplicateFields);
+            throw;
+        }
         if (response.Acknowledged)
         {
             var updatedFields = document.Elements
@@ -433,6 +470,64 @@ public class MutationService : IMutationService
                 operationLabel, schema.SchemaName, result.ErrorMessage);
             MutationValidationHelper.ThrowValidationError(result);
         }
+    }
+
+    /// <summary>
+    /// <see cref="ValidateUniquenessOrThrowAsync"/> only pre-checks fields flagged
+    /// <c>IsUniqueData</c>. A unique index created directly on the Indexes tab (especially a
+    /// compound one) has no such flag, so a duplicate value for it reaches MongoDB, which raises
+    /// a driver-level duplicate-key error (E11000) on the write itself. This turns that raw
+    /// exception into the same clean, field-level validation error the pre-check produces, so
+    /// the client never sees an unformatted execution error for a condition we can name.
+    /// </summary>
+    private static readonly Regex DuplicateKeyDocumentRegex = new(
+        @"dup key:\s*\{\s*(?<fields>.*)\}\s*$", RegexOptions.Compiled | RegexOptions.Singleline);
+    private static readonly Regex DuplicateKeyFieldNameRegex = new(
+        @"""?(?<name>[A-Za-z0-9_.]+)""?\s*:", RegexOptions.Compiled);
+
+    private static bool TryGetDuplicateKeyFieldNames(Exception ex, out List<string> fieldNames)
+    {
+        fieldNames = [];
+        var writeErrorMessage = ex switch
+        {
+            MongoWriteException { WriteError.Category: ServerErrorCategory.DuplicateKey } writeEx =>
+                writeEx.WriteError.Message,
+            MongoBulkWriteException<BsonDocument> bulkEx =>
+                bulkEx.WriteErrors.FirstOrDefault(e => e.Category == ServerErrorCategory.DuplicateKey)?.Message,
+            MongoCommandException cmdEx when cmdEx.Code == 11000 ||
+                cmdEx.Message.Contains("E11000", StringComparison.OrdinalIgnoreCase) => cmdEx.Message,
+            _ => null,
+        };
+        if (writeErrorMessage is null) return false;
+
+        var match = DuplicateKeyDocumentRegex.Match(writeErrorMessage);
+        if (match.Success)
+        {
+            fieldNames = DuplicateKeyFieldNameRegex.Matches(match.Groups["fields"].Value)
+                .Select(m => m.Groups["name"].Value)
+                .Distinct()
+                .ToList();
+        }
+        return true;
+    }
+
+    [DoesNotReturn]
+    private void ThrowUniqueConstraintViolation(string schemaName, string operationLabel, List<string> fieldNames)
+    {
+        var result = new DataValidationResult();
+        if (fieldNames.Count > 0)
+        {
+            foreach (var fieldName in fieldNames)
+                result.AddError(fieldName, $"A record with the same value for '{fieldName}' already exists.", "Unique");
+        }
+        else
+        {
+            result.AddError(string.Empty, "A record with the same value for a unique field already exists.", "Unique");
+        }
+
+        _logger.LogWarning("Unique constraint violation on {Op} for schema {SchemaName}: {Errors}",
+            operationLabel, schemaName, result.ErrorMessage);
+        MutationValidationHelper.ThrowValidationError(result);
     }
 
     private void PrepareMutation(SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)

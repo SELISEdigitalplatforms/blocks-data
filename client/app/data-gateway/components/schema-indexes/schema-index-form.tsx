@@ -21,6 +21,7 @@ import type { ICreateSchemaIndexPayload } from "../../models/data-service";
 import {
   INDEX_DIRECTION_LABELS,
   MAX_INDEX_FIELDS,
+  mapIndexErrorFromException,
   mapIndexRelatedErrorMessage,
 } from "../../utils/schema-index.utils";
 
@@ -95,8 +96,9 @@ export function SchemaIndexForm({
         if (!mapped) showErrorToast({ errors: res.errors });
       }
     } catch (error) {
-      form.setError("root", { message: "Failed to create index." });
-      showErrorToast({ errors: error });
+      const mapped = mapIndexErrorFromException(error);
+      form.setError("root", { message: mapped ?? "Failed to create index." });
+      if (!mapped) showErrorToast({ errors: error });
     }
   };
 

@@ -15,6 +15,13 @@ namespace Storage.DomainService.Utilities
         /// <summary>Default maximum accepted upload size (5 MiB) when a configuration omits <c>MaxFileSizeInBytes</c>.</summary>
         public const long DefaultMaxFileSizeInBytes = 5_242_880L;
 
+        /// <summary>
+        /// How long a completion attempt holds its exclusive claim on a Quarantined version. Comfortably
+        /// longer than Phase 1's synchronous verification is expected to take, so a crashed attempt's
+        /// lease expires and the version becomes retryable well before a legitimate retry would arrive.
+        /// </summary>
+        public static readonly TimeSpan CompletionClaimLeaseDuration = TimeSpan.FromMinutes(2);
+
         public static MessageConfiguration GetMessageConfiguration()
         {
             return new MessageConfiguration

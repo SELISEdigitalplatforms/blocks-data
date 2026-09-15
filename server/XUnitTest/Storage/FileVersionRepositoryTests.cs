@@ -4,6 +4,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
 using Storage.DomainService.Entities;
+using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 
 namespace XUnitTest.Storage
@@ -34,6 +35,80 @@ namespace XUnitTest.Storage
                      .ReturnsAsync(new DeleteResult.Acknowledged(3));
 
             _sut = new FileVersionRepository(_provider.Object);
+        }
+
+        [Fact]
+        public async Task TryClaimCompletionAsync_ClaimsAQuarantinedVersionAndReturnsIt()
+        {
+            var claimed = FileVersion.CreateNew("f1", 1, new FileVersionOptions
+            {
+                ItemId = "v1",
+                FileVerificationStatus = FileVerificationStatus.Quarantined
+            });
+
+            _versions.Setup(c => c.FindOneAndUpdateAsync(
+                         It.IsAny<FilterDefinition<FileVersion>>(),
+                         It.IsAny<UpdateDefinition<FileVersion>>(),
+                         It.IsAny<FindOneAndUpdateOptions<FileVersion, FileVersion>>(),
+                         It.IsAny<CancellationToken>()))
+                     .ReturnsAsync(claimed);
+
+            var result = await _sut.TryClaimCompletionAsync("f1", "v1", TimeSpan.FromMinutes(5));
+
+            result.Should().BeSameAs(claimed);
+            _versions.Verify(c => c.FindOneAndUpdateAsync(
+                It.IsAny<FilterDefinition<FileVersion>>(),
+                It.IsAny<UpdateDefinition<FileVersion>>(),
+                // Read-modify-write must round-trip the claimed document, not just acknowledge the write.
+                It.Is<FindOneAndUpdateOptions<FileVersion, FileVersion>>(o => !o.IsUpsert && o.ReturnDocument == ReturnDocument.After),
+                It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task TryClaimCompletionAsync_ReturnsNullWhenNoVersionMatchesTheClaimFilter()
+        {
+            // Covers: version missing, not Quarantined, or already claimed under an unexpired lease -
+            // all three collapse to "the filter matched nothing" from the repository's point of view.
+            _versions.Setup(c => c.FindOneAndUpdateAsync(
+                         It.IsAny<FilterDefinition<FileVersion>>(),
+                         It.IsAny<UpdateDefinition<FileVersion>>(),
+                         It.IsAny<FindOneAndUpdateOptions<FileVersion, FileVersion>>(),
+                         It.IsAny<CancellationToken>()))
+                     .ReturnsAsync((FileVersion?)null);
+
+            var result = await _sut.TryClaimCompletionAsync("f1", "v1", TimeSpan.FromMinutes(5));
+
+            result.Should().BeNull();
+        }
+
+        [Fact]
+        public async Task CompleteVerificationAsync_ModifiedDocument_ReturnsTrue()
+        {
+            _versions.Setup(c => c.UpdateOneAsync(
+                         It.IsAny<FilterDefinition<FileVersion>>(),
+                         It.IsAny<UpdateDefinition<FileVersion>>(),
+                         It.IsAny<UpdateOptions>(),
+                         It.IsAny<CancellationToken>()))
+                     .ReturnsAsync(new UpdateResult.Acknowledged(1, 1, null));
+
+            var result = await _sut.CompleteVerificationAsync("f1", "v1", FileVerificationStatus.Verified, "Private/f1/v1/report.pdf", null);
+
+            result.Should().BeTrue();
+        }
+
+        [Fact]
+        public async Task CompleteVerificationAsync_NoMatchingDocument_ReturnsFalse()
+        {
+            _versions.Setup(c => c.UpdateOneAsync(
+                         It.IsAny<FilterDefinition<FileVersion>>(),
+                         It.IsAny<UpdateDefinition<FileVersion>>(),
+                         It.IsAny<UpdateOptions>(),
+                         It.IsAny<CancellationToken>()))
+                     .ReturnsAsync(new UpdateResult.Acknowledged(0, 0, null));
+
+            var result = await _sut.CompleteVerificationAsync("f1", "v1", FileVerificationStatus.Rejected, null, "checksum_mismatch");
+
+            result.Should().BeFalse();
         }
 
         [Fact]

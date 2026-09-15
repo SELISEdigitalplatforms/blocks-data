@@ -439,6 +439,14 @@
             <param name="request">The request containing upload details.</param>
             <returns>A response containing the pre-signed URL for upload.</returns>
         </member>
+        <member name="M:Api.Controllers.FileController.CompleteUpload(DomainService.Storage.CompleteUploadRequest)">
+            <summary>
+            Verifies a quarantined upload and promotes it to its final key, or rejects it. Idempotent:
+            calling this again for an already-Verified or already-Rejected version returns that same outcome.
+            </summary>
+            <param name="request">The file and version to complete.</param>
+            <returns>The resulting verification status.</returns>
+        </member>
         <member name="M:Api.Controllers.FileController.DeleteFile(DomainService.Storage.DeleteFileRequest)">
             <summary>
             Moves a file to trash, or permanently removes it when <c>Permanent</c> is true.

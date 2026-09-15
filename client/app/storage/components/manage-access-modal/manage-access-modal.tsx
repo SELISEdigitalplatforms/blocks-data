@@ -22,7 +22,7 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { GitFork, Globe, ShieldCheck, UserPlus } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   useAccessPolicies,
   useDmsDirectory,
@@ -36,6 +36,7 @@ import {
 } from "../../hooks/use-dms";
 import { useGetFile, useUpdateFileAdditionalInfo } from "../../hooks/use-storage-file";
 import {
+  AccessPolicyDto,
   ObjectEffect,
   ObjectPermission,
   ObjectPrincipalType,
@@ -145,10 +146,46 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
     }
   };
 
-  const rows = policies.data ?? [];
+  const rows = useMemo(() => policies.data ?? [], [policies.data]);
   const ownEntries = rows.filter((p) => !p.isInherited);
   const needsPrincipal = principalType !== "Everyone";
   const canSubmit = !needsPrincipal || selectedPrincipals.length > 0;
+
+  // Access rules carry IAM ids, not names ("b41a3acb-..." rather than "Editor").
+  // Resolve them for display: a plain, unfiltered lookup per principal type
+  // actually present in the rows, cached separately from the Add-access
+  // panel's own (search-filtered) picker queries. A page of 50 covers the
+  // common case; an id outside that page still falls back to itself below
+  // rather than the row silently going blank.
+  const rowPrincipalTypes = useMemo(() => new Set(rows.map((p) => p.principalType)), [rows]);
+  const rowsNeedOrganizationNames = useMemo(
+    () => rowPrincipalTypes.has("Organization") || rows.some((p) => !!p.organizationId),
+    [rowPrincipalTypes, rows],
+  );
+  const rowUsers = useIamUsers("", open && rowPrincipalTypes.has("User"));
+  const rowRoles = useIamRoles("", open && rowPrincipalTypes.has("Role"));
+  const rowOrganizations = useIamOrganizations("", open && rowsNeedOrganizationNames);
+
+  const userNameById = useMemo(
+    () => new Map((rowUsers.data ?? []).map((u) => [u.value, u.label])),
+    [rowUsers.data],
+  );
+  const roleNameById = useMemo(
+    () => new Map((rowRoles.data ?? []).map((r) => [r.value, r.label])),
+    [rowRoles.data],
+  );
+  const organizationNameById = useMemo(
+    () => new Map((rowOrganizations.data ?? []).map((o) => [o.value, o.label])),
+    [rowOrganizations.data],
+  );
+
+  const principalNameById = (t: ObjectPrincipalType) =>
+    t === "User" ? userNameById : t === "Role" ? roleNameById : organizationNameById;
+
+  const resolvePrincipalName = (policy: AccessPolicyDto): string => {
+    if (!policy.principalId) return "Everyone";
+    return principalNameById(policy.principalType).get(policy.principalId) ?? policy.principalId;
+  };
 
   // Reset the selection whenever the principal type changes — a user id and a
   // role slug are not interchangeable, so carrying one over to the next list
@@ -514,12 +551,17 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
                   <li key={policy.itemId} className="rounded-lg border bg-background p-3">
                     <div className="flex items-start gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">
-                          {policy.principalId ?? "Everyone"}
+                        <p
+                          className="truncate text-sm font-medium"
+                          title={policy.principalId ?? undefined}
+                        >
+                          {resolvePrincipalName(policy)}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {policy.principalType}
-                          {policy.organizationId ? ` · Organization ${policy.organizationId}` : ""}
+                          {policy.organizationId
+                            ? ` · Organization ${organizationNameById.get(policy.organizationId) ?? policy.organizationId}`
+                            : ""}
                           {policy.isInherited ? " · Inherited from parent" : " · Direct rule"}
                         </p>
                       </div>

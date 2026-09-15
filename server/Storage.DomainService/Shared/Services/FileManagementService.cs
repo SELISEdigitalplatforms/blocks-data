@@ -36,6 +36,8 @@ namespace Storage.DomainService.Services
         private readonly IObjectAccessResolver _accessResolver;
         private readonly IObjectAccessRepository _accessRepository;
         private readonly IObjectItemWriter? _objectItems;
+        private readonly IUploadKeyRouter _uploadKeyRouter;
+        private readonly IUploadVerificationService _uploadVerificationService;
 
         private const string ConfigurationNotFound = "configuration_not_found";
 
@@ -51,6 +53,8 @@ namespace Storage.DomainService.Services
             IMessageClient messageClient,
             IObjectAccessResolver accessResolver,
             IObjectAccessRepository accessRepository,
+            IUploadKeyRouter uploadKeyRouter,
+            IUploadVerificationService uploadVerificationService,
             IObjectItemWriter? objectItems = null
             )
         {
@@ -65,6 +69,8 @@ namespace Storage.DomainService.Services
             _messageClient = messageClient;
             _accessResolver = accessResolver;
             _accessRepository = accessRepository;
+            _uploadKeyRouter = uploadKeyRouter;
+            _uploadVerificationService = uploadVerificationService;
             _objectItems = objectItems;
         }
 
@@ -158,14 +164,27 @@ namespace Storage.DomainService.Services
                 }
             }
 
+            // The storage UI offers only Public/Private (see the Phase 1 storage security plan); the
+            // backend, not the client, decides whether completion is required for whichever of the two
+            // is selected, so an unparseable or out-of-scope value must be rejected here rather than
+            // reach Enum.Parse in CreateNewFileAsync.
+            if (!string.IsNullOrWhiteSpace(request.AccessModifier)
+                && (!Enum.TryParse<AccessModifier>(request.AccessModifier, ignoreCase: true, out var requestedAccessModifier)
+                    || !AccessModifierValidation.AllowedUploadCompletionAccessModifiers.Contains(requestedAccessModifier)))
+            {
+                return new GetPreSignedUrlForUploadResponse
+                {
+                    Errors = new Dictionary<string, string> { [nameof(request.AccessModifier)] = "access_modifier_must_be_public_or_private" },
+                    FileId = request.ItemId,
+                    IsSuccess = false
+                };
+            }
+
             return new GetPreSignedUrlForUploadResponse { IsSuccess = true };
         }
 
         private async Task<GetPreSignedUrlForUploadResponse> HandleExistingFileAsync(GetPreSignedUrlForUploadRequest request, File existingFile)
         {
-            var latestFileVersionNumber = await _versionRepository.GetLatestFileVersionNumberAsync(existingFile.ItemId);
-            var newFileVersion = CreateNewFileVersion(existingFile.ItemId, latestFileVersionNumber);
-
             var configuration = await GetConfigurationAsync(request.ConfigurationName);
 
             if (configuration == null)
@@ -173,18 +192,35 @@ namespace Storage.DomainService.Services
                 return CreateErrorResponse<GetPreSignedUrlForUploadResponse>("Configuration", ConfigurationNotFound);
             }
 
+            var declaredSizeError = ValidateDeclaredSize(request, configuration);
+            if (declaredSizeError != null)
+            {
+                return declaredSizeError;
+            }
+
+            var latestFileVersionNumber = await _versionRepository.GetLatestFileVersionNumberAsync(existingFile.ItemId);
+            var newFileVersion = CreateNewFileVersion(existingFile.ItemId, latestFileVersionNumber);
+
             var storageServiceProvider = GetStorageService(configuration);
 
-            var fileInfo = GetFileInfo(existingFile.ItemId, newFileVersion.ItemId, existingFile.Name, existingFile.AccessModifier, StorageStrategyCategory.Cloud);
-            newFileVersion.StorageKey = fileInfo.filePath;
-            var preSignedUrl = storageServiceProvider.GeneratePreSignedUploadUrlAsync(fileInfo.filePath, fileInfo.expiry);
+            // A new version's key is always built from the file's current name (a rename before this
+            // upload is reflected), but the file's existing AccessModifier decides routing - it applies
+            // at file level, and changing it for one version only is Phase 2, not Phase 1.
+            var uploadSession = BuildUploadSession(
+                request, storageServiceProvider, configuration, existingFile.AccessModifier, existingFile.ItemId, existingFile.Name, newFileVersion);
 
             await Task.WhenAll(_versionRepository.CreateFileVersionAsync(newFileVersion));
 
             return new GetPreSignedUrlForUploadResponse
             {
-                UploadUrl = preSignedUrl,
+                UploadUrl = uploadSession.UploadUrl,
                 FileId = existingFile.ItemId,
+                FileVersionId = newFileVersion.ItemId,
+                UploadSessionId = newFileVersion.ItemId,
+                UploadUrlExpiresAtUtc = uploadSession.UploadUrlExpiresAtUtc,
+                RequiredHeaders = uploadSession.RequiredHeaders,
+                UploadCompletionRequired = uploadSession.Routing.UploadCompletionRequired,
+                VerificationStatus = uploadSession.Routing.VerificationStatus,
                 IsSuccess = true
             };
         }
@@ -198,17 +234,22 @@ namespace Storage.DomainService.Services
                 return CreateErrorResponse<GetPreSignedUrlForUploadResponse>("Configuration", ConfigurationNotFound);
             }
 
+            var declaredSizeError = ValidateDeclaredSize(request, configuration);
+            if (declaredSizeError != null)
+            {
+                return declaredSizeError;
+            }
+
             var file = await CreateNewFileAsync(request);
             file.ConfigurationName = configuration.Name;
             var fileVersion = CreateNewFileVersion(file.ItemId, 1);
 
             var storageServiceProvider = GetStorageService(configuration);
 
-            var fileInfo = GetFileInfo(file.ItemId, fileVersion.ItemId, file.Name, file.AccessModifier, StorageStrategyCategory.Cloud);
-            fileVersion.StorageKey = fileInfo.filePath;
-            var preSignedUrl = storageServiceProvider.GeneratePreSignedUploadUrlAsync(fileInfo.filePath, TimeSpan.FromDays(3));
+            var uploadSession = BuildUploadSession(
+                request, storageServiceProvider, configuration, file.AccessModifier, file.ItemId, file.Name, fileVersion);
 
-            file.Url = preSignedUrl;
+            file.Url = uploadSession.UploadUrl;
 
             await Task.WhenAll(_fileRepository.CreateFileAsync(file),
                                _versionRepository.CreateFileVersionAsync(fileVersion));
@@ -216,10 +257,170 @@ namespace Storage.DomainService.Services
 
             return new GetPreSignedUrlForUploadResponse
             {
-                UploadUrl = preSignedUrl,
+                UploadUrl = uploadSession.UploadUrl,
                 FileId = file.ItemId,
+                FileVersionId = fileVersion.ItemId,
+                UploadSessionId = fileVersion.ItemId,
+                UploadUrlExpiresAtUtc = uploadSession.UploadUrlExpiresAtUtc,
+                RequiredHeaders = uploadSession.RequiredHeaders,
+                UploadCompletionRequired = uploadSession.Routing.UploadCompletionRequired,
+                VerificationStatus = uploadSession.Routing.VerificationStatus,
                 IsSuccess = true
             };
+        }
+
+        /// <summary>
+        /// Verifies and promotes (or rejects) a Quarantined version. Idempotent: an already-Verified or
+        /// already-Rejected version returns its existing outcome without re-verifying, and a concurrent
+        /// completion call for the same version loses the atomic claim rather than double-verifying.
+        /// </summary>
+        public async Task<CompleteUploadResponse> CompleteUploadAsync(CompleteUploadRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.FileId) || string.IsNullOrWhiteSpace(request.FileVersionId))
+                return CompletionNotFound();
+
+            var file = await _fileRepository.GetFileByItemIdAsync(request.FileId);
+            if (file is null)
+                return CompletionNotFound();
+
+            if (!await AuthorizeFileAsync(file, ObjectPermission.Edit, "CompleteUpload", default))
+                return AccessDenied<CompleteUploadResponse>();
+
+            var version = await _versionRepository.GetFileVersionAsync(request.FileId, request.FileVersionId);
+            if (version is null)
+                return CompletionNotFound();
+
+            // A version that never required completion (or whose FileId/FileVersionId genuinely don't
+            // pair up - GetFileVersionAsync already filters on both) is not this endpoint's business;
+            // treat it the same as not-found rather than exposing why.
+            if (!version.GetEffectiveUploadCompletionRequired())
+                return CompletionNotFound();
+
+            switch (version.GetEffectiveVerificationStatus())
+            {
+                case FileVerificationStatus.Verified:
+                    return CompletedResponse(request, FileVerificationStatus.Verified, null);
+                case FileVerificationStatus.Rejected:
+                    return CompletedResponse(request, FileVerificationStatus.Rejected, version.RejectionReason);
+                case FileVerificationStatus.Quarantined:
+                    break;
+                default:
+                    return CompletionNotFound();
+            }
+
+            var configuration = await GetConfigurationAsync(file.ConfigurationName);
+            if (configuration == null)
+                return CreateErrorResponse<CompleteUploadResponse>("Configuration", ConfigurationNotFound);
+
+            var claimed = await _versionRepository.TryClaimCompletionAsync(
+                request.FileId, request.FileVersionId, Constants.CompletionClaimLeaseDuration);
+
+            if (claimed is null)
+            {
+                // Lost the claim: either a concurrent request is already verifying this exact version, or
+                // it finished between our read above and now. Re-read once and hand back whichever outcome
+                // actually landed instead of erroring - the plan requires this endpoint stay idempotent.
+                var current = await _versionRepository.GetFileVersionAsync(request.FileId, request.FileVersionId);
+                return current?.GetEffectiveVerificationStatus() switch
+                {
+                    FileVerificationStatus.Verified => CompletedResponse(request, FileVerificationStatus.Verified, null),
+                    FileVerificationStatus.Rejected => CompletedResponse(request, FileVerificationStatus.Rejected, current.RejectionReason),
+                    _ => CreateErrorResponse<CompleteUploadResponse>("FileVersionId", "completion_already_in_progress")
+                };
+            }
+
+            var storageService = GetStorageService(configuration);
+            var verification = await _uploadVerificationService.VerifyAsync(
+                storageService, configuration, claimed, request.FileVersionId, file.Name);
+
+            string? finalStorageKey = null;
+            if (verification.IsVerified)
+            {
+                finalStorageKey = StorageKeyBuilder.BuildFinalKey(file.AccessModifier, request.FileId, request.FileVersionId, file.Name);
+                await storageService.PromoteCandidateToFinalAsync(verification.CandidateKey!, finalStorageKey);
+            }
+
+            // The old quarantine object (and, on rejection, the candidate) are deliberately left in
+            // private storage: Phase 1 records enough state to find them, but provider deletion is Phase 3.
+            await _versionRepository.CompleteVerificationAsync(
+                request.FileId, request.FileVersionId, verification.Status, finalStorageKey, verification.RejectionReason);
+
+            return CompletedResponse(request, verification.Status, verification.RejectionReason);
+        }
+
+        private static CompleteUploadResponse CompletionNotFound() => new()
+        {
+            IsSuccess = false,
+            Errors = new Dictionary<string, string> { { "FileVersionId", "file_version_not_found" } }
+        };
+
+        private static CompleteUploadResponse CompletedResponse(CompleteUploadRequest request, FileVerificationStatus status, string? rejectionReason) => new()
+        {
+            FileId = request.FileId,
+            FileVersionId = request.FileVersionId,
+            VerificationStatus = status,
+            RejectionReason = rejectionReason,
+            IsSuccess = true
+        };
+
+        /// <summary>Rejects a declared size that already exceeds the configured maximum, before any provider call is made.</summary>
+        private GetPreSignedUrlForUploadResponse? ValidateDeclaredSize(GetPreSignedUrlForUploadRequest request, StorageConfiguration configuration)
+        {
+            if (request.SizeInBytes is > 0 && request.SizeInBytes.Value > configuration.GetMaxFileSizeInBytes())
+            {
+                return CreateErrorResponse<GetPreSignedUrlForUploadResponse>(nameof(request.SizeInBytes), "declared_size_exceeds_maximum_allowed");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Resolves upload-completion routing for one version, generates its upload URL against the
+        /// resulting key (the private quarantine target when completion is required, the legacy final
+        /// key otherwise), and stamps the Phase 1 fields onto <paramref name="version"/>. The version is
+        /// not persisted here; callers still own when to write it.
+        /// </summary>
+        private UploadSession BuildUploadSession(
+            GetPreSignedUrlForUploadRequest request,
+            IStorageService storageServiceProvider,
+            StorageConfiguration configuration,
+            AccessModifier accessModifier,
+            string fileId,
+            string fileName,
+            FileVersion version)
+        {
+            var routing = _uploadKeyRouter.ResolveUploadRouting(configuration, accessModifier, fileId, version.ItemId, fileName);
+            var expiry = TimeSpan.FromSeconds(configuration.GetUploadUrlExpirySeconds());
+            var uploadUrlExpiresAtUtc = DateTime.UtcNow.Add(expiry);
+
+            var uploadUrl = routing.UploadCompletionRequired
+                ? storageServiceProvider.GenerateQuarantineUploadUrl(routing.StorageKey, expiry)
+                : storageServiceProvider.GeneratePreSignedUploadUrlAsync(routing.StorageKey, expiry);
+
+            version.StorageKey = routing.StorageKey;
+            version.FileVerificationStatus = routing.VerificationStatus;
+            version.UploadCompletionRequired = routing.UploadCompletionRequired;
+            version.UploadUrlExpiresAtUtc = uploadUrlExpiresAtUtc;
+            version.ExpectedSizeInBytes = request.SizeInBytes;
+            version.ExpectedContentType = request.ContentType;
+            version.ExpectedChecksum = request.Checksum;
+            version.ChecksumAlgorithm = request.ChecksumAlgorithm;
+
+            return new UploadSession
+            {
+                UploadUrl = uploadUrl,
+                UploadUrlExpiresAtUtc = uploadUrlExpiresAtUtc,
+                RequiredHeaders = storageServiceProvider.GetRequiredUploadHeaders(request.ContentType),
+                Routing = routing
+            };
+        }
+
+        private sealed class UploadSession
+        {
+            public required string UploadUrl { get; init; }
+            public required DateTime UploadUrlExpiresAtUtc { get; init; }
+            public required Dictionary<string, string> RequiredHeaders { get; init; }
+            public required UploadKeyRoutingResult Routing { get; init; }
         }
 
         private async Task<StorageConfiguration> GetConfigurationAsync(string? configurationName)
@@ -401,7 +602,22 @@ namespace Storage.DomainService.Services
                 var storageKey = fileVersionAggregate.Contains("StorageKey") && !fileVersionAggregate["StorageKey"].IsBsonNull
                     ? fileVersionAggregate["StorageKey"].AsString
                     : null;
+                var verificationStatus = ParseVerificationStatus(fileVersionAggregate);
+
                 var fileResponse = responses.First(f => f.ItemId.Equals(fileId));
+                fileResponse.VerificationStatus = verificationStatus;
+                fileResponse.SizeInBytes = fileVersionAggregate["SizeInBytes"].IsBsonNull ? 0 : fileVersionAggregate["SizeInBytes"].AsInt64;
+
+                if (!ReadReadinessPolicy.IsContentReadable(verificationStatus))
+                {
+                    // Quarantined/Rejected content can never be fetched, whatever the access policy
+                    // would otherwise allow. Metadata is still useful, so only the URL is withheld -
+                    // no provider call is made at all.
+                    fileResponse.Url = string.Empty;
+                    fileResponse.IsSuccess = true;
+                    finalfileResponse.Add(fileResponse);
+                    continue;
+                }
 
                 var fileUrlResponse = await GetFileUrlResponse(configuration, projectKey, fileResponse, latestVersionNo, latestVersion, storageKey);
 
@@ -412,14 +628,23 @@ namespace Storage.DomainService.Services
                 }
 
                 fileResponse.Url = fileUrlResponse.Url;
-
-                fileResponse.SizeInBytes = fileVersionAggregate["SizeInBytes"].IsBsonNull ? 0 : fileVersionAggregate["SizeInBytes"].AsInt64;
                 fileResponse.IsSuccess = true;
 
                 finalfileResponse.Add(fileResponse);
             }
 
             return finalfileResponse;
+        }
+
+        /// <summary>Missing/null and an unparseable value both resolve to null, which <see cref="ReadReadinessPolicy"/> treats as legacy-ready.</summary>
+        private static FileVerificationStatus? ParseVerificationStatus(BsonDocument fileVersionAggregate)
+        {
+            if (!fileVersionAggregate.Contains("FileVerificationStatus") || fileVersionAggregate["FileVerificationStatus"].IsBsonNull)
+                return null;
+
+            return Enum.TryParse<FileVerificationStatus>(fileVersionAggregate["FileVerificationStatus"].AsString, out var status)
+                ? status
+                : null;
         }
 
         private async Task<FileResponse> GetFileUrlResponse(StorageConfiguration configuration, string? projectKey, FileResponse fileResponse, long latestVersionNo, string latestVersion, string? storageKey)
@@ -443,9 +668,17 @@ namespace Storage.DomainService.Services
             // renamed, since the blob itself is never moved. Only legacy/migrated rows without
             // a persisted StorageKey fall back to the recomputed path.
             fileUrlRequest.FileName = !string.IsNullOrEmpty(storageKey) ? storageKey : fileInfo.filePath;
-            fileUrlRequest.ExpiryDuration = fileInfo.expiry;
 
-            fileResponse.Url = await storageServiceProvider.GetDownloadUrlAsync(fileUrlRequest) ?? "";
+            // Local storage's signature-based link keeps its own fixed validity window (tied to
+            // ValidateSignature, not a provider-signed URL); every cloud provider uses the configured
+            // DownloadUrlExpirySeconds instead of the previous hard-coded 3-day duration.
+            fileUrlRequest.ExpiryDuration = category == StorageStrategyCategory.Local
+                ? fileInfo.expiry
+                : TimeSpan.FromSeconds(configuration.GetDownloadUrlExpirySeconds());
+
+            var signedUrl = await storageServiceProvider.GetDownloadUrlAsync(fileUrlRequest);
+            fileResponse.Url = signedUrl?.Url ?? "";
+            fileResponse.DownloadUrlExpiresAtUtc = signedUrl?.ExpiresAtUtc;
             return fileResponse;
         }
 
@@ -877,6 +1110,13 @@ namespace Storage.DomainService.Services
             {
                 // Use the latest version (highest number)
                 finalVersion = fileVersions.Max(f => f.No);
+            }
+
+            var selectedVersion = fileVersions.First(f => f.No == finalVersion);
+            if (!ReadReadinessPolicy.IsContentReadable(selectedVersion.FileVerificationStatus))
+            {
+                response = CreateErrorResponse<DownloadFileResponse>("file_version_not_available", "content_not_available");
+                return false;
             }
 
             response = new DownloadFileResponse

@@ -1,7 +1,11 @@
 ﻿using Blocks.Genesis;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
+using Storage.DomainService.Enums;
 
 namespace Storage.DomainService.Entities
 {
+    [BsonIgnoreExtraElements]
     public class FileVersion : BaseEntity
     {
         public long No { get; private set; }
@@ -17,6 +21,58 @@ namespace Storage.DomainService.Entities
 
         /// <summary>Who uploaded this version.</summary>
         public string? UploadedBy { get; set; }
+
+        #region Phase1UploadSecurity
+
+        /// <summary>
+        /// Completion/verification lifecycle for this version. Null on legacy and migrated rows,
+        /// which behave as <see cref="Enums.FileVerificationStatus.Unverified"/> — see
+        /// <see cref="GetEffectiveVerificationStatus"/>.
+        /// </summary>
+        [BsonRepresentation(BsonType.String)]
+        public FileVerificationStatus? FileVerificationStatus { get; set; }
+
+        /// <summary>
+        /// Snapshot, taken when the upload session was created, of whether completion is required
+        /// for this version. Null on legacy rows behaves as <c>false</c> — see
+        /// <see cref="GetEffectiveUploadCompletionRequired"/>.
+        /// </summary>
+        public bool? UploadCompletionRequired { get; set; }
+
+        /// <summary>UTC instant at which the upload URL issued for this version expires.</summary>
+        public DateTime? UploadUrlExpiresAtUtc { get; set; }
+
+        /// <summary>Declared size, in bytes, supplied when the upload URL was requested.</summary>
+        public long? ExpectedSizeInBytes { get; set; }
+
+        /// <summary>Declared MIME content type supplied when the upload URL was requested.</summary>
+        public string? ExpectedContentType { get; set; }
+
+        /// <summary>Declared checksum supplied when the upload URL was requested.</summary>
+        public string? ExpectedChecksum { get; set; }
+
+        /// <summary>Algorithm that produced <see cref="ExpectedChecksum"/> (e.g. "MD5", "SHA256").</summary>
+        public string? ChecksumAlgorithm { get; set; }
+
+        /// <summary>Safe, non-sensitive reason recorded when completion sets <see cref="Enums.FileVerificationStatus.Rejected"/>.</summary>
+        public string? RejectionReason { get; set; }
+
+        /// <summary>
+        /// UTC instant until which a completion attempt holds an exclusive lease on this version.
+        /// Lets <see cref="Services.IFileVersionRepository.TryClaimCompletionAsync"/> stop two concurrent
+        /// completion calls from verifying the same version at once; a crash simply lets the lease
+        /// expire and leaves a retryable <see cref="Enums.FileVerificationStatus.Quarantined"/> version.
+        /// </summary>
+        public DateTime? CompletionClaimedUntilUtc { get; set; }
+
+        /// <summary>Resolves <see cref="FileVerificationStatus"/> to its effective, documented-default value for legacy rows.</summary>
+        public FileVerificationStatus GetEffectiveVerificationStatus() =>
+            FileVerificationStatus ?? Enums.FileVerificationStatus.Unverified;
+
+        /// <summary>Resolves <see cref="UploadCompletionRequired"/> to its effective, documented-default value for legacy rows.</summary>
+        public bool GetEffectiveUploadCompletionRequired() => UploadCompletionRequired == true;
+
+        #endregion
 
         private FileVersion() { }
 
@@ -35,7 +91,14 @@ namespace Storage.DomainService.Entities
                 Tags = options.Tags,
                 Language = options.Language,
                 StorageKey = options.StorageKey,
-                UploadedBy = options.UploadedBy
+                UploadedBy = options.UploadedBy,
+                FileVerificationStatus = options.FileVerificationStatus,
+                UploadCompletionRequired = options.UploadCompletionRequired,
+                UploadUrlExpiresAtUtc = options.UploadUrlExpiresAtUtc,
+                ExpectedSizeInBytes = options.ExpectedSizeInBytes,
+                ExpectedContentType = options.ExpectedContentType,
+                ExpectedChecksum = options.ExpectedChecksum,
+                ChecksumAlgorithm = options.ChecksumAlgorithm
             };
         }
     }
@@ -51,5 +114,17 @@ namespace Storage.DomainService.Entities
         public bool LazyUpdate { get; set; } = false;
         public string? StorageKey { get; set; }
         public string? UploadedBy { get; set; }
+
+        #region Phase1UploadSecurity
+
+        public FileVerificationStatus? FileVerificationStatus { get; set; }
+        public bool? UploadCompletionRequired { get; set; }
+        public DateTime? UploadUrlExpiresAtUtc { get; set; }
+        public long? ExpectedSizeInBytes { get; set; }
+        public string? ExpectedContentType { get; set; }
+        public string? ExpectedChecksum { get; set; }
+        public string? ChecksumAlgorithm { get; set; }
+
+        #endregion
     }
 }

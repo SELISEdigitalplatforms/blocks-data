@@ -439,4 +439,40 @@ public class StorageSupportTypesTests
         response.VerificationStatus.Should().Be(FileVerificationStatus.Unverified);
         response.RejectionReason.Should().BeNull();
     }
+
+    // ---------------- FileVersion upload-security fields ----------------
+
+    [Fact]
+    public void FileVersion_MissingUploadSecurityFields_ResolveToLegacyDefaults()
+    {
+        var version = FileVersion.CreateNew("file-1", 1, new FileVersionOptions { ItemId = "version-1" });
+
+        version.GetEffectiveVerificationStatus().Should().Be(FileVerificationStatus.Unverified);
+        version.GetEffectiveUploadCompletionRequired().Should().BeFalse();
+    }
+
+    [Fact]
+    public void FileVersion_ConfiguredUploadSecurityFields_ResolveToConfiguredValues()
+    {
+        var expiresAt = DateTime.UtcNow.AddMinutes(10);
+        var version = FileVersion.CreateNew("file-1", 1, new FileVersionOptions
+        {
+            ItemId = "version-1",
+            FileVerificationStatus = FileVerificationStatus.Quarantined,
+            UploadCompletionRequired = true,
+            UploadUrlExpiresAtUtc = expiresAt,
+            ExpectedSizeInBytes = 2048,
+            ExpectedContentType = "image/png",
+            ExpectedChecksum = "abc123",
+            ChecksumAlgorithm = "SHA256"
+        });
+
+        version.GetEffectiveVerificationStatus().Should().Be(FileVerificationStatus.Quarantined);
+        version.GetEffectiveUploadCompletionRequired().Should().BeTrue();
+        version.UploadUrlExpiresAtUtc.Should().Be(expiresAt);
+        version.ExpectedSizeInBytes.Should().Be(2048);
+        version.ExpectedContentType.Should().Be("image/png");
+        version.ExpectedChecksum.Should().Be("abc123");
+        version.ChecksumAlgorithm.Should().Be("SHA256");
+    }
 }

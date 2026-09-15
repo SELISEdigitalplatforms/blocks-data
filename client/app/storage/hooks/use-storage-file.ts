@@ -29,6 +29,13 @@ export const useUploadFile = () => {
   });
 };
 
+export const useCompleteUpload = () => {
+  return useMutation({
+    mutationKey: ["storage", "file", "completeUpload"],
+    mutationFn: storageService.file.completeUpload,
+  });
+};
+
 export const useUploadFileToLocalStorage = () => {
   return useMutation({
     mutationKey: ["storage", "file", "upload"],

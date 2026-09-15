@@ -988,6 +988,7 @@ export function StorageDetail() {
           parentId={currentParentId}
           dmsWorkspaceId={storageId}
           dmsWorkspaceName={storage.name}
+          maxFileSizeInBytes={storage.maxFileSizeInBytes}
           onUploadSuccess={() => childrenQuery.refetch()}
         />
       )}

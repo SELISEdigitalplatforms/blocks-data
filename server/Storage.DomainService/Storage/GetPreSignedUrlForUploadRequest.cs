@@ -39,5 +39,21 @@ namespace DomainService.Storage
         public string? ConfigurationName { get; set; } = null;
         public ModuleName ModuleName { get; set; } = ModuleName.Default_Construct;
         public Dictionary<string, string> AdditionalProperties { get; set; } = new Dictionary<string, string>();
+
+        #region Phase1UploadSecurity
+
+        /// <summary>Declared size of the file to upload, in bytes. Used to reject oversized uploads before issuing a URL.</summary>
+        public long? SizeInBytes { get; set; }
+
+        /// <summary>Declared MIME content type of the file to upload.</summary>
+        public string? ContentType { get; set; }
+
+        /// <summary>Declared checksum of the file to upload, used during completion verification when supported by the provider.</summary>
+        public string? Checksum { get; set; }
+
+        /// <summary>Algorithm that produced <see cref="Checksum"/> (e.g. "MD5", "SHA256").</summary>
+        public string? ChecksumAlgorithm { get; set; }
+
+        #endregion
     }
 }

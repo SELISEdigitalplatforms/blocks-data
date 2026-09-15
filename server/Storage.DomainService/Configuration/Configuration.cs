@@ -1,4 +1,5 @@
 ﻿using Blocks.Genesis;
+using Storage.DomainService.Enums;
 
 namespace DomainService.Configuration
 {
@@ -21,6 +22,22 @@ namespace DomainService.Configuration
         public string? UserName { get; set; }
         public string? Password { get; set; }
         public string? RemoteBasePath { get; set; }
+
+        #endregion
+
+        #region Phase1UploadSecurity
+
+        /// <summary>Mirrors <c>StorageConfiguration.UploadUrlExpirySeconds</c>. Null/missing resolves to the documented default.</summary>
+        public int? UploadUrlExpirySeconds { get; set; }
+
+        /// <summary>Mirrors <c>StorageConfiguration.DownloadUrlExpirySeconds</c>. Null/missing resolves to the documented default.</summary>
+        public int? DownloadUrlExpirySeconds { get; set; }
+
+        /// <summary>Mirrors <c>StorageConfiguration.MaxFileSizeInBytes</c>. Null/missing resolves to the documented default.</summary>
+        public long? MaxFileSizeInBytes { get; set; }
+
+        /// <summary>Mirrors <c>StorageConfiguration.UploadCompletionRequiredFor</c>. Only Public/Private are honored.</summary>
+        public List<AccessModifier>? UploadCompletionRequiredFor { get; set; }
 
         #endregion
     }

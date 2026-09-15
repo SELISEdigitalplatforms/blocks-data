@@ -1,20 +1,9 @@
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { SERVICE_NAME } from "@/constants/service.constant";
-import { HttpClient } from "@seliseblocks/genesis-os";
+import { HttpClient, HttpError } from "@seliseblocks/genesis-os";
 import { createHttpFailureReporter, getRollbar } from "@seliseblocks/genesis-os/observability";
 
 const reportHttpFailure = createHttpFailureReporter(getRollbar({ service: SERVICE_NAME }));
-
-class HttpError extends Error {
-  status: number;
-  errors: Record<string, string | string[]>;
-
-  constructor(status: number, error: { errors: Record<string, string | string[]> }) {
-    super(error.toString());
-    this.status = status;
-    this.errors = error.errors;
-  }
-}
 
 export const serviceInstances = {
   dataService: new HttpClient({

@@ -325,4 +325,77 @@ describe("SaveStorageConfiguration", () => {
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
+
+  describe("Phase 1 upload-security fields", () => {
+    it("defaults a new configuration to 600s upload, 300s download, 5 MB, and no required completion", () => {
+      renderForm();
+
+      expect(screen.getByLabelText("Upload URL Expiry (seconds)")).toHaveValue(600);
+      expect(screen.getByLabelText("Download URL Expiry (seconds)")).toHaveValue(300);
+      expect(screen.getByLabelText("Maximum File Size (MB)")).toHaveValue(5);
+      expect(screen.getByRole("checkbox", { name: "Public" })).not.toBeChecked();
+      expect(screen.getByRole("checkbox", { name: "Private" })).not.toBeChecked();
+    });
+
+    it("converts a configured maxFileSizeInBytes to MB and prefills expiry/completion in edit mode", () => {
+      renderForm({
+        configuration: makeConfig({
+          uploadUrlExpirySeconds: 900,
+          downloadUrlExpirySeconds: 120,
+          maxFileSizeInBytes: 10_485_760,
+          uploadCompletionRequiredFor: ["Public"],
+        }),
+      });
+
+      expect(screen.getByLabelText("Upload URL Expiry (seconds)")).toHaveValue(900);
+      expect(screen.getByLabelText("Download URL Expiry (seconds)")).toHaveValue(120);
+      expect(screen.getByLabelText("Maximum File Size (MB)")).toHaveValue(10);
+      expect(screen.getByRole("checkbox", { name: "Public" })).toBeChecked();
+      expect(screen.getByRole("checkbox", { name: "Private" })).not.toBeChecked();
+    });
+
+    it("submits the converted byte size and selected access modifiers", async () => {
+      mutateAsync.mockResolvedValue({ isSuccess: true });
+      const user = userEvent.setup();
+      renderForm();
+
+      await user.type(screen.getByPlaceholderText("Enter name"), "my-aws");
+      await user.type(screen.getByPlaceholderText("Enter access key"), "AK123");
+      await user.type(screen.getByPlaceholderText("Enter secret key"), "SK456");
+      await user.type(
+        screen.getByPlaceholderText("Enter region endpoint"),
+        "us-east-1",
+      );
+      await user.clear(screen.getByLabelText("Maximum File Size (MB)"));
+      await user.type(screen.getByLabelText("Maximum File Size (MB)"), "10");
+      await user.click(screen.getByRole("checkbox", { name: "Private" }));
+
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      await waitFor(() =>
+        expect(mutateAsync).toHaveBeenCalledWith(
+          expect.objectContaining({
+            uploadUrlExpirySeconds: 600,
+            downloadUrlExpirySeconds: 300,
+            maxFileSizeInBytes: 10_485_760,
+            uploadCompletionRequiredFor: ["Private"],
+          }),
+        ),
+      );
+      // Only the byte value should reach the payload, never the MB display field.
+      expect(mutateAsync.mock.calls[0][0]).not.toHaveProperty("maxFileSizeInMb");
+    });
+
+    it("rejects an expiry outside the 1-604800 second range", async () => {
+      const user = userEvent.setup();
+      renderForm();
+
+      await user.clear(screen.getByLabelText("Upload URL Expiry (seconds)"));
+      await user.type(screen.getByLabelText("Upload URL Expiry (seconds)"), "0");
+      await user.click(screen.getByRole("button", { name: "Save" }));
+
+      expect(await screen.findByText("Must be at least 1 second")).toBeInTheDocument();
+      expect(mutateAsync).not.toHaveBeenCalled();
+    });
+  });
 });

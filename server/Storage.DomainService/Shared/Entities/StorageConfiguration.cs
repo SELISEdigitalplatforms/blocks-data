@@ -1,4 +1,6 @@
 ﻿using Blocks.Genesis;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Utilities;
 
@@ -39,7 +41,10 @@ namespace Storage.DomainService.Entities
         /// Access modifiers for which upload completion (quarantine + synchronous verification) is required.
         /// Only <see cref="AccessModifier.Public"/> and <see cref="AccessModifier.Private"/> are honored; any
         /// other value is ignored. Null/missing resolves to an empty set (completion not required).
+        /// Stored as strings (not the enum's default Int32 BSON representation) so Logic/OS configuration
+        /// persistence can write plain access-modifier names into the same document without sharing this enum type.
         /// </summary>
+        [BsonRepresentation(BsonType.String)]
         public List<AccessModifier>? UploadCompletionRequiredFor { get; set; }
 
         /// <summary>Resolves <see cref="UploadUrlExpirySeconds"/> to its effective, documented-default value.</summary>

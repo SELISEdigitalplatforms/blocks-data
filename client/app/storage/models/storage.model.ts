@@ -38,9 +38,9 @@ export interface IStorageConfiguration {
   password: string | null;
   remoteBasePath: string | null;
   /**
-   * Phase 1 upload-security fields. Optional because the Logic-hosted configuration API this
-   * client reads from (`STORAGE_CONFIG_ENDPOINTS`) does not serialize them yet - callers must
-   * fall back to the same documented defaults the backend itself uses when they are absent.
+   * Phase 1 upload-security fields. Optional because a configuration predating Phase 1, or one
+   * that never set these, omits them - callers must fall back to the same documented defaults
+   * the backend itself uses when they are absent.
    */
   uploadUrlExpirySeconds?: number;
   downloadUrlExpirySeconds?: number;
@@ -63,6 +63,10 @@ export interface IStorageConfigurationSavePayload {
   userName: string | null;
   password: string | null;
   remoteBasePath: string | null;
+  uploadUrlExpirySeconds: number;
+  downloadUrlExpirySeconds: number;
+  maxFileSizeInBytes: number;
+  uploadCompletionRequiredFor: ("Public" | "Private")[];
 }
 export interface IStorageConfigurationDeletePayload {
   projectKey: string;
@@ -152,6 +156,8 @@ export interface IGetFileByFileIDResponse {
   sizeInBytes: number;
   /** The default access this file grants when unshared: "Creator", "Organization", or unset. */
   objectAccessLevel?: string;
+  /** When `url` is a provider-signed URL, when it stops working. Null for an intentionally anonymous (never-expiring) Public URL. */
+  downloadUrlExpiresAtUtc?: string | null;
   errors: unknown;
   isSuccess: boolean;
 }

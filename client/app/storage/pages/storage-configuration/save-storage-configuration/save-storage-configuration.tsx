@@ -7,6 +7,7 @@ import {
   DialogClose,
 } from "@/components/ui-kits/dialog/dialog";
 import { Input } from "@/components/ui-kits/input/input";
+import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import { Button } from "@/components/ui-kits/button/button";
 import {
   Select,
@@ -18,8 +19,8 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  storageConfigurationFormDefaultValue,
   storageConfigurationFormSchema,
+  toStorageConfigurationFormValues,
 } from "./utils";
 import {
   Form,
@@ -51,7 +52,7 @@ export const SaveStorageConfiguration = ({
 }: SaveStorageConfigurationProps) => {
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const form = useForm({
-    defaultValues: configuration || storageConfigurationFormDefaultValue,
+    defaultValues: toStorageConfigurationFormValues(configuration),
     resolver: zodResolver(storageConfigurationFormSchema),
   });
   const { isPending, mutateAsync } = useSaveStorageConfiguration();
@@ -60,11 +61,15 @@ export const SaveStorageConfiguration = ({
     values: z.infer<typeof storageConfigurationFormSchema>,
   ) => {
     try {
+      const { maxFileSizeInMb, ...rest } = values;
       const payload = {
-        ...values,
+        ...rest,
         storageStrategy: (values.storageStrategy === "Amazon"
           ? "AWS"
           : values.storageStrategy) as StorageStrategyType,
+        uploadUrlExpirySeconds: Number(values.uploadUrlExpirySeconds),
+        downloadUrlExpirySeconds: Number(values.downloadUrlExpirySeconds),
+        maxFileSizeInBytes: Math.round(Number(maxFileSizeInMb) * 1024 * 1024),
         projectKey: tenantId,
         updateRequest: configuration ? true : false,
         itemId: configuration?.itemId || null,
@@ -150,6 +155,93 @@ export const SaveStorageConfiguration = ({
                     <FormLabel>Name</FormLabel>
                     <FormControl>
                       <Input placeholder="Enter name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                name="uploadUrlExpirySeconds"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Upload URL Expiry (seconds)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="600"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                name="downloadUrlExpirySeconds"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Download URL Expiry (seconds)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="300"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                name="maxFileSizeInMb"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Maximum File Size (MB)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        placeholder="5"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                name="uploadCompletionRequiredFor"
+                control={form.control}
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Require upload verification for</FormLabel>
+                    <FormControl>
+                      <div className="flex flex-row gap-6">
+                        {(["Public", "Private"] as const).map((option) => (
+                          <label
+                            key={option}
+                            className="flex items-center gap-2 text-sm font-normal"
+                          >
+                            <Checkbox
+                              checked={field.value?.includes(option) ?? false}
+                              onCheckedChange={(checked) => {
+                                const current: ("Public" | "Private")[] = field.value ?? [];
+                                field.onChange(
+                                  checked
+                                    ? [...current, option]
+                                    : current.filter((value) => value !== option),
+                                );
+                              }}
+                            />
+                            {option}
+                          </label>
+                        ))}
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

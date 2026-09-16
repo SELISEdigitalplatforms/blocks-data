@@ -1,4 +1,5 @@
 ﻿using Blocks.Genesis;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using Storage.DomainService.Enums;
 
@@ -8,6 +9,10 @@ namespace Storage.DomainService.Entities
     public class FileDirectory : Structure
     {
         public string TenantId { get; set; }
+
+        /// <summary>Default access when unshared. Null preserves pre-existing (allow-all) behaviour.</summary>
+        [BsonRepresentation(BsonType.String)]
+        public ObjectAccessLevel? ObjectAccessLevel { get; set; }
 
         /// <summary>Cached directory ancestry, ordered root first, ending at the parent directory.</summary>
         public List<string> AncestorIds { get; set; } = new();
@@ -57,6 +62,7 @@ namespace Storage.DomainService.Entities
                 ConfigurationName = directoryOptions.ConfigurationName,
                 ModuleName = directoryOptions.ModuleName,
                 Description = directoryOptions.Description,
+                ObjectAccessLevel = directoryOptions.ObjectAccessLevel,
             };
         }
     }

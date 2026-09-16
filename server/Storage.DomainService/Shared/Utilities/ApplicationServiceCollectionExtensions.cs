@@ -53,6 +53,8 @@ namespace Storage.DomainService.Utilities
             services.AddSingleton<IFileDirectoryManagementService, FileDirectoryManagementService>();
             services.AddSingleton<IObjectDiscoveryService, ObjectDiscoveryService>();
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
+            services.AddSingleton<IUploadKeyRouter, UploadKeyRouter>();
+            services.AddSingleton<IUploadVerificationService, UploadVerificationService>();
             services.AddSingleton<IConfigurationRepository, ConfigurationRepository>();
             services.AddTransient<AzureBlobStorageService>();
             services.AddTransient<AwsS3StorageService>();

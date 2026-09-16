@@ -1,12 +1,30 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   IGetFileByFileIDPayload,
+  IGetFileByFileIDResponse,
   IGetFilesInfoPayload,
 } from "../models/storage.model";
 import { storageService } from "../services/storage.service";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 
 const getProjectKey = () => useProjectStore.getState().selectedProject?.tenantId || "";
+
+/**
+ * A cached signed download URL must not outlive the provider's expiry, or a consumer (e.g. a
+ * still-open preview modal, or a later click reusing the query cache) would be handed a dead URL.
+ * Ties the query's staleTime to `downloadUrlExpiresAtUtc` instead of the global default so React
+ * Query naturally refetches once the URL has expired: no expiry (local storage, or an
+ * intentionally anonymous Public URL) keeps the global default/never-stale behavior; a past
+ * expiry is immediately stale.
+ */
+const staleTimeFromDownloadUrlExpiry = (query: {
+  state: { data?: IGetFileByFileIDResponse };
+}) => {
+  const expiresAt = query.state.data?.downloadUrlExpiresAtUtc;
+  if (expiresAt === undefined) return 60 * 1000;
+  if (expiresAt === null) return Infinity;
+  return Math.max(new Date(expiresAt).getTime() - Date.now(), 0);
+};
 
 export const useGetPreSignedUrlForUpload = () => {
   const queryClient = useQueryClient();
@@ -29,6 +47,13 @@ export const useUploadFile = () => {
   });
 };
 
+export const useCompleteUpload = () => {
+  return useMutation({
+    mutationKey: ["storage", "file", "completeUpload"],
+    mutationFn: storageService.file.completeUpload,
+  });
+};
+
 export const useUploadFileToLocalStorage = () => {
   return useMutation({
     mutationKey: ["storage", "file", "upload"],
@@ -36,10 +61,27 @@ export const useUploadFileToLocalStorage = () => {
   });
 };
 
-export const useGetFile = (option: IGetFileByFileIDPayload) => {
+export const useGetFile = (
+  option: IGetFileByFileIDPayload,
+  options: { enabled?: boolean } = {},
+) => {
   return useQuery({
     queryKey: ["file", option.projectKey, option],
     queryFn: () => storageService.file.getFileByFileId(option),
+    enabled: options.enabled ?? true,
+    staleTime: staleTimeFromDownloadUrlExpiry,
+  });
+};
+
+export const useUpdateFileAdditionalInfo = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ["storage", "file", "updateAdditionalInfo"],
+    mutationFn: storageService.file.updateFileAdditionalInfo,
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["file", variables.projectKey] });
+    },
   });
 };
 
@@ -50,6 +92,7 @@ export const useLazyGetFile = () => {
     return queryClient.fetchQuery({
       queryKey: ["file", option.projectKey, option],
       queryFn: () => storageService.file.getFileByFileId(option),
+      staleTime: staleTimeFromDownloadUrlExpiry,
     });
   };
 
@@ -87,6 +130,7 @@ export const useGetFilesDownload = (
     queryFn: () => storageService.file.getFilesDownloadUrl(meta),
     enabled: options?.enabled ?? true,
     refetchOnWindowFocus: false,
+    staleTime: staleTimeFromDownloadUrlExpiry,
   });
 };
 

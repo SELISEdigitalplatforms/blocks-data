@@ -1,3 +1,5 @@
+using Storage.DomainService.Entities;
+
 namespace Storage.DomainService.Services
 {
     public sealed class ObjectResourceDescriptor
@@ -6,5 +8,7 @@ namespace Storage.DomainService.Services
         public List<string> AncestorIds { get; set; } = new();
         public bool InheritsParentAccess { get; set; } = true;
         public string? CreatedBy { get; set; }
+        public string? OrganizationId { get; set; }
+        public ObjectAccessLevel? ObjectAccessLevel { get; set; }
     }
 }

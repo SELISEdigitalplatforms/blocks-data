@@ -67,7 +67,8 @@ namespace Api.Controllers
 
             var result = await _directoryManagementService.CreateDirectoryAsync(
                 request.Name, request.ParentDirectoryId, request.Description,
-                request.ConfigurationName, request.ModuleName?.ToString(), request.AllowedFileExtensions);
+                request.ConfigurationName, request.ModuleName?.ToString(), request.AllowedFileExtensions,
+                request.ObjectAccessLevel);
 
             return MapCreate(result);
         }
@@ -80,7 +81,8 @@ namespace Api.Controllers
         {
             var result = await _directoryManagementService.CreateDirectoryAsync(
                 request.Name, null, request.Description,
-                request.ConfigurationName, request.ModuleName?.ToString(), request.AllowedFileExtensions);
+                request.ConfigurationName, request.ModuleName?.ToString(), request.AllowedFileExtensions,
+                request.ObjectAccessLevel);
 
             return MapCreate(result);
         }
@@ -106,13 +108,15 @@ namespace Api.Controllers
         public async Task<IActionResult> UpdateDirectory([FromBody] UpdateDirectoryRequest request)
         {
             var result = await _directoryManagementService.UpdateDirectoryAsync(
-                request.DirectoryId, request.Name, request.Description);
+                request.DirectoryId, request.Name, request.Description,
+                request.ObjectAccessLevel, request.UpdateObjectAccessLevel);
 
             return result.Status switch
             {
                 DirectoryOperationStatus.Succeeded => Ok(new { directoryId = result.DirectoryId }),
                 DirectoryOperationStatus.NameConflict => Conflict(new { message = "A directory with that name already exists here." }),
                 DirectoryOperationStatus.IsDefault => BadRequest(new { message = "This is a default directory and cannot be renamed." }),
+                DirectoryOperationStatus.InvalidObjectAccessLevel => BadRequest(new { message = "ObjectAccessLevel must be 'Creator' or 'Organization'." }),
                 DirectoryOperationStatus.NotPermitted => Forbid(),
                 _ => NotFound(new { message = $"Directory not found: {request.DirectoryId}" }),
             };
@@ -160,6 +164,7 @@ namespace Api.Controllers
             DirectoryOperationStatus.NameConflict => Conflict(new { message = "A directory with that name already exists here." }),
             DirectoryOperationStatus.NotPermitted => Forbid(),
             DirectoryOperationStatus.ParentNotFound => NotFound(new { message = "Parent directory not found." }),
+            DirectoryOperationStatus.InvalidObjectAccessLevel => BadRequest(new { message = "ObjectAccessLevel must be 'Creator' or 'Organization'." }),
             _ => NotFound(new { message = "Directory not found." }),
         };
     }

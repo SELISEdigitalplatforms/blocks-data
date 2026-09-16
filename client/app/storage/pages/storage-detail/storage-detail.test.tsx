@@ -609,9 +609,9 @@ describe("StorageDetail", () => {
     );
   });
 
-  it("hides move, rename and delete on a default directory", async () => {
-    // Default directories (Cloud/Construct/etc) are system roots: the destructive
-    // row actions are removed so a user can't unanchor the tree from the UI.
+  it("hides move, rename, delete and manage access on a default directory", async () => {
+    // Default directories (Cloud/Construct/etc) are system roots: these row actions
+    // are removed so a user can't unanchor the tree, or change its access, from the UI.
     mocks.dmsState.response = {
       dmsFileAndDirectoryInfos: [
         { ...makeDirectory({ name: "Cloud", itemId: "cloud-root" }), isDefault: true },
@@ -622,11 +622,10 @@ describe("StorageDetail", () => {
 
     await userEvent.setup().click(await screen.findByRole("button", { name: "More options" }));
 
-    // Manage access stays available (sharing a default directory is allowed); only
-    // move/rename/delete are gated off.
     expect(screen.queryByText("Move")).not.toBeInTheDocument();
     expect(screen.queryByText("Rename")).not.toBeInTheDocument();
     expect(screen.queryByText("Delete")).not.toBeInTheDocument();
+    expect(screen.queryByText("Manage access")).not.toBeInTheDocument();
   });
 
   it("does not raise its own toast when the listing fails", () => {

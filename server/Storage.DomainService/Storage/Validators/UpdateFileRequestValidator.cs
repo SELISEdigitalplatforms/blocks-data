@@ -8,6 +8,11 @@ namespace Storage.DomainService.Storage.Validators
         public UpdateFileRequestValidator()
         {
             RuleFor(u => u.ItemId).NotEmpty().NotNull();
+
+            RuleFor(u => u.ObjectAccessLevel)
+                .Must(DmsValidationRules.BeAValidObjectAccessLevel)
+                .When(u => u.UpdateObjectAccessLevel)
+                .WithMessage("ObjectAccessLevel must be 'Creator' or 'Organization'.");
         }
     }
 }

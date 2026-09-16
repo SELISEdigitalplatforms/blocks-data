@@ -43,5 +43,10 @@ namespace StorageDriver
         {
             return await _fileManagementService.GetBlobClientAsync(tenantId);
         }
+
+        public async Task<CompleteUploadResponse> CompleteUploadAsync(CompleteUploadRequest request)
+        {
+            return await _fileManagementService.CompleteUploadAsync(request);
+        }
     }
 }

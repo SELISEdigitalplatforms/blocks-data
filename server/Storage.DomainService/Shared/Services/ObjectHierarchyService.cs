@@ -296,6 +296,8 @@ namespace Storage.DomainService.Services
                 AncestorIds = directory.AncestorIds ?? new(),
                 InheritsParentAccess = directory.InheritsParentAccess,
                 CreatedBy = directory.CreatedBy,
+                OrganizationId = directory.OrganizationId,
+                ObjectAccessLevel = directory.ObjectAccessLevel,
             }, permission, cancellationToken);
             var context = BlocksContext.GetContext();
             var userId = context?.UserId ?? string.Empty;

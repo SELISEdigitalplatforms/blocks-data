@@ -33,12 +33,16 @@ public class ObjectAccessResolverTests : IDisposable
         string id = "file-1",
         string? createdBy = "someone-else",
         bool inherits = true,
+        string? organizationId = null,
+        ObjectAccessLevel? objectAccessLevel = null,
         params string[] ancestors) => new()
         {
             ResourceId = id,
             CreatedBy = createdBy,
             InheritsParentAccess = inherits,
             AncestorIds = ancestors.ToList(),
+            OrganizationId = organizationId,
+            ObjectAccessLevel = objectAccessLevel,
         };
 
     private static ObjectAccessPolicy Ace(
@@ -95,6 +99,90 @@ public class ObjectAccessResolverTests : IDisposable
         flags.CanDelete.Should().BeTrue();
         flags.CanManage.Should().BeTrue();
         flags.CanOwner.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_resource_with_no_ObjectAccessLevel_set_stays_accessible_to_everyone()
+    {
+        // Legacy items (and any item created before ObjectAccessLevel existed) never had this
+        // field populated. Their behaviour must not change: still allow-all when unshared.
+        SetupPolicies();
+
+        var allowed = await _resolver.ResolveAsync(
+            Resource(organizationId: "org-1", objectAccessLevel: null), ObjectPermission.View);
+
+        allowed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Organization_scoped_default_allows_a_caller_in_the_same_organization()
+    {
+        SetupPolicies();
+
+        var allowed = await _resolver.ResolveAsync(
+            Resource(organizationId: "org-1", objectAccessLevel: ObjectAccessLevel.Organization), ObjectPermission.View);
+
+        allowed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Organization_scoped_default_denies_a_caller_in_a_different_organization()
+    {
+        SetupPolicies();
+
+        var allowed = await _resolver.ResolveAsync(
+            Resource(organizationId: "org-2", objectAccessLevel: ObjectAccessLevel.Organization), ObjectPermission.View);
+
+        allowed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Creator_scoped_default_denies_anyone_other_than_the_creator()
+    {
+        SetupPolicies();
+
+        // createdBy defaults to "someone-else", so the caller (user-1) is not the creator.
+        var allowed = await _resolver.ResolveAsync(
+            Resource(organizationId: "org-1", objectAccessLevel: ObjectAccessLevel.Creator), ObjectPermission.View);
+
+        allowed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Creator_scoped_default_still_allows_the_creator()
+    {
+        // The owner shortcut runs before the default-scope fallback, so the creator is
+        // unaffected by a Creator-scoped default even though no policy exists yet.
+        var flags = await _resolver.ResolveFlagsAsync(
+            Resource(createdBy: "user-1", organizationId: "org-1", objectAccessLevel: ObjectAccessLevel.Creator));
+
+        flags.CanView.Should().BeTrue();
+        flags.CanOwner.Should().BeTrue();
+        _repository.Verify(r => r.GetByResourcesAsync(It.IsAny<IEnumerable<string>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task An_explicit_share_overrides_a_Creator_scoped_default()
+    {
+        // The whole point of the default is that it only governs an unshared item: the
+        // moment it's shared, the explicit policy takes over completely.
+        SetupPolicies(Ace("file-1", ObjectPrincipalType.User, "user-1", ObjectPermission.View));
+
+        var allowed = await _resolver.ResolveAsync(
+            Resource(organizationId: "org-1", objectAccessLevel: ObjectAccessLevel.Creator), ObjectPermission.View);
+
+        allowed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task An_explicit_deny_overrides_an_Organization_scoped_default()
+    {
+        SetupPolicies(Ace("file-1", ObjectPrincipalType.User, "user-1", ObjectPermission.View, ObjectEffect.Deny));
+
+        var allowed = await _resolver.ResolveAsync(
+            Resource(organizationId: "org-1", objectAccessLevel: ObjectAccessLevel.Organization), ObjectPermission.View);
+
+        allowed.Should().BeFalse();
     }
 
     [Fact]

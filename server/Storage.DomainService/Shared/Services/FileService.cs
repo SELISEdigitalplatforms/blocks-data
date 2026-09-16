@@ -210,6 +210,7 @@ namespace Storage.DomainService.Services
                 SystemName = source.SystemName,
                 Url = source.Url,
                 AccessModifier = source.AccessModifier,
+                ObjectAccessLevel = source.ObjectAccessLevel,
                 MetaData = source.MetaData,
                 AdditionalProperties = source.AdditionalProperties,
                 DirectoryId = target.ItemId,
@@ -404,6 +405,8 @@ namespace Storage.DomainService.Services
                 AncestorIds = file.AncestorIds ?? new(),
                 InheritsParentAccess = file.InheritsParentAccess,
                 CreatedBy = file.CreatedBy,
+                OrganizationId = file.OrganizationId,
+                ObjectAccessLevel = file.ObjectAccessLevel,
             }, ObjectResourceType.File, permission, action, cancellationToken);
 
         private async Task<bool> AuthorizeAsync(FileDirectory directory, ObjectPermission permission, string action, CancellationToken cancellationToken) =>
@@ -413,6 +416,8 @@ namespace Storage.DomainService.Services
                 AncestorIds = directory.AncestorIds ?? new(),
                 InheritsParentAccess = directory.InheritsParentAccess,
                 CreatedBy = directory.CreatedBy,
+                OrganizationId = directory.OrganizationId,
+                ObjectAccessLevel = directory.ObjectAccessLevel,
             }, ObjectResourceType.Directory, permission, action, cancellationToken);
 
         private async Task<bool> AuthorizeAsync(ObjectResourceDescriptor resource, ObjectResourceType type,

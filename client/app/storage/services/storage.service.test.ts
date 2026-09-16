@@ -26,13 +26,14 @@ describe("StorageService", () => {
   // ─── uploadFile ────────────────────────────────────────────────────────────
 
   describe("uploadFile", () => {
-    it("should call http.put with absolute URL, file body, correct headers, and options", async () => {
+    it("should call http.put with absolute URL, file body, provider-required headers, and options", async () => {
       vi.mocked(http.put).mockResolvedValue({});
 
       const file = new File(["content"], "upload.pdf", { type: "application/pdf" });
       const payload = {
         url: "https://s3.amazonaws.com/bucket/upload.pdf?X-Amz-Signature=abc",
         file,
+        headers: { "x-ms-blob-type": "BlockBlob" },
       };
 
       await service.uploadFile(payload);
@@ -42,9 +43,23 @@ describe("StorageService", () => {
         payload.file,
         {
           "Content-Type": "application/pdf",
-          "x-ms-blob-type": "Blockblob",
+          "x-ms-blob-type": "BlockBlob",
         },
         { skipBlocksKey: true, absoluteUrl: true, withCredentials: false },
+      );
+    });
+
+    it("should send only Content-Type when the server returns no required headers", async () => {
+      vi.mocked(http.put).mockResolvedValue({});
+
+      const file = new File(["content"], "upload.pdf", { type: "application/pdf" });
+      await service.uploadFile({ url: "https://example.com/upload.pdf", file });
+
+      expect(http.put).toHaveBeenCalledWith(
+        expect.any(String),
+        file,
+        { "Content-Type": "application/pdf" },
+        expect.any(Object),
       );
     });
 

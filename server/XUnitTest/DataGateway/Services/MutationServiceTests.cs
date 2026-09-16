@@ -158,6 +158,30 @@ public class MutationServiceTests
     }
 
     [Fact]
+    public async Task InsertAsync_DatabaseDuplicateKey_ThrowsCleanValidationError()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        // Simulates a unique index created directly on the Indexes tab: it has no IsUniqueData
+        // flag, so the app-level pre-check (see InsertAsync_UniqueConflict_Throws) misses it and
+        // the duplicate is only rejected by MongoDB itself on the write.
+        repo.Setup(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()))
+            .ThrowsAsync(new MongoCommandException(
+                new MongoDB.Driver.Core.Connections.ConnectionId(new MongoDB.Driver.Core.Servers.ServerId(new MongoDB.Driver.Core.Clusters.ClusterId(), new System.Net.DnsEndPoint("localhost", 27017))),
+                "E11000 duplicate key error collection: db.Persons index: Email_1 dup key: { Email: \"a@b.com\" }",
+                new BsonDocument(),
+                new BsonDocument("code", 11000)));
+        var schema = Schema(fields: new() { Field("Name"), Field("Email") });
+        var ctx = ContextWith(ObjectLiteral("{ Name: \"John\", Email: \"a@b.com\" }"));
+
+        var act = () => NewService(repo, pub).InsertAsync(schema, ctx.Object, _insertInput);
+
+        var ex = await act.Should().ThrowAsync<GraphQLException>();
+        ex.Which.Errors[0].Code.Should().Be(GraphQlConstant.ValidationErrorErrorCode);
+        ex.Which.Errors[0].Message.Should().Contain("Email");
+    }
+
+    [Fact]
     public async Task InsertAsync_AccessDenied_ThrowsUnauthorized()
     {
         var repo = Repo();

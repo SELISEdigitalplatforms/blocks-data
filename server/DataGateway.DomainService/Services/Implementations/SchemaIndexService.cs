@@ -122,12 +122,15 @@ public class SchemaIndexService : ISchemaIndexService
     /// <summary>
     /// Eligible fields mirror the existing IsUniqueData filter in MutationService, minus its
     /// array exclusion: this feature explicitly supports multikey (array) indexes, only
-    /// reference fields and non-scalar types are excluded.
+    /// non-scalar types are excluded. IsReferenceField is not checked here: it is set on every
+    /// field denormalized from a referenced schema (see SchemaDefinitionReferenceHelper), including
+    /// scalar leaves like "Assignee.email", so it cannot distinguish those from actual reference
+    /// fields (e.g. "Assignee" itself) — the latter are already excluded by the scalar check below.
     /// </summary>
     private static bool IsFieldIndexable(SchemaDefinition schema, string fieldName)
     {
         var field = schema.Fields.FirstOrDefault(f => f.Name == fieldName);
-        return field != null && !field.IsReferenceField && GraphQlTypeHelper.IsScalar(field.Type);
+        return field != null && GraphQlTypeHelper.IsScalar(field.Type);
     }
 
     private static string BuildIndexName(List<(string FieldName, int Direction)> keys) =>

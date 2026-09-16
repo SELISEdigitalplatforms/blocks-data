@@ -37,6 +37,15 @@ export interface IStorageConfiguration {
   userName: string | null;
   password: string | null;
   remoteBasePath: string | null;
+  /**
+   * Phase 1 upload-security fields. Optional because a configuration predating Phase 1, or one
+   * that never set these, omits them - callers must fall back to the same documented defaults
+   * the backend itself uses when they are absent.
+   */
+  uploadUrlExpirySeconds?: number;
+  downloadUrlExpirySeconds?: number;
+  maxFileSizeInBytes?: number;
+  uploadCompletionRequiredFor?: ("Public" | "Private")[];
 }
 
 export interface IStorageConfigurationSavePayload {
@@ -54,11 +63,18 @@ export interface IStorageConfigurationSavePayload {
   userName: string | null;
   password: string | null;
   remoteBasePath: string | null;
+  uploadUrlExpirySeconds: number;
+  downloadUrlExpirySeconds: number;
+  maxFileSizeInBytes: number;
+  uploadCompletionRequiredFor: ("Public" | "Private")[];
 }
 export interface IStorageConfigurationDeletePayload {
   projectKey: string;
   configurationName: string;
 }
+
+/** Mirrors `Storage.DomainService.Enums.FileVerificationStatus` server-side. */
+export type FileVerificationStatus = "Unverified" | "Quarantined" | "Verified" | "Rejected";
 
 export interface IGetPreSignedUrlForUploadPayload {
   itemId?: string;
@@ -68,10 +84,21 @@ export interface IGetPreSignedUrlForUploadPayload {
   metaData: string;
   parentDirectoryId: string;
   tags: string;
+  /** "Public" or "Private" only - the storage UI never offers "Secure"/"Any" here. */
   accessModifier: string;
+  /** "Creator" or "Organization". Omitted preserves the pre-existing (allow-all) default. */
+  objectAccessLevel?: string;
   agentId?: string;
   additionalProperties?: Record<string, unknown>;
   moduleName: number;
+  /** Declared size in bytes, used server-side to reject an oversized upload before issuing a URL. */
+  sizeInBytes?: number;
+  /** Declared MIME type of the file being uploaded. */
+  contentType?: string;
+  /** Declared checksum, verified during completion when the provider can validate it or by streaming the candidate. Omit to skip checksum verification. */
+  checksum?: string;
+  /** Algorithm that produced `checksum` (e.g. "SHA256", "MD5"). */
+  checksumAlgorithm?: string;
 }
 
 export interface IGetPreSignedUrlForUploadResponse {
@@ -79,6 +106,30 @@ export interface IGetPreSignedUrlForUploadResponse {
   isSuccess: boolean;
   fileId: string;
   uploadUrl: string;
+  /** Identifies the exact version this upload created; required to call `completeUpload` when completion is required. */
+  fileVersionId?: string;
+  uploadSessionId?: string;
+  uploadUrlExpiresAtUtc?: string | null;
+  /** Headers the client must send with the provider PUT (e.g. Azure's blob-type header). */
+  requiredHeaders?: Record<string, string> | null;
+  /** True when the client must call `completeUpload` after the provider PUT succeeds. */
+  uploadCompletionRequired?: boolean;
+  verificationStatus?: FileVerificationStatus;
+}
+
+export interface ICompleteUploadPayload {
+  fileId: string;
+  fileVersionId: string;
+}
+
+export interface ICompleteUploadResponse {
+  errors: null | unknown;
+  isSuccess: boolean;
+  fileId: string;
+  fileVersionId: string;
+  verificationStatus: FileVerificationStatus;
+  /** Safe, non-sensitive explanation set only when `verificationStatus` is "Rejected". */
+  rejectionReason?: string | null;
 }
 
 export interface IGetFileByFileIDPayload {
@@ -103,12 +154,18 @@ export interface IGetFileByFileIDResponse {
   language: string;
   tenantId: string;
   sizeInBytes: number;
+  /** The default access this file grants when unshared: "Creator", "Organization", or unset. */
+  objectAccessLevel?: string;
+  /** When `url` is a provider-signed URL, when it stops working. Null for an intentionally anonymous (never-expiring) Public URL. */
+  downloadUrlExpiresAtUtc?: string | null;
   errors: unknown;
   isSuccess: boolean;
 }
 export interface IUploadImagePayload {
   url: string;
   file: File | Blob;
+  /** Provider-required headers for this upload (from `IGetPreSignedUrlForUploadResponse.requiredHeaders`). */
+  headers?: Record<string, string> | null;
 }
 
 export interface IPublicCertificatePayload {
@@ -201,6 +258,10 @@ export interface IUpdateFileAdditionalInfoPayload {
   itemId: string;
   additionalProperties: Record<string, unknown>;
   projectKey: string;
+  /** "Creator" or "Organization"; empty string clears it back to the legacy default. */
+  objectAccessLevel?: string;
+  /** Set to true to change objectAccessLevel with this request, including clearing it. */
+  updateObjectAccessLevel?: boolean;
 }
 
 export interface IUpdateFileAdditionalInfoResponse {

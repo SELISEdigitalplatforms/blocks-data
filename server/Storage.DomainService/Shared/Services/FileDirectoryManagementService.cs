@@ -53,8 +53,14 @@ namespace Storage.DomainService.Services
             string? configurationName = null,
             string? moduleName = null,
             string[]? allowedFileExtensions = null,
+            string? objectAccessLevel = null,
             CancellationToken cancellationToken = default)
         {
+            if (!TryParseObjectAccessLevel(objectAccessLevel, out var parsedAccessLevel))
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.InvalidObjectAccessLevel);
+            }
+
             var systemName = ToSystemName(name);
             FileDirectory? parent = null;
 
@@ -97,6 +103,7 @@ namespace Storage.DomainService.Services
                 ConfigurationName = configurationName,
                 ModuleName = moduleName,
                 AllowedFileExtensions = allowedFileExtensions ?? Array.Empty<string>(),
+                ObjectAccessLevel = parsedAccessLevel,
             });
 
             // CreateNew derives SystemName from the untrimmed name; set it from the same
@@ -153,8 +160,15 @@ namespace Storage.DomainService.Services
         }
 
         public async Task<DirectoryOperationResult> UpdateDirectoryAsync(
-            string directoryId, string? name, string? description, CancellationToken cancellationToken = default)
+            string directoryId, string? name, string? description, string? objectAccessLevel = null,
+            bool updateObjectAccessLevel = false, CancellationToken cancellationToken = default)
         {
+            ObjectAccessLevel? parsedAccessLevel = null;
+            if (updateObjectAccessLevel && !TryParseObjectAccessLevel(objectAccessLevel, out parsedAccessLevel))
+            {
+                return DirectoryOperationResult.Failure(DirectoryOperationStatus.InvalidObjectAccessLevel);
+            }
+
             var directory = await LoadDirectoryAsync(directoryId, cancellationToken);
             if (directory is null)
             {
@@ -193,6 +207,11 @@ namespace Storage.DomainService.Services
             if (description is not null)
             {
                 updates.Add(Builders<FileDirectory>.Update.Set(d => d.Description, description));
+            }
+
+            if (updateObjectAccessLevel)
+            {
+                updates.Add(Builders<FileDirectory>.Update.Set(d => d.ObjectAccessLevel, parsedAccessLevel));
             }
 
             if (updates.Count == 0)
@@ -434,12 +453,33 @@ namespace Storage.DomainService.Services
             return await Directories.CountDocumentsAsync(filter, cancellationToken: cancellationToken) > 0;
         }
 
+        /// <summary>Empty/whitespace parses to null (no default scope, i.e. today's allow-all behaviour).</summary>
+        private static bool TryParseObjectAccessLevel(string? value, out ObjectAccessLevel? result)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                result = null;
+                return true;
+            }
+
+            if (Enum.TryParse<ObjectAccessLevel>(value, true, out var parsed))
+            {
+                result = parsed;
+                return true;
+            }
+
+            result = null;
+            return false;
+        }
+
         private static ObjectResourceDescriptor Describe(FileDirectory directory) => new()
         {
             ResourceId = directory.ItemId,
             AncestorIds = directory.AncestorIds ?? new List<string>(),
             InheritsParentAccess = directory.InheritsParentAccess,
             CreatedBy = directory.CreatedBy,
+            OrganizationId = directory.OrganizationId,
+            ObjectAccessLevel = directory.ObjectAccessLevel,
         };
 
         /// <summary>

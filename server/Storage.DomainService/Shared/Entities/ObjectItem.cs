@@ -1,4 +1,5 @@
 using Blocks.Genesis;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using Storage.DomainService.Enums;
 
@@ -29,6 +30,10 @@ namespace Storage.DomainService.Entities
         public string? ContentType { get; set; }
         public bool IsDefault { get; set; }
 
+        /// <summary>Mirrors the source File/FileDirectory's default access when unshared.</summary>
+        [BsonRepresentation(BsonType.String)]
+        public ObjectAccessLevel? ObjectAccessLevel { get; set; }
+
         public static ObjectItem From(File file) => new()
         {
             ItemId = file.ItemId,
@@ -48,6 +53,7 @@ namespace Storage.DomainService.Entities
             ContentType = file.ContentType,
             CreatedDate = file.CreatedDate,
             LastUpdatedDate = file.LastUpdatedDate,
+            ObjectAccessLevel = file.ObjectAccessLevel,
         };
 
         public static ObjectItem From(FileDirectory directory) => new()
@@ -69,6 +75,7 @@ namespace Storage.DomainService.Entities
             IsDefault = directory.Tags?.Contains("default", StringComparer.OrdinalIgnoreCase) == true,
             CreatedDate = directory.CreatedDate,
             LastUpdatedDate = directory.LastUpdatedDate,
+            ObjectAccessLevel = directory.ObjectAccessLevel,
         };
     }
 }

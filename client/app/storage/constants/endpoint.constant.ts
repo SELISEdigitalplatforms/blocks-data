@@ -23,6 +23,7 @@ export const STORAGE_FILE_ENDPOINTS = {
   GET_FILE: `${API_BASES.UDS}${FILES_SUBPATH}/get-file`,
   DELETE_FILE: `${API_BASES.UDS}${FILES_SUBPATH}/delete-file`,
   GET_PRESIGNED_URL: `${API_BASES.UDS}${FILES_SUBPATH}/get-pre-signed-url-for-upload`,
+  COMPLETE_UPLOAD: `${API_BASES.UDS}${FILES_SUBPATH}/complete-upload`,
   GET_FILES_INFO: `${API_BASES.UDS}${FILES_SUBPATH}/get-files-info`,
   UPDATE_FILE_ADDITIONAL_INFO: `${API_BASES.UDS}${FILES_SUBPATH}/update-file-additional-info`,
   UPLOAD_TO_LOCAL_STORAGE: `${API_BASES.UDS}${FILES_SUBPATH}/upload-file-to-local-storage`,

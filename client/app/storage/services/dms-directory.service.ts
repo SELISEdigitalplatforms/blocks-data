@@ -59,6 +59,7 @@ export class DmsDirectoryService {
       configurationName: payload.configurationName,
       moduleName: payload.moduleName,
       allowedFileExtensions: payload.allowedFileExtensions,
+      objectAccessLevel: payload.objectAccessLevel,
     });
   }
 

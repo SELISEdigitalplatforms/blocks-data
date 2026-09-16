@@ -46,5 +46,12 @@ namespace StorageDriver
         Task<LocalStorageUploadResponse> UploadFileToLocalStorageAsync(LocalStorageUploadRequest request);
 
         Task<BlobClient> GetBlobClientAsync(string tenantId);
+
+        /// <summary>
+        /// Verifies and promotes (or rejects) a Quarantined upload. Idempotent and concurrency-safe.
+        /// </summary>
+        /// <param name="request">The request identifying the file and version to complete.</param>
+        /// <returns>A response with the resulting verification status.</returns>
+        Task<CompleteUploadResponse> CompleteUploadAsync(CompleteUploadRequest request);
     }
 }

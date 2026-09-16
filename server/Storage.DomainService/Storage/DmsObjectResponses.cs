@@ -154,6 +154,10 @@ namespace DomainService.Storage.Dms
         public DateTime CreatedDate { get; set; }
         public DateTime LastUpdatedDate { get; set; }
         public string? CreatedBy { get; set; }
+
+        /// <summary>The default access this directory grants when unshared: "Creator",
+        /// "Organization", or null when it carries the pre-existing (allow-all) default.</summary>
+        public string? ObjectAccessLevel { get; set; }
         public PermissionFlags Permissions { get; set; } = new();
 
         public static DirectoryDetailResponse From(
@@ -173,6 +177,7 @@ namespace DomainService.Storage.Dms
                 CreatedDate = directory.CreatedDate,
                 LastUpdatedDate = directory.LastUpdatedDate,
                 CreatedBy = directory.CreatedBy,
+                ObjectAccessLevel = directory.ObjectAccessLevel?.ToString(),
                 Permissions = PermissionFlags.From(flags),
             };
     }

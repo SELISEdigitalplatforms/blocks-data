@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const presignedMutate = vi.fn();
 const uploadfileMutate = vi.fn();
+const completeUploadMutate = vi.fn();
 const showSuccessToast = vi.fn();
 const showErrorToast = vi.fn();
 
@@ -16,6 +17,7 @@ vi.mock("@/hooks/use-toast", () => ({
 vi.mock("@/storage/hooks/use-storage-file", () => ({
   useGetPreSignedUrlForUpload: () => ({ mutateAsync: presignedMutate }),
   useUploadFile: () => ({ mutateAsync: uploadfileMutate }),
+  useCompleteUpload: () => ({ mutateAsync: completeUploadMutate }),
 }));
 
 import { UploadDmsFileModal } from "./upload-dms-file-modal";
@@ -48,8 +50,11 @@ beforeEach(() => {
     isSuccess: true,
     uploadUrl: "https://upload",
     fileId: "file-1",
+    fileVersionId: "version-1",
+    uploadCompletionRequired: false,
   });
   uploadfileMutate.mockResolvedValue({});
+  completeUploadMutate.mockResolvedValue({ verificationStatus: "Verified" });
 });
 
 describe("UploadDmsFileModal", () => {
@@ -95,6 +100,8 @@ describe("UploadDmsFileModal", () => {
     expect(showSuccessToast).toHaveBeenCalled();
     expect(onOpenChange).toHaveBeenCalledWith(false);
     expect(onUploadSuccess).toHaveBeenCalled();
+    // completion was not required for this upload, so it must not be called
+    expect(completeUploadMutate).not.toHaveBeenCalled();
   });
 
   it("throws and surfaces an error when the presigned URL request fails", async () => {
@@ -105,5 +112,124 @@ describe("UploadDmsFileModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Upload" }));
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
     expect(uploadfileMutate).not.toHaveBeenCalled();
+  });
+
+  it("defaults storage access to Private and sends it in the presigned-URL request", async () => {
+    render(<UploadDmsFileModal {...baseProps} />);
+    expect(screen.getByRole("button", { name: "Private" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    addFile();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Upload" }));
+    await waitFor(() =>
+      expect(presignedMutate).toHaveBeenCalledWith(
+        expect.objectContaining({ accessModifier: "Private" }),
+      ),
+    );
+  });
+
+  it("sends Public when the Public storage-access option is selected", async () => {
+    render(<UploadDmsFileModal {...baseProps} />);
+    fireEvent.click(screen.getByRole("button", { name: "Public" }));
+    addFile();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Upload" }));
+    await waitFor(() =>
+      expect(presignedMutate).toHaveBeenCalledWith(
+        expect.objectContaining({ accessModifier: "Public" }),
+      ),
+    );
+  });
+
+  it("calls complete-upload and reports success only when completion is required and Verified", async () => {
+    presignedMutate.mockResolvedValue({
+      isSuccess: true,
+      uploadUrl: "https://upload",
+      fileId: "file-1",
+      fileVersionId: "version-1",
+      uploadCompletionRequired: true,
+      requiredHeaders: { "x-ms-blob-type": "BlockBlob" },
+    });
+    completeUploadMutate.mockResolvedValue({ verificationStatus: "Verified" });
+
+    render(<UploadDmsFileModal {...baseProps} />);
+    addFile();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Upload" }));
+
+    await waitFor(() =>
+      expect(completeUploadMutate).toHaveBeenCalledWith({
+        fileId: "file-1",
+        fileVersionId: "version-1",
+      }),
+    );
+    expect(uploadfileMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ headers: { "x-ms-blob-type": "BlockBlob" } }),
+    );
+    await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
+  });
+
+  it("surfaces a rejection distinctly from an upload failure and does not report success", async () => {
+    presignedMutate.mockResolvedValue({
+      isSuccess: true,
+      uploadUrl: "https://upload",
+      fileId: "file-1",
+      fileVersionId: "version-1",
+      uploadCompletionRequired: true,
+    });
+    completeUploadMutate.mockResolvedValue({
+      verificationStatus: "Rejected",
+      rejectionReason: "real_file_type_does_not_match_extension",
+    });
+
+    render(<UploadDmsFileModal {...baseProps} />);
+    addFile();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Upload" }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          errors: expect.stringContaining("real_file_type_does_not_match_extension"),
+        }),
+      ),
+    );
+    expect(showSuccessToast).not.toHaveBeenCalled();
+  });
+
+  it("uploads every file independently: one rejection does not hide another file's success", async () => {
+    presignedMutate.mockImplementation(({ name: fileName }: { name: string }) =>
+      Promise.resolve({
+        isSuccess: true,
+        uploadUrl: "https://upload",
+        fileId: fileName,
+        fileVersionId: `${fileName}-v1`,
+        uploadCompletionRequired: true,
+      }),
+    );
+    completeUploadMutate.mockImplementation(({ fileId }: { fileId: string }) =>
+      Promise.resolve(
+        fileId === "bad.txt"
+          ? { verificationStatus: "Rejected", rejectionReason: "checksum_mismatch" }
+          : { verificationStatus: "Verified" },
+      ),
+    );
+
+    render(<UploadDmsFileModal {...baseProps} />);
+    const input = document.body.querySelector('input[type="file"]') as HTMLInputElement;
+    const good = new File(["ok"], "good.txt", { type: "text/plain" });
+    const bad = new File(["bad"], "bad.txt", { type: "text/plain" });
+    fireEvent.change(input, { target: { files: [good, bad] } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Upload" }));
+
+    await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith(
+        expect.objectContaining({ errors: expect.stringContaining("bad.txt") }),
+      ),
+    );
   });
 });

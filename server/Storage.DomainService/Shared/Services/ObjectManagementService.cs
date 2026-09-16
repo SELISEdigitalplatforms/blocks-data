@@ -276,6 +276,8 @@ namespace Storage.DomainService.Services
                     AncestorIds = directory.AncestorIds ?? new(),
                     InheritsParentAccess = directory.InheritsParentAccess,
                     CreatedBy = directory.CreatedBy,
+                    OrganizationId = directory.OrganizationId,
+                    ObjectAccessLevel = directory.ObjectAccessLevel,
                 });
             }
 
@@ -291,6 +293,8 @@ namespace Storage.DomainService.Services
                     AncestorIds = file.AncestorIds ?? new(),
                     InheritsParentAccess = file.InheritsParentAccess,
                     CreatedBy = file.CreatedBy,
+                    OrganizationId = file.OrganizationId,
+                    ObjectAccessLevel = file.ObjectAccessLevel,
                 });
         }
 

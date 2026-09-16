@@ -174,6 +174,8 @@ namespace Storage.DomainService.Services
             AncestorIds = item.AncestorIds ?? new List<string>(),
             InheritsParentAccess = item.InheritsParentAccess,
             CreatedBy = item.CreatedBy,
+            OrganizationId = item.OrganizationId,
+            ObjectAccessLevel = item.ObjectAccessLevel,
         };
 
         private static VisibleChildItem ToVisibleItem(ObjectItem item, ObjectPermissionFlags flags) => new()
@@ -353,6 +355,8 @@ namespace Storage.DomainService.Services
             AncestorIds = directory.AncestorIds ?? new List<string>(),
             InheritsParentAccess = directory.InheritsParentAccess,
             CreatedBy = directory.CreatedBy,
+            OrganizationId = directory.OrganizationId,
+            ObjectAccessLevel = directory.ObjectAccessLevel,
         };
 
         private static ObjectResourceDescriptor Describe(File file) => new()
@@ -361,6 +365,8 @@ namespace Storage.DomainService.Services
             AncestorIds = file.AncestorIds ?? new List<string>(),
             InheritsParentAccess = file.InheritsParentAccess,
             CreatedBy = file.CreatedBy,
+            OrganizationId = file.OrganizationId,
+            ObjectAccessLevel = file.ObjectAccessLevel,
         };
 
         private Task AuditAsync(

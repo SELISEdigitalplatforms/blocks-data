@@ -83,6 +83,20 @@ namespace Api.Controllers
         }
 
         /// <summary>
+        /// Verifies a quarantined upload and promotes it to its final key, or rejects it. Idempotent:
+        /// calling this again for an already-Verified or already-Rejected version returns that same outcome.
+        /// </summary>
+        /// <param name="request">The file and version to complete.</param>
+        /// <returns>The resulting verification status.</returns>
+        [HttpPost("complete-upload")]
+        [Authorize]
+        // [ProtectedEndPoint("blocks-data::file::complete-upload")]
+        public async Task<CompleteUploadResponse> CompleteUpload([FromBody] CompleteUploadRequest request)
+        {
+            return await _fileManagementService.CompleteUploadAsync(request);
+        }
+
+        /// <summary>
         /// Moves a file to trash, or permanently removes it when <c>Permanent</c> is true.
         /// </summary>
         /// <param name="request">The request containing file deletion details.</param>

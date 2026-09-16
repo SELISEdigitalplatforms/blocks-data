@@ -98,7 +98,8 @@ public class ObjectDiscoveryServiceTests : IDisposable
 
     private async Task SeedFile(
         string id, string name, string createdBy = "user-1", bool archived = false,
-        List<string>? ancestorIds = null, string organizationId = "org-1")
+        List<string>? ancestorIds = null, string organizationId = "org-1",
+        ObjectAccessLevel? objectAccessLevel = null)
     {
         var file = new File
         {
@@ -112,6 +113,7 @@ public class ObjectDiscoveryServiceTests : IDisposable
             IsArchived = archived,
             CreatedBy = createdBy,
             CreatedDate = DateTime.UtcNow,
+            ObjectAccessLevel = objectAccessLevel,
         };
         await Files.InsertOneAsync(file);
         await _objectItems.UpsertAsync(ObjectItem.From(file));
@@ -139,6 +141,41 @@ public class ObjectDiscoveryServiceTests : IDisposable
         var page = await _discovery.GetObjectAsync(null);
 
         page.Items.Select(item => item.ItemId).Should().Equal("org-1-file");
+    }
+
+    [Fact]
+    public async Task Get_objects_hides_a_Creator_scoped_file_from_someone_other_than_its_creator()
+    {
+        // Regression: the listing path resolves access against the ObjectItem projection,
+        // not the source File directly, so ObjectAccessLevel has to survive that mapping
+        // (ObjectItem.From) and reach the descriptor ObjectDiscoveryService.Describe builds
+        // from it — this is exactly the seam that let a Creator-scoped file stay visible to
+        // the whole organization in listings despite the field being set correctly on the file.
+        await SeedFile("other-creator-file", "private.pdf", createdBy: "user-2", objectAccessLevel: ObjectAccessLevel.Creator);
+
+        var page = await _discovery.GetObjectAsync(null);
+
+        page.Items.Select(item => item.ItemId).Should().NotContain("other-creator-file");
+    }
+
+    [Fact]
+    public async Task Get_objects_still_shows_a_Creator_scoped_file_to_its_own_creator()
+    {
+        await SeedFile("own-file", "private.pdf", createdBy: "user-1", objectAccessLevel: ObjectAccessLevel.Creator);
+
+        var page = await _discovery.GetObjectAsync(null);
+
+        page.Items.Select(item => item.ItemId).Should().Contain("own-file");
+    }
+
+    [Fact]
+    public async Task Get_objects_shows_an_Organization_scoped_file_to_a_caller_in_the_same_organization()
+    {
+        await SeedFile("org-scoped-file", "shared.pdf", createdBy: "user-2", objectAccessLevel: ObjectAccessLevel.Organization);
+
+        var page = await _discovery.GetObjectAsync(null);
+
+        page.Items.Select(item => item.ItemId).Should().Contain("org-scoped-file");
     }
 
     [Fact]

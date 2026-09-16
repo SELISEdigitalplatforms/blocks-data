@@ -415,7 +415,7 @@ export function StorageDetail() {
             Copy
           </DropdownMenuItem>
         )}
-        {dmsItem && actions.canManageAccess && (
+        {dmsItem && actions.canManageAccess && !isProtected && (
           <DropdownMenuItem
             onClick={(e) => {
               e.stopPropagation();
@@ -988,6 +988,7 @@ export function StorageDetail() {
           parentId={currentParentId}
           dmsWorkspaceId={storageId}
           dmsWorkspaceName={storage.name}
+          maxFileSizeInBytes={storage.maxFileSizeInBytes}
           onUploadSuccess={() => childrenQuery.refetch()}
         />
       )}

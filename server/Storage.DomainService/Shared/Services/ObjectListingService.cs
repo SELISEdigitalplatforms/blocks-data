@@ -200,6 +200,8 @@ namespace Storage.DomainService.Services
             AncestorIds = directory.AncestorIds ?? new List<string>(),
             InheritsParentAccess = directory.InheritsParentAccess,
             CreatedBy = directory.CreatedBy,
+            OrganizationId = directory.OrganizationId,
+            ObjectAccessLevel = directory.ObjectAccessLevel,
         };
 
         private sealed class ChildRow
@@ -233,6 +235,8 @@ namespace Storage.DomainService.Services
                     AncestorIds = d.AncestorIds ?? new(),
                     InheritsParentAccess = d.InheritsParentAccess,
                     CreatedBy = d.CreatedBy,
+                    OrganizationId = d.OrganizationId,
+                    ObjectAccessLevel = d.ObjectAccessLevel,
                 },
             };
 
@@ -260,6 +264,8 @@ namespace Storage.DomainService.Services
                     AncestorIds = f.AncestorIds ?? new(),
                     InheritsParentAccess = f.InheritsParentAccess,
                     CreatedBy = f.CreatedBy,
+                    OrganizationId = f.OrganizationId,
+                    ObjectAccessLevel = f.ObjectAccessLevel,
                 },
             };
         }

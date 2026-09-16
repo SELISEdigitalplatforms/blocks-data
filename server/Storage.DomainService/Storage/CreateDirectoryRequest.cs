@@ -18,5 +18,9 @@ namespace DomainService.Storage.Dms
 
         /// <summary>Extensions this directory accepts. Empty means no restriction.</summary>
         public string[]? AllowedFileExtensions { get; set; }
+
+        /// <summary>"Creator" or "Organization". Null/empty preserves the pre-existing
+        /// default (allow-all) rather than applying a new default.</summary>
+        public string? ObjectAccessLevel { get; set; }
     }
 }

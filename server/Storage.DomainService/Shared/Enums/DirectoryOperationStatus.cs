@@ -17,4 +17,6 @@ public enum DirectoryOperationStatus
     /// tenant tree and cannot be moved, renamed or deleted.
     /// </summary>
     IsDefault = 6,
+    /// <summary>The supplied ObjectAccessLevel does not match a known value.</summary>
+    InvalidObjectAccessLevel = 7,
 }

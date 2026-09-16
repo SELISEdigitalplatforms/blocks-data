@@ -15,12 +15,14 @@ export class StorageService {
   ) { }
 
   uploadFile(payload: IUploadImagePayload): Promise<unknown> {
+    // Provider-required headers (e.g. Azure's blob-type header) now come from the pre-signed-URL
+    // response instead of being hard-coded here, so this call works unchanged for any provider.
     return http.put(
       payload.url,
       payload.file,
       {
         "Content-Type": payload.file.type,
-        "x-ms-blob-type": "Blockblob",
+        ...payload.headers,
       },
       { skipBlocksKey: true, absoluteUrl: true, withCredentials: false },
     );

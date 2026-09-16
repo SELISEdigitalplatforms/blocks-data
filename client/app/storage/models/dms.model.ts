@@ -10,6 +10,9 @@ export type ObjectPrincipalType = "User" | "Role" | "Everyone" | "Organization";
 
 export type ObjectEffect = "Allow" | "Deny";
 
+/** The default access an item grants when nothing has been explicitly shared on it yet. */
+export type ObjectAccessLevel = "Creator" | "Organization";
+
 /** The six operations the current user holds on one item. */
 export interface DmsPermissionFlags {
   canView: boolean;
@@ -39,6 +42,11 @@ export interface DmsItemBase {
    */
   isDefault?: boolean;
   permissions: DmsPermissionFlags;
+  /**
+   * The default access this item grants when unshared. Undefined means it carries the
+   * pre-existing (allow-all) default rather than one of the two explicit values.
+   */
+  objectAccessLevel?: ObjectAccessLevel;
 }
 
 export interface DmsDirectoryItem extends DmsItemBase {
@@ -97,12 +105,18 @@ export interface CreateDirectoryDto {
   allowedFileExtensions?: string[];
   inheritsAccess?: boolean;
   projectKey?: string;
+  /** "Creator" or "Organization". Omitted preserves the pre-existing (allow-all) default. */
+  objectAccessLevel?: string;
 }
 
 export interface UpdateDirectoryDto {
   directoryId: string;
   name?: string;
   description?: string;
+  /** "Creator" or "Organization"; empty string clears it back to the legacy default. */
+  objectAccessLevel?: string;
+  /** Set to true to change objectAccessLevel with this request, including clearing it. */
+  updateObjectAccessLevel?: boolean;
 }
 
 export interface MoveDirectoryDto {

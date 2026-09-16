@@ -12,6 +12,10 @@ namespace DomainService.Storage
         [BsonRepresentation(BsonType.Int32)]
         public AccessModifier AccessModifier { get; set; }
 
+        /// <summary>The default access this file grants when unshared: "Creator",
+        /// "Organization", or null when it carries the pre-existing (allow-all) default.</summary>
+        public string? ObjectAccessLevel { get; set; }
+
         [BsonId]
         public string ItemId { get; set; }
         public string[] Tags { get; set; }
@@ -26,6 +30,17 @@ namespace DomainService.Storage
         public string Language { get; set; }
         public string TenantId { get; set; }
         public long SizeInBytes { get; set; }
+
+        /// <summary>
+        /// Verification status of the returned version. Missing/null and <see cref="Enums.FileVerificationStatus.Unverified"/>
+        /// behave exactly as before Phase 1; <see cref="Enums.FileVerificationStatus.Quarantined"/> or
+        /// <see cref="Enums.FileVerificationStatus.Rejected"/> means <see cref="Url"/> is intentionally empty.
+        /// </summary>
+        public FileVerificationStatus? VerificationStatus { get; set; }
+
+        /// <summary>UTC instant <see cref="Url"/> stops working. Null for an intentionally anonymous, non-expiring public URL, or when no URL was returned.</summary>
+        public DateTime? DownloadUrlExpiresAtUtc { get; set; }
+
         public static bool Exists { get { return true; } }
     }
 

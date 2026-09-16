@@ -28,5 +28,8 @@ namespace Storage.DomainService.Services
 
         /// <summary>Creates the next version of an existing file and returns a presigned upload URL.</summary>
         Task<CreateFileVersionResponse> CreateFileVersionAsync(CreateFileVersionRequest request);
+
+        /// <summary>Verifies and promotes (or rejects) a Quarantined version. Idempotent and concurrency-safe.</summary>
+        Task<CompleteUploadResponse> CompleteUploadAsync(CompleteUploadRequest request);
     }
 }

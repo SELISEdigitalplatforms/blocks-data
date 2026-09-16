@@ -174,6 +174,8 @@ namespace Storage.DomainService.Services
             AncestorIds = item.AncestorIds ?? new List<string>(),
             InheritsParentAccess = item.InheritsParentAccess,
             CreatedBy = item.CreatedBy,
+            OrganizationId = item.OrganizationId,
+            ObjectAccessLevel = item.ObjectAccessLevel,
         };
 
         private static VisibleChildItem ToVisibleItem(ObjectItem item, ObjectPermissionFlags flags) => new()

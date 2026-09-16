@@ -284,4 +284,195 @@ public class StorageSupportTypesTests
         configuration.Password.Should().Be("pw");
         configuration.RemoteBasePath.Should().Be("/upload");
     }
+
+    [Fact]
+    public void StorageConfiguration_MissingUploadSecurityFields_ResolveToDocumentedDefaults()
+    {
+        var configuration = new StorageConfiguration { Name = "Default" };
+
+        configuration.GetUploadUrlExpirySeconds().Should().Be(Constants.DefaultUploadUrlExpirySeconds);
+        configuration.GetDownloadUrlExpirySeconds().Should().Be(Constants.DefaultDownloadUrlExpirySeconds);
+        configuration.GetMaxFileSizeInBytes().Should().Be(Constants.DefaultMaxFileSizeInBytes);
+        configuration.IsUploadCompletionRequiredFor(AccessModifier.Public).Should().BeFalse();
+        configuration.IsUploadCompletionRequiredFor(AccessModifier.Private).Should().BeFalse();
+    }
+
+    [Fact]
+    public void StorageConfiguration_ConfiguredUploadSecurityFields_ResolveToConfiguredValues()
+    {
+        var configuration = new StorageConfiguration
+        {
+            Name = "Default",
+            UploadUrlExpirySeconds = 120,
+            DownloadUrlExpirySeconds = 60,
+            MaxFileSizeInBytes = 1_048_576,
+            UploadCompletionRequiredFor = [AccessModifier.Public]
+        };
+
+        configuration.GetUploadUrlExpirySeconds().Should().Be(120);
+        configuration.GetDownloadUrlExpirySeconds().Should().Be(60);
+        configuration.GetMaxFileSizeInBytes().Should().Be(1_048_576);
+        configuration.IsUploadCompletionRequiredFor(AccessModifier.Public).Should().BeTrue();
+        configuration.IsUploadCompletionRequiredFor(AccessModifier.Private).Should().BeFalse();
+    }
+
+    [Fact]
+    public void StorageConfiguration_NonPositiveUploadSecurityFields_ResolveToDocumentedDefaults()
+    {
+        var configuration = new StorageConfiguration
+        {
+            Name = "Default",
+            UploadUrlExpirySeconds = 0,
+            DownloadUrlExpirySeconds = -1,
+            MaxFileSizeInBytes = 0
+        };
+
+        configuration.GetUploadUrlExpirySeconds().Should().Be(Constants.DefaultUploadUrlExpirySeconds);
+        configuration.GetDownloadUrlExpirySeconds().Should().Be(Constants.DefaultDownloadUrlExpirySeconds);
+        configuration.GetMaxFileSizeInBytes().Should().Be(Constants.DefaultMaxFileSizeInBytes);
+    }
+
+    [Theory]
+    [InlineData(AccessModifier.Secure)]
+    [InlineData(AccessModifier.Any)]
+    public void StorageConfiguration_UploadCompletionRequiredFor_IgnoresDisallowedAccessModifiers(AccessModifier disallowed)
+    {
+        var configuration = new StorageConfiguration
+        {
+            Name = "Default",
+            UploadCompletionRequiredFor = [disallowed]
+        };
+
+        configuration.IsUploadCompletionRequiredFor(disallowed).Should().BeFalse();
+    }
+
+    [Fact]
+    public void AccessModifierValidation_NullOrEmptySet_IsValid()
+    {
+        AccessModifierValidation.IsValidUploadCompletionAccessModifierSet(null).Should().BeTrue();
+        AccessModifierValidation.IsValidUploadCompletionAccessModifierSet([]).Should().BeTrue();
+    }
+
+    [Theory]
+    [MemberData(nameof(AllowedUploadCompletionSets))]
+    public void AccessModifierValidation_AllowedCombinations_AreValid(AccessModifier[] accessModifiers)
+    {
+        AccessModifierValidation.IsValidUploadCompletionAccessModifierSet(accessModifiers).Should().BeTrue();
+    }
+
+    public static TheoryData<AccessModifier[]> AllowedUploadCompletionSets => new()
+    {
+        new[] { AccessModifier.Public },
+        new[] { AccessModifier.Private },
+        new[] { AccessModifier.Public, AccessModifier.Private }
+    };
+
+    [Theory]
+    [InlineData(AccessModifier.Secure)]
+    [InlineData(AccessModifier.Any)]
+    public void AccessModifierValidation_DisallowedAccessModifier_IsRejected(AccessModifier disallowed)
+    {
+        AccessModifierValidation.IsValidUploadCompletionAccessModifierSet([disallowed]).Should().BeFalse();
+    }
+
+    [Fact]
+    public void AccessModifierValidation_DuplicateAccessModifier_IsRejected()
+    {
+        AccessModifierValidation.IsValidUploadCompletionAccessModifierSet([AccessModifier.Public, AccessModifier.Public]).Should().BeFalse();
+    }
+
+    [Fact]
+    public void FileVerificationStatus_DefinesThePhase1Lifecycle()
+    {
+        Enum.GetValues<FileVerificationStatus>().Should().BeEquivalentTo(
+        [
+            FileVerificationStatus.Unverified,
+            FileVerificationStatus.Quarantined,
+            FileVerificationStatus.Verified,
+            FileVerificationStatus.Rejected
+        ]);
+    }
+
+    [Fact]
+    public void GetPreSignedUrlForUploadRequest_CarriesDeclaredUploadMetadata()
+    {
+        var request = new GetPreSignedUrlForUploadRequest
+        {
+            Name = "file.pdf",
+            SizeInBytes = 2048,
+            ContentType = "application/pdf",
+            Checksum = "abc123",
+            ChecksumAlgorithm = "SHA256"
+        };
+
+        request.SizeInBytes.Should().Be(2048);
+        request.ContentType.Should().Be("application/pdf");
+        request.Checksum.Should().Be("abc123");
+        request.ChecksumAlgorithm.Should().Be("SHA256");
+    }
+
+    [Fact]
+    public void GetPreSignedUrlForUploadResponse_DefaultsToUnverifiedAndCompletionNotRequired()
+    {
+        var response = new GetPreSignedUrlForUploadResponse();
+
+        response.VerificationStatus.Should().Be(FileVerificationStatus.Unverified);
+        response.UploadCompletionRequired.Should().BeFalse();
+        response.UploadUrl.Should().BeEmpty();
+        response.FileId.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CompleteUploadRequest_CarriesFileAndVersionIdentifiers()
+    {
+        var request = new CompleteUploadRequest { FileId = "file-1", FileVersionId = "version-1" };
+
+        request.FileId.Should().Be("file-1");
+        request.FileVersionId.Should().Be("version-1");
+    }
+
+    [Fact]
+    public void CompleteUploadResponse_DefaultsToUnverifiedWithNoRejectionReason()
+    {
+        var response = new CompleteUploadResponse();
+
+        response.VerificationStatus.Should().Be(FileVerificationStatus.Unverified);
+        response.RejectionReason.Should().BeNull();
+    }
+
+    // ---------------- FileVersion upload-security fields ----------------
+
+    [Fact]
+    public void FileVersion_MissingUploadSecurityFields_ResolveToLegacyDefaults()
+    {
+        var version = FileVersion.CreateNew("file-1", 1, new FileVersionOptions { ItemId = "version-1" });
+
+        version.GetEffectiveVerificationStatus().Should().Be(FileVerificationStatus.Unverified);
+        version.GetEffectiveUploadCompletionRequired().Should().BeFalse();
+    }
+
+    [Fact]
+    public void FileVersion_ConfiguredUploadSecurityFields_ResolveToConfiguredValues()
+    {
+        var expiresAt = DateTime.UtcNow.AddMinutes(10);
+        var version = FileVersion.CreateNew("file-1", 1, new FileVersionOptions
+        {
+            ItemId = "version-1",
+            FileVerificationStatus = FileVerificationStatus.Quarantined,
+            UploadCompletionRequired = true,
+            UploadUrlExpiresAtUtc = expiresAt,
+            ExpectedSizeInBytes = 2048,
+            ExpectedContentType = "image/png",
+            ExpectedChecksum = "abc123",
+            ChecksumAlgorithm = "SHA256"
+        });
+
+        version.GetEffectiveVerificationStatus().Should().Be(FileVerificationStatus.Quarantined);
+        version.GetEffectiveUploadCompletionRequired().Should().BeTrue();
+        version.UploadUrlExpiresAtUtc.Should().Be(expiresAt);
+        version.ExpectedSizeInBytes.Should().Be(2048);
+        version.ExpectedContentType.Should().Be("image/png");
+        version.ExpectedChecksum.Should().Be("abc123");
+        version.ChecksumAlgorithm.Should().Be("SHA256");
+    }
 }

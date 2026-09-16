@@ -142,6 +142,9 @@ vite.config.ts.timestamp-*
 # .NET build artifacts
 **/bin/
 **/obj/
+
+# Local NuGet package output — not versioned
+/nuget-packages/
 .DS_Store
 # Visual Studio files
 .vs/

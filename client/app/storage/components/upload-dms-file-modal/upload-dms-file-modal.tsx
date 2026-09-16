@@ -14,7 +14,11 @@ import { Button } from "@/components/ui-kits/button/button";
 import { CloudUpload, FileText, LoaderCircle, XCircle } from "lucide-react";
 import { FileUploader, FileInput } from "@/components/file-uploader/file-uploader";
 import { showSuccessToast, showErrorToast } from "@/hooks/use-toast";
-import { useGetPreSignedUrlForUpload, useUploadFile } from "@/storage/hooks/use-storage-file";
+import {
+  useCompleteUpload,
+  useGetPreSignedUrlForUpload,
+  useUploadFile,
+} from "@/storage/hooks/use-storage-file";
 import { isErrorWithErrors } from "@/lib/error";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
@@ -26,6 +30,37 @@ const GENERAL_ACCESS_OPTIONS = [
   { value: "Organization", label: "Anyone in my organization" },
 ] as const;
 
+/** "Public" or "Private" only - this is the storage access modifier, kept separate from the
+ * object-sharing "Default access" selector above. Private is the safe default. */
+const STORAGE_ACCESS_OPTIONS = [
+  { value: "Private", label: "Private" },
+  { value: "Public", label: "Public" },
+] as const;
+
+type StorageAccessModifier = (typeof STORAGE_ACCESS_OPTIONS)[number]["value"];
+
+/** Matches `Constants.DefaultMaxFileSizeInBytes` server-side; used until the configured value is available. */
+const DEFAULT_MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+
+type FileOutcome =
+  | { name: string; status: "uploaded" }
+  | { name: string; status: "rejected"; reason?: string | null }
+  | { name: string; status: "failed"; error: unknown };
+
+/** Best-effort SHA-256 of the file's bytes. Returns undefined (never throws) when Web Crypto isn't
+ * available in this environment - completion then simply skips checksum verification. */
+const computeSha256Hex = async (file: File): Promise<string | undefined> => {
+  try {
+    const buffer = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest("SHA-256", buffer);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    return undefined;
+  }
+};
+
 type UploadDmsFileModalProps = {
   open: boolean;
   onOpenChange: (value: boolean) => void;
@@ -34,6 +69,8 @@ type UploadDmsFileModalProps = {
   parentId?: string;
   dmsWorkspaceId: string;
   dmsWorkspaceName: string;
+  /** Configured maximum upload size in bytes. Falls back to the documented server default when not supplied. */
+  maxFileSizeInBytes?: number;
   onUploadSuccess?: () => void;
 };
 
@@ -42,6 +79,7 @@ export const UploadDmsFileModal = ({
   onOpenChange,
   name,
   parentId = "",
+  maxFileSizeInBytes,
   onUploadSuccess,
 }: UploadDmsFileModalProps) => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
@@ -49,9 +87,13 @@ export const UploadDmsFileModal = ({
   const [, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [objectAccessLevel, setObjectAccessLevel] = useState("");
+  const [accessModifier, setAccessModifier] = useState<StorageAccessModifier>("Private");
+
+  const maxSize = maxFileSizeInBytes && maxFileSizeInBytes > 0 ? maxFileSizeInBytes : DEFAULT_MAX_FILE_SIZE_BYTES;
 
   const { mutateAsync: presignedMutate } = useGetPreSignedUrlForUpload();
   const { mutateAsync: uploadfileMutate } = useUploadFile();
+  const { mutateAsync: completeUploadMutate } = useCompleteUpload();
 
   useEffect(() => {
     const urls = files.map((f) => URL.createObjectURL(f));
@@ -66,81 +108,126 @@ export const UploadDmsFileModal = ({
       setFiles([]);
       setPreviews([]);
       setObjectAccessLevel("");
+      setAccessModifier("Private");
     }
 
     onOpenChange(nextOpen);
   };
 
-  const processFile = async (file: File) => {
-    try {
-      // Step 1: Get presigned URL
-      const payload = {
-        name: file.name,
-        projectKey,
-        configurationName: name,
-        accessModifier: "Public",
-        objectAccessLevel: objectAccessLevel || undefined,
-        metaData: "",
-        parentDirectoryId: parentId || "",
-        tags: "",
-        moduleName: ModuleName.DefaultCloud,
-      };
+  const processFile = async (file: File): Promise<FileOutcome> => {
+    // Step 1: Get presigned URL. The backend decides whether completion is required for the
+    // selected modifier under this configuration - the client only reports what it declared.
+    const checksum = await computeSha256Hex(file);
+    const payload = {
+      name: file.name,
+      projectKey,
+      configurationName: name,
+      accessModifier,
+      objectAccessLevel: objectAccessLevel || undefined,
+      metaData: "",
+      parentDirectoryId: parentId || "",
+      tags: "",
+      moduleName: ModuleName.DefaultCloud,
+      sizeInBytes: file.size,
+      contentType: file.type || undefined,
+      checksum,
+      checksumAlgorithm: checksum ? "SHA256" : undefined,
+    };
 
-      const presignedUrlResponse = await presignedMutate(payload);
-      if (!presignedUrlResponse.isSuccess) {
-        throw new Error("Failed to get upload URL");
-      }
-
-      // Step 2: Upload file to presigned URL
-      await uploadfileMutate({
-        url: presignedUrlResponse.uploadUrl,
-        file,
-      });
-
-      return {
-        fileId: presignedUrlResponse.fileId,
-        fileName: file.name,
-      };
-    } catch (error) {
-      console.error("Error processing file:", error);
-      throw error;
+    const presignedUrlResponse = await presignedMutate(payload);
+    if (!presignedUrlResponse.isSuccess) {
+      throw new Error("Failed to get upload URL");
     }
+
+    // Step 2: PUT the file bytes to the presigned URL, using whatever headers this provider requires.
+    await uploadfileMutate({
+      url: presignedUrlResponse.uploadUrl,
+      file,
+      headers: presignedUrlResponse.requiredHeaders,
+    });
+
+    // Step 3: only call complete-upload when the backend says this modifier requires it. A
+    // completion-disabled upload is already done and readable.
+    if (!presignedUrlResponse.uploadCompletionRequired || !presignedUrlResponse.fileVersionId) {
+      return { name: file.name, status: "uploaded" };
+    }
+
+    const completion = await completeUploadMutate({
+      fileId: presignedUrlResponse.fileId,
+      fileVersionId: presignedUrlResponse.fileVersionId,
+    });
+
+    if (completion.verificationStatus === "Verified") {
+      return { name: file.name, status: "uploaded" };
+    }
+
+    // A verification rejection is not the same failure as an upload/network error - it must be
+    // reported distinctly rather than folded into a generic "upload failed" message.
+    return { name: file.name, status: "rejected", reason: completion.rejectionReason };
   };
 
   const uploadFileHandler = async () => {
     setIsUploading(true);
     try {
-      // Step 1: get presigned URL (backend creates the File + FileVersion stub).
-      // Step 2: PUT the file bytes to the presigned URL. No separate register call.
-      const uploadedFiles = await Promise.all(files.map(processFile));
+      const settled = await Promise.allSettled(files.map(processFile));
 
-      if (uploadedFiles.length < 1) {
-        showErrorToast({ errors: "Failed to upload files" });
-        return;
+      // Every file is attempted independently: one file's rejection or failure must not hide
+      // another file's success, and every outcome is reported.
+      const outcomes: FileOutcome[] = settled.map((result, index) =>
+        result.status === "fulfilled"
+          ? result.value
+          : { name: files[index].name, status: "failed", error: result.reason },
+      );
+
+      const uploaded = outcomes.filter((o) => o.status === "uploaded");
+      const rejected = outcomes.filter((o) => o.status === "rejected");
+      const failed = outcomes.filter((o) => o.status === "failed");
+
+      if (uploaded.length > 0) {
+        showSuccessToast({
+          description: `${uploaded.length} file(s) uploaded successfully!`,
+        });
       }
 
-      showSuccessToast({
-        description: `${uploadedFiles.length} file(s) uploaded successfully!`,
-      });
+      if (rejected.length > 0) {
+        showErrorToast({
+          errors: rejected
+            .map((o) => `${o.name}: rejected${o.reason ? ` (${o.reason})` : ""}`)
+            .join(", "),
+        });
+      }
+
+      if (failed.length > 0) {
+        showErrorToast({
+          errors: failed
+            .map((o) => {
+              const error = o.status === "failed" ? o.error : undefined;
+              const message = isErrorWithErrors(error)
+                ? error.errors
+                : error instanceof Error
+                  ? error.message
+                  : String(error);
+              return `${o.name}: ${message}`;
+            })
+            .join(", "),
+        });
+      }
+
+      if (uploaded.length === 0) {
+        return;
+      }
 
       // Reset state
       setFiles([]);
       setPreviews([]);
       setObjectAccessLevel("");
+      setAccessModifier("Private");
       handleOpenChange(false);
 
       // Trigger refresh callback
       if (onUploadSuccess) {
         onUploadSuccess();
       }
-    } catch (err: unknown) {
-      showErrorToast({
-        errors: isErrorWithErrors(err)
-          ? err.errors
-          : err instanceof Error
-            ? err.message
-            : String(err),
-      });
     } finally {
       setIsUploading(false);
     }
@@ -166,7 +253,8 @@ export const UploadDmsFileModal = ({
             <div className="space-y-1">
               <DialogTitle>Upload File</DialogTitle>
               <DialogDescription>
-                Add up to 10 files to this directory. Each file can be up to 100 MB.
+                Add up to 10 files to this directory. Each file can be up to{" "}
+                {Math.round(maxSize / 1024 / 1024)} MB.
               </DialogDescription>
             </div>
           </div>
@@ -182,7 +270,7 @@ export const UploadDmsFileModal = ({
               onValueChange={(next) => setFiles(next || [])}
               dropzoneOptions={{
                 maxFiles: 10,
-                maxSize: 100 * 1024 * 1024,
+                maxSize,
                 multiple: true,
               }}
             >
@@ -194,6 +282,36 @@ export const UploadDmsFileModal = ({
                 <span className="text-xs text-muted-foreground">All file types supported</span>
               </FileInput>
             </FileUploader>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="text-sm font-medium">Storage access</span>
+            <div
+              role="group"
+              aria-label="Storage access"
+              className="inline-flex overflow-hidden rounded-sm border border-input"
+            >
+              {STORAGE_ACCESS_OPTIONS.map((o) => {
+                const active = accessModifier === o.value;
+                return (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => setAccessModifier(o.value)}
+                    disabled={isUploading}
+                    className={cn(
+                      "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                    aria-pressed={active}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-1.5">

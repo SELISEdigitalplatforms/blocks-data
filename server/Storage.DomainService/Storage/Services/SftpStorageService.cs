@@ -189,12 +189,13 @@ namespace DomainService.Storage.Services
             client.DeleteDirectory(directory);
         }
 
-        public async Task<string?> GetDownloadUrlAsync(DownloadUrlRequest request)
+        public async Task<SignedDownloadUrl?> GetDownloadUrlAsync(DownloadUrlRequest request)
         {
             request.RequestUrl = _configuration["DownloadFilesControllerUrl"];
             var expiryUtc = DateTime.UtcNow.Add(request.ExpiryDuration);
             string baseUrl = GetControllerUrl(request.RequestUrl);
-            return GenerateDownloadUrl(request, baseUrl, expiryUtc);
+            var url = GenerateDownloadUrl(request, baseUrl, expiryUtc);
+            return new SignedDownloadUrl { Url = url, ExpiresAtUtc = expiryUtc };
         }
 
         private string GenerateDownloadUrl(DownloadUrlRequest request, string baseUrl, DateTime expiryUtc)
@@ -250,5 +251,22 @@ namespace DomainService.Storage.Services
         {
             throw new NotImplementedException();
         }
+
+        // Phase 1 upload completion/verification is scoped to Azure, AWS S3, and S3-compatible
+        // providers; SFTP-backed local storage is not a supported target for UploadCompletionRequiredFor.
+
+        public Dictionary<string, string> GetRequiredUploadHeaders(string? contentType) => new();
+
+        public string GenerateQuarantineUploadUrl(string key, TimeSpan expiry) => throw new NotImplementedException();
+
+        public Task<string?> CopyToVerificationCandidateAsync(string quarantineKey, string candidateKey) => throw new NotImplementedException();
+
+        public Task<StorageObjectMetadata?> GetCandidateMetadataAsync(string candidateKey) => throw new NotImplementedException();
+
+        public Task<byte[]> ReadCandidateInitialBytesAsync(string candidateKey, int byteCount) => throw new NotImplementedException();
+
+        public Task<Stream> OpenCandidateReadStreamAsync(string candidateKey) => throw new NotImplementedException();
+
+        public Task PromoteCandidateToFinalAsync(string candidateKey, string finalKey) => throw new NotImplementedException();
     }
 }

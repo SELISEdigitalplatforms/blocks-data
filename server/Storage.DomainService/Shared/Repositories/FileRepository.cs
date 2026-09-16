@@ -126,6 +126,10 @@ namespace Storage.DomainService.Services
                                                  {
                                                      { "$first", "$StorageKey" }
                                                  } },
+                                { "FileVerificationStatus", new BsonDocument
+                                                 {
+                                                     { "$first", "$FileVerificationStatus" }
+                                                 } },
                                 {
                                     "MaxVersion", new BsonDocument
                                                  {

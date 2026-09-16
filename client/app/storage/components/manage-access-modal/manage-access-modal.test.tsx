@@ -108,12 +108,34 @@ describe("ManageAccessModal", () => {
     expect(await screen.findByText(/Access comes from the parent directory/)).toBeInTheDocument();
   });
 
-  it("lists an existing entry", async () => {
+  it("lists an existing entry by its resolved human-readable name, not its raw id", async () => {
     mocks.policies = [policy()];
     render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
 
-    expect(await screen.findByText("editors")).toBeInTheDocument();
+    expect(await screen.findByText("Editors")).toBeInTheDocument();
+    expect(screen.queryByText("editors")).not.toBeInTheDocument();
     expect(screen.getByText(/Direct rule/)).toBeInTheDocument();
+  });
+
+  it("falls back to the raw id when no matching principal is found", async () => {
+    mocks.policies = [policy({ principalId: "unknown-role-slug" })];
+    render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
+
+    expect(await screen.findByText("unknown-role-slug")).toBeInTheDocument();
+  });
+
+  it("resolves a user principal's name from the IAM users list", async () => {
+    mocks.policies = [policy({ principalType: "User", principalId: "u1" })];
+    render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
+
+    expect(await screen.findByText("Alice")).toBeInTheDocument();
+  });
+
+  it("resolves the role's organization scope to a name as well", async () => {
+    mocks.policies = [policy({ organizationId: "o1" })];
+    render(<ManageAccessModal open onOpenChange={vi.fn()} item={item()} />);
+
+    expect(await screen.findByText(/Organization Acme/)).toBeInTheDocument();
   });
 
   it("marks an inherited entry and offers no revoke for it", async () => {

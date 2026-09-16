@@ -1,5 +1,7 @@
 import { http } from "@/lib/http-client";
 import {
+  ICompleteUploadPayload,
+  ICompleteUploadResponse,
   IDeleteFilePayload,
   IDeleteResourceResponse,
   IGetFileByFileIDPayload,
@@ -32,6 +34,10 @@ export class StorageFile {
 
   getFilesInfoUrlForUpload(payload: IGetFilesInfoPayload): Promise<IGetFilesInfoResponse> {
     return http.post(STORAGE_FILE_ENDPOINTS.GET_FILES_INFO, payload);
+  }
+
+  completeUpload(payload: ICompleteUploadPayload): Promise<ICompleteUploadResponse> {
+    return http.post(STORAGE_FILE_ENDPOINTS.COMPLETE_UPLOAD, payload);
   }
 
   updateFileAdditionalInfo(

@@ -1,5 +1,6 @@
 ﻿using DomainService.Configuration;
 using DomainService.Storage;
+using DomainService.Storage.Services;
 using DomainService.Storage.Validators;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,9 +30,14 @@ namespace Blocks.Extension.DependencyInjection
             services.AddSingleton<IFileDirectoryRepository, FileDirectoryRepository>();
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
             services.AddSingleton<IConfigurationRepository, ConfigurationRepository>();
+            services.AddSingleton<IObjectAccessRepository, ObjectAccessRepository>();
+            services.AddSingleton<IObjectAccessResolver, ObjectAccessResolver>();
+            services.AddSingleton<IUploadKeyRouter, UploadKeyRouter>();
+            services.AddSingleton<IUploadVerificationService, UploadVerificationService>();
             services.AddTransient<AzureBlobStorageService>();
             services.AddTransient<AwsS3StorageService>();
-            
+            services.AddTransient<SftpStorageService>();
+
         }
     }
 }

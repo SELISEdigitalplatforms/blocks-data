@@ -134,7 +134,11 @@ export default function ImportSchemaModal({
       }
 
       const fileId = res.fileId;
-      await uploadFileMutate({ url: res.uploadUrl, file });
+      await uploadFileMutate({
+        url: res.uploadUrl,
+        file,
+        headers: res.requiredHeaders,
+      });
 
       const uploadedFile = await storageService.file.getFileByFileId({
         itemId: fileId,

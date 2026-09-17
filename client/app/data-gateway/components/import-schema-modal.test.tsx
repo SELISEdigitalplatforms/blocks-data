@@ -110,7 +110,12 @@ describe("ImportSchemaModal", () => {
 
   it("uploads a selected file and shows a success toast", async () => {
     const user = userEvent.setup();
-    getPresignedUrl.mockResolvedValue({ isSuccess: true, fileId: "f1", uploadUrl: "u" });
+    getPresignedUrl.mockResolvedValue({
+      isSuccess: true,
+      fileId: "f1",
+      uploadUrl: "u",
+      requiredHeaders: { "x-ms-blob-type": "BlockBlob" },
+    });
     uploadFileMutate.mockResolvedValue(undefined);
     getFileByFileId.mockResolvedValue({ itemId: "f1", url: "url" });
     uploadSchemaFile.mockResolvedValue(undefined);
@@ -125,6 +130,12 @@ describe("ImportSchemaModal", () => {
       }),
     );
     expect(getPresignedUrl).toHaveBeenCalled();
+    expect(uploadFileMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: "u",
+        headers: { "x-ms-blob-type": "BlockBlob" },
+      }),
+    );
     expect(onClose).toHaveBeenCalled();
   });
 

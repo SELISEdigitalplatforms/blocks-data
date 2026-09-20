@@ -379,6 +379,55 @@ public class ObjectDiscoveryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Shared_objects_include_an_everyone_grant()
+    {
+        // Regression: ObjectDiscoveryService.MatchesSharePrincipal's switch was missing a case for
+        // ObjectPrincipalType.Everyone, so it fell through to `_ => false` and an Everyone-shared
+        // resource never appeared in this listing for any user - even though the same resource
+        // resolves as fully viewable through ObjectAccessResolver, which already handles Everyone
+        // correctly. That drift between the two switches is exactly what let this regress silently.
+        await SeedFile("everyone-share", "everyone.pdf", createdBy: "someone-else");
+
+        await _accessRepository.GrantAsync(new ObjectAccessPolicy
+        {
+            ItemId = "everyone-policy",
+            TenantId = "tenant-1",
+            ResourceId = "everyone-share",
+            ResourceType = ObjectResourceType.File,
+            PrincipalType = ObjectPrincipalType.Everyone,
+            Permission = ObjectPermission.View,
+            Effect = ObjectEffect.Allow,
+        });
+
+        var page = await _discovery.GetSharedAsync();
+
+        page.Items.Select(item => item.ItemId).Should().Equal("everyone-share");
+    }
+
+    [Fact]
+    public async Task Shared_objects_exclude_an_everyone_grant_on_a_resource_the_caller_created()
+    {
+        // The self-exclusion rule (you don't see your own objects in "shared with me") must still
+        // apply to an Everyone grant the same as any other principal type.
+        await SeedFile("own-everyone-share", "own-everyone.pdf");
+
+        await _accessRepository.GrantAsync(new ObjectAccessPolicy
+        {
+            ItemId = "own-everyone-policy",
+            TenantId = "tenant-1",
+            ResourceId = "own-everyone-share",
+            ResourceType = ObjectResourceType.File,
+            PrincipalType = ObjectPrincipalType.Everyone,
+            Permission = ObjectPermission.View,
+            Effect = ObjectEffect.Allow,
+        });
+
+        var page = await _discovery.GetSharedAsync();
+
+        page.Items.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task Shared_objects_include_a_role_share_only_in_its_scoped_organization()
     {
         await SeedFile("matching-role-org", "matching.pdf", createdBy: "someone-else");

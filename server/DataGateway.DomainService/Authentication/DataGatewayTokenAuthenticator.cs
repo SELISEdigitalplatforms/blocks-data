@@ -109,7 +109,8 @@ public class DataGatewayTokenAuthenticator
         var projection = new BsonDocument { { "Resource", 1 }, { "_id", 0 } };
 
         var permissionDocs = await _repository.GetItemsAsync(
-            PermissionsCollectionName, filter, projection: projection, limit: MaxRolePermissionsFetch);
+            PermissionsCollectionName, filter, projection: projection, limit: MaxRolePermissionsFetch,
+            databaseName: context.TenantId);
 
         var existingPermissions = new HashSet<string>(context.Permissions ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
         foreach (var doc in permissionDocs ?? [])

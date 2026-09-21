@@ -15,9 +15,6 @@ public class GqlDbRepository : IGqlDbRepository
     private readonly IDbContextProvider _dbContextProvider;
     private readonly ICacheClient _cacheClient;
 
-    // Optional override used by tests; when set it short-circuits per-request tenant resolution.
-    private IMongoDatabase? _overrideDatabase;
-
     public GqlDbRepository(IDbContextProvider dbContextProvider, ICacheClient cacheClient)
     {
         _dbContextProvider = dbContextProvider;
@@ -187,11 +184,6 @@ public class GqlDbRepository : IGqlDbRepository
     /// </summary>
     private IMongoDatabase GetDatabase()
     {
-        if (_overrideDatabase != null)
-        {
-            return _overrideDatabase;
-        }
-
         var tenantId = TenantContext.GetTenantId();
         if (string.IsNullOrWhiteSpace(tenantId))
         {

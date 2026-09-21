@@ -65,14 +65,21 @@ const isLocalEnv = () => {
 
 export const getRuntimeEnv = (key: RuntimeKey, options: GetRuntimeEnvOptions = {}): string => {
   let value = "";
-  const windowValue =
-    typeof window !== "undefined"
-      ? (window.__BLOCKS_ENV__ as Partial<Record<string, string>> | undefined)?.[key]
-      : undefined;
-  if (windowValue && !isPlaceholder(windowValue)) {
-    value = windowValue;
+  // Browser calls to the Data API must use the host that served this app.
+  // Keep the configured value as a fallback for non-browser use.
+  const origin = typeof window !== "undefined" ? window.location?.origin : undefined;
+  if (key === "BLOCKS_DATA_BASE_URL" && origin && origin !== "null") {
+    value = origin;
   } else {
-    value = import.meta.env[key] || "";
+    const windowValue =
+      typeof window !== "undefined"
+        ? (window.__BLOCKS_ENV__ as Partial<Record<string, string>> | undefined)?.[key]
+        : undefined;
+    if (windowValue && !isPlaceholder(windowValue)) {
+      value = windowValue;
+    } else {
+      value = import.meta.env[key] || "";
+    }
   }
 
   if (options.stripPort && !isLocalEnv()) {

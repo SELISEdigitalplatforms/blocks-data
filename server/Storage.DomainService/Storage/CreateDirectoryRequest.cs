@@ -22,5 +22,10 @@ namespace DomainService.Storage.Dms
         /// <summary>"Creator" or "Organization". Null/empty preserves the pre-existing
         /// default (allow-all) rather than applying a new default.</summary>
         public string? ObjectAccessLevel { get; set; }
+
+        /// <summary>Whether this directory's effective access resolves by walking up to its
+        /// parent's own rules. True by default; set false so a broad grant on an ancestor
+        /// (e.g. shared with everyone) does not carry down to this directory.</summary>
+        public bool InheritsParentAccess { get; set; } = true;
     }
 }

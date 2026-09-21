@@ -140,6 +140,26 @@ public class DirectoryManagementServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_directory_created_without_specifying_inheritance_defaults_to_inheriting()
+    {
+        var result = await _directorys.CreateDirectoryAsync("Reports", null);
+
+        var stored = await Load(result.DirectoryId!);
+        stored.InheritsParentAccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_directory_can_be_created_with_inheritance_turned_off()
+    {
+        var result = await _directorys.CreateDirectoryAsync(
+            "Reports", null, inheritsParentAccess: false);
+
+        result.IsSuccess.Should().BeTrue();
+        var stored = await Load(result.DirectoryId!);
+        stored.InheritsParentAccess.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task A_nested_directory_inherits_the_parent_ancestry_and_path()
     {
         await SeedDirectory("root", name: "Root");

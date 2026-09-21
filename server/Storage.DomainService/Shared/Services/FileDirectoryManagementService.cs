@@ -54,6 +54,7 @@ namespace Storage.DomainService.Services
             string? moduleName = null,
             string[]? allowedFileExtensions = null,
             string? objectAccessLevel = null,
+            bool inheritsParentAccess = true,
             CancellationToken cancellationToken = default)
         {
             if (!TryParseObjectAccessLevel(objectAccessLevel, out var parsedAccessLevel))
@@ -104,6 +105,7 @@ namespace Storage.DomainService.Services
                 ModuleName = moduleName,
                 AllowedFileExtensions = allowedFileExtensions ?? Array.Empty<string>(),
                 ObjectAccessLevel = parsedAccessLevel,
+                InheritsParentAccess = inheritsParentAccess,
             });
 
             // CreateNew derives SystemName from the untrimmed name; set it from the same

@@ -68,7 +68,7 @@ namespace Api.Controllers
             var result = await _directoryManagementService.CreateDirectoryAsync(
                 request.Name, request.ParentDirectoryId, request.Description,
                 request.ConfigurationName, request.ModuleName?.ToString(), request.AllowedFileExtensions,
-                request.ObjectAccessLevel);
+                request.ObjectAccessLevel, request.InheritsParentAccess);
 
             return MapCreate(result);
         }
@@ -82,7 +82,7 @@ namespace Api.Controllers
             var result = await _directoryManagementService.CreateDirectoryAsync(
                 request.Name, null, request.Description,
                 request.ConfigurationName, request.ModuleName?.ToString(), request.AllowedFileExtensions,
-                request.ObjectAccessLevel);
+                request.ObjectAccessLevel, request.InheritsParentAccess);
 
             return MapCreate(result);
         }

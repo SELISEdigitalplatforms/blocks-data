@@ -484,7 +484,7 @@ namespace Storage.DomainService.Services
                 ObjectAccessLevel = ParseObjectAccessLevel((string?)request.ObjectAccessLevel),
                 CurrentVersion = 1,
                 AncestorIds = ancestorIds,
-                InheritsParentAccess = true,
+                InheritsParentAccess = request.InheritsParentAccess,
                 Extension = Path.GetExtension((string)request.Name).TrimStart('.'),
                 ConfigurationName = request.ConfigurationName,
                 AdditionalProperties = request.AdditionalProperties ?? new Dictionary<string, string>(),

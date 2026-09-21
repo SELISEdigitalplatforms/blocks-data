@@ -48,14 +48,14 @@ namespace XUnitTest.Api
             result.Should().BeOfType<BadRequestObjectResult>();
             _directorys.Verify(f => f.CreateDirectoryAsync(
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+                It.IsAny<string?>(), It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
         public async Task CreateDirectory_WithAParent_ForwardsAndReturns201()
         {
             _directorys.Setup(f => f.CreateDirectoryAsync(
-                    "Reports", "root", null, null, null, null, null, It.IsAny<CancellationToken>()))
+                    "Reports", "root", null, null, null, null, null, true, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(DirectoryOperationResult.Success("new-id"));
 
             var result = await _sut.CreateDirectory(new CreateDirectoryRequest { Name = "Reports", ParentDirectoryId = "root" });
@@ -70,7 +70,7 @@ namespace XUnitTest.Api
                 .Setup(r => r.GetDefaultDirectoryByModuleNameAsync("DataGateway", It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Directory("module-root"));
             _directorys.Setup(f => f.CreateDirectoryAsync(
-                    "Reports", "module-root", null, null, "DataGateway", null, null, It.IsAny<CancellationToken>()))
+                    "Reports", "module-root", null, null, "DataGateway", null, null, true, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(DirectoryOperationResult.Success("new-id"));
             var request = new CreateDirectoryRequest { Name = "Reports", ModuleName = ModuleName.DataGateway };
 
@@ -96,21 +96,21 @@ namespace XUnitTest.Api
             result.Should().BeOfType<NotFoundObjectResult>();
             _directorys.Verify(f => f.CreateDirectoryAsync(
                 It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<string?>(), It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+                It.IsAny<string?>(), It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
         }
 
         [Fact]
         public async Task CreateRootDirectory_PassesANullParent()
         {
             _directorys.Setup(f => f.CreateDirectoryAsync(
-                    "Reports", null, null, null, null, null, null, It.IsAny<CancellationToken>()))
+                    "Reports", null, null, null, null, null, null, true, It.IsAny<CancellationToken>()))
                 .ReturnsAsync(DirectoryOperationResult.Success("new-id"));
 
             var result = await _sut.CreateRootDirectory(new CreateDirectoryRequest { Name = "Reports", ParentDirectoryId = "ignored" });
 
             result.Should().BeOfType<CreatedResult>();
             _directorys.Verify(f => f.CreateDirectoryAsync(
-                "Reports", null, null, null, null, null, null, It.IsAny<CancellationToken>()), Times.Once);
+                "Reports", null, null, null, null, null, null, true, It.IsAny<CancellationToken>()), Times.Once);
         }
 
         [Theory]
@@ -121,7 +121,7 @@ namespace XUnitTest.Api
         {
             _directorys.Setup(f => f.CreateDirectoryAsync(
                     It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                    It.IsAny<string?>(), It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                    It.IsAny<string?>(), It.IsAny<string[]?>(), It.IsAny<string?>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(DirectoryOperationResult.Failure(status));
 
             var result = await _sut.CreateDirectory(new CreateDirectoryRequest { Name = "x", ParentDirectoryId = "root" });

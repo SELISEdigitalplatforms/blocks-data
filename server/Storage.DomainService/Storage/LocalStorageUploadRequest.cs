@@ -36,6 +36,11 @@ namespace DomainService.Storage
         /// </summary>
         public string? ObjectAccessLevel { get; set; }
 
+        /// <summary>Whether this file's effective access resolves by walking up to its parent
+        /// directory's own rules. True by default; set false so a broad grant on an ancestor
+        /// (e.g. shared with everyone) does not carry down to this file.</summary>
+        public bool InheritsParentAccess { get; set; } = true;
+
         public string? ConfigurationName { get; set; } = null;
         public required IFormFile File { get; set; }
         public Dictionary<string, string> AdditionalProperties { get; set; } = new Dictionary<string, string>();

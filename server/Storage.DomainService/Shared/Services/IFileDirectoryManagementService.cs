@@ -18,6 +18,7 @@ public interface IFileDirectoryManagementService
         string? moduleName = null,
         string[]? allowedFileExtensions = null,
         string? objectAccessLevel = null,
+        bool inheritsParentAccess = true,
         CancellationToken cancellationToken = default);
 
     /// <summary>The directory plus the operations the caller holds on it.</summary>

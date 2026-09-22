@@ -8,6 +8,8 @@ using DataGateway.DomainService.Repositories;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
+using MongoDB.Bson;
+using MongoDB.Driver;
 using Moq;
 using StackExchange.Redis;
 using static XUnitTest.DataGateway.TestSupport;
@@ -221,7 +223,35 @@ public class DataGatewayAuthenticationTests : IDisposable
         // asserted here. See the note in the task report about the ambient-context propagation.
     }
 
-    private static string WriteToken(X509Certificate2 signingCertificate, string issuer, string audience)
+    [Fact]
+    public async Task GetPrincipalFromToken_loads_role_permissions_from_the_token_tenant()
+    {
+        ClearContext();
+        using var certificate = CreateSelfSignedCertificate();
+        var tenants = new Mock<ITenants>();
+        tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
+        tenants.Setup(t => t.GetTenantTokenValidationParameter("tenant-1")).Returns(Tenant().JwtTokenParameters);
+        var repository = new Mock<IDbRepository>();
+        repository.Setup(r => r.GetItemsAsync("Permissions", It.IsAny<FilterDefinition<BsonDocument>>(),
+                null, It.IsAny<BsonDocument>(), 0, 5000, "tenant-1"))
+            .ReturnsAsync([new BsonDocument("Resource", "read:documents")]);
+        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object,
+            CacheReturning(certificate.Export(X509ContentType.Cert)).Object, HttpClientFactory(), repository.Object);
+        var token = WriteToken(certificate, Issuer, "api://blocks-protected-api",
+            new Claim(BlocksContext.TENANT_ID_CLAIM, "tenant-1"),
+            new Claim(ClaimTypes.Role, "reader"),
+            new Claim(BlocksContext.ORGANIZATION_ID_CLAIM, "org-1"));
+
+        var principal = await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer(token), "tenant-1");
+
+        principal.Should().NotBeNull();
+        principal!.FindAll("permissions").Select(c => c.Value).Should().Contain("read:documents");
+        repository.Verify(r => r.GetItemsAsync("Permissions", It.IsAny<FilterDefinition<BsonDocument>>(),
+            null, It.IsAny<BsonDocument>(), 0, 5000, "tenant-1"), Times.Once);
+    }
+
+    private static string WriteToken(X509Certificate2 signingCertificate, string issuer, string audience,
+        params Claim[] additionalClaims)
     {
         var credentials = new SigningCredentials(
             new X509SecurityKey(signingCertificate),
@@ -230,7 +260,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         var token = new JwtSecurityToken(
             issuer: issuer,
             audience: audience,
-            claims: [new Claim(ClaimTypes.NameIdentifier, "user-42")],
+            claims: [new Claim(ClaimTypes.NameIdentifier, "user-42"), ..additionalClaims],
             notBefore: DateTime.UtcNow.AddMinutes(-1),
             expires: DateTime.UtcNow.AddMinutes(10),
             signingCredentials: credentials);

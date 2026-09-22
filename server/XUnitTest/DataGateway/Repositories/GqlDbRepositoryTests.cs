@@ -15,11 +15,13 @@ namespace XUnitTest.DataGateway.Repositories;
 public class GqlDbRepositoryTests
 {
     private readonly IMongoDatabase _db;
+    private readonly MongoFixture _fixture;
     private readonly Mock<ICacheClient> _cache = new();
     private readonly GqlDbRepository _repo;
 
     public GqlDbRepositoryTests(MongoFixture fixture)
     {
+        _fixture = fixture;
         _db = fixture.CreateDatabase();
         // Ensure tenant resolution yields empty so the repository falls back to GetDatabase(tenantId).
         BlocksContext.SetContext(null);
@@ -144,6 +146,44 @@ public class GqlDbRepositoryTests
         var id = Guid.NewGuid().ToString();
         await _repo.InsertAsync("CachedColl", new BsonDocument { { "_id", id }, { "V", 1 } });
         (await _repo.GetItemAsync("CachedColl", id)).Should().NotBeNull();
+
+        RequestContextAccessor.Clear();
+    }
+
+    [Fact]
+    public async Task Same_repository_follows_each_request_tenant_and_preserves_custom_override()
+    {
+        var dev = _fixture.CreateDatabase();
+        var other = _fixture.CreateDatabase();
+        var custom = _fixture.CreateDatabase();
+        var provider = new Mock<IDbContextProvider>();
+        provider.Setup(p => p.GetDatabase("dev-tenant")).Returns(dev);
+        provider.Setup(p => p.GetDatabase("other-tenant")).Returns(other);
+        provider.Setup(p => p.GetDatabase("custom-connection", custom.DatabaseNamespace.DatabaseName, true))
+            .Returns(custom);
+        var cache = new Mock<ICacheClient>();
+        cache.Setup(c => c.GetHashValue(It.IsAny<string>())).Returns(Array.Empty<HashEntry>());
+        cache.Setup(c => c.GetHashValue("custom-tenant")).Returns(new[]
+        {
+            new HashEntry("DbConnectionString", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("custom-connection"))),
+            new HashEntry("DatabaseName", custom.DatabaseNamespace.DatabaseName)
+        });
+        var repository = new GqlDbRepository(provider.Object, cache.Object);
+        var id = Guid.NewGuid().ToString();
+
+        foreach (var (tenantId, name) in new[]
+                 { ("dev-tenant", "dev"), ("other-tenant", "other"), ("custom-tenant", "custom") })
+        {
+            RequestContextAccessor.Current = new RequestContext { TenantId = tenantId };
+            await repository.InsertAsync("Items", new BsonDocument { { "_id", id }, { "Name", name } });
+        }
+
+        foreach (var (tenantId, name) in new[]
+                 { ("dev-tenant", "dev"), ("other-tenant", "other"), ("custom-tenant", "custom") })
+        {
+            RequestContextAccessor.Current = new RequestContext { TenantId = tenantId };
+            (await repository.GetItemAsync("Items", id))!["Name"].AsString.Should().Be(name);
+        }
 
         RequestContextAccessor.Clear();
     }

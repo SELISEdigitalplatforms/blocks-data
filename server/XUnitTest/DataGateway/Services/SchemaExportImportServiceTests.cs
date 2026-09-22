@@ -41,37 +41,45 @@ public class SchemaExportServiceTests
     [Fact]
     public async Task BuildExportBytes_SchemaOnly_NoPolicyOrValidationFetch()
     {
-        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "p"))
             .ReturnsAsync(new List<SchemaDefinition> { new() { SchemaName = "Person", ItemId = "s1", Fields = new() { new FieldDefinition { Name = "Email", Type = "String" } } } });
 
         var (bytes, fileName) = await _service.BuildExportBytesAsync(new SchemaExportEvent { FileId = "f1", ProjectKey = "p", ExportOption = SchemaExportOption.Schema });
 
         bytes.Should().NotBeEmpty();
         fileName.Should().StartWith("schema_export_");
-        _repo.Verify(r => r.GetItemsAsync<DataAccessPolicy>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 5000, ""), Times.Never);
+        _repo.Verify(r => r.GetItemsAsync<DataAccessPolicy>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 5000, "p"), Times.Never);
+    }
+
+    [Fact]
+    public async Task BuildExportBytes_RejectsMissingTargetBeforeReading()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.BuildExportBytesAsync(
+            new SchemaExportEvent { FileId = "f1", ProjectKey = "", ExportOption = SchemaExportOption.Schema }));
+        _repo.VerifyNoOtherCalls();
     }
 
     [Fact]
     public async Task BuildExportBytes_All_FetchesPoliciesAndValidations()
     {
-        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "p"))
             .ReturnsAsync(new List<SchemaDefinition> { new() { SchemaName = "Person", ItemId = "s1", Fields = new() { new FieldDefinition { Name = "Email", Type = "String" } } } });
-        _repo.Setup(r => r.GetItemsAsync<DataAccessPolicy>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 5000, ""))
+        _repo.Setup(r => r.GetItemsAsync<DataAccessPolicy>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 5000, "p"))
             .ReturnsAsync(new List<DataAccessPolicy>());
-        _repo.Setup(r => r.GetItemsAsync<DataValidation>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 5000, ""))
+        _repo.Setup(r => r.GetItemsAsync<DataValidation>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 5000, "p"))
             .ReturnsAsync(new List<DataValidation>());
 
         var (bytes, _) = await _service.BuildExportBytesAsync(new SchemaExportEvent { FileId = "f1", ProjectKey = "p", ExportOption = SchemaExportOption.All });
 
         bytes.Should().NotBeEmpty();
-        _repo.Verify(r => r.GetItemsAsync<DataAccessPolicy>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 5000, ""), Times.Once);
-        _repo.Verify(r => r.GetItemsAsync<DataValidation>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 5000, ""), Times.Once);
+        _repo.Verify(r => r.GetItemsAsync<DataAccessPolicy>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 5000, "p"), Times.Once);
+        _repo.Verify(r => r.GetItemsAsync<DataValidation>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 5000, "p"), Times.Once);
     }
 
     [Fact]
     public async Task BuildExportBytes_ReferenceField_PreservesReferenceFieldType()
     {
-        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "p"))
             .ReturnsAsync(new List<SchemaDefinition>
             {
                 new()
@@ -101,11 +109,11 @@ public class SchemaExportServiceTests
     [Fact]
     public async Task InsertExportRecord_Inserts()
     {
-        _repo.Setup(r => r.InsertAsync(It.IsAny<SchemaExportRecord>(), "")).ReturnsAsync((SchemaExportRecord r, string _) => r);
+        _repo.Setup(r => r.InsertAsync(It.IsAny<SchemaExportRecord>(), "p")).ReturnsAsync((SchemaExportRecord r, string _) => r);
 
         await _service.InsertExportRecordAsync(new SchemaExportEvent { FileId = "f1", ProjectKey = "p", ExportOption = SchemaExportOption.Schema }, "file.json");
 
-        _repo.Verify(r => r.InsertAsync(It.Is<SchemaExportRecord>(x => x.FileId == "f1" && x.FileName == "file.json"), ""), Times.Once);
+        _repo.Verify(r => r.InsertAsync(It.Is<SchemaExportRecord>(x => x.FileId == "f1" && x.FileName == "file.json"), "p"), Times.Once);
     }
 }
 
@@ -119,18 +127,26 @@ public class SchemaImportServiceTests
     public SchemaImportServiceTests()
     {
         BlocksTestContext.Set();
-        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition, SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), null, ""))
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition, SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), null, "p"))
             .ReturnsAsync(new List<SchemaDefinition>());
-        _repo.Setup(r => r.GetItemsAsync<DataValidation, DataValidation>(It.IsAny<FilterDefinition<DataValidation>>(), null, ""))
+        _repo.Setup(r => r.GetItemsAsync<DataValidation, DataValidation>(It.IsAny<FilterDefinition<DataValidation>>(), null, "p"))
             .ReturnsAsync(new List<DataValidation>());
-        _repo.Setup(r => r.UpsertManyAsync(It.IsAny<List<SchemaDefinition>>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true });
-        _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<SchemaChangeLog>>(), "")).ReturnsAsync(new List<SchemaChangeLog>());
-        _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<DataAccessPolicy>>(), "")).ReturnsAsync(new List<DataAccessPolicy>());
-        _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<DataValidation>>(), "")).ReturnsAsync(new List<DataValidation>());
+        _repo.Setup(r => r.UpsertManyAsync(It.IsAny<List<SchemaDefinition>>(), "p")).ReturnsAsync(new ActionResponse { Acknowledged = true });
+        _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<SchemaChangeLog>>(), "p")).ReturnsAsync(new List<SchemaChangeLog>());
+        _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<DataAccessPolicy>>(), "p")).ReturnsAsync(new List<DataAccessPolicy>());
+        _repo.Setup(r => r.InsertManyAsync(It.IsAny<List<DataValidation>>(), "p")).ReturnsAsync(new List<DataValidation>());
         _service = new SchemaImportService(_message.Object, _repo.Object, NullLogger<SchemaImportService>.Instance, new SchemaImportValidator(_repo.Object));
     }
 
     private static byte[] Json(object o) => System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(o);
+
+    [Fact]
+    public async Task ProcessImport_RejectsMissingTargetBeforeWriting()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.ProcessImportAsync(
+            new SchemaImportEvent { FileId = "f1", ProjectKey = "" }, Json(new List<SchemaExportDocument>())));
+        _repo.VerifyNoOtherCalls();
+    }
 
     [Fact]
     public async Task InitiateImport_PublishesEvent()
@@ -181,7 +197,7 @@ public class SchemaImportServiceTests
         var count = await _service.ProcessImportAsync(new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs));
 
         count.Should().Be(1);
-        _repo.Verify(r => r.UpsertManyAsync(It.IsAny<List<SchemaDefinition>>(), ""), Times.Once);
+        _repo.Verify(r => r.UpsertManyAsync(It.IsAny<List<SchemaDefinition>>(), "p"), Times.Once);
     }
 
     [Fact]
@@ -214,7 +230,7 @@ public class SchemaImportServiceTests
         count.Should().Be(1);
         _repo.Verify(r => r.UpsertManyAsync(
             It.Is<List<SchemaDefinition>>(schemas =>
-                schemas[0].Fields.Any(field => field.Name == referenceFieldPath)), ""), Times.Once);
+                schemas[0].Fields.Any(field => field.Name == referenceFieldPath)), "p"), Times.Once);
     }
 
     [Fact]
@@ -289,7 +305,7 @@ public class SchemaImportServiceTests
             It.Is<List<SchemaDefinition>>(schemas => schemas
                 .Single(schema => schema.SchemaName == "Agreement")
                 .Fields.Single(field => field.Name == "Signatories.Signature.CoordinateId")
-                .ReferenceFieldType == "Signature"), ""), Times.Once);
+                .ReferenceFieldType == "Signature"), "p"), Times.Once);
     }
 
     [Fact]
@@ -316,19 +332,19 @@ public class SchemaImportServiceTests
             }
         };
 
-        _repo.Setup(r => r.DeleteManyAsync(It.IsAny<FilterDefinition<DataAccessPolicy>>(), "")).ReturnsAsync(new ActionResponse());
+        _repo.Setup(r => r.DeleteManyAsync(It.IsAny<FilterDefinition<DataAccessPolicy>>(), "p")).ReturnsAsync(new ActionResponse());
 
         var count = await _service.ProcessImportAsync(new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs));
 
         count.Should().Be(1);
-        _repo.Verify(r => r.InsertManyAsync(It.Is<List<DataAccessPolicy>>(l => l.Count == 2), ""), Times.Once);
-        _repo.Verify(r => r.InsertManyAsync(It.Is<List<DataValidation>>(l => l.Count == 1), ""), Times.Once);
+        _repo.Verify(r => r.InsertManyAsync(It.Is<List<DataAccessPolicy>>(l => l.Count == 2), "p"), Times.Once);
+        _repo.Verify(r => r.InsertManyAsync(It.Is<List<DataValidation>>(l => l.Count == 1), "p"), Times.Once);
     }
 
     [Fact]
     public async Task ProcessImport_ExistingSchema_UpdatesInPlace()
     {
-        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition, SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), null, ""))
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition, SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), null, "p"))
             .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "existing", SchemaName = "Person", SchemaType = SchemaType.Entity } });
 
         var docs = new List<SchemaExportDocument>
@@ -339,6 +355,6 @@ public class SchemaImportServiceTests
         var count = await _service.ProcessImportAsync(new SchemaImportEvent { FileId = "f1", ProjectKey = "p" }, Json(docs));
 
         count.Should().Be(1);
-        _repo.Verify(r => r.UpsertManyAsync(It.Is<List<SchemaDefinition>>(l => l[0].ItemId == "existing"), ""), Times.Once);
+        _repo.Verify(r => r.UpsertManyAsync(It.Is<List<SchemaDefinition>>(l => l[0].ItemId == "existing"), "p"), Times.Once);
     }
 }

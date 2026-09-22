@@ -39,6 +39,7 @@ public class SchemaImportService : ISchemaImportService
     {
         var context = BlocksContext.GetContext();
         var tenantId = context?.TenantId ?? string.Empty;
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
 
         await _messageClient.SendToConsumerAsync(new ConsumerMessage<SchemaImportEvent>
         {
@@ -60,6 +61,7 @@ public class SchemaImportService : ISchemaImportService
     /// <inheritdoc />
     public async Task<int> ProcessImportAsync(SchemaImportEvent importEvent, byte[] jsonBytes)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(importEvent.ProjectKey);
         // 1. Deserialize
         List<SchemaExportDocument> documents;
         try
@@ -99,20 +101,20 @@ public class SchemaImportService : ISchemaImportService
             d.Fields.Any(f => f.ValidationRules != null));
 
         // 4. Bulk upsert all schemas, policies, validations, and change logs
-        var importedSchemas = await BulkUpsertSchemasAsync(documents);
+        var importedSchemas = await BulkUpsertSchemasAsync(documents, importEvent.ProjectKey);
         var changeLogs = new List<SchemaChangeLog>();
 
         if (hasAccessPolicies)
-            await BulkUpsertAccessPoliciesAsync(importedSchemas, changeLogs);
+            await BulkUpsertAccessPoliciesAsync(importedSchemas, changeLogs, importEvent.ProjectKey);
 
         if (hasValidationRules)
-            await BulkUpsertValidationsAsync(importedSchemas, changeLogs);
+            await BulkUpsertValidationsAsync(importedSchemas, changeLogs, importEvent.ProjectKey);
 
         // Schema-level change logs
         foreach (var (_, schema, changeType) in importedSchemas)
             BuildChangeLog(schema.ItemId, changeType, changeLogs);
 
-        await BulkInsertChangeLogsAsync(changeLogs);
+        await BulkInsertChangeLogsAsync(changeLogs, importEvent.ProjectKey);
 
         _logger.LogInformation("ProcessImportAsync: Imported {Count} schemas for fileId={FileId}", importedSchemas.Count, importEvent.FileId);
         return importedSchemas.Count;
@@ -163,11 +165,11 @@ public class SchemaImportService : ISchemaImportService
     /// Returns a list of (document, resolved schema entity, change type) for downstream use.
     /// </summary>
     private async Task<List<(SchemaExportDocument Doc, SchemaDefinition Schema, SchemaChangeType ChangeType)>> BulkUpsertSchemasAsync(
-        List<SchemaExportDocument> documents)
+        List<SchemaExportDocument> documents, string tenantId)
     {
         var schemaNames = documents.Select(d => d.SchemaName).ToList();
         var existingSchemas = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
-            Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, schemaNames));
+            Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, schemaNames), databaseName: tenantId);
         var existingBySchemaName = existingSchemas.ToDictionary(s => s.SchemaName, StringComparer.OrdinalIgnoreCase);
 
         var toUpsert = new List<SchemaDefinition>();
@@ -206,7 +208,7 @@ public class SchemaImportService : ISchemaImportService
             result.Add((doc, schema, changeType));
         }
 
-        await _dbRepository.UpsertManyAsync(toUpsert);
+        await _dbRepository.UpsertManyAsync(toUpsert, tenantId);
         return result;
     }
 
@@ -216,11 +218,11 @@ public class SchemaImportService : ISchemaImportService
     /// </summary>
     private async Task BulkUpsertAccessPoliciesAsync(
         List<(SchemaExportDocument Doc, SchemaDefinition Schema, SchemaChangeType)> importedSchemas,
-        List<SchemaChangeLog> changeLogs)
+        List<SchemaChangeLog> changeLogs, string tenantId)
     {
         var schemaNames = importedSchemas.Select(x => x.Schema.SchemaName).ToList();
         await _dbRepository.DeleteManyAsync(
-            Builders<DataAccessPolicy>.Filter.In(p => p.SchemaName, schemaNames));
+            Builders<DataAccessPolicy>.Filter.In(p => p.SchemaName, schemaNames), tenantId);
 
         var toInsert = new List<DataAccessPolicy>();
 
@@ -243,7 +245,7 @@ public class SchemaImportService : ISchemaImportService
         }
 
         if (toInsert.Count > 0)
-            await _dbRepository.InsertManyAsync(toInsert);
+            await _dbRepository.InsertManyAsync(toInsert, tenantId);
     }
 
     /// <summary>
@@ -252,11 +254,11 @@ public class SchemaImportService : ISchemaImportService
     /// </summary>
     private async Task BulkUpsertValidationsAsync(
         List<(SchemaExportDocument Doc, SchemaDefinition Schema, SchemaChangeType)> importedSchemas,
-        List<SchemaChangeLog> changeLogs)
+        List<SchemaChangeLog> changeLogs, string tenantId)
     {
         var schemaIds = importedSchemas.Select(x => x.Schema.ItemId).ToList();
         var existingValidations = await _dbRepository.GetItemsAsync<DataValidation, DataValidation>(
-            Builders<DataValidation>.Filter.In(v => v.SchemaId, schemaIds));
+            Builders<DataValidation>.Filter.In(v => v.SchemaId, schemaIds), databaseName: tenantId);
         var existingByKey = existingValidations.ToDictionary(v => (v.SchemaId, v.FieldName));
 
         var toUpdate = new List<DataValidation>();
@@ -286,18 +288,18 @@ public class SchemaImportService : ISchemaImportService
         }
 
         if (toUpdate.Count > 0)
-            await _dbRepository.UpdateManyAsync(toUpdate);
+            await _dbRepository.UpdateManyAsync(toUpdate, tenantId);
 
         if (toInsert.Count > 0)
-            await _dbRepository.InsertManyAsync(toInsert);
+            await _dbRepository.InsertManyAsync(toInsert, tenantId);
     }
 
-    private async Task BulkInsertChangeLogsAsync(List<SchemaChangeLog> changeLogs)
+    private async Task BulkInsertChangeLogsAsync(List<SchemaChangeLog> changeLogs, string tenantId)
     {
         if (changeLogs.Count == 0) return;
         try
         {
-            await _dbRepository.InsertManyAsync(changeLogs);
+            await _dbRepository.InsertManyAsync(changeLogs, tenantId);
         }
         catch (Exception ex)
         {

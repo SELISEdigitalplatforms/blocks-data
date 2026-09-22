@@ -13,7 +13,6 @@ public class DbRepository : IDbRepository
 {
     private readonly IDbContextProvider _dbContextProvider;
     private readonly IBlocksSecret _blocksSecret;
-    private IMongoDatabase _database;
     public DbRepository(IDbContextProvider dbContextProvider, IBlocksSecret blocksSecret)
     {
         _dbContextProvider = dbContextProvider;
@@ -25,19 +24,19 @@ public class DbRepository : IDbRepository
     public async Task<T?> GetItemAsync<T>(FilterDefinition<T> filter, string databaseName = "")
             where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
 
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
         return await collection.Find(filter).FirstOrDefaultAsync();
     }
     public async Task<T?> GetItemAsync<T>(string id, string databaseName = "")
     where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
 
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
         var filter = Builders<T>.Filter.Eq(x => x.ItemId, id);
         return await collection.Find(filter).FirstOrDefaultAsync();
     }
@@ -45,15 +44,15 @@ public class DbRepository : IDbRepository
 
     public async Task<BsonDocument?> GetItemAsync(string collectionName, string id, string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         var filter = Builders<BsonDocument>.Filter.Eq(GraphQlConstant.DbEntityIdFieldName, id);
         return await collection.Find(filter).FirstOrDefaultAsync();
     }
     public async Task<BsonDocument?> GetItemAsync(string collectionName, FilterDefinition<BsonDocument> filter, string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         return await collection.Find(filter).FirstOrDefaultAsync();
     }
 
@@ -65,9 +64,9 @@ public class DbRepository : IDbRepository
         int limit = 10,
         string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         var query = collection.Find(filter);
 
         if (projection != null)
@@ -89,9 +88,9 @@ public class DbRepository : IDbRepository
         SortDefinition<TEntity>? sort = null,
         string databaseName = "") where TEntity : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(TEntity).Name}s";
-        var collection = _database.GetCollection<TEntity>(collectionName);
+        var collection = database.GetCollection<TEntity>(collectionName);
         var query = collection.Find(filter);
 
         if (sort != null)
@@ -111,8 +110,8 @@ public class DbRepository : IDbRepository
         int limit = 10,
         string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.GetItemsAsync(collection, filter, sort, projection, skip, limit);
     }
 
@@ -125,9 +124,9 @@ public class DbRepository : IDbRepository
         int limit = 10,
         string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         var query = collection.Find(filter);
 
         if (projection != null)
@@ -155,17 +154,17 @@ public class DbRepository : IDbRepository
         int limit = 10,
         string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.GetItemsWithCountAsync(collection, filter, sort, projection, skip, limit);
     }
 
     public async Task<BsonDocument?> AggregateOneAsync<T>(BsonDocument[] pipeline, string databaseName = "")
         where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         return await collection.Aggregate<BsonDocument>(pipeline).FirstOrDefaultAsync();
     }
 
@@ -175,31 +174,31 @@ public class DbRepository : IDbRepository
     // InsertAsync overloads
     public async Task<T> InsertAsync<T>(T data, string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
         await collection.InsertOneAsync(data);
         return data;
     }
     public async Task<BsonDocument> InsertAsync(string collectionName, BsonDocument data, string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.InsertAsync(collection, data);
     }
     // InsertManyAsync overloads
     public async Task<List<T>> InsertManyAsync<T>(List<T> data, string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
         await collection.InsertManyAsync(data);
         return data;
     }
     public async Task<List<BsonDocument>> InsertManyAsync(string collectionName, List<BsonDocument> data, string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         await collection.InsertManyAsync(data);
         return data;
     }
@@ -210,9 +209,9 @@ public class DbRepository : IDbRepository
 
     public async Task<ActionResponse> UpdateAsync<T>(T data, string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
         var filter = Builders<T>.Filter.Eq(x => x.ItemId, data.ItemId);
 
         var result = await collection.ReplaceOneAsync(filter, data);
@@ -229,9 +228,9 @@ public class DbRepository : IDbRepository
         T data,
         string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
 
         var result = await collection.ReplaceOneAsync(filter, data);
 
@@ -248,15 +247,15 @@ public class DbRepository : IDbRepository
         BsonDocument data,
         string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.UpdateOneAsync(collection, filter, data);
     }
     public async Task<ActionResponse> UpdateManyAsync<T>(List<T> data, string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
         var updates = new List<WriteModel<T>>();
         foreach (var item in data)
         {
@@ -276,8 +275,8 @@ public class DbRepository : IDbRepository
         BsonDocument data,
         string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.UpdateManyAsync(collection, filter, data);
     }
 
@@ -287,9 +286,9 @@ public class DbRepository : IDbRepository
     // DeleteAsync overloads
     public async Task<ActionResponse> DeleteAsync<T>(FilterDefinition<T> filter, string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
         var result = await collection.DeleteOneAsync(filter);
         var actionResponse = new ActionResponse
         {
@@ -300,16 +299,16 @@ public class DbRepository : IDbRepository
     }
     public async Task<ActionResponse> DeleteAsync(string collectionName, BsonDocument filter, string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.DeleteOneAsync(collection, filter);
     }
     // DeleteManyAsync overloads
     public async Task<ActionResponse> DeleteManyAsync<T>(FilterDefinition<T> filter, string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
         var result = await collection.DeleteManyAsync(filter);
         var actionResponse = new ActionResponse
         {
@@ -320,8 +319,8 @@ public class DbRepository : IDbRepository
     }
     public async Task<ActionResponse> DeleteManyAsync(string collectionName, BsonDocument filter, string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.DeleteManyAsync(collection, filter);
     }
     #endregion
@@ -329,9 +328,9 @@ public class DbRepository : IDbRepository
     #region Upsert
     public async Task<ActionResponse> UpsertAsync<T>(T data, string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
         var filter = Builders<T>.Filter.Eq(x => x.ItemId, data.ItemId);
         var result = await collection.ReplaceOneAsync(filter, data, new ReplaceOptions { IsUpsert = true });
         var actionResponse = new ActionResponse
@@ -343,8 +342,8 @@ public class DbRepository : IDbRepository
     }
     public async Task<ActionResponse> UpsertAsync(string collectionName, BsonDocument data, string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         var filter = Builders<BsonDocument>.Filter.Eq(GraphQlConstant.DbEntityIdFieldName, data[GraphQlConstant.DbEntityIdFieldName]);
         var result = await collection.ReplaceOneAsync(filter, data, new ReplaceOptions { IsUpsert = true });
         var actionResponse = new ActionResponse
@@ -356,9 +355,9 @@ public class DbRepository : IDbRepository
     }
     public async Task<ActionResponse> UpsertManyAsync<T>(List<T> data, string databaseName = "") where T : GraphQlBaseEntity
     {
-        SetDatabase(databaseName);
+        var database = ResolveDatabase(databaseName);
         var collectionName = $"{typeof(T).Name}s";
-        var collection = _database.GetCollection<T>(collectionName);
+        var collection = database.GetCollection<T>(collectionName);
         var updates = new List<WriteModel<T>>();
         foreach (var item in data)
         {
@@ -379,8 +378,8 @@ public class DbRepository : IDbRepository
     #region Index
     public async Task<ActionResponse> CreateIndexAsync(string collectionName, List<(string FieldName, int Direction)> keys, bool isUnique, string indexName, string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
 
         var keysBuilder = Builders<BsonDocument>.IndexKeys;
         IndexKeysDefinition<BsonDocument> indexKeys = keys[0].Direction < 0
@@ -401,36 +400,30 @@ public class DbRepository : IDbRepository
 
     public async Task<ActionResponse> DropIndexAsync(string collectionName, string indexName, string databaseName = "")
     {
-        SetDatabase(databaseName);
-        var collection = _database.GetCollection<BsonDocument>(collectionName);
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         await collection.Indexes.DropOneAsync(indexName);
         return new ActionResponse { Acknowledged = true, ItemId = indexName };
     }
     #endregion
 
     #region Private Methods
-    private DbRepository SetDatabase(string databaseName)
+    private IMongoDatabase ResolveDatabase(string databaseName)
     {
         if (string.IsNullOrWhiteSpace(databaseName))
         {
-            var database = _dbContextProvider.GetDatabase();
-            if (database == null)
-            {
-                throw new InvalidOperationException("Database context provider returned null database.");
-            }
-            _database = database;
-        }
-        else if (databaseName == GraphQlConstant.BlocksRootDbName)
-        {
-            _database = _dbContextProvider.GetDatabase(_blocksSecret.DatabaseConnectionString,
-                databaseName);
-        }
-        else
-        {
-            _database = _dbContextProvider.GetDatabase(databaseName);
+            return _dbContextProvider.GetDatabase()
+                ?? throw new InvalidOperationException("Database context provider returned null database.");
         }
 
-        return this;
+        if (databaseName == GraphQlConstant.BlocksRootDbName
+            || databaseName == _blocksSecret.RootDatabaseName)
+        {
+            return _dbContextProvider.GetDatabase(_blocksSecret.DatabaseConnectionString,
+                _blocksSecret.RootDatabaseName);
+        }
+
+        return _dbContextProvider.GetDatabase(databaseName);
     }
     #endregion
 }

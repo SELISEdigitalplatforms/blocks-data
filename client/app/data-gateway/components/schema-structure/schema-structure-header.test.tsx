@@ -15,8 +15,6 @@ type Props = Parameters<typeof SchemaStructureHeader>[0];
 function baseProps(overrides: Partial<Props> = {}): Props {
   return {
     isEditMode: false,
-    isDirty: false,
-    isValid: true,
     hasSelectedRows: false,
     selectedFieldEntriesLength: 0,
     fieldsLength: 0,
@@ -67,32 +65,35 @@ describe("SchemaStructureHeader", () => {
     expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
   });
 
-  it("disables Save until the form is valid and dirty", () => {
-    render(
+  // Save was here, disabled unless the form was valid and dirty — which is
+  // exactly when the dirty bar appears. It owns Save now, so the header keeps
+  // only the way out.
+  it("offers Cancel but no Save in edit mode", () => {
+    render(<SchemaStructureHeader {...baseProps({ isEditMode: true })} />);
+
+    expect(screen.getAllByRole("button", { name: "Cancel" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+  });
+  // Selecting rows gave no feedback beyond the checkboxes themselves; the
+  // design puts a "N selected" count beside the bulk-action control.
+  it("shows how many rows are selected, and nothing when none are", () => {
+    const { rerender } = render(
       <SchemaStructureHeader
-        {...baseProps({ isEditMode: true, isValid: false, isDirty: true })}
+        {...baseProps({ isEditMode: true, hasSelectedRows: false, selectedFieldEntriesLength: 0 })}
       />,
     );
-    screen
-      .getAllByRole("button", { name: "Save" })
-      .forEach((btn) => expect(btn).toBeDisabled());
+    expect(screen.queryByText(/selected/)).not.toBeInTheDocument();
+
+    rerender(
+      <SchemaStructureHeader
+        {...baseProps({ isEditMode: true, hasSelectedRows: true, selectedFieldEntriesLength: 2 })}
+      />,
+    );
+    expect(screen.getAllByText("2 selected").length).toBeGreaterThan(0);
   });
 
-  it("calls onSaveClick when Save is clicked in a valid, dirty edit state", async () => {
-    const user = userEvent.setup();
-    const onSaveClick = vi.fn();
-    render(
-      <SchemaStructureHeader
-        {...baseProps({
-          isEditMode: true,
-          isValid: true,
-          isDirty: true,
-          onSaveClick,
-        })}
-      />,
-    );
-
-    await user.click(screen.getAllByRole("button", { name: "Save" })[0]);
-    expect(onSaveClick).toHaveBeenCalled();
+  it("labels the bulk-action control 'Bulk actions'", () => {
+    render(<SchemaStructureHeader {...baseProps({ isEditMode: true })} />);
+    expect(screen.getAllByRole("button", { name: /Bulk actions/ }).length).toBeGreaterThan(0);
   });
 });

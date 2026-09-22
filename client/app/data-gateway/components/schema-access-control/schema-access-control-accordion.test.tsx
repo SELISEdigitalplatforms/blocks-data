@@ -59,11 +59,11 @@ describe("SchemaAccessControlAccordion", () => {
     expect(onAddRuleSet).toHaveBeenCalled();
   });
 
+  // A three-column table did not survive the 328px inspector; it is a list.
   it("renders a row per policy with its rule count", () => {
     render(<SchemaAccessControlAccordion policies={[policy]} />);
     expect(screen.getByText("Admins only")).toBeInTheDocument();
-    // rulesCount cell
-    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("1 rule")).toBeInTheDocument();
   });
 
   it("expands a policy row to show the readable rule text", async () => {
@@ -71,26 +71,22 @@ describe("SchemaAccessControlAccordion", () => {
     render(<SchemaAccessControlAccordion policies={[policy]} />);
 
     await user.click(screen.getByText("Admins only"));
-    expect(screen.getByText("All rules match (AND)")).toBeInTheDocument();
-    // ruleToText renders the left operand somewhere in the rule text
-    expect(screen.getByText(/userId/)).toBeInTheDocument();
+    expect(screen.getByText("Grants access when every rule must match:")).toBeInTheDocument();
+    // The rule reads as a sentence rather than a dump of source labels.
+    expect(screen.getByText(/the signed-in user's userId equals “abc”/)).toBeInTheDocument();
   });
 
   it("filters policies by the search box", async () => {
     const user = userEvent.setup();
     render(<SchemaAccessControlAccordion policies={[policy]} />);
 
-    await user.type(screen.getByPlaceholderText("Search"), "zzz");
+    await user.type(screen.getByPlaceholderText("Search rule sets"), "zzz");
     expect(screen.getByText(/No rule sets match "zzz"/)).toBeInTheDocument();
     expect(screen.queryByText("Admins only")).not.toBeInTheDocument();
   });
 
   const openRowMenu = async (user: ReturnType<typeof userEvent.setup>) => {
-    // The row menu trigger is the icon-only button (no text) in the row.
-    const trigger = screen
-      .getAllByRole("button")
-      .find((b) => b.querySelector("svg") && !b.textContent?.trim())!;
-    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "Actions for Admins only" }));
   };
 
   it("edits a policy from the row menu", async () => {

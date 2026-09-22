@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  ruleToText,
   policyRuleToFormRow,
   findFieldAtDottedPath,
   resolveFieldAccessLevel,
@@ -21,51 +20,6 @@ const field = (name: string, overrides: Partial<IField> = {}): IField =>
   ({ name, type: "String", isArray: false, ...overrides }) as IField;
 
 describe("schema-access-control.utils", () => {
-  describe("ruleToText", () => {
-    it("renders a static-value comparison with quotes", () => {
-      expect(
-        ruleToText(rule({ operator: 0, rightSource: 2, staticValue: "test@x.com" })),
-      ).toBe(`Auth's email equals "test@x.com"`);
-    });
-
-    it("renders array static values as comma-joined quoted values", () => {
-      expect(
-        ruleToText(rule({ operator: 8, rightSource: 2, staticValue: ["a", "b"] })),
-      ).toBe(`Auth's email is in "a", "b"`);
-    });
-
-    it("omits the right side for null operators", () => {
-      expect(ruleToText(rule({ operator: 12 }))).toBe("Auth's email is null");
-      expect(ruleToText(rule({ operator: 13 }))).toBe("Auth's email is not null");
-    });
-
-    it("renders a source/field comparison for schema-field right sources", () => {
-      expect(
-        ruleToText(
-          rule({ leftSource: 0, leftOperand: "userId", operator: 0, rightSource: 1, rightOperand: "ownerId" }),
-        ),
-      ).toBe("Auth's userId equals Schema Fields's ownerId");
-    });
-
-    it("renders a single schema-field right operand", () => {
-      expect(
-        ruleToText(rule({ operator: 0, rightSource: 1, rightOperand: "a" })),
-      ).toBe("Auth's email equals Schema Fields's a");
-    });
-
-    it("falls back to placeholders for unknown sources/operators", () => {
-      expect(
-        ruleToText(rule({ leftSource: 99, operator: 99, rightSource: 2, staticValue: "x" })),
-      ).toBe(`Source(99)'s email operator(99) "x"`);
-    });
-
-    it("renders empty quotes when static value is null", () => {
-      expect(ruleToText(rule({ operator: 0, rightSource: 2, staticValue: null }))).toBe(
-        `Auth's email equals ""`,
-      );
-    });
-  });
-
   describe("policyRuleToFormRow", () => {
     it("maps a basic static equal rule", () => {
       expect(

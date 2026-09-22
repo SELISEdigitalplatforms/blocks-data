@@ -58,6 +58,7 @@ import {
   useCreatePolicy,
   useUpdatePolicy,
 } from "@/data-gateway/hooks/use-configuration";
+import type { PresetRuleSet } from "@/data-gateway/utils/access-presets";
 import type {
   ICreatePolicyPayload,
   IPolicyItem,
@@ -74,7 +75,6 @@ import { useProjectStore } from "@seliseblocks/genesis-os";
 import { Plus, X } from "lucide-react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
-import { SchemaAccessControlAccordion } from "./schema-access-control-accordion";
 
 const ruleRowSchema = z
   .object({
@@ -170,6 +170,12 @@ interface RuleSetFormProps {
   fieldNames: string[];
   editingPolicy?: IPolicyItem;
   level: "row" | "column";
+  /**
+   * Starting values from a preset. It fills the form rather than saving, so the
+   * rules are reviewed before they grant anything, and so presets and the form
+   * share one payload builder. Ignored while editing an existing set.
+   */
+  seed?: PresetRuleSet;
 }
 
 export const RuleSetForm = ({
@@ -181,6 +187,7 @@ export const RuleSetForm = ({
   fieldNames,
   editingPolicy,
   level,
+  seed,
 }: RuleSetFormProps) => {
   const { mutateAsync: createPolicy, isPending: isCreating } =
     useCreatePolicy();
@@ -195,15 +202,15 @@ export const RuleSetForm = ({
     resolver: zodResolver(ruleSetSchema),
     mode: "onChange",
     defaultValues: {
-      name: editingPolicy?.policyName ?? "",
+      name: editingPolicy?.policyName ?? seed?.name ?? "",
       logicalOperator: editingPolicy
         ? editingPolicy.ruleGroup.logicalOperator === LOGICAL_OPERATOR.OR
           ? "OR"
           : "AND"
-        : "AND",
+        : (seed?.logicalOperator ?? "AND"),
       rules: editingPolicy
         ? editingPolicy.ruleGroup.rules.map(policyRuleToFormRow)
-        : [],
+        : (seed?.rules ?? []),
     },
   });
 
@@ -608,12 +615,13 @@ export const RuleSetForm = ({
                       return (
                         <Card
                           key={ruleField.id}
-                          className={cn(
-                            "relative isolate my-1 flex flex-col p-4 shadow-none",
-                            "lg:flex-row lg:items-start lg:gap-2 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none",
-                          )}
+                          className="relative flex flex-col gap-2.5 p-3 pr-9 shadow-none"
                         >
-                          <div className="flex min-w-0 flex-1 flex-col gap-3 max-lg:pt-8 lg:flex-row lg:items-start lg:gap-2 lg:pt-0">
+                          <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+                            {/* Left Source + Left Field: a 2-up grid rather than a row that
+                                only worked at the 85vw drawer width this form used to live in.
+                                Every control below is a plain full-width grid item now. */}
+                            <div className="grid grid-cols-2 gap-2">
                             {/* Left Source */}
                             <FormField
                               control={form.control}
@@ -649,7 +657,7 @@ export const RuleSetForm = ({
                                     );
                                   }}
                                 >
-                                  <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
+                                  <SelectTrigger className="h-10 w-full min-w-0">
                                     <SelectValue placeholder="Select source" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -673,7 +681,7 @@ export const RuleSetForm = ({
                               render={({ field }) =>
                                 isStaticValue ? (
                                   <Input
-                                    className="h-10 w-full min-w-0 lg:flex-1"
+                                    className="h-10 w-full min-w-0"
                                     placeholder="Enter value"
                                     value={field.value}
                                     onChange={field.onChange}
@@ -723,7 +731,7 @@ export const RuleSetForm = ({
                                     }}
                                     disabled={!source}
                                   >
-                                    <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
+                                    <SelectTrigger className="h-10 w-full min-w-0">
                                       <SelectValue placeholder="Select field" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -740,7 +748,17 @@ export const RuleSetForm = ({
                                 )
                               }
                             />
+                            </div>
 
+                            {/* Operator + Compare Source: same 2-up grid, collapsing to one
+                                column when Compare Source is hidden (IS_NULL / IS_NOT_NULL /
+                                REGEX / START_WITH / END_WITH have no right-hand source). */}
+                            <div
+                              className={cn(
+                                "grid gap-2",
+                                isNullOperator || isDirectValueOp ? "grid-cols-1" : "grid-cols-2",
+                              )}
+                            >
                             {/* Operator */}
                             <FormField
                               control={form.control}
@@ -802,7 +820,7 @@ export const RuleSetForm = ({
                                     }
                                   }}
                                 >
-                                  <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
+                                  <SelectTrigger className="h-10 w-full min-w-0">
                                     <SelectValue placeholder="Operator" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -838,7 +856,7 @@ export const RuleSetForm = ({
                                       );
                                     }}
                                   >
-                                    <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
+                                    <SelectTrigger className="h-10 w-full min-w-0">
                                       <SelectValue placeholder="Compare with" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -857,8 +875,11 @@ export const RuleSetForm = ({
                                 )}
                               />
                             )}
+                            </div>
 
-                            {/* Compare Value (hidden for IS_NULL / IS_NOT_NULL) */}
+                            {/* Compare Value: its own full-width row — none of its widgets
+                                (multi-select popover, principal selector, plain input) read
+                                well sharing a row at this width. */}
                             {!isNullOperator && (
                               <FormField
                                 control={form.control}
@@ -874,7 +895,7 @@ export const RuleSetForm = ({
                                           : "Enter suffix";
                                     return (
                                       <Input
-                                        className="h-10 w-full min-w-0 lg:flex-1"
+                                        className="h-10 w-full min-w-0"
                                         placeholder={placeholder}
                                         value={field.value}
                                         onChange={field.onChange}
@@ -911,7 +932,7 @@ export const RuleSetForm = ({
                                   if (isInOp && isCompareStatic) {
                                     return (
                                       <Input
-                                        className="h-10 w-full min-w-0 lg:flex-1"
+                                        className="h-10 w-full min-w-0"
                                         placeholder="Enter comma-separated values"
                                         value={field.value}
                                         onChange={field.onChange}
@@ -930,7 +951,7 @@ export const RuleSetForm = ({
                                         <PopoverTrigger asChild>
                                           <button
                                             type="button"
-                                            className="flex h-10 w-full min-w-0 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground lg:flex-1"
+                                            className="flex h-10 w-full min-w-0 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground"
                                           >
                                             <span className="truncate text-left">
                                               {selectedInValues.length > 0
@@ -1007,7 +1028,7 @@ export const RuleSetForm = ({
                                   // Default: Static → input, Auth/Schema → single select
                                   return isCompareStatic ? (
                                     <Input
-                                      className="h-10 w-full min-w-0 lg:flex-1"
+                                      className="h-10 w-full min-w-0"
                                       placeholder="Enter value"
                                       value={field.value}
                                       onChange={field.onChange}
@@ -1018,7 +1039,7 @@ export const RuleSetForm = ({
                                       onValueChange={field.onChange}
                                       disabled={!compareSource}
                                     >
-                                      <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
+                                      <SelectTrigger className="h-10 w-full min-w-0">
                                         <SelectValue placeholder="Select field" />
                                       </SelectTrigger>
                                       <SelectContent>
@@ -1038,18 +1059,16 @@ export const RuleSetForm = ({
                             )}
                           </div>
 
-                          <div className="absolute right-0 top-0 z-20 -translate-y-1/2 translate-x-1/2 lg:static lg:shrink-0 lg:translate-x-0 lg:translate-y-0 lg:self-center">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-full border border-border bg-background text-destructive shadow-md ring-1 ring-background hover:bg-destructive/10 hover:text-destructive dark:bg-card"
-                              aria-label="Remove rule"
-                              onClick={() => remove(index)}
-                            >
-                              <X className="h-4 w-4" strokeWidth={2.25} />
-                            </Button>
-                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1.5 top-1.5 h-6 w-6 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            aria-label="Remove rule"
+                            onClick={() => remove(index)}
+                          >
+                            <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+                          </Button>
                         </Card>
                       );
                     })}
@@ -1077,9 +1096,6 @@ export const RuleSetForm = ({
                 </>
               )}
             </div>
-
-            {/*Rules populated Accordion */}
-            <SchemaAccessControlAccordion isEditing />
 
             <hr className="my-5" />
 

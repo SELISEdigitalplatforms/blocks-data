@@ -7,20 +7,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { Input } from "@/components/ui-kits/input/input";
-import { Switch } from "@/components/ui-kits/switch/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-kits/select/select";
 import { TableCell, TableRow } from "@/components/ui-kits/table/table";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/tooltip/tooltip";
 import { cn } from "@/lib/utils";
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   Copy,
   MoreVertical,
-  TicketCheck,
-  TicketSlash,
+  Shield,
   Trash,
-  UserRoundPlus,
 } from "lucide-react";
 import {
   FieldErrors,
@@ -47,6 +45,20 @@ import {
 } from "@/data-gateway/constants/schema-access-control";
 import { getValidationDisplayInfo } from "@/data-gateway/utils/schema-normalization";
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
+import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagsFromField } from "../primitives";
+
+/**
+ * The three genuine booleans on a property, as one column.
+ *
+ * They used to be three columns of switches that stayed on screen in view mode
+ * looking like controls you could touch, each with a tooltip explaining why you
+ * could not. The aria-labels are unchanged so the edit-mode contract holds.
+ */
+const FLAG_SWITCHES = [
+  { key: "isArray", label: "ARR", title: "IsArray", notForChildTypes: false },
+  { key: "isPIIData", label: "PII", title: "IsPII", notForChildTypes: true },
+  { key: "isUniqueData", label: "UQ", title: "IsUnique", notForChildTypes: true },
+] as const;
 
 interface SchemaDesktopRowProps {
   field: FieldArrayWithId<{ properties: IField[] }, "properties", "id">;
@@ -161,6 +173,7 @@ export function SchemaDesktopRow({
   );
 
   const currentType = watch(`properties.${index}.type`);
+  const description = watch(`properties.${index}.description`) ?? "";
   const isPrimitiveType = typeOptions.includes(currentType);
   const resolvedChildSchema = childSchema ?? findChildSchemaByType(schemaItems, currentType);
   const isChildType = Boolean(resolvedChildSchema);
@@ -228,8 +241,16 @@ export function SchemaDesktopRow({
             </TableCell>
           )}
 
-          {/* Property Name */}
+          {/* Property */}
           <TableCell className={compactCellClass}>
+            {!isEditMode ? (
+              <span
+                className="block truncate font-mono text-[13px] text-foreground"
+                title={name}
+              >
+                {name}
+              </span>
+            ) : (
             <div className="flex h-9 flex-col justify-center gap-0.5">
               <Input
                 {...register(`properties.${index}.name`, {
@@ -282,18 +303,26 @@ export function SchemaDesktopRow({
                   errors.properties?.[index]?.name ? "border-red-500" : "",
                 )}
               />
-              {isEditMode && errors.properties?.[index]?.name?.message && (
+              {errors.properties?.[index]?.name?.message && (
                 <p className="text-xs leading-4 text-red-500">
                   {errors.properties?.[index]?.name?.message}
                 </p>
               )}
             </div>
+            )}
           </TableCell>
 
           {/* Property Type */}
           <TableCell className={compactCellClass}>
             <div className="flex h-9 flex-col justify-center">
               <div className="flex min-w-0 items-center gap-1.5">
+                {!isEditMode ? (
+                  <TypeChip
+                    type={currentType}
+                    isArray={watch(`properties.${index}.isArray`)}
+                    className="min-w-0 max-w-full truncate"
+                  />
+                ) : (
                 <div className="min-w-0 flex-1">
                   <PropertyTypeSelector
                     index={index}
@@ -318,6 +347,7 @@ export function SchemaDesktopRow({
                     isChildType={isChildType}
                   />
                 </div>
+                )}
                 {!isEditMode && isChildType && resolvedChildSchema && onToggleExpand && (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -353,9 +383,13 @@ export function SchemaDesktopRow({
             </div>
           </TableCell>
 
-          {/* IsArray */}
+          {/* Required */}
           <TableCell className={compactCellClass}>
-              {isPrimitiveType && <Select
+              {!isEditMode ? (
+                isPrimitiveType ? (
+                  <RequiredBadge requiredOn={watch(`properties.${index}.requiredOn`)} />
+                ) : null
+              ) : isPrimitiveType && <Select
                 value={watch(`properties.${index}.requiredOn`) ?? "None"}
                 onValueChange={(value) => setValue(`properties.${index}.requiredOn`, value as IField["requiredOn"], { shouldDirty: true })}
                 disabled={!isEditMode || isReadOnly}
@@ -369,154 +403,90 @@ export function SchemaDesktopRow({
               </Select>}
           </TableCell>
 
-          {/* IsArray */}
-          <TableCell className={cn(compactCellClass, "px-3 text-center md:px-3")}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    "inline-flex h-9 w-full items-center justify-center",
-                    (!isEditMode || isReadOnly) && "cursor-not-allowed",
-                  )}
-                >
-                  <Switch
-                    checked={watch(`properties.${index}.isArray`) === true}
-                    onCheckedChange={(checked) =>
-                      setValue(`properties.${index}.isArray`, checked, {
-                        shouldDirty: true,
-                      })
-                    }
-                    disabled={!isEditMode || isReadOnly}
-                    size="sm"
-                    aria-label={`IsArray for ${name || "property"}`}
-                    className={cn((!isEditMode || isReadOnly) && "pointer-events-none opacity-70")}
-                  />
-                </span>
-              </TooltipTrigger>
-              {(!isEditMode || isReadOnly) && (
-                <TooltipContent>
-                  {isReadOnly
-                    ? "IsArray is read-only for default properties"
-                    : "Click edit to change"}
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TableCell>
-
-          {/* IsPII */}
-          <TableCell className={cn(compactCellClass, "px-3 text-center md:px-3")}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    "inline-flex h-9 w-full items-center justify-center",
-                    (!isEditMode || isReadOnly || isChildType) && "cursor-not-allowed",
-                  )}
-                >
-                  <Switch
-                    checked={watch(`properties.${index}.isPIIData`) === true}
-                    onCheckedChange={(checked) =>
-                      setValue(`properties.${index}.isPIIData`, checked, {
-                        shouldDirty: true,
-                      })
-                    }
-                    disabled={!isEditMode || isReadOnly || isChildType}
-                    size="sm"
-                    aria-label={`IsPII for ${name || "property"}`}
-                    className={cn(
-                      (!isEditMode || isReadOnly || isChildType) &&
-                        "pointer-events-none opacity-70",
-                    )}
-                  />
-                </span>
-              </TooltipTrigger>
-              {(!isEditMode || isReadOnly || isChildType) && (
-                <TooltipContent>
-                  {isChildType
-                    ? "IsPII is not applicable for child types"
-                    : isReadOnly
-                      ? "IsPII is read-only for default properties"
-                      : "Click edit to change"}
-                </TooltipContent>
-              )}
-            </Tooltip>
-          </TableCell>
-
-          {/* isUnique */}
-          <TableCell className={cn(compactCellClass, "px-3 pr-5 text-center md:px-3 md:pr-5")}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    "inline-flex h-9 w-full items-center justify-center",
-                    (!isEditMode || isReadOnly || isChildType) && "cursor-not-allowed",
-                  )}
-                >
-                  <Switch
-                    checked={watch(`properties.${index}.isUniqueData`) === true}
-                    onCheckedChange={(checked) =>
-                      setValue(`properties.${index}.isUniqueData`, checked, {
-                        shouldDirty: true,
-                      })
-                    }
-                    disabled={!isEditMode || isReadOnly || isChildType}
-                    size="sm"
-                    aria-label={`IsUnique for ${name || "property"}`}
-                    className={cn(
-                      (!isEditMode || isReadOnly || isChildType) &&
-                        "pointer-events-none opacity-70",
-                    )}
-                  />
-                </span>
-              </TooltipTrigger>
-              {(!isEditMode || isReadOnly || isChildType) && (
-                <TooltipContent>
-                  {isChildType
-                    ? "IsUnique is not applicable for child types"
-                    : isReadOnly
-                      ? "IsUnique is read-only for default properties"
-                      : "Click edit to change"}
-                </TooltipContent>
-              )}
-            </Tooltip>
+          {/* Flags */}
+          <TableCell className={compactCellClass}>
+            {!isEditMode ? (
+              // Every board shows ARR as its own chip even when the type chip
+              // already carries a name (Address, OrderItem) — the type name
+              // alone doesn't say "array" for non-primitive types, so this
+              // can't be dropped as redundant.
+              <FieldFlags
+                flags={flagsFromField({
+                  isArray: watch(`properties.${index}.isArray`),
+                  isPIIData: watch(`properties.${index}.isPIIData`),
+                  isUniqueData: watch(`properties.${index}.isUniqueData`),
+                })}
+              />
+            ) : (
+              <div className="flex h-9 items-center gap-1.5">
+                {FLAG_SWITCHES.map(({ key, label, title, notForChildTypes }) => {
+                  const disabled = isReadOnly || (notForChildTypes && isChildType);
+                  const chip = (
+                    <FlagToggleChip
+                      flag={label}
+                      active={watch(`properties.${index}.${key}`) === true}
+                      disabled={disabled}
+                      onToggle={() =>
+                        setValue(
+                          `properties.${index}.${key}`,
+                          watch(`properties.${index}.${key}`) !== true,
+                          { shouldDirty: true },
+                        )
+                      }
+                    />
+                  );
+                  if (!disabled) return <span key={key}>{chip}</span>;
+                  return (
+                    <Tooltip key={key}>
+                      <TooltipTrigger asChild>{chip}</TooltipTrigger>
+                      <TooltipContent>
+                        {notForChildTypes && isChildType
+                          ? `${title} is not applicable for child types`
+                          : `${title} is read-only for default properties`}
+                      </TooltipContent>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            )}
           </TableCell>
 
           {/* Description */}
           <TableCell className={cn(compactCellClass, "px-3 md:px-3")}>
-            <div className="flex h-9 min-w-0 flex-col justify-center">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Input
-                    value={watch(`properties.${index}.description`) ?? ""}
-                    onChange={(e) =>
-                      setValue(`properties.${index}.description`, e.target.value, {
-                        shouldDirty: true,
-                      })
-                    }
-                    placeholder={isEditMode && !isReadOnly ? "Add description" : "—"}
-                    readOnly={!isEditMode || isReadOnly}
-                    className={cn(
-                      "min-w-0",
-                      isEditMode && isReadOnly ? "cursor-not-allowed bg-muted opacity-50" : "",
-                    )}
-                  />
-                </TooltipTrigger>
-                {!isEditMode && watch(`properties.${index}.description`) && (
-                  <TooltipContent className="max-w-xs break-words">
-                    {watch(`properties.${index}.description`)}
-                  </TooltipContent>
+            {!isEditMode ? (
+              <span
+                className={cn(
+                  "block truncate text-xs",
+                  description ? "text-muted-foreground" : "text-muted-foreground/40",
                 )}
-              </Tooltip>
-            </div>
+                title={description || undefined}
+              >
+                {description || "—"}
+              </span>
+            ) : (
+              <div className="flex h-9 min-w-0 flex-col justify-center">
+                <Input
+                  value={description}
+                  onChange={(e) =>
+                    setValue(`properties.${index}.description`, e.target.value, {
+                      shouldDirty: true,
+                    })
+                  }
+                  placeholder={isReadOnly ? "—" : "Add description"}
+                  readOnly={isReadOnly}
+                  className={cn("min-w-0", isReadOnly && "cursor-not-allowed bg-muted opacity-50")}
+                />
+              </div>
+            )}
           </TableCell>
 
-          {/* Access | Validation (hidden in Child tab) */}
-          {showAccessValidationColumn && (
+          {/* Rules (hidden in Child tab, and in edit mode where it does nothing) */}
+          {!isEditMode && showAccessValidationColumn && (
             <TableCell className={compactCellClass}>
               <div className="flex h-9 items-center gap-1">
                 {showAccessColumn && (
                   <>
-                    {isEditMode || isNewField || !isPrimitiveType ? (
+                    {isNewField || !isPrimitiveType ? (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
@@ -524,22 +494,18 @@ export function SchemaDesktopRow({
                             disabled
                             className="cursor-not-allowed p-1 text-muted-foreground opacity-50"
                             aria-label={
-                              isEditMode
-                                ? "Exit edit mode to manage access"
-                                : isNewField
-                                  ? "Save the field before setting access"
-                                  : "Access is not available for custom property types"
+                              isNewField
+                                ? "Save the field before setting access"
+                                : "Access is not available for custom property types"
                             }
                           >
-                            <UserRoundPlus className="h-4 w-4" />
+                            <Shield className="h-4 w-4" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          {isEditMode
-                            ? "Exit edit mode to manage access"
-                            : isNewField
-                              ? "Save the field before setting access"
-                              : "Access is not available for custom property types"}
+                          {isNewField
+                            ? "Save the field before setting access"
+                            : "Access is not available for custom property types"}
                         </TooltipContent>
                       </Tooltip>
                     ) : (
@@ -551,7 +517,7 @@ export function SchemaDesktopRow({
                             className="p-1 text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
                             aria-label={`View access for ${fieldTarget?.name || schemaName}`}
                           >
-                            <UserRoundPlus
+                            <Shield
                               className={cn("h-4 w-4", hasNonInheritedPolicy && "text-green-500")}
                             />
                           </button>
@@ -585,7 +551,7 @@ export function SchemaDesktopRow({
                   </>
                 )}
 
-                {isEditMode || isNewField || !isPrimitiveType ? (
+                {isNewField || !isPrimitiveType ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -593,22 +559,18 @@ export function SchemaDesktopRow({
                         disabled
                         className="cursor-not-allowed p-1 text-muted-foreground opacity-50"
                         aria-label={
-                          isEditMode
-                            ? "Exit edit mode to manage validations"
-                            : isNewField
-                              ? "Save the field before adding validations"
-                              : "Validations are only available for primitive types"
+                          isNewField
+                            ? "Save the field before adding validations"
+                            : "Validations are only available for primitive types"
                         }
                       >
-                        <TicketSlash className="h-4 w-4" />
+                        <Check className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {isEditMode
-                        ? "Exit edit mode to manage validations"
-                        : isNewField
-                          ? "Save the field before adding validations"
-                          : "Validations are only available for primitive types"}
+                      {isNewField
+                        ? "Save the field before adding validations"
+                        : "Validations are only available for primitive types"}
                     </TooltipContent>
                   </Tooltip>
                 ) : (
@@ -617,15 +579,17 @@ export function SchemaDesktopRow({
                     onClick={() =>
                       onOpenValidationDrawer(fieldName, fieldForValidation?.validationRule)
                     }
-                    className="p-1 text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                    aria-label={`Manage validations for ${fieldName}`}
+                    className={cn(
+                      "flex items-center gap-1 rounded p-1 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                      validationInfo.hasActive ? "text-green-500" : "text-foreground",
+                    )}
+                    aria-label={`Manage validations for ${fieldName}${validationInfo.total > 0 ? ` (${validationInfo.total})` : ""}`}
                   >
-                    {validationInfo.total > 0 ? (
-                      <TicketCheck
-                        className={cn("h-4 w-4", validationInfo.hasActive && "text-green-500")}
-                      />
-                    ) : (
-                      <TicketSlash className="h-4 w-4" />
+                    <Check className="h-4 w-4" />
+                    {validationInfo.total > 0 && (
+                      <span aria-hidden className="text-[11px] font-semibold">
+                        {validationInfo.total}
+                      </span>
                     )}
                   </button>
                 )}
@@ -634,11 +598,16 @@ export function SchemaDesktopRow({
           )}
 
           {/* Actions */}
+          {isEditMode && (
           <TableCell className="py-1 text-right align-middle md:py-1.5">
-            {isEditMode && !isReadOnly && (
+            {!isReadOnly && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-5 w-5 p-0">
+                  <Button
+                    variant="ghost"
+                    className="h-5 w-5 p-0"
+                    aria-label={`More actions for ${name || "property"}`}
+                  >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -657,6 +626,7 @@ export function SchemaDesktopRow({
               </DropdownMenu>
             )}
           </TableCell>
+          )}
         </TableRow>
       )}
     </>

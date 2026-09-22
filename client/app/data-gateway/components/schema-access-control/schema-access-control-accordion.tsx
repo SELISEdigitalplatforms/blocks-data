@@ -8,21 +8,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { Input } from "@/components/ui-kits/input/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui-kits/table/table";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { LOGICAL_OPERATOR } from "@/data-gateway/constants/schema-access-control";
 import { useDeletePolicy } from "@/data-gateway/hooks/use-configuration";
 import type { IPolicyItem } from "@/data-gateway/models/data-service";
-import { ruleToText } from "@/data-gateway/utils/schema-access-control.utils";
+import { ruleSetLines } from "@/data-gateway/utils/access-phrase";
 import {
   ChevronDown,
   MoreHorizontal,
@@ -81,10 +73,11 @@ export const SchemaAccessControlAccordion = ({
   return (
     <div className="space-y-2">
       {!isEditing && (
-        <div className="flex w-full items-center gap-3">
+        <div className="flex w-full items-center gap-2">
           <Input
-            placeholder="Search"
-            className="my-6 flex-1"
+            placeholder="Search rule sets"
+            aria-label="Search rule sets"
+            className="h-8 flex-1 text-xs"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
@@ -92,115 +85,105 @@ export const SchemaAccessControlAccordion = ({
           <Button
             type="button"
             variant="outline"
-            className="flex items-center gap-2"
+            size="sm"
+            className="h-8 shrink-0 gap-1.5 px-2.5 text-xs"
             onClick={onAddRuleSet}
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
             <span>Add</span>
           </Button>
         </div>
       )}
 
       {filteredPolicies.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[50%]">Rule Set Name</TableHead>
-              <TableHead className="w-[30%]">Rules</TableHead>
-              <TableHead className="w-[20%]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredPolicies.map((policy, index) => {
-              const isOpen = openId === index;
-              const rulesCount = policy.ruleGroup.rules.length;
-              const logicalLabel =
-                policy.ruleGroup.logicalOperator === LOGICAL_OPERATOR.AND
-                  ? "All rules match (AND)"
-                  : "Any rule matches (OR)";
+        <ul className="flex flex-col gap-1.5">
+          {filteredPolicies.map((policy, index) => {
+            const isOpen = openId === index;
+            const rulesCount = policy.ruleGroup.rules.length;
+            const logicalLabel =
+              policy.ruleGroup.logicalOperator === LOGICAL_OPERATOR.AND
+                ? "every rule must match"
+                : "any rule may match";
 
-              return (
-                <>
-                  <TableRow
-                    key={index}
-                    className="cursor-pointer"
+            return (
+              <li
+                key={policy.itemId ?? index}
+                className="overflow-hidden rounded-md border border-border/50"
+              >
+                <div className="flex items-center gap-1 pr-1.5">
+                  <button
+                    type="button"
                     onClick={() => setOpenId(isOpen ? null : index)}
+                    aria-expanded={isOpen}
+                    className="flex min-w-0 flex-1 items-center gap-2 px-2.5 py-2 text-left"
                   >
-                    <TableCell className="font-medium">
+                    <ChevronDown
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+                        isOpen ? "rotate-0" : "-rotate-90",
+                      )}
+                      aria-hidden
+                    />
+                    <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
                       {policy.policyName}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {rulesCount}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onEditPolicy?.(policy);
-                              }}
-                            >
-                              <Pencil className="mr-2 h-4 w-4" />
-                              <span>Edit</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="cursor-pointer text-destructive focus:text-destructive"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeletingPolicy(policy);
-                              }}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              <span>Delete</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        <ChevronDown
-                          className={cn(
-                            "h-4 w-4 transition-transform duration-300",
-                            isOpen && "rotate-180",
-                          )}
-                        />
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                    </span>
+                    <span className="shrink-0 text-[11px] text-muted-foreground">
+                      {rulesCount === 1 ? "1 rule" : `${rulesCount} rules`}
+                    </span>
+                  </button>
 
-                  {isOpen && (
-                    <TableRow key={`${index}-details`}>
-                      <TableCell colSpan={3} className="bg-muted/20 p-4">
-                        <p className="mb-3 text-xs text-muted-foreground">
-                          {logicalLabel}
-                        </p>
-                        <div className="flex flex-col gap-2">
-                          {policy.ruleGroup.rules.map((rule, ruleIdx) => (
-                            <div
-                              key={ruleIdx}
-                              className="rounded border border-muted bg-muted/30 px-3 py-2 text-sm"
-                            >
-                              {ruleToText(rule)}
-                            </div>
-                          ))}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </>
-              );
-            })}
-          </TableBody>
-        </Table>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Actions for ${policy.policyName}`}
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={() => onEditPolicy?.(policy)}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        <span>Edit</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                        onClick={() => setDeletingPolicy(policy)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span>Delete</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                {isOpen && (
+                  <div className="border-t border-border/40 bg-muted/20 px-2.5 py-2">
+                    {/* Read as a sentence: "when X, and Y" — the joiner is the
+                        set's own operator, so the relation is never guessed. */}
+                    <p className="text-[11px] text-muted-foreground">
+                      Grants access when {logicalLabel}:
+                    </p>
+                    <ul className="mt-1.5 flex flex-col gap-1">
+                      {ruleSetLines(policy).map((line, ruleIdx) => (
+                        <li key={ruleIdx} className="flex gap-1.5 text-xs leading-relaxed">
+                          <span className="shrink-0 font-medium text-muted-foreground">
+                            {line.lead}
+                          </span>
+                          <span className="min-w-0 text-foreground">{line.text}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       {filteredPolicies.length === 0 && !isEditing && (

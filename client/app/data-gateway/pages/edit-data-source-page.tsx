@@ -1,6 +1,5 @@
 "use client";
 
-import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { Button } from "@/components/ui-kits/button/button";
 import {
   Dialog,
@@ -39,7 +38,7 @@ import {
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router";
-import { DataGatewayActions } from "../components/data-gateway-actions";
+import { DataGatewayPageBar } from "../components/page-bar";
 import {
   useGetDataServiceConfiguration,
   useUpdateDataSourceConfiguration,
@@ -171,10 +170,7 @@ const EditDataSourcePage = () => {
   return (
     <>
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
-          <PageBreadcrumb breadcrumbIndex={3} />
-          <DataGatewayActions />
-        </div>
+        <DataGatewayPageBar />
 
         <Form {...form}>
           <form className="flex flex-col gap-4">

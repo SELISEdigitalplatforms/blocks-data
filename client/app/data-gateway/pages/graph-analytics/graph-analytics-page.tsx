@@ -5,7 +5,6 @@ import { DateRange } from "react-day-picker";
 import { format, subDays } from "date-fns";
 import { useSearchParams } from "react-router";
 
-import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
 import { DateRangeFilter } from "@/components/date-range-filter/date-range-filter";
 import {
@@ -18,7 +17,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { Switch } from "@/components/ui-kits/switch/switch";
 import { showErrorToast } from "@/hooks/use-toast";
-import { DataGatewayActions } from "../../components/data-gateway-actions";
+import { DataGatewayPageBar } from "../../components/page-bar";
 import { useGetDataServiceConfiguration } from "../../hooks/use-configuration";
 import { useGraphLogAnalytics } from "../../hooks/use-graph-log-analytics";
 import { IDataSourceResponse } from "../../models/data-service";
@@ -124,10 +123,7 @@ export const GraphAnalytics = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <PageBreadcrumb breadcrumbIndex={3} />
-        <DataGatewayActions />
-      </div>
+      <DataGatewayPageBar />
 
       <div className="relative">
         <div

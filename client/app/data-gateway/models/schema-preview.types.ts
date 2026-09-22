@@ -83,6 +83,8 @@ export interface SchemaAccessControlViewProps {
   operation: number;
   fieldNames: string[];
   defaultAccessLevel?: number;
+  /** Told when the rule editor opens, so a host can make room for it. */
+  onRuleEditorOpenChange?: (open: boolean) => void;
 }
 
 export interface FormValues {

@@ -12,15 +12,9 @@ import { SchemaPreviewDrawer } from "../schema-preview-drawer";
 
 interface SchemaStructureHeaderProps {
   isEditMode: boolean;
-  isDirty: boolean;
-  isValid: boolean;
   hasSelectedRows: boolean;
   selectedFieldEntriesLength: number;
   fieldsLength: number;
-  schemaId: string;
-  projectKey: string;
-  isClsEnabled?: boolean;
-  isRlsEnabled?: boolean;
   schemaName: string;
   schemaType?: number;
   templateFields: Array<{ name: string; type?: string; isArray: boolean }>;
@@ -28,7 +22,6 @@ interface SchemaStructureHeaderProps {
   activeTab: "attribute" | "data" | "indexes";
   onTabChange: (tab: "attribute" | "data" | "indexes") => void;
   onEditToggle: () => void;
-  // onBulkManageAccess: () => void;
   onBulkDuplicate: () => void;
   onBulkDelete: () => void;
   onSelectAll: (checked: boolean) => void;
@@ -37,21 +30,13 @@ interface SchemaStructureHeaderProps {
   rawIntrospection?: unknown;
   isGatewayIntrospectionPending?: boolean;
   isGatewayIntrospectionFetching?: boolean;
-  /** When provided, Save uses onClick instead of type="submit" (avoids nested form issues) */
-  onSaveClick?: () => void;
 }
 
 export function SchemaStructureHeader({
   isEditMode,
-  isDirty,
-  isValid,
   hasSelectedRows,
   selectedFieldEntriesLength,
   fieldsLength,
-  // schemaId,
-  // projectKey,
-  // isClsEnabled,
-  // isRlsEnabled,
   schemaName,
   schemaType,
   templateFields,
@@ -59,7 +44,6 @@ export function SchemaStructureHeader({
   activeTab,
   onTabChange,
   onEditToggle,
-  // onBulkManageAccess,
   onBulkDuplicate,
   onBulkDelete,
   onSelectAll,
@@ -67,7 +51,6 @@ export function SchemaStructureHeader({
   rawIntrospection,
   isGatewayIntrospectionPending,
   isGatewayIntrospectionFetching,
-  onSaveClick,
 }: SchemaStructureHeaderProps) {
   const fieldLength = Object.keys(previewData).length;
   const isShowPreviewButton = fieldLength > 0;
@@ -110,7 +93,12 @@ export function SchemaStructureHeader({
       <div className="hidden items-center justify-between xl:flex">
         {SchemaTabs}
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {isEditMode && hasSelectedRows && (
+            <span className="text-xs text-muted-foreground">
+              {selectedFieldEntriesLength} selected
+            </span>
+          )}
           {isEditMode && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -118,24 +106,13 @@ export function SchemaStructureHeader({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="min-w-[110px] justify-between"
+                  className="min-w-[130px] justify-between"
                 >
-                  Action
+                  Bulk actions
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
-                {/* {schemaType === 1 && (
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    disabled={!hasSelectedRows}
-                    onSelect={onBulkManageAccess}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Manage access
-                  </DropdownMenuItem>
-                )} */}
-
                 <DropdownMenuItem
                   className="cursor-pointer"
                   disabled={!hasSelectedRows}
@@ -157,15 +134,6 @@ export function SchemaStructureHeader({
           )}
           {!isEditMode && (
             <>
-              {/* {schemaType === 1 && (
-                <SchemaClsToggle
-                  schemaId={schemaId}
-                  projectKey={projectKey}
-                  isClsEnabled={isClsEnabled}
-                  isRlsEnabled={isRlsEnabled}
-                />
-              )} */}
-
               {isShowPreviewButton && (
                 <SchemaPreviewDrawer
                   schemaName={schemaName}
@@ -192,16 +160,9 @@ export function SchemaStructureHeader({
             </Button>
           )}
 
-          {isEditMode && (
-            <Button
-              size="sm"
-              type={onSaveClick ? "button" : "submit"}
-              disabled={!isValid || !isDirty}
-              onClick={onSaveClick}
-            >
-              Save
-            </Button>
-          )}
+          {/* Save lives in the dirty bar under the table now: it was only ever
+              enabled when the form was dirty, which is exactly when that bar
+              is on screen. */}
         </div>
       </div>
 
@@ -215,6 +176,11 @@ export function SchemaStructureHeader({
             </div>
 
             {/* Second Line: Action Buttons */}
+            {hasSelectedRows && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {selectedFieldEntriesLength} selected
+              </p>
+            )}
             <div className="mt-3 flex gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -222,21 +188,13 @@ export function SchemaStructureHeader({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="min-w-[110px] justify-between"
+                    className="min-w-[130px] justify-between"
                   >
-                    Action
+                    Bulk actions
                     <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40">
-                  {/* <DropdownMenuItem
-                    className="cursor-pointer"
-                    disabled={!hasSelectedRows}
-                    onSelect={onBulkManageAccess}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Manage access
-                  </DropdownMenuItem> */}
                   <DropdownMenuItem
                     className="cursor-pointer"
                     disabled={!hasSelectedRows}
@@ -257,14 +215,6 @@ export function SchemaStructureHeader({
               </DropdownMenu>
               <Button type="button" variant="outline" size="sm" onClick={onEditToggle}>
                 Cancel
-              </Button>
-              <Button
-                size="sm"
-                type={onSaveClick ? "button" : "submit"}
-                disabled={!isValid || !isDirty}
-                onClick={onSaveClick}
-              >
-                Save
               </Button>
             </div>
 
@@ -305,17 +255,6 @@ export function SchemaStructureHeader({
               </DropdownMenu>
             </div>
 
-            {/* Schema structure access on second line */}
-            {schemaType === 1 && (
-              <div className="mb-3 mt-3">
-                {/* <SchemaClsToggle
-                  schemaId={schemaId}
-                  projectKey={projectKey}
-                  isClsEnabled={isClsEnabled}
-                  isRlsEnabled={isRlsEnabled}
-                /> */}
-              </div>
-            )}
           </>
         )}
       </div>

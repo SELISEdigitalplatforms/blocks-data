@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const deleteAsync = vi.fn();
 const toast = vi.fn();
+const useSchemaIndexes = vi.fn();
 
 vi.mock("./schema-access-control-drawer", () => ({
   default: ({ trigger }: { trigger: React.ReactNode }) => (
@@ -13,6 +14,7 @@ vi.mock("./schema-access-control-drawer", () => ({
 
 vi.mock("../hooks/use-configuration", () => ({
   useDeleteSchema: () => ({ isPending: false, mutateAsync: deleteAsync }),
+  useSchemaIndexes: (...a: unknown[]) => useSchemaIndexes(...a),
 }));
 
 vi.mock("@seliseblocks/genesis-os", () => ({
@@ -46,6 +48,8 @@ describe("SchemaBasicInfo", () => {
   beforeEach(() => {
     deleteAsync.mockReset();
     toast.mockReset();
+    useSchemaIndexes.mockReset();
+    useSchemaIndexes.mockReturnValue({ data: { data: { indexes: [] } } });
   });
 
   it("renders the placeholder info card when no schema is selected", () => {
@@ -64,6 +68,45 @@ describe("SchemaBasicInfo", () => {
     expect(
       screen.getByRole("button", { name: /Schema Access/ }),
     ).toBeInTheDocument();
+  });
+
+  // The header used to say only "Entity" — nothing about the collection
+  // behind it or how big the schema is.
+  it("summarises the collection, custom/system field split and index count", () => {
+    useSchemaIndexes.mockReturnValue({ data: { data: { indexes: [{}, {}, {}] } } });
+    render(
+      <SchemaBasicInfo
+        {...baseProps({
+          collectionName: "users",
+          fields: [
+            { name: "Email" },
+            { name: "ItemId" },
+            { name: "CreatedDate" },
+          ] as never,
+        })}
+      />,
+    );
+
+    expect(screen.getByText("users")).toBeInTheDocument();
+    // ItemId and CreatedDate are default (system) properties on an Entity.
+    expect(screen.getByText("1 field · 2 system · 3 indexes")).toBeInTheDocument();
+  });
+
+  // Child schemas have no system split and no Indexes tab, so neither belongs
+  // in their summary.
+  it("counts a Child schema's fields with no system split or index count", () => {
+    render(
+      <SchemaBasicInfo
+        {...baseProps({
+          schemaType: 2,
+          collectionName: "addresses",
+          fields: [{ name: "Street" }, { name: "City" }] as never,
+        })}
+      />,
+    );
+
+    expect(screen.getByText("2 fields")).toBeInTheDocument();
+    expect(useSchemaIndexes).toHaveBeenCalledWith("s1", { enabled: false });
   });
 
   it("shows references and a fallback for a child schema", () => {
@@ -101,5 +144,21 @@ describe("SchemaBasicInfo", () => {
       ),
     );
     await waitFor(() => expect(onDeleteSuccess).toHaveBeenCalled());
+  });
+  // The type tag used to sit on its own line below the name; every design
+  // board draws it inline beside the name instead.
+  it("puts the type tag right beside the schema name, not on its own line", () => {
+    render(<SchemaBasicInfo {...baseProps({ schemaType: 1 })} />);
+
+    const heading = screen.getByRole("heading", { name: "User" });
+    const tag = screen.getByText("Entity");
+    expect(heading.parentElement).toBe(tag.parentElement);
+  });
+  // The verb ("Create") used to be bare text beside a separately-pilled tier
+  // value; every board shares one bordered pill between the two.
+  it("shares one pill between the verb and its tier value", () => {
+    render(<SchemaBasicInfo {...baseProps({ schemaType: 1, writeAccessLevel: 3 })} />);
+
+    expect(screen.getByRole("button", { name: "Create Custom" })).toBeInTheDocument();
   });
 });

@@ -58,11 +58,23 @@ export class DataGatewayPage extends BasePage {
     return this.page.getByText("No schemas yet", { exact: true });
   }
 
-  getSchemaViewBreadcrumbLink(): Locator {
-    return this.page.locator("nav button", { hasText: "Data Gateway" });
+  /** The Schemas tab in the page bar; it replaced the breadcrumb back-link. */
+  getSchemasTab(): Locator {
+    return this.page.getByRole("link", { name: "Schemas" });
   }
 
+  getSecurityTab(): Locator {
+    return this.page.getByRole("link", { name: "Security" });
+  }
+
+  /** The schemas view, which is what /data-gateway opens now. */
+  async waitForSchemasReady(timeout = 30_000): Promise<void> {
+    await expect(this.page.getByPlaceholder("Search schemas…")).toBeVisible({ timeout });
+  }
+
+  /** The security table, now behind its own route. */
   async waitForLandingReady(timeout = 30_000): Promise<void> {
+    await this.getSecurityTab().click();
     await expect(this.getSecurityAssessmentHeading().or(this.getEmptyState()).first()).toBeVisible({
       timeout,
     });
@@ -70,10 +82,6 @@ export class DataGatewayPage extends BasePage {
 
   getApiDocsButton(): Locator {
     return this.page.getByRole("button", { name: "API Docs" });
-  }
-
-  getLogsLink(): Locator {
-    return this.page.getByRole("link", { name: "Logs", exact: true });
   }
 
   getImportButton(): Locator {
@@ -85,15 +93,16 @@ export class DataGatewayPage extends BasePage {
   }
 
   getPlaygroundButton(): Locator {
-    return this.page.getByRole("button", { name: "Playground" });
+    return this.page.getByRole("link", { name: "Playground" });
   }
 
   getConfigureButton(): Locator {
     return this.page.getByRole("button", { name: "Configure" });
   }
 
+  /** The pending count in the page bar; it replaced the standalone red banner. */
   getUnadaptedAlert(): Locator {
-    return this.page.getByText(/unadapted changes/i);
+    return this.page.getByText(/\d+ unpublished/);
   }
 
   getPublishButton(): Locator {
@@ -124,16 +133,6 @@ export class DataGatewayPage extends BasePage {
     await popup.waitForLoadState("domcontentloaded");
     expect(popup.url()).toContain("/swagger");
     await popup.close();
-  }
-
-  async openLogsIfEnabled(): Promise<boolean> {
-    const visible = await this.getLogsLink()
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false);
-    if (!visible) return false;
-    await this.getLogsLink()!.click();
-    await this.waitForURL(/\/data-gateway\/logs/, 15_000);
-    return true;
   }
 
   isSchemaView(): boolean {

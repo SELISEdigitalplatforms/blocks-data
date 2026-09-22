@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
+import { MemoryRouter } from "react-router";
 
 const navigateMock = vi.fn();
 const setQueryParams = vi.fn();
@@ -155,8 +156,15 @@ vi.mock("./add-edit-schema", () => ({
     </div>
   ),
 }));
-vi.mock("./data-gateway-actions", () => ({
-  DataGatewayActions: () => <div data-testid="actions" />,
+vi.mock("./page-bar", () => ({
+  DataGatewayPageBar: () => <div data-testid="page-bar" />,
+}));
+// The inspector pulls in the whole access-control stack, which reaches the
+// http client at import time; the page's job here is just to mount it.
+vi.mock("./access-inspector", () => ({
+  AccessInspector: ({ target }: { target: { subject: string } }) => (
+    <div data-testid="access-inspector">{target.subject}</div>
+  ),
 }));
 
 import { SchemaDetailsPage } from "./schema-details-page";
@@ -165,7 +173,9 @@ function renderPage() {
   const Wrapper = createWrapper();
   render(
     <Wrapper>
-      <SchemaDetailsPage />
+      <MemoryRouter initialEntries={["/dg"]}>
+        <SchemaDetailsPage />
+      </MemoryRouter>
     </Wrapper>,
   );
 }
@@ -279,29 +289,4 @@ describe("SchemaDetailsPage - interactions", () => {
     );
   });
 
-  describe("security landing callbacks", () => {
-    beforeEach(() => {
-      params = { type: null, schemaId: null, page: 1, pageSize: 10 };
-    });
-
-    it("routes a schema row click, a created schema, and navigate-to-schemas", async () => {
-      const user = userEvent.setup();
-      renderPage();
-      await user.click(screen.getByRole("button", { name: "row-click" }));
-      expect(setQueryParams).toHaveBeenLastCalledWith(
-        expect.objectContaining({ type: "all", schemaId: "row1" }),
-        { history: "push" },
-      );
-      await user.click(screen.getByRole("button", { name: "created" }));
-      expect(setQueryParams).toHaveBeenLastCalledWith(
-        expect.objectContaining({ type: "all", schemaId: "created1" }),
-        { history: "push" },
-      );
-      await user.click(screen.getByRole("button", { name: "to-schemas" }));
-      expect(setQueryParams).toHaveBeenLastCalledWith(
-        { type: "all", page: 1, pageSize: 10, schemaId: null },
-        { history: "push" },
-      );
-    });
-  });
 });

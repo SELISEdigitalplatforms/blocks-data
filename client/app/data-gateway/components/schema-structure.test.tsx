@@ -117,6 +117,16 @@ vi.mock("./schema-structure/schema-desktop-row", () => ({
             <button type="button" onClick={() => p.onDelete(p.index)}>
               {`del-${p.index}`}
             </button>
+            <button
+              type="button"
+              onClick={() =>
+                p.setValue(`properties.${p.index}.name`, `renamed-${p.index}`, {
+                  shouldDirty: true,
+                })
+              }
+            >
+              {`rename-${p.index}`}
+            </button>
             <button type="button" onClick={() => p.onDuplicate(p.index)}>
               {`dup-${p.index}`}
             </button>
@@ -356,6 +366,21 @@ describe("SchemaStructureTable", () => {
     expect(drawer).toHaveAttribute("data-open", "true");
   });
 
+  // Same split as onOpenFieldAccess: a host that can dock a panel gets a
+  // callback instead of the drawer being opened locally.
+  it("hands validation to a docked inspector instead of the drawer when the host provides one", async () => {
+    const user = userEvent.setup();
+    const onOpenFieldValidation = vi.fn();
+    renderTable({ onOpenFieldValidation });
+
+    await user.click(screen.getByRole("button", { name: "validation-0" }));
+
+    expect(onOpenFieldValidation).toHaveBeenCalledWith(
+      expect.objectContaining({ fieldName: "email", subject: "email" }),
+    );
+    expect(screen.queryByTestId("validation-drawer")).not.toBeInTheDocument();
+  });
+
   it("opens the access drawer with the selected field name", async () => {
     const user = userEvent.setup();
     renderTable();
@@ -490,5 +515,58 @@ describe("SchemaStructureTable", () => {
     const nested = await screen.findAllByTestId("child-content");
     expect(nested.length).toBeGreaterThan(0);
     expect(nested[0]).toHaveTextContent("child1");
+  });
+  // ── Phase 6: what the edit will actually do ─────────────────────────────
+
+  it("reads a rename as a rename, not a delete plus an add", async () => {
+    const user = userEvent.setup();
+    renderTable();
+
+    await user.click(screen.getByText("toggle-edit"));
+    await user.click(screen.getByText("rename-0"));
+
+    expect(await screen.findByText("1 unsaved change")).toBeInTheDocument();
+    expect(screen.getByText("email renamed to renamed-0")).toBeInTheDocument();
+  });
+
+  it("counts an added row and a rename separately", async () => {
+    const user = userEvent.setup();
+    renderTable();
+
+    await user.click(screen.getByText("toggle-edit"));
+    await user.click(screen.getByText("rename-0"));
+    await user.click(screen.getByText("dup-1"));
+
+    expect(await screen.findByText("2 unsaved changes")).toBeInTheDocument();
+  });
+
+  // Identity is the row id, so deleting the first row must not make the second
+  // one look renamed.
+  it("reports only the deleted row when an earlier row goes", async () => {
+    const user = userEvent.setup();
+    renderTable();
+
+    await user.click(screen.getByText("toggle-edit"));
+    await user.click(screen.getByText("del-0"));
+
+    expect(await screen.findByText("1 unsaved change")).toBeInTheDocument();
+    expect(screen.getByText("email removed")).toBeInTheDocument();
+  });
+
+  // Cancelling used to restore the original names onto the current rows by
+  // index, so a delete anywhere but the end left rows wearing the wrong name.
+  it("restores the loaded rows on cancel after a delete", async () => {
+    const user = userEvent.setup();
+    renderTable();
+
+    await user.click(screen.getByText("toggle-edit"));
+    await user.click(screen.getByText("del-0"));
+    await waitFor(() => expect(rows()).toHaveLength(1));
+
+    await user.click(screen.getByText("toggle-edit"));
+
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    expect(screen.getByTestId("row-name-0")).toHaveTextContent("email");
+    expect(screen.getByTestId("row-name-1")).toHaveTextContent("age");
   });
 });

@@ -11,8 +11,8 @@ const showSuccessToast = vi.fn();
 vi.mock("@/components/breadcrumb/breadcrumb", () => ({
   default: () => <nav data-testid="breadcrumb" />,
 }));
-vi.mock("../components/data-gateway-actions", () => ({
-  DataGatewayActions: () => <div data-testid="actions" />,
+vi.mock("../components/page-bar", () => ({
+  DataGatewayPageBar: () => <div data-testid="page-bar" />,
 }));
 
 vi.mock("../hooks/use-configuration", () => ({

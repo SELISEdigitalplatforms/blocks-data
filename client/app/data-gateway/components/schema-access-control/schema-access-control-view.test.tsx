@@ -20,8 +20,15 @@ vi.mock("@/hooks/use-toast", () => ({
   showErrorToast: (...a: unknown[]) => showErrorToast(...a),
 }));
 vi.mock("./rule-set-form", () => ({
-  RuleSetForm: ({ onCancel }: { onCancel?: () => void }) => (
+  RuleSetForm: ({
+    onCancel,
+    seed,
+  }: {
+    onCancel?: () => void;
+    seed?: { name: string };
+  }) => (
     <div data-testid="rule-set-form">
+      <span data-testid="seed-name">{seed?.name ?? "none"}</span>
       <button onClick={() => onCancel?.()}>rsf-cancel</button>
     </div>
   ),
@@ -91,9 +98,15 @@ beforeEach(() => {
 });
 
 describe("SchemaAccessControlView", () => {
-  it("renders the logged-in label for access level 1", () => {
+  // The header used to state the tier — "All logged in users have access" —
+  // leaving the reader to work out what that meant for this verb on this schema.
+  it("spells out the effect of signed-in access for this verb", () => {
     render(<SchemaAccessControlView {...baseProps} />);
-    expect(screen.getByText("All logged in users have access")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Any signed-in user in this project can read Products, with no further checks.",
+      ),
+    ).toBeInTheDocument();
     // Not custom, so no accordion / rule form.
     expect(screen.queryByTestId("accordion")).not.toBeInTheDocument();
   });
@@ -134,7 +147,8 @@ describe("SchemaAccessControlView", () => {
 
   it("infers logged-in access when the default level is unknown and no policies exist", () => {
     render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={undefined} />);
-    expect(screen.getByText("All logged in users have access")).toBeInTheDocument();
+    expect(screen.getByText(/Any signed-in user in this project can read Products/))
+      .toBeInTheDocument();
   });
 
   it("changes the access type through the confirmation flow and saves", async () => {
@@ -201,7 +215,7 @@ describe("SchemaAccessControlView", () => {
   it("ignores an unmapped default access level", () => {
     render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={99} />);
     expect(
-      screen.getByText("All logged in users have access"),
+      screen.getByText(/Any signed-in user in this project can read Products/),
     ).toBeInTheDocument();
   });
 
@@ -214,14 +228,14 @@ describe("SchemaAccessControlView", () => {
     });
     render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={undefined} />);
     expect(
-      screen.getByText("All logged in users have access"),
+      screen.getByText(/Any signed-in user in this project can read Products/),
     ).toBeInTheDocument();
   });
 
   it("opens the rule-set form and refetches after a successful save", async () => {
     const user = userEvent.setup();
     useGetPolicyData.mockReturnValue({
-      data: { isSuccess: true, data: [] },
+      data: { isSuccess: true, data: [policy()] },
       refetch,
       isPending: false,
       isFetching: false,
@@ -262,4 +276,72 @@ describe("SchemaAccessControlView", () => {
     );
   });
 
+  // ── Phase 5: presets and the empty custom policy ────────────────────────
+
+  const customProps = {
+    ...baseProps,
+    defaultAccessLevel: 3,
+    schemaFields: [{ name: "OwnerId" }, { name: "Status" }] as never,
+  };
+
+  // Custom with nothing in it looks configured and grants nothing.
+  it("warns that an empty custom policy allows nobody", () => {
+    render(<SchemaAccessControlView {...customProps} />);
+
+    expect(
+      screen.getByText("A custom policy with no rule sets allows nobody to read Products."),
+    ).toBeInTheDocument();
+  });
+
+  it("offers presets instead of an empty rule-set table", () => {
+    render(<SchemaAccessControlView {...customProps} />);
+
+    expect(screen.getByText("Only the owner")).toBeInTheDocument();
+    expect(screen.getByText("Specific roles")).toBeInTheDocument();
+    expect(screen.queryByTestId("accordion")).not.toBeInTheDocument();
+  });
+
+  // A preset fills the form rather than saving, so its rules are read first.
+  it("seeds the form from a preset rather than saving it", async () => {
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...customProps} />);
+
+    await user.click(screen.getByText("Only the owner"));
+
+    expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
+    expect(screen.getByTestId("seed-name")).toHaveTextContent("Owner access");
+  });
+
+  it("starts an empty rule set with no seed", async () => {
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...customProps} />);
+
+    await user.click(screen.getByText("Start from an empty rule set"));
+    expect(screen.getByTestId("seed-name")).toHaveTextContent("none");
+  });
+
+  // The override preset is two sets and the form holds one, so the second is
+  // seeded the moment the first lands.
+  it("seeds the second set of a two-set preset after the first saves", async () => {
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...customProps} />);
+
+    await user.click(screen.getByText("Owner, plus a support override"));
+    expect(screen.getByTestId("seed-name")).toHaveTextContent("Owner access");
+
+    await user.click(screen.getByText("rsf-cancel"));
+
+    expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
+    expect(screen.getByTestId("seed-name")).toHaveTextContent("Support override");
+  });
+
+  it("closes the form once a single-set preset is saved", async () => {
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...customProps} />);
+
+    await user.click(screen.getByText("Only the owner"));
+    await user.click(screen.getByText("rsf-cancel"));
+
+    expect(screen.queryByTestId("rule-set-form")).not.toBeInTheDocument();
+  });
 });

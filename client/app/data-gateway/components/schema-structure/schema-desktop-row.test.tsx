@@ -104,16 +104,23 @@ function Harness({ properties, index = 0, ...rest }: HarnessProps) {
 const addressSchema = { schemaName: "Address" } as ISchemaDetails;
 
 describe("SchemaDesktopRow", () => {
-  it("renders the property name, type and description in view mode", () => {
+  // View mode used to be edit mode with everything switched off: a read-only
+  // input per name, a disabled switch per boolean. It reads as text now.
+  it("renders the property, type and description as text in view mode", () => {
     render(<Harness properties={[makeField()]} />);
-    expect(screen.getByDisplayValue("email")).toBeInTheDocument();
-    expect(screen.getByTestId("type-selector")).toHaveTextContent("String");
-    expect(screen.getByPlaceholderText("—")).toBeInTheDocument();
+
+    expect(screen.getByTitle("email")).toHaveTextContent("email");
+    expect(screen.getByText("String")).toBeInTheDocument();
+    // An em dash stands in for both "never required" and "no description".
+    expect(screen.getByTitle("Never required")).toHaveTextContent("—");
+    expect(screen.getAllByText("—")).toHaveLength(2);
+    expect(screen.queryByDisplayValue("email")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("type-selector")).not.toBeInTheDocument();
   });
 
-  it("makes the name input read-only in view mode and editable in edit mode", () => {
+  it("puts the name in an editable input only in edit mode", () => {
     const { unmount } = render(<Harness properties={[makeField()]} />);
-    expect(screen.getByDisplayValue("email")).toHaveAttribute("readonly");
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     unmount();
 
     render(<Harness properties={[makeField()]} isEditMode isReadOnly={false} />);
@@ -127,23 +134,39 @@ describe("SchemaDesktopRow", () => {
     expect(input.className).toContain("cursor-not-allowed");
   });
 
-  it("disables the array/PII/unique switches in view mode", () => {
-    render(<Harness properties={[makeField()]} />);
-    expect(screen.getByRole("switch", { name: "IsArray for email" })).toBeDisabled();
-    expect(screen.getByRole("switch", { name: "IsPII for email" })).toBeDisabled();
-    expect(screen.getByRole("switch", { name: "IsUnique for email" })).toBeDisabled();
+  it("shows flags as chips in view mode, with no switches to mistake for controls", () => {
+    render(
+      <Harness properties={[makeField({ isPIIData: true, isUniqueData: true })]} />,
+    );
+
+    expect(screen.getByTitle("Personally identifiable data")).toHaveTextContent("PII");
+    expect(screen.getByTitle("Unique")).toHaveTextContent("UQ");
+    expect(screen.queryAllByRole("switch")).toHaveLength(0);
   });
 
-  it("toggles the IsArray switch through setValue in edit mode", async () => {
+  // The type chip's own `[]` only appears for primitive types — a child-type
+  // reference (Address, OrderItem) never gets one, so ARR in the flag strip
+  // is the only thing that says "array" for those, and every board shows it
+  // unconditionally rather than only when the type chip lacks its own hint.
+  it("shows the ARR chip in the flag strip alongside the type chip's own [] ", () => {
+    render(<Harness properties={[makeField({ isArray: true })]} />);
+
+    expect(screen.getByText("String[]")).toBeInTheDocument();
+    expect(screen.getByText("ARR")).toBeInTheDocument();
+  });
+
+  // Flags are click-to-toggle chips now, not switches — the design's own
+  // vocabulary for ARR/PII/UQ, matching the same chip read mode already used.
+  it("toggles the ARR chip through setValue in edit mode", async () => {
     const user = userEvent.setup();
     render(<Harness properties={[makeField()]} isEditMode />);
-    const arraySwitch = screen.getByRole("switch", { name: "IsArray for email" });
-    expect(arraySwitch).toHaveAttribute("aria-checked", "false");
-    await user.click(arraySwitch);
-    expect(arraySwitch).toHaveAttribute("aria-checked", "true");
+    const arrayChip = screen.getByRole("button", { name: "Array" });
+    expect(arrayChip).toHaveAttribute("aria-pressed", "false");
+    await user.click(arrayChip);
+    expect(arrayChip).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("disables PII/unique for child types while leaving IsArray editable", () => {
+  it("disables PII/unique for child types while leaving ARR editable", () => {
     render(
       <Harness
         properties={[makeField({ type: "Address" })]}
@@ -151,9 +174,9 @@ describe("SchemaDesktopRow", () => {
         childSchema={addressSchema}
       />,
     );
-    expect(screen.getByRole("switch", { name: "IsPII for email" })).toBeDisabled();
-    expect(screen.getByRole("switch", { name: "IsUnique for email" })).toBeDisabled();
-    expect(screen.getByRole("switch", { name: "IsArray for email" })).not.toBeDisabled();
+    expect(screen.getByRole("button", { name: "Personally identifiable data" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Unique" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Array" })).not.toBeDisabled();
   });
 
   it("fires onToggleExpand when the expand control is clicked for a child type", async () => {
@@ -208,7 +231,7 @@ describe("SchemaDesktopRow", () => {
         onDuplicate={onDuplicate}
       />,
     );
-    await user.click(screen.getByRole("button"));
+    await user.click(screen.getByRole("button", { name: "More actions for email" }));
     await user.click(await screen.findByText("Duplicate"));
     expect(onDuplicate).toHaveBeenCalledWith(0);
   });
@@ -224,7 +247,7 @@ describe("SchemaDesktopRow", () => {
         onDelete={onDelete}
       />,
     );
-    await user.click(screen.getByRole("button"));
+    await user.click(screen.getByRole("button", { name: "More actions for email" }));
     await user.click(await screen.findByText("Delete"));
     expect(onDelete).toHaveBeenCalledWith(0);
   });
@@ -238,7 +261,9 @@ describe("SchemaDesktopRow", () => {
         showAccessValidationColumn={false}
       />,
     );
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "More actions for email" }),
+    ).not.toBeInTheDocument();
   });
 
   it("opens the access and validation drawers for a primitive field in view mode", async () => {
@@ -259,14 +284,13 @@ describe("SchemaDesktopRow", () => {
     expect(onOpenValidationDrawer).toHaveBeenCalledWith("email", undefined);
   });
 
-  it("disables access and validation controls while in edit mode", () => {
+  // Both controls were always disabled in edit mode, each with a tooltip
+  // explaining why. The column goes away instead.
+  it("drops the Rules column entirely in edit mode", () => {
     render(<Harness properties={[makeField()]} isEditMode />);
-    expect(
-      screen.getByRole("button", { name: "Exit edit mode to manage access" }),
-    ).toBeDisabled();
-    expect(
-      screen.getByRole("button", { name: "Exit edit mode to manage validations" }),
-    ).toBeDisabled();
+
+    expect(screen.queryByRole("button", { name: /access/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /validations/i })).not.toBeInTheDocument();
   });
 
   it("hides the access | validation column when showAccessValidationColumn is false", () => {
@@ -326,17 +350,17 @@ describe("SchemaDesktopRow", () => {
     expect(input.value).toBe("abcd");
   });
 
-  it("toggles PII / unique and edits the description in edit mode", async () => {
+  it("toggles PII / unique chips and edits the description in edit mode", async () => {
     const user = userEvent.setup();
     render(<Harness properties={[makeField()]} isEditMode />);
 
-    const pii = screen.getByRole("switch", { name: "IsPII for email" });
+    const pii = screen.getByRole("button", { name: "Personally identifiable data" });
     await user.click(pii);
-    expect(pii).toHaveAttribute("aria-checked", "true");
+    expect(pii).toHaveAttribute("aria-pressed", "true");
 
-    const unique = screen.getByRole("switch", { name: "IsUnique for email" });
+    const unique = screen.getByRole("button", { name: "Unique" });
     await user.click(unique);
-    expect(unique).toHaveAttribute("aria-checked", "true");
+    expect(unique).toHaveAttribute("aria-pressed", "true");
 
     const description = screen.getByPlaceholderText("Add description");
     await user.type(description, "an email field");
@@ -372,15 +396,15 @@ describe("SchemaDesktopRow", () => {
       <Harness properties={[makeField({ name: "ItemId" })]} schemaType={1} isReadOnly />,
     );
 
-    // Collapsed by default: the read-only row (name input) is not rendered.
-    expect(screen.queryByDisplayValue("ItemId")).not.toBeInTheDocument();
+    // Collapsed by default: the read-only row is not rendered.
+    expect(screen.queryByTitle("ItemId")).not.toBeInTheDocument();
 
     const toggle = screen.getByRole("button", { name: /Default Properties/ });
     await user.click(toggle);
-    expect(screen.getByDisplayValue("ItemId")).toBeInTheDocument();
+    expect(screen.getByTitle("ItemId")).toBeInTheDocument();
 
     // Collapse again to restore the shared module-level state for other tests.
     await user.click(toggle);
-    expect(screen.queryByDisplayValue("ItemId")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("ItemId")).not.toBeInTheDocument();
   });
 });

@@ -1,3 +1,5 @@
+import type { IField } from "./data-service";
+
 export interface Schema {
   id: string;
   schemaName: string;
@@ -5,6 +7,10 @@ export interface Schema {
   writeAccessLevel: number;
   editAccessLevel: number;
   deleteAccessLevel: number;
+  /** The Mongo collection behind the schema; shown under the name. */
+  collectionName?: string;
+  /** Ships with the list response; `isPIIData` is what the PII column counts. */
+  fields?: IField[];
 }
 
 export interface SecurityTableProps {

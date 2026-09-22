@@ -10,55 +10,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
+import { cn } from "@/lib/utils";
 import { InfoCard } from "./info-card";
 import { SchemaBasicInfoSkeleton } from "./schema-basic-info-skeleton";
 import SchemaAccessControlDrawer from "./schema-access-control-drawer";
-import {
-  ACCESS_LEVEL_TO_TYPE,
-  ACCESS_TYPES,
-} from "../constants/schema-access-control";
+import { AccessVerbPill } from "./primitives";
+import { readonlyPropertyNames } from "../constants/input-restrictions";
 import { ISchemaDetails } from "../models/data-service";
-import { useDeleteSchema } from "../hooks/use-configuration";
+import { useDeleteSchema, useSchemaIndexes } from "../hooks/use-configuration";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
-import { cn } from "@/lib/utils";
-import { Database, MoreVertical, ShieldCheck } from "lucide-react";
+import { Database, MoreVertical, Shield } from "lucide-react";
 import { useState } from "react";
 
 interface SchemaBasicInfoProps extends ISchemaDetails {
   onDeleteSuccess?: () => void;
   isLoading?: boolean;
+  /**
+   * Show schema access in a docked inspector rather than the drawer. The tab
+   * is the pill that was clicked, so the inspector opens on that verb.
+   */
+  onOpenSchemaAccess?: (tab: string) => void;
 }
-
-const ACCESS_PILL: Record<string, { label: string; className: string }> = {
-  [ACCESS_TYPES.LOGGED_IN]: {
-    label: "Logged-in users",
-    className: "bg-amber-500/10 text-amber-700 border border-amber-400/40 dark:text-amber-300/80 dark:border-amber-500/20",
-  },
-  [ACCESS_TYPES.PUBLIC]: {
-    label: "Public",
-    className: "bg-rose-500/10 text-rose-700 border border-rose-400/40 dark:text-rose-300/80 dark:border-rose-500/20",
-  },
-  [ACCESS_TYPES.CUSTOM]: {
-    label: "Custom",
-    className: "bg-emerald-500/10 text-emerald-700 border border-emerald-400/40 dark:text-emerald-300/80 dark:border-emerald-500/20",
-  },
-  [ACCESS_TYPES.INHERITED]: {
-    label: "Inherited",
-    className: "bg-muted/60 text-muted-foreground border border-border/60",
-  },
-};
-
-const ACCESS_ACTIONS = [
-  { key: "view", label: "View" },
-  { key: "create", label: "Create" },
-  { key: "edit", label: "Edit" },
-  { key: "delete", label: "Delete" },
-] as const;
 
 export const SchemaBasicInfo = ({
   onDeleteSuccess,
   isLoading,
+  onOpenSchemaAccess,
   ...props
 }: SchemaBasicInfoProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -92,6 +70,32 @@ export const SchemaBasicInfo = ({
   const schemaType = props.schemaType === 1 ? "Entity" : "Child";
   const isEntity = schemaType === "Entity";
 
+  // Entity schemas split into system defaults and the ones you added; Child
+  // schemas carry no system split and have no Indexes tab, so there is
+  // nothing to add to their count.
+  const customFieldsCount = isEntity
+    ? props.fields.filter((f) => !readonlyPropertyNames.includes(f.name)).length
+    : props.fields.length;
+  const systemFieldsCount = isEntity
+    ? props.fields.filter((f) => readonlyPropertyNames.includes(f.name)).length
+    : 0;
+  // Reuses the Indexes tab's own cache entry — opening that tab later reads
+  // the same query rather than starting a second one.
+  const { data: indexesQuery } = useSchemaIndexes(props.id, {
+    enabled: isEntity && Boolean(props.id),
+  });
+  const indexCount = indexesQuery?.data?.indexes.length;
+
+  const fieldsSummary = [
+    `${customFieldsCount} ${customFieldsCount === 1 ? "field" : "fields"}`,
+    isEntity ? `${systemFieldsCount} system` : null,
+    isEntity && indexCount !== undefined
+      ? `${indexCount} ${indexCount === 1 ? "index" : "indexes"}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   const accessLevels = [
     { label: "View", level: props.readAccessLevel },
     { label: "Create", level: props.writeAccessLevel },
@@ -117,20 +121,49 @@ export const SchemaBasicInfo = ({
         {/* Header */}
         <div className="relative flex items-center justify-between gap-3 px-5 py-3.5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 ring-1 ring-indigo-500/20">
-              <Database className="h-4 w-4 text-indigo-400" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
+              <Database className="h-4 w-4 text-primary" />
             </div>
-            <div className="flex flex-col">
-              <h2 className="text-sm font-semibold text-foreground">
-                {schemaName}
-              </h2>
-              <span className="text-[11px] text-muted-foreground/60">
-                {schemaType}
-              </span>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-sm font-semibold text-foreground">
+                  {schemaName}
+                </h2>
+                <span
+                  className={cn(
+                    "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                    isEntity ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {schemaType}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground/60">
+                {props.collectionName && (
+                  <>
+                    <span className="font-mono">{props.collectionName}</span>
+                    <span
+                      aria-hidden
+                      className="h-[3px] w-[3px] shrink-0 rounded-full bg-current opacity-50"
+                    />
+                  </>
+                )}
+                <span>{fieldsSummary}</span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            {isEntity && (
+            {isEntity && onOpenSchemaAccess ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                onClick={() => onOpenSchemaAccess("View")}
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Schema Access
+              </Button>
+            ) : isEntity ? (
               <SchemaAccessControlDrawer
                 fields={props.fields}
                 schemaName={schemaName}
@@ -141,8 +174,12 @@ export const SchemaBasicInfo = ({
                 editAccessLevel={props.editAccessLevel}
                 deleteAccessLevel={props.deleteAccessLevel}
                 trigger={
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                    <ShieldCheck className="h-3.5 w-3.5" />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                  >
+                    <Shield className="h-3.5 w-3.5" />
                     Schema Access
                   </Button>
                 }
@@ -150,7 +187,7 @@ export const SchemaBasicInfo = ({
                 onOpenChange={setIsSchemaAccessControlDrawerOpen}
                 selectedTab={selectedTab}
               />
-            )}
+            ) : null}
             <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -179,38 +216,29 @@ export const SchemaBasicInfo = ({
 
         {/* Bottom info row — Access Control for Entity, References for Child */}
         {(isEntity || props.schemaType === 2) && (
-          <div className="relative flex items-start gap-4 border-t border-border/40 px-5 py-3">
-            <span className="shrink-0 pt-0.5 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
+          <div className="relative flex items-center gap-4 border-t border-border/40 px-5 py-3">
+            <span className="shrink-0 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
               {isEntity ? "Access Control" : "References"}
             </span>
             {isEntity ? (
-              /* Access Control pills for Entity */
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {accessLevels.map(({ label, level }) => {
-                  const accessType =
-                    ACCESS_LEVEL_TO_TYPE[level] ?? ACCESS_TYPES.LOGGED_IN;
-                  const pill = ACCESS_PILL[accessType];
-                  return (
-                    <div key={label} className="flex items-center gap-1.5">
-                      <span className="text-xs text-muted-foreground/70">
-                        {label}
-                      </span>
-                      <button
-                        type="button"
-                        className={cn(
-                          "inline-flex cursor-pointer items-center rounded-lg px-2.5 py-0.5 text-xs font-medium transition-opacity hover:opacity-75",
-                          pill?.className,
-                        )}
-                        onClick={() => {
-                          setIsSchemaAccessControlDrawerOpen(true);
-                          setSelectedTab(label);
-                        }}
-                      >
-                        {pill?.label}
-                      </button>
-                    </div>
-                  );
-                })}
+              /* Access Control pills for Entity — verb and tier share one
+                 bordered, tier-tinted pill, matching every board's own strip. */
+              <div className="flex flex-wrap items-center gap-2">
+                {accessLevels.map(({ label, level }) => (
+                  <AccessVerbPill
+                    key={label}
+                    verb={label}
+                    level={level}
+                    onClick={() => {
+                      if (onOpenSchemaAccess) {
+                        onOpenSchemaAccess(label);
+                        return;
+                      }
+                      setIsSchemaAccessControlDrawerOpen(true);
+                      setSelectedTab(label);
+                    }}
+                  />
+                ))}
               </div>
             ) : (
               /* References for Child */

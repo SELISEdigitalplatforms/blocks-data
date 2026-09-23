@@ -33,24 +33,23 @@ describe("getRuntimeEnv", () => {
 
   it("prefers a valid value injected on window.__BLOCKS_ENV__", () => {
     win.__BLOCKS_ENV__ = { BLOCKS_IAM_BASE_URL: "https://iam.runtime.example.com" };
-    expect(getRuntimeEnv("BLOCKS_IAM_BASE_URL")).toBe(
-      "https://iam.runtime.example.com",
-    );
+    expect(getRuntimeEnv("BLOCKS_IAM_BASE_URL")).toBe("https://iam.runtime.example.com");
   });
 
   it("ignores an unreplaced placeholder and falls back to build-time env", () => {
     win.__BLOCKS_ENV__ = { BLOCKS_IAM_BASE_URL: "__BLOCKS_IAM_BASE_URL__" };
     vi.stubEnv("BLOCKS_IAM_BASE_URL", "https://iam.build.example.com");
-    expect(getRuntimeEnv("BLOCKS_IAM_BASE_URL")).toBe(
-      "https://iam.build.example.com",
-    );
+    expect(getRuntimeEnv("BLOCKS_IAM_BASE_URL")).toBe("https://iam.build.example.com");
   });
 
-  it("falls back to build-time env when window has no runtime value", () => {
+  it("uses the page origin for the Data API even when the shared secret points elsewhere", () => {
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { ...window.location, origin: "https://dev-data-546.blocksdevelopers.com" },
+    });
+    win.__BLOCKS_ENV__ = { BLOCKS_DATA_BASE_URL: "https://dev-data.blocksdevelopers.com" };
     vi.stubEnv("BLOCKS_DATA_BASE_URL", "https://data.build.example.com");
-    expect(getRuntimeEnv("BLOCKS_DATA_BASE_URL")).toBe(
-      "https://data.build.example.com",
-    );
+    expect(getRuntimeEnv("BLOCKS_DATA_BASE_URL")).toBe("https://dev-data-546.blocksdevelopers.com");
   });
 
   it("returns an empty string when the key is absent everywhere", () => {
@@ -72,9 +71,7 @@ describe("getRuntimeEnv", () => {
 
   it("does not append a trailing slash to an empty value", () => {
     vi.stubEnv("BLOCKS_LOGIC_BASE_URL", "");
-    expect(getRuntimeEnv("BLOCKS_LOGIC_BASE_URL", { ensureTrailingSlash: true })).toBe(
-      "",
-    );
+    expect(getRuntimeEnv("BLOCKS_LOGIC_BASE_URL", { ensureTrailingSlash: true })).toBe("");
   });
 
   it("keeps the port when running against a local host", () => {
@@ -99,9 +96,7 @@ describe("getRuntimeEnv", () => {
     setHostname("prod.example.com");
     const warn = vi.spyOn(console, "error").mockImplementation(() => {});
     win.__BLOCKS_ENV__ = { BLOCKS_OS_BASE_URL: "not-a-valid-url" };
-    expect(getRuntimeEnv("BLOCKS_OS_BASE_URL", { stripPort: true })).toBe(
-      "not-a-valid-url",
-    );
+    expect(getRuntimeEnv("BLOCKS_OS_BASE_URL", { stripPort: true })).toBe("not-a-valid-url");
     expect(warn).toHaveBeenCalled();
   });
 });

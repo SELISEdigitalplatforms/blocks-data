@@ -10,11 +10,18 @@ namespace XUnitTest.Infrastructure;
 /// </summary>
 public sealed class MongoFixture : IDisposable
 {
-    private readonly IMongoRunner _runner;
+    private readonly IMongoRunner? _runner;
     public IMongoClient Client { get; }
 
     public MongoFixture()
     {
+        var localUri = Environment.GetEnvironmentVariable("BLOCKS_DATA_TEST_MONGO_URI");
+        if (!string.IsNullOrWhiteSpace(localUri))
+        {
+            Client = new MongoClient(localUri);
+            return;
+        }
+
         var options = new MongoRunnerOptions
         {
             UseSingleNodeReplicaSet = false,

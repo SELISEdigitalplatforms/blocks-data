@@ -36,6 +36,7 @@ public class SchemaExportService : ISchemaExportService
         var fileId = Guid.NewGuid().ToString();
         var context = BlocksContext.GetContext();
         var tenantId = context?.TenantId ?? string.Empty;
+        ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
 
         await _messageClient.SendToConsumerAsync(new ConsumerMessage<SchemaExportEvent>
         {
@@ -58,10 +59,11 @@ public class SchemaExportService : ISchemaExportService
     /// <inheritdoc />
     public async Task<(byte[] JsonBytes, string FileName)> BuildExportBytesAsync(SchemaExportEvent exportEvent)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(exportEvent.ProjectKey);
         var fileName = $"schema_export_{DateTime.UtcNow:yyyyMMddHHmmss}.json";
 
         // 1. Fetch all schemas — ProjectKey is a routing key (selects the DB), not a stored document field
-        var schemas = await _dbRepository.GetItemsAsync<SchemaDefinition>(new BsonDocument(), null, null, 0, 1000);
+        var schemas = await _dbRepository.GetItemsAsync<SchemaDefinition>(new BsonDocument(), null, null, 0, 1000, exportEvent.ProjectKey);
 
         // 2. Fetch policies only when AccessPolicies flag is set (covers both RLS rules and CLS)
         //    For Schema-only export, access levels are already on SchemaDefinition itself
@@ -71,7 +73,7 @@ public class SchemaExportService : ISchemaExportService
             var schemaNames = schemas.Select(s => s.SchemaName).Distinct().ToList();
             var policyFilter = new BsonDocument(nameof(DataAccessPolicy.SchemaName),
                 new BsonDocument("$in", new BsonArray(schemaNames)));
-            allPolicies = await _dbRepository.GetItemsAsync<DataAccessPolicy>(policyFilter, null, null, 0, 5000);
+            allPolicies = await _dbRepository.GetItemsAsync<DataAccessPolicy>(policyFilter, null, null, 0, 5000, exportEvent.ProjectKey);
         }
 
         // 3. Fetch validations only when the flag is set
@@ -81,7 +83,7 @@ public class SchemaExportService : ISchemaExportService
             var schemaIds = schemas.Select(s => s.ItemId).Distinct().ToList();
             var validationFilter = new BsonDocument(nameof(DataValidation.SchemaId),
                 new BsonDocument("$in", new BsonArray(schemaIds)));
-            allValidations = await _dbRepository.GetItemsAsync<DataValidation>(validationFilter, null, null, 0, 5000);
+            allValidations = await _dbRepository.GetItemsAsync<DataValidation>(validationFilter, null, null, 0, 5000, exportEvent.ProjectKey);
         }
 
         // 4. Build export documents
@@ -101,6 +103,7 @@ public class SchemaExportService : ISchemaExportService
     /// <inheritdoc />
     public async Task InsertExportRecordAsync(SchemaExportEvent exportEvent, string fileName)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(exportEvent.ProjectKey);
         var record = new SchemaExportRecord
         {
             FileId = exportEvent.FileId,
@@ -109,7 +112,7 @@ public class SchemaExportService : ISchemaExportService
             ExportedAt = DateTime.UtcNow
         };
         record.InjectDefaultValue();
-        await _dbRepository.InsertAsync(record);
+        await _dbRepository.InsertAsync(record, exportEvent.ProjectKey);
         _logger.LogInformation("InsertExportRecordAsync: Record created for fileId={FileId}", exportEvent.FileId);
     }
 

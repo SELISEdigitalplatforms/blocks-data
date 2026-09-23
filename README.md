@@ -30,6 +30,8 @@ scripts/  Maintainer scripts (scan and deploy entry points)
 
 Multi-tenancy: one instance serves all tenants. The tenant is resolved from the access token when the request is authenticated, otherwise from the `x-blocks-key` header. REST endpoints are protected with permission scopes of the form `blocks-data::<action>`.
 
+The API and Worker use Genesis 4.2.2 to resolve each tenant's stored `DbConnectionString` and `DBName` from the central root registry. `BlocksRootDb` lookups remain on the main connection. The Data Gateway's explicitly configured external data source remains an override for GraphQL data operations; it does not change where tenant metadata, schemas, files, or import/export records are stored. Schema import/export messages carry the target project key, which is used for their database operations. Deploy both the API and Worker with the updated package before routing new environments to separate clusters.
+
 ## Prerequisites
 
 - **.NET SDK 10.0** (the solution targets `net10.0`; the two driver packages target `net9.0`, which the 10.0 SDK builds)
@@ -96,7 +98,7 @@ npm --prefix client run test -- --coverage
 
 The e2e suite drives the real application through a browser. It needs a running app, a `.env.e2e` file with the target URL and test credentials, and a hosts entry for the named domain. See [e2e/README.md](e2e/README.md) for the full setup.
 
-Backend tests that touch MongoDB run against an ephemeral server through `MongoFixture` and are marked `[Collection("Mongo")]`; `BlocksTestContext` seeds the ambient tenant and user. Frontend tests mock the HTTP client and wrap hooks in the shared query-client provider from `client/app/test-utils`.
+Backend tests that touch MongoDB run against an ephemeral server through `MongoFixture` and are marked `[Collection("Mongo")]`; `BlocksTestContext` seeds the ambient tenant and user. To use an already running local MongoDB server instead of downloading the ephemeral server, set `BLOCKS_DATA_TEST_MONGO_URI` to its connection URI for the test process. The fixture creates unique database names. Frontend tests mock the HTTP client and wrap hooks in the shared query-client provider from `client/app/test-utils`.
 
 Two things worth knowing before reading a failure here:
 

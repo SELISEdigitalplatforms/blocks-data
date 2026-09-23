@@ -315,6 +315,12 @@ namespace Storage.DomainService.Services
 
         private static bool MatchesSharePrincipal(ObjectAccessPolicy policy, BlocksContext? context) => policy.PrincipalType switch
         {
+            // "Everyone" grants every tenant user View+ access unconditionally - see
+            // ObjectAccessResolver's own principal switch, which already treats it this way. This
+            // case was missing here, so a resource shared with "Everyone" fell through to `_ =>
+            // false` and never appeared in anyone's "shared with me" listing, even though the same
+            // resource resolved as fully viewable through the direct-access path.
+            ObjectPrincipalType.Everyone => true,
             ObjectPrincipalType.User => !string.IsNullOrEmpty(policy.PrincipalId)
                                         && string.Equals(policy.PrincipalId, context?.UserId, StringComparison.Ordinal),
             ObjectPrincipalType.Role => !string.IsNullOrEmpty(policy.PrincipalId)

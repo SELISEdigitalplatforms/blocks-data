@@ -23,7 +23,9 @@ namespace Storage.DomainService.Services
 
         public (IEnumerable<BsonDocument>, FileResponse[]) GetRequiredFiles(IEnumerable<string> fileIds, long? version)
         {
-            var filesCollection = _dbContextProvider.GetCollection<FileResponse>(string.Format("{0}s", typeof(File).Name));
+            var database = _dbContextProvider.GetDatabase()
+                ?? throw new InvalidOperationException("Tenant database is not available.");
+            var filesCollection = database.GetCollection<FileResponse>(string.Format("{0}s", typeof(File).Name));
 
             var filesFilter = Builders<FileResponse>.Filter.In("_id", fileIds);
 
@@ -31,9 +33,7 @@ namespace Storage.DomainService.Services
                 .Project<FileResponse>(filesProjection)
                 .Sort(fileSort)
                 .ToEnumerable().ToArray();
-            var dataBase = _dbContextProvider.GetDatabase(BlocksContext.GetContext()?.TenantId ?? string.Empty);
-
-            var fileVersionCollection = dataBase.GetCollection<BsonDocument>("FileVersions");
+            var fileVersionCollection = database.GetCollection<BsonDocument>("FileVersions");
 
 
             var match = Builders<BsonDocument>.Filter.In("FileId", files.Select(f => f.ItemId));
@@ -76,7 +76,8 @@ namespace Storage.DomainService.Services
         public async Task<File> GetFileByItemIdAsync(string itemId, string tenantId)
         {
             var filter = Builders<File>.Filter.Eq(e => e.ItemId, itemId);
-            var collection = _dbContextProvider.GetCollection<File>(string.Format("{0}s", typeof(File).Name));
+            var collection = _dbContextProvider.GetCollection<File>(tenantId,
+                string.Format("{0}s", typeof(File).Name));
             return await collection.Find(filter).SingleOrDefaultAsync();
         }
 

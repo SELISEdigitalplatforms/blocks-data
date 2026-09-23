@@ -21,16 +21,21 @@ namespace XUnitTest.Storage;
 public class FileRepositoryTests
 {
     private readonly IMongoDatabase _db;
+    private readonly IMongoDatabase _otherDb;
     private readonly FileRepository _repository;
 
     public FileRepositoryTests(MongoFixture fixture)
     {
         _db = fixture.CreateDatabase();
+        _otherDb = fixture.CreateDatabase();
 
         var provider = new Mock<IDbContextProvider>();
         provider.Setup(p => p.GetCollection<File>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<File>(n));
         provider.Setup(p => p.GetCollection<FileResponse>(It.IsAny<string>())).Returns((string n) => _db.GetCollection<FileResponse>(n));
+        provider.Setup(p => p.GetDatabase()).Returns(_db);
         provider.Setup(p => p.GetDatabase(It.IsAny<string>())).Returns(_db);
+        provider.Setup(p => p.GetCollection<File>("tenant-2", "Files"))
+            .Returns(_otherDb.GetCollection<File>("Files"));
 
         _repository = new FileRepository(provider.Object);
 
@@ -56,5 +61,26 @@ public class FileRepositoryTests
 
         files.Should().ContainSingle();
         files[0].CreatedDate.Should().Be(created);
+    }
+
+    [Fact]
+    public async Task GetFileByItemId_with_tenant_id_reads_the_requested_tenant()
+    {
+        const string id = "shared-file";
+        await _db.GetCollection<File>("Files").InsertOneAsync(new File
+        {
+            ItemId = id, TenantId = "tenant-1", Name = "first.txt",
+            SystemName = "first.txt", Type = StructureType.File
+        });
+        await _otherDb.GetCollection<File>("Files").InsertOneAsync(new File
+        {
+            ItemId = id, TenantId = "tenant-2", Name = "second.txt",
+            SystemName = "second.txt", Type = StructureType.File
+        });
+
+        var file = await _repository.GetFileByItemIdAsync(id, "tenant-2");
+
+        file.Should().NotBeNull();
+        file.Name.Should().Be("second.txt");
     }
 }

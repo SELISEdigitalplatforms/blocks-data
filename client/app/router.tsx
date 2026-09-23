@@ -7,7 +7,6 @@ import {
 
 // Dashboard routes (protected)
 import DataGatewayAnalyticsPage from "./routes/dashboard/data-gateway-analytics";
-import DataGatewayEditDataSourcePage from "./routes/dashboard/data-gateway-edit-data-source";
 import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
 import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
 import DataGatewaySchemasPage from "./routes/dashboard/data-gateway-schemas";
@@ -111,10 +110,6 @@ export const router = createBrowserRouter([
                   {
                     path: "data-gateway/analytics",
                     element: <DataGatewayAnalyticsPage />,
-                  },
-                  {
-                    path: "data-gateway/configuration",
-                    element: <DataGatewayEditDataSourcePage />,
                   },
                   { path: "storage", element: <StoragePage /> },
                   { path: "storage/search", element: <StorageSearchPage /> },

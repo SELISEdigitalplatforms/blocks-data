@@ -18,7 +18,6 @@ import {
   ICreateSchemaIndexPayload,
   ICreateSchemaPayload,
   ICreateSchemaResponse,
-  IDataServiceConfiguration,
   IDataServiceConfigurationResponse,
   IDefaultResponse,
   IDeleteMockDataPayload,
@@ -48,18 +47,6 @@ import {
 } from "../models/data-service";
 
 class ConfigurationService {
-  createDataSource(
-    payload: IDataServiceConfiguration,
-  ): Promise<IDataServiceConfigurationResponse> {
-    return http.post(CONFIGURATION_ENDPOINTS.GET, payload);
-  }
-
-  updateDataSource(
-    payload: IDataServiceConfiguration,
-  ): Promise<IDataServiceConfigurationResponse> {
-    return http.put(CONFIGURATION_ENDPOINTS.GET, payload);
-  }
-
   getDataServiceDetails(): Promise<IDataServiceConfigurationResponse> {
     return http.get(CONFIGURATION_ENDPOINTS.GET);
   }

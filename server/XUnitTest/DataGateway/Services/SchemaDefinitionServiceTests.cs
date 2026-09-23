@@ -38,6 +38,9 @@ public class SchemaDefinitionServiceTests
         // reference helper resolves nested references; keep them absent by default
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync((SchemaDefinition?)null);
         _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 100, "")).ReturnsAsync(new List<SchemaDefinition>());
+        // Default for SchemaDefinitionService's own name-collision scan (FindCollidingSchemaNameAsync);
+        // individual tests override this when they need to assert on a specific existing schema set.
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "")).ReturnsAsync(new List<SchemaDefinition>());
         _repo.Setup(r => r.InsertAsync(It.IsAny<SchemaDefinition>(), "")).ReturnsAsync((SchemaDefinition s, string _) => s);
         _repo.Setup(r => r.UpdateAsync(It.IsAny<SchemaDefinition>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true });
         // no schema has any index by default; SaveFieldDefinitionAsync's field-deletion guard and
@@ -87,6 +90,47 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
+    public async Task CreateSchema_NameCollidesWithExistingSchemaResultType_Returns400()
+    {
+        NameIsUnique();
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "existing", SchemaName = "GeoV2PublicScanResult", IsDeleted = false } });
+
+        var result = await _service.CreateSchemaAsync(new CreateSchemaRequest { SchemaName = "GeoV2PublicScan", CollectionName = "GeoV2PublicScans", SchemaType = SchemaType.Entity });
+
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Contain("GeoV2PublicScanResult");
+        _repo.Verify(r => r.InsertAsync(It.IsAny<SchemaDefinition>(), ""), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateSchema_NameWouldBeCollidedByExistingSchemasResultType_Returns400()
+    {
+        NameIsUnique();
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "existing", SchemaName = "GeoV2PublicScan", IsDeleted = false } });
+
+        var result = await _service.CreateSchemaAsync(new CreateSchemaRequest { SchemaName = "GeoV2PublicScanResult", CollectionName = "GeoV2PublicScanResults", SchemaType = SchemaType.Entity });
+
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Contain("GeoV2PublicScan");
+    }
+
+    [Fact]
+    public async Task CreateSchema_NameDoesNotCollide_Inserts()
+    {
+        NameIsUnique();
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "existing", SchemaName = "Address", IsDeleted = false } });
+
+        var result = await _service.CreateSchemaAsync(new CreateSchemaRequest { SchemaName = "Person", CollectionName = "Persons", SchemaType = SchemaType.Entity });
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task UpdateSchema_NotFound_Returns204()
     {
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync((SchemaDefinition?)null);
@@ -95,20 +139,63 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
-    public async Task UpdateSchema_InvalidName_Returns400()
+    public async Task UpdateSchema_RenameToNewUnusedName_Succeeds()
     {
-        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1" });
-        NameIsUnique(); // name does NOT already exist -> update treats as invalid
-        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "P", CollectionName = "Ps", SchemaType = SchemaType.Entity });
-        result.Message.Should().Be("Invalid schema name");
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Old" });
+        NameIsUnique(); // no schema at all currently has the target name
+        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "New", CollectionName = "News", SchemaType = SchemaType.Entity });
+        result.IsSuccess.Should().BeTrue("renaming to a name nobody else uses must be allowed");
     }
 
     [Fact]
-    public async Task UpdateSchema_Valid_Updates()
+    public async Task UpdateSchema_RenameToNameUsedByAnotherSchema_Returns400()
     {
-        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1" });
-        NameExists();
-        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "P", CollectionName = "Ps", SchemaType = SchemaType.Entity });
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Old" });
+        // the name-lookup finds a DIFFERENT schema (ItemId "2") already using the requested name
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "2", SchemaName = "Taken" });
+        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "Taken", CollectionName = "Ps", SchemaType = SchemaType.Entity });
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Be("Schema with the same name already exists");
+        _repo.Verify(r => r.UpdateAsync(It.IsAny<SchemaDefinition>(), ""), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateSchema_KeepingItsOwnCurrentName_Succeeds()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });
+        // the name-lookup finds itself (same ItemId) — not a collision
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });
+        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "Person", CollectionName = "Persons", SchemaType = SchemaType.Entity });
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateSchema_NameCollidesWithAnotherSchemasResultType_Returns400()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "GeoV2PublicScan" });
+        NameIsUnique(); // no OTHER schema is already named "GeoV2PublicScan"; the collision is via the derived suffix, checked separately below
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "2", SchemaName = "GeoV2PublicScanResult", IsDeleted = false } });
+
+        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "GeoV2PublicScan", CollectionName = "GeoV2PublicScans", SchemaType = SchemaType.Entity });
+
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Contain("GeoV2PublicScanResult");
+        _repo.Verify(r => r.UpdateAsync(It.IsAny<SchemaDefinition>(), ""), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateSchema_KeepingOwnName_DoesNotCollideWithItself()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });
+        NameIsUnique();
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "1", SchemaName = "Person", IsDeleted = false } });
+
+        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "Person", CollectionName = "Persons", SchemaType = SchemaType.Entity });
+
         result.IsSuccess.Should().BeTrue();
     }
 
@@ -342,8 +429,9 @@ public class SchemaDefinitionServiceTests
     [Fact]
     public async Task UpdateSchemaDefinition_Valid_Updates()
     {
-        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1" });
-        NameExists();
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });
+        // the name-lookup finds itself (same ItemId) — not a collision
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });
         var result = await _service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest
         {
             ItemId = "1",
@@ -353,6 +441,24 @@ public class SchemaDefinitionServiceTests
             Fields = new() { new FieldDefinitionRequest { Name = "Email", Type = "String" } }
         });
         result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_RenameToNameUsedByAnotherSchema_Returns400()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Old" });
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "2", SchemaName = "Taken" });
+        var result = await _service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest
+        {
+            ItemId = "1",
+            SchemaName = "Taken",
+            CollectionName = "Persons",
+            SchemaType = SchemaType.Entity,
+            Fields = new() { new FieldDefinitionRequest { Name = "Email", Type = "String" } }
+        });
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Be("Schema with the same name already exists");
     }
 
     [Fact]

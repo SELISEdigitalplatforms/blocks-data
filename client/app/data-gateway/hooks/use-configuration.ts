@@ -27,37 +27,6 @@ import {
 
 const getProjectKey = () => useProjectStore.getState().selectedProject?.tenantId || "";
 
-export const useCreateDataSourceConfiguration = () => {
-  const queryClient = useQueryClient();
-  const projectKey = getProjectKey();
-
-  return useMutation({
-    mutationFn: configurationService.createDataSource,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["data-service-config", "get", projectKey],
-      });
-    },
-  });
-};
-
-export const useUpdateDataSourceConfiguration = () => {
-  const queryClient = useQueryClient();
-  const projectKey = getProjectKey();
-
-  return useMutation({
-    mutationFn: configurationService.updateDataSource,
-    onSuccess: () => {
-      queryClient.invalidateQueries({
-        queryKey: ["data-service-config", "get", projectKey],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["unadapted-change-logs", projectKey],
-      });
-    },
-  });
-};
-
 export const useGetDataServiceConfiguration = () => {
   const projectKey = getProjectKey();
 

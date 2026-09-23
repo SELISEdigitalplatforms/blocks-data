@@ -1,25 +1,14 @@
 "use client";
 import { Button } from "@/components/ui-kits/button/button";
-import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import { useState } from "react";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import { dataServiceInstructions } from "../constants/instructions";
-import ConfigureDataSourceModal from "./configure-data-source";
 
 export function DataServiceInstructions() {
-  const [isConfigureDataSourceModalOpen, setConfigureDataSourceModal] =
-    useState<boolean>(false);
-  const [modalInstance, setModalInstance] = useState(0);
-
-  const openModal = () => {
-    setModalInstance((n) => n + 1);
-    setConfigureDataSourceModal(true);
-  };
-
-  const closeModal = () => setConfigureDataSourceModal(false);
-
-  const confirmSave = async () => {
-    setConfigureDataSourceModal(false);
-  };
+  const openBlocksOsConfiguration = () =>
+    window.open(
+      `${getRuntimeEnv("BLOCKS_OS_BASE_URL")}/app/secret-management/data-gateway`,
+      "_blank",
+    );
 
   return (
     <div className="space-y-4 overflow-hidden p-6">
@@ -39,24 +28,10 @@ export function DataServiceInstructions() {
         <Button
           size="sm"
           className="mt-6 h-10 gap-2 px-4 py-1"
-          onClick={openModal}
+          onClick={openBlocksOsConfiguration}
         >
           Configure
         </Button>
-
-        <Dialog
-          open={isConfigureDataSourceModalOpen}
-          onOpenChange={setConfigureDataSourceModal}
-        >
-          {isConfigureDataSourceModalOpen && (
-            <ConfigureDataSourceModal
-              key={modalInstance}
-              mode="create"
-              onCancel={closeModal}
-              onConfirm={confirmSave}
-            />
-          )}
-        </Dialog>
       </div>
     </div>
   );

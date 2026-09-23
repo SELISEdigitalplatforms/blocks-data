@@ -120,6 +120,21 @@ describe("DataGatewayActions", () => {
     expect(navigateMock).toHaveBeenCalledWith("/data-gateway/playground");
   });
 
+  it("opens the blocks OS data gateway admin page in a new tab from Configure", async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    renderActions();
+
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByText("Configure"));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      "http://api/app/secret-management/data-gateway",
+      "_blank",
+    );
+    openSpy.mockRestore();
+  });
+
   it("opens the export modal from the overflow menu", async () => {
     const user = userEvent.setup();
     renderActions();

@@ -14,9 +14,11 @@ public class DbRepositoryTests
 {
     private readonly IMongoDatabase _db;
     private readonly DbRepository _repo;
+    private readonly MongoFixture _fixture;
 
     public DbRepositoryTests(MongoFixture fixture)
     {
+        _fixture = fixture;
         _db = fixture.CreateDatabase();
         var provider = new Mock<IDbContextProvider>();
         provider.Setup(p => p.GetDatabase()).Returns(_db);
@@ -35,6 +37,34 @@ public class DbRepositoryTests
         CreatedDate = DateTime.UtcNow,
         LastUpdatedDate = DateTime.UtcNow
     };
+
+    [Fact]
+    public async Task Explicit_tenant_operations_remain_isolated_on_one_repository_instance()
+    {
+        var dev = _fixture.CreateDatabase();
+        var other = _fixture.CreateDatabase();
+        var provider = new Mock<IDbContextProvider>();
+        provider.Setup(p => p.GetDatabase("dev-tenant")).Returns(dev);
+        provider.Setup(p => p.GetDatabase("other-tenant")).Returns(other);
+        var secret = new Mock<IBlocksSecret>();
+        var repository = new DbRepository(provider.Object, secret.Object);
+        var id = Guid.NewGuid().ToString();
+        var devSchema = NewSchema("Dev");
+        var otherSchema = NewSchema("Other");
+        devSchema.ItemId = id;
+        otherSchema.ItemId = id;
+
+        await Task.WhenAll(
+            repository.InsertAsync(devSchema, "dev-tenant"),
+            repository.InsertAsync(otherSchema, "other-tenant"));
+
+        (await repository.GetItemAsync<SchemaDefinition>(id, "dev-tenant"))!.SchemaName.Should().Be("Dev");
+        (await repository.GetItemAsync<SchemaDefinition>(id, "other-tenant"))!.SchemaName.Should().Be("Other");
+        (await dev.GetCollection<SchemaDefinition>("SchemaDefinitions").Find(x => x.ItemId == id).SingleAsync())
+            .SchemaName.Should().Be("Dev");
+        (await other.GetCollection<SchemaDefinition>("SchemaDefinitions").Find(x => x.ItemId == id).SingleAsync())
+            .SchemaName.Should().Be("Other");
+    }
 
     [Fact]
     public async Task Insert_And_GetById_Typed()

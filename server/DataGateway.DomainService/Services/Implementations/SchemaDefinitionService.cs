@@ -53,6 +53,10 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (await IsSchemaNameExistsAsync(request.SchemaName))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
 
+        var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, excludeItemId: null);
+        if (collidingSchemaName is not null)
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
+
         var schema = new SchemaDefinition { CollectionName = request.CollectionName, SchemaName = request.SchemaName, SchemaType = request.SchemaType };
         schema.InjectDefaultValue();
         if (request.SchemaType == SchemaType.Entity)
@@ -75,8 +79,12 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (schema is null)
             return SchemaNotFoundResponse();
 
-        if (!await IsSchemaNameExistsAsync(request.SchemaName))
-            return new ServiceResponse<ActionResponse>().SetErrorMessage("Invalid schema name").SetHttpStatusCode(400);
+        if (await IsSchemaNameExistsAsync(request.SchemaName, schema.ItemId))
+            return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
+
+        var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, schema.ItemId);
+        if (collidingSchemaName is not null)
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
 
         schema.CollectionName = request.CollectionName;
         schema.SchemaName = request.SchemaName;
@@ -237,6 +245,10 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (await IsSchemaNameExistsAsync(request.SchemaName))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
 
+        var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, excludeItemId: null);
+        if (collidingSchemaName is not null)
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
+
         var schema = new SchemaDefinition
         {
             CollectionName = request.CollectionName,
@@ -265,8 +277,12 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (schema == null)
             return SchemaNotFoundResponse();
 
-        if (!await IsSchemaNameExistsAsync(request.SchemaName))
-            return new ServiceResponse<ActionResponse>().SetErrorMessage("Invalid schema name").SetHttpStatusCode(400);
+        if (await IsSchemaNameExistsAsync(request.SchemaName, schema.ItemId))
+            return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
+
+        var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, schema.ItemId);
+        if (collidingSchemaName is not null)
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
 
         schema.CollectionName = request.CollectionName;
         schema.Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description, RequiredOn = f.RequiredOn }).ToList() ?? [];
@@ -422,11 +438,42 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         });
     }
 
-    private async Task<bool> IsSchemaNameExistsAsync(string schemaName)
+    // excludeItemId lets a rename check "is this name taken by some OTHER schema" instead of
+    // treating the schema's own current name as a collision with itself.
+    private async Task<bool> IsSchemaNameExistsAsync(string schemaName, string? excludeItemId = null)
     {
         var filter = Builders<SchemaDefinition>.Filter.Eq(x => x.SchemaName, schemaName);
         var schema = await _repository.GetItemAsync(filter);
-        return schema != null;
+        return schema != null && schema.ItemId != excludeItemId;
+    }
+
+    // GraphqlSchemaBuilder derives synthetic GraphQL type names for every schema by appending one
+    // of these suffixes to its SchemaName (QueryOutputType, QueryResponseType, InsertInputType,
+    // UpdateInputType, DeleteInputType, EntityFilterInputType/ChildSchemaFilterInputType, and the
+    // Dto Input type). Two schemas whose derived names collide (e.g. "Foo" and "FooResult") make
+    // HotChocolate throw a SchemaException at schema-build time for every request on that tenant, so
+    // this has to be rejected up front, at save time, rather than discovered later at request time.
+    private static readonly string[] ReservedSchemaNameSuffixes = ["", "Result", "Input", "InsertInput", "UpdateInput", "DeleteInput", "FilterInput"];
+
+    private async Task<string?> FindCollidingSchemaNameAsync(string schemaName, string? excludeItemId)
+    {
+        var filter = new BsonDocument(nameof(SchemaDefinition.IsDeleted), false);
+        var existingSchemas = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1000);
+        var candidateNames = ReservedSchemaNameSuffixes.Select(suffix => schemaName + suffix).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var existing in existingSchemas)
+        {
+            if (existing.ItemId == excludeItemId)
+                continue;
+
+            foreach (var suffix in ReservedSchemaNameSuffixes)
+            {
+                if (candidateNames.Contains(existing.SchemaName + suffix))
+                    return existing.SchemaName;
+            }
+        }
+
+        return null;
     }
 
     private static ServiceResponse<ActionResponse> SchemaNotFoundResponse() =>

@@ -1,13 +1,3 @@
-export interface IDataServiceConfiguration {
-  projectKey: string;
-  databaseName: string;
-  connectionString: string;
-  itemId?: string;
-  isCollectionNameEditable?: boolean;
-  collectionNamePattern?: string;
-  enableAnalytics?: boolean;
-}
-
 export interface IAnalyticsConfiguration {
   enableAnalytics: boolean;
   enableDate: string | null;
@@ -30,14 +20,6 @@ export interface IDataSourceResponse {
   isCollectionNameEditable?: boolean;
   collectionNamePattern?: string;
   analyticsConfiguration?: IAnalyticsConfiguration;
-}
-
-export interface IDataSourceFormValues {
-  dbConnectionString: string;
-  databaseName: string;
-  isCollectionNameEditable: boolean;
-  collectionNamePattern: string;
-  enableAnalytics: boolean;
 }
 
 export interface IUnadaptedChangeLogsResponse {

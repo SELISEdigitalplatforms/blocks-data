@@ -411,14 +411,6 @@ export function SchemaFieldValidationPanel({
                 <label htmlFor="isActive" className="cursor-pointer text-xs text-muted-foreground/70">Active</label>
               </div>
 
-              <div className="flex gap-2">
-                <Button type="button" size="sm" className="shadow-[0_0_10px_-2px_rgba(99,102,241,0.3)]" disabled={isPending || !form.value.trim() || !!regexError || !isDirty} onClick={handleSubmit}>
-                  {isPending ? "Saving…" : isEditMode ? "Update" : "Add"}
-                </Button>
-                <Button type="button" size="sm" variant="ghost" className="border border-border/40" onClick={resetForm} disabled={isPending}>
-                  Cancel
-                </Button>
-              </div>
             </div>
           ) : (
             !isRefreshing && validations.length === 0 && (
@@ -430,6 +422,41 @@ export function SchemaFieldValidationPanel({
           )}
         </div>
       </ScrollArea>
+
+      {/* Actions, pinned below the scroll area rather than sitting at the end
+          of the form inside it — the same treatment the rule editor's footer
+          got, so both docked panels put Save in the same place instead of
+          burying it under however much content the form happens to have.
+
+          A sibling of the ScrollArea rather than `sticky` inside it: Radix
+          wraps a viewport's children in a `display: table` element, which
+          sticky does not position reliably against. Both hosts (the docked
+          inspector's PanelShell and the drawer) are flex columns with this
+          fragment's children as their own, so the row pins itself. */}
+      {showForm && (
+        <div className="flex shrink-0 items-center gap-2 border-t border-border/40 bg-card px-6 py-3">
+          <span className="flex-1 text-xs text-muted-foreground">
+            {isEditMode ? "Editing validation" : "New validation"}
+          </span>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={resetForm}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={isPending || !form.value.trim() || !!regexError || !isDirty}
+            onClick={handleSubmit}
+          >
+            {isPending ? "Saving…" : isEditMode ? "Update" : "Add"}
+          </Button>
+        </div>
+      )}
 
       <Dialog
         open={pendingDeleteIndex !== null}

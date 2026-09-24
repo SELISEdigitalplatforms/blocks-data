@@ -859,4 +859,104 @@ describe("RuleSetForm — hydrated values that are not real principals", () => {
     );
     expect(userIdRule.staticValue).toBe("abc");
   });
+
+  /**
+   * Choosing "Custom" and writing its rules is one intent. It used to take two
+   * saves against two footers — and the tier footer was hidden while this form
+   * was open — so rules could land on a schema still set to Signed-in.
+   */
+  describe("saving the access level together with the rule set", () => {
+    const pickOption = async (
+      user: ReturnType<typeof userEvent.setup>,
+      index: number,
+      name: RegExp | string,
+    ) => {
+      const combos = screen.getAllByRole("combobox");
+      await user.click(combos[index]);
+      await user.click(await screen.findByRole("option", { name }));
+    };
+
+    const fillOneRule = async (user: ReturnType<typeof userEvent.setup>) => {
+      fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+        target: { value: "Access set" },
+      });
+      await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+      await pickOption(user, 0, "Auth");
+      await pickOption(user, 1, "UserId");
+      await pickOption(user, 2, /^Equal$/);
+      await pickOption(user, 3, "Static Value");
+
+      getUsers.mockResolvedValue({
+        data: [
+          {
+            itemId: "user-123",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            userName: "ada",
+            email: "ada@example.com",
+            active: true,
+          },
+        ],
+        totalCount: 1,
+        errors: null,
+      } as never);
+      await user.click(screen.getByRole("button", { name: /Select user/ }));
+      await user.click(await screen.findByText("Ada Lovelace"));
+
+      const saveBtn = screen.getByRole("button", { name: "Save" });
+      await waitFor(() => expect(saveBtn).toBeEnabled());
+      return saveBtn;
+    };
+
+    it("runs onBeforeSave before sending the policy", async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      const order: string[] = [];
+      const onBeforeSave = vi.fn(async () => {
+        order.push("access-level");
+        return true;
+      });
+      createPolicy.mockImplementation(async () => {
+        order.push("rule-set");
+        return { isSuccess: true };
+      });
+
+      render(<RuleSetForm {...baseProps} onBeforeSave={onBeforeSave} />);
+      await user.click(await fillOneRule(user));
+
+      await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+      expect(order).toEqual(["access-level", "rule-set"]);
+    });
+
+    // A rule set attached to a policy whose level failed to save would be
+    // orphaned, so the whole action stops instead of half-applying.
+    it("does not send the policy when onBeforeSave fails", async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      const onBeforeSave = vi.fn(async () => false);
+
+      render(<RuleSetForm {...baseProps} onBeforeSave={onBeforeSave} />);
+      await user.click(await fillOneRule(user));
+
+      await waitFor(() => expect(onBeforeSave).toHaveBeenCalled());
+      expect(createPolicy).not.toHaveBeenCalled();
+    });
+
+    it("saves normally when no access-level change is pending", async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+
+      render(<RuleSetForm {...baseProps} />);
+      await user.click(await fillOneRule(user));
+
+      await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    });
+
+    it("says what the footer will save when the tier is also dirty", async () => {
+      render(<RuleSetForm {...baseProps} isAccessTypeDirty />);
+      expect(screen.getByText("Access level and rules")).toBeInTheDocument();
+    });
+
+    it("says only the rule set when the tier is unchanged", async () => {
+      render(<RuleSetForm {...baseProps} />);
+      expect(screen.getByText("Rule set")).toBeInTheDocument();
+    });
+  });
 });

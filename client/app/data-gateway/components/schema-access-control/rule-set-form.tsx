@@ -172,6 +172,21 @@ interface RuleSetFormProps {
    * share one payload builder. Ignored while editing an existing set.
    */
   seed?: PresetRuleSet;
+  /**
+   * True when the tier tiles above this form hold an unsaved change.
+   * Only labels the footer — the save itself is `onBeforeSave`'s business.
+   */
+  isAccessTypeDirty?: boolean;
+  /**
+   * Persists the pending access level, awaited before the rule set is sent.
+   *
+   * Choosing "Custom" and building its rules is one intent, but it used to
+   * take two saves against two footers — and the tier footer was hidden while
+   * this form was open, so the rules could be saved onto a schema that was
+   * still Signed-in. Resolving `false` aborts, leaving the form untouched so
+   * the work can be retried rather than half-applied.
+   */
+  onBeforeSave?: () => Promise<boolean>;
 }
 
 export const RuleSetForm = ({
@@ -184,6 +199,8 @@ export const RuleSetForm = ({
   editingPolicy,
   level,
   seed,
+  isAccessTypeDirty = false,
+  onBeforeSave,
 }: RuleSetFormProps) => {
   const { mutateAsync: createPolicy, isPending: isCreating } =
     useCreatePolicy();
@@ -214,6 +231,16 @@ export const RuleSetForm = ({
     control: form.control,
     name: "rules",
   });
+
+  /** One blank row. The literal was written out at both Add Rule triggers. */
+  const addRule = () =>
+    append({
+      source: "",
+      field: "",
+      operator: "",
+      compareSource: "",
+      compareValue: "",
+    });
 
   /** Schema fields flattened to dotted-path leaf options (e.g. AddressInfo.StreetNo) */
   const schemaFieldOptions = flattenSchemaFields(schemaFields);
@@ -386,6 +413,11 @@ export const RuleSetForm = ({
   const onSubmit = async (values: RuleSetFormValues) => {
     const ruleGroup = buildRuleGroup(values.logicalOperator, values.rules);
 
+    // The access level goes first: rules belong to a Custom policy, so saving
+    // them against a schema still set to Signed-in would leave the two
+    // disagreeing until the next save.
+    if (onBeforeSave && !(await onBeforeSave())) return;
+
     if (isEditMode && editingPolicy?.itemId) {
       const payload: IUpdatePolicyPayload = {
         itemId: editingPolicy.itemId,
@@ -520,30 +552,43 @@ export const RuleSetForm = ({
             )}
           />
 
+          {/* Rules.
+              This was a bordered, tinted, p-4 panel wrapping per-rule cards
+              that were themselves bordered and p-4 — two frames and two sets
+              of padding around every control, in a 460px column. The section
+              is now a plain heading plus the list, matching how "Who is
+              allowed" and "Multi-rule relations" above it are labelled, so a
+              rule card is the only box on screen. */}
           <div className="flex flex-col">
-            <div className="mt-4 rounded-sm border border-border/40 bg-muted/5 p-4">
-              <p className="mb-3 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
-                Rules
-              </p>
+            <section className="mt-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
+                  Rules
+                </p>
+                {fields.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="dg-interactive h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={addRule}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Rule</span>
+                  </Button>
+                )}
+              </div>
 
               {fields.length === 0 ? (
-                <div className="mt-3 flex flex-col justify-center gap-5">
+                <div className="flex flex-col justify-center gap-4">
                   <p className="text-center text-sm text-muted-foreground">
                     No rules added yet. Add a rule to define who can view.
                   </p>
                   <Button
                     type="button"
                     variant="outline"
-                    className="flex w-full items-center justify-center gap-2 border-dashed text-muted-foreground hover:text-foreground"
-                    onClick={() =>
-                      append({
-                        source: "",
-                        field: "",
-                        operator: "",
-                        compareSource: "",
-                        compareValue: "",
-                      })
-                    }
+                    className="dg-interactive flex w-full items-center justify-center gap-2 border-dashed text-muted-foreground hover:text-foreground"
+                    onClick={addRule}
                   >
                     <Plus className="h-4 w-4" />
                     <span>Add Rule</span>
@@ -638,7 +683,7 @@ export const RuleSetForm = ({
                               <div className="h-px flex-1 bg-border/40" aria-hidden />
                             </div>
                           )}
-                          <Card className="flex flex-col gap-3 rounded-md border-border/50 p-4 shadow-none transition-colors hover:border-border">
+                          <Card className="dg-interactive flex flex-col gap-2.5 rounded-md border-border/50 p-3 shadow-none hover:border-border">
                           <div className="flex items-center justify-between gap-2">
                             <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
                               Rule {index + 1}
@@ -654,11 +699,11 @@ export const RuleSetForm = ({
                               <X className="h-3.5 w-3.5" strokeWidth={2.25} />
                             </Button>
                           </div>
-                          <div className="flex min-w-0 flex-1 flex-col gap-3">
+                          <div className="flex min-w-0 flex-1 flex-col gap-2.5">
                             {/* Left Source + Left Field: a 2-up grid rather than a row that
                                 only worked at the 85vw drawer width this form used to live in.
                                 Every control below is a plain full-width grid item now. */}
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2.5">
                             {/* Left Source */}
                             <div>
                               <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
@@ -1112,36 +1157,26 @@ export const RuleSetForm = ({
                       );
                     })}
                   </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="mt-3 flex w-full items-center justify-center gap-2 border-dashed text-muted-foreground hover:text-foreground"
-                    onClick={() =>
-                      append({
-                        source: "",
-                        field: "",
-                        operator: "",
-                        compareSource: "",
-                        compareValue: "",
-                      })
-                    }
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add Rule</span>
-                  </Button>
                 </>
               )}
-            </div>
+            </section>
 
-            <div className="my-5 border-t border-border/40" />
-
-            <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-end sm:gap-5">
-              <Button type="button" variant="outline" onClick={onCancel}>
+            {/* Pinned to the bottom of the inspector's scroll area.
+                It used to sit at the end of the form's own content, so on a
+                rule set of any size the only way to reach Save was to scroll
+                past every rule — and the view's own access-type footer was
+                hidden while this form was open, leaving no visible action at
+                all. One footer, always on screen, saving both. */}
+            <div className="sticky bottom-0 z-10 -mx-1 mt-5 flex w-[calc(100%+0.5rem)] items-center gap-2 border-t border-border/40 bg-card px-1 py-3">
+              <span className="flex-1 text-xs text-muted-foreground">
+                {isAccessTypeDirty ? "Access level and rules" : "Rule set"}
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={onCancel}>
                 Cancel
               </Button>
               <Button
                 type="button"
+                size="sm"
                 disabled={!form.formState.isValid || isSaving}
                 onClick={() => void submitRuleSet()}
               >

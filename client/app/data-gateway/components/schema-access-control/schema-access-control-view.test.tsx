@@ -320,6 +320,80 @@ describe("SchemaAccessControlView", () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * The panel warned that an empty Custom policy allows nobody, then let the
+   * tier footer save exactly that — locking the schema out in one click. The
+   * tier is now only committed once a rule set gives it meaning.
+   */
+  describe("Custom with no rule sets", () => {
+    it("refuses to save the tier on its own, and says why", async () => {
+      const user = userEvent.setup();
+      render(<SchemaAccessControlView {...baseProps} />);
+
+      await user.click(screen.getByRole("radio", { name: "Custom" }));
+
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+      expect(screen.getByText("Add a rule set to save Custom")).toBeInTheDocument();
+      expect(setRowColumnPermission).not.toHaveBeenCalled();
+    });
+
+    // Cancel is the way back out, so it must stay live.
+    it("still allows reverting the selection", async () => {
+      const user = userEvent.setup();
+      render(<SchemaAccessControlView {...baseProps} />);
+
+      await user.click(screen.getByRole("radio", { name: "Custom" }));
+      const cancel = screen.getByRole("button", { name: "Cancel" });
+      expect(cancel).toBeEnabled();
+
+      await user.click(cancel);
+      expect(screen.getByRole("radio", { name: "Signed-in" })).toBeChecked();
+    });
+
+    it("permits the save once a rule set exists", async () => {
+      useGetPolicyData.mockReturnValue({
+        data: { isSuccess: true, data: [policy()] },
+        refetch,
+        isPending: false,
+        isFetching: false,
+      });
+      const user = userEvent.setup();
+      render(<SchemaAccessControlView {...baseProps} />);
+
+      await user.click(screen.getByRole("radio", { name: "Custom" }));
+
+      const save = screen.getByRole("button", { name: "Save" });
+      expect(save).toBeEnabled();
+      await user.click(save);
+      await waitFor(() => expect(setRowColumnPermission).toHaveBeenCalled());
+    });
+
+    // An in-flight policy list is also empty; disabling on that would flicker
+    // the button for every Custom schema on open.
+    it("does not gate on a policy list that is still loading", async () => {
+      useGetPolicyData.mockReturnValue({
+        data: undefined,
+        refetch,
+        isPending: true,
+        isFetching: true,
+      });
+      const user = userEvent.setup();
+      render(<SchemaAccessControlView {...baseProps} />);
+
+      await user.click(screen.getByRole("radio", { name: "Custom" }));
+      expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    });
+
+    // Tiers that mean something on their own are unaffected.
+    it("leaves Public and Signed-in saveable", async () => {
+      const user = userEvent.setup();
+      render(<SchemaAccessControlView {...baseProps} />);
+
+      await user.click(screen.getByRole("radio", { name: "Public" }));
+      expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    });
+  });
+
   it("offers presets instead of an empty rule-set table, under a Sample rule set heading", () => {
     render(<SchemaAccessControlView {...customProps} />);
 

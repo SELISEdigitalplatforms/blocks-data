@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui-kits/button/button";
 import {
   ACCESS_LEVEL_TO_TYPE,
@@ -157,6 +156,23 @@ export const SchemaAccessControlView = ({
   const isAccessTypeDirty =
     initialized && selectedAccessType !== lastSavedAccessType;
 
+  /**
+   * Custom means "only what these rules allow", so with no rule sets it denies
+   * everyone — which is what the effect line above already warns about
+   * ("allows nobody to read …"). Committing that from the tier footer is
+   * almost always a half-finished edit rather than a deliberate lockout, so
+   * this footer will not save it.
+   *
+   * It is not a dead end: the rule editor's own footer saves the tier and the
+   * first rule set together, so Custom lands at the moment it starts meaning
+   * something. Waiting for the policy fetch matters — an in-flight list is
+   * empty, and disabling on that would flicker.
+   */
+  const isCustomWithoutRules =
+    selectedAccessType === ACCESS_TYPES.CUSTOM &&
+    !isPolicyListLoading &&
+    policies.length === 0;
+
   const handleSaveSuccess = () => {
     refetch();
     setEditingPolicy(undefined);
@@ -188,9 +204,14 @@ export const SchemaAccessControlView = ({
     setSelectedAccessType(value);
   };
 
-  const handleSaveAccessType = async () => {
+  /**
+   * Persists the selected tier. Returns whether the caller may carry on — the
+   * rule editor chains its own save onto this one, and must not send rules
+   * for a policy whose level failed to save.
+   */
+  const handleSaveAccessType = async (): Promise<boolean> => {
     const newLevel = ACCESS_TYPE_TO_LEVEL[selectedAccessType];
-    if (newLevel === undefined) return;
+    if (newLevel === undefined) return true;
 
     try {
       const res = await setRowColumnPermission({
@@ -205,13 +226,20 @@ export const SchemaAccessControlView = ({
       if (res?.isSuccess) {
         showSuccessToast({ description: "Access level updated successfully" });
         setLastSavedAccessType(selectedAccessType);
-      } else {
-        showErrorToast({ errors: res?.errors });
+        return true;
       }
+
+      showErrorToast({ errors: res?.errors });
+      return false;
     } catch (error) {
       showErrorToast({ errors: error });
+      return false;
     }
   };
+
+  /** What the rule editor's footer runs before sending its own payload. */
+  const saveAccessTypeIfDirty = async (): Promise<boolean> =>
+    isAccessTypeDirty ? handleSaveAccessType() : true;
 
   const handleCancelAccessType = () => {
     setSelectedAccessType(lastSavedAccessType);
@@ -292,12 +320,11 @@ export const SchemaAccessControlView = ({
             {showRuleSetForm ? (
               // The form used to snap in the instant a preset/Add was clicked;
               // a short fade + rise reads as it opening rather than a jump cut.
-              <motion.div
-                key="rule-set-form"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-              >
+              // `dg-rise-in` is the shared one-shot from globals.css — a CSS
+              // animation settles back to `transform: none`, where a retained
+              // motion transform would become the containing block for the
+              // form's sticky footer.
+              <div key="rule-set-form" className="dg-rise-in">
                 <RuleSetForm
                   onCancel={handleSaveSuccess}
                   schemaFields={schemaFields}
@@ -308,8 +335,10 @@ export const SchemaAccessControlView = ({
                   editingPolicy={editingPolicy}
                   level={level}
                   seed={seedRuleSet}
+                  isAccessTypeDirty={isAccessTypeDirty}
+                  onBeforeSave={saveAccessTypeIfDirty}
                 />
-              </motion.div>
+              </div>
             ) : isPolicyListLoading ? (
               <div
                 className="flex min-h-[200px] flex-col items-center justify-center gap-2 py-12"
@@ -357,8 +386,19 @@ export const SchemaAccessControlView = ({
 
       {!showRuleSetForm && (
         <div className="flex shrink-0 items-center gap-2 border-t border-border/40 pt-3">
-          <span className="flex-1 text-xs text-muted-foreground">
-            {isAccessTypeDirty ? "Unsaved" : "No changes"}
+          <span
+            className={cn(
+              "flex-1 text-xs",
+              isCustomWithoutRules && isAccessTypeDirty
+                ? "text-warning-700"
+                : "text-muted-foreground",
+            )}
+          >
+            {isCustomWithoutRules && isAccessTypeDirty
+              ? "Add a rule set to save Custom"
+              : isAccessTypeDirty
+                ? "Unsaved"
+                : "No changes"}
           </span>
           <Button
             type="button"
@@ -372,7 +412,7 @@ export const SchemaAccessControlView = ({
           <Button
             type="button"
             size="sm"
-            disabled={!isAccessTypeDirty || isUpdating}
+            disabled={!isAccessTypeDirty || isUpdating || isCustomWithoutRules}
             onClick={handleSaveAccessType}
           >
             Save

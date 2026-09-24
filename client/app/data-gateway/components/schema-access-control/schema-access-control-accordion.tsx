@@ -16,6 +16,7 @@ import { useDeletePolicy } from "@/data-gateway/hooks/use-configuration";
 import type { IPolicyItem } from "@/data-gateway/models/data-service";
 import { ruleSetLines } from "@/data-gateway/utils/access-phrase";
 import {
+  AlertTriangle,
   ChevronDown,
   Info,
   MoreHorizontal,
@@ -70,6 +71,21 @@ export const SchemaAccessControlAccordion = ({
         p.policyName.toLowerCase().includes(searchText.toLowerCase()),
       )
     : policies;
+
+  /**
+   * Custom grants only what its rule sets allow, so removing the last one
+   * leaves the schema on Custom with nothing in it — denying everyone.
+   *
+   * The tier footer refuses to *save* into that state, but a delete arrives
+   * from the other side: the tier is already saved as Custom, so the schema
+   * silently became a lockout with nothing having looked wrong at the time.
+   * The delete is still allowed — clearing the rules out on the way to
+   * another tier is legitimate — but it says what it will do first.
+   *
+   * Counted against `policies`, not `filteredPolicies`: a search that hides
+   * the others does not make this the last one.
+   */
+  const isLastRuleSet = policies.length === 1;
 
   return (
     <div className="space-y-2">
@@ -226,8 +242,30 @@ export const SchemaAccessControlAccordion = ({
           onCancel={() => setDeletingPolicy(null)}
           onConfirm={handleDeletePolicy}
           data={{
-            dialogTitle: "Delete rule set?",
-            dialogSubtitle: `Are you sure you want to delete ${deletingPolicy?.policyName}? This action cannot be undone.`,
+            dialogTitle: isLastRuleSet ? "Delete the only rule set?" : "Delete rule set?",
+            dialogSubtitle: (
+              <>
+                <span className="block">
+                  Are you sure you want to delete {deletingPolicy?.policyName}? This
+                  action cannot be undone.
+                </span>
+                {isLastRuleSet && (
+                  <span className="mt-3 flex items-start gap-2.5 rounded-md border border-warning-500/50 bg-warning-100 px-3 py-2.5 text-warning-800">
+                    <AlertTriangle className="mt-px h-4 w-4 shrink-0" aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block text-xs font-semibold">
+                        This leaves access with nobody
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-relaxed opacity-90">
+                        Custom access grants only what its rule sets allow, and this is
+                        the last one. Choose a different access level if you meant to
+                        open it up instead.
+                      </span>
+                    </span>
+                  </span>
+                )}
+              </>
+            ),
             confirmButton: "Delete",
             cancelButton: "Cancel",
           }}

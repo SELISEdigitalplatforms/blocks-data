@@ -125,7 +125,7 @@ describe("SchemaAccessControlAccordion", () => {
 
     await openRowMenu(user);
     await user.click(await screen.findByText("Delete"));
-    expect(await screen.findByText("Delete rule set?")).toBeInTheDocument();
+    expect(await screen.findByText("Delete the only rule set?")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() =>
@@ -147,7 +147,7 @@ describe("SchemaAccessControlAccordion", () => {
 
     await waitFor(() => expect(deletePolicy).toHaveBeenCalled());
     await waitFor(() =>
-      expect(screen.queryByText("Delete rule set?")).not.toBeInTheDocument(),
+      expect(screen.queryByText("Delete the only rule set?")).not.toBeInTheDocument(),
     );
   });
 
@@ -169,12 +169,85 @@ describe("SchemaAccessControlAccordion", () => {
 
     await openRowMenu(user);
     await user.click(await screen.findByText("Delete"));
-    expect(await screen.findByText("Delete rule set?")).toBeInTheDocument();
+    expect(await screen.findByText("Delete the only rule set?")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() =>
-      expect(screen.queryByText("Delete rule set?")).not.toBeInTheDocument(),
+      expect(screen.queryByText("Delete the only rule set?")).not.toBeInTheDocument(),
     );
     expect(deletePolicy).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Custom grants only what its rule sets allow, so deleting the last one
+   * turns the schema into a lockout. The tier footer refuses to save into
+   * that state; a delete reaches it from the other side, with the tier
+   * already saved, so it used to happen silently.
+   */
+  describe("deleting the last rule set", () => {
+    const second = {
+      ...policy,
+      itemId: "p2",
+      policyName: "Support override",
+    } as typeof policy;
+
+    it("warns that nothing will be left granting access", async () => {
+      const user = userEvent.setup();
+      render(<SchemaAccessControlAccordion policies={[policy]} />);
+
+      await openRowMenu(user);
+      await user.click(await screen.findByText("Delete"));
+
+      expect(
+        await screen.findByText("This leaves access with nobody"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Choose a different access level if you meant to open it up/),
+      ).toBeInTheDocument();
+    });
+
+    // Deliberately still possible — clearing the rules out on the way to
+    // another tier is a legitimate thing to want.
+    it("still lets the delete through", async () => {
+      const user = userEvent.setup();
+      deletePolicy.mockResolvedValue({ isSuccess: true });
+      render(<SchemaAccessControlAccordion policies={[policy]} />);
+
+      await openRowMenu(user);
+      await user.click(await screen.findByText("Delete"));
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+
+      await waitFor(() =>
+        expect(deletePolicy).toHaveBeenCalledWith({ itemId: "p1", projectKey: "t1" }),
+      );
+    });
+
+    it("stays quiet when other rule sets remain", async () => {
+      const user = userEvent.setup();
+      render(<SchemaAccessControlAccordion policies={[policy, second]} />);
+
+      await openRowMenu(user);
+      await user.click(await screen.findByText("Delete"));
+
+      expect(await screen.findByText("Delete rule set?")).toBeInTheDocument();
+      expect(
+        screen.queryByText("This leaves access with nobody"),
+      ).not.toBeInTheDocument();
+    });
+
+    // A search that hides the others does not make this the last one.
+    it("counts every rule set, not just the ones matching the search", async () => {
+      const user = userEvent.setup();
+      render(<SchemaAccessControlAccordion policies={[policy, second]} />);
+
+      await user.type(screen.getByPlaceholderText("Search rule sets"), "Admins");
+      await openRowMenu(user);
+      await user.click(await screen.findByText("Delete"));
+
+      expect(await screen.findByText("Delete rule set?")).toBeInTheDocument();
+      expect(
+        screen.queryByText("This leaves access with nobody"),
+      ).not.toBeInTheDocument();
+    });
   });
 });

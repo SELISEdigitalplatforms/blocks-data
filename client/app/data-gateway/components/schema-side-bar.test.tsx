@@ -1,10 +1,9 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
 
 const useSchemaList = vi.fn();
-const reloadMutateAsync = vi.fn();
 
 // Capture the notification handler the sidebar registers so tests can invoke it.
 const { notifyRef } = vi.hoisted(() => ({
@@ -13,7 +12,6 @@ const { notifyRef } = vi.hoisted(() => ({
 
 vi.mock("../hooks/use-configuration", () => ({
   useSchemaList: (...a: unknown[]) => useSchemaList(...a),
-  useSchemasReload: () => ({ mutateAsync: reloadMutateAsync, isPending: false }),
 }));
 
 vi.mock("@seliseblocks/genesis-os", () => ({
@@ -55,7 +53,6 @@ function renderSidebar(props: Partial<Parameters<typeof SchemasSidebar>[0]> = {}
 describe("SchemasSidebar", () => {
   beforeEach(() => {
     useSchemaList.mockReset();
-    reloadMutateAsync.mockReset();
   });
 
   it("renders the skeleton before data resolves", () => {
@@ -63,12 +60,24 @@ describe("SchemasSidebar", () => {
     renderSidebar();
     expect(screen.getByText("Schemas")).toBeInTheDocument();
     expect(screen.queryByText("No schemas found")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No schemas yet/)).not.toBeInTheDocument();
   });
 
-  it("renders the empty message when the list is empty", () => {
+  // A genuinely empty project (no filter, no search) gets the design's own
+  // first-run message, not the generic "no results" one — that one's for
+  // when a search or filter comes up empty against schemas that do exist.
+  it("renders the design's empty-project message when nothing is filtered or searched", () => {
     useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
     renderSidebar();
+    expect(screen.getByText(/No schemas yet/)).toBeInTheDocument();
+    expect(screen.queryByText("No schemas found")).not.toBeInTheDocument();
+  });
+
+  it("renders the generic empty message when a type filter has no matches", () => {
+    useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
+    renderSidebar({ filterType: "1" });
     expect(screen.getByText("No schemas found")).toBeInTheDocument();
+    expect(screen.queryByText(/No schemas yet/)).not.toBeInTheDocument();
   });
 
   it("lists schemas and selects one on click", async () => {
@@ -93,18 +102,27 @@ describe("SchemasSidebar", () => {
     expect(onListQueryChange).toHaveBeenCalledWith({ schemaId: "a" });
   });
 
-  it("changes the filter when a tab is clicked", async () => {
+  // The Entity/Child filters were a Tabs group, which promises panels that
+  // switch. They are pressed-state toggles now, because nothing switches.
+  it("changes the filter when a type chip is clicked, and marks the active one", async () => {
     const user = userEvent.setup();
     useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
     const { onListQueryChange } = renderSidebar();
 
-    await user.click(screen.getByRole("tab", { name: "Entity" }));
+    expect(screen.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Entity" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Entity" }));
     expect(onListQueryChange).toHaveBeenCalledWith({ type: "1", page: 1 });
   });
 
-  it("publishes schemas via the reload mutation", async () => {
-    const user = userEvent.setup();
-    reloadMutateAsync.mockResolvedValue({ isSuccess: true });
+  // Publishing moved to the page bar, where the pending count lives. The
+  // sidebar button only appeared once a schema existed, so the "unadapted
+  // changes" warning could be on screen with nothing to click.
+  it("no longer carries a Publish button", () => {
     useSchemaList.mockReturnValue({
       data: {
         data: {
@@ -115,8 +133,7 @@ describe("SchemasSidebar", () => {
     });
     renderSidebar();
 
-    await user.click(screen.getByRole("button", { name: /Publish/ }));
-    await waitFor(() => expect(reloadMutateAsync).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: /Publish/ })).not.toBeInTheDocument();
   });
 
   it("paginates to the next page when there are more items than fit a page", async () => {
@@ -185,7 +202,7 @@ describe("SchemasSidebar", () => {
       });
     });
     // No throw = handled path executed.
-    expect(screen.getByText("No schemas found")).toBeInTheDocument();
+    expect(screen.getByText(/No schemas yet/)).toBeInTheDocument();
   });
 
   it("ignores an import notification with no payload", () => {
@@ -195,7 +212,7 @@ describe("SchemasSidebar", () => {
     act(() => {
       notifyRef.current!({ message: {} });
     });
-    expect(screen.getByText("No schemas found")).toBeInTheDocument();
+    expect(screen.getByText(/No schemas yet/)).toBeInTheDocument();
   });
 
   it("logs an error when the import notification payload is malformed", () => {
@@ -212,6 +229,8 @@ describe("SchemasSidebar", () => {
     errorSpy.mockRestore();
   });
 
+  // Rows are native buttons now, so Enter and Space come free rather than from
+  // a hand-rolled keydown handler on a div.
   it.each([["{Enter}"], [" "]])("selects a schema when %s is pressed on the row", async (key) => {
     const user = userEvent.setup();
     useSchemaList.mockReturnValue({
@@ -224,10 +243,72 @@ describe("SchemasSidebar", () => {
     });
     const { onListQueryChange } = renderSidebar();
 
-    const row = screen.getByText("User").closest('[role="button"]') as HTMLElement;
-    row.focus();
+    screen.getByRole("button", { name: /User/ }).focus();
     await user.keyboard(key);
 
     expect(onListQueryChange).toHaveBeenCalledWith({ schemaId: "a" });
+  });
+  // ── Phase 3: flat list ──────────────────────────────────────────────────
+
+  const schemaItem = (over: Record<string, unknown> = {}) => ({
+    id: "a",
+    schemaName: "User",
+    schemaType: 1,
+    totalSchemaReferences: 0,
+    readAccessLevel: 3,
+    writeAccessLevel: 3,
+    editAccessLevel: 3,
+    deleteAccessLevel: 3,
+    ...over,
+  });
+
+  // The type used to be hidden unless the All filter was on, which left the
+  // Entity/Child filters looking like the only way to tell them apart.
+  it("keeps the type tag on the row under every filter", () => {
+    useSchemaList.mockReturnValue({
+      data: { data: { items: [schemaItem({ schemaType: 2 })], totalCount: 1 } },
+    });
+    renderSidebar({ filterType: "2" });
+
+    expect(screen.getByRole("button", { name: /User/ })).toHaveTextContent("Child");
+  });
+
+  it("dots a schema anyone can read, and says why", () => {
+    useSchemaList.mockReturnValue({
+      data: { data: { items: [schemaItem({ readAccessLevel: 2 })], totalCount: 1 } },
+    });
+    renderSidebar();
+
+    expect(screen.getByTitle("Anyone can read this schema")).toBeInTheDocument();
+  });
+
+  it("leaves an ordinary schema undotted", () => {
+    useSchemaList.mockReturnValue({
+      data: { data: { items: [schemaItem({ readAccessLevel: 1 })], totalCount: 1 } },
+    });
+    renderSidebar();
+
+    expect(screen.queryByTitle(/Anyone can|Any signed-in user/)).not.toBeInTheDocument();
+  });
+
+  it("counts what the list is showing", () => {
+    useSchemaList.mockReturnValue({
+      data: { data: { items: [schemaItem()], totalCount: 42 } },
+    });
+    renderSidebar();
+
+    expect(screen.getByLabelText("42 schemas")).toBeInTheDocument();
+  });
+
+  it("keeps the reference count in reach without a badge", () => {
+    useSchemaList.mockReturnValue({
+      data: { data: { items: [schemaItem({ totalSchemaReferences: 3 })], totalCount: 1 } },
+    });
+    renderSidebar();
+
+    expect(screen.getByRole("button", { name: /User/ })).toHaveAttribute(
+      "title",
+      "User · 3 reference(s)",
+    );
   });
 });

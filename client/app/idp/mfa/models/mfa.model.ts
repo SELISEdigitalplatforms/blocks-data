@@ -18,7 +18,7 @@ export interface IMFAConfigurationSavePayload {
   projectKey: string;
 }
 export interface IMFAConfigurationSaveResponse {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
 }
 export interface IGetConfigurationResponse extends IMFAConfiguration {}
@@ -30,7 +30,7 @@ export interface IConfigureUserMFAPayload {
   projectKey: string;
 }
 export interface IConfigureUserMFAResponse {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
 }
 export interface ISetupUserTotpPayload {
@@ -38,7 +38,7 @@ export interface ISetupUserTotpPayload {
   id: string;
 }
 export interface ISetupUserTotpResponse {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
   qrImageUrl: string;
   qrCode: string;
@@ -50,7 +50,7 @@ export interface IGenerateUserMFA_OtpPayload {
   sendPhoneNumberAsEmailDomain?: string;
 }
 export interface IGenerateUserMFA_OtpResponse {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
   mfaId: string;
 }

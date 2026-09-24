@@ -14,15 +14,25 @@ import { NotificationData } from "@/data-gateway/models/deployment-notification"
 import { Schema } from "@/data-gateway/models/security-and-performance";
 import { useNotificationListener } from "@/hooks/use-notification-listener";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Globe, Lock, Plus, ShieldAlert, Users } from "lucide-react";
-import { useCallback, useState } from "react";
+import { ArrowRight, Plus, ShieldAlert, ShieldCheck } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
 import { AddEditSchemaModal } from "../add-edit-schema";
 import LoadingSkeleton from "./loading-skeleton";
 import SecurityAndPerformancePagination from "./pagination";
 import SecurityAndPerformanceTable from "./security-and-performance-table";
+import { SecurityExposureSummary } from "./security-exposure-summary";
+import { SecurityToolbar } from "./security-toolbar";
+import {
+  exposureBreakdown,
+  filterCounts,
+  matchesFilter,
+  RISK_FETCH_LIMIT,
+  securityAlerts,
+  sortByRisk as sortSchemasByRisk,
+  type SecurityFilter,
+} from "../../utils/security-summary";
 
 interface SecurityAndPerformanceProps {
   onSchemaRowClick: (schema: Schema) => void;
@@ -30,44 +40,6 @@ interface SecurityAndPerformanceProps {
   onSchemaCreated: (schemaId: string) => void;
 }
 
-const STAT_CARDS = [
-  {
-    key: "totalPublicPermission" as const,
-    label: "Public",
-    icon: Globe,
-    glow: "dark:shadow-[0_0_24px_-4px_rgba(244,63,94,0.35)]",
-    iconRing: "ring-rose-200 dark:ring-rose-500/30",
-    iconBg: "bg-rose-100 dark:bg-rose-500/10",
-    iconColor: "text-rose-600 dark:text-rose-400",
-    numClass: "text-rose-600 dark:text-rose-300",
-    borderAccent: "border-l-2 border-rose-200 dark:border-rose-500/40",
-    bg: "bg-rose-50/40 dark:bg-rose-950/20",
-  },
-  {
-    key: "totalUserPermission" as const,
-    label: "Logged-in users",
-    icon: Users,
-    glow: "dark:shadow-[0_0_24px_-4px_rgba(245,158,11,0.35)]",
-    iconRing: "ring-amber-200 dark:ring-amber-500/30",
-    iconBg: "bg-amber-100 dark:bg-amber-500/10",
-    iconColor: "text-amber-600 dark:text-amber-400",
-    numClass: "text-amber-600 dark:text-amber-300",
-    borderAccent: "border-l-2 border-amber-200 dark:border-amber-500/40",
-    bg: "bg-amber-50/40 dark:bg-amber-950/20",
-  },
-  {
-    key: "totalCustomPermission" as const,
-    label: "Custom rules",
-    icon: Lock,
-    glow: "dark:shadow-[0_0_24px_-4px_rgba(16,185,129,0.35)]",
-    iconRing: "ring-emerald-200 dark:ring-emerald-500/30",
-    iconBg: "bg-emerald-100 dark:bg-emerald-500/10",
-    iconColor: "text-emerald-600 dark:text-emerald-400",
-    numClass: "text-emerald-600 dark:text-emerald-300",
-    borderAccent: "border-l-2 border-emerald-200 dark:border-emerald-500/40",
-    bg: "bg-emerald-50/40 dark:bg-emerald-950/20",
-  },
-] as const;
 
 const SecurityAndPerformance = ({
   onSchemaRowClick,
@@ -78,6 +50,8 @@ const SecurityAndPerformance = ({
   const [addSchemaInstance, setAddSchemaInstance] = useState(0);
   const [pageNo, setPageNo] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [filter, setFilter] = useState<SecurityFilter>("all");
+  const [isRiskSorted, setIsRiskSorted] = useState(true);
   const queryClient = useQueryClient();
   const { mutateAsync: createSchema } = useCreateSchema();
 
@@ -85,8 +59,8 @@ const SecurityAndPerformance = ({
   const { data: schemaListQuery, isLoading } = useSecurityAndPerformanceSchemaList({
     keyword: "",
     projectKey,
-    pageNo,
-    pageSize,
+    pageNo: 1,
+    pageSize: RISK_FETCH_LIMIT,
     schemaType: "entity",
   });
 
@@ -128,17 +102,37 @@ const SecurityAndPerformance = ({
     return false;
   };
 
-  const schemas = schemaListQuery?.data.schemas.items ?? [];
+  const schemas = useMemo(
+    () => schemaListQuery?.data.schemas.items ?? [],
+    [schemaListQuery],
+  );
   const permissionCounts = schemaListQuery?.data.aggregation;
   const totalItems = schemaListQuery?.data.schemas.totalCount ?? 0;
-  const totalPages = Math.ceil(totalItems / pageSize);
   const isEmpty = !isLoading && schemaListQuery !== undefined && schemas.length === 0;
 
-  return (
-    <div className="relative flex flex-col overflow-hidden rounded-sm border border-border/40 bg-card md:max-h-[calc(100vh-154px)] md:min-h-[calc(100vh-154px)]">
-      {/* Subtle background grid */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.04),transparent_60%)]" />
+  // The aggregation covers every entity schema in the project; the alerts and
+  // chips can only see what was fetched. Worth saying when those differ.
+  const isComplete = schemas.length >= totalItems;
 
+  const breakdown = exposureBreakdown(permissionCounts, totalItems);
+  const alerts = useMemo(() => securityAlerts(schemas), [schemas]);
+  const counts = useMemo(() => filterCounts(schemas), [schemas]);
+
+  const visibleSchemas = useMemo(() => {
+    const filtered = schemas.filter((schema) => matchesFilter(schema, filter));
+    return isRiskSorted ? sortSchemasByRisk(filtered) : filtered;
+  }, [schemas, filter, isRiskSorted]);
+
+  const totalPages = Math.ceil(visibleSchemas.length / pageSize);
+  const pageOfSchemas = visibleSchemas.slice((pageNo - 1) * pageSize, pageNo * pageSize);
+
+  const applyFilter = (next: SecurityFilter) => {
+    setFilter(next);
+    setPageNo(1);
+  };
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-sm border border-border/40 bg-card">
       {isLoading ? (
         <div className="p-5">
           <LoadingSkeleton />
@@ -172,12 +166,10 @@ const SecurityAndPerformance = ({
       ) : (
         <>
           {/* Header */}
-          <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-5 py-4">
+          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-5 py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 ring-1 ring-indigo-500/20">
-                <svg viewBox="0 0 24 24" className="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
+                <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
               </div>
               <div>
                 <h2 className="text-sm font-semibold text-foreground">Security Assessment</h2>
@@ -188,7 +180,7 @@ const SecurityAndPerformance = ({
             </div>
             <Button
               size="sm"
-              className="shrink-0 bg-primary/90 shadow-[0_0_16px_-2px_rgba(99,102,241,0.4)] hover:bg-primary"
+              className="shrink-0"
               onClick={() => {
                 setAddSchemaInstance((n) => n + 1);
                 setIsAddSchemaModalOpen(true);
@@ -198,30 +190,35 @@ const SecurityAndPerformance = ({
             </Button>
           </div>
 
-          {/* Stats */}
-          <div className="grid shrink-0 grid-cols-3 divide-x divide-border/30 border-b border-border/40">
-            {STAT_CARDS.map((card) => {
-              const count = permissionCounts?.[card.key] ?? 0;
-              return (
-                <div key={card.key} className={cn("relative flex items-center gap-4 px-6 py-5", card.bg)}>
-                  <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1", card.iconBg, card.iconRing, card.glow)}>
-                    <card.icon className={cn("h-4 w-4", card.iconColor)} />
-                  </div>
-                  <div>
-                    <p className={cn("text-3xl font-bold leading-none tracking-tight", card.numClass)}>
-                      {count}
-                    </p>
-                    <p className="mt-1.5 text-xs text-muted-foreground/70">{card.label}</p>
-                  </div>
-                  <div className={cn("absolute inset-y-0 left-0", card.borderAccent)} />
-                </div>
-              );
-            })}
-          </div>
+          <SecurityExposureSummary
+            breakdown={breakdown}
+            alerts={alerts}
+            onAlertClick={(alert) =>
+              applyFilter(alert.id === "public-write" ? "public" : "attention")
+            }
+          />
+
+          <SecurityToolbar
+            filter={filter}
+            counts={counts}
+            sortByRisk={isRiskSorted}
+            onFilterChange={applyFilter}
+            onSortToggle={() => setIsRiskSorted((previous) => !previous)}
+          />
+
+          {!isComplete && (
+            <p className="shrink-0 border-b border-border/40 bg-muted/20 px-5 py-1.5 text-[11px] text-muted-foreground">
+              Showing the first {schemas.length} of {totalItems} schemas. Exposure order and
+              the counts above cover only those.
+            </p>
+          )}
 
           {/* Table */}
           <div className="min-h-0 flex-1 overflow-auto">
-            <SecurityAndPerformanceTable schemas={schemas} onRowClick={onSchemaRowClick} />
+            <SecurityAndPerformanceTable
+              schemas={pageOfSchemas}
+              onRowClick={onSchemaRowClick}
+            />
           </div>
 
           {/* Pagination */}

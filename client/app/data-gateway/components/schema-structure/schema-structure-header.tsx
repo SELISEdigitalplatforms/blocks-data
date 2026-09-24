@@ -8,95 +8,64 @@ import {
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { ChevronDown, Copy, MoreVertical, Trash } from "lucide-react";
-import { SchemaPreviewDrawer } from "../schema-preview-drawer";
 
 interface SchemaStructureHeaderProps {
   isEditMode: boolean;
-  isDirty: boolean;
-  isValid: boolean;
   hasSelectedRows: boolean;
   selectedFieldEntriesLength: number;
   fieldsLength: number;
-  schemaId: string;
-  projectKey: string;
-  isClsEnabled?: boolean;
-  isRlsEnabled?: boolean;
-  schemaName: string;
   schemaType?: number;
-  templateFields: Array<{ name: string; type?: string; isArray: boolean }>;
-  previewData: Record<string, unknown>;
   activeTab: "attribute" | "data" | "indexes";
   onTabChange: (tab: "attribute" | "data" | "indexes") => void;
   onEditToggle: () => void;
-  // onBulkManageAccess: () => void;
   onBulkDuplicate: () => void;
   onBulkDelete: () => void;
   onSelectAll: (checked: boolean) => void;
-  isPreviewDrawerOpen: boolean;
+  /** Mobile's "…" menu still has its own Preview entry; desktop's trigger
+   * moved to sit beside the Schema Access button in SchemaBasicInfo. */
   setIsPreviewDrawerOpen: (open: boolean) => void;
-  rawIntrospection?: unknown;
-  isGatewayIntrospectionPending?: boolean;
-  isGatewayIntrospectionFetching?: boolean;
-  /** When provided, Save uses onClick instead of type="submit" (avoids nested form issues) */
-  onSaveClick?: () => void;
 }
 
 export function SchemaStructureHeader({
   isEditMode,
-  isDirty,
-  isValid,
   hasSelectedRows,
   selectedFieldEntriesLength,
   fieldsLength,
-  // schemaId,
-  // projectKey,
-  // isClsEnabled,
-  // isRlsEnabled,
-  schemaName,
   schemaType,
-  templateFields,
-  previewData,
   activeTab,
   onTabChange,
   onEditToggle,
-  // onBulkManageAccess,
   onBulkDuplicate,
   onBulkDelete,
   onSelectAll,
   setIsPreviewDrawerOpen,
-  rawIntrospection,
-  isGatewayIntrospectionPending,
-  isGatewayIntrospectionFetching,
-  onSaveClick,
 }: SchemaStructureHeaderProps) {
-  const fieldLength = Object.keys(previewData).length;
-  const isShowPreviewButton = fieldLength > 0;
+  /**
+   * The underline used to switch with no transition at all — the border flipped
+   * from transparent to primary on one trigger and back on another, which reads
+   * as a blink rather than a move. Colour and text now ease over the shared
+   * `--dg-duration-fast`, and the list carries its own hairline rail so the
+   * active underline sits *on* something instead of floating under the label.
+   */
+  const TAB_TRIGGER_CLASS =
+    "dg-interactive relative h-8 rounded-none border-b-2 border-transparent bg-transparent px-4 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none";
 
   const SchemaTabs = (
     <Tabs
       value={activeTab}
       onValueChange={(v) => onTabChange(v as "attribute" | "data" | "indexes")}
     >
-      <TabsList className="h-8 gap-1 bg-transparent p-0">
-        <TabsTrigger
-          value="attribute"
-          className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+      <TabsList className="h-8 gap-1 rounded-none bg-transparent p-0">
+        <TabsTrigger value="attribute" className={TAB_TRIGGER_CLASS}>
           Attribute
         </TabsTrigger>
         {schemaType !== 2 && (
-          <TabsTrigger
-            value="data"
-            className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-          >
+          <TabsTrigger value="data" className={TAB_TRIGGER_CLASS}>
             Data
           </TabsTrigger>
         )}
         {schemaType !== 2 && (
-          <TabsTrigger
-            value="indexes"
-            className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-          >
+          <TabsTrigger value="indexes" className={TAB_TRIGGER_CLASS}>
             Indexes
           </TabsTrigger>
         )}
@@ -106,11 +75,19 @@ export function SchemaStructureHeader({
 
   return (
     <>
-      {/* Desktop Header */}
-      <div className="hidden items-center justify-between xl:flex">
+      {/* Desktop Header.
+          `-mx-5 px-5` pulls the rule out to the card's own edges — the Card's
+          padding would otherwise leave it floating 20px short on each side,
+          which is what made the active underline look unanchored. */}
+      <div className="-mx-5 hidden items-center justify-between border-b border-border/40 px-5 xl:flex">
         {SchemaTabs}
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {isEditMode && hasSelectedRows && (
+            <span className="text-xs text-muted-foreground">
+              {selectedFieldEntriesLength} selected
+            </span>
+          )}
           {isEditMode && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -118,24 +95,13 @@ export function SchemaStructureHeader({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="min-w-[110px] justify-between"
+                  className="min-w-[130px] justify-between"
                 >
-                  Action
+                  Bulk actions
                   <ChevronDown className="ml-2 h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
-                {/* {schemaType === 1 && (
-                  <DropdownMenuItem
-                    className="cursor-pointer"
-                    disabled={!hasSelectedRows}
-                    onSelect={onBulkManageAccess}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Manage access
-                  </DropdownMenuItem>
-                )} */}
-
                 <DropdownMenuItem
                   className="cursor-pointer"
                   disabled={!hasSelectedRows}
@@ -155,53 +121,15 @@ export function SchemaStructureHeader({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {!isEditMode && (
-            <>
-              {/* {schemaType === 1 && (
-                <SchemaClsToggle
-                  schemaId={schemaId}
-                  projectKey={projectKey}
-                  isClsEnabled={isClsEnabled}
-                  isRlsEnabled={isRlsEnabled}
-                />
-              )} */}
-
-              {isShowPreviewButton && (
-                <SchemaPreviewDrawer
-                  schemaName={schemaName}
-                  schemaType={schemaType}
-                  fields={templateFields}
-                  previewData={previewData}
-                  title={`${schemaName} preview`}
-                  rawIntrospection={rawIntrospection}
-                  isGatewayIntrospectionPending={isGatewayIntrospectionPending}
-                  isGatewayIntrospectionFetching={isGatewayIntrospectionFetching}
-                  trigger={
-                    <Button type="button" variant="outline" size="sm">
-                      Preview
-                    </Button>
-                  }
-                />
-              )}
-            </>
-          )}
-
           {(isEditMode || activeTab === "attribute") && (
             <Button type="button" variant="outline" size="sm" onClick={onEditToggle}>
               {isEditMode ? "Cancel" : "Edit"}
             </Button>
           )}
 
-          {isEditMode && (
-            <Button
-              size="sm"
-              type={onSaveClick ? "button" : "submit"}
-              disabled={!isValid || !isDirty}
-              onClick={onSaveClick}
-            >
-              Save
-            </Button>
-          )}
+          {/* Save lives in the dirty bar under the table now: it was only ever
+              enabled when the form was dirty, which is exactly when that bar
+              is on screen. */}
         </div>
       </div>
 
@@ -215,6 +143,11 @@ export function SchemaStructureHeader({
             </div>
 
             {/* Second Line: Action Buttons */}
+            {hasSelectedRows && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {selectedFieldEntriesLength} selected
+              </p>
+            )}
             <div className="mt-3 flex gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -222,21 +155,13 @@ export function SchemaStructureHeader({
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="min-w-[110px] justify-between"
+                    className="min-w-[130px] justify-between"
                   >
-                    Action
+                    Bulk actions
                     <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-40">
-                  {/* <DropdownMenuItem
-                    className="cursor-pointer"
-                    disabled={!hasSelectedRows}
-                    onSelect={onBulkManageAccess}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Manage access
-                  </DropdownMenuItem> */}
                   <DropdownMenuItem
                     className="cursor-pointer"
                     disabled={!hasSelectedRows}
@@ -257,14 +182,6 @@ export function SchemaStructureHeader({
               </DropdownMenu>
               <Button type="button" variant="outline" size="sm" onClick={onEditToggle}>
                 Cancel
-              </Button>
-              <Button
-                size="sm"
-                type={onSaveClick ? "button" : "submit"}
-                disabled={!isValid || !isDirty}
-                onClick={onSaveClick}
-              >
-                Save
               </Button>
             </div>
 
@@ -305,17 +222,6 @@ export function SchemaStructureHeader({
               </DropdownMenu>
             </div>
 
-            {/* Schema structure access on second line */}
-            {schemaType === 1 && (
-              <div className="mb-3 mt-3">
-                {/* <SchemaClsToggle
-                  schemaId={schemaId}
-                  projectKey={projectKey}
-                  isClsEnabled={isClsEnabled}
-                  isRlsEnabled={isRlsEnabled}
-                /> */}
-              </div>
-            )}
           </>
         )}
       </div>

@@ -133,6 +133,22 @@ describe("RuleSetForm", () => {
     ).toBeInTheDocument();
   });
 
+  // Each rule card was five unlabeled dropdowns identified only by placeholder
+  // text, with a delete button overlapping the content; it now has a numbered
+  // header (with the delete action moved into it) and a label above every field.
+  it("numbers each rule card and labels its fields, instead of relying on placeholders alone", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} />);
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.getByText("Rule 1")).toBeInTheDocument();
+    expect(screen.getByText("Source")).toBeInTheDocument();
+    expect(screen.getByText("Field")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.getByText("Rule 2")).toBeInTheDocument();
+  });
+
   it("fires onCancel from the Cancel button", async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();
@@ -489,6 +505,51 @@ describe("RuleSetForm create flow", () => {
     expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(2);
   });
 
+  // The group's AND/OR mode is chosen once, above the list — repeating it as
+  // a joiner between cards keeps it visible once there's more than one rule
+  // to scroll past.
+  // The relation control used to be two full-sentence radio labels; it's now
+  // a compact "Match all / Match any" chip toggle.
+  it("shows the multi-rule relation as a Match all / Match any chip toggle", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    const matchAll = screen.getByRole("radio", { name: "Match all" });
+    const matchAny = screen.getByRole("radio", { name: "Match any" });
+    expect(matchAll).toHaveAttribute("aria-checked", "true");
+    expect(matchAny).toHaveAttribute("aria-checked", "false");
+
+    await user.click(matchAny);
+    expect(matchAny).toHaveAttribute("aria-checked", "true");
+    expect(matchAll).toHaveAttribute("aria-checked", "false");
+  });
+
+  // Was a content-sized chip pair sitting to the left; now splits the full
+  // row 50/50 between the two options.
+  it("splits Match all / Match any evenly across the full row width", () => {
+    render(<RuleSetForm {...baseProps} />);
+
+    const group = screen.getByRole("radiogroup", { name: "Multi-rule relations" });
+    expect(group.className).toContain("w-full");
+    expect(screen.getByRole("radio", { name: "Match all" }).className).toContain("flex-1");
+    expect(screen.getByRole("radio", { name: "Match any" }).className).toContain("flex-1");
+  });
+
+  it("shows an AND/OR joiner only once a second rule exists, matching the selected mode", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.queryByText("AND")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.getByText("AND")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Match any" }));
+    expect(screen.getByText("OR")).toBeInTheDocument();
+    expect(screen.queryByText("AND")).not.toBeInTheDocument();
+  });
+
   it("multi-selects auth fields for an IN comparison against Auth", async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     render(<RuleSetForm {...baseProps} />);
@@ -797,5 +858,105 @@ describe("RuleSetForm — hydrated values that are not real principals", () => {
       (r: { leftOperand: string }) => r.leftOperand === "userId",
     );
     expect(userIdRule.staticValue).toBe("abc");
+  });
+
+  /**
+   * Choosing "Custom" and writing its rules is one intent. It used to take two
+   * saves against two footers — and the tier footer was hidden while this form
+   * was open — so rules could land on a schema still set to Signed-in.
+   */
+  describe("saving the access level together with the rule set", () => {
+    const pickOption = async (
+      user: ReturnType<typeof userEvent.setup>,
+      index: number,
+      name: RegExp | string,
+    ) => {
+      const combos = screen.getAllByRole("combobox");
+      await user.click(combos[index]);
+      await user.click(await screen.findByRole("option", { name }));
+    };
+
+    const fillOneRule = async (user: ReturnType<typeof userEvent.setup>) => {
+      fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
+        target: { value: "Access set" },
+      });
+      await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+      await pickOption(user, 0, "Auth");
+      await pickOption(user, 1, "UserId");
+      await pickOption(user, 2, /^Equal$/);
+      await pickOption(user, 3, "Static Value");
+
+      getUsers.mockResolvedValue({
+        data: [
+          {
+            itemId: "user-123",
+            firstName: "Ada",
+            lastName: "Lovelace",
+            userName: "ada",
+            email: "ada@example.com",
+            active: true,
+          },
+        ],
+        totalCount: 1,
+        errors: null,
+      } as never);
+      await user.click(screen.getByRole("button", { name: /Select user/ }));
+      await user.click(await screen.findByText("Ada Lovelace"));
+
+      const saveBtn = screen.getByRole("button", { name: "Save" });
+      await waitFor(() => expect(saveBtn).toBeEnabled());
+      return saveBtn;
+    };
+
+    it("runs onBeforeSave before sending the policy", async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      const order: string[] = [];
+      const onBeforeSave = vi.fn(async () => {
+        order.push("access-level");
+        return true;
+      });
+      createPolicy.mockImplementation(async () => {
+        order.push("rule-set");
+        return { isSuccess: true };
+      });
+
+      render(<RuleSetForm {...baseProps} onBeforeSave={onBeforeSave} />);
+      await user.click(await fillOneRule(user));
+
+      await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+      expect(order).toEqual(["access-level", "rule-set"]);
+    });
+
+    // A rule set attached to a policy whose level failed to save would be
+    // orphaned, so the whole action stops instead of half-applying.
+    it("does not send the policy when onBeforeSave fails", async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+      const onBeforeSave = vi.fn(async () => false);
+
+      render(<RuleSetForm {...baseProps} onBeforeSave={onBeforeSave} />);
+      await user.click(await fillOneRule(user));
+
+      await waitFor(() => expect(onBeforeSave).toHaveBeenCalled());
+      expect(createPolicy).not.toHaveBeenCalled();
+    });
+
+    it("saves normally when no access-level change is pending", async () => {
+      const user = userEvent.setup({ pointerEventsCheck: 0 });
+
+      render(<RuleSetForm {...baseProps} />);
+      await user.click(await fillOneRule(user));
+
+      await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    });
+
+    it("says what the footer will save when the tier is also dirty", async () => {
+      render(<RuleSetForm {...baseProps} isAccessTypeDirty />);
+      expect(screen.getByText("Access level and rules")).toBeInTheDocument();
+    });
+
+    it("says only the rule set when the tier is unchanged", async () => {
+      render(<RuleSetForm {...baseProps} />);
+      expect(screen.getByText("Rule set")).toBeInTheDocument();
+    });
   });
 });

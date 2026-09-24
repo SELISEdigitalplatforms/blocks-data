@@ -18,16 +18,11 @@ import {
 } from "@/components/ui-kits/form/form";
 import { Input } from "@/components/ui-kits/input/input";
 import { PrincipalSelector } from "@/data-gateway/components/schema-access-control/principal-selector";
-import { Label } from "@/components/ui-kits/label/label";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui-kits/popover/popover";
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@/components/ui-kits/radio-group/radio-group";
 import {
   Select,
   SelectContent,
@@ -58,6 +53,7 @@ import {
   useCreatePolicy,
   useUpdatePolicy,
 } from "@/data-gateway/hooks/use-configuration";
+import type { PresetRuleSet } from "@/data-gateway/utils/access-presets";
 import type {
   ICreatePolicyPayload,
   IPolicyItem,
@@ -71,10 +67,10 @@ import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckIcon } from "@radix-ui/react-icons";
 import { useProjectStore } from "@seliseblocks/genesis-os";
-import { Plus, X } from "lucide-react";
+import { ChevronDown, Plus, X } from "lucide-react";
+import { Fragment } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
-import { SchemaAccessControlAccordion } from "./schema-access-control-accordion";
 
 const ruleRowSchema = z
   .object({
@@ -170,6 +166,27 @@ interface RuleSetFormProps {
   fieldNames: string[];
   editingPolicy?: IPolicyItem;
   level: "row" | "column";
+  /**
+   * Starting values from a preset. It fills the form rather than saving, so the
+   * rules are reviewed before they grant anything, and so presets and the form
+   * share one payload builder. Ignored while editing an existing set.
+   */
+  seed?: PresetRuleSet;
+  /**
+   * True when the tier tiles above this form hold an unsaved change.
+   * Only labels the footer — the save itself is `onBeforeSave`'s business.
+   */
+  isAccessTypeDirty?: boolean;
+  /**
+   * Persists the pending access level, awaited before the rule set is sent.
+   *
+   * Choosing "Custom" and building its rules is one intent, but it used to
+   * take two saves against two footers — and the tier footer was hidden while
+   * this form was open, so the rules could be saved onto a schema that was
+   * still Signed-in. Resolving `false` aborts, leaving the form untouched so
+   * the work can be retried rather than half-applied.
+   */
+  onBeforeSave?: () => Promise<boolean>;
 }
 
 export const RuleSetForm = ({
@@ -181,6 +198,9 @@ export const RuleSetForm = ({
   fieldNames,
   editingPolicy,
   level,
+  seed,
+  isAccessTypeDirty = false,
+  onBeforeSave,
 }: RuleSetFormProps) => {
   const { mutateAsync: createPolicy, isPending: isCreating } =
     useCreatePolicy();
@@ -195,15 +215,15 @@ export const RuleSetForm = ({
     resolver: zodResolver(ruleSetSchema),
     mode: "onChange",
     defaultValues: {
-      name: editingPolicy?.policyName ?? "",
+      name: editingPolicy?.policyName ?? seed?.name ?? "",
       logicalOperator: editingPolicy
         ? editingPolicy.ruleGroup.logicalOperator === LOGICAL_OPERATOR.OR
           ? "OR"
           : "AND"
-        : "AND",
+        : (seed?.logicalOperator ?? "AND"),
       rules: editingPolicy
         ? editingPolicy.ruleGroup.rules.map(policyRuleToFormRow)
-        : [],
+        : (seed?.rules ?? []),
     },
   });
 
@@ -211,6 +231,16 @@ export const RuleSetForm = ({
     control: form.control,
     name: "rules",
   });
+
+  /** One blank row. The literal was written out at both Add Rule triggers. */
+  const addRule = () =>
+    append({
+      source: "",
+      field: "",
+      operator: "",
+      compareSource: "",
+      compareValue: "",
+    });
 
   /** Schema fields flattened to dotted-path leaf options (e.g. AddressInfo.StreetNo) */
   const schemaFieldOptions = flattenSchemaFields(schemaFields);
@@ -383,6 +413,11 @@ export const RuleSetForm = ({
   const onSubmit = async (values: RuleSetFormValues) => {
     const ruleGroup = buildRuleGroup(values.logicalOperator, values.rules);
 
+    // The access level goes first: rules belong to a Custom policy, so saving
+    // them against a schema still set to Signed-in would leave the two
+    // disagreeing until the next save.
+    if (onBeforeSave && !(await onBeforeSave())) return;
+
     if (isEditMode && editingPolicy?.itemId) {
       const payload: IUpdatePolicyPayload = {
         itemId: editingPolicy.itemId,
@@ -456,17 +491,17 @@ export const RuleSetForm = ({
           }}
           className="space-y-4"
         >
-          <hr className="mt-6" />
+          <div className="mt-6 border-t border-border/40" />
           <FormField
             name="name"
             control={form.control}
             render={({ field }) => (
               <FormItem>
                 <FormLabel>
-                  Rule Set Name <span className="text-red-500">*</span>
+                  Rule Set Name <span className="text-destructive">*</span>
                 </FormLabel>
                 <FormControl>
-                  <Input placeholder="Enter a rule name" {...field} />
+                  <Input className="h-9" placeholder="Enter a rule name" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -480,61 +515,93 @@ export const RuleSetForm = ({
               <FormItem>
                 <FormLabel>Multi-rule relations</FormLabel>
                 <FormControl>
-                  <RadioGroup
-                    {...field}
-                    className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-x-10 sm:gap-y-1"
-                    onValueChange={field.onChange}
-                    value={field.value}
+                  <div
+                    role="radiogroup"
+                    aria-label="Multi-rule relations"
+                    className="flex w-full items-center gap-1 rounded-md border border-border/40 bg-muted/20 p-1"
                   >
-                    <Label className="flex cursor-pointer items-center gap-2">
-                      <RadioGroupItem value="AND" />
-                      All the following rules match
-                    </Label>
-
-                    <Label className="flex cursor-pointer items-center gap-2">
-                      <RadioGroupItem value="OR" />
-                      Any of the following rules match
-                    </Label>
-                  </RadioGroup>
+                    {(
+                      [
+                        { value: "AND", label: "Match all" },
+                        { value: "OR", label: "Match any" },
+                      ] as const
+                    ).map((option) => {
+                      const isSelected = field.value === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={isSelected}
+                          onClick={() => field.onChange(option.value)}
+                          className={cn(
+                            "flex-1 rounded-sm px-3 py-1.5 text-xs font-semibold transition-colors",
+                            isSelected
+                              ? "bg-primary/15 text-primary"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
 
+          {/* Rules.
+              This was a bordered, tinted, p-4 panel wrapping per-rule cards
+              that were themselves bordered and p-4 — two frames and two sets
+              of padding around every control, in a 460px column. The section
+              is now a plain heading plus the list, matching how "Who is
+              allowed" and "Multi-rule relations" above it are labelled, so a
+              rule card is the only box on screen. */}
           <div className="flex flex-col">
-            <div className="mt-4 rounded-[4px] border border-[#7B7B7B] p-4 dark:border-icon-warning dark:bg-warning-800/20">
-              <p className="mb-3 font-medium">Rules</p>
+            <section className="mt-4">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
+                  Rules
+                </p>
+                {fields.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="dg-interactive h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={addRule}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Rule</span>
+                  </Button>
+                )}
+              </div>
 
               {fields.length === 0 ? (
-                <div className="mt-3 flex flex-col justify-center gap-5">
+                <div className="flex flex-col justify-center gap-4">
                   <p className="text-center text-sm text-muted-foreground">
                     No rules added yet. Add a rule to define who can view.
                   </p>
-                  <div className="flex justify-center">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="flex items-center gap-2"
-                      onClick={() =>
-                        append({
-                          source: "",
-                          field: "",
-                          operator: "",
-                          compareSource: "",
-                          compareValue: "",
-                        })
-                      }
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Add Rule</span>
-                    </Button>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="dg-interactive flex w-full items-center justify-center gap-2 border-dashed text-muted-foreground hover:text-foreground"
+                    onClick={addRule}
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add Rule</span>
+                  </Button>
                 </div>
               ) : (
                 <>
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
                     {fields.map((ruleField, index) => {
+                      // Repeated between every pair of cards so the group's
+                      // AND/OR mode — chosen once, above this list — stays
+                      // visible while scanning past the third or fourth rule.
+                      const logicalOperatorValue = form.watch("logicalOperator");
                       const source = form.watch(`rules.${index}.source`);
                       const leftField = form.watch(`rules.${index}.field`);
                       const operatorValue = form.watch(
@@ -606,15 +673,42 @@ export const RuleSetForm = ({
                           : [];
 
                       return (
-                        <Card
-                          key={ruleField.id}
-                          className={cn(
-                            "relative isolate my-1 flex flex-col p-4 shadow-none",
-                            "lg:flex-row lg:items-start lg:gap-2 lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none",
+                        <Fragment key={ruleField.id}>
+                          {index > 0 && (
+                            <div className="flex items-center gap-2 px-1">
+                              <div className="h-px flex-1 bg-border/40" aria-hidden />
+                              <span className="rounded-full border border-border/40 bg-muted/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                {logicalOperatorValue || "AND"}
+                              </span>
+                              <div className="h-px flex-1 bg-border/40" aria-hidden />
+                            </div>
                           )}
-                        >
-                          <div className="flex min-w-0 flex-1 flex-col gap-3 max-lg:pt-8 lg:flex-row lg:items-start lg:gap-2 lg:pt-0">
+                          <Card className="dg-interactive flex flex-col gap-2.5 rounded-md border-border/50 p-3 shadow-none hover:border-border">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+                              Rule {index + 1}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              aria-label="Remove rule"
+                              onClick={() => remove(index)}
+                            >
+                              <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+                            </Button>
+                          </div>
+                          <div className="flex min-w-0 flex-1 flex-col gap-2.5">
+                            {/* Left Source + Left Field: a 2-up grid rather than a row that
+                                only worked at the 85vw drawer width this form used to live in.
+                                Every control below is a plain full-width grid item now. */}
+                            <div className="grid grid-cols-2 gap-2.5">
                             {/* Left Source */}
+                            <div>
+                              <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                                Source
+                              </span>
                             <FormField
                               control={form.control}
                               name={`rules.${index}.source`}
@@ -649,7 +743,7 @@ export const RuleSetForm = ({
                                     );
                                   }}
                                 >
-                                  <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
+                                  <SelectTrigger className="h-9 w-full min-w-0">
                                     <SelectValue placeholder="Select source" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -665,15 +759,20 @@ export const RuleSetForm = ({
                                 </Select>
                               )}
                             />
+                            </div>
 
                             {/* Left Field */}
+                            <div>
+                              <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                                {isStaticValue ? "Value" : "Field"}
+                              </span>
                             <FormField
                               control={form.control}
                               name={`rules.${index}.field`}
                               render={({ field }) =>
                                 isStaticValue ? (
                                   <Input
-                                    className="h-10 w-full min-w-0 lg:flex-1"
+                                    className="h-9 w-full min-w-0"
                                     placeholder="Enter value"
                                     value={field.value}
                                     onChange={field.onChange}
@@ -723,7 +822,7 @@ export const RuleSetForm = ({
                                     }}
                                     disabled={!source}
                                   >
-                                    <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
+                                    <SelectTrigger className="h-9 w-full min-w-0">
                                       <SelectValue placeholder="Select field" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -740,8 +839,23 @@ export const RuleSetForm = ({
                                 )
                               }
                             />
+                            </div>
+                            </div>
 
+                            {/* Operator + Compare Source: same 2-up grid, collapsing to one
+                                column when Compare Source is hidden (IS_NULL / IS_NOT_NULL /
+                                REGEX / START_WITH / END_WITH have no right-hand source). */}
+                            <div
+                              className={cn(
+                                "grid gap-3",
+                                isNullOperator || isDirectValueOp ? "grid-cols-1" : "grid-cols-2",
+                              )}
+                            >
                             {/* Operator */}
+                            <div>
+                              <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                                Operator
+                              </span>
                             <FormField
                               control={form.control}
                               name={`rules.${index}.operator`}
@@ -802,7 +916,7 @@ export const RuleSetForm = ({
                                     }
                                   }}
                                 >
-                                  <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
+                                  <SelectTrigger className="h-9 w-full min-w-0">
                                     <SelectValue placeholder="Operator" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -818,9 +932,14 @@ export const RuleSetForm = ({
                                 </Select>
                               )}
                             />
+                            </div>
 
                             {/* Compare Source (hidden for IS_NULL / IS_NOT_NULL / REGEX / START_WITH / END_WITH) */}
                             {!isNullOperator && !isDirectValueOp && (
+                              <div>
+                                <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                                  Compare with
+                                </span>
                               <FormField
                                 control={form.control}
                                 name={`rules.${index}.compareSource`}
@@ -838,7 +957,7 @@ export const RuleSetForm = ({
                                       );
                                     }}
                                   >
-                                    <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
+                                    <SelectTrigger className="h-9 w-full min-w-0">
                                       <SelectValue placeholder="Compare with" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -856,10 +975,18 @@ export const RuleSetForm = ({
                                   </Select>
                                 )}
                               />
+                              </div>
                             )}
+                            </div>
 
-                            {/* Compare Value (hidden for IS_NULL / IS_NOT_NULL) */}
+                            {/* Compare Value: its own full-width row — none of its widgets
+                                (multi-select popover, principal selector, plain input) read
+                                well sharing a row at this width. */}
                             {!isNullOperator && (
+                              <div>
+                                <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                                  Value
+                                </span>
                               <FormField
                                 control={form.control}
                                 name={`rules.${index}.compareValue`}
@@ -874,7 +1001,7 @@ export const RuleSetForm = ({
                                           : "Enter suffix";
                                     return (
                                       <Input
-                                        className="h-10 w-full min-w-0 lg:flex-1"
+                                        className="h-9 w-full min-w-0"
                                         placeholder={placeholder}
                                         value={field.value}
                                         onChange={field.onChange}
@@ -911,7 +1038,7 @@ export const RuleSetForm = ({
                                   if (isInOp && isCompareStatic) {
                                     return (
                                       <Input
-                                        className="h-10 w-full min-w-0 lg:flex-1"
+                                        className="h-9 w-full min-w-0"
                                         placeholder="Enter comma-separated values"
                                         value={field.value}
                                         onChange={field.onChange}
@@ -930,27 +1057,14 @@ export const RuleSetForm = ({
                                         <PopoverTrigger asChild>
                                           <button
                                             type="button"
-                                            className="flex h-10 w-full min-w-0 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground lg:flex-1"
+                                            className="flex h-9 w-full min-w-0 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground"
                                           >
                                             <span className="truncate text-left">
                                               {selectedInValues.length > 0
                                                 ? selectedInValues.join(", ")
                                                 : "Select fields"}
                                             </span>
-                                            <svg
-                                              xmlns="http://www.w3.org/2000/svg"
-                                              width="12"
-                                              height="12"
-                                              viewBox="0 0 24 24"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              strokeWidth="2"
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              className="ml-2 shrink-0 opacity-50"
-                                            >
-                                              <path d="m6 9 6 6 6-6" />
-                                            </svg>
+                                            <ChevronDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
                                           </button>
                                         </PopoverTrigger>
                                         <PopoverContent
@@ -1007,7 +1121,7 @@ export const RuleSetForm = ({
                                   // Default: Static → input, Auth/Schema → single select
                                   return isCompareStatic ? (
                                     <Input
-                                      className="h-10 w-full min-w-0 lg:flex-1"
+                                      className="h-9 w-full min-w-0"
                                       placeholder="Enter value"
                                       value={field.value}
                                       onChange={field.onChange}
@@ -1018,7 +1132,7 @@ export const RuleSetForm = ({
                                       onValueChange={field.onChange}
                                       disabled={!compareSource}
                                     >
-                                      <SelectTrigger className="h-10 w-full min-w-0 lg:flex-1">
+                                      <SelectTrigger className="h-9 w-full min-w-0">
                                         <SelectValue placeholder="Select field" />
                                       </SelectTrigger>
                                       <SelectContent>
@@ -1035,70 +1149,34 @@ export const RuleSetForm = ({
                                   );
                                 }}
                               />
+                              </div>
                             )}
                           </div>
-
-                          <div className="absolute right-0 top-0 z-20 -translate-y-1/2 translate-x-1/2 lg:static lg:shrink-0 lg:translate-x-0 lg:translate-y-0 lg:self-center">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-full border border-border bg-background text-destructive shadow-md ring-1 ring-background hover:bg-destructive/10 hover:text-destructive dark:bg-card"
-                              aria-label="Remove rule"
-                              onClick={() => remove(index)}
-                            >
-                              <X className="h-4 w-4" strokeWidth={2.25} />
-                            </Button>
-                          </div>
-                        </Card>
+                          </Card>
+                        </Fragment>
                       );
                     })}
                   </div>
-
-                  <div className="mt-3 flex">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="flex items-center gap-2"
-                      onClick={() =>
-                        append({
-                          source: "",
-                          field: "",
-                          operator: "",
-                          compareSource: "",
-                          compareValue: "",
-                        })
-                      }
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Add Rule</span>
-                    </Button>
-                  </div>
                 </>
               )}
-            </div>
+            </section>
 
-            {/*Rules populated Accordion */}
-            <SchemaAccessControlAccordion isEditing />
-
-            <hr className="my-5" />
-
-            <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-end sm:gap-5">
-              {/* <Button
-                type="button"
-                variant="outline"
-                onClick={onCancel}
-                className="flex items-center gap-2 text-red-500 hover:text-red-500"
-              >
-                <Trash className="h-4 w-4" />
-                Delete Role Set
-              </Button> */}
-
-              <Button type="button" variant="outline" onClick={onCancel}>
+            {/* Pinned to the bottom of the inspector's scroll area.
+                It used to sit at the end of the form's own content, so on a
+                rule set of any size the only way to reach Save was to scroll
+                past every rule — and the view's own access-type footer was
+                hidden while this form was open, leaving no visible action at
+                all. One footer, always on screen, saving both. */}
+            <div className="sticky bottom-0 z-10 -mx-1 mt-5 flex w-[calc(100%+0.5rem)] items-center gap-2 border-t border-border/40 bg-card px-1 py-3">
+              <span className="flex-1 text-xs text-muted-foreground">
+                {isAccessTypeDirty ? "Access level and rules" : "Rule set"}
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={onCancel}>
                 Cancel
               </Button>
               <Button
                 type="button"
+                size="sm"
                 disabled={!form.formState.isValid || isSaving}
                 onClick={() => void submitRuleSet()}
               >

@@ -18,6 +18,17 @@ vi.mock("@seliseblocks/genesis-os", () => ({
     put() {}
     delete() {}
   },
+  // The tab narrows on `err instanceof HttpError` to tell a 404 apart from any
+  // other failure. Leaving it off the mock made that check throw inside the
+  // catch block, so no error ever reached the screen.
+  HttpError: class HttpError extends Error {
+    constructor(
+      public status: number,
+      public body?: unknown,
+    ) {
+      super(`HTTP ${status}`);
+    }
+  },
 }));
 
 vi.mock("./toolbar/filter-popover", () => ({

@@ -19,10 +19,9 @@ async function openDataGateway(page: Page) {
 
 async function openAnalytics(page: Page) {
   await openDataGateway(page);
-  await page.getByRole("button", { name: "More actions" }).click();
-  const analyticsItem = page.getByRole("menuitem", { name: "Analytics" });
-  await expect(analyticsItem).toBeVisible({ timeout: 15_000 });
-  await analyticsItem.click();
+  const analyticsTab = page.getByRole("link", { name: "Analytics" });
+  await expect(analyticsTab).toBeVisible({ timeout: 15_000 });
+  await analyticsTab.click();
   await expect(page).toHaveURL(/\/analytics/, { timeout: 30_000 });
 }
 
@@ -43,9 +42,9 @@ test.describe("flow: Data Gateway — Analytics page", () => {
     const idxSchemaName = `dg_idx_${Date.now()}`;
 
     await test.step("Indexes: Create an Entity schema to host the index checks", async () => {
-      const landingHeading = page.getByRole("heading", { name: "Security Assessment" });
-      const emptyStateHeading = page.getByText("No schemas yet", { exact: true });
-      await expect(landingHeading.or(emptyStateHeading).first()).toBeVisible({
+      // /data-gateway opens the schemas view now; the security table moved to
+      // its own route, so wait on the explorer instead of the landing heading.
+      await expect(page.getByPlaceholder("Search schemas…")).toBeVisible({
         timeout: 30_000,
       });
       const addButton = page.getByRole("button", { name: "Add Schema", exact: true }).first();
@@ -121,9 +120,9 @@ test.describe("flow: Data Gateway — Analytics page", () => {
     const secSchemaName = `dg_sec_${Date.now()}`;
 
     await test.step("Access: Create a schema to host the security checks", async () => {
-      const landingHeading = page.getByRole("heading", { name: "Security Assessment" });
-      const emptyStateHeading = page.getByText("No schemas yet", { exact: true });
-      await expect(landingHeading.or(emptyStateHeading).first()).toBeVisible({
+      // /data-gateway opens the schemas view now; the security table moved to
+      // its own route, so wait on the explorer instead of the landing heading.
+      await expect(page.getByPlaceholder("Search schemas…")).toBeVisible({
         timeout: 30_000,
       });
       const addButton = page.getByRole("button", { name: "Add Schema", exact: true }).first();

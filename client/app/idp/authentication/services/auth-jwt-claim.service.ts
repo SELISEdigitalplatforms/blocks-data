@@ -4,7 +4,7 @@ import { PROJECT_ENDPOINTS } from "@/identifier/constants/endpoint.constant";
 
 class JwtClaimServices {
   addJwtClaim(payload: JwtClaimPayload): Promise<{
-    errors: unknown | null;
+    errors: unknown;
     isSuccess: boolean;
   }> {
     return http.post(PROJECT_ENDPOINTS.ADD_JWT_CLAIM, payload);

@@ -41,28 +41,28 @@ export class PeopleService {
   }
 
   resendInvitation(resendInvitation: IResendInvitation): Promise<{
-    errors: null | unknown;
+    errors: unknown;
     isSuccess: boolean;
   }> {
     return http.post(PEOPLE_ENDPOINTS.RESEND_INVITATION, resendInvitation);
   }
 
   removeAccess(removeAccess: IRemoveAccess): Promise<{
-    errors: null | unknown;
+    errors: unknown;
     isSuccess: boolean;
   }> {
     return http.post(PEOPLE_ENDPOINTS.REMOVE_ACCESS, removeAccess);
   }
 
   removeEnvironmentAccess(payload: IRemoveEnvironmentAccess): Promise<{
-    errors: null | unknown;
+    errors: unknown;
     isSuccess: boolean;
   }> {
     return http.post(PEOPLE_ENDPOINTS.REMOVE_ACCESS, payload);
   }
 
   confirmInvitation(removeAccess: IConfirmInvitation): Promise<{
-    errors: null | unknown;
+    errors: unknown;
     isSuccess: boolean;
     activationKey: string;
   }> {
@@ -70,7 +70,7 @@ export class PeopleService {
   }
 
   transferOwnership(payload: ITransferOwnershipPayload): Promise<{
-    errors: null | unknown;
+    errors: unknown;
     isSuccess: boolean;
   }> {
     return http.post(PEOPLE_ENDPOINTS.TRANSFER_OWNERSHIP, payload);

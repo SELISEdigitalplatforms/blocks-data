@@ -1,26 +1,17 @@
 "use client";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui-kits/button/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui-kits/select/select";
-import {
-  ACCESS_DESCRIPTIONS,
-  ACCESS_LABELS,
   ACCESS_LEVEL_TO_TYPE,
-  ACCESS_STYLES,
   ACCESS_TYPE_TO_LEVEL,
   ACCESS_TYPES,
-  ACCESS_TYPE_LABELS,
   POLICY_TYPE,
+  TAB_TO_OPERATION,
 } from "@/data-gateway/constants/schema-access-control";
 import { Loader } from "lucide-react";
 import { SchemaAccessControlViewProps } from "@/data-gateway/models/schema-preview.types";
 import type { IPolicyItem } from "@/data-gateway/models/data-service";
-import { ACCESS_ICONS } from "@/data-gateway/constants/access-icons.constants";
+import { cn } from "@/lib/utils";
 import { RuleSetForm } from "./rule-set-form";
 import { SchemaAccessControlAccordion } from "./schema-access-control-accordion";
 import {
@@ -29,8 +20,28 @@ import {
 } from "@/data-gateway/hooks/use-configuration";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
-import { Dialog } from "@/components/ui-kits/dialog/dialog";
-import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
+import { accessEffect } from "@/data-gateway/utils/access-phrase";
+import {
+  accessPresets,
+  type AccessPreset,
+  type PresetRuleSet,
+} from "@/data-gateway/utils/access-presets";
+import {
+  TIER_CONTAINER_CLASS,
+  TIER_DOT_CLASS,
+  TIER_VALUE_CLASS,
+  tierFromType,
+} from "../primitives";
+import { AccessEffectLine } from "./access-effect-line";
+import { AccessPresetList } from "./access-preset-list";
+
+/** "Who is allowed" tile grid — Inherited is column-only (there is nothing to inherit from at row level). */
+const ACCESS_TIER_TILES = [
+  { type: ACCESS_TYPES.INHERITED, label: "Inherited" },
+  { type: ACCESS_TYPES.PUBLIC, label: "Public" },
+  { type: ACCESS_TYPES.LOGGED_IN, label: "Signed-in" },
+  { type: ACCESS_TYPES.CUSTOM, label: "Custom" },
+];
 
 export const SchemaAccessControlView = ({
   schemaFields,
@@ -40,17 +51,29 @@ export const SchemaAccessControlView = ({
   operation,
   fieldNames,
   defaultAccessLevel,
+  onRuleEditorOpenChange,
 }: SchemaAccessControlViewProps) => {
   const [showRuleSetForm, setShowRuleSetForm] = useState(false);
+
+  // The inspector widens from 460px to 480px for the rule editor; it needs to
+  // be told, because the editor opens from inside here.
+  useEffect(() => {
+    onRuleEditorOpenChange?.(showRuleSetForm);
+  }, [showRuleSetForm, onRuleEditorOpenChange]);
   const [editingPolicy, setEditingPolicy] = useState<IPolicyItem | undefined>(
     undefined,
   );
+  // The tile the user currently has picked — drives the rest of the panel
+  // (effect line, rule-set list) immediately, same as the design's "live"
+  // preview. It only reaches the server once Save is pressed.
   const [selectedAccessType, setSelectedAccessType] = useState("");
+  // The last value actually confirmed by the API, i.e. what Cancel reverts to
+  // and what `selectedAccessType` is compared against to decide "dirty".
+  const [lastSavedAccessType, setLastSavedAccessType] = useState("");
   const [initialized, setInitialized] = useState(false);
-  const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
-  const [pendingAccessType, setPendingAccessType] = useState<string | null>(
-    null,
-  );
+  /** Preset values handed to the form, and the set still to come after it saves. */
+  const [seedRuleSet, setSeedRuleSet] = useState<PresetRuleSet | undefined>();
+  const [queuedRuleSet, setQueuedRuleSet] = useState<PresetRuleSet | undefined>();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   // Fetch when access is custom, including first paint (selectedAccessType is still "" until useEffect).
@@ -104,6 +127,7 @@ export const SchemaAccessControlView = ({
     const resolved = ACCESS_LEVEL_TO_TYPE[defaultAccessLevel];
     if (!resolved) return;
     setSelectedAccessType(resolved);
+    setLastSavedAccessType(resolved);
     setInitialized(true);
     if (resolved !== ACCESS_TYPES.CUSTOM) {
       setShowRuleSetForm(false);
@@ -121,40 +145,73 @@ export const SchemaAccessControlView = ({
     if (initialized) return;
     if (!policyResponse) return;
 
-    if (policies.length > 0) {
-      setSelectedAccessType(ACCESS_TYPES.CUSTOM);
-    } else {
-      setSelectedAccessType(ACCESS_TYPES.LOGGED_IN);
-    }
+    const inferred =
+      policies.length > 0 ? ACCESS_TYPES.CUSTOM : ACCESS_TYPES.LOGGED_IN;
+    setSelectedAccessType(inferred);
+    setLastSavedAccessType(inferred);
     setInitialized(true);
   }, [defaultAccessLevel, policyResponse, policies.length, initialized]);
 
   const currentAccessType = selectedAccessType || ACCESS_TYPES.LOGGED_IN;
+  const isAccessTypeDirty =
+    initialized && selectedAccessType !== lastSavedAccessType;
+
+  /**
+   * Custom means "only what these rules allow", so with no rule sets it denies
+   * everyone — which is what the effect line above already warns about
+   * ("allows nobody to read …"). Committing that from the tier footer is
+   * almost always a half-finished edit rather than a deliberate lockout, so
+   * this footer will not save it.
+   *
+   * It is not a dead end: the rule editor's own footer saves the tier and the
+   * first rule set together, so Custom lands at the moment it starts meaning
+   * something. Waiting for the policy fetch matters — an in-flight list is
+   * empty, and disabling on that would flicker.
+   */
+  const isCustomWithoutRules =
+    selectedAccessType === ACCESS_TYPES.CUSTOM &&
+    !isPolicyListLoading &&
+    policies.length === 0;
 
   const handleSaveSuccess = () => {
-    setShowRuleSetForm(false);
-    setEditingPolicy(undefined);
     refetch();
-  };
+    setEditingPolicy(undefined);
 
-  const handleAccessTypeSelect = (value: string) => {
-    if (value === selectedAccessType) return;
-    setPendingAccessType(value);
-    setIsConfirmDialogOpen(true);
-  };
-
-  const handleConfirmAccessTypeChange = async () => {
-    if (!pendingAccessType) {
-      setIsConfirmDialogOpen(false);
+    // "Owner, plus a support override" is two rule sets, and the form holds
+    // one. The second is seeded as soon as the first lands.
+    if (queuedRuleSet) {
+      setSeedRuleSet(queuedRuleSet);
+      setQueuedRuleSet(undefined);
       return;
     }
 
-    const newLevel = ACCESS_TYPE_TO_LEVEL[pendingAccessType];
-    if (newLevel === undefined) {
-      setIsConfirmDialogOpen(false);
-      setPendingAccessType(null);
-      return;
-    }
+    setSeedRuleSet(undefined);
+    setShowRuleSetForm(false);
+  };
+
+  const applyPreset = (preset: AccessPreset) => {
+    const [first, ...rest] = preset.ruleSets;
+    setEditingPolicy(undefined);
+    setSeedRuleSet(first);
+    setQueuedRuleSet(rest[0]);
+    setShowRuleSetForm(true);
+  };
+
+  // Picking a tile is local only — it drives the effect line and rule-set
+  // list immediately (so Custom can be set up before it's saved), but nothing
+  // reaches the API until Save.
+  const handleTierPick = (value: string) => {
+    setSelectedAccessType(value);
+  };
+
+  /**
+   * Persists the selected tier. Returns whether the caller may carry on — the
+   * rule editor chains its own save onto this one, and must not send rules
+   * for a policy whose level failed to save.
+   */
+  const handleSaveAccessType = async (): Promise<boolean> => {
+    const newLevel = ACCESS_TYPE_TO_LEVEL[selectedAccessType];
+    if (newLevel === undefined) return true;
 
     try {
       const res = await setRowColumnPermission({
@@ -168,94 +225,120 @@ export const SchemaAccessControlView = ({
 
       if (res?.isSuccess) {
         showSuccessToast({ description: "Access level updated successfully" });
-        setSelectedAccessType(pendingAccessType);
-      } else {
-        showErrorToast({ errors: res?.errors });
+        setLastSavedAccessType(selectedAccessType);
+        return true;
       }
+
+      showErrorToast({ errors: res?.errors });
+      return false;
     } catch (error) {
       showErrorToast({ errors: error });
+      return false;
     }
-
-    setIsConfirmDialogOpen(false);
-    setPendingAccessType(null);
   };
 
-  const handleCancelAccessTypeChange = () => {
-    setIsConfirmDialogOpen(false);
-    setPendingAccessType(null);
+  /** What the rule editor's footer runs before sending its own payload. */
+  const saveAccessTypeIfDirty = async (): Promise<boolean> =>
+    isAccessTypeDirty ? handleSaveAccessType() : true;
+
+  const handleCancelAccessType = () => {
+    setSelectedAccessType(lastSavedAccessType);
   };
 
-  const confirmationModalData = {
-    dialogTitle: "Change access policy?",
-    dialogSubtitle: `Are you sure you want to change the access policy to ${ACCESS_TYPE_LABELS[pendingAccessType ?? ""] ?? pendingAccessType}? This will affect who can access this ${isRowLevel ? "schema" : "field"}.`,
-    confirmButton: "Confirm",
-    cancelButton: "Cancel",
-  };
+  // The view is handed a numeric operation; the phrasing is keyed by tab id.
+  const tabForOperation =
+    Object.keys(TAB_TO_OPERATION).find((tab) => TAB_TO_OPERATION[tab] === operation) ?? "view";
+  const effectSubject = isRowLevel
+    ? schemaName
+    : `${schemaName}.${fieldNames.join(", ")}`;
+
+  const effect = accessEffect({
+    tier: tierFromType(currentAccessType),
+    tab: tabForOperation,
+    subject: effectSubject,
+    policies,
+  });
+
+  const visibleTiers =
+    level === "column"
+      ? ACCESS_TIER_TILES
+      : ACCESS_TIER_TILES.filter((t) => t.type !== ACCESS_TYPES.INHERITED);
 
   return (
-    <div className="flex flex-col">
-      <div className={ACCESS_STYLES[currentAccessType]}>
-        <div className={`flex flex-col items-start gap-2 ${
-          currentAccessType === ACCESS_TYPES.PUBLIC
-            ? "text-rose-400"
-            : currentAccessType === ACCESS_TYPES.CUSTOM
-              ? "text-emerald-400"
-              : currentAccessType === ACCESS_TYPES.INHERITED
-                ? "text-sky-400"
-                : "text-amber-400"
-        }`}>
-          <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex min-w-0 items-center gap-3">
-              {currentAccessType === ACCESS_TYPES.PUBLIC
-                ? ACCESS_ICONS.PUBLIC
-                : ACCESS_ICONS.LOGGEDIN_OR_CUSTOM}
-              <p className="min-w-0 font-bold">
-                {ACCESS_LABELS[currentAccessType]}
-              </p>
-            </div>
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0 flex-col gap-3">
+        {/* Not "API is public", but what that means for this verb, here. */}
+        <AccessEffectLine effect={effect} />
 
-            <div className="w-full shrink-0 sm:ml-auto sm:w-auto">
-              <Select
-                value={selectedAccessType}
-                onValueChange={handleAccessTypeSelect}
-              >
-                <SelectTrigger className="w-full sm:w-[150px]">
-                  <SelectValue placeholder="Change Policy" />
-                </SelectTrigger>
-
-                <SelectContent>
-                  {level === "column" && (
-                    <SelectItem value={ACCESS_TYPES.INHERITED}>
-                      Inherited
-                    </SelectItem>
+        {/* Stays visible while a rule set is being added or edited, so that
+            form lands right under the Custom tile instead of replacing this
+            section and losing the context of what's being configured. */}
+        <div>
+          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">
+            Who is allowed
+          </p>
+          <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Who is allowed">
+            {visibleTiers.map(({ type, label }) => {
+              const tier = tierFromType(type);
+              const isSelected = type === selectedAccessType;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  disabled={showRuleSetForm}
+                  onClick={() => handleTierPick(type)}
+                  className={cn(
+                    "flex h-[38px] items-center gap-2 rounded-md border px-2.5 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                    isSelected
+                      ? cn(TIER_CONTAINER_CLASS[tier], TIER_VALUE_CLASS[tier])
+                      : "border-border/40 text-muted-foreground hover:border-border hover:text-foreground",
                   )}
-                  <SelectItem value={ACCESS_TYPES.LOGGED_IN}>
-                    All logged in users
-                  </SelectItem>
-                  <SelectItem value={ACCESS_TYPES.PUBLIC}>Public</SelectItem>
-                  <SelectItem value={ACCESS_TYPES.CUSTOM}>Custom</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+                >
+                  <span
+                    className={cn(
+                      "flex h-[15px] w-[15px] shrink-0 items-center justify-center rounded-full border",
+                      isSelected ? TIER_CONTAINER_CLASS[tier] : "border-border/60",
+                    )}
+                  >
+                    {isSelected && (
+                      <span className={cn("h-[7px] w-[7px] rounded-full", TIER_DOT_CLASS[tier])} />
+                    )}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate">{label}</span>
+                </button>
+              );
+            })}
           </div>
-          <p>{ACCESS_DESCRIPTIONS[currentAccessType]}</p>
         </div>
       </div>
 
-      <div className="h-[calc(100vh-220px)] overflow-y-auto p-1 pb-10">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {currentAccessType === ACCESS_TYPES.CUSTOM && (
           <>
             {showRuleSetForm ? (
-              <RuleSetForm
-                onCancel={handleSaveSuccess}
-                schemaFields={schemaFields}
-                schemaName={schemaName}
-                schemaId={schemaId}
-                operation={operation}
-                fieldNames={fieldNames}
-                editingPolicy={editingPolicy}
-                level={level}
-              />
+              // The form used to snap in the instant a preset/Add was clicked;
+              // a short fade + rise reads as it opening rather than a jump cut.
+              // `dg-rise-in` is the shared one-shot from globals.css — a CSS
+              // animation settles back to `transform: none`, where a retained
+              // motion transform would become the containing block for the
+              // form's sticky footer.
+              <div key="rule-set-form" className="dg-rise-in">
+                <RuleSetForm
+                  onCancel={handleSaveSuccess}
+                  schemaFields={schemaFields}
+                  schemaName={schemaName}
+                  schemaId={schemaId}
+                  operation={operation}
+                  fieldNames={fieldNames}
+                  editingPolicy={editingPolicy}
+                  level={level}
+                  seed={seedRuleSet}
+                  isAccessTypeDirty={isAccessTypeDirty}
+                  onBeforeSave={saveAccessTypeIfDirty}
+                />
+              </div>
             ) : isPolicyListLoading ? (
               <div
                 className="flex min-h-[200px] flex-col items-center justify-center gap-2 py-12"
@@ -271,11 +354,27 @@ export const SchemaAccessControlView = ({
                   Loading access rules…
                 </span>
               </div>
+            ) : policies.length === 0 ? (
+              <AccessPresetList
+                presets={accessPresets(schemaFields)}
+                onApply={applyPreset}
+                onStartBlank={() => {
+                  setSeedRuleSet(undefined);
+                  setQueuedRuleSet(undefined);
+                  setShowRuleSetForm(true);
+                }}
+              />
             ) : (
               <SchemaAccessControlAccordion
                 policies={policies}
-                onAddRuleSet={() => setShowRuleSetForm(true)}
+                onAddRuleSet={() => {
+                  setSeedRuleSet(undefined);
+                  setQueuedRuleSet(undefined);
+                  setShowRuleSetForm(true);
+                }}
                 onEditPolicy={(policy) => {
+                  setSeedRuleSet(undefined);
+                  setQueuedRuleSet(undefined);
                   setEditingPolicy(policy);
                   setShowRuleSetForm(true);
                 }}
@@ -285,22 +384,41 @@ export const SchemaAccessControlView = ({
         )}
       </div>
 
-      <Dialog
-        open={isConfirmDialogOpen}
-        onOpenChange={(open) => {
-          setIsConfirmDialogOpen(open);
-          if (!open) {
-            setPendingAccessType(null);
-          }
-        }}
-      >
-        <ConfirmationModal
-          onCancel={handleCancelAccessTypeChange}
-          onConfirm={handleConfirmAccessTypeChange}
-          data={confirmationModalData}
-          buttonState={{ confirm: { disable: isUpdating } }}
-        />
-      </Dialog>
+      {!showRuleSetForm && (
+        <div className="flex shrink-0 items-center gap-2 border-t border-border/40 pt-3">
+          <span
+            className={cn(
+              "flex-1 text-xs",
+              isCustomWithoutRules && isAccessTypeDirty
+                ? "text-warning-700"
+                : "text-muted-foreground",
+            )}
+          >
+            {isCustomWithoutRules && isAccessTypeDirty
+              ? "Add a rule set to save Custom"
+              : isAccessTypeDirty
+                ? "Unsaved"
+                : "No changes"}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!isAccessTypeDirty || isUpdating}
+            onClick={handleCancelAccessType}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!isAccessTypeDirty || isUpdating || isCustomWithoutRules}
+            onClick={handleSaveAccessType}
+          >
+            Save
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

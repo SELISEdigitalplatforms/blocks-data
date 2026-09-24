@@ -32,11 +32,7 @@ import { SchemaIndexesTab } from "./schema-indexes/schema-indexes-tab";
 import { mapIndexRelatedErrorMessage } from "../utils/schema-index.utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { InfoCard } from "./info-card";
-import {
-  defaultProperty,
-  editSchemaConfirmationModalData,
-  PropertyRow,
-} from "../models/schema-structure.types";
+import { defaultProperty, PropertyRow } from "../models/schema-structure.types";
 import { useBulkOperations } from "../hooks/use-bulk-operations";
 import { useSchemaPreview } from "../hooks/use-schema-preview";
 import { useDtoPreviewMap } from "../hooks/use-dto-preview-map";
@@ -46,6 +42,8 @@ import {
 } from "../hooks/use-configuration";
 import { SchemaDesktopRow } from "./schema-structure/schema-desktop-row";
 import { SchemaMobileCard } from "./schema-structure/schema-mobile-card";
+import { SchemaChangeReview } from "./schema-structure/schema-change-review";
+import { SchemaDirtyBar } from "./schema-structure/schema-dirty-bar";
 import { SchemaStructureHeader } from "./schema-structure/schema-structure-header";
 import { SchemaStructureTableSkeleton } from "./schema-structure-table-skeleton";
 import { Plus } from "lucide-react";
@@ -53,6 +51,17 @@ import { useReadonlyExpanded } from "../hooks/use-readonly-expanded";
 import { SchemaDataTab } from "./schema-data";
 import { ChildSchemaExpandableContent } from "./child-schema-expandable-content";
 import { buildValidationFieldName } from "../utils/schema-normalization";
+import { diffSchemaFields } from "../utils/schema-diff";
+
+/**
+ * React Hook Form's row id is bookkeeping, not part of a field's values.
+ * Carrying it into a duplicate gives the new row the source's identity, and the
+ * review diff then sees nothing added.
+ */
+const omitFieldArrayId = <T extends { id?: string }>(row: T) => {
+  const { id: _rowId, ...values } = row;
+  return values;
+};
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
 
 /**
@@ -61,29 +70,20 @@ import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.uti
  */
 function SchemaTableScrollRegion({
   embedded,
-  heightClass,
   children,
 }: {
   embedded: boolean;
-  heightClass: string;
   children: ReactNode;
 }) {
   if (embedded) {
     return (
-      <div
-        className={cn(
-          heightClass,
-          "flex min-h-0 w-full min-w-0 flex-col overflow-auto overscroll-x-contain [scrollbar-gutter:stable]",
-        )}
-      >
+      <div className="flex min-h-0 w-full min-w-0 flex-col overflow-auto overscroll-x-contain [scrollbar-gutter:stable]">
         {children}
       </div>
     );
   }
   return (
-    <ScrollArea className={cn(heightClass, "[scrollbar-gutter:stable]")}>
-      {children}
-    </ScrollArea>
+    <ScrollArea className="min-h-0 flex-1 [scrollbar-gutter:stable]">{children}</ScrollArea>
   );
 }
 
@@ -107,6 +107,36 @@ interface SchemaStructureTableProps extends ISchemaDetails {
   policyEntitySchemaName?: string;
   /** Navigate to this schema in the main editor (sidebar). Used for embedded child empty state. */
   onOpenStandaloneSchemaEditor?: (schemaId: string) => void;
+  /**
+   * Hand field access to a docked inspector instead of opening the drawer.
+   * Only the top-level table gets this; nested child tables keep the drawer,
+   * since they render inside a row and have nowhere to dock a panel.
+   */
+  onOpenFieldAccess?: (target: {
+    fieldNames: string[];
+    subject: string;
+    context: string;
+  }) => void;
+  /**
+   * Hand field validation to a docked inspector instead of opening the
+   * drawer. Same split as `onOpenFieldAccess`, for the same reason.
+   */
+  onOpenFieldValidation?: (target: {
+    fieldName: string;
+    subject: string;
+    context: string;
+    validationRule?: IFieldValidationRule | null;
+  }) => void;
+  /**
+   * Preview drawer open state, lifted so a host can put its own trigger
+   * elsewhere (the "Preview" button now sits beside Schema Access, in
+   * SchemaBasicInfo — a sibling component). Falls back to internal state
+   * when omitted, so the embedded (nested child table) caller — which has
+   * nowhere to put that trigger and never opens this drawer — doesn't need
+   * to pass anything.
+   */
+  isPreviewOpen?: boolean;
+  onPreviewOpenChange?: (open: boolean) => void;
 }
 
 export default function SchemaStructureTable(props: SchemaStructureTableProps) {
@@ -121,6 +151,10 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     hideAccessValidation,
     policyEntitySchemaName,
     onOpenStandaloneSchemaEditor,
+    onOpenFieldAccess,
+    onOpenFieldValidation,
+    isPreviewOpen,
+    onPreviewOpenChange,
     ...schemaDetails
   } = props;
 
@@ -156,6 +190,14 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const [isReadonlyExpanded] = useReadonlyExpanded();
 
   const originalFieldNamesRef = useRef<string[]>([]);
+  /** The rows exactly as loaded, so cancelling restores them rather than guessing. */
+  const originalRowsRef = useRef<IField[]>([]);
+  /**
+   * RHF row id → the field as it was when edit mode opened. Names and indexes
+   * both move during an edit; the id does not, which is the only way to tell a
+   * rename from a delete plus an add.
+   */
+  const originalByIdRef = useRef<Record<string, Partial<IField>>>({});
   const previousFieldsHashRef = useRef<string>("");
   const [isEditMode, setIsEditMode] = useState(false);
   const [isEditConfirmationModalOpen, setIsEditConfirmationModalOpen] =
@@ -175,7 +217,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     setActiveTab("attribute");
     setExpandedRowIndex(null);
   }, [schemaDetails.id]);
-  const [isPreviewDrawerOpen, setIsPreviewDrawerOpen] = useState(false);
+  const [internalPreviewOpen, setInternalPreviewOpen] = useState(false);
+  const isPreviewDrawerOpen = isPreviewOpen ?? internalPreviewOpen;
+  const setIsPreviewDrawerOpen = onPreviewOpenChange ?? setInternalPreviewOpen;
   const [isPropertyAccessDrawerOpen, setIsPropertyAccessDrawerOpen] =
     useState(false);
   const [isValidationDrawerOpen, setIsValidationDrawerOpen] = useState(false);
@@ -222,6 +266,18 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     schemaType: schemaType,
   });
   const properties = watch("properties");
+  /**
+   * What this edit will do, by row id rather than by name — a rename reads as a
+   * delete plus an add to the API, and that is worth saying out loud before it
+   * is saved.
+   */
+  const schemaDiff = diffSchemaFields({
+    originalById: originalByIdRef.current,
+    rows: fields.map((field, index) => ({
+      id: field.id,
+      ...(properties[index] ?? {}),
+    })),
+  });
   const { previewData, templateFields } = useSchemaPreview(
     properties,
     dtoPreviewMap,
@@ -271,13 +327,15 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       });
 
       originalFieldNamesRef.current = sortedFields.map((f) => f.name);
+      originalRowsRef.current = sortedFields;
     } else {
-      reset({
-        properties: isEmbedded ? [] : [defaultProperty],
-      });
+      const emptyRows = isEmbedded ? [] : [defaultProperty];
+      reset({ properties: emptyRows });
       originalFieldNamesRef.current = [];
+      originalRowsRef.current = emptyRows;
     }
 
+    originalByIdRef.current = {};
     setIsEditMode(false);
     bulkOperations.setSelectedRows({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -392,26 +450,40 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       resolvedAncestorPath,
       fieldName,
     );
+
+    if (onOpenFieldValidation) {
+      onOpenFieldValidation({
+        fieldName: effectiveFieldName,
+        subject: effectiveFieldName,
+        context: `Field on ${schemaDetails.schemaName}`,
+        validationRule: validationRule ?? null,
+      });
+      return;
+    }
+
     setCurrentValidationFieldName(effectiveFieldName);
     setCurrentValidationRule(validationRule ?? null);
     setIsValidationDrawerOpen(true);
   };
 
   const handleEditToggle = () => {
-    reset({
-      properties: originalFieldNamesRef.current.map((name, idx) => ({
-        ...fields[idx],
-        name,
-      })),
-    });
-
     if (isEditMode) {
+      // Cancelling used to put the original names back onto the current rows by
+      // index, so a delete anywhere but the end left every later row wearing
+      // its neighbour's name. Restore the rows that were loaded instead.
+      reset({ properties: originalRowsRef.current });
+      originalByIdRef.current = {};
       bulkOperations.setSelectedRows({});
-    } else {
-      setExpandedRowIndex(null);
+      setIsEditMode(false);
+      return;
     }
 
-    setIsEditMode((prev) => !prev);
+    // Captured without a reset, so these ids are the ones the live rows carry.
+    originalByIdRef.current = Object.fromEntries(
+      fields.map((field, index) => [field.id, { ...(properties[index] ?? {}) }]),
+    );
+    setExpandedRowIndex(null);
+    setIsEditMode(true);
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -446,16 +518,19 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const isChildTabOnly = (schemaType as number) === 2 && !isEmbedded;
   const shouldHideAccessValidation = hideAccessValidation || isChildTabOnly;
   const hasDesktopColumns = totalFieldLength > 0 || isEditMode;
+  /**
+   * IsArray, IsPII and IsUnique were a column each. They are one Flags column
+   * now, and Rules is hidden while editing because every control in it is
+   * disabled there — so both modes land on the same handful of columns.
+   */
+  const showRulesColumn = !isEditMode && !shouldHideAccessValidation;
   const visibleColumnCount =
-    8 + (isEditMode ? 1 : 0) + (shouldHideAccessValidation ? 0 : 1);
-  // Wider IsArray / IsPII / IsUnique columns so labels and toggles do not crowd (main + nested).
+    5 + (isEditMode ? 2 : 0) + (showRulesColumn ? 1 : 0);
   const desktopColumnWidths = isEditMode
-    ? shouldHideAccessValidation
-      ? ["4%", "16%", "13%", "11%", "9%", "9%", "9%", "24%", "5%"]
-      : ["4%", "14%", "12%", "11%", "9%", "9%", "9%", "16%", "10%", "6%"]
-    : shouldHideAccessValidation
-      ? ["17%", "14%", "12%", "9%", "9%", "9%", "25%", "5%"]
-      : ["15%", "13%", "11%", "9%", "9%", "9%", "17%", "11%", "6%"];
+    ? ["4%", "20%", "17%", "12%", "20%", "22%", "5%"]
+    : showRulesColumn
+      ? ["22%", "16%", "10%", "14%", "27%", "11%"]
+      : ["24%", "18%", "11%", "15%", "32%"];
   const emptyStateMobile =
     (totalFieldLength === readonlyFieldsCount || totalFieldLength === 0) &&
     !isEditMode;
@@ -496,13 +571,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     }
 
     return (
-      <div
-        className={cn(
-          "flex flex-1 items-center justify-center py-12",
-          schemaType === 1 ? "h-[calc(100vh-542px)]" : "h-[calc(100vh-450px)]",
-          isReadonlyExpanded && "h-[calc(100vh-495px)]",
-        )}
-      >
+      <div className="flex min-h-0 flex-1 items-center justify-center py-12">
         <div className="flex flex-col items-center justify-center space-y-4 text-center">
           <div className="space-y-2">
             <h3 className="break-words px-2 text-center text-base font-semibold leading-snug text-foreground sm:text-lg">
@@ -515,7 +584,11 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
             className="gap-2"
             onClick={() => {
               handleEditToggle();
-              append({ ...defaultProperty });
+              // A schema with no fields is already holding one blank row from
+              // load; appending on top of it would open the editor on two.
+              const hasBlankPlaceholder =
+                properties.length === 1 && !properties[0]?.name;
+              if (!hasBlankPlaceholder) append({ ...defaultProperty });
               setTimeout(() => {
                 addPropertyScroll.current?.scrollIntoView({
                   behavior: "smooth",
@@ -533,76 +606,46 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     );
   };
 
-  const scrollAreaHeightClass = isDirty
-    ? "h-[calc(100vh-576px)]"
-    : isEditMode
-      ? "h-[calc(100vh-507px)]"
-      : "h-[calc(100vh-450px)]";
-  const cardHeightClass = "xl:h-[calc(100vh-334px)]";
+  // The table used to pick from five different `calc(100vh - N)` values
+  // depending on mode and dirtiness, each one re-derived by hand whenever
+  // anything above it changed height. The page is a flex column down to here
+  // now, so the table just takes the room that is left.
   const useDivWrapper = disableFormElement || isEmbedded;
   const FormWrapper = useDivWrapper ? "div" : "form";
+  const wrapperClass = isEmbedded
+    ? "space-y-3"
+    : "flex min-h-0 flex-1 flex-col space-y-3";
   const formProps = useDivWrapper
-    ? { className: "space-y-3" }
-    : { onSubmit: handleSubmit(onSubmit), className: "space-y-3" };
+    ? { className: wrapperClass }
+    : { onSubmit: handleSubmit(onSubmit), className: wrapperClass };
 
   return schemaDetails?.id ? (
     <>
       <FormWrapper {...formProps}>
         <Card
           className={cn(
-            cardHeightClass,
             "flex flex-col overflow-hidden shadow-none",
-            isEmbedded && "min-w-0",
+            isEmbedded ? "min-w-0" : "min-h-0 flex-1 rounded-t-none border-t-0",
           )}
         >
           {!isEmbedded && (
             <SchemaStructureHeader
               isEditMode={isEditMode}
-              isDirty={isDirty}
-              isValid={isValid}
               hasSelectedRows={bulkOperations.hasSelectedRows}
               selectedFieldEntriesLength={
                 bulkOperations.selectedFieldEntries.length
               }
               fieldsLength={fields.length}
-              schemaId={schemaDetails.id}
-              projectKey={projectKey}
-              isClsEnabled={schemaDetails.isClsEnabled}
-              isRlsEnabled={schemaDetails.isRlsEnabled}
-              schemaName={schemaDetails.schemaName}
               schemaType={schemaType}
-              templateFields={templateFields}
-              previewData={previewData}
               activeTab={activeTab}
               onTabChange={setActiveTab}
               onEditToggle={handleEditToggle}
               onBulkDuplicate={bulkOperations.handleBulkDuplicate}
               onBulkDelete={bulkOperations.handleBulkDelete}
               onSelectAll={handleSelectAll}
-              isPreviewDrawerOpen={isPreviewDrawerOpen}
               setIsPreviewDrawerOpen={setIsPreviewDrawerOpen}
-              rawIntrospection={rawIntrospection}
-              isGatewayIntrospectionPending={isGatewayIntrospectionPending}
-              isGatewayIntrospectionFetching={isGatewayIntrospectionFetching}
-              onSaveClick={
-                useDivWrapper ? () => handleSubmit(onSubmit)() : undefined
-              }
             />
           )}
-
-          {activeTab === "attribute" &&
-            isEditMode &&
-            isDirty &&
-            !isEmbedded && (
-              <div className="mt-4 rounded-md border border-base-warning bg-warning-100 p-4 dark:border-icon-warning dark:bg-warning-800/20">
-                <div className="flex items-start gap-2 text-warning-700 dark:text-icon-warning">
-                  <p className="text-sm">
-                    Editing the schema structure properties will impact all
-                    areas of the application where they are used.
-                  </p>
-                </div>
-              </div>
-            )}
 
           {/* Data Tab */}
           {activeTab === "data" && (
@@ -629,16 +672,16 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           {/* Desktop Table View */}
           <div
             className={cn(
-              activeTab === "attribute" ? "hidden xl:block" : "hidden",
-              isEmbedded && "min-h-0 flex-1",
+              activeTab === "attribute" ? "hidden min-h-0 flex-1 xl:flex" : "hidden",
+              "flex-col",
             )}
           >
-            <SchemaTableScrollRegion
-              embedded={isEmbedded}
-              heightClass={scrollAreaHeightClass}
-            >
+            <SchemaTableScrollRegion embedded={isEmbedded}>
               {!(showEmptyState && isEmbedded) && (
-                <Table className={cn("w-full table-fixed")}>
+                <Table
+                  className={cn("w-full table-fixed")}
+                  wrapperClassName="overflow-x-auto overflow-y-visible"
+                >
                   {hasDesktopColumns && (
                     <colgroup>
                       {desktopColumnWidths.map((width, index) => (
@@ -647,7 +690,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                     </colgroup>
                   )}
                   {hasDesktopColumns && (
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-card">
                       <TableRow>
                         {isEditMode && (
                           <TableHead>
@@ -664,31 +707,15 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                             )}
                           </TableHead>
                         )}
-                        <TableHead>Property name</TableHead>
-                        <TableHead>Property type</TableHead>
-                        <TableHead>IsRequired</TableHead>
-                        <TableHead className="whitespace-nowrap px-3 text-center md:px-3">
-                          IsArray
-                        </TableHead>
-                        <TableHead className="whitespace-nowrap px-3 text-center md:px-3">
-                          IsPII
-                        </TableHead>
-                        <TableHead className="whitespace-nowrap px-3 pr-5 text-center md:px-3 md:pr-5">
-                          IsUnique
-                        </TableHead>
+                        <TableHead>Property</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Required</TableHead>
+                        <TableHead>Flags</TableHead>
                         <TableHead className="px-3 text-left md:px-3">
                           Description
                         </TableHead>
-                        {!shouldHideAccessValidation && (
-                          <TableHead>
-                            <span className="flex items-center gap-1 whitespace-normal">
-                              Access{" "}
-                              <span className="text-muted-foreground">|</span>{" "}
-                              Validation
-                            </span>
-                          </TableHead>
-                        )}
-                        <TableHead></TableHead>
+                        {showRulesColumn && <TableHead>Rules</TableHead>}
+                        {isEditMode && <TableHead></TableHead>}
                       </TableRow>
                     </TableHeader>
                   )}
@@ -730,7 +757,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                             errors={errors}
                             properties={properties}
                             onDuplicate={(idx) =>
-                              insert(idx + 1, { ...fields[idx] })
+                              insert(idx + 1, omitFieldArrayId(fields[idx]))
                             }
                             onDelete={remove}
                             schemaId={schemaDetails.id}
@@ -745,20 +772,34 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                             onTypeSearchChange={debouncedSetSearchText}
                             searchText={searchText}
                             onOpenAccessDrawer={(fieldTarget, title) => {
+                              const qualified = fieldTarget?.name
+                                ? buildValidationFieldName(
+                                    resolvedAncestorPath,
+                                    fieldTarget.name,
+                                  )
+                                : "";
+
+                              if (onOpenFieldAccess && qualified) {
+                                onOpenFieldAccess({
+                                  fieldNames: [qualified],
+                                  subject: qualified,
+                                  context: `Field on ${schemaDetails.schemaName}`,
+                                });
+                                return;
+                              }
+
                               setCurrentAccessFieldTarget(fieldTarget ?? null);
-                              const nestedTitle =
-                                fieldTarget?.name &&
-                                resolvedAncestorPath.length > 0
-                                  ? `Access for ${buildValidationFieldName(resolvedAncestorPath, fieldTarget.name)}`
-                                  : title;
-                              setCurrentAccessDrawerTitle(nestedTitle);
+                              setCurrentAccessDrawerTitle(
+                                fieldTarget?.name && resolvedAncestorPath.length > 0
+                                  ? `Access for ${qualified}`
+                                  : title,
+                              );
                               setIsPropertyAccessDrawerOpen(true);
                             }}
                             onOpenValidationDrawer={handleOpenValidationDrawer}
                             isExpanded={isExpanded}
                             onToggleExpand={handleToggleExpand}
                             childSchema={childSchema}
-                            totalFields={fields.length}
                             totalFieldsLength={totalFieldLength}
                             showAccessColumn={schemaType === 1 || isEmbedded}
                             showAccessValidationColumn={
@@ -820,16 +861,12 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
 
           {/* Mobile Card View */}
           <div
-            className={activeTab === "attribute" ? "block xl:hidden" : "hidden"}
+            className={cn(
+              activeTab === "attribute" ? "flex min-h-0 flex-1 xl:hidden" : "hidden",
+              "flex-col",
+            )}
           >
-            <div
-              className={cn(
-                "overflow-auto",
-                !isEditMode && "max-h-[calc(100vh-230px)]",
-                isEditMode && !isDirty && "max-h-[calc(100vh-310px)]",
-                isEditMode && isDirty && "max-h-[calc(100vh-400px)]",
-              )}
-            >
+            <div className="min-h-0 flex-1 overflow-auto">
               <div className="min-w-0 space-y-3 pb-4">
                 {fields.map((field, index) => {
                   const name = watch(`properties.${index}.name`);
@@ -867,7 +904,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                         errors={errors}
                         properties={properties}
                         onDuplicate={(idx) =>
-                          insert(idx + 1, { ...fields[idx] })
+                          insert(idx + 1, omitFieldArrayId(fields[idx]))
                         }
                         onDelete={remove}
                         schemaId={schemaDetails.id}
@@ -896,7 +933,6 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                         isExpanded={isExpanded}
                         onToggleExpand={handleToggleExpand}
                         childSchema={childSchema}
-                        totalFields={fields.length}
                         showAccessColumn={schemaType === 1 || isEmbedded}
                         showAccessValidationColumn={!shouldHideAccessValidation}
                         originalFieldFromSchema={originalField}
@@ -961,6 +997,13 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
               </Button>
             </div>
           )}
+          {activeTab === "attribute" && isEditMode && isDirty && !isEmbedded && (
+            <SchemaDirtyBar
+              isValid={isValid}
+              diff={schemaDiff}
+              onSave={useDivWrapper ? () => handleSubmit(onSubmit)() : undefined}
+            />
+          )}
         </Card>
       </FormWrapper>
 
@@ -971,7 +1014,16 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         <ConfirmationModal
           onCancel={() => {}}
           onConfirm={handleSchemaSave}
-          data={editSchemaConfirmationModalData}
+          data={{
+            dialogTitle:
+              schemaDiff.count === 1 ? "Save 1 change?" : `Save ${schemaDiff.count} changes?`,
+            // The old text said updates "impact all existing data" without
+            // naming a field, so it read the same whether you fixed a
+            // description or dropped a column.
+            dialogSubtitle: <SchemaChangeReview diff={schemaDiff} />,
+            confirmButton: "Update",
+            cancelButton: "Cancel",
+          }}
         />
       </Dialog>
 

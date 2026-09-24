@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -72,7 +72,6 @@ vi.mock("./schema-structure/schema-structure-header", () => ({
       data-dirty={String(p.isDirty)}
       data-fields={String(p.fieldsLength)}
     >
-      <span>{p.schemaName}</span>
       <button type="button" onClick={p.onEditToggle}>
         toggle-edit
       </button>
@@ -116,6 +115,16 @@ vi.mock("./schema-structure/schema-desktop-row", () => ({
             <span data-testid={`row-name-${p.index}`}>{name}</span>
             <button type="button" onClick={() => p.onDelete(p.index)}>
               {`del-${p.index}`}
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                p.setValue(`properties.${p.index}.name`, `renamed-${p.index}`, {
+                  shouldDirty: true,
+                })
+              }
+            >
+              {`rename-${p.index}`}
             </button>
             <button type="button" onClick={() => p.onDuplicate(p.index)}>
               {`dup-${p.index}`}
@@ -256,11 +265,10 @@ describe("SchemaStructureTable", () => {
     expect(screen.getByTestId("row-name-1")).toHaveTextContent("age");
   });
 
-  it("forwards the field count and schema name to the header", () => {
+  it("forwards the field count to the header", () => {
     renderTable();
     const header = screen.getByTestId("schema-header");
     expect(header).toHaveAttribute("data-fields", "2");
-    expect(within(header).getByText("User")).toBeInTheDocument();
   });
 
   it("enters edit mode from the header and shows the bottom add-property button", async () => {
@@ -354,6 +362,21 @@ describe("SchemaStructureTable", () => {
     const drawer = screen.getByTestId("validation-drawer");
     expect(drawer).toHaveTextContent("email");
     expect(drawer).toHaveAttribute("data-open", "true");
+  });
+
+  // Same split as onOpenFieldAccess: a host that can dock a panel gets a
+  // callback instead of the drawer being opened locally.
+  it("hands validation to a docked inspector instead of the drawer when the host provides one", async () => {
+    const user = userEvent.setup();
+    const onOpenFieldValidation = vi.fn();
+    renderTable({ onOpenFieldValidation });
+
+    await user.click(screen.getByRole("button", { name: "validation-0" }));
+
+    expect(onOpenFieldValidation).toHaveBeenCalledWith(
+      expect.objectContaining({ fieldName: "email", subject: "email" }),
+    );
+    expect(screen.queryByTestId("validation-drawer")).not.toBeInTheDocument();
   });
 
   it("opens the access drawer with the selected field name", async () => {
@@ -478,6 +501,32 @@ describe("SchemaStructureTable", () => {
     ).not.toBeInTheDocument();
   });
 
+  // The top-level table sits directly under SchemaBasicInfo's own card, which
+  // dropped its bottom border for the same reason — the two should read as
+  // one continuous panel, not two stacked cards with a gap between them. A
+  // nested (embedded) child table has no card above it, so it keeps its own
+  // full border.
+  it("drops its own top border at the top level, but not when embedded", () => {
+    const { container } = renderTable();
+    expect(container.querySelector(".border-t-0")).toBeInTheDocument();
+    expect(container.querySelector(".rounded-t-none")).toBeInTheDocument();
+  });
+
+  it("keeps its own top border when embedded in a parent row", () => {
+    const { container } = renderTable({ compactView: true });
+    expect(container.querySelector(".border-t-0")).not.toBeInTheDocument();
+    expect(container.querySelector(".rounded-t-none")).not.toBeInTheDocument();
+  });
+
+  // Scrolling past the first several fields used to take the column header
+  // with it, so a mid-scroll screenshot never named what you were looking at.
+  it("keeps the column header pinned while the rows scroll under it", () => {
+    const { container } = renderTable();
+    const header = container.querySelector("thead");
+    expect(header?.className).toContain("sticky");
+    expect(header?.className).toContain("top-0");
+  });
+
   it("expands a child-schema row to render nested content", async () => {
     const user = userEvent.setup();
     renderTable({
@@ -490,5 +539,58 @@ describe("SchemaStructureTable", () => {
     const nested = await screen.findAllByTestId("child-content");
     expect(nested.length).toBeGreaterThan(0);
     expect(nested[0]).toHaveTextContent("child1");
+  });
+  // ── Phase 6: what the edit will actually do ─────────────────────────────
+
+  it("reads a rename as a rename, not a delete plus an add", async () => {
+    const user = userEvent.setup();
+    renderTable();
+
+    await user.click(screen.getByText("toggle-edit"));
+    await user.click(screen.getByText("rename-0"));
+
+    expect(await screen.findByText("1 unsaved change")).toBeInTheDocument();
+    expect(screen.getByText("email renamed to renamed-0")).toBeInTheDocument();
+  });
+
+  it("counts an added row and a rename separately", async () => {
+    const user = userEvent.setup();
+    renderTable();
+
+    await user.click(screen.getByText("toggle-edit"));
+    await user.click(screen.getByText("rename-0"));
+    await user.click(screen.getByText("dup-1"));
+
+    expect(await screen.findByText("2 unsaved changes")).toBeInTheDocument();
+  });
+
+  // Identity is the row id, so deleting the first row must not make the second
+  // one look renamed.
+  it("reports only the deleted row when an earlier row goes", async () => {
+    const user = userEvent.setup();
+    renderTable();
+
+    await user.click(screen.getByText("toggle-edit"));
+    await user.click(screen.getByText("del-0"));
+
+    expect(await screen.findByText("1 unsaved change")).toBeInTheDocument();
+    expect(screen.getByText("email removed")).toBeInTheDocument();
+  });
+
+  // Cancelling used to restore the original names onto the current rows by
+  // index, so a delete anywhere but the end left rows wearing the wrong name.
+  it("restores the loaded rows on cancel after a delete", async () => {
+    const user = userEvent.setup();
+    renderTable();
+
+    await user.click(screen.getByText("toggle-edit"));
+    await user.click(screen.getByText("del-0"));
+    await waitFor(() => expect(rows()).toHaveLength(1));
+
+    await user.click(screen.getByText("toggle-edit"));
+
+    await waitFor(() => expect(rows()).toHaveLength(2));
+    expect(screen.getByTestId("row-name-0")).toHaveTextContent("email");
+    expect(screen.getByTestId("row-name-1")).toHaveTextContent("age");
   });
 });

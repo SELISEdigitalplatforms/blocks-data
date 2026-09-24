@@ -70,6 +70,15 @@ describe("SchemaBasicInfo", () => {
     ).toBeInTheDocument();
   });
 
+  // Briefly changed to an even full-width grid, then reverted on request —
+  // the pills should size to their own content, not stretch to fill the row.
+  it("keeps the access-control pills sized to their content rather than stretched", () => {
+    render(<SchemaBasicInfo {...baseProps({ schemaType: 1 })} />);
+    const container = screen.getByText("View").closest("div");
+    expect(container?.className).not.toContain("grid-cols-4");
+    expect(screen.getByText("View").closest("button")?.className).not.toContain("w-full");
+  });
+
   // The header used to say only "Entity" — nothing about the collection
   // behind it or how big the schema is.
   it("summarises the collection, custom/system field split and index count", () => {
@@ -160,5 +169,32 @@ describe("SchemaBasicInfo", () => {
     render(<SchemaBasicInfo {...baseProps({ schemaType: 1, writeAccessLevel: 3 })} />);
 
     expect(screen.getByRole("button", { name: "Create Custom" })).toBeInTheDocument();
+  });
+
+  // This card used to have its own bottom border, and SchemaStructureTable
+  // its own top border, with a gap between them — two visibly separate
+  // cards where the board draws one continuous panel.
+  it("drops its own bottom border so it reads as one panel with the table below it", () => {
+    const { container } = render(<SchemaBasicInfo {...baseProps()} />);
+    const root = container.firstElementChild as HTMLElement;
+
+    expect(root.className).toContain("border-b-0");
+    expect(root.className).toContain("rounded-t-sm");
+  });
+
+  // Preview used to live down by the tabs, in the field table's own header —
+  // moved here to sit beside Schema Access instead.
+  it("shows a Preview button beside Schema Access and wires it through", async () => {
+    const user = userEvent.setup();
+    const onOpenPreview = vi.fn();
+    render(<SchemaBasicInfo {...baseProps({ schemaType: 1 })} onOpenPreview={onOpenPreview} />);
+
+    await user.click(screen.getByRole("button", { name: "Preview" }));
+    expect(onOpenPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the Preview button when no handler is given", () => {
+    render(<SchemaBasicInfo {...baseProps({ schemaType: 1 })} />);
+    expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
   });
 });

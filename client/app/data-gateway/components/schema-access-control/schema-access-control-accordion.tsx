@@ -17,6 +17,7 @@ import type { IPolicyItem } from "@/data-gateway/models/data-service";
 import { ruleSetLines } from "@/data-gateway/utils/access-phrase";
 import {
   ChevronDown,
+  Info,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -73,15 +74,14 @@ export const SchemaAccessControlAccordion = ({
   return (
     <div className="space-y-2">
       {!isEditing && (
-        <div className="flex w-full items-center gap-2">
-          <Input
-            placeholder="Search rule sets"
-            aria-label="Search rule sets"
-            className="h-8 flex-1 text-xs"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-          />
-
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">
+            Rule sets
+          </span>
+          <span className="rounded-full bg-access-custom-bg px-1.5 py-0.5 text-[10px] font-bold text-access-custom-fg">
+            {policies.length}
+          </span>
+          <div className="flex-1" />
           <Button
             type="button"
             variant="outline"
@@ -90,8 +90,28 @@ export const SchemaAccessControlAccordion = ({
             onClick={onAddRuleSet}
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Add</span>
+            <span>Add rule set</span>
           </Button>
+        </div>
+      )}
+
+      {!isEditing && policies.length > 0 && (
+        <Input
+          placeholder="Search rule sets"
+          aria-label="Search rule sets"
+          className="h-9 text-xs"
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+        />
+      )}
+
+      {!isEditing && policies.length > 0 && (
+        <div className="flex items-center gap-1.5 rounded-md bg-muted/40 px-2.5 py-1.5">
+          <Info className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
+          <span className="text-[11px] leading-relaxed text-muted-foreground">
+            Access is granted when <strong className="font-semibold text-foreground">any</strong> rule
+            set matches.
+          </span>
         </div>
       )}
 
@@ -100,10 +120,12 @@ export const SchemaAccessControlAccordion = ({
           {filteredPolicies.map((policy, index) => {
             const isOpen = openId === index;
             const rulesCount = policy.ruleGroup.rules.length;
-            const logicalLabel =
-              policy.ruleGroup.logicalOperator === LOGICAL_OPERATOR.AND
-                ? "every rule must match"
-                : "any rule may match";
+            const matchesAll = policy.ruleGroup.logicalOperator === LOGICAL_OPERATOR.AND;
+            const logicalLabel = matchesAll
+              ? "every rule must match"
+              : "any rule may match";
+            const rulesLabel = rulesCount === 1 ? "1 rule" : `${rulesCount} rules`;
+            const matchModeLabel = matchesAll ? "match all" : "match any";
 
             return (
               <li
@@ -128,7 +150,7 @@ export const SchemaAccessControlAccordion = ({
                       {policy.policyName}
                     </span>
                     <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {rulesCount === 1 ? "1 rule" : `${rulesCount} rules`}
+                      {rulesLabel} · {matchModeLabel}
                     </span>
                   </button>
 
@@ -190,7 +212,7 @@ export const SchemaAccessControlAccordion = ({
         <p className="mt-6 text-center text-sm text-muted-foreground">
           {searchText
             ? `No rule sets match "${searchText}"`
-            : "No rule sets added yet. Click + Add to create one."}
+            : "No rule sets added yet. Click Add rule set to create one."}
         </p>
       )}
 

@@ -8,28 +8,22 @@ import {
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { ChevronDown, Copy, MoreVertical, Trash } from "lucide-react";
-import { SchemaPreviewDrawer } from "../schema-preview-drawer";
 
 interface SchemaStructureHeaderProps {
   isEditMode: boolean;
   hasSelectedRows: boolean;
   selectedFieldEntriesLength: number;
   fieldsLength: number;
-  schemaName: string;
   schemaType?: number;
-  templateFields: Array<{ name: string; type?: string; isArray: boolean }>;
-  previewData: Record<string, unknown>;
   activeTab: "attribute" | "data" | "indexes";
   onTabChange: (tab: "attribute" | "data" | "indexes") => void;
   onEditToggle: () => void;
   onBulkDuplicate: () => void;
   onBulkDelete: () => void;
   onSelectAll: (checked: boolean) => void;
-  isPreviewDrawerOpen: boolean;
+  /** Mobile's "…" menu still has its own Preview entry; desktop's trigger
+   * moved to sit beside the Schema Access button in SchemaBasicInfo. */
   setIsPreviewDrawerOpen: (open: boolean) => void;
-  rawIntrospection?: unknown;
-  isGatewayIntrospectionPending?: boolean;
-  isGatewayIntrospectionFetching?: boolean;
 }
 
 export function SchemaStructureHeader({
@@ -37,10 +31,7 @@ export function SchemaStructureHeader({
   hasSelectedRows,
   selectedFieldEntriesLength,
   fieldsLength,
-  schemaName,
   schemaType,
-  templateFields,
-  previewData,
   activeTab,
   onTabChange,
   onEditToggle,
@@ -48,13 +39,7 @@ export function SchemaStructureHeader({
   onBulkDelete,
   onSelectAll,
   setIsPreviewDrawerOpen,
-  rawIntrospection,
-  isGatewayIntrospectionPending,
-  isGatewayIntrospectionFetching,
 }: SchemaStructureHeaderProps) {
-  const fieldLength = Object.keys(previewData).length;
-  const isShowPreviewButton = fieldLength > 0;
-
   const SchemaTabs = (
     <Tabs
       value={activeTab}
@@ -132,28 +117,6 @@ export function SchemaStructureHeader({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
-          {!isEditMode && (
-            <>
-              {isShowPreviewButton && (
-                <SchemaPreviewDrawer
-                  schemaName={schemaName}
-                  schemaType={schemaType}
-                  fields={templateFields}
-                  previewData={previewData}
-                  title={`${schemaName} preview`}
-                  rawIntrospection={rawIntrospection}
-                  isGatewayIntrospectionPending={isGatewayIntrospectionPending}
-                  isGatewayIntrospectionFetching={isGatewayIntrospectionFetching}
-                  trigger={
-                    <Button type="button" variant="outline" size="sm">
-                      Preview
-                    </Button>
-                  }
-                />
-              )}
-            </>
-          )}
-
           {(isEditMode || activeTab === "attribute") && (
             <Button type="button" variant="outline" size="sm" onClick={onEditToggle}>
               {isEditMode ? "Cancel" : "Edit"}

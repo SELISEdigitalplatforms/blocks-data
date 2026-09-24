@@ -18,7 +18,7 @@ export interface ITransferOwnershipPayload {
 export interface GetPeopleResponse {
   peoples: PeopleGroupedByEnvironments[];
   totalCount: number;
-  errors: null | unknown;
+  errors: unknown;
   isSuccess: boolean;
   isOwner: boolean;
 }

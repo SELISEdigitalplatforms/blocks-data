@@ -4,7 +4,8 @@ import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, PanelLeftOpen } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { DataGatewayPageBar } from "./page-bar";
 import { AccessInspector, type AccessInspectorTarget } from "./access-inspector";
@@ -27,7 +28,10 @@ import {
 } from "../utils/schema-access.utils";
 import { normalizeSchemaFields } from "../utils/schema-normalization";
 import { AddEditSchemaModal } from "./add-edit-schema";
+import { CreateFirstSchemaPanel } from "./create-first-schema-panel";
+import ImportSchemaModal from "./import-schema-modal";
 import { SchemaBasicInfo } from "./schema-basic-info";
+import { SchemaRail } from "./schema-rail";
 import SchemasSidebar, {
   type DataGatewayListQueryUpdate,
 } from "./schema-side-bar";
@@ -62,11 +66,24 @@ export const SchemaDetailsPage = () => {
   const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] =
     useState(false);
   const [addEditSchemaInstance, setAddEditSchemaInstance] = useState(0);
+  // Set only when opened from the empty-canvas's Entity/Child cards, so the
+  // modal lands on that kind instead of always defaulting to Entity.
+  const [addSchemaKind, setAddSchemaKind] = useState<"Entity" | "DTO" | undefined>(
+    undefined,
+  );
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importModalInstance, setImportModalInstance] = useState(0);
+  // Lifted out of SchemaStructureTable so its trigger can sit beside the
+  // Schema Access button in SchemaBasicInfo — a sibling component — instead
+  // of in the field table's own header.
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   /**
-   * Access, docked beside the table. It widens for the rule editor, and the
-   * explorer folds to a rail at that point so the table keeps its width
-   * instead of paying for the inspector twice.
+   * Access, docked beside the table. It widens for the rule editor, since
+   * that's the only part that needs the width; the explorer stays folded to
+   * a rail for as long as any inspector — this or Validation's — is open, so
+   * the table isn't fighting a sidebar it can't see past the inspector for
+   * anyway.
    */
   const [inspector, setInspector] = useState<AccessInspectorTarget | null>(null);
   const [isInspectorExpanded, setIsInspectorExpanded] = useState(false);
@@ -75,6 +92,8 @@ export const SchemaDetailsPage = () => {
   // either one closes the other rather than trying to fit both side by side.
   const [validationInspector, setValidationInspector] =
     useState<ValidationInspectorTarget | null>(null);
+
+  const isRightPanelOpen = Boolean(inspector) || Boolean(validationInspector);
 
   const closeInspector = useCallback(() => {
     setInspector(null);
@@ -94,6 +113,25 @@ export const SchemaDetailsPage = () => {
     },
     [],
   );
+
+  const closeRightPanel = useCallback(() => {
+    setInspector(null);
+    setIsInspectorExpanded(false);
+    setValidationInspector(null);
+  }, []);
+
+  // Shared by the sidebar's "+ Add" and the empty-canvas's own "New schema" /
+  // Entity / Child triggers, so there's one place that remounts the form.
+  const openAddSchemaModal = useCallback((kind?: "Entity" | "DTO") => {
+    setAddSchemaKind(kind);
+    setAddEditSchemaInstance((n) => n + 1);
+    setIsAddEditSchemaModalOpen(true);
+  }, []);
+
+  const openImportModal = useCallback(() => {
+    setImportModalInstance((n) => n + 1);
+    setIsImportModalOpen(true);
+  }, []);
 
   // `type` is purely the Entity/Child list filter now. It used to double as the
   // view switch — absent meant the security landing — which is why a bare
@@ -238,39 +276,56 @@ export const SchemaDetailsPage = () => {
 
         {/* ── Schema two-panel view ── */}
         <div className="flex flex-col gap-4 pt-0 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch">
-          {/* Explorer */}
-          {isInspectorExpanded ? (
-            <button
-              type="button"
-              onClick={() => setIsInspectorExpanded(false)}
-              aria-label="Show the schema list"
-              className="hidden w-[52px] shrink-0 flex-col items-center gap-2 rounded-sm border border-border/40 bg-card py-3 text-muted-foreground transition-colors hover:text-foreground lg:flex"
-            >
-              <PanelLeftOpen className="h-4 w-4" aria-hidden />
-              <span className="[writing-mode:vertical-rl] text-[11px] tracking-wide">
-                Schemas
-              </span>
-            </button>
-          ) : (
-          <div
-            className={`shrink-0 ${selectedSchemaId ? "hidden lg:block" : "block"}`}
-          >
-            <SchemasSidebar
-              onAddSchema={() => {
-                setAddEditSchemaInstance((n) => n + 1);
-                setIsAddEditSchemaModalOpen(true);
-              }}
-              selectedSchemaId={selectedSchemaId}
-              filterType={queryParams.type ?? "all"}
-              page={queryParams.page}
-              pageSize={queryParams.pageSize}
-              onListQueryChange={handleListQueryChange}
-            />
-          </div>
-          )}
+          {/* Explorer — same recipe as the docked inspector below: `layout` +
+              width 0 → "auto" → 0, so the rail/sidebar swap grows and shrinks
+              the same way opening/closing Access or Validation does, rather
+              than just cross-fading in place. */}
+          <AnimatePresence mode="wait" initial={false}>
+            {isRightPanelOpen ? (
+              <motion.div
+                key="rail"
+                layout
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: "auto", opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="hidden shrink-0 overflow-hidden lg:block"
+              >
+                <SchemaRail
+                  filterType={queryParams.type ?? "all"}
+                  page={queryParams.page}
+                  pageSize={queryParams.pageSize}
+                  selectedSchemaId={selectedSchemaId}
+                  onSelectSchema={(id) => handleListQueryChange({ schemaId: id })}
+                  onExpand={closeRightPanel}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="sidebar"
+                layout
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: "auto", opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className={`shrink-0 overflow-hidden ${selectedSchemaId ? "hidden lg:block" : "block"}`}
+              >
+                <SchemasSidebar
+                  onAddSchema={() => openAddSchemaModal()}
+                  selectedSchemaId={selectedSchemaId}
+                  filterType={queryParams.type ?? "all"}
+                  page={queryParams.page}
+                  pageSize={queryParams.pageSize}
+                  onListQueryChange={handleListQueryChange}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Main content */}
-          <div
+          <motion.div
+            layout
+            transition={{ duration: 0.2, ease: "easeInOut" }}
             className={`flex w-full min-w-0 flex-col gap-4 lg:h-full lg:flex-1 lg:overflow-hidden ${
               !selectedSchemaId ? "hidden lg:flex" : "block lg:flex"
             }`}
@@ -291,89 +346,125 @@ export const SchemaDetailsPage = () => {
 
             {/* Mobile: show only when schema selected */}
             <div
-              className={`${selectedSchemaId ? "flex" : "hidden"} flex-col gap-4 lg:hidden`}
+              className={`${selectedSchemaId ? "flex" : "hidden"} flex-col lg:hidden`}
             >
               <SchemaBasicInfo
                 {...schemaDetails}
                 onDeleteSuccess={onDeleteSchema}
                 isLoading={isSchemaDetailsLoading}
+                onOpenPreview={() => setIsPreviewOpen(true)}
               />
               <SchemaStructureTable
                 {...schemaDetails}
                 isLoading={isSchemaDetailsLoading}
                 onOpenStandaloneSchemaEditor={openSchemaInEditor}
+                isPreviewOpen={isPreviewOpen}
+                onPreviewOpenChange={setIsPreviewOpen}
               />
             </div>
 
             {/* Desktop */}
-            <div className="hidden min-h-0 flex-1 flex-col gap-4 lg:flex">
-              <SchemaBasicInfo
-                {...schemaDetails}
-                onDeleteSuccess={onDeleteSchema}
-                isLoading={isSchemaDetailsLoading}
-                onOpenSchemaAccess={(tab) =>
-                  openAccessInspector({
-                    subject: schemaDetails.schemaName,
-                    context: "Schema access",
-                    schemaName: schemaDetails.schemaName,
-                    schemaId: schemaDetails.id,
-                    fields: schemaDetails.fields,
-                    level: "row",
-                    readAccessLevel: schemaDetails.readAccessLevel,
-                    writeAccessLevel: schemaDetails.writeAccessLevel,
-                    editAccessLevel: schemaDetails.editAccessLevel,
-                    deleteAccessLevel: schemaDetails.deleteAccessLevel,
-                    selectedTab: tab,
-                  })
-                }
-              />
-              <SchemaStructureTable
-                {...schemaDetails}
-                isLoading={isSchemaDetailsLoading}
-                onOpenStandaloneSchemaEditor={openSchemaInEditor}
-                onOpenFieldAccess={({ fieldNames, subject, context }) =>
-                  openAccessInspector({
-                    subject,
-                    context,
-                    schemaName: schemaDetails.schemaName,
-                    schemaId: schemaDetails.id,
-                    fields: schemaDetails.fields,
-                    level: "column",
-                    fieldNames,
-                  })
-                }
-                onOpenFieldValidation={({ fieldName, subject, context, validationRule }) =>
-                  openValidationInspector({
-                    subject,
-                    context,
-                    fieldName,
-                    schemaId: schemaDetails.id,
-                    projectKey,
-                    initialValidationData: validationRule,
-                  })
-                }
-              />
+            <div className="hidden min-h-0 flex-1 flex-col lg:flex">
+              {!selectedSchemaId ? (
+                <CreateFirstSchemaPanel
+                  onCreateSchema={openAddSchemaModal}
+                  onImportSchema={openImportModal}
+                />
+              ) : (
+                <>
+                  <SchemaBasicInfo
+                    {...schemaDetails}
+                    onDeleteSuccess={onDeleteSchema}
+                    isLoading={isSchemaDetailsLoading}
+                    onOpenPreview={() => setIsPreviewOpen(true)}
+                    onOpenSchemaAccess={(tab) =>
+                      openAccessInspector({
+                        subject: schemaDetails.schemaName,
+                        context: "Schema access",
+                        schemaName: schemaDetails.schemaName,
+                        schemaId: schemaDetails.id,
+                        fields: schemaDetails.fields,
+                        level: "row",
+                        readAccessLevel: schemaDetails.readAccessLevel,
+                        writeAccessLevel: schemaDetails.writeAccessLevel,
+                        editAccessLevel: schemaDetails.editAccessLevel,
+                        deleteAccessLevel: schemaDetails.deleteAccessLevel,
+                        selectedTab: tab,
+                      })
+                    }
+                  />
+                  <SchemaStructureTable
+                    {...schemaDetails}
+                    isLoading={isSchemaDetailsLoading}
+                    onOpenStandaloneSchemaEditor={openSchemaInEditor}
+                    isPreviewOpen={isPreviewOpen}
+                    onPreviewOpenChange={setIsPreviewOpen}
+                    onOpenFieldAccess={({ fieldNames, subject, context }) =>
+                      openAccessInspector({
+                        subject,
+                        context,
+                        schemaName: schemaDetails.schemaName,
+                        schemaId: schemaDetails.id,
+                        fields: schemaDetails.fields,
+                        level: "column",
+                        fieldNames,
+                      })
+                    }
+                    onOpenFieldValidation={({ fieldName, subject, context, validationRule }) =>
+                      openValidationInspector({
+                        subject,
+                        context,
+                        fieldName,
+                        schemaId: schemaDetails.id,
+                        projectKey,
+                        initialValidationData: validationRule,
+                      })
+                    }
+                  />
+                </>
+              )}
             </div>
-          </div>
+          </motion.div>
 
-          {inspector && (
-            <div className="hidden min-h-0 lg:flex">
-              <AccessInspector
-                target={inspector}
-                expanded={isInspectorExpanded}
-                onRuleEditorOpenChange={setIsInspectorExpanded}
-                onClose={closeInspector}
-              />
-            </div>
-          )}
-          {validationInspector && (
-            <div className="hidden min-h-0 lg:flex">
-              <ValidationInspector
-                target={validationInspector}
-                onClose={() => setValidationInspector(null)}
-              />
-            </div>
-          )}
+          {/* Docked inspector — one slot, since Access and Validation are
+              mutually exclusive. `initial={{ width: 0 }}` + `layout` grows it
+              in on mount, tracks Access's own 328↔480 resize while it's
+              open, and shrinks it back to 0 on close. */}
+          <AnimatePresence mode="wait" initial={false}>
+            {inspector ? (
+              <motion.div
+                key="access-inspector"
+                layout
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: "auto", opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="hidden min-h-0 overflow-hidden lg:flex"
+              >
+                <AccessInspector
+                  target={inspector}
+                  expanded={isInspectorExpanded}
+                  onRuleEditorOpenChange={setIsInspectorExpanded}
+                  onClose={closeInspector}
+                />
+              </motion.div>
+            ) : validationInspector ? (
+              <motion.div
+                key="validation-inspector"
+                layout
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: "auto", opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="hidden min-h-0 overflow-hidden lg:flex"
+              >
+                <ValidationInspector
+                  target={validationInspector}
+                  onClose={() => setValidationInspector(null)}
+                />
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -385,8 +476,19 @@ export const SchemaDetailsPage = () => {
           <AddEditSchemaModal
             key={addEditSchemaInstance}
             mode="add"
+            defaultValues={addSchemaKind ? { schemaName: "", schemaType: addSchemaKind } : undefined}
             onSubmit={onSchemaCreate}
             onCancel={() => setIsAddEditSchemaModalOpen(false)}
+          />
+        )}
+      </Dialog>
+
+      <Dialog open={isImportModalOpen} onOpenChange={setIsImportModalOpen}>
+        {isImportModalOpen && (
+          <ImportSchemaModal
+            key={importModalInstance}
+            projectKey={projectKey}
+            onClose={() => setIsImportModalOpen(false)}
           />
         )}
       </Dialog>

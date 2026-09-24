@@ -18,8 +18,13 @@ export interface AccessInspectorTarget
  *
  * It was an 85vw drawer: opening it hid the field list you were reasoning
  * about, and nothing on screen reminded you which field you had clicked. The
- * panel is 328px for reading and 480px once the rule editor opens, which is the
- * only part that needs the width.
+ * panel is 460px for reading and 480px once the rule editor opens, which is the
+ * only part that needs the extra width.
+ *
+ * The 460↔480 resize has no CSS transition of its own — the host wraps this
+ * in a `motion.div layout`, which picks up the width change from this
+ * element's own class swap and animates it, so there's one animation engine
+ * doing the smoothing rather than two fighting over the same property.
  */
 export function AccessInspector({
   target,
@@ -38,8 +43,8 @@ export function AccessInspector({
     <aside
       aria-label={`Access for ${subject}`}
       className={cn(
-        "flex min-h-0 shrink-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card transition-[width] duration-200",
-        expanded ? "lg:w-[480px]" : "lg:w-[328px]",
+        "flex min-h-0 shrink-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card",
+        expanded ? "lg:w-[480px]" : "lg:w-[460px]",
       )}
     >
       <div className="flex shrink-0 items-start gap-2 border-b border-border/40 px-3 py-2.5">

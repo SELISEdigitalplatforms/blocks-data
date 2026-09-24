@@ -60,12 +60,24 @@ describe("SchemasSidebar", () => {
     renderSidebar();
     expect(screen.getByText("Schemas")).toBeInTheDocument();
     expect(screen.queryByText("No schemas found")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No schemas yet/)).not.toBeInTheDocument();
   });
 
-  it("renders the empty message when the list is empty", () => {
+  // A genuinely empty project (no filter, no search) gets the design's own
+  // first-run message, not the generic "no results" one — that one's for
+  // when a search or filter comes up empty against schemas that do exist.
+  it("renders the design's empty-project message when nothing is filtered or searched", () => {
     useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
     renderSidebar();
+    expect(screen.getByText(/No schemas yet/)).toBeInTheDocument();
+    expect(screen.queryByText("No schemas found")).not.toBeInTheDocument();
+  });
+
+  it("renders the generic empty message when a type filter has no matches", () => {
+    useSchemaList.mockReturnValue({ data: { data: { items: [], totalCount: 0 } } });
+    renderSidebar({ filterType: "1" });
     expect(screen.getByText("No schemas found")).toBeInTheDocument();
+    expect(screen.queryByText(/No schemas yet/)).not.toBeInTheDocument();
   });
 
   it("lists schemas and selects one on click", async () => {
@@ -190,7 +202,7 @@ describe("SchemasSidebar", () => {
       });
     });
     // No throw = handled path executed.
-    expect(screen.getByText("No schemas found")).toBeInTheDocument();
+    expect(screen.getByText(/No schemas yet/)).toBeInTheDocument();
   });
 
   it("ignores an import notification with no payload", () => {
@@ -200,7 +212,7 @@ describe("SchemasSidebar", () => {
     act(() => {
       notifyRef.current!({ message: {} });
     });
-    expect(screen.getByText("No schemas found")).toBeInTheDocument();
+    expect(screen.getByText(/No schemas yet/)).toBeInTheDocument();
   });
 
   it("logs an error when the import notification payload is malformed", () => {

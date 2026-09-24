@@ -351,17 +351,17 @@ export function SchemaFieldValidationPanel({
                 <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
                   Generate regex from prompt
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <Input
                     placeholder="e.g. Generate a regex pattern to validate email addresses"
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     disabled={isGenerating}
-                    className="h-9 flex-1 border-border/40 bg-muted/10 text-sm focus-visible:border-primary/40 focus-visible:ring-primary/20"
+                    className="h-9 w-full border-border/40 bg-muted/10 text-sm focus-visible:border-primary/40 focus-visible:ring-primary/20"
                   />
                   <Button
                     className={cn(
-                      "h-9 gap-1.5 px-4 text-xs shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)] transition-all bg-primary text-primary-foreground hover:bg-primary/90",
+                      "h-9 w-full gap-1.5 text-xs shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)] transition-all bg-primary text-primary-foreground hover:bg-primary/90",
                       isGenerating &&
                         "animate-pulse shadow-[0_0_20px_-4px_rgba(99,102,241,0.6)]",
                     )}

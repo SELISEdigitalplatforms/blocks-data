@@ -18,6 +18,12 @@ export interface ValidationInspectorTarget extends SchemaFieldValidationPanelPro
  * Validations, docked beside the table instead of covering it — the same
  * treatment `AccessInspector` gives access, so opening either one from the
  * Rules column doesn't hide the field list you were reasoning about.
+ *
+ * Fixed at 460px: `AccessInspector`'s own idle width, so the docked column
+ * doesn't visibly resize depending on which of the two you opened. Access
+ * still widens to 480px for its rule editor — Validation has no equivalent
+ * sub-view that needs the extra room, so there's nothing on this side to
+ * match that exception.
  */
 export function ValidationInspector({
   target,
@@ -31,7 +37,7 @@ export function ValidationInspector({
   return (
     <aside
       aria-label={`Validations for ${subject}`}
-      className="flex min-h-0 w-[480px] shrink-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card"
+      className="flex min-h-0 w-[460px] shrink-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card"
     >
       <div className="flex shrink-0 items-start gap-2 border-b border-border/40 px-3 py-2.5">
         <Check className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />

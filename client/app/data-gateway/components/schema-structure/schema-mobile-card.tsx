@@ -83,7 +83,6 @@ interface SchemaMobileCardProps {
   isExpanded?: boolean;
   onToggleExpand?: (index: number) => void;
   childSchema?: ISchemaDetails | null;
-  totalFields: number;
   /** Show Access column (false only when Child schema viewed directly in Child tab) */
   showAccessColumn?: boolean;
   /** Show Access | Validation column (false in Child tab = 3-column layout) */
@@ -125,7 +124,6 @@ export function SchemaMobileCard({
   onToggleExpand,
   childSchema,
   schemaType,
-  totalFields,
   showAccessColumn = true,
   showAccessValidationColumn = true,
   originalFieldFromSchema,
@@ -151,6 +149,15 @@ export function SchemaMobileCard({
     : undefined;
 
   const drawerTitle = fieldName ? `Access for ${fieldName}` : `Access for ${schemaName}`;
+
+  const hasNonInheritedPolicy = [
+    fieldSource?.readAccessLevel,
+    fieldSource?.writeAccessLevel,
+    fieldSource?.editAccessLevel,
+  ].some(
+    (level) =>
+      (ACCESS_LEVEL_TO_TYPE[level ?? 0] ?? ACCESS_TYPES.INHERITED) !== ACCESS_TYPES.INHERITED,
+  );
   const currentType = watch(`properties.${index}.type`);
   const isPrimitiveType = typeOptions.includes(currentType);
   const resolvedChildSchema = childSchema ?? findChildSchemaByType(schemaItems, currentType);
@@ -171,14 +178,12 @@ export function SchemaMobileCard({
     isUniqueData: watch(`properties.${index}.isUniqueData`),
   });
   const isFirstRow = isEntityType && index === 0;
-  const isFirstCustomField = isEntityType && index === readonlyFieldsCount;
-  const customFieldsCount = isEntityType ? totalFields - readonlyFieldsCount : 0;
 
   return (
     <>
       {/* Readonly Properties Section Header - Always show at index 0 for entity types */}
       {isFirstRow && (
-        <div className="rounded-lg bg-muted/30 px-4 py-3">
+        <div className="rounded-lg bg-primary/5 px-4 py-3">
           <button
             type="button"
             onClick={() => setIsReadonlyExpanded(!isReadonlyExpanded)}
@@ -195,15 +200,6 @@ export function SchemaMobileCard({
         </div>
       )}
 
-      {/* Custom Properties Section Header */}
-      {isFirstCustomField && (
-        <div className="rounded-lg bg-muted/30 px-4 py-3">
-          <div className="text-sm font-medium text-foreground">
-            {schemaName} Properties ({customFieldsCount})
-          </div>
-        </div>
-      )}
-
       {/* Only render the card if not collapsed OR if not readonly */}
       {(!isEntityType || !isReadOnly || isReadonlyExpanded) && (
         <div
@@ -213,6 +209,7 @@ export function SchemaMobileCard({
             isNestedAttributePanel
               ? "border-dashed border-border/80 bg-card shadow-sm dark:border-border"
               : "border-border bg-card shadow-sm",
+            isReadOnly && isEntityType && !isNestedAttributePanel && "bg-primary/5",
             isExpanded &&
               childSchema &&
               !isNestedAttributePanel &&
@@ -510,7 +507,12 @@ export function SchemaMobileCard({
                             <button
                               type="button"
                               onClick={() => onOpenAccessDrawer(fieldTarget, drawerTitle)}
-                              className="flex w-full min-w-0 items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                              className={cn(
+                                "flex w-full min-w-0 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                                hasNonInheritedPolicy
+                                  ? "border-access-custom-border bg-access-custom-bg text-access-custom-fg"
+                                  : "bg-background text-foreground hover:bg-accent",
+                              )}
                               aria-label={`View access for ${fieldTarget?.name || schemaName}`}
                             >
                               <Shield className="h-4 w-4 shrink-0" />
@@ -575,8 +577,10 @@ export function SchemaMobileCard({
                           onOpenValidationDrawer(fieldName, fieldForValidation?.validationRule)
                         }
                         className={cn(
-                          "flex w-full min-w-0 items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                          validationInfo.hasActive ? "text-green-500" : "text-foreground",
+                          "flex w-full min-w-0 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                          validationInfo.total > 0
+                            ? "border-primary/30 bg-primary/10 text-primary"
+                            : "bg-background text-foreground hover:bg-accent",
                         )}
                         aria-label={`Manage validations for ${fieldName}${validationInfo.total > 0 ? ` (${validationInfo.total})` : ""}`}
                       >

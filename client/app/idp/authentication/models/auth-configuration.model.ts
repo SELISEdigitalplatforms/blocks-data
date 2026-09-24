@@ -18,7 +18,7 @@ export interface IAuthConfigPayload {
 }
 
 export interface IGetAuthConfigResponse extends IAuthConfiguration {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
 }
 
@@ -35,7 +35,7 @@ export interface ISaveAuthConfigPayload {
 }
 
 export interface ISaveAuthConfigResponse {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
 }
 

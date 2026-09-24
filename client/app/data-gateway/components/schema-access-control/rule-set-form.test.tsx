@@ -133,6 +133,22 @@ describe("RuleSetForm", () => {
     ).toBeInTheDocument();
   });
 
+  // Each rule card was five unlabeled dropdowns identified only by placeholder
+  // text, with a delete button overlapping the content; it now has a numbered
+  // header (with the delete action moved into it) and a label above every field.
+  it("numbers each rule card and labels its fields, instead of relying on placeholders alone", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} />);
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.getByText("Rule 1")).toBeInTheDocument();
+    expect(screen.getByText("Source")).toBeInTheDocument();
+    expect(screen.getByText("Field")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.getByText("Rule 2")).toBeInTheDocument();
+  });
+
   it("fires onCancel from the Cancel button", async () => {
     const user = userEvent.setup();
     const onCancel = vi.fn();
@@ -487,6 +503,51 @@ describe("RuleSetForm create flow", () => {
     // With one rule present, the bottom Add Rule button appends another.
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
     expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(2);
+  });
+
+  // The group's AND/OR mode is chosen once, above the list — repeating it as
+  // a joiner between cards keeps it visible once there's more than one rule
+  // to scroll past.
+  // The relation control used to be two full-sentence radio labels; it's now
+  // a compact "Match all / Match any" chip toggle.
+  it("shows the multi-rule relation as a Match all / Match any chip toggle", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    const matchAll = screen.getByRole("radio", { name: "Match all" });
+    const matchAny = screen.getByRole("radio", { name: "Match any" });
+    expect(matchAll).toHaveAttribute("aria-checked", "true");
+    expect(matchAny).toHaveAttribute("aria-checked", "false");
+
+    await user.click(matchAny);
+    expect(matchAny).toHaveAttribute("aria-checked", "true");
+    expect(matchAll).toHaveAttribute("aria-checked", "false");
+  });
+
+  // Was a content-sized chip pair sitting to the left; now splits the full
+  // row 50/50 between the two options.
+  it("splits Match all / Match any evenly across the full row width", () => {
+    render(<RuleSetForm {...baseProps} />);
+
+    const group = screen.getByRole("radiogroup", { name: "Multi-rule relations" });
+    expect(group.className).toContain("w-full");
+    expect(screen.getByRole("radio", { name: "Match all" }).className).toContain("flex-1");
+    expect(screen.getByRole("radio", { name: "Match any" }).className).toContain("flex-1");
+  });
+
+  it("shows an AND/OR joiner only once a second rule exists, matching the selected mode", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.queryByText("AND")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.getByText("AND")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Match any" }));
+    expect(screen.getByText("OR")).toBeInTheDocument();
+    expect(screen.queryByText("AND")).not.toBeInTheDocument();
   });
 
   it("multi-selects auth fields for an IN comparison against Auth", async () => {

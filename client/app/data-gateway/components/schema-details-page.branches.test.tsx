@@ -166,6 +166,12 @@ vi.mock("./access-inspector", () => ({
     <div data-testid="access-inspector">{target.subject}</div>
   ),
 }));
+// Reaches the storage service's HttpClient construction at import time, same
+// reason access-inspector is mocked above; the page's job here is just to
+// mount it, not exercise the upload flow.
+vi.mock("./import-schema-modal", () => ({
+  default: () => <div data-testid="import-schema-modal" />,
+}));
 
 import { SchemaDetailsPage } from "./schema-details-page";
 

@@ -106,18 +106,28 @@ export function AccessTierBadge({
   );
 }
 
-const TIER_CONTAINER_CLASS: Record<AccessTier, string> = {
+/** Tier's border + background, e.g. for a selected tile or pill container. */
+export const TIER_CONTAINER_CLASS: Record<AccessTier, string> = {
   public: "border-access-public-border bg-access-public-bg",
   user: "border-access-user-border bg-access-user-bg",
   custom: "border-access-custom-border bg-access-custom-bg",
   inherited: "border-access-inherited-border bg-access-inherited-bg",
 };
 
-const TIER_VALUE_CLASS: Record<AccessTier, string> = {
+/** Tier's foreground text colour. */
+export const TIER_VALUE_CLASS: Record<AccessTier, string> = {
   public: "text-access-public-fg",
   user: "text-access-user-fg",
   custom: "text-access-custom-fg",
   inherited: "text-access-inherited-fg",
+};
+
+/** Tier's dot colour, as a background-color utility (for a radio bullet). */
+export const TIER_DOT_CLASS: Record<AccessTier, string> = {
+  public: "bg-access-public-dot",
+  user: "bg-access-user-dot",
+  custom: "bg-access-custom-dot",
+  inherited: "bg-access-inherited-dot",
 };
 
 /**
@@ -177,16 +187,10 @@ export function AccessTierDot({
   title,
 }: Pick<AccessTierBadgeProps, "level" | "tier" | "className" | "title">) {
   const resolved = level === undefined || level === null ? (tier ?? "inherited") : tierFromLevel(level);
-  const fill: Record<AccessTier, string> = {
-    public: "bg-access-public-dot",
-    user: "bg-access-user-dot",
-    custom: "bg-access-custom-dot",
-    inherited: "bg-access-inherited-dot",
-  };
 
   return (
     <span
-      className={cn("inline-block h-1.5 w-1.5 shrink-0 rounded-full", fill[resolved], className)}
+      className={cn("inline-block h-1.5 w-1.5 shrink-0 rounded-full", TIER_DOT_CLASS[resolved], className)}
       title={title ?? ACCESS_TIER_LABELS[resolved]}
     />
   );

@@ -8,6 +8,7 @@ import type { IField } from "@/data-gateway/models/data-service";
 import { resolveFieldAccessLevel } from "@/data-gateway/utils/schema-access-control.utils";
 import { useState } from "react";
 
+import { AccessTierDot } from "../primitives";
 import { SchemaAccessControlView } from "../schema-access-control/schema-access-control-view";
 
 export interface AccessInspectorPanelProps {
@@ -68,6 +69,11 @@ export function AccessInspectorPanel({
       ? PERMISSION_ACTIONS.filter((a) => a.value !== "delete")
       : PERMISSION_ACTIONS;
 
+  const accessLevelForTab = (tabValue: string) =>
+    level === "column"
+      ? resolveFieldAccessLevel(fields, fieldNames, TAB_TO_ACCESS_LEVEL_KEY[tabValue])
+      : schemaAccessLevels[TAB_TO_ACCESS_LEVEL_KEY[tabValue]];
+
   return (
     <Tabs
       value={activeTab}
@@ -75,14 +81,17 @@ export function AccessInspectorPanel({
       className="flex min-h-0 flex-1 flex-col"
     >
       <div className="shrink-0 border-b border-border/40 px-3">
-        <TabsList className="h-9 gap-0.5 bg-transparent p-0">
+        {/* Full width, split evenly — four verbs, not a packed row with dead
+            space trailing off to the right. */}
+        <TabsList className="flex h-9 w-full gap-0.5 bg-transparent p-0">
           {visibleActions.map((permission) => (
             <TabsTrigger
               key={permission.id}
               value={permission.value}
-              className="h-9 rounded-none border-b-2 border-transparent px-2.5 text-xs text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+              className="flex h-9 flex-1 flex-col items-center gap-1 rounded-none border-b-2 border-transparent px-2.5 pt-1.5 text-xs text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
             >
-              {permission.label}
+              <span>{permission.label}</span>
+              <AccessTierDot level={accessLevelForTab(permission.value)} />
             </TabsTrigger>
           ))}
         </TabsList>

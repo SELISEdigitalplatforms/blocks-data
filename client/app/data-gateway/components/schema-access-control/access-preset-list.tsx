@@ -21,6 +21,9 @@ export function AccessPresetList({
 }) {
   return (
     <div className="space-y-2">
+      <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">
+        Sample rule set
+      </p>
       {presets.map((preset) => (
         <button
           key={preset.id}

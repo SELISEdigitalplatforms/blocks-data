@@ -23,7 +23,7 @@ export class NotificationService {
     return http.get(url, undefined, { absoluteUrl: true });
   };
 
-  markAsRead = (notificationId: string): Promise<{ errors: null | unknown; isSuccess: boolean }> => {
+  markAsRead = (notificationId: string): Promise<{ errors: unknown; isSuccess: boolean }> => {
     return http.post(
       `${API_BASES.LOGIC}${NOTIFICATION_ENDPOINTS.MARK_AS_READ}`,
       { id: notificationId },
@@ -32,7 +32,7 @@ export class NotificationService {
     );
   };
 
-  markAllNotificationsAsRead = (): Promise<{ errors: null | unknown; isSuccess: boolean }> => {
+  markAllNotificationsAsRead = (): Promise<{ errors: unknown; isSuccess: boolean }> => {
     return http.post(
       `${API_BASES.LOGIC}${NOTIFICATION_ENDPOINTS.MARK_ALL_AS_READ}`,
       {},
@@ -68,7 +68,7 @@ export class NotificationService {
   ): Promise<{
     configurations: INotificationConfig[];
     totalCount: number;
-    errors: null | unknown;
+    errors: unknown;
     isSuccess: boolean;
   }> => {
     const url = `${NOTIFICATION_CONFIG_ENDPOINTS.GET_CONFIGS}?page=${page}&pageSize=${pageSize}&projectKey=${projectKey}`;
@@ -85,7 +85,7 @@ export class NotificationService {
     isUpdateRequest: boolean;
     itemId?: string;
   }): Promise<{
-    errors: null | unknown;
+    errors: unknown;
     isSuccess: boolean;
   }> => {
     return http.post(NOTIFICATION_CONFIG_ENDPOINTS.SAVE_CONFIG, payload);
@@ -95,7 +95,7 @@ export class NotificationService {
     itemId: string;
     projectKey: string;
   }): Promise<{
-    errors: null | unknown;
+    errors: unknown;
     isSuccess: boolean;
   }> => {
     const url = `${NOTIFICATION_CONFIG_ENDPOINTS.DELETE_CONFIG}?itemId=${payload.itemId}&projectKey=${payload.projectKey}`;

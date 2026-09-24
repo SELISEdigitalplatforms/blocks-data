@@ -34,9 +34,11 @@ describe("ValidationInspector", () => {
     expect(screen.getByText("Field on Order")).toBeInTheDocument();
   });
 
-  it("docks at a fixed width rather than covering the page", () => {
+  // Fixed at Access's own idle width so the docked column doesn't visibly
+  // resize depending on which of the two panels is open.
+  it("docks at Access's idle width (460px) rather than covering the page", () => {
     renderInspector();
-    expect(screen.getByRole("complementary").className).toContain("w-[480px]");
+    expect(screen.getByRole("complementary").className).toContain("w-[460px]");
   });
 
   it("closes on request", async () => {

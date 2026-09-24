@@ -60,10 +60,27 @@ describe("SchemaAccessControlAccordion", () => {
   });
 
   // A three-column table did not survive the 328px inspector; it is a list.
-  it("renders a row per policy with its rule count", () => {
+  it("renders a row per policy with its rule count and match mode", () => {
     render(<SchemaAccessControlAccordion policies={[policy]} />);
     expect(screen.getByText("Admins only")).toBeInTheDocument();
-    expect(screen.getByText("1 rule")).toBeInTheDocument();
+    expect(screen.getByText("1 rule · match all")).toBeInTheDocument();
+  });
+
+  // The count used to live only in the reader's head; now it's on the label,
+  // and the OR-across-sets rule is stated instead of assumed.
+  it("shows the rule-set count and the any-set-matches banner once there is at least one", () => {
+    render(<SchemaAccessControlAccordion policies={[policy]} />);
+    expect(screen.getByText("Rule sets")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Access is granted when/),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the search and banner when there are no rule sets yet", () => {
+    render(<SchemaAccessControlAccordion policies={[]} />);
+    expect(screen.queryByPlaceholderText("Search rule sets")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Access is granted when/)).not.toBeInTheDocument();
   });
 
   it("expands a policy row to show the readable rule text", async () => {

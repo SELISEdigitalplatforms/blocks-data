@@ -13,14 +13,18 @@ import {
 import { ACCESS_TIER_LABELS, AccessTierBadge, tierFromLevel } from "../primitives";
 
 /**
- * The API names predate CRUD, so the UI relabels rather than renames. C and U
- * are adjacent and both plausibly "write" — this mapping is the one that is
- * easy to wire backwards.
+ * View/Create/Edit/Delete, not Create/Read/Update/Delete — the verbs the
+ * schema page's own access pills already use (`schema-basic-info.tsx`'s
+ * `accessLevels`). This table used to spell out CRUD instead, so the same
+ * four permissions read as two different vocabularies depending which screen
+ * you were on. levelKey is the actual field name and unaffected by this —
+ * only the label and the order (view, create, edit, delete, matching the
+ * schema page's own left-to-right order) changed.
  */
 const CRUD_COLUMNS = [
+  { key: "V", verb: "View", levelKey: "readAccessLevel" },
   { key: "C", verb: "Create", levelKey: "writeAccessLevel" },
-  { key: "R", verb: "Read", levelKey: "readAccessLevel" },
-  { key: "U", verb: "Update", levelKey: "editAccessLevel" },
+  { key: "E", verb: "Edit", levelKey: "editAccessLevel" },
   { key: "D", verb: "Delete", levelKey: "deleteAccessLevel" },
 ] as const;
 
@@ -73,7 +77,7 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
     <div className="min-w-[760px]">
       <div className="sticky top-0 z-10 flex h-8 items-center gap-4 border-b border-border/30 bg-muted/20 px-5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
         <span className="min-w-0 flex-1">Schema</span>
-        <span className="w-[158px] shrink-0">Create · Read · Update · Delete</span>
+        <span className="w-[186px] shrink-0 whitespace-nowrap">View · Create · Edit · Delete</span>
         <span className="w-[150px] shrink-0">Exposure</span>
         <span className="w-[110px] shrink-0">PII fields</span>
         <span className="w-6 shrink-0" />
@@ -113,7 +117,7 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
                   </span>
                 </span>
 
-                <span className="flex w-[158px] shrink-0 gap-1.5">
+                <span className="flex w-[186px] shrink-0 gap-1.5">
                   {CRUD_COLUMNS.map(({ key, verb, levelKey }) => (
                     <CrudCell key={key} letter={key} verb={verb} level={schema[levelKey]} />
                   ))}

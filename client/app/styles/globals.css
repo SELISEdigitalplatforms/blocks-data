@@ -85,7 +85,7 @@
     --warning-500: 43 94% 56%;
     --warning-600: 41 80% 45%;
     --warning-700: 39 89% 35%;
-    --warning-800: 37 99% 26%;
+    --warning-800: 32 88% 42%;
     --warning-900: 35 100% 18%;
     --base-warning: 43 94% 56%;
     --icon-warning: 43 94% 56%;
@@ -99,18 +99,18 @@
     --loader-color: #262626;
 
     /* Access tiers */
-    --access-public-bg: 8.8 100.0% 92.0%;
-    --access-public-fg: 354.1 90.5% 28.8%;
-    --access-public-border: 8.7 75.3% 85.7%;
-    --access-public-dot: 2.6 72.4% 44.1%;
-    --access-user-bg: 50.6 100.0% 90.0%;
-    --access-user-fg: 37.3 100.0% 25.9%;
-    --access-user-border: 45.3 75.4% 77.6%;
-    --access-user-dot: 41.7 90.4% 44.7%;
-    --access-custom-bg: 171.4 56.0% 90.2%;
-    --access-custom-fg: 175.8 100.0% 19.4%;
-    --access-custom-border: 171.9 52.2% 77.8%;
-    --access-custom-dot: 174.5 79.8% 34.9%;
+    --access-public-bg: 0 86% 96%;
+    --access-public-fg: 0 72% 45%;
+    --access-public-border: 0 85% 89%;
+    --access-public-dot: 0 84% 55%;
+    --access-user-bg: 43 100% 94%;
+    --access-user-fg: 32 90% 40%;
+    --access-user-border: 43 90% 82%;
+    --access-user-dot: 38 92% 50%;
+    --access-custom-bg: 160 70% 94%;
+    --access-custom-fg: 162 72% 30%;
+    --access-custom-border: 160 60% 82%;
+    --access-custom-dot: 160 70% 40%;
     --access-inherited-bg: 217.5 30.8% 94.9%;
     --access-inherited-fg: 218.8 18.9% 35.3%;
     --access-inherited-border: 214.3 31.8% 91.4%;

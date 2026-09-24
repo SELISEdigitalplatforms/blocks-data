@@ -7,7 +7,7 @@ import { showErrorToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Database, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useSchemaList } from "../hooks/use-configuration";
@@ -166,6 +166,10 @@ export default function SchemasSidebar({
   };
 
   const totalCount = schemaListQuery?.data?.totalCount || 0;
+  // "No schemas yet" only applies to a genuinely empty project — a search or
+  // filter with no matches gets its own message instead, since "nothing here
+  // yet" would be misleading once schemas actually exist.
+  const isFilteredOrSearched = filterType !== "all" || debouncedSearch.trim().length > 0;
 
   return (
     <div className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card lg:w-[264px]">
@@ -273,9 +277,20 @@ export default function SchemasSidebar({
               </button>
             );
           })
-        ) : (
+        ) : isFilteredOrSearched ? (
           <div className="flex h-full items-center justify-center py-8 text-sm text-muted-foreground/60">
             No schemas found
+          </div>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-8 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[11px] border border-dashed border-border/60 text-muted-foreground/40">
+              <Database className="h-[19px] w-[19px]" aria-hidden />
+            </div>
+            <p className="text-[12.5px] leading-relaxed text-muted-foreground/70">
+              No schemas yet.
+              <br />
+              They will be listed here.
+            </p>
           </div>
         )}
       </div>

@@ -22,9 +22,12 @@ describe("SecurityAndPerformanceTable", () => {
     expect(screen.getByText("No schemas to display")).toBeInTheDocument();
   });
 
-  // The four levels are one cell each now, lettered C R U D. The tier lives in
-  // the colour and the tooltip, so the letters stay lined up.
-  it("renders a CRUD cell per verb, titled with its tier", () => {
+  // The four levels are one cell each now, lettered V C E D — View/Create/
+  // Edit/Delete, the same vocabulary and order the schema page's own access
+  // pills use, not the Create/Read/Update/Delete this table used to spell
+  // out. The tier lives in the colour and the tooltip, so the letters stay
+  // lined up.
+  it("renders a cell per verb, titled with its tier", () => {
     render(
       <SecurityAndPerformanceTable
         schemas={[makeSchema({ schemaName: "Orders", collectionName: "orders" })]}
@@ -36,15 +39,15 @@ describe("SecurityAndPerformanceTable", () => {
     expect(screen.getByText("orders")).toBeInTheDocument();
 
     // makeSchema: read 0, write 1, edit 2, delete 3.
-    expect(screen.getByTitle("Read — Inherited")).toHaveTextContent("R");
+    expect(screen.getByTitle("View — Inherited")).toHaveTextContent("V");
     expect(screen.getByTitle("Create — Logged-in users")).toHaveTextContent("C");
-    expect(screen.getByTitle("Update — Public")).toHaveTextContent("U");
+    expect(screen.getByTitle("Edit — Public")).toHaveTextContent("E");
     expect(screen.getByTitle("Delete — Custom")).toHaveTextContent("D");
   });
 
-  // Create maps to writeAccessLevel and Update to editAccessLevel; the two are
+  // Create maps to writeAccessLevel and Edit to editAccessLevel; the two are
   // adjacent and easy to wire backwards.
-  it("maps Create to write and Update to edit, not the other way round", () => {
+  it("maps Create to write and Edit to edit, not the other way round", () => {
     render(
       <SecurityAndPerformanceTable
         schemas={[
@@ -55,7 +58,7 @@ describe("SecurityAndPerformanceTable", () => {
     );
 
     expect(screen.getByTitle("Create — Public")).toBeInTheDocument();
-    expect(screen.getByTitle("Update — Inherited")).toBeInTheDocument();
+    expect(screen.getByTitle("Edit — Inherited")).toBeInTheDocument();
   });
 
   it("names the exposure and counts PII fields", () => {

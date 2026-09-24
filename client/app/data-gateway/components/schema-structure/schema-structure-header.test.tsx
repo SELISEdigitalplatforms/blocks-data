@@ -2,12 +2,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../schema-preview-drawer", () => ({
-  SchemaPreviewDrawer: ({ trigger }: { trigger: React.ReactNode }) => (
-    <div data-testid="preview-drawer">{trigger}</div>
-  ),
-}));
-
 import { SchemaStructureHeader } from "./schema-structure-header";
 
 type Props = Parameters<typeof SchemaStructureHeader>[0];
@@ -18,19 +12,13 @@ function baseProps(overrides: Partial<Props> = {}): Props {
     hasSelectedRows: false,
     selectedFieldEntriesLength: 0,
     fieldsLength: 0,
-    schemaId: "s1",
-    projectKey: "pk",
-    schemaName: "User",
     schemaType: 1,
-    templateFields: [],
-    previewData: {},
     activeTab: "attribute",
     onTabChange: vi.fn(),
     onEditToggle: vi.fn(),
     onBulkDuplicate: vi.fn(),
     onBulkDelete: vi.fn(),
     onSelectAll: vi.fn(),
-    isPreviewDrawerOpen: false,
     setIsPreviewDrawerOpen: vi.fn(),
     ...overrides,
   };
@@ -57,12 +45,26 @@ describe("SchemaStructureHeader", () => {
     expect(onEditToggle).toHaveBeenCalledTimes(1);
   });
 
-  it("shows the Preview trigger only when there is preview data", () => {
-    const { rerender } = render(<SchemaStructureHeader {...baseProps({ previewData: {} })} />);
+  // The desktop trigger moved to sit beside Schema Access, in SchemaBasicInfo
+  // — a sibling component — so it's no longer this component's job to render
+  // it. The mobile "…" menu still opens the same drawer from in here, via
+  // the lifted isPreviewDrawerOpen state its host now owns.
+  it("no longer renders its own desktop Preview trigger", () => {
+    render(<SchemaStructureHeader {...baseProps()} />);
     expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+  });
 
-    rerender(<SchemaStructureHeader {...baseProps({ previewData: { id: 1 } })} />);
-    expect(screen.getByRole("button", { name: "Preview" })).toBeInTheDocument();
+  it("opens the preview drawer from the mobile '…' menu", async () => {
+    const user = userEvent.setup();
+    const setIsPreviewDrawerOpen = vi.fn();
+    render(<SchemaStructureHeader {...baseProps({ setIsPreviewDrawerOpen })} />);
+
+    // The kebab trigger is icon-only with no accessible name; it's the only
+    // dropdown trigger on screen outside edit mode.
+    const kebab = document.querySelector("svg.lucide-ellipsis-vertical")!.closest("button")!;
+    await user.click(kebab);
+    await user.click(screen.getByRole("menuitem", { name: "Preview" }));
+    expect(setIsPreviewDrawerOpen).toHaveBeenCalledWith(true);
   });
 
   // Save was here, disabled unless the form was valid and dirty — which is

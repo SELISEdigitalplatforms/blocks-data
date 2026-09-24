@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -72,7 +72,6 @@ vi.mock("./schema-structure/schema-structure-header", () => ({
       data-dirty={String(p.isDirty)}
       data-fields={String(p.fieldsLength)}
     >
-      <span>{p.schemaName}</span>
       <button type="button" onClick={p.onEditToggle}>
         toggle-edit
       </button>
@@ -266,11 +265,10 @@ describe("SchemaStructureTable", () => {
     expect(screen.getByTestId("row-name-1")).toHaveTextContent("age");
   });
 
-  it("forwards the field count and schema name to the header", () => {
+  it("forwards the field count to the header", () => {
     renderTable();
     const header = screen.getByTestId("schema-header");
     expect(header).toHaveAttribute("data-fields", "2");
-    expect(within(header).getByText("User")).toBeInTheDocument();
   });
 
   it("enters edit mode from the header and shows the bottom add-property button", async () => {
@@ -501,6 +499,32 @@ describe("SchemaStructureTable", () => {
     expect(
       screen.queryByRole("button", { name: "+ Add property" }),
     ).not.toBeInTheDocument();
+  });
+
+  // The top-level table sits directly under SchemaBasicInfo's own card, which
+  // dropped its bottom border for the same reason — the two should read as
+  // one continuous panel, not two stacked cards with a gap between them. A
+  // nested (embedded) child table has no card above it, so it keeps its own
+  // full border.
+  it("drops its own top border at the top level, but not when embedded", () => {
+    const { container } = renderTable();
+    expect(container.querySelector(".border-t-0")).toBeInTheDocument();
+    expect(container.querySelector(".rounded-t-none")).toBeInTheDocument();
+  });
+
+  it("keeps its own top border when embedded in a parent row", () => {
+    const { container } = renderTable({ compactView: true });
+    expect(container.querySelector(".border-t-0")).not.toBeInTheDocument();
+    expect(container.querySelector(".rounded-t-none")).not.toBeInTheDocument();
+  });
+
+  // Scrolling past the first several fields used to take the column header
+  // with it, so a mid-scroll screenshot never named what you were looking at.
+  it("keeps the column header pinned while the rows scroll under it", () => {
+    const { container } = renderTable();
+    const header = container.querySelector("thead");
+    expect(header?.className).toContain("sticky");
+    expect(header?.className).toContain("top-0");
   });
 
   it("expands a child-schema row to render nested content", async () => {

@@ -90,7 +90,6 @@ function Harness({ properties, index = 0, ...rest }: HarnessProps) {
             searchText=""
             onOpenAccessDrawer={vi.fn()}
             onOpenValidationDrawer={vi.fn()}
-            totalFields={properties.length}
             totalFieldsLength={properties.length}
             visibleColumnCount={8}
             {...rest}
@@ -284,6 +283,43 @@ describe("SchemaDesktopRow", () => {
     expect(onOpenValidationDrawer).toHaveBeenCalledWith("email", undefined);
   });
 
+  // The Rules column used to be bare icons with a "|" divider and a plain
+  // colour swap; it's a pair of bordered chips now, tier-tinted like the CRUD
+  // cells elsewhere — teal once a custom access policy exists, blue once
+  // there's at least one validation rule, grey outline otherwise.
+  it("tints the access and validation chips once something is actually set", () => {
+    render(
+      <Harness
+        properties={[
+          makeField({ readAccessLevel: 1, totalValidationRules: 2 }),
+        ]}
+      />,
+    );
+
+    const accessChip = screen.getByRole("button", { name: "View access for email" });
+    expect(accessChip.className).toContain("border-access-custom-border");
+    expect(accessChip.className).toContain("bg-access-custom-bg");
+
+    const validationChip = screen.getByRole("button", {
+      name: "Manage validations for email (2)",
+    });
+    expect(validationChip.className).toContain("border-primary/30");
+    expect(validationChip.className).toContain("bg-primary/10");
+    expect(validationChip).toHaveTextContent("2");
+  });
+
+  it("leaves the chips at a neutral outline when nothing is set", () => {
+    render(<Harness properties={[makeField()]} />);
+
+    const accessChip = screen.getByRole("button", { name: "View access for email" });
+    expect(accessChip.className).not.toContain("border-access-custom-border");
+    expect(accessChip.className).toContain("border-border/50");
+
+    const validationChip = screen.getByRole("button", { name: "Manage validations for email" });
+    expect(validationChip.className).not.toContain("bg-primary/10");
+    expect(validationChip.className).toContain("border-border/50");
+  });
+
   // Both controls were always disabled in edit mode, each with a tooltip
   // explaining why. The column goes away instead.
   it("drops the Rules column entirely in edit mode", () => {
@@ -320,7 +356,41 @@ describe("SchemaDesktopRow", () => {
     expect(screen.getByRole("button", { name: /Default Properties \(1\)/ })).toBeInTheDocument();
   });
 
-  it("renders the custom Properties section header for entity schemas", () => {
+  // Was the same bg-muted/30 as several other grouping boxes on this page;
+  // a primary tint sets it apart as its own thing.
+  it("tints the Default Properties row's cell distinctly from a plain muted background", () => {
+    render(
+      <Harness
+        properties={[makeField({ name: "ItemId" }), makeField({ name: "email" })]}
+        index={0}
+        schemaType={1}
+      />,
+    );
+    const cell = screen.getByRole("button", { name: /Default Properties/ }).closest("td")!;
+    expect(cell.className).toContain("bg-primary/5");
+    expect(cell.className).not.toContain("bg-muted/30");
+  });
+
+  // The tint used to stop at the section header; the annotated screenshot
+  // asked for the whole block — header and its rows — to read as one thing.
+  it("also tints the default-property rows themselves, not just the header", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness properties={[makeField({ name: "ItemId" })]} schemaType={1} isReadOnly />,
+    );
+    const toggle = screen.getByRole("button", { name: /Default Properties/ });
+    await user.click(toggle);
+    const row = screen.getByTitle("ItemId").closest("tr")!;
+    expect(row.className).toContain("bg-primary/5");
+
+    // Restore the shared module-level collapse state for other tests.
+    await user.click(toggle);
+  });
+
+  // The custom-properties section used to repeat "<SchemaName> Properties
+  // (N)" as its own row; the schema name is already the page's own heading,
+  // and Default Properties above it is the only section worth calling out.
+  it("no longer repeats the schema name as a custom-properties section row", () => {
     render(
       <Harness
         properties={[makeField({ name: "ItemId" }), makeField({ name: "email" })]}
@@ -328,7 +398,7 @@ describe("SchemaDesktopRow", () => {
         schemaType={1}
       />,
     );
-    expect(screen.getByText("User Properties (1)")).toBeInTheDocument();
+    expect(screen.queryByText(/User Properties/)).not.toBeInTheDocument();
   });
 
   it("sanitizes disallowed characters when typing a property name", async () => {

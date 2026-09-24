@@ -71,7 +71,6 @@ function Harness(overrides: Partial<Props> = {}) {
     searchText: "",
     onOpenAccessDrawer: vi.fn(),
     onOpenValidationDrawer: vi.fn(),
-    totalFields: 1,
     ...overrides,
   };
   return (
@@ -141,6 +140,21 @@ describe("SchemaMobileCard", () => {
       />,
     );
     expect(screen.getByText(/Default Properties/)).toBeInTheDocument();
+  });
+
+  // Was the same bg-muted/30 as several other grouping boxes on this page;
+  // a primary tint sets it apart as its own thing.
+  it("tints the default-properties row distinctly from a plain muted background", () => {
+    render(
+      <Harness
+        schemaType={1}
+        properties={[{ ...property, name: "CreatedBy" }] as never}
+        field={{ id: "f1", ...property, name: "CreatedBy" } as never}
+      />,
+    );
+    const section = screen.getByText(/Default Properties/).closest("div")!;
+    expect(section.className).toContain("bg-primary/5");
+    expect(section.className).not.toContain("bg-muted/30");
   });
 
   it("edits the name, toggles flag chips and updates the description in edit mode", async () => {
@@ -227,6 +241,27 @@ describe("SchemaMobileCard", () => {
     await user.click(screen.getByRole("button", { name: "More actions for title" }));
     await user.click(await screen.findByText("Delete"));
     expect(onDelete).toHaveBeenCalledWith(0);
+  });
+
+  // The tint used to stop at the section header; the annotated screenshot
+  // asked for the whole block — header and its cards — to read as one thing.
+  it("also tints the default-property card itself once expanded, not just the header", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        schemaType={1}
+        isReadOnly
+        properties={[{ ...property, name: "CreatedBy" }] as never}
+        field={{ id: "f1", ...property, name: "CreatedBy" } as never}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /Default Properties/ });
+    await user.click(toggle);
+    const card = screen.getByTitle("title").closest("div[class*='rounded-lg']")!;
+    expect(card.className).toContain("bg-primary/5");
+
+    // Restore the shared module-level collapse state for other tests.
+    await user.click(toggle);
   });
 
   it("toggles the readonly section for entity schemas", async () => {

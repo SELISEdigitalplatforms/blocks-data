@@ -127,6 +127,16 @@ interface SchemaStructureTableProps extends ISchemaDetails {
     context: string;
     validationRule?: IFieldValidationRule | null;
   }) => void;
+  /**
+   * Preview drawer open state, lifted so a host can put its own trigger
+   * elsewhere (the "Preview" button now sits beside Schema Access, in
+   * SchemaBasicInfo — a sibling component). Falls back to internal state
+   * when omitted, so the embedded (nested child table) caller — which has
+   * nowhere to put that trigger and never opens this drawer — doesn't need
+   * to pass anything.
+   */
+  isPreviewOpen?: boolean;
+  onPreviewOpenChange?: (open: boolean) => void;
 }
 
 export default function SchemaStructureTable(props: SchemaStructureTableProps) {
@@ -143,6 +153,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     onOpenStandaloneSchemaEditor,
     onOpenFieldAccess,
     onOpenFieldValidation,
+    isPreviewOpen,
+    onPreviewOpenChange,
     ...schemaDetails
   } = props;
 
@@ -205,7 +217,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     setActiveTab("attribute");
     setExpandedRowIndex(null);
   }, [schemaDetails.id]);
-  const [isPreviewDrawerOpen, setIsPreviewDrawerOpen] = useState(false);
+  const [internalPreviewOpen, setInternalPreviewOpen] = useState(false);
+  const isPreviewDrawerOpen = isPreviewOpen ?? internalPreviewOpen;
+  const setIsPreviewDrawerOpen = onPreviewOpenChange ?? setInternalPreviewOpen;
   const [isPropertyAccessDrawerOpen, setIsPropertyAccessDrawerOpen] =
     useState(false);
   const [isValidationDrawerOpen, setIsValidationDrawerOpen] = useState(false);
@@ -611,7 +625,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         <Card
           className={cn(
             "flex flex-col overflow-hidden shadow-none",
-            isEmbedded ? "min-w-0" : "min-h-0 flex-1",
+            isEmbedded ? "min-w-0" : "min-h-0 flex-1 rounded-t-none border-t-0",
           )}
         >
           {!isEmbedded && (
@@ -622,21 +636,14 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                 bulkOperations.selectedFieldEntries.length
               }
               fieldsLength={fields.length}
-              schemaName={schemaDetails.schemaName}
               schemaType={schemaType}
-              templateFields={templateFields}
-              previewData={previewData}
               activeTab={activeTab}
               onTabChange={setActiveTab}
               onEditToggle={handleEditToggle}
               onBulkDuplicate={bulkOperations.handleBulkDuplicate}
               onBulkDelete={bulkOperations.handleBulkDelete}
               onSelectAll={handleSelectAll}
-              isPreviewDrawerOpen={isPreviewDrawerOpen}
               setIsPreviewDrawerOpen={setIsPreviewDrawerOpen}
-              rawIntrospection={rawIntrospection}
-              isGatewayIntrospectionPending={isGatewayIntrospectionPending}
-              isGatewayIntrospectionFetching={isGatewayIntrospectionFetching}
             />
           )}
 
@@ -671,7 +678,10 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           >
             <SchemaTableScrollRegion embedded={isEmbedded}>
               {!(showEmptyState && isEmbedded) && (
-                <Table className={cn("w-full table-fixed")}>
+                <Table
+                  className={cn("w-full table-fixed")}
+                  wrapperClassName="overflow-x-auto overflow-y-visible"
+                >
                   {hasDesktopColumns && (
                     <colgroup>
                       {desktopColumnWidths.map((width, index) => (
@@ -680,7 +690,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                     </colgroup>
                   )}
                   {hasDesktopColumns && (
-                    <TableHeader>
+                    <TableHeader className="sticky top-0 z-10 bg-card">
                       <TableRow>
                         {isEditMode && (
                           <TableHead>
@@ -790,7 +800,6 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                             isExpanded={isExpanded}
                             onToggleExpand={handleToggleExpand}
                             childSchema={childSchema}
-                            totalFields={fields.length}
                             totalFieldsLength={totalFieldLength}
                             showAccessColumn={schemaType === 1 || isEmbedded}
                             showAccessValidationColumn={
@@ -924,7 +933,6 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                         isExpanded={isExpanded}
                         onToggleExpand={handleToggleExpand}
                         childSchema={childSchema}
-                        totalFields={fields.length}
                         showAccessColumn={schemaType === 1 || isEmbedded}
                         showAccessValidationColumn={!shouldHideAccessValidation}
                         originalFieldFromSchema={originalField}

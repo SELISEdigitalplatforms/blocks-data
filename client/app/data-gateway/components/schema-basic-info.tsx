@@ -20,7 +20,7 @@ import { ISchemaDetails } from "../models/data-service";
 import { useDeleteSchema, useSchemaIndexes } from "../hooks/use-configuration";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
-import { Database, MoreVertical, Shield } from "lucide-react";
+import { Database, Eye, MoreVertical, Shield } from "lucide-react";
 import { useState } from "react";
 
 interface SchemaBasicInfoProps extends ISchemaDetails {
@@ -31,12 +31,16 @@ interface SchemaBasicInfoProps extends ISchemaDetails {
    * is the pill that was clicked, so the inspector opens on that verb.
    */
   onOpenSchemaAccess?: (tab: string) => void;
+  /** Opens the schema preview drawer — moved here from the field table's own
+   * header so it sits beside Schema Access instead of down by the tabs. */
+  onOpenPreview?: () => void;
 }
 
 export const SchemaBasicInfo = ({
   onDeleteSuccess,
   isLoading,
   onOpenSchemaAccess,
+  onOpenPreview,
   ...props
 }: SchemaBasicInfoProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -116,7 +120,7 @@ export const SchemaBasicInfo = ({
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-sm border border-border/40 bg-card">
+      <div className="relative overflow-hidden rounded-t-sm border border-b-0 border-border/40 bg-card">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.04),transparent_60%)]" />
         {/* Header */}
         <div className="relative flex items-center justify-between gap-3 px-5 py-3.5">
@@ -153,6 +157,17 @@ export const SchemaBasicInfo = ({
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            {onOpenPreview && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5"
+                onClick={onOpenPreview}
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Preview
+              </Button>
+            )}
             {isEntity && onOpenSchemaAccess ? (
               <Button
                 variant="outline"

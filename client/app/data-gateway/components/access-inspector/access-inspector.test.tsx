@@ -50,10 +50,10 @@ describe("AccessInspector", () => {
     expect(screen.getByText("Field on Order")).toBeInTheDocument();
   });
 
-  it("reads at 328px and widens to 480px for the rule editor", () => {
+  it("reads at 460px and widens to 480px for the rule editor", () => {
     const { rerender } = renderInspector();
     const panel = screen.getByRole("complementary");
-    expect(panel.className).toContain("lg:w-[328px]");
+    expect(panel.className).toContain("lg:w-[460px]");
 
     rerender(
       <AccessInspector

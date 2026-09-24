@@ -50,15 +50,6 @@ vi.mock("./schema-access-control-accordion", () => ({
     </div>
   ),
 }));
-vi.mock("@/components/confirmation-modal/confirmation-modal", () => ({
-  default: ({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) => (
-    <div data-testid="confirm-modal">
-      <button onClick={onConfirm}>confirm-change</button>
-      <button onClick={onCancel}>cancel-change</button>
-    </div>
-  ),
-}));
-
 import { SchemaAccessControlView } from "./schema-access-control-view";
 
 beforeAll(() => {
@@ -151,40 +142,45 @@ describe("SchemaAccessControlView", () => {
       .toBeInTheDocument();
   });
 
-  it("changes the access type through the confirmation flow and saves", async () => {
+  it("changes the access type through the deferred Save and saves", async () => {
     const user = userEvent.setup();
     render(<SchemaAccessControlView {...baseProps} />);
 
-    await user.click(screen.getByRole("combobox"));
-    await user.click(await screen.findByRole("option", { name: "Public" }));
+    // Picking a tile is local only, and the footer reflects the pending change.
+    await user.click(screen.getByRole("radio", { name: "Public" }));
+    expect(screen.getByText("Unsaved")).toBeInTheDocument();
 
-    // Confirm dialog wiring is exposed by the mocked modal.
-    await user.click(screen.getByText("confirm-change"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(setRowColumnPermission).toHaveBeenCalledWith(
         expect.objectContaining({ accessLevel: 2, schemaId: "schema-1" }),
       ),
     );
     await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText("No changes")).toBeInTheDocument());
   });
 
   it("surfaces an error toast when the access change fails", async () => {
     setRowColumnPermission.mockResolvedValue({ isSuccess: false, errors: ["no"] });
     const user = userEvent.setup();
     render(<SchemaAccessControlView {...baseProps} />);
-    await user.click(screen.getByRole("combobox"));
-    await user.click(await screen.findByRole("option", { name: "Public" }));
-    await user.click(screen.getByText("confirm-change"));
+    await user.click(screen.getByRole("radio", { name: "Public" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
   });
 
   it("cancels an access change without saving", async () => {
     const user = userEvent.setup();
     render(<SchemaAccessControlView {...baseProps} />);
-    await user.click(screen.getByRole("combobox"));
-    await user.click(await screen.findByRole("option", { name: "Public" }));
-    await user.click(screen.getByText("cancel-change"));
+    await user.click(screen.getByRole("radio", { name: "Public" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(setRowColumnPermission).not.toHaveBeenCalled();
+    // Reverted back to the last saved tier (Signed-in).
+    expect(screen.getByRole("radio", { name: "Signed-in" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getByText("No changes")).toBeInTheDocument();
   });
 
   it("filters column-level policies by matching field names", () => {
@@ -264,13 +260,44 @@ describe("SchemaAccessControlView", () => {
     expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
   });
 
+  it("orders the who-is-allowed tiles as Public, Signed-in, Custom", () => {
+    render(<SchemaAccessControlView {...baseProps} level="row" />);
+    const tiles = screen.getAllByRole("radio").map((el) => el.textContent);
+    expect(tiles).toEqual(["Public", "Signed-in", "Custom"]);
+  });
+
+  it("hides the Inherited tile at row level, since there is nothing to inherit from", () => {
+    render(<SchemaAccessControlView {...baseProps} level="row" />);
+    expect(screen.queryByRole("radio", { name: "Inherited" })).not.toBeInTheDocument();
+  });
+
+  it("offers the Inherited tile at column level", () => {
+    render(<SchemaAccessControlView {...baseProps} level="column" />);
+    expect(screen.getByRole("radio", { name: "Inherited" })).toBeInTheDocument();
+  });
+
+  it("shows the rule-set section as soon as Custom is picked, before it is saved", async () => {
+    useGetPolicyData.mockReturnValue({
+      data: { isSuccess: true, data: [policy()] },
+      refetch,
+      isPending: false,
+      isFetching: false,
+    });
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...baseProps} />);
+    expect(screen.queryByTestId("accordion")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Custom" }));
+    expect(await screen.findByTestId("accordion")).toBeInTheDocument();
+    expect(setRowColumnPermission).not.toHaveBeenCalled();
+  });
+
   it("surfaces an error toast when the access change throws", async () => {
     setRowColumnPermission.mockRejectedValue(new Error("boom"));
     const user = userEvent.setup();
     render(<SchemaAccessControlView {...baseProps} />);
-    await user.click(screen.getByRole("combobox"));
-    await user.click(await screen.findByRole("option", { name: "Public" }));
-    await user.click(screen.getByText("confirm-change"));
+    await user.click(screen.getByRole("radio", { name: "Public" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(showErrorToast).toHaveBeenCalledWith({ errors: expect.any(Error) }),
     );
@@ -293,9 +320,10 @@ describe("SchemaAccessControlView", () => {
     ).toBeInTheDocument();
   });
 
-  it("offers presets instead of an empty rule-set table", () => {
+  it("offers presets instead of an empty rule-set table, under a Sample rule set heading", () => {
     render(<SchemaAccessControlView {...customProps} />);
 
+    expect(screen.getByText("Sample rule set")).toBeInTheDocument();
     expect(screen.getByText("Only the owner")).toBeInTheDocument();
     expect(screen.getByText("Specific roles")).toBeInTheDocument();
     expect(screen.queryByTestId("accordion")).not.toBeInTheDocument();
@@ -310,6 +338,30 @@ describe("SchemaAccessControlView", () => {
 
     expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
     expect(screen.getByTestId("seed-name")).toHaveTextContent("Owner access");
+  });
+
+  // The rule editor used to replace the whole "who is allowed" section,
+  // hiding the Custom tile the user had just picked. It should stay put, with
+  // the editor appearing right under it — for a preset and for a blank rule alike.
+  it("keeps the who-is-allowed tiles visible (but locked) under Custom while editing a rule set", async () => {
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...customProps} />);
+
+    await user.click(screen.getByText("Only the owner"));
+    expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
+    const customTile = screen.getByRole("radio", { name: "Custom" });
+    expect(customTile).toBeInTheDocument();
+    expect(customTile).toHaveAttribute("aria-checked", "true");
+    expect(customTile).toBeDisabled();
+  });
+
+  it("keeps the tiles visible the same way for a blank rule set", async () => {
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...customProps} />);
+
+    await user.click(screen.getByText("Start from an empty rule set"));
+    expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Custom" })).toBeDisabled();
   });
 
   it("starts an empty rule set with no seed", async () => {

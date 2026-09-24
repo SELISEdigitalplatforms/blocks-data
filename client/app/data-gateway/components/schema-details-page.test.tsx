@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
@@ -40,18 +40,9 @@ vi.mock("@/hooks/use-toast", () => ({
 }));
 vi.mock("@/lib/runtime-env", () => ({ getRuntimeEnv: () => "http://x" }));
 
-// AnimatePresence's real exit animation keeps the outgoing element mounted
-// for its transition duration, which would make the sidebar-vs-rail and
-// inspector assertions below racy. The pass-through mock (same one
-// guideline-wrapper.test.tsx uses) renders whichever child is current
-// synchronously, with no animation delay to wait out.
-vi.mock("framer-motion", () => ({
-  motion: {
-    div: ({ children, ...p }: React.ComponentProps<"div">) => <div {...p}>{children}</div>,
-    button: ({ children, ...p }: React.ComponentProps<"button">) => <button {...p}>{children}</button>,
-  },
-  AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
+// The page no longer animates through framer-motion — the columns are CSS
+// width transitions on elements that stay mounted — so there is nothing left
+// here to stub out.
 
 vi.mock("./schema-structure", () => ({
   default: ({
@@ -313,22 +304,50 @@ describe("SchemaDetailsPage", () => {
   // The sidebar used to fold only once the rule editor widened the inspector;
   // now it folds as soon as any inspector is docked, since the table can't
   // see past it to the sidebar either way.
+  // The explorer no longer swaps the sidebar for the rail — both stay mounted
+  // and the column's width transitions between them, so that the table beside
+  // it grows once rather than lurching out to full width and back while one
+  // panel unmounts and the other mounts. Which of the two is *presented* is
+  // therefore a question of the column's width and each layer's aria-hidden,
+  // not of what is in the document.
   it("collapses the schema list into a rail as soon as the inspector opens", async () => {
     const user = userEvent.setup();
     withSchema();
     renderPage();
 
-    expect(screen.getByTestId("sidebar")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: "Show the schema list" }),
-    ).not.toBeInTheDocument();
+    const column = screen.getByTestId("explorer-column");
+    const sidebarLayer = screen.getByTestId("explorer-sidebar-layer");
+    const railLayer = screen.getByTestId("explorer-rail-layer");
+
+    expect(column.dataset.collapsed).toBe("false");
+    expect(column.style.getPropertyValue("--dg-explorer-w")).toBe("264px");
+    expect(sidebarLayer).toHaveAttribute("aria-hidden", "false");
+    expect(railLayer).toHaveAttribute("aria-hidden", "true");
 
     await user.click(screen.getAllByText("open-schema-access").at(-1)!);
 
-    expect(screen.queryByTestId("sidebar")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Show the schema list" }),
-    ).toBeInTheDocument();
+    expect(column.dataset.collapsed).toBe("true");
+    expect(column.style.getPropertyValue("--dg-explorer-w")).toBe("52px");
+    expect(sidebarLayer).toHaveAttribute("aria-hidden", "true");
+    expect(railLayer).toHaveAttribute("aria-hidden", "false");
+  });
+
+  it("opens the docked column at the inspector's width", async () => {
+    const user = userEvent.setup();
+    withSchema();
+    renderPage();
+
+    const column = screen.getByTestId("inspector-column");
+    expect(column.dataset.open).toBe("false");
+    expect(column.style.getPropertyValue("--dg-inspector-w")).toBe("0px");
+
+    await user.click(screen.getAllByText("open-schema-access").at(-1)!);
+
+    expect(column.dataset.open).toBe("true");
+    expect(column.style.getPropertyValue("--dg-inspector-w")).toBe("460px");
+    // The panel inside keeps its own width so a close clips it away instead of
+    // squeezing its contents down to nothing.
+    expect(column.style.getPropertyValue("--dg-inspector-panel-w")).toBe("460px");
   });
 
   it("closes the inspector and restores the schema list from the rail", async () => {
@@ -339,7 +358,30 @@ describe("SchemaDetailsPage", () => {
     await user.click(screen.getAllByText("open-schema-access").at(-1)!);
     await user.click(screen.getByRole("button", { name: "Show the schema list" }));
 
-    expect(screen.getByTestId("sidebar")).toBeInTheDocument();
-    expect(screen.queryByTestId("access-inspector")).not.toBeInTheDocument();
+    expect(screen.getByTestId("explorer-column").dataset.collapsed).toBe("false");
+    expect(screen.getByTestId("explorer-sidebar-layer")).toHaveAttribute(
+      "aria-hidden",
+      "false",
+    );
+
+    const inspectorColumn = screen.getByTestId("inspector-column");
+    expect(inspectorColumn.dataset.open).toBe("false");
+    expect(inspectorColumn.style.getPropertyValue("--dg-inspector-w")).toBe("0px");
+  });
+
+  // The panel outlives the close by one collapse so the column has something
+  // to shrink around, then unmounts.
+  it("drops the inspector's contents once the collapse has run", async () => {
+    const user = userEvent.setup();
+    withSchema();
+    renderPage();
+
+    await user.click(screen.getAllByText("open-schema-access").at(-1)!);
+    expect(screen.getByTestId("access-inspector")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show the schema list" }));
+    await waitFor(() =>
+      expect(screen.queryByTestId("access-inspector")).not.toBeInTheDocument(),
+    );
   });
 });

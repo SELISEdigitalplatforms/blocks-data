@@ -65,7 +65,9 @@ export function CreateFirstSchemaPanel({
               type="button"
               onClick={() => onCreateSchema(kind)}
               className={cn(
-                "flex flex-1 flex-col items-start rounded-lg border p-4 text-left transition-colors",
+                // rounded-sm, matching every other card in the shell — these
+                // were the only rounded-lg surfaces on the page.
+                "dg-interactive flex flex-1 flex-col items-start rounded-sm border p-4 text-left hover:ring-2 hover:ring-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                 border,
                 background,
               )}

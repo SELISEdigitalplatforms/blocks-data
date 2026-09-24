@@ -114,6 +114,13 @@ vi.mock("./schema-side-bar", () => ({
     </button>
   ),
 }));
+// The explorer keeps both the sidebar and the rail mounted — it animates the
+// column's width rather than swapping the two — so the rail is on screen here
+// as well, and its useSchemaList call is outside this file's
+// use-configuration mock.
+vi.mock("./schema-rail", () => ({
+  SchemaRail: () => <div data-testid="rail" />,
+}));
 vi.mock("./schema-basic-info", () => ({
   SchemaBasicInfo: ({ onDeleteSuccess }: { onDeleteSuccess: () => void }) => (
     <button data-testid="delete-success" onClick={onDeleteSuccess}>

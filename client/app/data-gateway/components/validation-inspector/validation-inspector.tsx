@@ -1,7 +1,8 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 
+import { PanelHeader, PanelShell } from "../primitives";
 import {
   SchemaFieldValidationPanel,
   type SchemaFieldValidationPanelProps,
@@ -19,11 +20,12 @@ export interface ValidationInspectorTarget extends SchemaFieldValidationPanelPro
  * treatment `AccessInspector` gives access, so opening either one from the
  * Rules column doesn't hide the field list you were reasoning about.
  *
- * Fixed at 460px: `AccessInspector`'s own idle width, so the docked column
- * doesn't visibly resize depending on which of the two you opened. Access
- * still widens to 480px for its rule editor — Validation has no equivalent
- * sub-view that needs the extra room, so there's nothing on this side to
- * match that exception.
+ * Shares `PanelShell` with Access rather than restating its chrome, and takes
+ * its width from the docked column, which holds at Access's idle 460px so the
+ * column doesn't visibly resize depending on which of the two you opened.
+ * Access still widens to 480px for its rule editor — Validation has no
+ * equivalent sub-view that needs the extra room, so there's nothing on this
+ * side to match that exception.
  */
 export function ValidationInspector({
   target,
@@ -35,29 +37,15 @@ export function ValidationInspector({
   const { subject, context, ...panelProps } = target;
 
   return (
-    <aside
-      aria-label={`Validations for ${subject}`}
-      className="flex min-h-0 w-[460px] shrink-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card"
-    >
-      <div className="flex shrink-0 items-start gap-2 border-b border-border/40 px-3 py-2.5">
-        <Check className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-mono text-sm font-medium text-foreground" title={subject}>
-            {subject}
-          </p>
-          {context && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{context}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close validation inspector"
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
+    <PanelShell label={`Validations for ${subject}`}>
+      <PanelHeader
+        icon={Check}
+        title={subject}
+        subtitle={context}
+        onClose={onClose}
+        closeLabel="Close validation inspector"
+      />
       <SchemaFieldValidationPanel {...panelProps} />
-    </aside>
+    </PanelShell>
   );
 }

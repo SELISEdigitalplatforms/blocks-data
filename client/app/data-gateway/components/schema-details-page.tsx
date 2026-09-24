@@ -5,7 +5,6 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useState } from "react";
 import { DataGatewayPageBar } from "./page-bar";
 import { AccessInspector, type AccessInspectorTarget } from "./access-inspector";
@@ -27,6 +26,8 @@ import {
   normalizeAccessRuleSet,
 } from "../utils/schema-access.utils";
 import { normalizeSchemaFields } from "../utils/schema-normalization";
+import { MOTION, SHELL } from "../utils/motion";
+import { useLingeringValue } from "../hooks/use-lingering-value";
 import { AddEditSchemaModal } from "./add-edit-schema";
 import { CreateFirstSchemaPanel } from "./create-first-schema-panel";
 import ImportSchemaModal from "./import-schema-modal";
@@ -94,6 +95,46 @@ export const SchemaDetailsPage = () => {
     useState<ValidationInspectorTarget | null>(null);
 
   const isRightPanelOpen = Boolean(inspector) || Boolean(validationInspector);
+
+  /**
+   * The shell's two side columns are animated by width, not by mounting and
+   * unmounting.
+   *
+   * The previous version swapped them through `AnimatePresence mode="wait"`,
+   * which runs the outgoing panel's collapse to completion *before* starting
+   * the incoming one's — so the column passed through zero width on the way
+   * from the 264px explorer to the 52px rail, and the table lurched out to
+   * full width and back. Driving one persistent element's width instead means
+   * there is a single, monotonic 264→52 transition and the table's flex box
+   * follows it in the same layout pass.
+   *
+   * The panels inside keep their own fixed widths and are simply clipped, so
+   * nothing inside them re-wraps mid-animation.
+   */
+  const explorerWidth = isRightPanelOpen ? SHELL.railWidth : SHELL.explorerWidth;
+
+  // The width the panel itself is laid out at. It never drops to 0 — only the
+  // column around it does — so the panel keeps its shape while being clipped
+  // away instead of reflowing its contents down to nothing on close. It
+  // lingers past the close for the same reason the contents do: closing the
+  // rule editor at 480px would otherwise squeeze the panel to 460px in the
+  // same frame the column starts collapsing.
+  const inspectorPanelWidth =
+    useLingeringValue(
+      isRightPanelOpen
+        ? inspector && isInspectorExpanded
+          ? SHELL.inspectorWidthExpanded
+          : SHELL.inspectorWidth
+        : null,
+      MOTION.panel,
+    ) ?? SHELL.inspectorWidth;
+
+  const inspectorWidth = isRightPanelOpen ? inspectorPanelWidth : 0;
+
+  // Contents outlive the close by exactly one collapse, so the column shrinks
+  // with the panel still drawn in it rather than around an empty box.
+  const lingeringInspector = useLingeringValue(inspector, MOTION.panel);
+  const lingeringValidation = useLingeringValue(validationInspector, MOTION.panel);
 
   const closeInspector = useCallback(() => {
     setInspector(null);
@@ -276,56 +317,73 @@ export const SchemaDetailsPage = () => {
 
         {/* ── Schema two-panel view ── */}
         <div className="flex flex-col gap-4 pt-0 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch">
-          {/* Explorer — same recipe as the docked inspector below: `layout` +
-              width 0 → "auto" → 0, so the rail/sidebar swap grows and shrinks
-              the same way opening/closing Access or Validation does, rather
-              than just cross-fading in place. */}
-          <AnimatePresence mode="wait" initial={false}>
-            {isRightPanelOpen ? (
-              <motion.div
-                key="rail"
-                layout
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: "auto", opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="hidden shrink-0 overflow-hidden lg:block"
-              >
-                <SchemaRail
-                  filterType={queryParams.type ?? "all"}
-                  page={queryParams.page}
-                  pageSize={queryParams.pageSize}
-                  selectedSchemaId={selectedSchemaId}
-                  onSelectSchema={(id) => handleListQueryChange({ schemaId: id })}
-                  onExpand={closeRightPanel}
-                />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="sidebar"
-                layout
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: "auto", opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                className={`shrink-0 overflow-hidden ${selectedSchemaId ? "hidden lg:block" : "block"}`}
-              >
-                <SchemasSidebar
-                  onAddSchema={() => openAddSchemaModal()}
-                  selectedSchemaId={selectedSchemaId}
-                  filterType={queryParams.type ?? "all"}
-                  page={queryParams.page}
-                  pageSize={queryParams.pageSize}
-                  onListQueryChange={handleListQueryChange}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* ── Explorer column ──
+              One box whose width transitions between the full sidebar and the
+              rail. Both panels stay mounted: the sidebar sits in normal flow
+              (so this column still has a height on mobile, where the rail does
+              not exist) and the rail overlays it on lg. Cross-fading them in
+              place, rather than swapping them, also means the sidebar's search
+              box and scroll position survive a collapse. */}
+          <div
+            data-testid="explorer-column"
+            data-collapsed={isRightPanelOpen ? "true" : "false"}
+            style={
+              {
+                "--dg-explorer-w": `${explorerWidth}px`,
+                "--dg-explorer-open-w": `${SHELL.explorerWidth}px`,
+                "--dg-rail-w": `${SHELL.railWidth}px`,
+              } as React.CSSProperties
+            }
+            className={`dg-panel-collapse relative shrink-0 overflow-hidden lg:w-[var(--dg-explorer-w)] ${
+              selectedSchemaId ? "hidden lg:block" : "block"
+            }`}
+          >
+            <div
+              data-testid="explorer-sidebar-layer"
+              aria-hidden={isRightPanelOpen}
+              inert={isRightPanelOpen}
+              style={{ opacity: isRightPanelOpen ? 0 : 1 }}
+              className={`dg-fade-layer h-full w-full lg:w-[var(--dg-explorer-open-w)] ${
+                isRightPanelOpen ? "pointer-events-none" : ""
+              }`}
+            >
+              <SchemasSidebar
+                onAddSchema={() => openAddSchemaModal()}
+                selectedSchemaId={selectedSchemaId}
+                filterType={queryParams.type ?? "all"}
+                page={queryParams.page}
+                pageSize={queryParams.pageSize}
+                onListQueryChange={handleListQueryChange}
+              />
+            </div>
 
-          {/* Main content */}
-          <motion.div
-            layout
-            transition={{ duration: 0.2, ease: "easeInOut" }}
+            <div
+              data-testid="explorer-rail-layer"
+              aria-hidden={!isRightPanelOpen}
+              inert={!isRightPanelOpen}
+              style={{ opacity: isRightPanelOpen ? 1 : 0 }}
+              className={`dg-fade-layer absolute inset-y-0 left-0 hidden w-[var(--dg-rail-w)] lg:block ${
+                isRightPanelOpen ? "" : "pointer-events-none"
+              }`}
+            >
+              <SchemaRail
+                filterType={queryParams.type ?? "all"}
+                page={queryParams.page}
+                pageSize={queryParams.pageSize}
+                selectedSchemaId={selectedSchemaId}
+                onSelectSchema={(id) => handleListQueryChange({ schemaId: id })}
+                onExpand={closeRightPanel}
+              />
+            </div>
+          </div>
+
+          {/* Main content.
+              Deliberately *not* animated. It is a flex child of the same row
+              as the two columns, so it re-measures in the very layout pass
+              their width transition drives — free, frame-accurate, and without
+              running a `layout` animation over a subtree that holds the whole
+              field table. */}
+          <div
             className={`flex w-full min-w-0 flex-col gap-4 lg:h-full lg:flex-1 lg:overflow-hidden ${
               !selectedSchemaId ? "hidden lg:flex" : "block lg:flex"
             }`}
@@ -424,47 +482,64 @@ export const SchemaDetailsPage = () => {
                 </>
               )}
             </div>
-          </motion.div>
+          </div>
 
-          {/* Docked inspector — one slot, since Access and Validation are
-              mutually exclusive. `initial={{ width: 0 }}` + `layout` grows it
-              in on mount, tracks Access's own 328↔480 resize while it's
-              open, and shrinks it back to 0 on close. */}
-          <AnimatePresence mode="wait" initial={false}>
-            {inspector ? (
-              <motion.div
-                key="access-inspector"
-                layout
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: "auto", opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="hidden min-h-0 overflow-hidden lg:flex"
+          {/* ── Docked inspector column ──
+              One slot, since Access and Validation are mutually exclusive. The
+              column's width is the animated part; the panel inside is pinned
+              to the right edge at the column's own target width, so a collapse
+              clips it from the left — it slides out from under the table
+              rather than being squeezed narrower and re-wrapping its contents
+              on the way. Switching Access ⇄ Validation cross-fades in place
+              instead of closing the column and reopening it. */}
+          <div
+            data-testid="inspector-column"
+            data-open={isRightPanelOpen ? "true" : "false"}
+            aria-hidden={!isRightPanelOpen}
+            style={
+              {
+                "--dg-inspector-w": `${inspectorWidth}px`,
+                "--dg-inspector-panel-w": `${inspectorPanelWidth}px`,
+                opacity: isRightPanelOpen ? 1 : 0,
+              } as React.CSSProperties
+            }
+            className={`dg-panel-collapse relative hidden min-h-0 shrink-0 overflow-hidden lg:block lg:w-[var(--dg-inspector-w)] ${
+              isRightPanelOpen ? "" : "pointer-events-none"
+            }`}
+          >
+            {lingeringInspector && (
+              <div
+                aria-hidden={!inspector}
+                inert={!inspector}
+                style={{ opacity: inspector ? 1 : 0 }}
+                className={`dg-fade-layer absolute inset-y-0 right-0 flex w-[var(--dg-inspector-panel-w)] min-h-0 ${
+                  inspector ? "" : "pointer-events-none"
+                }`}
               >
                 <AccessInspector
-                  target={inspector}
-                  expanded={isInspectorExpanded}
+                  target={lingeringInspector}
                   onRuleEditorOpenChange={setIsInspectorExpanded}
                   onClose={closeInspector}
                 />
-              </motion.div>
-            ) : validationInspector ? (
-              <motion.div
-                key="validation-inspector"
-                layout
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: "auto", opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="hidden min-h-0 overflow-hidden lg:flex"
+              </div>
+            )}
+
+            {lingeringValidation && (
+              <div
+                aria-hidden={!validationInspector}
+                inert={!validationInspector}
+                style={{ opacity: validationInspector ? 1 : 0 }}
+                className={`dg-fade-layer absolute inset-y-0 right-0 flex w-[var(--dg-inspector-panel-w)] min-h-0 ${
+                  validationInspector ? "" : "pointer-events-none"
+                }`}
               >
                 <ValidationInspector
-                  target={validationInspector}
+                  target={lingeringValidation}
                   onClose={() => setValidationInspector(null)}
                 />
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

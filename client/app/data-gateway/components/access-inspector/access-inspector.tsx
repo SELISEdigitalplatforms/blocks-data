@@ -1,8 +1,8 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { Shield, X } from "lucide-react";
+import { Shield } from "lucide-react";
 
+import { PanelHeader, PanelShell } from "../primitives";
 import { AccessInspectorPanel, type AccessInspectorPanelProps } from "./access-inspector-panel";
 
 export interface AccessInspectorTarget
@@ -21,51 +21,31 @@ export interface AccessInspectorTarget
  * panel is 460px for reading and 480px once the rule editor opens, which is the
  * only part that needs the extra width.
  *
- * The 460↔480 resize has no CSS transition of its own — the host wraps this
- * in a `motion.div layout`, which picks up the width change from this
- * element's own class swap and animates it, so there's one animation engine
- * doing the smoothing rather than two fighting over the same property.
+ * Both of those numbers live in the shell (`SHELL` in `utils/motion.ts`),
+ * which sizes the column this fills and transitions it — see `PanelShell` for
+ * why the panel does not declare a width of its own.
  */
 export function AccessInspector({
   target,
-  expanded,
   onRuleEditorOpenChange,
   onClose,
 }: {
   target: AccessInspectorTarget;
-  expanded: boolean;
   onRuleEditorOpenChange: (open: boolean) => void;
   onClose: () => void;
 }) {
   const { subject, context, ...panelProps } = target;
 
   return (
-    <aside
-      aria-label={`Access for ${subject}`}
-      className={cn(
-        "flex min-h-0 shrink-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card",
-        expanded ? "lg:w-[480px]" : "lg:w-[460px]",
-      )}
-    >
-      <div className="flex shrink-0 items-start gap-2 border-b border-border/40 px-3 py-2.5">
-        <Shield className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-mono text-sm font-medium text-foreground" title={subject}>
-            {subject}
-          </p>
-          {context && <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{context}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close access inspector"
-          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
+    <PanelShell label={`Access for ${subject}`}>
+      <PanelHeader
+        icon={Shield}
+        title={subject}
+        subtitle={context}
+        onClose={onClose}
+        closeLabel="Close access inspector"
+      />
       <AccessInspectorPanel {...panelProps} onRuleEditorOpenChange={onRuleEditorOpenChange} />
-    </aside>
+    </PanelShell>
   );
 }

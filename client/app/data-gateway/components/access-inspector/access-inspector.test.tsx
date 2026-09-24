@@ -31,7 +31,6 @@ function renderInspector(over: Partial<Parameters<typeof AccessInspector>[0]> = 
   const view = render(
     <AccessInspector
       target={target}
-      expanded={false}
       onClose={onClose}
       onRuleEditorOpenChange={onRuleEditorOpenChange}
       {...over}
@@ -50,20 +49,16 @@ describe("AccessInspector", () => {
     expect(screen.getByText("Field on Order")).toBeInTheDocument();
   });
 
-  it("reads at 460px and widens to 480px for the rule editor", () => {
-    const { rerender } = renderInspector();
+  // 460/480 is the docked column's business — it is the thing that animates
+  // between them. A width declared here too would be a second source of truth
+  // for the same number, and the panel would end up a frame behind the column
+  // resizing around it. See the shell's own test for the widths themselves.
+  it("fills the width the host gives it rather than declaring its own", () => {
+    renderInspector();
     const panel = screen.getByRole("complementary");
-    expect(panel.className).toContain("lg:w-[460px]");
 
-    rerender(
-      <AccessInspector
-        target={target}
-        expanded
-        onClose={vi.fn()}
-        onRuleEditorOpenChange={vi.fn()}
-      />,
-    );
-    expect(screen.getByRole("complementary").className).toContain("lg:w-[480px]");
+    expect(panel.className).toContain("w-full");
+    expect(panel.className).not.toMatch(/w-\[\d+px\]/);
   });
 
   it("passes the rule editor's state up, since the host owns the width", async () => {

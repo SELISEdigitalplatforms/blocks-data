@@ -40,31 +40,32 @@ export function SchemaStructureHeader({
   onSelectAll,
   setIsPreviewDrawerOpen,
 }: SchemaStructureHeaderProps) {
+  /**
+   * The underline used to switch with no transition at all — the border flipped
+   * from transparent to primary on one trigger and back on another, which reads
+   * as a blink rather than a move. Colour and text now ease over the shared
+   * `--dg-duration-fast`, and the list carries its own hairline rail so the
+   * active underline sits *on* something instead of floating under the label.
+   */
+  const TAB_TRIGGER_CLASS =
+    "dg-interactive relative h-8 rounded-none border-b-2 border-transparent bg-transparent px-4 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none";
+
   const SchemaTabs = (
     <Tabs
       value={activeTab}
       onValueChange={(v) => onTabChange(v as "attribute" | "data" | "indexes")}
     >
-      <TabsList className="h-8 gap-1 bg-transparent p-0">
-        <TabsTrigger
-          value="attribute"
-          className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+      <TabsList className="h-8 gap-1 rounded-none bg-transparent p-0">
+        <TabsTrigger value="attribute" className={TAB_TRIGGER_CLASS}>
           Attribute
         </TabsTrigger>
         {schemaType !== 2 && (
-          <TabsTrigger
-            value="data"
-            className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-          >
+          <TabsTrigger value="data" className={TAB_TRIGGER_CLASS}>
             Data
           </TabsTrigger>
         )}
         {schemaType !== 2 && (
-          <TabsTrigger
-            value="indexes"
-            className="h-8 rounded-none border-b-2 border-transparent px-4 text-xs data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-          >
+          <TabsTrigger value="indexes" className={TAB_TRIGGER_CLASS}>
             Indexes
           </TabsTrigger>
         )}
@@ -74,8 +75,11 @@ export function SchemaStructureHeader({
 
   return (
     <>
-      {/* Desktop Header */}
-      <div className="hidden items-center justify-between xl:flex">
+      {/* Desktop Header.
+          `-mx-5 px-5` pulls the rule out to the card's own edges — the Card's
+          padding would otherwise leave it floating 20px short on each side,
+          which is what made the active underline look unanchored. */}
+      <div className="-mx-5 hidden items-center justify-between border-b border-border/40 px-5 xl:flex">
         {SchemaTabs}
 
         <div className="flex items-center gap-2">

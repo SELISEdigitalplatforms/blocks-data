@@ -19,3 +19,4 @@ export {
 } from "./field-flags";
 export { TypeChip, categoryForType, type TypeCategory } from "./type-chip";
 export { RequiredBadge } from "./required-badge";
+export { PanelHeader, PanelShell } from "./panel-shell";

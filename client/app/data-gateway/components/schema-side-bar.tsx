@@ -172,7 +172,10 @@ export default function SchemasSidebar({
   const isFilteredOrSearched = filterType !== "all" || debouncedSearch.trim().length > 0;
 
   return (
-    <div className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card lg:w-[264px]">
+    // Width comes from the explorer column in `SchemaDetailsPage`, which is
+    // the thing that animates it. Declaring 264px here as well is how the
+    // panel ends up re-wrapping its own contents while that column collapses.
+    <div className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card">
       {/* Header */}
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/40 pl-4 pr-2">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground">Schemas</h2>
@@ -190,7 +193,7 @@ export default function SchemasSidebar({
 
       {/* Filter by name */}
       <div className="shrink-0 border-b border-border/40 px-2.5 py-2">
-        <div className="flex h-[30px] items-center gap-2 rounded-md border border-border/40 bg-muted/20 px-2.5 focus-within:border-primary/40">
+        <div className="flex h-[30px] items-center gap-2 dg-interactive rounded-md border border-border/40 bg-muted/20 px-2.5 focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/20">
           <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           <input
             type="text"
@@ -213,7 +216,7 @@ export default function SchemasSidebar({
               aria-pressed={active}
               onClick={() => onListQueryChange({ type: value, page: 1 })}
               className={cn(
-                "h-[25px] rounded-full border px-2.5 text-[11px] transition-colors",
+                "dg-interactive h-[25px] rounded-full border px-2.5 text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                 active
                   ? "border-primary/30 bg-primary/10 font-semibold text-primary"
                   : "border-border/40 font-medium text-muted-foreground hover:text-foreground",
@@ -248,7 +251,7 @@ export default function SchemasSidebar({
                 aria-current={isSelected ? "true" : undefined}
                 title={references}
                 className={cn(
-                  "relative flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left transition-colors",
+                  "dg-interactive relative flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                   isSelected
                     ? "bg-primary/10 text-primary"
                     : "text-foreground/80 hover:bg-muted/40 hover:text-foreground",

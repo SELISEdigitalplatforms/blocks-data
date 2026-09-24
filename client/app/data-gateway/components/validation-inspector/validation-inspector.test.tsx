@@ -34,11 +34,15 @@ describe("ValidationInspector", () => {
     expect(screen.getByText("Field on Order")).toBeInTheDocument();
   });
 
-  // Fixed at Access's own idle width so the docked column doesn't visibly
-  // resize depending on which of the two panels is open.
-  it("docks at Access's idle width (460px) rather than covering the page", () => {
+  // The docked column holds at Access's idle 460px whichever panel is open, so
+  // the width lives there — see the shell's test. What matters here is that
+  // this panel does not declare a competing one.
+  it("fills the width the host gives it rather than declaring its own", () => {
     renderInspector();
-    expect(screen.getByRole("complementary").className).toContain("w-[460px]");
+    const panel = screen.getByRole("complementary");
+
+    expect(panel.className).toContain("w-full");
+    expect(panel.className).not.toMatch(/w-\[\d+px\]/);
   });
 
   it("closes on request", async () => {

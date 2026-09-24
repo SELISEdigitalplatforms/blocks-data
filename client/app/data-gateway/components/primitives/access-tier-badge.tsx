@@ -164,7 +164,10 @@ export function AccessVerbPill({
       aria-label={`${verb} ${ACCESS_TIER_LABELS[resolved]}`}
       title={ACCESS_TIER_LABELS[resolved]}
       className={cn(
-        "flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs transition-opacity hover:opacity-80",
+        // Hover was `opacity-80`, which fades the label along with the chip and
+        // reads as the control going inactive. A ring keeps the tier colour at
+        // full strength and matches how every other row and chip here responds.
+        "dg-interactive flex h-[26px] items-center gap-1.5 rounded-md border px-2.5 text-xs hover:ring-2 hover:ring-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         TIER_CONTAINER_CLASS[resolved],
         className,
       )}

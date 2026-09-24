@@ -24,9 +24,8 @@ public static class WhereToMongoFilterConverter
         { "eq", "neq" };
     private static readonly HashSet<string> AllowedDateTimeOps = new(StringComparer.OrdinalIgnoreCase)
         { "eq", "neq", "gt", "gte", "lt", "lte", "in" };
-    /// <summary>Equality only; near/within/intersects are Phase 2.</summary>
     private static readonly HashSet<string> AllowedGeoJsonOps = new(StringComparer.OrdinalIgnoreCase)
-        { "eq", "neq" };
+        { "eq", "neq", GeoJsonGeospatialFilter.Near, GeoJsonGeospatialFilter.Within, GeoJsonGeospatialFilter.Intersects };
 
     private static readonly HashSet<string> LogicalOperators = new(StringComparer.OrdinalIgnoreCase)
         { "or", "and" };
@@ -173,6 +172,7 @@ public static class WhereToMongoFilterConverter
 
         var allowedOps = GetAllowedOps(scalarType);
         var clauses = new List<BsonElement>();
+        var geoPredicates = new List<BsonDocument>();
 
         foreach (var op in opDict)
         {
@@ -180,6 +180,12 @@ public static class WhereToMongoFilterConverter
             var opKey = op.Key;
             if (string.IsNullOrWhiteSpace(opKey) || !allowedOps.Contains(opKey))
                 throw Invalid($"Unsupported or invalid operator: '{opKey}' for type {scalarType}.");
+
+            if (GeoJsonGeospatialFilter.IsGeospatialOperator(opKey))
+            {
+                geoPredicates.AddRange(GeoJsonGeospatialFilter.Build(opKey, op.Value, CoerceOperationDictionary, ToBsonValue));
+                continue;
+            }
 
             var mongoOp = MapOperatorToMongo(opKey);
             BsonValue bsonVal;
@@ -203,8 +209,18 @@ public static class WhereToMongoFilterConverter
             clauses.Add(new BsonElement(mongoOp, bsonVal));
         }
 
-        if (clauses.Count == 0) return null;
-        return new BsonDocument(fieldName, new BsonDocument(clauses));
+        if (clauses.Count == 0 && geoPredicates.Count == 0) return null;
+        if (geoPredicates.Count == 0)
+            return new BsonDocument(fieldName, new BsonDocument(clauses));
+
+        // Geospatial predicates are each their own clause on the field (see GeoJsonGeospatialFilter.Build),
+        // so anything alongside them is split out and the lot combined with $and.
+        var parts = new List<BsonDocument>();
+        if (clauses.Count > 0)
+            parts.Add(new BsonDocument(fieldName, new BsonDocument(clauses)));
+        parts.AddRange(geoPredicates.Select(predicate => new BsonDocument(fieldName, predicate)));
+
+        return parts.Count == 1 ? parts[0] : new BsonDocument("$and", new BsonArray(parts));
     }
 
     /// <summary>

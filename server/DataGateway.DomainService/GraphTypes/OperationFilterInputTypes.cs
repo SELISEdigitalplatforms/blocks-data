@@ -88,11 +88,10 @@ public class DateTimeOperationFilterInputType : InputObjectType<DateTimeOperatio
 }
 
 /// <summary>
-/// Reusable GraphQL input for GeoJson field filters: eq, neq.
+/// Reusable GraphQL input for GeoJson field filters: eq, neq, near, within, intersects.
 ///
-/// Mirrors <see cref="BooleanOperationFilterInputType"/>'s minimal shape — the
-/// geospatial operators (near/within/intersects) are Phase 2 and land on this
-/// same type, so nothing here needs renaming when they arrive.
+/// The geospatial operators need the field's 2dsphere index, which
+/// SchemaDefinitionService creates automatically when the field is declared.
 /// </summary>
 public class GeoJsonOperationFilterInputType : InputObjectType<GeoJsonOperationFilterInput>
 {
@@ -101,5 +100,37 @@ public class GeoJsonOperationFilterInputType : InputObjectType<GeoJsonOperationF
         descriptor.Name("GeoJsonOperationFilterInput");
         descriptor.Field(f => f.Eq).Type<GeoJsonType>().Description("Structurally equals.");
         descriptor.Field(f => f.Neq).Type<GeoJsonType>().Description("Does not structurally equal.");
+        descriptor.Field(f => f.Near).Type<GeoJsonNearInputType>()
+            .Description("Within a distance (meters) of a reference Point.");
+        descriptor.Field(f => f.Within).Type<GeoJsonGeometryFilterInputType>()
+            .Description("Entirely contained by a reference Polygon or MultiPolygon.");
+        descriptor.Field(f => f.Intersects).Type<GeoJsonGeometryFilterInputType>()
+            .Description("Overlaps a reference geometry of any type.");
+    }
+}
+
+/// <summary>Input for the GeoJson <c>near</c> operator.</summary>
+public class GeoJsonNearInputType : InputObjectType<GeoJsonNearInput>
+{
+    protected override void Configure(IInputObjectTypeDescriptor<GeoJsonNearInput> descriptor)
+    {
+        descriptor.Name("GeoJsonNearInput");
+        descriptor.Field(f => f.Geometry).Type<NonNullType<GeoJsonType>>()
+            .Description("Reference GeoJSON Point.");
+        descriptor.Field(f => f.MaxDistanceMeters).Type<NonNullType<FloatType>>()
+            .Description("Maximum distance from the reference point, in meters. Must be positive.");
+        descriptor.Field(f => f.MinDistanceMeters).Type<FloatType>()
+            .Description("Minimum distance from the reference point, in meters. Must be positive and less than maxDistanceMeters.");
+    }
+}
+
+/// <summary>Input for the GeoJson <c>within</c> and <c>intersects</c> operators.</summary>
+public class GeoJsonGeometryFilterInputType : InputObjectType<GeoJsonGeometryFilterInput>
+{
+    protected override void Configure(IInputObjectTypeDescriptor<GeoJsonGeometryFilterInput> descriptor)
+    {
+        descriptor.Name("GeoJsonGeometryFilterInput");
+        descriptor.Field(f => f.Geometry).Type<NonNullType<GeoJsonType>>()
+            .Description("Reference GeoJSON geometry. `within` accepts only Polygon or MultiPolygon.");
     }
 }

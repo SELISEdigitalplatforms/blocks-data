@@ -40,13 +40,20 @@ type Operator =
   | "is false"
   | "is empty"
   | "is not empty"
-  | "does not contain";
+  | "does not contain"
+  | "near"
+  | "within"
+  | "intersects";
 
 type FilterCondition = {
   id: string;
   field: string;
   operator: Operator | "";
   value: string;
+  /** `near` only: maximum distance from the reference point, in meters. */
+  distance: string;
+  /** `near` only, optional: minimum distance from the reference point, in meters. */
+  minDistance: string;
 };
 
 interface FilterPopoverProps {
@@ -95,14 +102,34 @@ const OPERATORS_BY_TYPE: Record<string, Operator[]> = {
     "is empty",
     "is not empty",
   ],
-  // A geometry compares as a whole document or not at all. Proximity and
-  // containment (near / within / intersects) are Phase 2; until then, offering
-  // the string operators here would suggest "contains"/"starts with" work on a
-  // geometry, which they do not.
-  geojson: ["equals", "not equals", "is empty", "is not empty"],
+  // A geometry compares as a whole document or not at all; beyond that it has
+  // the geospatial operators. The string operators are deliberately absent —
+  // "contains"/"starts with" mean nothing for a geometry.
+  geojson: [
+    "equals",
+    "not equals",
+    "near",
+    "within",
+    "intersects",
+    "is empty",
+    "is not empty",
+  ],
 };
 
 const NO_VALUE_OPS: Operator[] = ["is true", "is false", "is empty", "is not empty"];
+
+/** MongoDB's spherical earth radius in meters, for turning a distance into $centerSphere radians. */
+const EARTH_RADIUS_METERS = 6378100;
+
+const POINT_PLACEHOLDER = '{"type":"Point","coordinates":[8.54,47.37]}';
+const POLYGON_PLACEHOLDER =
+  '{"type":"Polygon","coordinates":[[[8.5,47.3],[8.6,47.3],[8.6,47.4],[8.5,47.4],[8.5,47.3]]]}';
+
+function geoJsonPlaceholder(operator: string): string {
+  return operator === "within" || operator === "intersects"
+    ? POLYGON_PLACEHOLDER
+    : POINT_PLACEHOLDER;
+}
 
 function resolveFieldCategory(
   field: TemplateField | undefined,
@@ -139,6 +166,52 @@ function parseGeoJsonValue(raw: string): Record<string, unknown> | null {
   }
 }
 
+function parsePositiveNumber(raw: string): number | null {
+  if (raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * `near` becomes $geoWithin + $centerSphere rather than $nearSphere: the result
+ * page also runs a count, and MongoDB rejects $nearSphere in that context (and
+ * inside $or). The minimum-distance exclusion is a separate $not clause because
+ * MongoDB does not accept $not beside $geoWithin in one field object.
+ * Anything the user has not finished entering yields no condition, matching
+ * how an unparseable geometry is handled.
+ */
+function geoNearToMongo(
+  field: string,
+  condition: FilterCondition,
+): Record<string, unknown> | null {
+  const point = parseGeoJsonValue(condition.value);
+  const coordinates = point?.type === "Point" ? point.coordinates : null;
+  if (
+    !Array.isArray(coordinates) ||
+    coordinates.length < 2 ||
+    !coordinates.every((c) => typeof c === "number")
+  ) {
+    return null;
+  }
+  const center = coordinates.slice(0, 2) as number[];
+
+  const max = parsePositiveNumber(condition.distance);
+  if (max === null) return null;
+
+  const withinMeters = (meters: number) => ({
+    $geoWithin: { $centerSphere: [center, meters / EARTH_RADIUS_METERS] },
+  });
+
+  if (condition.minDistance.trim() === "") return { [field]: withinMeters(max) };
+
+  const min = parsePositiveNumber(condition.minDistance);
+  if (min === null || min >= max) return null;
+
+  return {
+    $and: [{ [field]: withinMeters(max) }, { [field]: { $not: withinMeters(min) } }],
+  };
+}
+
 function conditionToMongo(
   condition: FilterCondition,
   fields: TemplateField[],
@@ -167,6 +240,21 @@ function conditionToMongo(
         return geometry ? { [field]: { $ne: geometry } } : null;
       }
       return { [field]: { $ne: category === "number" ? Number(value) : value } };
+    }
+    case "near":
+      return geoNearToMongo(field, condition);
+    case "within": {
+      // A bounding area is needed: a Point or LineString cannot contain anything.
+      const geometry = parseGeoJsonValue(value);
+      return geometry?.type === "Polygon" || geometry?.type === "MultiPolygon"
+        ? { [field]: { $geoWithin: { $geometry: geometry } } }
+        : null;
+    }
+    case "intersects": {
+      const geometry = parseGeoJsonValue(value);
+      return geometry && typeof geometry.type === "string"
+        ? { [field]: { $geoIntersects: { $geometry: geometry } } }
+        : null;
     }
     case "before":
       return { [field]: { $lt: isoDateMarker(new Date(value).toISOString()) } };
@@ -240,7 +328,14 @@ function buildFilterString(
 
 let _conditionIdSeq = 0;
 function emptyCondition(): FilterCondition {
-  return { id: String(++_conditionIdSeq), field: "", operator: "", value: "" };
+  return {
+    id: String(++_conditionIdSeq),
+    field: "",
+    operator: "",
+    value: "",
+    distance: "",
+    minDistance: "",
+  };
 }
 
 function DatePickerInput({
@@ -458,7 +553,7 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                         onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
                         placeholder={
                           category === "geojson"
-                            ? '{"type":"Point","coordinates":[8.54,47.37]}'
+                            ? geoJsonPlaceholder(condition.operator)
                             : condition.operator === "is one of" ||
                                 condition.operator === "is not one of"
                               ? "a, b, c"
@@ -469,6 +564,32 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                     )
                   ) : (
                     <div className="w-36" />
+                  )}
+
+                  {/* near: distances from the reference point, in meters */}
+                  {condition.operator === "near" && (
+                    <>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={condition.distance}
+                        onChange={(e) => updateCondition(condition.id, { distance: e.target.value })}
+                        placeholder="Max (m)"
+                        aria-label="Maximum distance in meters"
+                        className="h-8 w-24 text-xs"
+                      />
+                      <Input
+                        type="number"
+                        min={0}
+                        value={condition.minDistance}
+                        onChange={(e) =>
+                          updateCondition(condition.id, { minDistance: e.target.value })
+                        }
+                        placeholder="Min (m)"
+                        aria-label="Minimum distance in meters"
+                        className="h-8 w-24 text-xs"
+                      />
+                    </>
                   )}
 
                   {/* Remove button */}

@@ -133,9 +133,9 @@ public class GeoJsonSchemaBuildTests
         insertInput.Fields["waypoints"].Type.IsListType().Should().BeTrue();
     }
 
-    // H6: the filter input offers equality and nothing that would not work.
+    // Phase 1 H6 plus Phase 2 H3-H5: equality and the three geospatial operators.
     [Fact]
-    public async Task Schema_GivesGeoJsonFieldsAnEqualityOnlyFilter()
+    public async Task Schema_GivesGeoJsonFieldsEqualityAndGeospatialFilters()
     {
         var schema = await BuildSchemaAsync();
 
@@ -143,7 +143,18 @@ public class GeoJsonSchemaBuildTests
         storeFilter.Fields["location"].Type.NamedType().Name.Should().Be("GeoJsonOperationFilterInput");
 
         var geoFilter = schema.GetType<InputObjectType>("GeoJsonOperationFilterInput");
-        geoFilter.Fields.Select(f => f.Name).Should().BeEquivalentTo(["eq", "neq"]);
+        geoFilter.Fields.Select(f => f.Name).Should().BeEquivalentTo(["eq", "neq", "near", "within", "intersects"]);
         geoFilter.Fields["eq"].Type.NamedType().Name.Should().Be("GeoJson");
+
+        var near = schema.GetType<InputObjectType>("GeoJsonNearInput");
+        near.Fields.Select(f => f.Name).Should().BeEquivalentTo(["geometry", "maxDistanceMeters", "minDistanceMeters"]);
+        near.Fields["geometry"].Type.IsNonNullType().Should().BeTrue();
+        near.Fields["maxDistanceMeters"].Type.IsNonNullType().Should().BeTrue();
+        near.Fields["minDistanceMeters"].Type.IsNonNullType().Should().BeFalse();
+
+        var geometryFilter = schema.GetType<InputObjectType>("GeoJsonGeometryFilterInput");
+        geometryFilter.Fields.Select(f => f.Name).Should().Equal("geometry");
+        geoFilter.Fields["within"].Type.NamedType().Name.Should().Be("GeoJsonGeometryFilterInput");
+        geoFilter.Fields["intersects"].Type.NamedType().Name.Should().Be("GeoJsonGeometryFilterInput");
     }
 }

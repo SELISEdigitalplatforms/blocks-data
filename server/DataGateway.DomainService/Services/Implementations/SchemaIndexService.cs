@@ -126,11 +126,15 @@ public class SchemaIndexService : ISchemaIndexService
     /// field denormalized from a referenced schema (see SchemaDefinitionReferenceHelper), including
     /// scalar leaves like "Assignee.email", so it cannot distinguish those from actual reference
     /// fields (e.g. "Assignee" itself) — the latter are already excluded by the scalar check below.
+    /// GeoJson is scalar but excluded too: its 2dsphere index is created and dropped automatically
+    /// by SchemaDefinitionService, so a manual index on it is never the right flow.
     /// </summary>
     private static bool IsFieldIndexable(SchemaDefinition schema, string fieldName)
     {
         var field = schema.Fields.FirstOrDefault(f => f.Name == fieldName);
-        return field != null && GraphQlTypeHelper.IsScalar(field.Type);
+        return field != null
+            && GraphQlTypeHelper.IsScalar(field.Type)
+            && field.Type != GeoJsonValidator.TypeName;
     }
 
     private static string BuildIndexName(List<(string FieldName, int Direction)> keys) =>

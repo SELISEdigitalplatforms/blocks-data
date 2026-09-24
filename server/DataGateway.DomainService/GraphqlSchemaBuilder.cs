@@ -403,6 +403,8 @@ public class GraphqlSchemaBuilder
         // the type has to exist in the schema before any field can reference it.
         schemaBuilder.AddType<GeoJsonType>();
         schemaBuilder.AddType<GeoJsonOperationFilterInputType>();
+        schemaBuilder.AddType<GeoJsonNearInputType>();
+        schemaBuilder.AddType<GeoJsonGeometryFilterInputType>();
         foreach (var type in entityFilterInputTypes.Values)
             schemaBuilder.AddType(type);
         foreach (var type in childFilterInputTypes)

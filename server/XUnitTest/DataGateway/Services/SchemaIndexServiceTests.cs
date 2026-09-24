@@ -48,6 +48,7 @@ public class SchemaIndexServiceTests
             new FieldDefinition { Name = "age", Type = "Int" },
             new FieldDefinition { Name = "tags", Type = "String", IsArray = true },
             new FieldDefinition { Name = "manager", Type = "Person", IsReferenceField = true },
+            new FieldDefinition { Name = "location", Type = "GeoJson" },
         }
     };
 
@@ -87,6 +88,7 @@ public class SchemaIndexServiceTests
     [Theory]
     [InlineData("doesNotExist")]
     [InlineData("manager")]
+    [InlineData("location")] // GeoJson is auto-indexed (2dsphere), so the manual flow rejects it
     public async Task CreateIndex_IneligibleField_Returns400(string fieldName)
     {
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(EntitySchema());

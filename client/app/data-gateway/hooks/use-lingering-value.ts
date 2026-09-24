@@ -13,7 +13,9 @@ import { useEffect, useRef, useState } from "react";
  */
 export function useLingeringValue<T>(value: T | null, delay: number): T | null {
   const [lingering, setLingering] = useState<T | null>(value);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  // React 19 requires an explicit initial value; `useRef<T>()` no longer
+  // implies `T | undefined`.
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     clearTimeout(timeoutRef.current);

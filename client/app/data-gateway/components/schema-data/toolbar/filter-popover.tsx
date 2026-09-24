@@ -95,25 +95,48 @@ const OPERATORS_BY_TYPE: Record<string, Operator[]> = {
     "is empty",
     "is not empty",
   ],
+  // A geometry compares as a whole document or not at all. Proximity and
+  // containment (near / within / intersects) are Phase 2; until then, offering
+  // the string operators here would suggest "contains"/"starts with" work on a
+  // geometry, which they do not.
+  geojson: ["equals", "not equals", "is empty", "is not empty"],
 };
 
 const NO_VALUE_OPS: Operator[] = ["is true", "is false", "is empty", "is not empty"];
 
 function resolveFieldCategory(
   field: TemplateField | undefined,
-): "string" | "number" | "boolean" | "array" | "date" {
+): "string" | "number" | "boolean" | "array" | "date" | "geojson" {
   if (!field) return "string";
   if (field.isArray) return "array";
   const t = (field.type ?? "").toLowerCase();
   if (["int", "integer", "float", "long"].includes(t)) return "number";
   if (t === "boolean") return "boolean";
   if (["datetime", "date", "timestamp"].includes(t)) return "date";
+  if (t === "geojson") return "geojson";
   return "string";
 }
 
 const ISO_DATE_SENTINEL = "__ISODATE:";
 function isoDateMarker(iso: string): string {
   return `${ISO_DATE_SENTINEL}${iso}__`;
+}
+
+/**
+ * A geometry is entered as raw JSON — there is no map picker, and every other
+ * complex value in this UI is typed the same way. Text that is not a JSON
+ * object yields no condition at all, rather than a filter comparing the field
+ * against the literal string the user was midway through typing.
+ */
+function parseGeoJsonValue(raw: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 function conditionToMongo(
@@ -129,12 +152,22 @@ function conditionToMongo(
   if (!NO_VALUE_OPS.includes(operator as Operator) && value.trim() === "") return null;
 
   switch (operator) {
-    case "equals":
+    case "equals": {
       if (category === "date") return { [field]: isoDateMarker(new Date(value).toISOString()) };
+      if (category === "geojson") {
+        const geometry = parseGeoJsonValue(value);
+        return geometry ? { [field]: geometry } : null;
+      }
       return { [field]: category === "number" ? Number(value) : value };
-    case "not equals":
+    }
+    case "not equals": {
       if (category === "date") return { [field]: { $ne: isoDateMarker(new Date(value).toISOString()) } };
+      if (category === "geojson") {
+        const geometry = parseGeoJsonValue(value);
+        return geometry ? { [field]: { $ne: geometry } } : null;
+      }
       return { [field]: { $ne: category === "number" ? Number(value) : value } };
+    }
     case "before":
       return { [field]: { $lt: isoDateMarker(new Date(value).toISOString()) } };
     case "after":
@@ -424,10 +457,12 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                         value={condition.value}
                         onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
                         placeholder={
-                          condition.operator === "is one of" ||
-                          condition.operator === "is not one of"
-                            ? "a, b, c"
-                            : "Value"
+                          category === "geojson"
+                            ? '{"type":"Point","coordinates":[8.54,47.37]}'
+                            : condition.operator === "is one of" ||
+                                condition.operator === "is not one of"
+                              ? "a, b, c"
+                              : "Value"
                         }
                         className="h-8 w-36 text-xs"
                       />

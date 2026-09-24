@@ -86,3 +86,20 @@ public class DateTimeOperationFilterInputType : InputObjectType<DateTimeOperatio
         descriptor.Field(f => f.In).Type<ListType<DateTimeType>>().Description("In list.");
     }
 }
+
+/// <summary>
+/// Reusable GraphQL input for GeoJson field filters: eq, neq.
+///
+/// Mirrors <see cref="BooleanOperationFilterInputType"/>'s minimal shape — the
+/// geospatial operators (near/within/intersects) are Phase 2 and land on this
+/// same type, so nothing here needs renaming when they arrive.
+/// </summary>
+public class GeoJsonOperationFilterInputType : InputObjectType<GeoJsonOperationFilterInput>
+{
+    protected override void Configure(IInputObjectTypeDescriptor<GeoJsonOperationFilterInput> descriptor)
+    {
+        descriptor.Name("GeoJsonOperationFilterInput");
+        descriptor.Field(f => f.Eq).Type<GeoJsonType>().Description("Structurally equals.");
+        descriptor.Field(f => f.Neq).Type<GeoJsonType>().Description("Does not structurally equal.");
+    }
+}

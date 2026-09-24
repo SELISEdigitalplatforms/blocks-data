@@ -65,3 +65,19 @@ public sealed class DateTimeOperationFilterInput
     public Optional<DateTime?> Lte { get; set; }
     public Optional<object?> In { get; set; }
 }
+
+/// <summary>
+/// CLR backing for GraphQL <c>GeoJsonOperationFilterInput</c>.
+///
+/// Equality only in this phase. The value is the whole geometry object, so
+/// <c>object?</c> rather than a typed geometry: comparison is structural
+/// document equality (same <c>type</c>, same <c>coordinates</c>), matching how
+/// every other complex Bson value already compares. Geometric equivalence — a
+/// polygon with reordered but equivalent rings — is a different and much
+/// deeper question, and deliberately not what this does.
+/// </summary>
+public sealed class GeoJsonOperationFilterInput
+{
+    public Optional<object?> Eq { get; set; }
+    public Optional<object?> Neq { get; set; }
+}

@@ -1060,10 +1060,14 @@ export const GraphQLPlaygroundPage = () => {
                 });
 
                 if (leafType) {
+                  // GeoJson is matched before the numeric/date fallback, which
+                  // would otherwise suggest gt/gte/lt/lte on a geometry — the
+                  // filter input has no such operators, so the suggestion
+                  // would only produce a query the server rejects.
                   const operatorNames =
                     leafType === "String" || leafType === "ID"
                       ? ["eq", "neq", "contains", "startsWith", "endsWith", "in"]
-                      : leafType === "Boolean"
+                      : leafType === "Boolean" || leafType === "GeoJson"
                         ? ["eq", "neq"]
                         : ["eq", "neq", "gt", "gte", "lt", "lte", "in"];
                   operatorNames.forEach((operator) =>

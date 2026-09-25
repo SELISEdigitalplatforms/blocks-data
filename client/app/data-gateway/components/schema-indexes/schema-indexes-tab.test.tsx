@@ -52,6 +52,7 @@ describe("SchemaIndexesTab", () => {
     expect(screen.getByText("ItemId(_id_)")).toBeInTheDocument();
     expect(screen.getByText("Unique")).toBeInTheDocument();
     expect(screen.getByText("Default")).toBeInTheDocument();
+    expect(screen.getByText("System")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete index _id_" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add index/ })).toBeEnabled();
 
@@ -86,6 +87,9 @@ describe("SchemaIndexesTab", () => {
     expect(screen.getByText("0 of 15 custom indexes")).toBeInTheDocument();
     expect(screen.getByText("Cord_2dsphere")).toBeInTheDocument();
     expect(screen.getByText("Geospatial · Auto")).toBeInTheDocument();
+    // Both the default _id_ row and the automatic geo row are tagged System.
+    expect(screen.getAllByText("System")).toHaveLength(2);
+    expect(screen.queryByText("Custom")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Delete index Cord_2dsphere" }),
     ).not.toBeInTheDocument();

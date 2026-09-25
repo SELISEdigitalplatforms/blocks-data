@@ -193,6 +193,9 @@ export function SchemaIndexesTab({
                         Geospatial · Auto
                       </Badge>
                     )}
+                    <Badge variant={index.isSystem ? "secondary" : "outline"}>
+                      {index.isSystem ? "System" : "Custom"}
+                    </Badge>
                     {index.fields.length > 1 && <Badge variant="outline">Compound</Badge>}
                     {index.isUnique && <Badge variant="secondary">Unique</Badge>}
                   </div>

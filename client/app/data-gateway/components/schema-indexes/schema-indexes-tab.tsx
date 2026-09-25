@@ -18,6 +18,7 @@ import {
 } from "@/components/ui-kits/tooltip/tooltip";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { Plus, Trash } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useState } from "react";
 import {
   useDeleteSchemaIndex,
@@ -38,6 +39,16 @@ const DTO_SCHEMA_TYPE = 2;
 
 /** Backend prefix of the read-only, automatically managed geospatial index rows. */
 const GEO_SYSTEM_INDEX_PREFIX = "system:";
+
+/** Tinted, low-contrast tags: colour tells them apart without competing with the index name. */
+const TAG_BASE = "border-transparent font-medium";
+const TAG_TONES = {
+  system: "bg-slate-500/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-300",
+  custom: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300",
+  unique: "bg-amber-500/10 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300",
+  compound: "bg-violet-500/10 text-violet-700 dark:bg-violet-400/10 dark:text-violet-300",
+  geo: "bg-sky-500/10 text-sky-700 dark:bg-sky-400/10 dark:text-sky-300",
+};
 
 const DEFAULT_ITEM_ID_INDEX: ISchemaIndex = {
   itemId: "__default-item-id-index__",
@@ -185,19 +196,28 @@ export function SchemaIndexesTab({
                     <span className="whitespace-nowrap text-xs text-muted-foreground">
                       {index.fields.length} {index.fields.length === 1 ? "property" : "properties"}
                     </span>
-                    {index.itemId === DEFAULT_ITEM_ID_INDEX.itemId && (
-                      <Badge variant="outline">Default</Badge>
-                    )}
-                    {index.itemId !== DEFAULT_ITEM_ID_INDEX.itemId && index.isSystem && (
-                      <Badge variant="outline" title="Created and dropped automatically with the GeoJson field">
+                    <Badge variant="outline" className={cn(TAG_BASE, index.isSystem ? TAG_TONES.system : TAG_TONES.custom)}>
+                      {index.isSystem ? "System" : "Custom"}
+                    </Badge>
+                    {isGeo && (
+                      <Badge
+                        variant="outline"
+                        className={cn(TAG_BASE, TAG_TONES.geo)}
+                        title="Created and dropped automatically with the GeoJson field"
+                      >
                         Geospatial · Auto
                       </Badge>
                     )}
-                    <Badge variant={index.isSystem ? "secondary" : "outline"}>
-                      {index.isSystem ? "System" : "Custom"}
-                    </Badge>
-                    {index.fields.length > 1 && <Badge variant="outline">Compound</Badge>}
-                    {index.isUnique && <Badge variant="secondary">Unique</Badge>}
+                    {index.fields.length > 1 && (
+                      <Badge variant="outline" className={cn(TAG_BASE, TAG_TONES.compound)}>
+                        Compound
+                      </Badge>
+                    )}
+                    {index.isUnique && (
+                      <Badge variant="outline" className={cn(TAG_BASE, TAG_TONES.unique)}>
+                        Unique
+                      </Badge>
+                    )}
                   </div>
                 </AccordionTrigger>
                 {index.isSystem ? (

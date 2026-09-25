@@ -51,7 +51,7 @@ describe("SchemaIndexesTab", () => {
     expect(screen.getByText("0 of 15 custom indexes")).toBeInTheDocument();
     expect(screen.getByText("ItemId(_id_)")).toBeInTheDocument();
     expect(screen.getByText("Unique")).toBeInTheDocument();
-    expect(screen.getByText("Default")).toBeInTheDocument();
+    expect(screen.queryByText("Default")).not.toBeInTheDocument();
     expect(screen.getByText("System")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete index _id_" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Add index/ })).toBeEnabled();

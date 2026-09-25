@@ -117,6 +117,16 @@ public class GeoJsonGeospatialMongoTests
     }
 
     [Fact]
+    public async Task ListIndexNamesAsync_ListsExistingIndexes_AndIsEmptyForAMissingCollection()
+    {
+        (await _repository.ListIndexNamesAsync("NoSuchCollection")).Should().BeEmpty();
+
+        await _repository.CreateGeoIndexAsync(Stores, "location", "location_2dsphere");
+
+        (await _repository.ListIndexNamesAsync(Stores)).Should().Contain(new[] { "_id_", "location_2dsphere" });
+    }
+
+    [Fact]
     public async Task Near_ReturnsOnlyDocumentsWithinTheDistance_AndCountsThem()
     {
         await SeedAsync();

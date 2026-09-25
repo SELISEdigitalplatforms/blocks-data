@@ -312,6 +312,56 @@ public class SchemaIndexServiceTests
     }
 
     [Fact]
+    public async Task GetIndexes_ReportsTheAutomaticGeoIndexAsASystemIndex_OnlyWhenItExistsInMongo()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(EntitySchema());
+        _repo.Setup(r => r.ListIndexNamesAsync("Customers", "")).ReturnsAsync(new List<string> { "_id_", "location_2dsphere" });
+
+        var result = await _service.GetIndexesAsync("schema-1");
+
+        result.Data!.Indexes.Should().BeEmpty(); // not a user-managed index: not deletable, not counted
+        var system = result.Data.SystemIndexes.Should().ContainSingle().Subject;
+        system.Name.Should().Be("location_2dsphere");
+        system.Fields.Should().ContainSingle().Which.FieldName.Should().Be("location");
+    }
+
+    [Fact]
+    public async Task GetIndexes_GeoIndexThatFailedToBuild_IsNotReported()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(EntitySchema());
+        _repo.Setup(r => r.ListIndexNamesAsync("Customers", "")).ReturnsAsync(new List<string> { "_id_" });
+
+        var result = await _service.GetIndexesAsync("schema-1");
+
+        result.Data!.SystemIndexes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetIndexes_ArrayGeoJsonField_HasNoSystemIndex()
+    {
+        var schema = EntitySchema();
+        schema.Fields.First(f => f.Name == "location").IsArray = true;
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(schema);
+        _repo.Setup(r => r.ListIndexNamesAsync("Customers", "")).ReturnsAsync(new List<string> { "location_2dsphere" });
+
+        var result = await _service.GetIndexesAsync("schema-1");
+
+        result.Data!.SystemIndexes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetIndexes_WhenMongoListingFails_StillReturnsTheUserIndexes()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(EntitySchema());
+        _repo.Setup(r => r.ListIndexNamesAsync("Customers", "")).ThrowsAsync(new MongoException("down"));
+
+        var result = await _service.GetIndexesAsync("schema-1");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Data!.SystemIndexes.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task GetIndexes_WithExistingIndexes_MapsEveryFieldOfTheResponse()
     {
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(EntitySchema());

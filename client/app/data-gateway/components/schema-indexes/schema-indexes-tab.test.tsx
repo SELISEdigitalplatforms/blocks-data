@@ -62,6 +62,39 @@ describe("SchemaIndexesTab", () => {
     expect(within(properties).getByRole("listitem")).toHaveTextContent("ItemId↑");
   });
 
+  it("shows the automatic geospatial index read-only, without counting or offering delete", async () => {
+    const user = userEvent.setup();
+    useSchemaIndexes.mockReturnValue({
+      data: {
+        data: {
+          indexes: [],
+          systemIndexes: [
+            {
+              itemId: "system:Cord_2dsphere",
+              name: "Cord_2dsphere",
+              isUnique: false,
+              createdDate: "",
+              fields: [{ fieldName: "Cord", direction: "ASC" }],
+            },
+          ],
+        },
+      },
+      isLoading: false,
+    });
+    renderTab();
+
+    expect(screen.getByText("0 of 15 custom indexes")).toBeInTheDocument();
+    expect(screen.getByText("Cord_2dsphere")).toBeInTheDocument();
+    expect(screen.getByText("Geospatial · Auto")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Delete index Cord_2dsphere" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("Cord_2dsphere").closest("button")!);
+    const properties = screen.getByRole("list", { name: "Properties for Cord_2dsphere" });
+    expect(within(properties).getByRole("listitem")).toHaveTextContent("Cord2dsphere");
+  });
+
   it("shows full-row index summaries and expands ordered properties", async () => {
     const user = userEvent.setup();
     useSchemaIndexes.mockReturnValue({

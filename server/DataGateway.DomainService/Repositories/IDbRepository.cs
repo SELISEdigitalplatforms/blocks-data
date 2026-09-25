@@ -101,6 +101,11 @@ public interface IDbRepository
     Task<ActionResponse> CreateGeoIndexAsync(string collectionName, string fieldName, string indexName, string databaseName = "");
 
     /// <summary>
+    /// Names of the indexes that currently exist on the collection; empty when it does not exist yet.
+    /// </summary>
+    Task<List<string>> ListIndexNamesAsync(string collectionName, string databaseName = "");
+
+    /// <summary>
     /// Drops a previously created index by name from the given data collection.
     /// </summary>
     Task<ActionResponse> DropIndexAsync(string collectionName, string indexName, string databaseName = "");

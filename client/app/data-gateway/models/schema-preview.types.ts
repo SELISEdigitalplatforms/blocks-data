@@ -48,6 +48,7 @@ export enum FieldType {
   Float = "float",
   Boolean = "boolean",
   DateTime = "datetime",
+  GeoJson = "geojson",
 }
 
 /**
@@ -62,6 +63,7 @@ export const SAMPLE_VALUE_BY_TYPE: Record<string, string> = {
   [FieldType.Float]: "1.0",
   [FieldType.Boolean]: "true",
   [FieldType.DateTime]: '"2024-01-01T00:00:00Z"',
+  [FieldType.GeoJson]: '{ type: "Point", coordinates: [8.5417, 47.3769] }',
 };
 
 // Props for the component

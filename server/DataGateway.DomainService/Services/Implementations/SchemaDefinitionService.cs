@@ -197,8 +197,9 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     /// coordinate pair and rejects the write with "Point must only contain numeric elements"), so
     /// creating one would make inserts into the collection fail. The geospatial operators
     /// ($geoWithin/$geoIntersects) do not need an index, so those fields still filter — by scan.
-    /// The index is system-managed: it has no SchemaIndexDefinition row, is not shown in the
-    /// Indexes tab, and does not count against SchemaIndexService.MaxIndexesPerSchema.
+    /// The index is system-managed: it has no SchemaIndexDefinition row and does not count against
+    /// SchemaIndexService.MaxIndexesPerSchema. SchemaIndexService reports it separately, read-only,
+    /// as a system index.
     /// A failure is logged and does not fail the save, matching the unique-index precedent; a
     /// geospatial query on a field with no index then fails loudly inside MongoDB rather than
     /// returning an empty result.
@@ -208,9 +209,6 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         SaveFieldDefinitionRequest request,
         HashSet<string> previousGeoJsonFieldNames)
     {
-        if (schema.SchemaType != SchemaType.Entity)
-            return;
-
         var deleted = request.DeletableFieldNames ?? [];
         var currentGeoJsonFieldNames = request.Fields
             .Where(f => f.Type == GeoJsonValidator.TypeName && !f.IsArray)
@@ -218,7 +216,31 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             .ToHashSet();
 
         var toDrop = previousGeoJsonFieldNames
-            .Where(name => deleted.Contains(name) || (request.Fields.Any(f => f.Name == name) && !currentGeoJsonFieldNames.Contains(name)));
+            .Where(name => deleted.Contains(name) || (request.Fields.Any(f => f.Name == name) && !currentGeoJsonFieldNames.Contains(name)))
+            .ToList();
+
+        await ApplyGeoJsonIndexChangesAsync(schema, currentGeoJsonFieldNames, toDrop);
+    }
+
+    /// <summary>
+    /// Whole-schema variant for create and update, where the request carries the complete field
+    /// list rather than a delta: anything indexed before and not indexable now is dropped.
+    /// </summary>
+    private async Task ReconcileGeoJsonFieldIndexesAsync(
+        SchemaDefinition schema,
+        HashSet<string> previousGeoJsonFieldNames)
+    {
+        var current = schema.Fields.Where(IsGeoIndexed).Select(f => f.Name).ToHashSet();
+        await ApplyGeoJsonIndexChangesAsync(schema, current, previousGeoJsonFieldNames.Where(n => !current.Contains(n)).ToList());
+    }
+
+    private async Task ApplyGeoJsonIndexChangesAsync(
+        SchemaDefinition schema,
+        HashSet<string> currentGeoJsonFieldNames,
+        List<string> toDrop)
+    {
+        if (schema.SchemaType != SchemaType.Entity)
+            return;
 
         foreach (var name in toDrop)
         {
@@ -256,7 +278,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     private const int IndexNotFoundCode = 27;
 
     /// <summary>Deterministic per field, so re-saving an unchanged field never duplicates the index.</summary>
-    internal static string GeoJsonIndexName(string fieldName) => $"{fieldName}_2dsphere";
+    internal static string GeoJsonIndexName(string fieldName) => SchemaIndexService.GeoJsonIndexName(fieldName);
 
     private static bool IsAutoManagedUniqueIndex(SchemaIndexResponse index, string fieldName) =>
         index.IsUnique && index.Fields.Count == 1 && index.Fields[0].FieldName == fieldName;
@@ -344,6 +366,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
         var result = await _repository.InsertAsync<SchemaDefinition>(schema);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaCreate);
+        await ReconcileGeoJsonFieldIndexesAsync(schema, []);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = result.ItemId });
     }
 
@@ -365,6 +388,8 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
 
+        var previousGeoJsonFieldNames = schema.Fields.Where(IsGeoIndexed).Select(f => f.Name).ToHashSet();
+
         schema.CollectionName = request.CollectionName;
         schema.Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description, RequiredOn = f.RequiredOn }).ToList() ?? [];
         schema.SchemaName = request.SchemaName;
@@ -376,6 +401,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
         var result = await _repository.UpdateAsync(schema);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaUpdate);
+        await ReconcileGeoJsonFieldIndexesAsync(schema, previousGeoJsonFieldNames);
         await _referenceHelper.ApplyChangesToReferenceEntityFields(schema);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = result.ItemId });
     }

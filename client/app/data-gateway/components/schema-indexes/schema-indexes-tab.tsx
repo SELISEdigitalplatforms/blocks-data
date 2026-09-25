@@ -36,6 +36,9 @@ import { SchemaIndexForm } from "./schema-index-form";
 /** Backend SchemaType.Dto — indexes are only supported on SchemaType.Entity (1). */
 const DTO_SCHEMA_TYPE = 2;
 
+/** Backend prefix of the read-only, automatically managed geospatial index rows. */
+const GEO_SYSTEM_INDEX_PREFIX = "system:";
+
 const DEFAULT_ITEM_ID_INDEX: ISchemaIndex = {
   itemId: "__default-item-id-index__",
   name: "_id_",
@@ -65,11 +68,13 @@ export function SchemaIndexesTab({
     useDeleteSchemaIndex();
 
   const indexes = data?.data?.indexes ?? [];
+  const systemIndexes = data?.data?.systemIndexes ?? [];
   const isDto = schemaType === DTO_SCHEMA_TYPE;
   const displayedIndexes = isDto
     ? indexes.map((index) => ({ ...index, isSystem: false }))
     : [
         { ...DEFAULT_ITEM_ID_INDEX, isSystem: true },
+        ...systemIndexes.map((index) => ({ ...index, isSystem: true })),
         ...indexes.map((index) => ({ ...index, isSystem: false })),
       ];
   const atLimit = indexes.length >= MAX_INDEXES_PER_SCHEMA;
@@ -163,7 +168,9 @@ export function SchemaIndexesTab({
         )
       ) : (
         <Accordion type="single" collapsible className="flex flex-col gap-2">
-          {displayedIndexes.map((index) => (
+          {displayedIndexes.map((index) => {
+            const isGeo = index.itemId.startsWith(GEO_SYSTEM_INDEX_PREFIX);
+            return (
             <AccordionItem
               key={index.itemId || index.name}
               value={index.itemId || index.name}
@@ -173,12 +180,19 @@ export function SchemaIndexesTab({
                 <AccordionTrigger className="min-w-0 flex-row-reverse justify-end gap-3 px-4 py-3 text-left hover:no-underline">
                   <div className="flex min-w-0 flex-1 items-center gap-4 pr-4">
                     <span className="truncate text-sm font-semibold" title={index.name}>
-                      {index.isSystem ? "ItemId(_id_)" : index.name}
+                      {index.itemId === DEFAULT_ITEM_ID_INDEX.itemId ? "ItemId(_id_)" : index.name}
                     </span>
                     <span className="whitespace-nowrap text-xs text-muted-foreground">
                       {index.fields.length} {index.fields.length === 1 ? "property" : "properties"}
                     </span>
-                    {index.isSystem && <Badge variant="outline">Default</Badge>}
+                    {index.itemId === DEFAULT_ITEM_ID_INDEX.itemId && (
+                      <Badge variant="outline">Default</Badge>
+                    )}
+                    {index.itemId !== DEFAULT_ITEM_ID_INDEX.itemId && index.isSystem && (
+                      <Badge variant="outline" title="Created and dropped automatically with the GeoJson field">
+                        Geospatial · Auto
+                      </Badge>
+                    )}
                     {index.fields.length > 1 && <Badge variant="outline">Compound</Badge>}
                     {index.isUnique && <Badge variant="secondary">Unique</Badge>}
                   </div>
@@ -220,17 +234,18 @@ export function SchemaIndexesTab({
                       <span className="min-w-0 break-all">{field.fieldName}</span>
                       <span
                         className="text-lg font-semibold leading-none text-muted-foreground"
-                        aria-label={INDEX_DIRECTION_LABELS[field.direction]}
-                        title={INDEX_DIRECTION_LABELS[field.direction]}
+                        aria-label={isGeo ? "2dsphere" : INDEX_DIRECTION_LABELS[field.direction]}
+                        title={isGeo ? "2dsphere" : INDEX_DIRECTION_LABELS[field.direction]}
                       >
-                        {field.direction === "ASC" ? "↑" : "↓"}
+                        {isGeo ? "2dsphere" : field.direction === "ASC" ? "↑" : "↓"}
                       </span>
                     </li>
                   ))}
                 </ul>
               </AccordionContent>
             </AccordionItem>
-          ))}
+            );
+          })}
         </Accordion>
       )}
 

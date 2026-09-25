@@ -597,6 +597,91 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
+    public async Task CreateSchemaDefinition_EntityWithGeoJsonField_Creates2dsphereIndex()
+    {
+        NameIsUnique();
+
+        await _service.CreateSchemaDefinitionAsync(new CreateSchemaDefinitionRequest
+        {
+            SchemaName = "Store",
+            CollectionName = "Stores",
+            SchemaType = SchemaType.Entity,
+            Fields = new()
+            {
+                new FieldDefinitionRequest { Name = "location", Type = "GeoJson" },
+                new FieldDefinitionRequest { Name = "waypoints", Type = "GeoJson", IsArray = true },
+            }
+        });
+
+        VerifyGeoIndexCreated(Times.Once());
+        _repo.Verify(r => r.CreateGeoIndexAsync(It.IsAny<string>(), "waypoints", It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateSchemaDefinition_Dto_CreatesNoGeoIndex()
+    {
+        NameIsUnique();
+
+        await _service.CreateSchemaDefinitionAsync(new CreateSchemaDefinitionRequest
+        {
+            SchemaName = "Stop",
+            CollectionName = "Stops",
+            SchemaType = SchemaType.Dto,
+            Fields = new() { new FieldDefinitionRequest { Name = "location", Type = "GeoJson" } }
+        });
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    private void SetUpSchemaForUpdate(params FieldDefinition[] fields)
+    {
+        var schema = new SchemaDefinition { ItemId = "1", SchemaName = "Store", CollectionName = "Stores", SchemaType = SchemaType.Entity, Fields = fields.ToList() };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Store" });
+    }
+
+    private Task<ServiceResponse<ActionResponse>> UpdateWith(params FieldDefinitionRequest[] fields) =>
+        _service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest
+        {
+            ItemId = "1",
+            SchemaName = "Store",
+            CollectionName = "Stores",
+            SchemaType = SchemaType.Entity,
+            Fields = fields.ToList()
+        });
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_AddedGeoJsonField_Creates2dsphereIndex()
+    {
+        SetUpSchemaForUpdate();
+
+        await UpdateWith(new FieldDefinitionRequest { Name = "location", Type = "GeoJson" });
+
+        VerifyGeoIndexCreated(Times.Once());
+    }
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_GeoJsonFieldRemovedFromList_DropsItsIndex()
+    {
+        SetUpSchemaForUpdate(new FieldDefinition { Name = "location", Type = "GeoJson" });
+
+        await UpdateWith(new FieldDefinitionRequest { Name = "name", Type = "String" });
+
+        _repo.Verify(r => r.DropIndexAsync("Stores", "location_2dsphere", ""), Times.Once);
+        VerifyGeoIndexCreated(Times.Never());
+    }
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_UnrelatedFields_TouchNoGeoIndex()
+    {
+        SetUpSchemaForUpdate(new FieldDefinition { Name = "name", Type = "String" });
+
+        await UpdateWith(new FieldDefinitionRequest { Name = "name", Type = "String" });
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    [Fact]
     public async Task UpdateSchemaDefinition_Valid_Updates()
     {
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });

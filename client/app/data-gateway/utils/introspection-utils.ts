@@ -23,6 +23,7 @@ import {
   EXCLUDED_INPUT_SUBFIELDS,
   SYSTEM_INPUT_FIELDS,
   MUTATION_SAMPLE_STRING_LIKE_SCALAR_NAMES,
+  GEOJSON_SAMPLE_VALUE,
   formatGraphQLDateTimeSampleValue,
   mongoStringLiteralForField,
   paginationDefaultForField,
@@ -212,6 +213,12 @@ const buildNestedInputFieldLine = (
     MUTATION_SAMPLE_STRING_LIKE_SCALAR_NAMES.has(fNamed.name)
   ) {
     return `${lineIndent}${f.name}: [${formatGraphQLDateTimeSampleValue()}]${fComment}`;
+  }
+
+  if (isScalarType(fNamed) && fNamed.name === "GeoJson") {
+    return fIsList
+      ? `${lineIndent}${f.name}: [${GEOJSON_SAMPLE_VALUE}]${fComment}`
+      : `${lineIndent}${f.name}: ${GEOJSON_SAMPLE_VALUE}${fComment}`;
   }
 
   if (fType.includes("Int") || fType.includes("Float")) {

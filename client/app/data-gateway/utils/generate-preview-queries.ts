@@ -15,6 +15,7 @@ import {
   getIntDefault,
   getFloatDefault,
   MUTATION_SAMPLE_STRING_LIKE_SCALAR_NAMES,
+  GEOJSON_SAMPLE_VALUE,
 } from "./graphql-constants";
 import type { TemplateSection } from "../models/schema-preview.types";
 
@@ -158,6 +159,8 @@ export function buildInputValue(
         return getFloatDefault(fieldName, isMutationInput);
       case "Boolean":
         return "false";
+      case "GeoJson":
+        return GEOJSON_SAMPLE_VALUE;
       default:
         return getStringDefault(fieldName, isMutationInput);
     }

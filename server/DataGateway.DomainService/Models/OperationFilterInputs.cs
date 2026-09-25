@@ -65,3 +65,42 @@ public sealed class DateTimeOperationFilterInput
     public Optional<DateTime?> Lte { get; set; }
     public Optional<object?> In { get; set; }
 }
+
+/// <summary>
+/// CLR backing for GraphQL <c>GeoJsonOperationFilterInput</c>.
+///
+/// Equality plus the geospatial operators <c>near</c>, <c>within</c> and <c>intersects</c>.
+/// The <c>eq</c>/<c>neq</c> value is the whole geometry object, so
+/// <c>object?</c> rather than a typed geometry: comparison is structural
+/// document equality (same <c>type</c>, same <c>coordinates</c>), matching how
+/// every other complex Bson value already compares. Geometric equivalence — a
+/// polygon with reordered but equivalent rings — is a different and much
+/// deeper question, and deliberately not what this does.
+/// </summary>
+public sealed class GeoJsonOperationFilterInput
+{
+    public Optional<object?> Eq { get; set; }
+    public Optional<object?> Neq { get; set; }
+    public Optional<GeoJsonNearInput?> Near { get; set; }
+    public Optional<GeoJsonGeometryFilterInput?> Within { get; set; }
+    public Optional<GeoJsonGeometryFilterInput?> Intersects { get; set; }
+}
+
+/// <summary>
+/// CLR backing for GraphQL <c>GeoJsonNearInput</c>: a reference Point and a distance in meters.
+/// </summary>
+public sealed class GeoJsonNearInput
+{
+    public object? Geometry { get; set; }
+    public double MaxDistanceMeters { get; set; }
+    public Optional<double?> MinDistanceMeters { get; set; }
+}
+
+/// <summary>
+/// CLR backing for GraphQL <c>GeoJsonGeometryFilterInput</c>, shared by <c>within</c> and
+/// <c>intersects</c>: a single reference geometry.
+/// </summary>
+public sealed class GeoJsonGeometryFilterInput
+{
+    public object? Geometry { get; set; }
+}

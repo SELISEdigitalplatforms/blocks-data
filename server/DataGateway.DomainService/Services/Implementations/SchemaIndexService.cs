@@ -98,8 +98,48 @@ public class SchemaIndexService : ISchemaIndexService
             return new ServiceResponse<SchemaIndexListResponse>().SetErrorMessage("SCHEMA_NOT_FOUND").SetHttpStatusCode(404);
 
         var indexes = await GetIndexEntitiesAsync(schema.ItemId);
-        var response = new SchemaIndexListResponse { Indexes = indexes.Select(MapToResponse).ToList() };
+        var response = new SchemaIndexListResponse
+        {
+            Indexes = indexes.Select(MapToResponse).ToList(),
+            SystemIndexes = await GetSystemIndexesAsync(schema),
+        };
         return new ServiceResponse<SchemaIndexListResponse>().SetSuccess(response);
+    }
+
+    /// <summary>
+    /// The automatic 2dsphere indexes that actually exist in MongoDB, reported from the live index
+    /// list rather than inferred from the field list, so an index that failed to build is not shown.
+    /// Listing is best-effort: a failure yields none instead of failing the whole index list.
+    /// </summary>
+    private async Task<List<SchemaIndexResponse>> GetSystemIndexesAsync(SchemaDefinition schema)
+    {
+        if (schema.SchemaType != SchemaType.Entity)
+            return [];
+
+        var geoFields = schema.Fields.Where(f => f.Type == GeoJsonValidator.TypeName && !f.IsArray).ToList();
+        if (geoFields.Count == 0)
+            return [];
+
+        List<string> existing;
+        try
+        {
+            existing = await _repository.ListIndexNamesAsync(schema.CollectionName) ?? [];
+        }
+        catch (MongoException)
+        {
+            return [];
+        }
+
+        return geoFields
+            .Where(f => existing.Contains(GeoJsonIndexName(f.Name)))
+            .Select(f => new SchemaIndexResponse
+            {
+                ItemId = $"system:{GeoJsonIndexName(f.Name)}",
+                Name = GeoJsonIndexName(f.Name),
+                IsUnique = false,
+                Fields = [new IndexFieldResponse { FieldName = f.Name, Direction = SortDirection.ASC }],
+            })
+            .ToList();
     }
 
     public async Task<ServiceResponse<ActionResponse>> DeleteIndexAsync(string itemId)
@@ -126,12 +166,19 @@ public class SchemaIndexService : ISchemaIndexService
     /// field denormalized from a referenced schema (see SchemaDefinitionReferenceHelper), including
     /// scalar leaves like "Assignee.email", so it cannot distinguish those from actual reference
     /// fields (e.g. "Assignee" itself) — the latter are already excluded by the scalar check below.
+    /// GeoJson is scalar but excluded too: its 2dsphere index is created and dropped automatically
+    /// by SchemaDefinitionService, so a manual index on it is never the right flow.
     /// </summary>
     private static bool IsFieldIndexable(SchemaDefinition schema, string fieldName)
     {
         var field = schema.Fields.FirstOrDefault(f => f.Name == fieldName);
-        return field != null && GraphQlTypeHelper.IsScalar(field.Type);
+        return field != null
+            && GraphQlTypeHelper.IsScalar(field.Type)
+            && field.Type != GeoJsonValidator.TypeName;
     }
+
+    /// <summary>Deterministic per field; shared with SchemaDefinitionService, which creates the index.</summary>
+    internal static string GeoJsonIndexName(string fieldName) => $"{fieldName}_2dsphere";
 
     private static string BuildIndexName(List<(string FieldName, int Direction)> keys) =>
         string.Join("_", keys.Select(k => $"{k.FieldName}_{k.Direction}"));

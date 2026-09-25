@@ -1,3 +1,7 @@
+using System.Net;
+using MongoDB.Driver.Core.Clusters;
+using MongoDB.Driver.Core.Connections;
+using MongoDB.Driver.Core.Servers;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
@@ -235,6 +239,172 @@ public class SchemaDefinitionServiceTests
         schema.Fields.Should().Contain(f => f.Name == "New");
     }
 
+    private SchemaDefinition GeoSchema(params FieldDefinition[] fields)
+    {
+        var schema = new SchemaDefinition
+        {
+            ItemId = "1",
+            SchemaType = SchemaType.Entity,
+            CollectionName = "Stores",
+            Fields = fields.ToList()
+        };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        return schema;
+    }
+
+    private static SaveFieldDefinitionRequest SaveRequest(string name, string type, string[]? deleted = null, bool isArray = false) => new()
+    {
+        SchemaDefinitionItemId = "1",
+        DeletableFieldNames = deleted is { Length: > 0 } ? deleted : null,
+        Fields = new() { new FieldDefinitionRequest { Name = name, Type = type, IsArray = isArray } }
+    };
+
+    private void VerifyGeoIndexCreated(Times times) =>
+        _repo.Verify(r => r.CreateGeoIndexAsync("Stores", "location", "location_2dsphere", ""), times);
+
+    private void VerifyNoGeoIndexTouched()
+    {
+        _repo.Verify(r => r.CreateGeoIndexAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _repo.Verify(r => r.DropIndexAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_NewGeoJsonField_Creates2dsphereIndex()
+    {
+        GeoSchema();
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        VerifyGeoIndexCreated(Times.Once());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_UnchangedGeoJsonField_RequestsTheSameNamedIndex_SoItIsIdempotent()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson" });
+
+        var first = await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+        var second = await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        first.IsSuccess.Should().BeTrue();
+        second.IsSuccess.Should().BeTrue();
+        // The deterministic name is what makes the repeat a Mongo no-op rather than a duplicate.
+        VerifyGeoIndexCreated(Times.Exactly(2));
+        _repo.Verify(r => r.DropIndexAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_TypeChangedToGeoJson_Creates2dsphereIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "String" });
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        VerifyGeoIndexCreated(Times.Once());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_ArrayGeoJsonField_IsNotIndexed_BecauseMongoCannotIndexIt()
+    {
+        GeoSchema();
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson", isArray: true));
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_GeoJsonFieldMadeArray_DropsItsIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson" });
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson", isArray: true));
+
+        _repo.Verify(r => r.DropIndexAsync("Stores", "location_2dsphere", ""), Times.Once);
+        VerifyGeoIndexCreated(Times.Never());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_ArrayGeoJsonFieldMadeSingle_Creates2dsphereIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson", IsArray = true });
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        VerifyGeoIndexCreated(Times.Once());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_GeoJsonFieldDeleted_DropsItsIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson" }, new FieldDefinition { Name = "name", Type = "String" });
+
+        var result = await _service.SaveFieldDefinitionAsync(SaveRequest("name", "String", ["location"]));
+
+        result.IsSuccess.Should().BeTrue();
+        _repo.Verify(r => r.DropIndexAsync("Stores", "location_2dsphere", ""), Times.Once);
+        VerifyGeoIndexCreated(Times.Never());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_GeoJsonTypeChangedAway_DropsItsIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson" });
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "String"));
+
+        _repo.Verify(r => r.DropIndexAsync("Stores", "location_2dsphere", ""), Times.Once);
+        VerifyGeoIndexCreated(Times.Never());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_DropOfAnIndexThatIsAlreadyGone_DoesNotFailTheSave()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson" });
+        _repo.Setup(r => r.DropIndexAsync("Stores", "location_2dsphere", ""))
+            .ThrowsAsync(MongoIndexNotFound());
+
+        var result = await _service.SaveFieldDefinitionAsync(SaveRequest("location", "String"));
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_IndexCreationFailure_DoesNotFailTheSave()
+    {
+        GeoSchema();
+        _repo.Setup(r => r.CreateGeoIndexAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var result = await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_GeoJsonOnDtoSchema_CreatesNoIndex()
+    {
+        GeoSchema().SchemaType = SchemaType.Dto;
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_NonGeoJsonFields_TouchNoGeoIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "name", Type = "String" });
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("name", "String"));
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    private static MongoCommandException MongoIndexNotFound() =>
+        new(new ConnectionId(new ServerId(new ClusterId(), new DnsEndPoint("localhost", 27017))),
+            "index not found", new BsonDocument("ok", 0), new BsonDocument { { "code", 27 } });
+
     private static ServiceResponse<SchemaIndexListResponse> IndexListResponse(params SchemaIndexResponse[] indexes) =>
         new ServiceResponse<SchemaIndexListResponse>().SetSuccess(new SchemaIndexListResponse { Indexes = indexes.ToList() });
 
@@ -424,6 +594,91 @@ public class SchemaDefinitionServiceTests
             Fields = new() { new FieldDefinitionRequest { Name = "Email", Type = "String" } }
         });
         result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateSchemaDefinition_EntityWithGeoJsonField_Creates2dsphereIndex()
+    {
+        NameIsUnique();
+
+        await _service.CreateSchemaDefinitionAsync(new CreateSchemaDefinitionRequest
+        {
+            SchemaName = "Store",
+            CollectionName = "Stores",
+            SchemaType = SchemaType.Entity,
+            Fields = new()
+            {
+                new FieldDefinitionRequest { Name = "location", Type = "GeoJson" },
+                new FieldDefinitionRequest { Name = "waypoints", Type = "GeoJson", IsArray = true },
+            }
+        });
+
+        VerifyGeoIndexCreated(Times.Once());
+        _repo.Verify(r => r.CreateGeoIndexAsync(It.IsAny<string>(), "waypoints", It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateSchemaDefinition_Dto_CreatesNoGeoIndex()
+    {
+        NameIsUnique();
+
+        await _service.CreateSchemaDefinitionAsync(new CreateSchemaDefinitionRequest
+        {
+            SchemaName = "Stop",
+            CollectionName = "Stops",
+            SchemaType = SchemaType.Dto,
+            Fields = new() { new FieldDefinitionRequest { Name = "location", Type = "GeoJson" } }
+        });
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    private void SetUpSchemaForUpdate(params FieldDefinition[] fields)
+    {
+        var schema = new SchemaDefinition { ItemId = "1", SchemaName = "Store", CollectionName = "Stores", SchemaType = SchemaType.Entity, Fields = fields.ToList() };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Store" });
+    }
+
+    private Task<ServiceResponse<ActionResponse>> UpdateWith(params FieldDefinitionRequest[] fields) =>
+        _service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest
+        {
+            ItemId = "1",
+            SchemaName = "Store",
+            CollectionName = "Stores",
+            SchemaType = SchemaType.Entity,
+            Fields = fields.ToList()
+        });
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_AddedGeoJsonField_Creates2dsphereIndex()
+    {
+        SetUpSchemaForUpdate();
+
+        await UpdateWith(new FieldDefinitionRequest { Name = "location", Type = "GeoJson" });
+
+        VerifyGeoIndexCreated(Times.Once());
+    }
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_GeoJsonFieldRemovedFromList_DropsItsIndex()
+    {
+        SetUpSchemaForUpdate(new FieldDefinition { Name = "location", Type = "GeoJson" });
+
+        await UpdateWith(new FieldDefinitionRequest { Name = "name", Type = "String" });
+
+        _repo.Verify(r => r.DropIndexAsync("Stores", "location_2dsphere", ""), Times.Once);
+        VerifyGeoIndexCreated(Times.Never());
+    }
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_UnrelatedFields_TouchNoGeoIndex()
+    {
+        SetUpSchemaForUpdate(new FieldDefinition { Name = "name", Type = "String" });
+
+        await UpdateWith(new FieldDefinitionRequest { Name = "name", Type = "String" });
+
+        VerifyNoGeoIndexTouched();
     }
 
     [Fact]

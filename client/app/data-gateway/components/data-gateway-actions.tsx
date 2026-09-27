@@ -61,7 +61,6 @@ export const DataGatewayActions = () => {
   );
 
   const isPlayground = location.pathname.includes("/playground");
-  const isConfigure = location.pathname.includes("/configuration");
   const isAnalytics = location.pathname.includes("/analytics");
 
   // The two actions that stay buttons on desktop — API Docs opens the Swagger UI in a new tab, and
@@ -109,8 +108,11 @@ export const DataGatewayActions = () => {
     {
       label: "Configure",
       icon: <Settings className="h-4 w-4" />,
-      onClick: () => navigate(`${dataGatewayPath}/configuration`),
-      active: isConfigure,
+      onClick: () =>
+        window.open(
+          `${getRuntimeEnv("BLOCKS_OS_BASE_URL")}/app/secret-management/data-gateway`,
+          "_blank",
+        ),
     },
   ];
 

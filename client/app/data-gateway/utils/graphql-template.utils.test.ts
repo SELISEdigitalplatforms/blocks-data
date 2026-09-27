@@ -60,6 +60,17 @@ describe("graphql-template.utils", () => {
     });
   });
 
+  describe("GeoJson fields", () => {
+    it("get a geometry sample, not the generic string", () => {
+      expect(getSampleValue({ name: "Cord", type: "GeoJson" })).toBe(
+        '{ type: "Point", coordinates: [8.5417, 47.3769] }',
+      );
+      expect(getSampleValue({ name: "Cord", type: "GeoJson", isArray: true })).toBe(
+        '[{ type: "Point", coordinates: [8.5417, 47.3769] }]',
+      );
+    });
+  });
+
   describe("getSampleValueFromPreviewType", () => {
     it("maps known type names (case-insensitively)", () => {
       expect(getSampleValueFromPreviewType("string")).toBe('"Sample text"');

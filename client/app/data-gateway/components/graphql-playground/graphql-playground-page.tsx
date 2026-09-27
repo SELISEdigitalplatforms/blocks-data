@@ -1060,16 +1060,35 @@ export const GraphQLPlaygroundPage = () => {
                 });
 
                 if (leafType) {
+                  // GeoJson is matched before the numeric/date fallback, which
+                  // would otherwise suggest gt/gte/lt/lte on a geometry — the
+                  // filter input has no such operators, so the suggestion
+                  // would only produce a query the server rejects.
                   const operatorNames =
                     leafType === "String" || leafType === "ID"
                       ? ["eq", "neq", "contains", "startsWith", "endsWith", "in"]
                       : leafType === "Boolean"
                         ? ["eq", "neq"]
-                        : ["eq", "neq", "gt", "gte", "lt", "lte", "in"];
+                        : leafType === "GeoJson"
+                          ? ["eq", "neq", "near", "within", "intersects"]
+                          : ["eq", "neq", "gt", "gte", "lt", "lte", "in"];
+                  // near/within/intersects take an input object rather than a
+                  // scalar, so they complete with that shape filled in.
+                  const polygonSnippet =
+                    'geometry: { type: "Polygon", coordinates: [[[${1:0}, ${2:0}], [${3:0}, ${4:0}], [${5:0}, ${6:0}], [${1:0}, ${2:0}]]] }';
+                  const geoSnippets: Record<string, string> = {
+                    near: 'near: { geometry: { type: "Point", coordinates: [${1:lon}, ${2:lat}] }, maxDistanceMeters: ${3:1000} }',
+                    within: `within: { ${polygonSnippet} }`,
+                    intersects: `intersects: { ${polygonSnippet} }`,
+                  };
                   operatorNames.forEach((operator) =>
                     addFallback(
                       operator,
-                      operator === "in" ? `${operator}: [\${1}]` : `${operator}: \${1}`,
+                      leafType === "GeoJson" && geoSnippets[operator]
+                        ? geoSnippets[operator]
+                        : operator === "in"
+                          ? `${operator}: [\${1}]`
+                          : `${operator}: \${1}`,
                       `${leafType} filter operator`,
                       monaco.languages.CompletionItemKind.Keyword,
                     ),

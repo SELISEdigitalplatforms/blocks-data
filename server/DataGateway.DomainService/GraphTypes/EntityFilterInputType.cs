@@ -57,6 +57,7 @@ public class EntityFilterInputType : InputObjectType
             "Float" => "NumberOperationFilterInput",
             "Boolean" => "BooleanOperationFilterInput",
             "DateTime" => "DateTimeOperationFilterInput",
+            GeoJsonValidator.TypeName => "GeoJsonOperationFilterInput",
             _ => "StringOperationFilterInput"
         };
     }

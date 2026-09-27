@@ -398,6 +398,34 @@ public class DbRepository : IDbRepository
         return new ActionResponse { Acknowledged = true, ItemId = indexName };
     }
 
+    public async Task<ActionResponse> CreateGeoIndexAsync(string collectionName, string fieldName, string indexName, string databaseName = "")
+    {
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
+
+        var model = new CreateIndexModel<BsonDocument>(
+            Builders<BsonDocument>.IndexKeys.Geo2DSphere(fieldName),
+            new CreateIndexOptions { Name = indexName });
+        await collection.Indexes.CreateOneAsync(model);
+
+        return new ActionResponse { Acknowledged = true, ItemId = indexName };
+    }
+
+    public async Task<List<string>> ListIndexNamesAsync(string collectionName, string databaseName = "")
+    {
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
+        try
+        {
+            var indexes = await (await collection.Indexes.ListAsync()).ToListAsync();
+            return indexes.Select(i => i["name"].AsString).ToList();
+        }
+        catch (MongoCommandException ex) when (ex.Code == 26) // NamespaceNotFound: collection not created yet
+        {
+            return [];
+        }
+    }
+
     public async Task<ActionResponse> DropIndexAsync(string collectionName, string indexName, string databaseName = "")
     {
         var database = ResolveDatabase(databaseName);

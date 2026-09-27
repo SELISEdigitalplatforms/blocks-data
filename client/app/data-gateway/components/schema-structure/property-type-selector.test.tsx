@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { PropertyTypeSelector } from "./property-type-selector";
@@ -65,5 +65,29 @@ describe("PropertyTypeSelector", () => {
     expect(screen.getByText("Child Types")).toBeInTheDocument();
     await user.click(screen.getByText("Address"));
     expect(onSelect).toHaveBeenCalledWith("Address");
+  });
+
+  // SPEC #345 H1. This component renders `typeOptions` generically, so GeoJson
+  // needed no code change here — which is exactly why it is worth pinning: the
+  // type must show up under Primitive Types, not Child Types, where a schema
+  // reference named "GeoJson" would land.
+  it("offers GeoJson among the primitive types", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <PropertyTypeSelector
+        {...baseProps({
+          isOpen: true,
+          onSelect,
+          schemaItems: [{ schemaName: "Address" }] as Props["schemaItems"],
+        })}
+      />,
+    );
+
+    const primitives = screen.getByText("Primitive Types").closest("[cmdk-group]");
+    expect(within(primitives as HTMLElement).getByText("GeoJson")).toBeInTheDocument();
+
+    await user.click(screen.getByText("GeoJson"));
+    expect(onSelect).toHaveBeenCalledWith("GeoJson");
   });
 });

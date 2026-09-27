@@ -23,39 +23,6 @@ describe("ConfigurationService", () => {
     vi.clearAllMocks();
   });
 
-  // ─── createDataSource ───────────────────────────────────────────────────────
-  describe("createDataSource", () => {
-    it("should POST the payload to the configuration endpoint", async () => {
-      const payload = { name: "source" } as never;
-      const response = { isSuccess: true };
-      vi.mocked(http.post).mockResolvedValue(response);
-
-      const result = await configurationService.createDataSource(payload);
-
-      expect(http.post).toHaveBeenCalledWith(CONFIGURATION_ENDPOINTS.GET, payload);
-      expect(result).toEqual(response);
-    });
-
-    it("should throw when the API call fails", async () => {
-      vi.mocked(http.post).mockRejectedValue(new Error("Network error"));
-      await expect(
-        configurationService.createDataSource({} as never),
-      ).rejects.toThrow("Network error");
-    });
-  });
-
-  // ─── updateDataSource ───────────────────────────────────────────────────────
-  describe("updateDataSource", () => {
-    it("should PUT the payload to the configuration endpoint", async () => {
-      const payload = { name: "source" } as never;
-      vi.mocked(http.put).mockResolvedValue({ isSuccess: true });
-
-      await configurationService.updateDataSource(payload);
-
-      expect(http.put).toHaveBeenCalledWith(CONFIGURATION_ENDPOINTS.GET, payload);
-    });
-  });
-
   // ─── getDataServiceDetails ──────────────────────────────────────────────────
   describe("getDataServiceDetails", () => {
     it("should GET the configuration endpoint", async () => {

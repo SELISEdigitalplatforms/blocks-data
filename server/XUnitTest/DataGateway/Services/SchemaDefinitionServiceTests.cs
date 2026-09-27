@@ -1,3 +1,7 @@
+using System.Net;
+using MongoDB.Driver.Core.Clusters;
+using MongoDB.Driver.Core.Connections;
+using MongoDB.Driver.Core.Servers;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
@@ -38,6 +42,9 @@ public class SchemaDefinitionServiceTests
         // reference helper resolves nested references; keep them absent by default
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync((SchemaDefinition?)null);
         _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 100, "")).ReturnsAsync(new List<SchemaDefinition>());
+        // Default for SchemaDefinitionService's own name-collision scan (FindCollidingSchemaNameAsync);
+        // individual tests override this when they need to assert on a specific existing schema set.
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "")).ReturnsAsync(new List<SchemaDefinition>());
         _repo.Setup(r => r.InsertAsync(It.IsAny<SchemaDefinition>(), "")).ReturnsAsync((SchemaDefinition s, string _) => s);
         _repo.Setup(r => r.UpdateAsync(It.IsAny<SchemaDefinition>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true });
         // no schema has any index by default; SaveFieldDefinitionAsync's field-deletion guard and
@@ -87,6 +94,47 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
+    public async Task CreateSchema_NameCollidesWithExistingSchemaResultType_Returns400()
+    {
+        NameIsUnique();
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "existing", SchemaName = "GeoV2PublicScanResult", IsDeleted = false } });
+
+        var result = await _service.CreateSchemaAsync(new CreateSchemaRequest { SchemaName = "GeoV2PublicScan", CollectionName = "GeoV2PublicScans", SchemaType = SchemaType.Entity });
+
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Contain("GeoV2PublicScanResult");
+        _repo.Verify(r => r.InsertAsync(It.IsAny<SchemaDefinition>(), ""), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateSchema_NameWouldBeCollidedByExistingSchemasResultType_Returns400()
+    {
+        NameIsUnique();
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "existing", SchemaName = "GeoV2PublicScan", IsDeleted = false } });
+
+        var result = await _service.CreateSchemaAsync(new CreateSchemaRequest { SchemaName = "GeoV2PublicScanResult", CollectionName = "GeoV2PublicScanResults", SchemaType = SchemaType.Entity });
+
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Contain("GeoV2PublicScan");
+    }
+
+    [Fact]
+    public async Task CreateSchema_NameDoesNotCollide_Inserts()
+    {
+        NameIsUnique();
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "existing", SchemaName = "Address", IsDeleted = false } });
+
+        var result = await _service.CreateSchemaAsync(new CreateSchemaRequest { SchemaName = "Person", CollectionName = "Persons", SchemaType = SchemaType.Entity });
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task UpdateSchema_NotFound_Returns204()
     {
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync((SchemaDefinition?)null);
@@ -95,20 +143,63 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
-    public async Task UpdateSchema_InvalidName_Returns400()
+    public async Task UpdateSchema_RenameToNewUnusedName_Succeeds()
     {
-        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1" });
-        NameIsUnique(); // name does NOT already exist -> update treats as invalid
-        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "P", CollectionName = "Ps", SchemaType = SchemaType.Entity });
-        result.Message.Should().Be("Invalid schema name");
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Old" });
+        NameIsUnique(); // no schema at all currently has the target name
+        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "New", CollectionName = "News", SchemaType = SchemaType.Entity });
+        result.IsSuccess.Should().BeTrue("renaming to a name nobody else uses must be allowed");
     }
 
     [Fact]
-    public async Task UpdateSchema_Valid_Updates()
+    public async Task UpdateSchema_RenameToNameUsedByAnotherSchema_Returns400()
     {
-        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1" });
-        NameExists();
-        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "P", CollectionName = "Ps", SchemaType = SchemaType.Entity });
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Old" });
+        // the name-lookup finds a DIFFERENT schema (ItemId "2") already using the requested name
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "2", SchemaName = "Taken" });
+        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "Taken", CollectionName = "Ps", SchemaType = SchemaType.Entity });
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Be("Schema with the same name already exists");
+        _repo.Verify(r => r.UpdateAsync(It.IsAny<SchemaDefinition>(), ""), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateSchema_KeepingItsOwnCurrentName_Succeeds()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });
+        // the name-lookup finds itself (same ItemId) — not a collision
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });
+        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "Person", CollectionName = "Persons", SchemaType = SchemaType.Entity });
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateSchema_NameCollidesWithAnotherSchemasResultType_Returns400()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "GeoV2PublicScan" });
+        NameIsUnique(); // no OTHER schema is already named "GeoV2PublicScan"; the collision is via the derived suffix, checked separately below
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "2", SchemaName = "GeoV2PublicScanResult", IsDeleted = false } });
+
+        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "GeoV2PublicScan", CollectionName = "GeoV2PublicScans", SchemaType = SchemaType.Entity });
+
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Contain("GeoV2PublicScanResult");
+        _repo.Verify(r => r.UpdateAsync(It.IsAny<SchemaDefinition>(), ""), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateSchema_KeepingOwnName_DoesNotCollideWithItself()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });
+        NameIsUnique();
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, ""))
+            .ReturnsAsync(new List<SchemaDefinition> { new() { ItemId = "1", SchemaName = "Person", IsDeleted = false } });
+
+        var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "Person", CollectionName = "Persons", SchemaType = SchemaType.Entity });
+
         result.IsSuccess.Should().BeTrue();
     }
 
@@ -147,6 +238,172 @@ public class SchemaDefinitionServiceTests
         schema.Fields.First(f => f.Name == "Keep").Type.Should().Be("Int");
         schema.Fields.Should().Contain(f => f.Name == "New");
     }
+
+    private SchemaDefinition GeoSchema(params FieldDefinition[] fields)
+    {
+        var schema = new SchemaDefinition
+        {
+            ItemId = "1",
+            SchemaType = SchemaType.Entity,
+            CollectionName = "Stores",
+            Fields = fields.ToList()
+        };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        return schema;
+    }
+
+    private static SaveFieldDefinitionRequest SaveRequest(string name, string type, string[]? deleted = null, bool isArray = false) => new()
+    {
+        SchemaDefinitionItemId = "1",
+        DeletableFieldNames = deleted is { Length: > 0 } ? deleted : null,
+        Fields = new() { new FieldDefinitionRequest { Name = name, Type = type, IsArray = isArray } }
+    };
+
+    private void VerifyGeoIndexCreated(Times times) =>
+        _repo.Verify(r => r.CreateGeoIndexAsync("Stores", "location", "location_2dsphere", ""), times);
+
+    private void VerifyNoGeoIndexTouched()
+    {
+        _repo.Verify(r => r.CreateGeoIndexAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _repo.Verify(r => r.DropIndexAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_NewGeoJsonField_Creates2dsphereIndex()
+    {
+        GeoSchema();
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        VerifyGeoIndexCreated(Times.Once());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_UnchangedGeoJsonField_RequestsTheSameNamedIndex_SoItIsIdempotent()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson" });
+
+        var first = await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+        var second = await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        first.IsSuccess.Should().BeTrue();
+        second.IsSuccess.Should().BeTrue();
+        // The deterministic name is what makes the repeat a Mongo no-op rather than a duplicate.
+        VerifyGeoIndexCreated(Times.Exactly(2));
+        _repo.Verify(r => r.DropIndexAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_TypeChangedToGeoJson_Creates2dsphereIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "String" });
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        VerifyGeoIndexCreated(Times.Once());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_ArrayGeoJsonField_IsNotIndexed_BecauseMongoCannotIndexIt()
+    {
+        GeoSchema();
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson", isArray: true));
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_GeoJsonFieldMadeArray_DropsItsIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson" });
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson", isArray: true));
+
+        _repo.Verify(r => r.DropIndexAsync("Stores", "location_2dsphere", ""), Times.Once);
+        VerifyGeoIndexCreated(Times.Never());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_ArrayGeoJsonFieldMadeSingle_Creates2dsphereIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson", IsArray = true });
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        VerifyGeoIndexCreated(Times.Once());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_GeoJsonFieldDeleted_DropsItsIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson" }, new FieldDefinition { Name = "name", Type = "String" });
+
+        var result = await _service.SaveFieldDefinitionAsync(SaveRequest("name", "String", ["location"]));
+
+        result.IsSuccess.Should().BeTrue();
+        _repo.Verify(r => r.DropIndexAsync("Stores", "location_2dsphere", ""), Times.Once);
+        VerifyGeoIndexCreated(Times.Never());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_GeoJsonTypeChangedAway_DropsItsIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson" });
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "String"));
+
+        _repo.Verify(r => r.DropIndexAsync("Stores", "location_2dsphere", ""), Times.Once);
+        VerifyGeoIndexCreated(Times.Never());
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_DropOfAnIndexThatIsAlreadyGone_DoesNotFailTheSave()
+    {
+        GeoSchema(new FieldDefinition { Name = "location", Type = "GeoJson" });
+        _repo.Setup(r => r.DropIndexAsync("Stores", "location_2dsphere", ""))
+            .ThrowsAsync(MongoIndexNotFound());
+
+        var result = await _service.SaveFieldDefinitionAsync(SaveRequest("location", "String"));
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_IndexCreationFailure_DoesNotFailTheSave()
+    {
+        GeoSchema();
+        _repo.Setup(r => r.CreateGeoIndexAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var result = await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_GeoJsonOnDtoSchema_CreatesNoIndex()
+    {
+        GeoSchema().SchemaType = SchemaType.Dto;
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("location", "GeoJson"));
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    [Fact]
+    public async Task SaveFieldDefinition_NonGeoJsonFields_TouchNoGeoIndex()
+    {
+        GeoSchema(new FieldDefinition { Name = "name", Type = "String" });
+
+        await _service.SaveFieldDefinitionAsync(SaveRequest("name", "String"));
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    private static MongoCommandException MongoIndexNotFound() =>
+        new(new ConnectionId(new ServerId(new ClusterId(), new DnsEndPoint("localhost", 27017))),
+            "index not found", new BsonDocument("ok", 0), new BsonDocument { { "code", 27 } });
 
     private static ServiceResponse<SchemaIndexListResponse> IndexListResponse(params SchemaIndexResponse[] indexes) =>
         new ServiceResponse<SchemaIndexListResponse>().SetSuccess(new SchemaIndexListResponse { Indexes = indexes.ToList() });
@@ -340,10 +597,96 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
+    public async Task CreateSchemaDefinition_EntityWithGeoJsonField_Creates2dsphereIndex()
+    {
+        NameIsUnique();
+
+        await _service.CreateSchemaDefinitionAsync(new CreateSchemaDefinitionRequest
+        {
+            SchemaName = "Store",
+            CollectionName = "Stores",
+            SchemaType = SchemaType.Entity,
+            Fields = new()
+            {
+                new FieldDefinitionRequest { Name = "location", Type = "GeoJson" },
+                new FieldDefinitionRequest { Name = "waypoints", Type = "GeoJson", IsArray = true },
+            }
+        });
+
+        VerifyGeoIndexCreated(Times.Once());
+        _repo.Verify(r => r.CreateGeoIndexAsync(It.IsAny<string>(), "waypoints", It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task CreateSchemaDefinition_Dto_CreatesNoGeoIndex()
+    {
+        NameIsUnique();
+
+        await _service.CreateSchemaDefinitionAsync(new CreateSchemaDefinitionRequest
+        {
+            SchemaName = "Stop",
+            CollectionName = "Stops",
+            SchemaType = SchemaType.Dto,
+            Fields = new() { new FieldDefinitionRequest { Name = "location", Type = "GeoJson" } }
+        });
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    private void SetUpSchemaForUpdate(params FieldDefinition[] fields)
+    {
+        var schema = new SchemaDefinition { ItemId = "1", SchemaName = "Store", CollectionName = "Stores", SchemaType = SchemaType.Entity, Fields = fields.ToList() };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Store" });
+    }
+
+    private Task<ServiceResponse<ActionResponse>> UpdateWith(params FieldDefinitionRequest[] fields) =>
+        _service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest
+        {
+            ItemId = "1",
+            SchemaName = "Store",
+            CollectionName = "Stores",
+            SchemaType = SchemaType.Entity,
+            Fields = fields.ToList()
+        });
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_AddedGeoJsonField_Creates2dsphereIndex()
+    {
+        SetUpSchemaForUpdate();
+
+        await UpdateWith(new FieldDefinitionRequest { Name = "location", Type = "GeoJson" });
+
+        VerifyGeoIndexCreated(Times.Once());
+    }
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_GeoJsonFieldRemovedFromList_DropsItsIndex()
+    {
+        SetUpSchemaForUpdate(new FieldDefinition { Name = "location", Type = "GeoJson" });
+
+        await UpdateWith(new FieldDefinitionRequest { Name = "name", Type = "String" });
+
+        _repo.Verify(r => r.DropIndexAsync("Stores", "location_2dsphere", ""), Times.Once);
+        VerifyGeoIndexCreated(Times.Never());
+    }
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_UnrelatedFields_TouchNoGeoIndex()
+    {
+        SetUpSchemaForUpdate(new FieldDefinition { Name = "name", Type = "String" });
+
+        await UpdateWith(new FieldDefinitionRequest { Name = "name", Type = "String" });
+
+        VerifyNoGeoIndexTouched();
+    }
+
+    [Fact]
     public async Task UpdateSchemaDefinition_Valid_Updates()
     {
-        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1" });
-        NameExists();
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });
+        // the name-lookup finds itself (same ItemId) — not a collision
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person" });
         var result = await _service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest
         {
             ItemId = "1",
@@ -353,6 +696,24 @@ public class SchemaDefinitionServiceTests
             Fields = new() { new FieldDefinitionRequest { Name = "Email", Type = "String" } }
         });
         result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UpdateSchemaDefinition_RenameToNameUsedByAnotherSchema_Returns400()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Old" });
+        _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "2", SchemaName = "Taken" });
+        var result = await _service.UpdateSchemaDefinitionAsync(new UpdateSchemaDefinitionRequest
+        {
+            ItemId = "1",
+            SchemaName = "Taken",
+            CollectionName = "Persons",
+            SchemaType = SchemaType.Entity,
+            Fields = new() { new FieldDefinitionRequest { Name = "Email", Type = "String" } }
+        });
+        result.IsSuccess.Should().BeFalse();
+        result.HttpStatusCode.Should().Be(400);
+        result.Message.Should().Be("Schema with the same name already exists");
     }
 
     [Fact]

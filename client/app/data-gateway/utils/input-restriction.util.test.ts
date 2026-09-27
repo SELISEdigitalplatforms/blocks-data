@@ -83,7 +83,20 @@ describe("input-restriction.util", () => {
 
   describe("static option lists", () => {
     it("typeOptions expose the supported primitive types", () => {
-      expect(typeOptions).toEqual(["String", "Int", "Float", "Boolean", "DateTime"]);
+      expect(typeOptions).toEqual([
+        "String",
+        "Int",
+        "Float",
+        "Boolean",
+        "DateTime",
+        "GeoJson",
+      ]);
+    });
+
+    // The property-type selector renders this list generically, so a type
+    // reaching the dropdown is exactly a matter of being in here.
+    it("offers GeoJson alongside the other primitives", () => {
+      expect(typeOptions).toContain("GeoJson");
     });
 
     it("readonlyPropertyNames include system-managed columns", () => {

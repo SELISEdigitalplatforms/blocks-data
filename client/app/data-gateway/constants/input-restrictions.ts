@@ -1,4 +1,4 @@
-export const typeOptions = ["String", "Int", "Float", "Boolean", "DateTime"];
+export const typeOptions = ["String", "Int", "Float", "Boolean", "DateTime", "GeoJson"];
 
 export const readonlyPropertyNames = [
   "ItemId",

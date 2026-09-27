@@ -10,7 +10,8 @@ namespace DataGateway.DomainService.Helpers;
 public static class GraphQlTypeHelper
 {
     public static bool IsScalar(string type) =>
-            type is "String" or "Int" or "Float" or "Boolean" or "DateTime" or "ID";
+            type is "String" or "Int" or "Float" or "Boolean" or "DateTime" or "ID"
+                or GeoJsonValidator.TypeName;
 
     public static string GetScalarType(Type type)
     {
@@ -35,6 +36,7 @@ public static class GraphQlTypeHelper
             "Boolean" => new NamedTypeNode("Boolean"),
             "DateTime" => new NamedTypeNode("DateTime"),
             "ID" => new NamedTypeNode("ID"),
+            GeoJsonValidator.TypeName => new NamedTypeNode(GeoJsonValidator.TypeName),
             _ => throw new ArgumentException($"Unknown scalar type: {type}")
         };
         return isArray ? new ListTypeNode(innerType) : innerType;
@@ -177,7 +179,7 @@ public static class GraphQlTypeHelper
             // Handle Scalar Types
             if (fieldType.IsScalarType())
             {
-                value = field.Value.ParseScalarValueByType(fieldType);
+                value = field.Value.ParseScalarValueByType(fieldType, name);
             }
             // Handle InputObjectType (nested objects)
             else if (fieldType.IsInputObjectType())
@@ -188,7 +190,7 @@ public static class GraphQlTypeHelper
             // Handle List Types
             else if (fieldType.IsListType())
             {
-                value = GetValueFromList(fieldType, field.Value as ListValueNode);
+                value = GetValueFromList(fieldType, field.Value as ListValueNode, name);
             }
 
             if (value is not null)
@@ -237,7 +239,7 @@ public static class GraphQlTypeHelper
         return input.MapMutationInput(fieldValue, nestedInputType);
     }
 
-    private static object? GetValueFromList(IInputType fieldType, ListValueNode listValueNode)
+    private static object? GetValueFromList(IInputType fieldType, ListValueNode listValueNode, string? fieldName = null)
     {
         var innerType = fieldType.InnerType();
         object? value = null;
@@ -247,7 +249,7 @@ public static class GraphQlTypeHelper
             if (innerType.IsScalarType())
             {
                 value = listValueNode.Items
-                    .Select(item => item.ParseScalarValueByType(innerType))
+                    .Select(item => item.ParseScalarValueByType(innerType, fieldName))
                     .ToList();
             }
             // Handle List of InputObjectType
@@ -280,7 +282,13 @@ public static class GraphQlTypeHelper
     /// <summary>
     /// Parses a scalar value node based on the expected type from schema
     /// </summary>
-    public static object? ParseScalarValueByType(this IValueNode valueNode, IType fieldType)
+    /// <param name="fieldName">
+    /// Used only to name the field in a GeoJson validation error. A scalar type
+    /// cannot know it — it sees a value, not the field carrying it — so the
+    /// field-named message the spec calls for is produced here, on the write
+    /// path, where the name is in hand.
+    /// </param>
+    public static object? ParseScalarValueByType(this IValueNode valueNode, IType fieldType, string? fieldName = null)
     {
 
         if (valueNode is NullValueNode)
@@ -297,8 +305,31 @@ public static class GraphQlTypeHelper
             "Float" => ParseFloatValue(valueNode),
             "Boolean" => ParseBooleanValue(valueNode),
             "DateTime" => ParseDateTimeValue(valueNode),
+            GeoJsonValidator.TypeName => ParseGeoJsonValue(valueNode, fieldName),
             _ => ParseGenericValue(valueNode)
         };
+    }
+
+    /// <summary>
+    /// Parses a GeoJson literal and structurally validates it before it can
+    /// reach the database. The value itself is stored exactly as written.
+    /// </summary>
+    private static object? ParseGeoJsonValue(IValueNode valueNode, string? fieldName)
+    {
+        var value = valueNode.ParseValueNode();
+        try
+        {
+            GeoJsonValidator.Validate(value);
+        }
+        catch (GeoJsonValidationException ex)
+        {
+            // Surfaced as an uncoded GraphQL error, matching how an invalid
+            // DateTime or Int literal already fails today rather than
+            // introducing a second error convention for one type.
+            throw new InvalidCastException(ex.ToFieldMessage(fieldName), ex);
+        }
+
+        return value;
     }
 
     public static BsonDocument ReplaceSystemFieldInFilter(this BsonDocument filter)

@@ -20,4 +20,11 @@ public class IndexFieldResponse
 public class SchemaIndexListResponse
 {
     public List<SchemaIndexResponse> Indexes { get; set; } = [];
+
+    /// <summary>
+    /// Read-only, system-managed indexes that exist in MongoDB (the automatic 2dsphere index of each
+    /// GeoJson field). Kept apart from <see cref="Indexes"/> on purpose: those are user-managed,
+    /// deletable and counted against the 15-index limit; these are none of that.
+    /// </summary>
+    public List<SchemaIndexResponse> SystemIndexes { get; set; } = [];
 }

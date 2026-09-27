@@ -398,6 +398,13 @@ public class GraphqlSchemaBuilder
         schemaBuilder.AddType<IntOperationFilterInputType>();
         schemaBuilder.AddType<BooleanOperationFilterInputType>();
         schemaBuilder.AddType<DateTimeOperationFilterInputType>();
+        // The GeoJson scalar is registered unconditionally, not only when some
+        // schema happens to use it: GetTypeNode emits a bare NamedTypeNode, so
+        // the type has to exist in the schema before any field can reference it.
+        schemaBuilder.AddType<GeoJsonType>();
+        schemaBuilder.AddType<GeoJsonOperationFilterInputType>();
+        schemaBuilder.AddType<GeoJsonNearInputType>();
+        schemaBuilder.AddType<GeoJsonGeometryFilterInputType>();
         foreach (var type in entityFilterInputTypes.Values)
             schemaBuilder.AddType(type);
         foreach (var type in childFilterInputTypes)

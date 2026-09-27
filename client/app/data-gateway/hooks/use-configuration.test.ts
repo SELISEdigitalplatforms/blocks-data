@@ -9,7 +9,6 @@ import { createWrapper } from "@/test-utils/test-providers/query-client";
 import { configurationService } from "../services/configuration.service";
 import {
   getPolicyDataQueryOptions,
-  useCreateDataSourceConfiguration,
   useCreatePolicy,
   useCreateSchema,
   useCreateSchemaFieldValidation,
@@ -34,7 +33,6 @@ import {
   useSecurityAndPerformanceSchemaList,
   useSetDataAccess,
   useSetRowColumnPermission,
-  useUpdateDataSourceConfiguration,
   useUpdatePolicy,
   useUpdateSchema,
   useUpdateSchemaFieldValidation,
@@ -53,8 +51,6 @@ vi.mock("@seliseblocks/genesis-os", () => {
 
 vi.mock("../services/configuration.service", () => ({
   configurationService: {
-    createDataSource: vi.fn(),
-    updateDataSource: vi.fn(),
     getDataServiceDetails: vi.fn(),
     reloadSchemas: vi.fn(),
     executeGraphQLOperation: vi.fn(),
@@ -381,18 +377,6 @@ describe("use-configuration hooks", () => {
       method: keyof typeof configurationService;
       payload: unknown;
     }> = [
-      {
-        name: "useCreateDataSourceConfiguration",
-        hook: useCreateDataSourceConfiguration,
-        method: "createDataSource",
-        payload: { name: "ds" },
-      },
-      {
-        name: "useUpdateDataSourceConfiguration",
-        hook: useUpdateDataSourceConfiguration,
-        method: "updateDataSource",
-        payload: { name: "ds" },
-      },
       {
         name: "useCreateSchema",
         hook: useCreateSchema,

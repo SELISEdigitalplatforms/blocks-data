@@ -84,6 +84,13 @@ describe("generate-preview-queries", () => {
       expect(buildInputValue(scalar("Int"), empty, 0, "", new Set())).toBe("0");
       expect(buildInputValue(scalar("Float"), empty, 0, "", new Set())).toBe("0");
       expect(buildInputValue(scalar("Boolean"), empty, 0, "", new Set())).toBe("false");
+      // GeoJson is a custom scalar; it must not fall back to the string sample.
+      expect(buildInputValue(scalar("GeoJson"), empty, 0, "", new Set(), "Cord", true)).toBe(
+        '{ type: "Point", coordinates: [8.5417, 47.3769] }',
+      );
+      expect(buildInputValue(list(scalar("GeoJson")), empty, 0, "", new Set(), "Cord", true)).toBe(
+        '[{ type: "Point", coordinates: [8.5417, 47.3769] }]',
+      );
       expect(buildInputValue(scalar("String"), empty, 0, "", new Set())).toBe('""');
     });
 

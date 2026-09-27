@@ -676,482 +676,524 @@ export const RuleSetForm = ({
                         <Fragment key={ruleField.id}>
                           {index > 0 && (
                             <div className="flex items-center gap-2 px-1">
-                              <div className="h-px flex-1 bg-border/40" aria-hidden />
+                              <div
+                                className="h-px flex-1 bg-border/40"
+                                aria-hidden
+                              />
                               <span className="rounded-full border border-border/40 bg-muted/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                                 {logicalOperatorValue || "AND"}
                               </span>
-                              <div className="h-px flex-1 bg-border/40" aria-hidden />
+                              <div
+                                className="h-px flex-1 bg-border/40"
+                                aria-hidden
+                              />
                             </div>
                           )}
-                          <Card className="dg-interactive flex flex-col gap-2.5 rounded-md border-border/50 p-3 shadow-none hover:border-border">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
-                              Rule {index + 1}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                              aria-label="Remove rule"
-                              onClick={() => remove(index)}
-                            >
-                              <X className="h-3.5 w-3.5" strokeWidth={2.25} />
-                            </Button>
-                          </div>
-                          <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-                            {/* Left Source + Left Field: a 2-up grid rather than a row that
-                                only worked at the 85vw drawer width this form used to live in.
-                                Every control below is a plain full-width grid item now. */}
-                            <div className="grid grid-cols-2 gap-2.5">
-                            {/* Left Source */}
-                            <div>
-                              <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                                Source
+                          <Card className="dg-interactive flex flex-col gap-3 rounded-lg border-border/60 bg-card p-3.5 shadow-none hover:border-border">
+                            <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2.5">
+                              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+                                Rule {index + 1}
                               </span>
-                            <FormField
-                              control={form.control}
-                              name={`rules.${index}.source`}
-                              render={({ field }) => (
-                                <Select
-                                  value={field.value || undefined}
-                                  onValueChange={(v) => {
-                                    field.onChange(v);
-                                    form.setValue(`rules.${index}.field`, "", {
-                                      shouldValidate: true,
-                                    });
-                                    form.setValue(
-                                      `rules.${index}.operator`,
-                                      "",
-                                      {
-                                        shouldValidate: true,
-                                      },
-                                    );
-                                    form.setValue(
-                                      `rules.${index}.compareSource`,
-                                      "",
-                                      {
-                                        shouldValidate: true,
-                                      },
-                                    );
-                                    form.setValue(
-                                      `rules.${index}.compareValue`,
-                                      "",
-                                      {
-                                        shouldValidate: true,
-                                      },
-                                    );
-                                  }}
-                                >
-                                  <SelectTrigger className="h-9 w-full min-w-0">
-                                    <SelectValue placeholder="Select source" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {ruleSourceOptions.map((opt) => (
-                                      <SelectItem
-                                        key={opt.value}
-                                        value={opt.value}
-                                      >
-                                        {opt.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              )}
-                            />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                aria-label="Remove rule"
+                                onClick={() => remove(index)}
+                              >
+                                <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+                              </Button>
                             </div>
-
-                            {/* Left Field */}
-                            <div>
-                              <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                                {isStaticValue ? "Value" : "Field"}
-                              </span>
-                            <FormField
-                              control={form.control}
-                              name={`rules.${index}.field`}
-                              render={({ field }) =>
-                                isStaticValue ? (
-                                  <Input
-                                    className="h-9 w-full min-w-0"
-                                    placeholder="Enter value"
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                  />
-                                ) : (
-                                  <Select
-                                    value={field.value || undefined}
-                                    onValueChange={(v) => {
-                                      field.onChange(v);
-                                      const newCat = getLeftFieldCategory(
-                                        source,
-                                        v,
-                                      );
-                                      const allowedOps = newCat
-                                        ? OPERATORS_BY_CATEGORY[newCat]
-                                        : null;
-                                      const curOp = form.getValues(
-                                        `rules.${index}.operator`,
-                                      );
-                                      if (
-                                        allowedOps &&
-                                        curOp &&
-                                        !allowedOps.includes(curOp)
-                                      ) {
-                                        form.setValue(
-                                          `rules.${index}.operator`,
-                                          "",
-                                          {
-                                            shouldValidate: true,
-                                          },
-                                        );
-                                      }
-                                      form.setValue(
-                                        `rules.${index}.compareSource`,
-                                        "",
-                                        {
-                                          shouldValidate: true,
-                                        },
-                                      );
-                                      form.setValue(
-                                        `rules.${index}.compareValue`,
-                                        "",
-                                        {
-                                          shouldValidate: true,
-                                        },
-                                      );
-                                    }}
-                                    disabled={!source}
-                                  >
-                                    <SelectTrigger className="h-9 w-full min-w-0">
-                                      <SelectValue placeholder="Select field" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {fieldOptions.map((opt) => (
-                                        <SelectItem
-                                          key={opt.value}
-                                          value={opt.value}
+                            <div className="flex min-w-0 flex-1 flex-col gap-3">
+                              <div className="rounded-md border border-border/40 bg-muted/10 p-2.5">
+                                <div className="mb-2 flex items-center gap-2">
+                                  <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">
+                                    1
+                                  </span>
+                                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                    Left operand
+                                  </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2.5">
+                                  {/* Left Source */}
+                                  <div>
+                                    <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                                      Source
+                                    </span>
+                                    <FormField
+                                      control={form.control}
+                                      name={`rules.${index}.source`}
+                                      render={({ field }) => (
+                                        <Select
+                                          value={field.value || undefined}
+                                          onValueChange={(v) => {
+                                            field.onChange(v);
+                                            form.setValue(
+                                              `rules.${index}.field`,
+                                              "",
+                                              {
+                                                shouldValidate: true,
+                                              },
+                                            );
+                                            form.setValue(
+                                              `rules.${index}.operator`,
+                                              "",
+                                              {
+                                                shouldValidate: true,
+                                              },
+                                            );
+                                            form.setValue(
+                                              `rules.${index}.compareSource`,
+                                              "",
+                                              {
+                                                shouldValidate: true,
+                                              },
+                                            );
+                                            form.setValue(
+                                              `rules.${index}.compareValue`,
+                                              "",
+                                              {
+                                                shouldValidate: true,
+                                              },
+                                            );
+                                          }}
                                         >
-                                          {opt.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                )
-                              }
-                            />
-                            </div>
-                            </div>
-
-                            {/* Operator + Compare Source: same 2-up grid, collapsing to one
-                                column when Compare Source is hidden (IS_NULL / IS_NOT_NULL /
-                                REGEX / START_WITH / END_WITH have no right-hand source). */}
-                            <div
-                              className={cn(
-                                "grid gap-3",
-                                isNullOperator || isDirectValueOp ? "grid-cols-1" : "grid-cols-2",
-                              )}
-                            >
-                            {/* Operator */}
-                            <div>
-                              <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                                Operator
-                              </span>
-                            <FormField
-                              control={form.control}
-                              name={`rules.${index}.operator`}
-                              render={({ field }) => (
-                                <Select
-                                  value={field.value || undefined}
-                                  onValueChange={(v) => {
-                                    const wasContain = IN_OPERATORS.includes(
-                                      field.value,
-                                    );
-                                    const willContain =
-                                      IN_OPERATORS.includes(v);
-                                    field.onChange(v);
-                                    if (NULL_OPERATORS.includes(v)) {
-                                      form.setValue(
-                                        `rules.${index}.compareSource`,
-                                        "",
-                                        {
-                                          shouldValidate: true,
-                                        },
-                                      );
-                                      form.setValue(
-                                        `rules.${index}.compareValue`,
-                                        "",
-                                        {
-                                          shouldValidate: true,
-                                        },
-                                      );
-                                    } else if (
-                                      [
-                                        "REGEX",
-                                        "START_WITH",
-                                        "END_WITH",
-                                      ].includes(v)
-                                    ) {
-                                      form.setValue(
-                                        `rules.${index}.compareSource`,
-                                        "",
-                                        {
-                                          shouldValidate: true,
-                                        },
-                                      );
-                                      form.setValue(
-                                        `rules.${index}.compareValue`,
-                                        "",
-                                        {
-                                          shouldValidate: true,
-                                        },
-                                      );
-                                    } else if (wasContain !== willContain) {
-                                      form.setValue(
-                                        `rules.${index}.compareValue`,
-                                        "",
-                                        {
-                                          shouldValidate: true,
-                                        },
-                                      );
-                                    }
-                                  }}
-                                >
-                                  <SelectTrigger className="h-9 w-full min-w-0">
-                                    <SelectValue placeholder="Operator" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {filteredOperators.map((opt) => (
-                                      <SelectItem
-                                        key={opt.value}
-                                        value={opt.value}
-                                      >
-                                        {opt.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              )}
-                            />
-                            </div>
-
-                            {/* Compare Source (hidden for IS_NULL / IS_NOT_NULL / REGEX / START_WITH / END_WITH) */}
-                            {!isNullOperator && !isDirectValueOp && (
-                              <div>
-                                <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                                  Compare with
-                                </span>
-                              <FormField
-                                control={form.control}
-                                name={`rules.${index}.compareSource`}
-                                render={({ field }) => (
-                                  <Select
-                                    value={field.value || undefined}
-                                    onValueChange={(v) => {
-                                      field.onChange(v);
-                                      form.setValue(
-                                        `rules.${index}.compareValue`,
-                                        "",
-                                        {
-                                          shouldValidate: true,
-                                        },
-                                      );
-                                    }}
-                                  >
-                                    <SelectTrigger className="h-9 w-full min-w-0">
-                                      <SelectValue placeholder="Compare with" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {filteredCompareSourceOptions.map(
-                                        (opt) => (
-                                          <SelectItem
-                                            key={opt.value}
-                                            value={opt.value}
-                                          >
-                                            {opt.label}
-                                          </SelectItem>
-                                        ),
+                                          <SelectTrigger className="h-9 w-full min-w-0">
+                                            <SelectValue placeholder="Select source" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {ruleSourceOptions.map((opt) => (
+                                              <SelectItem
+                                                key={opt.value}
+                                                value={opt.value}
+                                              >
+                                                {opt.label}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
                                       )}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              />
-                              </div>
-                            )}
-                            </div>
-
-                            {/* Compare Value: its own full-width row — none of its widgets
-                                (multi-select popover, principal selector, plain input) read
-                                well sharing a row at this width. */}
-                            {!isNullOperator && (
-                              <div>
-                                <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
-                                  Value
-                                </span>
-                              <FormField
-                                control={form.control}
-                                name={`rules.${index}.compareValue`}
-                                render={({ field }) => {
-                                  // REGEX / START_WITH / END_WITH → direct string input, no compare source
-                                  if (isDirectValueOp) {
-                                    const placeholder =
-                                      operatorValue === "REGEX"
-                                        ? "Enter regex pattern"
-                                        : operatorValue === "START_WITH"
-                                          ? "Enter prefix"
-                                          : "Enter suffix";
-                                    return (
-                                      <Input
-                                        className="h-9 w-full min-w-0"
-                                        placeholder={placeholder}
-                                        value={field.value}
-                                        onChange={field.onChange}
-                                      />
-                                    );
-                                  }
-
-                                  // auth.roles / auth.userId + Static Value → tenant-scoped
-                                  // principal selector instead of free text. Placed ahead of the
-                                  // static-value branches below; every other rule shape falls
-                                  // through to its existing widget untouched.
-                                  if (showPrincipalSelector) {
-                                    return (
-                                      <PrincipalSelector
-                                        entity={
-                                          leftField === "roles"
-                                            ? "role"
-                                            : "user"
-                                        }
-                                        userValueField={
-                                          leftField === "email"
-                                            ? "email"
-                                            : "itemId"
-                                        }
-                                        projectKey={projectKey}
-                                        value={field.value}
-                                        onChange={field.onChange}
-                                        multiple
-                                      />
-                                    );
-                                  }
-
-                                  // CONTAIN + Static Value → comma-separated input
-                                  if (isInOp && isCompareStatic) {
-                                    return (
-                                      <Input
-                                        className="h-9 w-full min-w-0"
-                                        placeholder="Enter comma-separated values"
-                                        value={field.value}
-                                        onChange={field.onChange}
-                                      />
-                                    );
-                                  }
-
-                                  // CONTAIN + Auth/Schema Fields → multi-select
-                                  if (
-                                    isInOp &&
-                                    !isCompareStatic &&
-                                    compareSource
-                                  ) {
-                                    return (
-                                      <Popover>
-                                        <PopoverTrigger asChild>
-                                          <button
-                                            type="button"
-                                            className="flex h-9 w-full min-w-0 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground"
-                                          >
-                                            <span className="truncate text-left">
-                                              {selectedInValues.length > 0
-                                                ? selectedInValues.join(", ")
-                                                : "Select fields"}
-                                            </span>
-                                            <ChevronDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
-                                          </button>
-                                        </PopoverTrigger>
-                                        <PopoverContent
-                                          className="w-52 p-0"
-                                          align="start"
-                                        >
-                                          <Command>
-                                            <CommandList>
-                                              <CommandGroup>
-                                                {compareFieldOptions.map(
-                                                  (opt) => {
-                                                    const isSelected =
-                                                      selectedInValues.includes(
-                                                        opt.value,
-                                                      );
-                                                    return (
-                                                      <CommandItem
-                                                        key={opt.value}
-                                                        onSelect={() => {
-                                                          const updated =
-                                                            isSelected
-                                                              ? selectedInValues.filter(
-                                                                  (v) => v !== opt.value,
-                                                                )
-                                                              : [...selectedInValues, opt.value];
-                                                          field.onChange(
-                                                            updated.join(","),
-                                                          );
-                                                        }}
-                                                      >
-                                                        <div
-                                                          className={cn(
-                                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                            isSelected
-                                                              ? "bg-primary text-primary-foreground"
-                                                              : "opacity-50 [&_svg]:invisible",
-                                                          )}
-                                                        >
-                                                          <CheckIcon className="h-4 w-4" />
-                                                        </div>
-                                                        <span>{opt.label}</span>
-                                                      </CommandItem>
-                                                    );
-                                                  },
-                                                )}
-                                              </CommandGroup>
-                                            </CommandList>
-                                          </Command>
-                                        </PopoverContent>
-                                      </Popover>
-                                    );
-                                  }
-
-                                  // Default: Static → input, Auth/Schema → single select
-                                  return isCompareStatic ? (
-                                    <Input
-                                      className="h-9 w-full min-w-0"
-                                      placeholder="Enter value"
-                                      value={field.value}
-                                      onChange={field.onChange}
                                     />
-                                  ) : (
-                                    <Select
-                                      value={field.value || undefined}
-                                      onValueChange={field.onChange}
-                                      disabled={!compareSource}
-                                    >
-                                      <SelectTrigger className="h-9 w-full min-w-0">
-                                        <SelectValue placeholder="Select field" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {compareFieldOptions.map((opt) => (
-                                          <SelectItem
-                                            key={opt.value}
-                                            value={opt.value}
+                                  </div>
+
+                                  {/* Left Field */}
+                                  <div>
+                                    <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                                      {isStaticValue ? "Value" : "Field"}
+                                    </span>
+                                    <FormField
+                                      control={form.control}
+                                      name={`rules.${index}.field`}
+                                      render={({ field }) =>
+                                        isStaticValue ? (
+                                          <Input
+                                            className="h-9 w-full min-w-0"
+                                            placeholder="Enter value"
+                                            value={field.value}
+                                            onChange={field.onChange}
+                                          />
+                                        ) : (
+                                          <Select
+                                            value={field.value || undefined}
+                                            onValueChange={(v) => {
+                                              field.onChange(v);
+                                              const newCat =
+                                                getLeftFieldCategory(source, v);
+                                              const allowedOps = newCat
+                                                ? OPERATORS_BY_CATEGORY[newCat]
+                                                : null;
+                                              const curOp = form.getValues(
+                                                `rules.${index}.operator`,
+                                              );
+                                              if (
+                                                allowedOps &&
+                                                curOp &&
+                                                !allowedOps.includes(curOp)
+                                              ) {
+                                                form.setValue(
+                                                  `rules.${index}.operator`,
+                                                  "",
+                                                  {
+                                                    shouldValidate: true,
+                                                  },
+                                                );
+                                              }
+                                              form.setValue(
+                                                `rules.${index}.compareSource`,
+                                                "",
+                                                {
+                                                  shouldValidate: true,
+                                                },
+                                              );
+                                              form.setValue(
+                                                `rules.${index}.compareValue`,
+                                                "",
+                                                {
+                                                  shouldValidate: true,
+                                                },
+                                              );
+                                            }}
+                                            disabled={!source}
                                           >
-                                            {opt.label}
-                                          </SelectItem>
-                                        ))}
-                                      </SelectContent>
-                                    </Select>
-                                  );
-                                }}
-                              />
+                                            <SelectTrigger className="h-9 w-full min-w-0">
+                                              <SelectValue placeholder="Select field" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {fieldOptions.map((opt) => (
+                                                <SelectItem
+                                                  key={opt.value}
+                                                  value={opt.value}
+                                                >
+                                                  {opt.label}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </div>
                               </div>
-                            )}
-                          </div>
+
+                              <div className="grid grid-cols-[1rem_minmax(0,1fr)] items-end gap-2 px-2.5">
+                                <span className="mb-2.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">
+                                  2
+                                </span>
+                                <div>
+                                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                    Operator
+                                  </span>
+                                  <FormField
+                                    control={form.control}
+                                    name={`rules.${index}.operator`}
+                                    render={({ field }) => (
+                                      <Select
+                                        value={field.value || undefined}
+                                        disabled={!leftField}
+                                        onValueChange={(v) => {
+                                          const wasContain =
+                                            IN_OPERATORS.includes(field.value);
+                                          const willContain =
+                                            IN_OPERATORS.includes(v);
+                                          field.onChange(v);
+                                          if (NULL_OPERATORS.includes(v)) {
+                                            form.setValue(
+                                              `rules.${index}.compareSource`,
+                                              "",
+                                              {
+                                                shouldValidate: true,
+                                              },
+                                            );
+                                            form.setValue(
+                                              `rules.${index}.compareValue`,
+                                              "",
+                                              {
+                                                shouldValidate: true,
+                                              },
+                                            );
+                                          } else if (
+                                            [
+                                              "REGEX",
+                                              "START_WITH",
+                                              "END_WITH",
+                                            ].includes(v)
+                                          ) {
+                                            form.setValue(
+                                              `rules.${index}.compareSource`,
+                                              "",
+                                              {
+                                                shouldValidate: true,
+                                              },
+                                            );
+                                            form.setValue(
+                                              `rules.${index}.compareValue`,
+                                              "",
+                                              {
+                                                shouldValidate: true,
+                                              },
+                                            );
+                                          } else if (
+                                            wasContain !== willContain
+                                          ) {
+                                            form.setValue(
+                                              `rules.${index}.compareValue`,
+                                              "",
+                                              {
+                                                shouldValidate: true,
+                                              },
+                                            );
+                                          }
+                                        }}
+                                      >
+                                        <SelectTrigger className="h-9 w-full min-w-0">
+                                          <SelectValue placeholder="Operator" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {filteredOperators.map((opt) => (
+                                            <SelectItem
+                                              key={opt.value}
+                                              value={opt.value}
+                                            >
+                                              {opt.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    )}
+                                  />
+                                </div>
+                              </div>
+
+                              {operatorValue && !isNullOperator && (
+                                <div className="rounded-md border border-border/40 bg-muted/10 p-2.5">
+                                  <div className="mb-2 flex items-center gap-2">
+                                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">
+                                      3
+                                    </span>
+                                    <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                                      Right operand
+                                    </span>
+                                  </div>
+                                  <div
+                                    className={cn(
+                                      "grid gap-2.5",
+                                      isDirectValueOp
+                                        ? "grid-cols-1"
+                                        : "grid-cols-2",
+                                    )}
+                                  >
+                                    {!isDirectValueOp && (
+                                      <div>
+                                        <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                                          Source
+                                        </span>
+                                        <FormField
+                                          control={form.control}
+                                          name={`rules.${index}.compareSource`}
+                                          render={({ field }) => (
+                                            <Select
+                                              value={field.value || undefined}
+                                              disabled={!operatorValue}
+                                              onValueChange={(v) => {
+                                                field.onChange(v);
+                                                form.setValue(
+                                                  `rules.${index}.compareValue`,
+                                                  "",
+                                                  {
+                                                    shouldValidate: true,
+                                                  },
+                                                );
+                                              }}
+                                            >
+                                              <SelectTrigger className="h-9 w-full min-w-0">
+                                                <SelectValue placeholder="Select source" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                {filteredCompareSourceOptions.map(
+                                                  (opt) => (
+                                                    <SelectItem
+                                                      key={opt.value}
+                                                      value={opt.value}
+                                                    >
+                                                      {opt.label}
+                                                    </SelectItem>
+                                                  ),
+                                                )}
+                                              </SelectContent>
+                                            </Select>
+                                          )}
+                                        />
+                                      </div>
+                                    )}
+                                    <div>
+                                      <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
+                                        {isDirectValueOp || isCompareStatic
+                                          ? "Value"
+                                          : "Field"}
+                                      </span>
+                                      <FormField
+                                        control={form.control}
+                                        name={`rules.${index}.compareValue`}
+                                        render={({ field }) => {
+                                          // REGEX / START_WITH / END_WITH → direct string input, no compare source
+                                          if (isDirectValueOp) {
+                                            const placeholder =
+                                              operatorValue === "REGEX"
+                                                ? "Enter regex pattern"
+                                                : operatorValue === "START_WITH"
+                                                  ? "Enter prefix"
+                                                  : "Enter suffix";
+                                            return (
+                                              <Input
+                                                className="h-9 w-full min-w-0"
+                                                placeholder={placeholder}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                              />
+                                            );
+                                          }
+
+                                          // auth.roles / auth.userId + Static Value → tenant-scoped
+                                          // principal selector instead of free text. Placed ahead of the
+                                          // static-value branches below; every other rule shape falls
+                                          // through to its existing widget untouched.
+                                          if (showPrincipalSelector) {
+                                            return (
+                                              <PrincipalSelector
+                                                entity={
+                                                  leftField === "roles"
+                                                    ? "role"
+                                                    : "user"
+                                                }
+                                                userValueField={
+                                                  leftField === "email"
+                                                    ? "email"
+                                                    : "itemId"
+                                                }
+                                                projectKey={projectKey}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                multiple
+                                              />
+                                            );
+                                          }
+
+                                          // CONTAIN + Static Value → comma-separated input
+                                          if (isInOp && isCompareStatic) {
+                                            return (
+                                              <Input
+                                                className="h-9 w-full min-w-0"
+                                                placeholder="Enter comma-separated values"
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                              />
+                                            );
+                                          }
+
+                                          // CONTAIN + Auth/Schema Fields → multi-select
+                                          if (
+                                            isInOp &&
+                                            !isCompareStatic &&
+                                            compareSource
+                                          ) {
+                                            return (
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <button
+                                                    type="button"
+                                                    className="flex h-9 w-full min-w-0 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground"
+                                                  >
+                                                    <span className="truncate text-left">
+                                                      {selectedInValues.length >
+                                                      0
+                                                        ? selectedInValues.join(
+                                                            ", ",
+                                                          )
+                                                        : "Select fields"}
+                                                    </span>
+                                                    <ChevronDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+                                                  </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent
+                                                  className="w-52 p-0"
+                                                  align="start"
+                                                >
+                                                  <Command>
+                                                    <CommandList>
+                                                      <CommandGroup>
+                                                        {compareFieldOptions.map(
+                                                          (opt) => {
+                                                            const isSelected =
+                                                              selectedInValues.includes(
+                                                                opt.value,
+                                                              );
+                                                            return (
+                                                              <CommandItem
+                                                                key={opt.value}
+                                                                onSelect={() => {
+                                                                  const updated =
+                                                                    isSelected
+                                                                      ? selectedInValues.filter(
+                                                                          (v) =>
+                                                                            v !==
+                                                                            opt.value,
+                                                                        )
+                                                                      : [
+                                                                          ...selectedInValues,
+                                                                          opt.value,
+                                                                        ];
+                                                                  field.onChange(
+                                                                    updated.join(
+                                                                      ",",
+                                                                    ),
+                                                                  );
+                                                                }}
+                                                              >
+                                                                <div
+                                                                  className={cn(
+                                                                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                                    isSelected
+                                                                      ? "bg-primary text-primary-foreground"
+                                                                      : "opacity-50 [&_svg]:invisible",
+                                                                  )}
+                                                                >
+                                                                  <CheckIcon className="h-4 w-4" />
+                                                                </div>
+                                                                <span>
+                                                                  {opt.label}
+                                                                </span>
+                                                              </CommandItem>
+                                                            );
+                                                          },
+                                                        )}
+                                                      </CommandGroup>
+                                                    </CommandList>
+                                                  </Command>
+                                                </PopoverContent>
+                                              </Popover>
+                                            );
+                                          }
+
+                                          // Default: Static → input, Auth/Schema → single select
+                                          return isCompareStatic ? (
+                                            <Input
+                                              className="h-9 w-full min-w-0"
+                                              placeholder="Enter value"
+                                              value={field.value}
+                                              onChange={field.onChange}
+                                            />
+                                          ) : (
+                                            <Select
+                                              value={field.value || undefined}
+                                              onValueChange={field.onChange}
+                                              disabled={!compareSource}
+                                            >
+                                              <SelectTrigger className="h-9 w-full min-w-0">
+                                                <SelectValue placeholder="Select field" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                {compareFieldOptions.map(
+                                                  (opt) => (
+                                                    <SelectItem
+                                                      key={opt.value}
+                                                      value={opt.value}
+                                                    >
+                                                      {opt.label}
+                                                    </SelectItem>
+                                                  ),
+                                                )}
+                                              </SelectContent>
+                                            </Select>
+                                          );
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </Card>
                         </Fragment>
                       );

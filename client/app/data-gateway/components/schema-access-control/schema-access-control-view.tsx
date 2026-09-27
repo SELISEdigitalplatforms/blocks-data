@@ -265,18 +265,17 @@ export const SchemaAccessControlView = ({
       : ACCESS_TIER_TILES.filter((t) => t.type !== ACCESS_TYPES.INHERITED);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex shrink-0 flex-col gap-3">
-        {/* Not "API is public", but what that means for this verb, here. */}
-        <AccessEffectLine effect={effect} />
 
         {/* Stays visible while a rule set is being added or edited, so that
             form lands right under the Custom tile instead of replacing this
             section and losing the context of what's being configured. */}
         <div>
-          <p className="mb-1.5 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/70">
-            Who is allowed
-          </p>
+          <div className="mb-2">
+            <p className="text-sm font-semibold text-foreground">Who can access this?</p>
+            <p className="text-xs text-muted-foreground">Choose the access level for this operation.</p>
+          </div>
           <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Who is allowed">
             {visibleTiers.map(({ type, label }) => {
               const tier = tierFromType(type);
@@ -290,7 +289,7 @@ export const SchemaAccessControlView = ({
                   disabled={showRuleSetForm}
                   onClick={() => handleTierPick(type)}
                   className={cn(
-                    "flex h-[38px] items-center gap-2 rounded-md border px-2.5 text-left text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                    "flex h-10 items-center gap-2 rounded-md border px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
                     isSelected
                       ? cn(TIER_CONTAINER_CLASS[tier], TIER_VALUE_CLASS[tier])
                       : "border-border/40 text-muted-foreground hover:border-border hover:text-foreground",
@@ -312,6 +311,7 @@ export const SchemaAccessControlView = ({
             })}
           </div>
         </div>
+        <AccessEffectLine effect={effect} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

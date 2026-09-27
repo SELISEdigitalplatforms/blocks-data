@@ -56,6 +56,7 @@ const stripSignalrInvalidPureAnnotations = (): Plugin => ({
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, "BLOCKS_");
   const proxyTarget = env.BLOCKS_API_BASE_URL ?? "";
+  const devPort = Number(env.BLOCKS_DEV_PORT) || 4000;
 
   return {
     envPrefix: ["BLOCKS_"],
@@ -73,13 +74,14 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       host: true, // Listen on all addresses (0.0.0.0)
-      port: 4000,
+      port: devPort,
       strictPort: true, // Exit if the port is already in use
       https: resolveDevHttps(), // HTTPS when DATA_SSL_* are set; else HTTP
       fs: {
         allow: [path.resolve(__dirname, "..")],
       },
       allowedHosts: [
+        "dev-data.blocksdevelopers.com",
         "dev-cloud.seliseblocks.com",
         "localhost",
         ".seliseblocks.com",

@@ -18,7 +18,6 @@ import { ruleSetLines } from "@/data-gateway/utils/access-phrase";
 import {
   AlertTriangle,
   ChevronDown,
-  Info,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -111,7 +110,7 @@ export const SchemaAccessControlAccordion = ({
         </div>
       )}
 
-      {!isEditing && policies.length > 0 && (
+      {!isEditing && policies.length > 5 && (
         <Input
           placeholder="Search rule sets"
           aria-label="Search rule sets"
@@ -119,16 +118,6 @@ export const SchemaAccessControlAccordion = ({
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
         />
-      )}
-
-      {!isEditing && policies.length > 0 && (
-        <div className="flex items-center gap-1.5 rounded-md bg-muted/40 px-2.5 py-1.5">
-          <Info className="h-3 w-3 shrink-0 text-muted-foreground" aria-hidden />
-          <span className="text-[11px] leading-relaxed text-muted-foreground">
-            Access is granted when <strong className="font-semibold text-foreground">any</strong> rule
-            set matches.
-          </span>
-        </div>
       )}
 
       {filteredPolicies.length > 0 && (

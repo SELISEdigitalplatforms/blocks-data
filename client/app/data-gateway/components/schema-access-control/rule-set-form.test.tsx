@@ -514,6 +514,9 @@ describe("RuleSetForm create flow", () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     render(<RuleSetForm {...baseProps} />);
 
+    expect(screen.queryByRole("radiogroup", { name: "Multi-rule relations" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
     const matchAll = screen.getByRole("radio", { name: "Match all" });
     const matchAny = screen.getByRole("radio", { name: "Match any" });
     expect(matchAll).toHaveAttribute("aria-checked", "true");
@@ -526,9 +529,12 @@ describe("RuleSetForm create flow", () => {
 
   // Was a content-sized chip pair sitting to the left; now splits the full
   // row 50/50 between the two options.
-  it("splits Match all / Match any evenly across the full row width", () => {
+  it("splits Match all / Match any evenly across the full row width", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
     render(<RuleSetForm {...baseProps} />);
 
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
     const group = screen.getByRole("radiogroup", { name: "Multi-rule relations" });
     expect(group.className).toContain("w-full");
     expect(screen.getByRole("radio", { name: "Match all" }).className).toContain("flex-1");

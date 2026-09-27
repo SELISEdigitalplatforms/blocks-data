@@ -491,7 +491,16 @@ export const RuleSetForm = ({
           }}
           className="space-y-4"
         >
-          <div className="mt-6 border-t border-border/40" />
+          <div className="mt-2 flex items-center justify-between border-b border-border/40 pb-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                {isEditMode ? "Edit rule set" : "New rule set"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Define the conditions that grant access.
+              </p>
+            </div>
+          </div>
           <FormField
             name="name"
             control={form.control}
@@ -508,12 +517,12 @@ export const RuleSetForm = ({
             )}
           />
 
-          <FormField
+          {fields.length > 1 && <FormField
             control={form.control}
             name="logicalOperator"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Multi-rule relations</FormLabel>
+                <FormLabel>When multiple rules apply</FormLabel>
                 <FormControl>
                   <div
                     role="radiogroup"
@@ -550,7 +559,7 @@ export const RuleSetForm = ({
                 <FormMessage />
               </FormItem>
             )}
-          />
+          />}
 
           {/* Rules.
               This was a bordered, tinted, p-4 panel wrapping per-rule cards
@@ -560,7 +569,7 @@ export const RuleSetForm = ({
               allowed" and "Multi-rule relations" above it are labelled, so a
               rule card is the only box on screen. */}
           <div className="flex flex-col">
-            <section className="mt-4">
+            <section className="mt-1">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
                   Rules
@@ -689,7 +698,7 @@ export const RuleSetForm = ({
                               />
                             </div>
                           )}
-                          <Card className="dg-interactive flex flex-col gap-3 rounded-lg border-border/60 bg-card p-3.5 shadow-none hover:border-border">
+                          <Card className="dg-interactive flex flex-col gap-3 rounded-lg border-border/60 bg-card p-3 shadow-none hover:border-border">
                             <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2.5">
                               <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
                                 Rule {index + 1}
@@ -706,7 +715,7 @@ export const RuleSetForm = ({
                               </Button>
                             </div>
                             <div className="flex min-w-0 flex-1 flex-col gap-3">
-                              <div className="rounded-md border border-border/40 bg-muted/10 p-2.5">
+                              <div className="space-y-2">
                                 <div className="mb-2 flex items-center gap-2">
                                   <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">
                                     1
@@ -947,7 +956,7 @@ export const RuleSetForm = ({
                               </div>
 
                               {operatorValue && !isNullOperator && (
-                                <div className="rounded-md border border-border/40 bg-muted/10 p-2.5">
+                                <div className="space-y-2 border-t border-border/40 pt-3">
                                   <div className="mb-2 flex items-center gap-2">
                                     <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">
                                       3

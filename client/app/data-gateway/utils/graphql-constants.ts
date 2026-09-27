@@ -115,6 +115,9 @@ export function formatGraphQLDateTimeSampleValue(date: Date = new Date()): strin
   return `"${normalized}"`;
 }
 
+/** GraphQL object literal for a GeoJson sample value (a Point, [longitude, latitude]). */
+export const GEOJSON_SAMPLE_VALUE = '{ type: "Point", coordinates: [8.5417, 47.3769] }';
+
 /** String default for schemas-drawer query generation. */
 export function getStringDefault(fieldName?: string, isMutationInput?: boolean): string {
   if (fieldName && fieldName in KNOWN_STRING_DEFAULTS) return KNOWN_STRING_DEFAULTS[fieldName];

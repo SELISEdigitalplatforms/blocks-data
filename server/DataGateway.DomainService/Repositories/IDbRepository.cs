@@ -94,6 +94,18 @@ public interface IDbRepository
     Task<ActionResponse> CreateIndexAsync(string collectionName, List<(string FieldName, int Direction)> keys, bool isUnique, string indexName, string databaseName = "");
 
     /// <summary>
+    /// Creates a <c>2dsphere</c> geospatial index on a single field. Separate from
+    /// <see cref="CreateIndexAsync"/> because that signature only expresses ascending/descending keys.
+    /// Idempotent: re-creating an index with the same name and key is a no-op in MongoDB.
+    /// </summary>
+    Task<ActionResponse> CreateGeoIndexAsync(string collectionName, string fieldName, string indexName, string databaseName = "");
+
+    /// <summary>
+    /// Names of the indexes that currently exist on the collection; empty when it does not exist yet.
+    /// </summary>
+    Task<List<string>> ListIndexNamesAsync(string collectionName, string databaseName = "");
+
+    /// <summary>
     /// Drops a previously created index by name from the given data collection.
     /// </summary>
     Task<ActionResponse> DropIndexAsync(string collectionName, string indexName, string databaseName = "");

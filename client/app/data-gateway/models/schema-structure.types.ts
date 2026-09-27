@@ -38,5 +38,6 @@ export const PREVIEW_TYPE_MAP: Record<string, string> = {
   Float: "float",
   Boolean: "boolean",
   DateTime: "datetime",
+  GeoJson: "geojson",
 };
 

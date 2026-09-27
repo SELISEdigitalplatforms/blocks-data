@@ -24,6 +24,8 @@ public static class WhereToMongoFilterConverter
         { "eq", "neq" };
     private static readonly HashSet<string> AllowedDateTimeOps = new(StringComparer.OrdinalIgnoreCase)
         { "eq", "neq", "gt", "gte", "lt", "lte", "in" };
+    private static readonly HashSet<string> AllowedGeoJsonOps = new(StringComparer.OrdinalIgnoreCase)
+        { "eq", "neq", GeoJsonGeospatialFilter.Near, GeoJsonGeospatialFilter.Within, GeoJsonGeospatialFilter.Intersects };
 
     private static readonly HashSet<string> LogicalOperators = new(StringComparer.OrdinalIgnoreCase)
         { "or", "and" };
@@ -170,6 +172,7 @@ public static class WhereToMongoFilterConverter
 
         var allowedOps = GetAllowedOps(scalarType);
         var clauses = new List<BsonElement>();
+        var geoPredicates = new List<BsonDocument>();
 
         foreach (var op in opDict)
         {
@@ -177,6 +180,12 @@ public static class WhereToMongoFilterConverter
             var opKey = op.Key;
             if (string.IsNullOrWhiteSpace(opKey) || !allowedOps.Contains(opKey))
                 throw Invalid($"Unsupported or invalid operator: '{opKey}' for type {scalarType}.");
+
+            if (GeoJsonGeospatialFilter.IsGeospatialOperator(opKey))
+            {
+                geoPredicates.AddRange(GeoJsonGeospatialFilter.Build(opKey, op.Value, CoerceOperationDictionary, ToBsonValue));
+                continue;
+            }
 
             var mongoOp = MapOperatorToMongo(opKey);
             BsonValue bsonVal;
@@ -191,12 +200,8 @@ public static class WhereToMongoFilterConverter
                         : Regex.Escape(str) + "$";
                 bsonVal = new BsonRegularExpression(pattern, "i");
             }
-            else if (op.Value is IList<object?> listVal)
-                bsonVal = new BsonArray(listVal.Select(BsonValue.Create).ToArray());
-            else if (op.Value is IEnumerable enumerable and not string)
-                bsonVal = new BsonArray(enumerable.Cast<object>().Select(BsonValue.Create).ToArray());
             else
-                bsonVal = BsonValue.Create(op.Value);
+                bsonVal = ToBsonValue(op.Value);
 
             if (mongoOp == "$eq" && bsonVal.BsonType == BsonType.String && string.IsNullOrEmpty(bsonVal.AsString))
                 continue;
@@ -204,8 +209,69 @@ public static class WhereToMongoFilterConverter
             clauses.Add(new BsonElement(mongoOp, bsonVal));
         }
 
-        if (clauses.Count == 0) return null;
-        return new BsonDocument(fieldName, new BsonDocument(clauses));
+        if (clauses.Count == 0 && geoPredicates.Count == 0) return null;
+        if (geoPredicates.Count == 0)
+            return new BsonDocument(fieldName, new BsonDocument(clauses));
+
+        // Geospatial predicates are each their own clause on the field (see GeoJsonGeospatialFilter.Build),
+        // so anything alongside them is split out and the lot combined with $and.
+        var parts = new List<BsonDocument>();
+        if (clauses.Count > 0)
+            parts.Add(new BsonDocument(fieldName, new BsonDocument(clauses)));
+        parts.AddRange(geoPredicates.Select(predicate => new BsonDocument(fieldName, predicate)));
+
+        return parts.Count == 1 ? parts[0] : new BsonDocument("$and", new BsonArray(parts));
+    }
+
+    /// <summary>
+    /// Converts an operand to BSON, descending into lists and objects.
+    ///
+    /// This replaced three separate branches that each called
+    /// <c>BsonValue.Create</c> on their elements. That was fine while every
+    /// operand was a scalar or a flat list of scalars, but a GeoJson operand is
+    /// a whole geometry object — and because a dictionary is also
+    /// <see cref="IEnumerable"/>, the old list branch would have turned
+    /// <c>{ type: "Point", coordinates: [...] }</c> into a BsonArray of
+    /// key/value pairs and quietly matched nothing. Recursing handles nested
+    /// geometries, arrays of them, and every previously working case alike.
+    /// </summary>
+    private static BsonValue ToBsonValue(object? value)
+    {
+        switch (value)
+        {
+            case null:
+                return BsonNull.Value;
+            case BsonValue bson:
+                return bson;
+            case string:
+                return BsonValue.Create(value);
+            case IDictionary<string, object?> typedDictionary:
+            {
+                var document = new BsonDocument();
+                foreach (var pair in typedDictionary)
+                    document.Add(pair.Key, ToBsonValue(pair.Value));
+                return document;
+            }
+            case IDictionary rawDictionary:
+            {
+                var document = new BsonDocument();
+                foreach (DictionaryEntry entry in rawDictionary)
+                {
+                    if (entry.Key is string key)
+                        document.Add(key, ToBsonValue(entry.Value));
+                }
+                return document;
+            }
+            case IEnumerable enumerable:
+            {
+                var array = new BsonArray();
+                foreach (var item in enumerable)
+                    array.Add(ToBsonValue(item));
+                return array;
+            }
+            default:
+                return BsonValue.Create(value);
+        }
     }
 
     private static IReadOnlyDictionary<string, object?>? CoerceOperationDictionary(object value)
@@ -321,6 +387,7 @@ public static class WhereToMongoFilterConverter
             "Int" or "Float" => AllowedNumberOps,
             "Boolean" => AllowedBoolOps,
             "DateTime" => AllowedDateTimeOps,
+            GeoJsonValidator.TypeName => AllowedGeoJsonOps,
             _ => AllowedStringOps
         };
     }

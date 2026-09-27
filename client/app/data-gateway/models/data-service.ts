@@ -450,7 +450,11 @@ export interface IGetSchemaIndexesResponse {
   isSuccess: boolean;
   message?: string | null;
   errors?: unknown;
-  data: { indexes: ISchemaIndex[] } | null;
+  /**
+   * `systemIndexes` are the read-only, automatically managed indexes that exist in MongoDB
+   * (the 2dsphere index of each GeoJson field). Absent from older backends.
+   */
+  data: { indexes: ISchemaIndex[]; systemIndexes?: ISchemaIndex[] } | null;
 }
 
 export interface ICreateSchemaIndexPayload {

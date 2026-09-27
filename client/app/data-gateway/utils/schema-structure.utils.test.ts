@@ -40,6 +40,13 @@ describe("schema-structure.utils", () => {
       expect(getPreviewFieldType("DateTime")).toBe("datetime");
     });
 
+    // Without an entry GeoJson would still resolve, via the lower-casing
+    // fallback that exists for Dto schema names — so the mapping is what
+    // distinguishes it as a known scalar rather than a schema reference.
+    it("maps GeoJson to its preview type", () => {
+      expect(getPreviewFieldType("GeoJson")).toBe("geojson");
+    });
+
     it("trims input before mapping", () => {
       expect(getPreviewFieldType("  Boolean  ")).toBe("boolean");
     });

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui-kits/tooltip/tooltip";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { Plus, Trash } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useState } from "react";
 import {
   useDeleteSchemaIndex,
@@ -35,6 +36,19 @@ import { SchemaIndexForm } from "./schema-index-form";
 
 /** Backend SchemaType.Dto — indexes are only supported on SchemaType.Entity (1). */
 const DTO_SCHEMA_TYPE = 2;
+
+/** Backend prefix of the read-only, automatically managed geospatial index rows. */
+const GEO_SYSTEM_INDEX_PREFIX = "system:";
+
+/** Tinted, low-contrast tags: colour tells them apart without competing with the index name. */
+const TAG_BASE = "border-transparent font-medium";
+const TAG_TONES = {
+  system: "bg-slate-500/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-300",
+  custom: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300",
+  unique: "bg-amber-500/10 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300",
+  compound: "bg-violet-500/10 text-violet-700 dark:bg-violet-400/10 dark:text-violet-300",
+  geo: "bg-sky-500/10 text-sky-700 dark:bg-sky-400/10 dark:text-sky-300",
+};
 
 const DEFAULT_ITEM_ID_INDEX: ISchemaIndex = {
   itemId: "__default-item-id-index__",
@@ -65,11 +79,13 @@ export function SchemaIndexesTab({
     useDeleteSchemaIndex();
 
   const indexes = data?.data?.indexes ?? [];
+  const systemIndexes = data?.data?.systemIndexes ?? [];
   const isDto = schemaType === DTO_SCHEMA_TYPE;
   const displayedIndexes = isDto
     ? indexes.map((index) => ({ ...index, isSystem: false }))
     : [
         { ...DEFAULT_ITEM_ID_INDEX, isSystem: true },
+        ...systemIndexes.map((index) => ({ ...index, isSystem: true })),
         ...indexes.map((index) => ({ ...index, isSystem: false })),
       ];
   const atLimit = indexes.length >= MAX_INDEXES_PER_SCHEMA;
@@ -163,7 +179,9 @@ export function SchemaIndexesTab({
         )
       ) : (
         <Accordion type="single" collapsible className="flex flex-col gap-2">
-          {displayedIndexes.map((index) => (
+          {displayedIndexes.map((index) => {
+            const isGeo = index.itemId.startsWith(GEO_SYSTEM_INDEX_PREFIX);
+            return (
             <AccordionItem
               key={index.itemId || index.name}
               value={index.itemId || index.name}
@@ -173,14 +191,33 @@ export function SchemaIndexesTab({
                 <AccordionTrigger className="min-w-0 flex-row-reverse justify-end gap-3 px-4 py-3 text-left hover:no-underline">
                   <div className="flex min-w-0 flex-1 items-center gap-4 pr-4">
                     <span className="truncate text-sm font-semibold" title={index.name}>
-                      {index.isSystem ? "ItemId(_id_)" : index.name}
+                      {index.itemId === DEFAULT_ITEM_ID_INDEX.itemId ? "ItemId(_id_)" : index.name}
                     </span>
                     <span className="whitespace-nowrap text-xs text-muted-foreground">
                       {index.fields.length} {index.fields.length === 1 ? "property" : "properties"}
                     </span>
-                    {index.isSystem && <Badge variant="outline">Default</Badge>}
-                    {index.fields.length > 1 && <Badge variant="outline">Compound</Badge>}
-                    {index.isUnique && <Badge variant="secondary">Unique</Badge>}
+                    <Badge variant="outline" className={cn(TAG_BASE, index.isSystem ? TAG_TONES.system : TAG_TONES.custom)}>
+                      {index.isSystem ? "System" : "Custom"}
+                    </Badge>
+                    {isGeo && (
+                      <Badge
+                        variant="outline"
+                        className={cn(TAG_BASE, TAG_TONES.geo)}
+                        title="Created and dropped automatically with the GeoJson field"
+                      >
+                        Geospatial · Auto
+                      </Badge>
+                    )}
+                    {index.fields.length > 1 && (
+                      <Badge variant="outline" className={cn(TAG_BASE, TAG_TONES.compound)}>
+                        Compound
+                      </Badge>
+                    )}
+                    {index.isUnique && (
+                      <Badge variant="outline" className={cn(TAG_BASE, TAG_TONES.unique)}>
+                        Unique
+                      </Badge>
+                    )}
                   </div>
                 </AccordionTrigger>
                 {index.isSystem ? (
@@ -220,17 +257,18 @@ export function SchemaIndexesTab({
                       <span className="min-w-0 break-all">{field.fieldName}</span>
                       <span
                         className="text-lg font-semibold leading-none text-muted-foreground"
-                        aria-label={INDEX_DIRECTION_LABELS[field.direction]}
-                        title={INDEX_DIRECTION_LABELS[field.direction]}
+                        aria-label={isGeo ? "2dsphere" : INDEX_DIRECTION_LABELS[field.direction]}
+                        title={isGeo ? "2dsphere" : INDEX_DIRECTION_LABELS[field.direction]}
                       >
-                        {field.direction === "ASC" ? "↑" : "↓"}
+                        {isGeo ? "2dsphere" : field.direction === "ASC" ? "↑" : "↓"}
                       </span>
                     </li>
                   ))}
                 </ul>
               </AccordionContent>
             </AccordionItem>
-          ))}
+            );
+          })}
         </Accordion>
       )}
 

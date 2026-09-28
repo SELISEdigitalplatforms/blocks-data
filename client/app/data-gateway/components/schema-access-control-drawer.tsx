@@ -66,7 +66,7 @@ const SchemaAccessControlDrawer = ({
         <div className="relative flex h-full flex-col overflow-hidden">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.05),transparent_55%)]" />
           {/* Header */}
-          <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-6 py-4">
+          <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-3 py-3 sm:px-6 sm:py-4">
             <DrawerTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Shield className="h-4 w-4 text-indigo-400" />
               {title}

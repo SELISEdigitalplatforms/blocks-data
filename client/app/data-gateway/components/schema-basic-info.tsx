@@ -45,12 +45,10 @@ export const SchemaBasicInfo = ({
 }: SchemaBasicInfoProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSchemaAccessControlDrawerOpen, setIsSchemaAccessControlDrawerOpen] =
-    useState(false);
+  const [isSchemaAccessControlDrawerOpen, setIsSchemaAccessControlDrawerOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState("");
 
-  const { isPending: isDeleteSchemaPending, mutateAsync: deleteAsync } =
-    useDeleteSchema();
+  const { isPending: isDeleteSchemaPending, mutateAsync: deleteAsync } = useDeleteSchema();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   const onConfirmDelete = async () => {
@@ -123,16 +121,14 @@ export const SchemaBasicInfo = ({
       <div className="relative overflow-hidden rounded-t-sm border border-b-0 border-border/40 bg-card">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.04),transparent_60%)]" />
         {/* Header */}
-        <div className="relative flex items-center justify-between gap-3 px-5 py-3.5">
-          <div className="flex items-center gap-2.5">
+        <div className="relative flex flex-wrap items-center justify-between gap-3 px-3 py-3.5 sm:px-5">
+          <div className="flex min-w-0 items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
               <Database className="h-4 w-4 text-primary" />
             </div>
-            <div className="flex flex-col gap-0.5">
+            <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-semibold text-foreground">
-                  {schemaName}
-                </h2>
+                <h2 className="text-sm font-semibold text-foreground">{schemaName}</h2>
                 <span
                   className={cn(
                     "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -156,14 +152,9 @@ export const SchemaBasicInfo = ({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {onOpenPreview && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5"
-                onClick={onOpenPreview}
-              >
+              <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={onOpenPreview}>
                 <Eye className="h-3.5 w-3.5" />
                 Preview
               </Button>
@@ -265,9 +256,7 @@ export const SchemaBasicInfo = ({
                     </Badge>
                   ))
                 ) : (
-                  <span className="text-xs text-muted-foreground/50">
-                    No references
-                  </span>
+                  <span className="text-xs text-muted-foreground/50">No references</span>
                 )}
               </div>
             )}
@@ -275,10 +264,7 @@ export const SchemaBasicInfo = ({
         )}
       </div>
 
-      <Dialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-      >
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <ConfirmationModal
           onCancel={() => {}}
           onConfirm={onConfirmDelete}

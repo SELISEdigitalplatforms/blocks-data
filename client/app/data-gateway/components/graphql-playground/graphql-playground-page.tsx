@@ -1,27 +1,14 @@
 "use client";
 
 import { Button } from "@/components/ui-kits/button/button";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui-kits/tabs/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { useGetProject } from "@/hooks/use-project";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import type { EditorProps } from "@monaco-editor/react";
 import { isListType, isNonNullType, isObjectType } from "graphql";
 import { BookOpen, Keyboard, Play, Trash2 } from "lucide-react";
 import type { editor, IDisposable, languages, Position } from "monaco-editor";
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useExecuteGraphQL,
   useGraphQLIntrospection,
@@ -52,9 +39,7 @@ const MonacoEditorLazy = lazy(() =>
 );
 
 const monacoEditorFallback = (
-  <div className="flex h-full w-full items-center justify-center">
-    Loading editor...
-  </div>
+  <div className="flex h-full w-full items-center justify-center">Loading editor...</div>
 );
 
 const GraphqlMonacoEditor = (props: EditorProps) => (
@@ -100,27 +85,19 @@ export const GraphQLPlaygroundPage = () => {
   const projectShortKey = selectedProject?.tenantSlug || "";
 
   useEffect(() => {
-    if (
-      projectData?.data &&
-      selectedProject?.itemId === projectData.data.itemId
-    ) {
+    if (projectData?.data && selectedProject?.itemId === projectData.data.itemId) {
       setSelectedProject(projectData.data);
     }
   }, [projectData, selectedProject?.itemId, setSelectedProject]);
-  const [monacoTheme, setMonacoTheme] = useState<
-    NonNullable<EditorProps["theme"]>
-  >(() =>
-    typeof document !== "undefined" &&
-    document.documentElement.classList.contains("dark")
+  const [monacoTheme, setMonacoTheme] = useState<NonNullable<EditorProps["theme"]>>(() =>
+    typeof document !== "undefined" && document.documentElement.classList.contains("dark")
       ? "vs-dark"
       : "light",
   );
 
   useEffect(() => {
     const resolveTheme = () =>
-      document.documentElement.classList.contains("dark")
-        ? "vs-dark"
-        : "light";
+      document.documentElement.classList.contains("dark") ? "vs-dark" : "light";
 
     const observer = new MutationObserver(() => {
       setMonacoTheme(resolveTheme());
@@ -134,15 +111,12 @@ export const GraphQLPlaygroundPage = () => {
     return () => observer.disconnect();
   }, []);
 
-  const { mutateAsync: executeGraphQL, isPending: isLoading } =
-    useExecuteGraphQL();
-  const {
-    data: schemasIntrospectionData,
-    isPending: isSchemasIntrospectionPending,
-  } = useRawIntrospectionQuery({
-    projectKey,
-    enabled: !!projectKey,
-  });
+  const { mutateAsync: executeGraphQL, isPending: isLoading } = useExecuteGraphQL();
+  const { data: schemasIntrospectionData, isPending: isSchemasIntrospectionPending } =
+    useRawIntrospectionQuery({
+      projectKey,
+      enabled: !!projectKey,
+    });
 
   const handleFetchSchemas = () => {
     setIsSchemasDrawerOpen(true);
@@ -233,16 +207,10 @@ export const GraphQLPlaygroundPage = () => {
         if (fieldTypeName && schemaByName.has(fieldTypeName)) {
           if (visited.has(fieldTypeName)) return;
 
-          const nestedStructure = buildDtoStructure(
-            fieldTypeName,
-            new Set(visited),
-            depth + 1,
-          );
+          const nestedStructure = buildDtoStructure(fieldTypeName, new Set(visited), depth + 1);
 
           if (nestedStructure) {
-            dtoFields[field.name] = field.isArray
-              ? [nestedStructure]
-              : nestedStructure;
+            dtoFields[field.name] = field.isArray ? [nestedStructure] : nestedStructure;
           }
         } else {
           // Primitive type
@@ -305,11 +273,7 @@ export const GraphQLPlaygroundPage = () => {
           }
 
           // Handle single DTO object
-          if (
-            typeof value === "object" &&
-            value !== null &&
-            !Array.isArray(value)
-          ) {
+          if (typeof value === "object" && value !== null && !Array.isArray(value)) {
             lines.push(`${indent}${key} {`);
             const innerLines = formatNestedSelection(
               value as Record<string, unknown>,
@@ -493,26 +457,18 @@ export const GraphQLPlaygroundPage = () => {
         // Tags already exists — add "mock-data" if missing
         const tagsStr = objStr.substring(topLevelTagsStart, topLevelTagsEnd);
         const bracketOpen = tagsStr.indexOf("[");
-        const arrayContent = tagsStr.substring(
-          bracketOpen + 1,
-          tagsStr.lastIndexOf("]"),
-        );
+        const arrayContent = tagsStr.substring(bracketOpen + 1, tagsStr.lastIndexOf("]"));
         const hasMockData =
-          arrayContent.includes('"mock-data"') ||
-          arrayContent.includes("'mock-data'");
+          arrayContent.includes('"mock-data"') || arrayContent.includes("'mock-data'");
 
         if (hasMockData) return objStr;
 
         const existingTags = arrayContent.trim();
-        const newTags = existingTags
-          ? `${existingTags}, "mock-data"`
-          : `"mock-data"`;
+        const newTags = existingTags ? `${existingTags}, "mock-data"` : `"mock-data"`;
         const newTagsStr = `Tags: [${newTags}]`;
 
         return (
-          objStr.substring(0, topLevelTagsStart) +
-          newTagsStr +
-          objStr.substring(topLevelTagsEnd)
+          objStr.substring(0, topLevelTagsStart) + newTagsStr + objStr.substring(topLevelTagsEnd)
         );
       } else {
         // Tags doesn't exist — inject it inside the object before closing brace
@@ -527,15 +483,10 @@ export const GraphQLPlaygroundPage = () => {
           return objStr;
         }
 
-        const innerContent = objStr.substring(
-          openingBraceIndex + 1,
-          closingBraceIndex,
-        );
+        const innerContent = objStr.substring(openingBraceIndex + 1, closingBraceIndex);
         const hasFields = innerContent.trim().length > 0;
         const beforeClosing = objStr.substring(0, closingBraceIndex).trimEnd();
-        const lastLine = beforeClosing.slice(
-          beforeClosing.lastIndexOf("\n") + 1,
-        );
+        const lastLine = beforeClosing.slice(beforeClosing.lastIndexOf("\n") + 1);
         const closingIndent = /^[ \t]*/.exec(lastLine)?.[0] ?? "  ";
         const fieldIndent = `${closingIndent}  `;
         const separator = hasFields ? "," : "";
@@ -636,8 +587,7 @@ export const GraphQLPlaygroundPage = () => {
     editorRef.current = editorInstance;
 
     // Store monaco instance globally for later use
-    (window as unknown as { monaco?: typeof import("monaco-editor") }).monaco =
-      monaco;
+    (window as unknown as { monaco?: typeof import("monaco-editor") }).monaco = monaco;
 
     // Shift+Enter inserts a newline without accepting any active suggestion
     editorInstance.addCommand(monaco.KeyMod.Shift | monaco.KeyCode.Enter, () =>
@@ -680,8 +630,7 @@ export const GraphQLPlaygroundPage = () => {
 
       return {
         label: suggestion.label,
-        kind:
-          kindMap[suggestion.kind] ?? monaco.languages.CompletionItemKind.Field,
+        kind: kindMap[suggestion.kind] ?? monaco.languages.CompletionItemKind.Field,
         insertText: suggestion.insertText,
         insertTextRules: suggestion.isSnippet
           ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
@@ -699,9 +648,7 @@ export const GraphQLPlaygroundPage = () => {
   useEffect(() => {
     if (!editorRef.current || !isMonacoReady) return;
 
-    const monaco = (
-      window as unknown as { monaco?: typeof import("monaco-editor") }
-    ).monaco;
+    const monaco = (window as unknown as { monaco?: typeof import("monaco-editor") }).monaco;
     if (!monaco || !monaco.languages) return;
 
     try {
@@ -711,634 +658,565 @@ export const GraphQLPlaygroundPage = () => {
       }
 
       // Register completion provider
-      completionDisposableRef.current =
-        monaco.languages.registerCompletionItemProvider("graphql", {
-          triggerCharacters: ["{", "(", " ", "\n"],
-          provideCompletionItems: (
-            model: editor.ITextModel,
-            position: Position,
-          ): languages.ProviderResult<languages.CompletionList> => {
-            const fullText = model.getValue();
-            const offset = model.getOffsetAt(position);
-            const textBeforeCursor = fullText.substring(0, offset);
+      completionDisposableRef.current = monaco.languages.registerCompletionItemProvider("graphql", {
+        triggerCharacters: ["{", "(", " ", "\n"],
+        provideCompletionItems: (
+          model: editor.ITextModel,
+          position: Position,
+        ): languages.ProviderResult<languages.CompletionList> => {
+          const fullText = model.getValue();
+          const offset = model.getOffsetAt(position);
+          const textBeforeCursor = fullText.substring(0, offset);
 
-            const word = model.getWordUntilPosition(position);
-            const range = {
-              startLineNumber: position.lineNumber,
-              endLineNumber: position.lineNumber,
-              startColumn: word.startColumn,
-              endColumn: word.endColumn,
-            };
+          const word = model.getWordUntilPosition(position);
+          const range = {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: word.startColumn,
+            endColumn: word.endColumn,
+          };
 
-            const suggestions: languages.CompletionItem[] = [];
+          const suggestions: languages.CompletionItem[] = [];
 
-            // ── Introspection-based completions (preferred) ──────────────
-            if (introspectedSchema) {
-              const operationCtx = detectOperationContext(textBeforeCursor);
+          // ── Introspection-based completions (preferred) ──────────────
+          if (introspectedSchema) {
+            const operationCtx = detectOperationContext(textBeforeCursor);
 
-              // Robust depth counting for both braces and parentheses
-              let braceDepth = 0;
-              let parenDepth = 0;
-              for (const char of textBeforeCursor) {
-                if (char === "{") braceDepth++;
-                else if (char === "}") braceDepth--;
-                if (char === "(") parenDepth++;
-                else if (char === ")") parenDepth--;
-              }
+            // Robust depth counting for both braces and parentheses
+            let braceDepth = 0;
+            let parenDepth = 0;
+            for (const char of textBeforeCursor) {
+              if (char === "{") braceDepth++;
+              else if (char === "}") braceDepth--;
+              if (char === "(") parenDepth++;
+              else if (char === ")") parenDepth--;
+            }
 
-              // At the top level (depth 0) — suggest query/mutation keywords
-              if (braceDepth === 0) {
-                // Generic keyword fallbacks (always shown)
-                suggestions.push(
-                  {
-                    label: "query",
-                    kind: monaco.languages.CompletionItemKind.Keyword,
-                    insertText: "query {\n  $0\n}",
-                    insertTextRules:
-                      monaco.languages.CompletionItemInsertTextRule
-                        .InsertAsSnippet,
-                    documentation: "GraphQL query block",
-                    detail: "Query keyword",
-                    sortText: "9_query",
-                    range,
-                  },
-                  {
-                    label: "mutation",
-                    kind: monaco.languages.CompletionItemKind.Keyword,
-                    insertText: "mutation {\n  $0\n}",
-                    insertTextRules:
-                      monaco.languages.CompletionItemInsertTextRule
-                        .InsertAsSnippet,
-                    documentation: "GraphQL mutation block",
-                    detail: "Mutation keyword",
-                    sortText: "9_mutation",
-                    range,
-                  },
-                );
+            // At the top level (depth 0) — suggest query/mutation keywords
+            if (braceDepth === 0) {
+              // Generic keyword fallbacks (always shown)
+              suggestions.push(
+                {
+                  label: "query",
+                  kind: monaco.languages.CompletionItemKind.Keyword,
+                  insertText: "query {\n  $0\n}",
+                  insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  documentation: "GraphQL query block",
+                  detail: "Query keyword",
+                  sortText: "9_query",
+                  range,
+                },
+                {
+                  label: "mutation",
+                  kind: monaco.languages.CompletionItemKind.Keyword,
+                  insertText: "mutation {\n  $0\n}",
+                  insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  documentation: "GraphQL mutation block",
+                  detail: "Mutation keyword",
+                  sortText: "9_mutation",
+                  range,
+                },
+              );
 
-                // Full per-operation snippets (preferred — listed first via sortText)
-                getFullQuerySnippets(introspectedSchema).forEach((s) => {
-                  suggestions.push(toMonacoItem(s, monaco, range));
-                });
-                getFullMutationSnippets(introspectedSchema).forEach((s) => {
-                  suggestions.push(toMonacoItem(s, monaco, range));
-                });
-              }
+              // Full per-operation snippets (preferred — listed first via sortText)
+              getFullQuerySnippets(introspectedSchema).forEach((s) => {
+                suggestions.push(toMonacoItem(s, monaco, range));
+              });
+              getFullMutationSnippets(introspectedSchema).forEach((s) => {
+                suggestions.push(toMonacoItem(s, monaco, range));
+              });
+            }
 
-              // Depth 1 inside query/mutation — suggest operations
-              if (braceDepth === 1 && operationCtx) {
-                // Suggest operation names (getInventoryItems, etc.)
-                const opSuggestions =
-                  operationCtx === "query"
-                    ? getQuerySuggestions(introspectedSchema)
-                    : getMutationSuggestions(introspectedSchema);
+            // Depth 1 inside query/mutation — suggest operations
+            if (braceDepth === 1 && operationCtx) {
+              // Suggest operation names (getInventoryItems, etc.)
+              const opSuggestions =
+                operationCtx === "query"
+                  ? getQuerySuggestions(introspectedSchema)
+                  : getMutationSuggestions(introspectedSchema);
 
-                opSuggestions.forEach((s) => {
-                  suggestions.push(toMonacoItem(s, monaco, range));
-                });
+              opSuggestions.forEach((s) => {
+                suggestions.push(toMonacoItem(s, monaco, range));
+              });
 
-                // Also suggest arguments when cursor is inside parentheses of an operation
-                if (parenDepth > 0) {
-                  const matches = Array.from(
-                    textBeforeCursor.matchAll(/(\w+)\s*\(/g),
-                  );
-                  const opMatch = matches.pop()?.[1];
+              // Also suggest arguments when cursor is inside parentheses of an operation
+              if (parenDepth > 0) {
+                const matches = Array.from(textBeforeCursor.matchAll(/(\w+)\s*\(/g));
+                const opMatch = matches.pop()?.[1];
 
-                  if (opMatch && operationCtx) {
-                    const parentTypeName =
-                      operationCtx === "query" ? "Query" : "Mutation";
-                    const argSuggestions = getArgumentSuggestions(
-                      opMatch,
-                      parentTypeName,
-                      introspectedSchema,
-                    );
-                    argSuggestions.forEach((s: IntrospectionSuggestion) => {
-                      suggestions.push(toMonacoItem(s, monaco, range));
-                    });
-                  }
-                }
-              }
-
-              // Depth >= 2 — inside a field selection or input block
-              if (braceDepth >= 2) {
-                const blockPath = resolveInputBlockPath(textBeforeCursor);
-                const operationFieldName =
-                  detectCurrentFieldName(textBeforeCursor);
-                const resolvedInputType =
-                  operationCtx && operationFieldName
-                    ? resolveInputObjectTypeAtCursor({
-                        schema: introspectedSchema,
-                        operationContext: operationCtx,
-                        operationFieldName,
-                        blockPath,
-                      })
-                    : null;
-
-                if (resolvedInputType) {
-                  const inputSuggestions = getInputFieldSuggestions(
-                    resolvedInputType.name,
+                if (opMatch && operationCtx) {
+                  const parentTypeName = operationCtx === "query" ? "Query" : "Mutation";
+                  const argSuggestions = getArgumentSuggestions(
+                    opMatch,
+                    parentTypeName,
                     introspectedSchema,
                   );
-                  inputSuggestions.forEach((s) => {
+                  argSuggestions.forEach((s: IntrospectionSuggestion) => {
                     suggestions.push(toMonacoItem(s, monaco, range));
                   });
-                } else {
-                  // Inside a field selection set — try to detect the return type
-                  // Look for items { pattern or the parent operation
-                  const textForMatching = textBeforeCursor.replace(/\n/g, " ");
-
-                  // Check if inside items { } block
-                  const lastItemsIdx = textBeforeCursor.lastIndexOf("items");
-                  let isInsideItems = false;
-
-                  if (lastItemsIdx !== -1) {
-                    const afterItems = textBeforeCursor.substring(lastItemsIdx);
-                    const openBrace = afterItems.indexOf("{");
-                    if (openBrace !== -1) {
-                      let depth = 1;
-                      const afterBrace = textBeforeCursor.substring(
-                        lastItemsIdx + openBrace + 1,
-                      );
-                      for (const char of afterBrace) {
-                        if (char === "{") depth++;
-                        else if (char === "}") depth--;
-                        if (depth === 0) break;
-                      }
-                      isInsideItems = depth > 0;
-                    }
-                  }
-
-                  // Detect the parent operation to find its return type
-                  const opMatch = textForMatching.match(/(\w+)\s*\(/)?.[1];
-
-                  if (opMatch && operationCtx) {
-                    const parentType =
-                      operationCtx === "query"
-                        ? introspectedSchema.getQueryType()
-                        : introspectedSchema.getMutationType();
-
-                    if (parentType) {
-                      const field = parentType.getFields()[opMatch];
-                      if (field) {
-                        let returnType = field.type;
-                        // Unwrap NonNull/List
-                        while (
-                          isNonNullType(returnType) ||
-                          isListType(returnType)
-                        ) {
-                          returnType = (returnType as unknown as { ofType: typeof returnType }).ofType;
-                        }
-
-                        if (isObjectType(returnType)) {
-                          if (isInsideItems) {
-                            // Inside items — suggest fields of the "items" sub-type
-                            const itemsField = returnType.getFields()["items"];
-                            if (itemsField) {
-                              let itemType = itemsField.type;
-                              while (
-                                isNonNullType(itemType) ||
-                                isListType(itemType)
-                              ) {
-                                itemType = (itemType as unknown as { ofType: typeof itemType }).ofType;
-                              }
-                              if (isObjectType(itemType)) {
-                                const fieldSuggestions = getFieldSuggestions(
-                                  (itemType as { name: string }).name,
-                                  introspectedSchema,
-                                );
-                                fieldSuggestions.forEach((s) => {
-                                  suggestions.push(
-                                    toMonacoItem(s, monaco, range),
-                                  );
-                                });
-                              }
-                            }
-                          } else {
-                            // Directly inside the operation return type
-                            const fieldSuggestions = getFieldSuggestions(
-                              (returnType as { name: string }).name,
-                              introspectedSchema,
-                              { omitPaginationMirrorFields: true },
-                            );
-                            fieldSuggestions.forEach((s) => {
-                              suggestions.push(toMonacoItem(s, monaco, range));
-                            });
-                          }
-                        }
-                      }
-                    }
-                  }
                 }
-              }
-
-              // If we got introspection suggestions, return them
-              if (suggestions.length > 0) {
-                return { suggestions };
               }
             }
 
-            // ── Fallback: schema-list-based completions ─────────────────
-            // Used when introspection is not available (e.g. gateway pod not running)
+            // Depth >= 2 — inside a field selection or input block
+            if (braceDepth >= 2) {
+              const blockPath = resolveInputBlockPath(textBeforeCursor);
+              const operationFieldName = detectCurrentFieldName(textBeforeCursor);
+              const resolvedInputType =
+                operationCtx && operationFieldName
+                  ? resolveInputObjectTypeAtCursor({
+                      schema: introspectedSchema,
+                      operationContext: operationCtx,
+                      operationFieldName,
+                      blockPath,
+                    })
+                  : null;
 
-            // Detect if we're inside an input block or items block by analyzing brace nesting
-            const lastInputIndex = textBeforeCursor.lastIndexOf("input: {");
+              if (resolvedInputType) {
+                const inputSuggestions = getInputFieldSuggestions(
+                  resolvedInputType.name,
+                  introspectedSchema,
+                );
+                inputSuggestions.forEach((s) => {
+                  suggestions.push(toMonacoItem(s, monaco, range));
+                });
+              } else {
+                // Inside a field selection set — try to detect the return type
+                // Look for items { pattern or the parent operation
+                const textForMatching = textBeforeCursor.replace(/\n/g, " ");
 
-            let isInsideInputBlock = false;
-            let isInsideItemsBlock = false;
+                // Check if inside items { } block
+                const lastItemsIdx = textBeforeCursor.lastIndexOf("items");
+                let isInsideItems = false;
 
-            // Check input block
-            if (lastInputIndex !== -1) {
-              const textAfterInput = textBeforeCursor.substring(
-                lastInputIndex + 8,
+                if (lastItemsIdx !== -1) {
+                  const afterItems = textBeforeCursor.substring(lastItemsIdx);
+                  const openBrace = afterItems.indexOf("{");
+                  if (openBrace !== -1) {
+                    let depth = 1;
+                    const afterBrace = textBeforeCursor.substring(lastItemsIdx + openBrace + 1);
+                    for (const char of afterBrace) {
+                      if (char === "{") depth++;
+                      else if (char === "}") depth--;
+                      if (depth === 0) break;
+                    }
+                    isInsideItems = depth > 0;
+                  }
+                }
+
+                // Detect the parent operation to find its return type
+                const opMatch = textForMatching.match(/(\w+)\s*\(/)?.[1];
+
+                if (opMatch && operationCtx) {
+                  const parentType =
+                    operationCtx === "query"
+                      ? introspectedSchema.getQueryType()
+                      : introspectedSchema.getMutationType();
+
+                  if (parentType) {
+                    const field = parentType.getFields()[opMatch];
+                    if (field) {
+                      let returnType = field.type;
+                      // Unwrap NonNull/List
+                      while (isNonNullType(returnType) || isListType(returnType)) {
+                        returnType = (returnType as unknown as { ofType: typeof returnType })
+                          .ofType;
+                      }
+
+                      if (isObjectType(returnType)) {
+                        if (isInsideItems) {
+                          // Inside items — suggest fields of the "items" sub-type
+                          const itemsField = returnType.getFields()["items"];
+                          if (itemsField) {
+                            let itemType = itemsField.type;
+                            while (isNonNullType(itemType) || isListType(itemType)) {
+                              itemType = (itemType as unknown as { ofType: typeof itemType })
+                                .ofType;
+                            }
+                            if (isObjectType(itemType)) {
+                              const fieldSuggestions = getFieldSuggestions(
+                                (itemType as { name: string }).name,
+                                introspectedSchema,
+                              );
+                              fieldSuggestions.forEach((s) => {
+                                suggestions.push(toMonacoItem(s, monaco, range));
+                              });
+                            }
+                          }
+                        } else {
+                          // Directly inside the operation return type
+                          const fieldSuggestions = getFieldSuggestions(
+                            (returnType as { name: string }).name,
+                            introspectedSchema,
+                            { omitPaginationMirrorFields: true },
+                          );
+                          fieldSuggestions.forEach((s) => {
+                            suggestions.push(toMonacoItem(s, monaco, range));
+                          });
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // If we got introspection suggestions, return them
+            if (suggestions.length > 0) {
+              return { suggestions };
+            }
+          }
+
+          // ── Fallback: schema-list-based completions ─────────────────
+          // Used when introspection is not available (e.g. gateway pod not running)
+
+          // Detect if we're inside an input block or items block by analyzing brace nesting
+          const lastInputIndex = textBeforeCursor.lastIndexOf("input: {");
+
+          let isInsideInputBlock = false;
+          let isInsideItemsBlock = false;
+
+          // Check input block
+          if (lastInputIndex !== -1) {
+            const textAfterInput = textBeforeCursor.substring(lastInputIndex + 8);
+            let braceDepth = 1;
+
+            for (const char of textAfterInput) {
+              if (char === "{") braceDepth++;
+              else if (char === "}") braceDepth--;
+              if (braceDepth === 0) {
+                isInsideInputBlock = false;
+                break;
+              }
+            }
+
+            if (braceDepth > 0) {
+              isInsideInputBlock = true;
+            }
+          }
+
+          // Check items block
+          const itemsPattern = textBeforeCursor.lastIndexOf("items");
+          if (itemsPattern !== -1) {
+            const afterItems = textBeforeCursor.substring(itemsPattern);
+            const openBraceIndex = afterItems.indexOf("{");
+
+            if (openBraceIndex !== -1) {
+              const textAfterOpenBrace = textBeforeCursor.substring(
+                itemsPattern + openBraceIndex + 1,
               );
               let braceDepth = 1;
 
-              for (const char of textAfterInput) {
+              for (const char of textAfterOpenBrace) {
                 if (char === "{") braceDepth++;
                 else if (char === "}") braceDepth--;
                 if (braceDepth === 0) {
-                  isInsideInputBlock = false;
+                  isInsideItemsBlock = false;
                   break;
                 }
               }
 
               if (braceDepth > 0) {
-                isInsideInputBlock = true;
+                isInsideItemsBlock = true;
               }
             }
+          }
 
-            // Check items block
-            const itemsPattern = textBeforeCursor.lastIndexOf("items");
-            if (itemsPattern !== -1) {
-              const afterItems = textBeforeCursor.substring(itemsPattern);
-              const openBraceIndex = afterItems.indexOf("{");
+          // Try to detect which schema we're working with
+          let currentSchemaName: string | null = null;
+          const textForMatching = textBeforeCursor.replace(/\n/g, " ");
 
-              if (openBraceIndex !== -1) {
-                const textAfterOpenBrace = textBeforeCursor.substring(
-                  itemsPattern + openBraceIndex + 1,
-                );
-                let braceDepth = 1;
+          // Typed `where` fallback completion. Follow the same recursive
+          // entity/DTO contract exposed by GraphQL introspection so an
+          // unavailable gateway does not reduce filters to top-level fields.
+          const fallbackBlockPath = resolveInputBlockPath(textBeforeCursor);
+          if (fallbackBlockPath[0] === "where") {
+            const operationMatch = Array.from(
+              textForMatching.matchAll(
+                /(?:get|updateMany|update|deleteMany|delete)(\w+?)(?:s)?\s*\(/g,
+              ),
+            ).pop();
+            const entityName = operationMatch?.[1];
+            const entitySchema = schemas.find((s) => s.schemaName === entityName);
+            const dtoByName = new Map(dtoSchemas.map((s) => [s.schemaName.trim(), s] as const));
 
-                for (const char of textAfterOpenBrace) {
-                  if (char === "{") braceDepth++;
-                  else if (char === "}") braceDepth--;
-                  if (braceDepth === 0) {
-                    isInsideItemsBlock = false;
-                    break;
-                  }
+            if (entitySchema) {
+              let fields = entitySchema.fields;
+              let leafType: string | null = null;
+              const path = fallbackBlockPath
+                .slice(1)
+                .filter((part) => !LOGICAL_OPERATOR_FIELDS.has(part) && !/^\d+$/.test(part));
+
+              for (const segment of path) {
+                const field = fields.find((candidate) => candidate.name === segment);
+                if (!field) {
+                  fields = [];
+                  leafType = null;
+                  break;
                 }
 
-                if (braceDepth > 0) {
-                  isInsideItemsBlock = true;
+                const nestedFields =
+                  field.fields && field.fields.length > 0
+                    ? field.fields
+                    : dtoByName.get(field.type.trim())?.fields;
+                if (nestedFields && nestedFields.length > 0) {
+                  fields = nestedFields;
+                  leafType = null;
+                } else {
+                  fields = [];
+                  leafType = field.type;
                 }
               }
-            }
 
-            // Try to detect which schema we're working with
-            let currentSchemaName: string | null = null;
-            const textForMatching = textBeforeCursor.replace(/\n/g, " ");
-
-            // Typed `where` fallback completion. Follow the same recursive
-            // entity/DTO contract exposed by GraphQL introspection so an
-            // unavailable gateway does not reduce filters to top-level fields.
-            const fallbackBlockPath = resolveInputBlockPath(textBeforeCursor);
-            if (fallbackBlockPath[0] === "where") {
-              const operationMatch = Array.from(
-                textForMatching.matchAll(
-                  /(?:get|updateMany|update|deleteMany|delete)(\w+?)(?:s)?\s*\(/g,
-                ),
-              ).pop();
-              const entityName = operationMatch?.[1];
-              const entitySchema = schemas.find((s) => s.schemaName === entityName);
-              const dtoByName = new Map(
-                dtoSchemas.map((s) => [s.schemaName.trim(), s] as const),
-              );
-
-              if (entitySchema) {
-                let fields = entitySchema.fields;
-                let leafType: string | null = null;
-                const path = fallbackBlockPath.slice(1).filter(
-                  (part) => !LOGICAL_OPERATOR_FIELDS.has(part) && !/^\d+$/.test(part),
-                );
-
-                for (const segment of path) {
-                  const field = fields.find((candidate) => candidate.name === segment);
-                  if (!field) {
-                    fields = [];
-                    leafType = null;
-                    break;
-                  }
-
-                  const nestedFields =
-                    field.fields && field.fields.length > 0
-                      ? field.fields
-                      : dtoByName.get(field.type.trim())?.fields;
-                  if (nestedFields && nestedFields.length > 0) {
-                    fields = nestedFields;
-                    leafType = null;
-                  } else {
-                    fields = [];
-                    leafType = field.type;
-                  }
-                }
-
-                const addFallback = (
-                  label: string,
-                  insertText: string,
-                  detail: string,
-                  kind: languages.CompletionItemKind,
-                ) => suggestions.push({
+              const addFallback = (
+                label: string,
+                insertText: string,
+                detail: string,
+                kind: languages.CompletionItemKind,
+              ) =>
+                suggestions.push({
                   label,
                   kind,
                   insertText,
-                  insertTextRules:
-                    monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+                  insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
                   documentation: detail,
                   detail,
                   sortText: `0_${label}`,
                   range,
                 });
 
-                if (leafType) {
-                  // GeoJson is matched before the numeric/date fallback, which
-                  // would otherwise suggest gt/gte/lt/lte on a geometry — the
-                  // filter input has no such operators, so the suggestion
-                  // would only produce a query the server rejects.
-                  const operatorNames =
-                    leafType === "String" || leafType === "ID"
-                      ? ["eq", "neq", "contains", "startsWith", "endsWith", "in"]
-                      : leafType === "Boolean"
-                        ? ["eq", "neq"]
-                        : leafType === "GeoJson"
-                          ? ["eq", "neq", "near", "within", "intersects"]
-                          : ["eq", "neq", "gt", "gte", "lt", "lte", "in"];
-                  // near/within/intersects take an input object rather than a
-                  // scalar, so they complete with that shape filled in.
-                  const polygonSnippet =
-                    'geometry: { type: "Polygon", coordinates: [[[${1:0}, ${2:0}], [${3:0}, ${4:0}], [${5:0}, ${6:0}], [${1:0}, ${2:0}]]] }';
-                  const geoSnippets: Record<string, string> = {
-                    near: 'near: { geometry: { type: "Point", coordinates: [${1:lon}, ${2:lat}] }, maxDistanceMeters: ${3:1000} }',
-                    within: `within: { ${polygonSnippet} }`,
-                    intersects: `intersects: { ${polygonSnippet} }`,
-                  };
-                  operatorNames.forEach((operator) =>
+              if (leafType) {
+                // GeoJson is matched before the numeric/date fallback, which
+                // would otherwise suggest gt/gte/lt/lte on a geometry — the
+                // filter input has no such operators, so the suggestion
+                // would only produce a query the server rejects.
+                const operatorNames =
+                  leafType === "String" || leafType === "ID"
+                    ? ["eq", "neq", "contains", "startsWith", "endsWith", "in"]
+                    : leafType === "Boolean"
+                      ? ["eq", "neq"]
+                      : leafType === "GeoJson"
+                        ? ["eq", "neq", "near", "within", "intersects"]
+                        : ["eq", "neq", "gt", "gte", "lt", "lte", "in"];
+                // near/within/intersects take an input object rather than a
+                // scalar, so they complete with that shape filled in.
+                const polygonSnippet =
+                  'geometry: { type: "Polygon", coordinates: [[[${1:0}, ${2:0}], [${3:0}, ${4:0}], [${5:0}, ${6:0}], [${1:0}, ${2:0}]]] }';
+                const geoSnippets: Record<string, string> = {
+                  near: 'near: { geometry: { type: "Point", coordinates: [${1:lon}, ${2:lat}] }, maxDistanceMeters: ${3:1000} }',
+                  within: `within: { ${polygonSnippet} }`,
+                  intersects: `intersects: { ${polygonSnippet} }`,
+                };
+                operatorNames.forEach((operator) =>
+                  addFallback(
+                    operator,
+                    leafType === "GeoJson" && geoSnippets[operator]
+                      ? geoSnippets[operator]
+                      : operator === "in"
+                        ? `${operator}: [\${1}]`
+                        : `${operator}: \${1}`,
+                    `${leafType} filter operator`,
+                    monaco.languages.CompletionItemKind.Keyword,
+                  ),
+                );
+              } else {
+                fields.forEach((field) => {
+                  const nested =
+                    (field.fields && field.fields.length > 0) ||
+                    !!dtoByName.get(field.type.trim())?.fields.length;
+                  addFallback(
+                    field.name,
+                    `${field.name}: {\n  \${1}\n}`,
+                    nested
+                      ? `Filter fields inside ${field.type}`
+                      : `Filter ${field.name} (${field.type})`,
+                    nested
+                      ? monaco.languages.CompletionItemKind.Class
+                      : monaco.languages.CompletionItemKind.Field,
+                  );
+                });
+                if (path.length === 0) {
+                  ["and", "or"].forEach((operator) =>
                     addFallback(
                       operator,
-                      leafType === "GeoJson" && geoSnippets[operator]
-                        ? geoSnippets[operator]
-                        : operator === "in"
-                          ? `${operator}: [\${1}]`
-                          : `${operator}: \${1}`,
-                      `${leafType} filter operator`,
+                      `${operator}: [{\n  \${1}\n}]`,
+                      `Logical ${operator.toUpperCase()} conditions`,
                       monaco.languages.CompletionItemKind.Keyword,
                     ),
                   );
-                } else {
-                  fields.forEach((field) => {
-                    const nested =
-                      (field.fields && field.fields.length > 0) ||
-                      !!dtoByName.get(field.type.trim())?.fields.length;
-                    addFallback(
-                      field.name,
-                      `${field.name}: {\n  \${1}\n}`,
-                      nested ? `Filter fields inside ${field.type}` : `Filter ${field.name} (${field.type})`,
-                      nested
-                        ? monaco.languages.CompletionItemKind.Class
-                        : monaco.languages.CompletionItemKind.Field,
-                    );
-                  });
-                  if (path.length === 0) {
-                    ["and", "or"].forEach((operator) =>
-                      addFallback(
-                        operator,
-                        `${operator}: [{\n  \${1}\n}]`,
-                        `Logical ${operator.toUpperCase()} conditions`,
-                        monaco.languages.CompletionItemKind.Keyword,
-                      ),
-                    );
-                  }
                 }
-
-                if (suggestions.length > 0) return { suggestions };
               }
+
+              if (suggestions.length > 0) return { suggestions };
             }
+          }
 
-            const insertMatch = textForMatching.match(/insert(\w+)\s*\(/);
-            const updateMatch = textForMatching.match(/update(\w+)\s*\(/);
-            const getMatches = textForMatching.matchAll(/get(\w+?)s?\s*\(/g);
-            const getMatchesArray = Array.from(getMatches);
-            const getMatch =
-              getMatchesArray.length > 0
-                ? getMatchesArray[getMatchesArray.length - 1]
-                : null;
+          const insertMatch = textForMatching.match(/insert(\w+)\s*\(/);
+          const updateMatch = textForMatching.match(/update(\w+)\s*\(/);
+          const getMatches = textForMatching.matchAll(/get(\w+?)s?\s*\(/g);
+          const getMatchesArray = Array.from(getMatches);
+          const getMatch =
+            getMatchesArray.length > 0 ? getMatchesArray[getMatchesArray.length - 1] : null;
 
-            if (insertMatch) {
-              currentSchemaName = insertMatch[1];
-            } else if (updateMatch) {
-              currentSchemaName = updateMatch[1];
-            } else if (getMatch) {
-              currentSchemaName = getMatch[1];
-            }
+          if (insertMatch) {
+            currentSchemaName = insertMatch[1];
+          } else if (updateMatch) {
+            currentSchemaName = updateMatch[1];
+          } else if (getMatch) {
+            currentSchemaName = getMatch[1];
+          }
 
-            // Helper to recursively format nested DTO fields
-            const formatNestedDtoInsert = (
-              obj: Record<string, unknown>,
-            ): string => {
-              const lines: string[] = [];
+          // Helper to recursively format nested DTO fields
+          const formatNestedDtoInsert = (obj: Record<string, unknown>): string => {
+            const lines: string[] = [];
 
-              Object.entries(obj).forEach(([key, value], index) => {
-                if (
-                  Array.isArray(value) &&
-                  value.length > 0 &&
-                  typeof value[0] === "object"
-                ) {
-                  lines.push(`${key}: [{`);
-                  const nestedLines = formatNestedDtoInsert(
-                    value[0] as Record<string, unknown>,
-                  );
-                  if (nestedLines) {
-                    nestedLines.split("\n").forEach((line) => {
-                      lines.push(`\t${line}`);
-                    });
-                  }
-                  lines.push(`}]`);
-                } else if (
-                  typeof value === "object" &&
-                  value !== null &&
-                  !Array.isArray(value)
-                ) {
-                  lines.push(`${key}: {`);
-                  const nestedLines = formatNestedDtoInsert(
-                    value as Record<string, unknown>,
-                  );
-                  if (nestedLines) {
-                    nestedLines.split("\n").forEach((line) => {
-                      lines.push(`\t${line}`);
-                    });
-                  }
-                  lines.push(`}`);
-                } else {
-                  lines.push(`${key}: \${${index + 1}}`);
+            Object.entries(obj).forEach(([key, value], index) => {
+              if (Array.isArray(value) && value.length > 0 && typeof value[0] === "object") {
+                lines.push(`${key}: [{`);
+                const nestedLines = formatNestedDtoInsert(value[0] as Record<string, unknown>);
+                if (nestedLines) {
+                  nestedLines.split("\n").forEach((line) => {
+                    lines.push(`\t${line}`);
+                  });
                 }
-              });
-
-              return lines.join("\n");
-            };
-
-            const formatNestedDtoSelection = (
-              obj: Record<string, unknown>,
-            ): string => {
-              const lines: string[] = [];
-
-              Object.entries(obj).forEach(([key, value]) => {
-                if (
-                  Array.isArray(value) &&
-                  value.length > 0 &&
-                  typeof value[0] === "object"
-                ) {
-                  lines.push(`${key} {`);
-                  const nestedLines = formatNestedDtoSelection(
-                    value[0] as Record<string, unknown>,
-                  );
-                  if (nestedLines) {
-                    nestedLines.split("\n").forEach((line) => {
-                      lines.push(`\t${line}`);
-                    });
-                  }
-                  lines.push(`}`);
-                } else if (
-                  typeof value === "object" &&
-                  value !== null &&
-                  !Array.isArray(value)
-                ) {
-                  lines.push(`${key} {`);
-                  const nestedLines = formatNestedDtoSelection(
-                    value as Record<string, unknown>,
-                  );
-                  if (nestedLines) {
-                    nestedLines.split("\n").forEach((line) => {
-                      lines.push(`\t${line}`);
-                    });
-                  }
-                  lines.push(`}`);
-                } else {
-                  lines.push(`${key}`);
+                lines.push(`}]`);
+              } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+                lines.push(`${key}: {`);
+                const nestedLines = formatNestedDtoInsert(value as Record<string, unknown>);
+                if (nestedLines) {
+                  nestedLines.split("\n").forEach((line) => {
+                    lines.push(`\t${line}`);
+                  });
                 }
-              });
+                lines.push(`}`);
+              } else {
+                lines.push(`${key}: \${${index + 1}}`);
+              }
+            });
 
-              return lines.join("\n");
-            };
+            return lines.join("\n");
+          };
 
-            // Suggest fields for input blocks (mutations) or items blocks (queries)
-            if (
-              (isInsideInputBlock || isInsideItemsBlock) &&
-              currentSchemaName
-            ) {
-              const currentSchema = schemas.find(
-                (s) => s.schemaName === currentSchemaName,
-              );
+          const formatNestedDtoSelection = (obj: Record<string, unknown>): string => {
+            const lines: string[] = [];
 
-              if (currentSchema && currentSchema.fields) {
-                currentSchema.fields.forEach((field) => {
-                  const fieldTypeName = field.type?.trim();
-                  const isDto =
-                    fieldTypeName && dtoPreviewMap.has(fieldTypeName);
+            Object.entries(obj).forEach(([key, value]) => {
+              if (Array.isArray(value) && value.length > 0 && typeof value[0] === "object") {
+                lines.push(`${key} {`);
+                const nestedLines = formatNestedDtoSelection(value[0] as Record<string, unknown>);
+                if (nestedLines) {
+                  nestedLines.split("\n").forEach((line) => {
+                    lines.push(`\t${line}`);
+                  });
+                }
+                lines.push(`}`);
+              } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+                lines.push(`${key} {`);
+                const nestedLines = formatNestedDtoSelection(value as Record<string, unknown>);
+                if (nestedLines) {
+                  nestedLines.split("\n").forEach((line) => {
+                    lines.push(`\t${line}`);
+                  });
+                }
+                lines.push(`}`);
+              } else {
+                lines.push(`${key}`);
+              }
+            });
 
-                  let insertText: string;
-                  let insertTextRules:
-                    | languages.CompletionItemInsertTextRule
-                    | undefined;
+            return lines.join("\n");
+          };
 
-                  if (isDto) {
-                    const nestedStructure = dtoPreviewMap.get(fieldTypeName);
-                    if (nestedStructure) {
-                      if (isInsideInputBlock) {
-                        if (field.isArray) {
-                          insertText = `${field.name}: [{\n${formatNestedDtoInsert(nestedStructure)}\n}]`;
-                        } else {
-                          insertText = `${field.name}: {\n${formatNestedDtoInsert(nestedStructure)}\n}`;
-                        }
-                        insertTextRules =
-                          monaco.languages.CompletionItemInsertTextRule
-                            .InsertAsSnippet;
+          // Suggest fields for input blocks (mutations) or items blocks (queries)
+          if ((isInsideInputBlock || isInsideItemsBlock) && currentSchemaName) {
+            const currentSchema = schemas.find((s) => s.schemaName === currentSchemaName);
+
+            if (currentSchema && currentSchema.fields) {
+              currentSchema.fields.forEach((field) => {
+                const fieldTypeName = field.type?.trim();
+                const isDto = fieldTypeName && dtoPreviewMap.has(fieldTypeName);
+
+                let insertText: string;
+                let insertTextRules: languages.CompletionItemInsertTextRule | undefined;
+
+                if (isDto) {
+                  const nestedStructure = dtoPreviewMap.get(fieldTypeName);
+                  if (nestedStructure) {
+                    if (isInsideInputBlock) {
+                      if (field.isArray) {
+                        insertText = `${field.name}: [{\n${formatNestedDtoInsert(nestedStructure)}\n}]`;
                       } else {
-                        insertText = `${field.name} {\n${formatNestedDtoSelection(nestedStructure)}\n}`;
-                        insertTextRules =
-                          monaco.languages.CompletionItemInsertTextRule
-                            .InsertAsSnippet;
+                        insertText = `${field.name}: {\n${formatNestedDtoInsert(nestedStructure)}\n}`;
                       }
+                      insertTextRules =
+                        monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
                     } else {
-                      insertText = isInsideInputBlock
-                        ? `${field.name}: \${1}`
-                        : field.name;
-                      insertTextRules = isInsideInputBlock
-                        ? monaco.languages.CompletionItemInsertTextRule
-                            .InsertAsSnippet
-                        : undefined;
+                      insertText = `${field.name} {\n${formatNestedDtoSelection(nestedStructure)}\n}`;
+                      insertTextRules =
+                        monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet;
                     }
                   } else {
-                    insertText = isInsideInputBlock
-                      ? `${field.name}: \${1}`
-                      : field.name;
+                    insertText = isInsideInputBlock ? `${field.name}: \${1}` : field.name;
                     insertTextRules = isInsideInputBlock
-                      ? monaco.languages.CompletionItemInsertTextRule
-                          .InsertAsSnippet
+                      ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
                       : undefined;
                   }
+                } else {
+                  insertText = isInsideInputBlock ? `${field.name}: \${1}` : field.name;
+                  insertTextRules = isInsideInputBlock
+                    ? monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet
+                    : undefined;
+                }
 
-                  suggestions.push({
-                    label: field.name,
-                    kind: isDto
-                      ? monaco.languages.CompletionItemKind.Class
-                      : monaco.languages.CompletionItemKind.Field,
-                    insertText,
-                    insertTextRules,
-                    documentation: `${field.type}${field.isArray ? "[]" : ""}${isDto ? " (nested DTO)" : ""}`,
-                    detail: isDto
-                      ? `DTO: ${field.type}`
-                      : `Field: ${field.type}`,
-                    sortText: `0_${field.name}`,
-                    range,
-                  });
+                suggestions.push({
+                  label: field.name,
+                  kind: isDto
+                    ? monaco.languages.CompletionItemKind.Class
+                    : monaco.languages.CompletionItemKind.Field,
+                  insertText,
+                  insertTextRules,
+                  documentation: `${field.type}${field.isArray ? "[]" : ""}${isDto ? " (nested DTO)" : ""}`,
+                  detail: isDto ? `DTO: ${field.type}` : `Field: ${field.type}`,
+                  sortText: `0_${field.name}`,
+                  range,
                 });
+              });
 
-                return { suggestions };
-              }
+              return { suggestions };
             }
+          }
 
-            // Add basic GraphQL keywords
-            suggestions.push(
-              {
-                label: "query",
-                kind: monaco.languages.CompletionItemKind.Keyword,
-                insertText: "query {\n  $0\n}",
-                insertTextRules:
-                  monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                documentation: "GraphQL query block",
-                detail: "Query keyword",
-                range,
-              },
-              {
-                label: "mutation",
-                kind: monaco.languages.CompletionItemKind.Keyword,
-                insertText: "mutation {\n  $0\n}",
-                insertTextRules:
-                  monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                documentation: "GraphQL mutation block",
-                detail: "Mutation keyword",
-                range,
-              },
-            );
+          // Add basic GraphQL keywords
+          suggestions.push(
+            {
+              label: "query",
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: "query {\n  $0\n}",
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: "GraphQL query block",
+              detail: "Query keyword",
+              range,
+            },
+            {
+              label: "mutation",
+              kind: monaco.languages.CompletionItemKind.Keyword,
+              insertText: "mutation {\n  $0\n}",
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: "GraphQL mutation block",
+              detail: "Mutation keyword",
+              range,
+            },
+          );
 
-            // Add dynamic schema-based completions
-            schemas.forEach((schema) => {
-              const schemaName = schema.schemaName;
-              const fields = generateFieldSnippet(schema);
+          // Add dynamic schema-based completions
+          schemas.forEach((schema) => {
+            const schemaName = schema.schemaName;
+            const fields = generateFieldSnippet(schema);
 
-              suggestions.push({
-                label: `get${schemaName}s`,
-                kind: monaco.languages.CompletionItemKind.Function,
-                insertText: `get${schemaName}s(
+            suggestions.push({
+              label: `get${schemaName}s`,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: `get${schemaName}s(
   where: {}
   order: []
   paging: {
@@ -1354,77 +1232,73 @@ export const GraphQLPlaygroundPage = () => {
     ${fields}
   }
 }`,
-                insertTextRules:
-                  monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                documentation: `Query ${schemaName} entities with pagination`,
-                detail: `Query: ${schemaName}`,
-                sortText: `0_get${schemaName}s`,
-                range,
-              });
-
-              suggestions.push({
-                label: `insert${schemaName}`,
-                kind: monaco.languages.CompletionItemKind.Function,
-                insertText: `insert${schemaName}(
-  input: {
-    \${1}
-  }
-) {
-  acknowledged
-  totalImpactedData
-  itemId
-}`,
-                insertTextRules:
-                  monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                documentation: `Insert new ${schemaName} entry`,
-                detail: `Mutation: ${schemaName}`,
-                sortText: `0_insert${schemaName}`,
-                range,
-              });
-
-              suggestions.push({
-                label: `update${schemaName}`,
-                kind: monaco.languages.CompletionItemKind.Function,
-                insertText: `update${schemaName}(
-  where: {}
-  input: {
-    \${1}
-  }
-) {
-  acknowledged
-  totalImpactedData
-  itemId
-}`,
-                insertTextRules:
-                  monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                documentation: `Update ${schemaName} entry`,
-                detail: `Mutation: ${schemaName}`,
-                sortText: `0_update${schemaName}`,
-                range,
-              });
-
-              suggestions.push({
-                label: `delete${schemaName}`,
-                kind: monaco.languages.CompletionItemKind.Function,
-                insertText: `delete${schemaName}(
-  where: {}
-) {
-  acknowledged
-  totalImpactedData
-  itemId
-}`,
-                insertTextRules:
-                  monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-                documentation: `Delete ${schemaName} entry`,
-                detail: `Mutation: ${schemaName}`,
-                sortText: `0_delete${schemaName}`,
-                range,
-              });
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: `Query ${schemaName} entities with pagination`,
+              detail: `Query: ${schemaName}`,
+              sortText: `0_get${schemaName}s`,
+              range,
             });
 
-            return { suggestions };
-          },
-        });
+            suggestions.push({
+              label: `insert${schemaName}`,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: `insert${schemaName}(
+  input: {
+    \${1}
+  }
+) {
+  acknowledged
+  totalImpactedData
+  itemId
+}`,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: `Insert new ${schemaName} entry`,
+              detail: `Mutation: ${schemaName}`,
+              sortText: `0_insert${schemaName}`,
+              range,
+            });
+
+            suggestions.push({
+              label: `update${schemaName}`,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: `update${schemaName}(
+  where: {}
+  input: {
+    \${1}
+  }
+) {
+  acknowledged
+  totalImpactedData
+  itemId
+}`,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: `Update ${schemaName} entry`,
+              detail: `Mutation: ${schemaName}`,
+              sortText: `0_update${schemaName}`,
+              range,
+            });
+
+            suggestions.push({
+              label: `delete${schemaName}`,
+              kind: monaco.languages.CompletionItemKind.Function,
+              insertText: `delete${schemaName}(
+  where: {}
+) {
+  acknowledged
+  totalImpactedData
+  itemId
+}`,
+              insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+              documentation: `Delete ${schemaName} entry`,
+              detail: `Mutation: ${schemaName}`,
+              sortText: `0_delete${schemaName}`,
+              range,
+            });
+          });
+
+          return { suggestions };
+        },
+      });
     } catch (error) {
       console.error("Error registering completion provider:", error);
     }
@@ -1442,9 +1316,7 @@ export const GraphQLPlaygroundPage = () => {
   useEffect(() => {
     if (!editorRef.current || !isMonacoReady) return;
 
-    const monaco = (
-      window as unknown as { monaco?: typeof import("monaco-editor") }
-    ).monaco;
+    const monaco = (window as unknown as { monaco?: typeof import("monaco-editor") }).monaco;
     if (!monaco || !monaco.languages) return;
 
     try {
@@ -1457,48 +1329,41 @@ export const GraphQLPlaygroundPage = () => {
       const operationMap = new Map<string, string>();
 
       // Register CodeLens provider
-      codeLensDisposableRef.current = monaco.languages.registerCodeLensProvider(
-        "graphql",
-        {
-          provideCodeLenses: (model) => {
-            const text = model.getValue();
-            const operations = parseOperations(text);
+      codeLensDisposableRef.current = monaco.languages.registerCodeLensProvider("graphql", {
+        provideCodeLenses: (model) => {
+          const text = model.getValue();
+          const operations = parseOperations(text);
 
-            const lenses = operations.map((op, index) => {
-              const commandId = `run-graphql-operation-${index}`;
+          const lenses = operations.map((op, index) => {
+            const commandId = `run-graphql-operation-${index}`;
 
-              operationMap.set(commandId, op.text);
+            operationMap.set(commandId, op.text);
 
-              return {
-                range: {
-                  startLineNumber: op.startLine,
-                  startColumn: 1,
-                  endLineNumber: op.startLine,
-                  endColumn: 1,
-                },
-                command: {
-                  id: commandId,
-                  title: `▶ Run ${op.type}${op.name !== "Unnamed" ? ` "${op.name}"` : ""}`,
-                },
-              };
-            });
+            return {
+              range: {
+                startLineNumber: op.startLine,
+                startColumn: 1,
+                endLineNumber: op.startLine,
+                endColumn: 1,
+              },
+              command: {
+                id: commandId,
+                title: `▶ Run ${op.type}${op.name !== "Unnamed" ? ` "${op.name}"` : ""}`,
+              },
+            };
+          });
 
-            return { lenses, dispose: () => {} };
-          },
-          resolveCodeLens: (_model, codeLens) => codeLens,
+          return { lenses, dispose: () => {} };
         },
-      );
+        resolveCodeLens: (_model, codeLens) => codeLens,
+      });
 
       // Register global command handler
       const editorInstance = editorRef.current;
       const onDidExecuteCommand = editorInstance.onDidChangeModelContent(() => {
         // Trigger CodeLens refresh when content changes
         if (monaco.editor) {
-          monaco.editor.setModelMarkers(
-            editorInstance.getModel()!,
-            "graphql",
-            [],
-          );
+          monaco.editor.setModelMarkers(editorInstance.getModel()!, "graphql", []);
         }
       });
 
@@ -1512,12 +1377,8 @@ export const GraphQLPlaygroundPage = () => {
       )._commandService;
 
       if (commandService) {
-        const originalExecuteCommand =
-          commandService.executeCommand.bind(commandService);
-        commandService.executeCommand = function (
-          commandId: string,
-          ...args: unknown[]
-        ) {
+        const originalExecuteCommand = commandService.executeCommand.bind(commandService);
+        commandService.executeCommand = function (commandId: string, ...args: unknown[]) {
           // Check if this is our GraphQL operation command
           if (commandId.startsWith("run-graphql-operation-")) {
             const operationText = operationMap.get(commandId);
@@ -1627,17 +1488,17 @@ export const GraphQLPlaygroundPage = () => {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.05),transparent_55%)]" />
 
         {/* Top header */}
-        <div className="relative flex h-12 shrink-0 items-center justify-between border-b border-border/40 bg-card/80 px-4">
+        <div className="relative flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/40 bg-card/80 px-3 py-2 sm:px-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-500/10 ring-1 ring-indigo-500/20">
               <svg viewBox="0 0 30 30" className="h-3.5 w-3.5 text-indigo-400" fill="currentColor">
-                <path d="M4.08 22.864l-1.1-.636L15 .345l1.1.636zm-1.1 4.636L14.636 29.66l.636-1.1L3.616 26.4zm13.12 0L27.746 29.1l.636 1.1L16.736 28.4zm4.636-4.636l1.1.636L29.46 6.636 28.36 6zm-5.82-20.03l-.636-1.1L1.1 7.924l.636 1.1zM.5 9.636l-.636 1.1 11.63 6.72.636-1.1zm27.364 7.82l.636-1.1L16.87 9.636l-.636 1.1zm-13.82 6.1l1.274.012.012-13.82-1.274-.012z"/>
-                <circle cx="15" cy="1.833" r="2.5"/>
-                <circle cx="28.667" cy="9.5" r="2.5"/>
-                <circle cx="28.667" cy="20.5" r="2.5"/>
-                <circle cx="15" cy="28.167" r="2.5"/>
-                <circle cx="1.333" cy="20.5" r="2.5"/>
-                <circle cx="1.333" cy="9.5" r="2.5"/>
+                <path d="M4.08 22.864l-1.1-.636L15 .345l1.1.636zm-1.1 4.636L14.636 29.66l.636-1.1L3.616 26.4zm13.12 0L27.746 29.1l.636 1.1L16.736 28.4zm4.636-4.636l1.1.636L29.46 6.636 28.36 6zm-5.82-20.03l-.636-1.1L1.1 7.924l.636 1.1zM.5 9.636l-.636 1.1 11.63 6.72.636-1.1zm27.364 7.82l.636-1.1L16.87 9.636l-.636 1.1zm-13.82 6.1l1.274.012.012-13.82-1.274-.012z" />
+                <circle cx="15" cy="1.833" r="2.5" />
+                <circle cx="28.667" cy="9.5" r="2.5" />
+                <circle cx="28.667" cy="20.5" r="2.5" />
+                <circle cx="15" cy="28.167" r="2.5" />
+                <circle cx="1.333" cy="20.5" r="2.5" />
+                <circle cx="1.333" cy="9.5" r="2.5" />
               </svg>
             </div>
             <h2 className="text-sm font-semibold text-foreground">GraphQL Playground</h2>
@@ -1667,26 +1528,34 @@ export const GraphQLPlaygroundPage = () => {
 
         <div className="relative flex flex-1 flex-col overflow-hidden md:flex-row">
           {/* Query Editor panel */}
-          <div className="flex w-full flex-col border-r border-border/40 md:w-1/2">
+          <div className="flex min-h-[320px] w-full flex-col border-b border-border/40 md:min-h-0 md:w-1/2 md:border-b-0 md:border-r">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 bg-muted/10 px-4">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-muted-foreground/70">Query Editor</span>
                 <div className="group relative">
                   <Keyboard className="h-3.5 w-3.5 cursor-help text-muted-foreground/30 transition-colors hover:text-muted-foreground/60" />
                   <div className="absolute left-0 top-full z-50 mt-2 hidden w-60 rounded-sm border border-border/40 bg-card/95 p-3 text-xs shadow-xl backdrop-blur-sm group-hover:block">
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">Shortcuts</p>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                      Shortcuts
+                    </p>
                     <div className="space-y-1.5 text-muted-foreground/70">
                       <div className="flex items-center justify-between">
                         <span>Execute</span>
-                        <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">Ctrl+Shift+E</kbd>
+                        <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                          Ctrl+Shift+E
+                        </kbd>
                       </div>
                       <div className="flex items-center justify-between">
                         <span>New line</span>
-                        <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">Shift+Enter</kbd>
+                        <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                          Shift+Enter
+                        </kbd>
                       </div>
                       <div className="flex items-center justify-between">
                         <span>Navigate</span>
-                        <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">Tab</kbd>
+                        <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                          Tab
+                        </kbd>
                       </div>
                     </div>
                   </div>
@@ -1729,7 +1598,7 @@ export const GraphQLPlaygroundPage = () => {
           </div>
 
           {/* Response panel */}
-          <div className="flex w-full flex-col md:w-1/2">
+          <div className="flex min-h-[280px] w-full flex-col md:min-h-0 md:w-1/2">
             {responses.length === 0 ? (
               <>
                 <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
@@ -1758,7 +1627,9 @@ export const GraphQLPlaygroundPage = () => {
             ) : responses.length === 1 ? (
               <>
                 <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
-                  <span className="text-xs font-medium text-muted-foreground/70">{responses[0].name}</span>
+                  <span className="text-xs font-medium text-muted-foreground/70">
+                    {responses[0].name}
+                  </span>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <GraphqlMonacoEditor
@@ -1781,7 +1652,11 @@ export const GraphQLPlaygroundPage = () => {
                 </div>
               </>
             ) : (
-              <Tabs value={activeResponseTab} onValueChange={setActiveResponseTab} className="flex h-full flex-col">
+              <Tabs
+                value={activeResponseTab}
+                onValueChange={setActiveResponseTab}
+                className="flex h-full flex-col"
+              >
                 <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
                   <TabsList className="h-7 gap-0.5 bg-transparent p-0">
                     {responses.map((response) => (
@@ -1796,7 +1671,11 @@ export const GraphQLPlaygroundPage = () => {
                   </TabsList>
                 </div>
                 {responses.map((response) => (
-                  <TabsContent key={response.id} value={response.id} className="mt-0 flex-1 overflow-hidden">
+                  <TabsContent
+                    key={response.id}
+                    value={response.id}
+                    className="mt-0 flex-1 overflow-hidden"
+                  >
                     <GraphqlMonacoEditor
                       height="100%"
                       language="json"
@@ -1823,10 +1702,7 @@ export const GraphQLPlaygroundPage = () => {
       </div>
 
       {/* Clean Test Data Modal */}
-      <CleanTestDataModal
-        open={isCleanDataModalOpen}
-        onOpenChange={setIsCleanDataModalOpen}
-      />
+      <CleanTestDataModal open={isCleanDataModalOpen} onOpenChange={setIsCleanDataModalOpen} />
 
       {/* Schemas Introspection Drawer */}
       <SchemasDrawer

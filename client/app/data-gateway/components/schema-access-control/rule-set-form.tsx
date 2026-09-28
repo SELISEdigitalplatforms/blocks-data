@@ -668,7 +668,7 @@ export const RuleSetForm = ({
                                     Compare field
                                   </span>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                   {/* Left Source */}
                                   <div>
                                     <span className="mb-1 block text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">
@@ -840,7 +840,9 @@ export const RuleSetForm = ({
                                   <div
                                     className={cn(
                                       "grid gap-4",
-                                      isDirectValueOp ? "grid-cols-1" : "grid-cols-2",
+                                      isDirectValueOp
+                                        ? "grid-cols-1"
+                                        : "grid-cols-1 sm:grid-cols-2",
                                     )}
                                   >
                                     {!isDirectValueOp && (
@@ -1043,7 +1045,7 @@ export const RuleSetForm = ({
                 past every rule — and the view's own access-type footer was
                 hidden while this form was open, leaving no visible action at
                 all. One footer, always on screen, saving both. */}
-            <div className="sticky bottom-0 z-10 -mx-1 mt-5 flex w-[calc(100%+0.5rem)] items-center gap-2 border-t border-border/40 bg-card px-1 py-3">
+            <div className="sticky bottom-0 z-10 -mx-1 mt-5 flex w-[calc(100%+0.5rem)] items-center gap-2 border-t border-border/40 bg-card px-1 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <span className="flex-1 text-xs text-muted-foreground">
                 {isAccessTypeDirty ? "Access level and rules" : "Rule set"}
               </span>

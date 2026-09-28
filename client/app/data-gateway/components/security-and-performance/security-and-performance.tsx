@@ -40,7 +40,6 @@ interface SecurityAndPerformanceProps {
   onSchemaCreated: (schemaId: string) => void;
 }
 
-
 const SecurityAndPerformance = ({
   onSchemaRowClick,
   onNavigateToSchemas,
@@ -102,10 +101,7 @@ const SecurityAndPerformance = ({
     return false;
   };
 
-  const schemas = useMemo(
-    () => schemaListQuery?.data.schemas.items ?? [],
-    [schemaListQuery],
-  );
+  const schemas = useMemo(() => schemaListQuery?.data.schemas.items ?? [], [schemaListQuery]);
   const permissionCounts = schemaListQuery?.data.aggregation;
   const totalItems = schemaListQuery?.data.schemas.totalCount ?? 0;
   const isEmpty = !isLoading && schemaListQuery !== undefined && schemas.length === 0;
@@ -166,7 +162,7 @@ const SecurityAndPerformance = ({
       ) : (
         <>
           {/* Header */}
-          <div className="flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-5 py-4">
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border/40 px-3 py-4 sm:px-5">
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
                 <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
@@ -208,17 +204,14 @@ const SecurityAndPerformance = ({
 
           {!isComplete && (
             <p className="shrink-0 border-b border-border/40 bg-muted/20 px-5 py-1.5 text-[11px] text-muted-foreground">
-              Showing the first {schemas.length} of {totalItems} schemas. Exposure order and
-              the counts above cover only those.
+              Showing the first {schemas.length} of {totalItems} schemas. Exposure order and the
+              counts above cover only those.
             </p>
           )}
 
           {/* Table */}
           <div className="min-h-0 flex-1 overflow-auto">
-            <SecurityAndPerformanceTable
-              schemas={pageOfSchemas}
-              onRowClick={onSchemaRowClick}
-            />
+            <SecurityAndPerformanceTable schemas={pageOfSchemas} onRowClick={onSchemaRowClick} />
           </div>
 
           {/* Pagination */}

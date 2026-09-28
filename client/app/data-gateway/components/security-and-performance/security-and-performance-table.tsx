@@ -5,11 +5,7 @@ import { cn } from "@/lib/utils";
 import { ChevronRight, Database, ShieldOff } from "lucide-react";
 
 import { ACCESS_LEVEL_TO_TYPE } from "../../constants/schema-access-control";
-import {
-  piiFieldCount,
-  schemaRisk,
-  type SchemaRisk,
-} from "../../utils/security-summary";
+import { piiFieldCount, schemaRisk, type SchemaRisk } from "../../utils/security-summary";
 import { ACCESS_TIER_LABELS, AccessTierBadge, tierFromLevel } from "../primitives";
 
 /**
@@ -74,8 +70,8 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
   }
 
   return (
-    <div className="min-w-[760px]">
-      <div className="sticky top-0 z-10 flex h-8 items-center gap-4 border-b border-border/30 bg-muted/20 px-5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+    <div className="min-w-0 md:min-w-[760px]">
+      <div className="sticky top-0 z-10 hidden h-8 items-center gap-4 border-b border-border/30 bg-muted/20 px-5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground md:flex">
         <span className="min-w-0 flex-1">Schema</span>
         <span className="w-[186px] shrink-0 whitespace-nowrap">View · Create · Edit · Delete</span>
         <span className="w-[150px] shrink-0">Exposure</span>
@@ -96,7 +92,7 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
                 // The row reads as a long run of text; the name is what a
                 // screen reader should announce for it.
                 aria-label={`Open ${schema.schemaName}`}
-                className="group relative flex h-[52px] w-full items-center gap-4 border-b border-border/20 px-5 text-left transition-colors hover:bg-muted/20"
+                className="group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-border/20 px-3 py-3 text-left transition-colors hover:bg-muted/20 md:flex md:h-[52px] md:gap-4 md:px-5 md:py-0"
               >
                 <span
                   className={cn("absolute inset-y-0 left-0 w-[3px]", SEVERITY_EDGE[risk.severity])}
@@ -117,21 +113,24 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
                   </span>
                 </span>
 
-                <span className="flex w-[186px] shrink-0 gap-1.5">
+                <span className="col-span-2 flex shrink-0 gap-1.5 md:w-[186px]">
                   {CRUD_COLUMNS.map(({ key, verb, levelKey }) => (
                     <CrudCell key={key} letter={key} verb={verb} level={schema[levelKey]} />
                   ))}
                 </span>
 
                 <span
-                  className={cn("w-[150px] shrink-0 text-xs font-semibold", RISK_TEXT[risk.severity])}
+                  className={cn(
+                    "min-w-0 text-xs font-semibold md:w-[150px] md:shrink-0",
+                    RISK_TEXT[risk.severity],
+                  )}
                 >
                   {risk.label}
                 </span>
 
                 <span
                   className={cn(
-                    "w-[110px] shrink-0 text-xs",
+                    "shrink-0 text-xs md:w-[110px]",
                     pii > 0 ? "text-access-user-fg" : "text-muted-foreground/60",
                   )}
                 >
@@ -139,7 +138,7 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
                 </span>
 
                 <ChevronRight
-                  className="h-4 w-4 shrink-0 text-muted-foreground/30 transition-colors group-hover:text-muted-foreground"
+                  className="hidden h-4 w-4 shrink-0 text-muted-foreground/30 transition-colors group-hover:text-muted-foreground md:block"
                   aria-hidden
                 />
               </button>

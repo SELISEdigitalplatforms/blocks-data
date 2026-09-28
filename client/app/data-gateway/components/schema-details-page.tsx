@@ -21,10 +21,7 @@ import {
   ICreateSchemaPayload,
   ISchemaDetails,
 } from "../models/data-service";
-import {
-  createEmptyAccessRuleSet,
-  normalizeAccessRuleSet,
-} from "../utils/schema-access.utils";
+import { createEmptyAccessRuleSet, normalizeAccessRuleSet } from "../utils/schema-access.utils";
 import { normalizeSchemaFields } from "../utils/schema-normalization";
 import { MOTION, SHELL } from "../utils/motion";
 import { useLingeringValue } from "../hooks/use-lingering-value";
@@ -33,9 +30,7 @@ import { CreateFirstSchemaPanel } from "./create-first-schema-panel";
 import ImportSchemaModal from "./import-schema-modal";
 import { SchemaBasicInfo } from "./schema-basic-info";
 import { SchemaRail } from "./schema-rail";
-import SchemasSidebar, {
-  type DataGatewayListQueryUpdate,
-} from "./schema-side-bar";
+import SchemasSidebar, { type DataGatewayListQueryUpdate } from "./schema-side-bar";
 import SchemaStructureTable from "./schema-structure";
 
 const EMPTY_SCHEMA: ISchemaDetails = {
@@ -64,14 +59,11 @@ const EMPTY_SCHEMA: ISchemaDetails = {
 
 export const SchemaDetailsPage = () => {
   const queryClient = useQueryClient();
-  const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] =
-    useState(false);
+  const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] = useState(false);
   const [addEditSchemaInstance, setAddEditSchemaInstance] = useState(0);
   // Set only when opened from the empty-canvas's Entity/Child cards, so the
   // modal lands on that kind instead of always defaulting to Entity.
-  const [addSchemaKind, setAddSchemaKind] = useState<"Entity" | "DTO" | undefined>(
-    undefined,
-  );
+  const [addSchemaKind, setAddSchemaKind] = useState<"Entity" | "DTO" | undefined>(undefined);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importModalInstance, setImportModalInstance] = useState(0);
   // Lifted out of SchemaStructureTable so its trigger can sit beside the
@@ -91,8 +83,9 @@ export const SchemaDetailsPage = () => {
 
   // Validations, docked the same way — the two share one column, so opening
   // either one closes the other rather than trying to fit both side by side.
-  const [validationInspector, setValidationInspector] =
-    useState<ValidationInspectorTarget | null>(null);
+  const [validationInspector, setValidationInspector] = useState<ValidationInspectorTarget | null>(
+    null,
+  );
 
   const isRightPanelOpen = Boolean(inspector) || Boolean(validationInspector);
 
@@ -146,14 +139,11 @@ export const SchemaDetailsPage = () => {
     setInspector(target);
   }, []);
 
-  const openValidationInspector = useCallback(
-    (target: ValidationInspectorTarget) => {
-      setInspector(null);
-      setIsInspectorExpanded(false);
-      setValidationInspector(target);
-    },
-    [],
-  );
+  const openValidationInspector = useCallback((target: ValidationInspectorTarget) => {
+    setInspector(null);
+    setIsInspectorExpanded(false);
+    setValidationInspector(target);
+  }, []);
 
   const closeRightPanel = useCallback(() => {
     setInspector(null);
@@ -205,15 +195,16 @@ export const SchemaDetailsPage = () => {
     projectKey,
   });
 
-  const { data: schemaDetailsQuery, isLoading: isSchemaDetailsLoading } =
-    useSchemaDetails(selectedSchemaId ?? "", projectKey, {
+  const { data: schemaDetailsQuery, isLoading: isSchemaDetailsLoading } = useSchemaDetails(
+    selectedSchemaId ?? "",
+    projectKey,
+    {
       enabled: Boolean(selectedSchemaId),
-    });
+    },
+  );
   const { mutateAsync: createSchema } = useCreateSchema();
 
-  const onSchemaCreate = async (
-    values: ICreateSchemaDefaultValues,
-  ): Promise<boolean> => {
+  const onSchemaCreate = async (values: ICreateSchemaDefaultValues): Promise<boolean> => {
     try {
       const payload: ICreateSchemaPayload = {
         schemaName: values.schemaName,
@@ -271,15 +262,8 @@ export const SchemaDetailsPage = () => {
     if (!selectedSchemaId || !projectKey) return;
     const schemaName = schemaDetailsQuery?.data?.schemaName;
     if (!schemaName) return;
-    void queryClient.prefetchQuery(
-      getPolicyDataQueryOptions(schemaName, projectKey),
-    );
-  }, [
-    selectedSchemaId,
-    projectKey,
-    schemaDetailsQuery?.data?.schemaName,
-    queryClient,
-  ]);
+    void queryClient.prefetchQuery(getPolicyDataQueryOptions(schemaName, projectKey));
+  }, [selectedSchemaId, projectKey, schemaDetailsQuery?.data?.schemaName, queryClient]);
 
   useEffect(() => {
     if (schemaDetailsQuery?.data) {
@@ -389,7 +373,7 @@ export const SchemaDetailsPage = () => {
             }`}
           >
             {/* Mobile / tablet header (narrow shell) */}
-            <div className="flex items-center gap-2 pb-2 lg:hidden">
+            <div className="flex min-w-0 items-center gap-2 pb-2 lg:hidden">
               <button
                 type="button"
                 aria-label="Back to schema list"
@@ -397,15 +381,11 @@ export const SchemaDetailsPage = () => {
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
-              <h2 className="text-lg font-semibold">
-                {schemaDetails.schemaName}
-              </h2>
+              <h2 className="min-w-0 truncate text-lg font-semibold">{schemaDetails.schemaName}</h2>
             </div>
 
             {/* Mobile: show only when schema selected */}
-            <div
-              className={`${selectedSchemaId ? "flex" : "hidden"} flex-col lg:hidden`}
-            >
+            <div className={`${selectedSchemaId ? "flex" : "hidden"} flex-col lg:hidden`}>
               <SchemaBasicInfo
                 {...schemaDetails}
                 onDeleteSuccess={onDeleteSchema}
@@ -543,15 +523,14 @@ export const SchemaDetailsPage = () => {
         </div>
       </div>
 
-      <Dialog
-        open={isAddEditSchemaModalOpen}
-        onOpenChange={setIsAddEditSchemaModalOpen}
-      >
+      <Dialog open={isAddEditSchemaModalOpen} onOpenChange={setIsAddEditSchemaModalOpen}>
         {isAddEditSchemaModalOpen && (
           <AddEditSchemaModal
             key={addEditSchemaInstance}
             mode="add"
-            defaultValues={addSchemaKind ? { schemaName: "", schemaType: addSchemaKind } : undefined}
+            defaultValues={
+              addSchemaKind ? { schemaName: "", schemaType: addSchemaKind } : undefined
+            }
             onSubmit={onSchemaCreate}
             onCancel={() => setIsAddEditSchemaModalOpen(false)}
           />

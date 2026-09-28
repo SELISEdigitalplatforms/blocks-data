@@ -51,7 +51,7 @@ export const EndpointChip = () => {
   };
 
   return (
-    <div className="hidden h-[26px] items-center gap-2 rounded-full border border-border/50 bg-muted/30 pl-2.5 pr-1 md:flex">
+    <div className="hidden h-[26px] items-center gap-2 rounded-full border border-border/50 bg-muted/30 pl-2.5 pr-1 lg:flex">
       <span
         className={cn(
           "h-1.5 w-1.5 shrink-0 rounded-full",

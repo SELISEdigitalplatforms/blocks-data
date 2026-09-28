@@ -31,6 +31,6 @@ export const EASE = {
 export const SHELL = {
   explorerWidth: 264,
   railWidth: 52,
-  inspectorWidth: 460,
-  inspectorWidthExpanded: 480,
+  inspectorWidth: 560,
+  inspectorWidthExpanded: 640,
 } as const;

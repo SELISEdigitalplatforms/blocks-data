@@ -39,7 +39,7 @@ import { AccessPresetList } from "./access-preset-list";
 const ACCESS_TIER_TILES = [
   { type: ACCESS_TYPES.INHERITED, label: "Inherited" },
   { type: ACCESS_TYPES.PUBLIC, label: "Public" },
-  { type: ACCESS_TYPES.LOGGED_IN, label: "Signed-in" },
+  { type: ACCESS_TYPES.LOGGED_IN, label: "Signed-in user" },
   { type: ACCESS_TYPES.CUSTOM, label: "Custom" },
 ];
 
@@ -55,14 +55,12 @@ export const SchemaAccessControlView = ({
 }: SchemaAccessControlViewProps) => {
   const [showRuleSetForm, setShowRuleSetForm] = useState(false);
 
-  // The inspector widens from 460px to 480px for the rule editor; it needs to
+  // The inspector widens for the rule editor; it needs to
   // be told, because the editor opens from inside here.
   useEffect(() => {
     onRuleEditorOpenChange?.(showRuleSetForm);
   }, [showRuleSetForm, onRuleEditorOpenChange]);
-  const [editingPolicy, setEditingPolicy] = useState<IPolicyItem | undefined>(
-    undefined,
-  );
+  const [editingPolicy, setEditingPolicy] = useState<IPolicyItem | undefined>(undefined);
   // The tile the user currently has picked — drives the rest of the panel
   // (effect line, rule-set list) immediately, same as the design's "live"
   // preview. It only reaches the server once Save is pressed.
@@ -79,9 +77,7 @@ export const SchemaAccessControlView = ({
   // Fetch when access is custom, including first paint (selectedAccessType is still "" until useEffect).
   // Also fetch when defaultAccessLevel is unknown and we haven't yet determined the type.
   const defaultResolvedType =
-    defaultAccessLevel !== undefined
-      ? ACCESS_LEVEL_TO_TYPE[defaultAccessLevel]
-      : undefined;
+    defaultAccessLevel !== undefined ? ACCESS_LEVEL_TO_TYPE[defaultAccessLevel] : undefined;
   const defaultLevelUnmapped =
     defaultAccessLevel !== undefined && defaultResolvedType === undefined;
   const isPolicyFetchEnabled =
@@ -102,8 +98,7 @@ export const SchemaAccessControlView = ({
   });
 
   const isPolicyListLoading =
-    isPolicyFetchEnabled &&
-    (isPending || (isFetching && policyResponse === undefined));
+    isPolicyFetchEnabled && (isPending || (isFetching && policyResponse === undefined));
   const { mutateAsync: setRowColumnPermission, isPending: isUpdating } =
     useSetRowColumnPermission(schemaId);
 
@@ -115,9 +110,7 @@ export const SchemaAccessControlView = ({
       return !p.fieldNames || p.fieldNames.length === 0;
     }
     return (
-      p.fieldNames &&
-      p.fieldNames.length > 0 &&
-      p.fieldNames.some((f) => fieldNames.includes(f))
+      p.fieldNames && p.fieldNames.length > 0 && p.fieldNames.some((f) => fieldNames.includes(f))
     );
   });
 
@@ -138,23 +131,20 @@ export const SchemaAccessControlView = ({
   // Infer from policies only when the API does not expose a field-level enum (legacy / bulk edge cases).
   useEffect(() => {
     const hasKnownDefault =
-      defaultAccessLevel !== undefined &&
-      !!ACCESS_LEVEL_TO_TYPE[defaultAccessLevel];
+      defaultAccessLevel !== undefined && !!ACCESS_LEVEL_TO_TYPE[defaultAccessLevel];
 
     if (hasKnownDefault) return;
     if (initialized) return;
     if (!policyResponse) return;
 
-    const inferred =
-      policies.length > 0 ? ACCESS_TYPES.CUSTOM : ACCESS_TYPES.LOGGED_IN;
+    const inferred = policies.length > 0 ? ACCESS_TYPES.CUSTOM : ACCESS_TYPES.LOGGED_IN;
     setSelectedAccessType(inferred);
     setLastSavedAccessType(inferred);
     setInitialized(true);
   }, [defaultAccessLevel, policyResponse, policies.length, initialized]);
 
   const currentAccessType = selectedAccessType || ACCESS_TYPES.LOGGED_IN;
-  const isAccessTypeDirty =
-    initialized && selectedAccessType !== lastSavedAccessType;
+  const isAccessTypeDirty = initialized && selectedAccessType !== lastSavedAccessType;
 
   /**
    * Custom means "only what these rules allow", so with no rule sets it denies
@@ -169,9 +159,7 @@ export const SchemaAccessControlView = ({
    * empty, and disabling on that would flicker.
    */
   const isCustomWithoutRules =
-    selectedAccessType === ACCESS_TYPES.CUSTOM &&
-    !isPolicyListLoading &&
-    policies.length === 0;
+    selectedAccessType === ACCESS_TYPES.CUSTOM && !isPolicyListLoading && policies.length === 0;
 
   const handleSaveSuccess = () => {
     refetch();
@@ -248,9 +236,7 @@ export const SchemaAccessControlView = ({
   // The view is handed a numeric operation; the phrasing is keyed by tab id.
   const tabForOperation =
     Object.keys(TAB_TO_OPERATION).find((tab) => TAB_TO_OPERATION[tab] === operation) ?? "view";
-  const effectSubject = isRowLevel
-    ? schemaName
-    : `${schemaName}.${fieldNames.join(", ")}`;
+  const effectSubject = isRowLevel ? schemaName : `${schemaName}.${fieldNames.join(", ")}`;
 
   const effect = accessEffect({
     tier: tierFromType(currentAccessType),
@@ -267,16 +253,21 @@ export const SchemaAccessControlView = ({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex shrink-0 flex-col gap-3">
-
         {/* Stays visible while a rule set is being added or edited, so that
             form lands right under the Custom tile instead of replacing this
             section and losing the context of what's being configured. */}
         <div>
           <div className="mb-2">
             <p className="text-sm font-semibold text-foreground">Who can access this?</p>
-            <p className="text-xs text-muted-foreground">Choose the access level for this operation.</p>
+            <p className="text-xs text-muted-foreground">
+              Choose the access level for this operation.
+            </p>
           </div>
-          <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Who is allowed">
+          <div
+            className={cn("grid gap-2", isRowLevel ? "grid-cols-3" : "grid-cols-2")}
+            role="radiogroup"
+            aria-label="Who is allowed"
+          >
             {visibleTiers.map(({ type, label }) => {
               const tier = tierFromType(type);
               const isSelected = type === selectedAccessType;
@@ -289,7 +280,7 @@ export const SchemaAccessControlView = ({
                   disabled={showRuleSetForm}
                   onClick={() => handleTierPick(type)}
                   className={cn(
-                    "flex h-10 items-center gap-2 rounded-md border px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
+                    "flex h-11 min-w-0 items-center gap-2 rounded-md border px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
                     isSelected
                       ? cn(TIER_CONTAINER_CLASS[tier], TIER_VALUE_CLASS[tier])
                       : "border-border/40 text-muted-foreground hover:border-border hover:text-foreground",
@@ -346,13 +337,8 @@ export const SchemaAccessControlView = ({
                 aria-live="polite"
                 aria-busy="true"
               >
-                <Loader
-                  className="h-8 w-8 animate-spin text-muted-foreground"
-                  aria-hidden
-                />
-                <span className="text-sm text-muted-foreground">
-                  Loading access rules…
-                </span>
+                <Loader className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
+                <span className="text-sm text-muted-foreground">Loading access rules…</span>
               </div>
             ) : policies.length === 0 ? (
               <AccessPresetList

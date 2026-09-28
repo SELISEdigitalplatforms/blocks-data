@@ -20,13 +20,7 @@ vi.mock("@/hooks/use-toast", () => ({
   showErrorToast: (...a: unknown[]) => showErrorToast(...a),
 }));
 vi.mock("./rule-set-form", () => ({
-  RuleSetForm: ({
-    onCancel,
-    seed,
-  }: {
-    onCancel?: () => void;
-    seed?: { name: string };
-  }) => (
+  RuleSetForm: ({ onCancel, seed }: { onCancel?: () => void; seed?: { name: string } }) => (
     <div data-testid="rule-set-form">
       <span data-testid="seed-name">{seed?.name ?? "none"}</span>
       <button onClick={() => onCancel?.()}>rsf-cancel</button>
@@ -138,8 +132,9 @@ describe("SchemaAccessControlView", () => {
 
   it("infers logged-in access when the default level is unknown and no policies exist", () => {
     render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={undefined} />);
-    expect(screen.getByText(/Any signed-in user in this project can read Products/))
-      .toBeInTheDocument();
+    expect(
+      screen.getByText(/Any signed-in user in this project can read Products/),
+    ).toBeInTheDocument();
   });
 
   it("changes the access type through the deferred Save and saves", async () => {
@@ -176,7 +171,7 @@ describe("SchemaAccessControlView", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(setRowColumnPermission).not.toHaveBeenCalled();
     // Reverted back to the last saved tier (Signed-in).
-    expect(screen.getByRole("radio", { name: "Signed-in" })).toHaveAttribute(
+    expect(screen.getByRole("radio", { name: "Signed-in user" })).toHaveAttribute(
       "aria-checked",
       "true",
     );
@@ -260,10 +255,10 @@ describe("SchemaAccessControlView", () => {
     expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
   });
 
-  it("orders the who-is-allowed tiles as Public, Signed-in, Custom", () => {
+  it("orders the who-is-allowed tiles as Public, Signed-in user, Custom", () => {
     render(<SchemaAccessControlView {...baseProps} level="row" />);
     const tiles = screen.getAllByRole("radio").map((el) => el.textContent);
-    expect(tiles).toEqual(["Public", "Signed-in", "Custom"]);
+    expect(tiles).toEqual(["Public", "Signed-in user", "Custom"]);
   });
 
   it("hides the Inherited tile at row level, since there is nothing to inherit from", () => {
@@ -298,9 +293,7 @@ describe("SchemaAccessControlView", () => {
     render(<SchemaAccessControlView {...baseProps} />);
     await user.click(screen.getByRole("radio", { name: "Public" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() =>
-      expect(showErrorToast).toHaveBeenCalledWith({ errors: expect.any(Error) }),
-    );
+    await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors: expect.any(Error) }));
   });
 
   // ── Phase 5: presets and the empty custom policy ────────────────────────
@@ -347,7 +340,7 @@ describe("SchemaAccessControlView", () => {
       expect(cancel).toBeEnabled();
 
       await user.click(cancel);
-      expect(screen.getByRole("radio", { name: "Signed-in" })).toBeChecked();
+      expect(screen.getByRole("radio", { name: "Signed-in user" })).toBeChecked();
     });
 
     it("permits the save once a rule set exists", async () => {

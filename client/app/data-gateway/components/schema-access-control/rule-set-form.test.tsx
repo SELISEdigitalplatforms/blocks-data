@@ -1,9 +1,4 @@
-import {
-  fireEvent,
-  render as rtlRender,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import userEvent from "@testing-library/user-event";
@@ -62,9 +57,7 @@ import { RuleSetForm } from "./rule-set-form";
 const render = (ui: ReactElement) =>
   rtlRender(
     <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
-      }
+      client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
     >
       {ui}
     </QueryClientProvider>,
@@ -89,11 +82,46 @@ const editingPolicy = {
   ruleGroup: {
     logicalOperator: 0, // AND
     rules: [
-      { leftSource: 0, leftOperand: "userId", operator: 0, rightSource: 2, rightOperand: "", staticValue: "abc" },
-      { leftSource: 1, leftOperand: "title", operator: 12, rightSource: 2, rightOperand: "", staticValue: null },
-      { leftSource: 0, leftOperand: "roles", operator: 8, rightSource: 2, rightOperand: "", staticValue: ["a", "b"] },
-      { leftSource: 0, leftOperand: "roles", operator: 8, rightSource: 0, rightOperand: "email", staticValue: null },
-      { leftSource: 1, leftOperand: "title", operator: 10, rightSource: 2, rightOperand: "", staticValue: "pre" },
+      {
+        leftSource: 0,
+        leftOperand: "userId",
+        operator: 0,
+        rightSource: 2,
+        rightOperand: "",
+        staticValue: "abc",
+      },
+      {
+        leftSource: 1,
+        leftOperand: "title",
+        operator: 12,
+        rightSource: 2,
+        rightOperand: "",
+        staticValue: null,
+      },
+      {
+        leftSource: 0,
+        leftOperand: "roles",
+        operator: 8,
+        rightSource: 2,
+        rightOperand: "",
+        staticValue: ["a", "b"],
+      },
+      {
+        leftSource: 0,
+        leftOperand: "roles",
+        operator: 8,
+        rightSource: 0,
+        rightOperand: "email",
+        staticValue: null,
+      },
+      {
+        leftSource: 1,
+        leftOperand: "title",
+        operator: 10,
+        rightSource: 2,
+        rightOperand: "",
+        staticValue: "pre",
+      },
     ],
     nestedGroups: [],
   },
@@ -141,12 +169,12 @@ describe("RuleSetForm", () => {
     render(<RuleSetForm {...baseProps} />);
 
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
-    expect(screen.getByText("Rule 1")).toBeInTheDocument();
+    expect(screen.getByText("Condition 1")).toBeInTheDocument();
     expect(screen.getByText("Source")).toBeInTheDocument();
     expect(screen.getByText("Field")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
-    expect(screen.getByText("Rule 2")).toBeInTheDocument();
+    expect(screen.getByText("Condition 2")).toBeInTheDocument();
   });
 
   it("fires onCancel from the Cancel button", async () => {
@@ -168,9 +196,7 @@ describe("RuleSetForm", () => {
     // auth.roles + IN + static now renders the principal multi-select instead of free text, and
     // hydrates the stored slugs verbatim - this is the H5 edit path, where the stored values must
     // survive even before (or without) resolution against IAM.
-    expect(
-      screen.queryByPlaceholderText("Enter comma-separated values"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Enter comma-separated values")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /a, b/ })).toBeInTheDocument();
     // Five rules => five remove buttons.
     expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(5);
@@ -514,7 +540,9 @@ describe("RuleSetForm create flow", () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     render(<RuleSetForm {...baseProps} />);
 
-    expect(screen.queryByRole("radiogroup", { name: "Multi-rule relations" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("radiogroup", { name: "Multi-rule relations" }),
+    ).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
     const matchAll = screen.getByRole("radio", { name: "Match all" });
@@ -612,9 +640,7 @@ describe("RuleSetForm create flow", () => {
     await pick(user, 2, /^Equal$/);
     // Numeric left operands cannot compare against Auth, so that option is gone.
     await user.click(screen.getAllByRole("combobox")[3]);
-    expect(
-      screen.queryByRole("option", { name: "Auth" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Auth" })).not.toBeInTheDocument();
     await user.click(await screen.findByRole("option", { name: "Products" }));
     await pick(user, 4, "count");
 
@@ -638,9 +664,7 @@ describe("RuleSetForm create flow", () => {
     // so the direct-value prefix input disappears.
     await pick(user, 1, "Roles");
     await waitFor(() =>
-      expect(
-        screen.queryByPlaceholderText("Enter prefix"),
-      ).not.toBeInTheDocument(),
+      expect(screen.queryByPlaceholderText("Enter prefix")).not.toBeInTheDocument(),
     );
   });
 
@@ -706,24 +730,14 @@ describe("RuleSetForm create flow", () => {
 
     await user.click(screen.getAllByRole("combobox")[1]);
     // The composite "AddressInfo" node itself is not a selectable leaf...
-    expect(
-      screen.queryByRole("option", { name: "AddressInfo" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "AddressInfo" })).not.toBeInTheDocument();
     // ...but its own and its nested child's scalar properties are, as dotted paths.
-    expect(
-      screen.getByRole("option", { name: "AddressInfo.StreetNo" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("option", { name: "AddressInfo.Country.Name" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "AddressInfo.StreetNo" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "AddressInfo.Country.Name" })).toBeInTheDocument();
     // A 4th-level property (beyond the depth cap) is dropped entirely.
-    expect(
-      screen.queryByRole("option", { name: /Region/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Region/ })).not.toBeInTheDocument();
 
-    await user.click(
-      screen.getByRole("option", { name: "AddressInfo.StreetNo" }),
-    );
+    await user.click(screen.getByRole("option", { name: "AddressInfo.StreetNo" }));
     await pick(user, 2, /^Equal$/);
     await pick(user, 3, "Static Value");
     fireEvent.change(screen.getByPlaceholderText("Enter value"), {
@@ -860,9 +874,7 @@ describe("RuleSetForm — hydrated values that are not real principals", () => {
 
     await waitFor(() => expect(updatePolicy).toHaveBeenCalled());
     const rules = updatePolicy.mock.calls[0][0].ruleGroup.rules;
-    const userIdRule = rules.find(
-      (r: { leftOperand: string }) => r.leftOperand === "userId",
-    );
+    const userIdRule = rules.find((r: { leftOperand: string }) => r.leftOperand === "userId");
     expect(userIdRule.staticValue).toBe("abc");
   });
 

@@ -29,6 +29,14 @@ interface SchemaAccessControlAccordionProps {
   policies?: IPolicyItem[];
   onAddRuleSet?: () => void;
   onEditPolicy?: (policy: IPolicyItem) => void;
+  /**
+   * Fires after a delete actually succeeds. `useDeletePolicy`'s own cache
+   * invalidation can't target just this entity's policy list (a delete only
+   * carries `itemId`, not the schema/field it belonged to), so the list this
+   * accordion renders is whatever `policies` its parent passed in — it has
+   * to be told to refetch, the same way a create or update already is.
+   */
+  onDeleteSuccess?: () => void;
   isEditing?: boolean;
 }
 
@@ -36,6 +44,7 @@ export const SchemaAccessControlAccordion = ({
   policies = [],
   onAddRuleSet,
   onEditPolicy,
+  onDeleteSuccess,
   isEditing,
 }: SchemaAccessControlAccordionProps) => {
   const [openId, setOpenId] = useState<number | null>(null);
@@ -56,6 +65,7 @@ export const SchemaAccessControlAccordion = ({
       });
       if (res?.isSuccess) {
         showSuccessToast({ description: "Rule set deleted successfully" });
+        onDeleteSuccess?.();
       } else {
         showErrorToast({ errors: res?.errors });
       }

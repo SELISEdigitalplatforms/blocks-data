@@ -5,9 +5,14 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { DataGatewayPageBar } from "./page-bar";
-import { AccessInspector, type AccessInspectorTarget } from "./access-inspector";
+import {
+  AccessInspector,
+  type AccessInspectorPanelHandle,
+  type AccessInspectorTarget,
+} from "./access-inspector";
+import { UnsavedAccessChangesDialog } from "./access-inspector/unsaved-access-changes-dialog";
 import { ValidationInspector, type ValidationInspectorTarget } from "./validation-inspector";
 
 import {
@@ -72,14 +77,12 @@ export const SchemaDetailsPage = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   /**
-   * Access, docked beside the table. It widens for the rule editor, since
-   * that's the only part that needs the width; the explorer stays folded to
-   * a rail for as long as any inspector — this or Validation's — is open, so
-   * the table isn't fighting a sidebar it can't see past the inspector for
-   * anyway.
+   * Access, docked beside the table. It opens at the rule editor's full width
+   * and stays there while rule data loads or the editor opens, avoiding a
+   * second horizontal layout shift. The explorer stays folded to a rail for
+   * as long as any inspector — this or Validation's — is open.
    */
   const [inspector, setInspector] = useState<AccessInspectorTarget | null>(null);
-  const [isInspectorExpanded, setIsInspectorExpanded] = useState(false);
 
   // Validations, docked the same way — the two share one column, so opening
   // either one closes the other rather than trying to fit both side by side.
@@ -110,12 +113,12 @@ export const SchemaDetailsPage = () => {
   // column around it does — so the panel keeps its shape while being clipped
   // away instead of reflowing its contents down to nothing on close. It
   // lingers past the close for the same reason the contents do: closing the
-  // rule editor at 480px would otherwise squeeze the panel to 460px in the
-  // same frame the column starts collapsing.
+  // Access always uses its final rule-editor width, including its loading and
+  // empty states. Validation keeps the standard inspector width.
   const inspectorPanelWidth =
     useLingeringValue(
       isRightPanelOpen
-        ? inspector && isInspectorExpanded
+        ? inspector
           ? SHELL.inspectorWidthExpanded
           : SHELL.inspectorWidth
         : null,
@@ -129,27 +132,80 @@ export const SchemaDetailsPage = () => {
   const lingeringInspector = useLingeringValue(inspector, MOTION.panel);
   const lingeringValidation = useLingeringValue(validationInspector, MOTION.panel);
 
+  /**
+   * The access inspector's own imperative handle — whether it holds unsaved
+   * changes (a staged rule set, a picked-but-not-saved tier), and how to
+   * save or discard them. Read only at the moment a close/switch is
+   * attempted (see `guardedInspectorAction`), never reactively: a tab's
+   * dirty state lives inside `SchemaAccessControlView` and changing it does
+   * not re-render this page, so nothing here could stay reactively in sync
+   * with it anyway.
+   */
+  const accessInspectorRef = useRef<AccessInspectorPanelHandle>(null);
+  // Set while a close/switch is blocked on an unsaved-changes decision — the
+  // action itself (do the actual close, or the actual switch), run once the
+  // user picks Save or Discard in the dialog.
+  const [pendingInspectorAction, setPendingInspectorAction] = useState<(() => void) | null>(null);
+  const [isResolvingUnsavedChanges, setIsResolvingUnsavedChanges] = useState(false);
+
+  /** Runs `action` immediately unless the access inspector is dirty, in which
+   *  case it asks Save-or-discard first and runs `action` after. */
+  const guardedInspectorAction = useCallback((action: () => void) => {
+    if (accessInspectorRef.current?.isDirty()) {
+      setPendingInspectorAction(() => action);
+      return;
+    }
+    action();
+  }, []);
+
   const closeInspector = useCallback(() => {
-    setInspector(null);
-    setIsInspectorExpanded(false);
-  }, []);
+    guardedInspectorAction(() => setInspector(null));
+  }, [guardedInspectorAction]);
 
-  const openAccessInspector = useCallback((target: AccessInspectorTarget) => {
-    setValidationInspector(null);
-    setInspector(target);
-  }, []);
+  const openAccessInspector = useCallback(
+    (target: AccessInspectorTarget) => {
+      guardedInspectorAction(() => {
+        setValidationInspector(null);
+        setInspector(target);
+      });
+    },
+    [guardedInspectorAction],
+  );
 
-  const openValidationInspector = useCallback((target: ValidationInspectorTarget) => {
-    setInspector(null);
-    setIsInspectorExpanded(false);
-    setValidationInspector(target);
-  }, []);
+  const openValidationInspector = useCallback(
+    (target: ValidationInspectorTarget) => {
+      guardedInspectorAction(() => {
+        setInspector(null);
+        setValidationInspector(target);
+      });
+    },
+    [guardedInspectorAction],
+  );
 
   const closeRightPanel = useCallback(() => {
-    setInspector(null);
-    setIsInspectorExpanded(false);
-    setValidationInspector(null);
-  }, []);
+    guardedInspectorAction(() => {
+      setInspector(null);
+      setValidationInspector(null);
+    });
+  }, [guardedInspectorAction]);
+
+  const handleSaveUnsavedChanges = async () => {
+    setIsResolvingUnsavedChanges(true);
+    const ok = await accessInspectorRef.current?.save();
+    setIsResolvingUnsavedChanges(false);
+    // A failed save already shows its own error toast — leave the dialog
+    // open (and the change staged) so the user can retry rather than losing
+    // it silently.
+    if (!ok) return;
+    pendingInspectorAction?.();
+    setPendingInspectorAction(null);
+  };
+
+  const handleDiscardUnsavedChanges = () => {
+    accessInspectorRef.current?.discard();
+    pendingInspectorAction?.();
+    setPendingInspectorAction(null);
+  };
 
   // Shared by the sidebar's "+ Add" and the empty-canvas's own "New schema" /
   // Entity / Child triggers, so there's one place that remounts the form.
@@ -181,10 +237,17 @@ export const SchemaDetailsPage = () => {
   // Access shown for the previous schema would be wrong, not just stale, so the
   // inspector closes as the focus moves — during render, before it can paint
   // the wrong subject.
+  //
+  // Unconditional, not `closeInspector` — that goes through the unsaved-
+  // changes guard, which reads a ref, and refs can't be read during render.
+  // A confirm dialog also can't sensibly interrupt an in-render schema
+  // switch (the id has already changed by the time this runs); that guard is
+  // for the close button and for switching which field/schema is inspected
+  // while staying on the same schema, not for this.
   const [inspectedSchemaId, setInspectedSchemaId] = useState(selectedSchemaId);
   if (inspectedSchemaId !== selectedSchemaId) {
     setInspectedSchemaId(selectedSchemaId);
-    if (inspector) closeInspector();
+    if (inspector) setInspector(null);
     if (validationInspector) setValidationInspector(null);
   }
 
@@ -415,6 +478,7 @@ export const SchemaDetailsPage = () => {
                     onDeleteSuccess={onDeleteSchema}
                     isLoading={isSchemaDetailsLoading}
                     onOpenPreview={() => setIsPreviewOpen(true)}
+                    isAccessPanelOpen={Boolean(inspector)}
                     onOpenSchemaAccess={(tab) =>
                       openAccessInspector({
                         subject: schemaDetails.schemaName,
@@ -458,6 +522,7 @@ export const SchemaDetailsPage = () => {
                         initialValidationData: validationRule,
                       })
                     }
+                    onEnterEditMode={closeRightPanel}
                   />
                 </>
               )}
@@ -497,8 +562,14 @@ export const SchemaDetailsPage = () => {
                 }`}
               >
                 <AccessInspector
+                  // Remounts on a genuinely different subject (not just a
+                  // prop tweak on the same one), so a staged-but-unsaved
+                  // change never leaks from one field's inspector into the
+                  // next's — the two are otherwise the same component
+                  // instance in the same tree position.
+                  key={`${lingeringInspector.schemaId}:${lingeringInspector.level}:${(lingeringInspector.fieldNames ?? []).join(",")}`}
+                  ref={accessInspectorRef}
                   target={lingeringInspector}
-                  onRuleEditorOpenChange={setIsInspectorExpanded}
                   onClose={closeInspector}
                 />
               </div>
@@ -543,6 +614,21 @@ export const SchemaDetailsPage = () => {
             key={importModalInstance}
             projectKey={projectKey}
             onClose={() => setIsImportModalOpen(false)}
+          />
+        )}
+      </Dialog>
+
+      <Dialog
+        open={pendingInspectorAction !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingInspectorAction(null);
+        }}
+      >
+        {pendingInspectorAction && (
+          <UnsavedAccessChangesDialog
+            onSave={() => void handleSaveUnsavedChanges()}
+            onDiscard={handleDiscardUnsavedChanges}
+            isSaving={isResolvingUnsavedChanges}
           />
         )}
       </Dialog>

@@ -1,9 +1,12 @@
+import { createRef } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const useGetPolicyData = vi.fn();
 const setRowColumnPermission = vi.fn();
+const createPolicy = vi.fn();
+const updatePolicy = vi.fn();
 const refetch = vi.fn();
 const showSuccessToast = vi.fn();
 const showErrorToast = vi.fn();
@@ -11,6 +14,8 @@ const showErrorToast = vi.fn();
 vi.mock("@/data-gateway/hooks/use-configuration", () => ({
   useGetPolicyData: (...a: unknown[]) => useGetPolicyData(...a),
   useSetRowColumnPermission: () => ({ mutateAsync: setRowColumnPermission, isPending: false }),
+  useCreatePolicy: () => ({ mutateAsync: createPolicy, isPending: false }),
+  useUpdatePolicy: () => ({ mutateAsync: updatePolicy, isPending: false }),
 }));
 vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-1" } }),
@@ -19,11 +24,41 @@ vi.mock("@/hooks/use-toast", () => ({
   showSuccessToast: (...a: unknown[]) => showSuccessToast(...a),
   showErrorToast: (...a: unknown[]) => showErrorToast(...a),
 }));
+// The real form builds a create/update payload and hands it to `onStage`
+// instead of sending it — stubbed here with a button per action so these
+// tests can trigger a save without going through the form's own fields.
 vi.mock("./rule-set-form", () => ({
-  RuleSetForm: ({ onCancel, seed }: { onCancel?: () => void; seed?: { name: string } }) => (
+  RuleSetForm: ({
+    onCancel,
+    onStage,
+    seed,
+    editingPolicy,
+    status,
+  }: {
+    onCancel?: () => void;
+    onStage: (staged: { payload: Record<string, unknown>; isEditMode: boolean }) => void;
+    seed?: { name: string };
+    editingPolicy?: { itemId?: string; policyName: string };
+    status?: { kind: string; message: string } | null;
+  }) => (
     <div data-testid="rule-set-form">
       <span data-testid="seed-name">{seed?.name ?? "none"}</span>
+      {status && <span data-testid="rsf-status">{status.message}</span>}
       <button onClick={() => onCancel?.()}>rsf-cancel</button>
+      <button
+        onClick={() =>
+          onStage({
+            payload: {
+              policyName: editingPolicy?.policyName ?? seed?.name ?? "New rule set",
+              ruleGroup: { logicalOperator: 0, rules: [{ leftOperand: "x" }], nestedGroups: [] },
+              ...(editingPolicy?.itemId ? { itemId: editingPolicy.itemId } : {}),
+            },
+            isEditMode: Boolean(editingPolicy?.itemId),
+          })
+        }
+      >
+        rsf-stage
+      </button>
     </div>
   ),
 }));
@@ -32,19 +67,22 @@ vi.mock("./schema-access-control-accordion", () => ({
     policies,
     onAddRuleSet,
     onEditPolicy,
+    onDeleteSuccess,
   }: {
     policies?: unknown[];
     onAddRuleSet?: () => void;
     onEditPolicy?: (p: unknown) => void;
+    onDeleteSuccess?: () => void;
   }) => (
     <div data-testid="accordion">
       policies:{policies?.length ?? 0}
       <button onClick={() => onAddRuleSet?.()}>add-rule</button>
       <button onClick={() => onEditPolicy?.({ itemId: "e1" })}>edit-policy</button>
+      <button onClick={() => onDeleteSuccess?.()}>delete-policy</button>
     </div>
   ),
 }));
-import { SchemaAccessControlView } from "./schema-access-control-view";
+import { SchemaAccessControlView, type SchemaAccessControlViewHandle } from "./schema-access-control-view";
 
 beforeAll(() => {
   Element.prototype.hasPointerCapture ??= vi.fn(() => false) as never;
@@ -80,6 +118,8 @@ beforeEach(() => {
     isFetching: false,
   });
   setRowColumnPermission.mockResolvedValue({ isSuccess: true });
+  createPolicy.mockResolvedValue({ isSuccess: true });
+  updatePolicy.mockResolvedValue({ isSuccess: true });
 });
 
 describe("SchemaAccessControlView", () => {
@@ -137,13 +177,13 @@ describe("SchemaAccessControlView", () => {
     ).toBeInTheDocument();
   });
 
-  it("changes the access type through the deferred Save and saves", async () => {
+  it("changes the access type and saves it via the footer's Save", async () => {
     const user = userEvent.setup();
     render(<SchemaAccessControlView {...baseProps} />);
 
     // Picking a tile is local only, and the footer reflects the pending change.
     await user.click(screen.getByRole("radio", { name: "Public" }));
-    expect(screen.getByText("Unsaved")).toBeInTheDocument();
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
@@ -151,17 +191,20 @@ describe("SchemaAccessControlView", () => {
         expect.objectContaining({ accessLevel: 2, schemaId: "schema-1" }),
       ),
     );
-    await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getByText("No changes")).toBeInTheDocument());
+    // Reported inline in the footer's own status slot — the shared toast
+    // viewport docks bottom-right, right on top of this same Save button.
+    await waitFor(() =>
+      expect(screen.getByText("Access level updated successfully")).toBeInTheDocument(),
+    );
   });
 
-  it("surfaces an error toast when the access change fails", async () => {
+  it("shows an inline error in the footer when the access change fails", async () => {
     setRowColumnPermission.mockResolvedValue({ isSuccess: false, errors: ["no"] });
     const user = userEvent.setup();
     render(<SchemaAccessControlView {...baseProps} />);
     await user.click(screen.getByRole("radio", { name: "Public" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByText("no")).toBeInTheDocument());
   });
 
   it("cancels an access change without saving", async () => {
@@ -171,7 +214,7 @@ describe("SchemaAccessControlView", () => {
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(setRowColumnPermission).not.toHaveBeenCalled();
     // Reverted back to the last saved tier (Signed-in).
-    expect(screen.getByRole("radio", { name: "Signed-in user" })).toHaveAttribute(
+    expect(screen.getByRole("radio", { name: "Signed-in users" })).toHaveAttribute(
       "aria-checked",
       "true",
     );
@@ -223,7 +266,26 @@ describe("SchemaAccessControlView", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens the rule-set form and refetches after a successful save", async () => {
+  it("opens the rule-set form, and saving it also sends the pending tier change — both in one action", async () => {
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...baseProps} />);
+
+    // Access isn't Custom yet — picking it and saving a rule set both need
+    // to reach the API. Nothing is held back for a separate outer Save: the
+    // rule form's own Save/Update sends the tier first, then the rule.
+    await user.click(screen.getByRole("radio", { name: "Custom" }));
+    await user.click(screen.getByText("Start from an empty rule set"));
+    expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
+
+    await user.click(screen.getByText("rsf-stage"));
+
+    await waitFor(() => expect(setRowColumnPermission).toHaveBeenCalled());
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    expect(screen.queryByTestId("rule-set-form")).not.toBeInTheDocument();
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("opens the rule-set form, and saving a rule set while already Custom sends it immediately", async () => {
     const user = userEvent.setup();
     useGetPolicyData.mockReturnValue({
       data: { isSuccess: true, data: [policy()] },
@@ -236,9 +298,14 @@ describe("SchemaAccessControlView", () => {
     await user.click(screen.getByText("add-rule"));
     expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
 
-    await user.click(screen.getByText("rsf-cancel"));
+    await user.click(screen.getByText("rsf-stage"));
+    // No tier change is pending, so this doesn't wait for a second, outer
+    // Save — it's sent right away and the form closes on success.
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    expect(setRowColumnPermission).not.toHaveBeenCalled();
     await waitFor(() => expect(refetch).toHaveBeenCalled());
     expect(screen.queryByTestId("rule-set-form")).not.toBeInTheDocument();
+    expect(screen.queryByText(/unsaved rule set/)).not.toBeInTheDocument();
   });
 
   it("opens the rule-set form to edit an existing policy", async () => {
@@ -255,10 +322,24 @@ describe("SchemaAccessControlView", () => {
     expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
   });
 
-  it("orders the who-is-allowed tiles as Public, Signed-in user, Custom", () => {
+  it("refetches the policy list once the accordion reports a successful delete", async () => {
+    const user = userEvent.setup();
+    useGetPolicyData.mockReturnValue({
+      data: { isSuccess: true, data: [policy()] },
+      refetch,
+      isPending: false,
+      isFetching: false,
+    });
+    render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={3} />);
+
+    await user.click(screen.getByText("delete-policy"));
+    expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("orders the who-is-allowed tiles as Public, Signed-in users, Custom", () => {
     render(<SchemaAccessControlView {...baseProps} level="row" />);
     const tiles = screen.getAllByRole("radio").map((el) => el.textContent);
-    expect(tiles).toEqual(["Public", "Signed-in user", "Custom"]);
+    expect(tiles).toEqual(["Public", "Signed-in users", "Custom"]);
   });
 
   it("hides the Inherited tile at row level, since there is nothing to inherit from", () => {
@@ -287,13 +368,15 @@ describe("SchemaAccessControlView", () => {
     expect(setRowColumnPermission).not.toHaveBeenCalled();
   });
 
-  it("surfaces an error toast when the access change throws", async () => {
+  it("shows an inline error in the footer when the access change throws", async () => {
     setRowColumnPermission.mockRejectedValue(new Error("boom"));
     const user = userEvent.setup();
     render(<SchemaAccessControlView {...baseProps} />);
     await user.click(screen.getByRole("radio", { name: "Public" }));
     await user.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(showErrorToast).toHaveBeenCalledWith({ errors: expect.any(Error) }));
+    // A thrown Error has no enumerable own properties for handleErrorMessages
+    // to read, so it falls back to this generic message.
+    await waitFor(() => expect(screen.getByText("Something went wrong.")).toBeInTheDocument());
   });
 
   // ── Phase 5: presets and the empty custom policy ────────────────────────
@@ -313,21 +396,23 @@ describe("SchemaAccessControlView", () => {
     ).toBeInTheDocument();
   });
 
-  /**
-   * The panel warned that an empty Custom policy allows nobody, then let the
-   * tier footer save exactly that — locking the schema out in one click. The
-   * tier is now only committed once a rule set gives it meaning.
-   */
   describe("Custom with no rule sets", () => {
-    it("refuses to save the tier on its own, and says why", async () => {
+    it("allows saving the tier without creating a rule set", async () => {
       const user = userEvent.setup();
       render(<SchemaAccessControlView {...baseProps} />);
 
       await user.click(screen.getByRole("radio", { name: "Custom" }));
 
-      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-      expect(screen.getByText("Add a rule set to save Custom")).toBeInTheDocument();
-      expect(setRowColumnPermission).not.toHaveBeenCalled();
+      const save = screen.getByRole("button", { name: "Save" });
+      expect(save).toBeEnabled();
+      expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+
+      await user.click(save);
+      await waitFor(() =>
+        expect(setRowColumnPermission).toHaveBeenCalledWith(
+          expect.objectContaining({ accessLevel: 3 }),
+        ),
+      );
     });
 
     // Cancel is the way back out, so it must stay live.
@@ -340,7 +425,7 @@ describe("SchemaAccessControlView", () => {
       expect(cancel).toBeEnabled();
 
       await user.click(cancel);
-      expect(screen.getByRole("radio", { name: "Signed-in user" })).toBeChecked();
+      expect(screen.getByRole("radio", { name: "Signed-in users" })).toBeChecked();
     });
 
     it("permits the save once a rule set exists", async () => {
@@ -361,9 +446,7 @@ describe("SchemaAccessControlView", () => {
       await waitFor(() => expect(setRowColumnPermission).toHaveBeenCalled());
     });
 
-    // An in-flight policy list is also empty; disabling on that would flicker
-    // the button for every Custom schema on open.
-    it("does not gate on a policy list that is still loading", async () => {
+    it("remains saveable while the policy list is loading", async () => {
       useGetPolicyData.mockReturnValue({
         data: undefined,
         refetch,
@@ -440,17 +523,17 @@ describe("SchemaAccessControlView", () => {
   });
 
   // The override preset is two sets and the form holds one, so the second is
-  // seeded the moment the first lands.
-  it("seeds the second set of a two-set preset after the first saves", async () => {
+  // seeded the moment the first is saved.
+  it("seeds the second set of a two-set preset once the first is saved", async () => {
     const user = userEvent.setup();
     render(<SchemaAccessControlView {...customProps} />);
 
     await user.click(screen.getByText("Owner, plus a support override"));
     expect(screen.getByTestId("seed-name")).toHaveTextContent("Owner access");
 
-    await user.click(screen.getByText("rsf-cancel"));
+    await user.click(screen.getByText("rsf-stage"));
 
-    expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("rule-set-form")).toBeInTheDocument());
     expect(screen.getByTestId("seed-name")).toHaveTextContent("Support override");
   });
 
@@ -459,8 +542,123 @@ describe("SchemaAccessControlView", () => {
     render(<SchemaAccessControlView {...customProps} />);
 
     await user.click(screen.getByText("Only the owner"));
-    await user.click(screen.getByText("rsf-cancel"));
+    await user.click(screen.getByText("rsf-stage"));
 
+    await waitFor(() => expect(screen.queryByTestId("rule-set-form")).not.toBeInTheDocument());
+  });
+});
+
+describe("SchemaAccessControlView — saving a rule set", () => {
+  // A rule set is never left unsaved: the rule editor's own Save/Update
+  // always sends straight to the API. These deliberately pick Custom first,
+  // then build a rule set, to cover the tier-change-plus-rule case.
+  const customProps = {
+    ...baseProps,
+    schemaFields: [{ name: "OwnerId" }] as never,
+  };
+
+  it("sends the pending tier change and the new rule set together, in one action", async () => {
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...customProps} />);
+
+    await user.click(screen.getByRole("radio", { name: "Custom" }));
+    await user.click(screen.getByText("Start from an empty rule set"));
+    await user.click(screen.getByText("rsf-stage"));
+
+    await waitFor(() => expect(setRowColumnPermission).toHaveBeenCalled());
+    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByTestId("rule-set-form")).not.toBeInTheDocument());
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it("sends an update for an edited policy immediately when access is already Custom, without a second Save", async () => {
+    const user = userEvent.setup();
+    useGetPolicyData.mockReturnValue({
+      data: { isSuccess: true, data: [policy()] },
+      refetch,
+      isPending: false,
+      isFetching: false,
+    });
+    render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={3} />);
+
+    await user.click(screen.getByText("edit-policy"));
+    await user.click(screen.getByText("rsf-stage"));
+
+    // Access isn't changing here, so there's no pending tier change for this
+    // edit to wait on — no outer "Save" button click needed or available.
+    await waitFor(() => expect(updatePolicy).toHaveBeenCalled());
+    expect(createPolicy).not.toHaveBeenCalled();
+    expect(setRowColumnPermission).not.toHaveBeenCalled();
     expect(screen.queryByTestId("rule-set-form")).not.toBeInTheDocument();
+  });
+
+  it("shows an error and leaves the rule form open when the rule set save fails after the tier saved", async () => {
+    createPolicy.mockResolvedValue({ isSuccess: false, errors: ["bad"] });
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...customProps} />);
+
+    await user.click(screen.getByRole("radio", { name: "Custom" }));
+    await user.click(screen.getByText("Start from an empty rule set"));
+    await user.click(screen.getByText("rsf-stage"));
+
+    // The tier itself already saved — only the rule set failed, so the form
+    // stays open with its values rather than losing them, and the error
+    // shows inline in its own footer rather than a toast.
+    await waitFor(() => expect(setRowColumnPermission).toHaveBeenCalled());
+    expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
+    expect(screen.getByTestId("rsf-status")).toHaveTextContent("bad");
+  });
+
+  it("shows an error and leaves the rule form open when the tier change itself fails", async () => {
+    setRowColumnPermission.mockResolvedValue({ isSuccess: false, errors: ["bad"] });
+    const user = userEvent.setup();
+    render(<SchemaAccessControlView {...customProps} />);
+
+    await user.click(screen.getByRole("radio", { name: "Custom" }));
+    await user.click(screen.getByText("Start from an empty rule set"));
+    await user.click(screen.getByText("rsf-stage"));
+
+    // The rule set is never sent for a tier that failed to save, and the
+    // error shows inline in the form's own footer rather than a toast.
+    await waitFor(() => expect(screen.getByTestId("rsf-status")).toHaveTextContent("bad"));
+    expect(createPolicy).not.toHaveBeenCalled();
+    expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
+  });
+});
+
+describe("SchemaAccessControlView — imperative handle", () => {
+  // Rule sets are always saved from the rule editor itself, so the only
+  // thing this handle ever has to guard is a tier picked but not yet saved.
+  it("reports dirty for a picked tier, and save() persists it", async () => {
+    const user = userEvent.setup();
+    const ref = createRef<SchemaAccessControlViewHandle>();
+    render(<SchemaAccessControlView {...baseProps} ref={ref} />);
+
+    expect(ref.current?.isDirty).toBe(false);
+
+    await user.click(screen.getByRole("radio", { name: "Custom" }));
+    expect(ref.current?.isDirty).toBe(true);
+
+    const ok = await ref.current?.save();
+    expect(ok).toBe(true);
+    await waitFor(() => expect(setRowColumnPermission).toHaveBeenCalled());
+    expect(createPolicy).not.toHaveBeenCalled();
+    await waitFor(() => expect(ref.current?.isDirty).toBe(false));
+  });
+
+  it("discard() reverts a picked tier that hasn't been saved", async () => {
+    const user = userEvent.setup();
+    const ref = createRef<SchemaAccessControlViewHandle>();
+    render(<SchemaAccessControlView {...baseProps} ref={ref} />);
+
+    await user.click(screen.getByRole("radio", { name: "Custom" }));
+    expect(ref.current?.isDirty).toBe(true);
+
+    ref.current?.discard();
+    await waitFor(() => expect(ref.current?.isDirty).toBe(false));
+    expect(screen.getByRole("radio", { name: "Signed-in users" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
   });
 });

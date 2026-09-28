@@ -24,10 +24,12 @@ import {
   useGetSchemaFieldValidation,
   useUpdateSchemaFieldValidation,
 } from "../../hooks/use-configuration";
+import { useTransientStatus } from "../../hooks/use-transient-status";
 import {
   IFieldValidationRule,
   ISchemaFieldValidation,
 } from "../../models/data-service";
+import { StatusSnackbar } from "../primitives";
 
 export interface SchemaFieldValidationPanelProps {
   fieldName: string;
@@ -90,6 +92,12 @@ export function SchemaFieldValidationPanel({
     null,
   );
   const [shouldRefetch, setShouldRefetch] = useState(false);
+  // Add/update results show inline in the footer, right next to the button
+  // that caused them, instead of a toast — the shared toast viewport docks
+  // bottom-right, exactly where this panel's own footer sits. Delete goes
+  // through its own confirmation dialog and keeps the toast, same as the
+  // equivalent policy-delete flow in the access panel.
+  const { status, setSuccess, setError } = useTransientStatus();
 
   // When the prop is provided (even as null) we already have data from the schema response
   // and can skip the initial GET. After any mutation we flip shouldRefetch to fetch fresh data.
@@ -140,7 +148,7 @@ export function SchemaFieldValidationPanel({
 
   const handleGenerateRegex = async () => {
     if (!prompt.trim()) {
-      showErrorToast({ errors: ["Please enter a prompt"] });
+      setError(["Please enter a prompt"]);
       return;
     }
 
@@ -157,10 +165,10 @@ export function SchemaFieldValidationPanel({
         setRegexError(null);
         setPrompt("");
       } else {
-        showErrorToast({ errors: ["Failed to generate regex"] });
+        setError(["Failed to generate regex"]);
       }
     } catch (error) {
-      showErrorToast({ errors: ["Error generating regex"] });
+      setError(["Error generating regex"]);
     }
   };
 
@@ -227,16 +235,15 @@ export function SchemaFieldValidationPanel({
           });
 
     if (res.isSuccess) {
-      showSuccessToast({
-        description:
-          form.editingIndex !== undefined
-            ? "Validation updated successfully"
-            : "Validation added successfully",
-      });
+      setSuccess(
+        form.editingIndex !== undefined
+          ? "Validation updated successfully"
+          : "Validation added successfully",
+      );
       setShouldRefetch(true);
       resetForm();
     } else {
-      showErrorToast({ errors: res.errors });
+      setError(res.errors);
     }
   };
 
@@ -280,14 +287,14 @@ export function SchemaFieldValidationPanel({
         <div className="flex flex-col gap-5 p-6">
           {/* Existing validations */}
           <div className="flex flex-col gap-3">
-            <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
+            <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
               Existing validations
             </p>
 
             {isRefreshing || (isLoading && !hasInitialData) ? (
               <ValidationSkeleton />
             ) : validations.length === 0 ? (
-              <div className="flex items-center justify-center rounded-sm border border-dashed border-border/30 bg-muted/5 py-8 text-xs text-muted-foreground/50">
+              <div className="flex items-center justify-center rounded-sm border border-dashed border-border/60 bg-muted/10 py-8 text-xs text-muted-foreground">
                 No validations added yet
               </div>
             ) : (
@@ -295,22 +302,22 @@ export function SchemaFieldValidationPanel({
                 {validations.map((validation, index) => (
                   <div
                     key={index}
-                    className="flex items-start justify-between gap-3 rounded-sm border border-border/30 bg-card/40 px-4 py-3"
+                    className="flex items-start justify-between gap-3 rounded-sm border border-border/40 bg-card px-4 py-3"
                   >
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <p className="break-all font-mono text-sm text-foreground/80">
+                      <p className="break-all font-mono text-sm text-foreground">
                         {validation.value}
                       </p>
                       {validation.errorMessage && (
-                        <p className="text-xs text-muted-foreground/60">
+                        <p className="text-xs text-muted-foreground">
                           {validation.errorMessage}
                         </p>
                       )}
                       <span className={cn(
                         "w-fit rounded-full px-2 py-0.5 text-xs font-medium",
                         validation.isActive
-                          ? "bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20"
-                          : "bg-muted/40 text-muted-foreground/50 border border-border/30",
+                          ? "bg-emerald-500/10 text-emerald-500 border border-emerald-500/30"
+                          : "bg-muted/40 text-muted-foreground border border-border/40",
                       )}>
                         {validation.isActive ? "Active" : "Inactive"}
                       </span>
@@ -318,7 +325,7 @@ export function SchemaFieldValidationPanel({
                     <div className="flex shrink-0 gap-1">
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/40 hover:text-foreground" disabled={isPending} onClick={() => handleEdit(index)}>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" disabled={isPending} onClick={() => handleEdit(index)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         </TooltipTrigger>
@@ -326,7 +333,7 @@ export function SchemaFieldValidationPanel({
                       </Tooltip>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground/40 hover:text-rose-400" disabled={isPending} onClick={() => setPendingDeleteIndex(index)}>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-rose-500" disabled={isPending} onClick={() => setPendingDeleteIndex(index)}>
                             <Trash className="h-3.5 w-3.5" />
                           </Button>
                         </TooltipTrigger>
@@ -341,14 +348,14 @@ export function SchemaFieldValidationPanel({
 
           {/* Add / Edit form */}
           {showForm ? (
-            <div className="flex flex-col gap-4 rounded-sm border border-border/30 bg-card/30 p-4">
-              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground/50">
+            <div className="flex flex-col gap-4 rounded-sm border border-border/40 bg-card p-4">
+              <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
                 {form.editingIndex !== undefined ? "Edit validation" : "Add validation"}
               </p>
 
               {/* Generate regex from prompt */}
-              <div className="flex flex-col gap-2 rounded-sm border border-border/30 bg-indigo-500/5 p-3">
-                <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
+              <div className="flex flex-col gap-2 rounded-sm border border-border/40 bg-indigo-500/5 p-3">
+                <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                   Generate regex from prompt
                 </label>
                 <div className="flex flex-col gap-2">
@@ -357,7 +364,7 @@ export function SchemaFieldValidationPanel({
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     disabled={isGenerating}
-                    className="h-9 w-full border-border/40 bg-muted/10 text-sm focus-visible:border-primary/40 focus-visible:ring-primary/20"
+                    className="h-9 w-full text-sm"
                   />
                   <Button
                     className={cn(
@@ -372,14 +379,14 @@ export function SchemaFieldValidationPanel({
                     {isGenerating ? "Generating…" : "Generate"}
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground/50">
+                <p className="text-xs text-muted-foreground">
                   Provide a description to generate regex from AI
                 </p>
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
-                  Regex pattern <span className="text-rose-400">*</span>
+                <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                  Regex pattern <span className="text-rose-500">*</span>
                 </label>
                 <Textarea
                   placeholder="e.g. ^[a-zA-Z]+$"
@@ -388,33 +395,41 @@ export function SchemaFieldValidationPanel({
                     setForm((prev) => ({ ...prev, value: e.target.value }));
                     if (regexError) validateRegex(e.target.value);
                   }}
-                  className={cn("resize-none border-border/40 bg-muted/10 font-mono text-sm focus-visible:border-primary/40 focus-visible:ring-primary/20", regexError && "border-rose-500/40")}
+                  className={cn("resize-none font-mono text-sm", regexError && "border-rose-500")}
                   rows={4}
                 />
-                {regexError && <p className="text-xs text-rose-400/80">{regexError}</p>}
+                {regexError && <p className="text-xs text-rose-500">{regexError}</p>}
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
+                <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                   Error message
                 </label>
                 <Input
                   placeholder="e.g. Only letters are allowed"
                   value={form.errorMessage}
                   onChange={(e) => setForm((prev) => ({ ...prev, errorMessage: e.target.value }))}
-                  className="border-border/40 bg-muted/10 focus-visible:border-primary/40 focus-visible:ring-primary/20"
                 />
               </div>
 
               <div className="flex items-center gap-2">
                 <Checkbox id="isActive" checked={form.isActive} onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isActive: checked === true }))} />
-                <label htmlFor="isActive" className="cursor-pointer text-xs text-muted-foreground/70">Active</label>
+                <label htmlFor="isActive" className="cursor-pointer text-xs text-muted-foreground">Active</label>
               </div>
 
             </div>
           ) : (
             !isRefreshing && validations.length === 0 && (
-              <Button type="button" variant="ghost" className="w-full gap-2 border border-border/30 text-muted-foreground/60 hover:border-primary/30 hover:text-primary" onClick={() => setShowForm(true)}>
+              // `ghost` has no resting background or border of its own — only
+              // its hover state — so paired with muted text it read as
+              // disabled until the cursor found it. `outline` gives it a
+              // resting shape, same as every other CTA in this shell.
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full gap-2 border-border text-foreground hover:border-primary/40 hover:text-primary"
+                onClick={() => setShowForm(true)}
+              >
                 <Plus className="h-4 w-4" />
                 Add validation
               </Button>
@@ -432,29 +447,39 @@ export function SchemaFieldValidationPanel({
           wraps a viewport's children in a `display: table` element, which
           sticky does not position reliably against. Both hosts (the docked
           inspector's PanelShell and the drawer) are flex columns with this
-          fragment's children as their own, so the row pins itself. */}
-      {showForm && (
-        <div className="flex shrink-0 items-center gap-2 border-t border-border/40 bg-card px-6 py-3">
-          <span className="flex-1 text-xs text-muted-foreground">
-            {isEditMode ? "Editing validation" : "New validation"}
-          </span>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={resetForm}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            disabled={isPending || !form.value.trim() || !!regexError || !isDirty}
-            onClick={handleSubmit}
-          >
-            {isPending ? "Saving…" : isEditMode ? "Update" : "Add"}
-          </Button>
+          fragment's children as their own, so the row pins itself.
+
+          Also holds the save/generate result, right above the button row —
+          Add/Update closes the form the moment it succeeds, so this bar
+          stays mounted a beat longer than the row it reported on rather than
+          disappearing with it. */}
+      {(status || showForm) && (
+        <div className="flex shrink-0 flex-col gap-2 border-t border-border/40 bg-card px-6 py-3">
+          <StatusSnackbar status={status} />
+          {showForm && (
+            <div className="flex items-center gap-2">
+              <span className="flex-1 text-xs text-muted-foreground">
+                {isEditMode ? "Editing validation" : "New validation"}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={resetForm}
+                disabled={isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={isPending || !form.value.trim() || !!regexError || !isDirty}
+                onClick={handleSubmit}
+              >
+                {isPending ? "Saving…" : isEditMode ? "Update" : "Add"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

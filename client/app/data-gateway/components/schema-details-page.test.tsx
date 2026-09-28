@@ -48,6 +48,7 @@ vi.mock("./schema-structure", () => ({
   default: ({
     onOpenFieldAccess,
     isPreviewOpen,
+    onEnterEditMode,
   }: {
     onOpenFieldAccess?: (t: {
       fieldNames: string[];
@@ -55,6 +56,7 @@ vi.mock("./schema-structure", () => ({
       context: string;
     }) => void;
     isPreviewOpen?: boolean;
+    onEnterEditMode?: () => void;
   }) => (
     <div data-testid="schema-structure" data-preview-open={String(!!isPreviewOpen)}>
       <button
@@ -68,6 +70,7 @@ vi.mock("./schema-structure", () => ({
       >
         open-field-access
       </button>
+      <button onClick={() => onEnterEditMode?.()}>enter-edit-mode</button>
     </div>
   ),
 }));
@@ -279,6 +282,24 @@ describe("SchemaDetailsPage", () => {
     expect(screen.getByTestId("access-inspector")).toBeInTheDocument();
   });
 
+  // Editing a field can reshuffle or remove the very row the docked
+  // inspector is pointed at, so entering edit mode closes it on the way in.
+  it("closes the inspector when Edit is clicked on the schema structure table", async () => {
+    const user = userEvent.setup();
+    withSchema();
+    renderPage();
+
+    await user.click(screen.getAllByText("open-field-access").at(-1)!);
+    expect(screen.getByTestId("access-inspector")).toBeInTheDocument();
+
+    await user.click(screen.getAllByText("enter-edit-mode").at(-1)!);
+    // The panel outlives the close by one collapse (see "drops the
+    // inspector's contents once the collapse has run" above), then unmounts.
+    await waitFor(() =>
+      expect(screen.queryByTestId("access-inspector")).not.toBeInTheDocument(),
+    );
+  });
+
   // Preview's trigger moved out of the field table's own header, into
   // SchemaBasicInfo — but the actual drawer/data still lives in
   // SchemaStructureTable, so the open state has to be lifted up here and
@@ -332,7 +353,7 @@ describe("SchemaDetailsPage", () => {
     expect(railLayer).toHaveAttribute("aria-hidden", "false");
   });
 
-  it("opens the docked column at the inspector's width", async () => {
+  it("opens access at its final rule-editor width and keeps that width", async () => {
     const user = userEvent.setup();
     withSchema();
     renderPage();
@@ -344,10 +365,10 @@ describe("SchemaDetailsPage", () => {
     await user.click(screen.getAllByText("open-schema-access").at(-1)!);
 
     expect(column.dataset.open).toBe("true");
-    expect(column.style.getPropertyValue("--dg-inspector-w")).toBe("460px");
+    expect(column.style.getPropertyValue("--dg-inspector-w")).toBe("760px");
     // The panel inside keeps its own width so a close clips it away instead of
     // squeezing its contents down to nothing.
-    expect(column.style.getPropertyValue("--dg-inspector-panel-w")).toBe("460px");
+    expect(column.style.getPropertyValue("--dg-inspector-panel-w")).toBe("760px");
   });
 
   it("closes the inspector and restores the schema list from the rail", async () => {

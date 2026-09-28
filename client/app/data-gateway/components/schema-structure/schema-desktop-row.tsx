@@ -475,7 +475,7 @@ export function SchemaDesktopRow({
               a tier-tinted fill (custom-access teal, validation-rule blue). */}
           {!isEditMode && showAccessValidationColumn && (
             <TableCell className={compactCellClass}>
-              <div className="flex h-9 items-center gap-1.5">
+              <div className="flex h-9 items-center gap-1">
                 {showAccessColumn && (
                   isNewField || !isPrimitiveType ? (
                     <Tooltip>
@@ -483,7 +483,7 @@ export function SchemaDesktopRow({
                         <button
                           type="button"
                           disabled
-                          className="flex h-[26px] w-[26px] shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-border/40 text-muted-foreground/30"
+                          className="flex h-[26px] w-[26px] shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-border/60 text-muted-foreground/50"
                           aria-label={
                             isNewField
                               ? "Save the field before setting access"
@@ -509,7 +509,7 @@ export function SchemaDesktopRow({
                             "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                             hasNonInheritedPolicy
                               ? "border-access-custom-border bg-access-custom-bg text-access-custom-fg"
-                              : "border-border/50 text-muted-foreground/40 hover:border-primary/40 hover:text-primary",
+                              : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
                           )}
                           aria-label={`View access for ${fieldTarget?.name || schemaName}`}
                         >
@@ -549,14 +549,14 @@ export function SchemaDesktopRow({
                       <button
                         type="button"
                         disabled
-                        className="flex h-[26px] min-w-[26px] shrink-0 cursor-not-allowed items-center justify-center gap-1 rounded-md border border-border/40 px-1.5 text-muted-foreground/30"
+                        className="flex h-[26px] min-w-[28px] shrink-0 cursor-not-allowed items-center justify-center gap-1 rounded-md border border-border/60 px-1 text-muted-foreground/50"
                         aria-label={
                           isNewField
                             ? "Save the field before adding validations"
                             : "Validations are only available for primitive types"
                         }
                       >
-                        <Check className="h-3.5 w-3.5" />
+                        <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
@@ -572,14 +572,14 @@ export function SchemaDesktopRow({
                       onOpenValidationDrawer(fieldName, fieldForValidation?.validationRule)
                     }
                     className={cn(
-                      "flex h-[26px] min-w-[26px] shrink-0 items-center justify-center gap-1 rounded-md border px-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                      "flex h-[26px] min-w-[28px] shrink-0 items-center justify-center gap-1 rounded-md border px-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                       validationInfo.total > 0
                         ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-border/50 text-muted-foreground/40 hover:border-primary/40 hover:text-primary",
+                        : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
                     )}
                     aria-label={`Manage validations for ${fieldName}${validationInfo.total > 0 ? ` (${validationInfo.total})` : ""}`}
                   >
-                    <Check className="h-3.5 w-3.5" />
+                    <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                     {validationInfo.total > 0 && (
                       <span aria-hidden className="text-[11px] font-semibold">
                         {validationInfo.total}

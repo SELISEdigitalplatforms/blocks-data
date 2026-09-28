@@ -25,7 +25,7 @@ describe("AccessInspectorPanel", () => {
       />,
     );
 
-    expect(screen.getByTitle("Logged-in users")).toBeInTheDocument(); // View → read → 1
+    expect(screen.getByTitle("Signed-in users")).toBeInTheDocument(); // View → read → 1
     expect(screen.getByTitle("Custom")).toBeInTheDocument(); // Create → write → 3
     expect(screen.getByTitle("Public")).toBeInTheDocument(); // Edit → edit → 2
     expect(screen.getByTitle("Inherited")).toBeInTheDocument(); // Delete → delete → 0

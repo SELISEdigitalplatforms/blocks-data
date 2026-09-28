@@ -136,10 +136,28 @@ describe("SchemaAccessControlAccordion", () => {
     );
   });
 
+  // A delete's own cache invalidation can't target just this entity's list
+  // (it only carries the deleted item's id, not which schema/field it was
+  // on), so the accordion has to be told to refetch directly — otherwise the
+  // deleted rule set keeps showing until something else happens to reload.
+  it("tells its host to refetch once the delete actually succeeds", async () => {
+    const user = userEvent.setup();
+    deletePolicy.mockResolvedValue({ isSuccess: true });
+    const onDeleteSuccess = vi.fn();
+    render(<SchemaAccessControlAccordion policies={[policy]} onDeleteSuccess={onDeleteSuccess} />);
+
+    await openRowMenu(user);
+    await user.click(await screen.findByText("Delete"));
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(onDeleteSuccess).toHaveBeenCalledTimes(1));
+  });
+
   it("handles a failed policy deletion", async () => {
     const user = userEvent.setup();
     deletePolicy.mockResolvedValue({ isSuccess: false, errors: ["no"] });
-    render(<SchemaAccessControlAccordion policies={[policy]} />);
+    const onDeleteSuccess = vi.fn();
+    render(<SchemaAccessControlAccordion policies={[policy]} onDeleteSuccess={onDeleteSuccess} />);
 
     await openRowMenu(user);
     await user.click(await screen.findByText("Delete"));
@@ -149,18 +167,22 @@ describe("SchemaAccessControlAccordion", () => {
     await waitFor(() =>
       expect(screen.queryByText("Delete the only rule set?")).not.toBeInTheDocument(),
     );
+    // Nothing to refetch — the delete didn't actually go through.
+    expect(onDeleteSuccess).not.toHaveBeenCalled();
   });
 
   it("handles a thrown error during policy deletion", async () => {
     const user = userEvent.setup();
     deletePolicy.mockRejectedValue(new Error("boom"));
-    render(<SchemaAccessControlAccordion policies={[policy]} />);
+    const onDeleteSuccess = vi.fn();
+    render(<SchemaAccessControlAccordion policies={[policy]} onDeleteSuccess={onDeleteSuccess} />);
 
     await openRowMenu(user);
     await user.click(await screen.findByText("Delete"));
     await user.click(await screen.findByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(deletePolicy).toHaveBeenCalled());
+    expect(onDeleteSuccess).not.toHaveBeenCalled();
   });
 
   it("dismisses the delete confirmation without deleting", async () => {

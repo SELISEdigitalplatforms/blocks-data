@@ -6,10 +6,33 @@ import {
 } from "@/data-gateway/constants/schema-access-control";
 import type { IField } from "@/data-gateway/models/data-service";
 import { resolveFieldAccessLevel } from "@/data-gateway/utils/schema-access-control.utils";
-import { useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 
 import { AccessTierDot } from "../primitives";
-import { SchemaAccessControlView } from "../schema-access-control/schema-access-control-view";
+import {
+  SchemaAccessControlView,
+  type SchemaAccessControlViewHandle,
+} from "../schema-access-control/schema-access-control-view";
+
+/**
+ * Imperative surface for a host that needs to check/act on unsaved changes
+ * without seeing into which of the four verb tabs actually holds them (only
+ * one is ever mounted-and-dirty in practice, but this asks whichever it is,
+ * rather than assuming "view").
+ *
+ * `isDirty` is a function, not a snapshot boolean: each tab's own dirty state
+ * lives in that tab's `SchemaAccessControlView`, and a change there doesn't
+ * re-render this panel (React only re-renders the component whose state
+ * changed). A plain boolean recomputed "every render" would then go stale
+ * the moment a tab's staged rules change without *this* panel re-rendering
+ * for an unrelated reason. Reading straight off each tab's ref instead, at
+ * the moment a caller actually asks, is always current.
+ */
+export interface AccessInspectorPanelHandle {
+  isDirty: () => boolean;
+  save: () => Promise<boolean>;
+  discard: () => void;
+}
 
 export interface AccessInspectorPanelProps {
   fields?: IField[];
@@ -32,20 +55,42 @@ export interface AccessInspectorPanelProps {
  * Shared by the docked inspector and the drawer that nested child tables still
  * use, so the two cannot drift.
  */
-export function AccessInspectorPanel({
-  fields = [],
-  schemaName,
-  schemaId,
-  level,
-  readAccessLevel,
-  writeAccessLevel,
-  editAccessLevel,
-  deleteAccessLevel,
-  fieldNames = [],
-  selectedTab,
-  onRuleEditorOpenChange,
-}: AccessInspectorPanelProps) {
+export const AccessInspectorPanel = forwardRef<
+  AccessInspectorPanelHandle,
+  AccessInspectorPanelProps
+>(function AccessInspectorPanel(
+  {
+    fields = [],
+    schemaName,
+    schemaId,
+    level,
+    readAccessLevel,
+    writeAccessLevel,
+    editAccessLevel,
+    deleteAccessLevel,
+    fieldNames = [],
+    selectedTab,
+    onRuleEditorOpenChange,
+  },
+  ref,
+) {
   const [activeTab, setActiveTab] = useState(selectedTab?.toLowerCase() ?? "view");
+  // One ref per verb tab — all four stay mounted (just hidden) while any tab
+  // is active, so these persist across tab switches.
+  const tabRefs = useRef<Record<string, SchemaAccessControlViewHandle | null>>({});
+
+  useImperativeHandle(ref, () => ({
+    isDirty: () => Object.values(tabRefs.current).some((handle) => handle?.isDirty),
+    save: async () => {
+      for (const handle of Object.values(tabRefs.current)) {
+        if (handle?.isDirty && !(await handle.save())) return false;
+      }
+      return true;
+    },
+    discard: () => {
+      Object.values(tabRefs.current).forEach((handle) => handle?.discard());
+    },
+  }));
 
   // Opening the inspector from a different access pill should land on that
   // verb. Adjusted during render rather than in an effect, so the panel never
@@ -104,6 +149,9 @@ export function AccessInspectorPanel({
           className="mt-0 flex min-h-0 flex-1 flex-col px-3 py-3 data-[state=inactive]:hidden"
         >
           <SchemaAccessControlView
+            ref={(handle) => {
+              tabRefs.current[permission.value] = handle;
+            }}
             schemaFields={fields}
             schemaName={schemaName}
             schemaId={schemaId}
@@ -125,4 +173,4 @@ export function AccessInspectorPanel({
       ))}
     </Tabs>
   );
-}
+});

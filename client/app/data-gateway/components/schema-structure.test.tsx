@@ -289,6 +289,22 @@ describe("SchemaStructureTable", () => {
     ).toBeInTheDocument();
   });
 
+  it("calls onEnterEditMode when Edit is clicked, but not when Cancel later leaves edit mode", async () => {
+    const user = userEvent.setup();
+    const onEnterEditMode = vi.fn();
+    renderTable({ onEnterEditMode });
+
+    await user.click(screen.getByRole("button", { name: "toggle-edit" }));
+    expect(screen.getByTestId("schema-header")).toHaveAttribute("data-edit", "true");
+    expect(onEnterEditMode).toHaveBeenCalledTimes(1);
+
+    // Same button doubles as Cancel once in edit mode — leaving must not
+    // re-fire the callback a docked inspector's close is wired to.
+    await user.click(screen.getByRole("button", { name: "toggle-edit" }));
+    expect(screen.getByTestId("schema-header")).toHaveAttribute("data-edit", "false");
+    expect(onEnterEditMode).toHaveBeenCalledTimes(1);
+  });
+
   it("appends a new property row when add-property is clicked", async () => {
     const user = userEvent.setup();
     renderTable();

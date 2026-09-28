@@ -100,7 +100,7 @@ describe("AccessVerbPill", () => {
     const onClick = vi.fn();
     render(<AccessVerbPill verb="Delete" level={1} onClick={onClick} />);
 
-    await user.click(screen.getByRole("button", { name: "Delete Logged-in users" }));
+    await user.click(screen.getByRole("button", { name: "Delete Signed-in users" }));
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

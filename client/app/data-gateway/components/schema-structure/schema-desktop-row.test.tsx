@@ -313,11 +313,11 @@ describe("SchemaDesktopRow", () => {
 
     const accessChip = screen.getByRole("button", { name: "View access for email" });
     expect(accessChip.className).not.toContain("border-access-custom-border");
-    expect(accessChip.className).toContain("border-border/50");
+    expect(accessChip.className).toContain("border-border");
 
     const validationChip = screen.getByRole("button", { name: "Manage validations for email" });
     expect(validationChip.className).not.toContain("bg-primary/10");
-    expect(validationChip.className).toContain("border-border/50");
+    expect(validationChip.className).toContain("border-border");
   });
 
   // Both controls were always disabled in edit mode, each with a tooltip

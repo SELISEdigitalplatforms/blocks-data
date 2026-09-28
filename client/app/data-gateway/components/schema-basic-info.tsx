@@ -18,10 +18,16 @@ import { AccessVerbPill } from "./primitives";
 import { readonlyPropertyNames } from "../constants/input-restrictions";
 import { ISchemaDetails } from "../models/data-service";
 import { useDeleteSchema, useSchemaIndexes } from "../hooks/use-configuration";
+import { useNarrowContainer } from "../hooks/use-narrow-container";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
-import { Database, Eye, MoreVertical, Shield } from "lucide-react";
+import { Database, Eye, MoreVertical, Shield, Trash2 } from "lucide-react";
 import { useState } from "react";
+
+/** Below this width the header can no longer fit Preview + Schema Access +
+ *  the ACCESS CONTROL pills' text on one line — matters most once the access
+ *  inspector opens beside this panel and eats into its width. */
+const NARROW_HEADER_WIDTH = 560;
 
 interface SchemaBasicInfoProps extends ISchemaDetails {
   onDeleteSuccess?: () => void;
@@ -32,8 +38,19 @@ interface SchemaBasicInfoProps extends ISchemaDetails {
    */
   onOpenSchemaAccess?: (tab: string) => void;
   /** Opens the schema preview drawer — moved here from the field table's own
-   * header so it sits beside Schema Access instead of down by the tabs. */
+   * header so it sits beside Schema Access instead of down by the tabs. Folds
+   * into the "⋮" menu (next to Delete schema) once the header is too narrow
+   * to hold it as its own button, or as soon as the access inspector opens
+   * at all — see `isAccessPanelOpen`. */
   onOpenPreview?: () => void;
+  /**
+   * True while the docked access inspector is open. The inspector panel eats
+   * into this panel's width, but not always past `NARROW_HEADER_WIDTH` — the
+   * ACCESS CONTROL pills compact to icon-only tier chips, and Preview folds
+   * into the "⋮" menu, as soon as the inspector opens at all, rather than
+   * waiting for a specific pixel width.
+   */
+  isAccessPanelOpen?: boolean;
 }
 
 export const SchemaBasicInfo = ({
@@ -41,12 +58,18 @@ export const SchemaBasicInfo = ({
   isLoading,
   onOpenSchemaAccess,
   onOpenPreview,
+  isAccessPanelOpen = false,
   ...props
 }: SchemaBasicInfoProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSchemaAccessControlDrawerOpen, setIsSchemaAccessControlDrawerOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState("");
+  const { ref: headerRef, isNarrow } = useNarrowContainer<HTMLDivElement>(NARROW_HEADER_WIDTH);
+  // Preview folds into the "⋮" menu the same moment the pills go icon-only —
+  // as soon as the access inspector opens at all, not only once the header
+  // itself crosses the pixel threshold.
+  const foldPreviewIntoMenu = isNarrow || isAccessPanelOpen;
 
   const { isPending: isDeleteSchemaPending, mutateAsync: deleteAsync } = useDeleteSchema();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
@@ -118,7 +141,10 @@ export const SchemaBasicInfo = ({
 
   return (
     <>
-      <div className="relative overflow-hidden rounded-t-sm border border-b-0 border-border/40 bg-card">
+      <div
+        ref={headerRef}
+        className="relative overflow-hidden rounded-t-sm border border-b-0 border-border/40 bg-card"
+      >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.04),transparent_60%)]" />
         {/* Header */}
         <div className="relative flex flex-wrap items-center justify-between gap-3 px-3 py-3.5 sm:px-5">
@@ -152,8 +178,8 @@ export const SchemaBasicInfo = ({
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {onOpenPreview && (
+          <div className="flex shrink-0 items-center gap-1.5">
+            {onOpenPreview && !foldPreviewIntoMenu && (
               <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={onOpenPreview}>
                 <Eye className="h-3.5 w-3.5" />
                 Preview
@@ -163,11 +189,12 @@ export const SchemaBasicInfo = ({
               <Button
                 variant="outline"
                 size="sm"
+                aria-label="Schema Access"
                 className="h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
                 onClick={() => onOpenSchemaAccess("View")}
               >
                 <Shield className="h-3.5 w-3.5" />
-                Schema Access
+                {!isNarrow && "Schema Access"}
               </Button>
             ) : isEntity ? (
               <SchemaAccessControlDrawer
@@ -183,10 +210,11 @@ export const SchemaBasicInfo = ({
                   <Button
                     variant="outline"
                     size="sm"
+                    aria-label="Schema Access"
                     className="h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
                   >
                     <Shield className="h-3.5 w-3.5" />
-                    Schema Access
+                    {!isNarrow && "Schema Access"}
                   </Button>
                 }
                 open={isSchemaAccessControlDrawerOpen}
@@ -206,6 +234,18 @@ export const SchemaBasicInfo = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
+                {onOpenPreview && foldPreviewIntoMenu && (
+                  <DropdownMenuItem
+                    className="cursor-pointer"
+                    onSelect={() => {
+                      setIsDropdownOpen(false);
+                      onOpenPreview();
+                    }}
+                  >
+                    <Eye className="mr-2 h-3.5 w-3.5" />
+                    Preview
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   className="cursor-pointer text-destructive focus:text-destructive"
                   onSelect={() => {
@@ -213,6 +253,7 @@ export const SchemaBasicInfo = ({
                     requestAnimationFrame(() => setIsDeleteDialogOpen(true));
                   }}
                 >
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
                   Delete schema
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -235,6 +276,7 @@ export const SchemaBasicInfo = ({
                     key={label}
                     verb={label}
                     level={level}
+                    compact={isNarrow || isAccessPanelOpen}
                     onClick={() => {
                       if (onOpenSchemaAccess) {
                         onOpenSchemaAccess(label);

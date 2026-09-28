@@ -206,13 +206,16 @@ export default function ImportSchemaModal({
         </DialogDescription>
       </DialogHeader>
 
-      {/* Warning card */}
-      <div className="flex flex-col gap-1.5 rounded-sm border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+      {/* Warning card — same readable warning tokens as the rest of the app
+          (see AccessEffectLine's "none" tier, and the accordion's own
+          last-rule-set warning), not the raw amber palette at low opacity,
+          which read as barely-visible pale text on a near-white card. */}
+      <div className="flex flex-col gap-1.5 rounded-sm border border-warning-500/50 bg-warning-100 px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-amber-400/80" />
-          <p className="text-xs font-semibold text-amber-400/80">JSON Format</p>
+          <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-warning-800" />
+          <p className="text-xs font-semibold text-warning-800">JSON Format</p>
         </div>
-        <p className="text-xs text-amber-300/60">
+        <p className="text-xs text-warning-800">
           Please download the JSON Template and re-upload with your data to avoid any error.
         </p>
       </div>

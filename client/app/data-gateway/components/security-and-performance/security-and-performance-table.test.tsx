@@ -40,7 +40,7 @@ describe("SecurityAndPerformanceTable", () => {
 
     // makeSchema: read 0, write 1, edit 2, delete 3.
     expect(screen.getByTitle("View — Inherited")).toHaveTextContent("V");
-    expect(screen.getByTitle("Create — Logged-in users")).toHaveTextContent("C");
+    expect(screen.getByTitle("Create — Signed-in users")).toHaveTextContent("C");
     expect(screen.getByTitle("Edit — Public")).toHaveTextContent("E");
     expect(screen.getByTitle("Delete — Custom")).toHaveTextContent("D");
   });

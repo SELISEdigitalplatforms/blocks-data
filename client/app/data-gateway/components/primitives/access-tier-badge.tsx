@@ -1,4 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
+import { CornerDownRight, Globe, Settings2, User, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -56,9 +57,17 @@ const TYPE_TO_TIER: Record<string, AccessTier> = {
 
 export const ACCESS_TIER_LABELS: Record<AccessTier, string> = {
   public: "Public",
-  user: "Logged-in users",
+  user: "Signed-in users",
   custom: "Custom",
   inherited: "Inherited",
+};
+
+/** Tier's icon, for compact chips/tiles where the label text is dropped. */
+export const TIER_ICON: Record<AccessTier, LucideIcon> = {
+  public: Globe,
+  user: User,
+  custom: Settings2,
+  inherited: CornerDownRight,
 };
 
 /**
@@ -146,14 +155,18 @@ export function AccessVerbPill({
   verb,
   onClick,
   className,
+  /** Drops the tier's text label, keeping just its icon — for a narrow header. */
+  compact = false,
 }: {
   level?: number | null;
   tier?: AccessTier;
   verb: string;
   onClick?: () => void;
   className?: string;
+  compact?: boolean;
 }) {
   const resolved = level === undefined || level === null ? (tier ?? "inherited") : tierFromLevel(level);
+  const Icon = TIER_ICON[resolved];
 
   return (
     <button
@@ -161,6 +174,8 @@ export function AccessVerbPill({
       onClick={onClick}
       // Adjacent spans with no text node between them read as one run-on
       // word ("CreateCustom") to a screen reader; say it properly instead.
+      // The full tier name stays here even when its text is visually
+      // dropped, so the accessible name never shrinks along with the chip.
       aria-label={`${verb} ${ACCESS_TIER_LABELS[resolved]}`}
       title={ACCESS_TIER_LABELS[resolved]}
       className={cn(
@@ -175,9 +190,12 @@ export function AccessVerbPill({
       <span className="text-muted-foreground" aria-hidden>
         {verb}
       </span>
-      <span className={cn("font-semibold", TIER_VALUE_CLASS[resolved])} aria-hidden>
-        {ACCESS_TIER_LABELS[resolved]}
-      </span>
+      <Icon className={cn("h-3.5 w-3.5 shrink-0", TIER_VALUE_CLASS[resolved])} aria-hidden />
+      {!compact && (
+        <span className={cn("font-semibold", TIER_VALUE_CLASS[resolved])} aria-hidden>
+          {ACCESS_TIER_LABELS[resolved]}
+        </span>
+      )}
     </button>
   );
 }

@@ -112,7 +112,11 @@ describe("SchemaFieldValidationDrawer", () => {
         }),
       ),
     );
-    await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
+    // Reported inline, pinned above the scroll area, instead of a toast that
+    // would otherwise sit on top of the panel's own footer.
+    await waitFor(() =>
+      expect(screen.getByText("Validation added successfully")).toBeInTheDocument(),
+    );
   });
 
   it("generates a regex pattern from a prompt", async () => {
@@ -195,10 +199,12 @@ describe("SchemaFieldValidationDrawer", () => {
         }),
       ),
     );
-    await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
+    await waitFor(() =>
+      expect(screen.getByText("Validation updated successfully")).toBeInTheDocument(),
+    );
   });
 
-  it("shows an error toast when saving fails", async () => {
+  it("shows an inline error when saving fails", async () => {
     const user = userEvent.setup();
     createValidation.mockResolvedValue({ isSuccess: false, errors: ["nope"] });
     renderDrawer(null);
@@ -207,9 +213,7 @@ describe("SchemaFieldValidationDrawer", () => {
     await user.type(screen.getByPlaceholderText("e.g. ^[a-zA-Z]+$"), "^y$");
     await user.click(screen.getByRole("button", { name: "Add" }));
 
-    await waitFor(() =>
-      expect(showErrorToast).toHaveBeenCalledWith({ errors: ["nope"] }),
-    );
+    await waitFor(() => expect(screen.getByText("nope")).toBeInTheDocument());
   });
 
   it("flags an invalid regex pattern and re-validates on change", async () => {
@@ -243,9 +247,7 @@ describe("SchemaFieldValidationDrawer", () => {
     await user.click(screen.getByRole("button", { name: "Generate" }));
 
     await waitFor(() =>
-      expect(showErrorToast).toHaveBeenCalledWith({
-        errors: ["Failed to generate regex"],
-      }),
+      expect(screen.getByText("Failed to generate regex")).toBeInTheDocument(),
     );
   });
 
@@ -262,9 +264,7 @@ describe("SchemaFieldValidationDrawer", () => {
     await user.click(screen.getByRole("button", { name: "Generate" }));
 
     await waitFor(() =>
-      expect(showErrorToast).toHaveBeenCalledWith({
-        errors: ["Error generating regex"],
-      }),
+      expect(screen.getByText("Error generating regex")).toBeInTheDocument(),
     );
   });
 

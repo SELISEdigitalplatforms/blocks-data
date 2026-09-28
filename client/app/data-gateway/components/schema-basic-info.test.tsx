@@ -183,7 +183,11 @@ describe("SchemaBasicInfo", () => {
   });
 
   // Preview used to live down by the tabs, in the field table's own header —
-  // moved here to sit beside Schema Access instead.
+  // moved here to sit beside Schema Access instead. It folds into the "⋮"
+  // menu once the header is too narrow to hold it as its own button — jsdom
+  // never fires ResizeObserver, so `isNarrow` stays false here and this stays
+  // the wide-header case; the `isAccessPanelOpen` fold is a plain prop, so
+  // that one's covered directly below without needing a real resize.
   it("shows a Preview button beside Schema Access and wires it through", async () => {
     const user = userEvent.setup();
     const onOpenPreview = vi.fn();
@@ -196,5 +200,26 @@ describe("SchemaBasicInfo", () => {
   it("hides the Preview button when no handler is given", () => {
     render(<SchemaBasicInfo {...baseProps({ schemaType: 1 })} />);
     expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+  });
+
+  // The inspector panel doesn't always narrow the header past its own pixel
+  // threshold, so Preview folding needs to react to the panel being open at
+  // all, not only to the header's own measured width.
+  it("folds Preview into the \"⋮\" menu while the access panel is open, even at a wide header", async () => {
+    const user = userEvent.setup();
+    const onOpenPreview = vi.fn();
+    render(
+      <SchemaBasicInfo
+        {...baseProps({ schemaType: 1 })}
+        onOpenPreview={onOpenPreview}
+        isAccessPanelOpen
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "More options" }));
+    await user.click(await screen.findByText("Preview"));
+    expect(onOpenPreview).toHaveBeenCalledTimes(1);
   });
 });

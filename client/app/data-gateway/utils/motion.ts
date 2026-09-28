@@ -32,5 +32,5 @@ export const SHELL = {
   explorerWidth: 264,
   railWidth: 52,
   inspectorWidth: 560,
-  inspectorWidthExpanded: 640,
+  inspectorWidthExpanded: 760,
 } as const;

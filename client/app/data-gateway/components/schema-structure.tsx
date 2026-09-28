@@ -137,6 +137,14 @@ interface SchemaStructureTableProps extends ISchemaDetails {
    */
   isPreviewOpen?: boolean;
   onPreviewOpenChange?: (open: boolean) => void;
+  /**
+   * Fires when Edit is clicked to *enter* edit mode (not on the Cancel that
+   * later leaves it). A docked access/validation inspector points at a
+   * field's current row, which edit mode can reshuffle or remove — the host
+   * closes it on the way in rather than leaving it pointed at something
+   * that's mid-edit or gone.
+   */
+  onEnterEditMode?: () => void;
 }
 
 export default function SchemaStructureTable(props: SchemaStructureTableProps) {
@@ -155,6 +163,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     onOpenFieldValidation,
     isPreviewOpen,
     onPreviewOpenChange,
+    onEnterEditMode,
     ...schemaDetails
   } = props;
 
@@ -484,6 +493,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     );
     setExpandedRowIndex(null);
     setIsEditMode(true);
+    onEnterEditMode?.();
   };
 
   const handleSelectAll = (checked: boolean) => {
@@ -526,11 +536,19 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const showRulesColumn = !isEditMode && !shouldHideAccessValidation;
   const visibleColumnCount =
     5 + (isEditMode ? 2 : 0) + (showRulesColumn ? 1 : 0);
+  // "Required" is the widest header word in its column by far, and only had
+  // its own cell's padding standing between it and "Flags" — at these widths
+  // that read as one run-on "RequiredFlags". Widened at Description's
+  // expense, which has the most room to give up.
+  // Rules holds two fixed-size icon buttons (~60px) plus cell padding — at
+  // 11% it had no margin left once the docked access inspector narrows this
+  // table, and the validation button got clipped rather than rendering in
+  // full. Widened at Description's expense, same trade as the Required fix.
   const desktopColumnWidths = isEditMode
     ? ["4%", "20%", "17%", "12%", "20%", "22%", "5%"]
     : showRulesColumn
-      ? ["22%", "16%", "10%", "14%", "27%", "11%"]
-      : ["24%", "18%", "11%", "15%", "32%"];
+      ? ["22%", "16%", "12%", "14%", "21%", "15%"]
+      : ["24%", "18%", "13%", "15%", "30%"];
   const emptyStateMobile =
     (totalFieldLength === readonlyFieldsCount || totalFieldLength === 0) &&
     !isEditMode;

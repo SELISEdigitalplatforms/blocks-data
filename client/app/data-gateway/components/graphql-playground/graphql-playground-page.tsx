@@ -65,9 +65,7 @@ export const GraphQLPlaygroundPage = () => {
         return storedQuery;
       }
     }
-    return `query {
-  __typename
-}`;
+    return "";
   });
   const [responses, setResponses] = useState<ResponseTab[]>([]);
   const [activeResponseTab, setActiveResponseTab] = useState<string>("");
@@ -1504,21 +1502,25 @@ export const GraphQLPlaygroundPage = () => {
             <h2 className="text-sm font-semibold text-foreground">GraphQL Playground</h2>
           </div>
           <div className="flex items-center gap-2">
+            {/* `outline` rather than `ghost`: ghost has no resting border or
+                background of its own, only a hover state, so paired with
+                muted text it read as a disabled control until the cursor
+                found it — same fix as the validation panel's empty-state CTA. */}
             <Button
               size="sm"
-              variant="ghost"
+              variant="outline"
               onClick={handleFetchSchemas}
               disabled={isSchemasDrawerLoading}
-              className="h-7 gap-1.5 border border-border/40 px-3 text-xs text-muted-foreground/70 hover:border-border/60 hover:text-foreground"
+              className="h-7 gap-1.5 px-3 text-xs text-muted-foreground hover:border-border hover:text-foreground"
             >
               <BookOpen className="h-3.5 w-3.5" />
               Schemas
             </Button>
             <Button
               size="sm"
-              variant="ghost"
+              variant="outline"
               onClick={() => setIsCleanDataModalOpen(true)}
-              className="h-7 gap-1.5 border border-border/40 px-3 text-xs text-muted-foreground/70 hover:border-rose-500/30 hover:text-rose-400"
+              className="h-7 gap-1.5 px-3 text-xs text-muted-foreground hover:border-rose-500/30 hover:text-rose-500"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Clean Test Data
@@ -1531,14 +1533,14 @@ export const GraphQLPlaygroundPage = () => {
           <div className="flex min-h-[320px] w-full flex-col border-b border-border/40 md:min-h-0 md:w-1/2 md:border-b-0 md:border-r">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 bg-muted/10 px-4">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground/70">Query Editor</span>
+                <span className="text-xs font-medium text-muted-foreground">Query Editor</span>
                 <div className="group relative">
-                  <Keyboard className="h-3.5 w-3.5 cursor-help text-muted-foreground/30 transition-colors hover:text-muted-foreground/60" />
-                  <div className="absolute left-0 top-full z-50 mt-2 hidden w-60 rounded-sm border border-border/40 bg-card/95 p-3 text-xs shadow-xl backdrop-blur-sm group-hover:block">
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+                  <Keyboard className="h-3.5 w-3.5 cursor-help text-muted-foreground/60 transition-colors hover:text-muted-foreground" />
+                  <div className="absolute left-0 top-full z-50 mt-2 hidden w-60 rounded-sm border border-border/40 bg-card p-3 text-xs shadow-xl group-hover:block">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                       Shortcuts
                     </p>
-                    <div className="space-y-1.5 text-muted-foreground/70">
+                    <div className="space-y-1.5 text-muted-foreground">
                       <div className="flex items-center justify-between">
                         <span>Execute</span>
                         <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
@@ -1602,7 +1604,7 @@ export const GraphQLPlaygroundPage = () => {
             {responses.length === 0 ? (
               <>
                 <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
-                  <span className="text-xs font-medium text-muted-foreground/70">Response</span>
+                  <span className="text-xs font-medium text-muted-foreground">Response</span>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <GraphqlMonacoEditor
@@ -1627,7 +1629,7 @@ export const GraphQLPlaygroundPage = () => {
             ) : responses.length === 1 ? (
               <>
                 <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
-                  <span className="text-xs font-medium text-muted-foreground/70">
+                  <span className="text-xs font-medium text-muted-foreground">
                     {responses[0].name}
                   </span>
                 </div>
@@ -1663,7 +1665,7 @@ export const GraphQLPlaygroundPage = () => {
                       <TabsTrigger
                         key={response.id}
                         value={response.id}
-                        className="h-7 rounded-sm px-3 text-xs text-muted-foreground/60 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
+                        className="h-7 rounded-sm px-3 text-xs text-muted-foreground data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none"
                       >
                         {response.name}
                       </TabsTrigger>

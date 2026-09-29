@@ -8,7 +8,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { Input } from "@/components/ui-kits/input/input";
-import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { LOGICAL_OPERATOR } from "@/data-gateway/constants/schema-access-control";
@@ -37,6 +36,11 @@ interface SchemaAccessControlAccordionProps {
    * to be told to refetch, the same way a create or update already is.
    */
   onDeleteSuccess?: () => void;
+  /** Reported through the host's own status snackbar instead of a toast —
+   *  same treatment a rule-set save/update result already gets, so a delete
+   *  doesn't show up in a different place than every other result on this
+   *  panel. See `useTransientStatus`. */
+  onDeleteError?: (errors: unknown) => void;
   isEditing?: boolean;
 }
 
@@ -45,6 +49,7 @@ export const SchemaAccessControlAccordion = ({
   onAddRuleSet,
   onEditPolicy,
   onDeleteSuccess,
+  onDeleteError,
   isEditing,
 }: SchemaAccessControlAccordionProps) => {
   const [openId, setOpenId] = useState<number | null>(null);
@@ -64,13 +69,12 @@ export const SchemaAccessControlAccordion = ({
         projectKey,
       });
       if (res?.isSuccess) {
-        showSuccessToast({ description: "Rule set deleted successfully" });
         onDeleteSuccess?.();
       } else {
-        showErrorToast({ errors: res?.errors });
+        onDeleteError?.(res?.errors);
       }
     } catch (error) {
-      showErrorToast({ errors: error });
+      onDeleteError?.(error);
     }
     setDeletingPolicy(null);
   };

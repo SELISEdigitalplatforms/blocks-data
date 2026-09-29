@@ -182,7 +182,7 @@ export const GraphAnalytics = () => {
             {/* Introspection stays excluded from aggregate analytics even when console operations
             are included. The request log remains the place to inspect those individual calls. */}
             {tab !== "requests" && (
-              <p className="text-xs text-muted-foreground/60">
+              <p className="text-xs text-muted-foreground">
                 Schema introspection requests are excluded — see them under Requests.
               </p>
             )}
@@ -245,7 +245,7 @@ export const GraphAnalytics = () => {
 
         {!isConfigurationLoading && !hasAnalyticsAccess && (
           <div className="absolute inset-0 z-10 flex items-center justify-center p-6">
-            <div className="max-w-lg rounded-sm border border-border/60 bg-card/95 p-6 text-center shadow-xl backdrop-blur-md">
+            <div className="max-w-lg rounded-sm border border-border/40 bg-card/95 p-6 text-center shadow-xl backdrop-blur-md">
               <h2 className="text-base font-semibold text-foreground">
                 Analytics access unavailable
               </h2>

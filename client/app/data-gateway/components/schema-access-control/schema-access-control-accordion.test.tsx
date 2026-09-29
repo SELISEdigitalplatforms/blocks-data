@@ -11,11 +11,6 @@ vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
 }));
 
-vi.mock("@/hooks/use-toast", () => ({
-  showErrorToast: vi.fn(),
-  showSuccessToast: vi.fn(),
-}));
-
 import { SchemaAccessControlAccordion } from "./schema-access-control-accordion";
 
 const policy = {
@@ -157,7 +152,14 @@ describe("SchemaAccessControlAccordion", () => {
     const user = userEvent.setup();
     deletePolicy.mockResolvedValue({ isSuccess: false, errors: ["no"] });
     const onDeleteSuccess = vi.fn();
-    render(<SchemaAccessControlAccordion policies={[policy]} onDeleteSuccess={onDeleteSuccess} />);
+    const onDeleteError = vi.fn();
+    render(
+      <SchemaAccessControlAccordion
+        policies={[policy]}
+        onDeleteSuccess={onDeleteSuccess}
+        onDeleteError={onDeleteError}
+      />,
+    );
 
     await openRowMenu(user);
     await user.click(await screen.findByText("Delete"));
@@ -167,15 +169,24 @@ describe("SchemaAccessControlAccordion", () => {
     await waitFor(() =>
       expect(screen.queryByText("Delete the only rule set?")).not.toBeInTheDocument(),
     );
-    // Nothing to refetch — the delete didn't actually go through.
+    // Nothing to refetch — the delete didn't actually go through — and the
+    // failure is reported through the same channel a save failure would use.
     expect(onDeleteSuccess).not.toHaveBeenCalled();
+    expect(onDeleteError).toHaveBeenCalledWith(["no"]);
   });
 
   it("handles a thrown error during policy deletion", async () => {
     const user = userEvent.setup();
     deletePolicy.mockRejectedValue(new Error("boom"));
     const onDeleteSuccess = vi.fn();
-    render(<SchemaAccessControlAccordion policies={[policy]} onDeleteSuccess={onDeleteSuccess} />);
+    const onDeleteError = vi.fn();
+    render(
+      <SchemaAccessControlAccordion
+        policies={[policy]}
+        onDeleteSuccess={onDeleteSuccess}
+        onDeleteError={onDeleteError}
+      />,
+    );
 
     await openRowMenu(user);
     await user.click(await screen.findByText("Delete"));
@@ -183,6 +194,7 @@ describe("SchemaAccessControlAccordion", () => {
 
     await waitFor(() => expect(deletePolicy).toHaveBeenCalled());
     expect(onDeleteSuccess).not.toHaveBeenCalled();
+    expect(onDeleteError).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it("dismisses the delete confirmation without deleting", async () => {

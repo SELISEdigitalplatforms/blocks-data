@@ -68,17 +68,20 @@ vi.mock("./schema-access-control-accordion", () => ({
     onAddRuleSet,
     onEditPolicy,
     onDeleteSuccess,
+    onDeleteError,
   }: {
     policies?: unknown[];
     onAddRuleSet?: () => void;
     onEditPolicy?: (p: unknown) => void;
     onDeleteSuccess?: () => void;
+    onDeleteError?: (errors: unknown) => void;
   }) => (
     <div data-testid="accordion">
       policies:{policies?.length ?? 0}
       <button onClick={() => onAddRuleSet?.()}>add-rule</button>
       <button onClick={() => onEditPolicy?.({ itemId: "e1" })}>edit-policy</button>
       <button onClick={() => onDeleteSuccess?.()}>delete-policy</button>
+      <button onClick={() => onDeleteError?.(["bad"])}>delete-policy-fail</button>
     </div>
   ),
 }));
@@ -322,7 +325,7 @@ describe("SchemaAccessControlView", () => {
     expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
   });
 
-  it("refetches the policy list once the accordion reports a successful delete", async () => {
+  it("refetches the policy list and shows the same snackbar a rule-set save would, once the accordion reports a successful delete", async () => {
     const user = userEvent.setup();
     useGetPolicyData.mockReturnValue({
       data: { isSuccess: true, data: [policy()] },
@@ -334,6 +337,22 @@ describe("SchemaAccessControlView", () => {
 
     await user.click(screen.getByText("delete-policy"));
     expect(refetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Rule set deleted successfully")).toBeInTheDocument();
+  });
+
+  it("shows a delete failure in the same snackbar instead of a toast", async () => {
+    const user = userEvent.setup();
+    useGetPolicyData.mockReturnValue({
+      data: { isSuccess: true, data: [policy()] },
+      refetch,
+      isPending: false,
+      isFetching: false,
+    });
+    render(<SchemaAccessControlView {...baseProps} defaultAccessLevel={3} />);
+
+    await user.click(screen.getByText("delete-policy-fail"));
+    expect(screen.getByText("bad")).toBeInTheDocument();
+    expect(refetch).not.toHaveBeenCalled();
   });
 
   it("orders the who-is-allowed tiles as Public, Signed-in users, Custom", () => {

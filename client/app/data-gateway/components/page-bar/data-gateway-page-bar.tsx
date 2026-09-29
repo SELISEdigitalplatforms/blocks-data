@@ -1,5 +1,6 @@
 "use client";
 
+import { SHELL } from "../../utils/motion";
 import { DataGatewaySections } from "./data-gateway-sections";
 import { DataGatewayUtilities } from "./data-gateway-utilities";
 import { EndpointChip } from "./endpoint-chip";
@@ -15,7 +16,15 @@ import { PublishControl } from "./publish-control";
  */
 export const DataGatewayPageBar = () => (
   <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-x-3 border-b border-border/50 lg:h-[52px] lg:flex-nowrap lg:items-stretch">
-    <div className="flex min-h-[48px] min-w-0 flex-1 items-center gap-3 lg:flex-initial lg:shrink-0">
+    {/* Fixed, on large screens, to the Schemas tab's own explorer width minus
+        this row's own gap — added back by that gap, it comes out to the same
+        264px sidebar + 16px column gap the Schemas tab uses below, so the
+        tab list starts exactly where that tab's content column does, instead
+        of crowding right up against the endpoint chip. */}
+    <div
+      style={{ "--dg-title-w": `${SHELL.explorerWidth - 12}px` } as React.CSSProperties}
+      className="flex min-h-[48px] min-w-0 flex-1 items-center gap-3 lg:w-[var(--dg-title-w)] lg:flex-none lg:shrink-0"
+    >
       <h1 className="text-base font-semibold tracking-tight text-foreground">Data Gateway</h1>
       <span className="hidden min-w-0 lg:block">
         <EndpointChip />

@@ -32,15 +32,8 @@ vi.mock("../../components/page-bar", () => ({
 }));
 
 vi.mock("./graph-log-history", () => ({
-  GraphLogHistory: (props: {
-    from?: string;
-    to?: string;
-    includeBlocksConsole?: boolean;
-  }) => (
-    <div
-      data-testid="history"
-      data-include-blocks-console={String(props.includeBlocksConsole)}
-    >
+  GraphLogHistory: (props: { from?: string; to?: string; includeBlocksConsole?: boolean }) => (
+    <div data-testid="history" data-include-blocks-console={String(props.includeBlocksConsole)}>
       {`${props.from}..${props.to}`}
     </div>
   ),
@@ -253,10 +246,7 @@ describe("GraphAnalytics", () => {
 
     expect(toggle).toBeChecked();
     expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(4)).toBe(true);
-    expect(screen.getByTestId("history")).toHaveAttribute(
-      "data-include-blocks-console",
-      "true",
-    );
+    expect(screen.getByTestId("history")).toHaveAttribute("data-include-blocks-console", "true");
   });
 
   it("offers a bucket size only where something is bucketed over time", async () => {
@@ -311,9 +301,10 @@ describe("GraphAnalytics", () => {
     renderAnalytics();
 
     // Traffic opens on this card: volume and its composition are the same question.
-    const card = screen
-      .getByRole("heading", { name: "Requests over time" })
-      .closest("div")!.parentElement!;
+    // AnalyticsCard wraps the heading in an icon+title group, itself inside the
+    // header row, inside the card — two parents up from that group reaches the card.
+    const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
+      .parentElement!.parentElement!;
 
     // 10 requests: 3 refused on purpose (2 by policy, 1 by validation) and 1 that broke,
     // leaving 6 served. Validation counts as a denial — rejecting bad input is the gateway
@@ -352,9 +343,8 @@ describe("GraphAnalytics", () => {
 
     renderAnalytics();
 
-    const card = screen
-      .getByRole("heading", { name: "Requests over time" })
-      .closest("div")!.parentElement!;
+    const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
+      .parentElement!.parentElement!;
     expect(within(card).getByText("Denies · 0%")).toBeInTheDocument();
     expect(within(card).getByText("Errors · 100%")).toBeInTheDocument();
     expect(within(card).getByText("1 syntax error · 1 others")).toBeInTheDocument();
@@ -381,9 +371,8 @@ describe("GraphAnalytics", () => {
 
     renderAnalytics();
 
-    const card = screen
-      .getByRole("heading", { name: "Requests over time" })
-      .closest("div")!.parentElement!;
+    const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
+      .parentElement!.parentElement!;
     expect(within(card).getByText("Allows · 99.6%")).toBeInTheDocument();
     expect(within(card).getByText("Denies · 0.1%")).toBeInTheDocument();
     expect(within(card).getByText("Errors · 0.3%")).toBeInTheDocument();

@@ -489,7 +489,11 @@ export const SchemaAccessControlView = forwardRef<
                   setEditingPolicy(policy);
                   setShowRuleSetForm(true);
                 }}
-                onDeleteSuccess={refetch}
+                onDeleteSuccess={() => {
+                  setSuccess("Rule set deleted successfully");
+                  refetch();
+                }}
+                onDeleteError={setError}
               />
             )}
           </div>

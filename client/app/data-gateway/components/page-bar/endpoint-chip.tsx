@@ -5,21 +5,14 @@ import { cn } from "@/lib/utils";
 import { Check, Copy } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { GATEWAY_ENDPOINTS } from "../../constants/endpoint.constant";
 import { useGetDataServiceConfiguration } from "../../hooks/use-configuration";
 import { IDataSourceResponse } from "../../models/data-service";
 
-/**
- * The address every query in this project is sent to.
- *
- * `GATEWAY_ENDPOINTS.EXECUTE` is host-relative (`/api/gateway`) because the app
- * proxies it, so prefix the configured host to get something worth copying into
- * a client or a curl call.
- */
-export const gatewayEndpointUrl = () => {
-  const host = (getRuntimeEnv("BLOCKS_DATA_BASE_URL") || "").replace(/\/$/, "");
-  return `${host}${GATEWAY_ENDPOINTS.EXECUTE}`;
-};
+/** The short, host-relative label shown in the chip — not what actually gets
+ *  copied. `/api/gateway` is this app's own proxy path and isn't reachable
+ *  from outside it, so a curl call or another client needs the real address
+ *  (`BLOCKS_GRAPHQL_PUBLIC_URL`) instead. */
+const GATEWAY_LABEL = "/gateway";
 
 /**
  * Endpoint and connected database, in the page bar.
@@ -35,7 +28,7 @@ export const EndpointChip = () => {
 
   useEffect(() => () => clearTimeout(resetTimer.current), []);
 
-  const endpoint = gatewayEndpointUrl();
+  const endpoint = getRuntimeEnv("BLOCKS_GRAPHQL_PUBLIC_URL");
 
   const copyEndpoint = async () => {
     try {
@@ -51,7 +44,10 @@ export const EndpointChip = () => {
   };
 
   return (
-    <div className="hidden h-[26px] items-center gap-2 rounded-full border border-border/50 bg-muted/30 pl-2.5 pr-1 lg:flex">
+    <div
+      className="hidden h-[26px] items-center gap-2 rounded-full border border-border/40 bg-muted/30 pl-2.5 pr-1 lg:flex"
+      title={configuration?.databaseName ? `Connected to ${configuration.databaseName}` : undefined}
+    >
       <span
         className={cn(
           "h-1.5 w-1.5 shrink-0 rounded-full",
@@ -59,16 +55,13 @@ export const EndpointChip = () => {
         )}
         aria-hidden
       />
-      <span className="max-w-[260px] truncate font-mono text-[11px] text-muted-foreground">
-        {GATEWAY_ENDPOINTS.EXECUTE}
-        {configuration?.databaseName ? ` · ${configuration.databaseName}` : ""}
-      </span>
+      <span className="font-mono text-[11px] text-muted-foreground">{GATEWAY_LABEL}</span>
       <button
         type="button"
         onClick={copyEndpoint}
         aria-label={copied ? "Endpoint copied" : "Copy endpoint"}
         title={endpoint}
-        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground"
+        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
       >
         {copied ? <Check className="h-3 w-3 text-success" /> : <Copy className="h-3 w-3" />}
       </button>

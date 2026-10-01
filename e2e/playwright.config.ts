@@ -29,7 +29,7 @@ export default defineConfig({
     baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: "off",
     ignoreHTTPSErrors: true,
     launchOptions: {
       slowMo: process.env.E2E_SLOWMO ? Number(process.env.E2E_SLOWMO) : 0,

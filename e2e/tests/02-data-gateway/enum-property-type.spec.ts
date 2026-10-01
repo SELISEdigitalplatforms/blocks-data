@@ -44,7 +44,11 @@ async function createSchema(page: Page, schemaName: string) {
   await openDataGateway(page);
   const landingHeading = page.getByRole("heading", { name: "Security Assessment" });
   const emptyStateHeading = page.getByText("No schemas yet", { exact: true });
-  await expect(landingHeading.or(emptyStateHeading).first()).toBeVisible({ timeout: 30_000 });
+  const schemasReady = page.getByRole("heading", { name: "Schemas", exact: true });
+  const pickSchema = page.getByText("Select a schema from the sidebar to view its details.");
+  await expect(
+    landingHeading.or(emptyStateHeading).or(schemasReady).or(pickSchema).first(),
+  ).toBeVisible({ timeout: 30_000 });
 
   const addSchemaButton = page.getByRole("button", { name: /Add Schema|Add schema|\+/ }).first();
   // Prefer explicit Add Schema if present

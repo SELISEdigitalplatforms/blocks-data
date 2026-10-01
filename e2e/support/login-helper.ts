@@ -90,7 +90,11 @@ async function waitForConsoleAfterOidc(page: Page, timeoutMs = 60_000): Promise<
 }
 
 export async function loginThroughOidc(page: Page, options?: { loginPath?: string }) {
-  const base = e2eBaseUrl()
+  // When loginPath is an absolute OS (or other) URL, keep retries on that origin.
+  // Falling back to e2eBaseUrl() mid-flow sent OS teardown to the Data landing page.
+  const base = options?.loginPath?.startsWith("http")
+    ? new URL(options.loginPath).origin
+    : e2eBaseUrl()
   const loginPath = options?.loginPath ?? `${base}/login`
 
   await page.goto(loginPath, { waitUntil: "domcontentloaded" })
@@ -175,12 +179,14 @@ export async function ensureAuthenticatedOnCurrentOrigin(page: Page) {
 
   const origin = new URL(href).origin
   await page.goto(`${origin}/app/console`, { waitUntil: "domcontentloaded" })
+  await dismissSessionConflictIfPresent(page)
 
   if (await consoleHeading(page).isVisible({ timeout: 15_000 }).catch(() => false)) {
     return
   }
 
   await loginThroughOidc(page, { loginPath: `${origin}/login` })
+  await dismissSessionConflictIfPresent(page)
   await expect(consoleHeading(page)).toBeVisible({ timeout: 30_000 })
 }
 

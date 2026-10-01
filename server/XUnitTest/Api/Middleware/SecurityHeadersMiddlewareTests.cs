@@ -20,7 +20,7 @@ public class SecurityHeadersMiddlewareTests
         headers["X-Frame-Options"].ToString().Should().Be("DENY");
         headers["Strict-Transport-Security"].ToString().Should().Contain("max-age=31536000");
         var csp = headers["Content-Security-Policy"].ToString();
-        csp.Should().Contain("default-src 'self'");
+        csp.Should().Contain("default-src 'self' blob:");
         csp.Should().Contain("frame-ancestors 'none'");
         csp.Should().Contain("script-src 'self'");
         csp.Should().Contain("style-src 'self'");

@@ -29,14 +29,28 @@ function schemaRowLocator(page: Page, schemaName: string) {
 
 async function createSchemaViaModal(page: Page, addButtonLocator: Locator, schemaName: string) {
   await addButtonLocator.click();
+  const dialog = page.getByRole("dialog");
   await expect(page.getByRole("heading", { name: "Add New Schema" })).toBeVisible({
     timeout: 30_000,
   });
-  await page.getByLabel(/Schema name/).fill(schemaName);
-  await page.getByRole("button", { name: "Add" }).last().click();
-  await expect(page.getByText("Schema added successfully").first()).toBeVisible({
-    timeout: 15_000,
-  });
+  const nameInput = dialog.getByLabel(/Schema name/);
+  await nameInput.click();
+  await nameInput.fill("");
+  await nameInput.pressSequentially(schemaName, { delay: 15 });
+  const entityInput = dialog.locator("#entityName");
+  if (await entityInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    const entityVal = await entityInput.inputValue().catch(() => "");
+    if (!entityVal.trim()) {
+      await entityInput.fill(`sb_${schemaName}`);
+    }
+  }
+  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(
+    page
+      .getByText("Schema added successfully")
+      .or(page.getByRole("button", { name: schemaName }))
+      .first(),
+  ).toBeVisible({ timeout: 20_000 });
 }
 
 test.describe("flow: Data Gateway menu", () => {

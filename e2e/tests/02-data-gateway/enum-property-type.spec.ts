@@ -123,10 +123,11 @@ test.describe("feature: Enum property type (#353)", () => {
       await page.keyboard.press("Escape").catch(() => {});
       const enumEditor = page
         .locator("table")
-        .getByRole("row", { name: new RegExp(`Select ${fieldName}`) })
+        .getByRole("row")
+        .filter({ hasText: fieldName })
         .filter({ hasText: "Allowed values" })
-        .first();
-      await expect(enumEditor).toBeVisible({ timeout: 10_000 });
+        .last();
+      await expect(enumEditor).toBeVisible({ timeout: 15_000 });
       const valueInput = enumEditor.getByLabel("New enum value");
       const addValue = enumEditor.getByLabel("Add enum value");
       await valueInput.fill("Active");

@@ -73,16 +73,20 @@ async function selectSchema(page: Page, schemaName: string): Promise<boolean> {
 
   async function clickAndConfirm(): Promise<boolean> {
     const row = schemaRowLocator(page, schemaName);
+    await row.scrollIntoViewIfNeeded().catch(() => {});
     await row.click();
     const selected = page.getByRole("heading", { name: schemaName, exact: true }).first();
-    const access = page.getByRole("button", { name: "Schema Access" });
-    const ok = await selected
-      .or(access)
-      .first()
-      .waitFor({ state: "visible", timeout: 10_000 })
-      .then(() => true)
-      .catch(() => false);
-    return ok;
+    const emptyDetails = page.getByText(
+      "Select a schema from the sidebar to view its details.",
+    );
+    try {
+      await expect(selected).toBeVisible({ timeout: 10_000 });
+      // Empty-state copy must be gone — a fleeting heading flash is not enough.
+      await expect(emptyDetails).toBeHidden({ timeout: 5_000 });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   if (await schemaRowVisible(page, schemaName)) {
@@ -392,7 +396,7 @@ test.describe("flow: Data Gateway menu", () => {
     await test.step("Schema Access drawer: change policy to Custom and add a rule set", async () => {
       expect(await selectSchema(page, schemaName)).toBe(true);
 
-      const schemaAccessButton = page.getByRole("button", { name: "Schema Access" });
+      const schemaAccessButton = page.getByRole("button", { name: /Schema Access/i });
       await expect(schemaAccessButton).toBeVisible({ timeout: 15_000 });
 
       await schemaAccessButton.click();
@@ -583,7 +587,7 @@ test.describe("flow: Data Gateway menu", () => {
       expect(await selectSchema(page, schemaName)).toBe(true);
 
       const schemaAccessButton = page.getByRole("button", {
-        name: "Schema Access",
+        name: /Schema Access/i,
       });
       await expect(schemaAccessButton).toBeVisible({ timeout: 15_000 });
       await schemaAccessButton.click();
@@ -783,7 +787,7 @@ test.describe("flow: Data Gateway menu", () => {
 
     await test.step("Schema Access: switch policy to Public, then Logged-in, then back to Custom (each behind a confirmation)", async () => {
       expect(await selectSchema(page, schemaName)).toBe(true);
-      const schemaAccessButton = page.getByRole("button", { name: "Schema Access" });
+      const schemaAccessButton = page.getByRole("button", { name: /Schema Access/i });
       await expect(schemaAccessButton).toBeVisible({ timeout: 15_000 });
 
       await schemaAccessButton.click();

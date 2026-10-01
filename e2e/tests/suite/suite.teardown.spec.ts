@@ -18,8 +18,8 @@ test.describe("data suite teardown", () => {
 
     if (!shouldDeleteSharedProject()) {
       console.log(
-        `[e2e] Keeping project "${fixture.projectName}" on the console ` +
-          "(a test failed or E2E_KEEP_PROJECT=1).",
+        "[e2e] Keeping project on the console (a test failed or E2E_KEEP_PROJECT=1):",
+        fixture.projectName,
       )
       return
     }
@@ -31,14 +31,15 @@ test.describe("data suite teardown", () => {
       })
       if (!deleted) {
         console.log(
-          `[e2e] Project "${fixture.projectName}" was not deleted automatically — ` +
-            "remove it manually from the console if needed.",
+          "[e2e] Project was not deleted automatically — remove it manually from the console if needed:",
+          fixture.projectName,
         )
       }
     } catch (error) {
       // Product suite already passed; orphan cleanup must not fail the run.
       console.warn(
-        `[e2e] Teardown cleanup failed (non-fatal) for "${fixture.projectName}":`,
+        "[e2e] Teardown cleanup failed (non-fatal) for project:",
+        fixture.projectName,
         error,
       )
     } finally {

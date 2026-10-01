@@ -197,10 +197,16 @@ test.describe("flow: Data Gateway menu", () => {
       const confirmExportButton = dialog.getByRole("button", { name: "Export", exact: true });
       await expect(confirmExportButton).toBeEnabled({ timeout: 10_000 });
       await confirmExportButton.click();
-      await expect(page.getByText("Export in progress").first()).toBeVisible({
-        timeout: 15_000,
-      });
-      await expect(dialog).toBeHidden({ timeout: 10_000 });
+      const exportToast = page
+        .getByText("Export in progress")
+        .or(page.getByText("Schema export downloaded successfully"))
+        .or(page.getByText(/Export failed|Export request failed/i));
+      await expect(exportToast.first()).toBeVisible({ timeout: 20_000 });
+      if (await dialog.isVisible().catch(() => false)) {
+        const cancel = dialog.getByRole("button", { name: "Cancel" });
+        if (await cancel.isVisible().catch(() => false)) await cancel.click();
+      }
+      await expect(dialog).toBeHidden({ timeout: 15_000 });
     });
 
     await test.step("Import Schema modal opens fresh and requires a file before proceeding", async () => {

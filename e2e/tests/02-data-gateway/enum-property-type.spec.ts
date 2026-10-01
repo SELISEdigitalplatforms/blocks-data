@@ -35,6 +35,10 @@ async function createSchema(page: Page, schemaName: string) {
   await expect(page.getByText("Schema added successfully").first()).toBeVisible({
     timeout: 15_000,
   });
+  // New schemas land in the sidebar but may not auto-open in the details pane.
+  const sidebarItem = page.getByRole("button", { name: new RegExp(`^${schemaName}\\b`) }).first();
+  await expect(sidebarItem).toBeVisible({ timeout: 15_000 });
+  await sidebarItem.click();
   await expect(page.getByRole("heading", { name: schemaName }).first()).toBeVisible({
     timeout: 15_000,
   });

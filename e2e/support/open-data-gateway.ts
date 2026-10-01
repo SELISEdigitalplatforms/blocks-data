@@ -95,9 +95,29 @@ export async function openDataGateway(page: Page) {
   await expect(settled()).toBeVisible({ timeout: 60_000 })
 }
 
+/** Wait until SchemaListSkeleton (h-10 w-full animate-pulse bars) is gone. */
+async function waitForSchemaListReady(page: Page, timeoutMs = 45_000): Promise<boolean> {
+  const search = page.getByPlaceholder(/Search schemas/)
+  if (!(await search.isVisible({ timeout: 5_000 }).catch(() => false))) return false
+
+  // SchemaListSkeleton uses Skeleton with className "h-10 w-full rounded-md".
+  const skeletons = page.locator(".animate-pulse.h-10.w-full")
+  try {
+    await expect
+      .poll(async () => ((await skeletons.count()) === 0 ? "ready" : "loading"), {
+        timeout: timeoutMs,
+        intervals: [250, 500, 1000],
+      })
+      .toBe("ready")
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function enterSchemasSidebar(page: Page): Promise<boolean> {
   if (await page.getByPlaceholder(/Search schemas/).isVisible({ timeout: 1_500 }).catch(() => false)) {
-    return true
+    return waitForSchemaListReady(page)
   }
   // Prefer SPA navigation via a landing-table row click (avoids brittle ?type=all remounts).
   const landing = page.getByRole("heading", { name: "Security Assessment" })
@@ -110,7 +130,7 @@ async function enterSchemasSidebar(page: Page): Promise<boolean> {
         .waitFor({ state: "visible", timeout: 20_000 })
         .then(() => true)
         .catch(() => false)
-      if (ok) return true
+      if (ok) return waitForSchemaListReady(page)
     }
   }
   // Fallback: query-param navigation
@@ -135,7 +155,9 @@ async function enterSchemasSidebar(page: Page): Promise<boolean> {
       await firstDataRow.click()
     }
   }
-  return page.getByPlaceholder(/Search schemas/).isVisible({ timeout: 15_000 }).catch(() => false)
+  const visible = await page.getByPlaceholder(/Search schemas/).isVisible({ timeout: 15_000 }).catch(() => false)
+  if (!visible) return false
+  return waitForSchemaListReady(page)
 }
 
 /**
@@ -192,49 +214,67 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
     }
   }
 
-  if (!(await enterSchemasSidebar(page))) return false
-
-  const schemaRow = () =>
-    page.getByRole("button", { name: new RegExp(`^${schemaName}\\b`) }).first()
-
-  async function clickSidebar(): Promise<boolean> {
-    const row = schemaRow()
-    if (!(await row.isVisible({ timeout: 2_000 }).catch(() => false))) {
-      // Fallback: sidebar label may not expose role=button consistently.
-      const byText = page.getByText(new RegExp(`^${schemaName}\\b`), { exact: false }).first()
-      if (await byText.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await byText.click()
-        return confirmSelected()
-      }
+  async function pickFromSidebar(): Promise<boolean> {
+    if (!(await enterSchemasSidebar(page))) return false
+    if (!(await waitForSchemaListReady(page))) {
+      await page.reload({ waitUntil: "domcontentloaded" }).catch(() => {})
+      await dismissSessionConflictIfPresent(page)
+      if (!(await enterSchemasSidebar(page))) return false
+      if (!(await waitForSchemaListReady(page))) return false
     }
-    await row.scrollIntoViewIfNeeded().catch(() => {})
-    await row.click()
-    return confirmSelected()
-  }
 
-  const search = page.getByPlaceholder(/Search schemas/)
-  await expect(search).toBeVisible({ timeout: 15_000 })
-  await search.fill("")
-  await search.fill(schemaName)
-  await expect(schemaRow()).toBeVisible({ timeout: 15_000 }).catch(() => {})
-  if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
-    if (await clickSidebar()) return true
-  }
+    const schemaRow = () =>
+      page.getByRole("button", { name: new RegExp(`^${schemaName}\\b`) }).first()
 
-  // Clear search and paginate sidebar as a last resort.
-  await search.fill("")
-  if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
-    if (await clickSidebar()) return true
-  }
-  for (let i = 0; i < 10; i++) {
-    const next = page.getByRole("button", { name: "Next page" })
-    if (!(await next.isVisible({ timeout: 500 }).catch(() => false))) break
-    if (await next.isDisabled().catch(() => false)) break
-    await next.click()
+    async function clickSidebar(): Promise<boolean> {
+      const row = schemaRow()
+      if (!(await row.isVisible({ timeout: 2_000 }).catch(() => false))) {
+        const byText = page.getByText(new RegExp(`^${schemaName}\\b`), { exact: false }).first()
+        if (await byText.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          await byText.click()
+          return confirmSelected()
+        }
+      }
+      await row.scrollIntoViewIfNeeded().catch(() => {})
+      await row.click()
+      return confirmSelected()
+    }
+
+    const search = page.getByPlaceholder(/Search schemas/)
+    await expect(search).toBeVisible({ timeout: 15_000 })
+    await search.fill("")
+    await waitForSchemaListReady(page)
+    await search.fill(schemaName)
+    // Schema list search is debounced (~500ms) then refetches.
+    await page.waitForTimeout(700)
+    await waitForSchemaListReady(page)
+    await expect(schemaRow()).toBeVisible({ timeout: 20_000 }).catch(() => {})
     if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
       if (await clickSidebar()) return true
     }
+
+    await search.fill("")
+    await page.waitForTimeout(700)
+    await waitForSchemaListReady(page)
+    if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
+      if (await clickSidebar()) return true
+    }
+    for (let i = 0; i < 10; i++) {
+      const next = page.getByRole("button", { name: "Next page" })
+      if (!(await next.isVisible({ timeout: 500 }).catch(() => false))) break
+      if (await next.isDisabled().catch(() => false)) break
+      await next.click()
+      await waitForSchemaListReady(page)
+      if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
+        if (await clickSidebar()) return true
+      }
+    }
+    return false
   }
 
-  return false
+  if (await pickFromSidebar()) return true
+
+  // Last resort: full remount then pick again.
+  await openDataGateway(page)
+  return pickFromSidebar()
 }

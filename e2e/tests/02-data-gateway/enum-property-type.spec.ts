@@ -118,8 +118,13 @@ test.describe("feature: Enum property type (#353)", () => {
         page.getByText("Add at least one allowed value for Enum.").first(),
       ).toBeVisible({ timeout: 5_000 });
 
-      // Multiple Enum editors can appear (prior fields); drive the newest row.
-      const enumEditor = page.locator("table").locator("tr").filter({ hasText: fieldName }).last();
+      // Desktop + mobile both mount EnumValuesEditor; drive the desktop table row.
+      await page.keyboard.press("Escape").catch(() => {});
+      const enumEditor = page
+        .locator("table tr")
+        .filter({ has: page.locator(`input[value="${fieldName}"]`) })
+        .last();
+      await expect(enumEditor).toBeVisible({ timeout: 10_000 });
       const valueInput = enumEditor.getByLabel("New enum value");
       const addValue = enumEditor.getByLabel("Add enum value");
       await valueInput.fill("Active");

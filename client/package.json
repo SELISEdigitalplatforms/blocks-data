@@ -74,6 +74,7 @@
     "react-router": "^8.0.0",
     "react-syntax-highlighter": "^16.1.1",
     "recharts": "^2.15.4",
+    "regexpp": "^3.2.0",
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",
@@ -109,12 +110,14 @@
     "vitest": "^4.1.5"
   },
   "overrides": {
-    "axios": "1.18.0",
+    "axios": "1.20.0",
     "brace-expansion": "^5.0.9",
     "follow-redirects": "1.16.0",
     "form-data": "4.0.6",
     "linkify-it": "5.0.2",
-    "markdown-it": "14.2.0",
-    "ws": "7.5.11"
+    "markdown-it": "14.3.1",
+    "ws": "7.5.11",
+    "nanoid": "3.3.18",
+    "fast-uri": "3.1.8"
   }
 }

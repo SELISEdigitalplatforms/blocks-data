@@ -6,12 +6,15 @@ namespace DataGateway.DomainService.Helpers;
 
 public static class DescriptorHelper
 {
-    public static void ResolveObjectTypeDescriptor(this IObjectTypeDescriptor descriptor, FieldDefinitionResponse field)
+    public static void ResolveObjectTypeDescriptor(this IObjectTypeDescriptor descriptor, FieldDefinitionResponse field, string schemaName)
     {
         if (GraphQlTypeHelper.IsScalar(field.Type))
         {
+            var typeNode = field.Type == GraphQlTypeHelper.EnumTypeName
+                ? GraphQlTypeHelper.GetEnumTypeNode(schemaName, field.Name, field.IsArray)
+                : GraphQlTypeHelper.GetTypeNode(field.Type, field.IsArray);
             descriptor.Field(field.Name).Description(field.Description ?? string.Empty)
-                .Type(GraphQlTypeHelper.GetTypeNode(field.Type, field.IsArray))
+                .Type(typeNode)
                 .Resolve(ctx =>
                 {
                     var parent = ctx.Parent<object>();
@@ -68,14 +71,16 @@ public static class DescriptorHelper
         }
     }
 
-    public static void ResolveInputTypeDescriptor(this IInputObjectTypeDescriptor descriptor, FieldDefinitionResponse field)
+    public static void ResolveInputTypeDescriptor(this IInputObjectTypeDescriptor descriptor, FieldDefinitionResponse field, string schemaName)
     {
         var fieldType = field.Type;
         var fieldName = field.Name;
 
         if (GraphQlTypeHelper.IsScalar(fieldType))
         {
-            var inputType = GraphQlTypeHelper.GetTypeNode(fieldType, field.IsArray);
+            var inputType = fieldType == GraphQlTypeHelper.EnumTypeName
+                ? GraphQlTypeHelper.GetEnumTypeNode(schemaName, fieldName, field.IsArray)
+                : GraphQlTypeHelper.GetTypeNode(fieldType, field.IsArray);
             descriptor.Field(fieldName).Description(field.Description ?? string.Empty).Type(inputType);
         }
         else if (field.IsArray)

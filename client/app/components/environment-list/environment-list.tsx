@@ -22,9 +22,16 @@ const redirectPaths: Record<string, string> = {
     "/services/authentication?tab=social",
 };
 
-const wildcardToRegex = (pattern: string) => {
-  const escaped = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&");
-  return `^${escaped.replace(/\*/g, "[^/]+")}$`;
+/** Match path patterns where each `*` is exactly one path segment (no `/`). */
+const matchesWildcardPath = (pattern: string, pathname: string): boolean => {
+  const patternParts = pattern.split("/");
+  const pathParts = pathname.split("/");
+  if (patternParts.length !== pathParts.length) return false;
+  for (let i = 0; i < patternParts.length; i++) {
+    if (patternParts[i] === "*") continue;
+    if (patternParts[i] !== pathParts[i]) return false;
+  }
+  return true;
 };
 
 export function EnvironmentList({
@@ -41,17 +48,7 @@ export function EnvironmentList({
   });
   const pendingProjectRef = useRef<IProject | null>(null);
 
-  const redirectRegexMap = useMemo(
-    () =>
-      Object.entries(redirectPaths).reduce<Record<string, string>>(
-        (acc, [pattern, target]) => {
-          acc[wildcardToRegex(pattern)] = target;
-          return acc;
-        },
-        {},
-      ),
-    [],
-  );
+  const redirectEntries = useMemo(() => Object.entries(redirectPaths), []);
 
   useEffect(() => {
     if (pendingProjectRef.current) {
@@ -70,8 +67,8 @@ export function EnvironmentList({
   }, [projectData, selectedProject?.itemId, setSelectedProject]);
 
   const handleProjectSelect = (project: IProject) => {
-    const redirectEntry = Object.entries(redirectRegexMap).find(([regex]) =>
-      new RegExp(regex).test(pathname),
+    const redirectEntry = redirectEntries.find(([pattern]) =>
+      matchesWildcardPath(pattern, pathname),
     );
 
     if (redirectEntry) {

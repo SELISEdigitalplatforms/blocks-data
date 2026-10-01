@@ -140,6 +140,7 @@ public class SchemaDefinitionReferenceHelper
             Name = currentPath,
             Type = field.Type,
             IsArray = field.IsArray,
+            EnumValues = field.EnumValues ?? [],
             IsPIIData = field.IsPIIData,
             IsUniqueData = field.IsUniqueData,
             RequiredOn = field.RequiredOn,

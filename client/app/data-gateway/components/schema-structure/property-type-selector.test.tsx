@@ -71,6 +71,29 @@ describe("PropertyTypeSelector", () => {
   // needed no code change here — which is exactly why it is worth pinning: the
   // type must show up under Primitive Types, not Child Types, where a schema
   // reference named "GeoJson" would land.
+  it("offers Enum among the primitive types", async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    render(
+      <PropertyTypeSelector
+        index={0}
+        value=""
+        isOpen={true}
+        onOpenChange={() => {}}
+        onSelect={onSelect}
+        isReadOnly={false}
+        isEditMode={true}
+        schemaItems={[]}
+        onSearchChange={() => {}}
+        searchText=""
+      />,
+    );
+    const primitives = screen.getByText("Enum").closest('[cmdk-group]') ?? screen.getByText("Enum").parentElement;
+    expect(within(primitives as HTMLElement).getByText("Enum")).toBeInTheDocument();
+    await user.click(screen.getByText("Enum"));
+    expect(onSelect).toHaveBeenCalledWith("Enum");
+  });
+
   it("offers GeoJson among the primitive types", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();

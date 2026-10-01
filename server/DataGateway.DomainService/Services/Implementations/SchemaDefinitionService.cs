@@ -167,13 +167,14 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             {
                 existingField.Type = field.Type;
                 existingField.IsArray = field.IsArray;
+                existingField.EnumValues = field.EnumValues ?? [];
                 existingField.IsPIIData = field.IsPIIData;
                 existingField.IsUniqueData = field.IsUniqueData;
                 existingField.Description = field.Description;
                 existingField.RequiredOn = field.RequiredOn;
             }
             else
-                schema.Fields.Add(new FieldDefinition { Name = field.Name, Type = field.Type, IsArray = field.IsArray, IsPIIData = field.IsPIIData, IsUniqueData = field.IsUniqueData, Description = field.Description, RequiredOn = field.RequiredOn });
+                schema.Fields.Add(new FieldDefinition { Name = field.Name, Type = field.Type, IsArray = field.IsArray, EnumValues = field.EnumValues ?? [], IsPIIData = field.IsPIIData, IsUniqueData = field.IsUniqueData, Description = field.Description, RequiredOn = field.RequiredOn });
         }
 
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
@@ -355,7 +356,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         var schema = new SchemaDefinition
         {
             CollectionName = request.CollectionName,
-            Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description, RequiredOn = f.RequiredOn }).ToList() ?? [],
+            Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, EnumValues = f.EnumValues ?? [], IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description, RequiredOn = f.RequiredOn }).ToList() ?? [],
             SchemaName = request.SchemaName,
             SchemaType = request.SchemaType
         };
@@ -391,7 +392,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         var previousGeoJsonFieldNames = schema.Fields.Where(IsGeoIndexed).Select(f => f.Name).ToHashSet();
 
         schema.CollectionName = request.CollectionName;
-        schema.Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description, RequiredOn = f.RequiredOn }).ToList() ?? [];
+        schema.Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, EnumValues = f.EnumValues ?? [], IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description, RequiredOn = f.RequiredOn }).ToList() ?? [];
         schema.SchemaName = request.SchemaName;
         schema.SchemaType = request.SchemaType;
         schema.InjectDefaultValue();

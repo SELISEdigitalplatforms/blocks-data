@@ -68,6 +68,7 @@ public class GraphqlSchemaBuilder
 
             var childFilterInputTypes = BuildChildFilterInputTypes(dbSchemas, customSchemas);
 
+            RegisterEnumFieldTypes(schemaBuilder, schemas);
             BuildOnlySchemaType(schemaBuilder, customSchemas);
             BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes, childFilterInputTypes);
 
@@ -144,6 +145,7 @@ public class GraphqlSchemaBuilder
                 Name = f.Name,
                 Type = f.Type,
                 IsArray = f.IsArray,
+                EnumValues = f.EnumValues ?? [],
                 IsPIIData = f.IsPIIData,
                 IsUniqueData = f.IsUniqueData,
                 RequiredOn = f.RequiredOn,
@@ -409,6 +411,31 @@ public class GraphqlSchemaBuilder
             schemaBuilder.AddType(type);
         foreach (var type in childFilterInputTypes)
             schemaBuilder.AddType(type);
+
+    }
+
+    private static void RegisterEnumFieldTypes(
+        ISchemaBuilder schemaBuilder,
+        IReadOnlyCollection<SchemaDefinitionExtended> allSchemas)
+    {
+        // Per-field Enum types + filters (unlike GeoJson's single global scalar).
+        // Registered before DTO/output types so NamedTypeNode references resolve.
+        var registeredEnumTypeNames = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var schema in allSchemas)
+        {
+            var schemaName = schema.GetSchemaNameForProject();
+            foreach (var field in schema.Fields.Where(f => f.Type == GraphQlTypeHelper.EnumTypeName))
+            {
+                var values = field.EnumValues ?? [];
+                if (values.Count == 0)
+                    continue;
+                var enumTypeName = GraphQlTypeHelper.GetEnumTypeName(schemaName, field.Name);
+                if (!registeredEnumTypeNames.Add(enumTypeName))
+                    continue;
+                schemaBuilder.AddType(new DynamicFieldEnumType(enumTypeName, values));
+                schemaBuilder.AddType(new EnumOperationFilterInputType(schemaName, field.Name));
+            }
+        }
     }
 
     private static IReadOnlyCollection<ChildSchemaFilterInputType> BuildChildFilterInputTypes(
@@ -453,7 +480,9 @@ public class GraphqlSchemaBuilder
                 var canonicalField = new FieldDefinitionResponse
                 {
                     Name = field.Name,
-                    Type = field.Type
+                    Type = field.Type,
+                    IsArray = field.IsArray,
+                    EnumValues = field.EnumValues ?? [],
                 };
 
                 if (!GraphQlTypeHelper.IsScalar(field.Type) &&
@@ -531,7 +560,7 @@ public class GraphqlSchemaBuilder
             descriptor.Name($"{schemaName}Input");
             foreach (var field in schemaDefinition.Fields)
             {
-                descriptor.ResolveInputTypeDescriptor(field);
+                descriptor.ResolveInputTypeDescriptor(field, schemaName);
             }
         });
     }
@@ -543,7 +572,7 @@ public class GraphqlSchemaBuilder
             descriptor.Name(schemaName);
             foreach (var field in schemaDefinition.Fields)
             {
-                descriptor.ResolveObjectTypeDescriptor(field);
+                descriptor.ResolveObjectTypeDescriptor(field, schemaName);
             }
         });
     }

@@ -14,6 +14,8 @@ public class GraphQlTypeHelperTests
     [InlineData("Boolean", true)]
     [InlineData("DateTime", true)]
     [InlineData("ID", true)]
+    [InlineData("GeoJson", true)]
+    [InlineData("Enum", true)]
     [InlineData("Person", false)]
     [InlineData("Address", false)]
     public void IsScalar(string type, bool expected)
@@ -148,4 +150,29 @@ public class GraphQlTypeHelperTests
         result.Should().BeAssignableTo<Dictionary<string, object?>>();
         ((Dictionary<string, object?>)result!)["Name"].Should().Be("John");
     }
+
+    [Fact]
+    public void GetEnumTypeName_UsesSchemaAndField()
+    {
+        GraphQlTypeHelper.GetEnumTypeName("Ticket", "status").Should().Be("TicketStatusEnum");
+        GraphQlTypeHelper.GetEnumOperationFilterTypeName("Ticket", "status")
+            .Should().Be("TicketStatusEnumOperationFilterInput");
+    }
+
+    [Fact]
+    public void GetEnumTypeNode_SupportsArray()
+    {
+        var single = GraphQlTypeHelper.GetEnumTypeNode("Ticket", "status");
+        single.ToString().Should().Contain("TicketStatusEnum");
+        var list = GraphQlTypeHelper.GetEnumTypeNode("Ticket", "tags", isArray: true);
+        list.Should().BeOfType<ListTypeNode>();
+    }
+
+    [Fact]
+    public void GetTypeNode_Enum_ThrowsWithoutContext()
+    {
+        var act = () => GraphQlTypeHelper.GetTypeNode("Enum");
+        act.Should().Throw<ArgumentException>();
+    }
+
 }

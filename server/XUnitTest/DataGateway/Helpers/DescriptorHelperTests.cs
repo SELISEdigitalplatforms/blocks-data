@@ -46,7 +46,7 @@ public class DescriptorHelperTests
                 descriptor.Name("Person");
                 foreach (var field in fields)
                 {
-                    descriptor.ResolveObjectTypeDescriptor(field);
+                    descriptor.ResolveObjectTypeDescriptor(field, "TestSchema");
                 }
             }))
             .AddType(new ObjectType(descriptor =>
@@ -309,7 +309,7 @@ public class DescriptorHelperTests
                 descriptor.Name("PersonInput");
                 foreach (var field in fields)
                 {
-                    descriptor.ResolveInputTypeDescriptor(field);
+                    descriptor.ResolveInputTypeDescriptor(field, "TestSchema");
                 }
             }))
             .AddType(new InputObjectType(descriptor =>

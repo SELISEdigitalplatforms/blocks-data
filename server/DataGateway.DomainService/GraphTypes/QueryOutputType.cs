@@ -25,8 +25,11 @@ public class QueryOutputType : ObjectType<object>
         {
             if (GraphQlTypeHelper.IsScalar(field.Type))
             {
+                var typeNode = field.Type == GraphQlTypeHelper.EnumTypeName
+                    ? GraphQlTypeHelper.GetEnumTypeNode(schemaName, field.Name, field.IsArray)
+                    : GraphQlTypeHelper.GetTypeNode(field.Type, field.IsArray);
                 descriptor.Field(field.Name)
-                    .Type(GraphQlTypeHelper.GetTypeNode(field.Type, field.IsArray))
+                    .Type(typeNode)
                     .Resolve(ctx =>
                     {
                         var parent = ctx.Parent<object>();

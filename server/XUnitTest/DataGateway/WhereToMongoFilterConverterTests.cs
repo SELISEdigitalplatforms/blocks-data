@@ -416,6 +416,29 @@ public class WhereToMongoFilterConverterTests
         result["$or"].AsBsonArray.Count.Should().Be(2);
     }
 
+
+    [Fact]
+    public void Convert_Enum_EqNeqInNin()
+    {
+        var schema = Schema(fields: new()
+        {
+            Field("status", "Enum")
+        });
+        var where = new Dictionary<string, object?>
+        {
+            ["status"] = new Dictionary<string, object?>
+            {
+                ["eq"] = "Active",
+                ["nin"] = new List<object?> { "Pending" }
+            }
+        };
+        var result = WhereToMongoFilterConverter.Convert(where, schema);
+        result.Should().NotBeNull();
+        var json = result!.ToJson();
+        json.Should().Contain("$eq");
+        json.Should().Contain("$nin");
+    }
+
     private sealed class ClrWhereInput
     {
         public ClrStringOp? Name { get; set; }

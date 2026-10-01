@@ -31,8 +31,8 @@ import {
   useGetSchemaFieldValidation,
   useUpdateSchemaFieldValidation,
 } from "../../hooks/use-configuration";
-import {
 import { RegExpParser } from "regexpp";
+import {
   IFieldValidationRule,
   ISchemaFieldValidation,
 } from "../../models/data-service";

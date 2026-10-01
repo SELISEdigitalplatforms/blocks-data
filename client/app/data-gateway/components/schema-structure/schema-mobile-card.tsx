@@ -295,6 +295,7 @@ export function SchemaMobileCard({
               <div className="min-w-0 space-y-1">
                 <label className="text-xs text-muted-foreground">Property type</label>
                 {isEditMode ? (
+                  <>
                   <PropertyTypeSelector
                     index={index}
                     value={watch(`properties.${index}.type`)}
@@ -334,6 +335,7 @@ export function SchemaMobileCard({
                       disabled={!isEditMode || isReadOnly}
                     />
                   )}
+                  </>
                 ) : (
                   <div
                     className={cn(

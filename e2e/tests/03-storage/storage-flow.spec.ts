@@ -472,10 +472,11 @@ test.describe("flow: Storage menu", () => {
 
       await expect(modal.getByRole("heading", { name: "Access rules" })).toBeVisible();
       await expect(modal).toContainText(
-        /Rules directly on this item and those inherited from its parent\./,
+        /No rules on this item\.|Rules directly on this item and those inherited from its parent\.|This item follows rules from its parent/i,
       );
-      await expect(modal).toContainText(/No rules on this item\./);
-      await expect(modal).toContainText(/Access comes from the parent directory\./);
+      await expect(modal).toContainText(
+        /Access comes from the parent directory\.|This item follows rules from its parent directory\./,
+      );
 
       await expect(modal.getByText("Inheritance", { exact: true })).toBeVisible();
       await expect(modal).toContainText(

@@ -62,7 +62,7 @@ public static class DescriptorHelper
         {
             descriptor.Field(field.Name).Description(field.Description ?? string.Empty)
                 .Type(GraphQlTypeHelper.GetCustomTypeNode(field.Type))
-                .Resolve(ctx => ((IDictionary<string, object>)ctx.Parent<object>()).TryGetValue(field.Name, out var value) ? value : null);
+                .Resolve(ctx => ResolveDictValue(ctx.Parent<object>(), field.Name));
         }
     }
 

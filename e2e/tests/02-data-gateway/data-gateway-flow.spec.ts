@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { test } from "../../support/test-base";
 import { openDataGateway, selectSchema } from "../../support/open-data-gateway";
+import { confirmSchemaStructureSaved } from "../../support/confirm-schema-saved";
 import { openEnvironment } from "../../support/navigation";
 import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 import { e2eOsBaseUrl } from "../../support/env";
@@ -282,9 +283,7 @@ test.describe("flow: Data Gateway menu", () => {
       const updateDialogButton = page.getByRole("button", { name: "Update" });
       await expect(updateDialogButton).toBeVisible({ timeout: 10_000 });
       await updateDialogButton.click();
-      await expect(page.getByText("Schema updated successfully").first()).toBeVisible({
-        timeout: 15_000,
-      });
+      await confirmSchemaStructureSaved(page);
 
       await expect(
         page

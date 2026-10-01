@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { test } from "../../support/test-base";
 import { openDataGateway } from "../../support/open-data-gateway";
+import { confirmSchemaStructureSaved } from "../../support/confirm-schema-saved";
 import { openEnvironment } from "../../support/navigation";
 
 /**
@@ -116,9 +117,7 @@ test.describe("feature: Enum property type (#353)", () => {
     await test.step("Save and confirm Enum field persists", async () => {
       await page.getByRole("button", { name: "Save", exact: true }).click();
       await page.getByRole("button", { name: "Update" }).click();
-      await expect(page.getByText("Schema updated successfully").first()).toBeVisible({
-        timeout: 15_000,
-      });
+      await confirmSchemaStructureSaved(page);
 
       // After save, edit mode exits — type shows as read-only label
       await expect(page.getByText("Enum", { exact: true }).first()).toBeVisible({ timeout: 15_000 });

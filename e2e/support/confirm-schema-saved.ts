@@ -15,7 +15,7 @@ export async function confirmSchemaStructureSaved(page: Page) {
     return
   }
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     if (!(await unadapted.isVisible({ timeout: 1_000 }).catch(() => false))) {
       return
     }
@@ -24,11 +24,11 @@ export async function confirmSchemaStructureSaved(page: Page) {
       await page
         .getByText(/Schemas published successfully|Schema updated successfully/i)
         .first()
-        .waitFor({ state: "visible", timeout: 15_000 })
+        .waitFor({ state: "visible", timeout: 8_000 })
         .catch(() => {})
     }
     const cleared = await unadapted
-      .waitFor({ state: "hidden", timeout: 15_000 })
+      .waitFor({ state: "hidden", timeout: 8_000 })
       .then(() => true)
       .catch(() => false)
     if (cleared) return

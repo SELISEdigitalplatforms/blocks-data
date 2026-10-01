@@ -1,7 +1,7 @@
 import { expect, Locator, type Page } from "@playwright/test";
 import path from "path";
 import { test } from "../../support/test-base";
-import { openDataGateway } from "../../support/open-data-gateway";
+import { openDataGateway, selectSchema } from "../../support/open-data-gateway";
 import { openEnvironment } from "../../support/navigation";
 import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 import { e2eOsBaseUrl } from "../../support/env";
@@ -24,79 +24,8 @@ function schemaRowLocator(page: Page, schemaName: string) {
     .first();
 }
 
-async function schemaRowVisible(page: Page, schemaName: string): Promise<boolean> {
-  const row = schemaRowLocator(page, schemaName);
-  return row.isVisible({ timeout: 3_000 }).catch(() => false);
-}
 
-async function clickPaginationButton(
-  page: Page,
-  name: "First page" | "Previous page" | "Next page" | "Last page",
-): Promise<boolean> {
-  const button = page.getByRole("button", { name });
-  if (!(await button.isVisible({ timeout: 1_000 }).catch(() => false))) return false;
-  if (await button.isDisabled().catch(() => false)) return false;
-  await button.click();
-  return true;
-}
 
-async function selectSchema(page: Page, schemaName: string): Promise<boolean> {
-  await openDataGateway(page);
-  const landingHeading = page.getByRole("heading", { name: "Security Assessment" });
-  const emptyStateHeading = page.getByText("No schemas yet", { exact: true });
-  const schemasReady = page.getByRole("heading", { name: "Schemas", exact: true });
-  const pickSchema = page.getByText("Select a schema from the sidebar to view its details.");
-  await expect(
-    landingHeading.or(emptyStateHeading).or(schemasReady).or(pickSchema).first(),
-  ).toBeVisible({ timeout: 30_000 });
-
-  async function clickAndConfirm(): Promise<boolean> {
-    const row = schemaRowLocator(page, schemaName);
-    await row.scrollIntoViewIfNeeded().catch(() => {});
-    await row.click();
-    const selected = page.getByRole("heading", { name: schemaName, exact: true }).first();
-    const emptyDetails = page.getByText(
-      "Select a schema from the sidebar to view its details.",
-    );
-    try {
-      await expect(selected).toBeVisible({ timeout: 10_000 });
-      // Empty-state copy must be gone — a fleeting heading flash is not enough.
-      await expect(emptyDetails).toBeHidden({ timeout: 5_000 });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  if (await schemaRowVisible(page, schemaName)) {
-    if (await clickAndConfirm()) return true;
-  }
-
-  if (await clickPaginationButton(page, "Last page")) {
-    if (await schemaRowVisible(page, schemaName)) {
-      if (await clickAndConfirm()) return true;
-    }
-  }
-
-  for (let i = 0; i < 10; i++) {
-    if (!(await clickPaginationButton(page, "Next page"))) break;
-    if (await schemaRowVisible(page, schemaName)) {
-      if (await clickAndConfirm()) return true;
-    }
-  }
-
-  // Search sidebar for the schema name when pagination misses it.
-  const search = page.getByPlaceholder("Search schemas…");
-  if (await search.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await search.fill(schemaName);
-    if (await schemaRowVisible(page, schemaName)) {
-      if (await clickAndConfirm()) return true;
-    }
-    await search.fill("");
-  }
-
-  return false;
-}
 
 async function createSchemaViaModal(page: Page, addButtonLocator: Locator, schemaName: string) {
   await addButtonLocator.click();

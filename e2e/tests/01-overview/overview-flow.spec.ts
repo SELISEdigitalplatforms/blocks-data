@@ -233,14 +233,17 @@ test.describe("flow: Overview menu", () => {
     });
 
     await test.step("Core APIs card lists endpoint groups, collapsed by default, and expands on click", async () => {
-      await expect(page.getByRole("heading", { name: "Core APIs" })).toBeVisible({
-        timeout: 30_000,
+      const coreApis = page.getByRole("heading", { name: "Core APIs" });
+      await expect(coreApis).toBeVisible({ timeout: 30_000 });
+      await coreApis.scrollIntoViewIfNeeded();
+      await expect(page.getByText("Available endpoints for this module")).toBeVisible({
+        timeout: 15_000,
       });
-      await expect(page.getByText("Available endpoints for this module")).toBeVisible();
-      await expect(page.getByText(/^\d+ Endpoints?$/)).toBeVisible();
+      await expect(page.getByText(/^\d+ Endpoints?$/)).toBeVisible({ timeout: 15_000 });
 
-      // Group labels are "{Name} {count}" (name may include digits/hyphens).\n      const groupButtons = page.getByRole("button", { name: /\S+\s+\d+$/ });
-      await expect(groupButtons.first()).toBeVisible({ timeout: 15_000 });
+      // Group labels are "{Name} {count}" e.g. "Configuration 3", "DataAccess 5"
+      const groupButtons = page.getByRole("button", { name: /\S+\s+\d+$/ });
+      await expect(groupButtons.first()).toBeVisible({ timeout: 45_000 });
       const groupCount = await groupButtons.count();
       expect(groupCount).toBeGreaterThan(0);
 

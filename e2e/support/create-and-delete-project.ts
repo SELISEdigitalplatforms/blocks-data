@@ -340,9 +340,9 @@ export async function createProject(page: Page) {
       page.getByText("Select environments", { exact: true }).and(page.locator(":visible")),
     ).toBeVisible({ timeout: 30_000 })
 
-    await page.getByText("Development", { exact: true }).and(page.locator(":visible")).click()
+    await page.getByRole("checkbox", { name: "Development", exact: true }).check()
     const submitButton = page.getByRole("button", { name: "Submit" })
-    await expect(submitButton).toBeEnabled()
+    await expect(submitButton).toBeEnabled({ timeout: 15_000 })
     await submitButton.click()
   })
 

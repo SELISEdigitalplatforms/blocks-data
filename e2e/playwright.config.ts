@@ -73,6 +73,7 @@ export default defineConfig({
       dependencies: ["data-setup"],
       use: {
         ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
         ...(fs.existsSync(dataSessionPath)
           ? { storageState: "fixtures/data-session.json" }
           : {}),
@@ -84,6 +85,7 @@ export default defineConfig({
       dependencies: ["data"],
       use: {
         ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
         ...(fs.existsSync(dataSessionPath)
           ? { storageState: "fixtures/data-session.json" }
           : {}),

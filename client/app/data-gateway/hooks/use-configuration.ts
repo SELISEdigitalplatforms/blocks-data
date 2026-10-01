@@ -28,11 +28,13 @@ import {
 const getProjectKey = () => useProjectStore.getState().selectedProject?.tenantId || "";
 
 export const useGetDataServiceConfiguration = () => {
-  const projectKey = getProjectKey();
+  // Subscribe so deep-links re-fetch when selectedProject arrives (getState alone does not).
+  const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   return useQuery({
     queryKey: ["data-service-config", "get", projectKey],
     queryFn: () => configurationService.getDataServiceDetails(),
+    enabled: !!projectKey,
   });
 };
 

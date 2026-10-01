@@ -1,77 +1,20 @@
 import { expect, Locator, type Page } from "@playwright/test";
 import path from "path";
 import { test } from "../../support/test-base";
+import { openDataGateway } from "../../support/open-data-gateway";
 import { openEnvironment } from "../../support/navigation";
-import { dismissSessionConflictIfPresent, isConsoleUrl } from "../../support/session-conflict";
-import { readDataProject } from "../../support/data-project";
-import { e2eBaseUrl, e2eOsBaseUrl } from "../../support/env";
+import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
+import { e2eOsBaseUrl } from "../../support/env";
 
-function resolveProjectId(page: Page): string | null {
-  const fixture = readDataProject();
-  if (fixture?.itemId) return fixture.itemId;
-  try {
-    const id = new URL(page.url()).pathname.split("/")[2];
-    if (id && id !== "console") return id;
-  } catch {
-    /* ignore */
+async function openOverflowMenu(page: Page) {
+  const more = page.getByRole("button", { name: "More actions" });
+  const actions = page.getByRole("button", { name: "Actions" });
+  if (await more.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await more.click();
+    return;
   }
-  return null;
-}
-
-async function openDataGateway(page: Page) {
-  const projectId = resolveProjectId(page);
-  const target = projectId
-    ? `${e2eBaseUrl()}/app/${projectId}/data-gateway`
-    : null;
-
-  const ready = () =>
-    page
-      .getByRole("main")
-      .getByText("Data Gateway", { exact: true })
-      .or(page.getByRole("heading", { name: "Schemas", exact: true }))
-      .or(page.getByRole("heading", { name: "Security Assessment" }))
-      .or(page.getByText("No schemas yet", { exact: true }))
-      .or(page.getByRole("button", { name: "More actions" }))
-      .first();
-
-  for (let attempt = 0; attempt < 5; attempt++) {
-    if (target) {
-      await page.goto(target, { waitUntil: "domcontentloaded" });
-    } else {
-      await page.getByRole("link", { name: "Data Gateway" }).first().click();
-    }
-    await dismissSessionConflictIfPresent(page);
-
-    if (isConsoleUrl(page.url()) && projectId) {
-      await openEnvironment(page);
-      continue;
-    }
-
-    if (!/\/data-gateway(\/|$)/i.test(new URL(page.url()).pathname)) {
-      const nav = page.getByRole("link", { name: "Data Gateway" }).first();
-      if (await nav.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await nav.click();
-        await dismissSessionConflictIfPresent(page);
-      }
-    }
-
-    if (!/\/data-gateway(\/|$)/i.test(new URL(page.url()).pathname)) {
-      continue;
-    }
-
-    const ok = await ready()
-      .waitFor({ state: "visible", timeout: 12_000 })
-      .then(() => true)
-      .catch(() => false);
-    if (ok) return;
-
-    // Blank main content after a deploy roll — hard reload once per attempt.
-    await page.reload({ waitUntil: "domcontentloaded" }).catch(() => {});
-    await dismissSessionConflictIfPresent(page);
-  }
-
-  await expect(page).toHaveURL(/\/data-gateway(\/|$)/i, { timeout: 10_000 });
-  await expect(ready()).toBeVisible({ timeout: 30_000 });
+  await expect(actions).toBeVisible({ timeout: 10_000 });
+  await actions.click();
 }
 
 function schemaRowLocator(page: Page, schemaName: string) {
@@ -177,7 +120,7 @@ test.describe("flow: Data Gateway menu", () => {
 
     await test.step("Configure opens Blocks OS secret-management Data Gateway in a new tab", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.getByRole("button", { name: "More actions" }).click();
+      await openOverflowMenu(page);
       const configureButton = page.getByRole("menuitem", { name: "Configure" });
       await expect(configureButton).toBeVisible({ timeout: 15_000 });
 
@@ -236,7 +179,7 @@ test.describe("flow: Data Gateway menu", () => {
 
     await test.step("Export walks the two-step wizard and requests a real export", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.getByRole("button", { name: "More actions" }).click();
+      await openOverflowMenu(page);
       const exportButton = page.getByRole("menuitem", { name: "Export" });
       await expect(exportButton).toBeVisible({ timeout: 15_000 });
       await exportButton.click();
@@ -261,7 +204,7 @@ test.describe("flow: Data Gateway menu", () => {
     });
 
     await test.step("Import Schema modal opens fresh and requires a file before proceeding", async () => {
-      await page.getByRole("button", { name: "More actions" }).click();
+      await openOverflowMenu(page);
       const importButton = page.getByRole("menuitem", { name: "Import" });
       await expect(importButton).toBeVisible({ timeout: 15_000 });
       await importButton.click();
@@ -855,7 +798,7 @@ test.describe("flow: Data Gateway menu", () => {
     });
 
     await test.step("Import: 'Template' triggers a real download, then a real file upload succeeds", async () => {
-      await page.getByRole("button", { name: "More actions" }).click();
+      await openOverflowMenu(page);
       const importButton = page.getByRole("menuitem", { name: "Import" });
       await expect(importButton).toBeVisible({ timeout: 15_000 });
 

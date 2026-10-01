@@ -41,9 +41,9 @@ async function openDataGateway(page: Page) {
 
 
 function schemaRowLocator(page: Page, schemaName: string) {
+  // Sidebar items are role=button divs labeled "{name} Entity|Child".
   return page
-    .locator('[class*="cursor-pointer"]')
-    .filter({ has: page.getByText(schemaName, { exact: true }) })
+    .getByRole("button", { name: new RegExp(`^${schemaName}\\b`) })
     .first();
 }
 
@@ -71,24 +71,45 @@ async function selectSchema(page: Page, schemaName: string): Promise<boolean> {
     timeout: 30_000,
   });
 
+  async function clickAndConfirm(): Promise<boolean> {
+    const row = schemaRowLocator(page, schemaName);
+    await row.click();
+    const selected = page.getByRole("heading", { name: schemaName, exact: true }).first();
+    const access = page.getByRole("button", { name: "Schema Access" });
+    const ok = await selected
+      .or(access)
+      .first()
+      .waitFor({ state: "visible", timeout: 10_000 })
+      .then(() => true)
+      .catch(() => false);
+    return ok;
+  }
+
   if (await schemaRowVisible(page, schemaName)) {
-    await schemaRowLocator(page, schemaName).click();
-    return true;
+    if (await clickAndConfirm()) return true;
   }
 
   if (await clickPaginationButton(page, "Last page")) {
     if (await schemaRowVisible(page, schemaName)) {
-      await schemaRowLocator(page, schemaName).click();
-      return true;
+      if (await clickAndConfirm()) return true;
     }
   }
 
   for (let i = 0; i < 10; i++) {
     if (!(await clickPaginationButton(page, "Next page"))) break;
     if (await schemaRowVisible(page, schemaName)) {
-      await schemaRowLocator(page, schemaName).click();
-      return true;
+      if (await clickAndConfirm()) return true;
     }
+  }
+
+  // Search sidebar for the schema name when pagination misses it.
+  const search = page.getByPlaceholder("Search schemas…");
+  if (await search.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await search.fill(schemaName);
+    if (await schemaRowVisible(page, schemaName)) {
+      if (await clickAndConfirm()) return true;
+    }
+    await search.fill("");
   }
 
   return false;

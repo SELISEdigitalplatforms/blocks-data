@@ -119,11 +119,13 @@ test.describe("feature: Enum property type (#353)", () => {
       ).toBeVisible({ timeout: 5_000 });
 
       // Desktop + mobile both mount EnumValuesEditor; drive the desktop table row.
+      // Controlled inputs often omit HTML value= — use accessible row name instead.
       await page.keyboard.press("Escape").catch(() => {});
       const enumEditor = page
-        .locator("table tr")
-        .filter({ has: page.locator(`input[value="${fieldName}"]`) })
-        .last();
+        .locator("table")
+        .getByRole("row", { name: new RegExp(`Select ${fieldName}`) })
+        .filter({ hasText: "Allowed values" })
+        .first();
       await expect(enumEditor).toBeVisible({ timeout: 10_000 });
       const valueInput = enumEditor.getByLabel("New enum value");
       const addValue = enumEditor.getByLabel("Add enum value");

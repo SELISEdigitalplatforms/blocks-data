@@ -319,8 +319,9 @@ export async function createProject(page: Page) {
     const nameInput = page.locator('[placeholder="Enter your project name"]:visible')
     await nameInput.fill(projectName)
 
-    await page.getByRole("checkbox", { name: "I confirm that I will use" }).click()
-    await page.getByRole("checkbox", { name: "I accept the Terms of services" }).click()
+    // Accessible names on OS create-project checkboxes (label text may differ).
+    await page.getByRole("checkbox", { name: /Use Blocks exclusively|I confirm that I will use/i }).click()
+    await page.getByRole("checkbox", { name: /Accept the Terms of services|I accept the Terms of services/i }).click()
 
     const continueButton = page.getByRole("button", { name: "Continue", exact: true })
     await expect(continueButton).toBeEnabled()

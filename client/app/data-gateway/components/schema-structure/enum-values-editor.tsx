@@ -17,7 +17,7 @@ interface EnumValuesEditorProps {
  * Allowed-values list for Enum property type (SPEC #353 H5).
  * Entries must match GraphQL name rules: ^[A-Za-z_][A-Za-z0-9_]*$
  */
-export function EnumValuesEditor({ values, onChange, disabled, id }: EnumValuesEditorProps) {
+export function EnumValuesEditor({ values, onChange, disabled, id }: Readonly<EnumValuesEditorProps>) {
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 

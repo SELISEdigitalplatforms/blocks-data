@@ -81,8 +81,8 @@ installStorage("sessionStorage");
 // The CJS build collapses import.meta.env to undefined[key], which throws when
 // Rollbar initializes via app/lib/http-client.ts at import time. Seed tokens so
 // the window branch short-circuits (empty string is falsy and would still fall through).
-if (typeof window !== "undefined") {
-  const win = window as unknown as {
+if (typeof globalThis.window !== "undefined") {
+  const win = globalThis as typeof globalThis & {
     __BLOCKS_ENV__?: Record<string, string>;
   };
   win.__BLOCKS_ENV__ = {
@@ -94,7 +94,9 @@ if (typeof window !== "undefined") {
 
 // Nested react-is (recharts) reads process.env.NODE_ENV at require time.
 if (typeof process !== "undefined") {
-  process.env ??= {} as NodeJS.ProcessEnv;
+  if (!process.env) {
+    Object.defineProperty(process, "env", { value: Object.create(null), writable: true });
+  }
   process.env.NODE_ENV ??= "test";
 }
 

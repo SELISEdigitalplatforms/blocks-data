@@ -10,41 +10,36 @@ public static class DescriptorHelper
     {
         if (GraphQlTypeHelper.IsScalar(field.Type))
         {
-            var typeNode = field.Type == GraphQlTypeHelper.EnumTypeName
-                ? GraphQlTypeHelper.GetEnumTypeNode(schemaName, field.Name, field.IsArray)
-                : GraphQlTypeHelper.GetTypeNode(field.Type, field.IsArray);
-            descriptor.Field(field.Name).Description(field.Description ?? string.Empty)
-                .Type(typeNode)
-                .Resolve(ctx =>
-                {
-                    var parent = ctx.Parent<object>();
-                    if (parent is IDictionary<string, object> dict)
-                    {
-                        return dict.TryGetValue(field.Name, out var value) ? value : null;
-                    }
-                    return null;
-                });
+            BindField(descriptor, field, ResolveScalarTypeNode(schemaName, field));
+            return;
         }
-        else if (field.IsArray)
+
+        BindField(descriptor, field, GraphQlTypeHelper.GetCustomTypeNode(field.Type, field.IsArray));
+    }
+
+    private static ITypeNode ResolveScalarTypeNode(string schemaName, FieldDefinitionResponse field)
+    {
+        return field.Type == GraphQlTypeHelper.EnumTypeName
+            ? GraphQlTypeHelper.GetEnumTypeNode(schemaName, field.Name, field.IsArray)
+            : GraphQlTypeHelper.GetTypeNode(field.Type, field.IsArray);
+    }
+
+    private static void BindField(IObjectTypeDescriptor descriptor, FieldDefinitionResponse field, ITypeNode typeNode)
+    {
+        var fieldName = field.Name;
+        descriptor.Field(fieldName).Description(field.Description ?? string.Empty)
+            .Type(typeNode)
+            .Resolve(ctx => ResolveDictValue(ctx.Parent<object>(), fieldName));
+    }
+
+    private static object? ResolveDictValue(object parent, string fieldName)
+    {
+        if (parent is IDictionary<string, object> dict)
         {
-            descriptor.Field(field.Name).Description(field.Description ?? string.Empty)
-                .Type(GraphQlTypeHelper.GetCustomTypeNode(field.Type, true))
-                .Resolve(ctx =>
-                        {
-                            var parent = ctx.Parent<object>();
-                            if (parent is IDictionary<string, object> dict)
-                            {
-                                return dict.TryGetValue(field.Name, out var value) ? value : null;
-                            }
-                            return null;
-                        });
+            return dict.TryGetValue(fieldName, out var value) ? value : null;
         }
-        else
-        {
-            descriptor.Field(field.Name).Description(field.Description ?? string.Empty)
-                .Type(GraphQlTypeHelper.GetCustomTypeNode(field.Type))
-                .Resolve(ctx => ((IDictionary<string, object>)ctx.Parent<object>()).TryGetValue(field.Name, out var value) ? value : null);
-        }
+
+        return null;
     }
 
     public static void ResolveCustomObjectTypeField(this IObjectTypeDescriptor descriptor, FieldDefinitionResponse field)

@@ -4,7 +4,7 @@ import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
 import { dismissSessionConflictIfPresent, isConsoleUrl } from "../../support/session-conflict";
 import { readDataProject } from "../../support/data-project";
-import { e2eBaseUrl } from "../../support/env";
+import { e2eBaseUrl, e2eOsBaseUrl } from "../../support/env";
 
 function resolveProjectId(page: Page): string | null {
   const fixture = readDataProject();
@@ -39,45 +39,6 @@ async function openDataGateway(page: Page) {
   });
 }
 
-
-async function ensureConfigurationPage(page: Page) {
-  if (/\/configuration\/?$/.test(new URL(page.url()).pathname)) return;
-  const dialog = page.getByRole("dialog");
-  if (await dialog.isVisible({ timeout: 2_000 }).catch(() => false)) return;
-
-  const projectId = resolveProjectId(page);
-  if (!projectId) {
-    throw new Error(`Cannot open configuration: no project id (url=${page.url()})`);
-  }
-
-  // If Leave-session dropped us on console, re-enter the project first.
-  if (isConsoleUrl(page.url())) {
-    await openEnvironment(page);
-    await openDataGateway(page);
-  }
-
-  const more = page.getByRole("button", { name: "More actions" });
-  if (await more.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await more.click();
-    const configure = page.getByRole("menuitem", { name: "Configure" });
-    if (await configure.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await configure.click();
-    }
-  }
-  if (await dialog.isVisible({ timeout: 3_000 }).catch(() => false)) return;
-  if (/\/configuration\/?$/.test(new URL(page.url()).pathname)) return;
-
-  await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway/configuration`, {
-    waitUntil: "domcontentloaded",
-  });
-  if (isConsoleUrl(page.url())) {
-    await openEnvironment(page);
-    await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway/configuration`, {
-      waitUntil: "domcontentloaded",
-    });
-  }
-  await expect(page).toHaveURL(/\/configuration/, { timeout: 30_000 });
-}
 
 function schemaRowLocator(page: Page, schemaName: string) {
   return page
@@ -153,182 +114,26 @@ test.describe("flow: Data Gateway menu", () => {
     await dismissSessionConflictIfPresent(page);
     await openDataGateway(page);
 
-    await test.step("Configure the data source (create-mode dialog, or edit-mode page if one already exists)", async () => {
+    await test.step("Configure opens Blocks OS secret-management Data Gateway in a new tab", async () => {
+      await page.setViewportSize({ width: 1440, height: 900 });
       await page.getByRole("button", { name: "More actions" }).click();
       const configureButton = page.getByRole("menuitem", { name: "Configure" });
       await expect(configureButton).toBeVisible({ timeout: 15_000 });
 
-      await configureButton.click();
-
-      const dialog = page.getByRole("dialog");
-      const dialogOpened = await dialog.isVisible({ timeout: 5_000 }).catch(() => false);
-
-      if (dialogOpened) {
-        const saveButton = page.getByRole("button", { name: "Save" });
-
-        await page.getByLabel("My data sources").check();
-        await page.getByRole("textbox", { name: "Database Name" }).fill("mydatabase");
-        await expect(saveButton).toBeDisabled();
-
-        await page
-          .getByLabel(/Connection string/i)
-          .fill(`mongodb://localhost:27017/db${Date.now()}`);
-        await expect(saveButton).toBeEnabled({ timeout: 10_000 });
-        await saveButton.click();
-        await expect(page.getByText("Data source saved successfully").first()).toBeVisible({
-          timeout: 15_000,
-        });
-      } else {
-        await ensureConfigurationPage(page);
-        await expect(page.getByRole("heading", { name: "Data Source" })).toBeVisible({
-          timeout: 30_000,
-        });
-
-        await expect(page.getByRole("heading", { name: "Collection Settings" })).toBeVisible();
-        const collectionNameEditable = page.getByRole("switch", {
-          name: "Collection Name Editable",
-        });
-        await expect(collectionNameEditable).toBeVisible({ timeout: 15_000 });
-        const initialState = await collectionNameEditable.getAttribute("aria-checked");
-        await collectionNameEditable.click();
-        await expect(collectionNameEditable).not.toHaveAttribute(
-          "aria-checked",
-          initialState ?? "",
-        );
-        await collectionNameEditable.click();
-        await expect(collectionNameEditable).toHaveAttribute("aria-checked", initialState ?? "");
-      }
-    });
-
-    await test.step("Data Source: exercise both 'Blocks database' and 'My data sources', then restore the original", async () => {
-      await page.setViewportSize({ width: 1440, height: 900 });
-
-      await openDataGateway(page);
-
-      await page.getByRole("button", { name: "More actions" }).click();
-
-      const configureButton = page.getByRole("menuitem", {
-        name: "Configure",
-      });
-
-      await expect(configureButton).toBeVisible({ timeout: 15_000 });
-      await configureButton.click();
-      await ensureConfigurationPage(page);
-
-      await expect(page.getByRole("heading", { name: "Data Source" })).toBeVisible({
-        timeout: 30_000,
-      });
-
-      const blocksRadio = page.getByRole("radio", {
-        name: /Blocks database/,
-      });
-
-      const othersRadio = page.getByRole("radio", {
-        name: /My data sources/,
-      });
-
-      const saveChangesButton = page.getByRole("button", {
-        name: "Save Changes",
-      });
-
-      const confirmHeading = page.getByRole("heading", {
-        name: "Confirm data source update?",
-      });
-
-      const confirmButton = page.getByRole("button", {
-        name: "Confirm",
-      });
-
-      const connectionInput = page.getByRole("textbox", {
-        name: "Connection String",
-      });
-
-      const databaseNameInput = page.getByRole("textbox", {
-        name: "Database Name",
-      });
-
-      const wasBlocksOriginally = (await blocksRadio.getAttribute("aria-checked")) === "true";
-
-      const originalConnectionString = wasBlocksOriginally
-        ? null
-        : await connectionInput.inputValue();
-
-      const originalDatabaseName = wasBlocksOriginally
-        ? null
-        : await databaseNameInput.inputValue();
-
-      async function saveChanges(expectedRadio: Locator) {
-        await expect(saveChangesButton).toBeEnabled({
-          timeout: 10_000,
-        });
-
-        await saveChangesButton.click();
-
-        await expect(confirmHeading).toBeVisible({
-          timeout: 15_000,
-        });
-
-        await expect(
-          page.getByText("Changing the data source will affect all existing data."),
-        ).toBeVisible();
-
-        await confirmButton.click();
-
-        await expect(page.getByText("Data source updated successfully").first()).toBeVisible({
-          timeout: 20_000,
-        });
-
-        await expect(confirmHeading).toBeHidden({
-          timeout: 10_000,
-        });
-
-        await expect(expectedRadio).toHaveAttribute("aria-checked", "true", { timeout: 15_000 });
-      }
-
-      if (wasBlocksOriginally) {
-        await othersRadio.click();
-
-        await expect(othersRadio).toHaveAttribute("aria-checked", "true");
-
-        await expect(connectionInput).toBeVisible();
-        await expect(databaseNameInput).toBeVisible();
-        await expect(saveChangesButton).toBeDisabled();
-
-        const testConnectionString = `mongodb://localhost:27017/e2e-flow-${Date.now()}`;
-
-        const testDatabaseName = `e2e-flow-${Date.now()}`;
-
-        await connectionInput.fill(testConnectionString);
-        await databaseNameInput.fill(testDatabaseName);
-
-        await saveChanges(othersRadio);
-
-        await blocksRadio.click();
-
-        await saveChanges(blocksRadio);
-
-        await expect(blocksRadio).toHaveAttribute("aria-checked", "true");
-      } else {
-        await blocksRadio.click();
-
-        await saveChanges(blocksRadio);
-
-        await othersRadio.click();
-
-        await expect(connectionInput).toBeVisible();
-        await expect(databaseNameInput).toBeVisible();
-
-        await connectionInput.fill(originalConnectionString ?? "");
-        await databaseNameInput.fill(originalDatabaseName ?? "");
-
-        await saveChanges(othersRadio);
-
-        await expect(othersRadio).toHaveAttribute("aria-checked", "true");
-
-        await expect(connectionInput).toHaveValue(originalConnectionString ?? "");
-
-        await expect(databaseNameInput).toHaveValue(originalDatabaseName ?? "");
-      }
+      const [popup] = await Promise.all([
+        page.context().waitForEvent("page", { timeout: 20_000 }),
+        configureButton.click(),
+      ]);
+      await popup.waitForLoadState("domcontentloaded", { timeout: 30_000 }).catch(() => {});
+      // Configure opens Blocks OS (may redirect to /login when the OS session is cold).
+      const osBase = e2eOsBaseUrl().replace(/\/$/, "");
+      await expect
+        .poll(() => {
+          const url = popup.url();
+          return url.startsWith(osBase) || /secret-management\/data-gateway/i.test(url);
+        }, { timeout: 30_000 })
+        .toBe(true);
+      await popup.close();
     });
 
     const schemaName = `dg_flow_${Date.now()}`;

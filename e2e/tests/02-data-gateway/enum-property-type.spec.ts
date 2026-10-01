@@ -1,7 +1,9 @@
 import { expect, type Page } from "@playwright/test";
 import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
-import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
+import { dismissSessionConflictIfPresent, isConsoleUrl } from "../../support/session-conflict";
+import { readDataProject } from "../../support/data-project";
+import { e2eBaseUrl } from "../../support/env";
 
 /**
  * Feature coverage for #353 — Enum property type.
@@ -9,16 +11,30 @@ import { dismissSessionConflictIfPresent } from "../../support/session-conflict"
  */
 
 async function openDataGateway(page: Page) {
-  const url = new URL(page.url());
-  const projectId = url.pathname.split("/")[2];
+  const fixture = readDataProject();
+  const fromUrl = (() => {
+    try {
+      const id = new URL(page.url()).pathname.split("/")[2];
+      return id && id !== "console" ? id : null;
+    } catch {
+      return null;
+    }
+  })();
+  const projectId = fixture?.itemId || fromUrl;
   if (projectId) {
-    await page.goto(`${url.origin}/app/${projectId}/data-gateway`, {
+    await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway`, {
       waitUntil: "domcontentloaded",
     });
   } else {
     await page.getByRole("link", { name: "Data Gateway" }).first().click();
   }
   await dismissSessionConflictIfPresent(page);
+  if (isConsoleUrl(page.url()) && projectId) {
+    await openEnvironment(page);
+    await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway`, {
+      waitUntil: "domcontentloaded",
+    });
+  }
   await expect(page.getByRole("main").getByText("Data Gateway", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
@@ -102,19 +118,22 @@ test.describe("feature: Enum property type (#353)", () => {
         page.getByText("Add at least one allowed value for Enum.").first(),
       ).toBeVisible({ timeout: 5_000 });
 
-      const valueInput = page.getByLabel("New enum value");
+      // Multiple Enum editors can appear (prior fields); drive the newest row.
+      const enumEditor = page.locator("table").locator("tr").filter({ hasText: fieldName }).last();
+      const valueInput = enumEditor.getByLabel("New enum value");
+      const addValue = enumEditor.getByLabel("Add enum value");
       await valueInput.fill("Active");
-      await page.getByLabel("Add enum value").click();
-      await expect(page.getByText("Active", { exact: true })).toBeVisible();
+      await addValue.click();
+      await expect(enumEditor.getByText("Active", { exact: true })).toBeVisible();
 
       await valueInput.fill("Closed");
-      await page.getByLabel("Add enum value").click();
-      await expect(page.getByText("Closed", { exact: true })).toBeVisible();
+      await addValue.click();
+      await expect(enumEditor.getByText("Closed", { exact: true })).toBeVisible();
 
       // Invalid value should surface editor error (does not add)
       await valueInput.fill("1Bad");
-      await page.getByLabel("Add enum value").click();
-      await expect(page.getByText(/Only letters, numbers/i)).toBeVisible({ timeout: 5_000 });
+      await addValue.click();
+      await expect(page.getByText(/Only letters, numbers/i).first()).toBeVisible({ timeout: 5_000 });
     });
 
     await test.step("Save and confirm Enum field persists", async () => {

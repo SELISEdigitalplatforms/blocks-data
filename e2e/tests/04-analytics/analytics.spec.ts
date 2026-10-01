@@ -76,7 +76,10 @@ test.describe("flow: Data Gateway — Analytics page", () => {
 
     await test.step("Indexes: tab shows the counter and either the list or the empty state", async () => {
       await page.getByRole("tab", { name: "Indexes" }).click();
-      await expect(page.getByText(/of 15 indexes/i)).toBeVisible({ timeout: 30_000 });
+      // UI copy: "{n} of 15 custom indexes"
+      await expect(page.getByText(/of 15(?: custom)? indexes/i)).toBeVisible({
+        timeout: 30_000,
+      });
       const empty = page.getByText("No indexes yet", { exact: true });
       const listItem = page.getByRole("button", { name: /Delete index / });
       await expect(empty.or(listItem).first()).toBeVisible({ timeout: 30_000 });
@@ -98,7 +101,7 @@ test.describe("flow: Data Gateway — Analytics page", () => {
       await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
       await expect(page.getByLabel("Unique")).toBeVisible();
       await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
-      await expect(page.getByText(/of 15 indexes/i)).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText(/of 15(?: custom)? indexes/i)).toBeVisible({ timeout: 10_000 });
     });
 
     await test.step("Indexes: Delete the index-host schema to leave no residue", async () => {

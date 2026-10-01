@@ -241,8 +241,12 @@ test.describe("flow: Overview menu", () => {
       });
       await expect(page.getByText(/^\d+ Endpoints?$/)).toBeVisible({ timeout: 15_000 });
 
-      // Group labels are "{Name} {count}" e.g. "Configuration 3", "DataAccess 5"
-      const groupButtons = page.getByRole("button", { name: /\S+\s+\d+$/ });
+      // Group labels are "{Name} {count}" e.g. "Configuration 3", "DataAccess 5".
+      // Scope to Core APIs accordion buttons (aria-expanded, no menu popup) so the
+      // Workspace "Project … 1790…" chip is not matched by a trailing-digits regex.
+      const groupButtons = page
+        .getByRole("main")
+        .locator("button[aria-expanded]:not([aria-haspopup])");
       await expect(groupButtons.first()).toBeVisible({ timeout: 45_000 });
       const groupCount = await groupButtons.count();
       expect(groupCount).toBeGreaterThan(0);

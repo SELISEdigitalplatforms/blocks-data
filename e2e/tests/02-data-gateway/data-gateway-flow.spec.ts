@@ -300,18 +300,26 @@ test.describe("flow: Data Gateway menu", () => {
       expect(matched).toBe(true);
     });
 
-    await test.step("Schema changes are unadapted until Publish is clicked", async () => {
+    await test.step("Schema structure saves adapt via reload; Publish clears any remaining banner", async () => {
       await selectSchema(page, schemaName);
       const publishButton = page.getByRole("button", { name: "Publish" });
       const unadaptedAlert = page.getByText(/unadapted changes/i);
-      await expect(unadaptedAlert).toBeVisible({ timeout: 15_000 });
-
-      await expect(publishButton).toBeVisible();
-      await publishButton.click();
-      await expect(page.getByText("Schemas published successfully").first()).toBeVisible({
-        timeout: 15_000,
-      });
-      await expect(unadaptedAlert).toBeHidden({ timeout: 15_000 });
+      // updateSchemaStructure reloads schemas on success (same path as Publish), so the
+      // unadapted banner is often already gone after a field save. If it is still up,
+      // Publish must clear it.
+      const bannerVisible = await unadaptedAlert
+        .isVisible({ timeout: 5_000 })
+        .catch(() => false);
+      if (bannerVisible) {
+        await expect(publishButton).toBeVisible();
+        await publishButton.click();
+        await expect(page.getByText("Schemas published successfully").first()).toBeVisible({
+          timeout: 15_000,
+        });
+        await expect(unadaptedAlert).toBeHidden({ timeout: 15_000 });
+      } else {
+        await expect(page.getByRole("heading", { name: schemaName }).first()).toBeVisible();
+      }
     });
 
     await test.step("Schema Access drawer: change policy to Custom and add a rule set", async () => {

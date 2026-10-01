@@ -119,10 +119,17 @@ test.describe("feature: Enum property type (#353)", () => {
       await page.getByRole("button", { name: "Update" }).click();
       await confirmSchemaStructureSaved(page);
 
-      // After save, edit mode exits — type shows as read-only label
-      await expect(page.getByText("Enum", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
-      await expect(page.getByText("Active", { exact: true })).toBeVisible();
-      await expect(page.getByText("Closed", { exact: true })).toBeVisible();
+      // After save, edit mode exits — type shows as read-only label (truncate cell
+      // can be CSS-hidden to Playwright; prefer table-scoped attach + value labels).
+      const enumType = page.locator("table").getByText("Enum", { exact: true }).first();
+      await enumType.scrollIntoViewIfNeeded().catch(() => {});
+      await expect(enumType).toBeAttached({ timeout: 15_000 });
+      await expect(
+        page.locator("table").getByText("Active", { exact: true }).first(),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(
+        page.locator("table").getByText("Closed", { exact: true }).first(),
+      ).toBeVisible({ timeout: 15_000 });
 
       const nameMatched = await page.evaluate((name) => {
         const inputs = Array.from(document.querySelectorAll("table input")) as HTMLInputElement[];

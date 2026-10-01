@@ -6,7 +6,14 @@ import { openDataGateway } from "../../support/open-data-gateway";
 
 async function openAnalytics(page: Page) {
   await openDataGateway(page);
-  await page.getByRole("button", { name: "More actions" }).click();
+  const more = page.getByRole("button", { name: "More actions" });
+  const actions = page.getByRole("button", { name: "Actions" });
+  if (await more.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await more.click();
+  } else {
+    await expect(actions).toBeVisible({ timeout: 10_000 });
+    await actions.click();
+  }
   const analyticsItem = page.getByRole("menuitem", { name: "Analytics" });
   await expect(analyticsItem).toBeVisible({ timeout: 15_000 });
   await analyticsItem.click();

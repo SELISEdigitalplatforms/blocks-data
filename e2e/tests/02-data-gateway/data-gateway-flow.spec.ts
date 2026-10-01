@@ -29,22 +29,27 @@ function schemaRowLocator(page: Page, schemaName: string) {
 
 async function createSchemaViaModal(page: Page, addButtonLocator: Locator, schemaName: string) {
   await addButtonLocator.click();
-  const dialog = page.getByRole("dialog");
-  await expect(page.getByRole("heading", { name: "Add New Schema" })).toBeVisible({
-    timeout: 30_000,
+  const dialog = page.getByRole("dialog").filter({
+    has: page.getByRole("heading", { name: "Add New Schema" }),
   });
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
   const nameInput = dialog.getByLabel(/Schema name/);
   await nameInput.click();
   await nameInput.fill("");
   await nameInput.pressSequentially(schemaName, { delay: 15 });
+  await nameInput.blur();
   const entityInput = dialog.locator("#entityName");
   if (await entityInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await page.waitForTimeout(400);
     const entityVal = await entityInput.inputValue().catch(() => "");
     if (!entityVal.trim()) {
-      await entityInput.fill(`sb_${schemaName}`);
+      await entityInput.fill(`sb_${schemaName}s`);
+      await entityInput.blur();
     }
   }
-  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+  const addBtn = dialog.getByRole("button", { name: "Add", exact: true });
+  await expect(addBtn).toBeEnabled({ timeout: 15_000 });
+  await addBtn.click();
   await expect(
     page
       .getByText("Schema added successfully")

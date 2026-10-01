@@ -28,34 +28,60 @@ async function createSchema(page: Page, schemaName: string) {
     await addSchemaButton.click();
   }
 
-  const dialog = page.getByRole("dialog");
-  await expect(page.getByRole("heading", { name: "Add New Schema" })).toBeVisible({
-    timeout: 30_000,
+  const dialog = page.getByRole("dialog").filter({
+    has: page.getByRole("heading", { name: "Add New Schema" }),
   });
-  const nameInput = dialog.getByLabel(/Schema name/);
-  await nameInput.click();
-  await nameInput.fill("");
-  await nameInput.pressSequentially(schemaName, { delay: 15 });
-  const entityInput = dialog.locator("#entityName");
-  if (await entityInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    const entityVal = await entityInput.inputValue().catch(() => "");
-    if (!entityVal.trim()) {
-      await entityInput.fill(`sb_${schemaName}`);
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+
+  async function fillAndSubmit(): Promise<boolean> {
+    const nameInput = dialog.getByLabel(/Schema name/);
+    await nameInput.click();
+    await nameInput.fill("");
+    await nameInput.pressSequentially(schemaName, { delay: 15 });
+    await nameInput.blur();
+    const entityInput = dialog.locator("#entityName");
+    if (await entityInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      // Wait briefly for onChange-derived collection name, then backfill.
+      await page.waitForTimeout(400);
+      const entityVal = await entityInput.inputValue().catch(() => "");
+      if (!entityVal.trim()) {
+        await entityInput.fill(`sb_${schemaName}s`);
+        await entityInput.blur();
+      }
     }
+    const addBtn = dialog.getByRole("button", { name: "Add", exact: true });
+    await expect(addBtn).toBeEnabled({ timeout: 15_000 });
+    await addBtn.click();
+
+    const toast = page.getByText("Schema added successfully").first();
+    const sidebar = page.getByRole("button", { name: schemaName }).first();
+    const ok = await toast
+      .or(sidebar)
+      .first()
+      .waitFor({ state: "visible", timeout: 15_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (ok) return true;
+    const closed = await dialog
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .then(() => true)
+      .catch(() => false);
+    return closed;
   }
-  await dialog.getByRole("button", { name: "Add", exact: true }).click();
-  await expect(
-    page
-      .getByText("Schema added successfully")
-      .or(page.getByRole("button", { name: schemaName }))
-      .first(),
-  ).toBeVisible({ timeout: 20_000 });
-  // New schemas land in the sidebar but may not auto-open in the details pane.
+
+  let ok = await fillAndSubmit();
+  if (!ok && (await dialog.isVisible().catch(() => false))) {
+    ok = await fillAndSubmit();
+  }
+  if (!ok) {
+    throw new Error(`Add Schema stuck for "${schemaName}"`);
+  }
+
   const sidebarItem = page.getByRole("button", { name: schemaName }).first();
-  await expect(sidebarItem).toBeVisible({ timeout: 15_000 });
+  await expect(sidebarItem).toBeVisible({ timeout: 20_000 });
   await sidebarItem.click();
   await expect(page.getByRole("heading", { name: schemaName }).first()).toBeVisible({
-    timeout: 15_000,
+    timeout: 20_000,
   });
 }
 

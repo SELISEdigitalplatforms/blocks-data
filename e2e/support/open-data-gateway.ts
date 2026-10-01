@@ -223,13 +223,17 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
       if (!(await waitForSchemaListReady(page))) return false
     }
 
+    // Prefer string name match (avoid RegExp(schemaName) for OpenGrep).
     const schemaRow = () =>
-      page.getByRole("button", { name: new RegExp(`^${schemaName}\\b`) }).first()
+      page
+        .getByRole("button", { name: schemaName })
+        .filter({ hasText: schemaName })
+        .first()
 
     async function clickSidebar(): Promise<boolean> {
       const row = schemaRow()
       if (!(await row.isVisible({ timeout: 2_000 }).catch(() => false))) {
-        const byText = page.getByText(new RegExp(`^${schemaName}\\b`), { exact: false }).first()
+        const byText = page.getByText(schemaName, { exact: true }).first()
         if (await byText.isVisible({ timeout: 2_000 }).catch(() => false)) {
           await byText.click()
           return confirmSelected()

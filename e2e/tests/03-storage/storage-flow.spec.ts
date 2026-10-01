@@ -1,6 +1,7 @@
 import { type Page } from "@playwright/test";
 import { test, expect } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
+import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 import { e2eStorageSftpCredentials } from "../../support/env";
 
 async function openStorage(page: Page) {
@@ -90,6 +91,7 @@ test.describe("flow: Storage menu", () => {
     test.setTimeout(600_000);
 
     await openEnvironment(page);
+    await dismissSessionConflictIfPresent(page);
 
     const sftpCredentials = e2eStorageSftpCredentials();
     if (!sftpCredentials) {

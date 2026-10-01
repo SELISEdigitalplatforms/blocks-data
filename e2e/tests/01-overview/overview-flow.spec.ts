@@ -1,4 +1,4 @@
-import test, { expect } from "@playwright/test";
+import { test, expect } from "../../support/test-base";
 import { e2eBaseUrl } from "../../support/env";
 import { readDataProject } from "../../support/data-project";
 import { openEnvironment } from "../../support/navigation";
@@ -162,6 +162,7 @@ test.describe("flow: Overview menu", () => {
     });
 
     await openEnvironment(page);
+    await dismissSessionConflictIfPresent(page);
     await expect(page.getByRole("heading", { name: "Project Details" })).toBeVisible({
       timeout: 30_000,
     });

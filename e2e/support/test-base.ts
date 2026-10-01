@@ -1,4 +1,5 @@
-import { test as base, expect } from "@playwright/test"
+import { test as base, expect, type Page } from "@playwright/test"
+import { dismissSessionConflictIfPresent } from "./session-conflict"
 import { markSuiteTestFailed } from "./run-outcome"
 
 // Shared `test` for the whole suite. Specs import from here instead of
@@ -23,7 +24,20 @@ function pauseMs(isHeaded: boolean): number {
   return isHeaded ? 10_000 : 0
 }
 
-export const test = base.extend<{ pauseAfterEachTest: void }>({
+export const test = base.extend<{ pauseAfterEachTest: void; dismissSessionConflict: void }>({
+  dismissSessionConflict: [
+    async ({ page }, use) => {
+      const originalGoto = page.goto.bind(page)
+      page.goto = (async (...args: Parameters<Page["goto"]>) => {
+        const result = await originalGoto(...args)
+        await dismissSessionConflictIfPresent(page)
+        return result
+      }) as typeof page.goto
+      await dismissSessionConflictIfPresent(page)
+      await use()
+    },
+    { auto: true },
+  ],
   pauseAfterEachTest: [
     async ({ page }, use, testInfo) => {
       const isHeaded = testInfo.project.use.headless === false

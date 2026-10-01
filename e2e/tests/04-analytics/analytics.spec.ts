@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
+import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 
 async function openDataGateway(page: Page) {
   const url = new URL(page.url());
@@ -35,6 +36,7 @@ test.describe("flow: Data Gateway — Analytics page", () => {
     test.setTimeout(900_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await openEnvironment(page);
+    await dismissSessionConflictIfPresent(page);
 
     // ------------------------------------------------------------------
     // Section A: Data Gateway — Indexes tab

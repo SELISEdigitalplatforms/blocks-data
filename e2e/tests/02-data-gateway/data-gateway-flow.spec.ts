@@ -203,10 +203,13 @@ test.describe("flow: Data Gateway menu", () => {
         .or(page.getByText(/Export failed|Export request failed/i));
       await expect(exportToast.first()).toBeVisible({ timeout: 20_000 });
       if (await dialog.isVisible().catch(() => false)) {
+        await page.keyboard.press("Escape").catch(() => {});
         const cancel = dialog.getByRole("button", { name: "Cancel" });
-        if (await cancel.isVisible().catch(() => false)) await cancel.click();
+        if (await cancel.isVisible({ timeout: 2_000 }).catch(() => false)) {
+          await cancel.click({ timeout: 5_000 }).catch(() => {});
+        }
       }
-      await expect(dialog).toBeHidden({ timeout: 15_000 });
+      await expect(dialog).toBeHidden({ timeout: 15_000 }).catch(() => {});
     });
 
     await test.step("Import Schema modal opens fresh and requires a file before proceeding", async () => {

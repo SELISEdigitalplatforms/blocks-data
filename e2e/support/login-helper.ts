@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test"
+import { dismissSessionConflictIfPresent } from "./session-conflict"
 import { e2eBaseUrl, e2eCredentials } from "./env"
 
 function oidcEmailField(page: Page) {
@@ -104,12 +105,14 @@ export async function loginThroughOidc(page: Page, options?: { loginPath?: strin
 export async function ensureAuthenticated(page: Page) {
   const base = e2eBaseUrl()
   await page.goto(`${base}/app/console`, { waitUntil: "domcontentloaded" })
+  await dismissSessionConflictIfPresent(page)
 
   if (await consoleHeading(page).isVisible({ timeout: 15_000 }).catch(() => false)) {
     return
   }
 
   await loginThroughOidc(page)
+  await dismissSessionConflictIfPresent(page)
   await expect(consoleHeading(page)).toBeVisible({ timeout: 30_000 })
 }
 

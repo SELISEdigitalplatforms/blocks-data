@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test"
 import { openSharedProjectDashboard } from "./suite-helpers"
 import { e2eBaseUrl } from "./env"
+import { dismissSessionConflictIfPresent } from "./session-conflict"
 
 /**
  * Land on the shared suite project's dashboard (Project Details).
@@ -20,6 +21,7 @@ export async function openEnvironment(
   }
 
   await page.goto(`${e2eBaseUrl()}/app/console`, { waitUntil: "domcontentloaded" })
+  await dismissSessionConflictIfPresent(page)
   const envButton = page.getByRole("button", { name }).first()
   const detailsHeading = page.getByRole("heading", { name: "Project Details" })
 

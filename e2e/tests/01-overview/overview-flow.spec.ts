@@ -2,6 +2,7 @@ import test, { expect } from "@playwright/test";
 import { e2eBaseUrl } from "../../support/env";
 import { readDataProject } from "../../support/data-project";
 import { openEnvironment } from "../../support/navigation";
+import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 
 test.describe("flow: Overview menu", () => {
   test("Overview page — console, topbar, sidebar navigation, Project Details, Core APIs", async ({
@@ -10,6 +11,7 @@ test.describe("flow: Overview menu", () => {
     test.setTimeout(150_000);
 
     await page.goto(`${e2eBaseUrl()}/app/console`, { waitUntil: "domcontentloaded" });
+    await dismissSessionConflictIfPresent(page);
 
     await test.step("should change theme between Light, Dark, and Auto", async () => {
       const themeButton = page.getByRole("button", { name: "Change theme" });

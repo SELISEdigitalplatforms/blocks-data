@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
+import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 
 /**
  * Feature coverage for #353 — Enum property type.
@@ -17,6 +18,7 @@ async function openDataGateway(page: Page) {
   } else {
     await page.getByRole("link", { name: "Data Gateway" }).first().click();
   }
+  await dismissSessionConflictIfPresent(page);
   await expect(page.getByRole("main").getByText("Data Gateway", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
@@ -30,7 +32,7 @@ async function createSchema(page: Page, schemaName: string) {
 
   const addSchemaButton = page.getByRole("button", { name: /Add Schema|Add schema|\+/ }).first();
   // Prefer explicit Add Schema if present
-  const labeled = page.getByRole("button", { name: "Add Schema" });
+  const labeled = page.getByRole("button", { name: /Add Schema/i });
   if (await labeled.isVisible({ timeout: 3_000 }).catch(() => false)) {
     await labeled.click();
   } else {
@@ -78,13 +80,20 @@ test.describe("feature: Enum property type (#353)", () => {
     });
 
     await test.step("Select Enum from primitive types and add allowed values", async () => {
-      // New row's type combobox is the last one in the table
-      const typeCombo = page.locator("table").getByRole("combobox").last();
+      // Prefer the Property type combobox — IsRequired is also a combobox (None/Insert/…).
+      const typeRow = page
+        .locator("table tr")
+        .filter({ has: page.locator(`input[value="${fieldName}"]`) })
+        .first();
+      const typeCombo = typeRow
+        .getByRole("combobox")
+        .filter({ hasText: /Select type|String|Boolean|Int|Float|Long|Decimal|DateTime|Date|ObjectId|Byte|Short|Enum|GeoJson|UUID|Binary/ })
+        .first()
+        .or(typeRow.getByRole("combobox").first());
       await expect(typeCombo).toBeVisible({ timeout: 10_000 });
       await typeCombo.click();
 
       await expect(page.getByText("Primitive Types")).toBeVisible({ timeout: 10_000 });
-      // CommandItem may not expose role=option; click the text under Primitive Types
       const enumItem = page.locator("[cmdk-item], [role='option']").filter({ hasText: /^Enum$/ }).first();
       if (await enumItem.isVisible({ timeout: 2_000 }).catch(() => false)) {
         await enumItem.click();

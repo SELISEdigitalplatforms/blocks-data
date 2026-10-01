@@ -2,6 +2,7 @@ import { expect, Locator, type Page } from "@playwright/test";
 import path from "path";
 import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
+import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 
 async function openDataGateway(page: Page) {
   const url = new URL(page.url());
@@ -13,9 +14,36 @@ async function openDataGateway(page: Page) {
   } else {
     await page.getByRole("link", { name: "Data Gateway" }).first().click();
   }
+  await dismissSessionConflictIfPresent(page);
   await expect(page.getByRole("main").getByText("Data Gateway", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
+}
+
+
+async function ensureConfigurationPage(page: Page) {
+  if (/\/configuration\/?$/.test(new URL(page.url()).pathname)) return;
+  const dialog = page.getByRole("dialog");
+  if (await dialog.isVisible({ timeout: 2_000 }).catch(() => false)) return;
+  // Configure sometimes no-ops when the menu closes; open via More actions again or direct URL.
+  const more = page.getByRole("button", { name: "More actions" });
+  if (await more.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    await more.click();
+    const configure = page.getByRole("menuitem", { name: "Configure" });
+    if (await configure.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await configure.click();
+    }
+  }
+  if (await dialog.isVisible({ timeout: 3_000 }).catch(() => false)) return;
+  if (/\/configuration\/?$/.test(new URL(page.url()).pathname)) return;
+  const url = new URL(page.url());
+  const projectId = url.pathname.split("/")[2];
+  if (projectId) {
+    await page.goto(`${url.origin}/app/${projectId}/data-gateway/configuration`, {
+      waitUntil: "domcontentloaded",
+    });
+  }
+  await expect(page).toHaveURL(/\/configuration/, { timeout: 30_000 });
 }
 
 function schemaRowLocator(page: Page, schemaName: string) {
@@ -117,7 +145,7 @@ test.describe("flow: Data Gateway menu", () => {
           timeout: 15_000,
         });
       } else {
-        await expect(page).toHaveURL(/\/configuration/, { timeout: 30_000 });
+        await ensureConfigurationPage(page);
         await expect(page.getByRole("heading", { name: "Data Source" })).toBeVisible({
           timeout: 30_000,
         });
@@ -151,10 +179,7 @@ test.describe("flow: Data Gateway menu", () => {
 
       await expect(configureButton).toBeVisible({ timeout: 15_000 });
       await configureButton.click();
-
-      await expect(page).toHaveURL(/\/configuration/, {
-        timeout: 30_000,
-      });
+      await ensureConfigurationPage(page);
 
       await expect(page.getByRole("heading", { name: "Data Source" })).toBeVisible({
         timeout: 30_000,

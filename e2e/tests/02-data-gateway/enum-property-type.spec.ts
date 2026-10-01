@@ -10,52 +10,73 @@ import { e2eBaseUrl } from "../../support/env";
  * Exercises: Type selector lists Enum, allowed-values editor, persist via Save/Update.
  */
 
-async function openDataGateway(page: Page) {
+
+function resolveProjectId(page: Page): string | null {
   const fixture = readDataProject();
-  const fromUrl = (() => {
-    try {
-      const id = new URL(page.url()).pathname.split("/")[2];
-      return id && id !== "console" ? id : null;
-    } catch {
-      return null;
-    }
-  })();
-  const projectId = fixture?.itemId || fromUrl;
-  if (projectId) {
-    await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway`, {
-      waitUntil: "domcontentloaded",
-    });
-  } else {
-    await page.getByRole("link", { name: "Data Gateway" }).first().click();
+  if (fixture?.itemId) return fixture.itemId;
+  try {
+    const id = new URL(page.url()).pathname.split("/")[2];
+    if (id && id !== "console") return id;
+  } catch {
+    /* ignore */
   }
-  await dismissSessionConflictIfPresent(page);
-  if (isConsoleUrl(page.url()) && projectId) {
-    await openEnvironment(page);
-    await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway`, {
-      waitUntil: "domcontentloaded",
-    });
-  }
-  // Deep-link can bounce to /app/{id}/console; recover via sidebar.
-  if (!/\/data-gateway(\/|$)/i.test(new URL(page.url()).pathname)) {
-    const nav = page.getByRole("link", { name: "Data Gateway" }).first();
-    if (await nav.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await nav.click();
-    } else if (projectId) {
-      await openEnvironment(page);
-      await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway`, {
-        waitUntil: "domcontentloaded",
-      });
-    }
-  }
-  await expect(page).toHaveURL(/\/data-gateway(\/|$)/i, { timeout: 30_000 });
-  await expect(
-    page.getByRole("main").getByText("Data Gateway", { exact: true })
+  return null;
+}
+
+async function openDataGateway(page: Page) {
+  const projectId = resolveProjectId(page);
+  const target = projectId
+    ? `${e2eBaseUrl()}/app/${projectId}/data-gateway`
+    : null;
+
+  const ready = () =>
+    page
+      .getByRole("main")
+      .getByText("Data Gateway", { exact: true })
       .or(page.getByRole("heading", { name: "Schemas", exact: true }))
       .or(page.getByRole("heading", { name: "Security Assessment" }))
       .or(page.getByText("No schemas yet", { exact: true }))
       .or(page.getByRole("button", { name: "More actions" }))
-      .first(),
-  ).toBeVisible({ timeout: 30_000 });
+      .first();
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (target) {
+      await page.goto(target, { waitUntil: "domcontentloaded" });
+    } else {
+      await page.getByRole("link", { name: "Data Gateway" }).first().click();
+    }
+    await dismissSessionConflictIfPresent(page);
+
+    if (isConsoleUrl(page.url()) && projectId) {
+      await openEnvironment(page);
+      continue;
+    }
+
+    if (!/\/data-gateway(\/|$)/i.test(new URL(page.url()).pathname)) {
+      const nav = page.getByRole("link", { name: "Data Gateway" }).first();
+      if (await nav.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        await nav.click();
+        await dismissSessionConflictIfPresent(page);
+      }
+    }
+
+    if (!/\/data-gateway(\/|$)/i.test(new URL(page.url()).pathname)) {
+      continue;
+    }
+
+    const ok = await ready()
+      .waitFor({ state: "visible", timeout: 12_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (ok) return;
+
+    // Blank main content after a deploy roll — hard reload once per attempt.
+    await page.reload({ waitUntil: "domcontentloaded" }).catch(() => {});
+    await dismissSessionConflictIfPresent(page);
+  }
+
+  await expect(page).toHaveURL(/\/data-gateway(\/|$)/i, { timeout: 10_000 });
+  await expect(ready()).toBeVisible({ timeout: 30_000 });
 }
 
 async function createSchema(page: Page, schemaName: string) {

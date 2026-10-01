@@ -80,17 +80,13 @@ test.describe("feature: Enum property type (#353)", () => {
     });
 
     await test.step("Select Enum from primitive types and add allowed values", async () => {
-      // Prefer the Property type combobox — IsRequired is also a combobox (None/Insert/…).
-      const typeRow = page
-        .locator("table tr")
-        .filter({ has: page.locator(`input[value="${fieldName}"]`) })
-        .first();
-      const typeCombo = typeRow
+      // New properties default to String; IsRequired combobox uses None/Insert/Update/Both.
+      const typeCombo = page
+        .locator("table")
         .getByRole("combobox")
-        .filter({ hasText: /Select type|String|Boolean|Int|Float|Long|Decimal|DateTime|Date|ObjectId|Byte|Short|Enum|GeoJson|UUID|Binary/ })
-        .first()
-        .or(typeRow.getByRole("combobox").first());
-      await expect(typeCombo).toBeVisible({ timeout: 10_000 });
+        .filter({ hasText: /Select type|^String$|^Enum$/i })
+        .last();
+      await expect(typeCombo).toBeVisible({ timeout: 15_000 });
       await typeCombo.click();
 
       await expect(page.getByText("Primitive Types")).toBeVisible({ timeout: 10_000 });

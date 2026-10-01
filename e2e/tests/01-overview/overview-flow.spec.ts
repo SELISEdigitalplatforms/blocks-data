@@ -139,12 +139,15 @@ test.describe("flow: Overview menu", () => {
       });
     });
 
-    await test.step("Console: Resources cards (Docs/Code/Cloud) actually navigate to their target URL when clicked", async () => {
-      const docsLink = page.getByRole("link", { name: "Docs", exact: false });
-      const codeLink = page.getByRole("link", { name: "Code", exact: false });
-      const cloudLink = page.getByRole("link", { name: "Cloud", exact: false });
+    await test.step("Console: Resources cards navigate to their target URL when clicked", async () => {
+      // Console Resources CTAs (labels evolved from Docs/Code/Cloud).
+      const resourceLinks = [
+        page.getByRole("link", { name: /Start Reading/i }),
+        page.getByRole("link", { name: /See Installation Steps/i }),
+        page.getByRole("link", { name: /Set Up Your Agent/i }),
+      ];
 
-      for (const link of [docsLink, codeLink, cloudLink]) {
+      for (const link of resourceLinks) {
         await expect(link).toBeVisible({ timeout: 15_000 });
         await expect(link).toHaveAttribute("href", /^https?:\/\//);
         await expect(link).toHaveAttribute("target", "_blank");

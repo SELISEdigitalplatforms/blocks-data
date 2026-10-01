@@ -6,6 +6,9 @@ import { expect, type Page } from "@playwright/test"
  *   - heading: "Your session is in {ProjectName}"
  *   - body: "The project is open in another window…"
  *   - primary: "Leave {ProjectName}" / "Leave the project"
+ *
+ * Returns true when an overlay was dismissed. Callers that need project
+ * context should re-open the shared project if the URL is /app/console.
  */
 export async function dismissSessionConflictIfPresent(page: Page): Promise<boolean> {
   const heading = page.getByRole("heading", { name: /Your session is in/i })
@@ -21,13 +24,18 @@ export async function dismissSessionConflictIfPresent(page: Page): Promise<boole
     .catch(() => false)
   if (!appeared) return false
 
-  // Product label examples: "Leave Test Project 1790…", "Leave the project"
   const leave = page.getByRole("button", { name: /^Leave(\s| the project)/i })
-
   await expect(leave).toBeVisible({ timeout: 10_000 })
   await leave.click()
-
   await expect(overlay.first()).toBeHidden({ timeout: 20_000 })
   await page.waitForLoadState("domcontentloaded").catch(() => {})
   return true
+}
+
+export function isConsoleUrl(url: string): boolean {
+  try {
+    return /\/app\/console\/?$/i.test(new URL(url).pathname)
+  } catch {
+    return false
+  }
 }

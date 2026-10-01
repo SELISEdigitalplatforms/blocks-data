@@ -25,7 +25,14 @@ async function ensureConfigurationPage(page: Page) {
   if (/\/configuration\/?$/.test(new URL(page.url()).pathname)) return;
   const dialog = page.getByRole("dialog");
   if (await dialog.isVisible({ timeout: 2_000 }).catch(() => false)) return;
-  // Configure sometimes no-ops when the menu closes; open via More actions again or direct URL.
+
+  // If Leave-session dropped us on console, re-enter Data Gateway first.
+  if (/\/app\/console\/?$/i.test(new URL(page.url()).pathname)) {
+    const { openEnvironment } = await import("../../support/navigation");
+    await openEnvironment(page);
+    await openDataGateway(page);
+  }
+
   const more = page.getByRole("button", { name: "More actions" });
   if (await more.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await more.click();
@@ -36,13 +43,15 @@ async function ensureConfigurationPage(page: Page) {
   }
   if (await dialog.isVisible({ timeout: 3_000 }).catch(() => false)) return;
   if (/\/configuration\/?$/.test(new URL(page.url()).pathname)) return;
+
   const url = new URL(page.url());
   const projectId = url.pathname.split("/")[2];
-  if (projectId) {
-    await page.goto(`${url.origin}/app/${projectId}/data-gateway/configuration`, {
-      waitUntil: "domcontentloaded",
-    });
+  if (!projectId || projectId === "console") {
+    throw new Error(`Cannot open configuration: not in a project (url=${page.url()})`);
   }
+  await page.goto(`${url.origin}/app/${projectId}/data-gateway/configuration`, {
+    waitUntil: "domcontentloaded",
+  });
   await expect(page).toHaveURL(/\/configuration/, { timeout: 30_000 });
 }
 
@@ -117,6 +126,7 @@ test.describe("flow: Data Gateway menu", () => {
     test.setTimeout(300_000);
 
     await openEnvironment(page);
+    await dismissSessionConflictIfPresent(page);
     await openDataGateway(page);
 
     await test.step("Configure the data source (create-mode dialog, or edit-mode page if one already exists)", async () => {

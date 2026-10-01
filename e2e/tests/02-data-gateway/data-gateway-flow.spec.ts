@@ -19,9 +19,7 @@ async function openOverflowMenu(page: Page) {
 
 function schemaRowLocator(page: Page, schemaName: string) {
   // Sidebar items are role=button divs labeled "{name} Entity|Child".
-  return page
-    .getByRole("button", { name: new RegExp(`^${schemaName}\\b`) })
-    .first();
+  return page.getByRole("button", { name: schemaName }).first();
 }
 
 

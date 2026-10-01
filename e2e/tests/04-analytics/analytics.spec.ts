@@ -77,7 +77,7 @@ test.describe("flow: Data Gateway — Analytics page", () => {
           timeout: 15_000,
         });
       }
-      const sidebarItem = page.getByRole("button", { name: new RegExp(`^${idxSchemaName}\\b`) }).first();
+      const sidebarItem = page.getByRole("button", { name: idxSchemaName }).first();
       await expect(sidebarItem).toBeVisible({ timeout: 15_000 });
       await sidebarItem.click();
       await expect(page.getByRole("heading", { name: idxSchemaName }).first()).toBeVisible({

@@ -81,7 +81,7 @@ installStorage("sessionStorage");
 // The CJS build collapses import.meta.env to undefined[key], which throws when
 // Rollbar initializes via app/lib/http-client.ts at import time. Seed tokens so
 // the window branch short-circuits (empty string is falsy and would still fall through).
-if (typeof globalThis.window !== "undefined") {
+if (globalThis.window !== undefined) {
   const win = globalThis as typeof globalThis & {
     __BLOCKS_ENV__?: Record<string, string>;
   };
@@ -96,7 +96,8 @@ if (typeof globalThis.window !== "undefined") {
 }
 
 // Nested react-is (recharts) reads process.env.NODE_ENV at require time.
-if (typeof process !== "undefined") {
+if (globalThis.process !== undefined) {
+  const process = globalThis.process;
   if (!process.env) {
     Object.defineProperty(process, "env", { value: Object.create(null), writable: true });
   }
@@ -105,7 +106,7 @@ if (typeof process !== "undefined") {
 
 
 // jsdom does not implement matchMedia; many UI components read it on mount.
-if (typeof globalThis.window !== "undefined" && !globalThis.window.matchMedia) {
+if (globalThis.window !== undefined && !globalThis.window.matchMedia) {
   globalThis.window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: false,
     media: query,

@@ -16,7 +16,6 @@ export function resolveDataProjectId(page: Page): string | null {
   return null
 }
 
-/** Locators that prove Data Gateway route body rendered (not blank main). */
 export function dataGatewayReadyLocator(page: Page) {
   return page
     .getByRole("main")
@@ -30,7 +29,6 @@ export function dataGatewayReadyLocator(page: Page) {
     .first()
 }
 
-/** Settled body — never treat Configure (instructions/error) as ready. */
 export function dataGatewaySettledLocator(page: Page) {
   return page
     .getByRole("heading", { name: "Security Assessment" })
@@ -96,21 +94,28 @@ export async function openDataGateway(page: Page) {
   await expect(settled()).toBeVisible({ timeout: 60_000 })
 }
 
+async function openSchemasListView(page: Page) {
+  const url = new URL(page.url())
+  url.searchParams.set("type", "all")
+  url.searchParams.set("page", "1")
+  url.searchParams.set("pageSize", "10")
+  url.searchParams.delete("schemaId")
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded" })
+  await dismissSessionConflictIfPresent(page)
+  await expect(
+    page
+      .getByText("Select a schema from the sidebar to view its details.")
+      .or(page.getByRole("heading", { name: "Schemas", exact: true }))
+      .or(page.getByPlaceholder("Search schemas…"))
+      .first(),
+  ).toBeVisible({ timeout: 30_000 })
+}
+
 /**
  * Open Data Gateway and select a schema in the two-panel editor.
- * Landing Security Assessment table rows are not role=button — click the row
- * or switch to Schemas view before using the sidebar.
  */
 export async function selectSchema(page: Page, schemaName: string): Promise<boolean> {
   await openDataGateway(page)
-
-  const landingHeading = page.getByRole("heading", { name: "Security Assessment" })
-  const emptyStateHeading = page.getByText("No schemas yet", { exact: true })
-  const schemasReady = page.getByRole("heading", { name: "Schemas", exact: true })
-  const pickSchema = page.getByText("Select a schema from the sidebar to view its details.")
-  await expect(
-    landingHeading.or(emptyStateHeading).or(schemasReady).or(pickSchema).first(),
-  ).toBeVisible({ timeout: 45_000 })
 
   async function confirmSelected(): Promise<boolean> {
     const selected = page.getByRole("heading", { name: schemaName, exact: true }).first()
@@ -118,7 +123,7 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
       "Select a schema from the sidebar to view its details.",
     )
     try {
-      await expect(selected).toBeVisible({ timeout: 10_000 })
+      await expect(selected).toBeVisible({ timeout: 12_000 })
       await expect(emptyDetails).toBeHidden({ timeout: 5_000 })
       return true
     } catch {
@@ -126,32 +131,23 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
     }
   }
 
-  // Landing table row (role=row, not button)
+  // Prefer landing table row click when still on Security Assessment.
+  const landingHeading = page.getByRole("heading", { name: "Security Assessment" })
   if (await landingHeading.isVisible().catch(() => false)) {
     const row = page
       .getByRole("row")
-      .filter({ hasText: new RegExp(`^\\s*${schemaName}\\b`) })
+      .filter({ has: page.getByRole("cell", { name: schemaName, exact: true }) })
       .first()
     if (await row.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await row.click()
       if (await confirmSelected()) return true
     }
-    const goSchemas = page.getByRole("button", { name: /Go to Schemas/i })
-    if (await goSchemas.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await goSchemas.click()
-      await expect(pickSchema.or(schemasReady).first()).toBeVisible({ timeout: 15_000 }).catch(() => {})
-    } else {
-      const url = new URL(page.url())
-      url.searchParams.set("type", "all")
-      url.searchParams.set("page", "1")
-      url.searchParams.set("pageSize", "10")
-      url.searchParams.delete("schemaId")
-      await page.goto(url.toString(), { waitUntil: "domcontentloaded" })
-      await dismissSessionConflictIfPresent(page)
-      await expect(pickSchema.or(schemasReady).or(landingHeading).first()).toBeVisible({
-        timeout: 20_000,
-      }).catch(() => {})
-    }
+    await openSchemasListView(page)
+  }
+
+  // Ensure schemas sidebar view.
+  if (!(await page.getByPlaceholder("Search schemas…").isVisible({ timeout: 2_000 }).catch(() => false))) {
+    await openSchemasListView(page)
   }
 
   const schemaRow = () =>
@@ -162,6 +158,15 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
     await row.scrollIntoViewIfNeeded().catch(() => {})
     await row.click()
     return confirmSelected()
+  }
+
+  const search = page.getByPlaceholder("Search schemas…")
+  if (await search.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await search.fill(schemaName)
+    await page.waitForTimeout(500)
+    if (await schemaRow().isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (await clickSidebar()) return true
+    }
   }
 
   if (await schemaRow().isVisible({ timeout: 3_000 }).catch(() => false)) {
@@ -176,26 +181,6 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
     if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
       if (await clickSidebar()) return true
     }
-    if (name === "Next page") {
-      for (let i = 0; i < 8; i++) {
-        const next = page.getByRole("button", { name: "Next page" })
-        if (!(await next.isVisible({ timeout: 500 }).catch(() => false))) break
-        if (await next.isDisabled().catch(() => false)) break
-        await next.click()
-        if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
-          if (await clickSidebar()) return true
-        }
-      }
-    }
-  }
-
-  const search = page.getByPlaceholder("Search schemas…")
-  if (await search.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await search.fill(schemaName)
-    if (await schemaRow().isVisible({ timeout: 3_000 }).catch(() => false)) {
-      if (await clickSidebar()) return true
-    }
-    await search.fill("")
   }
 
   return false

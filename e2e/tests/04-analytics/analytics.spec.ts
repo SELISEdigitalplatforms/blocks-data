@@ -80,9 +80,14 @@ test.describe("flow: Data Gateway — Analytics page", () => {
       await expect(page.getByText(/of 15(?: custom)? indexes/i)).toBeVisible({
         timeout: 30_000,
       });
+      // Empty custom list still shows the system ItemId(_id_) index (no Delete).
       const empty = page.getByText("No indexes yet", { exact: true });
-      const listItem = page.getByRole("button", { name: /Delete index / });
-      await expect(empty.or(listItem).first()).toBeVisible({ timeout: 30_000 });
+      const customDelete = page.getByRole("button", { name: /Delete index / });
+      const systemIndex = page.getByText("ItemId(_id_)", { exact: true });
+      const systemBadge = page.getByText("System", { exact: true });
+      await expect(
+        empty.or(customDelete).or(systemIndex).or(systemBadge).first(),
+      ).toBeVisible({ timeout: 30_000 });
     });
 
     await test.step("Indexes: Add-index form opens, requires a field, and cancels cleanly", async () => {

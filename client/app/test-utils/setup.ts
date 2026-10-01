@@ -85,11 +85,14 @@ if (typeof globalThis.window !== "undefined") {
   const win = globalThis as typeof globalThis & {
     __BLOCKS_ENV__?: Record<string, string>;
   };
-  win.__BLOCKS_ENV__ = {
-    ...(win.__BLOCKS_ENV__ ?? {}),
-    BLOCKS_ROLLBAR_CLIENT_TOKEN: "test-token",
-    BLOCKS_ROLLBAR_ENV: "test",
-  };
+  win.__BLOCKS_ENV__ = Object.assign(
+    Object.create(null) as Record<string, string>,
+    win.__BLOCKS_ENV__,
+    {
+      BLOCKS_ROLLBAR_CLIENT_TOKEN: "test-token",
+      BLOCKS_ROLLBAR_ENV: "test",
+    },
+  );
 }
 
 // Nested react-is (recharts) reads process.env.NODE_ENV at require time.
@@ -102,8 +105,8 @@ if (typeof process !== "undefined") {
 
 
 // jsdom does not implement matchMedia; many UI components read it on mount.
-if (typeof window !== "undefined" && !window.matchMedia) {
-  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+if (typeof globalThis.window !== "undefined" && !globalThis.window.matchMedia) {
+  globalThis.window.matchMedia = vi.fn().mockImplementation((query: string) => ({
     matches: false,
     media: query,
     onchange: null,

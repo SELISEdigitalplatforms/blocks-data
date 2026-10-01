@@ -36,7 +36,7 @@ export function dataGatewaySettledLocator(page: Page) {
     .or(page.getByRole("heading", { name: "Schemas", exact: true }))
     .or(page.getByText("Select a schema from the sidebar to view its details."))
     .or(page.getByRole("button", { name: /^Add Schema$/i }))
-    .or(page.getByPlaceholder("Search schemas…"))
+    .or(page.getByPlaceholder(/Search schemas/))
     .first()
 }
 
@@ -96,7 +96,7 @@ export async function openDataGateway(page: Page) {
 }
 
 async function enterSchemasSidebar(page: Page): Promise<boolean> {
-  if (await page.getByPlaceholder("Search schemas…").isVisible({ timeout: 1_500 }).catch(() => false)) {
+  if (await page.getByPlaceholder(/Search schemas/).isVisible({ timeout: 1_500 }).catch(() => false)) {
     return true
   }
   // Prefer SPA navigation via a landing-table row click (avoids brittle ?type=all remounts).
@@ -105,7 +105,7 @@ async function enterSchemasSidebar(page: Page): Promise<boolean> {
     const firstDataRow = page.locator("table tbody tr").first()
     if (await firstDataRow.isVisible({ timeout: 3_000 }).catch(() => false)) {
       await firstDataRow.click()
-      const search = page.getByPlaceholder("Search schemas…")
+      const search = page.getByPlaceholder(/Search schemas/)
       const ok = await search
         .waitFor({ state: "visible", timeout: 20_000 })
         .then(() => true)
@@ -123,7 +123,7 @@ async function enterSchemasSidebar(page: Page): Promise<boolean> {
   await dismissSessionConflictIfPresent(page)
   await expect(
     page
-      .getByPlaceholder("Search schemas…")
+      .getByPlaceholder(/Search schemas/)
       .or(page.getByRole("heading", { name: "Schemas", exact: true }))
       .or(page.getByText("Select a schema from the sidebar to view its details."))
       .or(page.getByRole("heading", { name: "Security Assessment" }))
@@ -135,13 +135,27 @@ async function enterSchemasSidebar(page: Page): Promise<boolean> {
       await firstDataRow.click()
     }
   }
-  return page.getByPlaceholder("Search schemas…").isVisible({ timeout: 15_000 }).catch(() => false)
+  return page.getByPlaceholder(/Search schemas/).isVisible({ timeout: 15_000 }).catch(() => false)
 }
 
 /**
  * Open Data Gateway and select a schema in the two-panel editor.
  */
 export async function selectSchema(page: Page, schemaName: string): Promise<boolean> {
+  // Already focused on this schema in the two-panel editor — skip the landing round-trip.
+  if (/\/data-gateway/i.test(page.url())) {
+    const focused = page.getByRole("heading", { name: schemaName, exact: true }).first()
+    const emptyDetails = page.getByText(
+      "Select a schema from the sidebar to view its details.",
+    )
+    if (
+      (await focused.isVisible({ timeout: 1_500 }).catch(() => false)) &&
+      !(await emptyDetails.isVisible({ timeout: 500 }).catch(() => false))
+    ) {
+      return true
+    }
+  }
+
   await openDataGateway(page)
 
   async function confirmSelected(): Promise<boolean> {
@@ -185,16 +199,25 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
 
   async function clickSidebar(): Promise<boolean> {
     const row = schemaRow()
+    if (!(await row.isVisible({ timeout: 2_000 }).catch(() => false))) {
+      // Fallback: sidebar label may not expose role=button consistently.
+      const byText = page.getByText(new RegExp(`^${schemaName}\\b`), { exact: false }).first()
+      if (await byText.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        await byText.click()
+        return confirmSelected()
+      }
+    }
     await row.scrollIntoViewIfNeeded().catch(() => {})
     await row.click()
     return confirmSelected()
   }
 
-  const search = page.getByPlaceholder("Search schemas…")
+  const search = page.getByPlaceholder(/Search schemas/)
+  await expect(search).toBeVisible({ timeout: 15_000 })
   await search.fill("")
   await search.fill(schemaName)
-  await page.waitForTimeout(600)
-  if (await schemaRow().isVisible({ timeout: 8_000 }).catch(() => false)) {
+  await expect(schemaRow()).toBeVisible({ timeout: 15_000 }).catch(() => {})
+  if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
     if (await clickSidebar()) return true
   }
 

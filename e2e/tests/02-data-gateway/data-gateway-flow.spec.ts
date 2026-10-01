@@ -154,6 +154,10 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(addSchemaButton).toBeVisible({ timeout: 10_000 });
 
       await createSchemaViaModal(page, addSchemaButton, schemaName);
+      const created = schemaRowLocator(page, schemaName);
+      await expect(created).toBeVisible({ timeout: 15_000 });
+      await created.click();
+
 
       await expect(page.getByRole("heading", { name: schemaName }).first()).toBeVisible({
         timeout: 30_000,

@@ -239,7 +239,7 @@ test.describe("flow: Overview menu", () => {
       await expect(page.getByText("Available endpoints for this module")).toBeVisible();
       await expect(page.getByText(/^\d+ Endpoints?$/)).toBeVisible();
 
-      const groupButtons = page.getByRole("button", { name: /^[A-Za-z]+\s+\d+$/ });
+      // Group labels are "{Name} {count}" (name may include digits/hyphens).\n      const groupButtons = page.getByRole("button", { name: /\S+\s+\d+$/ });
       await expect(groupButtons.first()).toBeVisible({ timeout: 15_000 });
       const groupCount = await groupButtons.count();
       expect(groupCount).toBeGreaterThan(0);

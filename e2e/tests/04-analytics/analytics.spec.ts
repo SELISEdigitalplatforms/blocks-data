@@ -2,21 +2,7 @@ import { expect, type Page } from "@playwright/test";
 import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
 import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
-
-async function openDataGateway(page: Page) {
-  const url = new URL(page.url());
-  const projectId = url.pathname.split("/")[2];
-  if (projectId) {
-    await page.goto(`${url.origin}/app/${projectId}/data-gateway`, {
-      waitUntil: "domcontentloaded",
-    });
-  } else {
-    await page.getByRole("link", { name: "Data Gateway" }).first().click();
-  }
-  await expect(page.getByRole("main").getByText("Data Gateway", { exact: true })).toBeVisible({
-    timeout: 30_000,
-  });
-}
+import { openDataGateway } from "../../support/open-data-gateway";
 
 async function openAnalytics(page: Page) {
   await openDataGateway(page);
@@ -73,6 +59,9 @@ test.describe("flow: Data Gateway — Analytics page", () => {
           timeout: 15_000,
         });
       }
+      const sidebarItem = page.getByRole("button", { name: new RegExp(`^${idxSchemaName}\\b`) }).first();
+      await expect(sidebarItem).toBeVisible({ timeout: 15_000 });
+      await sidebarItem.click();
       await expect(page.getByRole("heading", { name: idxSchemaName }).first()).toBeVisible({
         timeout: 30_000,
       });

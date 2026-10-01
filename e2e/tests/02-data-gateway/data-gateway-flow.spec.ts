@@ -2,19 +2,38 @@ import { expect, Locator, type Page } from "@playwright/test";
 import path from "path";
 import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
-import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
+import { dismissSessionConflictIfPresent, isConsoleUrl } from "../../support/session-conflict";
+import { readDataProject } from "../../support/data-project";
+import { e2eBaseUrl } from "../../support/env";
+
+function resolveProjectId(page: Page): string | null {
+  const fixture = readDataProject();
+  if (fixture?.itemId) return fixture.itemId;
+  try {
+    const id = new URL(page.url()).pathname.split("/")[2];
+    if (id && id !== "console") return id;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
 
 async function openDataGateway(page: Page) {
-  const url = new URL(page.url());
-  const projectId = url.pathname.split("/")[2];
+  const projectId = resolveProjectId(page);
   if (projectId) {
-    await page.goto(`${url.origin}/app/${projectId}/data-gateway`, {
+    await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway`, {
       waitUntil: "domcontentloaded",
     });
   } else {
     await page.getByRole("link", { name: "Data Gateway" }).first().click();
   }
   await dismissSessionConflictIfPresent(page);
+  if (isConsoleUrl(page.url()) && projectId) {
+    await openEnvironment(page);
+    await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway`, {
+      waitUntil: "domcontentloaded",
+    });
+  }
   await expect(page.getByRole("main").getByText("Data Gateway", { exact: true })).toBeVisible({
     timeout: 30_000,
   });
@@ -26,9 +45,13 @@ async function ensureConfigurationPage(page: Page) {
   const dialog = page.getByRole("dialog");
   if (await dialog.isVisible({ timeout: 2_000 }).catch(() => false)) return;
 
-  // If Leave-session dropped us on console, re-enter Data Gateway first.
-  if (/\/app\/console\/?$/i.test(new URL(page.url()).pathname)) {
-    const { openEnvironment } = await import("../../support/navigation");
+  const projectId = resolveProjectId(page);
+  if (!projectId) {
+    throw new Error(`Cannot open configuration: no project id (url=${page.url()})`);
+  }
+
+  // If Leave-session dropped us on console, re-enter the project first.
+  if (isConsoleUrl(page.url())) {
     await openEnvironment(page);
     await openDataGateway(page);
   }
@@ -44,14 +67,15 @@ async function ensureConfigurationPage(page: Page) {
   if (await dialog.isVisible({ timeout: 3_000 }).catch(() => false)) return;
   if (/\/configuration\/?$/.test(new URL(page.url()).pathname)) return;
 
-  const url = new URL(page.url());
-  const projectId = url.pathname.split("/")[2];
-  if (!projectId || projectId === "console") {
-    throw new Error(`Cannot open configuration: not in a project (url=${page.url()})`);
-  }
-  await page.goto(`${url.origin}/app/${projectId}/data-gateway/configuration`, {
+  await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway/configuration`, {
     waitUntil: "domcontentloaded",
   });
+  if (isConsoleUrl(page.url())) {
+    await openEnvironment(page);
+    await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway/configuration`, {
+      waitUntil: "domcontentloaded",
+    });
+  }
   await expect(page).toHaveURL(/\/configuration/, { timeout: 30_000 });
 }
 

@@ -97,9 +97,9 @@ test.describe("feature: Enum property type (#353)", () => {
         await page.getByText("Enum", { exact: true }).click();
       }
 
-      await expect(page.getByText("Allowed values")).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText("Allowed values").first()).toBeVisible({ timeout: 10_000 });
       await expect(
-        page.getByText("Add at least one allowed value for Enum."),
+        page.getByText("Add at least one allowed value for Enum.").first(),
       ).toBeVisible({ timeout: 5_000 });
 
       const valueInput = page.getByLabel("New enum value");

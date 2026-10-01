@@ -1,5 +1,5 @@
 import { test as base, expect, type Page } from "@playwright/test"
-import { dismissSessionConflictIfPresent } from "./session-conflict"
+import { dismissSessionConflictIfPresent, isConsoleUrl } from "./session-conflict"
 import { markSuiteTestFailed } from "./run-outcome"
 
 // Shared `test` for the whole suite. Specs import from here instead of
@@ -29,8 +29,15 @@ export const test = base.extend<{ pauseAfterEachTest: void; dismissSessionConfli
     async ({ page }, use) => {
       const originalGoto = page.goto.bind(page)
       page.goto = (async (...args: Parameters<Page["goto"]>) => {
-        const result = await originalGoto(...args)
-        await dismissSessionConflictIfPresent(page)
+        let result = await originalGoto(...args)
+        // Leave-session dismiss lands on /app/console; reclaim the project by
+        // re-navigating to the intended URL once the overlay has cleared.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const dismissed = await dismissSessionConflictIfPresent(page)
+          if (!dismissed) break
+          if (!isConsoleUrl(page.url())) break
+          result = await originalGoto(...args)
+        }
         return result
       }) as typeof page.goto
       await dismissSessionConflictIfPresent(page)

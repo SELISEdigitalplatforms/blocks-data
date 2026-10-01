@@ -141,10 +141,11 @@ test.describe("flow: Overview menu", () => {
 
     await test.step("Console: Resources cards navigate to their target URL when clicked", async () => {
       // Console Resources CTAs (labels evolved from Docs/Code/Cloud).
+      // Accessible name is the whole card ("Read Docs: …"), not the CTA chip.
       const resourceLinks = [
-        page.getByRole("link", { name: /Start Reading/i }),
-        page.getByRole("link", { name: /See Installation Steps/i }),
-        page.getByRole("link", { name: /Set Up Your Agent/i }),
+        page.getByRole("link", { name: /Read Docs|Start Reading/i }),
+        page.getByRole("link", { name: /Install CLI|See Installation Steps/i }),
+        page.getByRole("link", { name: /Bootstrap|Set Up Your Agent/i }),
       ];
 
       for (const link of resourceLinks) {

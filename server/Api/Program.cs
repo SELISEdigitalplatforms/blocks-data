@@ -63,6 +63,9 @@ services.AddStorageDomainServices();
 
 var app = builder.Build();
 
+// Browser-facing security headers for SPA + API (OWASP ZAP DAST bar).
+app.UseMiddleware<Blocks.Data.Api.Middleware.SecurityHeadersMiddleware>();
+
 app.UseDefaultFiles();
 app.UseStaticFiles();
 

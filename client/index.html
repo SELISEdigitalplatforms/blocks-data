@@ -9,11 +9,12 @@
   </head>
 
   <body class="min-h-screen bg-background font-sans text-foreground antialiased">
+    <a href="/login" class="sr-only">Sign in</a>
     <div id="root"></div>
     <div id="portal-root"></div>
     <script>
       window.__BLOCKS_ENV__ = {
-        // The Data API serves this app, including preview deployments, from its own origin.
+        // App origin for this deployment.
         BLOCKS_DATA_BASE_URL: window.location.origin,
         BLOCKS_ROLLBAR_CLIENT_TOKEN: "__BLOCKS_ROLLBAR_CLIENT_TOKEN__",
         BLOCKS_ROLLBAR_ENV: "__BLOCKS_ROLLBAR_ENV__",
@@ -26,9 +27,7 @@
         BLOCKS_OS_URL: "__BLOCKS_OS_URL__",
         BLOCKS_IDP_BASE_URL: "__BLOCKS_IDP_BASE_URL__",
         BLOCKS_OIDC_CLIENT_ID: "__BLOCKS_OIDC_CLIENT_ID__",
-        // Per-app OIDC client IDs used by the blocks-kit AppSwitcher to initiate
-        // SSO into other Blocks apps. These are fixed app-registration IDs (same
-        // values across Blocks apps, mirrored from blocks-uds/blocks-data).
+        // AppSwitcher client registrations for sibling Blocks apps.
         BLOCKS_IAM_CLIENT_ID: "__BLOCKS_IAM_CLIENT_ID__",
         BLOCKS_DATA_CLIENT_ID: "__BLOCKS_DATA_CLIENT_ID__",
         BLOCKS_LOCALIZATION_CLIENT_ID: "__BLOCKS_LOCALIZATION_CLIENT_ID__",

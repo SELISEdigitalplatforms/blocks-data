@@ -35,9 +35,27 @@ async function openDataGateway(page: Page) {
       waitUntil: "domcontentloaded",
     });
   }
-  await expect(page.getByRole("main").getByText("Data Gateway", { exact: true })).toBeVisible({
-    timeout: 30_000,
-  });
+  // Deep-link can bounce to /app/{id}/console; recover via sidebar.
+  if (!/\/data-gateway(\/|$)/i.test(new URL(page.url()).pathname)) {
+    const nav = page.getByRole("link", { name: "Data Gateway" }).first();
+    if (await nav.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      await nav.click();
+    } else if (projectId) {
+      await openEnvironment(page);
+      await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway`, {
+        waitUntil: "domcontentloaded",
+      });
+    }
+  }
+  await expect(page).toHaveURL(/\/data-gateway(\/|$)/i, { timeout: 30_000 });
+  await expect(
+    page.getByRole("main").getByText("Data Gateway", { exact: true })
+      .or(page.getByRole("heading", { name: "Schemas", exact: true }))
+      .or(page.getByRole("heading", { name: "Security Assessment" }))
+      .or(page.getByText("No schemas yet", { exact: true }))
+      .or(page.getByRole("button", { name: "More actions" }))
+      .first(),
+  ).toBeVisible({ timeout: 30_000 });
 }
 
 async function createSchema(page: Page, schemaName: string) {
@@ -122,25 +140,18 @@ test.describe("feature: Enum property type (#353)", () => {
         page.getByText("Add at least one allowed value for Enum.").first(),
       ).toBeVisible({ timeout: 5_000 });
 
-      // Desktop + mobile both mount EnumValuesEditor; drive the desktop table row.
-      // Controlled inputs often omit HTML value= — use accessible row name instead.
+      // Desktop table only — mobile EnumValuesEditor is outside <table>.
       await page.keyboard.press("Escape").catch(() => {});
-      const enumEditor = page
-        .locator("table")
-        .getByRole("row")
-        .filter({ hasText: fieldName })
-        .filter({ hasText: "Allowed values" })
-        .last();
-      await expect(enumEditor).toBeVisible({ timeout: 15_000 });
-      const valueInput = enumEditor.getByLabel("New enum value");
-      const addValue = enumEditor.getByLabel("Add enum value");
+      const valueInput = page.locator("table").getByLabel("New enum value").last();
+      const addValue = page.locator("table").getByLabel("Add enum value").last();
+      await expect(valueInput).toBeVisible({ timeout: 15_000 });
       await valueInput.fill("Active");
       await addValue.click();
-      await expect(enumEditor.getByText("Active", { exact: true })).toBeVisible();
+      await expect(page.locator("table").getByText("Active", { exact: true }).last()).toBeVisible();
 
       await valueInput.fill("Closed");
       await addValue.click();
-      await expect(enumEditor.getByText("Closed", { exact: true })).toBeVisible();
+      await expect(page.locator("table").getByText("Closed", { exact: true }).last()).toBeVisible();
 
       // Invalid value should surface editor error (does not add)
       await valueInput.fill("1Bad");

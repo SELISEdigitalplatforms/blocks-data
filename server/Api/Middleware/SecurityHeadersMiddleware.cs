@@ -81,11 +81,11 @@ public sealed class SecurityHeadersMiddleware
             "https://code.selise.biz";
 
         // External /runtime-config.js supplies window.__BLOCKS_ENV__ (no inline script).
-        // style-src without unsafe-inline: prefer CSS classes / CSS-in-JS hashed builds.
+        // style-src keeps unsafe-inline for Radix/emotion inline styles (script-src stays strict).
         return
             "default-src 'self' blob:; " +
             "script-src 'self'; " +
-            "style-src 'self'; " +
+            "style-src 'self' 'unsafe-inline'; " +
             "img-src 'self' data: blob: https://blocksdev.blob.core.windows.net https://az-cdn.selise.biz; " +
             "font-src 'self' data:; " +
             "connect-src 'self' " + connectHosts + "; " +

@@ -52,7 +52,7 @@ export function PropertyTypeSelector({
       <div
         title={typeLabel}
         className={cn(
-          "flex h-10 w-full min-w-0 items-center rounded-md border px-3 text-sm",
+          "flex h-9 w-full min-w-0 items-center rounded-md border px-3 text-sm",
           "bg-background text-foreground",
           childTypeStyles,
         )}
@@ -73,7 +73,7 @@ export function PropertyTypeSelector({
           aria-expanded={isOpen}
           title={typeLabel}
           className={cn(
-            "h-10 w-full min-w-0 justify-between text-left shadow-none",
+            "h-9 w-full min-w-0 justify-between rounded-md text-left shadow-none",
             isReadOnly && "cursor-not-allowed bg-muted",
             isChildType && !isReadOnly && "border-primary/50 bg-primary/5 text-primary",
           )}

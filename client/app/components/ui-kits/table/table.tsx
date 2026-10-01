@@ -2,13 +2,26 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
-      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
-    </div>
-  ),
-);
+const Table = React.forwardRef<
+  HTMLTableElement,
+  React.HTMLAttributes<HTMLTableElement> & {
+    /**
+     * Replaces the wrapper's default `overflow-auto` entirely (rather than
+     * merging with it) when provided. A `position: sticky` header inside this
+     * wrapper sticks to whichever ancestor has its own overflow — if that's
+     * this wrapper rather than an outer scroll container, the header just
+     * scrolls off with the rest of the table. Overflowing only the x-axis
+     * here (`overflow-x-auto overflow-y-visible`) keeps horizontal scrolling
+     * for a wide table while leaving the outer container as the one that
+     * actually scrolls vertically, which is what a sticky header needs.
+     */
+    wrapperClassName?: string;
+  }
+>(({ className, wrapperClassName, ...props }, ref) => (
+  <div className={cn("relative w-full", wrapperClassName ?? "overflow-auto")}>
+    <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
+  </div>
+));
 Table.displayName = "Table";
 
 const TableHeader = React.forwardRef<

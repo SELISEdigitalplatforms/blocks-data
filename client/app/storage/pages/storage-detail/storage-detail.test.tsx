@@ -309,7 +309,9 @@ describe("StorageDetail", () => {
 
     await user.click(screen.getByRole("button", { name: "API Docs" }));
 
-    expect(openSpy).toHaveBeenCalledWith("/swagger/index.html", "_blank");
+    // BLOCKS_DATA_BASE_URL now always resolves to the serving origin
+    // (getRuntimeEnv), so the URL is absolute, not host-relative.
+    expect(openSpy).toHaveBeenCalledWith(`${window.location.origin}/swagger/index.html`, "_blank");
     openSpy.mockRestore();
   });
 

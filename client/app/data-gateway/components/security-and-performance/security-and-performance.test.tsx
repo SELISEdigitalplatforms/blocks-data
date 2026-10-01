@@ -128,7 +128,7 @@ describe("SecurityAndPerformance", () => {
     expect(onNavigateToSchemas).toHaveBeenCalled();
   });
 
-  it("renders the assessment, stat counts and schema rows when data is present", () => {
+  it("renders the assessment, the exposure legend and the schema rows", () => {
     useSecurityAndPerformanceSchemaList.mockReturnValue({
       data: listData,
       isLoading: false,
@@ -136,10 +136,13 @@ describe("SecurityAndPerformance", () => {
     renderPanel();
 
     expect(screen.getByText("Security Assessment")).toBeInTheDocument();
+    expect(screen.getByText("User")).toBeInTheDocument();
+
+    // The three counters are a proportional bar with a legend now.
+    expect(screen.getByText("Access surface")).toBeInTheDocument();
     expect(screen.getByText("7")).toBeInTheDocument();
     expect(screen.getByText("11")).toBeInTheDocument();
     expect(screen.getByText("13")).toBeInTheDocument();
-    expect(screen.getByText("User")).toBeInTheDocument();
   });
 
   it("opens the add-schema modal from the header button", async () => {
@@ -231,5 +234,132 @@ describe("SecurityAndPerformance", () => {
     notifHandler?.({ message: { denormalizedPayload: "{not-json" } });
     expect(showErrorToast).toHaveBeenCalledWith({ errors: "Error processing import schema" });
     consoleError.mockRestore();
+  });
+  // ── Phase 7: exposure, filters and risk order ───────────────────────────
+
+  const riskyList = {
+    data: {
+      schemas: {
+        items: [
+          // Signed-in read only — the product default.
+          {
+            schemaName: "Quiet",
+            readAccessLevel: 1,
+            writeAccessLevel: 3,
+            editAccessLevel: 3,
+            deleteAccessLevel: 3,
+          },
+          // Anyone can create.
+          {
+            schemaName: "Wide",
+            readAccessLevel: 2,
+            writeAccessLevel: 2,
+            editAccessLevel: 3,
+            deleteAccessLevel: 3,
+            fields: [{ name: "Email", isPIIData: true }],
+          },
+          // Public read, nothing sensitive on it.
+          {
+            schemaName: "Readable",
+            readAccessLevel: 2,
+            writeAccessLevel: 3,
+            editAccessLevel: 3,
+            deleteAccessLevel: 3,
+          },
+        ],
+        totalCount: 3,
+      },
+      aggregation: {
+        totalPublicPermission: 3,
+        totalUserPermission: 1,
+        totalCustomPermission: 7,
+      },
+    },
+  };
+
+  /** Table rows only: the alert hints mention these names too. */
+  const rowNames = () =>
+    screen
+      .getAllByRole("button", { name: /^Open / })
+      .map((b) => b.getAttribute("aria-label") ?? "");
+
+  it("puts the most exposed schema first by default", () => {
+    useSecurityAndPerformanceSchemaList.mockReturnValue({
+      data: riskyList,
+      isLoading: false,
+    });
+    renderPanel();
+
+    const names = rowNames();
+    expect(names[0]).toBe("Open Wide");
+    expect(names[1]).toBe("Open Readable");
+    expect(names[2]).toBe("Open Quiet");
+  });
+
+  it("counts the alerts over the fetched schemas", () => {
+    useSecurityAndPerformanceSchemaList.mockReturnValue({
+      data: riskyList,
+      isLoading: false,
+    });
+    renderPanel();
+
+    expect(screen.getByRole("button", { name: /Filter by public write/ })).toHaveTextContent("1");
+    expect(screen.getByRole("button", { name: /Filter by pii exposed publicly/ })).toHaveTextContent(
+      "1",
+    );
+  });
+
+  it("narrows the table to the schemas behind a chip", async () => {
+    const user = userEvent.setup();
+    useSecurityAndPerformanceSchemaList.mockReturnValue({
+      data: riskyList,
+      isLoading: false,
+    });
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /Needs attention/ }));
+
+    expect(rowNames()).toEqual(["Open Wide", "Open Readable"]);
+  });
+
+  it("filters the table when an alert tile is clicked", async () => {
+    const user = userEvent.setup();
+    useSecurityAndPerformanceSchemaList.mockReturnValue({
+      data: riskyList,
+      isLoading: false,
+    });
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /Filter by public write/ }));
+    expect(rowNames()).toEqual(["Open Wide", "Open Readable"]);
+  });
+
+  // Risk order is a client-side judgement; it has to be possible to turn off.
+  it("returns to the served order when risk sorting is switched off", async () => {
+    const user = userEvent.setup();
+    useSecurityAndPerformanceSchemaList.mockReturnValue({
+      data: riskyList,
+      isLoading: false,
+    });
+    renderPanel();
+
+    await user.click(screen.getByRole("button", { name: /Exposure, high to low/ }));
+    expect(rowNames()[0]).toBe("Open Quiet");
+  });
+
+  // The chips and alerts can only see what was fetched.
+  it("says so when more schemas exist than were fetched", () => {
+    useSecurityAndPerformanceSchemaList.mockReturnValue({
+      data: {
+        data: {
+          ...riskyList.data,
+          schemas: { ...riskyList.data.schemas, totalCount: 500 },
+        },
+      },
+      isLoading: false,
+    });
+    renderPanel();
+
+    expect(screen.getByText(/Showing the first 3 of 500 schemas/)).toBeInTheDocument();
   });
 });

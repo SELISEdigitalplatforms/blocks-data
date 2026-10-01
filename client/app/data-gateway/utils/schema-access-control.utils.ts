@@ -1,41 +1,12 @@
 import {
   IN_OPERATORS,
   NUMBER_TO_OPERATOR,
-  NUMBER_TO_SOURCE_LABEL,
   NUMBER_TO_SOURCE_TYPE,
-  READABLE_OPERATORS,
   RULE_SOURCE_TYPES,
 } from "../constants/schema-access-control";
 import type { IField, IPolicyRule } from "../models/data-service";
 
 // ─── Policy Rule Conversion ──────────────────────────────────────────────────
-
-/** Convert a policy rule into a human-readable sentence */
-export function ruleToText(rule: IPolicyRule): string {
-  const source = NUMBER_TO_SOURCE_LABEL[rule.leftSource] ?? `Source(${rule.leftSource})`;
-  const field = rule.leftOperand;
-  const operator = READABLE_OPERATORS[rule.operator] ?? `operator(${rule.operator})`;
-
-  // Null operators don't need a right side
-  if (rule.operator === 12 || rule.operator === 13) {
-    return `${source}'s ${field} ${operator}`;
-  }
-
-  // Static value → show quoted value
-  if (rule.rightSource === 2) {
-    const staticDisplay = Array.isArray(rule.staticValue)
-      ? rule.staticValue.map((v) => `"${v}"`).join(", ")
-      : `"${rule.staticValue ?? ""}"`;
-    return `${source}'s ${field} ${operator} ${staticDisplay}`;
-  }
-
-  // Auth or Schema Field → show source label + field name
-  const rightSource = NUMBER_TO_SOURCE_LABEL[rule.rightSource] ?? `Source(${rule.rightSource})`;
-  const rightOperandDisplay = rule.rightOperands?.length
-    ? rule.rightOperands.join(", ")
-    : rule.rightOperand;
-  return `${source}'s ${field} ${operator} ${rightSource}'s ${rightOperandDisplay}`;
-}
 
 /** Convert an API policy rule (numeric) to form values (string keys) */
 export function policyRuleToFormRow(rule: IPolicyRule) {

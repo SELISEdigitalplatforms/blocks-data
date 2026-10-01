@@ -12,29 +12,6 @@ export const ACCESS_TYPES = {
   INHERITED: "inherited",
 };
 
-export const ACCESS_STYLES = {
-  [ACCESS_TYPES.LOGGED_IN]: "mt-4 rounded-sm border border-amber-500/20 bg-amber-500/5 p-4",
-  [ACCESS_TYPES.PUBLIC]: "mt-4 rounded-sm border border-rose-500/20 bg-rose-500/5 p-4",
-  [ACCESS_TYPES.CUSTOM]: "mt-4 rounded-sm border border-emerald-500/20 bg-emerald-500/5 p-4",
-  [ACCESS_TYPES.INHERITED]: "mt-4 rounded-sm border border-sky-500/20 bg-sky-500/5 p-4",
-};
-
-export const ACCESS_LABELS = {
-  [ACCESS_TYPES.LOGGED_IN]: "All logged in users have access",
-  [ACCESS_TYPES.PUBLIC]: "API is public",
-  [ACCESS_TYPES.CUSTOM]: "Custom Permissions",
-  [ACCESS_TYPES.INHERITED]: "Inherited from schema",
-};
-
-export const ACCESS_DESCRIPTIONS = {
-  [ACCESS_TYPES.LOGGED_IN]:
-    "All authenticated users can view records from this collection with no restrictions.",
-  [ACCESS_TYPES.PUBLIC]: "Anyone can view this API with no restrictions.",
-  [ACCESS_TYPES.CUSTOM]:
-    "This API is accessible based on rules set below. Ensure you have the rules configured properly.",
-  [ACCESS_TYPES.INHERITED]: "This field inherits the access policy from the schema level.",
-};
-
 export const RULE_SOURCE_TYPES = {
   AUTH: "auth",
   SCHEMA_FIELD: "schema-field",
@@ -169,16 +146,6 @@ export const POLICY_OPERATION = {
   DELETE: 3,
   ALL: 4,
 } as const;
-
-/** Compact badge colors for access type pills */
-export const ACCESS_TYPE_BADGE_STYLES: Record<string, string> = {
-  [ACCESS_TYPES.LOGGED_IN]:
-    "bg-neutral-200 text-neutral-700 dark:bg-neutral-700 dark:text-neutral-300",
-  [ACCESS_TYPES.PUBLIC]:
-    "bg-warning-100 text-warning-700 dark:bg-warning-800/30 dark:text-yellow-400",
-  [ACCESS_TYPES.CUSTOM]: "bg-success/20 text-success",
-  [ACCESS_TYPES.INHERITED]: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-};
 
 /** Short display labels for access type badges */
 export const ACCESS_TYPE_SHORT_LABELS: Record<string, string> = {
@@ -341,47 +308,4 @@ export const TAB_TO_ACCESS_LEVEL_KEY: Record<
   create: "writeAccessLevel",
   edit: "editAccessLevel",
   delete: "deleteAccessLevel",
-};
-
-export const SECURITY_PERFORMANCE_SUMMARY_ITEMS = [
-  {
-    id: 1,
-    label: "Public",
-    countKey: "totalPublicPermission" as const,
-    className:
-      "flex h-[60px] flex-col justify-center gap-[4px] rounded-[4px] border-l-[6px] border-[#FF3333] pl-4",
-  },
-  {
-    id: 2,
-    label: "Logged-in users",
-    countKey: "totalUserPermission" as const,
-    className:
-      "flex h-[60px] flex-col justify-center gap-[4px] rounded-[4px] border-l-[6px] border-[#F8BE28] pl-4",
-  },
-  {
-    id: 3,
-    label: "Custom",
-    countKey: "totalCustomPermission" as const,
-    className:
-      "flex h-[60px] flex-col justify-center gap-[4px] rounded-[4px] border-l-[6px] border-[#17C964] pl-4",
-  },
-];
-
-export const ACCESS_LEVEL_BADGE_MAP: Record<string, { label: string; colorClass: string }> = {
-  "0": {
-    label: "Inherited",
-    colorClass: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  },
-  "1": {
-    label: "Logged-in users",
-    colorClass: "bg-[#FFF7CC] text-[#AB730A]",
-  },
-  "2": {
-    label: "Public",
-    colorClass: "bg-[#FFDCD6] text-[#B3121D]",
-  },
-  "3": {
-    label: "Custom",
-    colorClass: "bg-[#E8FFEE] text-[#0AA351]",
-  },
 };

@@ -3,6 +3,21 @@ import { afterEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 
 /**
+ * Runtime env the app shell normally injects into the page.
+ *
+ * `@seliseblocks/genesis-os` runs `window.process = { env: window.__BLOCKS_ENV__ }`
+ * at module scope. With no `__BLOCKS_ENV__` that assignment sets `process.env`
+ * to `undefined` — clobbering Node's own — and every later `process.env.X` read
+ * throws. That is what took out whole test files at import time, including
+ * `react-is`, which reads `process.env.NODE_ENV`. An empty object is enough:
+ * it must exist before any module that touches it is imported, which is why it
+ * lives here rather than in a test.
+ */
+if (typeof window !== "undefined") {
+  (window as unknown as { __BLOCKS_ENV__: Record<string, string> }).__BLOCKS_ENV__ ??= {};
+}
+
+/**
  * In-memory Web Storage polyfill.
  *
  * On Node >= 22 the runtime exposes a native `localStorage` global that stays

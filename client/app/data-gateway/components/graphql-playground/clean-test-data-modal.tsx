@@ -98,7 +98,7 @@ export const CleanTestDataModal = ({
             <Trash2 className="h-4 w-4 text-indigo-400" />
             Clean Test Data
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground/60">
+          <DialogDescription className="text-xs text-muted-foreground">
             Select schemas to delete their test data
           </DialogDescription>
         </DialogHeader>
@@ -106,10 +106,10 @@ export const CleanTestDataModal = ({
         <div className="max-h-[380px] overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-10">
-              <Loader className="h-5 w-5 animate-spin text-muted-foreground/40" />
+              <Loader className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : mockDataItems.length === 0 ? (
-            <div className="py-10 text-center text-xs text-muted-foreground/50">
+            <div className="py-10 text-center text-xs text-muted-foreground">
               No test data found
             </div>
           ) : (
@@ -121,7 +121,7 @@ export const CleanTestDataModal = ({
                   checked={selectAll}
                   onCheckedChange={handleSelectAll}
                 />
-                <label htmlFor="select-all" className="flex-1 cursor-pointer text-xs font-medium text-muted-foreground/70">
+                <label htmlFor="select-all" className="flex-1 cursor-pointer text-xs font-medium text-muted-foreground">
                   Select All ({mockDataItems.length})
                 </label>
               </div>
@@ -132,7 +132,7 @@ export const CleanTestDataModal = ({
                   <label
                     key={item.schemaName}
                     htmlFor={item.schemaName}
-                    className="flex cursor-pointer items-start gap-2.5 rounded-sm border border-border/30 bg-muted/10 p-3 transition-colors hover:border-border/50 hover:bg-muted/20"
+                    className="flex cursor-pointer items-start gap-2.5 rounded-sm border border-border/40 bg-muted/10 p-3 transition-colors hover:border-primary/40 hover:bg-muted/20"
                   >
                     <Checkbox
                       id={item.schemaName}
@@ -142,9 +142,9 @@ export const CleanTestDataModal = ({
                       }
                       className="mt-0.5 shrink-0"
                     />
-                    <span className="text-xs font-medium text-foreground/80">
+                    <span className="text-xs font-medium text-foreground">
                       {item.collectionName}
-                      <span className="ml-1 text-muted-foreground/50">
+                      <span className="ml-1 text-muted-foreground">
                         ({item.count} {item.count === 1 ? "record" : "records"})
                       </span>
                     </span>
@@ -156,10 +156,13 @@ export const CleanTestDataModal = ({
         </div>
 
         <DialogFooter className="gap-2">
+          {/* `outline`, not `ghost` — ghost has no resting border/background of
+              its own, only a hover state, so paired with muted text it read
+              as a disabled control until the cursor found it. */}
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="border border-border/40 text-muted-foreground/70 hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground"
             onClick={() => onOpenChange(false)}
             disabled={isDeleting}
           >

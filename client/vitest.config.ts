@@ -11,6 +11,15 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./app/test-utils/setup.ts"],
+    server: {
+      deps: {
+        // genesis-os reads `import.meta.env`, which only exists in modules Vite
+        // transforms. Externalised (the default for node_modules) it resolves to
+        // undefined and the package throws at import time, taking whole test
+        // files down before a single test runs.
+        inline: ["@seliseblocks/genesis-os"],
+      },
+    },
     include: ["app/**/*.test.ts", "app/**/*.test.tsx"],
     coverage: {
       reporter: ["text", "lcov"],
@@ -36,6 +45,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // jsdom is a browser, but vitest resolves node_modules with the "node"
+      // export condition, which hands us rollbar's server build. That one calls
+      // `process.listeners` at construction and throws under jsdom, taking the
+      // importing test file with it.
+      rollbar: path.resolve(__dirname, "./node_modules/rollbar/src/browser/rollbar.js"),
       "@": path.resolve(__dirname, "./app"),
       "@blocks-idp": path.resolve(__dirname, "./app/idp"),
     },

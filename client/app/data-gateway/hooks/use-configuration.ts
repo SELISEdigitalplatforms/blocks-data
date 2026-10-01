@@ -402,8 +402,11 @@ export const useCreatePolicy = () => {
   return useMutation({
     mutationFn: configurationService.createPolicy,
     onSuccess: (_data, variables) => {
+      // The real key is ["get-policy-data", entityName, projectKey] —
+      // `variables.schemaName` fills the slot a bare `[..., projectKey]`
+      // prefix would skip, which otherwise never matches anything.
       queryClient.invalidateQueries({
-        queryKey: ["get-policy-data", projectKey],
+        queryKey: ["get-policy-data", variables.schemaName, projectKey],
       });
       queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],
@@ -423,7 +426,7 @@ export const useUpdatePolicy = () => {
     mutationFn: configurationService.updatePolicy,
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ["get-policy-data", projectKey],
+        queryKey: ["get-policy-data", variables.schemaName, projectKey],
       });
       queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],
@@ -443,8 +446,14 @@ export const useDeletePolicy = () => {
     mutationFn: (payload: IDeletePolicyPayload) =>
       configurationService.deletePolicy(payload),
     onSuccess: () => {
+      // A delete only carries `itemId` + `projectKey`, not the entity the
+      // policy belonged to, so the exact ["get-policy-data", entityName,
+      // projectKey] key can't be built here — match it by predicate instead
+      // of a `[..., projectKey]` prefix, which skips the entityName slot and
+      // never matches anything.
       queryClient.invalidateQueries({
-        queryKey: ["get-policy-data", projectKey],
+        predicate: (query) =>
+          query.queryKey[0] === "get-policy-data" && query.queryKey[2] === projectKey,
       });
       queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],

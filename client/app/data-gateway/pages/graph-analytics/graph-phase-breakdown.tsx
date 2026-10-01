@@ -50,7 +50,7 @@ export const PhaseBreakdown = ({ phases, total }: { phases: PhaseRow[]; total: n
             <div className="h-2 rounded bg-primary" style={{ width: `${Math.min(100, share)}%` }} />
           </div>
           <span className="w-20 shrink-0 text-right text-sm">{formatDuration(phase.value)}</span>
-          <span className="w-12 shrink-0 text-right text-xs text-muted-foreground/60">{share}%</span>
+          <span className="w-12 shrink-0 text-right text-xs text-muted-foreground">{share}%</span>
         </div>
       );
     })}

@@ -106,8 +106,16 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   });
 
   useEffect(() => {
-    if (mode === "edit" && defaultValues) {
-      reset(defaultValues);
+    // Edit mode always has a subject to prefill from. Add mode usually
+    // starts blank, but a caller can still hand it a starting kind — the
+    // Entity/Child cards on the empty-canvas do, so picking one jumps
+    // straight to that type instead of always landing on Entity.
+    if (defaultValues) {
+      reset({
+        schemaName: defaultValues.schemaName,
+        schemaType: defaultValues.schemaType,
+        entityName: defaultValues.entityName ?? "",
+      });
     } else {
       reset({
         schemaName: "",

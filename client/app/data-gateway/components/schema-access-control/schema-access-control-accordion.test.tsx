@@ -11,11 +11,6 @@ vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
 }));
 
-vi.mock("@/hooks/use-toast", () => ({
-  showErrorToast: vi.fn(),
-  showSuccessToast: vi.fn(),
-}));
-
 import { SchemaAccessControlAccordion } from "./schema-access-control-accordion";
 
 const policy = {
@@ -59,11 +54,28 @@ describe("SchemaAccessControlAccordion", () => {
     expect(onAddRuleSet).toHaveBeenCalled();
   });
 
-  it("renders a row per policy with its rule count", () => {
+  // A three-column table did not survive the 328px inspector; it is a list.
+  it("renders a row per policy with its rule count and match mode", () => {
     render(<SchemaAccessControlAccordion policies={[policy]} />);
     expect(screen.getByText("Admins only")).toBeInTheDocument();
-    // rulesCount cell
+    expect(screen.getByText("1 rule · match all")).toBeInTheDocument();
+  });
+
+  // The count used to live only in the reader's head; now it's on the label,
+  // and the OR-across-sets rule is stated instead of assumed.
+  it("shows the rule-set count and the any-set-matches banner once there is at least one", () => {
+    render(<SchemaAccessControlAccordion policies={[policy]} />);
+    expect(screen.getByText("Rule sets")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Access is granted when/),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the search and banner when there are no rule sets yet", () => {
+    render(<SchemaAccessControlAccordion policies={[]} />);
+    expect(screen.queryByPlaceholderText("Search rule sets")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Access is granted when/)).not.toBeInTheDocument();
   });
 
   it("expands a policy row to show the readable rule text", async () => {
@@ -71,26 +83,22 @@ describe("SchemaAccessControlAccordion", () => {
     render(<SchemaAccessControlAccordion policies={[policy]} />);
 
     await user.click(screen.getByText("Admins only"));
-    expect(screen.getByText("All rules match (AND)")).toBeInTheDocument();
-    // ruleToText renders the left operand somewhere in the rule text
-    expect(screen.getByText(/userId/)).toBeInTheDocument();
+    expect(screen.getByText("Grants access when every rule must match:")).toBeInTheDocument();
+    // The rule reads as a sentence rather than a dump of source labels.
+    expect(screen.getByText(/the signed-in user's userId equals “abc”/)).toBeInTheDocument();
   });
 
   it("filters policies by the search box", async () => {
     const user = userEvent.setup();
     render(<SchemaAccessControlAccordion policies={[policy]} />);
 
-    await user.type(screen.getByPlaceholderText("Search"), "zzz");
+    await user.type(screen.getByPlaceholderText("Search rule sets"), "zzz");
     expect(screen.getByText(/No rule sets match "zzz"/)).toBeInTheDocument();
     expect(screen.queryByText("Admins only")).not.toBeInTheDocument();
   });
 
   const openRowMenu = async (user: ReturnType<typeof userEvent.setup>) => {
-    // The row menu trigger is the icon-only button (no text) in the row.
-    const trigger = screen
-      .getAllByRole("button")
-      .find((b) => b.querySelector("svg") && !b.textContent?.trim())!;
-    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "Actions for Admins only" }));
   };
 
   it("edits a policy from the row menu", async () => {
@@ -112,7 +120,7 @@ describe("SchemaAccessControlAccordion", () => {
 
     await openRowMenu(user);
     await user.click(await screen.findByText("Delete"));
-    expect(await screen.findByText("Delete rule set?")).toBeInTheDocument();
+    expect(await screen.findByText("Delete the only rule set?")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Delete" }));
 
     await waitFor(() =>
@@ -123,10 +131,35 @@ describe("SchemaAccessControlAccordion", () => {
     );
   });
 
+  // A delete's own cache invalidation can't target just this entity's list
+  // (it only carries the deleted item's id, not which schema/field it was
+  // on), so the accordion has to be told to refetch directly — otherwise the
+  // deleted rule set keeps showing until something else happens to reload.
+  it("tells its host to refetch once the delete actually succeeds", async () => {
+    const user = userEvent.setup();
+    deletePolicy.mockResolvedValue({ isSuccess: true });
+    const onDeleteSuccess = vi.fn();
+    render(<SchemaAccessControlAccordion policies={[policy]} onDeleteSuccess={onDeleteSuccess} />);
+
+    await openRowMenu(user);
+    await user.click(await screen.findByText("Delete"));
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(onDeleteSuccess).toHaveBeenCalledTimes(1));
+  });
+
   it("handles a failed policy deletion", async () => {
     const user = userEvent.setup();
     deletePolicy.mockResolvedValue({ isSuccess: false, errors: ["no"] });
-    render(<SchemaAccessControlAccordion policies={[policy]} />);
+    const onDeleteSuccess = vi.fn();
+    const onDeleteError = vi.fn();
+    render(
+      <SchemaAccessControlAccordion
+        policies={[policy]}
+        onDeleteSuccess={onDeleteSuccess}
+        onDeleteError={onDeleteError}
+      />,
+    );
 
     await openRowMenu(user);
     await user.click(await screen.findByText("Delete"));
@@ -134,20 +167,34 @@ describe("SchemaAccessControlAccordion", () => {
 
     await waitFor(() => expect(deletePolicy).toHaveBeenCalled());
     await waitFor(() =>
-      expect(screen.queryByText("Delete rule set?")).not.toBeInTheDocument(),
+      expect(screen.queryByText("Delete the only rule set?")).not.toBeInTheDocument(),
     );
+    // Nothing to refetch — the delete didn't actually go through — and the
+    // failure is reported through the same channel a save failure would use.
+    expect(onDeleteSuccess).not.toHaveBeenCalled();
+    expect(onDeleteError).toHaveBeenCalledWith(["no"]);
   });
 
   it("handles a thrown error during policy deletion", async () => {
     const user = userEvent.setup();
     deletePolicy.mockRejectedValue(new Error("boom"));
-    render(<SchemaAccessControlAccordion policies={[policy]} />);
+    const onDeleteSuccess = vi.fn();
+    const onDeleteError = vi.fn();
+    render(
+      <SchemaAccessControlAccordion
+        policies={[policy]}
+        onDeleteSuccess={onDeleteSuccess}
+        onDeleteError={onDeleteError}
+      />,
+    );
 
     await openRowMenu(user);
     await user.click(await screen.findByText("Delete"));
     await user.click(await screen.findByRole("button", { name: "Delete" }));
 
     await waitFor(() => expect(deletePolicy).toHaveBeenCalled());
+    expect(onDeleteSuccess).not.toHaveBeenCalled();
+    expect(onDeleteError).toHaveBeenCalledWith(expect.any(Error));
   });
 
   it("dismisses the delete confirmation without deleting", async () => {
@@ -156,12 +203,85 @@ describe("SchemaAccessControlAccordion", () => {
 
     await openRowMenu(user);
     await user.click(await screen.findByText("Delete"));
-    expect(await screen.findByText("Delete rule set?")).toBeInTheDocument();
+    expect(await screen.findByText("Delete the only rule set?")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() =>
-      expect(screen.queryByText("Delete rule set?")).not.toBeInTheDocument(),
+      expect(screen.queryByText("Delete the only rule set?")).not.toBeInTheDocument(),
     );
     expect(deletePolicy).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Custom grants only what its rule sets allow, so deleting the last one
+   * turns the schema into a lockout. The tier footer refuses to save into
+   * that state; a delete reaches it from the other side, with the tier
+   * already saved, so it used to happen silently.
+   */
+  describe("deleting the last rule set", () => {
+    const second = {
+      ...policy,
+      itemId: "p2",
+      policyName: "Support override",
+    } as typeof policy;
+
+    it("warns that nothing will be left granting access", async () => {
+      const user = userEvent.setup();
+      render(<SchemaAccessControlAccordion policies={[policy]} />);
+
+      await openRowMenu(user);
+      await user.click(await screen.findByText("Delete"));
+
+      expect(
+        await screen.findByText("This leaves access with nobody"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Choose a different access level if you meant to open it up/),
+      ).toBeInTheDocument();
+    });
+
+    // Deliberately still possible — clearing the rules out on the way to
+    // another tier is a legitimate thing to want.
+    it("still lets the delete through", async () => {
+      const user = userEvent.setup();
+      deletePolicy.mockResolvedValue({ isSuccess: true });
+      render(<SchemaAccessControlAccordion policies={[policy]} />);
+
+      await openRowMenu(user);
+      await user.click(await screen.findByText("Delete"));
+      await user.click(screen.getByRole("button", { name: "Delete" }));
+
+      await waitFor(() =>
+        expect(deletePolicy).toHaveBeenCalledWith({ itemId: "p1", projectKey: "t1" }),
+      );
+    });
+
+    it("stays quiet when other rule sets remain", async () => {
+      const user = userEvent.setup();
+      render(<SchemaAccessControlAccordion policies={[policy, second]} />);
+
+      await openRowMenu(user);
+      await user.click(await screen.findByText("Delete"));
+
+      expect(await screen.findByText("Delete rule set?")).toBeInTheDocument();
+      expect(
+        screen.queryByText("This leaves access with nobody"),
+      ).not.toBeInTheDocument();
+    });
+
+    // A search that hides the others does not make this the last one.
+    it("counts every rule set, not just the ones matching the search", async () => {
+      const user = userEvent.setup();
+      render(<SchemaAccessControlAccordion policies={[policy, second]} />);
+
+      await user.type(screen.getByPlaceholderText("Search rule sets"), "Admins");
+      await openRowMenu(user);
+      await user.click(await screen.findByText("Delete"));
+
+      expect(await screen.findByText("Delete rule set?")).toBeInTheDocument();
+      expect(
+        screen.queryByText("This leaves access with nobody"),
+      ).not.toBeInTheDocument();
+    });
   });
 });

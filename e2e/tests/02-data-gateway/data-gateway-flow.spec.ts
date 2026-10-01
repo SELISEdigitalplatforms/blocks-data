@@ -43,9 +43,7 @@ async function clickPaginationButton(
 
 async function selectSchema(page: Page, schemaName: string): Promise<boolean> {
   await openDataGateway(page);
-  const landingHeading = page.getByRole("heading", { name: "Security Assessment" });
-  const emptyStateHeading = page.getByText("No schemas yet", { exact: true });
-  await expect(landingHeading.or(emptyStateHeading).first()).toBeVisible({
+  await expect(page.getByPlaceholder("Search schemas…")).toBeVisible({
     timeout: 30_000,
   });
 
@@ -92,8 +90,7 @@ test.describe("flow: Data Gateway menu", () => {
     await openDataGateway(page);
 
     await test.step("Configure the data source (create-mode dialog, or edit-mode page if one already exists)", async () => {
-      await page.getByRole("button", { name: "More actions" }).click();
-      const configureButton = page.getByRole("menuitem", { name: "Configure" });
+      const configureButton = page.getByRole("button", { name: "Configure" });
       await expect(configureButton).toBeVisible({ timeout: 15_000 });
 
       await configureButton.click();
@@ -143,11 +140,7 @@ test.describe("flow: Data Gateway menu", () => {
 
       await openDataGateway(page);
 
-      await page.getByRole("button", { name: "More actions" }).click();
-
-      const configureButton = page.getByRole("menuitem", {
-        name: "Configure",
-      });
+      const configureButton = page.getByRole("button", { name: "Configure" });
 
       await expect(configureButton).toBeVisible({ timeout: 15_000 });
       await configureButton.click();
@@ -275,8 +268,10 @@ test.describe("flow: Data Gateway menu", () => {
     const schemaName = `dg_flow_${Date.now()}`;
     const fieldName = `flow_field_${Date.now()}`;
 
-    await test.step("Add Schema entry point #1: the Security/Performance landing view's own 'Add Schema' button", async () => {
+    await test.step("Add Schema entry point #1: the Security view's own 'Add Schema' button", async () => {
       await openDataGateway(page);
+      await page.getByRole("link", { name: "Security" }).click();
+      await expect(page).toHaveURL(/\/data-gateway\/security/, { timeout: 15_000 });
 
       const landingHeading = page.getByRole("heading", { name: "Security Assessment" });
       const emptyStateHeading = page.getByText("No schemas yet", { exact: true });
@@ -300,19 +295,19 @@ test.describe("flow: Data Gateway menu", () => {
       await searchInput.fill("");
       await expect(page.getByText("No schemas found")).toBeHidden({ timeout: 8_000 });
 
-      const entityTab = page.getByRole("tab", { name: "Entity" });
-      await expect(entityTab).toBeVisible({ timeout: 10_000 });
-      await entityTab.click();
-      await expect(entityTab).toHaveAttribute("data-state", "active");
-      const allTab = page.getByRole("tab", { name: "All" });
-      await allTab.click();
-      await expect(allTab).toHaveAttribute("data-state", "active");
+      // The Entity/Child filters are pressed-state chips now, not Radix tabs.
+      const entityChip = page.getByRole("button", { name: "Entity", exact: true });
+      await expect(entityChip).toBeVisible({ timeout: 10_000 });
+      await entityChip.click();
+      await expect(entityChip).toHaveAttribute("aria-pressed", "true");
+      const allChip = page.getByRole("button", { name: "All", exact: true });
+      await allChip.click();
+      await expect(allChip).toHaveAttribute("aria-pressed", "true");
     });
 
     await test.step("Export walks the two-step wizard and requests a real export", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
-      await page.getByRole("button", { name: "More actions" }).click();
-      const exportButton = page.getByRole("menuitem", { name: "Export" });
+      const exportButton = page.getByRole("button", { name: "Export" });
       await expect(exportButton).toBeVisible({ timeout: 15_000 });
       await exportButton.click();
       const dialog = page.locator('[role="dialog"]');
@@ -336,8 +331,7 @@ test.describe("flow: Data Gateway menu", () => {
     });
 
     await test.step("Import Schema modal opens fresh and requires a file before proceeding", async () => {
-      await page.getByRole("button", { name: "More actions" }).click();
-      const importButton = page.getByRole("menuitem", { name: "Import" });
+      const importButton = page.getByRole("button", { name: "Import" });
       await expect(importButton).toBeVisible({ timeout: 15_000 });
       await importButton.click();
       const dialog = page.locator('[role="dialog"]');
@@ -366,20 +360,10 @@ test.describe("flow: Data Gateway menu", () => {
       await popup.close();
     });
 
-    await test.step("'Logs' (when enabled) navigates to the Data Gateway logs page", async () => {
-      const logsButton = page.getByRole("link", { name: "Logs", exact: true });
-      const logsEnabled = await logsButton.isVisible({ timeout: 5_000 }).catch(() => false);
-      if (!logsEnabled) return;
-
-      await logsButton.click();
-      await expect(page).toHaveURL(/\/data-gateway\/logs/, { timeout: 15_000 });
-      await openDataGateway(page);
-    });
-
     await test.step("Playground navigates out, executes the default query, then Data Gateway navigates back", async () => {
-      const playgroundButton = page.getByRole("button", { name: "Playground" });
-      await expect(playgroundButton).toBeVisible({ timeout: 15_000 });
-      await playgroundButton.click();
+      const playgroundTab = page.getByRole("link", { name: "Playground" });
+      await expect(playgroundTab).toBeVisible({ timeout: 15_000 });
+      await playgroundTab.click();
       await expect(page).toHaveURL(/\/playground/, { timeout: 10_000 });
 
       const executeButton = page.getByRole("button", { name: /execute/i }).first();
@@ -477,31 +461,27 @@ test.describe("flow: Data Gateway menu", () => {
         timeout: 15_000,
       });
 
+      // Back in view mode the table is text, not a grid of read-only inputs,
+      // so the saved field is asserted as content rather than an input value.
       await expect(
-        page
-          .locator("table input")
-          .filter({ hasNot: page.locator(`input[type="checkbox"]`) })
-          .first(),
-      ).toBeAttached();
-      const matched = await page.evaluate((name) => {
-        const inputs = Array.from(document.querySelectorAll("table input")) as HTMLInputElement[];
-        return inputs.some((i) => i.value === name);
-      }, fieldName);
-      expect(matched).toBe(true);
+        page.locator("table").getByTitle(fieldName, { exact: true }).first(),
+      ).toBeVisible({ timeout: 15_000 });
     });
 
     await test.step("Schema changes are unadapted until Publish is clicked", async () => {
       await selectSchema(page, schemaName);
+      // The banner and the button are one control in the page bar now: the
+      // pending count sits next to the action that clears it.
       const publishButton = page.getByRole("button", { name: "Publish" });
-      const unadaptedAlert = page.getByText(/unadapted changes/i);
-      await expect(unadaptedAlert).toBeVisible({ timeout: 15_000 });
+      const pendingCount = page.getByText(/\d+ unpublished/);
+      await expect(pendingCount).toBeVisible({ timeout: 15_000 });
 
       await expect(publishButton).toBeVisible();
       await publishButton.click();
       await expect(page.getByText("Schemas published successfully").first()).toBeVisible({
         timeout: 15_000,
       });
-      await expect(unadaptedAlert).toBeHidden({ timeout: 15_000 });
+      await expect(pendingCount).toBeHidden({ timeout: 15_000 });
     });
 
     await test.step("Schema Access drawer: change policy to Custom and add a rule set", async () => {
@@ -930,8 +910,7 @@ test.describe("flow: Data Gateway menu", () => {
     });
 
     await test.step("Import: 'Template' triggers a real download, then a real file upload succeeds", async () => {
-      await page.getByRole("button", { name: "More actions" }).click();
-      const importButton = page.getByRole("menuitem", { name: "Import" });
+      const importButton = page.getByRole("button", { name: "Import" });
       await expect(importButton).toBeVisible({ timeout: 15_000 });
 
       await importButton.click();

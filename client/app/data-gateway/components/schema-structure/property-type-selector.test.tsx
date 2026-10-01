@@ -38,6 +38,18 @@ describe("PropertyTypeSelector", () => {
     expect(screen.getByRole("combobox")).toBeDisabled();
   });
 
+  // Was h-10, taller than every other h-9 control sharing its row (the
+  // rule-set-form dropdowns among them) — stood out for no reason.
+  it("matches the h-9 height used by every other dropdown, in and out of edit mode", () => {
+    const { rerender } = render(<PropertyTypeSelector {...baseProps({ value: "Int" })} />);
+    expect(screen.getByRole("combobox").className).toContain("h-9");
+    expect(screen.getByRole("combobox").className).not.toContain("h-10");
+
+    rerender(<PropertyTypeSelector {...baseProps({ isEditMode: false, value: "Int" })} />);
+    expect(screen.getByTitle("Int").className).toContain("h-9");
+    expect(screen.getByTitle("Int").className).not.toContain("h-10");
+  });
+
   it("lists primitive types and calls onSelect when one is chosen", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();

@@ -36,6 +36,7 @@ export function dataGatewaySettledLocator(page: Page) {
     .or(page.getByRole("heading", { name: "Schemas", exact: true }))
     .or(page.getByText("Select a schema from the sidebar to view its details."))
     .or(page.getByRole("button", { name: /^Add Schema$/i }))
+    .or(page.getByPlaceholder("Search schemas…"))
     .first()
 }
 
@@ -94,7 +95,25 @@ export async function openDataGateway(page: Page) {
   await expect(settled()).toBeVisible({ timeout: 60_000 })
 }
 
-async function openSchemasListView(page: Page) {
+async function enterSchemasSidebar(page: Page): Promise<boolean> {
+  if (await page.getByPlaceholder("Search schemas…").isVisible({ timeout: 1_500 }).catch(() => false)) {
+    return true
+  }
+  // Prefer SPA navigation via a landing-table row click (avoids brittle ?type=all remounts).
+  const landing = page.getByRole("heading", { name: "Security Assessment" })
+  if (await landing.isVisible().catch(() => false)) {
+    const firstDataRow = page.locator("table tbody tr").first()
+    if (await firstDataRow.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await firstDataRow.click()
+      const search = page.getByPlaceholder("Search schemas…")
+      const ok = await search
+        .waitFor({ state: "visible", timeout: 20_000 })
+        .then(() => true)
+        .catch(() => false)
+      if (ok) return true
+    }
+  }
+  // Fallback: query-param navigation
   const url = new URL(page.url())
   url.searchParams.set("type", "all")
   url.searchParams.set("page", "1")
@@ -104,11 +123,19 @@ async function openSchemasListView(page: Page) {
   await dismissSessionConflictIfPresent(page)
   await expect(
     page
-      .getByText("Select a schema from the sidebar to view its details.")
+      .getByPlaceholder("Search schemas…")
       .or(page.getByRole("heading", { name: "Schemas", exact: true }))
-      .or(page.getByPlaceholder("Search schemas…"))
+      .or(page.getByText("Select a schema from the sidebar to view its details."))
+      .or(page.getByRole("heading", { name: "Security Assessment" }))
       .first(),
-  ).toBeVisible({ timeout: 30_000 })
+  ).toBeVisible({ timeout: 45_000 })
+  if (await page.getByRole("heading", { name: "Security Assessment" }).isVisible().catch(() => false)) {
+    const firstDataRow = page.locator("table tbody tr").first()
+    if (await firstDataRow.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await firstDataRow.click()
+    }
+  }
+  return page.getByPlaceholder("Search schemas…").isVisible({ timeout: 15_000 }).catch(() => false)
 }
 
 /**
@@ -131,24 +158,27 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
     }
   }
 
-  // Prefer landing table row click when still on Security Assessment.
+  // Landing Security Assessment table — paginate until the named row appears.
   const landingHeading = page.getByRole("heading", { name: "Security Assessment" })
   if (await landingHeading.isVisible().catch(() => false)) {
-    const row = page
-      .getByRole("row")
-      .filter({ has: page.getByRole("cell", { name: schemaName, exact: true }) })
-      .first()
-    if (await row.isVisible({ timeout: 3_000 }).catch(() => false)) {
-      await row.click()
-      if (await confirmSelected()) return true
+    for (let i = 0; i < 12; i++) {
+      const row = page
+        .getByRole("row")
+        .filter({ has: page.getByRole("cell", { name: schemaName, exact: true }) })
+        .first()
+      if (await row.isVisible({ timeout: 1_500 }).catch(() => false)) {
+        await row.click()
+        if (await confirmSelected()) return true
+        break
+      }
+      const next = page.getByRole("button", { name: "Next page" })
+      if (!(await next.isVisible({ timeout: 500 }).catch(() => false))) break
+      if (await next.isDisabled().catch(() => false)) break
+      await next.click()
     }
-    await openSchemasListView(page)
   }
 
-  // Ensure schemas sidebar view.
-  if (!(await page.getByPlaceholder("Search schemas…").isVisible({ timeout: 2_000 }).catch(() => false))) {
-    await openSchemasListView(page)
-  }
+  if (!(await enterSchemasSidebar(page))) return false
 
   const schemaRow = () =>
     page.getByRole("button", { name: new RegExp(`^${schemaName}\\b`) }).first()
@@ -161,23 +191,23 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
   }
 
   const search = page.getByPlaceholder("Search schemas…")
-  if (await search.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await search.fill(schemaName)
-    await page.waitForTimeout(500)
-    if (await schemaRow().isVisible({ timeout: 5_000 }).catch(() => false)) {
-      if (await clickSidebar()) return true
-    }
-  }
-
-  if (await schemaRow().isVisible({ timeout: 3_000 }).catch(() => false)) {
+  await search.fill("")
+  await search.fill(schemaName)
+  await page.waitForTimeout(600)
+  if (await schemaRow().isVisible({ timeout: 8_000 }).catch(() => false)) {
     if (await clickSidebar()) return true
   }
 
-  for (const name of ["Last page", "Next page"] as const) {
-    const button = page.getByRole("button", { name })
-    if (!(await button.isVisible({ timeout: 800 }).catch(() => false))) continue
-    if (await button.isDisabled().catch(() => false)) continue
-    await button.click()
+  // Clear search and paginate sidebar as a last resort.
+  await search.fill("")
+  if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (await clickSidebar()) return true
+  }
+  for (let i = 0; i < 10; i++) {
+    const next = page.getByRole("button", { name: "Next page" })
+    if (!(await next.isVisible({ timeout: 500 }).catch(() => false))) break
+    if (await next.isDisabled().catch(() => false)) break
+    await next.click()
     if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
       if (await clickSidebar()) return true
     }

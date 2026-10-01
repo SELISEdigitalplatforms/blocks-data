@@ -104,7 +104,7 @@ test.describe("flow: Data Gateway — Analytics page", () => {
       });
       // Save stays disabled until a field is picked.
       await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
-      await expect(page.getByLabel("Unique")).toBeVisible();
+      await expect(page.getByRole("checkbox", { name: "Unique" })).toBeVisible();
       await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
       await expect(page.getByText(/of 15(?: custom)? indexes/i)).toBeVisible({ timeout: 10_000 });
     });

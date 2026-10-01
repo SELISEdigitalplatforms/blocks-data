@@ -22,6 +22,9 @@ public class SecurityHeadersMiddlewareTests
         var csp = headers["Content-Security-Policy"].ToString();
         csp.Should().Contain("default-src 'self'");
         csp.Should().Contain("frame-ancestors 'none'");
+        csp.Should().Contain("script-src 'self'");
+        csp.Should().Contain("style-src 'self'");
+        csp.Should().NotContain("'unsafe-inline'");
         headers["Cache-Control"].ToString().Should().Contain("no-store");
     }
 }

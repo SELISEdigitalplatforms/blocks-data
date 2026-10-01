@@ -34,7 +34,8 @@ export async function dismissSessionConflictIfPresent(page: Page): Promise<boole
 
 export function isConsoleUrl(url: string): boolean {
   try {
-    return /\/app\/console\/?$/i.test(new URL(url).pathname)
+    // Global console OR project-scoped "/app/{itemId}/console" (Back to console).
+    return /\/app\/(?:[^/]+\/)?console\/?$/i.test(new URL(url).pathname)
   } catch {
     return false
   }

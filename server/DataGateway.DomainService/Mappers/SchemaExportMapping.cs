@@ -53,6 +53,7 @@ public static class SchemaExportMapping
                     Name = fieldName,
                     Type = field.Type,
                     IsArray = field.IsArray,
+                    EnumValues = field.EnumValues ?? [],
                     IsPIIData = field.IsPIIData,
                     IsUniqueData = field.IsUniqueData,
                     Description = field.Description,

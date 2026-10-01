@@ -1,5 +1,23 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach, vi } from "vitest";
+
+vi.mock("@seliseblocks/genesis-os/observability", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@seliseblocks/genesis-os/observability")>();
+  const noop = () => undefined;
+  return {
+    ...actual,
+    getRollbar: () => ({
+      error: noop,
+      warning: noop,
+      info: noop,
+      debug: noop,
+      critical: noop,
+      configure: noop,
+    }),
+    createHttpFailureReporter: () => noop,
+  };
+});
+
 import { cleanup } from "@testing-library/react";
 
 /**
@@ -58,6 +76,28 @@ function installStorage(name: "localStorage" | "sessionStorage") {
 
 installStorage("localStorage");
 installStorage("sessionStorage");
+
+// genesis-os getRuntimeEnv reads window.__BLOCKS_ENV__ then import.meta.env.
+// The CJS build collapses import.meta.env to undefined[key], which throws when
+// Rollbar initializes via app/lib/http-client.ts at import time. Seed tokens so
+// the window branch short-circuits (empty string is falsy and would still fall through).
+if (typeof window !== "undefined") {
+  const win = window as unknown as {
+    __BLOCKS_ENV__?: Record<string, string>;
+  };
+  win.__BLOCKS_ENV__ = {
+    ...(win.__BLOCKS_ENV__ ?? {}),
+    BLOCKS_ROLLBAR_CLIENT_TOKEN: "test-token",
+    BLOCKS_ROLLBAR_ENV: "test",
+  };
+}
+
+// Nested react-is (recharts) reads process.env.NODE_ENV at require time.
+if (typeof process !== "undefined") {
+  process.env ??= {} as NodeJS.ProcessEnv;
+  process.env.NODE_ENV ??= "test";
+}
+
 
 // jsdom does not implement matchMedia; many UI components read it on mount.
 if (typeof window !== "undefined" && !window.matchMedia) {

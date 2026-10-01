@@ -11,6 +11,12 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["./app/test-utils/setup.ts"],
+    // Transform genesis-os so import.meta.env is defined (CJS build uses undefined[key]).
+    server: {
+      deps: {
+        inline: [/@seliseblocks\/genesis-os/],
+      },
+    },
     include: ["app/**/*.test.ts", "app/**/*.test.tsx"],
     coverage: {
       reporter: ["text", "lcov"],

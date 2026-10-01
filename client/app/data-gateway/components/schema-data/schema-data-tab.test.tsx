@@ -11,12 +11,21 @@ vi.mock("@/data-gateway/hooks/use-configuration", () => ({
 
 vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantSlug: "slug1" } }),
-  // http-client.ts constructs HttpClient instances at import time.
+  // http-client.ts constructs HttpClient instances at import time and re-exports HttpError.
   HttpClient: class {
     get() {}
     post() {}
     put() {}
     delete() {}
+  },
+  HttpError: class HttpError extends Error {
+    status: number;
+    errors: unknown;
+    constructor(status: number, error: { errors: unknown }) {
+      super(JSON.stringify(error.errors));
+      this.status = status;
+      this.errors = error.errors;
+    }
   },
 }));
 

@@ -112,7 +112,8 @@ describe("SecurityAndPerformance", () => {
     });
     renderPanel();
     expect(screen.queryByText("No schemas yet")).not.toBeInTheDocument();
-    expect(screen.queryByText("Security Assessment")).not.toBeInTheDocument();
+    // Heading stays visible during load so the route is never a blank main.
+    expect(screen.getByRole("heading", { name: "Security Assessment" })).toBeInTheDocument();
   });
 
   it("shows the empty state when there are no schemas", async () => {

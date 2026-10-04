@@ -21,6 +21,7 @@ public class ExportFieldDefinition
     public string Name { get; set; } = string.Empty;
     public string Type { get; set; } = string.Empty;
     public bool IsArray { get; set; }
+    public List<string> EnumValues { get; set; } = [];
     public bool IsPIIData { get; set; }
     public bool IsUniqueData { get; set; }
     public string Description { get; set; } = string.Empty;

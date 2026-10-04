@@ -31,6 +31,7 @@ import {
   useGetSchemaFieldValidation,
   useUpdateSchemaFieldValidation,
 } from "../../hooks/use-configuration";
+import { RegExpParser } from "regexpp";
 import {
   IFieldValidationRule,
   ISchemaFieldValidation,
@@ -189,7 +190,8 @@ export function SchemaFieldValidationDrawer({
 
   const validateRegex = (pattern: string): boolean => {
     try {
-      new RegExp(pattern);
+      // Parse only — avoids constructing a RegExp from user input (ReDoS).
+      new RegExpParser().parsePattern(pattern);
       setRegexError(null);
       return true;
     } catch {

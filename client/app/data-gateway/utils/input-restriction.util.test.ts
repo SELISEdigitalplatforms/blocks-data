@@ -90,6 +90,7 @@ describe("input-restriction.util", () => {
         "Boolean",
         "DateTime",
         "GeoJson",
+        "Enum",
       ]);
     });
 
@@ -97,6 +98,10 @@ describe("input-restriction.util", () => {
     // reaching the dropdown is exactly a matter of being in here.
     it("offers GeoJson alongside the other primitives", () => {
       expect(typeOptions).toContain("GeoJson");
+    });
+
+    it("offers Enum alongside the other primitives", () => {
+      expect(typeOptions).toContain("Enum");
     });
 
     it("readonlyPropertyNames include system-managed columns", () => {

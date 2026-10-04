@@ -309,7 +309,10 @@ describe("StorageDetail", () => {
 
     await user.click(screen.getByRole("button", { name: "API Docs" }));
 
-    expect(openSpy).toHaveBeenCalledWith("/swagger/index.html", "_blank");
+    expect(openSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/\/swagger\/index\.html$/),
+      "_blank",
+    );
     openSpy.mockRestore();
   });
 

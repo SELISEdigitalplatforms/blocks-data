@@ -38,8 +38,10 @@ export function deriveOsBaseUrlFromData(dataBaseUrl: string): string | undefined
     return undefined
   }
 
-  if (/^dev-data\./i.test(url.hostname)) {
-    url.hostname = url.hostname.replace(/^dev-data\./i, "dev-os.")
+  // Shared Blocks OS for both `dev-data.` and PR hosts `dev-data-{n}.`
+  // (PR OS previews like dev-os-354 are not always provisioned.)
+  if (/^dev-data(-\d+)?\./i.test(url.hostname)) {
+    url.hostname = url.hostname.replace(/^dev-data(-\d+)?\./i, "dev-os.")
     return stripTrailingSlash(url.origin)
   }
 

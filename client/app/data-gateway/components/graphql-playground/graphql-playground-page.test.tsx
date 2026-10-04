@@ -101,6 +101,8 @@ function makeEditor() {
   };
 }
 
+vi.mock("./monaco-local", () => ({}));
+
 vi.mock("@monaco-editor/react", () => ({
   default: (props: { onMount?: (editor: unknown, monaco: unknown) => void; onChange?: (value: string) => void; value?: string }) => {
     const mounted = useRef(false);

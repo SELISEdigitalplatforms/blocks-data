@@ -47,9 +47,11 @@ import {
 import { CleanTestDataModal } from "./clean-test-data-modal";
 import { SchemasDrawer } from "./schemas-drawer";
 
-const MonacoEditorLazy = lazy(() =>
-  import("@monaco-editor/react").then((mod) => ({ default: mod.default })),
-);
+const MonacoEditorLazy = lazy(async () => {
+  await import("./monaco-local");
+  const mod = await import("@monaco-editor/react");
+  return { default: mod.default };
+});
 
 const monacoEditorFallback = (
   <div className="flex h-full w-full items-center justify-center">

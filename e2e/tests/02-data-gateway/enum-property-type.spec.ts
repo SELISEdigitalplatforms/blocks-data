@@ -138,19 +138,18 @@ test.describe("feature: Enum property type (#353)", () => {
       // Desktop table only — mobile EnumValuesEditor is outside <table>.
       await page.keyboard.press("Escape").catch(() => {});
       const valueInput = page.locator("table").getByLabel("New enum value").last();
-      const addValue = page.locator("table").getByLabel("Add enum value").last();
       await expect(valueInput).toBeVisible({ timeout: 15_000 });
       await valueInput.fill("Active");
-      await addValue.click();
+      await valueInput.press("Enter");
       await expect(page.locator("table").getByText("Active", { exact: true }).last()).toBeVisible();
 
       await valueInput.fill("Closed");
-      await addValue.click();
+      await valueInput.press("Enter");
       await expect(page.locator("table").getByText("Closed", { exact: true }).last()).toBeVisible();
 
       // Invalid value should surface editor error (does not add)
       await valueInput.fill("1Bad");
-      await addValue.click();
+      await valueInput.press("Enter");
       await expect(page.getByText(/Only letters, numbers/i).first()).toBeVisible({ timeout: 5_000 });
     });
 

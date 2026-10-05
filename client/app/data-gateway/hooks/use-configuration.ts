@@ -51,12 +51,16 @@ export const useSchemasReload = () => {
         getIntrospectionQuery(),
       );
 
-      if (projectShortKey) {
+      // Readers (schema preview, playground drawer) key the raw introspection by tenantId,
+      // while the client-schema query is keyed by slug — write each under its reader's key.
+      if (projectKey) {
         queryClient.setQueryData(
-          ["graphql-raw-introspection", projectShortKey],
+          ["graphql-raw-introspection", projectKey],
           rawIntrospection,
         );
+      }
 
+      if (projectShortKey) {
         const introspectionData = (rawIntrospection as {
           data: IntrospectionQuery;
         }).data;

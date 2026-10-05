@@ -14,9 +14,10 @@ import { cn } from "@/lib/utils";
  * different tokens). One component means a change to panel chrome cannot land
  * on only half of them.
  *
- * Geometry matches the explorer sidebar's header: `min-h-11`, a hairline
- * `border-border/40` rule, and the same 12px inline padding, so the two
- * columns flanking the table line up across the top.
+ * Geometry matches the explorer sidebar's header: `min-h-11` and the same 12px
+ * inline padding, so the two columns flanking the table line up across the top.
+ * The shell takes a primary-tinted border and header background so a docked
+ * panel reads as its own surface beside the table.
  */
 
 export function PanelHeader({
@@ -35,7 +36,7 @@ export function PanelHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-11 shrink-0 items-start gap-2 border-b border-border/40 px-3 py-2.5">
+    <div className="flex min-h-11 shrink-0 items-start gap-2 border-b border-primary/20 bg-primary/10 px-3 py-2.5">
       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="truncate font-mono text-sm font-medium text-foreground" title={title}>
@@ -76,7 +77,7 @@ export function PanelShell({
     <aside
       aria-label={label}
       className={cn(
-        "flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card",
+        "flex min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-sm border border-primary/40 bg-card",
         className,
       )}
     >

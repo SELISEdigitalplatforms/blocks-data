@@ -141,7 +141,7 @@ const PrincipalSelectorInner = ({
             className={cn(
               "flex h-8 min-w-0 max-w-full items-center justify-center truncate rounded-md border px-3 text-center text-xs font-semibold transition-colors",
               selectedValues.length
-                ? "border-border/60 bg-background text-foreground hover:bg-muted/40"
+                ? "border-border/70 bg-muted/70 text-foreground hover:bg-muted"
                 : "border-dashed border-border/50 bg-background text-muted-foreground hover:bg-muted/30",
             )}
           >

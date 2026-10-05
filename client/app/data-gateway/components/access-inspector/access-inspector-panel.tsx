@@ -128,12 +128,12 @@ export const AccessInspectorPanel = forwardRef<
       <div className="shrink-0 border-b border-border/40 px-3">
         {/* Full width, split evenly — four verbs, not a packed row with dead
             space trailing off to the right. */}
-        <TabsList className="flex h-9 w-full gap-0.5 bg-transparent p-0">
+        <TabsList className="flex h-12 w-full gap-0.5 bg-transparent p-0">
           {visibleActions.map((permission) => (
             <TabsTrigger
               key={permission.id}
               value={permission.value}
-              className="flex h-9 flex-1 flex-col items-center gap-1 rounded-none border-b-2 border-transparent px-2.5 pt-1.5 text-xs text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
+              className="flex h-12 flex-1 flex-col items-center justify-center gap-1.5 rounded-none border-b-2 border-transparent px-2.5 py-2.5 text-xs text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
             >
               <span>{permission.label}</span>
               <AccessTierDot level={accessLevelForTab(permission.value)} />

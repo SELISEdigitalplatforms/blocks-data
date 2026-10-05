@@ -467,8 +467,6 @@ export const RuleConditionRow = ({
     onPick: (value: string) => void,
   ) => {
     const isFilled = Boolean(cell.label);
-    const isOperator = cell.key === "operator";
-    const isOperand = cell.key === "source" || cell.key === "compareSource";
     const disabled = !cell.reachable;
 
     return (
@@ -498,11 +496,8 @@ export const RuleConditionRow = ({
               disabled
                 ? "cursor-not-allowed border-dashed border-border/40 text-muted-foreground/40"
                 : isFilled
-                  ? isOperator
-                    ? "border-primary/25 bg-primary/10 text-primary hover:bg-primary/15"
-                    : isOperand
-                      ? "border-border/70 bg-muted/70 text-foreground hover:bg-muted"
-                      : "border-border/60 bg-background text-foreground hover:bg-muted/40"
+                  ? // Every filled chip in a rule looks the same, whichever column it is.
+                    "border-border/70 bg-muted/70 text-foreground hover:bg-muted"
                   : "border-dashed border-border/50 bg-background text-muted-foreground hover:bg-muted/30",
             )}
           >
@@ -824,7 +819,7 @@ export const RuleConditionRow = ({
               className={cn(
                 "flex h-8 min-w-0 max-w-full items-center justify-center truncate rounded-md border px-3 text-center text-xs font-semibold transition-colors",
                 isFilled
-                  ? "border-border/60 bg-background text-foreground hover:bg-muted/40"
+                  ? "border-border/70 bg-muted/70 text-foreground hover:bg-muted"
                   : "border-dashed border-border/50 bg-background text-muted-foreground hover:bg-muted/30",
               )}
             >

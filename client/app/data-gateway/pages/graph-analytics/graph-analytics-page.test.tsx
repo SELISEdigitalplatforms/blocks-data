@@ -168,8 +168,7 @@ describe("GraphAnalytics", () => {
     expect(granularity).toBe("daily");
     expect(utcOffsetMinutes).toEqual(expect.any(Number));
 
-    await user.click(screen.getByRole("combobox", { name: "Bucket size" }));
-    await user.click(await screen.findByRole("option", { name: "Hourly" }));
+    await user.click(screen.getByRole("radio", { name: "Hourly" }));
 
     expect(useGraphLogAnalyticsMock).toHaveBeenLastCalledWith(
       from,
@@ -253,7 +252,7 @@ describe("GraphAnalytics", () => {
     const user = userEvent.setup();
     renderAnalytics();
 
-    const bucketSize = () => screen.queryByRole("combobox", { name: "Bucket size" });
+    const bucketSize = () => screen.queryByRole("radiogroup", { name: "Bucket size" });
 
     for (const tab of ["Traffic", "Performance", "Reliability"]) {
       await openTab(user, tab);
@@ -265,6 +264,32 @@ describe("GraphAnalytics", () => {
       await openTab(user, tab);
       expect(bucketSize()).not.toBeInTheDocument();
     }
+  });
+
+  it("defaults to the last 7 calendar days, applied as one range", () => {
+    renderAnalytics();
+
+    const [from, to] = useGraphLogAnalyticsMock.mock.calls.at(-1)!;
+    const days = (Date.parse(to) - Date.parse(from)) / 86_400_000 + 1;
+    expect(Math.round(days)).toBe(7);
+    expect(screen.getByRole("button", { name: /Date range/ })).toHaveTextContent("Last 7 days");
+  });
+
+  it("applies a preset straight away and steps hourly down to daily past 14 days", async () => {
+    const user = userEvent.setup();
+    renderAnalytics();
+
+    await user.click(screen.getByRole("radio", { name: "Hourly" }));
+    expect(screen.getByRole("radio", { name: "Hourly" })).toHaveAttribute("aria-checked", "true");
+
+    await user.click(screen.getByRole("button", { name: /Date range/ }));
+    await user.click(await screen.findByRole("button", { name: "Last 30 days" }));
+
+    const [from, to, granularity] = useGraphLogAnalyticsMock.mock.calls.at(-1)!;
+    expect(Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1).toBe(30);
+    expect(granularity).toBe("daily");
+    expect(screen.getByRole("radio", { name: "Hourly" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Daily" })).toHaveAttribute("aria-checked", "true");
   });
 
   it("surfaces the numbers each tab exists for", async () => {

@@ -159,7 +159,7 @@ data-gateway/
 ### Policy Engine
 
 - **Allow/Deny policies**: Create declarative access policies with `isAllowPolicy` flag, priority ordering, and nested rule groups (`IPolicyRuleGroup`).
-- **Rule groups**: Combine conditions with logical operators (`AND`/`OR`) and support unlimited nesting via `nestedGroups`.
+- **Rule groups**: Combine conditions with logical operators (`AND`/`OR`) and support unlimited nesting via `nestedGroups`. The rule-set editor builds up to three levels (the root plus two nested levels, e.g. `(A OR B) AND (C OR D)`); policies nested deeper — from the API or a schema import — still load, display, and save intact.
 - **Policy CRUD**: Full create, read (by entity name), update, and delete lifecycle.
 
 ### Field Validation

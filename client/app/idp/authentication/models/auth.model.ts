@@ -4,7 +4,7 @@ export interface ISignupByEmailPayload {
 }
 export interface ISignupByEmailResponse {
   itemId: string | null;
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
 }
 

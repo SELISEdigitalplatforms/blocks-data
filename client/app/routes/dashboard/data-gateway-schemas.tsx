@@ -1,10 +1,10 @@
-import { DataService } from "@/data-gateway/components/data-service"
+import { SchemaDetailsPage } from "@/data-gateway/components/schema-details-page"
 
 const DataGatewaySchemasPage = () => {
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <DataService />
-    </div>
+    <main className="flex flex-col gap-6 p-6 lg:h-full">
+      <SchemaDetailsPage />
+    </main>
   )
 }
 

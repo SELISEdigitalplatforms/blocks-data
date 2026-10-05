@@ -5,7 +5,6 @@ import { DateRange } from "react-day-picker";
 import { format, subDays } from "date-fns";
 import { useSearchParams } from "react-router";
 
-import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
 import { DateRangeFilter } from "@/components/date-range-filter/date-range-filter";
 import {
@@ -18,7 +17,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { Switch } from "@/components/ui-kits/switch/switch";
 import { showErrorToast } from "@/hooks/use-toast";
-import { DataGatewayActions } from "../../components/data-gateway-actions";
+import { DataGatewayPageBar } from "../../components/page-bar";
 import { useGetDataServiceConfiguration } from "../../hooks/use-configuration";
 import { useGraphLogAnalytics } from "../../hooks/use-graph-log-analytics";
 import { IDataSourceResponse } from "../../models/data-service";
@@ -124,10 +123,7 @@ export const GraphAnalytics = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <PageBreadcrumb breadcrumbIndex={3} />
-        <DataGatewayActions />
-      </div>
+      <DataGatewayPageBar />
 
       <div className="relative">
         <div
@@ -186,7 +182,7 @@ export const GraphAnalytics = () => {
             {/* Introspection stays excluded from aggregate analytics even when console operations
             are included. The request log remains the place to inspect those individual calls. */}
             {tab !== "requests" && (
-              <p className="text-xs text-muted-foreground/60">
+              <p className="text-xs text-muted-foreground">
                 Schema introspection requests are excluded — see them under Requests.
               </p>
             )}
@@ -249,7 +245,7 @@ export const GraphAnalytics = () => {
 
         {!isConfigurationLoading && !hasAnalyticsAccess && (
           <div className="absolute inset-0 z-10 flex items-center justify-center p-6">
-            <div className="max-w-lg rounded-sm border border-border/60 bg-card/95 p-6 text-center shadow-xl backdrop-blur-md">
+            <div className="max-w-lg rounded-sm border border-border/40 bg-card/95 p-6 text-center shadow-xl backdrop-blur-md">
               <h2 className="text-base font-semibold text-foreground">
                 Analytics access unavailable
               </h2>

@@ -1,9 +1,4 @@
-import {
-  fireEvent,
-  render as rtlRender,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactElement } from "react";
 import userEvent from "@testing-library/user-event";
@@ -17,25 +12,18 @@ beforeAll(() => {
   Element.prototype.scrollIntoView ??= vi.fn() as never;
 });
 
-const createPolicy = vi.fn();
-const updatePolicy = vi.fn();
-const showSuccessToast = vi.fn();
-const showErrorToast = vi.fn();
+// The form no longer calls the create/update API itself — it hands the built
+// payload to `onStage` and the host (schema-access-control-view.tsx) decides
+// what to do with it. These tests are about what gets built and handed over,
+// not about any network call.
+const onStage = vi.fn();
 
-vi.mock("@/data-gateway/hooks/use-configuration", () => ({
-  useCreatePolicy: () => ({ mutateAsync: createPolicy, isPending: false }),
-  useUpdatePolicy: () => ({ mutateAsync: updatePolicy, isPending: false }),
-}));
 vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "tenant-1" } }),
   // The form now reaches the IAM role/user services (via the principal selector), and
   // app/lib/http-client.ts constructs HttpClient instances at import time - so this partial
   // mock has to supply a constructible stub or the module graph throws on load.
   HttpClient: class {},
-}));
-vi.mock("@/hooks/use-toast", () => ({
-  showSuccessToast: (...a: unknown[]) => showSuccessToast(...a),
-  showErrorToast: (...a: unknown[]) => showErrorToast(...a),
 }));
 vi.mock("./schema-access-control-accordion", () => ({
   SchemaAccessControlAccordion: () => <div data-testid="sac-accordion" />,
@@ -62,9 +50,7 @@ import { RuleSetForm } from "./rule-set-form";
 const render = (ui: ReactElement) =>
   rtlRender(
     <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })
-      }
+      client={new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } })}
     >
       {ui}
     </QueryClientProvider>,
@@ -89,11 +75,46 @@ const editingPolicy = {
   ruleGroup: {
     logicalOperator: 0, // AND
     rules: [
-      { leftSource: 0, leftOperand: "userId", operator: 0, rightSource: 2, rightOperand: "", staticValue: "abc" },
-      { leftSource: 1, leftOperand: "title", operator: 12, rightSource: 2, rightOperand: "", staticValue: null },
-      { leftSource: 0, leftOperand: "roles", operator: 8, rightSource: 2, rightOperand: "", staticValue: ["a", "b"] },
-      { leftSource: 0, leftOperand: "roles", operator: 8, rightSource: 0, rightOperand: "email", staticValue: null },
-      { leftSource: 1, leftOperand: "title", operator: 10, rightSource: 2, rightOperand: "", staticValue: "pre" },
+      {
+        leftSource: 0,
+        leftOperand: "userId",
+        operator: 0,
+        rightSource: 2,
+        rightOperand: "",
+        staticValue: "abc",
+      },
+      {
+        leftSource: 1,
+        leftOperand: "title",
+        operator: 12,
+        rightSource: 2,
+        rightOperand: "",
+        staticValue: null,
+      },
+      {
+        leftSource: 0,
+        leftOperand: "roles",
+        operator: 8,
+        rightSource: 2,
+        rightOperand: "",
+        staticValue: ["a", "b"],
+      },
+      {
+        leftSource: 0,
+        leftOperand: "roles",
+        operator: 8,
+        rightSource: 0,
+        rightOperand: "email",
+        staticValue: null,
+      },
+      {
+        leftSource: 1,
+        leftOperand: "title",
+        operator: 10,
+        rightSource: 2,
+        rightOperand: "",
+        staticValue: "pre",
+      },
     ],
     nestedGroups: [],
   },
@@ -106,12 +127,11 @@ const baseProps = {
   operation: 0,
   fieldNames: ["title"],
   level: "row" as const,
+  onStage,
 };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  createPolicy.mockResolvedValue({ isSuccess: true });
-  updatePolicy.mockResolvedValue({ isSuccess: true });
 });
 
 describe("RuleSetForm", () => {
@@ -124,13 +144,39 @@ describe("RuleSetForm", () => {
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
-    // A rule card now shows the source placeholder.
-    expect(screen.getByText("Select source")).toBeInTheDocument();
+    // A rule card now shows an empty "Not set" chip for the source column, ready to be opened.
+    expect(screen.getByRole("button", { name: "Set Left operand" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Remove rule" }));
     expect(
       screen.getByText("No rules added yet. Add a rule to define who can view."),
     ).toBeInTheDocument();
+  });
+
+  it("reveals each labeled rule field only after the previous choice", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} />);
+
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.getByText("Condition 1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Condition 1 expression")).toBeInTheDocument();
+    // No column-header row: each chip carries its own name instead.
+    expect(screen.queryByText("Left operand")).not.toBeInTheDocument();
+    expect(screen.getByText("When")).toBeInTheDocument();
+
+    // Only the source column can be opened yet; later columns wait for their
+    // prerequisite and render as a disabled, unclickable "Not set" cell.
+    expect(screen.getByRole("button", { name: "Set Left operand" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set Left value" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Select field")).not.toBeInTheDocument();
+
+    // The source column is a popover of options that opens on one click —
+    // no separate combobox trigger to open first.
+    await user.click(screen.getByRole("button", { name: "Set Left operand" }));
+    await user.click(await screen.findByRole("option", { name: "Auth" }));
+    // Picking a source auto-advances to the field column's editor, which is
+    // still a Select (its shape varies with the row, unlike the fixed lists).
+    expect(screen.getByRole("button", { name: "Set Left value" })).toBeInTheDocument();
   });
 
   it("fires onCancel from the Cancel button", async () => {
@@ -146,35 +192,34 @@ describe("RuleSetForm", () => {
     // Name prefilled from the policy.
     expect(screen.getByDisplayValue("My Rule Set")).toBeInTheDocument();
     // The Update button is shown in edit mode.
-    expect(screen.getByRole("button", { name: "Update" })).toBeInTheDocument();
-    // Direct-value (START_WITH) rule shows its dedicated prefix input.
-    expect(screen.getByPlaceholderText("Enter prefix")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save rule set" })).toBeInTheDocument();
+    // Completed direct values are summarized as expression chips.
+    expect(screen.queryByPlaceholderText("Enter prefix")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "pre" })).toBeInTheDocument();
     // auth.roles + IN + static now renders the principal multi-select instead of free text, and
     // hydrates the stored slugs verbatim - this is the H5 edit path, where the stored values must
     // survive even before (or without) resolution against IAM.
-    expect(
-      screen.queryByPlaceholderText("Enter comma-separated values"),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /a, b/ })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Enter comma-separated values")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /a, b/ }).length).toBeGreaterThan(0);
     // Five rules => five remove buttons.
     expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(5);
   });
 
-  it("submits an update, maps rules to a rule group, and reports success", async () => {
+  it("stages an update, mapping rules to a rule group, instead of sending it", async () => {
     const user = userEvent.setup();
-    const onCancel = vi.fn();
-    render(<RuleSetForm {...baseProps} editingPolicy={editingPolicy} onCancel={onCancel} />);
+    render(<RuleSetForm {...baseProps} editingPolicy={editingPolicy} />);
 
     // Trigger validation so the Update button becomes enabled.
     const nameInput = screen.getByDisplayValue("My Rule Set");
     fireEvent.change(nameInput, { target: { value: "My Rule Set!" } });
 
-    const updateBtn = screen.getByRole("button", { name: "Update" });
+    const updateBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(updateBtn).toBeEnabled());
     await user.click(updateBtn);
 
-    await waitFor(() => expect(updatePolicy).toHaveBeenCalled());
-    const payload = updatePolicy.mock.calls[0][0];
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    const [{ payload, isEditMode }] = onStage.mock.calls[0];
+    expect(isEditMode).toBe(true);
     expect(payload).toMatchObject({
       itemId: "policy-1",
       policyName: "My Rule Set!",
@@ -192,51 +237,46 @@ describe("RuleSetForm", () => {
       (r: { operator: number; rightSource: number }) => r.operator === 8 && r.rightSource === 2,
     );
     expect(inStatic.staticValue).toBe("a, b");
-
-    await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
-    expect(onCancel).toHaveBeenCalled();
-  });
-
-  it("shows an error toast when the update fails", async () => {
-    updatePolicy.mockResolvedValue({ isSuccess: false, errors: ["nope"] });
-    render(<RuleSetForm {...baseProps} editingPolicy={editingPolicy} />);
-    const nameInput = screen.getByDisplayValue("My Rule Set");
-    fireEvent.change(nameInput, { target: { value: "Renamed" } });
-    const updateBtn = screen.getByRole("button", { name: "Update" });
-    await waitFor(() => expect(updateBtn).toBeEnabled());
-    fireEvent.click(updateBtn);
-    await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
-  });
-
-  it("shows an error toast when the update throws", async () => {
-    updatePolicy.mockRejectedValue(new Error("network"));
-    render(<RuleSetForm {...baseProps} editingPolicy={editingPolicy} />);
-    const nameInput = screen.getByDisplayValue("My Rule Set");
-    fireEvent.change(nameInput, { target: { value: "Renamed2" } });
-    const updateBtn = screen.getByRole("button", { name: "Update" });
-    await waitFor(() => expect(updateBtn).toBeEnabled());
-    fireEvent.click(updateBtn);
-    await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
   });
 });
 
 describe("RuleSetForm create flow", () => {
-  // Pick option `name` in the Nth rule-row combobox (source, field, operator,
-  // compareSource render in that DOM order).
+  // Source/operator/compareSource are a popover of options that opens on one
+  // click — but each pick closes it rather than chaining straight into the
+  // next popover (two Radix popovers opening back-to-back within one click is
+  // unreliable), so every popover column needs its own opening click here.
+  // Every fixed-option column uses the same chip popover.
+  const POPOVER_OPEN_LABEL: Record<number, string> = {
+    0: "Set Left operand",
+    1: "Set Left value",
+    2: "Set Operator",
+    3: "Set Right operand",
+    4: "Set Right value",
+  };
   const pick = async (
     user: ReturnType<typeof userEvent.setup>,
     index: number,
     name: RegExp | string,
   ) => {
-    const combos = screen.getAllByRole("combobox");
-    await user.click(combos[index]);
+    const combobox = screen.queryByRole("combobox");
+    if (combobox) {
+      await user.click(combobox);
+    } else if (!screen.queryAllByRole("option").length && POPOVER_OPEN_LABEL[index]) {
+      await user.click(screen.getByRole("button", { name: POPOVER_OPEN_LABEL[index] }));
+    }
     await user.click(await screen.findByRole("option", { name }));
   };
 
-  it("builds an EQUAL + static-value rule and creates the policy", async () => {
+  const completeNullRule = async (user: ReturnType<typeof userEvent.setup>) => {
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Auth");
+    await pick(user, 1, "UserId");
+    await pick(user, 2, "Is Null");
+  };
+
+  it("builds an EQUAL + static-value rule and stages it", async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
-    const onCancel = vi.fn();
-    render(<RuleSetForm {...baseProps} onCancel={onCancel} />);
+    render(<RuleSetForm {...baseProps} />);
 
     fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
       target: { value: "Access set" },
@@ -266,12 +306,13 @@ describe("RuleSetForm create flow", () => {
     await user.click(screen.getByRole("button", { name: /Select user/ }));
     await user.click(await screen.findByText("Ada Lovelace"));
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
-    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
-    const payload = createPolicy.mock.calls[0][0];
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    const [{ payload, isEditMode }] = onStage.mock.calls[0];
+    expect(isEditMode).toBe(false);
     expect(payload).toMatchObject({
       policyName: "Access set",
       schemaName: "Products",
@@ -289,11 +330,9 @@ describe("RuleSetForm create flow", () => {
       rightSource: 2,
       staticValue: "user-123",
     });
-    await waitFor(() => expect(showSuccessToast).toHaveBeenCalled());
-    expect(onCancel).toHaveBeenCalled();
   });
 
-  it("hides the compare inputs for an IS_NULL operator and creates the policy", async () => {
+  it("hides the compare inputs for an IS_NULL operator and stages the policy", async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     render(<RuleSetForm {...baseProps} />);
 
@@ -310,12 +349,12 @@ describe("RuleSetForm create flow", () => {
     expect(screen.queryByText("Compare with")).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Enter value")).not.toBeInTheDocument();
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
-    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
-    const rule = createPolicy.mock.calls[0][0].ruleGroup.rules[0];
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    const rule = onStage.mock.calls[0][0].payload.ruleGroup.rules[0];
     expect(rule.operator).toBe(12);
     expect(rule.staticValue).toBeNull();
   });
@@ -336,12 +375,12 @@ describe("RuleSetForm create flow", () => {
     const prefixInput = await screen.findByPlaceholderText("Enter prefix");
     fireEvent.change(prefixInput, { target: { value: "adm" } });
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
-    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
-    const rule = createPolicy.mock.calls[0][0].ruleGroup.rules[0];
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    const rule = onStage.mock.calls[0][0].payload.ruleGroup.rules[0];
     // START_WITH => 10, value stored as staticValue.
     expect(rule.operator).toBe(10);
     expect(rule.staticValue).toBe("adm");
@@ -379,12 +418,12 @@ describe("RuleSetForm create flow", () => {
     await user.click(await screen.findByText("Role B"));
     await user.click(await screen.findByText("Role C"));
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
-    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
-    const rule = createPolicy.mock.calls[0][0].ruleGroup.rules[0];
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    const rule = onStage.mock.calls[0][0].payload.ruleGroup.rules[0];
     // IN => 8, comma-delimited static value in selection order.
     expect(rule.operator).toBe(8);
     expect(rule.staticValue).toBe("a,b,c");
@@ -408,12 +447,12 @@ describe("RuleSetForm create flow", () => {
     await user.click(await screen.findByText("title"));
     await user.click(await screen.findByText("AllowedRoles"));
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
-    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
-    expect(createPolicy.mock.calls[0][0].ruleGroup.rules[0]).toMatchObject({
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    expect(onStage.mock.calls[0][0].payload.ruleGroup.rules[0]).toMatchObject({
       leftSource: 0,
       leftOperand: "roles",
       operator: 8,
@@ -422,44 +461,6 @@ describe("RuleSetForm create flow", () => {
       rightOperands: ["title", "AllowedRoles"],
       staticValue: null,
     });
-  });
-
-  it("shows an error toast when create returns a failure", async () => {
-    createPolicy.mockResolvedValue({ isSuccess: false, errors: ["bad"] });
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
-    render(<RuleSetForm {...baseProps} />);
-
-    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
-      target: { value: "Fail set" },
-    });
-    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
-    await pick(user, 0, "Auth");
-    await pick(user, 1, "UserId");
-    await pick(user, 2, "Is Null");
-
-    const saveBtn = screen.getByRole("button", { name: "Save" });
-    await waitFor(() => expect(saveBtn).toBeEnabled());
-    await user.click(saveBtn);
-    await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
-  });
-
-  it("shows an error toast when create throws", async () => {
-    createPolicy.mockRejectedValue(new Error("network"));
-    const user = userEvent.setup({ pointerEventsCheck: 0 });
-    render(<RuleSetForm {...baseProps} />);
-
-    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), {
-      target: { value: "Throw set" },
-    });
-    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
-    await pick(user, 0, "Auth");
-    await pick(user, 1, "UserId");
-    await pick(user, 2, "Is Null");
-
-    const saveBtn = screen.getByRole("button", { name: "Save" });
-    await waitFor(() => expect(saveBtn).toBeEnabled());
-    await user.click(saveBtn);
-    await waitFor(() => expect(showErrorToast).toHaveBeenCalled());
   });
 
   it("submits through the native form submit handler", async () => {
@@ -476,17 +477,59 @@ describe("RuleSetForm create flow", () => {
 
     // Fire the form's own submit event (covers the onSubmit preventDefault path).
     fireEvent.submit(document.querySelector("form")!);
-    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
   });
 
   it("appends a second rule from the bottom Add Rule button", async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     render(<RuleSetForm {...baseProps} />);
 
-    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
-    // With one rule present, the bottom Add Rule button appends another.
+    await completeNullRule(user);
+    // A completed rule reveals the action for appending another.
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
     expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(2);
+  });
+
+  // The group's AND/OR mode is always visible above the rule table.
+  it("shows the multi-rule relation as a Match all / Match any chip toggle", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    expect(screen.getByRole("radiogroup", { name: "Multi-rule relations" })).toBeInTheDocument();
+    await completeNullRule(user);
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    const matchAll = screen.getByRole("radio", { name: "Match all" });
+    const matchAny = screen.getByRole("radio", { name: "Match any" });
+    expect(matchAll).toHaveAttribute("aria-checked", "true");
+    expect(matchAny).toHaveAttribute("aria-checked", "false");
+
+    await user.click(matchAny);
+    expect(matchAny).toHaveAttribute("aria-checked", "true");
+    expect(matchAll).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("renders Match all / Match any as compact rectangular chips", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    await completeNullRule(user);
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    expect(screen.getByRole("radiogroup", { name: "Multi-rule relations" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Match all" }).className).toContain("rounded-sm");
+    expect(screen.getByRole("radio", { name: "Match any" }).className).toContain("rounded-sm");
+  });
+
+  it("keeps the selected AND/OR matching mode above the rule table", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...baseProps} />);
+
+    const matchAll = screen.getByRole("radio", { name: "Match all" });
+    const matchAny = screen.getByRole("radio", { name: "Match any" });
+    expect(matchAll).toHaveAttribute("aria-checked", "true");
+
+    await user.click(matchAny);
+    expect(matchAny).toHaveAttribute("aria-checked", "true");
+    expect(matchAll).toHaveAttribute("aria-checked", "false");
   });
 
   it("multi-selects auth fields for an IN comparison against Auth", async () => {
@@ -526,10 +569,10 @@ describe("RuleSetForm create flow", () => {
     // Right side offers string/array schema fields (title, tags).
     await pick(user, 4, "tags");
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
-    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
   });
 
   it("drops Auth and filters numeric schema fields for a numeric left operand", async () => {
@@ -544,17 +587,15 @@ describe("RuleSetForm create flow", () => {
     await pick(user, 1, "count");
     await pick(user, 2, /^Equal$/);
     // Numeric left operands cannot compare against Auth, so that option is gone.
-    await user.click(screen.getAllByRole("combobox")[3]);
-    expect(
-      screen.queryByRole("option", { name: "Auth" }),
-    ).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Set Right operand" }));
+    expect(screen.queryByRole("option", { name: "Auth" })).not.toBeInTheDocument();
     await user.click(await screen.findByRole("option", { name: "Products" }));
     await pick(user, 4, "count");
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
-    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
   });
 
   it("clears an incompatible operator when the left field category changes", async () => {
@@ -569,11 +610,10 @@ describe("RuleSetForm create flow", () => {
     expect(screen.getByPlaceholderText("Enter prefix")).toBeInTheDocument();
     // Switching to an array field (Roles) invalidates START_WITH, resetting it,
     // so the direct-value prefix input disappears.
+    await user.click(screen.getByTitle("Edit field"));
     await pick(user, 1, "Roles");
     await waitFor(() =>
-      expect(
-        screen.queryByPlaceholderText("Enter prefix"),
-      ).not.toBeInTheDocument(),
+      expect(screen.queryByPlaceholderText("Enter prefix")).not.toBeInTheDocument(),
     );
   });
 
@@ -593,10 +633,10 @@ describe("RuleSetForm create flow", () => {
     // compareValue renders as a single-select of auth fields; pick one.
     await pick(user, 4, "Email");
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
-    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
   });
 
   it("offers nested child-schema properties as dotted-path field options, capped at MAX_NESTED_FIELD_DEPTH", async () => {
@@ -637,37 +677,27 @@ describe("RuleSetForm create flow", () => {
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
     await pick(user, 0, "Products");
 
-    await user.click(screen.getAllByRole("combobox")[1]);
+    await user.click(screen.getByRole("button", { name: "Set Left value" }));
     // The composite "AddressInfo" node itself is not a selectable leaf...
-    expect(
-      screen.queryByRole("option", { name: "AddressInfo" }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "AddressInfo" })).not.toBeInTheDocument();
     // ...but its own and its nested child's scalar properties are, as dotted paths.
-    expect(
-      screen.getByRole("option", { name: "AddressInfo.StreetNo" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("option", { name: "AddressInfo.Country.Name" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "AddressInfo.StreetNo" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "AddressInfo.Country.Name" })).toBeInTheDocument();
     // A 4th-level property (beyond the depth cap) is dropped entirely.
-    expect(
-      screen.queryByRole("option", { name: /Region/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: /Region/ })).not.toBeInTheDocument();
 
-    await user.click(
-      screen.getByRole("option", { name: "AddressInfo.StreetNo" }),
-    );
+    await user.click(screen.getByRole("option", { name: "AddressInfo.StreetNo" }));
     await pick(user, 2, /^Equal$/);
     await pick(user, 3, "Static Value");
     fireEvent.change(screen.getByPlaceholderText("Enter value"), {
       target: { value: "123" },
     });
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
-    await waitFor(() => expect(createPolicy).toHaveBeenCalled());
-    expect(createPolicy.mock.calls[0][0].ruleGroup.rules[0]).toMatchObject({
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    expect(onStage.mock.calls[0][0].payload.ruleGroup.rules[0]).toMatchObject({
       leftOperand: "AddressInfo.StreetNo",
     });
   });
@@ -680,13 +710,24 @@ describe("RuleSetForm create flow", () => {
  * They are pinned here so a future refactor cannot quietly remove them.
  */
 describe("RuleSetForm — compareValue resets that guard the principal selector", () => {
+  const POPOVER_OPEN_LABEL: Record<number, string> = {
+    0: "Set Left operand",
+    1: "Set Left value",
+    2: "Set Operator",
+    3: "Set Right operand",
+    4: "Set Right value",
+  };
   const pick = async (
     user: ReturnType<typeof userEvent.setup>,
     index: number,
     name: RegExp | string,
   ) => {
-    const combos = screen.getAllByRole("combobox");
-    await user.click(combos[index]);
+    const combobox = screen.queryByRole("combobox");
+    if (combobox) {
+      await user.click(combobox);
+    } else if (!screen.queryAllByRole("option").length && POPOVER_OPEN_LABEL[index]) {
+      await user.click(screen.getByRole("button", { name: POPOVER_OPEN_LABEL[index] }));
+    }
     await user.click(await screen.findByRole("option", { name }));
   };
 
@@ -713,6 +754,7 @@ describe("RuleSetForm — compareValue resets that guard the principal selector"
 
     // Switch the source and field to Auth.UserId: the selector must appear
     // EMPTY, not carrying the old text.
+    await user.click(screen.getByTitle("Edit source"));
     await pick(user, 0, "Auth");
     await pick(user, 1, "UserId");
 
@@ -742,6 +784,7 @@ describe("RuleSetForm — compareValue resets that guard the principal selector"
 
     // IN -> CONTAIN crosses the boundary: "a,b" must NOT survive into the single-select, or
     // buildRuleGroup would emit the literal scalar "a,b" as one role slug.
+    await user.click(screen.getByTitle("Edit operator"));
     await pick(user, 2, /^Contain$/);
 
     expect(screen.queryByRole("button", { name: /a, b/ })).not.toBeInTheDocument();
@@ -761,8 +804,8 @@ describe("RuleSetForm — compareValue resets that guard the principal selector"
       target: { value: "admin-prefix" },
     });
 
-    // Moving to EQUAL leaves compareValue intact (no branch clears it) but compareSource is empty,
-    // so the selector cannot mount yet.
+    // Reopening the operator chip clears its dependent direct value.
+    await user.click(screen.getByTitle("Edit operator"));
     await pick(user, 2, /^Equal$/);
     expect(screen.queryByRole("button", { name: /Select user/ })).not.toBeInTheDocument();
 
@@ -787,15 +830,247 @@ describe("RuleSetForm — hydrated values that are not real principals", () => {
 
     const nameInput = screen.getByDisplayValue("My Rule Set");
     fireEvent.change(nameInput, { target: { value: "Renamed again" } });
-    const updateBtn = screen.getByRole("button", { name: "Update" });
+    const updateBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(updateBtn).toBeEnabled());
     fireEvent.click(updateBtn);
 
-    await waitFor(() => expect(updatePolicy).toHaveBeenCalled());
-    const rules = updatePolicy.mock.calls[0][0].ruleGroup.rules;
-    const userIdRule = rules.find(
-      (r: { leftOperand: string }) => r.leftOperand === "userId",
-    );
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    const rules = onStage.mock.calls[0][0].payload.ruleGroup.rules;
+    const userIdRule = rules.find((r: { leftOperand: string }) => r.leftOperand === "userId");
     expect(userIdRule.staticValue).toBe("abc");
+  });
+});
+
+describe("RuleSetForm — footer", () => {
+  it("says the rule set saves immediately", async () => {
+    render(<RuleSetForm {...baseProps} />);
+    expect(screen.getByText("Saves immediately")).toBeInTheDocument();
+  });
+
+  it("shows a saving state and disables Save/Cancel while the save is in flight", async () => {
+    render(<RuleSetForm {...baseProps} isSubmitting />);
+    expect(screen.getByText("Saving…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save rule set" })).toBeDisabled();
+  });
+
+  // A toast reporting the parent's save result would sit right on top of
+  // this footer's own Save button — the result shows inline here instead.
+  it("shows the parent's save result as its own bar above the Save/Cancel row", async () => {
+    render(
+      <RuleSetForm {...baseProps} status={{ kind: "success", message: "Rule set saved successfully" }} />,
+    );
+    expect(screen.getByText("Rule set saved successfully")).toBeInTheDocument();
+  });
+
+  it("shows a parent save failure inline too", async () => {
+    render(<RuleSetForm {...baseProps} status={{ kind: "error", message: "bad" }} />);
+    expect(screen.getByText("bad")).toBeInTheDocument();
+  });
+});
+
+describe("RuleSetForm nested groups", () => {
+  const staticRule = (leftOperand: string, staticValue: string) => ({
+    leftSource: 1,
+    leftOperand,
+    operator: 0,
+    rightSource: 2,
+    rightOperand: "",
+    staticValue,
+  });
+  const group = (
+    logicalOperator: number,
+    rules: ReturnType<typeof staticRule>[],
+    nestedGroups: unknown[] = [],
+  ) => ({ logicalOperator, rules, nestedGroups });
+
+  const policyWith = (ruleGroup: unknown) =>
+    ({
+      itemId: "policy-nested",
+      policyName: "Nested set",
+      policyDescription: "desc",
+      fieldNames: ["title"],
+      priority: 1,
+      isAllowPolicy: true,
+      ruleGroup,
+    }) as unknown as Parameters<typeof RuleSetForm>[0]["editingPolicy"];
+
+  // (title = a OR title = b) AND (title = c OR title = d): the root holds no rules of its own.
+  const twoGroups = () =>
+    policyWith(
+      group(
+        0,
+        [],
+        [
+          group(1, [staticRule("title", "a"), staticRule("title", "b")]),
+          group(1, [staticRule("title", "c"), staticRule("title", "d")]),
+        ],
+      ),
+    );
+
+  /** Renames the set so validation runs and Update enables, then saves it. */
+  const saveEdit = async (user: ReturnType<typeof userEvent.setup>) => {
+    fireEvent.change(screen.getByDisplayValue("Nested set"), { target: { value: "Nested set!" } });
+    const updateBtn = screen.getByRole("button", { name: "Save rule set" });
+    await waitFor(() => expect(updateBtn).toBeEnabled());
+    await user.click(updateBtn);
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    return onStage.mock.calls[0][0].payload.ruleGroup;
+  };
+
+  it("shows a stored set's nested groups, with their rules", () => {
+    render(<RuleSetForm {...baseProps} editingPolicy={twoGroups()} />);
+
+    expect(screen.getByRole("region", { name: "Group 1 group" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Group 2 group" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(4);
+    // Each group reads its own operator: both were stored as OR.
+    expect(screen.getByRole("radio", { name: "Match all" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    const groupMatch = screen.getAllByRole("radio", { name: "Group match any" });
+    expect(groupMatch).toHaveLength(2);
+    groupMatch.forEach((radio) => expect(radio).toHaveAttribute("aria-checked", "true"));
+  });
+
+  it("saves a stored set's groups back unchanged — editing must not drop them", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} editingPolicy={twoGroups()} />);
+
+    const ruleGroup = await saveEdit(user);
+
+    expect(ruleGroup.logicalOperator).toBe(0);
+    expect(ruleGroup.rules).toEqual([]);
+    expect(ruleGroup.nestedGroups).toHaveLength(2);
+    expect(
+      ruleGroup.nestedGroups.map((g: { logicalOperator: number }) => g.logicalOperator),
+    ).toEqual([1, 1]);
+    expect(
+      ruleGroup.nestedGroups.map((g: { rules: { staticValue: string }[] }) =>
+        g.rules.map((r) => r.staticValue),
+      ),
+    ).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+    ]);
+  });
+
+  it("changes one group's Match all / Match any without touching the others", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} editingPolicy={twoGroups()} />);
+
+    await user.click(screen.getAllByRole("radio", { name: "Group match all" })[0]);
+    const ruleGroup = await saveEdit(user);
+
+    expect(ruleGroup.nestedGroups[0].logicalOperator).toBe(0);
+    expect(ruleGroup.nestedGroups[1].logicalOperator).toBe(1);
+  });
+
+  it("keeps groups nested deeper than the editor will build, and saves them intact", async () => {
+    const user = userEvent.setup();
+    const fourLevels = policyWith(
+      group(
+        0,
+        [staticRule("title", "root")],
+        [
+          group(
+            1,
+            [staticRule("title", "one")],
+            [group(0, [staticRule("title", "two")], [group(1, [staticRule("title", "three")])])],
+          ),
+        ],
+      ),
+    );
+    render(<RuleSetForm {...baseProps} editingPolicy={fourLevels} />);
+
+    // Even at the deepest group, nothing is hidden: all four rules are listed.
+    expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(4);
+    const ruleGroup = await saveEdit(user);
+
+    const deepest = ruleGroup.nestedGroups[0].nestedGroups[0].nestedGroups[0].rules[0].staticValue;
+    expect(deepest).toBe("three");
+  });
+
+  it("adds a group from the root and removes it again", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} />);
+
+    await user.click(screen.getByRole("button", { name: "Add group" }));
+
+    const region = screen.getByRole("region", { name: "Group 1 group" });
+    expect(region).toBeInTheDocument();
+    // A new group starts as "match any", with one blank rule ready to fill in.
+    expect(screen.getByRole("radio", { name: "Group match any" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(1);
+    expect(screen.queryByText(/No rules added yet/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Remove group" }));
+    expect(screen.queryByRole("region", { name: "Group 1 group" })).not.toBeInTheDocument();
+    expect(screen.getByText(/No rules added yet/)).toBeInTheDocument();
+  });
+
+  it("adds a rule inside a group, and the set stays invalid until it is filled in", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} editingPolicy={twoGroups()} />);
+
+    await user.click(screen.getAllByRole("button", { name: "Add rule to group" })[0]);
+
+    expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(5);
+    fireEvent.change(screen.getByDisplayValue("Nested set"), { target: { value: "Nested set!" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save rule set" })).toBeDisabled());
+  });
+
+  it("stops offering Add group at the third level", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} />);
+
+    // Root can nest; a group in the root can too; the group inside that is the third level.
+    await user.click(screen.getByRole("button", { name: "Add group" }));
+    expect(screen.getAllByRole("button", { name: "Add group inside group" })).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Add group inside group" }));
+    expect(screen.getByRole("region", { name: "Group 1 Group 1 group" })).toBeInTheDocument();
+    // Still just the second level's own button — the third level has none.
+    expect(screen.getAllByRole("button", { name: "Add group inside group" })).toHaveLength(1);
+  });
+
+  it("refuses to save while a group is empty, and says why", async () => {
+    const user = userEvent.setup();
+    render(
+      <RuleSetForm
+        {...baseProps}
+        editingPolicy={policyWith(group(0, [], [group(1, [staticRule("title", "a")])]))}
+      />,
+    );
+
+    fireEvent.change(screen.getByDisplayValue("Nested set"), { target: { value: "Nested set!" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save rule set" })).toBeEnabled());
+
+    await user.click(screen.getByRole("button", { name: "Remove rule" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/Empty group/);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save rule set" })).toBeDisabled());
+
+    // Removing the empty group clears the warning.
+    await user.click(screen.getByRole("button", { name: "Remove group" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("labels each join once: the rule card's lead between rules, a joiner only before a group", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} editingPolicy={policyWith(group(0, [staticRule("title", "a"), staticRule("title", "b")]))} />);
+
+    // Two rules: the second card says "And"; there is no separate AND line between them.
+    expect(screen.getByText("When")).toBeInTheDocument();
+    expect(screen.getByText("And")).toBeInTheDocument();
+    expect(screen.queryByText("AND")).not.toBeInTheDocument();
+
+    // A group has no lead of its own, so the join before it is drawn.
+    await user.click(screen.getByRole("button", { name: "Add group" }));
+    expect(screen.getByText("AND")).toBeInTheDocument();
   });
 });

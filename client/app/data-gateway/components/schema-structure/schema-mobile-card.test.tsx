@@ -71,7 +71,6 @@ function Harness(overrides: Partial<Props> = {}) {
     searchText: "",
     onOpenAccessDrawer: vi.fn(),
     onOpenValidationDrawer: vi.fn(),
-    totalFields: 1,
     ...overrides,
   };
   return (
@@ -82,14 +81,23 @@ function Harness(overrides: Partial<Props> = {}) {
 }
 
 describe("SchemaMobileCard", () => {
-  it("renders property name, type and toggles in view mode", () => {
+  // View mode used to render the whole edit form with everything switched off.
+  it("renders the property, type and flags as text in view mode", () => {
     render(<Harness />);
-    expect(screen.getByDisplayValue("title")).toBeInTheDocument();
-    // View mode shows the type as text (not the selector) and the switches.
+
+    expect(screen.getByTitle("title")).toHaveTextContent("title");
     expect(screen.getByText("String")).toBeInTheDocument();
-    expect(screen.getByLabelText(/IsArray for/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/IsPII for/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/IsUnique for/)).toBeInTheDocument();
+    expect(screen.queryByDisplayValue("title")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("switch")).toHaveLength(0);
+  });
+
+  // Flags are click-to-toggle chips now, not switches.
+  it("keeps the flag chips in edit mode", () => {
+    render(<Harness isEditMode />);
+
+    expect(screen.getByRole("button", { name: "Array" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Personally identifiable data" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Unique" })).toBeInTheDocument();
   });
 
   it("opens the access and validation drawers in view mode for primitive types", async () => {
@@ -118,11 +126,7 @@ describe("SchemaMobileCard", () => {
     // Row selection checkbox appears in edit mode.
     expect(screen.getByLabelText(/Select title/)).toBeInTheDocument();
 
-    // The actions menu trigger is the only enabled button with no aria-label.
-    const trigger = screen
-      .getAllByRole("button")
-      .find((b) => !b.getAttribute("aria-label") && !b.hasAttribute("disabled"))!;
-    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "More actions for title" }));
     await user.click(await screen.findByText("Duplicate"));
     expect(onDuplicate).toHaveBeenCalledWith(0);
   });
@@ -138,7 +142,22 @@ describe("SchemaMobileCard", () => {
     expect(screen.getByText(/Default Properties/)).toBeInTheDocument();
   });
 
-  it("edits the name, toggles switches and updates the description in edit mode", async () => {
+  // Was the same bg-muted/30 as several other grouping boxes on this page;
+  // a primary tint sets it apart as its own thing.
+  it("tints the default-properties row distinctly from a plain muted background", () => {
+    render(
+      <Harness
+        schemaType={1}
+        properties={[{ ...property, name: "CreatedBy" }] as never}
+        field={{ id: "f1", ...property, name: "CreatedBy" } as never}
+      />,
+    );
+    const section = screen.getByText(/Default Properties/).closest("div")!;
+    expect(section.className).toContain("bg-primary/5");
+    expect(section.className).not.toContain("bg-muted/30");
+  });
+
+  it("edits the name, toggles flag chips and updates the description in edit mode", async () => {
     const user = userEvent.setup();
     render(<Harness isEditMode />);
 
@@ -147,10 +166,10 @@ describe("SchemaMobileCard", () => {
     await user.type(nameInput, "new_name");
     expect((nameInput as HTMLInputElement).value).toContain("new_name");
 
-    // Toggling the enabled switches runs their onCheckedChange -> setValue.
-    await user.click(screen.getByLabelText(/IsArray for/));
-    await user.click(screen.getByLabelText(/IsPII for/));
-    await user.click(screen.getByLabelText(/IsUnique for/));
+    // Toggling the enabled chips runs their onToggle -> setValue.
+    await user.click(screen.getByRole("button", { name: "Array" }));
+    await user.click(screen.getByRole("button", { name: "Personally identifiable data" }));
+    await user.click(screen.getByRole("button", { name: "Unique" }));
 
     const desc = screen.getByPlaceholderText("Add description");
     await user.type(desc, "!");
@@ -219,12 +238,30 @@ describe("SchemaMobileCard", () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
     render(<Harness isEditMode onDelete={onDelete} />);
-    const trigger = screen
-      .getAllByRole("button")
-      .find((b) => !b.getAttribute("aria-label") && !b.hasAttribute("disabled"))!;
-    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "More actions for title" }));
     await user.click(await screen.findByText("Delete"));
     expect(onDelete).toHaveBeenCalledWith(0);
+  });
+
+  // The tint used to stop at the section header; the annotated screenshot
+  // asked for the whole block — header and its cards — to read as one thing.
+  it("also tints the default-property card itself once expanded, not just the header", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        schemaType={1}
+        isReadOnly
+        properties={[{ ...property, name: "CreatedBy" }] as never}
+        field={{ id: "f1", ...property, name: "CreatedBy" } as never}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /Default Properties/ });
+    await user.click(toggle);
+    const card = screen.getByTitle("title").closest("div[class*='rounded-lg']")!;
+    expect(card.className).toContain("bg-primary/5");
+
+    // Restore the shared module-level collapse state for other tests.
+    await user.click(toggle);
   });
 
   it("toggles the readonly section for entity schemas", async () => {
@@ -238,12 +275,12 @@ describe("SchemaMobileCard", () => {
       />,
     );
     const toggle = screen.getByRole("button", { name: /Default Properties/ });
-    // Collapsed by default: the row (name input) is hidden.
-    expect(screen.queryByDisplayValue("title")).not.toBeInTheDocument();
+    // Collapsed by default: the card is not rendered at all.
+    expect(screen.queryByTitle("title")).not.toBeInTheDocument();
     await user.click(toggle);
-    expect(screen.getByDisplayValue("title")).toBeInTheDocument();
+    expect(screen.getByTitle("title")).toBeInTheDocument();
     await user.click(toggle);
-    expect(screen.queryByDisplayValue("title")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("title")).not.toBeInTheDocument();
   });
 
   it("expands a child-type field from the view-mode toggle", async () => {

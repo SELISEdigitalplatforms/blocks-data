@@ -101,4 +101,19 @@ describe("EnumValuesEditor", () => {
     expect(screen.queryByLabelText("New enum value")).toBeNull();
     expect(screen.queryByLabelText("Remove a")).toBeNull();
   });
+
+  it("lists the values as plain tags when read-only, with no input box or counter", () => {
+    render(<EnumValuesEditor values={["Draft", "Live"]} onChange={vi.fn()} disabled />);
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+    expect(screen.getByText("Live")).toBeInTheDocument();
+    expect(screen.queryByText(/\/ 100/)).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("says so, instead of drawing an empty box, when read-only with no values", () => {
+    render(<EnumValuesEditor values={[]} onChange={vi.fn()} disabled />);
+    expect(screen.getByText("No allowed values defined.")).toBeInTheDocument();
+    expect(screen.queryByText(/\/ 100/)).toBeNull();
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
 });

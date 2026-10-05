@@ -125,13 +125,7 @@ describe("GraphLogHistory", () => {
 
   it("labels non-app requests as Blocks Console operations", () => {
     mockResult([{ ...ITEM, inAppRequest: false }]);
-    render(
-      <GraphLogHistory
-        from="2026-08-24"
-        to="2026-08-31"
-        includeBlocksConsole
-      />,
-    );
+    render(<GraphLogHistory from="2026-08-24" to="2026-08-31" includeBlocksConsole />);
 
     expect(screen.getByText("Blocks Console")).toBeInTheDocument();
     expect(useGraphLogHistoryMock).toHaveBeenLastCalledWith(

@@ -44,10 +44,3 @@ export const PREVIEW_TYPE_MAP: Record<string, string> = {
   Enum: "enum",
 };
 
-export const editSchemaConfirmationModalData = {
-  dialogTitle: "Update schema property",
-  dialogSubtitle:
-    "Updating and deleting the schema properties will impact all existing data. Any necessary updates will need to be handled manually. Are you sure you want to proceed?",
-  confirmButton: "Update",
-  cancelButton: "Cancel",
-};

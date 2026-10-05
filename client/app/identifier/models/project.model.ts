@@ -34,7 +34,7 @@ export interface IGetProjectAuthConfigPayload {
   projectId: string;
 }
 export interface IGetProjectAuthConfigResponse extends IGetProjectAuthConfig {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
 }
 export interface ISaveProjectAuthConfigPayload {
@@ -45,7 +45,7 @@ export interface ISaveProjectAuthConfigPayload {
   allowedGrantTypes: string[];
 }
 export interface ISaveProjectAuthConfigResponse {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
 }
 export interface ISavePublicCertificatePayload {
@@ -64,7 +64,7 @@ export interface IValidateCNameProjectPayload {
   cookieDomain: string;
 }
 export interface IValidateCNameProjectResponse {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
   isStatusChanged: boolean;
 }
@@ -85,7 +85,7 @@ export interface IUpdateProjectPayload {
 }
 
 export interface IUpdateProjectResponse {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
 }
 
@@ -93,7 +93,7 @@ export interface IDisableProjectPayload {
   projectKey: string;
 }
 export interface IDisableProjectResponse {
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
 }
 
@@ -122,7 +122,7 @@ export interface IVerifyMigrationRequest {
 export interface IMigrationVerificationResponse {
   isValid: boolean;
   isSuccess: boolean;
-  errors: unknown | null;
+  errors: unknown;
 }
 
 export type IMigrationStatusResponse = Array<{
@@ -161,6 +161,6 @@ export interface ISubscription {
 
 export interface IGetSubscriptionUsageResponse {
   subscriptions: ISubscription[];
-  errors: unknown | null;
+  errors: unknown;
   isSuccess: boolean;
 }

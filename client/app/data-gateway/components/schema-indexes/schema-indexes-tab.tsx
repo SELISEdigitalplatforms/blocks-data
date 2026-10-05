@@ -44,8 +44,8 @@ const GEO_SYSTEM_INDEX_PREFIX = "system:";
 const TAG_BASE = "border-transparent font-medium";
 const TAG_TONES = {
   system: "bg-slate-500/10 text-slate-600 dark:bg-slate-400/10 dark:text-slate-300",
-  custom: "bg-emerald-500/10 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300",
-  unique: "bg-amber-500/10 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300",
+  custom: "bg-primary/10 text-primary",
+  unique: "bg-primary/10 text-primary",
   compound: "bg-violet-500/10 text-violet-700 dark:bg-violet-400/10 dark:text-violet-300",
   geo: "bg-sky-500/10 text-sky-700 dark:bg-sky-400/10 dark:text-sky-300",
 };

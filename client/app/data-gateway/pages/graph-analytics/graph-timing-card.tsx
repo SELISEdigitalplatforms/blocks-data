@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
+import { Clock } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
 import SpinnerLoader from "@/components/ui-kits/spinner-loader/spinner-loader";
 import { IGraphLogTimingBreakdown } from "../../models/graph-log-analytics";
+import { AnalyticsCard } from "./analytics-card";
 import { PhaseBreakdown, toPhaseRows } from "./graph-phase-breakdown";
 import { formatDuration } from "./graph-log-formatters";
 
@@ -37,27 +38,27 @@ export const GraphTimingCard = ({ timing, isLoading, isError }: GraphTimingCardP
   const total = timing?.averageTotal ?? 0;
 
   return (
-    <Card>
-      <CardHeader className="flex-row items-start justify-between gap-4">
-        <CardTitle>Where the time goes</CardTitle>
+    <AnalyticsCard
+      icon={Clock}
+      title="Where the time goes"
+      headerRight={
         <div className="flex flex-col items-end">
           <span className="text-2xl font-semibold leading-none">{formatDuration(total)}</span>
-          <span className="text-xs text-muted-foreground/60">average request</span>
+          <span className="text-xs text-muted-foreground">average request</span>
         </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="flex h-32 items-center justify-center">
-            <SpinnerLoader />
-          </div>
-        ) : isError ? (
-          <p className="text-sm text-destructive">Couldn&apos;t load timings. Please try again.</p>
-        ) : total === 0 ? (
-          <p className="text-sm text-muted-foreground">No requests in this range.</p>
-        ) : (
-          <PhaseBreakdown phases={phases} total={total} />
-        )}
-      </CardContent>
-    </Card>
+      }
+    >
+      {isLoading ? (
+        <div className="flex h-32 items-center justify-center">
+          <SpinnerLoader />
+        </div>
+      ) : isError ? (
+        <p className="text-sm text-destructive">Couldn&apos;t load timings. Please try again.</p>
+      ) : total === 0 ? (
+        <p className="text-sm text-muted-foreground">No requests in this range.</p>
+      ) : (
+        <PhaseBreakdown phases={phases} total={total} />
+      )}
+    </AnalyticsCard>
   );
 };

@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, History } from "lucide-react";
 
 import { Badge } from "@/components/ui-kits/badge/badge";
-import { Card, CardContent } from "@/components/ui-kits/card/card";
 import {
   Select,
   SelectContent,
@@ -33,6 +32,7 @@ import {
   IGraphLogHistoryItem,
   graphLogOutcome,
 } from "../../models/graph-log-history";
+import { AnalyticsCard } from "./analytics-card";
 import { GraphLogDetailsSheet } from "./graph-log-details-sheet";
 import {
   formatDateTime,
@@ -161,203 +161,201 @@ export const GraphLogHistory = ({
 
   return (
     <>
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-0">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
-            <span className="text-sm text-muted-foreground">
-              {totalCount} {totalCount === 1 ? "request" : "requests"}
-            </span>
-            <div className="flex items-center gap-2">
-              <Select
-                value={operationType}
-                onValueChange={(value) => {
-                  setOperationType(value as GraphLogOperationType | typeof ALL);
-                  setPageNo(1);
-                }}
-              >
-                <SelectTrigger className="h-8 w-[130px] text-xs" aria-label="Operation type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>All types</SelectItem>
-                  <SelectItem value="query">Query</SelectItem>
-                  <SelectItem value="mutation">Mutation</SelectItem>
-                </SelectContent>
-              </Select>
+      <AnalyticsCard icon={History} title="Request log" contentClassName="flex flex-col gap-4 p-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
+          <span className="text-sm text-muted-foreground">
+            {totalCount} {totalCount === 1 ? "request" : "requests"}
+          </span>
+          <div className="flex items-center gap-2">
+            <Select
+              value={operationType}
+              onValueChange={(value) => {
+                setOperationType(value as GraphLogOperationType | typeof ALL);
+                setPageNo(1);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[130px] text-xs" aria-label="Operation type">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All types</SelectItem>
+                <SelectItem value="query">Query</SelectItem>
+                <SelectItem value="mutation">Mutation</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <Select
-                value={outcome}
-                onValueChange={(value) => {
-                  setOutcome(value as GraphLogOutcome | typeof ALL);
-                  setPageNo(1);
-                }}
-              >
-                <SelectTrigger className="h-8 w-[130px] text-xs" aria-label="Response status">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>All statuses</SelectItem>
-                  <SelectItem value="allowed">Allowed</SelectItem>
-                  <SelectItem value="denied">Denied</SelectItem>
-                  <SelectItem value="error">Error</SelectItem>
-                </SelectContent>
-              </Select>
+            <Select
+              value={outcome}
+              onValueChange={(value) => {
+                setOutcome(value as GraphLogOutcome | typeof ALL);
+                setPageNo(1);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[130px] text-xs" aria-label="Response status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All statuses</SelectItem>
+                <SelectItem value="allowed">Allowed</SelectItem>
+                <SelectItem value="denied">Denied</SelectItem>
+                <SelectItem value="error">Error</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <Select
-                value={statusCode}
-                onValueChange={(value) => {
-                  setStatusCode(value);
-                  setPageNo(1);
-                }}
-              >
-                <SelectTrigger className="h-8 w-[120px] text-xs" aria-label="Status code">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>All codes</SelectItem>
-                  {STATUS_CODES.map((code) => (
-                    <SelectItem key={code} value={String(code)}>
-                      {code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Select
+              value={statusCode}
+              onValueChange={(value) => {
+                setStatusCode(value);
+                setPageNo(1);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[120px] text-xs" aria-label="Status code">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All codes</SelectItem>
+                {STATUS_CODES.map((code) => (
+                  <SelectItem key={code} value={String(code)}>
+                    {code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-              <Select
-                value={failureKind}
-                onValueChange={(value) => {
-                  setFailureKind(value as GraphLogFailureKind | typeof ALL);
-                  setPageNo(1);
-                }}
-              >
-                <SelectTrigger className="h-8 w-[150px] text-xs" aria-label="Failure reason">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>All reasons</SelectItem>
-                  {Object.entries(FAILURE_KIND_LABELS).map(([kind, label]) => (
-                    <SelectItem key={kind} value={kind}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <Select
+              value={failureKind}
+              onValueChange={(value) => {
+                setFailureKind(value as GraphLogFailureKind | typeof ALL);
+                setPageNo(1);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[150px] text-xs" aria-label="Failure reason">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>All reasons</SelectItem>
+                {Object.entries(FAILURE_KIND_LABELS).map(([kind, label]) => (
+                  <SelectItem key={kind} value={kind}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+        </div>
 
-          {isLoading ? (
-            <div className="flex h-48 items-center justify-center">
-              <SpinnerLoader />
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
+        {isLoading ? (
+          <div className="flex h-48 items-center justify-center">
+            <SpinnerLoader />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {(
+                  [
+                    ["time", "Time"],
+                    ["schema", "Schema"],
+                    ["type", "Type"],
+                    ["status", "Status"],
+                    ["code", "Code"],
+                    ["duration", "Duration"],
+                    ["size", "Size"],
+                    ["source", "Source"],
+                  ] as const
+                ).map(([field, label]) => (
+                  <SortableTableHead
+                    key={field}
+                    field={field}
+                    label={label}
+                    activeField={sortBy}
+                    descending={sortDescending}
+                    onSort={handleSort}
+                  />
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.length === 0 ? (
                 <TableRow>
-                  {(
-                    [
-                      ["time", "Time"],
-                      ["schema", "Schema"],
-                      ["type", "Type"],
-                      ["status", "Status"],
-                      ["code", "Code"],
-                      ["duration", "Duration"],
-                      ["size", "Size"],
-                      ["source", "Source"],
-                    ] as const
-                  ).map(([field, label]) => (
-                    <SortableTableHead
-                      key={field}
-                      field={field}
-                      label={label}
-                      activeField={sortBy}
-                      descending={sortDescending}
-                      onSort={handleSort}
-                    />
-                  ))}
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    {isError
+                      ? "Couldn't load data. Please try again."
+                      : "No requests in this range."}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
-                      {isError
-                        ? "Couldn't load data. Please try again."
-                        : "No requests in this range."}
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  items.map((item) => {
-                    const itemOutcome = graphLogOutcome(item);
-                    return (
-                      <TableRow
-                        key={`${item.traceId}-${item.spanId}`}
-                        className="cursor-pointer"
-                        onClick={() => setSelectedItem(item)}
+              ) : (
+                items.map((item) => {
+                  const itemOutcome = graphLogOutcome(item);
+                  return (
+                    <TableRow
+                      key={`${item.traceId}-${item.spanId}`}
+                      className="cursor-pointer"
+                      onClick={() => setSelectedItem(item)}
+                    >
+                      <TableCell
+                        className="whitespace-nowrap"
+                        title={formatDateTimeWithSeconds(item.timestamp)}
                       >
-                        <TableCell
-                          className="whitespace-nowrap"
-                          title={formatDateTimeWithSeconds(item.timestamp)}
+                        <div className="flex flex-col">
+                          <span>{formatDateTime(item.timestamp)}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatRelativeTime(item.timestamp)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {item.schemaName ||
+                          (item.isIntrospection ? (
+                            <span className="italic text-muted-foreground">introspection</span>
+                          ) : (
+                            "—"
+                          ))}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {item.operationType || "—"}
+                      </TableCell>
+                      {/* Just the outcome here — the reason remains available in row details. */}
+                      <TableCell title={item.failureMessage || undefined}>
+                        <Badge
+                          className="w-[108px] capitalize"
+                          variant={outcomeVariant(itemOutcome)}
                         >
-                          <div className="flex flex-col">
-                            <span>{formatDateTime(item.timestamp)}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {formatRelativeTime(item.timestamp)}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          {item.schemaName ||
-                            (item.isIntrospection ? (
-                              <span className="italic text-muted-foreground">introspection</span>
-                            ) : (
-                              "—"
-                            ))}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {item.operationType || "—"}
-                        </TableCell>
-                        {/* Just the outcome here — the reason remains available in row details. */}
-                        <TableCell title={item.failureMessage || undefined}>
-                          <Badge
-                            className="w-[108px] capitalize"
-                            variant={outcomeVariant(itemOutcome)}
-                          >
-                            {itemOutcome}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className={statusCodeClass(item.statusCode)}>
-                          {item.statusCode || "—"}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {formatDuration(item.duration)}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">
-                          {formatSize(item.responseSize)}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {item.inAppRequest ? "In-app" : "Blocks Console"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          )}
+                          {itemOutcome}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className={statusCodeClass(item.statusCode)}>
+                        {item.statusCode || "—"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {formatDuration(item.duration)}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        {formatSize(item.responseSize)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {item.inAppRequest ? "In-app" : "Blocks Console"}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        )}
 
-          <Pagination
-            pageNo={pageNo}
-            pageSize={pageSize}
-            totalPages={totalPages}
-            isLoading={isFetching}
-            onPageChange={setPageNo}
-            onPageSizeChange={(value) => {
-              setPageSize(Number(value));
-              setPageNo(1);
-            }}
-          />
-        </CardContent>
-      </Card>
+        <Pagination
+          pageNo={pageNo}
+          pageSize={pageSize}
+          totalPages={totalPages}
+          isLoading={isFetching}
+          onPageChange={setPageNo}
+          onPageSizeChange={(value) => {
+            setPageSize(Number(value));
+            setPageNo(1);
+          }}
+        />
+      </AnalyticsCard>
 
       <GraphLogDetailsSheet
         item={selectedItem}

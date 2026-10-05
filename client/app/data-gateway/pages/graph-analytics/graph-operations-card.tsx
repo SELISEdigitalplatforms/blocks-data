@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { AlertTriangle, BarChart3 } from "lucide-react";
 
 import { Badge } from "@/components/ui-kits/badge/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
 import {
   Table,
   TableBody,
@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui-kits/table/table";
 import { IGraphLogOperationStat } from "../../models/graph-log-analytics";
+import { AnalyticsCard } from "./analytics-card";
 import { formatDuration } from "./graph-log-formatters";
 import { OUTCOME_COLORS } from "./graph-outcome-colors";
 
@@ -31,62 +32,57 @@ export const GraphOperationsCard = ({ operationStats, isError }: GraphOperations
   const maxCalls = Math.max(1, ...operationStats.map((stat) => stat.calls));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Most frequent operations</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
+    <AnalyticsCard icon={BarChart3} title="Most frequent operations">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Schema</TableHead>
+            <TableHead>Calls</TableHead>
+            <TableHead>Allows</TableHead>
+            <TableHead>Denies</TableHead>
+            <TableHead>Errors</TableHead>
+            <TableHead className="whitespace-nowrap">Avg</TableHead>
+            <TableHead className="whitespace-nowrap">p95</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {operationStats.length === 0 ? (
             <TableRow>
-              <TableHead>Schema</TableHead>
-              <TableHead>Calls</TableHead>
-              <TableHead>Allows</TableHead>
-              <TableHead>Denies</TableHead>
-              <TableHead>Errors</TableHead>
-              <TableHead className="whitespace-nowrap">Avg</TableHead>
-              <TableHead className="whitespace-nowrap">p95</TableHead>
+              <TableCell colSpan={7} className="text-center text-muted-foreground">
+                {emptyMessage(isError)}
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {operationStats.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  {emptyMessage(isError)}
+          ) : (
+            operationStats.map((stat) => (
+              <TableRow key={stat.schemaName}>
+                <TableCell className="font-medium">{stat.schemaName}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-2 rounded bg-primary"
+                      style={{ width: `${(stat.calls / maxCalls) * MAX_BAR_WIDTH_PX}px` }}
+                    />
+                    <span>{stat.calls}</span>
+                  </div>
+                </TableCell>
+                {/* Refused on purpose and actually broken are different problems, so the row
+                    shows them apart rather than as one "failed" count — in the same colours the
+                    outcome tiles and bars above use. */}
+                <TableCell style={{ color: OUTCOME_COLORS.allows }}>{stat.success}</TableCell>
+                <TableCell style={{ color: OUTCOME_COLORS.denies }}>{stat.denied}</TableCell>
+                <TableCell style={{ color: OUTCOME_COLORS.errors }}>{stat.errored}</TableCell>
+                <TableCell className="whitespace-nowrap text-muted-foreground">
+                  {formatDuration(stat.averageDuration)}
+                </TableCell>
+                <TableCell className="whitespace-nowrap">
+                  {formatDuration(stat.p95Duration)}
                 </TableCell>
               </TableRow>
-            ) : (
-              operationStats.map((stat) => (
-                <TableRow key={stat.schemaName}>
-                  <TableCell className="font-medium">{stat.schemaName}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="h-2 rounded bg-primary"
-                        style={{ width: `${(stat.calls / maxCalls) * MAX_BAR_WIDTH_PX}px` }}
-                      />
-                      <span>{stat.calls}</span>
-                    </div>
-                  </TableCell>
-                  {/* Refused on purpose and actually broken are different problems, so the row
-                      shows them apart rather than as one "failed" count — in the same colours the
-                      outcome tiles and bars above use. */}
-                  <TableCell style={{ color: OUTCOME_COLORS.allows }}>{stat.success}</TableCell>
-                  <TableCell style={{ color: OUTCOME_COLORS.denies }}>{stat.denied}</TableCell>
-                  <TableCell style={{ color: OUTCOME_COLORS.errors }}>{stat.errored}</TableCell>
-                  <TableCell className="whitespace-nowrap text-muted-foreground">
-                    {formatDuration(stat.averageDuration)}
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap">
-                    {formatDuration(stat.p95Duration)}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </AnalyticsCard>
   );
 };
 
@@ -98,44 +94,39 @@ export const GraphErrorRatesCard = ({ operationStats, isError }: GraphOperations
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Error rates</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Table>
-          <TableHeader>
+    <AnalyticsCard icon={AlertTriangle} title="Error rates">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Schema</TableHead>
+            <TableHead>Total</TableHead>
+            <TableHead>Failed</TableHead>
+            <TableHead>Error rate</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {errorRateStats.length === 0 ? (
             <TableRow>
-              <TableHead>Schema</TableHead>
-              <TableHead>Total</TableHead>
-              <TableHead>Failed</TableHead>
-              <TableHead>Error rate</TableHead>
+              <TableCell colSpan={4} className="text-center text-muted-foreground">
+                {emptyMessage(isError)}
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {errorRateStats.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  {emptyMessage(isError)}
+          ) : (
+            errorRateStats.map((stat) => (
+              <TableRow key={stat.schemaName}>
+                <TableCell className="font-medium">{stat.schemaName}</TableCell>
+                <TableCell>{stat.calls}</TableCell>
+                <TableCell>{stat.failed}</TableCell>
+                <TableCell>
+                  <Badge variant={stat.errorRate === 0 ? "success" : "error"}>
+                    {stat.errorRate}%
+                  </Badge>
                 </TableCell>
               </TableRow>
-            ) : (
-              errorRateStats.map((stat) => (
-                <TableRow key={stat.schemaName}>
-                  <TableCell className="font-medium">{stat.schemaName}</TableCell>
-                  <TableCell>{stat.calls}</TableCell>
-                  <TableCell>{stat.failed}</TableCell>
-                  <TableCell>
-                    <Badge variant={stat.errorRate === 0 ? "success" : "error"}>
-                      {stat.errorRate}%
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </AnalyticsCard>
   );
 };

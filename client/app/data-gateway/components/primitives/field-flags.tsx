@@ -9,8 +9,9 @@ import type { IField } from "../../models/data-service";
  * Update | Both), so it gets its own column via <RequiredBadge />. Folding it
  * in here would silently lose Insert/Update/Both.
  *
- * PII is the only flag that carries colour — it is a governance signal rather
- * than a shape, and is the one people scan for.
+ * All three share the primary blue, kept to a whisper: a faint translucent
+ * fill, a hairline border and softened text. Solid multi-colour fills and bold
+ * type made a column of badges louder than the property names.
  */
 export type FieldFlag = "ARR" | "PII" | "UQ";
 
@@ -21,20 +22,11 @@ const FLAG_TITLES: Record<FieldFlag, string> = {
 };
 
 /**
- * Each flag's own "set" colour. ARR reuses the app's primary blue; UQ borrows
- * the `access-custom` teal token (already paired for light/dark) rather than
- * inventing a fourth palette — ARR and UQ read as different colours at a
- * glance instead of collapsing into one shared tint. PII keeps its own warm
- * tokens, defined separately since it also needs a distinct off-state title.
+ * One tint for every flag, taken from the app's primary blue as translucent
+ * layers over the surface behind it: a faint fill, a hairline border, softened
+ * text. The label (ARR / PII / UQ) tells them apart, not a colour.
  */
-const FLAG_TINT: Record<Exclude<FieldFlag, "PII">, { bg: string; fg: string; border: string }> = {
-  ARR: { bg: "bg-primary/10", fg: "text-primary", border: "border-primary/30" },
-  UQ: {
-    bg: "bg-access-custom-bg",
-    fg: "text-access-custom-fg",
-    border: "border-access-custom-border",
-  },
-};
+const FLAG_TINT = { bg: "bg-primary/5", fg: "text-primary/85", border: "border-primary/25" };
 
 export function flagsFromField(field: Pick<IField, "isArray" | "isPIIData" | "isUniqueData">) {
   const flags: FieldFlag[] = [];
@@ -49,8 +41,10 @@ export function FieldFlagChip({ flag, className }: { flag: FieldFlag; className?
     <span
       title={FLAG_TITLES[flag]}
       className={cn(
-        "inline-flex h-[22px] items-center rounded px-2 text-[10.5px] font-bold tracking-wide",
-        flag === "PII" ? "bg-flag-pii-bg text-flag-pii-fg" : cn(FLAG_TINT[flag].bg, FLAG_TINT[flag].fg),
+        "inline-flex h-[20px] items-center rounded border px-1.5 text-[10px] font-medium tracking-wide",
+        FLAG_TINT.bg,
+        FLAG_TINT.fg,
+        FLAG_TINT.border,
         className,
       )}
     >
@@ -106,11 +100,9 @@ export function FlagToggleChip({
       disabled={disabled}
       onClick={onToggle}
       className={cn(
-        "inline-flex h-[26px] min-w-[36px] items-center justify-center rounded border px-2 text-[10.5px] font-bold tracking-wide transition-colors",
+        "inline-flex h-[26px] min-w-[36px] items-center justify-center rounded border px-2 text-[10.5px] font-medium tracking-wide transition-colors",
         active
-          ? flag === "PII"
-            ? "border-flag-pii-bg bg-flag-pii-bg text-flag-pii-fg"
-            : cn(FLAG_TINT[flag].border, FLAG_TINT[flag].bg, FLAG_TINT[flag].fg)
+          ? cn(FLAG_TINT.border, FLAG_TINT.bg, FLAG_TINT.fg)
           : "border-border/50 text-muted-foreground/50",
         disabled ? "cursor-not-allowed opacity-60" : "hover:border-primary/40",
         className,

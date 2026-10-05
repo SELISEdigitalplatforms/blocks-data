@@ -28,18 +28,20 @@ describe("FieldFlags", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("gives PII, ARR and UQ three visibly different tints", () => {
+  it("gives PII, ARR and UQ one shared blue tint", () => {
     render(<FieldFlags flags={["ARR", "PII", "UQ"]} />);
 
     const arrClass = screen.getByText("ARR").className;
     const piiClass = screen.getByText("PII").className;
     const uqClass = screen.getByText("UQ").className;
 
-    expect(piiClass).toContain("bg-flag-pii-bg");
-    expect(arrClass).toContain("bg-primary/10");
-    expect(uqClass).toContain("bg-access-custom-bg");
+    // The same faint blue for all three; the label is what tells them apart.
+    [piiClass, arrClass, uqClass].forEach((className) => {
+      expect(className).toContain("bg-primary/5");
+      expect(className).not.toMatch(/flag-pii|access-custom/);
+    });
 
-    expect(new Set([arrClass, piiClass, uqClass]).size).toBe(3);
+    expect(new Set([arrClass, piiClass, uqClass]).size).toBe(1);
   });
 
   it("spells each abbreviation out in a title", () => {
@@ -63,7 +65,7 @@ describe("FlagToggleChip", () => {
     expect(onToggle).toHaveBeenCalledTimes(1);
   });
 
-  it("gives PII, ARR and UQ three visibly different tints when active", () => {
+  it("gives PII, ARR and UQ one shared blue tint when active", () => {
     render(
       <>
         <FlagToggleChip flag="PII" active onToggle={vi.fn()} />
@@ -76,11 +78,13 @@ describe("FlagToggleChip", () => {
     const arrClass = screen.getByRole("button", { name: "Array" }).className;
     const uqClass = screen.getByRole("button", { name: "Unique" }).className;
 
-    expect(piiClass).toContain("bg-flag-pii-bg");
-    expect(arrClass).toContain("bg-primary/10");
-    expect(uqClass).toContain("bg-access-custom-bg");
+    // The same faint blue for all three; the label is what tells them apart.
+    [piiClass, arrClass, uqClass].forEach((className) => {
+      expect(className).toContain("bg-primary/5");
+      expect(className).not.toMatch(/flag-pii|access-custom/);
+    });
 
-    expect(new Set([piiClass, arrClass, uqClass]).size).toBe(3);
+    expect(new Set([piiClass, arrClass, uqClass]).size).toBe(1);
   });
 
   // Off should read as "not set, but settable" — a border, not a fill — so it
@@ -89,7 +93,7 @@ describe("FlagToggleChip", () => {
     render(<FlagToggleChip flag="ARR" active={false} onToggle={vi.fn()} />);
     const chip = screen.getByRole("button", { name: "Array" });
 
-    expect(chip.className).not.toContain("bg-primary/10");
+    expect(chip.className).not.toContain("bg-primary/5");
     expect(chip.className).toContain("border-border/50");
   });
 

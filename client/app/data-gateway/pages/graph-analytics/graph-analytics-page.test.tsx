@@ -230,7 +230,7 @@ describe("GraphAnalytics", () => {
     renderAnalytics();
 
     const toggle = screen.getByRole("switch", {
-      name: "Include Blocks Console operations",
+      name: "Include Playground operations",
     });
     expect(toggle).not.toBeChecked();
     expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(4)).toBe(false);
@@ -238,7 +238,7 @@ describe("GraphAnalytics", () => {
     for (const tab of ["Performance", "Reliability", "Requests"]) {
       await openTab(user, tab);
       expect(
-        screen.getByRole("switch", { name: "Include Blocks Console operations" }),
+        screen.getByRole("switch", { name: "Include Playground operations" }),
       ).toBeInTheDocument();
     }
 

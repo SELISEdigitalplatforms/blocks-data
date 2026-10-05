@@ -166,9 +166,9 @@ export const GraphAnalytics = () => {
                     size="sm"
                     checked={includeBlocksConsole}
                     onCheckedChange={setIncludeBlocksConsole}
-                    aria-label="Include Blocks Console operations"
+                    aria-label="Include Playground operations"
                   />
-                  Include Blocks Console
+                  Include Playground Operations
                 </label>
                 <DateRangeFilter
                   title="Date range"

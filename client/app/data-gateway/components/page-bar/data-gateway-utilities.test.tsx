@@ -66,18 +66,19 @@ describe("DataGatewayUtilities", () => {
     openSpy.mockRestore();
   });
 
-  it("navigates to the configuration route from Configure", async () => {
+  it("opens Blocks OS secret management in a new tab from Configure", async () => {
     const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     renderUtilities();
 
     await user.click(utilityButton(/Configure/));
-    expect(navigateMock).toHaveBeenCalledWith("/dg/configuration");
-  });
 
-  it("marks Configure active while on the configuration route", () => {
-    renderUtilities("/dg/configuration");
-
-    expect(utilityButton(/Configure/).className).toContain("text-primary");
+    expect(openSpy).toHaveBeenCalledWith(
+      "http://api/app/secret-management/data-gateway",
+      "_blank",
+    );
+    expect(navigateMock).not.toHaveBeenCalled();
+    openSpy.mockRestore();
   });
 
   it("opens the import modal on demand", async () => {

@@ -8,13 +8,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
-import { useDataGatewayPath } from "@/hooks/use-scoped-path";
 import { getRuntimeEnv } from "@/lib/runtime-env";
-import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { BookOpen, Download, FolderInput, MoreVertical, Settings } from "lucide-react";
 import { ReactNode, useState } from "react";
-import { useLocation, useNavigate } from "react-router";
 
 import ExportSchemaModal from "../export-schema/export-schema-modal";
 import ImportSchemaModal from "../import-schema-modal";
@@ -23,7 +20,6 @@ type Utility = {
   label: string;
   icon: ReactNode;
   onClick: () => void;
-  active?: boolean;
 };
 
 /**
@@ -34,9 +30,6 @@ type Utility = {
  * buttons here and are section tabs now, so a destination has exactly one home.
  */
 export const DataGatewayUtilities = () => {
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
-  const dataGatewayPath = useDataGatewayPath();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -66,8 +59,13 @@ export const DataGatewayUtilities = () => {
     {
       label: "Configure",
       icon: <Settings className="h-4 w-4" />,
-      onClick: () => navigate(`${dataGatewayPath}/configuration`),
-      active: pathname.startsWith(`${dataGatewayPath}/configuration`),
+      // The in-app configuration page is gone; the data source is managed in
+      // Blocks OS secret management, which opens in its own tab.
+      onClick: () =>
+        window.open(
+          `${getRuntimeEnv("BLOCKS_OS_BASE_URL")}/app/secret-management/data-gateway`,
+          "_blank",
+        ),
     },
   ];
 
@@ -88,10 +86,10 @@ export const DataGatewayUtilities = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            {utilities.map(({ label, icon, onClick, active }) => (
+            {utilities.map(({ label, icon, onClick }) => (
               <DropdownMenuItem
                 key={label}
-                className={cn("cursor-pointer gap-2", active && "text-primary")}
+                className="cursor-pointer gap-2"
                 onClick={onClick}
               >
                 {icon} {label}
@@ -102,7 +100,7 @@ export const DataGatewayUtilities = () => {
       </div>
 
       <div className="hidden items-center gap-1 md:flex">
-        {utilities.map(({ label, icon, onClick, active }) => (
+        {utilities.map(({ label, icon, onClick }) => (
           <Button
             key={label}
             type="button"
@@ -111,12 +109,7 @@ export const DataGatewayUtilities = () => {
             aria-label={label}
             title={label}
             onClick={onClick}
-            className={cn(
-              "h-8 w-8 border-border/50",
-              active
-                ? "border-primary/40 bg-primary/5 text-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
+            className="h-8 w-8 border-border/50 text-muted-foreground hover:text-foreground"
           >
             {icon}
           </Button>

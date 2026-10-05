@@ -7,7 +7,6 @@ const SEGMENT_FILL: Record<ExposureBreakdown["segments"][number]["tier"], string
   public: "bg-access-public-dot",
   user: "bg-access-user-dot",
   custom: "bg-access-custom-dot",
-  inherited: "bg-access-inherited-dot",
 };
 
 const ALERT_STYLE: Record<SecurityAlert["severity"], string> = {

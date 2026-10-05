@@ -102,9 +102,9 @@ describe("filterCounts", () => {
 });
 
 describe("exposureBreakdown", () => {
-  // Each schema carries four grants; the server counts only the three levels
-  // that are set, so inherited is the remainder.
-  it("derives inherited from what the aggregation does not count", () => {
+  // Each schema carries four grants. Schema access is never "Inherited" (that
+  // level is for properties only), so only public, signed-in and custom show.
+  it("reports public, signed-in and custom, with no inherited segment", () => {
     const { segments, totalGrants } = exposureBreakdown(
       {
         totalPublicPermission: 2,
@@ -119,24 +119,16 @@ describe("exposureBreakdown", () => {
       ["public", 2],
       ["user", 4],
       ["custom", 6],
-      ["inherited", 28],
     ]);
   });
 
-  it("never reports a negative remainder", () => {
-    const { segments } = exposureBreakdown(
-      { totalPublicPermission: 99, totalUserPermission: 0, totalCustomPermission: 0 },
-      1,
-    );
-    expect(segments.find((s) => s.tier === "inherited")?.count).toBe(0);
-  });
-
-  it("gives widths that fill the bar", () => {
+  it("gives each segment its share of all grants", () => {
     const { segments } = exposureBreakdown(
       { totalPublicPermission: 1, totalUserPermission: 1, totalCustomPermission: 1 },
       1,
     );
-    expect(segments.map((s) => s.width)).toEqual(["25%", "25%", "25%", "25%"]);
+    // 1 + 1 + 1 of 4 grants: the unaccounted fourth leaves the track unfilled.
+    expect(segments.map((s) => s.width)).toEqual(["25%", "25%", "25%"]);
   });
 
   it("survives having no aggregation yet", () => {

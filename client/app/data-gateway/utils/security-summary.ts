@@ -126,7 +126,7 @@ export function filterCounts(schemas: Schema[]): Record<SecurityFilter, number> 
 }
 
 export type ExposureSegment = {
-  tier: Extract<AccessTier, "public" | "user" | "custom" | "inherited">;
+  tier: Extract<AccessTier, "public" | "user" | "custom">;
   label: string;
   count: number;
   /** Share of all grants, as a percentage string ready for a width. */
@@ -143,9 +143,10 @@ export type ExposureBreakdown = {
  * Every grant in the project, split by tier.
  *
  * Each entity schema carries four grants — create, read, update, delete — so
- * the total is `4 × schemas`. The aggregation counts only the three levels that
- * are explicitly set, which makes inherited the remainder rather than a number
- * the server sends.
+ * the total is `4 × schemas`. Only the three explicit levels are shown: schema
+ * access is never "Inherited" (that level exists for property access only), so
+ * a segment for it would always read 0. Any grant the aggregation does not
+ * count simply leaves the bar's track unfilled.
  */
 export function exposureBreakdown(
   aggregation: IPermissionAggregation | undefined,
@@ -155,13 +156,11 @@ export function exposureBreakdown(
   const publicCount = aggregation?.totalPublicPermission ?? 0;
   const user = aggregation?.totalUserPermission ?? 0;
   const custom = aggregation?.totalCustomPermission ?? 0;
-  const inherited = Math.max(0, totalGrants - publicCount - user - custom);
 
   const counts: [ExposureSegment["tier"], string, number][] = [
     ["public", "Public", publicCount],
     ["user", "Signed-in", user],
     ["custom", "Custom", custom],
-    ["inherited", "Inherited", inherited],
   ];
 
   return {

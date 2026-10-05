@@ -119,6 +119,48 @@ describe("diffSchemaFields", () => {
 
     expect(diff.changes).toEqual([]);
   });
+
+  describe("enum allowed values", () => {
+    const enumField = (values?: string[]) => field("Status", { type: "Enum", enumValues: values });
+
+    it("counts an edited value list as a change to that field", () => {
+      const diff = diffSchemaFields({
+        originalById: { a: enumField(["Draft", "Live"]) },
+        rows: [row("a", "Status", { type: "Enum", enumValues: ["Draft", "Published"] })],
+      });
+
+      expect(diff.count).toBe(1);
+      expect(diff.changes).toEqual([
+        { kind: "modified", name: "Status", attributes: ["allowed values"] },
+      ]);
+    });
+
+    it("counts adding the first value, removing one, and reordering", () => {
+      const change = (before: string[] | undefined, after: string[]) =>
+        diffSchemaFields({
+          originalById: { a: enumField(before) },
+          rows: [row("a", "Status", { type: "Enum", enumValues: after })],
+        }).count;
+
+      expect(change(undefined, ["Draft"])).toBe(1);
+      expect(change(["Draft", "Live"], ["Draft"])).toBe(1);
+      expect(change(["Draft", "Live"], ["Live", "Draft"])).toBe(1);
+    });
+
+    it("reports nothing when the values are untouched, or absent versus empty", () => {
+      const same = diffSchemaFields({
+        originalById: { a: enumField(["Draft", "Live"]) },
+        rows: [row("a", "Status", { type: "Enum", enumValues: ["Draft", "Live"] })],
+      });
+      const empty = diffSchemaFields({
+        originalById: { a: enumField(undefined) },
+        rows: [row("a", "Status", { type: "Enum", enumValues: [] })],
+      });
+
+      expect(same.count).toBe(0);
+      expect(empty.count).toBe(0);
+    });
+  });
 });
 
 describe("describeChange", () => {

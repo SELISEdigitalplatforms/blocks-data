@@ -9,6 +9,7 @@ import {
 } from "@/components/ui-kits/command/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui-kits/popover/popover";
 import { cn } from "@/lib/utils";
+import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { typeOptions } from "../../constants/input-restrictions";
 import { ISchemaDetails } from "../../models/data-service";
@@ -73,7 +74,8 @@ export function PropertyTypeSelector({
           aria-expanded={isOpen}
           title={typeLabel}
           className={cn(
-            "h-9 w-full min-w-0 justify-between rounded-md text-left shadow-none",
+            "h-9 w-full min-w-0 justify-between rounded-md text-left font-normal hover:bg-transparent",
+            PROPERTY_FIELD_CLASS,
             isReadOnly && "cursor-not-allowed bg-muted",
             isChildType && !isReadOnly && "border-primary/50 bg-primary/5 text-primary",
           )}
@@ -86,12 +88,21 @@ export function PropertyTypeSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className={cn("p-0", isMobile ? "w-[calc(100vw-2rem)] sm:w-[300px]" : "sm:w-[300px]")}
-        align={isMobile ? "start" : "center"}
+        className={cn(
+          "p-0",
+          isMobile
+            ? "w-[calc(100vw-2rem)] sm:w-[220px]"
+            : // Exactly as wide as the Type field it opens from. `min-w-0` lifts the shared
+              // popover's own 18rem floor, which would otherwise win over this width.
+              "w-[var(--radix-popover-trigger-width)] min-w-0",
+        )}
+        align="start"
       >
-        <Command>
-          <CommandInput placeholder="Search types..." onValueChange={onSearchChange} />
-          <CommandList>
+        {/* A compact list: the default row, heading and search sizes are tuned for a
+            full-width menu and read as oversized in a narrow table cell. */}
+        <Command className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-input-wrapper]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-3.5 [&_[cmdk-input-wrapper]_svg]:w-3.5 [&_[cmdk-input]]:h-8 [&_[cmdk-input]]:py-1 [&_[cmdk-input]]:text-[13px] [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-1 [&_[cmdk-item]]:text-[13px]">
+          <CommandInput placeholder="Search…" onValueChange={onSearchChange} />
+          <CommandList className="max-h-[240px]">
             <CommandEmpty>No type found.</CommandEmpty>
             <CommandGroup heading="Primitive Types">
               {typeOptions
@@ -99,9 +110,11 @@ export function PropertyTypeSelector({
                 .map((type) => (
                   <CommandItem key={type} value={type} onSelect={() => onSelect(type)}>
                     <Check
-                      className={cn("mr-2 h-4 w-4", value === type ? "opacity-100" : "opacity-0")}
+                      className={cn("mr-1.5 h-3.5 w-3.5", value === type ? "opacity-100" : "opacity-0")}
                     />
-                    {type}
+                    <span className="truncate" title={type}>
+                      {type}
+                    </span>
                   </CommandItem>
                 ))}
             </CommandGroup>
@@ -116,11 +129,13 @@ export function PropertyTypeSelector({
                   >
                     <Check
                       className={cn(
-                        "mr-2 h-4 w-4",
+                        "mr-1.5 h-3.5 w-3.5",
                         value === item.schemaName ? "opacity-100" : "opacity-0",
                       )}
                     />
-                    {item.schemaName}
+                    <span className="truncate" title={item.schemaName}>
+                      {item.schemaName}
+                    </span>
                   </CommandItem>
                 ))}
               </CommandGroup>

@@ -545,7 +545,11 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   // table, and the validation button got clipped rather than rendering in
   // full. Widened at Description's expense, same trade as the Required fix.
   const desktopColumnWidths = isEditMode
-    ? ["4%", "20%", "17%", "12%", "20%", "22%", "5%"]
+    ? // Edit mode: every column but Description is sized to its control, so each
+      // gap between controls is just the shared cell padding — even and the same
+      // everywhere. Description takes whatever width is left (and gives it up
+      // first when the access panel docks beside the table).
+      ["44px", "260px", "220px", "128px", "152px", "auto", "52px"]
     : showRulesColumn
       ? ["22%", "16%", "12%", "14%", "21%", "15%"]
       : ["24%", "18%", "13%", "15%", "30%"];
@@ -697,7 +701,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
             <SchemaTableScrollRegion embedded={isEmbedded}>
               {!(showEmptyState && isEmbedded) && (
                 <Table
-                  className={cn("w-full table-fixed")}
+                  // Edit mode's fixed-width columns leave Description whatever is left;
+                  // below this the table scrolls sideways rather than squashing it.
+                  className={cn("w-full table-fixed", isEditMode && "min-w-[1040px]")}
                   wrapperClassName="overflow-x-auto overflow-y-visible"
                 >
                   {hasDesktopColumns && (
@@ -729,7 +735,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                         <TableHead>Type</TableHead>
                         <TableHead>Required</TableHead>
                         <TableHead>Flags</TableHead>
-                        <TableHead className="px-3 text-left md:px-3">
+                        <TableHead
+                          className={cn("text-left", !isEditMode && "px-3 md:px-3")}
+                        >
                           Description
                         </TableHead>
                         {showRulesColumn && <TableHead>Rules</TableHead>}

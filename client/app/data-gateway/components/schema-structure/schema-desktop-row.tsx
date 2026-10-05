@@ -46,6 +46,7 @@ import {
 } from "@/data-gateway/constants/schema-access-control";
 import { getValidationDisplayInfo } from "@/data-gateway/utils/schema-normalization";
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
+import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
 import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagsFromField } from "../primitives";
 
 /**
@@ -289,6 +290,7 @@ export function SchemaDesktopRow({
                 }}
                 onKeyDown={allowLettersNumbersUnderscoreKeyDown}
                 className={cn(
+                  PROPERTY_FIELD_CLASS,
                   isEditMode && isReadOnly ? "cursor-not-allowed bg-muted opacity-50" : "",
                   errors.properties?.[index]?.name ? "border-red-500" : "",
                 )}
@@ -400,11 +402,19 @@ export function SchemaDesktopRow({
                 onValueChange={(value) => setValue(`properties.${index}.requiredOn`, value as IField["requiredOn"], { shouldDirty: true })}
                 disabled={!isEditMode || isReadOnly}
               >
-                <SelectTrigger aria-label={`IsRequired for ${name || "property"}`} className="h-9">
+                <SelectTrigger
+                  aria-label={`IsRequired for ${name || "property"}`}
+                  className={cn("h-9", PROPERTY_FIELD_CLASS)}
+                >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  {(["None", "Insert", "Update", "Both"] as const).map((mode) => <SelectItem key={mode} value={mode}>{mode}</SelectItem>)}
+                {/* As wide as the field it opens from; the shared 8rem floor would win otherwise. */}
+                <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-0">
+                  {(["None", "Insert", "Update", "Both"] as const).map((mode) => (
+                    <SelectItem key={mode} value={mode} className="py-1 pl-7 text-[13px]">
+                      {mode}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>}
           </TableCell>
@@ -458,7 +468,7 @@ export function SchemaDesktopRow({
           </TableCell>
 
           {/* Description */}
-          <TableCell className={cn(compactCellClass, "px-3 md:px-3")}>
+          <TableCell className={cn(compactCellClass, !isEditMode && "px-3 md:px-3")}>
             {!isEditMode ? (
               <span
                 className={cn(
@@ -480,7 +490,11 @@ export function SchemaDesktopRow({
                   }
                   placeholder={isReadOnly ? "—" : "Add description"}
                   readOnly={isReadOnly}
-                  className={cn("min-w-0", isReadOnly && "cursor-not-allowed bg-muted opacity-50")}
+                  className={cn(
+                    "min-w-0",
+                    PROPERTY_FIELD_CLASS,
+                    isReadOnly && "cursor-not-allowed bg-muted opacity-50",
+                  )}
                 />
               </div>
             )}

@@ -131,10 +131,11 @@ export function EnumValuesEditor({
     <div id={id} className="mt-2 space-y-1.5">
       <span className="text-[11px] font-medium text-muted-foreground">Allowed values</span>
       <div
-        className={`flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border bg-background px-2 py-1.5 text-sm cursor-text focus-within:ring-1 ${
+        // Same quiet field look as the name / type / description inputs beside it.
+        className={`flex min-h-9 cursor-text flex-wrap items-center gap-1.5 rounded-md border bg-transparent px-2 py-1 text-[13px] transition-colors focus-within:ring-1 ${
           error
             ? "border-destructive focus-within:ring-destructive"
-            : "border-input focus-within:ring-ring"
+            : "border-border/70 hover:border-border focus-within:border-primary/50 focus-within:ring-primary/30"
         }`}
         onClick={(e) => {
           if (editIndex === null && e.target === e.currentTarget) inputRef.current?.focus();
@@ -210,7 +211,7 @@ export function EnumValuesEditor({
           placeholder={values.length === 0 ? "Add a value…" : "Add…"}
           aria-label="New enum value"
           aria-invalid={!!error}
-          className="h-6 min-w-16 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          className="h-6 min-w-16 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground/60"
         />
       </div>
       <div className="flex items-start justify-between gap-2 text-[11px] leading-snug">

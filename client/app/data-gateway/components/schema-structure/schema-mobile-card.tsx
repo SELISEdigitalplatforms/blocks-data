@@ -45,6 +45,7 @@ import {
 } from "@/data-gateway/constants/schema-access-control";
 import { getValidationDisplayInfo } from "@/data-gateway/utils/schema-normalization";
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
+import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
 import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagsFromField } from "../primitives";
 
 const FLAG_TOGGLES = [
@@ -292,6 +293,7 @@ export function SchemaMobileCard({
                   onKeyDown={allowLettersNumbersUnderscoreKeyDown}
                   className={cn(
                     "w-full min-w-0",
+                    PROPERTY_FIELD_CLASS,
                     isEditMode && isReadOnly ? "cursor-not-allowed bg-muted opacity-50" : "",
                     errors.properties?.[index]?.name ? "border-red-500" : "",
                   )}
@@ -404,7 +406,10 @@ export function SchemaMobileCard({
                     onValueChange={(value) => setValue(`properties.${index}.requiredOn`, value as IField["requiredOn"], { shouldDirty: true })}
                     disabled={!isEditMode || isReadOnly}
                   >
-                    <SelectTrigger aria-label={`IsRequired for ${name || "property"}`}>
+                    <SelectTrigger
+                      aria-label={`IsRequired for ${name || "property"}`}
+                      className={PROPERTY_FIELD_CLASS}
+                    >
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -480,6 +485,7 @@ export function SchemaMobileCard({
                     readOnly={isReadOnly}
                     className={cn(
                       "w-full min-w-0",
+                      PROPERTY_FIELD_CLASS,
                       isReadOnly && "cursor-not-allowed bg-muted opacity-50",
                     )}
                   />

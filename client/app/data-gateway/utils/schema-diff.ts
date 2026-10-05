@@ -8,6 +8,7 @@ const COMPARED_ATTRIBUTES: { key: keyof IField; label: string }[] = [
   { key: "isPIIData", label: "PII" },
   { key: "isUniqueData", label: "unique" },
   { key: "description", label: "description" },
+  { key: "enumValues", label: "allowed values" },
 ];
 
 export type FieldChange =
@@ -32,6 +33,8 @@ export type DiffRow = { id: string } & Partial<IField>;
 const normalise = (value: unknown) => {
   if (value === undefined || value === null) return "";
   if (typeof value === "boolean") return value ? "true" : "false";
+  // Order matters for an enum's allowed values, so a reorder counts as a change.
+  if (Array.isArray(value)) return value.join(",");
   return String(value);
 };
 

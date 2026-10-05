@@ -33,6 +33,7 @@ export const normalizeSchemaFields = (fields: IRemoteSchemaField[] = []): IField
     name: field.name,
     type: field.type,
     isArray: field.isArray,
+    enumValues: field.enumValues ?? [],
     isPIIData: field.isPIIData ?? false,
     isUniqueData: field.isUniqueData ?? false,
     description: field.description ?? "",

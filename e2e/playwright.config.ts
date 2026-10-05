@@ -29,7 +29,7 @@ export default defineConfig({
     baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: "off",
     ignoreHTTPSErrors: true,
     launchOptions: {
       slowMo: process.env.E2E_SLOWMO ? Number(process.env.E2E_SLOWMO) : 0,
@@ -73,6 +73,7 @@ export default defineConfig({
       dependencies: ["data-setup"],
       use: {
         ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
         ...(fs.existsSync(dataSessionPath)
           ? { storageState: "fixtures/data-session.json" }
           : {}),
@@ -84,6 +85,7 @@ export default defineConfig({
       dependencies: ["data"],
       use: {
         ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
         ...(fs.existsSync(dataSessionPath)
           ? { storageState: "fixtures/data-session.json" }
           : {}),

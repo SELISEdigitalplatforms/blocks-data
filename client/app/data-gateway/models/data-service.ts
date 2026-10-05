@@ -79,6 +79,8 @@ export interface IField {
   name: string;
   type: string;
   isArray: boolean;
+  /** Allowed values when type is Enum (GraphQL-name-safe strings). */
+  enumValues?: string[];
   isPIIData?: boolean;
   isUniqueData?: boolean;
   description?: string;
@@ -167,6 +169,7 @@ export interface IRemoteSchemaField {
   name: string;
   type: string;
   isArray: boolean;
+  enumValues?: string[];
   isPIIData?: boolean;
   isUniqueData?: boolean;
   description?: string;

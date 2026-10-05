@@ -1,21 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
-
-async function openDataGateway(page: Page) {
-  const url = new URL(page.url());
-  const projectId = url.pathname.split("/")[2];
-  if (projectId) {
-    await page.goto(`${url.origin}/app/${projectId}/data-gateway`, {
-      waitUntil: "domcontentloaded",
-    });
-  } else {
-    await page.getByRole("link", { name: "Data Gateway" }).first().click();
-  }
-  await expect(page.getByRole("main").getByText("Data Gateway", { exact: true })).toBeVisible({
-    timeout: 30_000,
-  });
-}
+import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
+import { openDataGateway } from "../../support/open-data-gateway";
 
 async function openAnalytics(page: Page) {
   await openDataGateway(page);
@@ -34,6 +21,7 @@ test.describe("flow: Data Gateway — Analytics page", () => {
     test.setTimeout(900_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await openEnvironment(page);
+    await dismissSessionConflictIfPresent(page);
 
     // ------------------------------------------------------------------
     // Section A: Data Gateway — Indexes tab
@@ -70,6 +58,9 @@ test.describe("flow: Data Gateway — Analytics page", () => {
           timeout: 15_000,
         });
       }
+      const sidebarItem = page.getByRole("button", { name: idxSchemaName }).first();
+      await expect(sidebarItem).toBeVisible({ timeout: 15_000 });
+      await sidebarItem.click();
       await expect(page.getByRole("heading", { name: idxSchemaName }).first()).toBeVisible({
         timeout: 30_000,
       });
@@ -77,10 +68,18 @@ test.describe("flow: Data Gateway — Analytics page", () => {
 
     await test.step("Indexes: tab shows the counter and either the list or the empty state", async () => {
       await page.getByRole("tab", { name: "Indexes" }).click();
-      await expect(page.getByText(/of 15 indexes/i)).toBeVisible({ timeout: 30_000 });
+      // UI copy: "{n} of 15 custom indexes"
+      await expect(page.getByText(/of 15(?: custom)? indexes/i)).toBeVisible({
+        timeout: 30_000,
+      });
+      // Empty custom list still shows the system ItemId(_id_) index (no Delete).
       const empty = page.getByText("No indexes yet", { exact: true });
-      const listItem = page.getByRole("button", { name: /Delete index / });
-      await expect(empty.or(listItem).first()).toBeVisible({ timeout: 30_000 });
+      const customDelete = page.getByRole("button", { name: /Delete index / });
+      const systemIndex = page.getByText("ItemId(_id_)", { exact: true });
+      const systemBadge = page.getByText("System", { exact: true });
+      await expect(
+        empty.or(customDelete).or(systemIndex).or(systemBadge).first(),
+      ).toBeVisible({ timeout: 30_000 });
     });
 
     await test.step("Indexes: Add-index form opens, requires a field, and cancels cleanly", async () => {
@@ -97,9 +96,9 @@ test.describe("flow: Data Gateway — Analytics page", () => {
       });
       // Save stays disabled until a field is picked.
       await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
-      await expect(page.getByLabel("Unique")).toBeVisible();
+      await expect(page.getByRole("checkbox", { name: "Unique" })).toBeVisible();
       await page.getByRole("button", { name: "Cancel", exact: true }).first().click();
-      await expect(page.getByText(/of 15 indexes/i)).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText(/of 15(?: custom)? indexes/i)).toBeVisible({ timeout: 10_000 });
     });
 
     await test.step("Indexes: Delete the index-host schema to leave no residue", async () => {
@@ -230,10 +229,24 @@ test.describe("flow: Data Gateway — Analytics page", () => {
     // ------------------------------------------------------------------
     await openAnalytics(page);
 
-    await test.step("Analytics: landing opens on Traffic with breadcrumb and tab list", async () => {
-      await expect(page.getByText("Analytics", { exact: true }).first()).toBeVisible({
+    // Preview projects often have enableAnalytics=false / expired validTill.
+    // When gated, the page shows an overlay and aria-hides the tablist — assert
+    // the entitlement message and end Section C (Indexes/Access already covered).
+    let analyticsAccessible = true;
+    await test.step("Analytics: landing opens (Traffic tabs or access-unavailable gate)", async () => {
+      const unavailable = page.getByRole("heading", { name: "Analytics access unavailable" });
+      const trafficTab = page.getByRole("tab", { name: "Traffic" });
+      const analyticsLabel = page.getByText("Analytics", { exact: true }).first();
+      await expect(unavailable.or(trafficTab).or(analyticsLabel).first()).toBeVisible({
         timeout: 30_000,
       });
+      if (await unavailable.isVisible().catch(() => false)) {
+        await expect(
+          page.getByText(/Analytics is not available for this project/i),
+        ).toBeVisible();
+        analyticsAccessible = false;
+        return;
+      }
       for (const tab of ["Traffic", "Performance", "Reliability", "Requests"]) {
         await expect(page.getByRole("tab", { name: tab })).toBeVisible({ timeout: 15_000 });
       }
@@ -242,6 +255,10 @@ test.describe("flow: Data Gateway — Analytics page", () => {
         "active",
       );
     });
+
+    if (!analyticsAccessible) {
+      return;
+    }
 
     await test.step("Analytics: Default tab is explicit in the URL (?tab=traffic)", async () => {
       await expect(page).toHaveURL(/[?&]tab=traffic/, { timeout: 15_000 });

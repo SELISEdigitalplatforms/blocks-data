@@ -17,6 +17,7 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Pencil, Plus, Sparkles, Trash } from "lucide-react";
 import { useRef, useState } from "react";
+import { RegExpParser } from "regexpp";
 import {
   useCreateSchemaFieldValidation,
   useDeleteSchemaFieldValidation,
@@ -191,7 +192,8 @@ export function SchemaFieldValidationPanel({
 
   const validateRegex = (pattern: string): boolean => {
     try {
-      new RegExp(pattern);
+      // Parse only — avoids constructing a RegExp from user input (ReDoS).
+      new RegExpParser().parsePattern(pattern);
       setRegexError(null);
       return true;
     } catch {

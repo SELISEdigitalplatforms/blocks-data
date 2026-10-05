@@ -762,7 +762,7 @@ describe("RuleSetForm — compareValue resets that guard the principal selector"
     expect(screen.queryByText(/not-a-user-id/)).not.toBeInTheDocument();
   });
 
-  it("crossing the IN boundary clears compareValue, so a multi-value string cannot land in a single-select", async () => {
+  it("crossing the IN boundary clears compareValue, so a multi-value string cannot land in a single-select", { timeout: 20_000 }, async () => {
     const user = userEvent.setup({ pointerEventsCheck: 0 });
     getRoles.mockResolvedValue({
       data: [

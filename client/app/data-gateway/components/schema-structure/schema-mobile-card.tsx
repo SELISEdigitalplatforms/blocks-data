@@ -30,6 +30,7 @@ import { FieldAccessTarget } from "../../models/schema-access.types";
 import { IField, IDataAccessRuleSet, IFieldValidationRule } from "../../models/data-service";
 import { PropertyRow } from "../../models/schema-structure.types";
 import { PropertyTypeSelector } from "./property-type-selector";
+import { EnumValuesEditor } from "./enum-values-editor";
 import { ISchemaDetails } from "../../models/data-service";
 import { useReadonlyExpanded } from "../../hooks/use-readonly-expanded";
 import {
@@ -307,6 +308,7 @@ export function SchemaMobileCard({
               <div className="min-w-0 space-y-1">
                 <label className="text-xs text-muted-foreground">Property type</label>
                 {isEditMode ? (
+                  <>
                   <PropertyTypeSelector
                     index={index}
                     value={watch(`properties.${index}.type`)}
@@ -320,6 +322,13 @@ export function SchemaMobileCard({
                     }}
                     onSelect={(type) => {
                       setValue(`properties.${index}.type`, type, { shouldDirty: true });
+                      if (type === "Enum") {
+                        setValue(`properties.${index}.enumValues`, watch(`properties.${index}.enumValues`) ?? [], {
+                          shouldDirty: true,
+                        });
+                      } else {
+                        setValue(`properties.${index}.enumValues`, [], { shouldDirty: true });
+                      }
                       setOpenMobileTypePopoverIndex(null);
                     }}
                     isReadOnly={isReadOnly}
@@ -330,6 +339,16 @@ export function SchemaMobileCard({
                     isMobile={true}
                     isChildType={isChildType}
                   />
+                  {currentType === "Enum" && (
+                    <EnumValuesEditor
+                      values={watch(`properties.${index}.enumValues`) ?? []}
+                      onChange={(vals) =>
+                        setValue(`properties.${index}.enumValues`, vals, { shouldDirty: true })
+                      }
+                      disabled={!isEditMode || isReadOnly}
+                    />
+                  )}
+                  </>
                 ) : (
                   <div className="flex min-h-[28px] w-full items-center gap-1.5">
                     <TypeChip

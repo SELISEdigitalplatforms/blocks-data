@@ -24,6 +24,7 @@ public static class SchemaImportMapping
         Name = f.Name,
         Type = f.Type,
         IsArray = f.IsArray,
+        EnumValues = f.EnumValues ?? [],
         IsPIIData = f.IsPIIData,
         IsUniqueData = f.IsUniqueData,
         Description = f.Description,

@@ -131,6 +131,20 @@ const SecurityAndPerformance = ({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-sm border border-border/40 bg-card">
       {isLoading ? (
         <div className="p-5">
+          {/* Keep heading visible so deep-links/E2E are not blank during aggregation fetch */}
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-500/10 ring-1 ring-indigo-500/20">
+              <svg viewBox="0 0 24 24" className="h-4 w-4 text-indigo-400" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">Security Assessment</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground/70">
+                Access control overview for all entity schemas
+              </p>
+            </div>
+          </div>
           <LoadingSkeleton />
         </div>
       ) : isEmpty ? (

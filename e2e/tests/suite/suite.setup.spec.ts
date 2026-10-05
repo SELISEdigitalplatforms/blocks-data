@@ -1,10 +1,11 @@
-import { test, expect } from "@playwright/test"
+import { test, expect } from "../../support/test-base"
 import fs from "fs"
 import path from "path"
 import { reuseOrCreateSharedProject } from "../../support/create-and-delete-project"
 import { loginThroughOidc } from "../../support/login-helper"
 import { DATA_SESSION_PATH, writeDataProject } from "../../support/data-project"
 import { resetRunOutcome } from "../../support/run-outcome"
+import { dismissSessionConflictIfPresent } from "../../support/session-conflict"
 
 test.describe("data suite setup", () => {
   test("login, reuse or create one shared project", async ({ page }) => {
@@ -12,6 +13,7 @@ test.describe("data suite setup", () => {
     resetRunOutcome()
 
     await loginThroughOidc(page)
+    await dismissSessionConflictIfPresent(page)
     await expect(
       page.getByRole("heading", { name: /Your Blocks Projects|Welcome to SELISE Blocks/ }),
     ).toBeVisible({ timeout: 30_000 })

@@ -4,6 +4,7 @@ export type PropertyRow = {
   name: string;
   type: string;
   isArray: boolean;
+  enumValues?: string[];
   isPIIData?: boolean;
   isUniqueData?: boolean;
   description?: string;
@@ -21,6 +22,7 @@ export const defaultProperty: PropertyRow = {
   name: "",
   type: "String",
   isArray: false,
+  enumValues: [],
   isPIIData: false,
   isUniqueData: false,
   description: "",
@@ -39,5 +41,6 @@ export const PREVIEW_TYPE_MAP: Record<string, string> = {
   Boolean: "boolean",
   DateTime: "datetime",
   GeoJson: "geojson",
+  Enum: "enum",
 };
 

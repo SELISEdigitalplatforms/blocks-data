@@ -159,7 +159,7 @@ export default function ImportSchemaModal({
         name: file.name,
       };
     } catch (error) {
-      console.error(`Error uploading file ${file.name}:`, error);
+      console.error("Error uploading file:", file.name, error);
 
       throw error;
     }

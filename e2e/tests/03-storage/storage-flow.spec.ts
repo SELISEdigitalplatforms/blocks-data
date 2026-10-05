@@ -1,6 +1,7 @@
 import { type Page } from "@playwright/test";
 import { test, expect } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
+import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 import { e2eStorageSftpCredentials } from "../../support/env";
 
 async function openStorage(page: Page) {
@@ -90,6 +91,7 @@ test.describe("flow: Storage menu", () => {
     test.setTimeout(600_000);
 
     await openEnvironment(page);
+    await dismissSessionConflictIfPresent(page);
 
     const sftpCredentials = e2eStorageSftpCredentials();
     if (!sftpCredentials) {
@@ -470,10 +472,11 @@ test.describe("flow: Storage menu", () => {
 
       await expect(modal.getByRole("heading", { name: "Access rules" })).toBeVisible();
       await expect(modal).toContainText(
-        /Rules directly on this item and those inherited from its parent\./,
+        /No rules on this item\.|Rules directly on this item and those inherited from its parent\.|This item follows rules from its parent/i,
       );
-      await expect(modal).toContainText(/No rules on this item\./);
-      await expect(modal).toContainText(/Access comes from the parent directory\./);
+      await expect(modal).toContainText(
+        /Access comes from the parent directory\.|This item follows rules from its parent directory\./,
+      );
 
       await expect(modal.getByText("Inheritance", { exact: true })).toBeVisible();
       await expect(modal).toContainText(

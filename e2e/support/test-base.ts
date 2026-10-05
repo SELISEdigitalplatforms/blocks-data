@@ -1,4 +1,5 @@
-import { test as base, expect } from "@playwright/test"
+import { test as base, expect, type Page } from "@playwright/test"
+import { dismissSessionConflictIfPresent, isConsoleUrl } from "./session-conflict"
 import { markSuiteTestFailed } from "./run-outcome"
 
 // Shared `test` for the whole suite. Specs import from here instead of
@@ -23,7 +24,27 @@ function pauseMs(isHeaded: boolean): number {
   return isHeaded ? 10_000 : 0
 }
 
-export const test = base.extend<{ pauseAfterEachTest: void }>({
+export const test = base.extend<{ pauseAfterEachTest: void; dismissSessionConflict: void }>({
+  dismissSessionConflict: [
+    async ({ page }, use) => {
+      const originalGoto = page.goto.bind(page)
+      page.goto = (async (...args: Parameters<Page["goto"]>) => {
+        let result = await originalGoto(...args)
+        // Leave-session dismiss lands on /app/console; reclaim the project by
+        // re-navigating to the intended URL once the overlay has cleared.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const dismissed = await dismissSessionConflictIfPresent(page)
+          if (!dismissed) break
+          if (!isConsoleUrl(page.url())) break
+          result = await originalGoto(...args)
+        }
+        return result
+      }) as typeof page.goto
+      await dismissSessionConflictIfPresent(page)
+      await use()
+    },
+    { auto: true },
+  ],
   pauseAfterEachTest: [
     async ({ page }, use, testInfo) => {
       const isHeaded = testInfo.project.use.headless === false

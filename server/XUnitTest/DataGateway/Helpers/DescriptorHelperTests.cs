@@ -46,7 +46,7 @@ public class DescriptorHelperTests
                 descriptor.Name("Person");
                 foreach (var field in fields)
                 {
-                    descriptor.ResolveObjectTypeDescriptor(field);
+                    descriptor.ResolveObjectTypeDescriptor(field, "TestSchema");
                 }
             }))
             .AddType(new ObjectType(descriptor =>
@@ -208,16 +208,16 @@ public class DescriptorHelperTests
     }
 
     [Fact]
-    public async Task NonScalarResolver_SurfacesAnErrorWhenTheParentIsNotADictionary()
+    public async Task NonScalarResolver_ReturnsNullWhenTheParentIsNotADictionary()
     {
-        // Pinned behaviour, and it is asymmetric with the scalar and array branches: the single
-        // non-scalar branch casts the parent instead of pattern matching, so a non-dictionary row
-        // fails the field rather than resolving null. Fixing that has to update this test.
+        // Aligned with scalar/array branches: pattern-match the parent and resolve null
+        // instead of throwing when the row is not a dictionary.
         var schema = BuildSchema("not a dictionary", Field("Home", "Address"));
 
         var result = await ExecuteAsync(schema, "{ row { Home { City } } }");
 
-        result.Errors.Should().NotBeNullOrEmpty();
+        result.Errors.Should().BeNullOrEmpty();
+        ((IReadOnlyDictionary<string, object?>)result.Data!["row"]!)["Home"].Should().BeNull();
     }
 
     // ---------------- ResolveCustomObjectTypeField ----------------
@@ -309,7 +309,7 @@ public class DescriptorHelperTests
                 descriptor.Name("PersonInput");
                 foreach (var field in fields)
                 {
-                    descriptor.ResolveInputTypeDescriptor(field);
+                    descriptor.ResolveInputTypeDescriptor(field, "TestSchema");
                 }
             }))
             .AddType(new InputObjectType(descriptor =>

@@ -11,7 +11,7 @@ vi.mock("@/data-gateway/hooks/use-configuration", () => ({
 
 vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantSlug: "slug1" } }),
-  // http-client.ts constructs HttpClient instances at import time.
+  // http-client.ts constructs HttpClient instances at import time and re-exports HttpError.
   HttpClient: class {
     get() {}
     post() {}

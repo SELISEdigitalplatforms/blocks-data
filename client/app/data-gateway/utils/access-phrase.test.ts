@@ -84,6 +84,49 @@ describe("ruleSetLines", () => {
     );
     expect(or.map((l) => l.lead)).toEqual(["when", "or"]);
   });
+
+  it("keeps a flat set at depth 0, made only of rule lines", () => {
+    const lines = ruleSetLines(policy());
+    expect(lines.every((l) => l.depth === 0 && l.kind === "rule")).toBe(true);
+  });
+
+  // (OwnerId or Status) and (Region), the root holding no rules of its own.
+  const nestedPolicy = policy({
+    ruleGroup: {
+      logicalOperator: 0,
+      rules: [],
+      nestedGroups: [
+        {
+          logicalOperator: 1,
+          rules: [rule({ leftOperand: "OwnerId" }), rule({ leftOperand: "Status" })],
+          nestedGroups: [],
+        },
+        { logicalOperator: 0, rules: [rule({ leftOperand: "Region" })], nestedGroups: [] },
+      ],
+    },
+  });
+
+  it("lists a nested group as its own line, then its contents one level deeper", () => {
+    const lines = ruleSetLines(nestedPolicy);
+    expect(lines.map((l) => [l.depth, l.kind, l.lead])).toEqual([
+      [0, "group", "when"],
+      [1, "rule", ""],
+      [1, "rule", "or"],
+      [0, "group", "and"],
+      [1, "rule", ""],
+    ]);
+    expect(lines.filter((l) => l.kind === "group").map((l) => l.text)).toEqual([
+      "any of:",
+      "all of:",
+    ]);
+  });
+
+  it("reads a policy stored without nestedGroups as flat", () => {
+    const legacy = policy({
+      ruleGroup: { logicalOperator: 0, rules: [rule()] } as unknown as IPolicyItem["ruleGroup"],
+    });
+    expect(ruleSetLines(legacy)).toHaveLength(1);
+  });
 });
 
 describe("accessEffect", () => {

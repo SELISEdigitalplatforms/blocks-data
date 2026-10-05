@@ -15,6 +15,10 @@ import { useDeletePolicy } from "@/data-gateway/hooks/use-configuration";
 import type { IPolicyItem } from "@/data-gateway/models/data-service";
 import { ruleSetLines } from "@/data-gateway/utils/access-phrase";
 import {
+  countPolicyGroups,
+  countPolicyRules,
+} from "@/data-gateway/utils/schema-access-control.utils";
+import {
   AlertTriangle,
   ChevronDown,
   Info,
@@ -24,6 +28,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
+
+/** How far each level of a nested group steps in, in the expanded rule-set list. */
+const RULE_GROUP_INDENT_PX = 18;
 
 interface SchemaAccessControlAccordionProps {
   policies?: IPolicyItem[];
@@ -149,12 +156,16 @@ export const SchemaAccessControlAccordion = ({
         <ul className="flex flex-col gap-1.5">
           {filteredPolicies.map((policy, index) => {
             const isOpen = openId === index;
-            const rulesCount = policy.ruleGroup.rules.length;
+            const rulesCount = countPolicyRules(policy.ruleGroup);
+            const groupsCount = countPolicyGroups(policy.ruleGroup);
             const matchesAll = policy.ruleGroup.logicalOperator === LOGICAL_OPERATOR.AND;
             const logicalLabel = matchesAll
               ? "every rule must match"
               : "any rule may match";
             const rulesLabel = rulesCount === 1 ? "1 rule" : `${rulesCount} rules`;
+            // Only mentioned once a set has groups, so a flat set reads as it always has.
+            const groupsLabel =
+              groupsCount === 0 ? "" : ` · ${groupsCount} ${groupsCount === 1 ? "group" : "groups"}`;
             const matchModeLabel = matchesAll ? "match all" : "match any";
 
             return (
@@ -180,7 +191,8 @@ export const SchemaAccessControlAccordion = ({
                       {policy.policyName}
                     </span>
                     <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {rulesLabel} · {matchModeLabel}
+                      {rulesLabel}
+                      {groupsLabel} · {matchModeLabel}
                     </span>
                   </button>
 
@@ -220,13 +232,34 @@ export const SchemaAccessControlAccordion = ({
                     <p className="text-[11px] text-muted-foreground">
                       Grants access when {logicalLabel}:
                     </p>
-                    <ul className="mt-1.5 flex flex-col gap-1">
+                    <ul className="mt-1.5 flex flex-col">
                       {ruleSetLines(policy).map((line, ruleIdx) => (
-                        <li key={ruleIdx} className="flex gap-1.5 text-xs leading-relaxed">
+                        <li
+                          key={ruleIdx}
+                          className="relative flex gap-1.5 py-0.5 text-xs leading-relaxed"
+                          style={{ paddingLeft: line.depth * RULE_GROUP_INDENT_PX }}
+                        >
+                          {/* One guide per group this line sits inside, so a group
+                              reads as a block even where its lines run on. */}
+                          {Array.from({ length: line.depth }, (_, level) => (
+                            <span
+                              key={level}
+                              aria-hidden
+                              className="absolute bottom-0 top-0 w-px bg-border"
+                              style={{ left: level * RULE_GROUP_INDENT_PX + 4 }}
+                            />
+                          ))}
                           <span className="shrink-0 font-medium text-muted-foreground">
                             {line.lead}
                           </span>
-                          <span className="min-w-0 text-foreground">{line.text}</span>
+                          <span
+                            className={cn(
+                              "min-w-0",
+                              line.kind === "group" ? "text-muted-foreground" : "text-foreground",
+                            )}
+                          >
+                            {line.text}
+                          </span>
                         </li>
                       ))}
                     </ul>

@@ -509,28 +509,33 @@ describe("SchemaAccessControlView", () => {
     expect(screen.getByTestId("seed-name")).toHaveTextContent("Owner access");
   });
 
-  // The rule editor used to replace the whole "who is allowed" section,
-  // hiding the Custom tile the user had just picked. It should stay put, with
-  // the editor appearing right under it — for a preset and for a blank rule alike.
-  it("keeps the who-is-allowed tiles visible (but locked) under Custom while editing a rule set", async () => {
+  // The rule editor is a focused sub-flow: the "who is allowed" section steps
+  // aside while it is open (it has its own header and Back button) and returns
+  // when the editor closes — for a preset and for a blank rule alike.
+  it("hides the who-is-allowed tiles and effect line while a rule set is being edited", async () => {
     const user = userEvent.setup();
     render(<SchemaAccessControlView {...customProps} />);
 
+    expect(screen.getByRole("radio", { name: "Custom" })).toBeInTheDocument();
+    expect(screen.getByText("Who can access this?")).toBeInTheDocument();
+
     await user.click(screen.getByText("Only the owner"));
     expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
-    const customTile = screen.getByRole("radio", { name: "Custom" });
-    expect(customTile).toBeInTheDocument();
-    expect(customTile).toHaveAttribute("aria-checked", "true");
-    expect(customTile).toBeDisabled();
+    expect(screen.queryByRole("radio", { name: "Custom" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Who can access this?")).not.toBeInTheDocument();
   });
 
-  it("keeps the tiles visible the same way for a blank rule set", async () => {
+  it("hides them the same way for a blank rule set, and brings them back on cancel", async () => {
     const user = userEvent.setup();
     render(<SchemaAccessControlView {...customProps} />);
 
     await user.click(screen.getByText("Start from an empty rule set"));
     expect(screen.getByTestId("rule-set-form")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Custom" })).toBeDisabled();
+    expect(screen.queryByRole("radio", { name: "Custom" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByText("rsf-cancel"));
+    expect(screen.getByRole("radio", { name: "Custom" })).toBeInTheDocument();
+    expect(screen.getByText("Who can access this?")).toBeInTheDocument();
   });
 
   it("starts an empty rule set with no seed", async () => {

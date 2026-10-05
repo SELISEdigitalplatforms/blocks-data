@@ -5,7 +5,7 @@ import {
   READABLE_OPERATORS,
 } from "../constants/schema-access-control";
 import type { AccessTier } from "../components/primitives";
-import type { IPolicyItem, IPolicyRule } from "../models/data-service";
+import type { IPolicyItem, IPolicyRule, IPolicyRuleGroup } from "../models/data-service";
 
 /**
  * How alarming an effect is. This is not the access tier: a custom policy with
@@ -77,16 +77,41 @@ export function rulePhrase(rule: IPolicyRule): string {
   return `${left} ${operator} ${`${rightSource} ${rightOperand}`.trim()}`;
 }
 
+export type RuleSetLine = {
+  /** "when" opens the set; later lines carry the joiner of the group they sit in. */
+  lead: string;
+  text: string;
+  /** 0 at the top of the set, one deeper for each group a line sits inside. */
+  depth: number;
+  kind: "rule" | "group";
+};
+
 /**
  * A rule set as lines: the first reads "when …", the rest carry the joiner the
- * set combines with.
+ * set combines with. A nested group is a line of its own ("any of:" / "all of:")
+ * followed by its contents one level deeper, which open with no lead since the
+ * group line already says how they combine.
  */
-export function ruleSetLines(policy: IPolicyItem): { lead: string; text: string }[] {
-  const joiner = policy.ruleGroup.logicalOperator === LOGICAL_OPERATOR.AND ? "and" : "or";
-  return policy.ruleGroup.rules.map((rule, index) => ({
-    lead: index === 0 ? "when" : joiner,
-    text: rulePhrase(rule),
-  }));
+export function ruleSetLines(policy: IPolicyItem): RuleSetLine[] {
+  const walk = (group: IPolicyRuleGroup, depth: number): RuleSetLine[] => {
+    const joiner = group.logicalOperator === LOGICAL_OPERATOR.AND ? "and" : "or";
+    const items = [
+      ...(group.rules ?? []).map((rule) => ({ rule })),
+      ...(group.nestedGroups ?? []).map((nested) => ({ nested })),
+    ];
+    return items.flatMap((item, index): RuleSetLine[] => {
+      const lead = index === 0 ? (depth === 0 ? "when" : "") : joiner;
+      if ("rule" in item) {
+        return [{ lead, text: rulePhrase(item.rule), depth, kind: "rule" }];
+      }
+      const matchesAll = item.nested.logicalOperator === LOGICAL_OPERATOR.AND;
+      return [
+        { lead, text: matchesAll ? "all of:" : "any of:", depth, kind: "group" },
+        ...walk(item.nested, depth + 1),
+      ];
+    });
+  };
+  return walk(policy.ruleGroup, 0);
 }
 
 const listNames = (policies: IPolicyItem[]) => {

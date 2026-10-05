@@ -160,8 +160,9 @@ describe("RuleSetForm", () => {
     await user.click(screen.getByRole("button", { name: /Add Rule/ }));
     expect(screen.getByText("Condition 1")).toBeInTheDocument();
     expect(screen.getByLabelText("Condition 1 expression")).toBeInTheDocument();
-    expect(screen.getByText("Left operand")).toBeInTheDocument();
-    expect(screen.getByText("Right value")).toBeInTheDocument();
+    // No column-header row: each chip carries its own name instead.
+    expect(screen.queryByText("Left operand")).not.toBeInTheDocument();
+    expect(screen.getByText("When")).toBeInTheDocument();
 
     // Only the source column can be opened yet; later columns wait for their
     // prerequisite and render as a disabled, unclickable "Not set" cell.
@@ -191,7 +192,7 @@ describe("RuleSetForm", () => {
     // Name prefilled from the policy.
     expect(screen.getByDisplayValue("My Rule Set")).toBeInTheDocument();
     // The Update button is shown in edit mode.
-    expect(screen.getByRole("button", { name: "Update" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save rule set" })).toBeInTheDocument();
     // Completed direct values are summarized as expression chips.
     expect(screen.queryByPlaceholderText("Enter prefix")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "pre" })).toBeInTheDocument();
@@ -212,7 +213,7 @@ describe("RuleSetForm", () => {
     const nameInput = screen.getByDisplayValue("My Rule Set");
     fireEvent.change(nameInput, { target: { value: "My Rule Set!" } });
 
-    const updateBtn = screen.getByRole("button", { name: "Update" });
+    const updateBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(updateBtn).toBeEnabled());
     await user.click(updateBtn);
 
@@ -305,7 +306,7 @@ describe("RuleSetForm create flow", () => {
     await user.click(screen.getByRole("button", { name: /Select user/ }));
     await user.click(await screen.findByText("Ada Lovelace"));
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
@@ -348,7 +349,7 @@ describe("RuleSetForm create flow", () => {
     expect(screen.queryByText("Compare with")).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Enter value")).not.toBeInTheDocument();
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
@@ -374,7 +375,7 @@ describe("RuleSetForm create flow", () => {
     const prefixInput = await screen.findByPlaceholderText("Enter prefix");
     fireEvent.change(prefixInput, { target: { value: "adm" } });
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
@@ -417,7 +418,7 @@ describe("RuleSetForm create flow", () => {
     await user.click(await screen.findByText("Role B"));
     await user.click(await screen.findByText("Role C"));
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
@@ -446,7 +447,7 @@ describe("RuleSetForm create flow", () => {
     await user.click(await screen.findByText("title"));
     await user.click(await screen.findByText("AllowedRoles"));
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
 
@@ -568,7 +569,7 @@ describe("RuleSetForm create flow", () => {
     // Right side offers string/array schema fields (title, tags).
     await pick(user, 4, "tags");
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
     await waitFor(() => expect(onStage).toHaveBeenCalled());
@@ -591,7 +592,7 @@ describe("RuleSetForm create flow", () => {
     await user.click(await screen.findByRole("option", { name: "Products" }));
     await pick(user, 4, "count");
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
     await waitFor(() => expect(onStage).toHaveBeenCalled());
@@ -632,7 +633,7 @@ describe("RuleSetForm create flow", () => {
     // compareValue renders as a single-select of auth fields; pick one.
     await pick(user, 4, "Email");
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
     await waitFor(() => expect(onStage).toHaveBeenCalled());
@@ -692,7 +693,7 @@ describe("RuleSetForm create flow", () => {
       target: { value: "123" },
     });
 
-    const saveBtn = screen.getByRole("button", { name: "Save" });
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(saveBtn).toBeEnabled());
     await user.click(saveBtn);
     await waitFor(() => expect(onStage).toHaveBeenCalled());
@@ -829,7 +830,7 @@ describe("RuleSetForm — hydrated values that are not real principals", () => {
 
     const nameInput = screen.getByDisplayValue("My Rule Set");
     fireEvent.change(nameInput, { target: { value: "Renamed again" } });
-    const updateBtn = screen.getByRole("button", { name: "Update" });
+    const updateBtn = screen.getByRole("button", { name: "Save rule set" });
     await waitFor(() => expect(updateBtn).toBeEnabled());
     fireEvent.click(updateBtn);
 
@@ -850,7 +851,7 @@ describe("RuleSetForm — footer", () => {
     render(<RuleSetForm {...baseProps} isSubmitting />);
     expect(screen.getByText("Saving…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save rule set" })).toBeDisabled();
   });
 
   // A toast reporting the parent's save result would sit right on top of
@@ -865,5 +866,197 @@ describe("RuleSetForm — footer", () => {
   it("shows a parent save failure inline too", async () => {
     render(<RuleSetForm {...baseProps} status={{ kind: "error", message: "bad" }} />);
     expect(screen.getByText("bad")).toBeInTheDocument();
+  });
+});
+
+describe("RuleSetForm nested groups", () => {
+  const staticRule = (leftOperand: string, staticValue: string) => ({
+    leftSource: 1,
+    leftOperand,
+    operator: 0,
+    rightSource: 2,
+    rightOperand: "",
+    staticValue,
+  });
+  const group = (
+    logicalOperator: number,
+    rules: ReturnType<typeof staticRule>[],
+    nestedGroups: unknown[] = [],
+  ) => ({ logicalOperator, rules, nestedGroups });
+
+  const policyWith = (ruleGroup: unknown) =>
+    ({
+      itemId: "policy-nested",
+      policyName: "Nested set",
+      policyDescription: "desc",
+      fieldNames: ["title"],
+      priority: 1,
+      isAllowPolicy: true,
+      ruleGroup,
+    }) as unknown as Parameters<typeof RuleSetForm>[0]["editingPolicy"];
+
+  // (title = a OR title = b) AND (title = c OR title = d): the root holds no rules of its own.
+  const twoGroups = () =>
+    policyWith(
+      group(
+        0,
+        [],
+        [
+          group(1, [staticRule("title", "a"), staticRule("title", "b")]),
+          group(1, [staticRule("title", "c"), staticRule("title", "d")]),
+        ],
+      ),
+    );
+
+  /** Renames the set so validation runs and Update enables, then saves it. */
+  const saveEdit = async (user: ReturnType<typeof userEvent.setup>) => {
+    fireEvent.change(screen.getByDisplayValue("Nested set"), { target: { value: "Nested set!" } });
+    const updateBtn = screen.getByRole("button", { name: "Save rule set" });
+    await waitFor(() => expect(updateBtn).toBeEnabled());
+    await user.click(updateBtn);
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    return onStage.mock.calls[0][0].payload.ruleGroup;
+  };
+
+  it("shows a stored set's nested groups, with their rules", () => {
+    render(<RuleSetForm {...baseProps} editingPolicy={twoGroups()} />);
+
+    expect(screen.getByRole("region", { name: "Group 1 group" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Group 2 group" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(4);
+    // Each group reads its own operator: both were stored as OR.
+    expect(screen.getByRole("radio", { name: "Match all" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    const groupMatch = screen.getAllByRole("radio", { name: "Group match any" });
+    expect(groupMatch).toHaveLength(2);
+    groupMatch.forEach((radio) => expect(radio).toHaveAttribute("aria-checked", "true"));
+  });
+
+  it("saves a stored set's groups back unchanged — editing must not drop them", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} editingPolicy={twoGroups()} />);
+
+    const ruleGroup = await saveEdit(user);
+
+    expect(ruleGroup.logicalOperator).toBe(0);
+    expect(ruleGroup.rules).toEqual([]);
+    expect(ruleGroup.nestedGroups).toHaveLength(2);
+    expect(
+      ruleGroup.nestedGroups.map((g: { logicalOperator: number }) => g.logicalOperator),
+    ).toEqual([1, 1]);
+    expect(
+      ruleGroup.nestedGroups.map((g: { rules: { staticValue: string }[] }) =>
+        g.rules.map((r) => r.staticValue),
+      ),
+    ).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+    ]);
+  });
+
+  it("changes one group's Match all / Match any without touching the others", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} editingPolicy={twoGroups()} />);
+
+    await user.click(screen.getAllByRole("radio", { name: "Group match all" })[0]);
+    const ruleGroup = await saveEdit(user);
+
+    expect(ruleGroup.nestedGroups[0].logicalOperator).toBe(0);
+    expect(ruleGroup.nestedGroups[1].logicalOperator).toBe(1);
+  });
+
+  it("keeps groups nested deeper than the editor will build, and saves them intact", async () => {
+    const user = userEvent.setup();
+    const fourLevels = policyWith(
+      group(
+        0,
+        [staticRule("title", "root")],
+        [
+          group(
+            1,
+            [staticRule("title", "one")],
+            [group(0, [staticRule("title", "two")], [group(1, [staticRule("title", "three")])])],
+          ),
+        ],
+      ),
+    );
+    render(<RuleSetForm {...baseProps} editingPolicy={fourLevels} />);
+
+    // Even at the deepest group, nothing is hidden: all four rules are listed.
+    expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(4);
+    const ruleGroup = await saveEdit(user);
+
+    const deepest = ruleGroup.nestedGroups[0].nestedGroups[0].nestedGroups[0].rules[0].staticValue;
+    expect(deepest).toBe("three");
+  });
+
+  it("adds a group from the root and removes it again", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} />);
+
+    await user.click(screen.getByRole("button", { name: "Add group" }));
+
+    const region = screen.getByRole("region", { name: "Group 1 group" });
+    expect(region).toBeInTheDocument();
+    // A new group starts as "match any", with one blank rule ready to fill in.
+    expect(screen.getByRole("radio", { name: "Group match any" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(1);
+    expect(screen.queryByText(/No rules added yet/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Remove group" }));
+    expect(screen.queryByRole("region", { name: "Group 1 group" })).not.toBeInTheDocument();
+    expect(screen.getByText(/No rules added yet/)).toBeInTheDocument();
+  });
+
+  it("adds a rule inside a group, and the set stays invalid until it is filled in", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} editingPolicy={twoGroups()} />);
+
+    await user.click(screen.getAllByRole("button", { name: "Add rule to group" })[0]);
+
+    expect(screen.getAllByRole("button", { name: "Remove rule" })).toHaveLength(5);
+    fireEvent.change(screen.getByDisplayValue("Nested set"), { target: { value: "Nested set!" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save rule set" })).toBeDisabled());
+  });
+
+  it("stops offering Add group at the third level", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} />);
+
+    // Root can nest; a group in the root can too; the group inside that is the third level.
+    await user.click(screen.getByRole("button", { name: "Add group" }));
+    expect(screen.getAllByRole("button", { name: "Add group inside group" })).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "Add group inside group" }));
+    expect(screen.getByRole("region", { name: "Group 1 Group 1 group" })).toBeInTheDocument();
+    // Still just the second level's own button — the third level has none.
+    expect(screen.getAllByRole("button", { name: "Add group inside group" })).toHaveLength(1);
+  });
+
+  it("refuses to save while a group is empty, and says why", async () => {
+    const user = userEvent.setup();
+    render(
+      <RuleSetForm
+        {...baseProps}
+        editingPolicy={policyWith(group(0, [], [group(1, [staticRule("title", "a")])]))}
+      />,
+    );
+
+    fireEvent.change(screen.getByDisplayValue("Nested set"), { target: { value: "Nested set!" } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save rule set" })).toBeEnabled());
+
+    await user.click(screen.getByRole("button", { name: "Remove rule" }));
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/Empty group/);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save rule set" })).toBeDisabled());
+
+    // Removing the empty group clears the warning.
+    await user.click(screen.getByRole("button", { name: "Remove group" }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

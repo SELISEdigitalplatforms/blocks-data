@@ -23,7 +23,7 @@ export interface AccessInspectorTarget
  *
  * It was an 85vw drawer: opening it hid the field list you were reasoning
  * about, and nothing on screen reminded you which field you had clicked. The
- * panel uses the rule editor's 760px width from the moment it opens, so async
+ * panel uses the rule editor's 540px width from the moment it opens, so async
  * rule loading and editor transitions never resize the surrounding layout.
  *
  * Both of those numbers live in the shell (`SHELL` in `utils/motion.ts`),

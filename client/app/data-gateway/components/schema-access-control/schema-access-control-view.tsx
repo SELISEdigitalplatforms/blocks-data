@@ -148,6 +148,9 @@ export const SchemaAccessControlView = forwardRef<
 
   const allPolicies = policyResponse?.isSuccess ? policyResponse.data : [];
   const isRowLevel = fieldNames.length === 0;
+  // Field tiles sit two to a row, wide enough to always carry their label;
+  // only the schema-level tiles ever collapse to icons in a narrow panel.
+  const iconOnlyTiles = isRowLevel && tilesNarrow;
   const policies = allPolicies.filter((p) => {
     if (p.operation !== operation) return false;
     if (isRowLevel) {
@@ -344,10 +347,11 @@ export const SchemaAccessControlView = forwardRef<
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {/* Hidden while a rule set is being added or edited: the form is a
+          focused sub-flow with its own header and Back button, and the tier
+          picker above it is disabled then anyway. */}
+      {!showRuleSetForm && (
       <div className="flex shrink-0 flex-col gap-3">
-        {/* Stays visible while a rule set is being added or edited, so that
-            form lands right under the Custom tile instead of replacing this
-            section and losing the context of what's being configured. */}
         <div>
           <div className="mb-2">
             <p className="text-sm font-semibold text-foreground">Who can access this?</p>
@@ -361,9 +365,7 @@ export const SchemaAccessControlView = forwardRef<
               "grid gap-2",
               isRowLevel
                 ? "grid-cols-1 min-[380px]:grid-cols-2 sm:grid-cols-3"
-                : tilesNarrow
-                  ? "grid-cols-2"
-                  : "grid-cols-4",
+                : "grid-cols-2",
             )}
             role="radiogroup"
             aria-label="Who is allowed"
@@ -384,7 +386,7 @@ export const SchemaAccessControlView = forwardRef<
                   onClick={() => handleTierPick(type)}
                   className={cn(
                     "flex h-11 min-w-0 items-center gap-2 rounded-md border px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
-                    tilesNarrow && "justify-center",
+                    iconOnlyTiles && "justify-center",
                     isSelected
                       ? cn(TIER_CONTAINER_CLASS[tier], TIER_VALUE_CLASS[tier])
                       : "border-border/40 text-muted-foreground hover:border-border hover:text-foreground",
@@ -401,7 +403,7 @@ export const SchemaAccessControlView = forwardRef<
                       aria-hidden
                     />
                   </span>
-                  {!tilesNarrow && <span className="min-w-0 flex-1 truncate">{label}</span>}
+                  {!iconOnlyTiles && <span className="min-w-0 flex-1 truncate">{label}</span>}
                 </button>
               );
             })}
@@ -409,6 +411,7 @@ export const SchemaAccessControlView = forwardRef<
         </div>
         <AccessEffectLine effect={effect} />
       </div>
+      )}
 
       {/* Always the flex-1 element, even when it renders nothing (any tier
           but Custom): without one, the column below the tiles has nothing to

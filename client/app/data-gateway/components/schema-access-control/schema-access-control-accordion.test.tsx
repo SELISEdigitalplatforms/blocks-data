@@ -284,4 +284,51 @@ describe("SchemaAccessControlAccordion", () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  describe("rule sets with nested groups", () => {
+    const staticRule = (leftOperand: string, staticValue: string) => ({
+      leftSource: 1,
+      leftOperand,
+      operator: 0,
+      rightSource: 2,
+      rightOperand: "",
+      staticValue,
+    });
+    const nestedPolicy = {
+      ...policy,
+      policyName: "Open orders",
+      ruleGroup: {
+        logicalOperator: 0,
+        rules: [],
+        nestedGroups: [
+          { logicalOperator: 1, rules: [staticRule("Status", "Active"), staticRule("Status", "Pending")], nestedGroups: [] },
+          { logicalOperator: 1, rules: [staticRule("Region", "EU")], nestedGroups: [] },
+        ],
+      },
+    } as unknown as typeof policy;
+
+    it("counts rules across every group and mentions the groups", () => {
+      render(<SchemaAccessControlAccordion policies={[nestedPolicy]} />);
+      expect(screen.getByText(/3 rules · 2 groups · match all/)).toBeInTheDocument();
+    });
+
+    it("leaves a flat rule set's summary as it was, with no group count", () => {
+      render(<SchemaAccessControlAccordion policies={[policy]} />);
+      expect(screen.getByText("1 rule · match all")).toBeInTheDocument();
+      expect(screen.queryByText(/group/)).not.toBeInTheDocument();
+    });
+
+    it("expands to read the groups as indented blocks", async () => {
+      const user = userEvent.setup();
+      render(<SchemaAccessControlAccordion policies={[nestedPolicy]} />);
+
+      await user.click(screen.getByText("Open orders"));
+
+      expect(screen.getAllByText("any of:")).toHaveLength(2);
+      // A group's rules sit one indent in from the group line itself.
+      expect(screen.getAllByText(/Status/)).toHaveLength(2);
+      expect(screen.getByText(/Region/).closest("li")).toHaveStyle({ paddingLeft: "18px" });
+      expect(screen.getAllByText("any of:")[0].closest("li")).toHaveStyle({ paddingLeft: "0px" });
+    });
+  });
 });

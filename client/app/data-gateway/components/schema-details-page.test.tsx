@@ -365,10 +365,10 @@ describe("SchemaDetailsPage", () => {
     await user.click(screen.getAllByText("open-schema-access").at(-1)!);
 
     expect(column.dataset.open).toBe("true");
-    expect(column.style.getPropertyValue("--dg-inspector-w")).toBe("760px");
+    expect(column.style.getPropertyValue("--dg-inspector-w")).toBe("540px");
     // The panel inside keeps its own width so a close clips it away instead of
     // squeezing its contents down to nothing.
-    expect(column.style.getPropertyValue("--dg-inspector-panel-w")).toBe("760px");
+    expect(column.style.getPropertyValue("--dg-inspector-panel-w")).toBe("540px");
   });
 
   it("closes the inspector and restores the schema list from the rail", async () => {

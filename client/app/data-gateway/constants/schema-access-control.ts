@@ -33,6 +33,14 @@ export const COMPARE_SOURCE_OPTIONS = [
 /** Mirrors GraphQlConstant.MaxNestedLevelIterationLimit (server/DataGateway.DomainService) */
 export const MAX_NESTED_FIELD_DEPTH = 3;
 
+/**
+ * How many group levels the rule-set editor will build: the root plus two
+ * nested levels. The server allows unlimited depth, so deeper policies that
+ * arrive by API or import still load and save intact; this only stops the
+ * editor adding levels past it.
+ */
+export const MAX_RULE_GROUP_DEPTH = 3;
+
 export const FIELD_TYPE_CATEGORY = {
   STRING: "string",
   ARRAY: "array",

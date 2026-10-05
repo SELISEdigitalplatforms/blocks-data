@@ -7,11 +7,7 @@ import {
 } from "@/components/ui-kits/command/command";
 import { Input } from "@/components/ui-kits/input/input";
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui-kits/popover/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui-kits/popover/popover";
 import { cn } from "@/lib/utils";
 import {
   usePrincipalOptions,
@@ -39,6 +35,11 @@ interface PrincipalSelectorProps {
   onChange: (next: string) => void;
   multiple: boolean;
   userValueField?: UserPrincipalValue;
+  /**
+   * "field" (default) is a form-style select box. "chip" is the compact pill the rule
+   * row's other dropdowns use, opening the same-width list directly.
+   */
+  variant?: "field" | "chip";
 }
 
 const splitValue = (value: string): string[] =>
@@ -58,15 +59,13 @@ const PrincipalSelectorInner = ({
   onChange,
   multiple,
   userValueField,
+  variant = "field",
 }: PrincipalSelectorProps) => {
+  const isChip = variant === "chip";
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const selectedValues = multiple
-    ? splitValue(value)
-    : value.trim()
-      ? [value.trim()]
-      : [];
+  const selectedValues = multiple ? splitValue(value) : value.trim() ? [value.trim()] : [];
 
   // Browsing is gated on the popover; resolving what is already stored is NOT - a closed selector
   // still has to show its labels and any Unavailable marker.
@@ -85,9 +84,7 @@ const PrincipalSelectorInner = ({
   });
 
   const failedMessage =
-    entity === "role"
-      ? PRINCIPAL_MESSAGES.ROLES_FAILED
-      : PRINCIPAL_MESSAGES.USERS_FAILED;
+    entity === "role" ? PRINCIPAL_MESSAGES.ROLES_FAILED : PRINCIPAL_MESSAGES.USERS_FAILED;
   const emptyMessage =
     entity === "role" ? PRINCIPAL_MESSAGES.NO_ROLES : PRINCIPAL_MESSAGES.NO_USERS;
 
@@ -135,31 +132,50 @@ const PrincipalSelectorInner = ({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="flex h-10 w-full min-w-0 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground lg:flex-1"
-        >
-          <span className="truncate text-left">{triggerLabel}</span>
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className="ml-2 shrink-0 opacity-50"
+        {isChip ? (
+          <button
+            type="button"
+            // Empty reads "Not set" like the row's other chips; the label keeps the
+            // control findable by what it picks.
+            aria-label={selectedValues.length ? undefined : triggerLabel}
+            className={cn(
+              "flex h-8 min-w-0 max-w-full items-center justify-center truncate rounded-md border px-3 text-center text-xs font-semibold transition-colors",
+              selectedValues.length
+                ? "border-border/60 bg-background text-foreground hover:bg-muted/40"
+                : "border-dashed border-border/50 bg-background text-muted-foreground hover:bg-muted/30",
+            )}
           >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
+            <span className="block truncate">
+              {selectedValues.length ? triggerLabel : "Not set"}
+            </span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="flex h-10 w-full min-w-0 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground lg:flex-1"
+          >
+            <span className="truncate text-left">{triggerLabel}</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="ml-2 shrink-0 opacity-50"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </button>
+        )}
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start">
+      <PopoverContent className={cn("p-0", isChip ? "w-52" : "w-64")} align="start">
         <div className="border-b p-2">
           <Input
-            className="h-8"
+            className={cn("h-8", isChip && "text-xs")}
             placeholder={entity === "role" ? "Search roles" : "Search users"}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -168,31 +184,20 @@ const PrincipalSelectorInner = ({
         <Command shouldFilter={false}>
           <CommandList>
             {browse.isForbidden ? (
-              <div className="p-3 text-sm text-destructive">
-                {PRINCIPAL_MESSAGES.FORBIDDEN}
-              </div>
+              <div className="p-3 text-sm text-destructive">{PRINCIPAL_MESSAGES.FORBIDDEN}</div>
             ) : browse.error ? (
               <div className="flex items-center justify-between gap-2 p-3 text-sm text-destructive">
                 <span>{failedMessage}</span>
-                <button
-                  type="button"
-                  className="underline"
-                  onClick={() => browse.refetch()}
-                >
+                <button type="button" className="underline" onClick={() => browse.refetch()}>
                   Retry
                 </button>
               </div>
             ) : browse.isLoading ? (
-              <div
-                className="p-3 text-sm text-muted-foreground"
-                aria-busy="true"
-              >
+              <div className="p-3 text-sm text-muted-foreground" aria-busy="true">
                 Loading…
               </div>
             ) : browse.options.length === 0 ? (
-              <div className="p-3 text-sm text-muted-foreground">
-                {emptyMessage}
-              </div>
+              <div className="p-3 text-sm text-muted-foreground">{emptyMessage}</div>
             ) : (
               <CommandGroup>
                 {browse.options.map((option) => {

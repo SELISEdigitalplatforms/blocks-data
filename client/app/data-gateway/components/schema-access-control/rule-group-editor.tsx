@@ -58,13 +58,12 @@ interface RuleGroupChildrenProps {
 }
 
 /**
- * A group's contents: its rules, then its groups, with the group's own
- * AND/OR shown between them. Shared by the root (rendered by the form) and
- * every nested group, so both lay out identically.
+ * A group's contents: its rules, then its groups.
  *
- * The joiner is only drawn once there is something to join *and* a reason to
- * spell it out: always inside a nested group, and at the root only when it
- * holds groups — so a flat rule set looks exactly as it did before groups.
+ * Every join is labelled exactly once. A rule card carries its own "When" /
+ * "And" / "Or" lead, so nothing more is drawn between rules; a nested group has
+ * no lead, so the group's AND/OR is drawn in front of it instead. Shared by the
+ * root (rendered by the form) and every nested group, so both lay out alike.
  */
 export const RuleGroupChildren = ({
   path,
@@ -78,7 +77,6 @@ export const RuleGroupChildren = ({
 }: RuleGroupChildrenProps) => {
   const form = useFormContext<RuleSetFormValues>();
   const operator = form.watch(joinPath(path, "logicalOperator") as "logicalOperator");
-  const showJoiners = depth > 1 || groupFields.length > 0;
 
   const children = [
     ...ruleFields.map((field, index) => ({ kind: "rule" as const, id: field.id, index })),
@@ -89,7 +87,7 @@ export const RuleGroupChildren = ({
     <div className="flex flex-col gap-3">
       {children.map((child, position) => (
         <Fragment key={child.id}>
-          {showJoiners && position > 0 && (
+          {child.kind === "group" && position > 0 && (
             <GroupJoiner operator={operator} centered={depth === 1} />
           )}
           {child.kind === "rule" ? (

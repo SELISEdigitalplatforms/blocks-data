@@ -1059,4 +1059,18 @@ describe("RuleSetForm nested groups", () => {
     await user.click(screen.getByRole("button", { name: "Remove group" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+
+  it("labels each join once: the rule card's lead between rules, a joiner only before a group", async () => {
+    const user = userEvent.setup();
+    render(<RuleSetForm {...baseProps} editingPolicy={policyWith(group(0, [staticRule("title", "a"), staticRule("title", "b")]))} />);
+
+    // Two rules: the second card says "And"; there is no separate AND line between them.
+    expect(screen.getByText("When")).toBeInTheDocument();
+    expect(screen.getByText("And")).toBeInTheDocument();
+    expect(screen.queryByText("AND")).not.toBeInTheDocument();
+
+    // A group has no lead of its own, so the join before it is drawn.
+    await user.click(screen.getByRole("button", { name: "Add group" }));
+    expect(screen.getByText("AND")).toBeInTheDocument();
+  });
 });

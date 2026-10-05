@@ -611,21 +611,6 @@ export const RuleConditionRow = ({
             );
           }
 
-          if (showPrincipalSelector) {
-            return (
-              <div className="[&>button]:h-9 [&>button]:rounded-md [&>button]:px-3 [&>button]:text-xs">
-                <PrincipalSelector
-                  entity={leftField === "roles" ? "role" : "user"}
-                  userValueField={leftField === "email" ? "email" : "itemId"}
-                  projectKey={projectKey}
-                  value={field.value}
-                  onChange={field.onChange}
-                  multiple
-                />
-              </div>
-            );
-          }
-
           if (isInOp && isCompareStatic) {
             return (
               <Input
@@ -780,6 +765,28 @@ export const RuleConditionRow = ({
             !isInOp
           ) {
             return renderOptionsChip(cell, compareFieldOptions, pickCompareValue);
+          }
+
+          // Roles / users: the chip is the picker, like the other option chips — one
+          // click opens the list, no editor step in between.
+          if (cell.key === "compareValue" && showPrincipalSelector) {
+            return (
+              <PrincipalSelector
+                key={cell.key}
+                variant="chip"
+                entity={leftField === "roles" ? "role" : "user"}
+                userValueField={leftField === "email" ? "email" : "itemId"}
+                projectKey={projectKey}
+                value={compareValue}
+                onChange={(next) =>
+                  form.setValue(path("compareValue"), next, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+                multiple
+              />
+            );
           }
 
           if (!cell.reachable) {

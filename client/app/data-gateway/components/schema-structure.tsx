@@ -704,7 +704,11 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                   // Edit mode's fixed-width columns leave Description whatever is left;
                   // below this the table scrolls sideways rather than squashing it.
                   className={cn("w-full table-fixed", isEditMode && "min-w-[1040px]")}
-                  wrapperClassName="overflow-x-auto overflow-y-visible"
+                  // `overflow-x: auto` forces overflow-y to compute to `auto` too, which made
+                  // this wrapper the sticky header's scroll container — and it never scrolls
+                  // vertically. Stay `visible` so the header sticks to the real scroll region
+                  // (which also scrolls sideways when the table is wider than the panel).
+                  wrapperClassName="overflow-visible"
                 >
                   {hasDesktopColumns && (
                     <colgroup>

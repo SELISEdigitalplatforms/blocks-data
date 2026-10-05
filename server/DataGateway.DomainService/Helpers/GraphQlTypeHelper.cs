@@ -3,6 +3,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
+using HotChocolate.Types;
 using MongoDB.Bson;
 
 namespace DataGateway.DomainService.Helpers;
@@ -213,7 +214,7 @@ public static class GraphQlTypeHelper
             object? value = null;
 
             // Handle Scalar Types
-            if (fieldType.IsScalarType())
+            if (fieldType.IsScalarType() || fieldType.IsEnumType())
             {
                 value = field.Value.ParseScalarValueByType(fieldType, name);
             }
@@ -282,7 +283,7 @@ public static class GraphQlTypeHelper
         if (listValueNode != null)
         {
             // Handle List of Scalars
-            if (innerType.IsScalarType())
+            if (innerType.IsScalarType() || innerType.IsEnumType())
             {
                 value = listValueNode.Items
                     .Select(item => item.ParseScalarValueByType(innerType, fieldName))
@@ -331,6 +332,13 @@ public static class GraphQlTypeHelper
         {
             return null;
         }
+
+        // Enum fields have their own per-field GraphQL enum type; stored as the plain member name.
+        if (fieldType.NamedType() is EnumType && (valueNode is EnumValueNode or StringValueNode))
+        {
+            return valueNode is EnumValueNode enumNode ? enumNode.Value : ((StringValueNode)valueNode).Value;
+        }
+
         var scalarTypeName = fieldType.NamedType()?.Name;
 
         // Get the actual scalar type name (handles NonNullType wrapper)

@@ -2,13 +2,16 @@
 
 import { SCHEMA_NAME_ALLOWED_PATTERN } from "@/data-gateway/utils/input-restriction.util";
 import { X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface EnumValuesEditorProps {
   values: string[];
   onChange: (values: string[]) => void;
   disabled?: boolean;
   id?: string;
+  /** Focus the value field and scroll it into view on mount (the type was just switched to Enum). */
+  autoFocus?: boolean;
+  onAutoFocused?: () => void;
 }
 
 const MAX_VALUES = 100;
@@ -39,11 +42,23 @@ export function EnumValuesEditor({
   onChange,
   disabled,
   id,
+  autoFocus,
+  onAutoFocused,
 }: Readonly<EnumValuesEditorProps>) {
   const [draft, setDraft] = useState("");
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // The editor grows the row, pushing it below the fold; bring it back and focus the field.
+  useEffect(() => {
+    if (!autoFocus || disabled) return;
+    inputRef.current?.focus({ preventScroll: true });
+    rootRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    onAutoFocused?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const atLimit = values.length >= MAX_VALUES;
   const draftError = draft
@@ -128,7 +143,7 @@ export function EnumValuesEditor({
   }
 
   return (
-    <div id={id} className="mt-2 space-y-1.5">
+    <div ref={rootRef} id={id} className="mt-2 space-y-1.5">
       <span className="text-[11px] font-medium text-muted-foreground">Allowed values</span>
       <div
         // Same quiet field look as the name / type / description inputs beside it.

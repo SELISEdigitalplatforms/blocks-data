@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui-kits/button/button";
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import {
@@ -131,6 +132,7 @@ export function SchemaMobileCard({
   originalFieldFromSchema,
   isNestedAttributePanel = false,
 }: SchemaMobileCardProps) {
+  const [focusEnumEditor, setFocusEnumEditor] = useState(false);
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();
   const name = watch(`properties.${index}.name`);
   const propertyValue = (properties?.[index] ?? null) as IField | null;
@@ -324,6 +326,7 @@ export function SchemaMobileCard({
                     }}
                     onSelect={(type) => {
                       setValue(`properties.${index}.type`, type, { shouldDirty: true });
+                      setFocusEnumEditor(type === "Enum" && currentType !== "Enum");
                       if (type === "Enum") {
                         setValue(`properties.${index}.enumValues`, watch(`properties.${index}.enumValues`) ?? [], {
                           shouldDirty: true,
@@ -348,6 +351,8 @@ export function SchemaMobileCard({
                         setValue(`properties.${index}.enumValues`, vals, { shouldDirty: true })
                       }
                       disabled={!isEditMode || isReadOnly}
+                      autoFocus={focusEnumEditor}
+                      onAutoFocused={() => setFocusEnumEditor(false)}
                     />
                   )}
                   </>

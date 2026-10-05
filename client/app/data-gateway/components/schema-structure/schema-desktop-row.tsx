@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui-kits/button/button";
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import {
@@ -141,6 +142,7 @@ export function SchemaDesktopRow({
   visibleColumnCount,
   originalFieldFromSchema,
 }: SchemaDesktopRowProps) {
+  const [focusEnumEditor, setFocusEnumEditor] = useState(false);
   const compactCellClass = "py-3 align-middle";
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();
   const name = watch(`properties.${index}.name`);
@@ -329,6 +331,7 @@ export function SchemaDesktopRow({
                     }}
                     onSelect={(type) => {
                       setValue(`properties.${index}.type`, type, { shouldDirty: true });
+                      setFocusEnumEditor(type === "Enum" && currentType !== "Enum");
                       if (type === "Enum") {
                         setValue(`properties.${index}.enumValues`, watch(`properties.${index}.enumValues`) ?? [], {
                           shouldDirty: true,
@@ -387,6 +390,8 @@ export function SchemaDesktopRow({
                   setValue(`properties.${index}.enumValues`, vals, { shouldDirty: true })
                 }
                 disabled={!isEditMode || isReadOnly}
+              autoFocus={focusEnumEditor}
+              onAutoFocused={() => setFocusEnumEditor(false)}
               />
             )}
           </TableCell>

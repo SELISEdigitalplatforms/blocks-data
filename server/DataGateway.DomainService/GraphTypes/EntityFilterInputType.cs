@@ -27,7 +27,9 @@ public class EntityFilterInputType : InputObjectType
             if (!GraphQlTypeHelper.IsScalar(field.Type))
                 continue;
 
-            var operationFilterTypeName = GetOperationFilterTypeName(field.Type);
+            var operationFilterTypeName = field.Type == GraphQlTypeHelper.EnumTypeName
+                ? GraphQlTypeHelper.GetEnumOperationFilterTypeName(schemaName, field.Name)
+                : GetOperationFilterTypeName(field.Type);
             descriptor.Field(field.Name)
                 .Type(new NamedTypeNode(operationFilterTypeName))
                 .Description($"Filter by {field.Name}.");
@@ -74,9 +76,13 @@ public sealed class ChildSchemaFilterInputType(string schemaTypeName, IReadOnlyL
 
         foreach (var field in fields.Where(f => GraphQlTypeHelper.IsScalar(f.Type) || f.Fields.Count > 0))
         {
-            var typeName = GraphQlTypeHelper.IsScalar(field.Type)
-                ? EntityFilterInputType.GetOperationFilterTypeName(field.Type)
-                : $"{field.Type}FilterInput";
+            string typeName;
+            if (field.Type == GraphQlTypeHelper.EnumTypeName)
+                typeName = GraphQlTypeHelper.GetEnumOperationFilterTypeName(schemaTypeName, field.Name);
+            else if (GraphQlTypeHelper.IsScalar(field.Type))
+                typeName = EntityFilterInputType.GetOperationFilterTypeName(field.Type);
+            else
+                typeName = $"{field.Type}FilterInput";
             descriptor.Field(field.Name)
                 .Type(new NamedTypeNode(typeName))
                 .Description($"Filter by {field.Name}.");

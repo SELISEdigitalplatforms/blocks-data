@@ -79,6 +79,8 @@ export interface IField {
   name: string;
   type: string;
   isArray: boolean;
+  /** Allowed values when type is Enum (GraphQL-name-safe strings). */
+  enumValues?: string[];
   isPIIData?: boolean;
   isUniqueData?: boolean;
   description?: string;
@@ -127,10 +129,28 @@ export interface ISchemaDetails {
   writeAccessLevel: number;
 }
 
+/** Grants at one tier, for a single verb. */
+export interface IAccessLevelCounts {
+  public: number;
+  user: number;
+  custom: number;
+}
+
+/**
+ * Access-level counts across every entity schema in the project.
+ *
+ * The per-verb breakdown has always been sent; the client read only the three
+ * flat totals. Inherited is absent by construction — the aggregation counts the
+ * three levels that are set, so inherited is whatever is left of 4 × schemas.
+ */
 export interface IPermissionAggregation {
   totalCustomPermission: number;
   totalPublicPermission: number;
   totalUserPermission: number;
+  read?: IAccessLevelCounts;
+  write?: IAccessLevelCounts;
+  edit?: IAccessLevelCounts;
+  delete?: IAccessLevelCounts;
 }
 
 // Permission counts
@@ -149,6 +169,7 @@ export interface IRemoteSchemaField {
   name: string;
   type: string;
   isArray: boolean;
+  enumValues?: string[];
   isPIIData?: boolean;
   isUniqueData?: boolean;
   description?: string;

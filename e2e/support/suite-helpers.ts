@@ -8,6 +8,7 @@ import {
 import { e2eBaseUrl } from "./env"
 import { ensureAuthenticated, isLoginSurface } from "./login-helper"
 import { DATA_SESSION_PATH, readDataProject } from "./data-project"
+import { dismissSessionConflictIfPresent, isConsoleUrl } from "./session-conflict"
 
 async function persistSuiteSession(page: Page) {
   fs.mkdirSync(path.dirname(DATA_SESSION_PATH), { recursive: true })
@@ -53,6 +54,14 @@ export async function openSharedProjectDashboard(page: Page) {
   }
 
   await gotoDashboard()
+  const dismissed = await dismissSessionConflictIfPresent(page)
+  if (dismissed && isConsoleUrl(page.url())) {
+    await openNamedProjectDashboard(page, fixture.projectName, {
+      dashboardUrl: fixtureDashboardUrl,
+    })
+    await persistSuiteSession(page)
+    return
+  }
 
   if (await isLoginSurface(page)) {
     await ensureAuthenticated(page)

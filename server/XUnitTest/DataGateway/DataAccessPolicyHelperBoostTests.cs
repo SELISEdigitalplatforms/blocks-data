@@ -222,3 +222,135 @@ public class DataAccessPolicyHelperTokenExprBoostTests
         finally { ClearContext(); }
     }
 }
+
+[Collection("ContextSerial")]
+public class DataAccessPolicyHelperMultipleRuleSetTests
+{
+    // Rule set 1: auth.roles CONTAIN "r1" AND auth.organizationId == "default" (token-only).
+    private static DataAccessPolicy RoleAndOrgRuleSet() =>
+        Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
+            Group(PolicyLogicalOperator.AND,
+                Rule(ConditionSource.AUTH, "roles", PolicyOperator.CONTAIN, staticValue: "r1"),
+                Rule(ConditionSource.AUTH, "organizationId", PolicyOperator.EQUAL, staticValue: "default")),
+            priority: 1, name: "role-and-org");
+
+    // Rule set 2: auth.organizationId == schema.OrganizationId (data filter).
+    private static DataAccessPolicy SameOrgRuleSet() =>
+        Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
+            Group(PolicyLogicalOperator.AND,
+                Rule(ConditionSource.AUTH, "organizationId", PolicyOperator.EQUAL,
+                    ConditionSource.SCHEMA_FIELD, rightOperand: "OrganizationId")),
+            priority: 1, name: "same-org");
+
+    [Fact]
+    public void TokenOnlySetPasses_WithFilteredSet_GrantsFullAccessWithoutFilter()
+    {
+        ClearContext();
+        SetContext(roles: new[] { "r1" }, organizationId: "default");
+        try
+        {
+            var result = new List<DataAccessPolicy> { RoleAndOrgRuleSet(), SameOrgRuleSet() }
+                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+
+            result.IsAccessGranted.Should().BeTrue();
+            result.RequiresDataFilter.Should().BeFalse();
+            result.DataFilter.ElementCount.Should().Be(0);
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public void TokenOnlySetPasses_RegardlessOfPolicyOrder_GrantsFullAccess()
+    {
+        ClearContext();
+        SetContext(roles: new[] { "r1" }, organizationId: "default");
+        try
+        {
+            var result = new List<DataAccessPolicy> { SameOrgRuleSet(), RoleAndOrgRuleSet() }
+                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+
+            result.IsAccessGranted.Should().BeTrue();
+            result.RequiresDataFilter.Should().BeFalse();
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public void TokenOnlySetFails_WithFilteredSet_AppliesOnlyThatFilter()
+    {
+        ClearContext();
+        SetContext(roles: new[] { "guest" }, organizationId: "org-7");
+        try
+        {
+            var result = new List<DataAccessPolicy> { RoleAndOrgRuleSet(), SameOrgRuleSet() }
+                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+
+            result.IsAccessGranted.Should().BeTrue();
+            result.RequiresDataFilter.Should().BeTrue();
+            result.DataFilter.Should().BeEquivalentTo(new BsonDocument("OrganizationId", "org-7"));
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public void BothSetsFail_DeniesAccess()
+    {
+        ClearContext();
+        SetContext(roles: new[] { "guest" }, organizationId: "org-7");
+        try
+        {
+            var adminOnly = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
+                Group(PolicyLogicalOperator.AND,
+                    Rule(ConditionSource.AUTH, "roles", PolicyOperator.CONTAIN, staticValue: "admin")));
+
+            var result = new List<DataAccessPolicy> { RoleAndOrgRuleSet(), adminOnly }
+                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+
+            result.IsAccessGranted.Should().BeFalse();
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public void TokenOnlySetPasses_DenyPolicyMatches_StillDenies()
+    {
+        ClearContext();
+        SetContext(roles: new[] { "r1", "blocked" }, organizationId: "default");
+        try
+        {
+            var deny = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
+                Group(PolicyLogicalOperator.AND,
+                    Rule(ConditionSource.AUTH, "roles", PolicyOperator.CONTAIN, staticValue: "blocked")),
+                isAllow: false, priority: 0, name: "block");
+
+            var result = new List<DataAccessPolicy> { RoleAndOrgRuleSet(), deny }
+                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+
+            result.IsAccessGranted.Should().BeFalse();
+            result.ErrorMessage.Should().Contain("block");
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public void TwoFilteredSets_CombineBothFiltersWithOr()
+    {
+        var a = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
+            Group(PolicyLogicalOperator.AND,
+                Rule(ConditionSource.SCHEMA_FIELD, "Dept", PolicyOperator.EQUAL, staticValue: "HR"),
+                Rule(ConditionSource.SCHEMA_FIELD, "Level", PolicyOperator.GREATER_THAN, staticValue: 2)));
+        var b = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
+            Group(PolicyLogicalOperator.AND,
+                Rule(ConditionSource.SCHEMA_FIELD, "Region", PolicyOperator.EQUAL, staticValue: "EU"),
+                Rule(ConditionSource.SCHEMA_FIELD, "Active", PolicyOperator.EQUAL, staticValue: true)));
+
+        var result = new List<DataAccessPolicy> { a, b }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+
+        result.IsAccessGranted.Should().BeTrue();
+        result.RequiresDataFilter.Should().BeTrue();
+        var branches = result.DataFilter["$or"].AsBsonArray;
+        branches.Should().HaveCount(2);
+        branches.Select(x => x.ToString()).Should().Contain(s => s.Contains("Dept") && s.Contains("Level"));
+        branches.Select(x => x.ToString()).Should().Contain(s => s.Contains("Region") && s.Contains("Active"));
+    }
+}

@@ -1,24 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DateRange } from "react-day-picker";
-import { format, subDays } from "date-fns";
+import { differenceInCalendarDays, format, startOfDay, subDays } from "date-fns";
 import { useSearchParams } from "react-router";
 
-import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
-import { DateRangeFilter } from "@/components/date-range-filter/date-range-filter";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui-kits/select/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { Switch } from "@/components/ui-kits/switch/switch";
 import { showErrorToast } from "@/hooks/use-toast";
-import { DataGatewayActions } from "../../components/data-gateway-actions";
+import { DataGatewayPageBar } from "../../components/page-bar";
 import { useGetDataServiceConfiguration } from "../../hooks/use-configuration";
 import { useGraphLogAnalytics } from "../../hooks/use-graph-log-analytics";
 import { IDataSourceResponse } from "../../models/data-service";
@@ -29,7 +19,8 @@ import { GraphCoverageCard } from "./graph-coverage-card";
 import { GraphFailuresCard } from "./graph-failures-card";
 import { GraphLatencyCard } from "./graph-latency-card";
 import { GraphLogHistory } from "./graph-log-history";
-import { formatCalendarDate } from "./graph-log-formatters";
+import { AnalyticsDateRange, AnalyticsDateRangePicker } from "./analytics-date-range-picker";
+import { BucketSizeControl, HOURLY_MAX_DAYS } from "./bucket-size-control";
 import { GraphErrorRatesCard, GraphOperationsCard } from "./graph-operations-card";
 import { GraphTimingCard } from "./graph-timing-card";
 import { GraphTransferCard } from "./graph-transfer-card";
@@ -70,11 +61,21 @@ export const GraphAnalytics = () => {
     );
   }, [requestedTab, setSearchParams]);
 
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subDays(new Date(), 7),
-    to: new Date(),
+  const [dateRange, setDateRange] = useState<AnalyticsDateRange>(() => {
+    const today = startOfDay(new Date());
+    return { from: subDays(today, 6), to: today };
   });
   const [granularity, setGranularity] = useState<GraphLogGranularity>("daily");
+  const rangeDays = differenceInCalendarDays(dateRange.to, dateRange.from) + 1;
+  const isHourlyAllowed = rangeDays <= HOURLY_MAX_DAYS;
+
+  // A long range cut into hours is thousands of points no one can read, so step down to daily.
+  const handleDateRangeChange = (next: AnalyticsDateRange) => {
+    setDateRange(next);
+    if (differenceInCalendarDays(next.to, next.from) + 1 > HOURLY_MAX_DAYS) {
+      setGranularity((current) => (current === "hourly" ? "daily" : current));
+    }
+  };
   const [includeBlocksConsole, setIncludeBlocksConsole] = useState(false);
   const { data: configurationData, isLoading: isConfigurationLoading } =
     useGetDataServiceConfiguration();
@@ -93,10 +94,10 @@ export const GraphAnalytics = () => {
     });
   };
 
-  const from = dateRange?.from ? toIsoDate(dateRange.from) : undefined;
-  const to = dateRange?.to ? toIsoDate(dateRange.to) : undefined;
+  const from = toIsoDate(dateRange.from);
+  const to = toIsoDate(dateRange.to);
   // Date#getTimezoneOffset is UTC-minus-local; the API uses the conventional local-minus-UTC.
-  const utcOffsetMinutes = -(dateRange?.from ?? new Date()).getTimezoneOffset();
+  const utcOffsetMinutes = -dateRange.from.getTimezoneOffset();
 
   // One query for every analytics tab: they are all views of the same range.
   const { data, isLoading, isError, error } = useGraphLogAnalytics(
@@ -124,10 +125,7 @@ export const GraphAnalytics = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <PageBreadcrumb breadcrumbIndex={3} />
-        <DataGatewayActions />
-      </div>
+      <DataGatewayPageBar />
 
       <div className="relative">
         <div
@@ -149,44 +147,31 @@ export const GraphAnalytics = () => {
               </TabsList>
 
               <div className="flex flex-wrap items-center gap-2">
-                {/* Usage and Requests have no time series, so a bucket size would be a dead control. */}
-                {BUCKETED_TABS.has(tab) && (
-                  <Select
-                    value={granularity}
-                    onValueChange={(value) => setGranularity(value as GraphLogGranularity)}
-                  >
-                    <SelectTrigger className="h-8 w-[110px] text-xs" aria-label="Bucket size">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hourly">Hourly</SelectItem>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
                 <label className="flex h-8 items-center gap-2 rounded-md border border-border/40 px-3 text-xs text-muted-foreground">
                   <Switch
                     size="sm"
                     checked={includeBlocksConsole}
                     onCheckedChange={setIncludeBlocksConsole}
-                    aria-label="Include Blocks Console operations"
+                    aria-label="Include Playground operations"
                   />
-                  Include Blocks Console
+                  Include Playground operations
                 </label>
-                <DateRangeFilter
-                  title="Date range"
-                  date={dateRange}
-                  onDateChange={setDateRange}
-                  formatLabel={formatCalendarDate}
-                />
+                {/* Requests has no time series, so a bucket size would be a dead control there. */}
+                {BUCKETED_TABS.has(tab) && (
+                  <BucketSizeControl
+                    value={granularity}
+                    onChange={setGranularity}
+                    isHourlyAllowed={isHourlyAllowed}
+                  />
+                )}
+                <AnalyticsDateRangePicker value={dateRange} onChange={handleDateRangeChange} />
               </div>
             </div>
 
             {/* Introspection stays excluded from aggregate analytics even when console operations
             are included. The request log remains the place to inspect those individual calls. */}
             {tab !== "requests" && (
-              <p className="text-xs text-muted-foreground/60">
+              <p className="text-xs text-muted-foreground">
                 Schema introspection requests are excluded — see them under Requests.
               </p>
             )}
@@ -249,7 +234,7 @@ export const GraphAnalytics = () => {
 
         {!isConfigurationLoading && !hasAnalyticsAccess && (
           <div className="absolute inset-0 z-10 flex items-center justify-center p-6">
-            <div className="max-w-lg rounded-sm border border-border/60 bg-card/95 p-6 text-center shadow-xl backdrop-blur-md">
+            <div className="max-w-lg rounded-sm border border-border/40 bg-card/95 p-6 text-center shadow-xl backdrop-blur-md">
               <h2 className="text-base font-semibold text-foreground">
                 Analytics access unavailable
               </h2>

@@ -37,7 +37,9 @@ public abstract class BaseInputType : InputObjectType<object>
 
             if (GraphQlTypeHelper.IsScalar(fieldType))
             {
-                var inputType = GraphQlTypeHelper.GetTypeNode(fieldType, field.IsArray);
+                var inputType = fieldType == GraphQlTypeHelper.EnumTypeName
+                    ? GraphQlTypeHelper.GetEnumTypeNode(schemaName, fieldName, field.IsArray)
+                    : GraphQlTypeHelper.GetTypeNode(fieldType, field.IsArray);
                 descriptor.Field(fieldName).Type(inputType);
             }
             else if (_schemaMap.TryGetValue(fieldType, out _))

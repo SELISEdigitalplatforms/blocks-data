@@ -40,7 +40,7 @@ export interface ISaveCaptchaConfigsPayload {
   projectKey: string;
 }
 export interface ISaveCaptchaConfigsResponse {
-  errors: null | unknown;
+  errors: unknown;
   isSuccess: boolean;
   itemId: string;
 }

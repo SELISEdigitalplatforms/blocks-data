@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
+import { Activity } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
 import {
   ChartConfig,
   ChartContainer,
@@ -18,6 +18,7 @@ import {
   IGraphLogRequestsOverTimeBucket,
 } from "../../models/graph-log-analytics";
 import { DENIED_FAILURE_KINDS, failureKindLabel } from "../../models/graph-log-history";
+import { AnalyticsCard } from "./analytics-card";
 import { formatBucketLabel } from "./graph-log-formatters";
 import { OUTCOME_COLORS } from "./graph-outcome-colors";
 
@@ -68,7 +69,7 @@ const Outcome = ({
   detail: string;
   color: string;
 }) => (
-  <div className="flex min-w-[180px] flex-1 flex-col gap-1 rounded-sm border border-border/50 px-4 py-3">
+  <div className="flex min-w-[180px] flex-1 flex-col gap-1 rounded-sm border border-border/40 px-4 py-3">
     {/* The number wears the series colour, so the tiles double as the chart's legend. */}
     <span className="text-2xl font-semibold" style={{ color }}>
       {count}
@@ -76,7 +77,7 @@ const Outcome = ({
     <span className="text-xs text-muted-foreground">
       {label} · {share}
     </span>
-    <span className="text-xs text-muted-foreground/60">{detail || "—"}</span>
+    <span className="text-xs text-muted-foreground">{detail || "—"}</span>
   </div>
 );
 
@@ -127,83 +128,82 @@ export const GraphAccessOutcomesCard = ({
   const share = (count: number) => formatOutcomeShare(count, outcomes.total);
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Requests over time</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        {isLoading ? (
-          <div className="flex h-48 items-center justify-center">
-            <SpinnerLoader />
+    <AnalyticsCard
+      icon={Activity}
+      title="Requests over time"
+      contentClassName="flex flex-col gap-5"
+    >
+      {isLoading ? (
+        <div className="flex h-48 items-center justify-center">
+          <SpinnerLoader />
+        </div>
+      ) : isError ? (
+        <p className="text-sm text-destructive">Couldn&apos;t load outcomes. Please try again.</p>
+      ) : outcomes.total === 0 ? (
+        <p className="text-sm text-muted-foreground">No requests in this range.</p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-3">
+            <Outcome
+              label="Allows"
+              count={outcomes.allowed}
+              share={share(outcomes.allowed)}
+              detail="served"
+              color={OUTCOME_COLORS.allows}
+            />
+            <Outcome
+              label="Denies"
+              count={outcomes.denied}
+              share={share(outcomes.denied)}
+              detail={outcomes.deniedDetail}
+              color={OUTCOME_COLORS.denies}
+            />
+            <Outcome
+              label="Errors"
+              count={outcomes.errored}
+              share={share(outcomes.errored)}
+              detail={outcomes.erroredDetail}
+              color={OUTCOME_COLORS.errors}
+            />
           </div>
-        ) : isError ? (
-          <p className="text-sm text-destructive">Couldn&apos;t load outcomes. Please try again.</p>
-        ) : outcomes.total === 0 ? (
-          <p className="text-sm text-muted-foreground">No requests in this range.</p>
-        ) : (
-          <>
-            <div className="flex flex-wrap gap-3">
-              <Outcome
-                label="Allows"
-                count={outcomes.allowed}
-                share={share(outcomes.allowed)}
-                detail="served"
-                color={OUTCOME_COLORS.allows}
-              />
-              <Outcome
-                label="Denies"
-                count={outcomes.denied}
-                share={share(outcomes.denied)}
-                detail={outcomes.deniedDetail}
-                color={OUTCOME_COLORS.denies}
-              />
-              <Outcome
-                label="Errors"
-                count={outcomes.errored}
-                share={share(outcomes.errored)}
-                detail={outcomes.erroredDetail}
-                color={OUTCOME_COLORS.errors}
-              />
-            </div>
 
-            <ChartContainer
-              config={CHART_CONFIG}
-              className="h-48 w-full"
-              role="img"
-              aria-label="Allowed, denied and errored requests over time"
-            >
-              <BarChart data={chartData}>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                  minTickGap={24}
+          <ChartContainer
+            config={CHART_CONFIG}
+            className="h-48 w-full"
+            role="img"
+            aria-label="Allowed, denied and errored requests over time"
+          >
+            <BarChart data={chartData}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                minTickGap={24}
+              />
+              <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              {(["success", "denied", "errored"] as const).map((key) => (
+                <Bar
+                  key={key}
+                  dataKey={key}
+                  name={CHART_CONFIG[key].label}
+                  stackId="outcome"
+                  fill={`var(--color-${key})`}
+                  minPointSize={(_stackEnd, index) =>
+                    chartData[index]?.[key] > 0 ? MIN_VISIBLE_OUTCOME_BAR_SIZE : 0
+                  }
+                  // A hairline of the card colour keeps stacked segments from bleeding together.
+                  stroke="hsl(var(--card))"
+                  strokeWidth={2}
                 />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <ChartLegend content={<ChartLegendContent />} />
-                {(["success", "denied", "errored"] as const).map((key) => (
-                  <Bar
-                    key={key}
-                    dataKey={key}
-                    name={CHART_CONFIG[key].label}
-                    stackId="outcome"
-                    fill={`var(--color-${key})`}
-                    minPointSize={(_stackEnd, index) =>
-                      chartData[index]?.[key] > 0 ? MIN_VISIBLE_OUTCOME_BAR_SIZE : 0
-                    }
-                    // A hairline of the card colour keeps stacked segments from bleeding together.
-                    stroke="hsl(var(--card))"
-                    strokeWidth={2}
-                  />
-                ))}
-              </BarChart>
-            </ChartContainer>
-          </>
-        )}
-      </CardContent>
-    </Card>
+              ))}
+            </BarChart>
+          </ChartContainer>
+        </>
+      )}
+    </AnalyticsCard>
   );
 };

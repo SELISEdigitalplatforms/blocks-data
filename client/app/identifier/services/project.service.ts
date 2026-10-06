@@ -51,7 +51,7 @@ export class ProjectService {
       itemId: string;
     };
     totalCount: number;
-    errors: unknown | null;
+    errors: unknown;
     isSuccess: boolean;
   }> {
     const url = `${PROJECT_ENDPOINTS.GET_ASSET}?TenantGroupId=${tenantGroupId}`;
@@ -59,7 +59,7 @@ export class ProjectService {
   }
 
   addAssets(payload: { tenantGroupId: string; resource: IResource }): Promise<{
-    errors: unknown | null;
+    errors: unknown;
     isSuccess: boolean;
   }> {
     return http.post(PROJECT_ENDPOINTS.ADD_ASSET, payload, undefined, {
@@ -76,7 +76,7 @@ export class ProjectService {
       customDeploymentDomain: string;
     }[];
   }): Promise<{
-    errors: unknown | null;
+    errors: unknown;
     isSuccess: boolean;
   }> {
     return http.post(CLOUD_BUILD_ENDPOINTS.REPO_UPDATE, payload, undefined, {
@@ -236,7 +236,7 @@ export class ProjectService {
   }
 
   addJwtClaim(payload: JwtClaimPayload): Promise<{
-    errors: unknown | null;
+    errors: unknown;
     isSuccess: boolean;
   }> {
     return http.post(PROJECT_ENDPOINTS.SAVE_JWT_CLAIMS, payload, undefined, {

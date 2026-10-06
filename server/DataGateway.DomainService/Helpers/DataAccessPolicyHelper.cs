@@ -45,6 +45,7 @@ public static class DataAccessPolicyHelper
         var excludedFields = new List<string>();
         var anyPolicyGranted = false;
         var requiresDataFilter = false;
+        var grantsFullAccess = false;
 
         foreach (var policy in applicablePolicies)
         {
@@ -63,8 +64,10 @@ public static class DataAccessPolicyHelper
                     }
                     else if (!result.RequiresDataFilter)
                     {
-                        // Token-only validation passed without data filter
-                        // This is a "full access" grant for this policy
+                        // Token-only validation passed without a data filter: this policy grants
+                        // every row, so other policies' filters must not narrow it. Keep looping so
+                        // deny policies and excluded fields are still applied.
+                        grantsFullAccess = true;
                     }
                 }
             }
@@ -91,6 +94,16 @@ public static class DataAccessPolicyHelper
             {
                 IsAccessGranted = false,
                 ErrorMessage = "No policy grants access to this resource."
+            };
+        }
+
+        if (grantsFullAccess)
+        {
+            return new PolicyEvaluationResult
+            {
+                IsAccessGranted = true,
+                ExcludedFields = excludedFields.Distinct().ToList(),
+                RequiresDataFilter = false
             };
         }
 

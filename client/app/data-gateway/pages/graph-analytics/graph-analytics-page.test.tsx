@@ -27,20 +27,13 @@ vi.mock("@/components/breadcrumb/breadcrumb", () => ({
   default: () => <nav data-testid="breadcrumb" />,
 }));
 
-vi.mock("../../components/data-gateway-actions", () => ({
-  DataGatewayActions: () => <div data-testid="actions" />,
+vi.mock("../../components/page-bar", () => ({
+  DataGatewayPageBar: () => <div data-testid="page-bar" />,
 }));
 
 vi.mock("./graph-log-history", () => ({
-  GraphLogHistory: (props: {
-    from?: string;
-    to?: string;
-    includeBlocksConsole?: boolean;
-  }) => (
-    <div
-      data-testid="history"
-      data-include-blocks-console={String(props.includeBlocksConsole)}
-    >
+  GraphLogHistory: (props: { from?: string; to?: string; includeBlocksConsole?: boolean }) => (
+    <div data-testid="history" data-include-blocks-console={String(props.includeBlocksConsole)}>
       {`${props.from}..${props.to}`}
     </div>
   ),
@@ -175,8 +168,7 @@ describe("GraphAnalytics", () => {
     expect(granularity).toBe("daily");
     expect(utcOffsetMinutes).toEqual(expect.any(Number));
 
-    await user.click(screen.getByRole("combobox", { name: "Bucket size" }));
-    await user.click(await screen.findByRole("option", { name: "Hourly" }));
+    await user.click(screen.getByRole("radio", { name: "Hourly" }));
 
     expect(useGraphLogAnalyticsMock).toHaveBeenLastCalledWith(
       from,
@@ -237,7 +229,7 @@ describe("GraphAnalytics", () => {
     renderAnalytics();
 
     const toggle = screen.getByRole("switch", {
-      name: "Include Blocks Console operations",
+      name: "Include Playground operations",
     });
     expect(toggle).not.toBeChecked();
     expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(4)).toBe(false);
@@ -245,7 +237,7 @@ describe("GraphAnalytics", () => {
     for (const tab of ["Performance", "Reliability", "Requests"]) {
       await openTab(user, tab);
       expect(
-        screen.getByRole("switch", { name: "Include Blocks Console operations" }),
+        screen.getByRole("switch", { name: "Include Playground operations" }),
       ).toBeInTheDocument();
     }
 
@@ -253,17 +245,14 @@ describe("GraphAnalytics", () => {
 
     expect(toggle).toBeChecked();
     expect(useGraphLogAnalyticsMock.mock.calls.at(-1)?.at(4)).toBe(true);
-    expect(screen.getByTestId("history")).toHaveAttribute(
-      "data-include-blocks-console",
-      "true",
-    );
+    expect(screen.getByTestId("history")).toHaveAttribute("data-include-blocks-console", "true");
   });
 
   it("offers a bucket size only where something is bucketed over time", async () => {
     const user = userEvent.setup();
     renderAnalytics();
 
-    const bucketSize = () => screen.queryByRole("combobox", { name: "Bucket size" });
+    const bucketSize = () => screen.queryByRole("radiogroup", { name: "Bucket size" });
 
     for (const tab of ["Traffic", "Performance", "Reliability"]) {
       await openTab(user, tab);
@@ -275,6 +264,32 @@ describe("GraphAnalytics", () => {
       await openTab(user, tab);
       expect(bucketSize()).not.toBeInTheDocument();
     }
+  });
+
+  it("defaults to the last 7 calendar days, applied as one range", () => {
+    renderAnalytics();
+
+    const [from, to] = useGraphLogAnalyticsMock.mock.calls.at(-1)!;
+    const days = (Date.parse(to) - Date.parse(from)) / 86_400_000 + 1;
+    expect(Math.round(days)).toBe(7);
+    expect(screen.getByRole("button", { name: /Date range/ })).toHaveTextContent("Last 7 days");
+  });
+
+  it("applies a preset straight away and steps hourly down to daily past 14 days", async () => {
+    const user = userEvent.setup();
+    renderAnalytics();
+
+    await user.click(screen.getByRole("radio", { name: "Hourly" }));
+    expect(screen.getByRole("radio", { name: "Hourly" })).toHaveAttribute("aria-checked", "true");
+
+    await user.click(screen.getByRole("button", { name: /Date range/ }));
+    await user.click(await screen.findByRole("button", { name: "Last 30 days" }));
+
+    const [from, to, granularity] = useGraphLogAnalyticsMock.mock.calls.at(-1)!;
+    expect(Math.round((Date.parse(to) - Date.parse(from)) / 86_400_000) + 1).toBe(30);
+    expect(granularity).toBe("daily");
+    expect(screen.getByRole("radio", { name: "Hourly" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "Daily" })).toHaveAttribute("aria-checked", "true");
   });
 
   it("surfaces the numbers each tab exists for", async () => {
@@ -311,9 +326,10 @@ describe("GraphAnalytics", () => {
     renderAnalytics();
 
     // Traffic opens on this card: volume and its composition are the same question.
-    const card = screen
-      .getByRole("heading", { name: "Requests over time" })
-      .closest("div")!.parentElement!;
+    // AnalyticsCard wraps the heading in an icon+title group, itself inside the
+    // header row, inside the card — two parents up from that group reaches the card.
+    const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
+      .parentElement!.parentElement!;
 
     // 10 requests: 3 refused on purpose (2 by policy, 1 by validation) and 1 that broke,
     // leaving 6 served. Validation counts as a denial — rejecting bad input is the gateway
@@ -352,9 +368,8 @@ describe("GraphAnalytics", () => {
 
     renderAnalytics();
 
-    const card = screen
-      .getByRole("heading", { name: "Requests over time" })
-      .closest("div")!.parentElement!;
+    const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
+      .parentElement!.parentElement!;
     expect(within(card).getByText("Denies · 0%")).toBeInTheDocument();
     expect(within(card).getByText("Errors · 100%")).toBeInTheDocument();
     expect(within(card).getByText("1 syntax error · 1 others")).toBeInTheDocument();
@@ -381,9 +396,8 @@ describe("GraphAnalytics", () => {
 
     renderAnalytics();
 
-    const card = screen
-      .getByRole("heading", { name: "Requests over time" })
-      .closest("div")!.parentElement!;
+    const card = screen.getByRole("heading", { name: "Requests over time" }).closest("div")!
+      .parentElement!.parentElement!;
     expect(within(card).getByText("Allows · 99.6%")).toBeInTheDocument();
     expect(within(card).getByText("Denies · 0.1%")).toBeInTheDocument();
     expect(within(card).getByText("Errors · 0.3%")).toBeInTheDocument();

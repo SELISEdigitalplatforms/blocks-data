@@ -1,41 +1,33 @@
 import {
   IN_OPERATORS,
+  LOGICAL_OPERATOR,
   NUMBER_TO_OPERATOR,
-  NUMBER_TO_SOURCE_LABEL,
   NUMBER_TO_SOURCE_TYPE,
-  READABLE_OPERATORS,
+  OPERATOR_TO_NUMBER,
   RULE_SOURCE_TYPES,
+  SOURCE_TYPE_TO_NUMBER,
 } from "../constants/schema-access-control";
-import type { IField, IPolicyRule } from "../models/data-service";
+import type { IField, IPolicyRule, IPolicyRuleGroup } from "../models/data-service";
+
+// ─── Rule-set form shapes ────────────────────────────────────────────────────
+
+/** One condition row of the rule-set form (string keys, not the API's numbers). */
+export interface RuleRowValues {
+  source: string;
+  field: string;
+  operator: string;
+  compareSource: string;
+  compareValue: string;
+}
+
+/** A group of conditions — the root of the form, or any group nested in it. */
+export interface RuleGroupValues {
+  logicalOperator: "AND" | "OR";
+  rules: RuleRowValues[];
+  nestedGroups: RuleGroupValues[];
+}
 
 // ─── Policy Rule Conversion ──────────────────────────────────────────────────
-
-/** Convert a policy rule into a human-readable sentence */
-export function ruleToText(rule: IPolicyRule): string {
-  const source = NUMBER_TO_SOURCE_LABEL[rule.leftSource] ?? `Source(${rule.leftSource})`;
-  const field = rule.leftOperand;
-  const operator = READABLE_OPERATORS[rule.operator] ?? `operator(${rule.operator})`;
-
-  // Null operators don't need a right side
-  if (rule.operator === 12 || rule.operator === 13) {
-    return `${source}'s ${field} ${operator}`;
-  }
-
-  // Static value → show quoted value
-  if (rule.rightSource === 2) {
-    const staticDisplay = Array.isArray(rule.staticValue)
-      ? rule.staticValue.map((v) => `"${v}"`).join(", ")
-      : `"${rule.staticValue ?? ""}"`;
-    return `${source}'s ${field} ${operator} ${staticDisplay}`;
-  }
-
-  // Auth or Schema Field → show source label + field name
-  const rightSource = NUMBER_TO_SOURCE_LABEL[rule.rightSource] ?? `Source(${rule.rightSource})`;
-  const rightOperandDisplay = rule.rightOperands?.length
-    ? rule.rightOperands.join(", ")
-    : rule.rightOperand;
-  return `${source}'s ${field} ${operator} ${rightSource}'s ${rightOperandDisplay}`;
-}
 
 /** Convert an API policy rule (numeric) to form values (string keys) */
 export function policyRuleToFormRow(rule: IPolicyRule) {
@@ -65,6 +57,106 @@ export function policyRuleToFormRow(rule: IPolicyRule) {
     compareSource,
     compareValue,
   };
+}
+
+/** The whole rule-set form: a name, plus the root group's own fields. */
+export type RuleSetFormValues = RuleGroupValues & { name: string };
+
+/** A blank condition row, as added by every Add Rule trigger. */
+export const createBlankRule = (): RuleRowValues => ({
+  source: "",
+  field: "",
+  operator: "",
+  compareSource: "",
+  compareValue: "",
+});
+
+/** A new nested group: matches any of its rules, and starts with one blank rule. */
+export const createBlankGroup = (): RuleGroupValues => ({
+  logicalOperator: "OR",
+  rules: [createBlankRule()],
+  nestedGroups: [],
+});
+
+const DIRECT_VALUE_OPERATORS = ["REGEX", "START_WITH", "END_WITH"];
+
+/** Convert one form row into the API's policy rule. */
+export function formRowToPolicyRule(r: RuleRowValues): IPolicyRule {
+  const isContain = IN_OPERATORS.includes(r.operator);
+  const isDirectValue = DIRECT_VALUE_OPERATORS.includes(r.operator);
+  const isStatic = r.compareSource === RULE_SOURCE_TYPES.STATIC_VALUE;
+
+  let rightOperand = "";
+  let rightOperands: string[] = [];
+  let staticValue: string | string[] | null = null;
+
+  if (isDirectValue) {
+    staticValue = r.compareValue || null;
+  } else if (isContain) {
+    if (isStatic) {
+      // The policy API stores principal multi-selections as a single,
+      // comma-delimited value; the backend expands it during evaluation.
+      staticValue = r.compareValue;
+    } else {
+      rightOperands = r.compareValue
+        .split(",")
+        .map((v) => v.trim())
+        .filter(Boolean);
+      rightOperand = rightOperands[0] ?? "";
+    }
+  } else {
+    rightOperand = !isStatic ? r.compareValue : "";
+    staticValue = isStatic ? r.compareValue || null : null;
+  }
+
+  return {
+    leftSource: SOURCE_TYPE_TO_NUMBER[r.source] ?? 0,
+    leftOperand: r.field,
+    operator: OPERATOR_TO_NUMBER[r.operator] ?? 0,
+    rightSource:
+      SOURCE_TYPE_TO_NUMBER[r.compareSource] ??
+      SOURCE_TYPE_TO_NUMBER[RULE_SOURCE_TYPES.STATIC_VALUE],
+    rightOperand,
+    rightOperands,
+    staticValue,
+  };
+}
+
+/**
+ * Convert an API rule group into form values, recursively. A group stored
+ * without `nestedGroups` (older documents) reads as having none.
+ */
+export function policyGroupToFormGroup(group: IPolicyRuleGroup): RuleGroupValues {
+  return {
+    logicalOperator: group.logicalOperator === LOGICAL_OPERATOR.OR ? "OR" : "AND",
+    rules: (group.rules ?? []).map(policyRuleToFormRow),
+    nestedGroups: (group.nestedGroups ?? []).map(policyGroupToFormGroup),
+  };
+}
+
+/** Convert form values into the API's rule group, recursively. */
+export function formGroupToPolicyGroup(group: RuleGroupValues): IPolicyRuleGroup {
+  return {
+    logicalOperator: group.logicalOperator === "AND" ? LOGICAL_OPERATOR.AND : LOGICAL_OPERATOR.OR,
+    rules: group.rules.map(formRowToPolicyRule),
+    nestedGroups: group.nestedGroups.map(formGroupToPolicyGroup),
+  };
+}
+
+/** How many rules a policy's group holds, counting every nested level. */
+export function countPolicyRules(group: IPolicyRuleGroup): number {
+  return (
+    (group.rules?.length ?? 0) +
+    (group.nestedGroups ?? []).reduce((total, nested) => total + countPolicyRules(nested), 0)
+  );
+}
+
+/** How many groups sit beneath a policy's group, counting every nested level. */
+export function countPolicyGroups(group: IPolicyRuleGroup): number {
+  return (group.nestedGroups ?? []).reduce(
+    (total, nested) => total + 1 + countPolicyGroups(nested),
+    0,
+  );
 }
 
 // ─── Field Access Level Resolution ───────────────────────────────────────────

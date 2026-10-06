@@ -10,6 +10,7 @@ import DataGatewayAnalyticsPage from "./routes/dashboard/data-gateway-analytics"
 import DataGatewayLogsPage from "./routes/dashboard/data-gateway-logs";
 import DataGatewayPlaygroundPage from "./routes/dashboard/data-gateway-playground";
 import DataGatewaySchemasPage from "./routes/dashboard/data-gateway-schemas";
+import DataGatewaySecurityPage from "./routes/dashboard/data-gateway-security";
 import StoragePage from "./routes/dashboard/storage-page";
 import StorageSearchPage from "./routes/dashboard/storage-search-page";
 import StorageTrashPage from "./routes/dashboard/storage-trash-page";
@@ -98,6 +99,10 @@ export const router = createBrowserRouter([
                   {
                     path: "data-gateway",
                     element: <DataGatewaySchemasPage />,
+                  },
+                  {
+                    path: "data-gateway/security",
+                    element: <DataGatewaySecurityPage />,
                   },
                   {
                     path: "data-gateway/playground",

@@ -7,21 +7,29 @@ public sealed class SecurityHeadersMiddleware
 {
     private readonly RequestDelegate _next;
 
-    public SecurityHeadersMiddleware(RequestDelegate next) => _next = next;
+    // Built once from configuration at startup -- the policy does not vary per request.
+    // See Blocks.Data.Api.Security.ContentSecurityPolicy.
+    private readonly string _contentSecurityPolicy;
+
+    public SecurityHeadersMiddleware(RequestDelegate next, string contentSecurityPolicy)
+    {
+        _next = next;
+        _contentSecurityPolicy = contentSecurityPolicy;
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
         Apply(context);
-        context.Response.OnStarting(static state =>
+        context.Response.OnStarting(() =>
         {
-            Apply((HttpContext)state!);
+            Apply(context);
             return Task.CompletedTask;
-        }, context);
+        });
 
         await _next(context);
     }
 
-    internal static void Apply(HttpContext context)
+    internal void Apply(HttpContext context)
     {
         var headers = context.Response.Headers;
         var path = context.Request.Path.Value ?? string.Empty;
@@ -34,7 +42,7 @@ public sealed class SecurityHeadersMiddleware
 
         if (!headers.ContainsKey("Content-Security-Policy"))
         {
-            headers["Content-Security-Policy"] = BuildCsp();
+            headers["Content-Security-Policy"] = _contentSecurityPolicy;
         }
 
         if (!headers.ContainsKey("Cache-Control"))
@@ -57,41 +65,5 @@ public sealed class SecurityHeadersMiddleware
         {
             headers["Cache-Control"] = "public, max-age=31536000, immutable";
         }
-    }
-
-    private static string BuildCsp()
-    {
-        const string connectHosts =
-            "https://dev-iam.blocksdevelopers.com " +
-            "https://dev-api.blocksdevelopers.com " +
-            "https://dev-construct.blocksdevelopers.com " +
-            "https://dev-localization.blocksdevelopers.com " +
-            "https://dev-agents.blocksdevelopers.com " +
-            "https://dev-data.blocksdevelopers.com " +
-            "https://dev-utilities.blocksdevelopers.com " +
-            "https://dev-logic.blocksdevelopers.com " +
-            "wss://dev-logic.blocksdevelopers.com " +
-            "https://dev-monitor.blocksdevelopers.com " +
-            "https://dev-release.blocksdevelopers.com " +
-            "https://dev-studio.blocksdevelopers.com " +
-            "https://dev-os.blocksdevelopers.com " +
-            "https://blocksdev.blob.core.windows.net " +
-            "https://az-cdn.selise.biz " +
-            "https://api.rollbar.com " +
-            "https://code.selise.biz";
-
-        // External /runtime-config.js supplies window.__BLOCKS_ENV__ (no inline script).
-        // style-src keeps unsafe-inline for Radix/emotion inline styles (script-src stays strict).
-        return
-            "default-src 'self' blob:; " +
-            "script-src 'self'; " +
-            "style-src 'self' 'unsafe-inline'; " +
-            "img-src 'self' data: blob: https://blocksdev.blob.core.windows.net https://az-cdn.selise.biz; " +
-            "font-src 'self' data:; " +
-            "connect-src 'self' " + connectHosts + "; " +
-            "frame-ancestors 'none'; " +
-            "base-uri 'self'; " +
-            "object-src 'none'; " +
-            "form-action 'self' https://dev-iam.blocksdevelopers.com https://dev-os.blocksdevelopers.com";
     }
 }

@@ -53,17 +53,45 @@ const stripSignalrInvalidPureAnnotations = (): Plugin => ({
   },
 });
 
+/** Unfilled `__BLOCKS_*__` tokens (from runtime-config.js style templating) count as unset. */
+const isPlaceholder = (value?: string) =>
+  !!value && value.startsWith("__BLOCKS_") && value.endsWith("__");
+
+/** Reads a BLOCKS_* value from `.env` / `.env.[mode]` / shell env (via loadEnv); "" when unset. */
+const readEnv = (env: Record<string, string>, key: string): string => {
+  const value = env[key]?.trim();
+  return value && !isPlaceholder(value) ? value.replace(/\/$/, "") : "";
+};
+
 export default defineConfig(({ mode }) => {
+  // Pick the backend environment with Vite's mode: `.env` (default), or e.g.
+  // `vite --mode stg` -> `.env.stg`, `vite --mode prod` -> `.env.prod`.
+  // Only the dev server uses these proxies; deployed builds are served by the API itself.
   const env = loadEnv(mode, __dirname, "BLOCKS_");
-  const proxyTarget = env.BLOCKS_API_BASE_URL ?? "";
+
+  const apiProxyTarget =
+    readEnv(env, "BLOCKS_DATA_BASE_URL") || readEnv(env, "BLOCKS_API_BASE_URL");
+  const iamProxyTarget = readEnv(env, "BLOCKS_IAM_BASE_URL");
   const devPort = Number(env.BLOCKS_DEV_PORT) || 4000;
+
+  if (!apiProxyTarget) {
+    console.warn(
+      "[dev-proxy] BLOCKS_DATA_BASE_URL / BLOCKS_API_BASE_URL not set — API routes are not proxied.",
+    );
+  }
+  if (!iamProxyTarget) {
+    console.warn("[dev-proxy] BLOCKS_IAM_BASE_URL not set — IAM routes are not proxied.");
+  }
+
+  const apiProxy = { target: apiProxyTarget, changeOrigin: true, secure: false };
 
   return {
     envPrefix: ["BLOCKS_"],
     define: {
-      "process.env.NEXT_PUBLIC_API_BASE_URL": JSON.stringify(proxyTarget),
-      "process.env.NEXT_PUBLIC_PROJECT_DEFAULT_API_BASE_URL":
-        JSON.stringify(proxyTarget),
+      "process.env.NEXT_PUBLIC_API_BASE_URL": JSON.stringify(env.BLOCKS_API_BASE_URL ?? ""),
+      "process.env.NEXT_PUBLIC_PROJECT_DEFAULT_API_BASE_URL": JSON.stringify(
+        env.BLOCKS_API_BASE_URL ?? "",
+      ),
     },
     plugins: [react(), stripSignalrInvalidPureAnnotations()],
     resolve: {
@@ -81,90 +109,44 @@ export default defineConfig(({ mode }) => {
         allow: [path.resolve(__dirname, "..")],
       },
       allowedHosts: [
-        "dev-data.blocksdevelopers.com",
         "dev-cloud.seliseblocks.com",
         "localhost",
         ".seliseblocks.com",
+        ".blocksdevelopers.com",
       ],
       proxy: {
-        "/dev-iam-proxy": {
-          target: "https://dev-iam.blocksdevelopers.com",
-          changeOrigin: true,
-          secure: true,
-          rewrite: (path) => path.replace(/^\/dev-iam-proxy/, ""),
-        },
-        ...(proxyTarget
+        ...(iamProxyTarget
           ? {
-              "/api": {
-                target: proxyTarget,
+              "/dev-iam-proxy": {
+                target: iamProxyTarget,
                 changeOrigin: true,
-                secure: false,
+                secure: true,
+                rewrite: (path: string) => path.replace(/^\/dev-iam-proxy/, ""),
               },
-              "/cloudbuild": {
-                target: proxyTarget,
+              "/dev-idp-proxy": {
+                target: iamProxyTarget,
                 changeOrigin: true,
-                secure: false,
+                secure: true,
+                rewrite: (path: string) => path.replace(/^\/dev-idp-proxy/, ""),
               },
-              "/idp": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/identifier": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/communication": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/cloudconfiguration": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/uilm": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/utilities": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/lmt": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/mfa": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/alert": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/blocksai-api": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/studio": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
-              "/DATA": {
-                target: proxyTarget,
-                changeOrigin: true,
-                secure: false,
-              },
+            }
+          : {}),
+        ...(apiProxyTarget
+          ? {
+              "/api": apiProxy,
+              "/cloudbuild": apiProxy,
+              "/idp": apiProxy,
+              "/identifier": apiProxy,
+              "/communication": apiProxy,
+              "/cloudconfiguration": apiProxy,
+              "/uilm": apiProxy,
+              "/utilities": apiProxy,
+              "/lmt": apiProxy,
+              "/mfa": apiProxy,
+              "/alert": apiProxy,
+              "/blocksai-api": apiProxy,
+              "/studio": apiProxy,
+              "/DATA": apiProxy,
             }
           : {}),
       },

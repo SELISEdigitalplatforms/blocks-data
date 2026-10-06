@@ -3,15 +3,18 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
+using HotChocolate.Types;
 using MongoDB.Bson;
 
 namespace DataGateway.DomainService.Helpers;
 
 public static class GraphQlTypeHelper
 {
+    public const string EnumTypeName = "Enum";
+
     public static bool IsScalar(string type) =>
             type is "String" or "Int" or "Float" or "Boolean" or "DateTime" or "ID"
-                or GeoJsonValidator.TypeName;
+                or GeoJsonValidator.TypeName or EnumTypeName;
 
     public static string GetScalarType(Type type)
     {
@@ -40,6 +43,40 @@ public static class GraphQlTypeHelper
             _ => throw new ArgumentException($"Unknown scalar type: {type}")
         };
         return isArray ? new ListTypeNode(innerType) : innerType;
+    }
+
+
+    /// <summary>
+    /// GraphQL enum type name for a field: <c>{SchemaName}{FieldName}Enum</c>.
+    /// </summary>
+    public static string GetEnumTypeName(string schemaName, string fieldName) =>
+        $"{schemaName}{ToPascalCase(fieldName)}Enum";
+
+    /// <summary>
+    /// GraphQL operation-filter input name for an Enum field.
+    /// </summary>
+    public static string GetEnumOperationFilterTypeName(string schemaName, string fieldName) =>
+        $"{schemaName}{ToPascalCase(fieldName)}EnumOperationFilterInput";
+
+    /// <summary>
+    /// Capitalizes the first character so <c>status</c> yields <c>TicketStatusEnum</c> (SPEC #353).
+    /// </summary>
+    internal static string ToPascalCase(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return name;
+        if (char.IsUpper(name[0]))
+            return name;
+        return char.ToUpperInvariant(name[0]) + name[1..];
+    }
+
+    /// <summary>
+    /// Type node for an Enum field. Unlike other scalars, Enum's GraphQL type is per-field.
+    /// </summary>
+    public static ITypeNode GetEnumTypeNode(string schemaName, string fieldName, bool isArray = false)
+    {
+        var inner = new NamedTypeNode(GetEnumTypeName(schemaName, fieldName));
+        return isArray ? new ListTypeNode(inner) : inner;
     }
 
     public static ITypeNode GetCustomTypeNode(string type)
@@ -177,7 +214,7 @@ public static class GraphQlTypeHelper
             object? value = null;
 
             // Handle Scalar Types
-            if (fieldType.IsScalarType())
+            if (fieldType.IsScalarType() || fieldType.IsEnumType())
             {
                 value = field.Value.ParseScalarValueByType(fieldType, name);
             }
@@ -246,7 +283,7 @@ public static class GraphQlTypeHelper
         if (listValueNode != null)
         {
             // Handle List of Scalars
-            if (innerType.IsScalarType())
+            if (innerType.IsScalarType() || innerType.IsEnumType())
             {
                 value = listValueNode.Items
                     .Select(item => item.ParseScalarValueByType(innerType, fieldName))
@@ -295,6 +332,13 @@ public static class GraphQlTypeHelper
         {
             return null;
         }
+
+        // Enum fields have their own per-field GraphQL enum type; stored as the plain member name.
+        if (fieldType.NamedType() is EnumType && (valueNode is EnumValueNode or StringValueNode))
+        {
+            return valueNode is EnumValueNode enumNode ? enumNode.Value : ((StringValueNode)valueNode).Value;
+        }
+
         var scalarTypeName = fieldType.NamedType()?.Name;
 
         // Get the actual scalar type name (handles NonNullType wrapper)

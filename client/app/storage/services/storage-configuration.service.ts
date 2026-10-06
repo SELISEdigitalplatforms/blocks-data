@@ -18,7 +18,7 @@ export class StorageConfiguration {
   }
 
   save(values: IStorageConfigurationSavePayload): Promise<{
-    errors: null | unknown;
+    errors: unknown;
     isSuccess: boolean;
     itemId: string;
   }> {
@@ -66,7 +66,7 @@ export class StorageConfiguration {
   }
 
   delete(payload: IStorageConfigurationDeletePayload): Promise<{
-    errors: null | unknown;
+    errors: unknown;
     isSuccess: boolean;
   }> {
     return http.post(

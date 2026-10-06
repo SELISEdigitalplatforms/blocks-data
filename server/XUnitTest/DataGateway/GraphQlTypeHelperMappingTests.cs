@@ -84,7 +84,9 @@ public class GraphQlTypeHelperMappingTests
                 new FieldDefinition { Name = "Birth", Type = "DateTime" },
                 new FieldDefinition { Name = "Nicknames", Type = "String", IsArray = true },
                 new FieldDefinition { Name = "Home", Type = "Address" },
-                new FieldDefinition { Name = "Courses", Type = "Course", IsArray = true }
+                new FieldDefinition { Name = "Courses", Type = "Course", IsArray = true },
+                new FieldDefinition { Name = "Status", Type = "Enum", EnumValues = ["Active", "Inactive"] },
+                new FieldDefinition { Name = "Levels", Type = "Enum", IsArray = true, EnumValues = ["Low", "High"] }
             }
         };
         await repo.InsertManyAsync(new List<SchemaDefinition> { address, course, rich });
@@ -123,6 +125,17 @@ public class GraphQlTypeHelperMappingTests
         var courses = ((System.Collections.IEnumerable)result["Courses"]!).Cast<object?>().ToList();
         courses.Should().HaveCount(2);
         ((Dictionary<string, object?>)courses[0]!)["Title"].Should().Be("Math");
+    }
+
+    [Fact]
+    public void MapMutationInput_EnumFields_StoredAsMemberNames()
+    {
+        var literal = ObjectLiteral("{ Name: \"John\", Status: Active, Levels: [Low, High] }");
+
+        var result = new Dictionary<string, object?>().MapMutationInput(literal, _rich);
+
+        result["Status"].Should().Be("Active");
+        ((System.Collections.IEnumerable)result["Levels"]!).Cast<object?>().Should().BeEquivalentTo(new object?[] { "Low", "High" });
     }
 
     [Fact]

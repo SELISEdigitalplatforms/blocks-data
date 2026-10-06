@@ -196,6 +196,7 @@ public static class SchemaDefinitionMapping
             Name = fieldNameParts is null || fieldNameParts.Length < 1 ? string.Empty : fieldNameParts.Last(),
             Type = field.Type,
             IsArray = field.IsArray,
+            EnumValues = field.EnumValues ?? [],
             IsPIIData = field.IsPIIData,
             IsUniqueData = field.IsUniqueData,
             Description = !string.IsNullOrEmpty(field.Description)

@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 4000 --host dev-data.blocksdevelopers.com",
+    "dev": "vite --host dev-data.blocksdevelopers.com",
     "local": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
@@ -45,7 +45,7 @@
     "@radix-ui/react-tabs": "^1.1.0",
     "@radix-ui/react-toast": "^1.2.2",
     "@radix-ui/react-tooltip": "^1.1.2",
-    "@seliseblocks/genesis-os": "^4.3.7",
+    "@seliseblocks/genesis-os": "^4.4.0",
     "@tanstack/react-query": "^5.62.11",
     "@tanstack/react-query-devtools": "^5.62.11",
     "@tanstack/react-table": "^8.20.5",
@@ -74,6 +74,7 @@
     "react-router": "^8.0.0",
     "react-syntax-highlighter": "^16.1.1",
     "recharts": "^2.15.4",
+    "regexpp": "^3.2.0",
     "sonner": "^1.5.0",
     "tailwind-merge": "^2.3.0",
     "tailwindcss-animate": "^1.0.7",
@@ -109,12 +110,14 @@
     "vitest": "^4.1.5"
   },
   "overrides": {
-    "axios": "1.18.0",
+    "axios": "1.20.0",
     "brace-expansion": "^5.0.9",
     "follow-redirects": "1.16.0",
     "form-data": "4.0.6",
     "linkify-it": "5.0.2",
-    "markdown-it": "14.2.0",
-    "ws": "7.5.11"
+    "markdown-it": "14.3.1",
+    "ws": "7.5.11",
+    "nanoid": "3.3.18",
+    "fast-uri": "3.1.8"
   }
 }

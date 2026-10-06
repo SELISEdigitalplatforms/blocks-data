@@ -8,25 +8,39 @@ const ENV_BUTTON =
 const isVisibleNow = async (locator: { isVisible: (opts: { timeout: number }) => Promise<boolean> }) =>
   locator.isVisible({ timeout: 500 }).catch(() => false)
 
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-}
-
 /** Match e2e-created names: `Test Project 123` and `${PROJECT_NAME} 123`. */
-function orphanProjectPatterns(): RegExp[] {
+function orphanProjectPrefixes(): string[] {
   const prefixes = new Set(["Test Project"])
   const configured = process.env.PROJECT_NAME?.trim()
   if (configured) prefixes.add(configured)
-  return [...prefixes].map((prefix) => new RegExp(`${escapeRegExp(prefix)} \\d+`, "g"))
+  return [...prefixes]
+}
+
+function collectPrefixedNumberedNames(bodyText: string, prefix: string): string[] {
+  const names: string[] = []
+  let from = 0
+  while (from < bodyText.length) {
+    const idx = bodyText.indexOf(prefix, from)
+    if (idx === -1) break
+    let i = idx + prefix.length
+    if (i >= bodyText.length || bodyText[i] !== " ") {
+      from = idx + 1
+      continue
+    }
+    i += 1
+    const numStart = i
+    while (i < bodyText.length && bodyText[i] >= "0" && bodyText[i] <= "9") i += 1
+    if (i > numStart) names.push(bodyText.slice(idx, i))
+    from = i
+  }
+  return names
 }
 
 async function listOrphanProjectNames(page: Page): Promise<string[]> {
   const bodyText = await page.locator("body").innerText().catch(() => "")
   const names = new Set<string>()
-  for (const pattern of orphanProjectPatterns()) {
-    for (const match of bodyText.matchAll(pattern)) {
-      names.add(match[0])
-    }
+  for (const prefix of orphanProjectPrefixes()) {
+    for (const name of collectPrefixedNumberedNames(bodyText, prefix)) names.add(name)
   }
   return [...names]
 }
@@ -305,8 +319,9 @@ export async function createProject(page: Page) {
     const nameInput = page.locator('[placeholder="Enter your project name"]:visible')
     await nameInput.fill(projectName)
 
-    await page.getByRole("checkbox", { name: "I confirm that I will use" }).click()
-    await page.getByRole("checkbox", { name: "I accept the Terms of services" }).click()
+    // Accessible names on OS create-project checkboxes (label text may differ).
+    await page.getByRole("checkbox", { name: /Use Blocks exclusively|I confirm that I will use/i }).click()
+    await page.getByRole("checkbox", { name: /Accept the Terms of services|I accept the Terms of services/i }).click()
 
     const continueButton = page.getByRole("button", { name: "Continue", exact: true })
     await expect(continueButton).toBeEnabled()
@@ -325,9 +340,9 @@ export async function createProject(page: Page) {
       page.getByText("Select environments", { exact: true }).and(page.locator(":visible")),
     ).toBeVisible({ timeout: 30_000 })
 
-    await page.getByText("Development", { exact: true }).and(page.locator(":visible")).click()
+    await page.getByRole("checkbox", { name: "Development", exact: true }).check()
     const submitButton = page.getByRole("button", { name: "Submit" })
-    await expect(submitButton).toBeEnabled()
+    await expect(submitButton).toBeEnabled({ timeout: 15_000 })
     await submitButton.click()
   })
 
@@ -422,7 +437,7 @@ export async function deleteCreatedProject(
       }
       return deleted
     } catch (error) {
-      console.warn(`[e2e] Failed to delete project "${projectName}" on OS:`, error)
+      console.warn("[e2e] Failed to delete project on OS:", projectName, error)
       return false
     }
   })

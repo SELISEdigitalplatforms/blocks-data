@@ -585,6 +585,11 @@
         <member name="M:BlocksTemplate.Api.GlobalApiRoutePrefixConvention.#ctor(System.String)">
             <summary>Prepends a segment (e.g. <c>api</c>) to every controller’s attribute route template.</summary>
         </member>
+        <member name="T:Blocks.Data.Api.Middleware.SecurityHeadersMiddleware">
+            <summary>
+            Browser security headers for SPA + API (OWASP ZAP DAST bar).
+            </summary>
+        </member>
         <member name="T:Program">
             <summary>
             Auto-generated public partial Program class for top-level statement apps.

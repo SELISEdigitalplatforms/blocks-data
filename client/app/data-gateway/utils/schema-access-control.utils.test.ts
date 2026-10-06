@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
-  ruleToText,
+  countPolicyGroups,
+  countPolicyRules,
+  formGroupToPolicyGroup,
+  policyGroupToFormGroup,
   policyRuleToFormRow,
   findFieldAtDottedPath,
   resolveFieldAccessLevel,
 } from "./schema-access-control.utils";
-import type { IField, IPolicyRule } from "../models/data-service";
+import type { IField, IPolicyRule, IPolicyRuleGroup } from "../models/data-service";
 
 const rule = (overrides: Partial<IPolicyRule>): IPolicyRule => ({
   leftSource: 0,
@@ -21,51 +24,6 @@ const field = (name: string, overrides: Partial<IField> = {}): IField =>
   ({ name, type: "String", isArray: false, ...overrides }) as IField;
 
 describe("schema-access-control.utils", () => {
-  describe("ruleToText", () => {
-    it("renders a static-value comparison with quotes", () => {
-      expect(
-        ruleToText(rule({ operator: 0, rightSource: 2, staticValue: "test@x.com" })),
-      ).toBe(`Auth's email equals "test@x.com"`);
-    });
-
-    it("renders array static values as comma-joined quoted values", () => {
-      expect(
-        ruleToText(rule({ operator: 8, rightSource: 2, staticValue: ["a", "b"] })),
-      ).toBe(`Auth's email is in "a", "b"`);
-    });
-
-    it("omits the right side for null operators", () => {
-      expect(ruleToText(rule({ operator: 12 }))).toBe("Auth's email is null");
-      expect(ruleToText(rule({ operator: 13 }))).toBe("Auth's email is not null");
-    });
-
-    it("renders a source/field comparison for schema-field right sources", () => {
-      expect(
-        ruleToText(
-          rule({ leftSource: 0, leftOperand: "userId", operator: 0, rightSource: 1, rightOperand: "ownerId" }),
-        ),
-      ).toBe("Auth's userId equals Schema Fields's ownerId");
-    });
-
-    it("renders a single schema-field right operand", () => {
-      expect(
-        ruleToText(rule({ operator: 0, rightSource: 1, rightOperand: "a" })),
-      ).toBe("Auth's email equals Schema Fields's a");
-    });
-
-    it("falls back to placeholders for unknown sources/operators", () => {
-      expect(
-        ruleToText(rule({ leftSource: 99, operator: 99, rightSource: 2, staticValue: "x" })),
-      ).toBe(`Source(99)'s email operator(99) "x"`);
-    });
-
-    it("renders empty quotes when static value is null", () => {
-      expect(ruleToText(rule({ operator: 0, rightSource: 2, staticValue: null }))).toBe(
-        `Auth's email equals ""`,
-      );
-    });
-  });
-
   describe("policyRuleToFormRow", () => {
     it("maps a basic static equal rule", () => {
       expect(
@@ -178,6 +136,85 @@ describe("schema-access-control.utils", () => {
     it("handles a single non-dotted field name", () => {
       const fields = [field("a", { writeAccessLevel: 4 })];
       expect(resolveFieldAccessLevel(fields, ["a"], "writeAccessLevel")).toBe(4);
+    });
+  });
+
+  describe("rule groups", () => {
+    const staticRule = (operand: string, value: string): IPolicyRule =>
+      rule({
+        leftSource: 1,
+        leftOperand: operand,
+        operator: 0,
+        rightSource: 2,
+        rightOperand: "",
+        rightOperands: [],
+        staticValue: value,
+      });
+
+    const flat: IPolicyRuleGroup = {
+      logicalOperator: 0,
+      rules: [staticRule("a", "1"), staticRule("b", "2")],
+      nestedGroups: [],
+    };
+
+    // (a OR b) AND (c OR d), the root holding no rules of its own.
+    const nested: IPolicyRuleGroup = {
+      logicalOperator: 0,
+      rules: [],
+      nestedGroups: [
+        { logicalOperator: 1, rules: [staticRule("a", "1"), staticRule("b", "2")], nestedGroups: [] },
+        { logicalOperator: 1, rules: [staticRule("c", "3"), staticRule("d", "4")], nestedGroups: [] },
+      ],
+    };
+
+    it("round-trips a flat group to an identical payload", () => {
+      expect(formGroupToPolicyGroup(policyGroupToFormGroup(flat))).toEqual(flat);
+    });
+
+    it("round-trips nested groups, keeping each group's own operator", () => {
+      const form = policyGroupToFormGroup(nested);
+      expect(form.logicalOperator).toBe("AND");
+      expect(form.rules).toEqual([]);
+      expect(form.nestedGroups.map((g) => g.logicalOperator)).toEqual(["OR", "OR"]);
+      expect(formGroupToPolicyGroup(form)).toEqual(nested);
+    });
+
+    it("keeps groups nested deeper than the editor builds", () => {
+      const deep: IPolicyRuleGroup = {
+        logicalOperator: 0,
+        rules: [staticRule("a", "1")],
+        nestedGroups: [
+          {
+            logicalOperator: 1,
+            rules: [staticRule("b", "2")],
+            nestedGroups: [
+              {
+                logicalOperator: 0,
+                rules: [staticRule("c", "3")],
+                nestedGroups: [{ logicalOperator: 1, rules: [staticRule("d", "4")], nestedGroups: [] }],
+              },
+            ],
+          },
+        ],
+      };
+      expect(formGroupToPolicyGroup(policyGroupToFormGroup(deep))).toEqual(deep);
+    });
+
+    it("reads a group stored without nestedGroups as having none", () => {
+      const legacy = { logicalOperator: 1, rules: [staticRule("a", "1")] } as unknown as IPolicyRuleGroup;
+      const form = policyGroupToFormGroup(legacy);
+      expect(form.logicalOperator).toBe("OR");
+      expect(form.nestedGroups).toEqual([]);
+    });
+
+    it("counts rules and groups across every level", () => {
+      expect(countPolicyRules(flat)).toBe(2);
+      expect(countPolicyGroups(flat)).toBe(0);
+      expect(countPolicyRules(nested)).toBe(4);
+      expect(countPolicyGroups(nested)).toBe(2);
+      const legacy = { logicalOperator: 0, rules: [staticRule("a", "1")] } as unknown as IPolicyRuleGroup;
+      expect(countPolicyRules(legacy)).toBe(1);
+      expect(countPolicyGroups(legacy)).toBe(0);
     });
   });
 });

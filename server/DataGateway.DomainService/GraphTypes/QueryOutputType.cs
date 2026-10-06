@@ -2,6 +2,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
+using HotChocolate.Language;
 
 namespace DataGateway.DomainService.GraphTypes;
 
@@ -23,29 +24,55 @@ public class QueryOutputType : ObjectType<object>
 
         foreach (var field in _schema.Fields)
         {
-            if (GraphQlTypeHelper.IsScalar(field.Type))
-            {
-                descriptor.Field(field.Name)
-                    .Type(GraphQlTypeHelper.GetTypeNode(field.Type, field.IsArray))
-                    .Resolve(ctx =>
-                    {
-                        var parent = ctx.Parent<object>();
-                        if (parent is IDictionary<string, object> dict)
-                        {
-                            if (field.Name == nameof(GraphQlBaseEntity.ItemId)
-                            && dict.TryGetValue(GraphQlConstant.DbEntityIdFieldName, out var idValue))
-                            {
-                                return idValue;
-                            }
-                            return dict.TryGetValue(field.Name, out var value) ? value : null;
-                        }
-                        return null;
-                    });
-            }
-            else if (_schemaMap.TryGetValue(field.Type, out _))
-            {
-                ((IObjectTypeDescriptor)descriptor).ResolveCustomObjectTypeField(field);
-            }
+            ConfigureField(descriptor, schemaName, field);
         }
+    }
+
+    private void ConfigureField(IObjectTypeDescriptor<object> descriptor, string schemaName, FieldDefinitionResponse field)
+    {
+        if (GraphQlTypeHelper.IsScalar(field.Type))
+        {
+            ConfigureScalarField(descriptor, schemaName, field);
+            return;
+        }
+
+        if (_schemaMap.TryGetValue(field.Type, out _))
+        {
+            ((IObjectTypeDescriptor)descriptor).ResolveCustomObjectTypeField(field);
+        }
+    }
+
+    private static void ConfigureScalarField(
+        IObjectTypeDescriptor<object> descriptor,
+        string schemaName,
+        FieldDefinitionResponse field)
+    {
+        var typeNode = ResolveScalarTypeNode(schemaName, field);
+        descriptor.Field(field.Name)
+            .Type(typeNode)
+            .Resolve(ctx => ResolveParentFieldValue(ctx.Parent<object>(), field.Name));
+    }
+
+    private static ITypeNode ResolveScalarTypeNode(string schemaName, FieldDefinitionResponse field)
+    {
+        return field.Type == GraphQlTypeHelper.EnumTypeName
+            ? GraphQlTypeHelper.GetEnumTypeNode(schemaName, field.Name, field.IsArray)
+            : GraphQlTypeHelper.GetTypeNode(field.Type, field.IsArray);
+    }
+
+    private static object? ResolveParentFieldValue(object parent, string fieldName)
+    {
+        if (parent is not IDictionary<string, object> dict)
+        {
+            return null;
+        }
+
+        if (fieldName == nameof(GraphQlBaseEntity.ItemId)
+            && dict.TryGetValue(GraphQlConstant.DbEntityIdFieldName, out var idValue))
+        {
+            return idValue;
+        }
+
+        return dict.TryGetValue(fieldName, out var value) ? value : null;
     }
 }

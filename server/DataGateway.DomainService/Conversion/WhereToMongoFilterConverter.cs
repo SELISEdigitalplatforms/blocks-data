@@ -26,6 +26,8 @@ public static class WhereToMongoFilterConverter
         { "eq", "neq", "gt", "gte", "lt", "lte", "in" };
     private static readonly HashSet<string> AllowedGeoJsonOps = new(StringComparer.OrdinalIgnoreCase)
         { "eq", "neq", GeoJsonGeospatialFilter.Near, GeoJsonGeospatialFilter.Within, GeoJsonGeospatialFilter.Intersects };
+    private static readonly HashSet<string> AllowedEnumOps = new(StringComparer.OrdinalIgnoreCase)
+        { "eq", "neq", "in", "nin" };
 
     private static readonly HashSet<string> LogicalOperators = new(StringComparer.OrdinalIgnoreCase)
         { "or", "and" };
@@ -370,6 +372,7 @@ public static class WhereToMongoFilterConverter
             "lt" => "$lt",
             "lte" => "$lte",
             "in" => "$in",
+            "nin" => "$nin",
             "contains" => "$regex",
             "startswith" => "$regex",
             "endswith" => "$regex",
@@ -388,6 +391,7 @@ public static class WhereToMongoFilterConverter
             "Boolean" => AllowedBoolOps,
             "DateTime" => AllowedDateTimeOps,
             GeoJsonValidator.TypeName => AllowedGeoJsonOps,
+            GraphQlTypeHelper.EnumTypeName => AllowedEnumOps,
             _ => AllowedStringOps
         };
     }

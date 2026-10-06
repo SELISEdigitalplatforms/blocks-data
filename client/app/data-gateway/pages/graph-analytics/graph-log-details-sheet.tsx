@@ -26,15 +26,15 @@ interface GraphLogDetailsSheetProps {
 
 const Field = ({ label, value }: { label: string; value: ReactNode }) => (
   <div className="flex flex-col gap-1">
-    <span className="text-xs uppercase tracking-widest text-muted-foreground/60">{label}</span>
+    <span className="text-xs uppercase tracking-widest text-muted-foreground">{label}</span>
     <span className="break-all text-sm text-foreground">{value}</span>
   </div>
 );
 
 const CodeBlock = ({ label, value }: { label: string; value: string }) => (
   <div className="flex flex-col gap-2">
-    <span className="text-xs uppercase tracking-widest text-muted-foreground/60">{label}</span>
-    <pre className="max-h-72 overflow-auto rounded-sm border border-border/50 bg-muted/40 p-3 text-xs leading-relaxed">
+    <span className="text-xs uppercase tracking-widest text-muted-foreground">{label}</span>
+    <pre className="max-h-72 overflow-auto rounded-sm border border-border/40 bg-muted/40 p-3 text-xs leading-relaxed">
       {value}
     </pre>
   </div>
@@ -106,7 +106,7 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
             {item.userAgent && <Field label="Client" value={item.userAgent} />}
 
             <div className="flex flex-col gap-2">
-              <span className="text-xs uppercase tracking-widest text-muted-foreground/60">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">
                 Where the time went
               </span>
               <PhaseBreakdown

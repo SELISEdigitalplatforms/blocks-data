@@ -10,32 +10,41 @@ import { shouldDeleteSharedProject } from "../../support/run-outcome"
 
 test.describe("data suite teardown", () => {
   test("delete shared project when all suite tests passed", async ({ page }) => {
-    test.setTimeout(120_000)
+    // Match setup budget: OS cross-origin re-auth + delete can exceed 2 minutes.
+    test.setTimeout(300_000)
 
     const fixture = readDataProject()
     if (!fixture) return
 
     if (!shouldDeleteSharedProject()) {
       console.log(
-        `[e2e] Keeping project "${fixture.projectName}" on the console ` +
-          "(a test failed or E2E_KEEP_PROJECT=1).",
+        "[e2e] Keeping project on the console (a test failed or E2E_KEEP_PROJECT=1):",
+        fixture.projectName,
       )
       return
     }
 
-    await ensureAuthenticated(page)
-    const deleted = await deleteCreatedProject(page, fixture.projectName, {
-      itemId: fixture.itemId,
-    })
-
-    clearDataProject()
-    clearDataSession()
-
-    if (!deleted) {
-      console.log(
-        `[e2e] Project "${fixture.projectName}" was not deleted automatically — ` +
-          "remove it manually from the console if needed.",
+    try {
+      await ensureAuthenticated(page)
+      const deleted = await deleteCreatedProject(page, fixture.projectName, {
+        itemId: fixture.itemId,
+      })
+      if (!deleted) {
+        console.log(
+          "[e2e] Project was not deleted automatically — remove it manually from the console if needed:",
+          fixture.projectName,
+        )
+      }
+    } catch (error) {
+      // Product suite already passed; orphan cleanup must not fail the run.
+      console.warn(
+        "[e2e] Teardown cleanup failed (non-fatal) for project:",
+        fixture.projectName,
+        error,
       )
+    } finally {
+      clearDataProject()
+      clearDataSession()
     }
   })
 })

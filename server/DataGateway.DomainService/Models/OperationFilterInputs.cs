@@ -104,3 +104,16 @@ public sealed class GeoJsonGeometryFilterInput
 {
     public object? Geometry { get; set; }
 }
+
+/// <summary>
+/// CLR backing for per-field GraphQL <c>{Schema}{Field}EnumOperationFilterInput</c>: eq, neq, in, nin.
+/// Values are strings (the enum member names); HotChocolate type-checks them against the field's EnumType.
+/// </summary>
+public sealed class EnumOperationFilterInput
+{
+    public Optional<string?> Eq { get; set; }
+    public Optional<string?> Neq { get; set; }
+    public Optional<object?> In { get; set; }
+    public Optional<object?> Nin { get; set; }
+}
+

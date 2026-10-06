@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
+import { MemoryRouter } from "react-router";
 
 const navigateMock = vi.fn();
 const setQueryParams = vi.fn();
@@ -113,6 +114,13 @@ vi.mock("./schema-side-bar", () => ({
     </button>
   ),
 }));
+// The explorer keeps both the sidebar and the rail mounted — it animates the
+// column's width rather than swapping the two — so the rail is on screen here
+// as well, and its useSchemaList call is outside this file's
+// use-configuration mock.
+vi.mock("./schema-rail", () => ({
+  SchemaRail: () => <div data-testid="rail" />,
+}));
 vi.mock("./schema-basic-info", () => ({
   SchemaBasicInfo: ({ onDeleteSuccess }: { onDeleteSuccess: () => void }) => (
     <button data-testid="delete-success" onClick={onDeleteSuccess}>
@@ -155,8 +163,21 @@ vi.mock("./add-edit-schema", () => ({
     </div>
   ),
 }));
-vi.mock("./data-gateway-actions", () => ({
-  DataGatewayActions: () => <div data-testid="actions" />,
+vi.mock("./page-bar", () => ({
+  DataGatewayPageBar: () => <div data-testid="page-bar" />,
+}));
+// The inspector pulls in the whole access-control stack, which reaches the
+// http client at import time; the page's job here is just to mount it.
+vi.mock("./access-inspector", () => ({
+  AccessInspector: ({ target }: { target: { subject: string } }) => (
+    <div data-testid="access-inspector">{target.subject}</div>
+  ),
+}));
+// Reaches the storage service's HttpClient construction at import time, same
+// reason access-inspector is mocked above; the page's job here is just to
+// mount it, not exercise the upload flow.
+vi.mock("./import-schema-modal", () => ({
+  default: () => <div data-testid="import-schema-modal" />,
 }));
 
 import { SchemaDetailsPage } from "./schema-details-page";
@@ -165,7 +186,9 @@ function renderPage() {
   const Wrapper = createWrapper();
   render(
     <Wrapper>
-      <SchemaDetailsPage />
+      <MemoryRouter initialEntries={["/dg"]}>
+        <SchemaDetailsPage />
+      </MemoryRouter>
     </Wrapper>,
   );
 }
@@ -279,29 +302,4 @@ describe("SchemaDetailsPage - interactions", () => {
     );
   });
 
-  describe("security landing callbacks", () => {
-    beforeEach(() => {
-      params = { type: null, schemaId: null, page: 1, pageSize: 10 };
-    });
-
-    it("routes a schema row click, a created schema, and navigate-to-schemas", async () => {
-      const user = userEvent.setup();
-      renderPage();
-      await user.click(screen.getByRole("button", { name: "row-click" }));
-      expect(setQueryParams).toHaveBeenLastCalledWith(
-        expect.objectContaining({ type: "all", schemaId: "row1" }),
-        { history: "push" },
-      );
-      await user.click(screen.getByRole("button", { name: "created" }));
-      expect(setQueryParams).toHaveBeenLastCalledWith(
-        expect.objectContaining({ type: "all", schemaId: "created1" }),
-        { history: "push" },
-      );
-      await user.click(screen.getByRole("button", { name: "to-schemas" }));
-      expect(setQueryParams).toHaveBeenLastCalledWith(
-        { type: "all", page: 1, pageSize: 10, schemaId: null },
-        { history: "push" },
-      );
-    });
-  });
 });

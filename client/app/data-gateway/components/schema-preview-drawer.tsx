@@ -168,6 +168,8 @@ export function SchemaPreviewDrawer({
       {trigger ? <DrawerTrigger asChild>{trigger}</DrawerTrigger> : null}
       <DrawerContent
         onCloseAutoFocus={handleCloseAutoFocus}
+        // Lighter than the shared 80% scrim so the schema behind stays readable.
+        overlayClassName="bg-black/40"
         className={cn(
           "inset-y-0 left-auto right-0 mt-0 h-full w-full rounded-none border-l border-border/40 bg-background md:w-[48vw] md:max-w-2xl [&>div:first-child]:hidden",
           "transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",

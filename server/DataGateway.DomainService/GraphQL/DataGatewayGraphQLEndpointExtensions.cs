@@ -90,6 +90,11 @@ public static class DataGatewayGraphQLEndpointExtensions
         // Pin the resolved tenant for the rest of the request (schema build + data access).
         RequestContextAccessor.Current.TenantId = tenantId;
 
+        // Catch up with a publish handled by another pod. Never blocks on a rebuild: this request
+        // is served by the current executor while a newer one is built in the background.
+        var versionTracker = context.RequestServices.GetRequiredService<SchemaVersionTracker>();
+        await versionTracker.EnsureCurrentAsync(tenantId, context.RequestAborted);
+
         var dispatcher = context.RequestServices.GetRequiredService<DataGatewayPipelineDispatcher>();
         var pipeline = dispatcher.GetPipeline(tenantId);
         await pipeline(context);

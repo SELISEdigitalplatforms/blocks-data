@@ -24,7 +24,11 @@ public class GraphqlSchemaBuilder
         _logger = logger;
     }
 
-    public async Task BuildSchema(string tenantId, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
+    /// <summary>
+    /// Adds the tenant's types to <paramref name="schemaBuilder"/>. Returns false when the tenant
+    /// has no schema definitions, in which case nothing is added.
+    /// </summary>
+    public async Task<bool> BuildSchema(string tenantId, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
     {
         try
         {
@@ -33,7 +37,7 @@ public class GraphqlSchemaBuilder
             if (schemas is null || schemas.Count == 0)
             {
                 _logger.LogInformation("Default health check query types created for tenant: {TenantId}", tenantId);
-                return;
+                return false;
             }
 
             if (schemas.Count > 1)
@@ -79,8 +83,7 @@ public class GraphqlSchemaBuilder
             schemaBuilder.AddMutationType(mutationType);
 
             _logger.LogInformation("GraphQL schema built for tenant: {TenantId}", tenantId);
-            await AdaptSchemaChangeLogsToServerAsync();
-            _logger.LogInformation("Schema change logs adapted to server successfully");
+            return true;
         }
         catch (InvalidOperationException ex) when (ex.Message.StartsWith("SCHEMA_FILTER_CYCLE", StringComparison.Ordinal))
         {
@@ -89,7 +92,10 @@ public class GraphqlSchemaBuilder
         }
         catch (Exception ex)
         {
+            // Rethrow so a failed rebuild keeps the executor that is already serving, instead of
+            // replacing it with a half-configured schema.
             _logger.LogError(ex, "Error occurred while building GraphQL schema for tenant: {TenantId}, message: {Message}", tenantId, ex.Message);
+            throw;
         }
 
     }
@@ -367,24 +373,6 @@ public class GraphqlSchemaBuilder
         schema.Policies.RemoveAll(p => p.SchemaId == schema.ItemId && p.PolicyType == PolicyType.CLS && p.Operation == operation && p.FieldNames.Contains(fieldPath));
         schema.Policies.AddRange(clsPolicies);
     }
-
-    private async Task AdaptSchemaChangeLogsToServerAsync()
-    {
-        try
-        {
-            _logger.LogInformation("Adapting schema change logs to server");
-            var filter = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), false);
-            var update = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), true);
-            var result = await _repository.UpdateManyAsync($"{nameof(SchemaChangeLog)}s", filter, update);
-            _logger.LogInformation("Adapted {ModifiedCount} schema change logs to server", result.TotalImpactedData);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error occurred while adopting schema change log to server");
-        }
-    }
-
-
 
     private static void BuildFilterAndSortTypes(
         ISchemaBuilder schemaBuilder,

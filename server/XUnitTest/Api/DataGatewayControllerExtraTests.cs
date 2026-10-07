@@ -166,6 +166,26 @@ public class DataGatewayControllerExtraTests
     }
 
     [Fact]
+    public async Task SchemaConfiguration_Reload_Returns400WhenTheSchemaDoesNotBuild()
+    {
+        ClearContext();
+        SetContext(tenantId: "t-reload");
+        try
+        {
+            var svc = new Mock<ISchemaConfigurationService>();
+            svc.Setup(s => s.ReloadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new SchemaPublishException("does not build", new InvalidOperationException("bad type")));
+            var controller = new SchemaConfigurationController(svc.Object, NullLogger<SchemaConfigurationController>.Instance);
+
+            var result = await controller.ReloadDataGatewayServerAsync();
+
+            Status(result).Should().Be(400);
+            Read(((ObjectResult)result).Value, "message").Should().Be("does not build");
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
     public void SchemaConfiguration_Constructor_RejectsNullDependencies()
     {
         var svc = new Mock<ISchemaConfigurationService>().Object;

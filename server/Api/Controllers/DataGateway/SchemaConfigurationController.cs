@@ -30,14 +30,17 @@ public class SchemaConfigurationController : ControllerBase
     }
 
     /// <summary>
-    /// Reloads the GraphQL schema configuration and resolves all unadapted changes.
-    /// This endpoint evicts the cached schema executor and marks all pending schema changes as adapted to the server.
+    /// Publishes the tenant's schema changes to every gateway pod and resolves all unadapted changes.
+    /// The definitions are test-built first; if they build, the tenant's published version is raised (every pod
+    /// rebuilds when it sees the new version), this pod's executor is rebuilt before the response, and the pending
+    /// schema changes are marked as adapted to the server.
     /// Use this endpoint after making changes to schema definitions or data sources to refresh the schema and clear deployment badges in the UI.
     /// </summary>
-    /// <returns>Returns a success response if the schema is reloaded and changes are resolved, or an error message if the operation fails.</returns>
+    /// <returns>Returns a success response if the schema is published, 400 with the build error if the definitions do not build (nothing is published), or an error message if the operation fails.</returns>
     [HttpPost("reload")]
     [ProtectedEndPoint("blocks-data::schema-configuration::reload-data-gateway-server")]
     [ProducesResponseType(typeof(ServiceResponse<bool>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ReloadDataGatewayServerAsync()
     {
@@ -47,6 +50,11 @@ public class SchemaConfigurationController : ControllerBase
             _logger.LogInformation("Evicting schema for tenant: {TenantId}", tenantId);
             await _configurationService.ReloadAsync(tenantId, CancellationToken.None);
             return Ok(new ServiceResponse<bool>().SetSuccessMessage("Schema evicted successfully."));
+        }
+        catch (SchemaPublishException ex)
+        {
+            // The definitions do not build; nothing was published.
+            return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {

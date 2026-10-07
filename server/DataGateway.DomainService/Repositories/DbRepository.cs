@@ -280,6 +280,17 @@ public class DbRepository : IDbRepository
         return await MongoCollectionOperations.UpdateManyAsync(collection, filter, data);
     }
 
+    public async Task<BsonDocument?> FindOneAndUpdateAsync(string collectionName,
+        BsonDocument filter,
+        UpdateDefinition<BsonDocument> update,
+        bool isUpsert = false,
+        string databaseName = "")
+    {
+        var database = ResolveDatabase(databaseName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
+        return await MongoCollectionOperations.FindOneAndUpdateAsync(collection, filter, update, isUpsert);
+    }
+
     #endregion
 
     #region Delete

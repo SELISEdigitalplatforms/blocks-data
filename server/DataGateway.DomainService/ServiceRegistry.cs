@@ -18,6 +18,8 @@ using DataGateway.DomainService.Helpers;
 using HotChocolate.Execution.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using k8s;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace DataGateway.DomainService;
 
@@ -79,6 +81,15 @@ public static class ServiceRegistry
         serviceCollection.AddSingleton<IQueryService, QueryService>();
         serviceCollection.AddSingleton<IMutationService, MutationService>();
         serviceCollection.AddSingleton<SchemaResolver>();
+        serviceCollection.AddSingleton<ISchemaVersionStore, SchemaVersionStore>();
+        serviceCollection.AddSingleton<BuiltSchemaVersions>();
+        serviceCollection.AddSingleton<ITenantSchemaConfigurator, TenantSchemaConfigurator>();
+        serviceCollection.AddSingleton(sp => new SchemaVersionTracker(
+            sp.GetRequiredService<ISchemaVersionStore>(),
+            sp.GetRequiredService<BuiltSchemaVersions>(),
+            sp,
+            sp.GetRequiredService<IConfiguration>(),
+            sp.GetRequiredService<ILogger<SchemaVersionTracker>>()));
         serviceCollection.AddGraphQLServers();
 
     }
@@ -92,7 +103,8 @@ public static class ServiceRegistry
                 options.MaxFieldCost = 3000;
                 options.MaxTypeCost = 3000;
             })
-            .ConfigureSchemaAsync(ConfigureGraphQLSchemaAsync)
+            // Each tenant's schema is added per schema name by ProjectExecutorOptionsMonitor.
+            //
             // Rides HotChocolate's own instrumentation hook (already part of its implicit default
             // pipeline) instead of a custom request middleware, so nothing about the pipeline
             // itself needs to be touched or rebuilt.
@@ -106,41 +118,5 @@ public static class ServiceRegistry
         serviceCollection.AddSingleton<IRequestExecutorOptionsMonitor>(sp =>
             sp.GetRequiredService<ProjectExecutorOptionsMonitor>());
         serviceCollection.AddSingleton<DataGatewayPipelineDispatcher>();
-    }
-
-    private static async ValueTask ConfigureGraphQLSchemaAsync(IServiceProvider services, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
-    {
-        Console.WriteLine("Configuring GraphQL schema for tenant");
-        // Skip schema configuration when HttpContext is unavailable.
-        var httpContext = RequestContextAccessor.Current.HttpContext;
-        if (httpContext == null)
-        {
-            Console.WriteLine("ConfigureGraphQLSchemaAsync: HttpContext is null, skipping schema configuration");
-            return;
-        }
-
-        // HttpContext may already be disposed on late pipeline stages.
-        try
-        {
-            Console.WriteLine($"ConfigureGraphQLSchemaAsync: HttpContext is available, request path: {httpContext.Request.Path}");
-            _ = httpContext.RequestAborted;
-        }
-        catch (ObjectDisposedException)
-        {
-            Console.WriteLine("ConfigureGraphQLSchemaAsync: HttpContext is disposed, skipping schema configuration");
-            return;
-        }
-
-        var tenantId = TenantContext.GetTenantId();
-        Console.WriteLine($"Configuring schema for tenant id: {tenantId}");
-
-        if (string.IsNullOrWhiteSpace(tenantId))
-        {
-            Console.WriteLine("Tenant ID is empty, skipping schema configuration");
-            return;
-        }
-
-        var schemaBuilderService = services.GetRequiredService<GraphqlSchemaBuilder>();
-        await schemaBuilderService.BuildSchema(tenantId, schemaBuilder, cancellationToken);
     }
 }

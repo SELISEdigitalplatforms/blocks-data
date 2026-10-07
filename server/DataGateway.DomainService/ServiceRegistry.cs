@@ -90,6 +90,10 @@ public static class ServiceRegistry
             sp,
             sp.GetRequiredService<IConfiguration>(),
             sp.GetRequiredService<ILogger<SchemaVersionTracker>>()));
+        serviceCollection.AddHostedService(sp => new SchemaPublishSubscriber(
+            sp.GetRequiredService<ICacheClient>(),
+            sp.GetRequiredService<SchemaVersionTracker>(),
+            sp.GetRequiredService<ILogger<SchemaPublishSubscriber>>()));
         serviceCollection.AddGraphQLServers();
 
     }

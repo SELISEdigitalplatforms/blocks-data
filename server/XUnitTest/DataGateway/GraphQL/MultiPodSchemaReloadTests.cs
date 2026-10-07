@@ -34,6 +34,9 @@ public class MultiPodSchemaReloadTests
     private readonly IMongoDatabase _db;
     private readonly DbRepository _repository;
 
+    // Replicas share one Redis as well as the database.
+    private readonly InMemoryCacheClient _cache = new();
+
     public MultiPodSchemaReloadTests(MongoFixture fixture)
     {
         _db = fixture.CreateDatabase();
@@ -50,6 +53,7 @@ public class MultiPodSchemaReloadTests
         public SchemaVersionTracker Tracker => Services.GetRequiredService<SchemaVersionTracker>();
         public SchemaConfigurationService Configuration => Services.GetRequiredService<SchemaConfigurationService>();
         public BuiltSchemaVersions BuiltVersions => Services.GetRequiredService<BuiltSchemaVersions>();
+        public SchemaPublishSubscriber Subscriber => Services.GetRequiredService<SchemaPublishSubscriber>();
 
         public ValueTask DisposeAsync() => Services.DisposeAsync();
     }
@@ -64,6 +68,7 @@ public class MultiPodSchemaReloadTests
         services.AddSingleton<DataGatewayPipelineDispatcher>();
 
         services.AddSingleton<IDbRepository>(_repository);
+        services.AddSingleton<ICacheClient>(_cache);
         services.AddSingleton(new SchemaResolver(new Mock<IMutationService>().Object, new Mock<IQueryService>().Object));
         services.AddSingleton<GraphqlSchemaBuilder>();
         services.AddSingleton<ISchemaVersionStore, SchemaVersionStore>();
@@ -79,6 +84,8 @@ public class MultiPodSchemaReloadTests
             SchemaVersionTracker.DefaultPollInterval,
             NullLogger<SchemaVersionTracker>.Instance));
         services.AddSingleton<SchemaConfigurationService>();
+        services.AddSingleton(sp => new SchemaPublishSubscriber(
+            _cache, sp.GetRequiredService<SchemaVersionTracker>(), NullLogger<SchemaPublishSubscriber>.Instance));
 
         return new Pod { Services = services.BuildServiceProvider() };
     }
@@ -198,6 +205,24 @@ public class MultiPodSchemaReloadTests
     }
 
     [Fact]
+    public async Task AReloadOnOnePodReachesAnotherPodThroughTheRedisMessage()
+    {
+        await SeedPersonAsync("Name");
+        await using var podA = StartPod();
+        await using var podB = StartPod();
+        await podB.Subscriber.StartAsync(CancellationToken.None);
+        var beforeB = await podB.Resolver.GetRequestExecutorAsync(Tenant);
+        _ = await podA.Resolver.GetRequestExecutorAsync(Tenant);
+
+        await SeedPersonAsync("Name", "Age");
+        await podA.Configuration.ReloadAsync(Tenant, CancellationToken.None);
+
+        // Pod B gets no request and runs no check: the announcement alone brings it up to date.
+        HasPersonField(await WaitForRebuildAsync(podB, beforeB), "Age").Should().BeTrue();
+        await podB.Subscriber.StopAsync(CancellationToken.None);
+    }
+
+    [Fact]
     public async Task AReloadOnOnePodReachesAnotherPodOnItsNextCheck()
     {
         await SeedPersonAsync("Name");
@@ -212,7 +237,7 @@ public class MultiPodSchemaReloadTests
         // Pod A handled the reload and rebuilds straight away.
         HasPersonField(await WaitForRebuildAsync(podA, beforeA), "Age").Should().BeTrue();
 
-        // Pod B was never told directly; its next request finds it is behind.
+        // Pod B is not subscribed (as if the message were lost); its next request finds it is behind.
         await podB.Tracker.EnsureCurrentAsync(Tenant);
         var afterB = await WaitForRebuildAsync(podB, beforeB);
 

@@ -90,9 +90,14 @@ public class SchemaConfigurationService : ISchemaConfigurationService
             await _repository.UpdateManyAsync(ChangeLogCollectionName, filter, update, tenantId);
         }
 
+        // Start this pod's rebuild before announcing, so the announcement does not trigger a
+        // second rebuild here; other pods rebuild in parallel with this one.
+        var localRebuild = _versionTracker.RebuildNowAsync(tenantId, version, LocalRebuildTimeout, cancellationToken);
+        await _versionStore.AnnounceAsync(tenantId, version);
+
         // Wait for this pod's new executor, so the request the client sends right after a publish
         // (it re-reads the schema) gets the new schema rather than the one being replaced.
-        var rebuilt = await _versionTracker.RebuildNowAsync(tenantId, version, LocalRebuildTimeout, cancellationToken);
+        var rebuilt = await localRebuild;
         if (!rebuilt)
         {
             // The definitions built a moment ago, so this is transient; the version is already

@@ -10,9 +10,10 @@ namespace DataGateway.DomainService.GraphQL;
 /// <summary>
 /// Keeps this pod's GraphQL executors on the tenant's latest published schema version.
 ///
-/// Publishing raises a version number stored in the tenant database. On a gateway request the
-/// tracker compares the version this pod built (<see cref="BuiltSchemaVersions"/>) with the stored
-/// one, at most once per poll interval per tenant. When the pod is behind it evicts the tenant's
+/// Publishing raises a version number stored in the tenant database. A pod learns about it in two
+/// ways: a Redis message sent on publish (<see cref="OnVersionPublishedAsync"/>, about a second),
+/// and, in case that message is lost, a check on gateway requests at most once per poll interval
+/// per tenant (<see cref="EnsureCurrentAsync"/>). When the pod is behind it evicts the tenant's
 /// executor; HotChocolate rebuilds it in the background and swaps it in, while requests keep being
 /// served by the old executor. The request that runs the check is never failed by it.
 /// </summary>
@@ -87,6 +88,15 @@ public sealed class SchemaVersionTracker
         try
         {
             check.CheckedAt = now;
+
+            // The Redis copy answers the common case ("nothing changed") cheaply. It can be wrong,
+            // so a difference is confirmed against MongoDB before rebuilding.
+            var cachedVersion = await _versionStore.GetCachedAsync(tenantId, cancellationToken);
+            if (cachedVersion == builtVersion)
+            {
+                return;
+            }
+
             var currentVersion = await _versionStore.GetAsync(tenantId, cancellationToken);
             if (currentVersion != builtVersion)
             {
@@ -100,6 +110,37 @@ public sealed class SchemaVersionTracker
         finally
         {
             check.Exit();
+        }
+    }
+
+    /// <summary>
+    /// Handles a publish announced by another pod: checks MongoDB for the tenant straight away
+    /// instead of waiting for the next poll. The message only triggers the check, so a stale or
+    /// unexpected message can at worst cost one read.
+    /// </summary>
+    public async Task OnVersionPublishedAsync(string tenantId, long version, CancellationToken cancellationToken = default)
+    {
+        // Messages can arrive late or out of order; one for a version this pod already serves
+        // (or a tenant it has not built) needs nothing.
+        if (!_builtVersions.TryGetBuilt(tenantId, out var builtVersion) || builtVersion >= version)
+        {
+            return;
+        }
+
+        try
+        {
+            var currentVersion = await _versionStore.GetAsync(tenantId, cancellationToken);
+            if (currentVersion != builtVersion)
+            {
+                var check = _checks.GetOrAdd(tenantId, _ => new TenantCheck());
+                var now = _timeProvider.GetUtcNow();
+                check.CheckedAt = now;
+                RequestRebuild(tenantId, currentVersion, check, now);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not check the published schema version for tenant {TenantId} after a publish message", tenantId);
         }
     }
 

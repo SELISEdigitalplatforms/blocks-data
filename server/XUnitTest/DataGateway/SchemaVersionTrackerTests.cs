@@ -25,8 +25,15 @@ public class SchemaVersionTrackerTests
     private SchemaVersionTracker Tracker() => new(
         _store.Object, _built, () => _resolver.Object, _time, Poll, NullLogger<SchemaVersionTracker>.Instance);
 
-    private void PublishedVersionIs(long version) =>
+    /// <summary>MongoDB and its Redis copy agree on the published version.</summary>
+    private void PublishedVersionIs(long version)
+    {
         _store.Setup(s => s.GetAsync("tenant-1", It.IsAny<CancellationToken>())).ReturnsAsync(version);
+        _store.Setup(s => s.GetCachedAsync("tenant-1", It.IsAny<CancellationToken>())).ReturnsAsync(version);
+    }
+
+    private void CachedVersionIs(long version) =>
+        _store.Setup(s => s.GetCachedAsync("tenant-1", It.IsAny<CancellationToken>())).ReturnsAsync(version);
 
     private void BuiltAt(long version)
     {
@@ -64,6 +71,7 @@ public class SchemaVersionTrackerTests
         await Tracker().EnsureCurrentAsync("tenant-1");
 
         // It will be built on demand at the latest version; nothing to check or evict.
+        _store.Verify(s => s.GetCachedAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _store.Verify(s => s.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
         _resolver.Verify(r => r.EvictRequestExecutor(It.IsAny<string>()), Times.Never);
     }
@@ -80,12 +88,36 @@ public class SchemaVersionTrackerTests
         await tracker.EnsureCurrentAsync("tenant-1");
         await tracker.EnsureCurrentAsync("tenant-1");
 
-        _store.Verify(s => s.GetAsync("tenant-1", It.IsAny<CancellationToken>()), Times.Once);
+        _store.Verify(s => s.GetCachedAsync("tenant-1", It.IsAny<CancellationToken>()), Times.Once);
 
         _time.Advance(TimeSpan.FromSeconds(1));
         await tracker.EnsureCurrentAsync("tenant-1");
 
-        _store.Verify(s => s.GetAsync("tenant-1", It.IsAny<CancellationToken>()), Times.Exactly(2));
+        _store.Verify(s => s.GetCachedAsync("tenant-1", It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task EnsureCurrent_DoesNotReadMongoWhileTheRedisCopyMatches()
+    {
+        BuiltAt(7);
+        PublishedVersionIs(7);
+
+        await Tracker().EnsureCurrentAsync("tenant-1");
+
+        _store.Verify(s => s.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EnsureCurrent_ConfirmsAChangeWithMongoBeforeRebuilding()
+    {
+        BuiltAt(7);
+        PublishedVersionIs(7);
+        CachedVersionIs(9); // a wrong copy, e.g. written by a race or left over
+
+        await Tracker().EnsureCurrentAsync("tenant-1");
+
+        _store.Verify(s => s.GetAsync("tenant-1", It.IsAny<CancellationToken>()), Times.Once);
+        _resolver.Verify(r => r.EvictRequestExecutor(It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -127,13 +159,83 @@ public class SchemaVersionTrackerTests
     public async Task EnsureCurrent_NeverFailsTheRequestWhenTheStoreIsUnavailable()
     {
         BuiltAt(6);
-        _store.Setup(s => s.GetAsync("tenant-1", It.IsAny<CancellationToken>()))
+        _store.Setup(s => s.GetCachedAsync("tenant-1", It.IsAny<CancellationToken>()))
               .ThrowsAsync(new TimeoutException("mongo down"));
 
         var act = async () => await Tracker().EnsureCurrentAsync("tenant-1");
 
         await act.Should().NotThrowAsync();
         _resolver.Verify(r => r.EvictRequestExecutor(It.IsAny<string>()), Times.Never);
+    }
+
+    // ---------------- publish messages ----------------
+
+    [Fact]
+    public async Task OnVersionPublished_RebuildsOnceMongoConfirmsTheNewVersion()
+    {
+        BuiltAt(6);
+        PublishedVersionIs(7);
+
+        await Tracker().OnVersionPublishedAsync("tenant-1", 7);
+
+        _resolver.Verify(r => r.EvictRequestExecutor("tenant-1"), Times.Once);
+    }
+
+    [Fact]
+    public async Task OnVersionPublished_IgnoresAVersionThisPodAlreadyServes()
+    {
+        BuiltAt(7);
+
+        await Tracker().OnVersionPublishedAsync("tenant-1", 7);
+        await Tracker().OnVersionPublishedAsync("tenant-1", 5); // late or out of order
+
+        _store.Verify(s => s.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _resolver.Verify(r => r.EvictRequestExecutor(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OnVersionPublished_IgnoresATenantThisPodHasNotBuilt()
+    {
+        await Tracker().OnVersionPublishedAsync("tenant-1", 7);
+
+        _resolver.Verify(r => r.EvictRequestExecutor(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OnVersionPublished_DoesNotRebuildForAMessageMongoDoesNotConfirm()
+    {
+        BuiltAt(6);
+        PublishedVersionIs(6);
+
+        await Tracker().OnVersionPublishedAsync("tenant-1", 9);
+
+        _resolver.Verify(r => r.EvictRequestExecutor(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OnVersionPublished_DoesNotRepeatARebuildThisPodAlreadyStarted()
+    {
+        BuiltAt(6);
+        PublishedVersionIs(7);
+        var tracker = Tracker();
+
+        // The publishing pod starts its own rebuild, then hears its own announcement.
+        await tracker.RebuildNowAsync("tenant-1", 7, TimeSpan.FromMilliseconds(20));
+        await tracker.OnVersionPublishedAsync("tenant-1", 7);
+
+        _resolver.Verify(r => r.EvictRequestExecutor("tenant-1"), Times.Once);
+    }
+
+    [Fact]
+    public async Task OnVersionPublished_SwallowsStoreFailures()
+    {
+        BuiltAt(6);
+        _store.Setup(s => s.GetAsync("tenant-1", It.IsAny<CancellationToken>()))
+              .ThrowsAsync(new TimeoutException("mongo down"));
+
+        var act = () => Tracker().OnVersionPublishedAsync("tenant-1", 7);
+
+        await act.Should().NotThrowAsync();
     }
 
     /// <summary>Makes the mocked eviction behave like HotChocolate: the executor is rebuilt at <paramref name="version"/>.</summary>

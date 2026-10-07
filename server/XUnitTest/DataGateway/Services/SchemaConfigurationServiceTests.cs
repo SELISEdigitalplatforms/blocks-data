@@ -72,12 +72,14 @@ public class SchemaConfigurationServiceTests
         SchemaConfigurationService Service,
         SchemaVersionStore VersionStore,
         BuiltSchemaVersions BuiltVersions,
-        Mock<IRequestExecutorResolver> Resolver);
+        Mock<IRequestExecutorResolver> Resolver,
+        InMemoryCacheClient Cache);
 
     private Harness Build()
     {
         var repository = Repository();
-        var versionStore = new SchemaVersionStore(repository);
+        var cache = new InMemoryCacheClient();
+        var versionStore = new SchemaVersionStore(repository, cache, NullLogger<SchemaVersionStore>.Instance);
         var builtVersions = new BuiltSchemaVersions();
         var resolver = new Mock<IRequestExecutorResolver>();
         var tracker = new SchemaVersionTracker(
@@ -92,7 +94,7 @@ public class SchemaConfigurationServiceTests
             resolver.Object,
             NullLogger<SchemaConfigurationService>.Instance);
 
-        return new Harness(service, versionStore, builtVersions, resolver);
+        return new Harness(service, versionStore, builtVersions, resolver, cache);
     }
 
     private static void MarkBuilt(BuiltSchemaVersions builtVersions, string tenantId, long version)
@@ -180,6 +182,30 @@ public class SchemaConfigurationServiceTests
     }
 
     [Fact]
+    public async Task ReloadAsync_AnnouncesTheNewVersionToEveryPod()
+    {
+        var harness = Build();
+
+        await harness.Service.ReloadAsync("tenant-1", CancellationToken.None);
+
+        var (channel, message) = harness.Cache.Published.Should().ContainSingle().Subject;
+        channel.Should().Be(SchemaVersionStore.ChannelName);
+        System.Text.Json.JsonSerializer.Deserialize<SchemaVersionPublished>(message)
+            .Should().Be(new SchemaVersionPublished("tenant-1", 1));
+    }
+
+    [Fact]
+    public async Task ReloadAsync_StillPublishesWhenTheAnnouncementFails()
+    {
+        var harness = Build();
+        harness.Cache.FailPublish = true;
+
+        await harness.Service.ReloadAsync("tenant-1", CancellationToken.None);
+
+        (await harness.VersionStore.GetAsync("tenant-1")).Should().Be(1, "other pods still catch up on their next check");
+    }
+
+    [Fact]
     public async Task RemoveSchemaAsync_EvictsTheTenantsExecutor()
     {
         var harness = Build();
@@ -225,7 +251,7 @@ public class SchemaConfigurationServiceTests
     {
         var builder = Builder();
         var repository = Repository();
-        var versionStore = new SchemaVersionStore(repository);
+        var versionStore = new SchemaVersionStore(repository, new InMemoryCacheClient(), NullLogger<SchemaVersionStore>.Instance);
         var resolver = new Mock<IRequestExecutorResolver>().Object;
         var tracker = new SchemaVersionTracker(
             versionStore, new BuiltSchemaVersions(), () => resolver, TimeProvider.System,

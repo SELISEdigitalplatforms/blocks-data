@@ -2,13 +2,20 @@ import { expect, type Page } from "@playwright/test";
 import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
 import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
-import { openDataGateway } from "../../support/open-data-gateway";
+import { openDataGateway, resolveDataProjectId } from "../../support/open-data-gateway";
+import { e2eBaseUrl } from "../../support/env";
 
 async function openAnalytics(page: Page) {
   await openDataGateway(page);
-  const analyticsTab = page.getByRole("link", { name: "Analytics" });
-  await expect(analyticsTab).toBeVisible({ timeout: 15_000 });
-  await analyticsTab.click();
+  // The Data Gateway sub-nav no longer surfaces an "Analytics" link on the
+  // schemas/security/playground page. Navigate directly to the analytics route
+  // using the resolved project id.
+  const projectId = resolveDataProjectId(page);
+  if (projectId) {
+    await page.goto(`${e2eBaseUrl()}/app/${projectId}/data-gateway/analytics`, {
+      waitUntil: "domcontentloaded",
+    });
+  }
   await expect(page).toHaveURL(/\/analytics/, { timeout: 30_000 });
 }
 

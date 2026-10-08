@@ -422,7 +422,10 @@ test.describe("flow: Storage menu", () => {
     await test.step("Provider card → hover folder → Manage access → form validation", async () => {
       const targetFolderName = openedConfiguration ? dirName : "e2e-mocked-folder";
 
-      await page.goto(storageBasePath, { waitUntil: "domcontentloaded" });
+      // Re-enter the storage page via the sidebar rather than goto() — the
+      // stored path can fall out of sync with the live session and bounce the
+      // browser back to the marketing landing.
+      await openStorage(page);
       await expect(page.getByRole("heading", { name: "Storage" })).toBeVisible({ timeout: 30_000 });
 
       const providerCard = page.getByRole("main").locator('[class*="cursor-pointer"]').first();

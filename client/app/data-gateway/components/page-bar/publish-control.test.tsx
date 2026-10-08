@@ -81,6 +81,24 @@ describe("PublishControl", () => {
     expect(showErrorToast).toHaveBeenCalled();
   });
 
+  // A schema that does not build is refused with the reason, which the admin
+  // needs to fix their drafts.
+  it("shows why the schema could not be published", async () => {
+    const user = userEvent.setup();
+    useGetUnadaptedChangeLogs.mockReturnValue({ data: { data: [{ id: "a" }] } });
+    const reason = "The schema could not be published because it does not build: bad type";
+    reloadMutateAsync.mockRejectedValue(
+      Object.assign(new Error("400"), { status: 400, errors: { message: reason } }),
+    );
+    render(<PublishControl />);
+
+    await user.click(screen.getByRole("button", { name: /Publish/ }));
+
+    await waitFor(() =>
+      expect(showErrorToast).toHaveBeenCalledWith({ errors: { message: reason } }),
+    );
+  });
+
   // The API answers 200 with isSuccess:false, which is not an exception.
   it("treats an unsuccessful response as a failure too", async () => {
     const user = userEvent.setup();

@@ -82,6 +82,8 @@ public static class ServiceRegistry
         serviceCollection.AddSingleton<IMutationService, MutationService>();
         serviceCollection.AddSingleton<SchemaResolver>();
         serviceCollection.AddSingleton<ISchemaVersionStore, SchemaVersionStore>();
+        serviceCollection.AddSingleton<ISchemaSnapshotStore>(sp => new SchemaSnapshotStore(sp.GetRequiredService<IDbRepository>()));
+        serviceCollection.AddSingleton<ISchemaPublishService, SchemaPublishService>();
         serviceCollection.AddSingleton<BuiltSchemaVersions>();
         serviceCollection.AddSingleton<ITenantSchemaConfigurator, TenantSchemaConfigurator>();
         serviceCollection.AddSingleton(sp => new SchemaVersionTracker(

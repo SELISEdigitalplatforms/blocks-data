@@ -1,6 +1,7 @@
 "use client";
 
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
+import { isErrorWithErrors } from "@/lib/error";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { AlertTriangle, Check, RotateCcw } from "lucide-react";
@@ -47,7 +48,8 @@ export const PublishControl = () => {
       showErrorToast({ errors: "Something went wrong" });
     } catch (error) {
       setHasFailed(true);
-      showErrorToast({ errors: error });
+      // A schema that does not build comes back with the reason; show it.
+      showErrorToast({ errors: isErrorWithErrors(error) ? error.errors : error });
     }
   };
 

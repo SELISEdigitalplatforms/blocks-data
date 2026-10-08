@@ -478,6 +478,38 @@ describe("use-configuration hooks", () => {
       expect(configurationService.reloadSchemas).toHaveBeenCalled();
       expect(configurationService.executeGraphQLOperation).toHaveBeenCalled();
     });
+
+    // A refused publish leaves the gateway unchanged, so the cached schema stays.
+    it("should not re-read the schema when the publish fails", async () => {
+      vi.mocked(configurationService.reloadSchemas).mockRejectedValue(
+        new Error("does not build"),
+      );
+
+      const { result } = renderHook(() => useSchemasReload(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate(undefined as never);
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(configurationService.executeGraphQLOperation).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useUpdateSchemaStructure", () => {
+    // Saving a structure is a draft; only Publish makes it live.
+    it("should not publish after saving", async () => {
+      vi.mocked(configurationService.updateSchemaStructure).mockResolvedValue({
+        isSuccess: true,
+      } as never);
+
+      const { result } = renderHook(() => useUpdateSchemaStructure(), {
+        wrapper: createWrapper(),
+      });
+
+      result.current.mutate({ schemaDefinitionItemId: "s1", fields: [] } as never);
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(configurationService.reloadSchemas).not.toHaveBeenCalled();
+    });
   });
 
   describe("useDeleteSchema", () => {

@@ -24,8 +24,18 @@ public interface ISchemaVersionStore
     /// </summary>
     Task<long> GetCachedAsync(string tenantId, CancellationToken cancellationToken = default);
 
-    /// <summary>Atomically raises the tenant's version by one and returns the new value.</summary>
-    Task<long> BumpAsync(string tenantId, CancellationToken cancellationToken = default);
+    /// <summary>
+    /// Atomically hands out the next version number for a new snapshot: one above the highest
+    /// number ever handed out (or the current version, for tenants from before snapshots). Never
+    /// returns the same number twice, also after a rollback.
+    /// </summary>
+    Task<long> AllocateAsync(string tenantId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Makes <paramref name="version"/> the live version unless a newer one already is, and
+    /// returns the live version.
+    /// </summary>
+    Task<long> MakeCurrentAsync(string tenantId, long version, CancellationToken cancellationToken = default);
 
     /// <summary>Tells every pod that <paramref name="version"/> was published. Best effort.</summary>
     Task AnnounceAsync(string tenantId, long version);

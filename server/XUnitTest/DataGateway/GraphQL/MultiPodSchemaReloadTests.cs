@@ -72,6 +72,8 @@ public class MultiPodSchemaReloadTests
         services.AddSingleton(new SchemaResolver(new Mock<IMutationService>().Object, new Mock<IQueryService>().Object));
         services.AddSingleton<GraphqlSchemaBuilder>();
         services.AddSingleton<ISchemaVersionStore, SchemaVersionStore>();
+        services.AddSingleton<ISchemaSnapshotStore>(new SchemaSnapshotStore(_repository));
+        services.AddSingleton<ISchemaPublishService, SchemaPublishService>();
         services.AddSingleton<BuiltSchemaVersions>();
         services.AddSingleton<ITenantSchemaConfigurator, TenantSchemaConfigurator>();
         services.AddSingleton<ProjectExecutorOptionsMonitor>();
@@ -179,10 +181,83 @@ public class MultiPodSchemaReloadTests
         var publish = () => pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);
 
         await publish.Should().ThrowAsync<SchemaPublishException>();
-        (await pod.Services.GetRequiredService<ISchemaVersionStore>().GetAsync(Tenant)).Should().Be(0, "no pod is told about a schema that does not build");
+        (await pod.Services.GetRequiredService<ISchemaVersionStore>().GetAsync(Tenant)).Should().Be(1, "the first published version stays live; no pod is told about a schema that does not build");
+        (await _db.GetCollection<PublishedSchemaSnapshot>("PublishedSchemaSnapshots").CountDocumentsAsync(FilterDefinition<PublishedSchemaSnapshot>.Empty))
+            .Should().Be(1, "nothing is stored for a schema that does not build");
         var log = await _db.GetCollection<SchemaChangeLog>("SchemaChangeLogs").Find(l => l.ItemId == "pending-1").SingleAsync();
         log.DoesServerAdaptChanges.Should().BeFalse("the change was not published");
         (await pod.Resolver.GetRequestExecutorAsync(Tenant)).Should().BeSameAs(before);
+    }
+
+    // ---------------- publish gate ----------------
+
+    [Fact]
+    public async Task AnExistingTenantGetsItsFirstPublishedVersionFromItsDrafts()
+    {
+        await SeedPersonAsync("Name");
+        await SeedChangeLogAsync("pending-1");
+        await using var pod = StartPod();
+
+        var executor = await pod.Resolver.GetRequestExecutorAsync(Tenant);
+
+        HasPersonField(executor, "Name").Should().BeTrue("the tenant keeps serving what it served before snapshots");
+        (await pod.Services.GetRequiredService<ISchemaVersionStore>().GetAsync(Tenant)).Should().Be(1);
+        var snapshot = await _db.GetCollection<PublishedSchemaSnapshot>("PublishedSchemaSnapshots").Find(_ => true).SingleAsync();
+        snapshot.Kind.Should().Be(SchemaSnapshotKind.Bootstrap);
+        var log = await _db.GetCollection<SchemaChangeLog>("SchemaChangeLogs").Find(l => l.ItemId == "pending-1").SingleAsync();
+        log.DoesServerAdaptChanges.Should().BeFalse("nothing was published by an admin");
+    }
+
+    [Fact]
+    public async Task DraftEditsAreNotServedUntilPublished()
+    {
+        await SeedPersonAsync("Name");
+        await using var pod = StartPod();
+        var before = await pod.Resolver.GetRequestExecutorAsync(Tenant);
+
+        await SeedPersonAsync("Name", "Age");
+        // Anything that rebuilds the executor (here an eviction) still builds the published version.
+        pod.Resolver.EvictRequestExecutor(Tenant);
+        var rebuilt = await WaitForRebuildAsync(pod, before);
+
+        HasPersonField(rebuilt, "Age").Should().BeFalse("the edit is still a draft");
+
+        await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);
+        HasPersonField(await pod.Resolver.GetRequestExecutorAsync(Tenant), "Age").Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ARestartedPodServesThePublishedVersionNotTheDrafts()
+    {
+        await SeedPersonAsync("Name");
+        await using (var first = StartPod())
+        {
+            await first.Configuration.ReloadAsync(Tenant, CancellationToken.None);
+        }
+
+        await SeedPersonAsync("Name", "Age"); // edited, not published
+        await using var restarted = StartPod();
+
+        HasPersonField(await restarted.Resolver.GetRequestExecutorAsync(Tenant), "Age").Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task APublishStoresExactlyWhatItValidated()
+    {
+        await SeedPersonAsync("Name", "Age");
+        await SeedChangeLogAsync("pending-1");
+        await using var pod = StartPod();
+
+        var result = await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);
+
+        result!.Version.Should().Be(1);
+        result.PublishedChangeCount.Should().Be(1);
+        var snapshot = await _db.GetCollection<PublishedSchemaSnapshot>("PublishedSchemaSnapshots").Find(_ => true).SingleAsync();
+        snapshot.Kind.Should().Be(SchemaSnapshotKind.Publish);
+        snapshot.ChangeLogIds.Should().Equal("pending-1");
+        var stored = await pod.Services.GetRequiredService<ISchemaSnapshotStore>().LoadAsync(Tenant, 1);
+        stored!.SchemaDefinitions.Should().ContainSingle(d => d.SchemaName == "Person")
+            .Which.Fields.Select(f => f.Name).Should().Equal("Name", "Age");
     }
 
     [Fact]
@@ -194,6 +269,7 @@ public class MultiPodSchemaReloadTests
         HasPersonField(before, "Age").Should().BeFalse();
 
         await SeedPersonAsync("Name", "Age");
+        await pod.Services.GetRequiredService<ISchemaPublishService>().PublishAsync(Tenant);
         pod.Resolver.EvictRequestExecutor(Tenant);
         var after = await WaitForRebuildAsync(pod, before);
 
@@ -243,7 +319,7 @@ public class MultiPodSchemaReloadTests
 
         HasPersonField(afterB, "Age").Should().BeTrue();
         podB.BuiltVersions.TryGetBuilt(Tenant, out var builtB).Should().BeTrue();
-        builtB.Should().Be(1);
+        builtB.Should().Be(2, "version 1 is the first snapshot taken from the drafts; the reload published version 2");
     }
 
     [Fact]

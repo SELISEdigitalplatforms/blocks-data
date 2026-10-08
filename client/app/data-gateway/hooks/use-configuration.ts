@@ -47,6 +47,10 @@ export const useSchemasReload = () => {
   return useMutation({
     mutationFn: () => configurationService.reloadSchemas(),
     onSettled: async (_data, error) => {
+      // A failed publish changes nothing on the gateway, so the cached schema
+      // is still current.
+      if (error) return;
+
       const rawIntrospection = await configurationService.executeGraphQLOperation(
         getIntrospectionQuery(),
       );
@@ -79,12 +83,10 @@ export const useSchemasReload = () => {
         refetchType: "none",
       });
 
-      if (!error) {
-        await queryClient.invalidateQueries({
-          queryKey: ["unadapted-change-logs", projectKey],
-        });
-        await invalidateSchemaList(queryClient, projectKey);
-      }
+      await queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
+      await invalidateSchemaList(queryClient, projectKey);
     },
   });
 };
@@ -248,10 +250,9 @@ export const useUpdateSchemaStructure = () => {
     mutationFn: configurationService.updateSchemaStructure,
     onSuccess: async (_data, variables: IUpdateSchemaStructure) => {
       const mutationProjectKey = variables.projectKey || projectKey;
-      // Mutations run against a cached GraphQL executor. Rebuild it after any
-      // schema-structure change so Child requiredness is enforced immediately
-      // by every Entity that embeds the Child.
-      await configurationService.reloadSchemas();
+      // A saved structure is a draft: the gateway keeps serving the published
+      // version until the admin publishes, so nothing is reloaded here. The
+      // change shows up in the "unpublished" count instead.
       queryClient.invalidateQueries({
         queryKey: ["schema-details", variables.schemaDefinitionItemId, mutationProjectKey],
       });

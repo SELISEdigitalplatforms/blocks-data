@@ -80,13 +80,13 @@
         </member>
         <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.ReloadDataGatewayServerAsync">
             <summary>
-            Publishes the tenant's schema changes to every gateway pod and resolves all unadapted changes.
-            The definitions are test-built first; if they build, the tenant's published version is raised (every pod
-            rebuilds when it sees the new version), this pod's executor is rebuilt before the response, and the pending
-            schema changes are marked as adapted to the server.
+            Publishes the tenant's schema drafts to every gateway pod and resolves all unadapted changes.
+            The drafts are test-built first; if they build, they are stored as a new published version and made live
+            (every pod rebuilds when it sees the new version; pods never serve unpublished drafts), this pod's executor
+            is rebuilt before the response, and the pending schema changes are marked as adapted to the server.
             Use this endpoint after making changes to schema definitions or data sources to refresh the schema and clear deployment badges in the UI.
             </summary>
-            <returns>Returns a success response if the schema is published, 400 with the build error if the definitions do not build (nothing is published), or an error message if the operation fails.</returns>
+            <returns>Returns a success response carrying the published version and the number of changes it published, 400 with the build error if the definitions do not build (nothing is published), or an error message if the operation fails.</returns>
         </member>
         <member name="T:Api.Controllers.DataGateway.DataAccessController">
             <summary>

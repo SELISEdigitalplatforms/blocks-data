@@ -12,6 +12,16 @@ public class SchemaPublishState : GraphQlBaseEntity
 {
     public const string StateId = "state";
 
-    /// <summary>Raised by one on every publish. A tenant that never published is at version 0.</summary>
+    /// <summary>
+    /// The version that is live: the <see cref="PublishedSchemaSnapshot"/> every pod serves. A
+    /// tenant that never published is at version 0. Publishing moves it forward; a rollback can
+    /// move it back to an older snapshot.
+    /// </summary>
     public long CurrentVersion { get; set; }
+
+    /// <summary>
+    /// The highest version number ever handed out. Only publishing changes it, and it only goes up,
+    /// so a publish after a rollback gets a new number instead of reusing an existing one.
+    /// </summary>
+    public long LastAllocatedVersion { get; set; }
 }

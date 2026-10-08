@@ -227,6 +227,22 @@ public class SchemaVersionTrackerTests
     }
 
     [Fact]
+    public async Task RebuildNow_OnlyWaitsWhenTheAnnouncementAlreadyStartedTheRebuild()
+    {
+        BuiltAt(6);
+        PublishedVersionIs(7);
+        EvictionRebuildsAt(7);
+        var tracker = Tracker();
+
+        // The publishing pod hears its own announcement before it starts its own rebuild.
+        await tracker.OnVersionPublishedAsync("tenant-1", 7);
+        var rebuilt = await tracker.RebuildNowAsync("tenant-1", 7, TimeSpan.FromSeconds(5));
+
+        rebuilt.Should().BeTrue();
+        _resolver.Verify(r => r.EvictRequestExecutor("tenant-1"), Times.Once);
+    }
+
+    [Fact]
     public async Task OnVersionPublished_SwallowsStoreFailures()
     {
         BuiltAt(6);

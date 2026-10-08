@@ -239,7 +239,8 @@ public class DataAccessServiceTests
 
         result.IsSuccess.Should().BeTrue();
         policy.PolicyName.Should().Be("new");
-        _changeLog.Verify(c => c.CreateSchemaChangeLogAsync("p1", SchemaChangeType.SchemaPolicyUpdate, It.IsAny<CancellationToken>()), Times.Once);
+        // The change is logged against the schema, like every other schema change.
+        _changeLog.Verify(c => c.CreateSchemaChangeLogAsync("schema-1", SchemaChangeType.SchemaPolicyUpdate, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -255,13 +256,14 @@ public class DataAccessServiceTests
     [Fact]
     public async Task DeletePolicy_Found_Deletes()
     {
-        _repo.Setup(r => r.GetItemAsync<DataAccessPolicy>(It.IsAny<FilterDefinition<DataAccessPolicy>>(), "")).ReturnsAsync(new DataAccessPolicy { ItemId = "p1" });
+        _repo.Setup(r => r.GetItemAsync<DataAccessPolicy>(It.IsAny<FilterDefinition<DataAccessPolicy>>(), "")).ReturnsAsync(new DataAccessPolicy { ItemId = "p1", SchemaId = "schema-1" });
         _repo.Setup(r => r.DeleteAsync(It.IsAny<FilterDefinition<DataAccessPolicy>>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true });
 
         var result = await _service.DeleteDataAccessPolicyAsync("p1");
 
         result.IsSuccess.Should().BeTrue();
         result.Data!.ItemId.Should().Be("p1");
+        _changeLog.Verify(c => c.CreateSchemaChangeLogAsync("schema-1", SchemaChangeType.SchemaPolicyDelete, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

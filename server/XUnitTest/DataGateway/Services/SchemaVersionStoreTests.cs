@@ -4,6 +4,7 @@ using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
@@ -51,35 +52,86 @@ public class SchemaVersionStoreTests
         (await Store().GetAsync("tenant-1")).Should().Be(0);
     }
 
-    [Fact]
-    public async Task BumpAsync_RaisesTheVersionByOneAndReturnsIt()
+    /// <summary>What a publish does with the version numbers: take the next one and make it live.</summary>
+    private static async Task<long> PublishAsync(SchemaVersionStore store, string tenantId)
     {
-        var store = Store();
+        var version = await store.AllocateAsync(tenantId);
+        return await store.MakeCurrentAsync(tenantId, version);
+    }
 
-        (await store.BumpAsync("tenant-1")).Should().Be(1);
-        (await store.BumpAsync("tenant-1")).Should().Be(2);
-        (await store.GetAsync("tenant-1")).Should().Be(2);
+    /// <summary>The tenant's state collection, in the database <see cref="Store"/> resolves it to.</summary>
+    private IMongoCollection<BsonDocument> StateCollection(string tenantId)
+    {
+        if (!_tenantDatabases.TryGetValue(tenantId, out var database))
+        {
+            database = _fixture.CreateDatabase();
+            _tenantDatabases[tenantId] = database;
+        }
+        return database.GetCollection<BsonDocument>("SchemaPublishStates");
     }
 
     [Fact]
-    public async Task BumpAsync_KeepsEachTenantsVersionSeparate()
+    public async Task AllocateAsync_HandsOutTheNextNumberWithoutMakingItLive()
     {
         var store = Store();
 
-        await store.BumpAsync("tenant-a");
-        await store.BumpAsync("tenant-a");
-        await store.BumpAsync("tenant-b");
+        (await store.AllocateAsync("tenant-1")).Should().Be(1);
+        (await store.AllocateAsync("tenant-1")).Should().Be(2);
+        (await store.GetAsync("tenant-1")).Should().Be(0, "a version is only live once its snapshot is stored");
+    }
+
+    [Fact]
+    public async Task MakeCurrentAsync_NeverMovesTheLiveVersionBackwards()
+    {
+        var store = Store();
+
+        (await store.MakeCurrentAsync("tenant-1", 3)).Should().Be(3);
+        (await store.MakeCurrentAsync("tenant-1", 2)).Should().Be(3, "an older publish finishing late must not replace a newer one");
+        (await store.GetAsync("tenant-1")).Should().Be(3);
+    }
+
+    [Fact]
+    public async Task AllocateAsync_ContinuesFromAVersionRaisedBeforeSnapshots()
+    {
+        var store = Store();
+        await StateCollection("tenant-1").InsertOneAsync(new BsonDocument { { "_id", "state" }, { "CurrentVersion", 7L } });
+
+        (await store.AllocateAsync("tenant-1")).Should().Be(8);
+    }
+
+    [Fact]
+    public async Task AllocateAsync_NeverReusesANumberAfterARollback()
+    {
+        var store = Store();
+        await PublishAsync(store, "tenant-1"); // v1
+        await PublishAsync(store, "tenant-1"); // v2
+        await PublishAsync(store, "tenant-1"); // v3
+        // Roll back to v1: only the live version moves.
+        await StateCollection("tenant-1").UpdateOneAsync(
+            new BsonDocument("_id", "state"), new BsonDocument("$set", new BsonDocument("CurrentVersion", 1L)));
+
+        (await store.AllocateAsync("tenant-1")).Should().Be(4, "v2 and v3 already exist");
+    }
+
+    [Fact]
+    public async Task VersionsAreKeptPerTenant()
+    {
+        var store = Store();
+
+        await PublishAsync(store, "tenant-a");
+        await PublishAsync(store, "tenant-a");
+        await PublishAsync(store, "tenant-b");
 
         (await store.GetAsync("tenant-a")).Should().Be(2);
         (await store.GetAsync("tenant-b")).Should().Be(1);
     }
 
     [Fact]
-    public async Task BumpAsync_NeverHandsOutTheSameVersionTwiceUnderConcurrentPublishes()
+    public async Task AllocateAsync_NeverHandsOutTheSameNumberTwiceUnderConcurrentPublishes()
     {
         var store = Store();
 
-        var versions = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => store.BumpAsync("tenant-1")));
+        var versions = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => store.AllocateAsync("tenant-1")));
 
         versions.Should().OnlyHaveUniqueItems().And.BeEquivalentTo(Enumerable.Range(1, 20).Select(v => (long)v));
     }
@@ -87,20 +139,20 @@ public class SchemaVersionStoreTests
     // ---------------- Redis copy ----------------
 
     [Fact]
-    public async Task BumpAsync_CachesTheNewVersionForAMinute()
+    public async Task MakeCurrentAsync_CachesTheLiveVersionForAMinute()
     {
-        await Store().BumpAsync("tenant-1");
+        await PublishAsync(Store(), "tenant-1");
 
         _cache.Get(Key("tenant-1")).Should().Be("1");
         _cache.LifeSpanOf(Key("tenant-1")).Should().Be((long)SchemaVersionStore.CacheLifetime.TotalSeconds);
     }
 
     [Fact]
-    public async Task BumpAsync_StillPublishesWhenRedisIsDown()
+    public async Task MakeCurrentAsync_StillPublishesWhenRedisIsDown()
     {
         _cache.FailWrites = true;
 
-        var version = await Store().BumpAsync("tenant-1");
+        var version = await PublishAsync(Store(), "tenant-1");
 
         version.Should().Be(1, "MongoDB holds the version; the Redis copy is only a speed-up");
     }
@@ -109,7 +161,7 @@ public class SchemaVersionStoreTests
     public async Task GetCachedAsync_AnswersFromTheRedisCopy()
     {
         var store = Store();
-        await store.BumpAsync("tenant-1");
+        await PublishAsync(store, "tenant-1");
         _cache.Set(Key("tenant-1"), "9");
 
         (await store.GetCachedAsync("tenant-1")).Should().Be(9);
@@ -119,7 +171,7 @@ public class SchemaVersionStoreTests
     public async Task GetCachedAsync_ReadsMongoAndRefillsAMissingCopy()
     {
         var store = Store();
-        await store.BumpAsync("tenant-1");
+        await PublishAsync(store, "tenant-1");
         _cache.Remove(Key("tenant-1"));
 
         (await store.GetCachedAsync("tenant-1")).Should().Be(1);
@@ -130,7 +182,7 @@ public class SchemaVersionStoreTests
     public async Task GetCachedAsync_ReadsMongoWhenRedisIsDown()
     {
         var store = Store();
-        await store.BumpAsync("tenant-1");
+        await PublishAsync(store, "tenant-1");
         _cache.FailReads = true;
 
         (await store.GetCachedAsync("tenant-1")).Should().Be(1);
@@ -140,7 +192,7 @@ public class SchemaVersionStoreTests
     public async Task GetCachedAsync_ReadsMongoWhenTheCopyIsNotANumber()
     {
         var store = Store();
-        await store.BumpAsync("tenant-1");
+        await PublishAsync(store, "tenant-1");
         _cache.Set(Key("tenant-1"), "garbage");
 
         (await store.GetCachedAsync("tenant-1")).Should().Be(1);
@@ -150,7 +202,7 @@ public class SchemaVersionStoreTests
     public async Task GetAsync_CorrectsAWrongCopy()
     {
         var store = Store();
-        await store.BumpAsync("tenant-1");
+        await PublishAsync(store, "tenant-1");
         _cache.Set(Key("tenant-1"), "9");
 
         (await store.GetAsync("tenant-1")).Should().Be(1);

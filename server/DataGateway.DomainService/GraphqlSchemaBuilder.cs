@@ -25,16 +25,27 @@ public class GraphqlSchemaBuilder
     }
 
     /// <summary>
-    /// Adds the tenant's types to <paramref name="schemaBuilder"/>. Returns false when the tenant
-    /// has no schema definitions, in which case nothing is added.
+    /// Adds the types built from the tenant's current drafts to <paramref name="schemaBuilder"/>.
+    /// Returns false when the tenant has no schema definitions, in which case nothing is added.
     /// </summary>
     public async Task<bool> BuildSchema(string tenantId, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
+    {
+        var source = await ReadDraftSourceAsync(tenantId);
+        return BuildSchema(tenantId, source, schemaBuilder);
+    }
+
+    /// <summary>
+    /// Adds the types built from <paramref name="source"/> (drafts or a published snapshot) to
+    /// <paramref name="schemaBuilder"/>. Returns false when the source has no schema definitions,
+    /// in which case nothing is added. The source's definitions may be modified while building.
+    /// </summary>
+    public bool BuildSchema(string tenantId, SchemaSource source, ISchemaBuilder schemaBuilder)
     {
         try
         {
             _logger.LogInformation("Building GraphQL schema for tenant: {TenantId}", tenantId);
-            var schemas = await LoadSchemaDefinitions(tenantId);
-            if (schemas is null || schemas.Count == 0)
+            var schemas = Assemble(source);
+            if (schemas.Count == 0)
             {
                 _logger.LogInformation("Default health check query types created for tenant: {TenantId}", tenantId);
                 return false;
@@ -100,9 +111,12 @@ public class GraphqlSchemaBuilder
 
     }
 
-    private async Task<List<SchemaDefinitionExtended>> LoadSchemaDefinitions(string tenantId)
+    /// <summary>
+    /// Reads what the tenant's schema is built from, as currently edited (the drafts): every
+    /// schema definition with fields, and every validation and access policy.
+    /// </summary>
+    public async Task<SchemaSource> ReadDraftSourceAsync(string tenantId)
     {
-
         var filter = new BsonDocument
         {
             { nameof(SchemaDefinition.IsDeleted), false },
@@ -114,12 +128,40 @@ public class GraphqlSchemaBuilder
             }
         };
 
-
-        var data = await _repository.GetItemsAsync<SchemaDefinition>(
-            filter,
-            null,
-            null, 0, 1000, tenantId);
+        // A limit of 0 reads every document: large tenants have hundreds of schemas.
+        var data = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 0, tenantId);
         if (data is null || data.Count == 0)
+        {
+            return new SchemaSource();
+        }
+
+        var validations = await _repository.GetItemsAsync<DataValidation>(
+            new BsonDocument { { nameof(DataValidation.IsDeleted), false } },
+            null,
+            null, 0, 0, tenantId);
+
+        var policies = await _repository.GetItemsAsync<DataAccessPolicy>(
+            new BsonDocument { { nameof(DataAccessPolicy.IsDeleted), false } },
+            null,
+            null, 0, 0, tenantId);
+
+        return new SchemaSource
+        {
+            SchemaDefinitions = data,
+            DataValidations = validations ?? [],
+            DataAccessPolicies = policies ?? []
+        };
+    }
+
+    /// <summary>
+    /// Turns the stored definitions into the shape the GraphQL types are built from: fields with
+    /// their validations, and policies with field-level inheritance applied. Modifies
+    /// <paramref name="source"/>'s definitions (legacy reference-field repair).
+    /// </summary>
+    internal static List<SchemaDefinitionExtended> Assemble(SchemaSource source)
+    {
+        var data = source.SchemaDefinitions;
+        if (data.Count == 0)
         {
             return [];
         }
@@ -129,10 +171,7 @@ public class GraphqlSchemaBuilder
         // those records are repaired by a subsequent import.
         RestoreMissingReferenceFieldTypes(data);
 
-        var validations = await _repository.GetItemsAsync<DataValidation>(
-            new BsonDocument { { nameof(DataValidation.IsDeleted), false } },
-            null,
-            null, 0, 1000, tenantId);
+        var validations = source.DataValidations;
 
         var schemaDefinitions = data.Select(s => new SchemaDefinitionExtended
         {
@@ -166,15 +205,7 @@ public class GraphqlSchemaBuilder
             Policies = []
         }).ToList();
 
-        var policyFilter = new BsonDocument
-            {
-                { nameof(DataAccessPolicy.IsDeleted), false }
-            };
-
-        var policies = await _repository.GetItemsAsync<DataAccessPolicy>(
-            policyFilter,
-            null,
-            null, 0, 1000, tenantId);
+        var policies = source.DataAccessPolicies;
 
 
         // Populate NestedFields for non-scalar fields from referenced schema definitions
@@ -231,7 +262,7 @@ public class GraphqlSchemaBuilder
         }
     }
 
-    private void SetFieldsPolicies(SchemaDefinitionExtended schema, List<FieldDefinitionResponse> fields, IEnumerable<DataAccessPolicy> rlsSchemaPolicies, string schemaId, string parentFieldName)
+    private static void SetFieldsPolicies(SchemaDefinitionExtended schema, List<FieldDefinitionResponse> fields, IEnumerable<DataAccessPolicy> rlsSchemaPolicies, string schemaId, string parentFieldName)
     {
         foreach (var field in fields)
         {

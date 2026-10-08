@@ -32,7 +32,8 @@ public enum SchemaChangeType
     SchemaFieldValidationUpdate,
     SchemaFieldValidationDelete,
     SchemaIndexCreate,
-    SchemaIndexDelete
+    SchemaIndexDelete,
+    SchemaPolicyDelete
 }
 
 public enum SchemaAccessLevel

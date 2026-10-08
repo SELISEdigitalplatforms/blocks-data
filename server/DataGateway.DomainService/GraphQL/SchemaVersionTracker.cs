@@ -161,9 +161,9 @@ public sealed class SchemaVersionTracker
         var check = _checks.GetOrAdd(tenantId, _ => new TenantCheck());
         var now = _timeProvider.GetUtcNow();
         check.CheckedAt = now;
-        check.RequestedVersion = version;
-        check.RequestedAt = now;
-        Evict(tenantId, version);
+
+        // The publish announcement may already have started this rebuild; then only wait for it.
+        RequestRebuild(tenantId, version, check, now);
 
         return await _builtVersions.WaitForBuildAsync(tenantId, version, timeout, cancellationToken);
     }

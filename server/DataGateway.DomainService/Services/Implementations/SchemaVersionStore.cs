@@ -6,6 +6,7 @@ using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
+using MongoDB.Driver;
 
 namespace DataGateway.DomainService.Services;
 
@@ -61,19 +62,44 @@ public class SchemaVersionStore : ISchemaVersionStore
         return await GetAsync(tenantId, cancellationToken);
     }
 
-    public async Task<long> BumpAsync(string tenantId, CancellationToken cancellationToken = default)
+    public async Task<long> AllocateAsync(string tenantId, CancellationToken cancellationToken = default)
     {
-        var filter = new BsonDocument(GraphQlConstant.DbEntityIdFieldName, SchemaPublishState.StateId);
+        // LastAllocatedVersion = max(LastAllocatedVersion, CurrentVersion) + 1, in one atomic update.
+        // Tenants from before snapshots have only CurrentVersion, so numbering continues from it.
+        var lastAllocated = $"${nameof(SchemaPublishState.LastAllocatedVersion)}";
+        var current = $"${nameof(SchemaPublishState.CurrentVersion)}";
+        var next = new BsonDocument("$add", new BsonArray
+        {
+            new BsonDocument("$max", new BsonArray
+            {
+                new BsonDocument("$ifNull", new BsonArray { lastAllocated, 0L }),
+                new BsonDocument("$ifNull", new BsonArray { current, 0L })
+            }),
+            1L
+        });
+        var stage = new BsonDocument("$set", new BsonDocument
+        {
+            { nameof(SchemaPublishState.LastAllocatedVersion), next },
+            { nameof(SchemaPublishState.LastUpdatedDate), "$$NOW" }
+        });
+
+        var state = await _repository.FindOneAndUpdateAsync(
+            CollectionName, StateFilter, new PipelineUpdateDefinition<BsonDocument>(new[] { stage }), isUpsert: true, tenantId);
+        return ReadLong(state, nameof(SchemaPublishState.LastAllocatedVersion));
+    }
+
+    public async Task<long> MakeCurrentAsync(string tenantId, long version, CancellationToken cancellationToken = default)
+    {
         var update = new BsonDocument
         {
-            { "$inc", new BsonDocument(nameof(SchemaPublishState.CurrentVersion), 1L) },
+            { "$max", new BsonDocument(nameof(SchemaPublishState.CurrentVersion), version) },
             { "$currentDate", new BsonDocument(nameof(SchemaPublishState.LastUpdatedDate), true) }
         };
 
-        var state = await _repository.FindOneAndUpdateAsync(CollectionName, filter, update, isUpsert: true, tenantId);
-        var version = ReadVersion(state);
-        await CacheAsync(tenantId, version);
-        return version;
+        var state = await _repository.FindOneAndUpdateAsync(CollectionName, StateFilter, update, isUpsert: true, tenantId);
+        var currentVersion = ReadVersion(state);
+        await CacheAsync(tenantId, currentVersion);
+        return currentVersion;
     }
 
     public async Task AnnounceAsync(string tenantId, long version)
@@ -106,8 +132,12 @@ public class SchemaVersionStore : ISchemaVersionStore
         }
     }
 
-    private static long ReadVersion(BsonDocument? state) =>
-        state != null && state.TryGetValue(nameof(SchemaPublishState.CurrentVersion), out var value) && value.IsNumeric
+    private static BsonDocument StateFilter => new(GraphQlConstant.DbEntityIdFieldName, SchemaPublishState.StateId);
+
+    private static long ReadVersion(BsonDocument? state) => ReadLong(state, nameof(SchemaPublishState.CurrentVersion));
+
+    private static long ReadLong(BsonDocument? state, string field) =>
+        state != null && state.TryGetValue(field, out var value) && value.IsNumeric
             ? value.ToInt64()
             : 0;
 }

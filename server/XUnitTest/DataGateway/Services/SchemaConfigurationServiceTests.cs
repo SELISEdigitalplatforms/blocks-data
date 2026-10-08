@@ -86,10 +86,12 @@ public class SchemaConfigurationServiceTests
             versionStore, builtVersions, () => resolver.Object, TimeProvider.System,
             SchemaVersionTracker.DefaultPollInterval, NullLogger<SchemaVersionTracker>.Instance);
 
+        var publishService = new SchemaPublishService(
+            Builder(), new SchemaSnapshotStore(repository), versionStore, repository, NullLogger<SchemaPublishService>.Instance);
+
         var service = new SchemaConfigurationService(
             Builder(),
-            repository,
-            versionStore,
+            publishService,
             tracker,
             resolver.Object,
             NullLogger<SchemaConfigurationService>.Instance);
@@ -119,8 +121,8 @@ public class SchemaConfigurationServiceTests
     {
         var harness = Build();
 
-        await harness.Service.ReloadAsync("tenant-1", CancellationToken.None);
-        await harness.Service.ReloadAsync("tenant-1", CancellationToken.None);
+        (await harness.Service.ReloadAsync("tenant-1", CancellationToken.None))!.Version.Should().Be(1);
+        (await harness.Service.ReloadAsync("tenant-1", CancellationToken.None))!.Version.Should().Be(2);
 
         // Every pod compares its built version against this number.
         (await harness.VersionStore.GetAsync("tenant-1")).Should().Be(2);
@@ -250,26 +252,23 @@ public class SchemaConfigurationServiceTests
     public void Constructor_RejectsEveryNullDependency()
     {
         var builder = Builder();
-        var repository = Repository();
-        var versionStore = new SchemaVersionStore(repository, new InMemoryCacheClient(), NullLogger<SchemaVersionStore>.Instance);
+        var publishService = new Mock<ISchemaPublishService>().Object;
         var resolver = new Mock<IRequestExecutorResolver>().Object;
         var tracker = new SchemaVersionTracker(
-            versionStore, new BuiltSchemaVersions(), () => resolver, TimeProvider.System,
+            new Mock<ISchemaVersionStore>().Object, new BuiltSchemaVersions(), () => resolver, TimeProvider.System,
             SchemaVersionTracker.DefaultPollInterval, NullLogger<SchemaVersionTracker>.Instance);
         var logger = NullLogger<SchemaConfigurationService>.Instance;
 
         Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(null!, repository, versionStore, tracker, resolver, logger));
+            new SchemaConfigurationService(null!, publishService, tracker, resolver, logger));
         Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(builder, null!, versionStore, tracker, resolver, logger));
+            new SchemaConfigurationService(builder, null!, tracker, resolver, logger));
         Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(builder, repository, null!, tracker, resolver, logger));
+            new SchemaConfigurationService(builder, publishService, null!, resolver, logger));
         Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(builder, repository, versionStore, null!, resolver, logger));
+            new SchemaConfigurationService(builder, publishService, tracker, null!, logger));
         Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(builder, repository, versionStore, tracker, null!, logger));
-        Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(builder, repository, versionStore, tracker, resolver, null!));
+            new SchemaConfigurationService(builder, publishService, tracker, resolver, null!));
     }
 
     // ---------------- AuthHttpResponseFormatter ----------------

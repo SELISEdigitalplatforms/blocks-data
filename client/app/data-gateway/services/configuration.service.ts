@@ -8,6 +8,7 @@ import {
   DATA_VALIDATION_ENDPOINTS,
   DATA_VALIDATION_REGEX_ENDPOINTS,
   GATEWAY_ENDPOINTS,
+  SCHEMA_CONFIGURATION_ENDPOINTS,
   SCHEMA_ENDPOINTS,
   SCHEMA_INDEX_ENDPOINTS,
 } from "../constants/endpoint.constant";
@@ -40,6 +41,8 @@ import {
   ISchemaIndexActionResponse,
   ISetDataAccessPayload,
   ISetDataAccessResponse,
+  ISchemaRollbackResponse,
+  ISchemaVersionHistoryResponse,
   ISetRowColumnPermissionPayload,
   IUnadaptedChangeLogsResponse,
   IUpdatePolicyPayload,
@@ -54,6 +57,14 @@ class ConfigurationService {
   reloadSchemas(): Promise<IDataServiceConfigurationResponse> {
     const url = `${API_BASES.UDS}/schema-configurations/reload`;
     return http.post(url, {});
+  }
+
+  getSchemaVersionHistory(): Promise<ISchemaVersionHistoryResponse> {
+    return http.get(SCHEMA_CONFIGURATION_ENDPOINTS.VERSION_HISTORY);
+  }
+
+  rollbackSchemaVersion(version: number): Promise<ISchemaRollbackResponse> {
+    return http.post(SCHEMA_CONFIGURATION_ENDPOINTS.ROLLBACK, { version });
   }
 
   getSchemaList(

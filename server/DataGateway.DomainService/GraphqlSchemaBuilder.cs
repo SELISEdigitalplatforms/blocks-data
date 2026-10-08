@@ -24,16 +24,30 @@ public class GraphqlSchemaBuilder
         _logger = logger;
     }
 
-    public async Task BuildSchema(string tenantId, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
+    /// <summary>
+    /// Adds the types built from the tenant's current drafts to <paramref name="schemaBuilder"/>.
+    /// Returns false when the tenant has no schema definitions, in which case nothing is added.
+    /// </summary>
+    public async Task<bool> BuildSchema(string tenantId, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
+    {
+        var source = await ReadDraftSourceAsync(tenantId);
+        return BuildSchema(tenantId, source, schemaBuilder);
+    }
+
+    /// <summary>
+    /// Adds the types built from <paramref name="source"/> (drafts or a published snapshot) to
+    /// <paramref name="schemaBuilder"/>. Returns false when the source has no schema definitions,
+    /// in which case nothing is added. The source's definitions may be modified while building.
+    /// </summary>
+    public bool BuildSchema(string tenantId, SchemaSource source, ISchemaBuilder schemaBuilder)
     {
         try
         {
-            _logger.LogInformation("Building GraphQL schema for tenant: {TenantId}", tenantId);
-            var schemas = await LoadSchemaDefinitions(tenantId);
-            if (schemas is null || schemas.Count == 0)
+            var schemas = Assemble(source);
+            if (schemas.Count == 0)
             {
-                _logger.LogInformation("Default health check query types created for tenant: {TenantId}", tenantId);
-                return;
+                _logger.LogDebug("Tenant {TenantId} has no schema definitions; nothing to build", tenantId);
+                return false;
             }
 
             if (schemas.Count > 1)
@@ -41,7 +55,7 @@ public class GraphqlSchemaBuilder
                 schemas = schemas.DistinctBy(x => x.SchemaName).ToList();
             }
 
-            _logger.LogInformation("Loaded {Count} schema definitions for tenant: {TenantId}", schemas.Count, tenantId);
+            _logger.LogDebug("Building GraphQL types for {Count} schema definitions of tenant {TenantId}", schemas.Count, tenantId);
             var dbSchemas = schemas.Where(x => x.SchemaType == SchemaType.Entity).ToArray();
             var customSchemas = schemas.Where(x => x.SchemaType == SchemaType.Dto).ToArray();
             var dbSchemaTypes = schemas.ToDictionary(s => s.GetSchemaNameForProject(), s => s);
@@ -78,25 +92,26 @@ public class GraphqlSchemaBuilder
             schemaBuilder.AddQueryType(queryType);
             schemaBuilder.AddMutationType(mutationType);
 
-            _logger.LogInformation("GraphQL schema built for tenant: {TenantId}", tenantId);
-            await AdaptSchemaChangeLogsToServerAsync();
-            _logger.LogInformation("Schema change logs adapted to server successfully");
-        }
-        catch (InvalidOperationException ex) when (ex.Message.StartsWith("SCHEMA_FILTER_CYCLE", StringComparison.Ordinal))
-        {
-            _logger.LogError(ex, "Rejected cyclic GraphQL filter schema for tenant: {TenantId}", tenantId);
-            throw;
+            _logger.LogDebug("GraphQL types built for tenant {TenantId}", tenantId);
+            return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error occurred while building GraphQL schema for tenant: {TenantId}, message: {Message}", tenantId, ex.Message);
+            // Rethrow so a failed rebuild keeps the executor that is already serving, instead of
+            // replacing it with a half-configured schema. The caller logs it once, with what it
+            // was building (a publish's test build, or a pod's rebuild of a published version).
+            _logger.LogDebug(ex, "Building GraphQL types failed for tenant {TenantId}", tenantId);
+            throw;
         }
 
     }
 
-    private async Task<List<SchemaDefinitionExtended>> LoadSchemaDefinitions(string tenantId)
+    /// <summary>
+    /// Reads what the tenant's schema is built from, as currently edited (the drafts): every
+    /// schema definition with fields, and every validation and access policy.
+    /// </summary>
+    public async Task<SchemaSource> ReadDraftSourceAsync(string tenantId)
     {
-
         var filter = new BsonDocument
         {
             { nameof(SchemaDefinition.IsDeleted), false },
@@ -108,12 +123,40 @@ public class GraphqlSchemaBuilder
             }
         };
 
-
-        var data = await _repository.GetItemsAsync<SchemaDefinition>(
-            filter,
-            null,
-            null, 0, 1000, tenantId);
+        // A limit of 0 reads every document: large tenants have hundreds of schemas.
+        var data = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 0, tenantId);
         if (data is null || data.Count == 0)
+        {
+            return new SchemaSource();
+        }
+
+        var validations = await _repository.GetItemsAsync<DataValidation>(
+            new BsonDocument { { nameof(DataValidation.IsDeleted), false } },
+            null,
+            null, 0, 0, tenantId);
+
+        var policies = await _repository.GetItemsAsync<DataAccessPolicy>(
+            new BsonDocument { { nameof(DataAccessPolicy.IsDeleted), false } },
+            null,
+            null, 0, 0, tenantId);
+
+        return new SchemaSource
+        {
+            SchemaDefinitions = data,
+            DataValidations = validations ?? [],
+            DataAccessPolicies = policies ?? []
+        };
+    }
+
+    /// <summary>
+    /// Turns the stored definitions into the shape the GraphQL types are built from: fields with
+    /// their validations, and policies with field-level inheritance applied. Modifies
+    /// <paramref name="source"/>'s definitions (legacy reference-field repair).
+    /// </summary>
+    internal static List<SchemaDefinitionExtended> Assemble(SchemaSource source)
+    {
+        var data = source.SchemaDefinitions;
+        if (data.Count == 0)
         {
             return [];
         }
@@ -123,10 +166,7 @@ public class GraphqlSchemaBuilder
         // those records are repaired by a subsequent import.
         RestoreMissingReferenceFieldTypes(data);
 
-        var validations = await _repository.GetItemsAsync<DataValidation>(
-            new BsonDocument { { nameof(DataValidation.IsDeleted), false } },
-            null,
-            null, 0, 1000, tenantId);
+        var validations = source.DataValidations;
 
         var schemaDefinitions = data.Select(s => new SchemaDefinitionExtended
         {
@@ -160,15 +200,7 @@ public class GraphqlSchemaBuilder
             Policies = []
         }).ToList();
 
-        var policyFilter = new BsonDocument
-            {
-                { nameof(DataAccessPolicy.IsDeleted), false }
-            };
-
-        var policies = await _repository.GetItemsAsync<DataAccessPolicy>(
-            policyFilter,
-            null,
-            null, 0, 1000, tenantId);
+        var policies = source.DataAccessPolicies;
 
 
         // Populate NestedFields for non-scalar fields from referenced schema definitions
@@ -225,7 +257,7 @@ public class GraphqlSchemaBuilder
         }
     }
 
-    private void SetFieldsPolicies(SchemaDefinitionExtended schema, List<FieldDefinitionResponse> fields, IEnumerable<DataAccessPolicy> rlsSchemaPolicies, string schemaId, string parentFieldName)
+    private static void SetFieldsPolicies(SchemaDefinitionExtended schema, List<FieldDefinitionResponse> fields, IEnumerable<DataAccessPolicy> rlsSchemaPolicies, string schemaId, string parentFieldName)
     {
         foreach (var field in fields)
         {
@@ -367,24 +399,6 @@ public class GraphqlSchemaBuilder
         schema.Policies.RemoveAll(p => p.SchemaId == schema.ItemId && p.PolicyType == PolicyType.CLS && p.Operation == operation && p.FieldNames.Contains(fieldPath));
         schema.Policies.AddRange(clsPolicies);
     }
-
-    private async Task AdaptSchemaChangeLogsToServerAsync()
-    {
-        try
-        {
-            _logger.LogInformation("Adapting schema change logs to server");
-            var filter = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), false);
-            var update = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), true);
-            var result = await _repository.UpdateManyAsync($"{nameof(SchemaChangeLog)}s", filter, update);
-            _logger.LogInformation("Adapted {ModifiedCount} schema change logs to server", result.TotalImpactedData);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error occurred while adopting schema change log to server");
-        }
-    }
-
-
 
     private static void BuildFilterAndSortTypes(
         ISchemaBuilder schemaBuilder,

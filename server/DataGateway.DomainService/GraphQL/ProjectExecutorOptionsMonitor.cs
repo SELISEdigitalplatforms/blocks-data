@@ -12,9 +12,10 @@ namespace DataGateway.DomainService.GraphQL;
 /// <c>AddGraphQLServer(name)</c>. In a multi-project setup projects are created at runtime, so we
 /// cannot pre-register a named server for each of them. Instead, every requested schema name is
 /// served with the configuration registered for the default schema (the "template"), which already
-/// contains the AspNetCore integration, the response formatter and the per-project schema builder
-/// hook (<c>ConfigureSchemaAsync</c>). The hook differentiates the schema per project by reading the
-/// current project slug from the request context at build time.
+/// contains the AspNetCore integration and the response formatter. On top of the template, each
+/// name gets its own schema-builder hook that builds that tenant's schema
+/// (<see cref="ITenantSchemaConfigurator"/>). The tenant comes from the schema name rather than the
+/// request, so an executor can also be rebuilt on HotChocolate's background eviction path.
 ///
 /// This mirrors <c>DefaultRequestExecutorOptionsMonitor</c> but maps every name to the template
 /// configuration so that <c>IRequestExecutorResolver.GetRequestExecutorAsync(projectSlug)</c> works
@@ -24,6 +25,7 @@ public sealed class ProjectExecutorOptionsMonitor : IRequestExecutorOptionsMonit
 {
     private readonly IOptionsMonitor<RequestExecutorSetup> _optionsMonitor;
     private readonly IRequestExecutorOptionsProvider[] _optionsProviders;
+    private readonly ITenantSchemaConfigurator? _schemaConfigurator;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
     private readonly Dictionary<string, List<IConfigureRequestExecutorSetup>> _configs = new();
     private readonly List<IDisposable> _disposables = new();
@@ -33,10 +35,12 @@ public sealed class ProjectExecutorOptionsMonitor : IRequestExecutorOptionsMonit
 
     public ProjectExecutorOptionsMonitor(
         IOptionsMonitor<RequestExecutorSetup> optionsMonitor,
-        IEnumerable<IRequestExecutorOptionsProvider> optionsProviders)
+        IEnumerable<IRequestExecutorOptionsProvider> optionsProviders,
+        ITenantSchemaConfigurator? schemaConfigurator = null)
     {
         _optionsMonitor = optionsMonitor;
         _optionsProviders = optionsProviders.ToArray();
+        _schemaConfigurator = schemaConfigurator;
     }
 
     public async ValueTask<RequestExecutorSetup> GetAsync(
@@ -55,6 +59,15 @@ public sealed class ProjectExecutorOptionsMonitor : IRequestExecutorOptionsMonit
             {
                 configuration.Configure(options);
             }
+        }
+
+        if (_schemaConfigurator != null)
+        {
+            var configurator = _schemaConfigurator;
+            options.OnConfigureSchemaBuilderHooks.Add(new OnConfigureSchemaBuilderAction(
+                (context, _, ct) => configurator.ConfigureAsync(schemaName, context.SchemaBuilder, ct)));
+            options.OnRequestExecutorCreatedHooks.Add(new OnRequestExecutorCreatedAction(
+                (_, _) => configurator.OnExecutorCreated(schemaName)));
         }
 
         return options;
@@ -105,22 +118,6 @@ public sealed class ProjectExecutorOptionsMonitor : IRequestExecutorOptionsMonit
         finally
         {
             _semaphore.Release();
-        }
-    }
-
-    /// <summary>
-    /// Notifies HC's executor resolver that the schema for <paramref name="schemaName"/> has
-    /// changed, causing HC to evict it through its own internal eviction path. More reliable than
-    /// calling <c>IRequestExecutorResolver.EvictRequestExecutor</c> directly.
-    /// </summary>
-    public void TriggerEviction(string schemaName)
-    {
-        lock (_listeners)
-        {
-            foreach (var listener in _listeners)
-            {
-                listener.Invoke(schemaName);
-            }
         }
     }
 

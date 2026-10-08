@@ -127,7 +127,7 @@ public class DataAccessService : IDataAccessService
         policy.ReferencePolicyId = string.Empty;
         await _dbRepository.UpdateAsync(filter, policy);
         await ChangeSchemaFieldAccessLevelWhenCustomPolicyAppliedAsync(schema, policy);
-        await _schemaChangeLogService.CreateSchemaChangeLogAsync(policy.ItemId, SchemaChangeType.SchemaPolicyUpdate);
+        await _schemaChangeLogService.CreateSchemaChangeLogAsync(policy.SchemaId, SchemaChangeType.SchemaPolicyUpdate);
         return response.SetSuccess(new ActionResponse
         {
             ItemId = policy.ItemId,
@@ -146,7 +146,7 @@ public class DataAccessService : IDataAccessService
                 .SetHttpStatusCode(404);
         }
         await _dbRepository.DeleteAsync(filter);
-        await _schemaChangeLogService.CreateSchemaChangeLogAsync(policy.ItemId, SchemaChangeType.SchemaPolicyUpdate);
+        await _schemaChangeLogService.CreateSchemaChangeLogAsync(policy.SchemaId, SchemaChangeType.SchemaPolicyDelete);
         return response.SetSuccess(new ActionResponse
         {
             ItemId = policy.ItemId,

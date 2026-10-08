@@ -66,6 +66,20 @@ internal static class MongoCollectionOperations
         return new ActionResponse { Acknowledged = result.IsAcknowledged, TotalImpactedData = result.ModifiedCount };
     }
 
+    internal static async Task<BsonDocument?> FindOneAndUpdateAsync(
+        IMongoCollection<BsonDocument> collection,
+        BsonDocument filter,
+        UpdateDefinition<BsonDocument> update,
+        bool isUpsert)
+    {
+        var options = new FindOneAndUpdateOptions<BsonDocument>
+        {
+            IsUpsert = isUpsert,
+            ReturnDocument = ReturnDocument.After
+        };
+        return await collection.FindOneAndUpdateAsync(filter, update, options);
+    }
+
     internal static async Task<ActionResponse> DeleteOneAsync(
         IMongoCollection<BsonDocument> collection,
         BsonDocument filter)

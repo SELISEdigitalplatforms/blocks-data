@@ -30,6 +30,34 @@ export interface IUnadaptedChangeLogsResponse {
   }>;
 }
 
+/** One published schema version, as listed in the version history. */
+export interface ISchemaVersionSummary {
+  version: number;
+  /** "Publish", or "Bootstrap" for the first version taken from the drafts. */
+  kind: string;
+  publishedDate: string;
+  publishedBy: string | null;
+  changeCount: number;
+  schemaCount: number;
+  isCurrent: boolean;
+}
+
+export interface ISchemaVersionHistoryResponse {
+  isSuccess: boolean;
+  errors: unknown | null;
+  data: {
+    currentVersion: number;
+    versions: ISchemaVersionSummary[];
+  } | null;
+}
+
+export interface ISchemaRollbackResponse {
+  isSuccess: boolean;
+  message: string;
+  errors: unknown | null;
+  data: { version: number; previousVersion: number } | null;
+}
+
 export interface IDataServiceConfigurationResponse {
   errors: unknown | null;
   isSuccess: boolean;

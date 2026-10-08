@@ -8,6 +8,15 @@ export const CONFIGURATION_ENDPOINTS = {
   GET: `${API_BASES.UDS}${CONFIGURATIONS_SUBPATH}`,
 } as const;
 
+// ─── Schema configuration (publishing) endpoints ──────────────────────────────
+
+const SCHEMA_CONFIGURATIONS_SUBPATH = "/schema-configurations";
+
+export const SCHEMA_CONFIGURATION_ENDPOINTS = {
+  VERSION_HISTORY: `${API_BASES.UDS}${SCHEMA_CONFIGURATIONS_SUBPATH}/history`,
+  ROLLBACK: `${API_BASES.UDS}${SCHEMA_CONFIGURATIONS_SUBPATH}/rollback`,
+} as const;
+
 // ─── Schema endpoints ─────────────────────────────────────────────────────────
 
 const SCHEMAS_SUBPATH = "/schemas";

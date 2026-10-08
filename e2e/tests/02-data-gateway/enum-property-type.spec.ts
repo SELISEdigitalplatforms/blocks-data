@@ -19,13 +19,18 @@ async function createSchema(page: Page, schemaName: string) {
     landingHeading.or(emptyStateHeading).or(schemasReady).or(pickSchema).first(),
   ).toBeVisible({ timeout: 30_000 });
 
-  const addSchemaButton = page.getByRole("button", { name: /Add Schema|Add schema|\+/ }).first();
-  // Prefer explicit Add Schema if present
+  // The schemas explorer now exposes a generic "Add" button (icon + label) in
+  // the sidebar header, and a "New schema" button in the empty state. Fall back
+  // to those names if a button explicitly labelled "Add Schema" isn't present.
   const labeled = page.getByRole("button", { name: /Add Schema/i });
+  const newSchema = page.getByRole("button", { name: /New schema/i });
+  const addButton = page.getByRole("button", { name: /^Add$/ });
   if (await labeled.isVisible({ timeout: 3_000 }).catch(() => false)) {
     await labeled.click();
+  } else if (await newSchema.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await newSchema.click();
   } else {
-    await addSchemaButton.click();
+    await addButton.first().click();
   }
 
   const dialog = page.getByRole("dialog").filter({

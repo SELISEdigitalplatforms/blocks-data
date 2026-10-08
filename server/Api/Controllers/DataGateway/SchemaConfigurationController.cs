@@ -45,10 +45,9 @@ public class SchemaConfigurationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> ReloadDataGatewayServerAsync()
     {
+        var tenantId = TenantContext.GetTenantId();
         try
         {
-            var tenantId = TenantContext.GetTenantId();
-            _logger.LogInformation("Evicting schema for tenant: {TenantId}", tenantId);
             var published = await _configurationService.ReloadAsync(tenantId, CancellationToken.None);
             var response = new ServiceResponse<SchemaPublishResult?>();
             if (published is not null)
@@ -59,11 +58,12 @@ public class SchemaConfigurationController : ControllerBase
         }
         catch (SchemaPublishException ex)
         {
-            // The definitions do not build; nothing was published.
+            // The definitions do not build; nothing was published. Logged by the publish service.
             return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Schema publish request failed for tenant {TenantId}", tenantId);
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
         }
     }
@@ -80,14 +80,15 @@ public class SchemaConfigurationController : ControllerBase
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetSchemaVersionHistoryAsync()
     {
+        var tenantId = TenantContext.GetTenantId();
         try
         {
-            var tenantId = TenantContext.GetTenantId();
             var history = await _configurationService.GetVersionHistoryAsync(tenantId, CancellationToken.None);
             return Ok(new ServiceResponse<SchemaVersionHistory>().SetSuccess(history));
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Reading the schema version history failed for tenant {TenantId}", tenantId);
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
         }
     }
@@ -111,20 +112,21 @@ public class SchemaConfigurationController : ControllerBase
             return BadRequest(new { message = "Choose a published version to roll back to." });
         }
 
+        var tenantId = TenantContext.GetTenantId();
         try
         {
-            var tenantId = TenantContext.GetTenantId();
-            _logger.LogInformation("Rolling back schema for tenant {TenantId} to version {Version}", tenantId, request.Version);
             var result = await _configurationService.RollbackAsync(tenantId, request.Version, CancellationToken.None);
             return Ok(new ServiceResponse<SchemaRollbackResult>().SetSuccess(result)
                 .SetSuccessMessage($"Version {result.Version} is live."));
         }
         catch (SchemaVersionNotFoundException ex)
         {
+            // Logged by the publish service.
             return NotFound(new { message = ex.Message });
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Schema rollback request failed for tenant {TenantId} (to version {Version})", tenantId, request.Version);
             return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
         }
     }

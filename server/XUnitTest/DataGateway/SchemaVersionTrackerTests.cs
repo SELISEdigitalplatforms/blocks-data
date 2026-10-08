@@ -2,8 +2,10 @@ using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Services;
 using FluentAssertions;
 using HotChocolate.Execution;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using XUnitTest.Infrastructure;
 
 namespace XUnitTest.DataGateway;
 
@@ -138,6 +140,32 @@ public class SchemaVersionTrackerTests
         await tracker.EnsureCurrentAsync("tenant-1");
 
         _resolver.Verify(r => r.EvictRequestExecutor("tenant-1"), Times.Exactly(2));
+    }
+
+    [Fact]
+    public async Task EnsureCurrent_WarnsWhenAPodIsStillBehindAfterARebuild()
+    {
+        BuiltAt(6);
+        PublishedVersionIs(7);
+        var logs = new RecordingLoggerProvider();
+        var tracker = new SchemaVersionTracker(
+            _store.Object, _built, () => _resolver.Object, _time, Poll, logs.CreateLogger<SchemaVersionTracker>());
+
+        await tracker.EnsureCurrentAsync("tenant-1");
+        _time.Advance(SchemaVersionTracker.RetryBackoff);
+        await tracker.EnsureCurrentAsync("tenant-1");
+
+        var rebuild = logs.Logs.Single(l => l.Level == LogLevel.Information);
+        rebuild.Field("ServingVersion").Should().Be(6L);
+        rebuild.Field("Version").Should().Be(7L);
+        rebuild.Field("Trigger").Should().Be("version check");
+        rebuild.Field("SchemaOperation").Should().Be("Rebuild");
+        rebuild.Field("Pod").Should().Be(Environment.MachineName);
+
+        // The first rebuild failed (the pod still serves 6): the retry says so.
+        var stuck = logs.Logs.Single(l => l.Level == LogLevel.Warning);
+        stuck.Field("Attempt").Should().Be(2);
+        stuck.Message.Should().Contain("still on published version 6").And.Contain("version 7");
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using DataGateway.DomainService.GraphQL;
+using DataGateway.DomainService.Helpers;
 using HotChocolate.Execution;
 using Microsoft.Extensions.Logging;
 
@@ -58,7 +59,6 @@ public class SchemaConfigurationService : ISchemaConfigurationService
             return null;
         }
 
-        _logger.LogInformation("Reloading schema for tenant: {TenantId}", tenantId);
         var result = await _publishService.PublishAsync(tenantId, cancellationToken);
 
         // Wait for this pod's new executor, so the request the client sends right after a publish
@@ -69,11 +69,10 @@ public class SchemaConfigurationService : ISchemaConfigurationService
         {
             // The snapshot built a moment ago, so this is transient; the version is already live
             // and every pod, this one included, keeps retrying.
-            _logger.LogWarning("Published version {Version} for tenant {TenantId}, but this pod had not rebuilt within {Timeout}",
-                result.Version, tenantId, LocalRebuildTimeout);
+            _logger.LogWarning("Published version {Version} for tenant {TenantId}, but pod {Pod} had not rebuilt within {Timeout}; it keeps serving its previous version until the rebuild succeeds. Any build error is logged before this line",
+                result.Version, tenantId, SchemaLog.Pod, LocalRebuildTimeout);
         }
 
-        _logger.LogInformation("Schema reload complete for tenant {TenantId}: published version {Version}", tenantId, result.Version);
         return result;
     }
 
@@ -90,8 +89,8 @@ public class SchemaConfigurationService : ISchemaConfigurationService
         var rebuilt = await _versionTracker.RebuildNowAsync(tenantId, result.Version, LocalRebuildTimeout, cancellationToken, exactVersion: true);
         if (!rebuilt)
         {
-            _logger.LogWarning("Rolled back tenant {TenantId} to version {Version}, but this pod had not rebuilt within {Timeout}",
-                tenantId, result.Version, LocalRebuildTimeout);
+            _logger.LogWarning("Rolled back tenant {TenantId} to version {Version}, but pod {Pod} had not rebuilt within {Timeout}; it keeps serving its previous version until the rebuild succeeds. Any build error is logged before this line",
+                tenantId, result.Version, SchemaLog.Pod, LocalRebuildTimeout);
         }
 
         return result;

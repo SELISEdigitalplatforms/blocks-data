@@ -9,12 +9,14 @@ using DataGateway.DomainService.Services;
 using System.Text;
 using System.Text.Json;
 using FluentAssertions;
+using HotChocolate;
 using HotChocolate.Execution;
 using HotChocolate.Execution.Configuration;
 using HotChocolate.Types;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MongoDB.Driver;
 using Moq;
@@ -59,10 +61,17 @@ public class MultiPodSchemaReloadTests
     }
 
     /// <summary>The same wiring as <c>ServiceRegistry</c>, minus HTTP and the data services.</summary>
-    private Pod StartPod()
+    private Pod StartPod(RecordingLoggerProvider? logs = null)
     {
         var services = new ServiceCollection();
-        services.AddLogging();
+        services.AddLogging(builder =>
+        {
+            builder.SetMinimumLevel(LogLevel.Debug);
+            if (logs is not null)
+            {
+                builder.AddProvider(logs);
+            }
+        });
         services.AddGraphQLServer().ModifyRequestOptions(o => o.IncludeExceptionDetails = true); // readable failures
         services.RemoveAll<IRequestExecutorOptionsMonitor>();
         services.AddSingleton<DataGatewayPipelineDispatcher>();
@@ -400,5 +409,120 @@ public class MultiPodSchemaReloadTests
         await Task.Delay(200);
 
         (await pod.Resolver.GetRequestExecutorAsync(Tenant)).Should().BeSameAs(before);
+    }
+
+    private static async Task<RecordedLog> WaitForLogAsync(RecordingLoggerProvider logs, Func<RecordedLog, bool> match)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(15);
+        while (DateTime.UtcNow < deadline)
+        {
+            var found = logs.Logs.FirstOrDefault(match);
+            if (found is not null)
+            {
+                return found;
+            }
+            await Task.Delay(50);
+        }
+        throw new TimeoutException("The expected log line was not written");
+    }
+
+    [Fact]
+    public async Task APublishIsLoggedWithWhoPublishedItButNeverTheirFullEmail()
+    {
+        BlocksTestContext.Set(userId: "user-42", email: "johne.doe@gmail.com");
+        await SeedPersonAsync("Name");
+        var logs = new RecordingLoggerProvider();
+        await using var pod = StartPod(logs);
+        await pod.Resolver.GetRequestExecutorAsync(Tenant);
+
+        await SeedPersonAsync("Name", "Age");
+        var result = await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);
+
+        var started = logs.Logs.Single(l => l.Message.StartsWith("Publishing the schema for tenant"));
+        started.Field("UserId").Should().Be("user-42");
+        started.Field("UserEmail").Should().Be("joh*******@gmail.com");
+        started.Field("SchemaOperation").Should().Be("Publish");
+        started.Field("TenantId").Should().Be(Tenant);
+        started.Field("Pod").Should().Be(Environment.MachineName);
+
+        var published = logs.Logs.Single(l => l.Message.StartsWith("Published schema version"));
+        published.Field("Version").Should().Be(result!.Version);
+        published.Field("SchemaCount").Should().Be(1);
+
+        var switched = logs.Logs.Single(l => l.Message.Contains("switched from published version"));
+        switched.Field("PreviousVersion").Should().Be(result.Version - 1);
+        switched.Field("Version").Should().Be(result.Version);
+
+        logs.Logs.Should().NotContain(l => l.AllText().Contains("johne.doe", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task APodThatCannotLoadAPublishedVersionLogsWhyAndKeepsServing()
+    {
+        await SeedPersonAsync("Name");
+        var logs = new RecordingLoggerProvider();
+        await using var pod = StartPod(logs);
+        var before = await pod.Resolver.GetRequestExecutorAsync(Tenant);
+        pod.BuiltVersions.TryGetBuilt(Tenant, out var serving).Should().BeTrue();
+
+        // Version 2 is made live, but part of its stored content is missing.
+        var versionStore = pod.Services.GetRequiredService<ISchemaVersionStore>();
+        var version = await versionStore.AllocateAsync(Tenant);
+        var smallChunks = new SchemaSnapshotStore(_repository, chunkSizeBytes: 64);
+        await smallChunks.SaveAsync(Tenant, version, SchemaSnapshotStore.Pack(await pod.Services.GetRequiredService<GraphqlSchemaBuilder>().ReadDraftSourceAsync(Tenant)),
+            SchemaSnapshotKind.Publish, []);
+        await _db.GetCollection<PublishedSchemaSnapshotChunk>("PublishedSchemaSnapshotChunks")
+            .DeleteOneAsync(c => c.Version == version && c.Index == 1);
+        await versionStore.MakeCurrentAsync(Tenant, version);
+
+        // HotChocolate rebuilds in the background and discards the error; the pod logs it.
+        await pod.Tracker.OnVersionPublishedAsync(Tenant, version);
+        var failure = await WaitForLogAsync(logs, l => l.Level == LogLevel.Error);
+
+        failure.Exception.Should().BeOfType<InvalidDataException>();
+        failure.Field("Version").Should().Be(version);
+        failure.Field("ServingVersion").Should().Be(serving);
+        failure.Field("SchemaOperation").Should().Be("Rebuild");
+        (await pod.Resolver.GetRequestExecutorAsync(Tenant)).Should().BeSameAs(before);
+    }
+
+    [Fact]
+    public async Task AnErrorRaisedByHotChocolateWhileCreatingTheSchemaIsLogged()
+    {
+        var logs = new RecordingLoggerProvider();
+        await using var pod = StartPod(logs);
+        var configurator = pod.Services.GetRequiredService<ITenantSchemaConfigurator>();
+
+        // The tenant's own types build; HotChocolate then rejects the schema as a whole.
+        var builder = SchemaBuilder.New();
+        await configurator.ConfigureAsync(Tenant, builder, CancellationToken.None);
+        builder.AddDocumentFromString("type Query { broken: MissingType }");
+
+        var create = () => builder.Create();
+
+        create.Should().Throw<SchemaException>();
+        var failure = logs.Logs.Single(l => l.Level == LogLevel.Error);
+        failure.Exception.Should().BeOfType<SchemaException>();
+        failure.Field("TenantId").Should().Be(Tenant);
+        failure.Field("Version").Should().Be(1L);
+    }
+
+    [Fact]
+    public async Task APublishThatFailsPartWayLogsTheStepAndWhatItLeftBehind()
+    {
+        await SeedPersonAsync("Name");
+        var logs = new RecordingLoggerProvider();
+        await using var pod = StartPod(logs);
+
+        // Version 1 is already taken by a stray snapshot, so storing the publish fails.
+        await _repository.InsertAsync(new PublishedSchemaSnapshot { ItemId = PublishedSchemaSnapshot.IdFor(1), Version = 1 });
+
+        var publish = () => pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);
+
+        await publish.Should().ThrowAsync<MongoException>();
+        var failure = logs.Logs.Single(l => l.Level == LogLevel.Error);
+        failure.Field("Step").Should().Be("storing the snapshot");
+        failure.Field("Version").Should().Be(1L);
+        failure.Message.Should().Contain("the live version is unchanged");
     }
 }

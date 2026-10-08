@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Services;
 using HotChocolate.Execution;
 using Microsoft.Extensions.Configuration;
@@ -98,14 +99,18 @@ public sealed class SchemaVersionTracker
             }
 
             var currentVersion = await _versionStore.GetAsync(tenantId, cancellationToken);
+            _logger.LogDebug("Schema version check for tenant {TenantId}: this pod serves {ServingVersion}, Redis has {CachedVersion}, MongoDB has {Version}",
+                tenantId, builtVersion, cachedVersion, currentVersion);
             if (currentVersion != builtVersion)
             {
-                RequestRebuild(tenantId, currentVersion, check, now);
+                RequestRebuild(tenantId, currentVersion, builtVersion, check, now, "version check");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not check the published schema version for tenant {TenantId}", tenantId);
+            // The pod keeps serving what it has and checks again after the poll interval.
+            _logger.LogWarning(ex, "Could not check the published schema version for tenant {TenantId}; this pod keeps serving version {ServingVersion}",
+                tenantId, builtVersion);
         }
         finally
         {
@@ -125,23 +130,28 @@ public sealed class SchemaVersionTracker
         // messages are harmless because MongoDB is checked before rebuilding.
         if (!_builtVersions.TryGetBuilt(tenantId, out var builtVersion) || builtVersion == version)
         {
+            _logger.LogDebug("Schema publish message for tenant {TenantId}, version {Version}: nothing to do on this pod", tenantId, version);
             return;
         }
 
         try
         {
             var currentVersion = await _versionStore.GetAsync(tenantId, cancellationToken);
+            _logger.LogDebug("Schema publish message for tenant {TenantId}, version {AnnouncedVersion}: this pod serves {ServingVersion}, MongoDB has {Version}",
+                tenantId, version, builtVersion, currentVersion);
             if (currentVersion != builtVersion)
             {
                 var check = _checks.GetOrAdd(tenantId, _ => new TenantCheck());
                 var now = _timeProvider.GetUtcNow();
                 check.CheckedAt = now;
-                RequestRebuild(tenantId, currentVersion, check, now);
+                RequestRebuild(tenantId, currentVersion, builtVersion, check, now, "publish message");
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not check the published schema version for tenant {TenantId} after a publish message", tenantId);
+            // The next version check (on the tenant's next request) catches up instead.
+            _logger.LogWarning(ex, "Could not check the published schema version for tenant {TenantId} after a publish message for version {Version}; this pod keeps serving version {ServingVersion} until its next check",
+                tenantId, version, builtVersion);
         }
     }
 
@@ -170,27 +180,36 @@ public sealed class SchemaVersionTracker
         check.CheckedAt = now;
 
         // The publish announcement may already have started this rebuild; then only wait for it.
-        RequestRebuild(tenantId, version, check, now);
+        RequestRebuild(tenantId, version, builtVersion, check, now, exactVersion ? "rollback on this pod" : "publish on this pod");
 
         return await _builtVersions.WaitForBuildAsync(tenantId, version, timeout, cancellationToken, exactVersion);
     }
 
-    private void RequestRebuild(string tenantId, long version, TenantCheck check, DateTimeOffset now)
+    private void RequestRebuild(string tenantId, long version, long servingVersion, TenantCheck check, DateTimeOffset now, string trigger)
     {
-        // A rebuild that failed leaves the old version in place; retry it, but not on every check.
-        if (check.RequestedVersion == version && now - check.RequestedAt < RetryBackoff)
+        using var scope = SchemaLog.BeginScope(_logger, SchemaLog.Rebuild, tenantId, version);
+        if (check.RequestedVersion == version)
         {
-            return;
+            // A rebuild that failed leaves the old version in place; retry it, but not on every check.
+            if (now - check.RequestedAt < RetryBackoff)
+            {
+                return;
+            }
+
+            // Asked for this version before and still not serving it: the earlier build failed.
+            check.Attempts++;
+            _logger.LogWarning("Tenant {TenantId} is still on published version {ServingVersion} on this pod; retrying the rebuild to version {Version} (attempt {Attempt}). The build error is logged before this line",
+                tenantId, servingVersion, version, check.Attempts);
+        }
+        else
+        {
+            check.Attempts = 1;
+            _logger.LogInformation("Rebuilding GraphQL schema for tenant {TenantId} from published version {ServingVersion} to {Version} (trigger: {Trigger})",
+                tenantId, servingVersion, version, trigger);
         }
 
         check.RequestedVersion = version;
         check.RequestedAt = now;
-        Evict(tenantId, version);
-    }
-
-    private void Evict(string tenantId, long version)
-    {
-        _logger.LogInformation("Rebuilding GraphQL schema for tenant {TenantId}: published version is {Version}", tenantId, version);
         _executorResolver.Value.EvictRequestExecutor(tenantId);
     }
 
@@ -207,6 +226,7 @@ public sealed class SchemaVersionTracker
         public DateTimeOffset CheckedAt { get; set; } = DateTimeOffset.MinValue;
         public long? RequestedVersion { get; set; }
         public DateTimeOffset RequestedAt { get; set; } = DateTimeOffset.MinValue;
+        public int Attempts { get; set; }
 
         // Only one request per tenant runs the check; the others carry on immediately.
         public bool TryEnter() => Interlocked.CompareExchange(ref _busy, 1, 0) == 0;

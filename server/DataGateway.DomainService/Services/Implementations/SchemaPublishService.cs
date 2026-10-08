@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using DataGateway.DomainService.Entities;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
@@ -38,55 +40,96 @@ public class SchemaPublishService : ISchemaPublishService
 
     public async Task<SchemaPublishResult> PublishAsync(string tenantId, CancellationToken cancellationToken = default)
     {
-        // Capture the pending changes first: a change saved while this runs may not be in the
-        // drafts read below, so it must stay pending.
-        var pendingChangeLogIds = await GetUnadaptedChangeLogIdsAsync(tenantId);
-
-        var source = await _schemaBuilder.ReadDraftSourceAsync(tenantId);
-
-        // Pack before building: building modifies the definitions, and the snapshot must hold
-        // exactly what was read. What is stored is then what was validated.
-        var content = SchemaSnapshotStore.Pack(source);
-        EnsureBuilds(tenantId, source);
-
-        var version = await _versionStore.AllocateAsync(tenantId, cancellationToken);
-        await _snapshotStore.SaveAsync(tenantId, version, content, SchemaSnapshotKind.Publish, pendingChangeLogIds, cancellationToken);
-        await _versionStore.MakeCurrentAsync(tenantId, version, cancellationToken);
-
-        if (pendingChangeLogIds.Count > 0)
+        using var scope = SchemaLog.BeginScope(_logger, SchemaLog.Publish, tenantId);
+        var started = Stopwatch.GetTimestamp();
+        var step = "reading the pending changes";
+        long? version = null;
+        var isLive = false;
+        try
         {
-            var filter = new BsonDocument(GraphQlConstant.DbEntityIdFieldName,
-                new BsonDocument("$in", new BsonArray(pendingChangeLogIds)));
-            var update = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), true);
-            await _repository.UpdateManyAsync(ChangeLogCollectionName, filter, update, tenantId);
+            // Capture the pending changes first: a change saved while this runs may not be in the
+            // drafts read below, so it must stay pending.
+            var pendingChangeLogIds = await GetUnadaptedChangeLogIdsAsync(tenantId);
+            var (userId, maskedEmail) = SchemaLog.CurrentUser();
+            _logger.LogInformation("Publishing the schema for tenant {TenantId}, requested by user {UserId} ({UserEmail}): {ChangeCount} pending changes",
+                tenantId, userId, maskedEmail, pendingChangeLogIds.Count);
+
+            step = "reading the drafts";
+            var source = await _schemaBuilder.ReadDraftSourceAsync(tenantId);
+
+            // Pack before building: building modifies the definitions, and the snapshot must hold
+            // exactly what was read. What is stored is then what was validated.
+            step = "test-building the drafts";
+            var content = SchemaSnapshotStore.Pack(source);
+            var buildStarted = Stopwatch.GetTimestamp();
+            EnsureBuilds(tenantId, source);
+            var buildMs = SchemaLog.ElapsedMs(buildStarted);
+
+            step = "allocating a version number";
+            version = await _versionStore.AllocateAsync(tenantId, cancellationToken);
+
+            step = "storing the snapshot";
+            var manifest = await _snapshotStore.SaveAsync(tenantId, version.Value, content, SchemaSnapshotKind.Publish, pendingChangeLogIds, cancellationToken);
+
+            step = "making the version live";
+            await _versionStore.MakeCurrentAsync(tenantId, version.Value, cancellationToken);
+            isLive = true;
+
+            step = "marking the published changes";
+            if (pendingChangeLogIds.Count > 0)
+            {
+                var filter = new BsonDocument(GraphQlConstant.DbEntityIdFieldName,
+                    new BsonDocument("$in", new BsonArray(pendingChangeLogIds)));
+                var update = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), true);
+                await _repository.UpdateManyAsync(ChangeLogCollectionName, filter, update, tenantId);
+            }
+
+            // Both handle and log their own failures; the publish has succeeded by now.
+            await _versionStore.AnnounceAsync(tenantId, version.Value);
+            await PruneAsync(tenantId, version.Value, cancellationToken);
+
+            _logger.LogInformation("Published schema version {Version} for tenant {TenantId}: {SchemaCount} schemas, {ChangeCount} changes, {RawKb} KB stored as {CompressedKb} KB in {ChunkCount} chunks; test build {BuildMs} ms, total {ElapsedMs} ms",
+                version, tenantId, content.SchemaCount, pendingChangeLogIds.Count, ToKb(content.RawSizeBytes),
+                ToKb(content.CompressedBytes.LongLength), manifest.ChunkCount, buildMs, SchemaLog.ElapsedMs(started));
+            return new SchemaPublishResult(version.Value, pendingChangeLogIds.Count);
         }
-
-        await _versionStore.AnnounceAsync(tenantId, version);
-        await PruneAsync(tenantId, version, cancellationToken);
-
-        _logger.LogInformation("Published schema version {Version} for tenant {TenantId} ({SchemaCount} schemas, {ChangeCount} changes)",
-            version, tenantId, content.SchemaCount, pendingChangeLogIds.Count);
-        return new SchemaPublishResult(version, pendingChangeLogIds.Count);
+        catch (SchemaPublishException)
+        {
+            // The drafts do not build: an expected outcome, logged where it is detected.
+            throw;
+        }
+        catch (Exception ex)
+        {
+            LogPublishFailure(ex, tenantId, step, version, isLive);
+            throw;
+        }
     }
 
     public async Task<SchemaRollbackResult> RollbackAsync(string tenantId, long version, CancellationToken cancellationToken = default)
     {
+        using var scope = SchemaLog.BeginScope(_logger, SchemaLog.Rollback, tenantId, version);
+        var (userId, maskedEmail) = SchemaLog.CurrentUser();
+
         if (!await _snapshotStore.ExistsAsync(tenantId, version, cancellationToken))
         {
+            _logger.LogWarning("Rollback of tenant {TenantId} to schema version {Version}, requested by user {UserId} ({UserEmail}), refused: that version is not kept",
+                tenantId, version, userId, maskedEmail);
             throw new SchemaVersionNotFoundException(version);
         }
 
         var previousVersion = await _versionStore.GetAsync(tenantId, cancellationToken);
         if (previousVersion == version)
         {
+            _logger.LogInformation("Rollback of tenant {TenantId} to schema version {Version}, requested by user {UserId} ({UserEmail}): already live, nothing changed",
+                tenantId, version, userId, maskedEmail);
             return new SchemaRollbackResult(version, previousVersion);
         }
 
         await _versionStore.SetCurrentAsync(tenantId, version, cancellationToken);
         await _versionStore.AnnounceAsync(tenantId, version);
 
-        _logger.LogInformation("Rolled back the schema for tenant {TenantId} from version {PreviousVersion} to {Version}",
-            tenantId, previousVersion, version);
+        _logger.LogInformation("Rolled back the schema for tenant {TenantId} from version {PreviousVersion} to {Version}, requested by user {UserId} ({UserEmail})",
+            tenantId, previousVersion, version, userId, maskedEmail);
         return new SchemaRollbackResult(version, previousVersion);
     }
 
@@ -110,6 +153,7 @@ public class SchemaPublishService : ISchemaPublishService
 
     public async Task<(long Version, SchemaSource Source)> BootstrapAsync(string tenantId, CancellationToken cancellationToken = default)
     {
+        using var scope = SchemaLog.BeginScope(_logger, SchemaLog.Bootstrap, tenantId);
         var source = await _schemaBuilder.ReadDraftSourceAsync(tenantId);
         var content = SchemaSnapshotStore.Pack(source);
 
@@ -122,8 +166,8 @@ public class SchemaPublishService : ISchemaPublishService
         await _versionStore.AnnounceAsync(tenantId, currentVersion);
         await PruneAsync(tenantId, currentVersion, cancellationToken);
 
-        _logger.LogInformation("Created first published schema version {Version} for tenant {TenantId} from its drafts",
-            version, tenantId);
+        _logger.LogInformation("Created first published schema version {Version} for tenant {TenantId} from its drafts: {SchemaCount} schemas, {CompressedKb} KB; live version is {LiveVersion}",
+            version, tenantId, content.SchemaCount, ToKb(content.CompressedBytes.LongLength), currentVersion);
         return (version, source);
     }
 
@@ -134,18 +178,20 @@ public class SchemaPublishService : ISchemaPublishService
             var deleted = await _snapshotStore.PruneAsync(tenantId, KeptVersions, liveVersion, cancellationToken);
             if (deleted > 0)
             {
-                _logger.LogInformation("Deleted {Count} old published schema versions for tenant {TenantId}", deleted, tenantId);
+                _logger.LogInformation("Deleted {Count} old published schema versions for tenant {TenantId}; the newest {Kept} and the live version {Version} are kept",
+                    deleted, tenantId, KeptVersions, liveVersion);
             }
         }
         catch (Exception ex)
         {
             // Old versions are retried at the next publish; the publish itself has succeeded.
-            _logger.LogWarning(ex, "Could not delete old published schema versions for tenant {TenantId}", tenantId);
+            _logger.LogWarning(ex, "Could not delete old published schema versions for tenant {TenantId}; retried at the next publish", tenantId);
         }
     }
 
     private void EnsureBuilds(string tenantId, SchemaSource source)
     {
+        var started = Stopwatch.GetTimestamp();
         try
         {
             var builder = SchemaBuilder.New();
@@ -157,10 +203,33 @@ public class SchemaPublishService : ISchemaPublishService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Schema for tenant {TenantId} does not build; nothing was published", tenantId);
+            // Not a fault of the service: the admin is shown the reason. Logged so support can see it too.
+            _logger.LogWarning(ex, "Schema for tenant {TenantId} does not build ({SchemaCount} schemas, checked in {BuildMs} ms); nothing was published",
+                tenantId, source.SchemaDefinitions.Count, SchemaLog.ElapsedMs(started));
             throw new SchemaPublishException($"The schema could not be published because it does not build: {ex.Message}", ex);
         }
     }
+
+    private void LogPublishFailure(Exception ex, string tenantId, string step, long? version, bool isLive)
+    {
+        if (version is null)
+        {
+            _logger.LogError(ex, "Publishing the schema for tenant {TenantId} failed while {Step}; nothing was published",
+                tenantId, step);
+        }
+        else if (!isLive)
+        {
+            _logger.LogError(ex, "Publishing the schema for tenant {TenantId} failed while {Step}; version {Version} was not made live and the live version is unchanged",
+                tenantId, step, version);
+        }
+        else
+        {
+            _logger.LogError(ex, "Publishing the schema for tenant {TenantId} failed while {Step}; version {Version} is live, but its changes still show as unpublished until the next publish",
+                tenantId, step, version);
+        }
+    }
+
+    private static double ToKb(long bytes) => Math.Round(bytes / 1024d, 1);
 
     private async Task<List<string>> GetUnadaptedChangeLogIdsAsync(string tenantId)
     {

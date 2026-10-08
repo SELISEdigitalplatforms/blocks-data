@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace DataGateway.DomainService.GraphQL;
 
@@ -13,22 +14,32 @@ namespace DataGateway.DomainService.GraphQL;
 /// </summary>
 public sealed class BuiltSchemaVersions
 {
-    private readonly ConcurrentDictionary<string, long> _pending = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, PendingBuild> _pending = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, long> _built = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, TaskCompletionSource> _buildCompleted = new(StringComparer.Ordinal);
 
-    public void BeginBuild(string tenantId, long version) => _pending[tenantId] = version;
+    public void BeginBuild(string tenantId, long version) =>
+        _pending[tenantId] = new PendingBuild(version, Stopwatch.GetTimestamp());
 
-    public void CompleteBuild(string tenantId)
+    /// <summary>
+    /// Records the pending build as the version now served. Returns what changed (for the log),
+    /// or null when no build was pending.
+    /// </summary>
+    public CompletedBuild? CompleteBuild(string tenantId)
     {
-        if (_pending.TryRemove(tenantId, out var version))
+        if (!_pending.TryRemove(tenantId, out var pending))
         {
-            _built[tenantId] = version;
-            if (_buildCompleted.TryRemove(tenantId, out var completed))
-            {
-                completed.TrySetResult();
-            }
+            return null;
         }
+
+        long? previousVersion = _built.TryGetValue(tenantId, out var previous) ? previous : null;
+        _built[tenantId] = pending.Version;
+        if (_buildCompleted.TryRemove(tenantId, out var completed))
+        {
+            completed.TrySetResult();
+        }
+
+        return new CompletedBuild(pending.Version, previousVersion, Stopwatch.GetElapsedTime(pending.StartedTimestamp));
     }
 
     /// <summary>The version this pod is serving for the tenant; false when it has not built it yet.</summary>
@@ -66,4 +77,9 @@ public sealed class BuiltSchemaVersions
             }
         }
     }
+
+    private readonly record struct PendingBuild(long Version, long StartedTimestamp);
 }
+
+/// <summary>A finished build: the version now served, the one it replaced (null for the first build), and how long the build took.</summary>
+public readonly record struct CompletedBuild(long Version, long? PreviousVersion, TimeSpan Elapsed);

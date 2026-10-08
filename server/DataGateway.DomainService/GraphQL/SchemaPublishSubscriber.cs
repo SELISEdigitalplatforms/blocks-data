@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Blocks.Genesis;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Services;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -48,12 +49,14 @@ public sealed class SchemaPublishSubscriber : BackgroundService
             {
                 await _cacheClient.SubscribeAsync(SchemaVersionStore.ChannelName, OnMessage);
                 _subscribed = true;
-                _logger.LogInformation("Subscribed to schema publish messages on {Channel}", SchemaVersionStore.ChannelName);
+                _logger.LogInformation("Pod {Pod} subscribed to schema publish messages on {Channel}", SchemaLog.Pod, SchemaVersionStore.ChannelName);
                 return;
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Could not subscribe to schema publish messages; retrying in {Delay}", _retryDelay);
+                // Until subscribed, this pod still catches up through its version checks, only slower.
+                _logger.LogWarning(ex, "Pod {Pod} could not subscribe to schema publish messages; retrying in {Delay}. Until then it picks up publishes through its version checks",
+                    SchemaLog.Pod, _retryDelay);
             }
 
             try
@@ -94,7 +97,8 @@ public sealed class SchemaPublishSubscriber : BackgroundService
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "Ignoring a malformed schema publish message");
+            // The payload itself is not logged.
+            _logger.LogWarning(ex, "Ignoring a malformed schema publish message ({Length} characters)", message.ToString().Length);
             return;
         }
 
@@ -103,6 +107,8 @@ public sealed class SchemaPublishSubscriber : BackgroundService
             _logger.LogWarning("Ignoring a schema publish message without a tenant");
             return;
         }
+
+        _logger.LogDebug("Received schema publish message for tenant {TenantId}, version {Version}", published.TenantId, published.Version);
 
         // OnVersionPublishedAsync handles its own failures.
         _ = Task.Run(() => _versionTracker.OnVersionPublishedAsync(published.TenantId, published.Version));

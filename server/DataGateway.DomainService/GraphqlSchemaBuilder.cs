@@ -43,11 +43,10 @@ public class GraphqlSchemaBuilder
     {
         try
         {
-            _logger.LogInformation("Building GraphQL schema for tenant: {TenantId}", tenantId);
             var schemas = Assemble(source);
             if (schemas.Count == 0)
             {
-                _logger.LogInformation("Default health check query types created for tenant: {TenantId}", tenantId);
+                _logger.LogDebug("Tenant {TenantId} has no schema definitions; nothing to build", tenantId);
                 return false;
             }
 
@@ -56,7 +55,7 @@ public class GraphqlSchemaBuilder
                 schemas = schemas.DistinctBy(x => x.SchemaName).ToList();
             }
 
-            _logger.LogInformation("Loaded {Count} schema definitions for tenant: {TenantId}", schemas.Count, tenantId);
+            _logger.LogDebug("Building GraphQL types for {Count} schema definitions of tenant {TenantId}", schemas.Count, tenantId);
             var dbSchemas = schemas.Where(x => x.SchemaType == SchemaType.Entity).ToArray();
             var customSchemas = schemas.Where(x => x.SchemaType == SchemaType.Dto).ToArray();
             var dbSchemaTypes = schemas.ToDictionary(s => s.GetSchemaNameForProject(), s => s);
@@ -93,19 +92,15 @@ public class GraphqlSchemaBuilder
             schemaBuilder.AddQueryType(queryType);
             schemaBuilder.AddMutationType(mutationType);
 
-            _logger.LogInformation("GraphQL schema built for tenant: {TenantId}", tenantId);
+            _logger.LogDebug("GraphQL types built for tenant {TenantId}", tenantId);
             return true;
-        }
-        catch (InvalidOperationException ex) when (ex.Message.StartsWith("SCHEMA_FILTER_CYCLE", StringComparison.Ordinal))
-        {
-            _logger.LogError(ex, "Rejected cyclic GraphQL filter schema for tenant: {TenantId}", tenantId);
-            throw;
         }
         catch (Exception ex)
         {
             // Rethrow so a failed rebuild keeps the executor that is already serving, instead of
-            // replacing it with a half-configured schema.
-            _logger.LogError(ex, "Error occurred while building GraphQL schema for tenant: {TenantId}, message: {Message}", tenantId, ex.Message);
+            // replacing it with a half-configured schema. The caller logs it once, with what it
+            // was building (a publish's test build, or a pod's rebuild of a published version).
+            _logger.LogDebug(ex, "Building GraphQL types failed for tenant {TenantId}", tenantId);
             throw;
         }
 

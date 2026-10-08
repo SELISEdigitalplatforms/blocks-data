@@ -260,6 +260,73 @@ public class MultiPodSchemaReloadTests
             .Which.Fields.Select(f => f.Name).Should().Equal("Name", "Age");
     }
 
+    // ---------------- rollback and history ----------------
+
+    [Fact]
+    public async Task ARollbackServesTheOlderVersionEverywhereAndLeavesTheDraftsAlone()
+    {
+        await SeedPersonAsync("Name");
+        await using var podA = StartPod();
+        await using var podB = StartPod();
+        await podB.Subscriber.StartAsync(CancellationToken.None);
+        await podA.Configuration.ReloadAsync(Tenant, CancellationToken.None);              // v1: Name
+        await SeedPersonAsync("Name", "Age");
+        await podA.Configuration.ReloadAsync(Tenant, CancellationToken.None);              // v2: Name, Age
+        var beforeB = await podB.Resolver.GetRequestExecutorAsync(Tenant);
+        HasPersonField(beforeB, "Age").Should().BeTrue();
+
+        var result = await podA.Configuration.RollbackAsync(Tenant, 1, CancellationToken.None);
+
+        result.Should().Be(new SchemaRollbackResult(1, 2));
+        // The pod that handled the rollback serves version 1 as soon as the call returns.
+        HasPersonField(await podA.Resolver.GetRequestExecutorAsync(Tenant), "Age").Should().BeFalse();
+        // The other pod follows the announcement.
+        HasPersonField(await WaitForRebuildAsync(podB, beforeB), "Age").Should().BeFalse();
+        podB.BuiltVersions.TryGetBuilt(Tenant, out var builtB).Should().BeTrue();
+        builtB.Should().Be(1);
+        await podB.Subscriber.StopAsync(CancellationToken.None);
+
+        // The drafts still have the field, and publishing again makes a new version with it.
+        var republished = await podA.Configuration.ReloadAsync(Tenant, CancellationToken.None);
+        republished!.Version.Should().Be(3, "versions 1 and 2 already exist");
+        HasPersonField(await podA.Resolver.GetRequestExecutorAsync(Tenant), "Age").Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RollingBackToAVersionThatIsNotKeptFails()
+    {
+        await SeedPersonAsync("Name");
+        await using var pod = StartPod();
+        await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);
+
+        var rollback = () => pod.Configuration.RollbackAsync(Tenant, 7, CancellationToken.None);
+
+        await rollback.Should().ThrowAsync<SchemaVersionNotFoundException>();
+        (await pod.Services.GetRequiredService<ISchemaVersionStore>().GetAsync(Tenant)).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task TheHistoryKeepsTheNewestTenVersionsAndMarksTheLiveOne()
+    {
+        await SeedPersonAsync("Name");
+        await SeedChangeLogAsync("pending-1");
+        await using var pod = StartPod();
+        for (var i = 0; i < 12; i++)
+        {
+            await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);
+        }
+        await pod.Configuration.RollbackAsync(Tenant, 5, CancellationToken.None);
+
+        var history = await pod.Configuration.GetVersionHistoryAsync(Tenant, CancellationToken.None);
+
+        history.CurrentVersion.Should().Be(5);
+        history.Versions.Select(v => v.Version).Should().Equal(12, 11, 10, 9, 8, 7, 6, 5, 4, 3);
+        history.Versions.Single(v => v.IsCurrent).Version.Should().Be(5);
+        history.Versions.Single(v => v.Version == 3).ChangeCount.Should().Be(0);
+        (await _db.GetCollection<PublishedSchemaSnapshot>("PublishedSchemaSnapshots").CountDocumentsAsync(FilterDefinition<PublishedSchemaSnapshot>.Empty))
+            .Should().Be(10, "versions 1 and 2 were deleted");
+    }
+
     [Fact]
     public async Task AnEvictedExecutorIsRebuiltInTheBackgroundWithoutARequestContext()
     {

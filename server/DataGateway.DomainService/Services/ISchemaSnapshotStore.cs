@@ -23,6 +23,18 @@ public interface ISchemaSnapshotStore
 
     /// <summary>The content of a version; null when that version has no (complete) snapshot.</summary>
     Task<SchemaSource?> LoadAsync(string tenantId, long version, CancellationToken cancellationToken = default);
+
+    /// <summary>Whether a complete snapshot exists for <paramref name="version"/>.</summary>
+    Task<bool> ExistsAsync(string tenantId, long version, CancellationToken cancellationToken = default);
+
+    /// <summary>The newest snapshots' manifests, newest first.</summary>
+    Task<IReadOnlyList<PublishedSchemaSnapshot>> ListAsync(string tenantId, int limit, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Deletes all but the newest <paramref name="keep"/> snapshots, never deleting
+    /// <paramref name="protectedVersion"/> (the live one). Returns how many were deleted.
+    /// </summary>
+    Task<int> PruneAsync(string tenantId, int keep, long protectedVersion, CancellationToken cancellationToken = default);
 }
 
 /// <summary>A <see cref="SchemaSource"/> serialized and compressed, ready to be stored.</summary>

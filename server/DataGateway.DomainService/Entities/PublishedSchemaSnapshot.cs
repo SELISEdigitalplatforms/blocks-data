@@ -35,7 +35,12 @@ public class PublishedSchemaSnapshot : GraphQlBaseEntity
     /// <summary>The change logs this publish made live.</summary>
     public List<string> ChangeLogIds { get; set; } = [];
 
+    /// <summary>The user id of whoever published.</summary>
     public string? PublishedBy { get; set; }
+
+    /// <summary>Their name as shown in the version history, captured at publish time.</summary>
+    public string? PublishedByName { get; set; }
+
     public DateTime PublishedDate { get; set; }
 
     public static string IdFor(long version) => version.ToString(System.Globalization.CultureInfo.InvariantCulture);

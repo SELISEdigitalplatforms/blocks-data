@@ -88,6 +88,22 @@
             </summary>
             <returns>Returns a success response carrying the published version and the number of changes it published, 400 with the build error if the definitions do not build (nothing is published), or an error message if the operation fails.</returns>
         </member>
+        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.GetSchemaVersionHistoryAsync">
+            <summary>
+            Lists the tenant's published schema versions that can be rolled back to (the newest 10), newest first,
+            with the version that is live now.
+            </summary>
+            <returns>Returns the live version and the kept versions: when and by whom each was published, how many changes
+            it published, and whether it is the live one.</returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.RollbackSchemaVersionAsync(DataGateway.DomainService.Models.RollbackSchemaVersionRequest)">
+            <summary>
+            Makes an earlier published schema version live again on every gateway pod. The schema drafts and the pending
+            (unpublished) changes are not touched, and the next publish still gets a new version number.
+            </summary>
+            <param name="request">The version to roll back to; one of the versions in the version history.</param>
+            <returns>Returns the version now live and the one it replaced, or 404 if that version is not kept.</returns>
+        </member>
         <member name="T:Api.Controllers.DataGateway.DataAccessController">
             <summary>
             Controller for managing data access permissions.

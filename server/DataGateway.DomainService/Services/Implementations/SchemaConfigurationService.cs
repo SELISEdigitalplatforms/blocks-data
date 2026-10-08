@@ -77,6 +77,29 @@ public class SchemaConfigurationService : ISchemaConfigurationService
         return result;
     }
 
+    /// <summary>
+    /// Makes an earlier published version live again on every pod
+    /// (<see cref="ISchemaPublishService.RollbackAsync"/>) and rebuilds this pod's executor before
+    /// returning, so the client's follow-up schema read sees that version. The drafts are not
+    /// touched.
+    /// </summary>
+    public async Task<SchemaRollbackResult> RollbackAsync(string tenantId, long version, CancellationToken cancellationToken)
+    {
+        var result = await _publishService.RollbackAsync(tenantId, version, cancellationToken);
+
+        var rebuilt = await _versionTracker.RebuildNowAsync(tenantId, result.Version, LocalRebuildTimeout, cancellationToken, exactVersion: true);
+        if (!rebuilt)
+        {
+            _logger.LogWarning("Rolled back tenant {TenantId} to version {Version}, but this pod had not rebuilt within {Timeout}",
+                tenantId, result.Version, LocalRebuildTimeout);
+        }
+
+        return result;
+    }
+
+    public Task<SchemaVersionHistory> GetVersionHistoryAsync(string tenantId, CancellationToken cancellationToken) =>
+        _publishService.GetHistoryAsync(tenantId, cancellationToken);
+
     public Task RemoveSchemaAsync(string tenantId, CancellationToken cancellationToken)
     {
         _executorResolver.EvictRequestExecutor(tenantId);

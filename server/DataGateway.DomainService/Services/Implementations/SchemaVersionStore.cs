@@ -102,6 +102,18 @@ public class SchemaVersionStore : ISchemaVersionStore
         return currentVersion;
     }
 
+    public async Task SetCurrentAsync(string tenantId, long version, CancellationToken cancellationToken = default)
+    {
+        var update = new BsonDocument
+        {
+            { "$set", new BsonDocument(nameof(SchemaPublishState.CurrentVersion), version) },
+            { "$currentDate", new BsonDocument(nameof(SchemaPublishState.LastUpdatedDate), true) }
+        };
+
+        await _repository.FindOneAndUpdateAsync(CollectionName, StateFilter, update, isUpsert: true, tenantId);
+        await CacheAsync(tenantId, version);
+    }
+
     public async Task AnnounceAsync(string tenantId, long version)
     {
         try

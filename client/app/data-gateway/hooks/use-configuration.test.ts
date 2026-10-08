@@ -29,7 +29,9 @@ import {
   useSchemaDetails,
   useSchemaExport,
   useSchemaList,
+  useSchemaRollback,
   useSchemasReload,
+  useSchemaVersionHistory,
   useSecurityAndPerformanceSchemaList,
   useSetDataAccess,
   useSetRowColumnPermission,
@@ -53,6 +55,8 @@ vi.mock("../services/configuration.service", () => ({
   configurationService: {
     getDataServiceDetails: vi.fn(),
     reloadSchemas: vi.fn(),
+    getSchemaVersionHistory: vi.fn(),
+    rollbackSchemaVersion: vi.fn(),
     executeGraphQLOperation: vi.fn(),
     getSchemaList: vi.fn(),
     getSecurityAndPerformanceSchemaList: vi.fn(),
@@ -490,6 +494,63 @@ describe("use-configuration hooks", () => {
       });
 
       result.current.mutate(undefined as never);
+      await waitFor(() => expect(result.current.isError).toBe(true));
+      expect(configurationService.executeGraphQLOperation).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useSchemaVersionHistory", () => {
+    it("should read the version history for the project", async () => {
+      vi.mocked(configurationService.getSchemaVersionHistory).mockResolvedValue({
+        isSuccess: true,
+        errors: null,
+        data: { currentVersion: 2, versions: [] },
+      });
+
+      const { result } = renderHook(() => useSchemaVersionHistory({ projectKey: "pk" }), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data?.data?.currentVersion).toBe(2);
+    });
+
+    it("should stay disabled without a project", () => {
+      const { result } = renderHook(() => useSchemaVersionHistory({ projectKey: "" }), {
+        wrapper: createWrapper(),
+      });
+
+      expect(result.current.fetchStatus).toBe("idle");
+      expect(configurationService.getSchemaVersionHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("useSchemaRollback", () => {
+    it("should roll back and re-read the served schema", async () => {
+      vi.mocked(configurationService.rollbackSchemaVersion).mockResolvedValue({
+        isSuccess: true,
+        message: "Version 3 is live.",
+        errors: null,
+        data: { version: 3, previousVersion: 5 },
+      });
+      vi.mocked(configurationService.executeGraphQLOperation).mockResolvedValue(
+        introspectionResult,
+      );
+
+      const { result } = renderHook(() => useSchemaRollback(), { wrapper: createWrapper() });
+
+      result.current.mutate(3);
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(configurationService.rollbackSchemaVersion).toHaveBeenCalledWith(3);
+      expect(configurationService.executeGraphQLOperation).toHaveBeenCalled();
+    });
+
+    it("should not re-read the schema when the rollback fails", async () => {
+      vi.mocked(configurationService.rollbackSchemaVersion).mockRejectedValue(new Error("404"));
+
+      const { result } = renderHook(() => useSchemaRollback(), { wrapper: createWrapper() });
+
+      result.current.mutate(9);
       await waitFor(() => expect(result.current.isError).toBe(true));
       expect(configurationService.executeGraphQLOperation).not.toHaveBeenCalled();
     });

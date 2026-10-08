@@ -120,9 +120,10 @@ public sealed class SchemaVersionTracker
     /// </summary>
     public async Task OnVersionPublishedAsync(string tenantId, long version, CancellationToken cancellationToken = default)
     {
-        // Messages can arrive late or out of order; one for a version this pod already serves
-        // (or a tenant it has not built) needs nothing.
-        if (!_builtVersions.TryGetBuilt(tenantId, out var builtVersion) || builtVersion >= version)
+        // A message for the version this pod already serves (or a tenant it has not built) needs
+        // nothing. An older version is not ignored: a rollback announces one. Late or out-of-order
+        // messages are harmless because MongoDB is checked before rebuilding.
+        if (!_builtVersions.TryGetBuilt(tenantId, out var builtVersion) || builtVersion == version)
         {
             return;
         }
@@ -151,9 +152,15 @@ public sealed class SchemaVersionTracker
     /// tenant this pod has not built yet needs nothing: it is built at the latest version on its
     /// first request. Returns false only if the rebuild did not finish in time.
     /// </summary>
-    public async Task<bool> RebuildNowAsync(string tenantId, long version, TimeSpan timeout, CancellationToken cancellationToken = default)
+    /// <param name="exactVersion">
+    /// Wait for exactly <paramref name="version"/> (a rollback, which moves to an older version)
+    /// rather than for that version or a newer one (a publish, which a later publish may overtake).
+    /// </param>
+    public async Task<bool> RebuildNowAsync(string tenantId, long version, TimeSpan timeout, CancellationToken cancellationToken = default, bool exactVersion = false)
     {
-        if (!_builtVersions.TryGetBuilt(tenantId, out var builtVersion) || builtVersion >= version)
+        if (!_builtVersions.TryGetBuilt(tenantId, out var builtVersion)
+            || builtVersion == version
+            || (!exactVersion && builtVersion > version))
         {
             return true;
         }
@@ -165,7 +172,7 @@ public sealed class SchemaVersionTracker
         // The publish announcement may already have started this rebuild; then only wait for it.
         RequestRebuild(tenantId, version, check, now);
 
-        return await _builtVersions.WaitForBuildAsync(tenantId, version, timeout, cancellationToken);
+        return await _builtVersions.WaitForBuildAsync(tenantId, version, timeout, cancellationToken, exactVersion);
     }
 
     private void RequestRebuild(string tenantId, long version, TenantCheck check, DateTimeOffset now)

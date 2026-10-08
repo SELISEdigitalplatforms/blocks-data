@@ -114,6 +114,21 @@ public class SchemaVersionStoreTests
     }
 
     [Fact]
+    public async Task SetCurrentAsync_CanMoveTheLiveVersionBackForARollback()
+    {
+        var store = Store();
+        await PublishAsync(store, "tenant-1"); // v1
+        await PublishAsync(store, "tenant-1"); // v2
+        await PublishAsync(store, "tenant-1"); // v3
+
+        await store.SetCurrentAsync("tenant-1", 1);
+
+        (await store.GetAsync("tenant-1")).Should().Be(1);
+        _cache.Get(Key("tenant-1")).Should().Be("1", "pods polling Redis must see the rollback too");
+        (await store.AllocateAsync("tenant-1")).Should().Be(4, "a rollback never makes an existing number available again");
+    }
+
+    [Fact]
     public async Task VersionsAreKeptPerTenant()
     {
         var store = Store();

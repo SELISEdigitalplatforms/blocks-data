@@ -118,6 +118,71 @@ public class SchemaSnapshotStoreTests
         await load.Should().ThrowAsync<InvalidDataException>();
     }
 
+    private async Task SaveVersionsAsync(SchemaSnapshotStore store, params long[] versions)
+    {
+        foreach (var version in versions)
+        {
+            await store.SaveAsync(Tenant, version, SchemaSnapshotStore.Pack(Source(schemaCount: 1)), SchemaSnapshotKind.Publish, []);
+        }
+    }
+
+    [Fact]
+    public async Task ListAsync_ReturnsTheNewestVersionsFirst()
+    {
+        var store = new SchemaSnapshotStore(_repository);
+        await SaveVersionsAsync(store, 1, 2, 3, 4);
+
+        var listed = await store.ListAsync(Tenant, limit: 3);
+
+        listed.Select(m => m.Version).Should().Equal(4, 3, 2);
+    }
+
+    [Fact]
+    public async Task ExistsAsync_TellsWhetherAVersionIsKept()
+    {
+        var store = new SchemaSnapshotStore(_repository);
+        await SaveVersionsAsync(store, 1);
+
+        (await store.ExistsAsync(Tenant, 1)).Should().BeTrue();
+        (await store.ExistsAsync(Tenant, 2)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PruneAsync_KeepsTheNewestVersionsAndDeletesTheirContentToo()
+    {
+        var store = new SchemaSnapshotStore(_repository);
+        await SaveVersionsAsync(store, 1, 2, 3, 4, 5);
+
+        var deleted = await store.PruneAsync(Tenant, keep: 3, protectedVersion: 5);
+
+        deleted.Should().Be(2);
+        (await store.ListAsync(Tenant, 10)).Select(m => m.Version).Should().Equal(5, 4, 3);
+        (await _db.GetCollection<PublishedSchemaSnapshotChunk>("PublishedSchemaSnapshotChunks")
+            .Find(c => c.Version <= 2).CountDocumentsAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task PruneAsync_NeverDeletesTheLiveVersion()
+    {
+        var store = new SchemaSnapshotStore(_repository);
+        await SaveVersionsAsync(store, 1, 2, 3, 4, 5);
+
+        // Rolled back to version 1, then two newer versions pushed it out of the newest 3.
+        await store.PruneAsync(Tenant, keep: 3, protectedVersion: 1);
+
+        (await store.ListAsync(Tenant, 10)).Select(m => m.Version).Should().Equal(5, 4, 3, 1);
+        (await store.LoadAsync(Tenant, 1)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task TheManifestRecordsWhoPublishedByName()
+    {
+        var manifest = await new SchemaSnapshotStore(_repository)
+            .SaveAsync(Tenant, 1, SchemaSnapshotStore.Pack(Source()), SchemaSnapshotKind.Publish, []);
+
+        manifest.PublishedByName.Should().NotBeNullOrWhiteSpace();
+    }
+
     [Fact]
     public void Constructor_RejectsANullRepositoryAndAnEmptyChunkSize()
     {

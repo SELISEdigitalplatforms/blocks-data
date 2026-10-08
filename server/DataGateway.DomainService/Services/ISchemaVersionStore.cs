@@ -37,6 +37,12 @@ public interface ISchemaVersionStore
     /// </summary>
     Task<long> MakeCurrentAsync(string tenantId, long version, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Makes <paramref name="version"/> the live version even if it is older than the current one
+    /// (a rollback). Does not change which numbers future publishes get.
+    /// </summary>
+    Task SetCurrentAsync(string tenantId, long version, CancellationToken cancellationToken = default);
+
     /// <summary>Tells every pod that <paramref name="version"/> was published. Best effort.</summary>
     Task AnnounceAsync(string tenantId, long version);
 }

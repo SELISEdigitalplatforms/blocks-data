@@ -166,6 +166,79 @@ public class DataGatewayControllerExtraTests
     }
 
     [Fact]
+    public async Task SchemaConfiguration_History_ReturnsTheVersionsForTheAmbientTenant()
+    {
+        ClearContext();
+        SetContext(tenantId: "t-history");
+        try
+        {
+            var history = new SchemaVersionHistory(2, [new SchemaVersionSummary(2, "Publish", DateTime.UtcNow, "Ada", 3, 5, true)]);
+            var svc = new Mock<ISchemaConfigurationService>();
+            svc.Setup(s => s.GetVersionHistoryAsync("t-history", It.IsAny<CancellationToken>())).ReturnsAsync(history);
+            var controller = new SchemaConfigurationController(svc.Object, NullLogger<SchemaConfigurationController>.Instance);
+
+            var result = await controller.GetSchemaVersionHistoryAsync();
+
+            Status(result).Should().Be(200);
+            ((ServiceResponse<SchemaVersionHistory>)((ObjectResult)result).Value!).Data.Should().Be(history);
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public async Task SchemaConfiguration_Rollback_RollsBackTheAmbientTenant()
+    {
+        ClearContext();
+        SetContext(tenantId: "t-rollback");
+        try
+        {
+            var svc = new Mock<ISchemaConfigurationService>();
+            svc.Setup(s => s.RollbackAsync("t-rollback", 4, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new SchemaRollbackResult(4, 6));
+            var controller = new SchemaConfigurationController(svc.Object, NullLogger<SchemaConfigurationController>.Instance);
+
+            var result = await controller.RollbackSchemaVersionAsync(new RollbackSchemaVersionRequest { Version = 4 });
+
+            Status(result).Should().Be(200);
+            ((ServiceResponse<SchemaRollbackResult>)((ObjectResult)result).Value!).Data.Should().Be(new SchemaRollbackResult(4, 6));
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public async Task SchemaConfiguration_Rollback_Returns404ForAVersionThatIsNotKept()
+    {
+        ClearContext();
+        SetContext(tenantId: "t-rollback");
+        try
+        {
+            var svc = new Mock<ISchemaConfigurationService>();
+            svc.Setup(s => s.RollbackAsync(It.IsAny<string>(), It.IsAny<long>(), It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new SchemaVersionNotFoundException(9));
+            var controller = new SchemaConfigurationController(svc.Object, NullLogger<SchemaConfigurationController>.Instance);
+
+            var result = await controller.RollbackSchemaVersionAsync(new RollbackSchemaVersionRequest { Version = 9 });
+
+            Status(result).Should().Be(404);
+        }
+        finally { ClearContext(); }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task SchemaConfiguration_Rollback_Returns400WithoutAVersion(long version)
+    {
+        var svc = new Mock<ISchemaConfigurationService>();
+        var controller = new SchemaConfigurationController(svc.Object, NullLogger<SchemaConfigurationController>.Instance);
+
+        var result = await controller.RollbackSchemaVersionAsync(new RollbackSchemaVersionRequest { Version = version });
+
+        Status(result).Should().Be(400);
+        svc.Verify(s => s.RollbackAsync(It.IsAny<string>(), It.IsAny<long>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task SchemaConfiguration_Reload_Returns400WhenTheSchemaDoesNotBuild()
     {
         ClearContext();

@@ -35,11 +35,12 @@ public sealed class BuiltSchemaVersions
     public bool TryGetBuilt(string tenantId, out long version) => _built.TryGetValue(tenantId, out version);
 
     /// <summary>
-    /// Waits until this pod serves <paramref name="version"/> (or newer) for the tenant. Returns
-    /// false if that has not happened within <paramref name="timeout"/>, e.g. because the rebuild
-    /// failed and the previous executor is still serving.
+    /// Waits until this pod serves <paramref name="version"/> (or, unless
+    /// <paramref name="exactVersion"/>, a newer one) for the tenant. Returns false if that has not
+    /// happened within <paramref name="timeout"/>, e.g. because the rebuild failed and the previous
+    /// executor is still serving.
     /// </summary>
-    public async Task<bool> WaitForBuildAsync(string tenantId, long version, TimeSpan timeout, CancellationToken cancellationToken = default)
+    public async Task<bool> WaitForBuildAsync(string tenantId, long version, TimeSpan timeout, CancellationToken cancellationToken = default, bool exactVersion = false)
     {
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(timeout);
@@ -50,7 +51,7 @@ public sealed class BuiltSchemaVersions
             var completed = _buildCompleted.GetOrAdd(tenantId,
                 _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously)).Task;
 
-            if (TryGetBuilt(tenantId, out var built) && built >= version)
+            if (TryGetBuilt(tenantId, out var built) && (built == version || (!exactVersion && built > version)))
             {
                 return true;
             }

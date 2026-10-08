@@ -112,6 +112,7 @@ public class SchemaSnapshotStore : ISchemaSnapshotStore
         };
         manifest.InjectDefaultValue();
         manifest.PublishedBy = manifest.CreatedBy;
+        manifest.PublishedByName = CurrentUserName();
 
         // Written last: the manifest is what makes the snapshot visible. Its id is the version, so a
         // second write of the same version fails instead of replacing a published snapshot.
@@ -139,6 +140,58 @@ public class SchemaSnapshotStore : ISchemaSnapshotStore
         }
 
         return Unpack(chunks.SelectMany(c => c.Data).ToArray());
+    }
+
+    public async Task<bool> ExistsAsync(string tenantId, long version, CancellationToken cancellationToken = default) =>
+        await _repository.GetItemAsync<PublishedSchemaSnapshot>(PublishedSchemaSnapshot.IdFor(version), tenantId) is not null;
+
+    public async Task<IReadOnlyList<PublishedSchemaSnapshot>> ListAsync(string tenantId, int limit, CancellationToken cancellationToken = default)
+    {
+        return await _repository.GetItemsAsync<PublishedSchemaSnapshot>(
+            FilterDefinition<BsonDocument>.Empty,
+            Builders<BsonDocument>.Sort.Descending(nameof(PublishedSchemaSnapshot.Version)),
+            null,
+            0,
+            limit,
+            tenantId);
+    }
+
+    public async Task<int> PruneAsync(string tenantId, int keep, long protectedVersion, CancellationToken cancellationToken = default)
+    {
+        var versions = await _repository.GetItemsAsync<PublishedSchemaSnapshot>(
+            FilterDefinition<BsonDocument>.Empty,
+            Builders<BsonDocument>.Sort.Descending(nameof(PublishedSchemaSnapshot.Version)),
+            Builders<BsonDocument>.Projection.Include(nameof(PublishedSchemaSnapshot.Version)),
+            0,
+            0,
+            tenantId);
+
+        var expired = versions
+            .Skip(keep)
+            .Select(v => v.Version)
+            .Where(v => v != protectedVersion)
+            .ToList();
+        if (expired.Count == 0)
+        {
+            return 0;
+        }
+
+        // Manifests first, so a snapshot disappears as a whole before its content does.
+        await _repository.DeleteManyAsync(Builders<PublishedSchemaSnapshot>.Filter.In(m => m.Version, expired), tenantId);
+        await _repository.DeleteManyAsync(Builders<PublishedSchemaSnapshotChunk>.Filter.In(c => c.Version, expired), tenantId);
+        return expired.Count;
+    }
+
+    private static string? CurrentUserName()
+    {
+        var context = Blocks.Genesis.BlocksContext.GetContext();
+        if (context is null)
+        {
+            return null;
+        }
+
+        return new[] { context.DisplayName, context.UserName, context.Email }
+            .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name));
     }
 
     private static List<T> ReadArray<T>(BsonDocument document, string name) =>

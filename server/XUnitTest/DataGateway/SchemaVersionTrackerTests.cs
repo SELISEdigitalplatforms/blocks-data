@@ -187,9 +187,19 @@ public class SchemaVersionTrackerTests
         BuiltAt(7);
 
         await Tracker().OnVersionPublishedAsync("tenant-1", 7);
-        await Tracker().OnVersionPublishedAsync("tenant-1", 5); // late or out of order
 
         _store.Verify(s => s.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _resolver.Verify(r => r.EvictRequestExecutor(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OnVersionPublished_ALateMessageForAnOlderVersionCostsOnlyACheck()
+    {
+        BuiltAt(7);
+        PublishedVersionIs(7);
+
+        await Tracker().OnVersionPublishedAsync("tenant-1", 5);
+
         _resolver.Verify(r => r.EvictRequestExecutor(It.IsAny<string>()), Times.Never);
     }
 
@@ -240,6 +250,50 @@ public class SchemaVersionTrackerTests
 
         rebuilt.Should().BeTrue();
         _resolver.Verify(r => r.EvictRequestExecutor("tenant-1"), Times.Once);
+    }
+
+    [Fact]
+    public async Task OnVersionPublished_FollowsARollbackToAnOlderVersion()
+    {
+        BuiltAt(12);
+        PublishedVersionIs(10);
+
+        await Tracker().OnVersionPublishedAsync("tenant-1", 10);
+
+        _resolver.Verify(r => r.EvictRequestExecutor("tenant-1"), Times.Once);
+    }
+
+    [Fact]
+    public async Task EnsureCurrent_FollowsARollbackToAnOlderVersion()
+    {
+        BuiltAt(12);
+        PublishedVersionIs(10);
+
+        await Tracker().EnsureCurrentAsync("tenant-1");
+
+        _resolver.Verify(r => r.EvictRequestExecutor("tenant-1"), Times.Once);
+    }
+
+    [Fact]
+    public async Task RebuildNow_ForARollbackWaitsForExactlyThatVersion()
+    {
+        BuiltAt(12);
+        EvictionRebuildsAt(10);
+
+        var rebuilt = await Tracker().RebuildNowAsync("tenant-1", 10, TimeSpan.FromSeconds(5), exactVersion: true);
+
+        rebuilt.Should().BeTrue();
+        _built.TryGetBuilt("tenant-1", out var version).Should().BeTrue();
+        version.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task BuiltVersions_ExactWaitIsNotSatisfiedByANewerVersion()
+    {
+        BuiltAt(12);
+
+        (await _built.WaitForBuildAsync("tenant-1", 10, TimeSpan.FromMilliseconds(50), exactVersion: true)).Should().BeFalse();
+        (await _built.WaitForBuildAsync("tenant-1", 10, TimeSpan.FromMilliseconds(50))).Should().BeTrue();
     }
 
     [Fact]

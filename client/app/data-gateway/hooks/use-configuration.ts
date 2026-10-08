@@ -38,6 +38,52 @@ export const useGetDataServiceConfiguration = () => {
   });
 };
 
+/**
+ * Re-reads the schema the gateway now serves into the caches the schema
+ * preview, playground and explorer read from. Called after the live version
+ * changes (publish or rollback).
+ */
+const refreshServedSchema = async (
+  queryClient: ReturnType<typeof useQueryClient>,
+  projectKey: string,
+  projectShortKey: string,
+) => {
+  const rawIntrospection = await configurationService.executeGraphQLOperation(
+    getIntrospectionQuery(),
+  );
+
+  // Readers (schema preview, playground drawer) key the raw introspection by tenantId,
+  // while the client-schema query is keyed by slug — write each under its reader's key.
+  if (projectKey) {
+    queryClient.setQueryData(
+      ["graphql-raw-introspection", projectKey],
+      rawIntrospection,
+    );
+  }
+
+  if (projectShortKey) {
+    const introspectionData = (rawIntrospection as {
+      data: IntrospectionQuery;
+    }).data;
+    queryClient.setQueryData(
+      ["graphql-introspection", projectShortKey],
+      buildClientSchema(introspectionData),
+    );
+  }
+
+  await queryClient.invalidateQueries({
+    queryKey: ["graphql-raw-introspection"],
+    refetchType: "none",
+  });
+  await queryClient.invalidateQueries({
+    queryKey: ["graphql-introspection"],
+    refetchType: "none",
+  });
+  await queryClient.invalidateQueries({
+    queryKey: ["schema-version-history", projectKey],
+  });
+};
+
 export const useSchemasReload = () => {
   const queryClient = useQueryClient();
   const selectedProject = useProjectStore().selectedProject;
@@ -51,41 +97,40 @@ export const useSchemasReload = () => {
       // is still current.
       if (error) return;
 
-      const rawIntrospection = await configurationService.executeGraphQLOperation(
-        getIntrospectionQuery(),
-      );
-
-      // Readers (schema preview, playground drawer) key the raw introspection by tenantId,
-      // while the client-schema query is keyed by slug — write each under its reader's key.
-      if (projectKey) {
-        queryClient.setQueryData(
-          ["graphql-raw-introspection", projectKey],
-          rawIntrospection,
-        );
-      }
-
-      if (projectShortKey) {
-        const introspectionData = (rawIntrospection as {
-          data: IntrospectionQuery;
-        }).data;
-        queryClient.setQueryData(
-          ["graphql-introspection", projectShortKey],
-          buildClientSchema(introspectionData),
-        );
-      }
-
-      await queryClient.invalidateQueries({
-        queryKey: ["graphql-raw-introspection"],
-        refetchType: "none",
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["graphql-introspection"],
-        refetchType: "none",
-      });
-
+      await refreshServedSchema(queryClient, projectKey, projectShortKey);
       await queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],
       });
+      await invalidateSchemaList(queryClient, projectKey);
+    },
+  });
+};
+
+/**
+ * The published schema versions that can be rolled back to, and which one is
+ * live. Not retried: a role without the history permission gets a 403, and the
+ * page simply leaves the version out.
+ */
+export const useSchemaVersionHistory = ({ projectKey }: { projectKey: string }) => {
+  return useQuery({
+    queryKey: ["schema-version-history", projectKey],
+    queryFn: () => configurationService.getSchemaVersionHistory(),
+    enabled: !!projectKey,
+    retry: false,
+  });
+};
+
+/** Makes an earlier published version live again. Drafts are not touched. */
+export const useSchemaRollback = () => {
+  const queryClient = useQueryClient();
+  const selectedProject = useProjectStore().selectedProject;
+  const projectShortKey = selectedProject?.tenantSlug || "";
+  const projectKey = selectedProject?.tenantId || "";
+
+  return useMutation({
+    mutationFn: (version: number) => configurationService.rollbackSchemaVersion(version),
+    onSuccess: async () => {
+      await refreshServedSchema(queryClient, projectKey, projectShortKey);
       await invalidateSchemaList(queryClient, projectKey);
     },
   });

@@ -11,6 +11,9 @@ namespace DataGateway.DomainService.Services;
 
 public class SchemaPublishService : ISchemaPublishService
 {
+    /// <summary>How many published versions are kept to roll back to (the live one is always kept).</summary>
+    public const int KeptVersions = 10;
+
     private const string ChangeLogCollectionName = $"{nameof(SchemaChangeLog)}s";
 
     private readonly GraphqlSchemaBuilder _schemaBuilder;
@@ -59,10 +62,50 @@ public class SchemaPublishService : ISchemaPublishService
         }
 
         await _versionStore.AnnounceAsync(tenantId, version);
+        await PruneAsync(tenantId, version, cancellationToken);
 
         _logger.LogInformation("Published schema version {Version} for tenant {TenantId} ({SchemaCount} schemas, {ChangeCount} changes)",
             version, tenantId, content.SchemaCount, pendingChangeLogIds.Count);
         return new SchemaPublishResult(version, pendingChangeLogIds.Count);
+    }
+
+    public async Task<SchemaRollbackResult> RollbackAsync(string tenantId, long version, CancellationToken cancellationToken = default)
+    {
+        if (!await _snapshotStore.ExistsAsync(tenantId, version, cancellationToken))
+        {
+            throw new SchemaVersionNotFoundException(version);
+        }
+
+        var previousVersion = await _versionStore.GetAsync(tenantId, cancellationToken);
+        if (previousVersion == version)
+        {
+            return new SchemaRollbackResult(version, previousVersion);
+        }
+
+        await _versionStore.SetCurrentAsync(tenantId, version, cancellationToken);
+        await _versionStore.AnnounceAsync(tenantId, version);
+
+        _logger.LogInformation("Rolled back the schema for tenant {TenantId} from version {PreviousVersion} to {Version}",
+            tenantId, previousVersion, version);
+        return new SchemaRollbackResult(version, previousVersion);
+    }
+
+    public async Task<SchemaVersionHistory> GetHistoryAsync(string tenantId, CancellationToken cancellationToken = default)
+    {
+        var currentVersion = await _versionStore.GetAsync(tenantId, cancellationToken);
+        var snapshots = await _snapshotStore.ListAsync(tenantId, KeptVersions, cancellationToken);
+
+        var versions = snapshots
+            .Select(s => new SchemaVersionSummary(
+                s.Version,
+                s.Kind.ToString(),
+                s.PublishedDate,
+                s.PublishedByName,
+                s.ChangeLogIds.Count,
+                s.SchemaCount,
+                s.Version == currentVersion))
+            .ToList();
+        return new SchemaVersionHistory(currentVersion, versions);
     }
 
     public async Task<(long Version, SchemaSource Source)> BootstrapAsync(string tenantId, CancellationToken cancellationToken = default)
@@ -77,10 +120,28 @@ public class SchemaPublishService : ISchemaPublishService
         // version wins and the others are never served.
         var currentVersion = await _versionStore.MakeCurrentAsync(tenantId, version, cancellationToken);
         await _versionStore.AnnounceAsync(tenantId, currentVersion);
+        await PruneAsync(tenantId, currentVersion, cancellationToken);
 
         _logger.LogInformation("Created first published schema version {Version} for tenant {TenantId} from its drafts",
             version, tenantId);
         return (version, source);
+    }
+
+    private async Task PruneAsync(string tenantId, long liveVersion, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var deleted = await _snapshotStore.PruneAsync(tenantId, KeptVersions, liveVersion, cancellationToken);
+            if (deleted > 0)
+            {
+                _logger.LogInformation("Deleted {Count} old published schema versions for tenant {TenantId}", deleted, tenantId);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Old versions are retried at the next publish; the publish itself has succeeded.
+            _logger.LogWarning(ex, "Could not delete old published schema versions for tenant {TenantId}", tenantId);
+        }
     }
 
     private void EnsureBuilds(string tenantId, SchemaSource source)

@@ -263,19 +263,23 @@ export const SchemaBasicInfo = ({
 
         {/* Bottom info row — Access Control for Entity, References for Child */}
         {(isEntity || props.schemaType === 2) && (
-          <div className="relative flex items-center gap-4 border-t border-border/40 px-5 py-3">
+          /* On phones the label stacks above its values rather than sitting
+             beside them, where it ran off the card's left edge. */
+          <div className="relative flex flex-col items-start gap-2.5 border-t border-border/40 px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
             <span className="shrink-0 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
               {isEntity ? "Access Control" : "References"}
             </span>
             {isEntity ? (
               /* Access Control pills for Entity — verb and tier share one
-                 bordered, tier-tinted pill, matching every board's own strip. */
-              <div className="flex flex-wrap items-center gap-2">
+                 bordered, tier-tinted pill, matching every board's own strip.
+                 Two per row on phones (View | Create, Edit | Delete). */
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
                 {accessLevels.map(({ label, level }) => (
                   <AccessVerbPill
                     key={label}
                     verb={label}
                     level={level}
+                    className="justify-center sm:justify-start"
                     compact={isNarrow || isAccessPanelOpen}
                     onClick={() => {
                       if (onOpenSchemaAccess) {

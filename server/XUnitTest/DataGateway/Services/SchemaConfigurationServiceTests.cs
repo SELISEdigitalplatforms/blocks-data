@@ -25,8 +25,8 @@ using XUnitTest.Infrastructure;
 namespace XUnitTest.DataGateway.Services;
 
 /// <summary>
-/// Covers schema reload/removal, which is the seam between the version-stamped pipeline cache and
-/// HotChocolate's executor eviction, plus the response formatter that turns GraphQL auth errors
+/// Covers schema reload/removal, which raises the tenant's published version that every pod checks
+/// and rebuilds this pod's executor, plus the response formatter that turns GraphQL auth errors
 /// into HTTP status codes.
 /// </summary>
 [Collection("Mongo")]
@@ -68,89 +68,153 @@ public class SchemaConfigurationServiceTests
         }
     });
 
-    private static ProjectExecutorOptionsMonitor Monitor()
-    {
-        var options = new Mock<IOptionsMonitor<RequestExecutorSetup>>();
-        options.Setup(o => o.Get(It.IsAny<string>())).Returns(new RequestExecutorSetup());
-        return new ProjectExecutorOptionsMonitor(options.Object, []);
-    }
+    private sealed record Harness(
+        SchemaConfigurationService Service,
+        SchemaVersionStore VersionStore,
+        BuiltSchemaVersions BuiltVersions,
+        Mock<IRequestExecutorResolver> Resolver,
+        InMemoryCacheClient Cache);
 
-    private (SchemaConfigurationService Service, DataGatewayPipelineDispatcher Dispatcher, List<string> Evictions) Build()
+    private Harness Build()
     {
-        var dispatcher = new DataGatewayPipelineDispatcher(new ServiceCollection().BuildServiceProvider());
-        var monitor = Monitor();
-        var evictions = new List<string>();
-        monitor.OnChange(evictions.Add);
+        var repository = Repository();
+        var cache = new InMemoryCacheClient();
+        var versionStore = new SchemaVersionStore(repository, cache, NullLogger<SchemaVersionStore>.Instance);
+        var builtVersions = new BuiltSchemaVersions();
+        var resolver = new Mock<IRequestExecutorResolver>();
+        var tracker = new SchemaVersionTracker(
+            versionStore, builtVersions, () => resolver.Object, TimeProvider.System,
+            SchemaVersionTracker.DefaultPollInterval, NullLogger<SchemaVersionTracker>.Instance);
+
+        var publishService = new SchemaPublishService(
+            Builder(), new SchemaSnapshotStore(repository), versionStore, repository, NullLogger<SchemaPublishService>.Instance);
 
         var service = new SchemaConfigurationService(
             Builder(),
-            new Mock<IRequestExecutorResolver>().Object,
-            dispatcher,
-            monitor,
+            publishService,
+            tracker,
+            resolver.Object,
             NullLogger<SchemaConfigurationService>.Instance);
 
-        return (service, dispatcher, evictions);
+        return new Harness(service, versionStore, builtVersions, resolver, cache);
     }
+
+    private static void MarkBuilt(BuiltSchemaVersions builtVersions, string tenantId, long version)
+    {
+        builtVersions.BeginBuild(tenantId, version);
+        builtVersions.CompleteBuild(tenantId);
+    }
+
+    private Task SeedChangeLogAsync(string id, bool adapted) =>
+        Repository().InsertAsync(new SchemaChangeLog
+        {
+            ItemId = id,
+            SchemaId = "schema-1",
+            ChangeType = SchemaChangeType.SchemaFieldUpdate,
+            DoesServerAdaptChanges = adapted
+        });
 
     // ---------------- reload ----------------
 
     [Fact]
-    public async Task ReloadAsync_EvictsTheRetiredSchemaNameAndBumpsTheVersion()
+    public async Task ReloadAsync_RaisesThePublishedVersionEveryTime()
     {
-        var (service, dispatcher, evictions) = Build();
+        var harness = Build();
 
-        await service.ReloadAsync("tenant-1", CancellationToken.None);
+        (await harness.Service.ReloadAsync("tenant-1", CancellationToken.None))!.Version.Should().Be(1);
+        (await harness.Service.ReloadAsync("tenant-1", CancellationToken.None))!.Version.Should().Be(2);
 
-        evictions.Should().Equal("tenant-1");
-        // The next retired name proves the version counter moved on.
-        dispatcher.BumpVersionAndClearPipeline("tenant-1").Should().Be("tenant-1__v1");
+        // Every pod compares its built version against this number.
+        (await harness.VersionStore.GetAsync("tenant-1")).Should().Be(2);
     }
 
     [Fact]
-    public async Task ReloadAsync_EvictsSuccessiveVersionsOnRepeatedReloads()
+    public async Task ReloadAsync_MarksThePendingChangeLogsAsPublished()
     {
-        var (service, _, evictions) = Build();
+        await SeedChangeLogAsync("pending-1", adapted: false);
+        await SeedChangeLogAsync("pending-2", adapted: false);
+        await SeedChangeLogAsync("already-published", adapted: true);
+        var harness = Build();
 
-        await service.ReloadAsync("tenant-1", CancellationToken.None);
-        await service.ReloadAsync("tenant-1", CancellationToken.None);
-        await service.ReloadAsync("tenant-1", CancellationToken.None);
+        await harness.Service.ReloadAsync("tenant-1", CancellationToken.None);
 
-        evictions.Should().Equal("tenant-1", "tenant-1__v1", "tenant-1__v2");
+        var logs = await _db.GetCollection<SchemaChangeLog>("SchemaChangeLogs").Find(FilterDefinition<SchemaChangeLog>.Empty).ToListAsync();
+        logs.Should().HaveCount(3).And.OnlyContain(log => log.DoesServerAdaptChanges);
+    }
+
+    [Fact]
+    public async Task ReloadAsync_RebuildsThisPodsExecutorStraightAway()
+    {
+        var harness = Build();
+        MarkBuilt(harness.BuiltVersions, "tenant-1", 0);
+        // Stand in for HotChocolate rebuilding the evicted executor at the new version.
+        harness.Resolver.Setup(r => r.EvictRequestExecutor("tenant-1"))
+            .Callback(() => MarkBuilt(harness.BuiltVersions, "tenant-1", 1));
+
+        await harness.Service.ReloadAsync("tenant-1", CancellationToken.None);
+
+        harness.Resolver.Verify(r => r.EvictRequestExecutor("tenant-1"), Times.Once);
+        harness.BuiltVersions.TryGetBuilt("tenant-1", out var built).Should().BeTrue();
+        built.Should().Be(1, "the reload returns once this pod serves the new version");
+    }
+
+    [Fact]
+    public async Task ReloadAsync_LeavesATenantThisPodHasNotBuiltToBeBuiltOnDemand()
+    {
+        var harness = Build();
+
+        await harness.Service.ReloadAsync("tenant-1", CancellationToken.None);
+
+        harness.Resolver.Verify(r => r.EvictRequestExecutor(It.IsAny<string>()), Times.Never);
     }
 
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
     [InlineData(null)]
-    public async Task ReloadAsync_FallsBackToTheDefaultSchemaNameForABlankTenant(string? tenantId)
+    public async Task ReloadAsync_ForABlankTenantOnlyEvictsTheDefaultSchema(string? tenantId)
     {
-        var (service, _, evictions) = Build();
+        var harness = Build();
 
-        await service.ReloadAsync(tenantId!, CancellationToken.None);
+        await harness.Service.ReloadAsync(tenantId!, CancellationToken.None);
 
-        evictions.Should().Equal(Schema.DefaultName);
+        harness.Resolver.Verify(r => r.EvictRequestExecutor(Schema.DefaultName), Times.Once);
+        (await _db.GetCollection<SchemaPublishState>("SchemaPublishStates").CountDocumentsAsync(FilterDefinition<SchemaPublishState>.Empty))
+            .Should().Be(0, "a blank tenant has no version to raise");
     }
 
     [Fact]
-    public async Task RemoveSchemaAsync_EvictsTheRetiredSchemaNameWithoutTheBlankFallback()
+    public async Task ReloadAsync_AnnouncesTheNewVersionToEveryPod()
     {
-        var (service, _, evictions) = Build();
+        var harness = Build();
 
-        await service.RemoveSchemaAsync("tenant-2", CancellationToken.None);
+        await harness.Service.ReloadAsync("tenant-1", CancellationToken.None);
 
-        evictions.Should().Equal("tenant-2");
+        var (channel, message) = harness.Cache.Published.Should().ContainSingle().Subject;
+        channel.Should().Be(SchemaVersionStore.ChannelName);
+        System.Text.Json.JsonSerializer.Deserialize<SchemaVersionPublished>(message)
+            .Should().Be(new SchemaVersionPublished("tenant-1", 1));
     }
 
     [Fact]
-    public async Task ReloadAsync_VersionsEachTenantIndependently()
+    public async Task ReloadAsync_StillPublishesWhenTheAnnouncementFails()
     {
-        var (service, _, evictions) = Build();
+        var harness = Build();
+        harness.Cache.FailPublish = true;
 
-        await service.ReloadAsync("tenant-a", CancellationToken.None);
-        await service.ReloadAsync("tenant-b", CancellationToken.None);
-        await service.ReloadAsync("tenant-a", CancellationToken.None);
+        await harness.Service.ReloadAsync("tenant-1", CancellationToken.None);
 
-        evictions.Should().Equal("tenant-a", "tenant-b", "tenant-a__v1");
+        (await harness.VersionStore.GetAsync("tenant-1")).Should().Be(1, "other pods still catch up on their next check");
+    }
+
+    [Fact]
+    public async Task RemoveSchemaAsync_EvictsTheTenantsExecutor()
+    {
+        var harness = Build();
+
+        await harness.Service.RemoveSchemaAsync("tenant-2", CancellationToken.None);
+
+        harness.Resolver.Verify(r => r.EvictRequestExecutor("tenant-2"), Times.Once);
     }
 
     // ---------------- schema building ----------------
@@ -159,7 +223,7 @@ public class SchemaConfigurationServiceTests
     public async Task BuildSchemaAsync_ReturnsASchemaCarryingTheStoredEntities()
     {
         await SeedAsync();
-        var (service, _, _) = Build();
+        var service = Build().Service;
 
         var schema = await service.BuildSchemaAsync("tenant-1", CancellationToken.None);
 
@@ -172,7 +236,7 @@ public class SchemaConfigurationServiceTests
     public async Task ConfigureSchemaAsync_AppliesTheProjectSchemaOntoAnExistingBuilder()
     {
         await SeedAsync();
-        var (service, _, _) = Build();
+        var service = Build().Service;
         var builder = SchemaBuilder.New();
 
         await service.ConfigureSchemaAsync("tenant-1", builder, CancellationToken.None);
@@ -188,21 +252,23 @@ public class SchemaConfigurationServiceTests
     public void Constructor_RejectsEveryNullDependency()
     {
         var builder = Builder();
+        var publishService = new Mock<ISchemaPublishService>().Object;
         var resolver = new Mock<IRequestExecutorResolver>().Object;
-        var dispatcher = new DataGatewayPipelineDispatcher(new ServiceCollection().BuildServiceProvider());
-        var monitor = Monitor();
+        var tracker = new SchemaVersionTracker(
+            new Mock<ISchemaVersionStore>().Object, new BuiltSchemaVersions(), () => resolver, TimeProvider.System,
+            SchemaVersionTracker.DefaultPollInterval, NullLogger<SchemaVersionTracker>.Instance);
         var logger = NullLogger<SchemaConfigurationService>.Instance;
 
         Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(null!, resolver, dispatcher, monitor, logger));
+            new SchemaConfigurationService(null!, publishService, tracker, resolver, logger));
         Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(builder, null!, dispatcher, monitor, logger));
+            new SchemaConfigurationService(builder, null!, tracker, resolver, logger));
         Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(builder, resolver, null!, monitor, logger));
+            new SchemaConfigurationService(builder, publishService, null!, resolver, logger));
         Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(builder, resolver, dispatcher, null!, logger));
+            new SchemaConfigurationService(builder, publishService, tracker, null!, logger));
         Assert.Throws<ArgumentNullException>(() =>
-            new SchemaConfigurationService(builder, resolver, dispatcher, monitor, null!));
+            new SchemaConfigurationService(builder, publishService, tracker, resolver, null!));
     }
 
     // ---------------- AuthHttpResponseFormatter ----------------

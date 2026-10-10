@@ -72,6 +72,13 @@ public interface IDbRepository
 
     Task<ActionResponse> UpdateManyAsync<T>(List<T> data, string databaseName = "") where T : GraphQlBaseEntity;
     Task<ActionResponse> UpdateManyAsync(string collectionName, BsonDocument filter, BsonDocument data, string databaseName = "");
+
+    /// <summary>
+    /// Atomically applies <paramref name="update"/> to the first matching document and returns the
+    /// document as it is after the update. Unlike the other update methods, the update is passed
+    /// through as-is (e.g. <c>$inc</c>, or an update pipeline) instead of being wrapped in <c>$set</c>.
+    /// </summary>
+    Task<BsonDocument?> FindOneAndUpdateAsync(string collectionName, BsonDocument filter, UpdateDefinition<BsonDocument> update, bool isUpsert = false, string databaseName = "");
     #endregion
     #region Delete
     Task<ActionResponse> DeleteAsync<T>(FilterDefinition<T> filter, string databaseName = "") where T : GraphQlBaseEntity;

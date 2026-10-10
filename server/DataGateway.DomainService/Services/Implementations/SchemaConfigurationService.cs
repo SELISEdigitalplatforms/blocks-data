@@ -1,4 +1,5 @@
 using DataGateway.DomainService.GraphQL;
+using DataGateway.DomainService.Helpers;
 using HotChocolate.Execution;
 using Microsoft.Extensions.Logging;
 
@@ -7,21 +8,21 @@ namespace DataGateway.DomainService.Services;
 public class SchemaConfigurationService : ISchemaConfigurationService
 {
     private readonly GraphqlSchemaBuilder _graphqlSchemaBuilder;
-    private readonly ILogger<SchemaConfigurationService> _logger;
+    private readonly ISchemaPublishService _publishService;
+    private readonly SchemaVersionTracker _versionTracker;
     private readonly IRequestExecutorResolver _executorResolver;
-    private readonly DataGatewayPipelineDispatcher _pipelineDispatcher;
-    private readonly ProjectExecutorOptionsMonitor _optionsMonitor;
+    private readonly ILogger<SchemaConfigurationService> _logger;
 
     public SchemaConfigurationService(GraphqlSchemaBuilder graphqlSchemaBuilder,
+        ISchemaPublishService publishService,
+        SchemaVersionTracker versionTracker,
         IRequestExecutorResolver executorResolver,
-        DataGatewayPipelineDispatcher pipelineDispatcher,
-        ProjectExecutorOptionsMonitor optionsMonitor,
         ILogger<SchemaConfigurationService> logger)
     {
-        _executorResolver = executorResolver ?? throw new ArgumentNullException(nameof(executorResolver));
         _graphqlSchemaBuilder = graphqlSchemaBuilder ?? throw new ArgumentNullException(nameof(graphqlSchemaBuilder));
-        _pipelineDispatcher = pipelineDispatcher ?? throw new ArgumentNullException(nameof(pipelineDispatcher));
-        _optionsMonitor = optionsMonitor ?? throw new ArgumentNullException(nameof(optionsMonitor));
+        _publishService = publishService ?? throw new ArgumentNullException(nameof(publishService));
+        _versionTracker = versionTracker ?? throw new ArgumentNullException(nameof(versionTracker));
+        _executorResolver = executorResolver ?? throw new ArgumentNullException(nameof(executorResolver));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -40,27 +41,67 @@ public class SchemaConfigurationService : ISchemaConfigurationService
         _logger.LogInformation("Schema configured for tenant: {TenantId}", tenantId);
     }
 
-    public async Task ReloadAsync(string tenantId, CancellationToken cancellationToken)
+    /// <summary>How long a reload waits for this pod's executor to be rebuilt before returning.</summary>
+    public static readonly TimeSpan LocalRebuildTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Publishes the tenant's drafts (<see cref="ISchemaPublishService.PublishAsync"/>): every pod
+    /// then serves the new version, and this pod's executor is rebuilt before returning. Throws
+    /// <see cref="SchemaPublishException"/>, and changes nothing, when the drafts do not build.
+    /// Returns null for a blank tenant.
+    /// </summary>
+    public async Task<SchemaPublishResult?> ReloadAsync(string tenantId, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Reloading schema for tenant: {TenantId}", tenantId);
+        if (string.IsNullOrWhiteSpace(tenantId))
+        {
+            _logger.LogWarning("Schema reload requested without a tenant; evicting the default schema only");
+            _executorResolver.EvictRequestExecutor(Schema.DefaultName);
+            return null;
+        }
 
-        var effectiveName = string.IsNullOrWhiteSpace(tenantId) ? Schema.DefaultName : tenantId;
+        var result = await _publishService.PublishAsync(tenantId, cancellationToken);
 
-        // Bump the version counter so the next request uses a new schema name (e.g. tenantId@v1).
-        // HC has no cache entry for the new name → always builds a fresh executor from MongoDB.
-        // This bypasses any unreliability in EvictRequestExecutor for dynamically-created schemas.
-        var oldSchemaName = _pipelineDispatcher.BumpVersionAndClearPipeline(effectiveName);
+        // Wait for this pod's new executor, so the request the client sends right after a publish
+        // (it re-reads the schema) gets the new schema rather than the one being replaced. Other
+        // pods rebuild in parallel, on the announcement.
+        var rebuilt = await _versionTracker.RebuildNowAsync(tenantId, result.Version, LocalRebuildTimeout, cancellationToken);
+        if (!rebuilt)
+        {
+            // The snapshot built a moment ago, so this is transient; the version is already live
+            // and every pod, this one included, keeps retrying.
+            _logger.LogWarning("Published version {Version} for tenant {TenantId}, but pod {Pod} had not rebuilt within {Timeout}; it keeps serving its previous version until the rebuild succeeds. Any build error is logged before this line",
+                result.Version, tenantId, SchemaLog.Pod, LocalRebuildTimeout);
+        }
 
-        // Evict old executor via HC's own change-notification path (more reliable than
-        // calling IRequestExecutorResolver.EvictRequestExecutor directly).
-        _optionsMonitor.TriggerEviction(oldSchemaName);
-        _logger.LogInformation("Schema reload complete for tenant: {TenantId}", tenantId);
+        return result;
     }
+
+    /// <summary>
+    /// Makes an earlier published version live again on every pod
+    /// (<see cref="ISchemaPublishService.RollbackAsync"/>) and rebuilds this pod's executor before
+    /// returning, so the client's follow-up schema read sees that version. The drafts are not
+    /// touched.
+    /// </summary>
+    public async Task<SchemaRollbackResult> RollbackAsync(string tenantId, long version, CancellationToken cancellationToken)
+    {
+        var result = await _publishService.RollbackAsync(tenantId, version, cancellationToken);
+
+        var rebuilt = await _versionTracker.RebuildNowAsync(tenantId, result.Version, LocalRebuildTimeout, cancellationToken, exactVersion: true);
+        if (!rebuilt)
+        {
+            _logger.LogWarning("Rolled back tenant {TenantId} to version {Version}, but pod {Pod} had not rebuilt within {Timeout}; it keeps serving its previous version until the rebuild succeeds. Any build error is logged before this line",
+                tenantId, result.Version, SchemaLog.Pod, LocalRebuildTimeout);
+        }
+
+        return result;
+    }
+
+    public Task<SchemaVersionHistory> GetVersionHistoryAsync(string tenantId, CancellationToken cancellationToken) =>
+        _publishService.GetHistoryAsync(tenantId, cancellationToken);
 
     public Task RemoveSchemaAsync(string tenantId, CancellationToken cancellationToken)
     {
-        var oldSchemaName = _pipelineDispatcher.BumpVersionAndClearPipeline(tenantId);
-        _optionsMonitor.TriggerEviction(oldSchemaName);
+        _executorResolver.EvictRequestExecutor(tenantId);
         return Task.CompletedTask;
     }
 }

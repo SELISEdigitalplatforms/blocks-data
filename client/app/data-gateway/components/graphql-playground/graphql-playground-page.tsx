@@ -1530,7 +1530,9 @@ export const GraphQLPlaygroundPage = () => {
           </div>
         </div>
 
-        <div className="relative flex flex-1 flex-col overflow-hidden md:flex-row">
+        {/* Stacked on phones, with a gap so Response reads as its own panel
+            rather than running straight on from the editor's empty space. */}
+        <div className="relative flex flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-0">
           {/* Query Editor panel */}
           <div className="flex min-h-[320px] w-full flex-col border-b border-border/40 md:min-h-0 md:w-1/2 md:border-b-0 md:border-r">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-border/40 bg-muted/10 px-4">
@@ -1602,7 +1604,7 @@ export const GraphQLPlaygroundPage = () => {
           </div>
 
           {/* Response panel */}
-          <div className="flex min-h-[280px] w-full flex-col md:min-h-0 md:w-1/2">
+          <div className="flex min-h-[280px] w-full flex-col border-t border-border/40 md:min-h-0 md:w-1/2 md:border-t-0">
             {responses.length === 0 ? (
               <>
                 <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">

@@ -38,6 +38,52 @@ export const useGetDataServiceConfiguration = () => {
   });
 };
 
+/**
+ * Re-reads the schema the gateway now serves into the caches the schema
+ * preview, playground and explorer read from. Called after the live version
+ * changes (publish or rollback).
+ */
+const refreshServedSchema = async (
+  queryClient: ReturnType<typeof useQueryClient>,
+  projectKey: string,
+  projectShortKey: string,
+) => {
+  const rawIntrospection = await configurationService.executeGraphQLOperation(
+    getIntrospectionQuery(),
+  );
+
+  // Readers (schema preview, playground drawer) key the raw introspection by tenantId,
+  // while the client-schema query is keyed by slug — write each under its reader's key.
+  if (projectKey) {
+    queryClient.setQueryData(
+      ["graphql-raw-introspection", projectKey],
+      rawIntrospection,
+    );
+  }
+
+  if (projectShortKey) {
+    const introspectionData = (rawIntrospection as {
+      data: IntrospectionQuery;
+    }).data;
+    queryClient.setQueryData(
+      ["graphql-introspection", projectShortKey],
+      buildClientSchema(introspectionData),
+    );
+  }
+
+  await queryClient.invalidateQueries({
+    queryKey: ["graphql-raw-introspection"],
+    refetchType: "none",
+  });
+  await queryClient.invalidateQueries({
+    queryKey: ["graphql-introspection"],
+    refetchType: "none",
+  });
+  await queryClient.invalidateQueries({
+    queryKey: ["schema-version-history", projectKey],
+  });
+};
+
 export const useSchemasReload = () => {
   const queryClient = useQueryClient();
   const selectedProject = useProjectStore().selectedProject;
@@ -47,44 +93,45 @@ export const useSchemasReload = () => {
   return useMutation({
     mutationFn: () => configurationService.reloadSchemas(),
     onSettled: async (_data, error) => {
-      const rawIntrospection = await configurationService.executeGraphQLOperation(
-        getIntrospectionQuery(),
-      );
+      // A failed publish changes nothing on the gateway, so the cached schema
+      // is still current.
+      if (error) return;
 
-      // Readers (schema preview, playground drawer) key the raw introspection by tenantId,
-      // while the client-schema query is keyed by slug — write each under its reader's key.
-      if (projectKey) {
-        queryClient.setQueryData(
-          ["graphql-raw-introspection", projectKey],
-          rawIntrospection,
-        );
-      }
-
-      if (projectShortKey) {
-        const introspectionData = (rawIntrospection as {
-          data: IntrospectionQuery;
-        }).data;
-        queryClient.setQueryData(
-          ["graphql-introspection", projectShortKey],
-          buildClientSchema(introspectionData),
-        );
-      }
-
+      await refreshServedSchema(queryClient, projectKey, projectShortKey);
       await queryClient.invalidateQueries({
-        queryKey: ["graphql-raw-introspection"],
-        refetchType: "none",
+        queryKey: ["unadapted-change-logs", projectKey],
       });
-      await queryClient.invalidateQueries({
-        queryKey: ["graphql-introspection"],
-        refetchType: "none",
-      });
+      await invalidateSchemaList(queryClient, projectKey);
+    },
+  });
+};
 
-      if (!error) {
-        await queryClient.invalidateQueries({
-          queryKey: ["unadapted-change-logs", projectKey],
-        });
-        await invalidateSchemaList(queryClient, projectKey);
-      }
+/**
+ * The published schema versions that can be rolled back to, and which one is
+ * live. Not retried: a role without the history permission gets a 403, and the
+ * page simply leaves the version out.
+ */
+export const useSchemaVersionHistory = ({ projectKey }: { projectKey: string }) => {
+  return useQuery({
+    queryKey: ["schema-version-history", projectKey],
+    queryFn: () => configurationService.getSchemaVersionHistory(),
+    enabled: !!projectKey,
+    retry: false,
+  });
+};
+
+/** Makes an earlier published version live again. Drafts are not touched. */
+export const useSchemaRollback = () => {
+  const queryClient = useQueryClient();
+  const selectedProject = useProjectStore().selectedProject;
+  const projectShortKey = selectedProject?.tenantSlug || "";
+  const projectKey = selectedProject?.tenantId || "";
+
+  return useMutation({
+    mutationFn: (version: number) => configurationService.rollbackSchemaVersion(version),
+    onSuccess: async () => {
+      await refreshServedSchema(queryClient, projectKey, projectShortKey);
+      await invalidateSchemaList(queryClient, projectKey);
     },
   });
 };
@@ -248,10 +295,9 @@ export const useUpdateSchemaStructure = () => {
     mutationFn: configurationService.updateSchemaStructure,
     onSuccess: async (_data, variables: IUpdateSchemaStructure) => {
       const mutationProjectKey = variables.projectKey || projectKey;
-      // Mutations run against a cached GraphQL executor. Rebuild it after any
-      // schema-structure change so Child requiredness is enforced immediately
-      // by every Entity that embeds the Child.
-      await configurationService.reloadSchemas();
+      // A saved structure is a draft: the gateway keeps serving the published
+      // version until the admin publishes, so nothing is reloaded here. The
+      // change shows up in the "unpublished" count instead.
       queryClient.invalidateQueries({
         queryKey: ["schema-details", variables.schemaDefinitionItemId, mutationProjectKey],
       });

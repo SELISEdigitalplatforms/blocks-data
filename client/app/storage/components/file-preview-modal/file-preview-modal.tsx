@@ -38,12 +38,15 @@ export const FilePreviewModal = ({
   const [isLoadingText, setIsLoadingText] = useState(false);
   const extension = getNormalizedExtension(fileExtension, fileName);
 
-  useEffect(() => {
+  // Clear the previous file's content each time the modal opens.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setIsPdfLoaded(false);
       setTextContent("");
     }
-  }, [open]);
+  }
 
   useEffect(() => {
     const fetchTextContent = async () => {

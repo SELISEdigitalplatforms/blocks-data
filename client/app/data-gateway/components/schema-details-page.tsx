@@ -328,7 +328,14 @@ export const SchemaDetailsPage = () => {
     void queryClient.prefetchQuery(getPolicyDataQueryOptions(schemaName, projectKey));
   }, [selectedSchemaId, projectKey, schemaDetailsQuery?.data?.schemaName, queryClient]);
 
-  useEffect(() => {
+  // Load the fetched schema into local state whenever the server data (or project) changes.
+  const loadedSchemaData = schemaDetailsQuery?.data;
+  const [loadedFrom, setLoadedFrom] = useState<{
+    data: typeof loadedSchemaData;
+    projectKey: typeof projectKey;
+  } | null>(null);
+  if (loadedFrom === null || loadedFrom.data !== loadedSchemaData || loadedFrom.projectKey !== projectKey) {
+    setLoadedFrom({ data: loadedSchemaData, projectKey });
     if (schemaDetailsQuery?.data) {
       const res = schemaDetailsQuery.data;
       setSchemaDetails({
@@ -355,7 +362,7 @@ export const SchemaDetailsPage = () => {
         deleteAccessLevel: res.deleteAccessLevel,
       });
     }
-  }, [schemaDetailsQuery, projectKey]);
+  }
 
   return (
     <>

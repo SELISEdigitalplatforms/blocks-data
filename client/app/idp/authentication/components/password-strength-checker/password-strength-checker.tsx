@@ -18,18 +18,11 @@ export const PasswordStrengthChecker: React.FC<PasswordStrengthCheckerProps> = (
   excludePasswordLabel,
 }) => {
   const { checks, requirements } = usePasswordStrength(password);
-  const [passwordsMatch, setPasswordsMatch] = useState(false);
-  const [isDifferentFromExcluded, setIsDifferentFromExcluded] = useState(true);
+  const passwordsMatch = password === confirmPassword && password !== "";
+  const isDifferentFromExcluded =
+    excludePassword && password !== "" ? password !== excludePassword : true;
 
   useEffect(() => {
-    setPasswordsMatch(password === confirmPassword && password !== "");
-
-    if (excludePassword && password !== "") {
-      setIsDifferentFromExcluded(password !== excludePassword);
-    } else {
-      setIsDifferentFromExcluded(true);
-    }
-
     const allMet =
       Object.values(checks).every((check) => check) && passwordsMatch && isDifferentFromExcluded;
     onRequirementsMet(allMet);

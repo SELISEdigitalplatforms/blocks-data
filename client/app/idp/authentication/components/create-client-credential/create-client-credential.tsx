@@ -21,7 +21,7 @@ import { Input } from "@/components/ui-kits/input/input";
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import { Search } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useProjectStore } from "@/store/use-project-store";
 import { useSaveAuthClient } from "@blocks-idp/authentication/hooks/use-auth-clients";
 import { useForm } from "react-hook-form";
@@ -41,7 +41,6 @@ import { isErrorWithErrors } from "@/lib/error";
 export const CreateClientCredential = () => {
   const [open, setOpen] = useState<boolean>(false);
   const [filter, setFilter] = useState<string>("");
-  const [filteredRoles, setFilteredRoles] = useState<IRole[]>([]);
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const { mutateAsync: saveServiceClient, isPending } = useSaveAuthClient({
     projectKey: tenantId,
@@ -57,15 +56,9 @@ export const CreateClientCredential = () => {
     },
   });
 
-  useEffect(() => {
-    if (data?.data) {
-      setFilteredRoles(
-        data.data.filter((role) => role.slug.toLowerCase().includes(filter.toLowerCase())),
-      );
-    } else {
-      setFilteredRoles([]);
-    }
-  }, [filter, data]);
+  const filteredRoles: IRole[] = data?.data
+    ? data.data.filter((role) => role.slug.toLowerCase().includes(filter.toLowerCase()))
+    : [];
 
   const form = useForm({
     resolver: zodResolver(createClientSchema),

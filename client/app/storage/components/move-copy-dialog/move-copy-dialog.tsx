@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { ChevronRight, Folder as DirectoryIcon, FolderInput, LoaderCircle } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   useCopyFile,
   useDmsChildren,
@@ -68,31 +68,15 @@ export function MoveCopyDialog({
 
   const directoryDetail = useDmsDirectory(startDirectoryId);
 
-  useEffect(() => {
-    const detail = directoryDetail.data;
-    if (!detail || !startDirectoryId) return;
-
-    const names = (detail.fullPath ?? "")
-      .split("/")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const ancestorIds = detail.ancestorIds ?? [];
-    const allIds = [...ancestorIds, startDirectoryId];
-
-    // The path segments must line up with the ids one-to-one (ancestors + self).
-    // If they don't — legacy or malformed data — keep the single-entry fallback
-    // rather than rendering a misleading trail.
-    if (names.length !== allIds.length) return;
-
-    const trail: Crumb[] = [
-      { id: undefined, name: "Root" },
-      ...allIds.map((id, i) => ({ id, name: names[i] })),
-    ];
-    setCrumbs(trail);
-    // Seed only once per start directory; re-running on every data tick would reset
-    // the caller's in-flight navigation.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDirectoryId, directoryDetail.data?.itemId]);
+  // Seed the trail once per start directory, as soon as its detail has loaded. Keyed on the
+  // ids rather than the data object, so later data ticks don't reset in-flight navigation.
+  const seedKey = `${startDirectoryId ?? ""}|${directoryDetail.data?.itemId ?? ""}`;
+  const [seededKey, setSeededKey] = useState<string | null>(null);
+  if (seedKey !== seededKey) {
+    setSeededKey(seedKey);
+    const trail = buildStartTrail(directoryDetail.data, startDirectoryId);
+    if (trail) setCrumbs(trail);
+  }
 
   const children = useDmsChildren(current.id, { type: "directory" });
   const moveFile = useMoveFile();
@@ -325,4 +309,23 @@ export function MoveCopyDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * Breadcrumb trail (Root + ancestors + self) for the start directory, or null when the detail is
+ * missing or its path segments don't line up one-to-one with the ids (legacy or malformed data),
+ * in which case the single-entry fallback stays.
+ */
+function buildStartTrail(
+  detail: { fullPath?: string | null; ancestorIds?: string[] | null } | undefined,
+  startDirectoryId: string | undefined,
+): Crumb[] | null {
+  if (!detail || !startDirectoryId) return null;
+  const names = (detail.fullPath ?? "")
+    .split("/")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const allIds = [...(detail.ancestorIds ?? []), startDirectoryId];
+  if (names.length !== allIds.length) return null;
+  return [{ id: undefined, name: "Root" }, ...allIds.map((id, i) => ({ id, name: names[i] }))];
 }

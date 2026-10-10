@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -84,7 +84,6 @@ export const UploadDmsFileModal = ({
 }: UploadDmsFileModalProps) => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [files, setFiles] = useState<File[]>([]);
-  const [, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [objectAccessLevel, setObjectAccessLevel] = useState("");
   const [accessModifier, setAccessModifier] = useState<StorageAccessModifier>("Private");
@@ -95,18 +94,12 @@ export const UploadDmsFileModal = ({
   const { mutateAsync: uploadfileMutate } = useUploadFile();
   const { mutateAsync: completeUploadMutate } = useCompleteUpload();
 
-  useEffect(() => {
-    const urls = files.map((f) => URL.createObjectURL(f));
-    setPreviews(urls);
-    return () => urls.forEach(URL.revokeObjectURL);
-  }, [files]);
 
   const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && !isUploading) {
       setFiles([]);
-      setPreviews([]);
       setObjectAccessLevel("");
       setAccessModifier("Private");
     }
@@ -219,7 +212,6 @@ export const UploadDmsFileModal = ({
 
       // Reset state
       setFiles([]);
-      setPreviews([]);
       setObjectAccessLevel("");
       setAccessModifier("Private");
       handleOpenChange(false);

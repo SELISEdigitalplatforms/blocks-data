@@ -16,7 +16,7 @@ import {
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Pencil, Plus, Sparkles, Trash } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { RegExpParser } from "regexpp";
 import {
   useCreateSchemaFieldValidation,
@@ -85,7 +85,8 @@ export function SchemaFieldValidationPanel({
   const [form, setForm] = useState<ValidationFormState>(defaultForm);
   const [regexError, setRegexError] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
-  const originalForm = useRef<Pick<
+  // The values a validation had when editing started, for the dirty check.
+  const [originalForm, setOriginalForm] = useState<Pick<
     ValidationFormState,
     "value" | "errorMessage" | "isActive"
   > | null>(null);
@@ -175,11 +176,11 @@ export function SchemaFieldValidationPanel({
 
   const handleEdit = (index: number) => {
     const v = validations[index];
-    originalForm.current = {
+    setOriginalForm({
       value: v.value,
       errorMessage: v.errorMessage,
       isActive: v.isActive,
-    };
+    });
     setForm({
       value: v.value,
       errorMessage: v.errorMessage,
@@ -278,10 +279,10 @@ export function SchemaFieldValidationPanel({
   const isEditMode = form.editingIndex !== undefined;
   const isDirty =
     !isEditMode ||
-    !originalForm.current ||
-    form.value.trim() !== originalForm.current.value.trim() ||
-    form.errorMessage !== originalForm.current.errorMessage ||
-    form.isActive !== originalForm.current.isActive;
+    !originalForm ||
+    form.value.trim() !== originalForm.value.trim() ||
+    form.errorMessage !== originalForm.errorMessage ||
+    form.isActive !== originalForm.isActive;
 
   return (
     <>

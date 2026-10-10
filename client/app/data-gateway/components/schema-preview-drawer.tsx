@@ -118,9 +118,11 @@ export function SchemaPreviewDrawer({
   const navigate = useNavigate();
   const dataGatewayPath = useDataGatewayPath();
 
-  useEffect(() => {
+  const [prevIsEntity, setPrevIsEntity] = useState<boolean | null>(null);
+  if (isEntity !== prevIsEntity) {
+    setPrevIsEntity(isEntity);
     setActiveTab(isEntity ? "request-format" : "schema-structure");
-  }, [isEntity]);
+  }
 
   const operationTabMap: Record<string, string[]> = {
     query: ["Query"],

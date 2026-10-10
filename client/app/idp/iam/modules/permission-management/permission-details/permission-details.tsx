@@ -3,7 +3,7 @@
 import { useProjectStore } from "@/store/use-project-store";
 import { useGetPermissionById, useUpdatePermission } from "@blocks-idp/iam/hooks/use-permission";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
-import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
+import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { PermissionForm } from "../permission-form";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
@@ -56,8 +56,8 @@ export const PermissionDetails = ({ id }: PermissionDetailsProps) => {
     }
   };
 
-  BREADCRUMB_CUSTOM_TITLES["/services/iam/permission-detail"] = "Permissions";
-  BREADCRUMB_CUSTOM_TITLES[`/services/iam/permission-detail/${id}`] = data?.data.name || "";
+  setBreadcrumbTitle("/services/iam/permission-detail", "Permissions");
+  setBreadcrumbTitle(`/services/iam/permission-detail/${id}`, data?.data.name || "");
 
   return (
     <div className="px-4 pt-4 md:px-6 md:pt-6">

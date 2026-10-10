@@ -11,7 +11,7 @@ import { Dialog, DialogTrigger } from "@/components/ui-kits/dialog/dialog";
 import { Button } from "@/components/ui-kits/button/button";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { Pagination } from "@/components/ui-kits/pagination/pagination";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { DeleteStorageConfiguration } from "../delete-storage-configuration/delete-storage-configuration";
 import { IStorageConfiguration, STORAGE_STRATEGIES } from "@/storage/models/storage.model";
 import { SaveStorageConfiguration } from "../save-storage-configuration/save-storage-configuration";
@@ -64,11 +64,10 @@ export const StorageConfigurationList = ({
   const [page, setPage] = useState(0);
   const pageSize = 5;
 
-  useEffect(() => {
-    if (configurations.length <= page * pageSize && page > 0) {
-      setPage((page) => page - 1);
-    }
-  }, [configurations, page]);
+  // Step back a page when deletions empty the current one.
+  if (configurations.length <= page * pageSize && page > 0) {
+    setPage(page - 1);
+  }
 
   if (isLoading) return <LoadingSkelton />;
 

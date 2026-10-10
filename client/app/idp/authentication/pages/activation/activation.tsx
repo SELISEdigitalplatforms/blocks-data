@@ -38,15 +38,21 @@ export const Activation = ({ code }: ActivationProps) => {
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [resendSuccess, setResendSuccess] = useState(false);
 
-  useEffect(() => {
+  // With no code there is nothing to validate: show the invalid state straight away.
+  const [checkedCode, setCheckedCode] = useState<{ code: typeof code } | null>(null);
+  if (checkedCode === null || checkedCode.code !== code) {
+    setCheckedCode({ code });
     if (!code) {
       setActivationError("invalid");
       setActivationUserId(null);
       setResendMessage(null);
       setResendSuccess(false);
       setIsValidCode(false);
-      return;
     }
+  }
+
+  useEffect(() => {
+    if (!code) return;
 
     const validateCode = async () => {
       try {

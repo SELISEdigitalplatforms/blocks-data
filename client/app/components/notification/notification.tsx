@@ -62,7 +62,10 @@ export function Notification() {
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
 
-  useEffect(() => {
+  // Merge each page as it arrives.
+  const [mergedData, setMergedData] = useState<typeof data | null>(null);
+  if (data !== mergedData) {
+    setMergedData(data);
     if (data?.notifications) {
       setNotifications((prev) => {
         const ids = new Set(prev.map((n) => n.id));
@@ -78,7 +81,7 @@ export function Notification() {
       });
       setHasMore(pageNumber * 10 < (data?.totalNotificationsCount || 0));
     }
-  }, [data]);
+  }
 
   const listRef = useRef<HTMLDivElement>(null);
   const handleScroll = useCallback(() => {
@@ -90,10 +93,18 @@ export function Notification() {
   }, [isLoading, isFetching, hasMore]);
 
   const [open, setOpen] = useState(false);
-  useEffect(() => {
+  // Start from the first page each time the panel opens.
+  const [prevOpen, setPrevOpen] = useState<boolean | null>(null);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setPageNumber(1);
       setHasMore(true);
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
     }
   }, [open, queryClient]);

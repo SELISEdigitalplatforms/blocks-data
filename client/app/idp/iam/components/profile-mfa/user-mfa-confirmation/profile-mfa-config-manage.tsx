@@ -10,7 +10,7 @@ import {
 } from "@/components/ui-kits/dialog/dialog";
 import { showErrorToast } from "@/hooks/use-toast";
 import { useConfigureUserMFA } from "@blocks-idp/mfa/hooks/use-mfa-config";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useState } from "react";
 import { ProfileMFAMethodList } from "./profile-mfa-methods-list";
 import { useGetUserById } from "@blocks-idp/iam/hooks/use-user";
 import { isErrorWithErrors } from "@/lib/error";
@@ -23,11 +23,13 @@ export const ProfileMFAConfigManage = () => {
   const [type, setType] = useState(0);
   const { isPending, mutateAsync } = useConfigureUserMFA({ id: userId, projectKey });
   const { data: userData, isLoading, isFetching } = useGetUserById({ id: userId, projectKey });
-  useEffect(() => {
+  const [prevMfaType, setPrevMfaType] = useState<number | undefined | null>(null);
+  if (userData?.data.userMfaType !== prevMfaType) {
+    setPrevMfaType(userData?.data.userMfaType);
     if (userData?.data.userMfaType) {
       setType(userData?.data.userMfaType);
     }
-  }, [userData?.data.userMfaType]);
+  }
 
   const onClickHandler = async () => {
     if (userData?.data?.userMfaType === type) {

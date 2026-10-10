@@ -1,7 +1,7 @@
 
 
 import { useQueryState } from "nuqs";
-import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
+import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { useGetUserById } from "@blocks-idp/iam/hooks/use-user";
@@ -42,9 +42,8 @@ export const User = ({ id }: { id: string }) => {
   const [tabId, setTabId] = useQueryState("userDetails", { defaultValue: "details" });
   const { data } = useGetUserById({ id, projectKey: tenantId });
 
-  BREADCRUMB_CUSTOM_TITLES["/services/iam/user-detail"] = "Users";
-  BREADCRUMB_CUSTOM_TITLES[`/services/iam/user-detail/${data?.data?.itemId}`] =
-    data?.data.lastName ?? null;
+  setBreadcrumbTitle("/services/iam/user-detail", "Users");
+  setBreadcrumbTitle(`/services/iam/user-detail/${data?.data?.itemId}`, data?.data.lastName ?? null);
   return (
     <div className="px-4 pt-4 md:px-6 md:pt-6">
       <div>

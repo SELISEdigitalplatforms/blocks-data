@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { differenceInCalendarDays, format, startOfDay, subDays } from "date-fns";
 import { useSearchParams } from "react-router";
 
-import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
+import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { Switch } from "@/components/ui-kits/switch/switch";
 import { showErrorToast } from "@/hooks/use-toast";
@@ -42,8 +42,8 @@ export const GraphAnalytics = () => {
   const tab = isAnalyticsTab(requestedTab) ? requestedTab : "traffic";
 
   useEffect(() => {
-    BREADCRUMB_CUSTOM_TITLES["/services/data-gateway"] = "Data Gateway";
-    BREADCRUMB_CUSTOM_TITLES["/services/data-gateway/analytics"] = "Analytics";
+    setBreadcrumbTitle("/services/data-gateway", "Data Gateway");
+    setBreadcrumbTitle("/services/data-gateway/analytics", "Analytics");
   }, []);
 
   // Keep even the default tab explicit in the URL, and repair stale/invalid tab links without

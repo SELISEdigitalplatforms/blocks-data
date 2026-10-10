@@ -94,7 +94,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
           <div className="flex w-[180px] items-center break-all">
             <Badge
               className={cn(
-                permission.row.original.isBuiltIn ? "!bg-gray-300 !text-gray-800" : "!bg-purple-100 !text-purple-700"
+                permission.row.original.isBuiltIn ? "bg-gray-300! text-gray-800!" : "bg-purple-100! text-purple-700!"
               )}
             >
               {permission.row.original.isBuiltIn ? "Built In" : "Custom"}

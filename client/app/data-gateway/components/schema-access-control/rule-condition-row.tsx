@@ -798,7 +798,7 @@ export const RuleConditionRow = ({
 
           if (isCellActive(cell.key)) {
             return (
-              <div key={cell.key} className="min-w-[9rem] flex-1 rounded-md bg-muted/30 p-1">
+              <div key={cell.key} className="min-w-36 flex-1 rounded-md bg-muted/30 p-1">
                 {renderCellEditor(cell.key)}
               </div>
             );

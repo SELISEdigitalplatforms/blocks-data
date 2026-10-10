@@ -68,7 +68,7 @@ export const PermissionDetails = ({ id }: PermissionDetailsProps) => {
         {data?.data.name || ""}
         {data?.data && (
           <Badge
-            className={cn(data?.data.isBuiltIn ? "!bg-gray-300 !text-gray-800" : "!bg-purple-100 !text-purple-700")}
+            className={cn(data?.data.isBuiltIn ? "bg-gray-300! text-gray-800!" : "bg-purple-100! text-purple-700!")}
           >
             {data?.data.isBuiltIn ? "Built In" : "Custom"}
           </Badge>

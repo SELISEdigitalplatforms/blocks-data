@@ -131,7 +131,7 @@ export const GraphAnalytics = () => {
         <div
           className={
             !isConfigurationLoading && !hasAnalyticsAccess
-              ? "pointer-events-none select-none blur-sm"
+              ? "pointer-events-none select-none blur-xs"
               : undefined
           }
           aria-hidden={!isConfigurationLoading && !hasAnalyticsAccess}

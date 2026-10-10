@@ -440,7 +440,7 @@ export function SchemaDataTab({
                 onClick={() => setViewMode(mode)}
                 className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
                   viewMode === mode
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >

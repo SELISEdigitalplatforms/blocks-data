@@ -77,13 +77,13 @@ function SchemaTableScrollRegion({
 }) {
   if (embedded) {
     return (
-      <div className="flex min-h-0 w-full min-w-0 flex-col overflow-auto overscroll-x-contain [scrollbar-gutter:stable]">
+      <div className="flex min-h-0 w-full min-w-0 flex-col overflow-auto overscroll-x-contain scrollbar-gutter-stable">
         {children}
       </div>
     );
   }
   return (
-    <ScrollArea className="min-h-0 flex-1 [scrollbar-gutter:stable]">{children}</ScrollArea>
+    <ScrollArea className="min-h-0 flex-1 scrollbar-gutter-stable">{children}</ScrollArea>
   );
 }
 
@@ -568,7 +568,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         >
           <div className="flex max-w-md flex-col items-center justify-center space-y-4 text-center">
             <div className="space-y-2">
-              <h3 className="break-words text-base font-semibold leading-snug text-foreground sm:text-lg">
+              <h3 className="wrap-break-word text-base font-semibold leading-snug text-foreground sm:text-lg">
                 <span className="font-medium">{schemaDetails.schemaName}</span>{" "}
                 doesn’t have any{" "}
                 {schemaType === 1 ? "custom property" : "property"} yet.
@@ -596,7 +596,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       <div className="flex min-h-0 flex-1 items-center justify-center py-12">
         <div className="flex flex-col items-center justify-center space-y-4 text-center">
           <div className="space-y-2">
-            <h3 className="break-words px-2 text-center text-base font-semibold leading-snug text-foreground sm:text-lg">
+            <h3 className="wrap-break-word px-2 text-center text-base font-semibold leading-snug text-foreground sm:text-lg">
               This schema doesn’t have any{" "}
               {schemaType === 1 ? "custom property" : "property"} yet. Click Add
               Property to set one up.

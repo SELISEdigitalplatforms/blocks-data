@@ -174,7 +174,7 @@ export function EnumValuesEditor({
                   setEditIndex(null);
                 }
               }}
-              className="h-6 w-24 rounded-md border border-input bg-background px-2 text-xs outline-none"
+              className="h-6 w-24 rounded-md border border-input bg-background px-2 text-xs outline-hidden"
             />
           ) : (
             <span
@@ -226,7 +226,7 @@ export function EnumValuesEditor({
           placeholder={values.length === 0 ? "Add a value…" : "Add…"}
           aria-label="New enum value"
           aria-invalid={!!error}
-          className="h-6 min-w-16 flex-1 bg-transparent text-[13px] outline-none placeholder:text-muted-foreground/60"
+          className="h-6 min-w-16 flex-1 bg-transparent text-[13px] outline-hidden placeholder:text-muted-foreground/60"
         />
       </div>
       <div className="flex items-start justify-between gap-2 text-[11px] leading-snug">

@@ -51,7 +51,7 @@ export function PanelHeader({
         type="button"
         onClick={onClose}
         aria-label={closeLabel}
-        className="dg-interactive inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+        className="dg-interactive inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40"
       >
         <X className="h-4 w-4" />
       </button>

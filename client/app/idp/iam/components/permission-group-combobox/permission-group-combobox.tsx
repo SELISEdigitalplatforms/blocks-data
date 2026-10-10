@@ -37,7 +37,7 @@ export function PermissionGroupCombobox({ value, onChange, disabled }: Permissio
           {value || "Select or type..."}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+      <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
         <Command shouldFilter={false}>
           <div className="relative">
             <CommandInput

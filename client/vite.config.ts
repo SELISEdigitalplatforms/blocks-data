@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import fs from "fs";
 import path from "path";
@@ -93,7 +94,7 @@ export default defineConfig(({ mode }) => {
         env.BLOCKS_API_BASE_URL ?? "",
       ),
     },
-    plugins: [react(), stripSignalrInvalidPureAnnotations()],
+    plugins: [react(), tailwindcss(), stripSignalrInvalidPureAnnotations()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./app"),

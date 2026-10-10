@@ -167,7 +167,7 @@ export const FilePreviewModal = ({
               <Skeleton className="h-full w-full" />
             </div>
           ) : (
-            <pre className="whitespace-pre-wrap break-words font-mono text-sm">{textContent}</pre>
+            <pre className="whitespace-pre-wrap wrap-break-word font-mono text-sm">{textContent}</pre>
           )}
         </ScrollArea>
       );

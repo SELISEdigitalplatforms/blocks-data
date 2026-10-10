@@ -22,7 +22,7 @@ const SSOMicrosoftFormFields = createCommonOAuthFields({
        
         target="_blank"
       >
-        <Button variant="link" className="h-fit !p-0" type="button">
+        <Button variant="link" className="h-fit p-0!" type="button">
           How to obtain a Client ID?
         </Button>
       </Link>

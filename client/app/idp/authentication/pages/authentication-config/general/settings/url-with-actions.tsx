@@ -68,7 +68,7 @@ export const UrlWithActions = ({ url }: UrlWithActionsProps) => {
       <span className="text-base font-normal text-high-emphasis underline" title={jwksUrl}>
         certificate
       </span>
-      <div className="flex flex-shrink-0 items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
         <Button
           variant="ghost"
           className="h-auto p-1 transition-colors hover:bg-gray-100"

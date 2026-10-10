@@ -304,7 +304,7 @@ export function SchemaPreviewDrawer({
                         type="button"
                         onClick={() => setActiveOperationTab(value)}
                         className={cn(
-                          "relative flex w-16 flex-col items-center gap-1.5 px-1 py-3 text-xs font-medium outline-none transition-all duration-150",
+                          "relative flex w-16 flex-col items-center gap-1.5 px-1 py-3 text-xs font-medium outline-hidden transition-all duration-150",
                           isActive
                             ? "bg-primary/10 text-foreground"
                             : "text-foreground/70 hover:bg-muted/40 hover:text-foreground",

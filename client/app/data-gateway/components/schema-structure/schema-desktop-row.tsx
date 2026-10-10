@@ -357,7 +357,7 @@ export function SchemaDesktopRow({
                         type="button"
                         onClick={() => onToggleExpand(index)}
                         className={cn(
-                          "flex shrink-0 rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                          "flex shrink-0 rounded p-1 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                           isExpanded
                             ? "bg-primary/10 text-primary"
                             : "text-primary hover:bg-primary/10",
@@ -414,7 +414,7 @@ export function SchemaDesktopRow({
                   <SelectValue />
                 </SelectTrigger>
                 {/* As wide as the field it opens from; the shared 8rem floor would win otherwise. */}
-                <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-0">
+                <SelectContent className="w-(--radix-select-trigger-width) min-w-0">
                   {(["None", "Insert", "Update", "Both"] as const).map((mode) => (
                     <SelectItem key={mode} value={mode} className="py-1 pl-7 text-[13px]">
                       {mode}
@@ -542,7 +542,7 @@ export function SchemaDesktopRow({
                           type="button"
                           onClick={() => onOpenAccessDrawer(fieldTarget, drawerTitle)}
                           className={cn(
-                            "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                            "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                             hasNonInheritedPolicy
                               ? "border-access-custom-border bg-access-custom-bg text-access-custom-fg"
                               : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
@@ -608,7 +608,7 @@ export function SchemaDesktopRow({
                       onOpenValidationDrawer(fieldName, fieldForValidation?.validationRule)
                     }
                     className={cn(
-                      "flex h-[26px] min-w-[28px] shrink-0 items-center justify-center gap-1 rounded-md border px-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                      "flex h-[26px] min-w-[28px] shrink-0 items-center justify-center gap-1 rounded-md border px-1 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                       validationInfo.total > 0
                         ? "border-primary/30 bg-primary/10 text-primary"
                         : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",

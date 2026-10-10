@@ -143,7 +143,7 @@ const MappingTableSection: React.FC<MappingTableSectionProps> = ({
                       value={mapping[property]}
                       onValueChange={(value) => onMappingChange(property, value)}
                     >
-                      <SelectTrigger className="border-0 text-foreground shadow-none focus:outline-none focus:ring-0 focus:ring-offset-0">
+                      <SelectTrigger className="border-0 text-foreground shadow-none focus:outline-hidden focus:ring-0 focus:ring-offset-0">
                         <SelectValue placeholder="Select mapping" />
                       </SelectTrigger>
                       <SelectContent>

@@ -211,8 +211,8 @@ export function SchemaMobileCard({
           className={cn(
             "rounded-lg border p-4",
             isNestedAttributePanel
-              ? "border-dashed border-border/80 bg-card shadow-sm dark:border-border"
-              : "border-border bg-card shadow-sm",
+              ? "border-dashed border-border/80 bg-card shadow-xs dark:border-border"
+              : "border-border bg-card shadow-xs",
             isReadOnly && isEntityType && !isNestedAttributePanel && "bg-primary/5",
             isExpanded &&
               childSchema &&
@@ -370,7 +370,7 @@ export function SchemaMobileCard({
                             type="button"
                             onClick={() => onToggleExpand(index)}
                             className={cn(
-                              "flex shrink-0 rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                              "flex shrink-0 rounded p-1 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                               isExpanded
                                 ? "bg-primary/10 text-primary"
                                 : "text-primary hover:bg-primary/10",
@@ -472,7 +472,7 @@ export function SchemaMobileCard({
                 {!isEditMode ? (
                   <p
                     className={cn(
-                      "break-words text-sm",
+                      "wrap-break-word text-sm",
                       description ? "text-foreground" : "text-muted-foreground/40",
                     )}
                   >
@@ -511,7 +511,7 @@ export function SchemaMobileCard({
                             <button
                               type="button"
                               disabled
-                              className="flex w-full min-w-0 cursor-not-allowed items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                              className="flex w-full min-w-0 cursor-not-allowed items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground opacity-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40"
                               aria-label={
                                 isEditMode
                                   ? "Exit edit mode to manage access"
@@ -538,7 +538,7 @@ export function SchemaMobileCard({
                               type="button"
                               onClick={() => onOpenAccessDrawer(fieldTarget, drawerTitle)}
                               className={cn(
-                                "flex w-full min-w-0 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                                "flex w-full min-w-0 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                                 hasNonInheritedPolicy
                                   ? "border-access-custom-border bg-access-custom-bg text-access-custom-fg"
                                   : "bg-background text-foreground hover:bg-accent",
@@ -580,7 +580,7 @@ export function SchemaMobileCard({
                           <button
                             type="button"
                             disabled
-                            className="flex w-full min-w-0 cursor-not-allowed items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                            className="flex w-full min-w-0 cursor-not-allowed items-center justify-center gap-2 rounded-md border bg-background px-3 py-2 text-sm text-muted-foreground opacity-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40"
                             aria-label={
                               isEditMode
                                 ? "Exit edit mode to manage validations"
@@ -607,7 +607,7 @@ export function SchemaMobileCard({
                           onOpenValidationDrawer(fieldName, fieldForValidation?.validationRule)
                         }
                         className={cn(
-                          "flex w-full min-w-0 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                          "flex w-full min-w-0 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                           validationInfo.total > 0
                             ? "border-primary/30 bg-primary/10 text-primary"
                             : "bg-background text-foreground hover:bg-accent",

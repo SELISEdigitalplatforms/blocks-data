@@ -187,7 +187,7 @@ export function MoveCopyDialog({
                         type="button"
                         aria-current={isCurrent ? "page" : undefined}
                         className={cn(
-                          "max-w-44 truncate rounded px-1 py-0.5 transition-colors focus:outline-none focus:ring-2 focus:ring-ring",
+                          "max-w-44 truncate rounded px-1 py-0.5 transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring",
                           isCurrent
                             ? "font-medium text-foreground"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -241,7 +241,7 @@ export function MoveCopyDialog({
                     <li key={directory.itemId}>
                       <button
                         type="button"
-                        className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                        className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted focus:outline-hidden focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={isSelf || isPending}
                         aria-label={
                           isSelf ? `${directory.name} (current item)` : `Open ${directory.name}`

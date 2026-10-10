@@ -13,10 +13,10 @@ export default function ConsoleCreateProject() {
       {/* Decorative orbs — same as ResourcesPanel */}
       <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5" />
       <div className="pointer-events-none absolute -bottom-10 -right-4 h-40 w-40 rounded-full bg-white/5" />
-      <div className="pointer-events-none absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-white/[0.03]" />
+      <div className="pointer-events-none absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-white/3" />
 
       {/* Dot grid */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(hsl(210_100%_100%/0.07)_1px,transparent_1px)] [background-size:22px_22px]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(hsl(210_100%_100%/0.07)_1px,transparent_1px)] bg-size-[22px_22px]" />
 
       <div className="relative flex flex-col items-center gap-5 px-8 py-14 text-center sm:px-12 sm:py-20">
         {/* Category label — same pattern as ResourcesPanel */}
@@ -42,14 +42,14 @@ export default function ConsoleCreateProject() {
         <div className="flex flex-wrap justify-center gap-3 pt-1">
           <Link
             to="/create-project"
-            className="inline-flex items-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-primary shadow-sm transition-colors hover:bg-white/90"
+            className="inline-flex items-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-primary shadow-xs transition-colors hover:bg-white/90"
           >
             Create a project
           </Link>
           <Link
             to="https://docs.seliseblocks.com/"
             target="_blank"
-            className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/25"
+            className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-xs transition-colors hover:bg-white/25"
           >
             <BookOpenText className="h-4 w-4" />
             View documentation

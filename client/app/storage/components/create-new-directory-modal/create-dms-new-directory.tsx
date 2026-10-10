@@ -174,7 +174,7 @@ export const CreateDmsNewDirectory = ({
                           onClick={() => field.onChange(o.value)}
                           disabled={isPending}
                           className={cn(
-                            "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                            "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-hidden focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
                             active
                               ? "bg-primary text-primary-foreground"
                               : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",

@@ -65,8 +65,9 @@ const omitFieldArrayId = <T extends { id?: string }>(row: T) => {
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
 
 /**
- * Radix ScrollArea roots use overflow:hidden and only render a vertical thumb; wide nested
- * tables never get a horizontal scrollbar. Embedded (child) schema uses native overflow.
+ * Radix ScrollArea only scrolls sideways when a horizontal scrollbar is mounted, so the
+ * top-level region opts into one for edit mode's wide table. Embedded (child) schema uses
+ * native overflow.
  */
 function SchemaTableScrollRegion({
   embedded,
@@ -83,7 +84,9 @@ function SchemaTableScrollRegion({
     );
   }
   return (
-    <ScrollArea className="min-h-0 flex-1 [scrollbar-gutter:stable]">{children}</ScrollArea>
+    <ScrollArea className="min-h-0 flex-1 [scrollbar-gutter:stable]" horizontalScrollbar>
+      {children}
+    </ScrollArea>
   );
 }
 

@@ -47,7 +47,7 @@ export function SchemaRail({
           type="button"
           onClick={onExpand}
           aria-label="Show the schema list"
-          className="dg-interactive flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          className="dg-interactive flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40"
         >
           <PanelLeftOpen className="h-4 w-4" aria-hidden />
         </button>
@@ -65,7 +65,7 @@ export function SchemaRail({
               aria-current={isSelected ? "true" : undefined}
               onClick={() => onSelectSchema(schema.id)}
               className={cn(
-                "dg-interactive relative flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md text-[12px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                "dg-interactive relative flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md text-[12px] font-semibold focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                 isSelected
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground/70 hover:bg-muted/40 hover:text-foreground",
@@ -74,7 +74,7 @@ export function SchemaRail({
               {/* Same 2.5px marker, inset and radius as the sidebar's selected
                   row, so the indicator stays put across the collapse. */}
               {isSelected && (
-                <span className="absolute inset-y-2 -left-[9px] w-[2.5px] rounded-r-sm bg-primary" />
+                <span className="absolute inset-y-2 left-[-9px] w-[2.5px] rounded-r-sm bg-primary" />
               )}
               {schema.schemaName.charAt(0).toUpperCase()}
             </button>

@@ -229,7 +229,7 @@ const VersionHistory = ({ history, className }: VersionHistoryProps) => {
                   key={version.version}
                   className="flex items-center gap-2.5 border-t border-border/50 px-3 py-2 text-xs"
                 >
-                  <span className="min-w-[2.25rem] font-mono">v{version.version}</span>
+                  <span className="min-w-9 font-mono">v{version.version}</span>
                   <span className="min-w-0 flex-1 truncate text-muted-foreground">
                     {describeVersion(version)}
                   </span>

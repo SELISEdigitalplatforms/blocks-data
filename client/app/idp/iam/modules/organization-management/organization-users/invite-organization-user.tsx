@@ -94,7 +94,7 @@ export const InviteOrganizationUser = ({ organizationId }: InviteOrganizationUse
       <DialogContent>
         <DialogHeader className="mb-4">
           <DialogTitle>Invite User</DialogTitle>
-          <DialogDescription className="!mt-2 text-sm text-medium-emphasis">
+          <DialogDescription className="mt-2! text-sm text-medium-emphasis">
             Invite a new user to the organization
           </DialogDescription>
         </DialogHeader>

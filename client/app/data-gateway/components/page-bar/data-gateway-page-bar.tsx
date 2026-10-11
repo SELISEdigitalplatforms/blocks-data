@@ -23,7 +23,7 @@ export const DataGatewayPageBar = () => (
         of crowding right up against the endpoint chip. */}
     <div
       style={{ "--dg-title-w": `${SHELL.explorerWidth - 12}px` } as React.CSSProperties}
-      className="flex min-h-[48px] min-w-0 flex-1 items-center gap-3 lg:w-[var(--dg-title-w)] lg:flex-none lg:shrink-0"
+      className="flex min-h-[48px] min-w-0 flex-1 items-center gap-3 lg:w-(--dg-title-w) lg:flex-none lg:shrink-0"
     >
       <h1 className="text-base font-semibold tracking-tight text-foreground">Data Gateway</h1>
       <span className="hidden min-w-0 lg:block">
@@ -35,7 +35,7 @@ export const DataGatewayPageBar = () => (
 
     <div className="hidden flex-1 lg:block" />
 
-    <div className="order-2 flex shrink-0 items-center gap-2 lg:order-none">
+    <div className="order-2 flex shrink-0 items-center gap-2 lg:order-0">
       <DataGatewayUtilities />
       <PublishControl />
     </div>

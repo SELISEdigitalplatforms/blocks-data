@@ -107,7 +107,7 @@ export function ProjectList({ collapsed = false }: { collapsed?: boolean }) {
         side={collapsed ? "right" : "bottom"}
         sideOffset={collapsed ? 8 : 4}
         className={
-          collapsed ? "min-w-48" : "w-[--radix-dropdown-menu-trigger-width]"
+          collapsed ? "min-w-48" : "w-(--radix-dropdown-menu-trigger-width)"
         }
       >
         <DropdownMenuLabel>Your Projects</DropdownMenuLabel>

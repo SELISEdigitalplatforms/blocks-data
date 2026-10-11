@@ -48,7 +48,7 @@ export const AffectedPermissionsDialog = ({ permission, onOpenChange, open }: Pe
               <div
                 key={`parent-${parent?.itemId}`}
                 className={cn(
-                  "flex items-center justify-between gap-3 rounded-md border p-3 cursor-pointer [&_*]:cursor-[inherit]"
+                  "flex items-center justify-between gap-3 rounded-md border p-3 cursor-pointer **:cursor-[inherit]"
                 )}
               >
                 <label

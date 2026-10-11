@@ -50,6 +50,14 @@ export const AddSSOPermission = ({ onAdd, permissions }: AddSSOPermissionProps) 
     projectKey: tenantId,
   });
 
+  const permissionsResource = useMemo(() => {
+    return permissions.map((item) => item.resource) || [];
+  }, [permissions]);
+
+  const selectedPermissionsResource = useMemo(() => {
+    return selectedPermission.map((item) => item.resource) || [];
+  }, [selectedPermission]);
+
   const onClickHandler = async () => {
     onAdd(selectedPermission);
     resetFilter();
@@ -80,14 +88,6 @@ export const AddSSOPermission = ({ onAdd, permissions }: AddSSOPermissionProps) 
     });
     setSelectedPermissions([]);
   };
-
-  const permissionsResource = useMemo(() => {
-    return permissions.map((item) => item.resource) || [];
-  }, [permissions]);
-
-  const selectedPermissionsResource = useMemo(() => {
-    return selectedPermission.map((item) => item.resource) || [];
-  }, [selectedPermission]);
 
   return (
     <Dialog

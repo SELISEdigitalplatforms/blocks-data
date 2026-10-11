@@ -62,7 +62,10 @@ export function Notification() {
   const markAsRead = useMarkAsRead();
   const markAllAsRead = useMarkAllAsRead();
 
-  useEffect(() => {
+  // Merge each page as it arrives.
+  const [mergedData, setMergedData] = useState<typeof data | null>(null);
+  if (data !== mergedData) {
+    setMergedData(data);
     if (data?.notifications) {
       setNotifications((prev) => {
         const ids = new Set(prev.map((n) => n.id));
@@ -78,7 +81,7 @@ export function Notification() {
       });
       setHasMore(pageNumber * 10 < (data?.totalNotificationsCount || 0));
     }
-  }, [data]);
+  }
 
   const listRef = useRef<HTMLDivElement>(null);
   const handleScroll = useCallback(() => {
@@ -90,10 +93,18 @@ export function Notification() {
   }, [isLoading, isFetching, hasMore]);
 
   const [open, setOpen] = useState(false);
-  useEffect(() => {
+  // Start from the first page each time the panel opens.
+  const [prevOpen, setPrevOpen] = useState<boolean | null>(null);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setPageNumber(1);
       setHasMore(true);
+    }
+  }
+
+  useEffect(() => {
+    if (open) {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
     }
   }, [open, queryClient]);
@@ -150,7 +161,7 @@ export function Notification() {
           <Bell className="h-5 w-5 cursor-pointer text-muted-foreground transition-colors hover:text-primary" />
           {data && data.unReadNotificationsCount > 0 && (
             <span
-              className={`absolute -right-[6px] -top-[8px] flex items-center justify-center rounded-full bg-blue-500 font-medium text-white ${data.unReadNotificationsCount > 99 ? "h-[18px] w-[18px] text-[8px]" : "h-[16px] w-[16px] text-[10px]"}`}
+              className={`absolute right-[-6px] top-[-8px] flex items-center justify-center rounded-full bg-blue-500 font-medium text-white ${data.unReadNotificationsCount > 99 ? "h-[18px] w-[18px] text-[8px]" : "h-[16px] w-[16px] text-[10px]"}`}
             >
               {data.unReadNotificationsCount > 99 ? "99+" : data.unReadNotificationsCount}
             </span>

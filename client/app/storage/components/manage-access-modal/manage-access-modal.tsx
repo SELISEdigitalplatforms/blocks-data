@@ -345,7 +345,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
                     onClick={() => setGeneralAccess(o.value)}
                     disabled={isLoadingAccessLevel || isSavingGeneralAccess}
                     className={cn(
-                      "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                      "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-hidden focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
                       active
                         ? "bg-primary text-primary-foreground"
                         : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -397,7 +397,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
                       type="button"
                       onClick={() => handlePrincipalTypeChange(t)}
                       className={cn(
-                        "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring",
+                        "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring",
                         active
                           ? "border-primary bg-primary text-primary-foreground"
                           : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",

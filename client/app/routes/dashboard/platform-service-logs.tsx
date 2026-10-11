@@ -1,6 +1,6 @@
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { Card, CardContent } from "@/components/ui-kits/card/card";
-import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
+import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { LogsViewer } from "@/service-logs";
 import { SERVICES } from "@/service-logs/constants/services-catalog";
 import { useMemo } from "react";
@@ -14,9 +14,9 @@ export default function PlatformServiceLogsPage() {
     [serviceName],
   );
 
-  BREADCRUMB_CUSTOM_TITLES["/services/logs"] = "Service logs";
+  setBreadcrumbTitle("/services/logs", "Service logs");
   if (serviceName) {
-    BREADCRUMB_CUSTOM_TITLES[`/services/logs/${serviceName}`] = service?.label || "Logs";
+    setBreadcrumbTitle(`/services/logs/${serviceName}`, service?.label || "Logs");
   }
 
   if (!service) {

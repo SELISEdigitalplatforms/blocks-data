@@ -408,14 +408,14 @@ test.describe("flow: Data Gateway menu", () => {
 
       const activeClass = "bg-background";
       await listViewButton.click();
-      await expect(listViewButton).toHaveClass(new RegExp("bg-background"));
-      await expect(tableViewButton).not.toHaveClass(new RegExp("bg-background"));
+      await expect(listViewButton).toHaveClass(new RegExp(activeClass));
+      await expect(tableViewButton).not.toHaveClass(new RegExp(activeClass));
       await jsonViewButton.click();
-      await expect(jsonViewButton).toHaveClass(new RegExp("bg-background"));
-      await expect(listViewButton).not.toHaveClass(new RegExp("bg-background"));
+      await expect(jsonViewButton).toHaveClass(new RegExp(activeClass));
+      await expect(listViewButton).not.toHaveClass(new RegExp(activeClass));
       await tableViewButton.click();
-      await expect(tableViewButton).toHaveClass(new RegExp("bg-background"));
-      await expect(jsonViewButton).not.toHaveClass(new RegExp("bg-background"));
+      await expect(tableViewButton).toHaveClass(new RegExp(activeClass));
+      await expect(jsonViewButton).not.toHaveClass(new RegExp(activeClass));
 
       await refreshButton.click();
       await expect(refreshButton).toBeEnabled({ timeout: 10_000 });

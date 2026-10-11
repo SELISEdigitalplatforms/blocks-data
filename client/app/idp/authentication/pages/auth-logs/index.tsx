@@ -3,12 +3,12 @@
 import React from "react";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 
-import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
+import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { LogsViewer } from "@/service-logs";
 
 export function AuthLogs() {
-  BREADCRUMB_CUSTOM_TITLES["/services/authentication"] = "Authentication";
-  BREADCRUMB_CUSTOM_TITLES["/services/authentication/logs"] = "Logs";
+  setBreadcrumbTitle("/services/authentication", "Authentication");
+  setBreadcrumbTitle("/services/authentication/logs", "Logs");
   return (
     <div>
       <PageBreadcrumb breadcrumbIndex={2} />

@@ -75,7 +75,7 @@ export const GrantTypes = () => {
                             }}
                           />
                         </FormControl>
-                        <FormLabel className={`!mt-0`}>{item.label}</FormLabel>
+                        <FormLabel className={`mt-0!`}>{item.label}</FormLabel>
                       </FormItem>
                     )}
                   </>

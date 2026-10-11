@@ -19,18 +19,22 @@ let capturedOptions: {
   onDrop?: (accepted: File[], rejected: unknown[]) => void;
   onDropAccepted?: () => void;
 } | null = null;
-vi.mock("react-dropzone", () => ({
-  useDropzone: (opts: Record<string, unknown>) => {
-    capturedOptions = opts as never;
-    return {
-      getRootProps: () => ({ "data-testid": "dropzone-root" }),
-      getInputProps: () => ({ "data-testid": "dropzone-input" }),
-      isDragAccept: false,
-      isDragReject: false,
-      inputRef: { current: null },
-    };
-  },
-}));
+vi.mock("react-dropzone", () => {
+  // The real hook returns the same useRef object on every render; mirror that.
+  const inputRef = { current: null };
+  return {
+    useDropzone: (opts: Record<string, unknown>) => {
+      capturedOptions = opts as never;
+      return {
+        getRootProps: () => ({ "data-testid": "dropzone-root" }),
+        getInputProps: () => ({ "data-testid": "dropzone-input" }),
+        isDragAccept: false,
+        isDragReject: false,
+        inputRef,
+      };
+    },
+  };
+});
 
 import {
   FileInput,

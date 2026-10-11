@@ -8,6 +8,9 @@ function usePrevious<T>(value: T): T | undefined {
 		ref.current = value;
 	}, [value]);
 
+	// The classic usePrevious: report the value as of the last commit. Moving it into state
+	// would change which render sees the old value, which the scroll-into-view logic relies on.
+	// eslint-disable-next-line react-hooks/refs -- intentional render-time read, see above
 	return ref.current;
 }
 

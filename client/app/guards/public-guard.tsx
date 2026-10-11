@@ -6,6 +6,9 @@ import { getSafeReturnPathFromStorage } from "./last-app-path.storage";
 export const useAppState = () => {
   const [isMounted, setIsMounted] = useState(false);
   useEffect(() => {
+    // Intentionally false on the first render: ProtectedGuard uses it to skip its first effect
+    // pass, which would otherwise send a logged-in user to /login while the user query loads.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount flag, see above
     setIsMounted(true);
   }, []);
   return { isMounted };

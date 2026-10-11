@@ -95,7 +95,7 @@ export const GraphLatencyCard = ({
                 <button
                   type="button"
                   aria-label="Explain response time percentiles"
-                  className="text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <CircleHelp className="h-4 w-4" aria-hidden />
                 </button>

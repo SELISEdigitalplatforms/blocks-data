@@ -1,7 +1,7 @@
 
 
 import { useMemo } from "react";
-import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
+import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { useProjectStore } from "@/store/use-project-store";
@@ -26,8 +26,8 @@ export function RoleDetailsContainer() {
   const permissionMap = useRoleDetailsStore((state) => state.permissionMap);
   const { isPending, mutateAsync } = useSetRoles(role?.slug);
 
-  BREADCRUMB_CUSTOM_TITLES["/services/iam/role-detail"] = "Roles";
-  BREADCRUMB_CUSTOM_TITLES["/services/iam/role-detail/" + role?.itemId] = role?.name || "";
+  setBreadcrumbTitle("/services/iam/role-detail", "Roles");
+  setBreadcrumbTitle("/services/iam/role-detail/" + role?.itemId, role?.name || "");
 
   const onSaveClick = async () => {
     const changedPermissions = Array.from(permissionMap.values()).reduce(

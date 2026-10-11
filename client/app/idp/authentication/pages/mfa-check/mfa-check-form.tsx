@@ -93,7 +93,7 @@ export const MfaCheckFrom = () => {
             <Button
               type="button"
               variant="link"
-              className="p-0 text-sm font-medium !no-underline"
+              className="p-0 text-sm font-medium no-underline!"
               onClick={resend}
               disabled={!!remainingTime}
             >

@@ -75,6 +75,9 @@ export function ImpersonationTerminator({
       });
   }, [mutateAsync, terminate, isImpersonated]);
 
+  // isTriggering is an in-flight lock that must not cause a render of its own; reading it here
+  // keeps children hidden if anything re-renders while the stop request is running.
+  // eslint-disable-next-line react-hooks/refs -- intentional lock read, state would add a render
   if (isImpersonated || isTriggering.current) return null;
   return <>{children}</>;
 }
@@ -117,6 +120,8 @@ export function ImpersonationSynchronizer({
     impersonate,
     impersonatedTenantId,
   ]);
+  // Same lock as above: state here would unmount the children on every project switch.
+  // eslint-disable-next-line react-hooks/refs -- intentional lock read, state would add a render
   if (!isImpersonated || isTriggering.current) return null;
   return <>{children}</>;
 }

@@ -37,7 +37,7 @@ export function UnsavedAccessChangesDialog({
         <DialogTitle className="text-left text-lg font-semibold leading-7">
           Save changes?
         </DialogTitle>
-        <DialogDescription className="mb-2 mt-2 break-words text-left text-sm font-normal leading-5 text-medium-emphasis">
+        <DialogDescription className="mb-2 mt-2 wrap-break-word text-left text-sm font-normal leading-5 text-medium-emphasis">
           This access rule has unsaved changes. Save them before leaving, or discard them.
         </DialogDescription>
       </DialogHeader>

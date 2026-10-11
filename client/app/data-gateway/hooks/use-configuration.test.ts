@@ -401,13 +401,17 @@ describe("use-configuration hooks", () => {
       },
       {
         name: "useSetDataAccess",
-        hook: () => useSetDataAccess("s1"),
+        hook: function useSetDataAccessForS1() {
+          return useSetDataAccess("s1");
+        },
         method: "setDataAccess",
         payload: { schemaName: "User" },
       },
       {
         name: "useSetRowColumnPermission",
-        hook: () => useSetRowColumnPermission("s1"),
+        hook: function useSetRowColumnPermissionForS1() {
+          return useSetRowColumnPermission("s1");
+        },
         method: "setRowColumnPermissions",
         payload: { schemaName: "User" },
       },
@@ -425,7 +429,9 @@ describe("use-configuration hooks", () => {
       },
       {
         name: "useImportSchemaFile",
-        hook: () => useImportSchemaFile({} as never),
+        hook: function useImportSchemaFileForTest() {
+          return useImportSchemaFile({} as never);
+        },
         method: "importSchemaFile",
         payload: { fileName: "schema.json" },
       },

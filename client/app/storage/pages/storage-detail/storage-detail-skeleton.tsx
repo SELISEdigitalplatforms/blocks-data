@@ -8,10 +8,10 @@ export const DirectoryGridSkeleton = () => (
         className="flex items-center justify-between gap-2 rounded-lg border bg-background p-4"
       >
         <div className="flex flex-1 items-center gap-3">
-          <Skeleton className="h-5 w-5 flex-shrink-0 rounded" />
+          <Skeleton className="h-5 w-5 shrink-0 rounded" />
           <Skeleton className="h-5 w-32" />
         </div>
-        <Skeleton className="h-8 w-8 flex-shrink-0 rounded" />
+        <Skeleton className="h-8 w-8 shrink-0 rounded" />
       </div>
     ))}
   </div>
@@ -19,7 +19,7 @@ export const DirectoryGridSkeleton = () => (
 
 export const DirectoryListSkeleton = () => (
   <div className="rounded-lg border bg-background">
-    <div className="grid grid-cols-[2fr,1fr,1fr,1fr,auto] gap-4 border-b bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground">
+    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground">
       <div>Name</div>
       <div>File type</div>
       <div>Size</div>
@@ -29,10 +29,10 @@ export const DirectoryListSkeleton = () => (
     {Array.from({ length: 3 }).map((_, index) => (
       <div
         key={index}
-        className="grid grid-cols-[2fr,1fr,1fr,1fr,auto] gap-4 border-b px-4 py-3 last:border-b-0"
+        className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b px-4 py-3 last:border-b-0"
       >
         <div className="flex items-center gap-3">
-          <Skeleton className="h-5 w-5 flex-shrink-0 rounded" />
+          <Skeleton className="h-5 w-5 shrink-0 rounded" />
           <Skeleton className="h-5 w-32" />
         </div>
         <Skeleton className="h-5 w-16" />
@@ -55,7 +55,7 @@ export const FileGridSkeleton = () => (
         {/* File Info Skeleton */}
         <div className="flex items-center justify-between gap-2 p-3">
           <div className="flex flex-1 items-center gap-2">
-            <Skeleton className="h-5 w-5 flex-shrink-0 rounded" />
+            <Skeleton className="h-5 w-5 shrink-0 rounded" />
             <Skeleton className="h-5 w-32" />
           </div>
         </div>
@@ -66,7 +66,7 @@ export const FileGridSkeleton = () => (
 
 export const FileListSkeleton = () => (
   <div className="rounded-lg border bg-background">
-    <div className="grid grid-cols-[2fr,1fr,1fr,1fr,auto] gap-4 border-b bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground">
+    <div className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b bg-muted/50 px-4 py-3 text-sm font-medium text-muted-foreground">
       <div>Name</div>
       <div>File type</div>
       <div>Size</div>
@@ -76,10 +76,10 @@ export const FileListSkeleton = () => (
     {Array.from({ length: 5 }).map((_, index) => (
       <div
         key={index}
-        className="grid grid-cols-[2fr,1fr,1fr,1fr,auto] gap-4 border-b px-4 py-3 last:border-b-0"
+        className="grid grid-cols-[2fr_1fr_1fr_1fr_auto] gap-4 border-b px-4 py-3 last:border-b-0"
       >
         <div className="flex items-center gap-3">
-          <Skeleton className="h-5 w-5 flex-shrink-0 rounded" />
+          <Skeleton className="h-5 w-5 shrink-0 rounded" />
           <Skeleton className="h-5 w-32" />
         </div>
         <Skeleton className="h-5 w-16" />

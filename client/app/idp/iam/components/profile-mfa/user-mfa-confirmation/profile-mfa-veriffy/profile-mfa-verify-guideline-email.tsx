@@ -30,7 +30,7 @@ export const ProfileMfaVerifyGuideLineEmail = ({ mfaId }: { mfaId: string }) => 
         Did not receive email?{" "}
         <Button
           variant="link"
-          className="p-0 text-sm font-medium !no-underline"
+          className="p-0 text-sm font-medium no-underline!"
           disabled={!!remainingTime}
           onClick={resend}
         >

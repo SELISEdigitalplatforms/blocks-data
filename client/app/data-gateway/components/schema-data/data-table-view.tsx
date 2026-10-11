@@ -105,7 +105,7 @@ export function DataTableView({ data, piiFields }: DataTableViewProps) {
                         </TooltipTrigger>
                         <TooltipContent
                           side="bottom"
-                          className="max-w-xs break-words font-mono text-xs"
+                          className="max-w-xs wrap-break-word font-mono text-xs"
                         >
                           {truncateTooltip(displayText)}
                         </TooltipContent>

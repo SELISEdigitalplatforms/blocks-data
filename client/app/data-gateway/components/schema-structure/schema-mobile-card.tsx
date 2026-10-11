@@ -239,6 +239,8 @@ export function SchemaMobileCard({
             )}
 
             <div className="min-w-0 flex-1 space-y-4">
+              {/* Two-column grid: Name | Type, then Flags | Required */}
+              <div className="grid grid-cols-2 gap-x-4 gap-y-4">
               {/* Property Name */}
               <div className="min-w-0 space-y-1">
                 <label className="text-xs text-muted-foreground">Property name</label>
@@ -398,43 +400,16 @@ export function SchemaMobileCard({
                 )}
               </div>
 
-              {isPrimitiveType && (
-                <div className="min-w-0 space-y-1">
-                  <label className="text-xs text-muted-foreground">Required</label>
-                  {!isEditMode ? (
-                    <p>
-                      <RequiredBadge requiredOn={watch(`properties.${index}.requiredOn`)} />
-                    </p>
-                  ) : (
-                  <Select
-                    value={watch(`properties.${index}.requiredOn`) ?? "None"}
-                    onValueChange={(value) => setValue(`properties.${index}.requiredOn`, value as IField["requiredOn"], { shouldDirty: true })}
-                    disabled={!isEditMode || isReadOnly}
-                  >
-                    <SelectTrigger
-                      aria-label={`IsRequired for ${name || "property"}`}
-                      className={PROPERTY_FIELD_CLASS}
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(["None", "Insert", "Update", "Both"] as const).map((mode) => <SelectItem key={mode} value={mode}>{mode}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  )}
-                </div>
-              )}
-
-              <div className="flex min-h-[35px] items-center justify-between gap-3">
-                <span className="text-xs text-muted-foreground">Flags</span>
+              <div className="min-w-0 space-y-1">
+                <span className="block text-xs text-muted-foreground">Flags</span>
                 {!isEditMode ? (
                   fieldFlags.length > 0 ? (
                     <FieldFlags flags={fieldFlags} />
                   ) : (
-                    <span className="text-sm text-muted-foreground/40">—</span>
+                    <p className="text-sm text-muted-foreground/40">—</p>
                   )
                 ) : (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {FLAG_TOGGLES.map(({ flag, key, notForChildTypes }) => {
                       const disabled = isReadOnly || (notForChildTypes && isChildType);
                       const chip = (
@@ -466,6 +441,34 @@ export function SchemaMobileCard({
                   </div>
                 )}
               </div>
+              {isPrimitiveType && (
+                <div className="min-w-0 space-y-1">
+                  <label className="text-xs text-muted-foreground">Required</label>
+                  {!isEditMode ? (
+                    <p>
+                      <RequiredBadge requiredOn={watch(`properties.${index}.requiredOn`)} />
+                    </p>
+                  ) : (
+                  <Select
+                    value={watch(`properties.${index}.requiredOn`) ?? "None"}
+                    onValueChange={(value) => setValue(`properties.${index}.requiredOn`, value as IField["requiredOn"], { shouldDirty: true })}
+                    disabled={!isEditMode || isReadOnly}
+                  >
+                    <SelectTrigger
+                      aria-label={`IsRequired for ${name || "property"}`}
+                      className={PROPERTY_FIELD_CLASS}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(["None", "Insert", "Update", "Both"] as const).map((mode) => <SelectItem key={mode} value={mode}>{mode}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  )}
+                </div>
+              )}
+              </div>
+
               {/* Description */}
               <div className="min-w-0 space-y-1">
                 <label className="text-xs text-muted-foreground">Description</label>
@@ -497,13 +500,10 @@ export function SchemaMobileCard({
                 )}
               </div>
 
-              {/* Access | Validation (hidden in Child tab) */}
+              {/* Access | Validation buttons (hidden in Child tab) */}
               {showAccessValidationColumn && (
-                <div className="min-w-0 space-y-1">
-                  <label className="text-xs text-muted-foreground">
-                    {showAccessColumn ? "Access | Validation" : "Validation"}
-                  </label>
-                  <div className="flex min-w-0 flex-col gap-2">
+                <div className="min-w-0">
+                  <div className="flex min-w-0 gap-2">
                     {showAccessColumn &&
                       (isEditMode || isNewField || !isPrimitiveType ? (
                         <Tooltip>

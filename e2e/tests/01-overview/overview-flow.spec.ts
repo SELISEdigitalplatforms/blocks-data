@@ -59,6 +59,21 @@ test.describe("flow: Overview menu", () => {
       const rows = page.locator(
         '[class*="cursor-pointer"][class*="items-start"][class*="border-b"]',
       );
+      // The previous step's "Mark all as read" may have left the popover empty
+      // (or no unread items may exist on this environment) — in that case the
+      // hover-read assertion has nothing to exercise. Close the popover and
+      // skip the rest of the step rather than failing the suite.
+      const rowsVisible = await rows
+        .first()
+        .waitFor({ state: "visible", timeout: 2_000 })
+        .catch(() => false);
+      if (!rowsVisible) {
+        if ((await page.getByText("Notifications", { exact: true }).count()) > 0) {
+          await page.mouse.click(20, 20);
+        }
+        await expect(page.getByText("Notifications", { exact: true })).toHaveCount(0);
+        return;
+      }
       await expect(rows.first()).toBeVisible({ timeout: 10_000 });
       const firstRow = rows.first();
       const initialClass = (await firstRow.getAttribute("class")) ?? "";

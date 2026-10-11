@@ -80,11 +80,29 @@
         </member>
         <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.ReloadDataGatewayServerAsync">
             <summary>
-            Reloads the GraphQL schema configuration and resolves all unadapted changes.
-            This endpoint evicts the cached schema executor and marks all pending schema changes as adapted to the server.
+            Publishes the tenant's schema drafts to every gateway pod and resolves all unadapted changes.
+            The drafts are test-built first; if they build, they are stored as a new published version and made live
+            (every pod rebuilds when it sees the new version; pods never serve unpublished drafts), this pod's executor
+            is rebuilt before the response, and the pending schema changes are marked as adapted to the server.
             Use this endpoint after making changes to schema definitions or data sources to refresh the schema and clear deployment badges in the UI.
             </summary>
-            <returns>Returns a success response if the schema is reloaded and changes are resolved, or an error message if the operation fails.</returns>
+            <returns>Returns a success response carrying the published version and the number of changes it published, 400 with the build error if the definitions do not build (nothing is published), or an error message if the operation fails.</returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.GetSchemaVersionHistoryAsync">
+            <summary>
+            Lists the tenant's published schema versions that can be rolled back to (the newest 10), newest first,
+            with the version that is live now.
+            </summary>
+            <returns>Returns the live version and the kept versions: when and by whom each was published, how many changes
+            it published, and whether it is the live one.</returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.RollbackSchemaVersionAsync(DataGateway.DomainService.Models.RollbackSchemaVersionRequest)">
+            <summary>
+            Makes an earlier published schema version live again on every gateway pod. The schema drafts and the pending
+            (unpublished) changes are not touched, and the next publish still gets a new version number.
+            </summary>
+            <param name="request">The version to roll back to; one of the versions in the version history.</param>
+            <returns>Returns the version now live and the one it replaced, or 404 if that version is not kept.</returns>
         </member>
         <member name="T:Api.Controllers.DataGateway.DataAccessController">
             <summary>
@@ -589,6 +607,64 @@
             <summary>
             Browser security headers for SPA + API (OWASP ZAP DAST bar).
             </summary>
+        </member>
+        <member name="T:Blocks.Data.Api.Security.ContentSecurityPolicy">
+            <summary>
+            Builds the SPA's Content-Security-Policy from configuration.
+            <para>
+            The origins come from the same <c>FrontendRuntime</c> section that fills the SPA's
+            runtime config, so the policy describes whatever environment the host is actually
+            running in. They used to be a hardcoded list of <c>dev-*</c> hosts compiled into the
+            middleware, which was correct on dev and blocked the SPA from reaching its own IAM
+            and sibling services on stg/prod. This mirrors the same fix in blocks-os and blocks-iam
+            (<c>server/Api/Security/ContentSecurityPolicy.cs</c>).
+            </para>
+            </summary>
+        </member>
+        <member name="F:Blocks.Data.Api.Security.ContentSecurityPolicy.ConnectOriginKeys">
+            <summary>
+            <c>FrontendRuntime</c> keys holding a URL the SPA makes requests to. Anything not
+            derivable from these (a CDN, a storage account, a third-party service) goes in
+            <c>Csp:ExtraConnectSrc</c> / <c>Csp:ExtraImgSrc</c> rather than back into code.
+            </summary>
+        </member>
+        <member name="F:Blocks.Data.Api.Security.ContentSecurityPolicy.WebSocketOriginKeys">
+            <summary>
+            Origins the SPA opens a WebSocket to (the Logic SignalR hub). A CSP source is
+            scheme-sensitive, so <c>https://host</c> does not permit <c>wss://host</c> and the
+            ws form has to be emitted separately.
+            </summary>
+        </member>
+        <member name="F:Blocks.Data.Api.Security.ContentSecurityPolicy.FormActionOriginKeys">
+            <summary>Where a login POST may be sent: the identity host and the portal.</summary>
+        </member>
+        <member name="M:Blocks.Data.Api.Security.ContentSecurityPolicy.Build(Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>Builds the policy from the <c>FrontendRuntime</c> and <c>Csp</c> sections.</summary>
+        </member>
+        <member name="M:Blocks.Data.Api.Security.ContentSecurityPolicy.BuildPolicy(System.Collections.Generic.IEnumerable{System.String},System.Collections.Generic.IEnumerable{System.String},System.Collections.Generic.IEnumerable{System.String})">
+            <summary>
+            The policy itself, separated from configuration so it can be asserted directly.
+            </summary>
+        </member>
+        <member name="M:Blocks.Data.Api.Security.ContentSecurityPolicy.Normalize(System.Collections.Generic.IEnumerable{System.String})">
+            <summary>Reduce configured values to distinct, sorted origins.</summary>
+        </member>
+        <member name="M:Blocks.Data.Api.Security.ContentSecurityPolicy.WebSocketOrigins(Microsoft.Extensions.Configuration.IConfiguration,System.Collections.Generic.IEnumerable{System.String})">
+            <summary>Same origins as <see cref="M:Blocks.Data.Api.Security.ContentSecurityPolicy.Origins(Microsoft.Extensions.Configuration.IConfiguration,System.Collections.Generic.IEnumerable{System.String})"/>, re-scheme'd to ws/wss.</summary>
+        </member>
+        <member name="M:Blocks.Data.Api.Security.ContentSecurityPolicy.ToOrigin(System.String)">
+            <summary>
+            A CSP source is an origin, so any path, query or trailing slash is dropped. A value
+            that is not an absolute http(s)/ws(s) URL -- including an unfilled <c>__BLOCKS_*__</c>
+            placeholder -- is ignored rather than emitted verbatim, so a malformed secret cannot
+            inject a directive.
+            </summary>
+        </member>
+        <member name="M:Blocks.Data.Api.Security.ContentSecurityPolicy.ToWebSocketOrigin(System.String)">
+            <summary>The ws:// or wss:// form of an http(s) origin, or null if it is not one.</summary>
+        </member>
+        <member name="M:Blocks.Data.Api.Security.ContentSecurityPolicy.Split(System.String)">
+            <summary>Space- or comma-separated list, for origins no runtime key describes.</summary>
         </member>
         <member name="T:Program">
             <summary>

@@ -6,46 +6,36 @@ namespace XUnitTest.DataGateway;
 
 public class DataGatewayPipelineDispatcherTests
 {
-    private static DataGatewayPipelineDispatcher Create() =>
-        new(new ServiceCollection().BuildServiceProvider());
-
-    [Fact]
-    public void BumpVersionAndClearPipeline_ReturnsTheUnstampedNameOnTheFirstReload()
+    private static DataGatewayPipelineDispatcher Create()
     {
-        var dispatcher = Create();
-
-        // The very first bump retires version 0, which is the bare tenant id.
-        dispatcher.BumpVersionAndClearPipeline("tenant-1").Should().Be("tenant-1");
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddGraphQLServer();
+        return new DataGatewayPipelineDispatcher(services.BuildServiceProvider());
     }
 
     [Fact]
-    public void BumpVersionAndClearPipeline_StampsSubsequentReloadsWithTheRetiredVersion()
+    public void GetPipeline_ReusesTheSamePipelineForATenant()
     {
         var dispatcher = Create();
 
-        dispatcher.BumpVersionAndClearPipeline("tenant-1").Should().Be("tenant-1");
-        dispatcher.BumpVersionAndClearPipeline("tenant-1").Should().Be("tenant-1__v1");
-        dispatcher.BumpVersionAndClearPipeline("tenant-1").Should().Be("tenant-1__v2");
+        // A reload rebuilds the executor behind the pipeline, never the pipeline itself.
+        dispatcher.GetPipeline("tenant-1").Should().BeSameAs(dispatcher.GetPipeline("tenant-1"));
     }
 
     [Fact]
-    public void BumpVersionAndClearPipeline_VersionsEachTenantIndependently()
+    public void GetPipeline_BuildsASeparatePipelinePerTenant()
     {
         var dispatcher = Create();
 
-        dispatcher.BumpVersionAndClearPipeline("tenant-a");
-        dispatcher.BumpVersionAndClearPipeline("tenant-a");
-
-        dispatcher.BumpVersionAndClearPipeline("tenant-b").Should().Be("tenant-b");
-        dispatcher.BumpVersionAndClearPipeline("tenant-a").Should().Be("tenant-a__v2");
+        dispatcher.GetPipeline("tenant-a").Should().NotBeSameAs(dispatcher.GetPipeline("tenant-b"));
     }
 
     [Fact]
-    public void BumpVersionAndClearPipeline_TreatsTenantIdsCaseSensitively()
+    public void GetPipeline_TreatsTenantIdsCaseSensitively()
     {
         var dispatcher = Create();
 
-        dispatcher.BumpVersionAndClearPipeline("Tenant").Should().Be("Tenant");
-        dispatcher.BumpVersionAndClearPipeline("tenant").Should().Be("tenant");
+        dispatcher.GetPipeline("Tenant").Should().NotBeSameAs(dispatcher.GetPipeline("tenant"));
     }
 }

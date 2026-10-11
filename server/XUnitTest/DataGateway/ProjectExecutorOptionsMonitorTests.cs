@@ -10,8 +10,8 @@ namespace XUnitTest.DataGateway
     /// <summary>
     /// Unit tests for <see cref="ProjectExecutorOptionsMonitor"/>. The point of this class is that
     /// every schema name, including project slugs created at runtime, is served from the default
-    /// ("template") configuration, and that eviction is signalled through listeners rather than by
-    /// calling HotChocolate's resolver directly. Both are pinned here.
+    /// ("template") configuration, and that each name gets a schema hook for the tenant it names.
+    /// Both are pinned here.
     /// </summary>
     public class ProjectExecutorOptionsMonitorTests
     {
@@ -114,57 +114,95 @@ namespace XUnitTest.DataGateway
             second.Should().NotBeSameAs(first, "each call must not hand back a shared mutable setup");
         }
 
-        [Fact]
-        public void TriggerEviction_NotifiesEveryRegisteredListenerWithTheSchemaName()
+        private static Mock<IRequestExecutorOptionsProvider> ChangeableProvider(
+            Action<Action<IConfigureRequestExecutorSetup>> capture)
         {
-            var sut = Build(Provider());
-            var seen = new List<string>();
-            using var _ = sut.OnChange(seen.Add);
-            using var __ = sut.OnChange(seen.Add);
-
-            sut.TriggerEviction("project-a");
-
-            seen.Should().Equal("project-a", "project-a");
+            var provider = Provider();
+            provider.Setup(p => p.OnChange(It.IsAny<Action<IConfigureRequestExecutorSetup>>()))
+                    .Callback(capture)
+                    .Returns(Mock.Of<IDisposable>());
+            return provider;
         }
 
         [Fact]
-        public void TriggerEviction_IsSilentWhenNothingIsListening()
+        public async Task OnChange_StopsNotifyingOnceTheSessionIsDisposed()
         {
-            var sut = Build(Provider());
-
-            var act = () => sut.TriggerEviction("project-a");
-
-            act.Should().NotThrow();
-        }
-
-        [Fact]
-        public void OnChange_StopsNotifyingOnceTheSessionIsDisposed()
-        {
-            var sut = Build(Provider());
+            Action<IConfigureRequestExecutorSetup>? change = null;
+            var sut = Build(ChangeableProvider(a => change = a));
+            await sut.GetAsync("project-a");
             var seen = new List<string>();
             var session = sut.OnChange(seen.Add);
 
-            sut.TriggerEviction("first");
+            change!(Configuration(Schema.DefaultName).Object);
             session.Dispose();
-            sut.TriggerEviction("second");
+            change(Configuration(Schema.DefaultName).Object);
 
-            seen.Should().Equal("first");
+            seen.Should().Equal(Schema.DefaultName);
         }
 
         [Fact]
-        public void OnChange_RemovesOnlyTheDisposedListener()
+        public async Task OnChange_RemovesOnlyTheDisposedListener()
         {
-            var sut = Build(Provider());
+            Action<IConfigureRequestExecutorSetup>? change = null;
+            var sut = Build(ChangeableProvider(a => change = a));
+            await sut.GetAsync("project-a");
             var kept = new List<string>();
             var dropped = new List<string>();
             using var _ = sut.OnChange(kept.Add);
             var session = sut.OnChange(dropped.Add);
 
             session.Dispose();
-            sut.TriggerEviction("after");
+            change!(Configuration(Schema.DefaultName).Object);
 
-            kept.Should().Equal("after");
+            kept.Should().Equal(Schema.DefaultName);
             dropped.Should().BeEmpty();
+        }
+
+        // ---------------- per-tenant schema hook ----------------
+
+        [Fact]
+        public async Task GetAsync_WithoutAConfigurator_AddsNoTenantHooks()
+        {
+            var sut = Build(Provider());
+
+            var setup = await sut.GetAsync("project-a");
+
+            setup.OnConfigureSchemaBuilderHooks.Should().BeEmpty();
+            setup.OnRequestExecutorCreatedHooks.Should().BeEmpty();
+        }
+
+        [Fact]
+        public async Task GetAsync_BuildsTheSchemaForTheTenantNamedByTheSchemaName()
+        {
+            var configurator = new Mock<ITenantSchemaConfigurator>();
+            var sut = new ProjectExecutorOptionsMonitor(_options.Object, [Provider().Object], configurator.Object);
+            var schemaBuilder = SchemaBuilder.New();
+
+            var setup = await sut.GetAsync("project-a");
+            var hook = setup.OnConfigureSchemaBuilderHooks.Should().ContainSingle().Subject;
+            await hook.ConfigureAsync!(
+                new ConfigurationContext("project-a", schemaBuilder, Mock.Of<IServiceProvider>()),
+                Mock.Of<IServiceProvider>(),
+                CancellationToken.None);
+
+            // No request context is involved: the tenant comes from the executor's name, which is
+            // what lets HotChocolate rebuild an evicted executor on its background task.
+            configurator.Verify(c => c.ConfigureAsync("project-a", schemaBuilder, It.IsAny<CancellationToken>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task GetAsync_ReportsTheCreatedExecutorForTheTenant()
+        {
+            var configurator = new Mock<ITenantSchemaConfigurator>();
+            var sut = new ProjectExecutorOptionsMonitor(_options.Object, [Provider().Object], configurator.Object);
+
+            var setup = await sut.GetAsync("project-b");
+            var hook = setup.OnRequestExecutorCreatedHooks.Should().ContainSingle().Subject;
+            hook.Created!(
+                new ConfigurationContext("project-b", SchemaBuilder.New(), Mock.Of<IServiceProvider>()),
+                Mock.Of<HotChocolate.Execution.IRequestExecutor>());
+
+            configurator.Verify(c => c.OnExecutorCreated("project-b"), Times.Once);
         }
 
         [Fact]

@@ -147,14 +147,19 @@ export const SchemaBasicInfo = ({
       >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(99,102,241,0.04),transparent_60%)]" />
         {/* Header */}
-        <div className="relative flex flex-wrap items-center justify-between gap-3 px-3 py-3.5 sm:px-5">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
+        {/* The actions stay pinned top-right; only the name and summary wrap.
+            Letting the row itself wrap dropped them onto a line of their own
+            under the icon on narrow widths. */}
+        <div className="relative flex items-start justify-between gap-3 px-3 py-3.5 sm:px-5">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-primary/20">
               <Database className="h-4 w-4 text-primary" />
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-semibold text-foreground">{schemaName}</h2>
+                <h2 className="min-w-0 break-words text-sm font-semibold text-foreground">
+                  {schemaName}
+                </h2>
                 <span
                   className={cn(
                     "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
@@ -164,14 +169,23 @@ export const SchemaBasicInfo = ({
                   {schemaType}
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground/60">
+              {/* Narrow: collection and counts stack on two lines, without the
+                  dot, which a wrapping line would leave dangling at its end. */}
+              <div
+                className={cn(
+                  "flex text-[11px] text-muted-foreground/60",
+                  isNarrow ? "flex-col items-start gap-0.5" : "flex-wrap items-center gap-1.5",
+                )}
+              >
                 {props.collectionName && (
                   <>
-                    <span className="font-mono">{props.collectionName}</span>
-                    <span
-                      aria-hidden
-                      className="h-[3px] w-[3px] shrink-0 rounded-full bg-current opacity-50"
-                    />
+                    <span className="break-all font-mono">{props.collectionName}</span>
+                    {!isNarrow && (
+                      <span
+                        aria-hidden
+                        className="h-[3px] w-[3px] shrink-0 rounded-full bg-current opacity-50"
+                      />
+                    )}
                   </>
                 )}
                 <span>{fieldsSummary}</span>
@@ -190,7 +204,10 @@ export const SchemaBasicInfo = ({
                 variant="outline"
                 size="sm"
                 aria-label="Schema Access"
-                className="h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                className={cn(
+                  "h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+                  isNarrow && "w-8 px-0",
+                )}
                 onClick={() => onOpenSchemaAccess("View")}
               >
                 <Shield className="h-3.5 w-3.5" />
@@ -211,7 +228,10 @@ export const SchemaBasicInfo = ({
                     variant="outline"
                     size="sm"
                     aria-label="Schema Access"
-                    className="h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary"
+                    className={cn(
+                      "h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+                      isNarrow && "w-8 px-0",
+                    )}
                   >
                     <Shield className="h-3.5 w-3.5" />
                     {!isNarrow && "Schema Access"}
@@ -263,19 +283,23 @@ export const SchemaBasicInfo = ({
 
         {/* Bottom info row — Access Control for Entity, References for Child */}
         {(isEntity || props.schemaType === 2) && (
-          <div className="relative flex items-center gap-4 border-t border-border/40 px-5 py-3">
+          /* On phones the label stacks above its values rather than sitting
+             beside them, where it ran off the card's left edge. */
+          <div className="relative flex flex-col items-start gap-2.5 border-t border-border/40 px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
             <span className="shrink-0 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
               {isEntity ? "Access Control" : "References"}
             </span>
             {isEntity ? (
               /* Access Control pills for Entity — verb and tier share one
-                 bordered, tier-tinted pill, matching every board's own strip. */
-              <div className="flex flex-wrap items-center gap-2">
+                 bordered, tier-tinted pill, matching every board's own strip.
+                 Two per row on phones (View | Create, Edit | Delete). */
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center">
                 {accessLevels.map(({ label, level }) => (
                   <AccessVerbPill
                     key={label}
                     verb={label}
                     level={level}
+                    className="justify-center sm:justify-start"
                     compact={isNarrow || isAccessPanelOpen}
                     onClick={() => {
                       if (onOpenSchemaAccess) {

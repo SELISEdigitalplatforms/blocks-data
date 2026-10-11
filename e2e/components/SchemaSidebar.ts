@@ -1,4 +1,5 @@
 import { type Page, type Locator, expect } from "@playwright/test";
+import { waitVisible } from "../support/wait-visible";
 
 export class SchemaSidebar {
   constructor(private page: Page) {}
@@ -104,26 +105,14 @@ export class SchemaSidebar {
   }
 
   async selectSchema(schemaName: string): Promise<boolean> {
-    if (
-      await this.getSchemaRow(schemaName)
-        .isVisible({ timeout: 3_000 })
-        .catch(() => false)
-    ) {
+    if (await waitVisible(this.getSchemaRow(schemaName), 3_000)) {
       await this.getSchemaRow(schemaName).click();
       return true;
     }
 
-    if (
-      await this.getLastPageButton()
-        .isVisible({ timeout: 1_000 })
-        .catch(() => false)
-    ) {
+    if (await waitVisible(this.getLastPageButton(), 1_000)) {
       await this.getLastPageButton().click();
-      if (
-        await this.getSchemaRow(schemaName)
-          .isVisible({ timeout: 3_000 })
-          .catch(() => false)
-      ) {
+      if (await waitVisible(this.getSchemaRow(schemaName), 3_000)) {
         await this.getSchemaRow(schemaName).click();
         return true;
       }
@@ -131,11 +120,7 @@ export class SchemaSidebar {
 
     for (let i = 0; i < 10; i++) {
       if (!(await this.clickNextPageIfNotDisabled())) break;
-      if (
-        await this.getSchemaRow(schemaName)
-          .isVisible({ timeout: 3_000 })
-          .catch(() => false)
-      ) {
+      if (await waitVisible(this.getSchemaRow(schemaName), 3_000)) {
         await this.getSchemaRow(schemaName).click();
         return true;
       }
@@ -146,7 +131,7 @@ export class SchemaSidebar {
   private async clickNextPageIfNotDisabled(): Promise<boolean> {
     const nextBtn = this.getNextPageButton();
     if (await nextBtn.isDisabled({ timeout: 1_000 }).catch(() => true)) return false;
-    if (await nextBtn.isVisible({ timeout: 1_000 }).catch(() => false)) {
+    if (await waitVisible(nextBtn, 1_000)) {
       await nextBtn.click();
       return true;
     }

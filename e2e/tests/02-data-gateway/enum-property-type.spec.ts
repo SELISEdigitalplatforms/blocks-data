@@ -3,6 +3,7 @@ import { test } from "../../support/test-base";
 import { openDataGateway } from "../../support/open-data-gateway";
 import { confirmSchemaStructureSaved } from "../../support/confirm-schema-saved";
 import { openEnvironment } from "../../support/navigation";
+import { waitVisible } from "../../support/wait-visible";
 
 /**
  * Feature coverage for #353 — Enum property type.
@@ -19,13 +20,18 @@ async function createSchema(page: Page, schemaName: string) {
     landingHeading.or(emptyStateHeading).or(schemasReady).or(pickSchema).first(),
   ).toBeVisible({ timeout: 30_000 });
 
-  const addSchemaButton = page.getByRole("button", { name: /Add Schema|Add schema|\+/ }).first();
-  // Prefer explicit Add Schema if present
+  // The schemas explorer now exposes a generic "Add" button (icon + label) in
+  // the sidebar header, and a "New schema" button in the empty state. Fall back
+  // to those names if a button explicitly labelled "Add Schema" isn't present.
   const labeled = page.getByRole("button", { name: /Add Schema/i });
-  if (await labeled.isVisible({ timeout: 3_000 }).catch(() => false)) {
+  const newSchema = page.getByRole("button", { name: /New schema/i });
+  const addButton = page.getByRole("button", { name: /^Add$/ });
+  if (await waitVisible(labeled, 3_000)) {
     await labeled.click();
+  } else if (await waitVisible(newSchema, 3_000)) {
+    await newSchema.click();
   } else {
-    await addSchemaButton.click();
+    await addButton.first().click();
   }
 
   const dialog = page.getByRole("dialog").filter({
@@ -40,11 +46,15 @@ async function createSchema(page: Page, schemaName: string) {
     await nameInput.pressSequentially(schemaName, { delay: 15 });
     await nameInput.blur();
     const entityInput = dialog.locator("#entityName");
-    if (await entityInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      // Wait briefly for onChange-derived collection name, then backfill.
-      await page.waitForTimeout(400);
-      const entityVal = await entityInput.inputValue().catch(() => "");
-      if (!entityVal.trim()) {
+    if (await waitVisible(entityInput, 2_000)) {
+      // onChange derives the collection name; poll briefly instead of
+      // sleeping, then backfill only if nothing was derived.
+      const derived = await expect
+        .poll(() => entityInput.inputValue().catch(() => ""), { timeout: 3_000 })
+        .not.toBe("")
+        .then(() => true)
+        .catch(() => false);
+      if (!derived) {
         await entityInput.fill(`sb_${schemaName}s`);
         await entityInput.blur();
       }
@@ -106,7 +116,7 @@ test.describe("feature: Enum property type (#353)", () => {
       });
 
       await page.getByRole("button", { name: "+ Add property" }).click();
-      const nameInput = page.locator("table").getByPlaceholder("Click to edit").last();
+      const nameInput = page.locator("table:visible").getByPlaceholder("Click to edit").last();
       await expect(nameInput).toBeVisible({ timeout: 15_000 });
       await nameInput.scrollIntoViewIfNeeded();
       await nameInput.fill(fieldName);
@@ -115,7 +125,7 @@ test.describe("feature: Enum property type (#353)", () => {
     await test.step("Select Enum from primitive types and add allowed values", async () => {
       // New properties default to String; IsRequired combobox uses None/Insert/Update/Both.
       const typeCombo = page
-        .locator("table")
+        .locator("table:visible")
         .getByRole("combobox")
         .filter({ hasText: /Select type|^String$|^Enum$/i })
         .last();
@@ -124,7 +134,7 @@ test.describe("feature: Enum property type (#353)", () => {
 
       await expect(page.getByText("Primitive Types")).toBeVisible({ timeout: 10_000 });
       const enumItem = page.locator("[cmdk-item], [role='option']").filter({ hasText: /^Enum$/ }).first();
-      if (await enumItem.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      if (await waitVisible(enumItem, 2_000)) {
         await enumItem.click();
       } else {
         await page.getByText("Enum", { exact: true }).click();
@@ -136,16 +146,16 @@ test.describe("feature: Enum property type (#353)", () => {
       ).toBeVisible({ timeout: 5_000 });
 
       // Desktop table only — mobile EnumValuesEditor is outside <table>.
-      await page.keyboard.press("Escape").catch(() => {});
-      const valueInput = page.locator("table").getByLabel("New enum value").last();
+      await page.keyboard.press("Escape");
+      const valueInput = page.locator("table:visible").getByLabel("New enum value").last();
       await expect(valueInput).toBeVisible({ timeout: 15_000 });
       await valueInput.fill("Active");
       await valueInput.press("Enter");
-      await expect(page.locator("table").getByText("Active", { exact: true }).last()).toBeVisible();
+      await expect(page.locator("table:visible").getByText("Active", { exact: true }).last()).toBeVisible();
 
       await valueInput.fill("Closed");
       await valueInput.press("Enter");
-      await expect(page.locator("table").getByText("Closed", { exact: true }).last()).toBeVisible();
+      await expect(page.locator("table:visible").getByText("Closed", { exact: true }).last()).toBeVisible();
 
       // Invalid value should surface editor error (does not add)
       await valueInput.fill("1Bad");
@@ -165,12 +175,14 @@ test.describe("feature: Enum property type (#353)", () => {
         return inputs.some((i) => i.value === name) || document.body.innerText.includes(name);
       }, fieldName);
       expect(nameMatched).toBe(true);
-      await expect(page.getByText("Active", { exact: true }).first()).toBeVisible({
-        timeout: 20_000,
-      });
-      await expect(page.getByText("Closed", { exact: true }).first()).toBeVisible({
-        timeout: 20_000,
-      });
+      // Mobile/desktop variants render duplicate DOM; the mobile chip set is
+      // hidden, so keep only the visible occurrence of each value.
+      await expect(
+        page.getByText("Active", { exact: true }).filter({ visible: true }).first(),
+      ).toBeVisible({ timeout: 20_000 });
+      await expect(
+        page.getByText("Closed", { exact: true }).filter({ visible: true }).first(),
+      ).toBeVisible({ timeout: 20_000 });
     });
   });
 });

@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test"
+import { waitVisible } from "./wait-visible"
 
 /**
  * After Save → Update, the UI either toasts "Schema updated successfully"
@@ -16,10 +17,10 @@ export async function confirmSchemaStructureSaved(page: Page) {
   }
 
   for (let attempt = 0; attempt < 2; attempt++) {
-    if (!(await unadapted.isVisible({ timeout: 1_000 }).catch(() => false))) {
+    if (!(await waitVisible(unadapted, 1_000))) {
       return
     }
-    if (await publish.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (await waitVisible(publish, 2_000)) {
       await publish.click()
       await page
         .getByText(/Schemas published successfully|Schema updated successfully/i)

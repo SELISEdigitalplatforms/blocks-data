@@ -157,20 +157,28 @@ test.describe("flow: Data Gateway menu", () => {
 
       const confirmExportButton = dialog.getByRole("button", { name: "Export", exact: true });
       await expect(confirmExportButton).toBeEnabled({ timeout: 10_000 });
-      await confirmExportButton.click();
+
+      // When the export file URL arrives, the modal anchor-clicks the
+      // cross-origin blob SAS URL (export-schema-modal.tsx builds an <a>
+      // with a.download). Browsers ignore the download attribute
+      // cross-origin, so that click can navigate the page away from the app
+      // — taking the wizard and every later step with it. Abort that one
+      // request in-test — armed BEFORE the click — so the SPA stays put no
+      // matter which way the backend answers.
+      await page.route(/schema_export_/, (route) => route.abort());
+
       const exportToast = page
         .getByText("Export in progress")
         .or(page.getByText("Schema export downloaded successfully"))
         .or(page.getByText(/Export failed|Export request failed/i));
-      // Export may complete without a toast on preview — treat it as optional
-      // (waitVisible), but leave the dialog CLOSED before the next step.
+      // Export may complete without a toast on preview — treat it as
+      // optional (waitVisible), but leave the dialog CLOSED before the next
+      // step. The wizard's Cancel buttons are decorative (no onClick
+      // handlers in export-schema-modal.tsx) — Escape is what closes it.
+      await confirmExportButton.click();
       await waitVisible(exportToast.first(), 12_000);
       if (await dialog.isVisible()) {
         await page.keyboard.press("Escape");
-        const cancel = dialog.getByRole("button", { name: "Cancel" });
-        if (await waitVisible(cancel, 2_000)) {
-          await cancel.click({ timeout: 5_000 });
-        }
       }
       await expect(dialog).toBeHidden({ timeout: 15_000 });
     });
@@ -206,8 +214,31 @@ test.describe("flow: Data Gateway menu", () => {
     });
 
     await test.step("Playground navigates out, executes the default query, then Data Gateway navigates back", async () => {
-      const playgroundTab = page.getByRole("link", { name: "Playground" });
-      await expect(playgroundTab).toBeVisible({ timeout: 15_000 });
+      // The page bar renders Playground as a section tab — a react-router
+      // <Link> in data-gateway-sections.tsx (the page-bar refactor: "Playground
+      // used to be an inline button"). Keep the button as a fallback for the
+      // older layout; both navigate to {dataGatewayPath}/playground.
+      const playgroundTab = page
+        .getByRole("link", { name: "Playground" })
+        .or(page.getByRole("button", { name: "Playground" }))
+        .first();
+      // The /playground route is lazy-loaded; a dev redeploy mid-run can
+      // 404 its chunk and white-screen the SPA exactly at this transition.
+      // Retry the whole probe: if the tab is missing because the shell died
+      // (or the nav has not mounted yet), re-enter Data Gateway to load a
+      // fresh bundle and look again.
+      await expect(async () => {
+        if (!(await playgroundTab.isVisible().catch(() => false))) {
+          const shellAlive = await page
+            .getByPlaceholder("Search schemas…")
+            .isVisible()
+            .catch(() => false);
+          if (!shellAlive) {
+            await openDataGateway(page);
+          }
+        }
+        await expect(playgroundTab).toBeVisible({ timeout: 5_000 });
+      }).toPass({ timeout: 60_000 });
       await playgroundTab.click();
       await expect(page).toHaveURL(/\/playground/, { timeout: 10_000 });
 
@@ -532,8 +563,9 @@ test.describe("flow: Data Gateway menu", () => {
       // Multiple preview-drawer instances can stack: a stale aria-hidden copy
       // can sit on top and swallow the click aimed at the live drawer's X.
       // Role queries can't see an aria-hidden subtree, so drive the close
-      // button via CSS and keep closing whatever still reports
-      // data-state="open" until every instance is down.
+      // button via CSS. toPass only retries when the callback throws, so the
+      // callback must require every open instance to be gone — otherwise a
+      // single click would end the loop with another drawer still up.
       await expect(async () => {
         const openDrawers = page
           .locator('[data-vaul-drawer][data-state="open"]')
@@ -544,9 +576,9 @@ test.describe("flow: Data Gateway menu", () => {
           });
         if ((await openDrawers.count()) === 0) return;
         // The later-mounted instance paints on top and intercepts clicks
-        // aimed at the earlier one, so close from the top: .last() first,
-        // then the loop repeats for whatever still reports data-state="open".
+        // aimed at the earlier one, so close from the top: .last() first.
         await openDrawers.last().locator("button").first().click({ timeout: 3_000 });
+        await expect(openDrawers).toHaveCount(0, { timeout: 2_000 });
       }).toPass({ timeout: 30_000 });
 
       await expect(drawerTitle.first()).toBeHidden({ timeout: 10_000 });

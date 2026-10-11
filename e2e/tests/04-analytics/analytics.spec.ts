@@ -5,12 +5,16 @@ import { dismissSessionConflictIfPresent } from "../../support/session-conflict"
 import { openDataGateway } from "../../support/open-data-gateway";
 import { waitVisible } from "../../support/wait-visible";
 
-async function openAnalytics(page: Page) {
+type AnalyticsEntry =
+  | { linkHidden: true }
+  | { linkHidden: false; configurationSettled: Promise<Response | null> };
+
+async function openAnalytics(page: Page): Promise<AnalyticsEntry> {
   await openDataGateway(page);
   // The "Analytics" section link renders only while the project's
   // analyticsConfiguration.enableAnalytics is on (data-gateway-sections.tsx).
-  // Users reach the page through this link — click it, and report clearly
-  // when the project has analytics disabled.
+  // Users reach the page through this link — report a hidden link and a
+  // missing configuration response as the two different outcomes they are.
   const analyticsLink = page
     .locator('nav[aria-label="Data Gateway sections"]')
     .getByRole("link", { name: "Analytics" });
@@ -21,7 +25,7 @@ async function openAnalytics(page: Page) {
       () => false,
     );
   if (!linkVisible) {
-    return null;
+    return { linkHidden: true };
   }
   // Arm BEFORE the click: the analytics page refetches the configuration on
   // mount (staleTime 0) and that response decides the entitlement gate.
@@ -32,16 +36,15 @@ async function openAnalytics(page: Page) {
     .catch(() => null);
   await analyticsLink.click();
   await expect(page).toHaveURL(/\/analytics/, { timeout: 30_000 });
-  return configurationSettled;
+  return { linkHidden: false, configurationSettled };
 }
 
 test.describe("flow: Data Gateway — Analytics page", () => {
-  // Single merged test that runs the whole spec as one Playwright test.
-  // Sections are run in dependency order: Data Gateway (Indexes, Access) → Analytics.
-  test("Data Gateway & Analytics — full flow (Indexes, Access pills, Analytics tabs and history)", async ({
-    page,
-  }) => {
-    test.setTimeout(900_000);
+  // Two tests: the Data Gateway sections run unconditionally, and the
+  // Analytics entitlement gate skips on its own without dragging the rest
+  // of the file into a "skipped" report.
+  test("Data Gateway — Indexes & Access flow", async ({ page }) => {
+    test.setTimeout(600_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await openEnvironment(page);
     await dismissSessionConflictIfPresent(page);
@@ -246,15 +249,23 @@ test.describe("flow: Data Gateway — Analytics page", () => {
         timeout: 15_000,
       });
     });
+  });
 
-    // ------------------------------------------------------------------
-    // Section C: Analytics page
-    // ------------------------------------------------------------------
-    const configurationSettled = await openAnalytics(page);
+  test("Analytics — tabs, bucket/date controls, filters and history", async ({ page }) => {
+    test.setTimeout(480_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openEnvironment(page);
+    await dismissSessionConflictIfPresent(page);
+
+    const analytics = await openAnalytics(page);
     test.skip(
-      configurationSettled === null,
+      analytics.linkHidden,
       "Analytics section link is hidden — enableAnalytics is off for this project",
     );
+    // test.skip threw above when hidden, so the link was visible here.
+    const configurationSettled = analytics.linkHidden
+      ? null
+      : analytics.configurationSettled;
 
     // Preview projects often have enableAnalytics=false / expired validTill.
     // When gated, the page shows an overlay and aria-hides the tablist — assert
@@ -270,7 +281,13 @@ test.describe("flow: Data Gateway — Analytics page", () => {
 
       // The gate only renders once the configuration query resolves, which on
       // a loaded dev backend lands after the tabs — settle on that decision
-      // before trusting the visible tabs as "granted".
+      // before trusting the visible tabs as "granted". A response that never
+      // arrives is an environment failure, not "analytics disabled".
+      if (configurationSettled === null) {
+        throw new Error(
+          "Analytics configuration response did not arrive within 20s after opening /analytics",
+        );
+      }
       await configurationSettled;
       const gateAppeared = await unavailable
         .waitFor({ state: "visible", timeout: 5_000 })

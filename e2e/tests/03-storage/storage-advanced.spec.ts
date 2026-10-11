@@ -55,7 +55,19 @@ async function mockStorageConfigurationsListing(page: Page): Promise<void> {
 }
 
 async function mockDirectoryListing(page: Page): Promise<void> {
+  // The real backend filters server-side via the `search` query param
+  // (dms-directory.service sends ?search=, storage-detail passes
+  // filters.search to useDmsChildren) — honour it so the search step can
+  // assert a genuine no-match listing instead of a decorative refetch.
   await page.route("**/get-objects**", async (route) => {
+    if (new URL(route.request().url()).searchParams.get("search")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [], totalChildCount: 0, hasMore: false }),
+      });
+      return;
+    }
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -204,28 +216,41 @@ test.describe("feature: Storage advanced flows", () => {
       await expect(mockedFolder).toBeVisible({ timeout: 15_000 });
     });
 
-    await test.step("Detail page: breadcrumb and grid/list view toggles render and switch", async () => {
-      // shadcn breadcrumb root is a nav[aria-label="breadcrumb"].
-      const breadcrumb = page.locator("nav[aria-label='breadcrumb']").first();
-      const breadcrumbShown = await breadcrumb
-        .waitFor({ state: "visible", timeout: 3_000 })
-        .then(
-          () => true,
-          () => false,
-        );
-      if (breadcrumbShown) {
-        await expect(breadcrumb).toBeVisible();
-      }
+    await test.step("Detail page: breadcrumb renders and grid/list toggles switch the listing markup", async () => {
+      // The breadcrumb renders unconditionally on the detail page
+      // (storage-detail.tsx renders <Breadcrumb> above the header).
+      await expect(page.locator("nav[aria-label='breadcrumb']").first()).toBeVisible({
+        timeout: 10_000,
+      });
 
       // The view toggles are icon-only buttons holding lucide List /
       // LayoutGrid icons (storage-detail.tsx); they render once the mocked
-      // listing has a child (totalChildCount > 0).
+      // listing has a child (totalChildCount > 0). The default view is grid:
+      // each directory renders as a role=button card.
       const listToggle = page.locator("button:has(svg.lucide-list)").first();
       const gridToggle = page.locator("button:has(svg.lucide-layout-grid)").first();
       await expect(listToggle).toBeVisible({ timeout: 10_000 });
       await expect(gridToggle).toBeVisible();
+      const folderCard = page
+        .locator('div[role="button"]')
+        .filter({ has: page.getByText("e2e-mocked-folder", { exact: true }) })
+        .first();
+      await expect(folderCard).toBeVisible({ timeout: 10_000 });
+
+      // List view swaps the card grid for a typed table — the "File type"
+      // column header renders only in list mode (storage-detail.tsx).
       await listToggle.click();
+      await expect(page.getByRole("columnheader", { name: "File type" }).first()).toBeVisible({
+        timeout: 10_000,
+      });
+      await expect(page.getByRole("cell", { name: "e2e-mocked-folder" }).first()).toBeVisible({
+        timeout: 10_000,
+      });
+
+      // Grid view restores the cards and drops the table.
       await gridToggle.click();
+      await expect(folderCard).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByRole("columnheader", { name: "File type" })).toBeHidden();
     });
 
     await test.step("Detail page: 'Add New' menu offers Upload file and Create new directory dialogs", async () => {
@@ -262,25 +287,42 @@ test.describe("feature: Storage advanced flows", () => {
       await expect(directoryDialog).toBeHidden({ timeout: 10_000 });
     });
 
-    await test.step("Detail page: server-side search box narrows to no-match empty state", async () => {
+    await test.step("Detail page: server-side search narrows to the no-match empty listing", async () => {
       const searchInput = page
         .getByPlaceholder(/search/i)
         .first();
       await expect(searchInput).toBeVisible({ timeout: 10_000 });
-      await searchInput.fill(`zzz-no-match-${Date.now()}`);
-      // Enter triggers the server-side name search — a get-objects refetch
-      // (storage-detail.tsx passes filters.search to useDmsChildren). Our
-      // mock always returns the folder, so the listing re-renders with it.
+
+      // The mocked get-objects returns an empty list whenever a search term
+      // is present, mirroring the real server-side filter. Arm the response
+      // wait BEFORE typing — the SearchFilter onChange already fires the
+      // get-objects refetch, Enter is only a safety.
       const searchSettled = page.waitForResponse(
-        (resp) => resp.url().includes("get-objects"),
+        (resp) =>
+          resp.url().includes("get-objects") &&
+          new URL(resp.url()).searchParams.has("search"),
         { timeout: 10_000 },
       );
-      await searchInput.press("Enter");
+      await searchInput.fill(`zzz-no-match-${Date.now()}`);
       await searchSettled;
-      await expect(
-        page.getByText("e2e-mocked-folder", { exact: true }).first(),
-      ).toBeVisible({ timeout: 10_000 });
+
+      // The detail page renders the server result verbatim
+      // (storage-detail.tsx: filteredDirectorys = directorys), so a no-match
+      // response must remove the folder from the listing entirely. The
+      // breadcrumb is excluded on purpose: its current-page crumb keeps
+      // showing the folder name even when the listing is empty, so the
+      // no-match check scopes to the listing markup itself (grid card or
+      // table row).
+      const listingMatches = page
+        .locator('div[role="button"], table tbody tr')
+        .filter({ has: page.getByText("e2e-mocked-folder", { exact: true }) });
+      await expect(listingMatches).toHaveCount(0, { timeout: 10_000 });
+
+      // Clearing drops the search param (the react-query key changes back),
+      // so the unfiltered listing — and the folder — returns, in whichever
+      // view mode the page is in.
       await searchInput.fill("");
+      await expect(listingMatches.first()).toBeVisible({ timeout: 15_000 });
     });
 
     await test.step("Trash page: filter chips render over the real backend without destructive actions", async () => {
@@ -304,6 +346,9 @@ test.describe("feature: Storage advanced flows", () => {
 
       await expect(page).toHaveURL(/storage\/trash/, { timeout: 30_000 });
 
+      // Chip labels come from the app verbatim — including the "Directorys"
+      // typo (client search/trash filter chips). Client-team note: when the
+      // typo is fixed in the app, update this string.
       for (const chip of ["All", "Directorys", "Files"]) {
         const chipButton = page
           .getByRole("button", { name: chip, exact: true })

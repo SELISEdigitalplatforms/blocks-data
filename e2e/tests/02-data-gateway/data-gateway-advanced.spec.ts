@@ -21,6 +21,32 @@ const fieldName = `adv_field_${ts}`;
 test.describe("feature: Data Gateway advanced flows", () => {
   test.setTimeout(480_000);
 
+  // Residue guard: schemaCreated turns true once setup succeeds and the
+  // afterEach removes the schema on every path — the normal one and any
+  // earlier failure — so a mid-test crash cannot leave a dg_adv_* schema
+  // behind. Best-effort only: cleanup errors are swallowed so they never
+  // mask the real test failure.
+  let schemaCreated = false;
+
+  test.afterEach(async ({ page }) => {
+    if (!schemaCreated) return;
+    schemaCreated = false;
+    try {
+      // A failure inside the access-inspector steps leaves the
+      // "Save changes?" checkpoint up, which blocks schema selection —
+      // discard it before navigating.
+      const checkpoint = page.getByRole("heading", { name: "Save changes?" });
+      if (await waitVisible(checkpoint, 3_000)) {
+        await page.getByRole("button", { name: "Discard" }).click();
+      }
+      if (await selectSchema(page, schemaName)) {
+        await deleteCurrentSchema(page);
+      }
+    } catch {
+      // environment cleanup is best-effort
+    }
+  });
+
   async function createSchema(page: Page, name: string) {
     await openDataGateway(page);
     const landingHeading = page.getByRole("heading", { name: "Security Assessment" });
@@ -162,6 +188,7 @@ test.describe("feature: Data Gateway advanced flows", () => {
     await test.step("Setup: create an Entity schema with one String field", async () => {
       await createSchema(page, schemaName);
       await addStringField(page, fieldName);
+      schemaCreated = true;
     });
 
     await test.step("Indexes tab: system index listed, custom unique index can be added and deleted", async () => {
@@ -175,11 +202,10 @@ test.describe("feature: Data Gateway advanced flows", () => {
 
       const addIndexButton = page.getByRole("button", { name: /Add index/i });
       await expect(addIndexButton).toBeVisible({ timeout: 15_000 });
-      if (await addIndexButton.isDisabled().catch(() => true)) {
-        // DTO schemas don't support indexes — not the case here (Entity), but
-        // keep the guard so a backend change degrades to a skip, not a failure.
-        return;
-      }
+      // This is an Entity schema, so indexes are supported and the button
+      // must be enabled — an early return here would silently skip the
+      // whole index lifecycle this step exists to cover.
+      await expect(addIndexButton).toBeEnabled({ timeout: 10_000 });
 
       // The default ItemId index row renders "ItemId(_id_)" with a System tag
       // (schema-indexes-tab.tsx).
@@ -465,23 +491,15 @@ test.describe("feature: Data Gateway advanced flows", () => {
       await expect(accessPolicies).toBeVisible({ timeout: 10_000 });
       await expect(validationRules).toBeVisible();
 
-      // Toggle both optional includes on and off — the checkboxes react.
-      const policiesCheckbox = dialog
-        .locator("label, [class*='cursor-pointer']")
-        .filter({ hasText: "Access Policies" })
-        .locator("input[type='checkbox'], button[role='checkbox']")
-        .first();
-      const policiesCheckboxShown = await policiesCheckbox
-        .waitFor({ state: "visible", timeout: 3_000 })
-        .then(
-          () => true,
-          () => false,
-        );
-      if (policiesCheckboxShown) {
-        await policiesCheckbox.check();
-        await expect(policiesCheckbox).toBeChecked();
-        await policiesCheckbox.uncheck();
-      }
+      // Each include option renders a labelled Radix checkbox
+      // (export-schema-modal.tsx pairs label htmlFor with export-opt-*
+      // checkbox ids) — toggle Access Policies on and off for real.
+      const policiesCheckbox = dialog.getByRole("checkbox", { name: "Access Policies" });
+      await expect(policiesCheckbox).toBeVisible({ timeout: 10_000 });
+      await policiesCheckbox.click();
+      await expect(policiesCheckbox).toBeChecked();
+      await policiesCheckbox.click();
+      await expect(policiesCheckbox).not.toBeChecked();
 
       await dialog.getByRole("button", { name: "Cancel" }).click();
       await expect(dialog).toBeHidden({ timeout: 10_000 });
@@ -508,13 +526,9 @@ test.describe("feature: Data Gateway advanced flows", () => {
 
       const exposureHeader = page.getByText("Exposure", { exact: true }).first();
       await expect(exposureHeader).toBeVisible({ timeout: 10_000 });
-
-      // A fresh schema with no rules may not be risk-ranked yet — the table
-      // lists attention items, so treat the row as optional (waitVisible).
-      await waitVisible(
-        page.locator("main").getByText(schemaName, { exact: true }).first(),
-        15_000,
-      );
+      // The table lists risk-ranked attention items only, and a fresh schema
+      // is deliberately not asserted to appear there — the sort control and
+      // Exposure column above are this step's coverage.
     });
 
     await test.step("PII flag: toggling PII on a field persists through Save/Update", async () => {
@@ -576,10 +590,7 @@ test.describe("feature: Data Gateway advanced flows", () => {
         timeout: 15_000,
       });
     });
-
-    await test.step("Cleanup: delete the schema", async () => {
-      expect(await selectSchema(page, schemaName)).toBe(true);
-      await deleteCurrentSchema(page);
-    });
+    // The schema itself is deleted by the afterEach residue guard above —
+    // on the happy path and after any earlier failure alike.
   });
 });

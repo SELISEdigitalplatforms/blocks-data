@@ -1,12 +1,12 @@
-import { Page, expect, test } from "@playwright/test"
+import { type Page, type Locator, expect, test } from "@playwright/test"
 import { e2eBaseUrl, e2eOsBaseUrl, e2eProjectId } from "./env"
 import { ensureAuthenticated, ensureAuthenticatedOnCurrentOrigin } from "./login-helper"
+import { waitVisible } from "./wait-visible"
 
 const ENV_BUTTON =
   /Development|Testing|Staging|IAT|UAT|Production|Pre-Prod|Prod Shadow/
 
-const isVisibleNow = async (locator: { isVisible: (opts: { timeout: number }) => Promise<boolean> }) =>
-  locator.isVisible({ timeout: 500 }).catch(() => false)
+const isVisibleNow = (locator: Locator) => waitVisible(locator, 500)
 
 /** Match e2e-created names: `Test Project 123` and `${PROJECT_NAME} 123`. */
 function orphanProjectPrefixes(): string[] {
@@ -89,7 +89,7 @@ async function waitForProjectCard(page: Page, projectName: string, host: "data" 
     await ensureConsole(page, host)
 
     const card = namedProjectCard(page, projectName)
-    if (await card.isVisible({ timeout: 1_500 }).catch(() => false)) {
+    if (await waitVisible(card, 1_500)) {
       return card
     }
 
@@ -114,7 +114,7 @@ export async function waitForDataDashboardReady(page: Page, projectName: string)
 
   const bouncedToConsole = async () => {
     if (/\/app\/console\/?$/i.test(new URL(page.url()).pathname)) return true
-    return consoleProjectsHeading(page).isVisible({ timeout: 500 }).catch(() => false)
+    return isVisibleNow(consoleProjectsHeading(page))
   }
 
   const outcome = await Promise.race([
@@ -158,7 +158,7 @@ async function waitForOsDashboardReady(page: Page, projectName: string) {
 
 async function readProjectNameFromDashboard(page: Page): Promise<string> {
   const sidebarProject = page.getByRole("button", { name: /^Project / })
-  if (await sidebarProject.isVisible({ timeout: 3_000 }).catch(() => false)) {
+  if (await waitVisible(sidebarProject, 3_000)) {
     const label = await sidebarProject.innerText()
     return label.replace(/^Project\s+/i, "").trim()
   }
@@ -167,7 +167,7 @@ async function readProjectNameFromDashboard(page: Page): Promise<string> {
     .locator("main")
     .filter({ has: page.getByRole("heading", { name: "Project Details" }) })
   const nameBlock = details.getByText(/^Name\s+\S/, { exact: false }).first()
-  if (await nameBlock.isVisible({ timeout: 3_000 }).catch(() => false)) {
+  if (await waitVisible(nameBlock, 3_000)) {
     return (await nameBlock.innerText()).replace(/^Name\s+/, "").trim()
   }
 
@@ -205,7 +205,7 @@ export async function openNamedProjectDashboard(
     const card = await waitForProjectCard(page, projectName, "data")
     const envButton = card.getByRole("button", { name: ENV_BUTTON }).first()
     await expect(envButton).toBeVisible({ timeout: 10_000 })
-    await envButton.click({ force: true })
+    await envButton.click()
 
     try {
       await waitForDataDashboardReady(page, projectName)
@@ -223,7 +223,7 @@ async function openOsProjectDashboard(page: Page, projectName: string) {
     const card = await waitForProjectCard(page, projectName, "os")
     const envButton = card.getByRole("button", { name: ENV_BUTTON }).first()
     await expect(envButton).toBeVisible({ timeout: 10_000 })
-    await envButton.click({ force: true })
+    await envButton.click()
 
     try {
       await waitForOsDashboardReady(page, projectName)
@@ -263,7 +263,7 @@ async function freeProjectSlotIfNeeded(page: Page) {
   const limitVisible = await isVisibleNow(atProjectLimit)
 
   // Slot full: either the explicit limit banner, or Add Project simply missing.
-  if (!limitVisible && (await addProjectButton.isVisible({ timeout: 2_000 }).catch(() => false))) {
+  if (!limitVisible && (await waitVisible(addProjectButton, 2_000))) {
     return
   }
 

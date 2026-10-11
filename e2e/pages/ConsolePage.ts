@@ -52,7 +52,7 @@ export class ConsolePage extends BasePage {
     await this.waitForConsoleReady(20_000);
     const chip = this.getEnvironmentChip(envName);
     await expect(chip).toBeVisible({ timeout: 10_000 });
-    await chip.click({ force: true });
+    await chip.click();
   }
 
   getConfigureProjectButton(): Locator {

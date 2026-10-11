@@ -46,7 +46,17 @@ test.describe("flow: Overview menu", () => {
       await expect(page.getByText("Notifications", { exact: true })).toBeVisible();
       const markAllRead = page.getByRole("button", { name: "Mark all as read" });
       await expect(markAllRead).toBeVisible({ timeout: 10_000 });
-      await markAllRead.click({ force: true, timeout: 10_000 });
+      // Opening the popover invalidates the notifications query; while the
+      // refetch re-renders the header the button never sits still long
+      // enough for a plain click (it can even detach mid-click). Retry
+      // open+click until it lands instead of forcing past actionability.
+      await expect(async () => {
+        if (!(await markAllRead.isVisible())) {
+          await bell.click();
+          await expect(page.getByText("Notifications", { exact: true })).toBeVisible();
+        }
+        await markAllRead.click({ timeout: 2_000 });
+      }).toPass({ timeout: 20_000 });
       await expect(page.getByText("Notifications", { exact: true })).toHaveCount(0);
     });
 
@@ -63,10 +73,15 @@ test.describe("flow: Overview menu", () => {
       // (or no unread items may exist on this environment) — in that case the
       // hover-read assertion has nothing to exercise. Close the popover and
       // skip the rest of the step rather than failing the suite.
+      // waitFor resolves to undefined on success, so map the outcome to a
+      // real boolean — otherwise the empty-popover skip would always run.
       const rowsVisible = await rows
         .first()
         .waitFor({ state: "visible", timeout: 2_000 })
-        .catch(() => false);
+        .then(
+          () => true,
+          () => false,
+        );
       if (!rowsVisible) {
         if ((await page.getByText("Notifications", { exact: true }).count()) > 0) {
           await page.mouse.click(20, 20);
@@ -76,13 +91,9 @@ test.describe("flow: Overview menu", () => {
       }
       await expect(rows.first()).toBeVisible({ timeout: 10_000 });
       const firstRow = rows.first();
-      const initialClass = (await firstRow.getAttribute("class")) ?? "";
       await firstRow.hover();
-      if (initialClass.includes("bg-muted")) {
-        await expect(firstRow).not.toHaveClass(/bg-muted/, { timeout: 10_000 });
-      } else {
-        await expect(firstRow).not.toHaveClass(/bg-muted/, { timeout: 10_000 });
-      }
+      // Hover-read clears the unread highlight.
+      await expect(firstRow).not.toHaveClass(/bg-muted/, { timeout: 10_000 });
       if ((await page.getByText("Notifications", { exact: true }).count()) > 0) {
         await page.mouse.click(20, 20);
       }
@@ -176,9 +187,11 @@ test.describe("flow: Overview menu", () => {
           // Popup may be blocked in headless — href/target already verified above.
           continue;
         }
-        await popup.waitForLoadState("domcontentloaded", { timeout: 15_000 }).catch(() => {});
         const stripTrailingSlash = (url: string) => url.replace(/\/$/, "");
-        expect(stripTrailingSlash(popup.url())).toBe(stripTrailingSlash(expectedHref ?? ""));
+        // Poll the popup URL — absorbs navigation timing without a load-state wait.
+        await expect
+          .poll(() => stripTrailingSlash(popup.url()), { timeout: 15_000 })
+          .toBe(stripTrailingSlash(expectedHref ?? ""));
         await popup.close();
       }
     });

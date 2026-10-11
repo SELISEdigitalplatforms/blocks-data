@@ -7,6 +7,7 @@ import { confirmSchemaStructureSaved } from "../../support/confirm-schema-saved"
 import { openEnvironment } from "../../support/navigation";
 import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 import { e2eOsBaseUrl } from "../../support/env";
+import { waitVisible } from "../../support/wait-visible";
 
 function schemaRowLocator(page: Page, schemaName: string) {
   // Sidebar items are role=button divs labeled "{name} Entity|Child".
@@ -25,10 +26,15 @@ async function createSchemaViaModal(page: Page, addButtonLocator: Locator, schem
   await nameInput.pressSequentially(schemaName, { delay: 15 });
   await nameInput.blur();
   const entityInput = dialog.locator("#entityName");
-  if (await entityInput.isVisible({ timeout: 2_000 }).catch(() => false)) {
-    await page.waitForTimeout(400);
-    const entityVal = await entityInput.inputValue().catch(() => "");
-    if (!entityVal.trim()) {
+  if (await waitVisible(entityInput, 2_000)) {
+    // onChange derives the collection name; poll briefly instead of
+    // sleeping, then backfill only if nothing was derived.
+    const derived = await expect
+      .poll(() => entityInput.inputValue().catch(() => ""), { timeout: 3_000 })
+      .not.toBe("")
+      .then(() => true)
+      .catch(() => false);
+    if (!derived) {
       await entityInput.fill(`sb_${schemaName}s`);
       await entityInput.blur();
     }
@@ -62,7 +68,6 @@ test.describe("flow: Data Gateway menu", () => {
         page.context().waitForEvent("page", { timeout: 20_000 }),
         configureButton.click(),
       ]);
-      await popup.waitForLoadState("domcontentloaded", { timeout: 30_000 }).catch(() => {});
       // Configure opens Blocks OS (may redirect to /login when the OS session is cold).
       const osBase = e2eOsBaseUrl().replace(/\/$/, "");
       await expect
@@ -90,7 +95,21 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(landingHeading.or(emptyStateHeading).first()).toBeVisible({ timeout: 15_000 });
 
       const addSchemaButton = page.getByRole("button", { name: "Add Schema", exact: true }).first();
-      await expect(addSchemaButton).toBeVisible({ timeout: 10_000 });
+      // On a loaded dev backend the security view's data fetch can hang,
+      // leaving the shell without its CTA — a reload forces the refetch.
+      const addSchemaShown = await addSchemaButton
+        .waitFor({ state: "visible", timeout: 10_000 })
+        .then(
+          () => true,
+          () => false,
+        );
+      if (!addSchemaShown) {
+        await page.reload({ waitUntil: "domcontentloaded" });
+        await expect(landingHeading.or(emptyStateHeading).first()).toBeVisible({
+          timeout: 15_000,
+        });
+      }
+      await expect(addSchemaButton).toBeVisible({ timeout: 20_000 });
 
       await createSchemaViaModal(page, addSchemaButton, schemaName);
       const created = schemaRowLocator(page, schemaName);
@@ -143,21 +162,17 @@ test.describe("flow: Data Gateway menu", () => {
         .getByText("Export in progress")
         .or(page.getByText("Schema export downloaded successfully"))
         .or(page.getByText(/Export failed|Export request failed/i));
-      // Export may complete without a toast on preview — do not fail the suite.
-      await exportToast
-        .first()
-        .waitFor({ state: "visible", timeout: 12_000 })
-        .catch(() => {});
-      if (await dialog.isVisible().catch(() => false)) {
-        await page.keyboard.press("Escape").catch(() => {});
+      // Export may complete without a toast on preview — treat it as optional
+      // (waitVisible), but leave the dialog CLOSED before the next step.
+      await waitVisible(exportToast.first(), 12_000);
+      if (await dialog.isVisible()) {
+        await page.keyboard.press("Escape");
         const cancel = dialog.getByRole("button", { name: "Cancel" });
-        if (await cancel.isVisible({ timeout: 2_000 }).catch(() => false)) {
-          await cancel.click({ timeout: 5_000 }).catch(() => {});
+        if (await waitVisible(cancel, 2_000)) {
+          await cancel.click({ timeout: 5_000 });
         }
       }
-      await expect(dialog)
-        .toBeHidden({ timeout: 15_000 })
-        .catch(() => {});
+      await expect(dialog).toBeHidden({ timeout: 15_000 });
     });
 
     await test.step("Import Schema modal opens fresh and requires a file before proceeding", async () => {
@@ -278,7 +293,10 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(addPropertyButton).toBeVisible({ timeout: 15_000 });
       await addPropertyButton.click();
 
-      const newRowNameInput = page.locator("table").getByPlaceholder("Click to edit").last();
+      const newRowNameInput = page
+        .locator("table:visible")
+        .getByPlaceholder("Click to edit")
+        .last();
       await expect(newRowNameInput).toBeVisible({ timeout: 15_000 });
       await newRowNameInput.scrollIntoViewIfNeeded();
       await newRowNameInput.fill(fieldName);
@@ -294,7 +312,7 @@ test.describe("flow: Data Gateway menu", () => {
       // Back in view mode the table is text, not a grid of read-only inputs,
       // so the saved field is asserted as content rather than an input value.
       await expect(
-        page.locator("table").getByTitle(fieldName, { exact: true }).first(),
+        page.locator("table:visible").getByTitle(fieldName, { exact: true }).first(),
       ).toBeVisible({ timeout: 15_000 });
     });
 
@@ -334,46 +352,62 @@ test.describe("flow: Data Gateway menu", () => {
 
       // Schema Access now opens a field-level access inspector: per tab
       // (View/Create/Edit/Delete) the policy is a Public / Signed-in / Custom
-      // radio group, not a "Change Policy" combobox.
+      // radio group, not a "Change Policy" combobox. Picking Custom stages the
+      // change locally (no Confirm dialog in the current UI).
       const customRadio = page.getByRole("radio", { name: "Custom" }).first();
       await expect(customRadio).toBeVisible({ timeout: 10_000 });
       await customRadio.click();
 
-      // The old flow gated the change behind a "Confirm" dialog. In the new
-      // inspector the change is staged until Save — skip Confirm if absent.
-      const confirmPolicyButton = page.getByRole("button", { name: "Confirm" }).first();
-      if (await confirmPolicyButton.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await confirmPolicyButton.click();
-      }
+      // A Custom policy with no saved rule sets offers the preset list
+      // (access-preset-list.tsx); "Start from an empty rule set" opens the
+      // rule editor, whose header carries the "Add Rule" trigger
+      // (rule-set-form.tsx).
+      const startBlank = page.getByRole("button", { name: "Start from an empty rule set" });
+      await expect(startBlank).toBeVisible({ timeout: 15_000 });
+      await startBlank.click();
 
-      const addRuleButton = page.getByRole("button", { name: "Add", exact: true }).first();
-      if (await addRuleButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await addRuleButton.click();
-        const addRuleFormButton = page.getByRole("button", { name: /Add Rule/ }).first();
-        if (await addRuleFormButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
-          await addRuleFormButton.click();
-        }
-      }
+      const noRulesYet = page.getByText(/No rules added yet/);
+      await expect(noRulesYet).toBeVisible({ timeout: 10_000 });
+
+      const addRuleButton = page.getByRole("button", { name: "Add Rule" });
+      await expect(addRuleButton).toBeVisible({ timeout: 10_000 });
+      await addRuleButton.click();
+      // The blank condition row replaces the empty-state paragraph.
+      await expect(noRulesYet).toHaveCount(0);
+
+      const backToRuleSets = page.getByRole("button", { name: "Back to rule sets" });
+      await expect(backToRuleSets).toBeVisible({ timeout: 10_000 });
+      // Leaving the form cancels the staged rule rows.
+      await backToRuleSets.click();
+      await expect(startBlank).toBeVisible({ timeout: 10_000 });
 
       // Close the Schema Access inspector so the next step's table actions
-      // aren't blocked by the side panel (Escape alone doesn't always close it).
+      // aren't blocked by the side panel. Custom is still staged, so the
+      // checkpoint dialog appears — discard to leave the schema untouched.
       const closeInspector = page
         .getByRole("button", { name: /Close access inspector|Close schema access drawer/i })
         .first();
-      if (await closeInspector.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await closeInspector.click();
-      } else {
-        await page.keyboard.press("Escape");
-      }
+      await expect(closeInspector).toBeVisible({ timeout: 10_000 });
+      await closeInspector.click();
+
+      const saveChangesDialog = page.getByRole("dialog", { name: /Save changes\?/i });
+      await expect(saveChangesDialog).toBeVisible({ timeout: 10_000 });
+      await saveChangesDialog.getByRole("button", { name: "Discard" }).click();
+      await expect(page.getByRole("complementary", { name: /Access for / })).toBeHidden({
+        timeout: 10_000,
+      });
     });
 
     await test.step("Add a regex validation to a field", async () => {
       expect(await selectSchema(page, schemaName)).toBe(true);
 
       await page.setViewportSize({ width: 1440, height: 900 });
+      // Add the rule to THIS test's field — .first() would hit the first
+      // system field (ItemId), and the validation-drawer step below expects
+      // the rule on ${fieldName}.
       const validationTrigger = page
-        .locator('table [aria-label^="Manage validations for"]:visible')
-        .first();
+        .locator("table:visible")
+        .getByRole("button", { name: `Manage validations for ${fieldName}` });
       await expect(validationTrigger).toBeVisible({ timeout: 15_000 });
 
       await validationTrigger.click();
@@ -422,16 +456,16 @@ test.describe("flow: Data Gateway menu", () => {
         timeout: 10_000,
       });
 
-      // const activeClass = "bg-background";
+      const activeClass = "bg-background";
       await listViewButton.click();
-      await expect(listViewButton).toHaveClass(new RegExp("bg-background"));
-      await expect(tableViewButton).not.toHaveClass(new RegExp("bg-background"));
+      await expect(listViewButton).toHaveClass(new RegExp(activeClass));
+      await expect(tableViewButton).not.toHaveClass(new RegExp(activeClass));
       await jsonViewButton.click();
-      await expect(jsonViewButton).toHaveClass(new RegExp("bg-background"));
-      await expect(listViewButton).not.toHaveClass(new RegExp("bg-background"));
+      await expect(jsonViewButton).toHaveClass(new RegExp(activeClass));
+      await expect(listViewButton).not.toHaveClass(new RegExp(activeClass));
       await tableViewButton.click();
-      await expect(tableViewButton).toHaveClass(new RegExp("bg-background"));
-      await expect(jsonViewButton).not.toHaveClass(new RegExp("bg-background"));
+      await expect(tableViewButton).toHaveClass(new RegExp(activeClass));
+      await expect(jsonViewButton).not.toHaveClass(new RegExp(activeClass));
 
       await refreshButton.click();
       await expect(refreshButton).toBeEnabled({ timeout: 10_000 });
@@ -457,7 +491,13 @@ test.describe("flow: Data Gateway menu", () => {
           name: /Close access inspector|Close validation drawer|Close schema access drawer/i,
         })
         .first();
-      if (await lingeringClose.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      const lingeringShown = await lingeringClose
+        .waitFor({ state: "visible", timeout: 2_000 })
+        .then(
+          () => true,
+          () => false,
+        );
+      if (lingeringShown) {
         await lingeringClose.click();
       }
 
@@ -475,8 +515,11 @@ test.describe("flow: Data Gateway menu", () => {
       const anyStructureTab = await requestFormatTab
         .or(structureTab)
         .first()
-        .isVisible({ timeout: 5_000 })
-        .catch(() => false);
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .then(
+          () => true,
+          () => false,
+        );
 
       if (anyStructureTab) {
         await structureTab.click();
@@ -486,21 +529,25 @@ test.describe("flow: Data Gateway menu", () => {
       const jsonCode = page.locator("pre").filter({ hasText: /\{|\[/ }).first();
       await expect(jsonCode).toBeVisible({ timeout: 10_000 });
 
-      // The Preview drawer's X button is icon-only and carries no accessible
-      // name. Radix keeps CLOSED sheets parked off viewport (still ":visible"
-      // to Playwright), so document-order `.first()` can land on an older
-      // drawer's Close button — "outside of the viewport". Radix appends
-      // portals in mount order, so the open drawer is the LAST dialog
-      // container; within it, the header X is the FIRST visible button.
-      // force:true skips the pointer-interception check from the lingering
-      // validations panel.
-      const closeButton = page
-        .locator('[role="dialog"]:visible, dialog:visible')
-        .last()
-        .locator("button:visible")
-        .first();
-      await expect(closeButton).toBeVisible({ timeout: 10_000 });
-      await closeButton.click({ force: true });
+      // Multiple preview-drawer instances can stack: a stale aria-hidden copy
+      // can sit on top and swallow the click aimed at the live drawer's X.
+      // Role queries can't see an aria-hidden subtree, so drive the close
+      // button via CSS and keep closing whatever still reports
+      // data-state="open" until every instance is down.
+      await expect(async () => {
+        const openDrawers = page
+          .locator('[data-vaul-drawer][data-state="open"]')
+          .filter({
+            has: page.locator("h2").filter({
+              hasText: new RegExp(`${schemaName}\\s+preview`),
+            }),
+          });
+        if ((await openDrawers.count()) === 0) return;
+        // The later-mounted instance paints on top and intercepts clicks
+        // aimed at the earlier one, so close from the top: .last() first,
+        // then the loop repeats for whatever still reports data-state="open".
+        await openDrawers.last().locator("button").first().click({ timeout: 3_000 });
+      }).toPass({ timeout: 30_000 });
 
       await expect(drawerTitle.first()).toBeHidden({ timeout: 10_000 });
     });
@@ -509,9 +556,11 @@ test.describe("flow: Data Gateway menu", () => {
       await page.setViewportSize({ width: 1440, height: 900 });
       expect(await selectSchema(page, schemaName)).toBe(true);
 
+      // Target THIS test's field's button — .first() would hit the first
+      // system field (ItemId) and open "Access for ItemId" instead.
       const rowAccessButton = page
-        .locator("table:visible button[aria-label^='View access for']")
-        .first();
+        .locator("table:visible")
+        .getByRole("button", { name: `View access for ${fieldName}` });
       await expect(rowAccessButton).toBeVisible({ timeout: 15_000 });
       await rowAccessButton.click();
 
@@ -540,7 +589,7 @@ test.describe("flow: Data Gateway menu", () => {
         })
         .first();
       await expect(closeButton).toBeVisible();
-      await closeButton.click({ force: true });
+      await closeButton.click();
       await expect(drawerTitle).toBeHidden({ timeout: 10_000 });
     });
 
@@ -554,68 +603,38 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(schemaAccessButton).toBeVisible({ timeout: 15_000 });
       await schemaAccessButton.click();
 
-      // The Schema Access button now opens a field-level access inspector
-      // (View/Create/Edit/Delete tabs + Public/Signed-in/Custom radios),
-      // not a rule-set table; verify the new UI shape and close it.
+      // The Schema Access button opens a field-level access inspector
+      // (View/Create/Edit/Delete tabs + Public/Signed-in/Custom radios).
       const inspector = page.getByRole("complementary", {
         name: new RegExp(`Access for ${schemaName}`),
       });
-      const inspectorVisible = await inspector.isVisible({ timeout: 5_000 }).catch(() => false);
-      if (!inspectorVisible) {
-        // Fall back: legacy rule-set table may still exist on older builds.
-        const ruleRows = page.locator("table tbody tr").filter({
-          has: page.locator("td.font-medium"),
+      await expect(inspector).toBeVisible({ timeout: 15_000 });
+
+      for (const tab of ["View", "Create", "Edit", "Delete"]) {
+        await expect(page.getByRole("tab", { name: new RegExp(tab) }).first()).toBeVisible({
+          timeout: 5_000,
         });
-        const hasExistingRule = await ruleRows
-          .first()
-          .isVisible({ timeout: 5_000 })
-          .catch(() => false);
-
-        if (!hasExistingRule) {
-          await expect(
-            page.getByText(/No rule sets added yet|Click \+ Add to create one/i),
-          ).toBeVisible({ timeout: 10_000 });
-          await expect(page.getByRole("button", { name: "Add", exact: true })).toBeVisible();
-        } else {
-          const rowMenuTrigger = ruleRows
-            .first()
-            .locator("button")
-            .filter({ has: page.locator("svg.lucide-ellipsis") })
-            .first();
-          await expect(rowMenuTrigger).toBeVisible({ timeout: 5_000 });
-          await rowMenuTrigger.click({ force: true });
-
-          await expect(page.getByRole("menuitem", { name: "Edit" })).toBeVisible({
-            timeout: 5_000,
-          });
-          await expect(page.getByRole("menuitem", { name: "Delete" })).toBeVisible();
-          await page.keyboard.press("Escape");
-        }
-      } else {
-        // New UI: inspector has View/Create/Edit/Delete tabs and three radios.
-        for (const tab of ["View", "Create", "Edit", "Delete"]) {
-          await expect(page.getByRole("tab", { name: new RegExp(tab) }).first()).toBeVisible({
-            timeout: 5_000,
-          });
-        }
-        const radios = page.getByRole("radio");
-        await expect(radios.first()).toBeVisible({ timeout: 5_000 });
-        await expect(radios.last()).toBeVisible();
       }
+      const radios = page.getByRole("radio");
+      await expect(radios.first()).toBeVisible({ timeout: 5_000 });
+      await expect(radios.last()).toBeVisible();
 
       await page
         .getByRole("button", { name: /Close access inspector|Close schema access drawer/i })
         .first()
-        .click({ force: true });
+        .click();
+      await expect(inspector).toBeHidden({ timeout: 10_000 });
     });
 
     await test.step("Validation drawer: existing regex shows Edit/Delete row actions that round-trip through the form and dialog", async () => {
       await page.setViewportSize({ width: 1440, height: 900 });
       expect(await selectSchema(page, schemaName)).toBe(true);
 
+      // Target THIS test's field's button — .first() would hit the first
+      // system field (ItemId) and open "Validations for ItemId" instead.
       const validationTrigger = page
-        .locator("table [aria-label^='Manage validations for']:visible")
-        .first();
+        .locator("table:visible")
+        .getByRole("button", { name: `Manage validations for ${fieldName}` });
       await expect(validationTrigger).toBeVisible({ timeout: 15_000 });
       await validationTrigger.click();
 
@@ -665,12 +684,11 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(deleteDialog).toBeHidden({ timeout: 5_000 });
 
       // Close button: the side-panel's close button is named "Close validation inspector"
-      // (was "Close validation drawer" on older builds). Hidden sibling panels may
-      // intercept pointer events, so force the click.
+      // (was "Close validation drawer" on older builds).
       await page
         .getByRole("button", { name: /Close validation inspector|Close validation drawer/i })
         .first()
-        .click({ force: true });
+        .click();
       await expect(drawerTitle).toBeHidden({ timeout: 10_000 });
     });
 
@@ -787,43 +805,33 @@ test.describe("flow: Data Gateway menu", () => {
 
       await schemaAccessButton.click();
       // The inspector uses radio buttons (Public / Signed-in users / Custom)
-      // rather than a "Change Policy" combobox.
+      // rather than a "Change Policy" combobox, and stages each pick until
+      // Save — there is no confirmation dialog.
       const policyRadio = (label: string) =>
         page.getByRole("radio", { name: label, exact: true }).first();
 
-      async function switchPolicy(radioLabel: string, fallback: string) {
-        let radio = policyRadio(radioLabel);
-        if (!(await radio.isVisible({ timeout: 3_000 }).catch(() => false))) {
-          radio = policyRadio(fallback);
-        }
+      async function switchPolicy(radioLabel: string) {
+        const radio = policyRadio(radioLabel);
         await expect(radio).toBeVisible({ timeout: 10_000 });
         await radio.click();
-
-        // The old "Change access policy?" confirmation dialog is gone — only
-        // run that branch when the heading is present.
-        const confirmHeading = page.getByRole("heading", { name: "Change access policy?" });
-        if (await confirmHeading.isVisible({ timeout: 2_000 }).catch(() => false)) {
-          await page.getByRole("button", { name: "Confirm" }).click();
-        }
         // Verify the radio is checked — sufficient for the switch to register.
         await expect(radio).toBeChecked({ timeout: 10_000 });
       }
 
-      await switchPolicy("Public", "Public access");
-      await switchPolicy("All logged in users", "Signed-in users");
-      await switchPolicy("Custom", "Custom access");
+      await switchPolicy("Public");
+      await switchPolicy("Signed-in users");
+      await switchPolicy("Custom");
 
       const closeButton = page
         .getByRole("button", { name: /Close schema access drawer|Close access inspector/i })
         .first();
       await expect(closeButton).toBeVisible({ timeout: 10_000 });
-      await closeButton.click({ force: true });
+      await closeButton.click();
       // Unsaved policy changes surface a "Save changes?" confirmation dialog.
       // Discard so we don't carry policy mutations into subsequent steps.
       const saveChangesDialog = page.getByRole("dialog", { name: /Save changes\?/i });
-      if (await saveChangesDialog.isVisible({ timeout: 2_000 }).catch(() => false)) {
-        await saveChangesDialog.getByRole("button", { name: "Discard" }).click();
-      }
+      await expect(saveChangesDialog).toBeVisible({ timeout: 10_000 });
+      await saveChangesDialog.getByRole("button", { name: "Discard" }).click();
       await expect(page.getByRole("dialog").or(page.getByRole("complementary"))).toBeHidden({
         timeout: 10_000,
       });
@@ -858,11 +866,10 @@ test.describe("flow: Data Gateway menu", () => {
       const uploadButton = dialog.getByRole("button", { name: "Upload" });
       await expect(uploadButton).toBeEnabled({ timeout: 10_000 });
       await uploadButton.click();
-      // The upload kicks off async processing; the "Processing schema upload"
-      // status text may flash too briefly to assert. Just wait for the dialog
-      // to either close on its own or be dismissible via Escape.
+      // The upload kicks off async processing; assert the status text actually
+      // shows (expect retries fast enough to catch a short-lived flash).
       const processing = page.getByText(/Processing schema upload|Uploaded successfully/i).first();
-      await processing.isVisible({ timeout: 20_000 }).catch(() => {});
+      await expect(processing).toBeVisible({ timeout: 20_000 });
       if (await dialog.isVisible().catch(() => false)) {
         await page.keyboard.press("Escape");
       }

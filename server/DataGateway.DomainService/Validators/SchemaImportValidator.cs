@@ -55,6 +55,13 @@ public class SchemaImportValidator
                 existingCustomSchemaNames.Add(schema.SchemaName);
         }
 
+        // Collection names of system entities are reserved: an imported schema must not point at them.
+        var systemSchemas = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
+            Builders<SchemaDefinition>.Filter.Eq(s => s.IsSystemEntity, true));
+        var systemCollectionNames = new HashSet<string>(
+            (systemSchemas ?? []).Select(s => s.CollectionName).Where(n => !string.IsNullOrWhiteSpace(n)),
+            StringComparer.OrdinalIgnoreCase);
+
         var seenSchemaNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         for (int i = 0; i < documents.Count; i++)
@@ -99,6 +106,8 @@ public class SchemaImportValidator
                     errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' must be between 1 and 50 characters.");
                 else if (!SchemaValidatorHelper.IsAllowedCollectionName(doc.CollectionName, doc.SchemaType))
                     errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' may only contain letters, numbers, and underscore, and cannot start with a number.");
+                if (systemCollectionNames.Contains(doc.CollectionName.Trim()))
+                    errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' is reserved by a system entity.");
             }
 
             if (doc.Fields == null || doc.Fields.Count == 0)

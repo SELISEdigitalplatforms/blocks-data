@@ -54,6 +54,9 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (await IsSchemaNameExistsAsync(request.SchemaName))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
 
+        if (await IsSystemCollectionNameAsync(request.CollectionName, request.SchemaType))
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Collection name '{request.CollectionName}' is reserved by a system entity").SetHttpStatusCode(400);
+
         var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, excludeItemId: null);
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
@@ -82,6 +85,9 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
         if (await IsSchemaNameExistsAsync(request.SchemaName, schema.ItemId))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
+
+        if (await IsSystemCollectionNameAsync(request.CollectionName, request.SchemaType))
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Collection name '{request.CollectionName}' is reserved by a system entity").SetHttpStatusCode(400);
 
         var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, schema.ItemId);
         if (collidingSchemaName is not null)
@@ -350,6 +356,9 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (await IsSchemaNameExistsAsync(request.SchemaName))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
 
+        if (await IsSystemCollectionNameAsync(request.CollectionName, request.SchemaType))
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Collection name '{request.CollectionName}' is reserved by a system entity").SetHttpStatusCode(400);
+
         var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, excludeItemId: null);
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
@@ -385,6 +394,9 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
         if (await IsSchemaNameExistsAsync(request.SchemaName, schema.ItemId))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
+
+        if (await IsSystemCollectionNameAsync(request.CollectionName, request.SchemaType))
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Collection name '{request.CollectionName}' is reserved by a system entity").SetHttpStatusCode(400);
 
         var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, schema.ItemId);
         if (collidingSchemaName is not null)
@@ -557,6 +569,22 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             Type = SchemaType.Entity.ToString(),
             Fields = hierarchicalFields.MapToCollectionFields()
         });
+    }
+
+    // A tenant schema must never point the gateway at a system entity's collection (Users, Roles, ...).
+    // Case-insensitive, Entity schemas only (a Dto has no backing collection).
+    private async Task<bool> IsSystemCollectionNameAsync(string? collectionName, SchemaType schemaType)
+    {
+        if (schemaType != SchemaType.Entity || string.IsNullOrWhiteSpace(collectionName))
+            return false;
+
+        var filter = new BsonDocument
+        {
+            { nameof(SchemaDefinition.IsSystemEntity), true },
+            { nameof(SchemaDefinition.CollectionName), new BsonRegularExpression($"^{System.Text.RegularExpressions.Regex.Escape(collectionName.Trim())}$", "i") }
+        };
+        var matches = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1);
+        return matches is { Count: > 0 };
     }
 
     // excludeItemId lets a rename check "is this name taken by some OTHER schema" instead of

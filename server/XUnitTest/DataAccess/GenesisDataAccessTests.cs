@@ -158,7 +158,7 @@ public class GenesisDataAccessTests
 
     private static CreateSchemaDefinitionRequest NewDefinition(string name) => new()
     {
-        SchemaName = name, CollectionName = name + "s", SchemaType = SchemaType.Entity,
+        SchemaName = name, CollectionName = "Tenant" + name + "s", SchemaType = SchemaType.Entity,
         Fields = [new FieldDefinitionRequest { Name = "Title", Type = "String" }]
     };
 
@@ -445,5 +445,77 @@ public class GenesisDataAccessTests
         })).HttpStatusCode.Should().Be(404);
         (await service.DeleteIndexAsync("idx-sys")).HttpStatusCode.Should().Be(404);
         (await _db.GetCollection<SchemaIndexDefinition>("SchemaIndexDefinitions").CountDocumentsAsync(i => i.ItemId == "idx-sys")).Should().Be(1);
+    }
+
+    // ---- Round 3: reserved collection names, validation reads ----
+
+    [Fact]
+    public async Task SystemCollectionNames_AreReservedOnCreateAndUpdate_CaseInsensitive()
+    {
+        await SeedAsync(); // system "User" owns collection "Users"
+        var service = NewSchemaService();
+
+        var define = NewDefinition("Customer");
+        define.CollectionName = "uSeRs";
+        var created = await service.CreateSchemaDefinitionAsync(define);
+        created.HttpStatusCode.Should().Be(400);
+
+        (await service.CreateSchemaAsync(new CreateSchemaRequest { SchemaName = "Customer", CollectionName = "USERS", SchemaType = SchemaType.Entity }))
+            .HttpStatusCode.Should().Be(400);
+
+        define.CollectionName = "Customers";
+        var ok = await service.CreateSchemaDefinitionAsync(define);
+        ok.IsSuccess.Should().BeTrue();
+
+        (await service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = ok.Data!.ItemId, SchemaName = "Customer", CollectionName = "users", SchemaType = SchemaType.Entity }))
+            .HttpStatusCode.Should().Be(400);
+        var update = NewDefinition("Customer");
+        var asUpdate = new UpdateSchemaDefinitionRequest { ItemId = ok.Data.ItemId, SchemaName = "Customer", CollectionName = "Users", SchemaType = SchemaType.Entity, Fields = update.Fields };
+        (await service.UpdateSchemaDefinitionAsync(asUpdate)).HttpStatusCode.Should().Be(400);
+        (await _db.GetCollection<SchemaDefinition>("SchemaDefinitions").Find(x => x.ItemId == ok.Data.ItemId).SingleAsync()).CollectionName.Should().Be("Customers");
+    }
+
+    [Fact]
+    public async Task Import_RejectsACollectionNameReservedBySystemEntity()
+    {
+        await SeedAsync();
+        var import = new SchemaImportService(Mock.Of<IMessageClient>(), _repository, NullLogger<SchemaImportService>.Instance, new SchemaImportValidator(_repository));
+        var docs = new List<SchemaExportDocument>
+        {
+            new() { SchemaName = "Customer", CollectionName = "USERS", SchemaType = SchemaType.Entity, Fields = [new ExportFieldDefinition { Name = "Nick", Type = "String" }] }
+        };
+
+        var act = () => import.ProcessImportAsync(new SchemaImportEvent { FileId = "f", ProjectKey = Tenant },
+            System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(docs));
+
+        (await act.Should().ThrowAsync<InvalidOperationException>()).WithMessage("*reserved by a system entity*");
+        (await _db.GetCollection<SchemaDefinition>("SchemaDefinitions").CountDocumentsAsync(x => x.SchemaName == "Customer")).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task DataValidationReads_NeverReturnSystemSchemaValidations()
+    {
+        await SeedAsync();
+        var validations = _db.GetCollection<DataValidation>("DataValidations");
+        await validations.InsertManyAsync(
+        [
+            new DataValidation { ItemId = "val-sys", SchemaId = "sch-system-user", FieldName = "Email" },
+            new DataValidation { ItemId = "val-ord", SchemaId = "sch-order", FieldName = "Status" }
+        ]);
+        var service = new DataValidationService(_repository, ValidAlways(), Mock.Of<ISchemaChangeLogService>());
+
+        (await service.GetDataValidationByIdAsync("val-sys")).IsSuccess.Should().BeFalse();
+        (await service.GetDataValidationByIdAsync("val-ord")).IsSuccess.Should().BeTrue();
+
+        (await service.GetValidationsBySchemaIdAsync("sch-system-user")).Data.Should().BeEmpty();
+        (await service.GetValidationsBySchemaIdAsync("sch-order")).Data!.Select(v => v.ItemId).Should().Contain("val-ord");
+
+        (await service.GetValidationBySchemaAndFieldAsync("sch-system-user", "Email")).IsSuccess.Should().BeFalse();
+        (await service.GetValidationBySchemaAndFieldAsync("sch-order", "Status")).IsSuccess.Should().BeTrue();
+
+        var all = await service.GetAllDataValidationsAsync(new GetDataValidationListRequest { PageNo = 1, PageSize = 50 });
+        all.Data!.Items.Select(v => v.ItemId).Should().Contain("val-ord").And.NotContain("val-sys");
+        var bySystem = await service.GetAllDataValidationsAsync(new GetDataValidationListRequest { PageNo = 1, PageSize = 50, SchemaId = "sch-system-user" });
+        bySystem.Data!.TotalCount.Should().Be(0);
     }
 }

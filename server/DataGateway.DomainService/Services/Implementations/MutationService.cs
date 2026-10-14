@@ -15,6 +15,7 @@ using System.Collections;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 
@@ -177,6 +178,12 @@ public class MutationService : IMutationService
         return response;
     }
 
+    /// <summary>Max docs read and deleted per bulk-delete batch (data SPEC1 §3.3b).</summary>
+    public const int BulkDeleteMaxDocs = 500;
+
+    /// <summary>Max BSON bytes read per bulk-delete batch (16 MB).</summary>
+    public const long BulkDeleteMaxBatchBytes = 16L * 1024 * 1024;
+
     /// <inheritdoc />
     public async Task<ActionResponse> BulkDeleteAsync(
         SchemaDefinitionExtended schema,
@@ -192,26 +199,80 @@ public class MutationService : IMutationService
         var filter = MutationFilterHelper.BuildFilterWithRls(context, schema, PolicyOperation.DELETE, EvaluateRlsPolicies);
         gatewayOperation.CollectionName = schema.CollectionName;
         gatewayOperation.MongoQuery = new BsonDocument { { "filter", filter } }.ToString();
-        var existingDocuments = await _repository.GetItemsAsync(schema.CollectionName, filter);
-        if (existingDocuments is null || !existingDocuments.Any())
-            return MutationInputHelper.ActionResponseNotFound(OperationLabelDelete);
+        var isHardDelete = MutationInputHelper.IsHardDeleteRequested(context, inputType);
 
-        if (!MutationInputHelper.IsHardDeleteRequested(context, inputType))
+        // Batches of <= 500 docs and <= 16 MB, re-read from the start after each delete (no keyset:
+        // works for any _id type). No DB pin and no cancel check (as today's single DeleteMany).
+        var sort = new BsonDocument(GraphQlConstant.DbEntityIdFieldName, 1);
+        var maxDocs = BulkDeleteMaxDocs;
+        var acknowledged = true;
+        long totalDeleted = 0;
+        var totalDocuments = 0;
+        long totalBytes = 0;
+        var batchNumber = 0;
+
+        while (true)
         {
-            await SaveDeletedRecordAsync(schema, existingDocuments);
+            var batch = await _repository.GetItemsBatchAsync(schema.CollectionName, filter, sort, maxDocs, BulkDeleteMaxBatchBytes);
+            if (batch.Documents.Count == 0)
+            {
+                if (batchNumber == 0)
+                    return MutationInputHelper.ActionResponseNotFound(OperationLabelDelete);
+                break;
+            }
+            batchNumber++;
+
+            if (!isHardDelete)
+                await SaveDeletedRecordAsync(schema, batch.Documents);
+
+            // Raw BsonValue ids (never strings) and $and: the user's filter may already hold _id.
+            var ids = new BsonArray(batch.Documents.Select(d => d[GraphQlConstant.DbEntityIdFieldName]));
+            var deleteFilter = BuildBatchDeleteFilter(filter, ids);
+            var batchResponse = await _repository.DeleteManyAsync(schema.CollectionName, deleteFilter);
+
+            if (batchResponse.Acknowledged)
+                await _eventPublisher.PublishInChunksAsync(schema, DataChangeOperation.Deleted, batch.Documents);
+
+            acknowledged &= batchResponse.Acknowledged;
+            totalDeleted += batchResponse.TotalImpactedData;
+            totalDocuments += batch.Documents.Count;
+            totalBytes += batch.TotalBytes;
+
+            if (batchResponse.TotalImpactedData == 0)
+            {
+                _logger.LogWarning("Bulk delete on schema {SchemaName}: batch {Batch} deleted 0 of {Read} read documents; stopping",
+                    schema.SchemaName, batchNumber, batch.Documents.Count);
+                break;
+            }
+
+            maxDocs = NextBulkDeleteBatchSize(batch.TotalBytes, batch.Documents.Count);
         }
-        var bulkResponse = await _repository.DeleteManyAsync(schema.CollectionName, filter);
 
-        if (bulkResponse.Acknowledged)
-            await _eventPublisher.PublishAsync(schema, DataChangeOperation.Deleted,
-                dataDocuments: existingDocuments.ToList());
+        gatewayOperation.ResponseSize = (int)Math.Min(totalBytes, int.MaxValue);
+        gatewayOperation.DocumentCount = totalDocuments;
 
-        gatewayOperation.ResponseSize = existingDocuments.Sum(d => d.ToBson().Length);
-        gatewayOperation.DocumentCount = existingDocuments.Count;
+        _logger.LogInformation("Data bulk deleted for schema {SchemaName} ({Count} documents in {Batches} batches)",
+            schema.SchemaName, totalDeleted, batchNumber);
 
-        _logger.LogInformation("Data bulk deleted for schema {SchemaName}", schema.SchemaName);
+        return new ActionResponse { Acknowledged = acknowledged, TotalImpactedData = totalDeleted };
+    }
 
-        return bulkResponse;
+    /// <summary><c>{$and: [F, {_id: {$in: ids}}]}</c> — F again, so a doc that stopped matching is kept.</summary>
+    internal static BsonDocument BuildBatchDeleteFilter(BsonDocument filter, BsonArray ids) =>
+        new("$and", new BsonArray
+        {
+            filter,
+            new BsonDocument(GraphQlConstant.DbEntityIdFieldName, new BsonDocument("$in", ids))
+        });
+
+    /// <summary><c>clamp(floor(16 MB / average BSON size of the last batch), 1, 500)</c>.</summary>
+    internal static int NextBulkDeleteBatchSize(long batchBytes, int batchCount)
+    {
+        if (batchCount <= 0 || batchBytes <= 0)
+            return BulkDeleteMaxDocs;
+        var average = (double)batchBytes / batchCount;
+        var next = (long)Math.Floor(BulkDeleteMaxBatchBytes / average);
+        return (int)Math.Clamp(next, 1, BulkDeleteMaxDocs);
     }
 
     /// <inheritdoc />
@@ -690,6 +751,11 @@ public class MutationService : IMutationService
     private static BsonDocument InputToBsonDocument(Dictionary<string, object?> input) =>
         new BsonDocument(input.Select(kv => new BsonElement(kv.Key, BsonValue.Create(kv.Value))));
 
+    /// <summary>
+    /// Writes one <c>ObjectAuditLogs</c> row (<c>data-delete</c>, with the deleted doc in <c>Record</c>)
+    /// per doc, through the same repository as the data (same DB as the old archive rows; data SPEC1 §3.3).
+    /// Called before the delete: if it throws, the delete does not run (as today).
+    /// </summary>
     private async Task SaveDeletedRecordAsync(
         SchemaDefinition schema,
         IReadOnlyList<BsonDocument> documentsToArchive)
@@ -697,31 +763,45 @@ public class MutationService : IMutationService
         if (documentsToArchive.Count == 0)
             return;
 
-        var archivedDocs = documentsToArchive
-            .Select(doc => BuildDeletedRecordDocument(schema, doc))
+        var context = BlocksContext.GetContext();
+        var userId = context?.UserId ?? string.Empty;
+        var organizationId = context?.OrganizationId;
+        var tenantId = TenantContext.GetTenantId();
+
+        var auditRows = documentsToArchive
+            .Select(doc => BuildDeletedRecordDocument(schema, doc, userId, tenantId, organizationId))
             .ToList();
 
-        if (archivedDocs.Count == 1)
-            await _repository.InsertAsync($"{nameof(DataMutationRecord)}s", archivedDocs[0]);
+        if (auditRows.Count == 1)
+            await _repository.InsertAsync(AuditLogDocument.CollectionName, auditRows[0]);
         else
-            await _repository.InsertManyAsync($"{nameof(DataMutationRecord)}s", archivedDocs);
+            await _repository.InsertManyAsync(AuditLogDocument.CollectionName, auditRows);
     }
 
-    private static BsonDocument BuildDeletedRecordDocument(SchemaDefinition schema, BsonDocument sourceRecord)
+    private static BsonDocument BuildDeletedRecordDocument(
+        SchemaDefinition schema,
+        BsonDocument sourceRecord,
+        string userId,
+        string tenantId,
+        string? organizationId)
     {
-        var recordItemId = sourceRecord.Contains(GraphQlConstant.DbEntityIdFieldName)
-            ? sourceRecord[GraphQlConstant.DbEntityIdFieldName].ToString() ?? string.Empty
-            : string.Empty;
-        return new BsonDocument
-        {
-            { nameof(DataMutationRecord.CollectionName), schema.CollectionName },
-            { nameof(DataMutationRecord.SchemaName), schema.SchemaName },
-            { nameof(DataMutationRecord.SchemaId), schema.ItemId ?? string.Empty },
-            { nameof(DataMutationRecord.RecordItemId), recordItemId },
-            { nameof(DataMutationRecord.Operation), OperationLabelDelete },
-            { nameof(DataMutationRecord.IsLatest), true },
-            { nameof(DataMutationRecord.Record), new BsonDocument(sourceRecord) }
-        };
+        // ResourceId is the audit row's string field; the delete itself never uses this text.
+        var recordId = sourceRecord.GetValue(GraphQlConstant.DbEntityIdFieldName, BsonNull.Value);
+        var recordItemId = recordId.IsBsonNull ? string.Empty : recordId.ToString() ?? string.Empty;
+        return AuditLogDocument.Build(
+            action: AuditLogDocument.ActionDataDelete,
+            resourceType: AuditLogDocument.ResourceTypeDataRecord,
+            resourceId: recordItemId,
+            userId: userId,
+            tenantId: tenantId,
+            detail: new Dictionary<string, string>
+            {
+                ["CollectionName"] = schema.CollectionName,
+                ["SchemaName"] = schema.SchemaName,
+                ["SchemaId"] = schema.ItemId ?? string.Empty
+            },
+            record: new BsonDocument(sourceRecord),
+            organizationId: organizationId);
     }
 
     private async Task PublishUpdateEventAsync(SchemaDefinitionExtended schema, BsonDocument existingDocument, BsonDocument document, string itemId, bool acknowledged)

@@ -2,6 +2,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using HotChocolate.Language;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.GraphTypes;
 

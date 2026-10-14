@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
+using Blocks.Genesis.Entities.Data;
 
 namespace Api.Controllers
 {

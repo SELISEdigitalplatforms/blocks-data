@@ -9,6 +9,7 @@ using FluentValidation.Results;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.Services;
 

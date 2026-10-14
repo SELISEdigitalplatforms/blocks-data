@@ -5,6 +5,7 @@ using DataGateway.DomainService.Validators;
 using FluentAssertions;
 using MongoDB.Driver;
 using Moq;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.Validators;
 

@@ -5,6 +5,7 @@ using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using HotChocolate.Types;
 using MongoDB.Bson;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Helpers;
 

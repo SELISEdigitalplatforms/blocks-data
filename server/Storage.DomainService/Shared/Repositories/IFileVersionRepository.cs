@@ -1,5 +1,6 @@
 ﻿using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
+using Blocks.Genesis.Entities.Data;
 
 namespace Storage.DomainService.Services
 {
@@ -15,7 +16,7 @@ namespace Storage.DomainService.Services
         Task<FileVersion?> GetFileVersionAsync(string fileId, string fileVersionId);
 
         /// <summary>
-        /// Atomically claims completion for a <see cref="Storage.DomainService.Enums.FileVerificationStatus.Quarantined"/>
+        /// Atomically claims completion for a <see cref="Blocks.Genesis.Entities.Data.FileVerificationStatus.Quarantined"/>
         /// version whose prior claim, if any, has expired. Returns the claimed version, or null when the version does
         /// not exist, is not Quarantined, or is already claimed under an unexpired lease — so two concurrent
         /// completion calls cannot both start verification for the same version.

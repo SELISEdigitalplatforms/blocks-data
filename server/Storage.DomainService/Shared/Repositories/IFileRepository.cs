@@ -6,7 +6,8 @@ using MongoDB.Driver;
 using Storage.DomainService.Dtos;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Storage;
-using File = Storage.DomainService.Entities.File;
+using Blocks.Genesis.Entities.Data;
+using File = Blocks.Genesis.Entities.Data.File;
 
 namespace Storage.DomainService.Services
 {

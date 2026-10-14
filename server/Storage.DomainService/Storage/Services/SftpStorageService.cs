@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using Blocks.Genesis.Entities.Data;
 
 namespace DomainService.Storage.Services
 {

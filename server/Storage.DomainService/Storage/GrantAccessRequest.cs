@@ -1,4 +1,5 @@
 using Storage.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 
 namespace DomainService.Storage.Dms
 {

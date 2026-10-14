@@ -2,6 +2,7 @@
 using MongoDB.Bson;
 using Blocks.Genesis;
 using Storage.DomainService.Enums;
+using Blocks.Genesis.Entities.Data;
 
 namespace DomainService.Storage
 {
@@ -32,9 +33,9 @@ namespace DomainService.Storage
         public long SizeInBytes { get; set; }
 
         /// <summary>
-        /// Verification status of the returned version. Missing/null and <see cref="Enums.FileVerificationStatus.Unverified"/>
-        /// behave exactly as before Phase 1; <see cref="Enums.FileVerificationStatus.Quarantined"/> or
-        /// <see cref="Enums.FileVerificationStatus.Rejected"/> means <see cref="Url"/> is intentionally empty.
+        /// Verification status of the returned version. Missing/null and <see cref="Blocks.Genesis.Entities.Data.FileVerificationStatus.Unverified"/>
+        /// behave exactly as before Phase 1; <see cref="Blocks.Genesis.Entities.Data.FileVerificationStatus.Quarantined"/> or
+        /// <see cref="Blocks.Genesis.Entities.Data.FileVerificationStatus.Rejected"/> means <see cref="Url"/> is intentionally empty.
         /// </summary>
         public FileVerificationStatus? VerificationStatus { get; set; }
 

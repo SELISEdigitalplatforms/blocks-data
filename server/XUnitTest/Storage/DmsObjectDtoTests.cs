@@ -2,6 +2,7 @@ using DomainService.Storage.Dms;
 using FluentAssertions;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.Storage;
 

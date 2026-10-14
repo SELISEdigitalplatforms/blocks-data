@@ -12,6 +12,7 @@ using MongoDB.Driver;
 using Moq;
 using System.Reflection;
 using XUnitTest.Infrastructure;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.Services;
 

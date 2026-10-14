@@ -3,7 +3,8 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
-using FileDirectory = Storage.DomainService.Entities.FileDirectory;
+using Blocks.Genesis.Entities.Data;
+using FileDirectory = Blocks.Genesis.Entities.Data.FileDirectory;
 
 namespace Worker.Consumers;
 

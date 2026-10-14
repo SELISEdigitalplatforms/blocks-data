@@ -1,4 +1,5 @@
 ﻿using Storage.DomainService.Enums;
+using Blocks.Genesis.Entities.Data;
 
 namespace Storage.DomainService.Entities
 {

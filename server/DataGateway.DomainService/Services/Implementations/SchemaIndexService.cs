@@ -6,6 +6,7 @@ using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Validators;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 using SortDirection = DataGateway.DomainService.Models.SortDirection;
 
 namespace DataGateway.DomainService.Services;

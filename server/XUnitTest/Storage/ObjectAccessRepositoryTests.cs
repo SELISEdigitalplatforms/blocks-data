@@ -5,6 +5,7 @@ using Moq;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Services;
 using XUnitTest.Infrastructure;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.Storage;
 

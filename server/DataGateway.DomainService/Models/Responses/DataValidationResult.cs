@@ -1,3 +1,5 @@
+using Blocks.Genesis.Entities.Data;
+
 namespace DataGateway.DomainService.Models.Responses;
 
 /// <summary>

@@ -1,7 +1,7 @@
 namespace DataGateway.DomainService.Services;
 
 /// <summary>
-/// Reads and raises a tenant's published schema version (<see cref="Entities.SchemaPublishState"/>).
+/// Reads and raises a tenant's published schema version (<see cref="Blocks.Genesis.Entities.Data.SchemaPublishState"/>).
 /// Every call names the tenant explicitly, so it works outside an HTTP request (for example while
 /// HotChocolate rebuilds an executor in the background).
 ///

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Services;
+using Blocks.Genesis.Entities.Data;
 
 namespace Api.Controllers
 {
@@ -82,7 +83,6 @@ namespace Api.Controllers
         /// <summary>Live files and directorys explicitly shared with the caller.</summary>
         [HttpGet("get-shared-objects")]
         [ProtectedEndPoint("blocks-data::object::get-shared-objects")]
-        [Authorize]
         public async Task<IActionResult> GetSharedObjects([FromQuery] SharedObjectRequest request)
         {
             var page = await _objectDiscoveryService.GetSharedAsync(

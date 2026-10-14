@@ -7,6 +7,7 @@ using FluentAssertions;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.Services;
 
@@ -41,6 +42,23 @@ public class SchemaSnapshotStoreTests
         DataValidations = [new DataValidation { ItemId = "validation-1", SchemaId = "schema-0", FieldName = "Name" }],
         DataAccessPolicies = [new DataAccessPolicy { ItemId = "policy-1", SchemaId = "schema-0", PolicyName = "Owners only", PolicyType = PolicyType.RLS }]
     };
+
+    [Fact]
+    public async Task TheStateDocInTheChunkCollection_IsNeverSeenByLoadOrPrune()
+    {
+        var chunks = _db.GetCollection<MongoDB.Bson.BsonDocument>("PublishedSchemaSnapshotChunks");
+        await chunks.InsertOneAsync(new MongoDB.Bson.BsonDocument { { "_id", "state" }, { "CurrentVersion", 3L }, { "LastAllocatedVersion", 3L } });
+        var store = new SchemaSnapshotStore(_repository);
+        foreach (var v in new long[] { 1, 2, 3 })
+            await store.SaveAsync(Tenant, v, SchemaSnapshotStore.Pack(Source()), SchemaSnapshotKind.Publish, []);
+
+        (await store.LoadAsync(Tenant, 3)).Should().NotBeNull();
+        (await store.LoadAsync(Tenant, 0)).Should().BeNull();
+        await store.PruneAsync(Tenant, keep: 1, protectedVersion: 3);
+
+        (await chunks.CountDocumentsAsync(new MongoDB.Bson.BsonDocument("_id", "state"))).Should().Be(1);
+        (await store.LoadAsync(Tenant, 3)).Should().NotBeNull();
+    }
 
     [Fact]
     public async Task ASavedSnapshotLoadsBackUnchanged()

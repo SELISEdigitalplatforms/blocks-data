@@ -1,6 +1,7 @@
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Export;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Mappers;
 

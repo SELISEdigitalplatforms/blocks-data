@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.Storage;
 

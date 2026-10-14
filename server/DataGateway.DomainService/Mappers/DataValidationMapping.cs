@@ -1,6 +1,7 @@
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models.Responses;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Mappers;
 

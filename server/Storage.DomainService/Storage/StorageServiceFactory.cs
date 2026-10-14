@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Utilities;
+using Blocks.Genesis.Entities.Data;
 
 namespace DomainService.Storage
 {

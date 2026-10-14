@@ -1,6 +1,7 @@
 using Blocks.Genesis;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 
 namespace Storage.DomainService.Services
 {

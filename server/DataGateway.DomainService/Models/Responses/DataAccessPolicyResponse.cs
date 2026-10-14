@@ -1,5 +1,6 @@
 using DataGateway.DomainService.Entities;
 using MongoDB.Bson.Serialization.Attributes;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Models.Responses;
 

@@ -2,6 +2,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Helpers;
 

@@ -3,6 +3,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Responses;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Helpers;
 

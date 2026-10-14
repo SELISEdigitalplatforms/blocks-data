@@ -11,6 +11,7 @@ using HotChocolate.Types;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using XUnitTest.Infrastructure;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.GraphQL;
 

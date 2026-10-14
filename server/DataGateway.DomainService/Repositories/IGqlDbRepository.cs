@@ -16,6 +16,18 @@ public interface IGqlDbRepository
         int skip = 0,
         int limit = 10);
 
+    /// <summary>
+    /// Reads one bulk-delete batch with a cursor: <c>Find(filter).Sort(sort).Limit(maxDocs)</c>,
+    /// <c>BatchSize = maxDocs</c>. Stops at <paramref name="maxDocs"/> docs or when the BSON bytes read
+    /// reach <paramref name="maxBytes"/> (always at least one doc; a doc that would pass the cap is left
+    /// for the next read). Returns the docs and their BSON sizes (data SPEC1 §3.3b).
+    /// </summary>
+    Task<DocumentBatch> GetItemsBatchAsync(string collectionName,
+        BsonDocument filter,
+        BsonDocument sort,
+        int maxDocs,
+        long maxBytes);
+
     Task<(List<BsonDocument> items, long count)> GetItemsWithCountAsync(string collectionName,
         FilterDefinition<BsonDocument> filter,
         BsonDocument? sort = null,
@@ -36,4 +48,19 @@ public interface IGqlDbRepository
     
     Task<ActionResponse> DeleteManyAsync(string collectionName, BsonDocument filter);
 
+}
+
+/// <summary>Docs of one bulk-delete batch with their BSON sizes (from the read; no second ToBson()).</summary>
+public sealed class DocumentBatch
+{
+    public List<BsonDocument> Documents { get; } = new();
+    public List<int> Sizes { get; } = new();
+    public long TotalBytes { get; private set; }
+
+    public void Add(BsonDocument document, int size)
+    {
+        Documents.Add(document);
+        Sizes.Add(size);
+        TotalBytes += size;
+    }
 }

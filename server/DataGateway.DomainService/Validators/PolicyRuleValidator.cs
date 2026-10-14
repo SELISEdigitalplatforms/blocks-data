@@ -1,5 +1,6 @@
 using FluentValidation;
 using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Validators;
 

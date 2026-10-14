@@ -23,7 +23,9 @@ public class MockDataService : IMockDataService
     {
         var response = new ServiceResponse<MockDataResponse>();
 
-        var schemaFilter = Builders<BsonDocument>.Filter.Eq(nameof(SchemaDefinition.SchemaType), 1);
+        var schemaFilter = Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq(nameof(SchemaDefinition.SchemaType), 1),
+            Builders<BsonDocument>.Filter.Ne(nameof(SchemaDefinition.IsSystemEntity), true));
         var projection = new BsonDocument
         {
             { nameof(SchemaDefinition.CollectionName), 1 },

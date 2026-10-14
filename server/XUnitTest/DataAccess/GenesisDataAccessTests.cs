@@ -341,4 +341,109 @@ public class GenesisDataAccessTests
 
         source.DataAccessPolicies.Select(p => p.ItemId).Should().Equal("pol-owner");
     }
+
+    // ---- Round 2: remaining write paths ----
+
+    private static IRequestValidator ValidAlways()
+    {
+        var validator = new Mock<IRequestValidator>();
+        validator.Setup(v => v.ValidateAsync(It.IsAny<CreateSchemaIndexRequest>())).ReturnsAsync(new FluentValidation.Results.ValidationResult());
+        validator.Setup(v => v.ValidateAsync(It.IsAny<UpdateDataValidationRequest>())).ReturnsAsync(new FluentValidation.Results.ValidationResult());
+        return validator.Object;
+    }
+
+    private static async Task<List<string>> FieldNamesAsync(IMongoCollection<SchemaDefinition> c, string id) =>
+        (await c.Find(s => s.ItemId == id).SingleAsync()).Fields.Select(f => f.Name).ToList();
+
+    [Fact]
+    public async Task ResetSchemaStructure_NeverTouchesSystemSchemas()
+    {
+        await SeedAsync();
+        var schemas = _db.GetCollection<SchemaDefinition>("SchemaDefinitions");
+        await schemas.UpdateManyAsync(Builders<SchemaDefinition>.Filter.Empty, Builders<SchemaDefinition>.Update.Set(s => s.SchemaType, SchemaType.Entity));
+        var before = (await schemas.Find(s => s.ItemId == "sch-system-user").SingleAsync()).LastUpdatedDate;
+
+        var result = await NewSchemaService().ResetSchemaStructureAsync();
+
+        result.Keys.Should().Contain("Order").And.NotContain("User");
+        (await schemas.Find(s => s.ItemId == "sch-system-user").SingleAsync()).LastUpdatedDate.Should().Be(before);
+    }
+
+    [Fact]
+    public async Task DtoChange_DoesNotRewriteSystemSchemasThatReferenceIt()
+    {
+        await SeedAsync();
+        var schemas = _db.GetCollection<SchemaDefinition>("SchemaDefinitions");
+        await schemas.UpdateOneAsync(s => s.ItemId == "sch-system-user",
+            Builders<SchemaDefinition>.Update.Set(s => s.SchemaType, SchemaType.Entity).Push(s => s.Fields, new FieldDefinition { Name = "Addr", Type = "Address" }));
+        var dto = new SchemaDefinition { ItemId = "sch-dto", SchemaName = "Address", SchemaType = SchemaType.Dto, Fields = [new FieldDefinition { Name = "City", Type = "String" }] };
+        var changeLog = new Mock<ISchemaChangeLogService>();
+        var helper = new SchemaDefinitionReferenceHelper(_repository, changeLog.Object);
+
+        await helper.ApplyChangesToReferenceEntityFields(dto);
+
+        (await FieldNamesAsync(schemas, "sch-system-user")).Should().Equal("Email", "Roles", "Addr");
+        changeLog.Verify(c => c.CreateSchemaChangeLogAsync("sch-system-user", It.IsAny<SchemaChangeType>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task RealValidators_LetTenantReuseASystemSchemaName_ButNormalNamesStillCollide()
+    {
+        await SeedAsync();
+        var create = new CreateSchemaRequestValidator(_repository);
+        (await create.IsValidSchemaName("User")).Should().BeTrue();
+        (await create.IsValidSchemaName("Order")).Should().BeFalse();
+
+        var update = new UpdateSchemaDefinitionRequestValidator(_repository);
+        var rename = (string name) => new UpdateSchemaDefinitionRequest
+        {
+            ItemId = "sch-order", SchemaName = name, CollectionName = "Orders", SchemaType = SchemaType.Entity,
+            Fields = [new FieldDefinitionRequest { Name = "Status", Type = "String" }]
+        };
+        (await update.ValidateAsync(rename("User"))).Errors.Should().BeEmpty();
+        // The system collection name stays reserved.
+        var clash = rename("Anything");
+        clash.CollectionName = "Users";
+        (await update.ValidateAsync(clash)).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DataValidations_OfASystemSchema_CannotBeCreatedUpdatedOrDeleted()
+    {
+        await SeedAsync();
+        var changeLog = new Mock<ISchemaChangeLogService>();
+        var validator = new CreateDataValidationRequestValidator(_repository);
+        var request = new CreateDataValidationRequest
+        {
+            SchemaId = "sch-system-user", FieldName = "Email",
+            Validations = [new ValidationRuleRequest { Type = ValidationType.NotEmpty }]
+        };
+        (await validator.ValidateAsync(request)).IsValid.Should().BeFalse("the schema is not addressable by a tenant");
+
+        var service = new DataValidationService(_repository, ValidAlways(), changeLog.Object);
+        await _db.GetCollection<DataValidation>("DataValidations").InsertOneAsync(
+            new DataValidation { ItemId = "val-sys", SchemaId = "sch-system-user", FieldName = "Email" });
+
+        (await service.DeleteDataValidationAsync("val-sys")).IsSuccess.Should().BeFalse();
+        (await service.UpdateDataValidationAsync(new UpdateDataValidationRequest { ItemId = "val-sys", SchemaId = "sch-order", FieldName = "Status" })).IsSuccess.Should().BeFalse();
+        (await _db.GetCollection<DataValidation>("DataValidations").CountDocumentsAsync(v => v.ItemId == "val-sys" && v.SchemaId == "sch-system-user")).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Indexes_OfASystemSchema_CannotBeCreatedListedOrDeleted()
+    {
+        await SeedAsync();
+        var changeLog = new Mock<ISchemaChangeLogService>();
+        var service = new SchemaIndexService(_repository, ValidAlways(), changeLog.Object);
+        await _db.GetCollection<SchemaIndexDefinition>("SchemaIndexDefinitions").InsertOneAsync(
+            new SchemaIndexDefinition { ItemId = "idx-sys", SchemaDefinitionItemId = "sch-system-user", Name = "ix_email" });
+
+        (await service.GetIndexesAsync("sch-system-user")).HttpStatusCode.Should().Be(404);
+        (await service.CreateIndexAsync(new CreateSchemaIndexRequest
+        {
+            SchemaDefinitionItemId = "sch-system-user", Fields = [new IndexFieldRequest { FieldName = "Email" }]
+        })).HttpStatusCode.Should().Be(404);
+        (await service.DeleteIndexAsync("idx-sys")).HttpStatusCode.Should().Be(404);
+        (await _db.GetCollection<SchemaIndexDefinition>("SchemaIndexDefinitions").CountDocumentsAsync(i => i.ItemId == "idx-sys")).Should().Be(1);
+    }
 }

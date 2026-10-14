@@ -73,6 +73,14 @@ public class DataValidationService : IDataValidationService
                 .SetHttpStatusCode(200);
         }
 
+        var currentOwner = await _repository.GetItemAsync<SchemaDefinition>(dataValidation.SchemaId);
+        if (currentOwner is { IsSystemEntity: true })
+        {
+            return new ServiceResponse<ActionResponse>()
+                .SetErrorMessage("Data validation not found")
+                .SetHttpStatusCode(200);
+        }
+
         // Check if updating to a different field that already has validation
         if ((dataValidation.SchemaId != request.SchemaId || dataValidation.FieldName != request.FieldName) &&
             await IsValidationExistsForFieldAsync(request.SchemaId, request.FieldName))
@@ -100,6 +108,14 @@ public class DataValidationService : IDataValidationService
         var dataValidation = await _repository.GetItemAsync<DataValidation>(id);
 
         if (dataValidation is null)
+        {
+            return new ServiceResponse<ActionResponse>()
+                .SetErrorMessage("Data validation not found")
+                .SetHttpStatusCode(200);
+        }
+
+        var owner = await _repository.GetItemAsync<SchemaDefinition>(dataValidation.SchemaId);
+        if (owner is { IsSystemEntity: true })
         {
             return new ServiceResponse<ActionResponse>()
                 .SetErrorMessage("Data validation not found")

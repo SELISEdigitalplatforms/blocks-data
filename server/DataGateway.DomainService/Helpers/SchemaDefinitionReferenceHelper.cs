@@ -98,7 +98,8 @@ public class SchemaDefinitionReferenceHelper
 
         var filter = new BsonDocument
         {
-            { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.Type)}", schema.SchemaName }
+            { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.Type)}", schema.SchemaName },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
         };
         var referencingSchemas = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 100) ?? new List<SchemaDefinition>();
 
@@ -123,7 +124,8 @@ public class SchemaDefinitionReferenceHelper
 
         var dtoFilter = new BsonDocument
         {
-            { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.Type)}", new BsonDocument("$in", new BsonArray(dtoSchemas)) }
+            { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.Type)}", new BsonDocument("$in", new BsonArray(dtoSchemas)) },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
         };
 
         var dtoUsedInEntities = await _repository.GetItemsAsync<SchemaDefinition>(dtoFilter, null, null, 0, 100);

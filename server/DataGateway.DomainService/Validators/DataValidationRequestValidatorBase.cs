@@ -28,6 +28,7 @@ public abstract class DataValidationRequestValidatorBase<T> : AbstractValidator<
 
         var filter = Builders<SchemaDefinition>.Filter.Eq(x => x.ItemId, schemaId);
         var schema = await _dbRepository.GetItemAsync<SchemaDefinition>(filter);
-        return schema is not null;
+        // A system entity's field validations are not tenant-editable.
+        return schema is not null && !schema.IsSystemEntity;
     }
 }

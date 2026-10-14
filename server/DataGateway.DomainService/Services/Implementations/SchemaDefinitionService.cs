@@ -480,7 +480,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     public async Task<Dictionary<string, bool>> ResetSchemaStructureAsync(int pageNo = 1, int pageSize = 10)
     {
         var result = new Dictionary<string, bool>();
-        var filter = new BsonDocument { { nameof(SchemaDefinition.SchemaType), SchemaType.Entity } };
+        var filter = new BsonDocument
+        {
+            { nameof(SchemaDefinition.SchemaType), SchemaType.Entity },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
+        };
         var schemaDefinitions = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1000);
 
         foreach (var schemaDefinition in schemaDefinitions)

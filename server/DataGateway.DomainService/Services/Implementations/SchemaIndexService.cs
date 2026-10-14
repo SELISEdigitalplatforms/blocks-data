@@ -40,7 +40,7 @@ public class SchemaIndexService : ISchemaIndexService
             return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
 
         var schema = await _repository.GetItemAsync<SchemaDefinition>(request.SchemaDefinitionItemId);
-        if (schema == null)
+        if (schema == null || schema.IsSystemEntity)
             return new ServiceResponse<ActionResponse>().SetErrorMessage("SCHEMA_NOT_FOUND").SetHttpStatusCode(404);
 
         if (schema.SchemaType != SchemaType.Entity)
@@ -95,7 +95,7 @@ public class SchemaIndexService : ISchemaIndexService
     public async Task<ServiceResponse<SchemaIndexListResponse>> GetIndexesAsync(string schemaDefinitionItemId)
     {
         var schema = await _repository.GetItemAsync<SchemaDefinition>(schemaDefinitionItemId);
-        if (schema == null)
+        if (schema == null || schema.IsSystemEntity)
             return new ServiceResponse<SchemaIndexListResponse>().SetErrorMessage("SCHEMA_NOT_FOUND").SetHttpStatusCode(404);
 
         var indexes = await GetIndexEntitiesAsync(schema.ItemId);
@@ -150,6 +150,8 @@ public class SchemaIndexService : ISchemaIndexService
             return new ServiceResponse<ActionResponse>().SetErrorMessage("INDEX_NOT_FOUND").SetHttpStatusCode(404);
 
         var schema = await _repository.GetItemAsync<SchemaDefinition>(indexDefinition.SchemaDefinitionItemId);
+        if (schema is { IsSystemEntity: true })
+            return new ServiceResponse<ActionResponse>().SetErrorMessage("INDEX_NOT_FOUND").SetHttpStatusCode(404);
         if (schema != null)
             await _repository.DropIndexAsync(schema.CollectionName, indexDefinition.Name);
 

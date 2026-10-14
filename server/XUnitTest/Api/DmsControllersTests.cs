@@ -323,6 +323,18 @@ namespace XUnitTest.Api
                 .Which.TotalChildCount.Should().Be(1);
         }
 
+        [Fact]
+        public void GetSharedObjects_IsProtectedWithNoPlainAuthorize()
+        {
+            // Owner decision 2026-10-14: no plain [Authorize] next to [ProtectedEndPoint].
+            var method = typeof(ObjectController).GetMethod(nameof(ObjectController.GetSharedObjects))!;
+            var guard = (Blocks.Genesis.ProtectedEndPointAttribute?)System.Attribute.GetCustomAttribute(
+                method, typeof(Blocks.Genesis.ProtectedEndPointAttribute));
+            guard!.ResourceName.Should().Be("blocks-data::object::get-shared-objects");
+            System.Attribute.GetCustomAttributes(method, typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute))
+                .Should().NotContain(a => a.GetType() == typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute));
+        }
+
         [Theory]
         [InlineData(TrashOperationStatus.Succeeded, typeof(OkObjectResult))]
         [InlineData(TrashOperationStatus.NotFound, typeof(NotFoundObjectResult))]

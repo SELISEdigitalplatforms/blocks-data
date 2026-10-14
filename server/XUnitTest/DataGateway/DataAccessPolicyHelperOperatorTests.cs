@@ -1,8 +1,10 @@
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
 using MongoDB.Bson;
-using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway;
@@ -132,51 +134,51 @@ public class DataAccessPolicyHelperOperatorTests
     [Fact]
     public void BuildFilter_Equal_And_Comparisons()
     {
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, "x")["f"].AsString.Should().Be("x");
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.NOT_EQUAL, "x")["f"].AsBsonDocument["$ne"].AsString.Should().Be("x");
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.GREATER_THAN, 1)["f"].AsBsonDocument.Contains("$gt").Should().BeTrue();
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.GREATER_THAN_OR_EQUAL, 1)["f"].AsBsonDocument.Contains("$gte").Should().BeTrue();
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.LESS_THAN, 1)["f"].AsBsonDocument.Contains("$lt").Should().BeTrue();
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.LESS_THAN_OR_EQUAL, 1)["f"].AsBsonDocument.Contains("$lte").Should().BeTrue();
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.EQUAL, "x")["f"].AsString.Should().Be("x");
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.NOT_EQUAL, "x")["f"].AsBsonDocument["$ne"].AsString.Should().Be("x");
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.GREATER_THAN, 1)["f"].AsBsonDocument.Contains("$gt").Should().BeTrue();
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.GREATER_THAN_OR_EQUAL, 1)["f"].AsBsonDocument.Contains("$gte").Should().BeTrue();
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.LESS_THAN, 1)["f"].AsBsonDocument.Contains("$lt").Should().BeTrue();
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.LESS_THAN_OR_EQUAL, 1)["f"].AsBsonDocument.Contains("$lte").Should().BeTrue();
     }
 
     [Fact]
     public void BuildFilter_RegexLikeOperators()
     {
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.CONTAIN, "a")["f"].AsBsonDocument.Contains("$regex").Should().BeTrue();
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.NOT_CONTAIN, "a")["f"].AsBsonDocument.Contains("$not").Should().BeTrue();
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.START_WITH, "a")["f"].AsBsonDocument["$regex"].AsString.Should().StartWith("^");
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.END_WITH, "a")["f"].AsBsonDocument["$regex"].AsString.Should().EndWith("$");
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.REGEX, "a.*")["f"].AsBsonDocument["$regex"].AsString.Should().Be("a.*");
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.CONTAIN, "a")["f"].AsBsonDocument.Contains("$regex").Should().BeTrue();
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.NOT_CONTAIN, "a")["f"].AsBsonDocument.Contains("$not").Should().BeTrue();
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.START_WITH, "a")["f"].AsBsonDocument["$regex"].AsString.Should().StartWith("^");
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.END_WITH, "a")["f"].AsBsonDocument["$regex"].AsString.Should().EndWith("$");
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.REGEX, "a.*")["f"].AsBsonDocument["$regex"].AsString.Should().Be("a.*");
     }
 
     [Fact]
     public void BuildFilter_NullOperators()
     {
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.IS_NULL, null)["f"].Should().Be(BsonNull.Value);
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.IS_NOT_NULL, null)["f"].AsBsonDocument["$ne"].Should().Be(BsonNull.Value);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.IS_NULL, null)["f"].Should().Be(BsonNull.Value);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.IS_NOT_NULL, null)["f"].AsBsonDocument["$ne"].Should().Be(BsonNull.Value);
     }
 
     [Fact]
     public void BuildFilter_InOperators()
     {
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.IN, new object[] { "a", "b" })["f"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(2);
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.NOT_IN, new[] { "a" })["f"].AsBsonDocument["$nin"].AsBsonArray.Count.Should().Be(1);
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.IN, "single")["f"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(1);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.IN, new object[] { "a", "b" })["f"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(2);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.NOT_IN, new[] { "a" })["f"].AsBsonDocument["$nin"].AsBsonArray.Count.Should().Be(1);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.IN, "single")["f"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(1);
     }
 
     [Fact]
     public void BuildFilter_ConvertToBsonValue_AllScalarTypes()
     {
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, 5)["f"].Should().Be(new BsonInt32(5));
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, 5L)["f"].Should().Be(new BsonInt64(5));
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, 1.5)["f"].Should().Be(new BsonDouble(1.5));
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, 2.5m)["f"].Should().Be(new BsonDecimal128(2.5m));
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, true)["f"].Should().Be(BsonBoolean.True);
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc))["f"].BsonType.Should().Be(BsonType.DateTime);
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, new[] { "a", "b" })["f"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(2);
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, new List<string> { "a" })["f"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(1);
-        DataAccessPolicyHelper.BuildConditionFilter("f", PolicyOperator.EQUAL, Guid.Empty)["f"].BsonType.Should().Be(BsonType.String);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.EQUAL, 5)["f"].Should().Be(new BsonInt32(5));
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.EQUAL, 5L)["f"].Should().Be(new BsonInt64(5));
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.EQUAL, 1.5)["f"].Should().Be(new BsonDouble(1.5));
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.EQUAL, 2.5m)["f"].Should().Be(new BsonDecimal128(2.5m));
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.EQUAL, true)["f"].Should().Be(BsonBoolean.True);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.EQUAL, new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc))["f"].BsonType.Should().Be(BsonType.DateTime);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.EQUAL, new[] { "a", "b" })["f"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(2);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.EQUAL, new List<string> { "a" })["f"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(1);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "f", PolicyOperator.EQUAL, Guid.Empty)["f"].BsonType.Should().Be(BsonType.String);
     }
 
     // ---------- Token resolution ----------
@@ -188,12 +190,12 @@ public class DataAccessPolicyHelperOperatorTests
         SetContext(userId: "u1", userName: "a@b.com", tenantId: "t1", roles: new[] { "admin" }, permissions: new[] { "p1" });
         try
         {
-            DataAccessPolicyHelper.GetTokenValue("email").Should().Be("a@b.com");
-            DataAccessPolicyHelper.GetTokenValue("userid").Should().Be("u1");
-            DataAccessPolicyHelper.GetTokenValue("tenant").Should().Be("t1");
-            DataAccessPolicyHelper.GetTokenValue("roles").Should().BeEquivalentTo(new[] { "admin" });
-            DataAccessPolicyHelper.GetTokenValue("permissions").Should().BeEquivalentTo(new[] { "p1" });
-            DataAccessPolicyHelper.GetTokenValue("unknownClaim").Should().BeNull();
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "email").Should().Be("a@b.com");
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "userid").Should().Be("u1");
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "tenant").Should().Be("t1");
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "roles").Should().BeEquivalentTo(new[] { "admin" });
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "permissions").Should().BeEquivalentTo(new[] { "p1" });
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "unknownClaim").Should().BeNull();
         }
         finally { ClearContext(); }
     }
@@ -202,7 +204,7 @@ public class DataAccessPolicyHelperOperatorTests
     public void GetTokenValue_NoContext_ReturnsNull()
     {
         ClearContext();
-        DataAccessPolicyHelper.GetTokenValue("email").Should().BeNull();
+        DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "email").Should().BeNull();
     }
 
     [Fact]
@@ -212,9 +214,9 @@ public class DataAccessPolicyHelperOperatorTests
         SetContext(userId: "u1", userName: "a@b.com", roles: new[] { "admin", "user" });
         try
         {
-            DataAccessPolicyHelper.BuildConditionFilter("Email", PolicyOperator.EQUAL, "{{token.Email}}")["Email"].AsString.Should().Be("a@b.com");
-            DataAccessPolicyHelper.BuildConditionFilter("UserId", PolicyOperator.EQUAL, "{{auth.UserId}}")["UserId"].AsString.Should().Be("u1");
-            DataAccessPolicyHelper.BuildConditionFilter("Role", PolicyOperator.IN, "{{token.Roles}}")["Role"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(2);
+            DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Email", PolicyOperator.EQUAL, "{{token.Email}}")["Email"].AsString.Should().Be("a@b.com");
+            DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "UserId", PolicyOperator.EQUAL, "{{auth.UserId}}")["UserId"].AsString.Should().Be("u1");
+            DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Role", PolicyOperator.IN, "{{token.Roles}}")["Role"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(2);
         }
         finally { ClearContext(); }
     }

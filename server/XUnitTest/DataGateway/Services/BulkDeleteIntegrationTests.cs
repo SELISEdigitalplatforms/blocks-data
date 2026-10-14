@@ -1,3 +1,4 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Collections.Immutable;
 using System.Text;
 using System.Text.Json;
@@ -79,7 +80,7 @@ public class BulkDeleteIntegrationTests
     }
 
     private MutationService Service() =>
-        new(_repo, new DataChangeEventPublisher(_messages, NullLogger<DataChangeEventPublisher>.Instance), NullLogger<MutationService>.Instance);
+        new(_repo, new DataChangeEventPublisher(_messages, NullLogger<DataChangeEventPublisher>.Instance), TestSupport.Resolver(), TestSupport.Principals(), NullLogger<MutationService>.Instance);
 
     private IMongoCollection<BsonDocument> Coll(string name = "Persons") => _db.GetCollection<BsonDocument>(name);
 

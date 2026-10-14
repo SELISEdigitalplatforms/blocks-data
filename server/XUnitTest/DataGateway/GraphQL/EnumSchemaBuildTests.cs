@@ -1,6 +1,7 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
@@ -11,7 +12,6 @@ using HotChocolate.Types;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using XUnitTest.Infrastructure;
-using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.GraphQL;
 

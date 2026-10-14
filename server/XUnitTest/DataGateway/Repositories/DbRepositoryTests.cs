@@ -1,12 +1,11 @@
 using Blocks.Genesis;
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Repositories;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
-using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.Repositories;
 

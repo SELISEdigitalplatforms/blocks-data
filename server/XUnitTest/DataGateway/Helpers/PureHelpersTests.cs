@@ -1,10 +1,11 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Utilities;
 using FluentAssertions;
 using MongoDB.Bson;
-using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.Helpers;
 

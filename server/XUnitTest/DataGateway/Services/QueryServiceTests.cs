@@ -1,7 +1,8 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Diagnostics;
 using DataGateway.DomainService.Helpers;
 using System.Collections.Immutable;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
@@ -16,7 +17,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
-using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway.Services;
@@ -33,7 +33,7 @@ public class QueryServiceTests
 
     public QueryServiceTests()
     {
-        _service = new QueryService(_repo.Object, NullLogger<QueryService>.Instance);
+        _service = new QueryService(_repo.Object, Resolver(), Principals(), NullLogger<QueryService>.Instance);
     }
 
     private static FieldNode ParseQueryField(string query)

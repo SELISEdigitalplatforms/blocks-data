@@ -1,3 +1,5 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;

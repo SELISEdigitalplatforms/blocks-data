@@ -5,7 +5,7 @@ using DataGateway.DomainService;
 using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models.Constants;
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
@@ -22,7 +22,6 @@ using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
-using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.Services;
 

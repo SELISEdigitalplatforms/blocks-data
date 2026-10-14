@@ -1,9 +1,10 @@
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
 using MongoDB.Bson;
-using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway;
@@ -85,7 +86,7 @@ public class QueryProjectionHelperRestOverloadTests
         try
         {
             var schema = Schema(fields: new() { Field("Name"), Field("Age", "Int") });
-            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(
+            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(CurrentPrincipal(), 
                 (IReadOnlyList<string>?)null, schema, out var evalOnly);
             projection.Contains("Name").Should().BeTrue();
             projection.Contains("Age").Should().BeTrue();
@@ -103,7 +104,7 @@ public class QueryProjectionHelperRestOverloadTests
         try
         {
             var schema = Schema(fields: new() { Field("Name"), Field("ItemId", "ID") });
-            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(
+            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(CurrentPrincipal(), 
                 new List<string> { "Name", "ItemId" }, schema, out _);
             projection.Contains("Name").Should().BeTrue();
             projection.Contains("_id").Should().BeTrue();
@@ -128,7 +129,7 @@ public class QueryProjectionHelperRestOverloadTests
             schema.Policies.Add(Policy(PolicyType.CLS, PolicyOperation.READ, new[] { "Salary" },
                 Group(PolicyLogicalOperator.AND, Rule(ConditionSource.SCHEMA_FIELD, "Department", PolicyOperator.EQUAL, staticValue: "HR"))));
 
-            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(
+            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(CurrentPrincipal(), 
                 new List<string> { "Salary" }, schema, out var evalOnly);
 
             projection.Contains("Salary").Should().BeTrue();

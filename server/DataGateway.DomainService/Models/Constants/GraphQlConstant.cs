@@ -1,3 +1,4 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis;
 
 namespace DataGateway.DomainService.Models.Constants;
@@ -19,7 +20,7 @@ public static class GraphQlConstant
     public const string OrderFieldName = "order";
     public const string InputFieldName = "input";
     public const string PagingFieldName = "paging";
-    public const string DbEntityIdFieldName = "_id";
+    public const string DbEntityIdFieldName = Blocks.Genesis.DataAccess.Evaluation.PolicyConstants.DbEntityIdFieldName;
 
     public const string OwnerPermission = "OWNER";
     public const string CheckForOwnerContextKey = "CheckForOwner";
@@ -31,7 +32,7 @@ public static class GraphQlConstant
     private const string DefaultProvider = "azure";
     private const string RabbitMqProvider = "rabbitmq";
 
-    public const int MaxNestedLevelIterationLimit = 3;
+    public const int MaxNestedLevelIterationLimit = Blocks.Genesis.DataAccess.Evaluation.PolicyConstants.MaxNestedLevelIterationLimit;
 
     public static string TenantId { get; private set; } = string.Empty;
     public static string TenantSlug { get; private set; } = string.Empty;

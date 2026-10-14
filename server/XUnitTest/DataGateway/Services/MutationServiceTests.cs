@@ -1,8 +1,9 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using Blocks.Genesis;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
@@ -21,7 +22,6 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
-using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway.Services;
@@ -82,7 +82,7 @@ public class MutationServiceTests
     }
 
     private static MutationService NewService(Mock<IGqlDbRepository> repo, Mock<IDataChangeEventPublisher> pub) =>
-        new(repo.Object, pub.Object, NullLogger<MutationService>.Instance);
+        new(repo.Object, pub.Object, Resolver(), Principals(), NullLogger<MutationService>.Instance);
 
     private static ObjectValueNode ObjectLiteral(string body)
     {

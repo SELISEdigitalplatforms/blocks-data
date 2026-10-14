@@ -1,5 +1,5 @@
 using FluentValidation;
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
@@ -22,6 +22,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using k8s;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using DataGateway.DomainService.Policies;
 
 namespace DataGateway.DomainService;
 
@@ -93,6 +96,8 @@ public static class ServiceRegistry
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
         serviceCollection.AddSingleton<GraphqlSchemaBuilder>();
         serviceCollection.AddSingleton<IDataChangeEventPublisher, DataChangeEventPublisher>();
+        serviceCollection.AddBlocksDataAccess();
+        serviceCollection.AddSingleton<IAccessPrincipalAccessor, BlocksContextPrincipalAccessor>();
         serviceCollection.AddSingleton<IQueryService, QueryService>();
         serviceCollection.AddSingleton<IMutationService, MutationService>();
         serviceCollection.AddSingleton<SchemaResolver>();

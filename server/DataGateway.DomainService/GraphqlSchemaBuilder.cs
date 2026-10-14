@@ -141,10 +141,18 @@ public class GraphqlSchemaBuilder
             null,
             null, 0, 0, tenantId);
 
-        var policies = await _repository.GetItemsAsync<DataAccessPolicy>(
+        var allPolicies = await _repository.GetItemsAsync<DataAccessPolicy>(
             new BsonDocument { { nameof(DataAccessPolicy.IsDeleted), false } },
             null,
             null, 0, 0, tenantId);
+
+        // A system entity has no GraphQL type, so its policies stay out of the source too.
+        var systemSchemas = await _repository.GetItemsAsync<SchemaDefinition>(
+            new BsonDocument(nameof(SchemaDefinition.IsSystemEntity), true),
+            null,
+            null, 0, 0, tenantId);
+        var systemSchemaIds = (systemSchemas ?? []).Select(s => s.ItemId).ToHashSet();
+        var policies = allPolicies?.Where(p => !systemSchemaIds.Contains(p.SchemaId)).ToList();
 
         return new SchemaSource
         {

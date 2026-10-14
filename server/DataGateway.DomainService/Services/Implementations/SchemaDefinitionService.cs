@@ -77,7 +77,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
 
         var schema = await _repository.GetItemAsync<SchemaDefinition>(request.ItemId);
-        if (schema is null)
+        if (schema is null || schema.IsSystemEntity)
             return SchemaNotFoundResponse();
 
         if (await IsSchemaNameExistsAsync(request.SchemaName, schema.ItemId))
@@ -106,7 +106,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
 
         var schema = await _repository.GetItemAsync<SchemaDefinition>(request.SchemaDefinitionItemId);
-        if (schema == null)
+        if (schema == null || schema.IsSystemEntity)
             return SchemaNotFoundResponse();
 
         var indexesResponse = await _schemaIndexService.GetIndexesAsync(schema.ItemId);
@@ -380,7 +380,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
 
         var schema = await _repository.GetItemAsync<SchemaDefinition>(request.ItemId);
-        if (schema == null)
+        if (schema == null || schema.IsSystemEntity)
             return SchemaNotFoundResponse();
 
         if (await IsSchemaNameExistsAsync(request.SchemaName, schema.ItemId))
@@ -412,7 +412,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     public async Task<ServiceResponse<ActionResponse>> DeleteSchemaAsync(string id)
     {
         var schema = await _repository.GetItemAsync<SchemaDefinition>(id);
-        if (schema == null)
+        if (schema == null || schema.IsSystemEntity)
             return SchemaNotFoundResponse();
 
         var filter = Builders<SchemaDefinition>.Filter.Eq(x => x.ItemId, id);
@@ -425,11 +425,13 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     public async Task<ServiceResponse<SchemaDefinitionResponse>> GetSchemaByIdAsync(string id)
     {
         var schema = await _repository.GetItemAsync<SchemaDefinition>(id);
-        if (schema == null)
+        if (schema == null || schema.IsSystemEntity)
             return new ServiceResponse<SchemaDefinitionResponse>().SetErrorMessage("Schema not found").SetHttpStatusCode(204);
 
         var validations = await _repository.GetItemsAsync<DataValidation>(new BsonDocument { { nameof(DataValidation.SchemaId), schema.ItemId } }, null, null, 0, 1000);
-        var policies = await _repository.GetItemsAsync<DataAccessPolicy>(new BsonDocument { { nameof(DataAccessPolicy.SchemaName), schema.SchemaName } }, null, null, 0, 1000);
+        var allPolicies = await _repository.GetItemsAsync<DataAccessPolicy>(new BsonDocument { { nameof(DataAccessPolicy.SchemaName), schema.SchemaName } }, null, null, 0, 1000);
+        // Matched by name, which a system schema of the same name shares: keep only this schema's own policies.
+        var policies = allPolicies.Where(p => string.IsNullOrEmpty(p.SchemaId) || p.SchemaId == schema.ItemId).ToList();
         var response = schema.MapToResponse(policies, validations);
         await _referenceHelper.MapDtoSchemasReferencesToResponse(new List<SchemaDefinitionResponse> { response });
         return new ServiceResponse<SchemaDefinitionResponse>().SetSuccess(response);
@@ -503,7 +505,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
     public async Task<ServiceResponse<CollectionListResponse>> GetEntityCollectionsAsync()
     {
-        var filter = new BsonDocument(nameof(SchemaDefinition.SchemaType), SchemaType.Entity);
+        var filter = new BsonDocument
+        {
+            { nameof(SchemaDefinition.SchemaType), SchemaType.Entity },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
+        };
         var schemas = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1000);
 
         var collections = schemas.Select(s => new CollectionSummaryResponse
@@ -524,7 +530,8 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         var filter = new BsonDocument
         {
             { nameof(SchemaDefinition.SchemaName), projectSchemaName },
-            { nameof(SchemaDefinition.SchemaType), SchemaType.Entity }
+            { nameof(SchemaDefinition.SchemaType), SchemaType.Entity },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
         };
         var schemas = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1);
         var schema = schemas.FirstOrDefault();
@@ -552,7 +559,10 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     // treating the schema's own current name as a collision with itself.
     private async Task<bool> IsSchemaNameExistsAsync(string schemaName, string? excludeItemId = null)
     {
-        var filter = Builders<SchemaDefinition>.Filter.Eq(x => x.SchemaName, schemaName);
+        // System entities (platform-owned) never count: a tenant may reuse their names.
+        var filter = Builders<SchemaDefinition>.Filter.And(
+            Builders<SchemaDefinition>.Filter.Eq(x => x.SchemaName, schemaName),
+            Builders<SchemaDefinition>.Filter.Ne(x => x.IsSystemEntity, true));
         var schema = await _repository.GetItemAsync(filter);
         return schema != null && schema.ItemId != excludeItemId;
     }
@@ -567,7 +577,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
     private async Task<string?> FindCollidingSchemaNameAsync(string schemaName, string? excludeItemId)
     {
-        var filter = new BsonDocument(nameof(SchemaDefinition.IsDeleted), false);
+        var filter = new BsonDocument
+        {
+            { nameof(SchemaDefinition.IsDeleted), false },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
+        };
         var existingSchemas = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1000);
         var candidateNames = ReservedSchemaNameSuffixes.Select(suffix => schemaName + suffix).ToHashSet(StringComparer.Ordinal);
 

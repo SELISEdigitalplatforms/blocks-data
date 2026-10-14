@@ -32,7 +32,8 @@ public static class SchemaDefinitionFilterHelper
     {
         var matchFilter = new BsonDocument
         {
-            { nameof(SchemaDefinition.SchemaType), (int)SchemaType.Entity }
+            { nameof(SchemaDefinition.SchemaType), (int)SchemaType.Entity },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
         };
 
         static BsonDocument CountWhere(string field, SchemaAccessLevel level) =>

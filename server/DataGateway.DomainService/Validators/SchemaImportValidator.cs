@@ -48,7 +48,9 @@ public class SchemaImportValidator
         if (referencedNonScalarTypes.Count > 0)
         {
             var existingSchemas = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
-                Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, referencedNonScalarTypes));
+                Builders<SchemaDefinition>.Filter.And(
+                    Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, referencedNonScalarTypes),
+                    Builders<SchemaDefinition>.Filter.Ne(s => s.IsSystemEntity, true)));
             foreach (var schema in existingSchemas)
                 existingCustomSchemaNames.Add(schema.SchemaName);
         }

@@ -170,7 +170,9 @@ public class SchemaImportService : ISchemaImportService
     {
         var schemaNames = documents.Select(d => d.SchemaName).ToList();
         var existingSchemas = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
-            Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, schemaNames), databaseName: tenantId);
+            Builders<SchemaDefinition>.Filter.And(
+                Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, schemaNames),
+                Builders<SchemaDefinition>.Filter.Ne(s => s.IsSystemEntity, true)), databaseName: tenantId);
         var existingBySchemaName = existingSchemas.ToDictionary(s => s.SchemaName, StringComparer.OrdinalIgnoreCase);
 
         var toUpsert = new List<SchemaDefinition>();
@@ -222,8 +224,16 @@ public class SchemaImportService : ISchemaImportService
         List<SchemaChangeLog> changeLogs, string tenantId)
     {
         var schemaNames = importedSchemas.Select(x => x.Schema.SchemaName).ToList();
+        // Matched by name, so a system schema of the same name keeps its policies: delete only
+        // policies of an imported schema (or with no schema id at all).
+        var importedIds = importedSchemas.Select(x => x.Schema.ItemId).ToList();
         await _dbRepository.DeleteManyAsync(
-            Builders<DataAccessPolicy>.Filter.In(p => p.SchemaName, schemaNames), tenantId);
+            Builders<DataAccessPolicy>.Filter.And(
+                Builders<DataAccessPolicy>.Filter.In(p => p.SchemaName, schemaNames),
+                Builders<DataAccessPolicy>.Filter.Or(
+                    Builders<DataAccessPolicy>.Filter.In(p => p.SchemaId, importedIds),
+                    Builders<DataAccessPolicy>.Filter.Eq(p => p.SchemaId, null),
+                    Builders<DataAccessPolicy>.Filter.Eq(p => p.SchemaId, ""))), tenantId);
 
         var toInsert = new List<DataAccessPolicy>();
 

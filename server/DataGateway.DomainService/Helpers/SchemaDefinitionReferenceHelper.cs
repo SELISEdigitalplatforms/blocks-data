@@ -73,7 +73,11 @@ public class SchemaDefinitionReferenceHelper
             }
             else
             {
-                var filter = new BsonDocument { { nameof(SchemaDefinition.SchemaName), field.Type } };
+                var filter = new BsonDocument
+                {
+                    { nameof(SchemaDefinition.SchemaName), field.Type },
+                    { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
+                };
                 var referencedSchema = await _repository.GetItemAsync<SchemaDefinition>(filter);
                 if (referencedSchema != null)
                 {

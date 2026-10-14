@@ -6,6 +6,7 @@ using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Resolvers;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Helpers;
 

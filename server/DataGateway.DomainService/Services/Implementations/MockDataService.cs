@@ -5,6 +5,7 @@ using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Repositories;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 

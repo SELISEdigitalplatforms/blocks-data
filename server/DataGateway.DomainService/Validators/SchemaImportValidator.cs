@@ -5,6 +5,7 @@ using DataGateway.DomainService.Models.Export;
 using DataGateway.DomainService.Repositories;
 using FluentValidation;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Validators;
 

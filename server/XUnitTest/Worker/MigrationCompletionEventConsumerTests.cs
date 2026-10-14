@@ -77,6 +77,44 @@ public class MigrationCompletionEventConsumerTests
     }
 
     [Fact]
+    public async Task Consume_UpdatesTheRootDocFirst_ThenTheTenantCopy()
+    {
+        GivenTracker(Tracker());
+        GivenUpdates(true, true);
+        _projectService.Setup(p => p.GetTenantSlugAsync("new-key")).ReturnsAsync("new-slug");
+        var order = new List<string>();
+        _dbRepository
+            .Setup(r => r.UpdateManyAsync("DataServiceConfigurations", It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), It.IsAny<string>()))
+            .Callback((string _, BsonDocument _, BsonDocument _, string db) => order.Add(db))
+            .ReturnsAsync(new ActionResponse { Acknowledged = true, TotalImpactedData = 1 });
+
+        await _consumer.Consume(Event());
+
+        _dbRepository.Verify(r => r.UpdateManyAsync(
+            "DataServiceConfigurations",
+            It.Is<BsonDocument>(f => f.Contains("_id") && f["_id"] == "new-key" && f["ProjectKey"] == "old-key"),
+            It.Is<BsonDocument>(d => d["ProjectKey"] == "new-key" && d["ProjectShortKey"] == "new-slug"),
+            "BlocksRootDb"), Times.Once);
+        order.Should().Equal("BlocksRootDb", "new-key");
+    }
+
+    [Fact]
+    public async Task Consume_RootUpdateNotAcknowledged_TenantCopyNotTouched()
+    {
+        GivenTracker(Tracker());
+        GivenUpdates(true, true);
+        _projectService.Setup(p => p.GetTenantSlugAsync(It.IsAny<string>())).ReturnsAsync("new-slug");
+        _dbRepository
+            .Setup(r => r.UpdateManyAsync("DataServiceConfigurations", It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), "BlocksRootDb"))
+            .ReturnsAsync(new ActionResponse { Acknowledged = false });
+
+        await _consumer.Consume(Event());
+
+        _dbRepository.Verify(r => r.UpdateManyAsync(
+            "DataServiceConfigurations", It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), "new-key"), Times.Never);
+    }
+
+    [Fact]
     public async Task Consume_StopsWhenTheTrackerIsMissing()
     {
         GivenTracker(null);

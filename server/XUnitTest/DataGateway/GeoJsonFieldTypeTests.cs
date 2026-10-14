@@ -10,6 +10,7 @@ using HotChocolate.Language;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
+using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway;

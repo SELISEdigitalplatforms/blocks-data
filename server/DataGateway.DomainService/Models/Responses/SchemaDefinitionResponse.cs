@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json.Serialization;
 using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Models;
 

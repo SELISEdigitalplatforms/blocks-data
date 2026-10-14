@@ -7,6 +7,7 @@ using Moq;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Services;
 using Storage.DomainService.Utilities;
+using Blocks.Genesis.Entities.Data;
 using StorageStorage = Storage.DomainService.Storage;
 
 namespace XUnitTest.Storage;

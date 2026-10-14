@@ -2,6 +2,7 @@ using FluentValidation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Repositories;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Validators;
 

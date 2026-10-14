@@ -12,6 +12,8 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Blocks.Genesis;
+using Blocks.Secrets;
+using DataGateway.DomainService.DataSources;
 using DataGateway.DomainService.Authentication;
 using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Helpers;
@@ -51,6 +53,19 @@ public static class ServiceRegistry
         serviceCollection.AddSingleton<SchemaImportValidator>();
         serviceCollection.AddSingleton<ISchemaImportService, SchemaImportService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
+
+        // Data-source secrets (data SPEC1 §3.5.1): Blocks Secrets (scoped services), a singleton resolver
+        // (new scope per call, no value cache) and the BYO client cache (secret read only on a miss).
+        serviceCollection.AddBlocksSecrets();
+        serviceCollection.TryAddSingleton<IDataSourceSecretResolver, DataSourceSecretResolver>();
+        serviceCollection.TryAddSingleton<IDataSourceClientFactory, DataSourceClientFactory>();
+        serviceCollection.TryAddSingleton<IClusterRegistry, DriverClusterRegistry>();
+        serviceCollection.TryAddSingleton<DataSourceClientCache>(sp => new DataSourceClientCache(
+            sp.GetRequiredService<IDataSourceSecretResolver>(),
+            sp.GetRequiredService<IDataSourceClientFactory>(),
+            sp.GetRequiredService<IClusterRegistry>(),
+            sp.GetRequiredService<ILogger<DataSourceClientCache>>()));
+        serviceCollection.TryAddSingleton<IDataSourceClientCache>(sp => sp.GetRequiredService<DataSourceClientCache>());
 
         serviceCollection.AddSingleton<IKubernetes>(_ =>
         {

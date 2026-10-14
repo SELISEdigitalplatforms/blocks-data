@@ -5,6 +5,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Services;
 using FluentAssertions;
 using HotChocolate;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway;
 

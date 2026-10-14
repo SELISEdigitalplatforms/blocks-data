@@ -5,9 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
-using Storage.DomainService.Shared.Enums;
 using Storage.DomainService.Services;
-using FileDirectory = Storage.DomainService.Entities.FileDirectory;
+using Blocks.Genesis.Entities.Data;
+using FileDirectory = Blocks.Genesis.Entities.Data.FileDirectory;
 
 namespace XUnitTest.Api
 {

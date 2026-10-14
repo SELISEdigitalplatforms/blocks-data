@@ -1,4 +1,6 @@
-﻿namespace Storage.DomainService.Entities
+﻿using Blocks.Genesis.Entities.Data;
+
+namespace Storage.DomainService.Entities
 {
     public class SignatureString
     {

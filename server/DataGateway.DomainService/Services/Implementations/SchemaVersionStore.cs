@@ -7,6 +7,7 @@ using DataGateway.DomainService.Repositories;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 
@@ -21,7 +22,14 @@ public class SchemaVersionStore : ISchemaVersionStore
     /// </summary>
     public static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(60);
 
-    private const string CollectionName = $"{nameof(SchemaPublishState)}s";
+    /// <summary>
+    /// The state doc (<c>_id "state"</c>) lives in the chunk collection (data SPEC1 §3.4). It has no
+    /// <c>Version</c>, so chunk load/prune filters never match it.
+    /// </summary>
+    public const string CollectionName = "PublishedSchemaSnapshotChunks";
+
+    /// <summary>Old home of the state doc. Only read, to seed the new doc once (rollout fallback).</summary>
+    public const string LegacyCollectionName = "SchemaPublishStates";
 
     private readonly IDbRepository _repository;
     private readonly ICacheClient _cacheClient;
@@ -38,7 +46,7 @@ public class SchemaVersionStore : ISchemaVersionStore
 
     public async Task<long> GetAsync(string tenantId, CancellationToken cancellationToken = default)
     {
-        var state = await _repository.GetItemAsync(CollectionName, SchemaPublishState.StateId, tenantId);
+        var state = await EnsureStateAsync(tenantId);
         var version = ReadVersion(state);
         await CacheAsync(tenantId, version);
         return version;
@@ -83,6 +91,7 @@ public class SchemaVersionStore : ISchemaVersionStore
             { nameof(SchemaPublishState.LastUpdatedDate), "$$NOW" }
         });
 
+        await EnsureStateAsync(tenantId);
         var state = await _repository.FindOneAndUpdateAsync(
             CollectionName, StateFilter, new PipelineUpdateDefinition<BsonDocument>(new[] { stage }), isUpsert: true, tenantId);
         return ReadLong(state, nameof(SchemaPublishState.LastAllocatedVersion));
@@ -96,6 +105,7 @@ public class SchemaVersionStore : ISchemaVersionStore
             { "$currentDate", new BsonDocument(nameof(SchemaPublishState.LastUpdatedDate), true) }
         };
 
+        await EnsureStateAsync(tenantId);
         var state = await _repository.FindOneAndUpdateAsync(CollectionName, StateFilter, update, isUpsert: true, tenantId);
         var currentVersion = ReadVersion(state);
         await CacheAsync(tenantId, currentVersion);
@@ -110,6 +120,7 @@ public class SchemaVersionStore : ISchemaVersionStore
             { "$currentDate", new BsonDocument(nameof(SchemaPublishState.LastUpdatedDate), true) }
         };
 
+        await EnsureStateAsync(tenantId);
         await _repository.FindOneAndUpdateAsync(CollectionName, StateFilter, update, isUpsert: true, tenantId);
         await CacheAsync(tenantId, version);
     }
@@ -143,6 +154,51 @@ public class SchemaVersionStore : ISchemaVersionStore
             _logger.LogWarning(ex, "Could not cache schema version {Version} for tenant {TenantId}", version, tenantId);
         }
     }
+
+    /// <summary>
+    /// Returns the state doc of the new collection. When it is missing and the old doc exists, seeds the
+    /// new doc with <c>$max</c> of the old counters (only fields that exist; upsert). A DuplicateKey on that
+    /// upsert (two pods at once) retries the update once. The old collection is only read.
+    /// </summary>
+    internal async Task<BsonDocument?> EnsureStateAsync(string tenantId)
+    {
+        var state = await _repository.GetItemAsync(CollectionName, SchemaPublishState.StateId, tenantId);
+        if (state != null)
+            return state;
+
+        var legacy = await _repository.GetItemAsync(LegacyCollectionName, SchemaPublishState.StateId, tenantId);
+        if (legacy == null)
+            return null;
+
+        var max = new BsonDocument();
+        foreach (var field in new[] { nameof(SchemaPublishState.CurrentVersion), nameof(SchemaPublishState.LastAllocatedVersion) })
+        {
+            if (legacy.TryGetValue(field, out var value) && value.IsNumeric)
+                max.Add(field, value.ToInt64());
+        }
+        if (max.ElementCount == 0)
+            return null;
+
+        var update = new BsonDocument("$max", max);
+        try
+        {
+            state = await _repository.FindOneAndUpdateAsync(CollectionName, StateFilter, update, isUpsert: true, tenantId);
+        }
+        catch (Exception ex) when (IsDuplicateKey(ex))
+        {
+            state = await _repository.FindOneAndUpdateAsync(CollectionName, StateFilter, update, isUpsert: true, tenantId);
+        }
+
+        _logger.LogInformation("Schema version state of tenant {TenantId} seeded from {Legacy}", tenantId, LegacyCollectionName);
+        return state;
+    }
+
+    private static bool IsDuplicateKey(Exception ex) => ex switch
+    {
+        MongoWriteException write => write.WriteError?.Category == ServerErrorCategory.DuplicateKey,
+        MongoCommandException command => command.Code == 11000,
+        _ => false
+    };
 
     private static BsonDocument StateFilter => new(GraphQlConstant.DbEntityIdFieldName, SchemaPublishState.StateId);
 

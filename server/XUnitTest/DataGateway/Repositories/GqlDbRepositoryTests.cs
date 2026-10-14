@@ -1,5 +1,6 @@
 using Blocks.Genesis;
 using DataGateway.DomainService;
+using DataGateway.DomainService.DataSources;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Repositories;
 using FluentAssertions;
@@ -17,6 +18,7 @@ public class GqlDbRepositoryTests
     private readonly IMongoDatabase _db;
     private readonly MongoFixture _fixture;
     private readonly Mock<ICacheClient> _cache = new();
+    private readonly Mock<IDataSourceClientCache> _clientCache = new();
     private readonly GqlDbRepository _repo;
 
     public GqlDbRepositoryTests(MongoFixture fixture)
@@ -26,12 +28,12 @@ public class GqlDbRepositoryTests
         // Ensure tenant resolution yields empty so the repository falls back to GetDatabase(tenantId).
         BlocksContext.SetContext(null);
         RequestContextAccessor.Clear();
-        _cache.Setup(c => c.GetHashValue(It.IsAny<string>())).Returns(Array.Empty<HashEntry>());
+        _cache.Setup(c => c.GetHashValueAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<HashEntry>());
 
         var provider = new Mock<IDbContextProvider>();
         provider.Setup(p => p.GetDatabase(It.IsAny<string>())).Returns(_db);
         provider.Setup(p => p.GetDatabase(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>())).Returns(_db);
-        _repo = new GqlDbRepository(provider.Object, _cache.Object);
+        _repo = new GqlDbRepository(provider.Object, _cache.Object, _clientCache.Object);
     }
 
     private static BsonDocument Doc(string name, int qty) =>
@@ -137,7 +139,7 @@ public class GqlDbRepositoryTests
         // Drive the cache-backed database resolution path (tenant present, cache hit).
         RequestContextAccessor.Current = new RequestContext { TenantId = "tenant-x" };
         var conn = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"mongodb://127.0.0.1/"));
-        _cache.Setup(c => c.GetHashValue("tenant-x")).Returns(new[]
+        _cache.Setup(c => c.GetHashValueAsync("tenant-x")).ReturnsAsync(new[]
         {
             new HashEntry("DbConnectionString", conn),
             new HashEntry("DatabaseName", "somedb")
@@ -162,13 +164,13 @@ public class GqlDbRepositoryTests
         provider.Setup(p => p.GetDatabase("custom-connection", custom.DatabaseNamespace.DatabaseName, true))
             .Returns(custom);
         var cache = new Mock<ICacheClient>();
-        cache.Setup(c => c.GetHashValue(It.IsAny<string>())).Returns(Array.Empty<HashEntry>());
-        cache.Setup(c => c.GetHashValue("custom-tenant")).Returns(new[]
+        cache.Setup(c => c.GetHashValueAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<HashEntry>());
+        cache.Setup(c => c.GetHashValueAsync("custom-tenant")).ReturnsAsync(new[]
         {
             new HashEntry("DbConnectionString", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("custom-connection"))),
             new HashEntry("DatabaseName", custom.DatabaseNamespace.DatabaseName)
         });
-        var repository = new GqlDbRepository(provider.Object, cache.Object);
+        var repository = new GqlDbRepository(provider.Object, cache.Object, Mock.Of<IDataSourceClientCache>());
         var id = Guid.NewGuid().ToString();
 
         foreach (var (tenantId, name) in new[]
@@ -186,5 +188,144 @@ public class GqlDbRepositoryTests
         }
 
         RequestContextAccessor.Clear();
+    }
+
+    // ---------------- routing by hash shape (data SPEC1 §3.5.5, R-PATH-*, R-SEC-TENANT, C11, C16) ----------------
+
+    private sealed class Routing
+    {
+        public Mock<IDbContextProvider> Provider { get; } = new();
+        public Mock<ICacheClient> Cache { get; } = new();
+        public Mock<IDataSourceClientCache> ClientCache { get; } = new();
+        public GqlDbRepository Repo => new(Provider.Object, Cache.Object, ClientCache.Object);
+    }
+
+    private Routing Route(string tenant, params HashEntry[] hash)
+    {
+        var r = new Routing();
+        r.Provider.Setup(p => p.GetDatabase(It.IsAny<string>())).Returns(_db);
+        r.Provider.Setup(p => p.GetDatabase(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>())).Returns(_db);
+        r.Cache.Setup(c => c.GetHashValueAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<HashEntry>());
+        r.Cache.Setup(c => c.GetHashValueAsync(tenant)).ReturnsAsync(hash);
+        r.ClientCache.Setup(c => c.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(_db);
+        return r;
+    }
+
+    [Fact]
+    public async Task NoHash_BlocksTenantDb_NoSecretPath()
+    {
+        RequestContextAccessor.Current = new RequestContext { TenantId = "t-def" };
+        var r = Route("t-def");
+        await r.Repo.GetItemAsync("C", "x");
+        r.Provider.Verify(p => p.GetDatabase("t-def"), Times.Once);
+        r.ClientCache.Verify(c => c.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        RequestContextAccessor.Clear();
+    }
+
+    [Theory]
+    [InlineData("default")]
+    [InlineData("Default")]
+    [InlineData("DEFAULT")]
+    [InlineData("")]
+    public async Task SecretIdDefaultOrBlank_BlocksTenantDb_AndReleasesTheOldClient(string id)
+    {
+        RequestContextAccessor.Current = new RequestContext { TenantId = "t-1" };
+        var r = Route("t-1", new HashEntry("DbConnectionSecretId", id), new HashEntry("DatabaseName", "x"), new HashEntry("Version", "1"));
+        await r.Repo.GetItemAsync("C", "x");
+        r.Provider.Verify(p => p.GetDatabase("t-1"), Times.Once);
+        r.ClientCache.Verify(c => c.Release("t-1"), Times.Once);
+        r.ClientCache.Verify(c => c.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        RequestContextAccessor.Clear();
+    }
+
+    [Fact]
+    public async Task SecretId_GoesThroughTheClientCache_WithVersionAndDbName_NeverGenesisWithAConnectionString()
+    {
+        RequestContextAccessor.Current = new RequestContext { TenantId = "t-byo" };
+        var r = Route("t-byo", new HashEntry("DbConnectionSecretId", "0123456789abcdef0123456789abcdef"),
+            new HashEntry("DatabaseName", "byo"), new HashEntry("Version", "638900000000000000"));
+        await r.Repo.GetItemAsync("C", "x");
+        r.ClientCache.Verify(c => c.GetAsync("t-byo", "0123456789abcdef0123456789abcdef", "638900000000000000", "byo", It.IsAny<CancellationToken>()), Times.Once);
+        r.Provider.Verify(p => p.GetDatabase(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        r.Provider.Verify(p => p.GetDatabase(It.IsAny<string>()), Times.Never);
+        RequestContextAccessor.Clear();
+    }
+
+    [Fact]
+    public async Task LegacyConnectionString_TodaysDecodeAndGenesisCall_NoSecretRead()
+    {
+        RequestContextAccessor.Current = new RequestContext { TenantId = "t-old" };
+        var r = Route("t-old", new HashEntry("DbConnectionString", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("mongodb://legacy/"))),
+            new HashEntry("DatabaseName", "legacydb"));
+        await r.Repo.GetItemAsync("C", "x");
+        r.Provider.Verify(p => p.GetDatabase("mongodb://legacy/", "legacydb", true), Times.Once);
+        r.ClientCache.Verify(c => c.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        RequestContextAccessor.Clear();
+    }
+
+    [Fact]
+    public async Task LegacyDefault_BlocksTenantDb()
+    {
+        RequestContextAccessor.Current = new RequestContext { TenantId = "t-old" };
+        var r = Route("t-old", new HashEntry("DbConnectionString", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("default"))),
+            new HashEntry("DatabaseName", "x"));
+        await r.Repo.GetItemAsync("C", "x");
+        r.Provider.Verify(p => p.GetDatabase("t-old"), Times.Once);
+        RequestContextAccessor.Clear();
+    }
+
+    [Fact]
+    public async Task SecretFailure_FailsClosed_NeverTheBlocksTenantDb()
+    {
+        RequestContextAccessor.Current = new RequestContext { TenantId = "t-byo" };
+        var r = Route("t-byo", new HashEntry("DbConnectionSecretId", "0123456789abcdef0123456789abcdef"), new HashEntry("DatabaseName", "byo"), new HashEntry("Version", "1"));
+        r.ClientCache.Setup(c => c.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DataSourceUnavailableException("vault down"));
+
+        var act = () => r.Repo.GetItemAsync("C", "x");
+
+        await act.Should().ThrowAsync<DataSourceUnavailableException>().WithMessage("vault down");
+        r.Provider.Verify(p => p.GetDatabase(It.IsAny<string>()), Times.Never);
+        RequestContextAccessor.Clear();
+    }
+
+    [Fact]
+    public async Task Tenant_AuthenticatedCallerWins_AnonymousUsesTheHeaderTenant()
+    {
+        var id = new HashEntry("DbConnectionSecretId", "0123456789abcdef0123456789abcdef");
+        var r = Route("tenant-a", id, new HashEntry("DatabaseName", "a"), new HashEntry("Version", "1"));
+        r.Cache.Setup(c => c.GetHashValueAsync("tenant-b")).ReturnsAsync(new[] { id, new HashEntry("DatabaseName", "b"), new HashEntry("Version", "1") });
+
+        BlocksTestContext.Set(tenantId: "tenant-a");
+        RequestContextAccessor.Current = new RequestContext { TenantId = "tenant-b" };
+        await r.Repo.GetItemAsync("C", "x");
+        r.ClientCache.Verify(c => c.GetAsync("tenant-a", It.IsAny<string>(), It.IsAny<string>(), "a", It.IsAny<CancellationToken>()), Times.Once);
+
+        BlocksContext.SetContext(null);
+        await r.Repo.GetItemAsync("C", "x");
+        r.ClientCache.Verify(c => c.GetAsync("tenant-b", It.IsAny<string>(), It.IsAny<string>(), "b", It.IsAny<CancellationToken>()), Times.Once);
+        RequestContextAccessor.Clear();
+    }
+
+    [Fact]
+    public async Task GetItemsBatch_StopsAtMaxDocs_AndAtTheByteCap_AlwaysAtLeastOneDoc()
+    {
+        var docs = Enumerable.Range(0, 30).Select(i => new BsonDocument { { "_id", i }, { "Pad", new string('p', 1000) } }).ToList();
+        await _repo.InsertManyAsync("Batch", docs);
+        var size = docs[0].ToBson().Length;
+
+        var byCount = await _repo.GetItemsBatchAsync("Batch", new BsonDocument(), new BsonDocument("_id", 1), 10, long.MaxValue);
+        byCount.Documents.Should().HaveCount(10);
+        byCount.Documents.Select(d => d["_id"].AsInt32).Should().Equal(Enumerable.Range(0, 10));
+        byCount.Sizes.Should().AllSatisfy(x => x.Should().Be(size));
+        byCount.TotalBytes.Should().Be(10L * size);
+
+        var byBytes = await _repo.GetItemsBatchAsync("Batch", new BsonDocument(), new BsonDocument("_id", 1), 500, size * 3 + 1);
+        byBytes.Documents.Should().HaveCount(3);
+        byBytes.TotalBytes.Should().BeLessThanOrEqualTo(size * 3 + 1);
+
+        var tiny = await _repo.GetItemsBatchAsync("Batch", new BsonDocument(), new BsonDocument("_id", 1), 500, 1);
+        tiny.Documents.Should().ContainSingle("always at least one doc");
     }
 }

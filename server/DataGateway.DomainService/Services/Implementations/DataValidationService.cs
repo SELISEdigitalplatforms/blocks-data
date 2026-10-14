@@ -8,6 +8,7 @@ using DataGateway.DomainService.Helpers;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Microsoft.Extensions.Logging;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 

@@ -12,6 +12,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.Services;
 
@@ -107,13 +108,33 @@ public class SchemaExportServiceTests
     }
 
     [Fact]
-    public async Task InsertExportRecord_Inserts()
+    public async Task InsertExportRecord_WritesOneAuditRow_AndNoSchemaExportRecord()
     {
-        _repo.Setup(r => r.InsertAsync(It.IsAny<SchemaExportRecord>(), "p")).ReturnsAsync((SchemaExportRecord r, string _) => r);
+        BlocksTestContext.Set(userId: "exporter-1", tenantId: "p");
+        BsonDocument? written = null;
+        _repo.Setup(r => r.InsertAsync("ObjectAuditLogs", It.IsAny<BsonDocument>(), "p"))
+            .Callback((string _, BsonDocument d, string _) => written = d)
+            .ReturnsAsync((string _, BsonDocument d, string _) => d);
 
-        await _service.InsertExportRecordAsync(new SchemaExportEvent { FileId = "f1", ProjectKey = "p", ExportOption = SchemaExportOption.Schema }, "file.json");
+        await _service.InsertExportRecordAsync(new SchemaExportEvent { FileId = "f1", ProjectKey = "p", ExportOption = SchemaExportOption.All }, "file.json");
 
-        _repo.Verify(r => r.InsertAsync(It.Is<SchemaExportRecord>(x => x.FileId == "f1" && x.FileName == "file.json"), "p"), Times.Once);
+        _repo.Verify(r => r.InsertAsync("ObjectAuditLogs", It.IsAny<BsonDocument>(), "p"), Times.Once);
+        _repo.Verify(r => r.InsertAsync("SchemaExportRecords", It.IsAny<BsonDocument>(), It.IsAny<string>()), Times.Never);
+        written.Should().NotBeNull();
+        written!["Action"].AsString.Should().Be("schema-export");
+        written["ResourceType"].AsString.Should().Be("SchemaExport");
+        written["ResourceId"].AsString.Should().Be("f1");
+        written["UserId"].AsString.Should().Be("exporter-1");
+        written["CreatedBy"].AsString.Should().Be("exporter-1");
+        written["TenantId"].AsString.Should().Be("p");
+        written["Granted"].AsBoolean.Should().BeTrue();
+        written["_id"].IsString.Should().BeTrue();
+        written["CreatedDate"].IsValidDateTime.Should().BeTrue();
+        written.Contains("Record").Should().BeFalse();
+        var detail = System.Text.Json.JsonDocument.Parse(written["Detail"].AsString).RootElement;
+        detail.GetProperty("FileName").GetString().Should().Be("file.json");
+        detail.GetProperty("ExportOption").GetString().Should().Be("All");
+        BlocksTestContext.Clear();
     }
 }
 

@@ -4,6 +4,7 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage.Validators;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.Storage;
 

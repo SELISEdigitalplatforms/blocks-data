@@ -16,7 +16,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
-using File = Storage.DomainService.Entities.File;
+using Blocks.Genesis.Entities.Data;
+using File = Blocks.Genesis.Entities.Data.File;
 using Response = Storage.DomainService.Storage.Response;
 
 namespace Storage.DomainService.Services

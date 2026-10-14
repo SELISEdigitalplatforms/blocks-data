@@ -5,6 +5,7 @@ using DataGateway.DomainService.Models.Events;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Services;
 using MongoDB.Bson;
+using Blocks.Genesis.Entities.Data;
 namespace Worker.Consumers;
 
 public class MigrationCompletionEventConsumer : IConsumer<MigrationCompletionEvent>
@@ -47,6 +48,25 @@ public class MigrationCompletionEventConsumer : IConsumer<MigrationCompletionEve
                 _logger.LogWarning("Failed to update schema definitions for tracker id: {@TrackerId}", @event.TrackerId);
                 return;
             }
+            // Root doc first (the source of truth), then the tenant copy; both field $set, retry-safe.
+            var updateRoot = await _dbRepository.UpdateManyAsync(
+                $"{nameof(DataServiceConfiguration)}s",
+                new BsonDocument {
+                { "_id", targetedProjectKey },
+                { nameof(DataServiceConfiguration.ProjectKey), projectKey }
+                    },
+                new BsonDocument {
+                { nameof(DataServiceConfiguration.ProjectKey), targetedProjectKey },
+                { nameof(DataServiceConfiguration.ProjectShortKey), targetedProjectShortKey }
+                    },
+                GraphQlConstant.BlocksRootDbName
+            );
+            if (!updateRoot.Acknowledged)
+            {
+                _logger.LogWarning("Failed to update the root data service configuration for tracker id: {@TrackerId}", @event.TrackerId);
+                return;
+            }
+
             var updateSource = await _dbRepository.UpdateManyAsync(
                 $"{nameof(DataServiceConfiguration)}s",
                 new BsonDocument { { nameof(DataServiceConfiguration.ProjectKey), projectKey } },

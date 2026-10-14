@@ -2,6 +2,7 @@
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
 using System.Diagnostics.CodeAnalysis;
+using Blocks.Genesis.Entities.Data;
 
 
 namespace DomainService.Configuration

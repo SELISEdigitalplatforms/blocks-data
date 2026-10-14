@@ -1,5 +1,6 @@
 using Storage.DomainService.Entities;
-using FileDirectory = Storage.DomainService.Entities.FileDirectory;
+using Blocks.Genesis.Entities.Data;
+using FileDirectory = Blocks.Genesis.Entities.Data.FileDirectory;
 
 namespace Storage.DomainService.Services;
 

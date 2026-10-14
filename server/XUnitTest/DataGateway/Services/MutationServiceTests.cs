@@ -21,6 +21,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
+using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway.Services;
@@ -250,8 +251,11 @@ public class MutationServiceTests
 
         result.Acknowledged.Should().BeTrue();
         result.ItemId.Should().Be("id-9");
-        // soft delete archives to DataMutationRecords
-        repo.Verify(r => r.InsertAsync($"{nameof(DataMutationRecord)}s", It.IsAny<BsonDocument>()), Times.Once);
+        // soft delete writes one ObjectAuditLogs row (data-delete) with the deleted doc in Record
+        repo.Verify(r => r.InsertAsync("ObjectAuditLogs", It.Is<BsonDocument>(d =>
+            d["Action"] == "data-delete" && d["ResourceType"] == "DataRecord" && d["ResourceId"] == "id-9"
+            && d["Record"]["Name"] == "Del")), Times.Once);
+        repo.Verify(r => r.InsertAsync("DataMutationRecords", It.IsAny<BsonDocument>()), Times.Never);
         pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Deleted,
             It.IsAny<List<BsonDocument>>(), null), Times.Once);
     }
@@ -376,27 +380,39 @@ public class MutationServiceTests
         result.Acknowledged.Should().BeFalse();
     }
 
+    private static DocumentBatch Batch(params BsonDocument[] docs)
+    {
+        var batch = new DocumentBatch();
+        foreach (var d in docs)
+            batch.Add(d, d.ToBson().Length);
+        return batch;
+    }
+
     [Fact]
     public async Task BulkDeleteAsync_Found_SoftDeletesMany()
     {
         var repo = Repo();
         var pub = new Mock<IDataChangeEventPublisher>();
-        repo.Setup(r => r.GetItemsAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>(),
-                It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<int>()))
-            .ReturnsAsync(new List<BsonDocument> { PersonDoc("id-1", "A", 1), PersonDoc("id-2", "B", 2) });
+        repo.SetupSequence(r => r.GetItemsBatchAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<long>()))
+            .ReturnsAsync(Batch(PersonDoc("id-1", "A", 1), PersonDoc("id-2", "B", 2)))
+            .ReturnsAsync(Batch());
         repo.Setup(r => r.InsertManyAsync(It.IsAny<string>(), It.IsAny<List<BsonDocument>>()))
             .ReturnsAsync(new BulkActionResponse { Acknowledged = true, TotalImpactedData = 2 });
         repo.Setup(r => r.DeleteManyAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()))
-            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+            .ReturnsAsync(new ActionResponse { Acknowledged = true, TotalImpactedData = 2 });
         var schema = Schema(fields: new() { Field("Name") });
         var ctx = ContextWith(ObjectLiteral("{ isHardDelete: false }"));
 
         var result = await NewService(repo, pub).BulkDeleteAsync(schema, ctx.Object, _deleteInput);
 
         result.Acknowledged.Should().BeTrue();
-        repo.Verify(r => r.InsertManyAsync($"{nameof(DataMutationRecord)}s", It.IsAny<List<BsonDocument>>()), Times.Once);
-        pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Deleted,
-            It.IsAny<List<BsonDocument>>(), null), Times.Once);
+        result.TotalImpactedData.Should().Be(2);
+        repo.Verify(r => r.InsertManyAsync("ObjectAuditLogs", It.Is<List<BsonDocument>>(l => l.Count == 2)), Times.Once);
+        pub.Verify(p => p.PublishInChunksAsync(schema, DataChangeOperation.Deleted,
+            It.Is<IReadOnlyList<BsonDocument>>(l => l.Count == 2)), Times.Once);
+        pub.Verify(p => p.PublishAsync(It.IsAny<SchemaDefinitionExtended>(), It.IsAny<DataChangeOperation>(),
+            It.IsAny<List<BsonDocument>>(), It.IsAny<List<UpdatedDocument>>()), Times.Never);
     }
 
     [Fact]
@@ -404,9 +420,9 @@ public class MutationServiceTests
     {
         var repo = Repo();
         var pub = new Mock<IDataChangeEventPublisher>();
-        repo.Setup(r => r.GetItemsAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>(),
-                It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<int>()))
-            .ReturnsAsync(new List<BsonDocument>());
+        repo.Setup(r => r.GetItemsBatchAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<long>()))
+            .ReturnsAsync(Batch());
         var schema = Schema(fields: new() { Field("Name") });
         var ctx = ContextWith(ObjectLiteral("{ isHardDelete: false }"));
 

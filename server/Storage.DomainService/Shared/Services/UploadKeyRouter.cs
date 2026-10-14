@@ -1,6 +1,7 @@
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Utilities;
+using Blocks.Genesis.Entities.Data;
 
 namespace Storage.DomainService.Services
 {

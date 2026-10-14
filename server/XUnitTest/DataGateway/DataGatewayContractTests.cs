@@ -1,3 +1,5 @@
+using MongoDB.Bson;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Events;
@@ -391,39 +393,32 @@ public class DataGatewayContractTests
     // ---------------- mutation audit record ----------------
 
     [Fact]
-    public void DataMutationRecord_DefaultsToTheLatestRevisionWithEmptyIdentifiers()
+    public void AuditLogDocument_HasTheObjectAuditLogShape_DetailIsJsonText_NoRecordWhenNull()
     {
-        var record = new DataMutationRecord { Record = new { Name = "Ada" } };
+        var doc = AuditLogDocument.Build("schema-export", "SchemaExport", "file-1", "user-1", "tenant-1",
+            new Dictionary<string, string> { ["FileName"] = "f.json", ["ExportOption"] = "Schema" });
 
-        record.IsLatest.Should().BeTrue();
-        record.CollectionName.Should().BeEmpty();
-        record.SchemaName.Should().BeEmpty();
-        record.SchemaId.Should().BeEmpty();
-        record.RecordItemId.Should().BeEmpty();
-        record.Operation.Should().BeEmpty();
+        doc["_id"].IsString.Should().BeTrue();
+        foreach (var field in new[] { "CreatedDate", "LastUpdatedDate", "CreatedBy", "LastUpdatedBy", "Language", "OrganizationId", "Tags",
+                     "TenantId", "ResourceId", "ResourceType", "UserId", "Action", "Granted", "Detail" })
+            doc.Contains(field).Should().BeTrue(field);
+        doc["Detail"].IsString.Should().BeTrue();
+        doc["Granted"].AsBoolean.Should().BeTrue();
+        doc.Contains("Record").Should().BeFalse();
+        doc.Contains("IsLatest").Should().BeFalse();
+        doc.Contains("Operation").Should().BeFalse();
     }
 
     [Fact]
-    public void DataMutationRecord_CarriesTheArchivedRevision()
+    public void AuditLogDocument_WithRecord_KeepsTheDeletedDoc()
     {
-        var record = new DataMutationRecord
-        {
-            CollectionName = "Persons",
-            SchemaName = "Person",
-            SchemaId = "schema-1",
-            RecordItemId = "person-1",
-            Operation = "Updated",
-            IsLatest = false,
-            Record = new { Name = "Ada" }
-        };
+        var record = new BsonDocument { { "_id", "p-1" }, { "Name", "Ada" } };
+        var doc = AuditLogDocument.Build("data-delete", "DataRecord", "p-1", "user-1", "tenant-1",
+            new Dictionary<string, string> { ["CollectionName"] = "Persons", ["SchemaName"] = "Person", ["SchemaId"] = "s-1" }, record);
 
-        record.CollectionName.Should().Be("Persons");
-        record.SchemaName.Should().Be("Person");
-        record.SchemaId.Should().Be("schema-1");
-        record.RecordItemId.Should().Be("person-1");
-        record.Operation.Should().Be("Updated");
-        record.IsLatest.Should().BeFalse();
-        ((object)record.Record).Should().NotBeNull();
+        doc["Record"]["Name"].AsString.Should().Be("Ada");
+        doc["Action"].AsString.Should().Be("data-delete");
+        doc["ResourceType"].AsString.Should().Be("DataRecord");
     }
 
     // ---------------- guid mapping ----------------

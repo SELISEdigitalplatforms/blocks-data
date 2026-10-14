@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 
@@ -104,15 +105,20 @@ public class SchemaExportService : ISchemaExportService
     public async Task InsertExportRecordAsync(SchemaExportEvent exportEvent, string fileName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(exportEvent.ProjectKey);
-        var record = new SchemaExportRecord
-        {
-            FileId = exportEvent.FileId,
-            FileName = fileName,
-            ExportOption = exportEvent.ExportOption,
-            ExportedAt = DateTime.UtcNow
-        };
-        record.InjectDefaultValue();
-        await _dbRepository.InsertAsync(record, exportEvent.ProjectKey);
+        var context = BlocksContext.GetContext();
+        var record = AuditLogDocument.Build(
+            action: AuditLogDocument.ActionSchemaExport,
+            resourceType: AuditLogDocument.ResourceTypeSchemaExport,
+            resourceId: exportEvent.FileId,
+            userId: context?.UserId ?? string.Empty,
+            tenantId: exportEvent.ProjectKey,
+            detail: new Dictionary<string, string>
+            {
+                ["FileName"] = fileName,
+                ["ExportOption"] = exportEvent.ExportOption.ToString()
+            },
+            organizationId: context?.OrganizationId);
+        await _dbRepository.InsertAsync(AuditLogDocument.CollectionName, record, exportEvent.ProjectKey);
         _logger.LogInformation("InsertExportRecordAsync: Record created for fileId={FileId}", exportEvent.FileId);
     }
 

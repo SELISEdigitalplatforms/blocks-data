@@ -2,6 +2,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
+using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway;

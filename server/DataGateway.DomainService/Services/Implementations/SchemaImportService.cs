@@ -12,6 +12,7 @@ using DataGateway.DomainService.Validators;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using System.Text.Json;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 

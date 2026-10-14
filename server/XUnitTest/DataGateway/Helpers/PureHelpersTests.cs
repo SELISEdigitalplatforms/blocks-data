@@ -4,6 +4,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Utilities;
 using FluentAssertions;
 using MongoDB.Bson;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.Helpers;
 

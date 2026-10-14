@@ -8,6 +8,7 @@ using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using Moq;
+using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway;

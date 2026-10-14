@@ -1,6 +1,7 @@
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using MongoDB.Bson;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Helpers;
 

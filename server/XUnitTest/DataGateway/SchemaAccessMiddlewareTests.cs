@@ -10,6 +10,7 @@ using HotChocolate.Types;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
+using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway;

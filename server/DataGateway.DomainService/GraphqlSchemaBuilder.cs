@@ -8,6 +8,7 @@ using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService;
 

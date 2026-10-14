@@ -2,6 +2,7 @@ using DataGateway.DomainService.Entities;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway;
 

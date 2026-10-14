@@ -3,9 +3,9 @@ using DataGateway.DomainService.Models.Events;
 using DataGateway.DomainService.Services;
 using DomainService.Storage;
 using Storage.DomainService.Services;
-using Storage.DomainService.Shared.Enums;
 using System.Text;
 using System.Text.Json;
+using Blocks.Genesis.Entities.Data;
 
 namespace Worker.Consumers;
 

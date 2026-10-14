@@ -3,6 +3,7 @@ using Blocks.Genesis;
 using MongoDB.Bson;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Helpers;
 

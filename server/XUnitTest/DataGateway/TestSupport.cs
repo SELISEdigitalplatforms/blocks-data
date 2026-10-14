@@ -156,7 +156,7 @@ internal static class TestSupport
         AccessPrincipal.From(BlocksContext.GetContext(), RequestContextAccessor.Current.IsRequestFromBlocksCloud);
 
     /// <summary>A real resolver over the schema's own policy list, as the gateway registers it.</summary>
-    public static IDataAccessPolicyResolver Resolver() => new DataAccessPolicyResolver(new SchemaPolicySource());
+    public static IDataAccessPolicyResolutionService Resolver() => new DataAccessPolicyResolutionService(new SchemaPolicySource());
 
     /// <summary>A principal accessor that reads the same ambient context the tests set with <see cref="SetContext"/> and <see cref="SetBlocksCloud"/>.</summary>
     public static IAccessPrincipalAccessor Principals() => new AmbientPrincipalAccessor();

@@ -30,14 +30,14 @@ public class MutationService : IMutationService
     private const string OperationLabelDelete = "DELETE";
     private readonly IGqlDbRepository _repository;
     private readonly IDataChangeEventPublisher _eventPublisher;
-    private readonly IDataAccessPolicyResolver _resolver;
+    private readonly IDataAccessPolicyResolutionService _resolver;
     private readonly IAccessPrincipalAccessor _principals;
     private readonly ILogger<MutationService> _logger;
 
     public MutationService(
         IGqlDbRepository repository,
         IDataChangeEventPublisher eventPublisher,
-        IDataAccessPolicyResolver resolver,
+        IDataAccessPolicyResolutionService resolver,
         IAccessPrincipalAccessor principals,
         ILogger<MutationService> logger)
     {

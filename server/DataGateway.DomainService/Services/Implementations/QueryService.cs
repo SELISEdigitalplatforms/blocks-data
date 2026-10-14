@@ -22,13 +22,13 @@ namespace DataGateway.DomainService.Services;
 public class QueryService : IQueryService
 {
     private readonly IGqlDbRepository _repository;
-    private readonly IDataAccessPolicyResolver _resolver;
+    private readonly IDataAccessPolicyResolutionService _resolver;
     private readonly IAccessPrincipalAccessor _principals;
     private readonly ILogger<QueryService> _logger;
 
     public QueryService(
         IGqlDbRepository repository,
-        IDataAccessPolicyResolver resolver,
+        IDataAccessPolicyResolutionService resolver,
         IAccessPrincipalAccessor principals,
         ILogger<QueryService> logger)
     {

@@ -39,7 +39,7 @@ public class GenesisDataAccessTests
             new SchemaResolver(Mock.Of<IMutationService>(), Mock.Of<IQueryService>()), repository, NullLogger<GraphqlSchemaBuilder>.Instance);
         var principals = new Mock<IAccessPrincipalAccessor>();
         principals.Setup(p => p.Current).Returns(_principal);
-        _resolver = new DataAccessResolver(contextProvider.Object, new DataAccessPolicyResolver(new SchemaPolicySource()), principals.Object);
+        _resolver = new DataAccessResolver(contextProvider.Object, new DataAccessPolicyResolutionService(new SchemaPolicySource()), principals.Object);
     }
 
     private async Task SeedAsync()

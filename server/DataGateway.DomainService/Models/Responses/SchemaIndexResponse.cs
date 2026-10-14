@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 using DataGateway.DomainService.Models;
 
 namespace DataGateway.DomainService.Models.Responses;

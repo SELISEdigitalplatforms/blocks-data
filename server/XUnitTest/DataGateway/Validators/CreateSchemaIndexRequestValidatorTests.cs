@@ -1,7 +1,8 @@
+using Blocks.DataAccess.Models;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Validators;
 using FluentAssertions;
-using SortDirection = DataGateway.DomainService.Models.SortDirection;
+using SortDirection = Blocks.DataAccess.Models.SortDirection;
 
 namespace XUnitTest.DataGateway.Validators;
 

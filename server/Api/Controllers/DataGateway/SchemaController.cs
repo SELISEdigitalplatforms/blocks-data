@@ -1,4 +1,5 @@
 ﻿using Blocks.Genesis;
+using Blocks.DataAccess.Models;
 using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Services;

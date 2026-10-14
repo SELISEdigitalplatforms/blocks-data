@@ -1,5 +1,6 @@
+using Blocks.DataAccess.Models;
 using Blocks.Genesis;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Services;

@@ -1,4 +1,5 @@
-﻿using DataGateway.DomainService.Entities;
+﻿using Blocks.DataAccess.Entities;
+using Blocks.DataAccess.Models;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Responses;

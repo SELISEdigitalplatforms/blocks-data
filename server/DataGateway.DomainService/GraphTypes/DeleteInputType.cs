@@ -1,6 +1,6 @@
 
 
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Models.Constants;
 
 namespace DataGateway.DomainService.GraphTypes;

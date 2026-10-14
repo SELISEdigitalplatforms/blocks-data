@@ -1,4 +1,4 @@
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Events;
 using FluentAssertions;
@@ -266,7 +266,7 @@ public class DataGatewayContractTests
     public void DataGatewayInstanceEntity_CarriesTheDeploymentLog()
     {
         var start = new DateTime(2026, 7, 30, 9, 0, 0, DateTimeKind.Utc);
-        var instance = new global::DataGateway.DomainService.Entities.DataGatewayInstance
+        var instance = new global::Blocks.DataAccess.Entities.DataGatewayInstance
         {
             TenantId = "tenant-1",
             ProjectGuid = "guid-1",

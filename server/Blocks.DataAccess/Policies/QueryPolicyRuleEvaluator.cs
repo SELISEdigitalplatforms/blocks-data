@@ -1,8 +1,8 @@
-using DataGateway.DomainService.Entities;
-using DataGateway.DomainService.Models;
+using Blocks.DataAccess.Entities;
+using Blocks.DataAccess.Models;
 using MongoDB.Bson;
 
-namespace DataGateway.DomainService.Helpers;
+namespace Blocks.DataAccess.Policies;
 
 /// <summary>
 /// Evaluates policy rule groups against a single row of data (for CLS row-level evaluation).
@@ -13,19 +13,19 @@ public static class QueryPolicyRuleEvaluator
     /// <summary>
     /// Returns true if the row satisfies the policy's rule group.
     /// </summary>
-    public static bool RowSatisfiesPolicy(DataAccessPolicy policy, IDictionary<string, object> rowData)
+    public static bool RowSatisfiesPolicy(AccessPrincipal principal, DataAccessPolicy policy, IDictionary<string, object> rowData)
     {
         if (policy.RuleGroup == null) return false;
-        return EvaluateRuleGroupForRow(policy.RuleGroup, rowData);
+        return EvaluateRuleGroupForRow(principal, policy.RuleGroup, rowData);
     }
 
     /// <summary>
     /// Evaluates a rule group against row data (AND/OR of rules and nested groups).
     /// </summary>
-    public static bool EvaluateRuleGroupForRow(PolicyRuleGroup group, IDictionary<string, object> rowData)
+    public static bool EvaluateRuleGroupForRow(AccessPrincipal principal, PolicyRuleGroup group, IDictionary<string, object> rowData)
     {
-        var ruleResults = group.Rules.Select(rule => EvaluateSingleRuleForRow(rule, rowData)).ToList();
-        var nestedResults = group.NestedGroups.Select(nested => EvaluateRuleGroupForRow(nested, rowData)).ToList();
+        var ruleResults = group.Rules.Select(rule => EvaluateSingleRuleForRow(principal, rule, rowData)).ToList();
+        var nestedResults = group.NestedGroups.Select(nested => EvaluateRuleGroupForRow(principal, nested, rowData)).ToList();
         var allResults = ruleResults.Concat(nestedResults).ToList();
 
         if (allResults.Count == 0) return false;
@@ -37,14 +37,14 @@ public static class QueryPolicyRuleEvaluator
     /// <summary>
     /// Evaluates a single rule by resolving operands and comparing via DataAccessPolicyHelper.
     /// </summary>
-    public static bool EvaluateSingleRuleForRow(PolicyRule rule, IDictionary<string, object> rowData)
+    public static bool EvaluateSingleRuleForRow(AccessPrincipal principal, PolicyRule rule, IDictionary<string, object> rowData)
     {
-        var leftValue = ResolveRuleOperandValue(rule.LeftSource, rule.LeftOperand, rule.StaticValue, rowData);
+        var leftValue = ResolveRuleOperandValue(principal, rule.LeftSource, rule.LeftOperand, rule.StaticValue, rowData);
         var rightOperands = rule.RightOperands.Count > 0 ? rule.RightOperands : [rule.RightOperand];
         var results = rightOperands.Select(operand => DataAccessPolicyHelper.EvaluateCondition(
             leftValue,
             rule.Operator,
-            ResolveRuleOperandValue(rule.RightSource, operand, rule.StaticValue, rowData)));
+            ResolveRuleOperandValue(principal, rule.RightSource, operand, rule.StaticValue, rowData)));
         return rule.Operator is PolicyOperator.NOT_IN or PolicyOperator.NOT_CONTAIN
             ? results.All(result => result)
             : results.Any(result => result);
@@ -54,6 +54,7 @@ public static class QueryPolicyRuleEvaluator
     /// Resolves an operand value from AUTH token, schema field, or static value.
     /// </summary>
     public static object? ResolveRuleOperandValue(
+        AccessPrincipal principal,
         ConditionSource source,
         string operand,
         object? staticValue,
@@ -61,7 +62,7 @@ public static class QueryPolicyRuleEvaluator
     {
         return source switch
         {
-            ConditionSource.AUTH => DataAccessPolicyHelper.GetTokenValue(operand),
+            ConditionSource.AUTH => DataAccessPolicyHelper.GetTokenValue(principal, operand),
             ConditionSource.SCHEMA_FIELD => GetNestedValueByPath(rowData, operand),
             ConditionSource.STATIC_VALUE => staticValue,
             _ => null

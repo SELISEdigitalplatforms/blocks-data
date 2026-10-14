@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 using System.Text.RegularExpressions;
 using DataGateway.DomainService.Models;
 

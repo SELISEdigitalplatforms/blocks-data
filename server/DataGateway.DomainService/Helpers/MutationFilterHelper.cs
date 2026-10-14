@@ -1,6 +1,8 @@
+using Blocks.DataAccess.Policies;
+using Blocks.DataAccess.Models;
 using Blocks.Genesis;
 using DataGateway.DomainService.Conversion;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Resolvers;
@@ -55,12 +57,8 @@ public static class MutationFilterHelper
     }
 
     /// <summary>Combines base filter with RLS data filter when required.</summary>
-    public static BsonDocument ApplyPolicyFilter(BsonDocument baseFilter, PolicyEvaluationResult rlsResult)
-    {
-        if (!rlsResult.RequiresDataFilter || rlsResult.DataFilter.ElementCount == 0)
-            return baseFilter;
-        return new BsonDocument("$and", new BsonArray { baseFilter, rlsResult.DataFilter });
-    }
+    public static BsonDocument ApplyPolicyFilter(BsonDocument baseFilter, PolicyEvaluationResult rlsResult) =>
+        Blocks.DataAccess.Policies.RlsFilterHelper.ApplyPolicyFilter(baseFilter, rlsResult);
 
     private static bool IsOwnerCheckRequested(IResolverContext context) =>
         context.ScopedContextData.TryGetValue(GraphQlConstant.CheckForOwnerContextKey, out var value) && value is true;

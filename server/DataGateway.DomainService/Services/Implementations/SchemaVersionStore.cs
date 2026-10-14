@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using Blocks.Genesis;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
 using Microsoft.Extensions.Logging;

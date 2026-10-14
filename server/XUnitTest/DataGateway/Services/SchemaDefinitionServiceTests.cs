@@ -1,8 +1,9 @@
+using Blocks.DataAccess.Models;
 using System.Net;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Connections;
 using MongoDB.Driver.Core.Servers;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Responses;
@@ -16,7 +17,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
-using SortDirection = DataGateway.DomainService.Models.SortDirection;
+using SortDirection = Blocks.DataAccess.Models.SortDirection;
 
 namespace XUnitTest.DataGateway.Services;
 

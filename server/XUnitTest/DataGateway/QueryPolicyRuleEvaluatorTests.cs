@@ -1,4 +1,6 @@
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Policies;
+using Blocks.DataAccess.Models;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
@@ -13,7 +15,7 @@ public class QueryPolicyRuleEvaluatorTests
     public void RowSatisfiesPolicy_NullRuleGroup_ReturnsFalse()
     {
         var policy = new DataAccessPolicy { RuleGroup = null! };
-        QueryPolicyRuleEvaluator.RowSatisfiesPolicy(policy, new Dictionary<string, object>()).Should().BeFalse();
+        QueryPolicyRuleEvaluator.RowSatisfiesPolicy(CurrentPrincipal(), policy, new Dictionary<string, object>()).Should().BeFalse();
     }
 
     [Fact]
@@ -21,7 +23,7 @@ public class QueryPolicyRuleEvaluatorTests
     {
         var rule = Rule(ConditionSource.SCHEMA_FIELD, "Status", PolicyOperator.EQUAL, staticValue: "active");
         var row = new Dictionary<string, object> { ["Status"] = "active" };
-        QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(rule, row).Should().BeTrue();
+        QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(CurrentPrincipal(), rule, row).Should().BeTrue();
     }
 
     [Fact]
@@ -29,7 +31,7 @@ public class QueryPolicyRuleEvaluatorTests
     {
         var rule = Rule(ConditionSource.SCHEMA_FIELD, "Status", PolicyOperator.EQUAL, staticValue: "active");
         var row = new Dictionary<string, object> { ["Status"] = "inactive" };
-        QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(rule, row).Should().BeFalse();
+        QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(CurrentPrincipal(), rule, row).Should().BeFalse();
     }
 
     [Fact]
@@ -39,9 +41,9 @@ public class QueryPolicyRuleEvaluatorTests
             Rule(ConditionSource.SCHEMA_FIELD, "A", PolicyOperator.EQUAL, staticValue: "1"),
             Rule(ConditionSource.SCHEMA_FIELD, "B", PolicyOperator.EQUAL, staticValue: "2"));
 
-        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(group,
+        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(CurrentPrincipal(), group,
             new Dictionary<string, object> { ["A"] = "1", ["B"] = "2" }).Should().BeTrue();
-        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(group,
+        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(CurrentPrincipal(), group,
             new Dictionary<string, object> { ["A"] = "1", ["B"] = "9" }).Should().BeFalse();
     }
 
@@ -52,9 +54,9 @@ public class QueryPolicyRuleEvaluatorTests
             Rule(ConditionSource.SCHEMA_FIELD, "A", PolicyOperator.EQUAL, staticValue: "1"),
             Rule(ConditionSource.SCHEMA_FIELD, "B", PolicyOperator.EQUAL, staticValue: "2"));
 
-        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(group,
+        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(CurrentPrincipal(), group,
             new Dictionary<string, object> { ["A"] = "9", ["B"] = "2" }).Should().BeTrue();
-        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(group,
+        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(CurrentPrincipal(), group,
             new Dictionary<string, object> { ["A"] = "9", ["B"] = "9" }).Should().BeFalse();
     }
 
@@ -62,7 +64,7 @@ public class QueryPolicyRuleEvaluatorTests
     public void EvaluateRuleGroupForRow_EmptyGroup_ReturnsFalse()
     {
         var group = Group(PolicyLogicalOperator.AND);
-        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(group, new Dictionary<string, object>()).Should().BeFalse();
+        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(CurrentPrincipal(), group, new Dictionary<string, object>()).Should().BeFalse();
     }
 
     [Fact]
@@ -77,9 +79,9 @@ public class QueryPolicyRuleEvaluatorTests
             NestedGroups = new List<PolicyRuleGroup> { nested }
         };
 
-        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(group,
+        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(CurrentPrincipal(), group,
             new Dictionary<string, object> { ["Active"] = "yes", ["Role"] = "admin" }).Should().BeTrue();
-        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(group,
+        QueryPolicyRuleEvaluator.EvaluateRuleGroupForRow(CurrentPrincipal(), group,
             new Dictionary<string, object> { ["Active"] = "yes", ["Role"] = "guest" }).Should().BeFalse();
     }
 
@@ -141,7 +143,7 @@ public class QueryPolicyRuleEvaluatorTests
     [Fact]
     public void ResolveRuleOperandValue_StaticValue()
     {
-        QueryPolicyRuleEvaluator.ResolveRuleOperandValue(
+        QueryPolicyRuleEvaluator.ResolveRuleOperandValue(CurrentPrincipal(), 
             ConditionSource.STATIC_VALUE, "x", "static-val", new Dictionary<string, object>())
             .Should().Be("static-val");
     }
@@ -155,7 +157,7 @@ public class QueryPolicyRuleEvaluatorTests
             SetContext(userId: "u-99");
             try
             {
-                QueryPolicyRuleEvaluator.ResolveRuleOperandValue(
+                QueryPolicyRuleEvaluator.ResolveRuleOperandValue(CurrentPrincipal(), 
                     ConditionSource.AUTH, "userid", null, new Dictionary<string, object>())
                     .Should().Be("u-99");
             }
@@ -170,9 +172,9 @@ public class QueryPolicyRuleEvaluatorTests
             {
                 var rule = Rule(ConditionSource.AUTH, "userid", PolicyOperator.EQUAL,
                     ConditionSource.SCHEMA_FIELD, rightOperand: "CreatedBy");
-                QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(rule,
+                QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(CurrentPrincipal(), rule,
                     new Dictionary<string, object> { ["CreatedBy"] = "owner-1" }).Should().BeTrue();
-                QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(rule,
+                QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(CurrentPrincipal(), rule,
                     new Dictionary<string, object> { ["CreatedBy"] = "someone-else" }).Should().BeFalse();
             }
             finally { ClearContext(); }
@@ -188,7 +190,7 @@ public class QueryPolicyRuleEvaluatorTests
                     ConditionSource.SCHEMA_FIELD, rightOperand: "PrimaryRole");
                 rule.RightOperands = ["PrimaryRole", "AllowedRoles"];
 
-                QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(rule,
+                QueryPolicyRuleEvaluator.EvaluateSingleRuleForRow(CurrentPrincipal(), rule,
                     new Dictionary<string, object>
                     {
                         ["PrimaryRole"] = "guest",

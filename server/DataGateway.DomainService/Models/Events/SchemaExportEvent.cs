@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 namespace DataGateway.DomainService.Models.Events;
 
 public class SchemaExportEvent

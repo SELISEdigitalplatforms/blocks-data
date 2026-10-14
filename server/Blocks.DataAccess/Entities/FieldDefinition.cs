@@ -1,10 +1,10 @@
 using System;
-using DataGateway.DomainService.Models;
+using Blocks.DataAccess.Models;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Bson;
 using System.Text.Json.Serialization;
 
-namespace DataGateway.DomainService.Entities;
+namespace Blocks.DataAccess.Entities;
 
 [BsonIgnoreExtraElements(Inherited = true)]
 public class FieldDefinition //: FieldAccessInformation

@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 using System.Diagnostics;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Responses;

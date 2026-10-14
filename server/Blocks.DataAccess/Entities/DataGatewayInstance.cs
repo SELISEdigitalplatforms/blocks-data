@@ -1,6 +1,6 @@
 ﻿using Blocks.Genesis;
 
-namespace DataGateway.DomainService.Entities
+namespace Blocks.DataAccess.Entities
 {
 	public class DataGatewayInstance : BaseEntity
 	{

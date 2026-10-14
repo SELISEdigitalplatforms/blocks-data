@@ -1,5 +1,5 @@
 using Blocks.Genesis;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 
 namespace DataGateway.DomainService.Models;
 

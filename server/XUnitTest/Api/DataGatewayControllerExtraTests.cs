@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 using Api.Controllers.DataGateway;
 using BlocksTemplate.Api.Controllers;
 using DataGateway.Api.Controllers;

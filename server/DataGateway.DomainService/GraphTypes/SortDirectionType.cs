@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 using DataGateway.DomainService.Models;
 using HotChocolate.Types;
 

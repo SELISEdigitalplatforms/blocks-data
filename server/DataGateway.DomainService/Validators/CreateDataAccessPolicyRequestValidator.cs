@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 using FluentValidation;
 using DataGateway.DomainService.Models;
 

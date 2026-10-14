@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 using System.Security.Claims;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models;

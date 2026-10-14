@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 using System.Diagnostics;
 using System.Globalization;
 using DataGateway.DomainService.Services;

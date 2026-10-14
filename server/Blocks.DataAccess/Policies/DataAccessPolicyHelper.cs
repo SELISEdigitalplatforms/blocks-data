@@ -1,10 +1,9 @@
 using System.Text.RegularExpressions;
-using Blocks.Genesis;
 using MongoDB.Bson;
-using DataGateway.DomainService.Entities;
-using DataGateway.DomainService.Models;
+using Blocks.DataAccess.Entities;
+using Blocks.DataAccess.Models;
 
-namespace DataGateway.DomainService.Helpers;
+namespace Blocks.DataAccess.Policies;
 
 /// <summary>
 /// Helper class for evaluating data access policies and building MongoDB filters.
@@ -22,6 +21,7 @@ public static class DataAccessPolicyHelper
     /// </summary>
     public static PolicyEvaluationResult EvaluatePolicies(
         this List<DataAccessPolicy> policies,
+        AccessPrincipal principal,
         PolicyOperation operation,
         PolicyType policyType)
     {
@@ -49,7 +49,7 @@ public static class DataAccessPolicyHelper
 
         foreach (var policy in applicablePolicies)
         {
-            var result = EvaluatePolicy(policy);
+            var result = EvaluatePolicy(policy, principal);
 
             if (policy.IsAllowPolicy)
             {
@@ -127,7 +127,7 @@ public static class DataAccessPolicyHelper
     /// <summary>
     /// Evaluates a single policy and returns the result.
     /// </summary>
-    public static PolicyEvaluationResult EvaluatePolicy(this DataAccessPolicy policy)
+    public static PolicyEvaluationResult EvaluatePolicy(this DataAccessPolicy policy, AccessPrincipal principal)
     {
         var ruleGroup = policy.RuleGroup;
 
@@ -137,26 +137,26 @@ public static class DataAccessPolicyHelper
             return new PolicyEvaluationResult { IsAccessGranted = false };
         }
 
-        return EvaluateRuleGroup(ruleGroup);
+        return EvaluateRuleGroup(principal, ruleGroup);
     }
 
     /// <summary>
     /// Evaluates a rule group recursively.
     /// </summary>
-    private static PolicyEvaluationResult EvaluateRuleGroup(PolicyRuleGroup group)
+    private static PolicyEvaluationResult EvaluateRuleGroup(AccessPrincipal principal, PolicyRuleGroup group)
     {
         var results = new List<PolicyEvaluationResult>();
 
         // Evaluate individual rules
         foreach (var rule in group.Rules)
         {
-            results.Add(EvaluateRule(rule));
+            results.Add(EvaluateRule(principal, rule));
         }
 
         // Evaluate nested groups recursively
         foreach (var nestedGroup in group.NestedGroups)
         {
-            results.Add(EvaluateRuleGroup(nestedGroup));
+            results.Add(EvaluateRuleGroup(principal, nestedGroup));
         }
 
         if (results.Count == 0)
@@ -172,7 +172,7 @@ public static class DataAccessPolicyHelper
     /// Token-only rules are evaluated immediately.
     /// Rules involving schema fields produce data filters.
     /// </summary>
-    private static PolicyEvaluationResult EvaluateRule(PolicyRule rule)
+    private static PolicyEvaluationResult EvaluateRule(AccessPrincipal principal, PolicyRule rule)
     {
         var leftIsToken = rule.LeftSource == ConditionSource.AUTH;
         var leftIsSchema = rule.LeftSource == ConditionSource.SCHEMA_FIELD;
@@ -181,9 +181,9 @@ public static class DataAccessPolicyHelper
         // Case 1: Token vs Static/Token - Pure validation (no data filter needed)
         if (leftIsToken && !leftIsSchema && !rightIsSchema)
         {
-            var tokenValue = GetTokenValue(rule.LeftOperand);
+            var tokenValue = GetTokenValue(principal, rule.LeftOperand);
             var compareValue = rule.RightSource == ConditionSource.AUTH
-                ? GetTokenValue(rule.RightOperand)
+                ? GetTokenValue(principal, rule.RightOperand)
                 : rule.StaticValue;
 
             var isValid = EvaluateCondition(tokenValue, rule.Operator, compareValue);
@@ -199,7 +199,7 @@ public static class DataAccessPolicyHelper
         if (leftIsSchema)
         {
             var compareValue = rule.RightSource == ConditionSource.AUTH
-                ? GetTokenValue(rule.RightOperand)
+                ? GetTokenValue(principal, rule.RightOperand)
                 : rule.RightSource == ConditionSource.SCHEMA_FIELD
                     ? null // Schema vs Schema comparison (rare case)
                     : rule.StaticValue;
@@ -231,7 +231,7 @@ public static class DataAccessPolicyHelper
                 };
             }
 
-            var dataFilter = BuildConditionFilter(rule.LeftOperand, rule.Operator, compareValue);
+            var dataFilter = BuildConditionFilter(principal, rule.LeftOperand, rule.Operator, compareValue);
 
             return new PolicyEvaluationResult
             {
@@ -244,7 +244,7 @@ public static class DataAccessPolicyHelper
         // Case 3: Static vs Schema (reversed operands - normalize)
         if (rule.LeftSource == ConditionSource.STATIC_VALUE && rightIsSchema)
         {
-            var dataFilter = BuildConditionFilter(rule.RightOperand,
+            var dataFilter = BuildConditionFilter(principal, rule.RightOperand,
                 GetReversedOperator(rule.Operator), rule.StaticValue);
 
             return new PolicyEvaluationResult
@@ -259,7 +259,7 @@ public static class DataAccessPolicyHelper
         // Example: token.userId == CreatedBy -> { "CreatedBy": "user-id-value" }
         if (leftIsToken && rightIsSchema)
         {
-            var tokenValue = GetTokenValue(rule.LeftOperand);
+            var tokenValue = GetTokenValue(principal, rule.LeftOperand);
 
             // If token value is null or empty, the rule cannot be satisfied
             if (tokenValue is null || (tokenValue is string s && string.IsNullOrEmpty(s)))
@@ -282,7 +282,7 @@ public static class DataAccessPolicyHelper
                         new BsonArray(tokenArray),
                         FieldArrayExpression(rightOperand),
                         rule.Operator)
-                    : BuildConditionFilter(rightOperand, GetReversedOperator(rule.Operator), tokenValue)).ToList();
+                    : BuildConditionFilter(principal, rightOperand, GetReversedOperator(rule.Operator), tokenValue)).ToList();
             var combineOperator = rule.Operator is PolicyOperator.NOT_IN or PolicyOperator.NOT_CONTAIN
                 ? "$and"
                 : "$or";
@@ -525,33 +525,32 @@ public static class DataAccessPolicyHelper
     #region Token Value Resolution
 
     /// <summary>
-    /// Gets a value from the current user's authentication token.
+    /// Gets a value from the caller's authentication token (the principal captured for the request).
     /// </summary>
-    public static object? GetTokenValue(string propertyName)
+    public static object? GetTokenValue(AccessPrincipal principal, string propertyName)
     {
-        var blocksContext = BlocksContext.GetContext();
-        if (blocksContext is null)
+        if (principal is null || !principal.HasContext)
             return null;
 
         return propertyName.ToLowerInvariant() switch
         {
-            "userid" or "id" or "sub" => blocksContext.UserId,
-            "email" => blocksContext.UserName,
-            "tenantid" or "tenant" => blocksContext.TenantId,
-            "roles" or "role" => blocksContext.Roles ?? Array.Empty<string>(),
-            "permissions" or "permission" => blocksContext.Permissions ?? Array.Empty<string>(),
-            "organizationid" or "organization" => blocksContext.OrganizationId,
-            _ => GetCustomClaim(blocksContext, propertyName)
+            "userid" or "id" or "sub" => principal.UserId,
+            "email" => principal.UserName,
+            "tenantid" or "tenant" => principal.TenantId,
+            "roles" or "role" => principal.Roles,
+            "permissions" or "permission" => principal.Permissions,
+            "organizationid" or "organization" => principal.OrganizationId,
+            _ => GetCustomClaim(principal, propertyName)
         };
     }
 
     /// <summary>
-    /// Gets a custom claim from the context.
-    /// Override this method if BlocksContext supports custom claims.
+    /// Gets a custom claim from the principal.
+    /// Override this method if the principal gains custom claims.
     /// </summary>
-    private static object? GetCustomClaim(BlocksContext context, string claimName)
+    private static object? GetCustomClaim(AccessPrincipal principal, string claimName)
     {
-        // Extend this if BlocksContext has a Claims dictionary or similar
+        // Extend this if AccessPrincipal gains a Claims dictionary or similar
         return null;
     }
 
@@ -775,7 +774,7 @@ public static class DataAccessPolicyHelper
     /// <summary>
     /// Builds a MongoDB filter document for a single condition.
     /// </summary>
-    public static BsonDocument BuildConditionFilter(string fieldName, PolicyOperator op, object? value)
+    public static BsonDocument BuildConditionFilter(AccessPrincipal principal, string fieldName, PolicyOperator op, object? value)
     {
         var commaDelimitedValues = ConvertToStringArray(value);
         if (commaDelimitedValues is { Length: > 0 })
@@ -786,7 +785,7 @@ public static class DataAccessPolicyHelper
                 return new BsonDocument(fieldName, new BsonDocument("$nin", new BsonArray(commaDelimitedValues)));
         }
 
-        var resolvedValue = ResolveBsonValue(value);
+        var resolvedValue = ResolveBsonValue(principal, value);
 
         return op switch
         {
@@ -798,8 +797,8 @@ public static class DataAccessPolicyHelper
             PolicyOperator.LESS_THAN_OR_EQUAL => new BsonDocument(fieldName, new BsonDocument("$lte", resolvedValue)),
             PolicyOperator.CONTAIN => new BsonDocument(fieldName, new BsonDocument("$regex", resolvedValue).Add("$options", "i")),
             PolicyOperator.NOT_CONTAIN => new BsonDocument(fieldName, new BsonDocument("$not", new BsonDocument("$regex", resolvedValue).Add("$options", "i"))),
-            PolicyOperator.IN => new BsonDocument(fieldName, new BsonDocument("$in", ResolveArrayValue(value))),
-            PolicyOperator.NOT_IN => new BsonDocument(fieldName, new BsonDocument("$nin", ResolveArrayValue(value))),
+            PolicyOperator.IN => new BsonDocument(fieldName, new BsonDocument("$in", ResolveArrayValue(principal, value))),
+            PolicyOperator.NOT_IN => new BsonDocument(fieldName, new BsonDocument("$nin", ResolveArrayValue(principal, value))),
             PolicyOperator.START_WITH => new BsonDocument(fieldName, new BsonDocument("$regex", $"^{Regex.Escape(value?.ToString() ?? "")}").Add("$options", "i")),
             PolicyOperator.END_WITH => new BsonDocument(fieldName, new BsonDocument("$regex", $"{Regex.Escape(value?.ToString() ?? "")}$").Add("$options", "i")),
             PolicyOperator.IS_NULL => new BsonDocument(fieldName, BsonNull.Value),
@@ -911,7 +910,7 @@ public static class DataAccessPolicyHelper
     /// Resolves a value to its BsonValue representation.
     /// Handles token expressions like {{token.Email}}.
     /// </summary>
-    private static BsonValue ResolveBsonValue(object? value)
+    private static BsonValue ResolveBsonValue(AccessPrincipal principal, object? value)
     {
         if (value is null)
             return BsonNull.Value;
@@ -927,7 +926,7 @@ public static class DataAccessPolicyHelper
 
                 if (context == "token" || context == "auth")
                 {
-                    var tokenValue = GetTokenValue(property);
+                    var tokenValue = GetTokenValue(principal, property);
                     return ConvertToBsonValue(tokenValue);
                 }
             }
@@ -962,7 +961,7 @@ public static class DataAccessPolicyHelper
     /// <summary>
     /// Resolves a value to a BsonArray.
     /// </summary>
-    private static BsonArray ResolveArrayValue(object? value)
+    private static BsonArray ResolveArrayValue(AccessPrincipal principal, object? value)
     {
         if (value is null)
             return new BsonArray();
@@ -978,7 +977,7 @@ public static class DataAccessPolicyHelper
 
                 if (context == "token" || context == "auth")
                 {
-                    var tokenValue = GetTokenValue(property);
+                    var tokenValue = GetTokenValue(principal, property);
                     if (tokenValue is string[] arr)
                         return new BsonArray(arr);
                     if (tokenValue is IEnumerable<string> enumerable)

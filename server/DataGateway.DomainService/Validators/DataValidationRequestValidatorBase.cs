@@ -1,5 +1,5 @@
 using FluentValidation;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Repositories;
 using MongoDB.Driver;
 

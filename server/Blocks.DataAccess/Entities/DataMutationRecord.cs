@@ -1,9 +1,9 @@
 using Blocks.Genesis;
-using DataGateway.DomainService.Helpers;
-using DataGateway.DomainService.Models;
+using Blocks.DataAccess.Policies;
+using Blocks.DataAccess.Models;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace DataGateway.DomainService.Entities;
+namespace Blocks.DataAccess.Entities;
 
 [BsonIgnoreExtraElements]
 public class DataMutationRecord : BaseEntity

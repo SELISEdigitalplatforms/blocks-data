@@ -1,4 +1,7 @@
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Models;
+using Blocks.DataAccess.Entities;
+using Blocks.DataAccess.Policies;
+using Blocks.Genesis;
 using DataGateway.DomainService.GraphTypes;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Mappers;
@@ -212,8 +215,9 @@ public class GraphqlSchemaBuilder
             schema.Fields = SchemaDefinitionMapping.GetFieldDefinitionResponses(fieldDefinitions, schemaPolicies, schemaValidations);
             schema.Policies = schemaPolicies;
             var rlsSchemaPolicies = schemaPolicies.Where(p => p.PolicyType == PolicyType.RLS);
-            SetFieldsPolicies(schema, schema.Fields, rlsSchemaPolicies, schema.ItemId, string.Empty);
-            CleanupClsPoliciesBaseOnSchemaAccessLevel(schema);
+            SchemaPolicyDerivation.SetFieldsPolicies(schema, schema.Fields, rlsSchemaPolicies, schema.ItemId, string.Empty,
+                AccessPrincipal.From(BlocksContext.GetContext(), isRootTenant: false));
+            SchemaPolicyDerivation.CleanupClsPoliciesBaseOnSchemaAccessLevel(schema);
         }
 
         return schemaDefinitions;
@@ -257,39 +261,6 @@ public class GraphqlSchemaBuilder
         }
     }
 
-    private static void SetFieldsPolicies(SchemaDefinitionExtended schema, List<FieldDefinitionResponse> fields, IEnumerable<DataAccessPolicy> rlsSchemaPolicies, string schemaId, string parentFieldName)
-    {
-        foreach (var field in fields)
-        {
-            var fullPath = string.IsNullOrEmpty(parentFieldName) ? field.Name : parentFieldName + "." + field.Name;
-            if (!GraphQlTypeHelper.IsScalar(field.Type))
-            {
-                SetFieldsPolicies(schema, field.Fields, rlsSchemaPolicies, schemaId, fullPath);
-                continue;
-            }
-            if (field.ReadAccessLevel == SchemaAccessLevel.Inherited)
-            {
-                var rlsForRead = rlsSchemaPolicies.Where(p => p.Operation == PolicyOperation.READ || p.Operation == PolicyOperation.ALL);
-                AddInheritedClsPoliciesToSchema(schema, rlsForRead, fullPath, PolicyOperation.READ);
-            }
-            if (field.WriteAccessLevel == SchemaAccessLevel.Inherited)
-            {
-                var rlsForWrite = rlsSchemaPolicies.Where(p => p.Operation == PolicyOperation.WRITE || p.Operation == PolicyOperation.ALL);
-                AddInheritedClsPoliciesToSchema(schema, rlsForWrite, fullPath, PolicyOperation.WRITE);
-            }
-            if (field.EditAccessLevel == SchemaAccessLevel.Inherited)
-            {
-                var rlsForEdit = rlsSchemaPolicies.Where(p => p.Operation == PolicyOperation.EDIT || p.Operation == PolicyOperation.ALL);
-                AddInheritedClsPoliciesToSchema(schema, rlsForEdit, fullPath, PolicyOperation.EDIT);
-            }
-            if (field.DeleteAccessLevel == SchemaAccessLevel.Inherited)
-            {
-                var rlsForDelete = rlsSchemaPolicies.Where(p => p.Operation == PolicyOperation.DELETE || p.Operation == PolicyOperation.ALL);
-                AddInheritedClsPoliciesToSchema(schema, rlsForDelete, fullPath, PolicyOperation.DELETE);
-            }
-        }
-    }
-
     private void SetFieldValidationRules(List<FieldDefinitionResponse> fields, List<DataValidation> validations, string schemaId, string parentFieldName)
     {
         var parentFieldPath = string.IsNullOrEmpty(parentFieldName) ? string.Empty : $"{parentFieldName}.";
@@ -309,95 +280,6 @@ public class GraphqlSchemaBuilder
                 SetFieldValidationRules(field.Fields, validations, schemaId, propertyName);
             }
         }
-    }
-
-    private static void CleanupClsPoliciesBaseOnSchemaAccessLevel(SchemaDefinitionExtended schema)
-    {
-        var clsPolicies = schema.Policies.Where(p => p.PolicyType == PolicyType.CLS).ToList();
-        foreach (var policy in clsPolicies)
-        {
-            foreach (var fieldPath in policy.FieldNames)
-            {
-                var fieldDef = MutationInputHelper.GetFieldDefForPath(schema, fieldPath);
-                if (fieldDef == null) continue;
-
-                var effectiveRead = fieldDef.ReadAccessLevel == SchemaAccessLevel.Inherited ? schema.ReadAccessLevel : fieldDef.ReadAccessLevel;
-                var effectiveWrite = fieldDef.WriteAccessLevel == SchemaAccessLevel.Inherited ? schema.WriteAccessLevel : fieldDef.WriteAccessLevel;
-                var effectiveEdit = fieldDef.EditAccessLevel == SchemaAccessLevel.Inherited ? schema.EditAccessLevel : fieldDef.EditAccessLevel;
-                var effectiveDelete = fieldDef.DeleteAccessLevel == SchemaAccessLevel.Inherited ? schema.DeleteAccessLevel : fieldDef.DeleteAccessLevel;
-
-                if (policy.Operation == PolicyOperation.READ && IgnoreClsPolicy(schema.ReadAccessLevel, effectiveRead))
-                {
-                    RemoveClsPolicy(schema, policy, fieldPath);
-                }
-                else if (policy.Operation == PolicyOperation.WRITE && IgnoreClsPolicy(schema.WriteAccessLevel, effectiveWrite))
-                {
-                    RemoveClsPolicy(schema, policy, fieldPath);
-                }
-                else if (policy.Operation == PolicyOperation.EDIT && IgnoreClsPolicy(schema.EditAccessLevel, effectiveEdit))
-                {
-                    RemoveClsPolicy(schema, policy, fieldPath);
-                }
-                else if (policy.Operation == PolicyOperation.DELETE && IgnoreClsPolicy(schema.DeleteAccessLevel, effectiveDelete))
-                {
-                    RemoveClsPolicy(schema, policy, fieldPath);
-                }
-            }
-        }
-    }
-    private static bool IgnoreClsPolicy(SchemaAccessLevel schemaAccessLevel, SchemaAccessLevel fieldAccessLevel)
-    {
-        if (fieldAccessLevel == SchemaAccessLevel.Public || fieldAccessLevel == SchemaAccessLevel.User)
-        {
-            return true;
-        }
-        if (fieldAccessLevel == SchemaAccessLevel.Inherited && schemaAccessLevel != SchemaAccessLevel.Custom)
-        {
-            return true;
-        }
-        return false;
-    }
-
-    private static void RemoveClsPolicy(SchemaDefinitionExtended schema, DataAccessPolicy clsPolicy, string fieldName)
-    {
-        if (clsPolicy.FieldNames.Length > 1)
-        {
-            var policy = schema.Policies.FirstOrDefault(p => p.ItemId == clsPolicy.ItemId);
-            if (policy is null)
-            {
-                return;
-            }
-            policy.FieldNames = policy.FieldNames.Where(f => f != fieldName).ToArray();
-        }
-        else
-        {
-            schema.Policies.RemoveAll(p => p.ItemId == clsPolicy.ItemId);
-        }
-    }
-
-    private static void AddInheritedClsPoliciesToSchema(SchemaDefinitionExtended schema,
-        IEnumerable<DataAccessPolicy> rlsSchemaPolicies,
-        string fieldPath,
-        PolicyOperation operation)
-    {
-        if (operation == PolicyOperation.READ && (schema.ReadAccessLevel == SchemaAccessLevel.Public || schema.ReadAccessLevel == SchemaAccessLevel.User))
-        { return; }
-        if (operation == PolicyOperation.WRITE && (schema.WriteAccessLevel == SchemaAccessLevel.Public || schema.WriteAccessLevel == SchemaAccessLevel.User))
-        { return; }
-        if (operation == PolicyOperation.EDIT && (schema.EditAccessLevel == SchemaAccessLevel.Public || schema.EditAccessLevel == SchemaAccessLevel.User))
-        { return; }
-        if (operation == PolicyOperation.DELETE && (schema.DeleteAccessLevel == SchemaAccessLevel.Public || schema.DeleteAccessLevel == SchemaAccessLevel.User))
-        { return; }
-        var clsPolicies = rlsSchemaPolicies.Select(p => p.Clone()).ToList();
-        clsPolicies.ForEach(p =>
-        {
-            p.FieldNames = [fieldPath];
-            p.Operation = operation;
-            p.PolicyType = PolicyType.CLS;
-            p.InjectDefaultValue();
-        });
-        schema.Policies.RemoveAll(p => p.SchemaId == schema.ItemId && p.PolicyType == PolicyType.CLS && p.Operation == operation && p.FieldNames.Contains(fieldPath));
-        schema.Policies.AddRange(clsPolicies);
     }
 
     private static void BuildFilterAndSortTypes(

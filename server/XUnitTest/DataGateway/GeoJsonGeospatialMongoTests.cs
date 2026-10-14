@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 using Blocks.Genesis;
 using DataGateway.DomainService.Conversion;
 using DataGateway.DomainService.Models;

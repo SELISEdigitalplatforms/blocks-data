@@ -1,10 +1,8 @@
-using Blocks.Genesis;
-using DataGateway.DomainService.Entities;
-using DataGateway.DomainService.Models;
-using DataGateway.DomainService.Models.Constants;
+using Blocks.DataAccess.Entities;
+using Blocks.DataAccess.Models;
 using MongoDB.Bson;
 
-namespace DataGateway.DomainService.Helpers;
+namespace Blocks.DataAccess.Policies;
 
 /// <summary>
 /// Helper for applying Column-Level Security (CLS) masking to query result rows.
@@ -17,7 +15,7 @@ public static class QueryClsRowMaskingHelper
     /// </summary>
     public static SchemaAccessLevel GetEffectiveReadAccessLevel(SchemaDefinitionExtended schema, string path)
     {
-        var fieldDef = MutationInputHelper.GetFieldDefForPath(schema, path);
+        var fieldDef = ClsInputHelper.GetFieldDefForPath(schema, path);
         if (fieldDef == null) return schema.ReadAccessLevel;
         return fieldDef.ReadAccessLevel == SchemaAccessLevel.Inherited ? schema.ReadAccessLevel : fieldDef.ReadAccessLevel;
     }
@@ -51,7 +49,7 @@ public static class QueryClsRowMaskingHelper
     }
     private static readonly HashSet<string> SystemFieldNames = new()
     {
-        GraphQlConstant.DbEntityIdFieldName,
+        PolicyConstants.DbEntityIdFieldName,
         nameof(GraphQlBaseEntity.ItemId)
     };
 
@@ -60,6 +58,7 @@ public static class QueryClsRowMaskingHelper
     /// removes evaluation-only fields, and applies custom/user access level masks.
     /// </summary>
     public static Dictionary<string, object> MaskRowByClsPolicies(
+        AccessPrincipal principal,
         Dictionary<string, object> row,
         SchemaDefinitionExtended schema,
         List<DataAccessPolicy> clsPolicies,
@@ -72,7 +71,7 @@ public static class QueryClsRowMaskingHelper
 
         if (clsPolicies.Count == 0)
         {
-            ApplyCustomSchemaMaskWhenNoCls(row, schema);
+            ApplyCustomSchemaMaskWhenNoCls(principal, row, schema);
         }
         else
         {
@@ -83,7 +82,7 @@ public static class QueryClsRowMaskingHelper
         }
 
         MaskCustomFieldsWithNoPolicy(row, schema, fieldNamesProtectedByCls);
-        MaskUserOnlyFieldsWhenUnauthenticated(row, schema);
+        MaskUserOnlyFieldsWhenUnauthenticated(principal, row, schema);
         return row;
     }
 
@@ -114,10 +113,11 @@ public static class QueryClsRowMaskingHelper
     /// Nulls fields with effective ReadAccessLevel == User when the request is unauthenticated.
     /// </summary>
     public static void MaskUserOnlyFieldsWhenUnauthenticated(
+        AccessPrincipal principal,
         Dictionary<string, object> row,
         SchemaDefinitionExtended schema)
     {
-        if (IsRequestAuthenticated()) return;
+        if (IsRequestAuthenticated(principal)) return;
 
         var pathsWithLevel = GetPathsWithEffectiveReadAccessLevel(schema);
         var userOnlyPaths = pathsWithLevel
@@ -230,17 +230,18 @@ public static class QueryClsRowMaskingHelper
         }
     }
 
-    public static bool IsRequestAuthenticated() =>
-        BlocksContext.GetContext()?.IsAuthenticated == true;
+    public static bool IsRequestAuthenticated(AccessPrincipal principal) =>
+        principal?.IsAuthenticated == true;
 
     /// <summary>
     /// When schema has Custom read access and no CLS policies, removes all non-system keys from the row.
     /// </summary>
     public static Dictionary<string, object> ApplyCustomSchemaMaskWhenNoCls(
+        AccessPrincipal principal,
         Dictionary<string, object> row,
         SchemaDefinitionExtended schema)
     {
-        if (schema.ReadAccessLevel != SchemaAccessLevel.Custom || RequestContextAccessor.Current.IsRequestFromBlocksCloud)
+        if (schema.ReadAccessLevel != SchemaAccessLevel.Custom || principal.IsRootTenant)
             return row;
 
         var nonSystemKeys = row.Keys.Where(k => !SystemFieldNames.Contains(k)).ToList();

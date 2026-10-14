@@ -1,7 +1,7 @@
-using DataGateway.DomainService.Models;
+using Blocks.DataAccess.Models;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace DataGateway.DomainService.Entities;
+namespace Blocks.DataAccess.Entities;
 
 /// <summary>
 /// Entity to store field validations for a schema

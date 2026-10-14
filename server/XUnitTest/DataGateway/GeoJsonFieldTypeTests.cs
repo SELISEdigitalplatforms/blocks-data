@@ -1,5 +1,6 @@
+using Blocks.DataAccess.Models;
 using DataGateway.DomainService.Conversion;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.GraphTypes;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;

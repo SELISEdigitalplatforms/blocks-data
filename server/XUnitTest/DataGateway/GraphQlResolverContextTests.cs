@@ -1,5 +1,7 @@
+using Blocks.DataAccess.Policies;
+using Blocks.DataAccess.Models;
 using System.Collections.Immutable;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
@@ -162,7 +164,7 @@ public class GraphQlResolverContextTests
             var fieldNode = ParseQueryField("{ getPersons { items { Name Age } } }");
             var context = ContextWithSyntaxNode(fieldNode);
 
-            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(context.Object, schema, out var evalOnly);
+            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(CurrentPrincipal(), context.Object, schema, out var evalOnly);
 
             projection.Contains("Name").Should().BeTrue();
             projection.Contains("Age").Should().BeTrue();

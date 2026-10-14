@@ -1,7 +1,7 @@
 using System;
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace DataGateway.DomainService.Entities;
+namespace Blocks.DataAccess.Entities;
 
 [BsonIgnoreExtraElements]
 public class BlocksGuid

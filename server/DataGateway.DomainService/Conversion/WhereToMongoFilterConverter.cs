@@ -1,4 +1,5 @@
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Models;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
@@ -87,7 +88,7 @@ public static class WhereToMongoFilterConverter
             var value = kv.Value;
             if (value is null) continue;
 
-            var dbFieldName = key == nameof(Entities.GraphQlBaseEntity.ItemId)
+            var dbFieldName = key == nameof(GraphQlBaseEntity.ItemId)
                 ? (string.IsNullOrEmpty(pathPrefix)
                     ? GraphQlConstant.DbEntityIdFieldName
                     : $"{pathPrefix}.{GraphQlConstant.DbEntityIdFieldName}")

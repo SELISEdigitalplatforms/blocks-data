@@ -1,6 +1,6 @@
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 
-namespace DataGateway.DomainService.Models;
+namespace Blocks.DataAccess.Models;
 
 public class SchemaDefinitionExtended : SchemaDefinition
 {

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Blocks.DataAccess</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Genesis supplies BaseEntity, BlocksContext and the MongoDB driver. HotChocolate is deliberately
+         absent: this assembly holds the data entities and the access-policy resolver only, so any
+         service (GraphQL or not) can reference it. -->
+    <PackageReference Include="SeliseBlocks.Genesis.OS" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="XUnitTest" />
+  </ItemGroup>
+</Project>

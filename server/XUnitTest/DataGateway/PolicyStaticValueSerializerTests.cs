@@ -1,4 +1,4 @@
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;

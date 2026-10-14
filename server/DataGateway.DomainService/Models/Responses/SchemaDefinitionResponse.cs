@@ -1,6 +1,7 @@
+using Blocks.DataAccess.Models;
 using System;
 using System.Text.Json.Serialization;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 
 namespace DataGateway.DomainService.Models;
 
@@ -26,30 +27,6 @@ public class SchemaDefinitionResponse
     public List<DataAccessPolicy> DeletePolicies { get; set; } = [];
     public List<string> SchemaReferences { get; set; } = [];
     public int TotalSchemaReferences { get; set; } = 0;
-    public int TotalReadPolicies { get; set; }
-    public int TotalWritePolicies { get; set; }
-    public int TotalEditPolicies { get; set; }
-    public int TotalDeletePolicies { get; set; }
-}
-
-public class FieldDefinitionResponse
-{
-    public string Name { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
-    public bool IsArray { get; set; }
-    public List<string> EnumValues { get; set; } = [];
-    public bool IsPIIData { get; set; }
-    public bool IsUniqueData { get; set; }
-    public string Description { get; set; }
-    public RequiredOn RequiredOn { get; set; } = RequiredOn.None;
-	public List<FieldDefinitionResponse> Fields { get; set; } = [];
-    public SchemaAccessLevel ReadAccessLevel { get; set; }
-    public SchemaAccessLevel WriteAccessLevel { get; set; }
-    public SchemaAccessLevel EditAccessLevel { get; set; }
-    public SchemaAccessLevel DeleteAccessLevel { get; set; }
-    public DataValidation? ValidationRule { get; set; } = null;
-
-    public int TotalValidationRules => ValidationRule?.Validations.Count ?? 0;
     public int TotalReadPolicies { get; set; }
     public int TotalWritePolicies { get; set; }
     public int TotalEditPolicies { get; set; }

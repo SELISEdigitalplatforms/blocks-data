@@ -1,7 +1,8 @@
+using Blocks.DataAccess.Models;
 using System.Diagnostics;
 using DataGateway.DomainService.Helpers;
 using System.Collections.Immutable;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
@@ -32,7 +33,7 @@ public class QueryServiceTests
 
     public QueryServiceTests()
     {
-        _service = new QueryService(_repo.Object, NullLogger<QueryService>.Instance);
+        _service = new QueryService(_repo.Object, Resolver(), Principals(), NullLogger<QueryService>.Instance);
     }
 
     private static FieldNode ParseQueryField(string query)

@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Policies;
 using System.Collections;
 using System.Globalization;
 
@@ -42,7 +43,7 @@ public sealed class GeoJsonValidationException(string reason) : Exception(reason
 public static class GeoJsonValidator
 {
     /// <summary>The schema type-name that selects this validation.</summary>
-    public const string TypeName = "GeoJson";
+    public const string TypeName = SchemaTypeHelper.GeoJsonTypeName;
 
     private const string TypeMember = "type";
     private const string CoordinatesMember = "coordinates";

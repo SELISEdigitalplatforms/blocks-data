@@ -1,12 +1,12 @@
-using DataGateway.DomainService.Helpers;
-using DataGateway.DomainService.Models;
+using Blocks.DataAccess.Policies;
+using Blocks.DataAccess.Models;
 using MongoDB.Bson;
 using MongoDB.Bson.IO;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Bson.Serialization.Serializers;
 
-namespace DataGateway.DomainService.Entities;
+namespace Blocks.DataAccess.Entities;
 
 /// <summary>
 /// Represents a data access policy for a schema.

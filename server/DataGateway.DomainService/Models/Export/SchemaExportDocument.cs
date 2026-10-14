@@ -1,4 +1,5 @@
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Models;
+using Blocks.DataAccess.Entities;
 
 namespace DataGateway.DomainService.Models.Export;
 

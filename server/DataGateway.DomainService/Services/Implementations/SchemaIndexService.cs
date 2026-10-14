@@ -1,4 +1,5 @@
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Models;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Responses;
@@ -6,7 +7,7 @@ using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Validators;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using SortDirection = DataGateway.DomainService.Models.SortDirection;
+using SortDirection = Blocks.DataAccess.Models.SortDirection;
 
 namespace DataGateway.DomainService.Services;
 

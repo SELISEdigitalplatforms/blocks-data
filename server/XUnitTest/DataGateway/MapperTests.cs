@@ -1,5 +1,6 @@
+using Blocks.DataAccess.Models;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Mappers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Export;

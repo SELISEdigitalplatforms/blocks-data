@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Api/Api.csproj" />
+  <Project Path="Blocks.DataAccess/Blocks.DataAccess.csproj" />
   <Project Path="DataGateway.DomainService/DataGateway.DomainService.csproj" />
   <Project Path="Storage.DomainService/Storage.DomainService.csproj" />
   <Project Path="Worker/Worker.csproj" />

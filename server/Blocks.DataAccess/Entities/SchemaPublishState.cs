@@ -1,6 +1,6 @@
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace DataGateway.DomainService.Entities;
+namespace Blocks.DataAccess.Entities;
 
 /// <summary>
 /// The tenant's published schema version, shared by every gateway pod. There is exactly one

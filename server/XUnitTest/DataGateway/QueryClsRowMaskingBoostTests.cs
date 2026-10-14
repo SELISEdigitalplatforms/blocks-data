@@ -1,4 +1,6 @@
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Policies;
+using Blocks.DataAccess.Models;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;

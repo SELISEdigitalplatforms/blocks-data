@@ -1,10 +1,11 @@
+using Blocks.DataAccess.Models;
 using System.Net;
 using Blocks.Genesis;
 using DataGateway.DomainService;
 using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models.Constants;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;

@@ -1,8 +1,9 @@
+using Blocks.DataAccess.Models;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using Blocks.Genesis;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
@@ -81,7 +82,7 @@ public class MutationServiceTests
     }
 
     private static MutationService NewService(Mock<IGqlDbRepository> repo, Mock<IDataChangeEventPublisher> pub) =>
-        new(repo.Object, pub.Object, NullLogger<MutationService>.Instance);
+        new(repo.Object, pub.Object, Resolver(), Principals(), NullLogger<MutationService>.Instance);
 
     private static ObjectValueNode ObjectLiteral(string body)
     {

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace DataGateway.DomainService.Models;
+namespace Blocks.DataAccess.Models;
 
 public enum SchemaType
 {

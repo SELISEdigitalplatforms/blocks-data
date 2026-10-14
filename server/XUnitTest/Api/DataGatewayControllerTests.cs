@@ -1,7 +1,7 @@
 using Api.Controllers;
 using Api.Controllers.DataGateway;
 using DataGateway.Api.Controllers;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Services;

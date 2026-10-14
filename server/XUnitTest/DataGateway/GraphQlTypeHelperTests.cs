@@ -16,6 +16,7 @@ public class GraphQlTypeHelperTests
     [InlineData("ID", true)]
     [InlineData("GeoJson", true)]
     [InlineData("Enum", true)]
+    [InlineData("Json", true)]
     [InlineData("Person", false)]
     [InlineData("Address", false)]
     public void IsScalar(string type, bool expected)
@@ -31,7 +32,7 @@ public class GraphQlTypeHelperTests
     [InlineData(typeof(float), "Float")]
     [InlineData(typeof(bool), "Boolean")]
     [InlineData(typeof(DateTime), "DateTime")]
-    [InlineData(typeof(Guid), "ID")]
+    [InlineData(typeof(Guid), "String")]
     public void GetScalarType(Type type, string expected)
     {
         GraphQlTypeHelper.GetScalarType(type).Should().Be(expected);

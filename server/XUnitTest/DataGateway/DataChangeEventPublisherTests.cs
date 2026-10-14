@@ -1,3 +1,4 @@
+using Blocks.DataAccess.Models;
 using Blocks.Genesis;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;

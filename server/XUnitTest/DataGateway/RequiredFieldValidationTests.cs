@@ -1,6 +1,7 @@
+using Blocks.DataAccess.Models;
 using System.Reflection;
 using System.Collections;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Services;
 using FluentAssertions;

@@ -1,6 +1,6 @@
 using System.Xml.Schema;
 using FluentValidation;
-using DataGateway.DomainService.Entities;
+using Blocks.DataAccess.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;

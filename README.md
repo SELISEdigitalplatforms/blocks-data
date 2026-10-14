@@ -14,8 +14,11 @@ server/   .NET backend
   Api/                      ASP.NET Core host: REST controllers (under the /api prefix),
                             the per-tenant GraphQL endpoint at /api/gateway, and the
                             built SPA served from Api/wwwroot
+  Blocks.DataAccess/        Data entities and the DataAccessPolicy resolver (RLS/CLS evaluation)
+                            as a GraphQL-free library, referenced by DataGateway.DomainService
   DataGateway.DomainService/  Data Gateway domain: GraphQL schema building, query/mutation
-                              services, RLS/CLS policy evaluation, validators, repositories
+                              services (resolving access through Blocks.DataAccess), validators,
+                              repositories
   Storage.DomainService/    Storage domain: storage providers, file management, configuration
   Worker/                   Background host: message consumers (schema import/export,
                             migration completion, default folder creation) and a periodic ping

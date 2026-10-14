@@ -1,7 +1,7 @@
 using System;
 using Blocks.Genesis;
 
-namespace DataGateway.DomainService.Entities;
+namespace Blocks.DataAccess.Entities;
 
 public class GraphQlBaseEntity : BaseEntity
 {

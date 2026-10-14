@@ -1,6 +1,6 @@
 using MongoDB.Bson.Serialization.Attributes;
 
-namespace DataGateway.DomainService.Entities;
+namespace Blocks.DataAccess.Entities;
 
 /// <summary>How a published schema snapshot came to exist.</summary>
 public enum SchemaSnapshotKind

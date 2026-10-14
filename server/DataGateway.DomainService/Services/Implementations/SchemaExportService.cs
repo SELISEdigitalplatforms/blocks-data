@@ -63,8 +63,10 @@ public class SchemaExportService : ISchemaExportService
         ArgumentException.ThrowIfNullOrWhiteSpace(exportEvent.ProjectKey);
         var fileName = $"schema_export_{DateTime.UtcNow:yyyyMMddHHmmss}.json";
 
-        // 1. Fetch all schemas — ProjectKey is a routing key (selects the DB), not a stored document field
-        var schemas = await _dbRepository.GetItemsAsync<SchemaDefinition>(new BsonDocument(), null, null, 0, 1000, exportEvent.ProjectKey);
+        // 1. Fetch all schemas — ProjectKey is a routing key (selects the DB), not a stored document field.
+        //    System entities (IsSystemEntity: the platform services' own collections) are never exported.
+        var schemaFilter = new BsonDocument(nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true));
+        var schemas = await _dbRepository.GetItemsAsync<SchemaDefinition>(schemaFilter, null, null, 0, 1000, exportEvent.ProjectKey);
 
         // 2. Fetch policies only when AccessPolicies flag is set (covers both RLS rules and CLS)
         //    For Schema-only export, access levels are already on SchemaDefinition itself

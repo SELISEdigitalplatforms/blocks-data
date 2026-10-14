@@ -61,6 +61,26 @@ public class SchemaExportServiceTests
     }
 
     [Fact]
+    public async Task BuildExportBytes_NeverExportsSystemEntities()
+    {
+        BsonDocument? sent = null;
+        _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "p"))
+            .Callback<FilterDefinition<BsonDocument>, SortDefinition<BsonDocument>?, ProjectionDefinition<BsonDocument>?, int, int, string>(
+                (filter, _, _, _, _, _) => sent = RenderFilter(filter))
+            .ReturnsAsync(new List<SchemaDefinition>());
+
+        await _service.BuildExportBytesAsync(new SchemaExportEvent { FileId = "f1", ProjectKey = "p", ExportOption = SchemaExportOption.Schema });
+
+        sent.Should().NotBeNull();
+        sent!["IsSystemEntity"].Should().Be(new BsonDocument("$ne", true));
+    }
+
+    private static BsonDocument RenderFilter(FilterDefinition<BsonDocument> filter) =>
+        filter.Render(new RenderArgs<BsonDocument>(
+            MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
+            MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry));
+
+    [Fact]
     public async Task BuildExportBytes_All_FetchesPoliciesAndValidations()
     {
         _repo.Setup(r => r.GetItemsAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "p"))

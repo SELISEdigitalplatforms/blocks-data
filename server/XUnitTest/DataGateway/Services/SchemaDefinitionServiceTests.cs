@@ -766,6 +766,26 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
+    public async Task GetAllSchemas_HidesSystemEntities()
+    {
+        BsonDocument? sent = null;
+        _repo.Setup(r => r.GetItemsWithCountAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<SortDefinition<BsonDocument>>(), It.IsAny<ProjectionDefinition<BsonDocument>>(), It.IsAny<int>(), It.IsAny<int>(), ""))
+            .Callback<FilterDefinition<BsonDocument>, SortDefinition<BsonDocument>?, ProjectionDefinition<BsonDocument>?, int, int, string>(
+                (filter, _, _, _, _, _) => sent = RenderFilter(filter))
+            .ReturnsAsync((new List<SchemaDefinition>(), 0L));
+
+        await _service.GetAllSchemasAsync(new GetSchemaDefinitionListRequest { PageNo = 1, PageSize = 10, Keyword = "Ro" });
+
+        sent!["IsSystemEntity"].Should().Be(new BsonDocument("$ne", true));
+        sent.Contains("SchemaName").Should().BeTrue("the caller's own filter is kept");
+    }
+
+    private static BsonDocument RenderFilter(FilterDefinition<BsonDocument> filter) =>
+        filter.Render(new RenderArgs<BsonDocument>(
+            MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
+            MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry));
+
+    [Fact]
     public async Task GetSchemaAggregation_MapsCounts()
     {
         var doc = new BsonDocument

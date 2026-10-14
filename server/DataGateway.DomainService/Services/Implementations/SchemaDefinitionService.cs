@@ -439,6 +439,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     public async Task<PaginationResponse<SchemaDefinitionResponse>> GetAllSchemasAsync(GetSchemaDefinitionListRequest request)
     {
         var filter = SchemaDefinitionFilterHelper.GetFilter(request);
+        filter.Add(nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true));
         var sort = SchemaDefinitionFilterHelper.GetSorting(request.SortBy, request.SortDescending);
         var (items, total) = await _repository.GetItemsWithCountAsync<SchemaDefinition>(filter: filter, sort: sort, projection: null, skip: (request.PageNo - 1) * request.PageSize, limit: request.PageSize);
         var list = items.Select(s => s.MapToResponse()).ToList();

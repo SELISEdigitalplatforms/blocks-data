@@ -1,10 +1,10 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Mappers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Export;
 using FluentAssertions;
-using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway;
 

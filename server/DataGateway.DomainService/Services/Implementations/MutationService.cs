@@ -1,5 +1,7 @@
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using Blocks.Genesis;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
@@ -15,7 +17,6 @@ using System.Collections;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
-using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 
@@ -29,15 +30,21 @@ public class MutationService : IMutationService
     private const string OperationLabelDelete = "DELETE";
     private readonly IGqlDbRepository _repository;
     private readonly IDataChangeEventPublisher _eventPublisher;
+    private readonly IDataAccessPolicyResolver _resolver;
+    private readonly IAccessPrincipalAccessor _principals;
     private readonly ILogger<MutationService> _logger;
 
     public MutationService(
         IGqlDbRepository repository,
         IDataChangeEventPublisher eventPublisher,
+        IDataAccessPolicyResolver resolver,
+        IAccessPrincipalAccessor principals,
         ILogger<MutationService> logger)
     {
         _repository = repository;
         _eventPublisher = eventPublisher;
+        _resolver = resolver;
+        _principals = principals;
         _logger = logger;
     }
 
@@ -609,22 +616,11 @@ public class MutationService : IMutationService
         }
     }
 
-    private PolicyEvaluationResult EvaluateRlsPolicies(SchemaDefinitionExtended schema, PolicyOperation operation)
-    {
-        var accessLevel = MutationInputHelper.GetSchemaAccessLevelForOperation(schema, operation);
-        if (accessLevel != SchemaAccessLevel.Custom || RequestContextAccessor.Current.IsRequestFromBlocksCloud)
-            return new PolicyEvaluationResult { IsAccessGranted = true };
-
-        var rlsPolicies = schema.Policies.Where(p => p.PolicyType == PolicyType.RLS && p.Operation == operation).ToList();
-        if (rlsPolicies.Count == 0)
-            return new PolicyEvaluationResult { IsAccessGranted = false };
-
-        return rlsPolicies.EvaluatePolicies(operation, PolicyType.RLS);
-    }
+    private PolicyEvaluationResult EvaluateRlsPolicies(SchemaDefinitionExtended schema, PolicyOperation operation) =>
+        _resolver.Check(new SchemaAccessRequest(_principals.Current, schema, operation));
 
     private void ValidateMutationInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel)
     {
-        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Validation);
 
         ValidateRequiredFieldsOrThrow(input, schema, operationLabel);
         var r = input.Validate(schema);
@@ -738,11 +734,9 @@ public class MutationService : IMutationService
 
     private void ApplyClsRestrictionsToInput(Dictionary<string, object?> input, SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)
     {
-        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Policy);
 
-        var allPaths = MutationInputHelper.GetAllPathsFromInput(input, prefix: "");
-        var clsResult = MutationInputHelper.EvaluateClsPoliciesForInput(schema, operation, allPaths);
-        var removedFieldNames = MutationInputHelper.RemoveExcludedPathsFromInput(input, clsResult.ExcludedFields);
+        var restriction = _resolver.RestrictInput(new SchemaAccessRequest(_principals.Current, schema, operation), input);
+        var removedFieldNames = restriction.RemovedFieldNames;
         if (removedFieldNames.Count > 0)
             _logger.LogInformation("CLS applied for {Op} on schema {SchemaName}. Restricted fields removed: {Fields}",
                 operationLabel, schema.SchemaName, string.Join(", ", removedFieldNames));

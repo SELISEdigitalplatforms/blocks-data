@@ -1,21 +1,20 @@
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Linq;
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using HotChocolate.Types;
 using MongoDB.Bson;
-using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Helpers;
 
 public static class GraphQlTypeHelper
 {
-    public const string EnumTypeName = "Enum";
+    public const string EnumTypeName = SchemaTypeHelper.EnumTypeName;
 
-    public static bool IsScalar(string type) =>
-            type is "String" or "Int" or "Float" or "Boolean" or "DateTime" or "ID"
-                or GeoJsonValidator.TypeName or EnumTypeName;
+    public static bool IsScalar(string type) => SchemaTypeHelper.IsScalar(type);
 
     public static string GetScalarType(Type type)
     {
@@ -26,7 +25,7 @@ public static class GraphQlTypeHelper
         if (type == typeof(double) || type == typeof(float)) return "Float";
         if (type == typeof(bool)) return "Boolean";
         if (type == typeof(DateTime)) return "DateTime";
-        if (type == typeof(Guid)) return "ID";
+        if (type == typeof(Guid)) return "String";
         return typeName;
     }
 
@@ -377,16 +376,8 @@ public static class GraphQlTypeHelper
         return value;
     }
 
-    public static BsonDocument ReplaceSystemFieldInFilter(this BsonDocument filter)
-    {
-        if (filter.ElementCount > 0 && filter.Contains(nameof(GraphQlBaseEntity.ItemId)))
-        {
-            //replace ItemId with DbEntityIdFieldName
-            filter[GraphQlConstant.DbEntityIdFieldName] = filter[nameof(GraphQlBaseEntity.ItemId)];
-            filter.Remove(nameof(GraphQlBaseEntity.ItemId));
-        }
-        return filter;
-    }
+    public static BsonDocument ReplaceSystemFieldInFilter(this BsonDocument filter) =>
+        Blocks.Genesis.DataAccess.Evaluation.SystemFieldHelper.ReplaceSystemFieldInFilter(filter);
 
     private static string ParseStringValue(IValueNode valueNode)
     {

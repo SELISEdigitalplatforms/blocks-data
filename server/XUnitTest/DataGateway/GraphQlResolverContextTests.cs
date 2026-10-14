@@ -1,5 +1,7 @@
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using System.Collections.Immutable;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
@@ -8,7 +10,6 @@ using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using Moq;
-using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway;
@@ -163,7 +164,7 @@ public class GraphQlResolverContextTests
             var fieldNode = ParseQueryField("{ getPersons { items { Name Age } } }");
             var context = ContextWithSyntaxNode(fieldNode);
 
-            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(context.Object, schema, out var evalOnly);
+            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(CurrentPrincipal(), context.Object, schema, out var evalOnly);
 
             projection.Contains("Name").Should().BeTrue();
             projection.Contains("Age").Should().BeTrue();

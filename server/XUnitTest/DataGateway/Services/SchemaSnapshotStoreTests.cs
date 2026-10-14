@@ -1,5 +1,6 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Services;
@@ -7,7 +8,6 @@ using FluentAssertions;
 using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
-using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway.Services;
 

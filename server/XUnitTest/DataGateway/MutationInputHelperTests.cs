@@ -1,8 +1,9 @@
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
-using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway;
@@ -200,7 +201,7 @@ public class MutationInputHelperClsTests
         SetBlocksCloud(true);
         try
         {
-            var result = MutationInputHelper.EvaluateClsPoliciesForInput(
+            var result = MutationInputHelper.EvaluateClsPoliciesForInput(CurrentPrincipal(), 
                 CustomSchema(), PolicyOperation.WRITE, new List<string> { "Salary" });
             result.IsAccessGranted.Should().BeTrue();
             result.ExcludedFields.Should().BeEmpty();
@@ -215,7 +216,7 @@ public class MutationInputHelperClsTests
         SetContext(isAuthenticated: true);
         try
         {
-            var result = MutationInputHelper.EvaluateClsPoliciesForInput(
+            var result = MutationInputHelper.EvaluateClsPoliciesForInput(CurrentPrincipal(), 
                 CustomSchema(), PolicyOperation.WRITE, new List<string> { "Name", "Salary" });
             result.ExcludedFields.Should().Contain("Salary");
             result.ExcludedFields.Should().NotContain("Name"); // public field allowed
@@ -230,7 +231,7 @@ public class MutationInputHelperClsTests
         SetContext();
         try
         {
-            var result = MutationInputHelper.EvaluateClsPoliciesForInput(
+            var result = MutationInputHelper.EvaluateClsPoliciesForInput(CurrentPrincipal(), 
                 CustomSchema(), PolicyOperation.WRITE, new List<string> { "GhostField" });
             result.ExcludedFields.Should().Contain("GhostField");
         }
@@ -241,7 +242,7 @@ public class MutationInputHelperClsTests
     public void ShouldExcludeFieldByCls_NoPolicies_False()
     {
         var schema = Schema(fields: new() { Field("X", "String") });
-        MutationInputHelper.ShouldExcludeFieldByCls(schema, PolicyOperation.WRITE, "X", SchemaAccessLevel.Custom)
+        MutationInputHelper.ShouldExcludeFieldByCls(CurrentPrincipal(), schema, PolicyOperation.WRITE, "X", SchemaAccessLevel.Custom)
             .Should().BeFalse();
     }
 }

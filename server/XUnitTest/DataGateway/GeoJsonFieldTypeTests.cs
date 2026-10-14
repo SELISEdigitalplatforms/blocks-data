@@ -1,5 +1,6 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Conversion;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.GraphTypes;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
@@ -10,7 +11,6 @@ using HotChocolate.Language;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Moq;
-using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway;

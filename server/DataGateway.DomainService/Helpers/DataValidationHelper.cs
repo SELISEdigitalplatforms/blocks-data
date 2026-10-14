@@ -1,3 +1,4 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Text.RegularExpressions;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;

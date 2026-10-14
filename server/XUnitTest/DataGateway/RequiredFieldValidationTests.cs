@@ -1,11 +1,11 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Reflection;
 using System.Collections;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Services;
 using FluentAssertions;
 using HotChocolate;
-using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.DataGateway;
 

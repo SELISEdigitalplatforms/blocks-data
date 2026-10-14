@@ -1,8 +1,8 @@
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
-using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.DataGateway;

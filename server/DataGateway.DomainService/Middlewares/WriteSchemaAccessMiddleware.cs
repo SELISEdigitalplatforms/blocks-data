@@ -1,3 +1,4 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using System;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;

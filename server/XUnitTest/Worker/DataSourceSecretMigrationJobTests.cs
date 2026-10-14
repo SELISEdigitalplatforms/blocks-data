@@ -123,7 +123,7 @@ public class DataSourceSecretMigrationJobTests
 
         var s = await RunAsync("plan");
 
-        s.Results["two-live"].Should().Be("blocker:live-docs=2");
+        s.Results["two-live"].Should().StartWith("kind=custom root=missing", "2+ live docs: the first one is taken (owner 2026-10-14)");
         s.Results["bad-b64"].Should().Be("blocker:invalid-base64");
         s.Results["redis-diff"].Should().Be("blocker:redis-differs");
         s.Results["fine"].Should().StartWith("kind=default root=missing");
@@ -189,6 +189,62 @@ public class DataSourceSecretMigrationJobTests
         (await RootDocAsync("t2")).Should().NotBeNull();
         var rerun = await RunAsync("apply");
         rerun.Results["root-t"].Should().Be("in-sync", "root docs of other tenants in the root DB are never taken for the root tenant's copy");
+    }
+
+    [Fact]
+    public async Task Apply_TwoLiveDocs_FirstInNaturalOrderCopied_ExtraLoggedAndUntouched()
+    {
+        // _ids chosen so _id order != natural order: the first inserted doc must win.
+        await CopyAsync("t1", Custom, id: "zz-first");
+        var extra = new BsonDocument
+        {
+            { "_id", "aa-second" }, { "DatabaseName", "db-extra" }, { "IsDeleted", false },
+            { "DbConnectionString", B64(Custom2) }, { "LastUpdatedDate", new DateTime(2026, 10, 9, 0, 0, 0, DateTimeKind.Utc) }
+        };
+        await Copies("t1").InsertOneAsync(extra);
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("migrated kind=custom");
+        var root = (await RootDocAsync("t1"))!;
+        root["ConfigItemId"].AsString.Should().Be("zz-first");
+        root["DatabaseName"].AsString.Should().Be("db-t1");
+        _secrets.Secrets.Values.Should().ContainSingle().Which.Value.Should().Be(Custom);
+        (await Copies("t1").CountDocumentsAsync(new BsonDocument())).Should().Be(2);
+        (await Copies("t1").Find(new BsonDocument("_id", "aa-second")).SingleAsync()).Equals(extra).Should().BeTrue("extra live docs are never changed");
+        _logs.Logs.Should().Contain(l => l.Message.Contains("tenant=t1 live-docs=2 using=zz-first") && l.Message.Contains("extra-ids-kept=aa-second"));
+        _logs.Logs.Should().NotContain(l => l.AllText().Contains("JobSecretPw") || l.AllText().Contains("OtherJobPw"));
+
+        (await RunAsync("verify")).Results["t1"].Should().Be("verified kind=custom");
+        (await RunAsync("apply")).Results["t1"].Should().Be("in-sync");
+        (await Copies("t1").Find(new BsonDocument("_id", "aa-second")).SingleAsync()).Equals(extra).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Apply_RootTenant_ExtraLegacyDocSortingFirstById_NaturalOrderDocCopied_ExtraUntouched()
+    {
+        // The root tenant's read has an _id $nin clause; without the $natural hint Mongo returns _id order
+        // and would take "a-dsc-root-2" (lessons 2026-10-14). The app reads "dsc-seed" (natural order).
+        await CopyAsync("root-t", "default", isRoot: true, id: "dsc-seed");
+        var extra = new BsonDocument
+        {
+            { "_id", "a-dsc-root-2" }, { "DatabaseName", "db-extra" }, { "IsDeleted", false }, { "DbConnectionString", B64(Custom2) }
+        };
+        await Root.InsertOneAsync(extra);
+        await CopyAsync("t2", Custom);
+
+        var s = await RunAsync("apply");
+
+        s.Results["root-t"].Should().Be("migrated kind=default");
+        var root = (await RootDocAsync("root-t"))!;
+        root["ConfigItemId"].AsString.Should().Be("dsc-seed");
+        root["DbConnectionSecretId"].AsString.Should().Be("default");
+        (await Root.Find(new BsonDocument("_id", "a-dsc-root-2")).SingleAsync()).Equals(extra).Should().BeTrue("extra live docs are never changed");
+        (await Root.CountDocumentsAsync(new BsonDocument("_id", "dsc-seed"))).Should().Be(1);
+        _logs.Logs.Should().Contain(l => l.Message.Contains("tenant=root-t live-docs=2 using=dsc-seed") && l.Message.Contains("extra-ids-kept=a-dsc-root-2"));
+        _secrets.Secrets.Values.Should().ContainSingle().Which.TenantId.Should().Be("t2");
+        _logs.Logs.Should().NotContain(l => l.AllText().Contains("OtherJobPw") || l.AllText().Contains("JobSecretPw"));
+        (await RunAsync("verify")).Results["root-t"].Should().Be("verified kind=default");
     }
 
     [Fact]

@@ -186,7 +186,11 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
         public BsonDocument? Root { get; init; }
         public required Dictionary<string, string> Hash { get; init; }
 
-        public BsonDocument? Copy => Live.Count == 1 ? Live[0] : null;
+        /// <summary>
+        /// The first live doc in natural order = the doc the app reads (unsorted <c>Find(IsDeleted == false).FirstOrDefault()</c>).
+        /// Extra live docs (owner decision 2026-10-14) are only logged, never changed or deleted.
+        /// </summary>
+        public BsonDocument? Copy => Live.Count > 0 ? Live[0] : null;
         public bool RootOverwritten => Root is not null && !Root.Contains("ConfigItemId") && Root.Contains("DbConnectionString");
         public bool Flagged => Root is not null && Root.TryGetValue(FlagField, out var f) && f.IsBoolean && f.AsBoolean;
         public string Tid => Tenant.TenantId;
@@ -203,7 +207,10 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
             return mode == ModeVerify ? TenantOutcome.Problem("overwritten-root-doc") : TenantOutcome.Blocker("overwritten-root-doc");
 
         if (state.Live.Count > 1)
-            return mode == ModeVerify ? TenantOutcome.Problem($"live-docs={state.Live.Count}") : TenantOutcome.Blocker($"live-docs={state.Live.Count}");
+            _logger.LogWarning(
+                "[dsc-migration] mode={Mode} tenant={TenantId} live-docs={LiveDocs} using={CopyId} (first in natural order, the doc the app reads) extra-ids-kept={ExtraIds}",
+                mode, state.Tid, state.Live.Count, IdText(state.Live[0]["_id"]),
+                string.Join(",", state.Live.Skip(1).Select(d => IdText(d["_id"]))));
 
         // Root doc and no tenant copy (os project after X11, a create by new code, or after cleanup): OK.
         if (state.Copy is null)
@@ -238,8 +245,10 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
                 { "_id", new BsonDocument("$nin", new BsonArray(allTenantIds)) }
             }
             : new BsonDocument();
+        // $natural hint: the order must be the app's read order (unsorted FirstOrDefault). Without it the root
+        // tenant's _id $nin clause makes Mongo walk the _id index and return _id order.
         var docs = await _databases.TenantDb(tenant).GetCollection<BsonDocument>(DscMigrationConstants.CollectionName)
-            .Find(copyFilter).ToListAsync(ct);
+            .Find(copyFilter, new FindOptions { Hint = new BsonDocument("$natural", 1) }).ToListAsync(ct);
         var live = docs.Where(d => d.TryGetValue("IsDeleted", out var v) && v.IsBoolean && !v.AsBoolean).ToList();
         var root = await RootCollection.Find(new BsonDocument("_id", tenant.TenantId)).FirstOrDefaultAsync(ct);
         var hash = await _redis.GetHashAsync(tenant.TenantId);

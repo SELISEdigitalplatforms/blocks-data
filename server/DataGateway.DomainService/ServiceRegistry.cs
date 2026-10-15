@@ -2,6 +2,7 @@ using FluentValidation;
 using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models;
+using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
 using DataGateway.DomainService.Services;
@@ -130,6 +131,7 @@ public static class ServiceRegistry
                 options.MaxFieldCost = 3000;
                 options.MaxTypeCost = 3000;
             })
+            .AddValidationRule((_, _) => new MaxRootFieldsRule(GraphQlConstant.MaxRootFieldsPerOperation))
             // Each tenant's schema is added per schema name by ProjectExecutorOptionsMonitor.
             //
             // Rides HotChocolate's own instrumentation hook (already part of its implicit default

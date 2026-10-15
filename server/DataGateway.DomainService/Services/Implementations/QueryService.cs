@@ -78,7 +78,7 @@ public class QueryService : IQueryService
                 { "sort", mongoSort ?? (BsonValue)BsonNull.Value }
             }.ToString();
 
-            var (documents, totalCount) = await _repository.GetItemsWithCountAsync(
+            var documents = await _repository.GetItemsAsync(
                 schema.CollectionName,
                 mongoFilter,
                 mongoSort,
@@ -95,12 +95,14 @@ public class QueryService : IQueryService
 
             _logger.LogInformation("Data retrieved for schema {SchemaName}", schema.SchemaName);
 
+            var collectionName = schema.CollectionName;
             return new QueryResponse<Dictionary<string, object>>
             {
                 Items = items,
-                TotalCount = (int)totalCount,
+                // Counted only if the response's totalCount/totalPages/hasNextPage is selected.
+                TotalCountProvider = () => _repository.CountAsync(collectionName, mongoFilter),
                 PageNo = queryInput.PageNo ?? 1,
-                PageSize = queryInput.PageSize ?? items.Count
+                PageSize = queryInput.PageSize is null ? items.Count : limit
             };
         }
         catch (GraphQLException ex)
@@ -219,7 +221,10 @@ public class QueryService : IQueryService
     {
         const int defaultLimit = 10;
         if (pageNo is not null && pageSize is not null)
-            return ((pageNo.Value - 1) * pageSize.Value, pageSize.Value);
+        {
+            var limit = Math.Clamp(pageSize.Value, 1, GraphQlConstant.MaxPageSize);
+            return ((Math.Max(pageNo.Value, 1) - 1) * limit, limit);
+        }
         return (0, defaultLimit);
     }
 

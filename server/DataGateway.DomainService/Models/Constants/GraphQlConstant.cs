@@ -29,6 +29,13 @@ public static class GraphQlConstant
     public const string BlocksKeyHeaderKey = "x-blocks-key";
     public const string UnauthorizedErrorCode = "AUTH_NOT_AUTHENTICATED";
     public const string ValidationErrorErrorCode = "VALIDATION_ERROR";
+    public const string TooManyRootFieldsErrorCode = "DATA_GATEWAY_TOO_MANY_ROOT_FIELDS";
+
+    /// <summary>
+    /// Root fields (<c>get…s</c>, <c>insert…</c>, …) one query or mutation may select, aliases included.
+    /// Each runs its own database calls, so this bounds how far one request can fan out.
+    /// </summary>
+    public const int MaxRootFieldsPerOperation = 10;
     private const string DefaultProvider = "azure";
     private const string RabbitMqProvider = "rabbitmq";
 

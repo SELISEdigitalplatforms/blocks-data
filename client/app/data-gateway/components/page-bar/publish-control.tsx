@@ -44,14 +44,15 @@ const describeVersion = (version: ISchemaVersionSummary) => {
  * are the same control now, and it is visible from every section.
  *
  * It also shows which published version the gateway serves, and opens the
- * version history, where an earlier version can be made live again. Both are
- * left out for roles that may not read the history.
+ * version history, where an earlier version can be made live again. History is fetched only when
+ * opened; failed reads leave publishing available.
  */
 export const PublishControl = () => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const { data: unadaptedChangeLogs } = useGetUnadaptedChangeLogs({ projectKey });
   const { mutateAsync: reloadSchemas, isPending: isPublishing } = useSchemasReload();
-  const { data: historyResponse } = useSchemaVersionHistory({ projectKey });
+  const [historyRequested, setHistoryRequested] = useState(false);
+  const { data: historyResponse, isError: historyError } = useSchemaVersionHistory({ projectKey, enabled: historyRequested });
   const [hasFailed, setHasFailed] = useState(false);
 
   const pendingCount = unadaptedChangeLogs?.data?.length ?? 0;
@@ -102,7 +103,7 @@ export const PublishControl = () => {
             Published{liveVersion !== null && ` · v${liveVersion}`}
           </span>
         </button>
-        {history && <VersionHistory history={history} className="border-l border-border/50" />}
+        <VersionHistory history={history} onOpenChange={setHistoryRequested} isError={historyError} className="border-l border-border/50" />
       </div>
     );
   }
@@ -162,15 +163,15 @@ export const PublishControl = () => {
         </button>
       </div>
 
-      {history && (
-        <VersionHistory history={history} className="h-8 rounded-lg border border-border/50" />
-      )}
+      <VersionHistory history={history} onOpenChange={setHistoryRequested} isError={historyError} className="h-8 rounded-lg border border-border/50" />
     </div>
   );
 };
 
 interface VersionHistoryProps {
-  history: { currentVersion: number; versions: ISchemaVersionSummary[] };
+  history: { currentVersion: number; versions: ISchemaVersionSummary[] } | null;
+  onOpenChange: (open: boolean) => void;
+  isError?: boolean;
   className?: string;
 }
 
@@ -179,7 +180,7 @@ interface VersionHistoryProps {
  * other version can be made live again after a confirmation that says what
  * changes and what does not.
  */
-const VersionHistory = ({ history, className }: VersionHistoryProps) => {
+const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHistoryProps) => {
   const { mutateAsync: rollback, isPending: isRollingBack } = useSchemaRollback();
   const [isOpen, setIsOpen] = useState(false);
   const [rollbackTarget, setRollbackTarget] = useState<number | null>(null);
@@ -202,7 +203,7 @@ const VersionHistory = ({ history, className }: VersionHistoryProps) => {
 
   return (
     <>
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <Popover open={isOpen} onOpenChange={(open) => { setIsOpen(open); onOpenChange(open); }}>
         <PopoverTrigger asChild>
           <button
             type="button"
@@ -218,7 +219,11 @@ const VersionHistory = ({ history, className }: VersionHistoryProps) => {
         </PopoverTrigger>
         <PopoverContent align="end" className="w-[340px] p-0">
           <div className="px-3 py-2.5 text-sm font-medium">Version history</div>
-          {history.versions.length === 0 ? (
+          {!history ? (
+            <p className="px-3 py-3 text-xs text-muted-foreground">
+              {isError ? "Version history is unavailable." : "Loading version history…"}
+            </p>
+          ) : history.versions.length === 0 ? (
             <p className="border-t border-border/50 px-3 py-3 text-xs text-muted-foreground">
               Nothing is published yet. Publishing creates the first version.
             </p>
@@ -269,7 +274,7 @@ const VersionHistory = ({ history, className }: VersionHistoryProps) => {
               dialogSubtitle: (
                 <>
                   <span className="block">
-                    {`Every server switches from v${history.currentVersion} to v${rollbackTarget} within about a second. Apps using the API see v${rollbackTarget}'s schemas and access rules.`}
+                    {`Every server switches from v${history?.currentVersion} to v${rollbackTarget} within about a second. Apps using the API see v${rollbackTarget}'s schemas and access rules.`}
                   </span>
                   <span className="mt-2 block">
                     {"Your drafts don't change. Publishing again creates a new version from them."}

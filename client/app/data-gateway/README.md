@@ -259,7 +259,7 @@ Singleton exported as `configurationService`. All calls use the shared `http` cl
 
 | Hook                                     | Query Key                                                      | Description                                                     |
 | ---------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
-| `useGetDataServiceConfiguration(option)` | `["data-service-config", "get", option]`                       | Fetch the data source config for a project                      |
+| `useGetDataServiceConfiguration(option)` | `["data-service-config", "get", option]`                       | Read the console options from Data                      |
 | `useSchemaList(payload)`                 | `["schema-list", ...filters]`                                  | Paginated, filtered schema list                                 |
 | `useSchemaDetails(id, projectKey)`       | `["schema-details", id]`                                       | Full schema details; disabled when `id` is falsy                |
 | `useGetMockData(option)`                 | `["mock-data"]`                                                | Mock document counts per collection                             |
@@ -348,7 +348,7 @@ All paths are defined in `constant/endpoint.constant.ts` and composed from the s
 
 | Group                       | Key                     | Path                                                |
 | --------------------------- | ----------------------- | --------------------------------------------------- |
-| `CONFIGURATION_ENDPOINTS`   | `GET`                   | `LOGIC/DataGateway/GetConfig`                                |
+| `CONFIGURATION_ENDPOINTS`   | `GET`                   | `UDS/gateway-options`                                |
 | `SCHEMA_ENDPOINTS`          | `LIST`                  | `UDS/schemas`                                       |
 |                             | `DETAILS`               | `UDS/schemas/{id}`                                  |
 |                             | `CREATE_INFO`           | `UDS/schemas/info`                                  |

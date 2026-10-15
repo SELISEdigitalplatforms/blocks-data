@@ -478,6 +478,15 @@
         <member name="M:Api.Controllers.ObjectController.ShareObject(DomainService.Storage.Dms.ShareObjectRequest)">
             <summary>Grants a principal an allow entry and records it as a share.</summary>
         </member>
+        <member name="T:DataGateway.Api.Controllers.GatewayOptionsController">
+            <summary>Read-only options for the Data console, resolved locally from the tenant's root document.</summary>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.GatewayOptionsController.#ctor(DataGateway.DomainService.Services.IDataGatewayConfigurationService)">
+            <summary>Read-only options for the Data console, resolved locally from the tenant's root document.</summary>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.GatewayOptionsController.GetAsync">
+            <summary>Returns collection naming and analytics options without exposing connection settings.</summary>
+        </member>
         <member name="T:DataGateway.Api.Controllers.MockDataController">
             <summary>
             MockDataController provides endpoints to manage mock data operations.

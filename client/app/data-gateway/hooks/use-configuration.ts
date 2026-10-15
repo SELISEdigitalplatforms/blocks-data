@@ -27,14 +27,16 @@ import {
 
 const getProjectKey = () => useProjectStore.getState().selectedProject?.tenantId || "";
 
-export const useGetDataServiceConfiguration = () => {
+export const useGetDataServiceConfiguration = ({ enabled = true }: { enabled?: boolean } = {}) => {
   // Subscribe so deep-links re-fetch when selectedProject arrives (getState alone does not).
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   return useQuery({
     queryKey: ["data-service-config", "get", projectKey],
     queryFn: () => configurationService.getDataServiceDetails(),
-    enabled: !!projectKey,
+    enabled: !!projectKey && enabled,
+    retry: false,
+    staleTime: 60_000,
   });
 };
 
@@ -109,13 +111,13 @@ export const useSchemasReload = () => {
 /**
  * The published schema versions that can be rolled back to, and which one is
  * live. Not retried: a role without the history permission gets a 403, and the
- * page simply leaves the version out.
+ * history popover reports that history is unavailable.
  */
-export const useSchemaVersionHistory = ({ projectKey }: { projectKey: string }) => {
+export const useSchemaVersionHistory = ({ projectKey, enabled = true }: { projectKey: string; enabled?: boolean }) => {
   return useQuery({
     queryKey: ["schema-version-history", projectKey],
     queryFn: () => configurationService.getSchemaVersionHistory(),
-    enabled: !!projectKey,
+    enabled: !!projectKey && enabled,
     retry: false,
   });
 };

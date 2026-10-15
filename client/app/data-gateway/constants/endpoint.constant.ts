@@ -1,11 +1,9 @@
 import { API_BASES } from "@/constants/endpoint.constant";
 
-// ─── Data-source configuration (read only) ───────────────────────────────────
-// The config API (get/save) is owned by Blocks OS (blocks-os `DataGateway/GetConfig`), served on the same
-// logic host as the storage config read. Edit/save happens on the OS page, never here.
-
+// Read-only console options from Data's own root-document reader.
+// Configuration editing remains in Blocks OS; no cross-service API calls.
 export const CONFIGURATION_ENDPOINTS = {
-  GET: `${API_BASES.LOGIC}/DataGateway/GetConfig`,
+  GET: `${API_BASES.UDS}/gateway-options`,
 } as const;
 
 // ─── Schema configuration (publishing) endpoints ──────────────────────────────

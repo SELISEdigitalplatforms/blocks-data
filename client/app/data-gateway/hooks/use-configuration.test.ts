@@ -98,6 +98,11 @@ describe("use-configuration hooks", () => {
   // ─── Query hooks ────────────────────────────────────────────────────────────
 
   describe("useGetDataServiceConfiguration", () => {
+    it("skips configuration when the consumer does not need it", () => {
+      const { result } = renderHook(() => useGetDataServiceConfiguration({ enabled: false }), { wrapper: createWrapper() });
+      expect(result.current.fetchStatus).toBe("idle");
+      expect(configurationService.getDataServiceDetails).not.toHaveBeenCalled();
+    });
     it("should fetch configuration successfully", async () => {
       const response = { config: { id: "1" } };
       vi.mocked(configurationService.getDataServiceDetails).mockResolvedValue(
@@ -506,6 +511,11 @@ describe("use-configuration hooks", () => {
   });
 
   describe("useSchemaVersionHistory", () => {
+    it("stays idle until history is requested", () => {
+      const { result } = renderHook(() => useSchemaVersionHistory({ projectKey: "pk", enabled: false }), { wrapper: createWrapper() });
+      expect(result.current.fetchStatus).toBe("idle");
+      expect(configurationService.getSchemaVersionHistory).not.toHaveBeenCalled();
+    });
     it("should read the version history for the project", async () => {
       vi.mocked(configurationService.getSchemaVersionHistory).mockResolvedValue({
         isSuccess: true,

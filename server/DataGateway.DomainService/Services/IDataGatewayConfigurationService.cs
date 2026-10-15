@@ -1,3 +1,5 @@
+using DataGateway.DomainService.Models.Responses;
+
 namespace DataGateway.DomainService.Services;
 
 /// <summary>
@@ -5,5 +7,7 @@ namespace DataGateway.DomainService.Services;
 /// </summary>
 public interface IDataGatewayConfigurationService
 {
+    Task<GatewayOptions?> GetOptionsAsync();
+
     Task<bool> CanAccessAnalyticsAsync();
 }

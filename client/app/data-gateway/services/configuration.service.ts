@@ -51,16 +51,11 @@ import {
 } from "../models/data-service";
 
 class ConfigurationService {
-  /**
-   * Read-only data-source config from Blocks OS. OS answers the bare object (never the connection string or
-   * secret); it is wrapped in the usual `{ isSuccess, data }` envelope the readers already use.
-   */
+  /** Read the console options from Data itself; never fetch the OS configuration API. */
   async getDataServiceDetails(): Promise<IDataServiceConfigurationResponse> {
-    const config = await http.get<IDataSourceResponse>(
-      CONFIGURATION_ENDPOINTS.GET,
-      undefined,
-      { absoluteUrl: true },
-    );
+    const config = await http.get<Pick<IDataSourceResponse,
+      "isCollectionNameEditable" | "collectionNamePattern" | "analyticsConfiguration"
+    >>(CONFIGURATION_ENDPOINTS.GET);
     return { isSuccess: true, errors: null, data: config ?? null };
   }
 

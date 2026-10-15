@@ -91,7 +91,7 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   // Fetch data source configuration for collection name pattern
-  const { data: configData } = useGetDataServiceConfiguration();
+  const { data: configData } = useGetDataServiceConfiguration({ enabled: isEntity });
   const config = configData?.data as IDataSourceResponse | undefined;
   const isCollectionNameEditable = config?.isCollectionNameEditable ?? false;
   const collectionNamePattern =

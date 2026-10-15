@@ -11,6 +11,13 @@ internal static class GraphQLIntrospectionHelper
         HttpRequest request,
         CancellationToken cancellationToken = default)
     {
+        // HotChocolate serves the schema SDL for a GET with an `sdl` query key, with no query text
+        // to inspect. That is the whole schema in one response, so it is introspection too.
+        if (IsSchemaDownload(request))
+        {
+            return true;
+        }
+
         foreach (var query in await ReadQueriesAsync(request, cancellationToken))
         {
             if (string.IsNullOrWhiteSpace(query))
@@ -36,6 +43,10 @@ internal static class GraphQLIntrospectionHelper
 
     private static bool ContainsIntrospectionQuery(string query) =>
         ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query));
+
+    /// <summary>The same test HotChocolate's HTTP middleware uses to decide to return the SDL.</summary>
+    private static bool IsSchemaDownload(HttpRequest request) =>
+        HttpMethods.IsGet(request.Method) && request.Query.ContainsKey("sdl");
 
     /// <summary>
     /// Whether a parsed document asks for schema introspection (<c>__schema</c> / <c>__type</c>,

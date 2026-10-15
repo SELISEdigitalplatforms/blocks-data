@@ -435,6 +435,7 @@ export interface ISchemaFieldValidation {
   value: string;
   secondaryValue: string;
   errorMessage: string;
+  isActive: boolean;
 }
 
 export interface ISchemaFieldValidationData {

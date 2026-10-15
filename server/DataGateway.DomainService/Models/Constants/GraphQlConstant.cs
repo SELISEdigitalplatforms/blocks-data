@@ -30,6 +30,7 @@ public static class GraphQlConstant
     public const string UnauthorizedErrorCode = "AUTH_NOT_AUTHENTICATED";
     public const string ValidationErrorErrorCode = "VALIDATION_ERROR";
     public const string TooManyRootFieldsErrorCode = "DATA_GATEWAY_TOO_MANY_ROOT_FIELDS";
+    public const string IntrospectionNotAllowedErrorCode = "DATA_GATEWAY_INTROSPECTION_NOT_ALLOWED";
 
     /// <summary>
     /// Root fields (<c>get…s</c>, <c>insert…</c>, …) one query or mutation may select, aliases included.

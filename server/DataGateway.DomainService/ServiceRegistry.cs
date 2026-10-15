@@ -124,14 +124,15 @@ public static class ServiceRegistry
     private static void AddGraphQLServers(this IServiceCollection serviceCollection)
     {
         serviceCollection.AddHttpResponseFormatter<AuthHttpResponseFormatter>();
+        // Do not call DisableIntrospection() or AddValidationRule() here: they configure only this
+        // template executor, which serves no traffic. Per-tenant validation lives in AddGatewayValidation.
         serviceCollection.AddGraphQLServer()
-            .DisableIntrospection()
             .ModifyCostOptions(options =>
             {
                 options.MaxFieldCost = 3000;
                 options.MaxTypeCost = 3000;
             })
-            .AddValidationRule((_, _) => new MaxRootFieldsRule(GraphQlConstant.MaxRootFieldsPerOperation))
+            .AddGatewayValidation()
             // Each tenant's schema is added per schema name by ProjectExecutorOptionsMonitor.
             //
             // Rides HotChocolate's own instrumentation hook (already part of its implicit default

@@ -1,6 +1,5 @@
 using Blocks.Genesis;
 using DataGateway.DomainService.Models.Constants;
-using DataGateway.DomainService.Repositories;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using StackExchange.Redis;
@@ -28,8 +27,12 @@ public interface IDscMigrationRedis
     Task ReleaseLockAsync(string key, string token);
     Task<Dictionary<string, string>> GetHashAsync(string key);
 
-    /// <summary>One transaction: <c>HSET DbConnectionSecretId, Version</c> + <c>HDEL DbConnectionString</c>.</summary>
-    Task<bool> ScrubAsync(string key, string secretId, string version);
+    /// <summary>
+    /// One atomic script: <c>HDEL DbConnectionString</c>; when the hash then lacks <c>DbConnectionSecretId</c> or
+    /// <c>ConnectionType</c> (an old-shape hash) the whole key is deleted (a missing hash is a normal cache miss; the server reloads it from the root doc).
+    /// Nothing else is written, no value is ever put into Redis.
+    /// </summary>
+    Task<bool> RemoveLegacyFieldAsync(string key);
 }
 
 public sealed class DscMigrationDatabases : IDscMigrationDatabases
@@ -94,15 +97,18 @@ public sealed class DscMigrationRedis : IDscMigrationRedis
         return entries.ToDictionary(e => e.Name.ToString(), e => e.Value.ToString(), StringComparer.Ordinal);
     }
 
-    public async Task<bool> ScrubAsync(string key, string secretId, string version)
+    private const string RemoveLegacyScript =
+        "redis.call('HDEL', KEYS[1], ARGV[1]) " +
+        "if redis.call('HEXISTS', KEYS[1], ARGV[2]) == 0 or redis.call('HEXISTS', KEYS[1], ARGV[3]) == 0 then redis.call('DEL', KEYS[1]) end " +
+        "return 1";
+
+    public async Task<bool> RemoveLegacyFieldAsync(string key)
     {
-        var tran = _cacheClient.CacheDatabase().CreateTransaction();
-        _ = tran.HashSetAsync(key, [
-            new HashEntry(GqlDbRepository.HashFieldSecretId, secretId),
-            new HashEntry(GqlDbRepository.HashFieldVersion, version)
-        ]);
-        _ = tran.HashDeleteAsync(key, GqlDbRepository.HashFieldLegacyConnectionString);
-        return await tran.ExecuteAsync();
+        var result = await _cacheClient.CacheDatabase().ScriptEvaluateAsync(
+            RemoveLegacyScript,
+            [(RedisKey)key],
+            [(RedisValue)DscMigrationConstants.HashFieldLegacyConnectionString, (RedisValue)DscMigrationConstants.HashFieldSecretId, (RedisValue)DscMigrationConstants.HashFieldConnectionType]);
+        return (long)result == 1;
     }
 }
 
@@ -110,4 +116,9 @@ internal static class DscMigrationConstants
 {
     public const string CollectionName = "DataServiceConfigurations";
     public const string RootDbName = GraphQlConstant.BlocksRootDbName;
+
+    // Redis hash of a tenant (key = TenantId). The Worker only ever removes the legacy field.
+    public const string HashFieldLegacyConnectionString = "DbConnectionString";
+    public const string HashFieldSecretId = "DbConnectionSecretId";
+    public const string HashFieldConnectionType = "ConnectionType";
 }

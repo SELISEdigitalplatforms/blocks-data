@@ -11,9 +11,10 @@ using XUnitTest.Infrastructure;
 namespace XUnitTest.Worker;
 
 /// <summary>
-/// DSC secret migration Worker job (data SPEC1 §3.6; R-WORKER-JOB, R-WORKER-VALUE-CONFLICT, R-WORKER-NOCOPY,
-/// R-FAIL-WORKER-CRASH, R-ROLL-SCRUB, C14, C15, C17, C28, C55, C57, C60, C63, C65, C68) on the real throwaway Mongo
-/// (root DB + one DB per tenant), an in-memory secret service and an in-memory Redis.
+/// Data-source migration Worker job (owner 2026-10-15: ONE model, no fallback). For every tenant: a Service secret
+/// <c>data-source</c> (plain value, <c>default</c> = Blocks DB) + the root doc (<c>_id</c> = TenantId, same fields as the
+/// old doc, no connection string and no helper fields). Old tenant docs are never touched. Runs on the real throwaway
+/// Mongo (root DB + one DB per tenant), an in-memory secret service and an in-memory Redis.
 /// </summary>
 [Collection("Mongo")]
 public class DataSourceSecretMigrationJobTests
@@ -45,22 +46,32 @@ public class DataSourceSecretMigrationJobTests
 
     private static string B64(string v) => Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(v));
 
-    private async Task CopyAsync(string tenant, string? value, DateTime? lastUpdated = null, string id = "copy-1", string pattern = "sb_{SchemaName}s", bool isRoot = false)
+    private static BsonDocument OldDoc(string tenant, string? value, string id = "copy-1", bool deleted = false, DateTime? lastUpdated = null, string pattern = "sb_{SchemaName}s")
     {
-        _dbs.Add(tenant, isRoot, _fixture);
         var doc = new BsonDocument
         {
-            { "_id", id }, { "DatabaseName", "db-" + tenant }, { "IsDeleted", false }, { "IsCollectionNameEditable", false },
+            { "_id", id }, { "DatabaseName", "db-" + tenant }, { "IsDeleted", deleted }, { "IsCollectionNameEditable", true },
             { "CollectionNamePattern", pattern }, { "ProjectKey", tenant }, { "ProjectShortKey", "s" },
+            { "CreatedDate", new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc) }, { "CreatedBy", "creator" },
+            { "LastUpdatedBy", "editor" }, { "OrganizationId", "org-1" },
+            { "AnalyticsConfiguration", new BsonDocument { { "EnableAnalytics", true }, { "ValidTill", new DateTime(2030, 1, 1, 0, 0, 0, DateTimeKind.Utc) } } },
             { "LastUpdatedDate", lastUpdated ?? new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc) }
         };
         doc["DbConnectionString"] = value is null ? BsonNull.Value : B64(value);
-        await Copies(tenant).InsertOneAsync(doc);
+        return doc;
+    }
+
+    private async Task CopyAsync(string tenant, string? value, DateTime? lastUpdated = null, string id = "copy-1", bool isRoot = false, bool disabled = false)
+    {
+        _dbs.Add(tenant, isRoot, _fixture, disabled);
+        await Copies(tenant).InsertOneAsync(OldDoc(tenant, value, id, lastUpdated: lastUpdated));
     }
 
     private async Task<BsonDocument?> RootDocAsync(string tenant) => await Root.Find(new BsonDocument("_id", tenant)).FirstOrDefaultAsync();
 
     private async Task<DscRunSummary> RunAsync(string mode, string? dataDeployed = null) => await Job(dataDeployed).RunAsync(mode, CancellationToken.None);
+
+    private static string[] Forbidden => ["DbConnectionString", "ConfigItemId", "ValueChangedAfterDeploy", "MigratedFrom"];
 
     // ---------------- guards ----------------
 
@@ -101,45 +112,49 @@ public class DataSourceSecretMigrationJobTests
     public async Task Scrub_RefusedWithoutDataDeployed()
     {
         await CopyAsync("t1", Custom);
+        await RunAsync("apply");
         _redis.Hashes["t1"] = new() { ["DbConnectionString"] = B64(Custom), ["DatabaseName"] = "db" };
         var s = await RunAsync("scrub-redis");
         s.Ran.Should().BeFalse();
-        _redis.Scrubbed.Should().BeEmpty();
+        _redis.Removed.Should().BeEmpty();
         _logs.Logs.Should().Contain(l => l.Message.Contains("DataDeployed=yes"));
     }
 
     // ---------------- plan ----------------
 
     [Fact]
-    public async Task Plan_NoWrites_ReportsBlockers()
+    public async Task Plan_NoWrites_ReportsBlockers_MultiDocIsNoBlocker()
     {
         await CopyAsync("two-live", Custom);
-        await Copies("two-live").InsertOneAsync(new BsonDocument { { "_id", "copy-2" }, { "IsDeleted", false }, { "DbConnectionString", B64(Custom) } });
+        await Copies("two-live").InsertOneAsync(OldDoc("two-live", "default", "copy-2"));
         await CopyAsync("bad-b64", null);
         await Copies("bad-b64").UpdateOneAsync(new BsonDocument(), new BsonDocument("$set", new BsonDocument("DbConnectionString", "%%%not-base64")));
         await CopyAsync("redis-diff", Custom);
         _redis.Hashes["redis-diff"] = new() { ["DbConnectionString"] = B64(Custom2), ["DatabaseName"] = "db" };
         await CopyAsync("fine", "default");
+        _dbs.Add("no-doc", false, _fixture);
 
         var s = await RunAsync("plan");
 
-        s.Results["two-live"].Should().Be("blocker:live-docs=2");
+        s.Results["two-live"].Should().StartWith("kind=custom root=missing live-docs=2");
         s.Results["bad-b64"].Should().Be("blocker:invalid-base64");
-        s.Results["redis-diff"].Should().Be("blocker:redis-differs");
-        s.Results["fine"].Should().StartWith("kind=default root=missing");
+        s.Results["redis-diff"].Should().Contain("redis=differs", "reported, not a blocker");
+        s.Results["fine"].Should().StartWith("kind=default root=missing live-docs=1");
+        s.Results["no-doc"].Should().StartWith("kind=default root=missing live-docs=0");
         (await Root.CountDocumentsAsync(new BsonDocument())).Should().Be(0);
         _secrets.Calls.Should().BeEmpty();
         _logs.Logs.Should().Contain(l => l.Message.Contains("value-store="));
         _logs.Logs.Should().NotContain(l => l.AllText().Contains("JobSecretPw") || l.AllText().Contains("OtherJobPw"));
     }
 
-    // ---------------- apply ----------------
+    // ---------------- apply: value + root doc ----------------
 
     [Fact]
-    public async Task Apply_Custom_ServiceSecretAndRootDoc_NoValueInRoot_MarkerKept_DateNotOlder()
+    public async Task Apply_Custom_PlainServiceSecret_RootDocSameFields_NoOldModelFields_OldDocUntouched()
     {
         var copyDate = new DateTime(2026, 10, 2, 0, 0, 0, DateTimeKind.Utc);
         await CopyAsync("t1", Custom, copyDate);
+        var oldBefore = await Copies("t1").Find(new BsonDocument()).FirstAsync();
 
         var s = await RunAsync("apply");
 
@@ -147,383 +162,438 @@ public class DataSourceSecretMigrationJobTests
         var secret = _secrets.Secrets.Values.Single();
         secret.TenantId.Should().Be("t1");
         secret.Type.Should().Be(SecretTypes.Service);
-        secret.Name.Should().Be("data-source-connection");
-        secret.Tags.Should().Equal("data");
-        secret.Value.Should().Be(Custom);
+        secret.Name.Should().Be("data-source");
+        secret.Value.Should().Be(Custom, "plain value, not base64");
         _secrets.Calls.Should().AllSatisfy(c => c.User.Should().Be("blocks-data-dsc-migration"));
         var root = (await RootDocAsync("t1"))!;
-        root.Contains("DbConnectionString").Should().BeFalse();
-        root["ConfigItemId"].AsString.Should().Be("copy-1");
+        foreach (var f in Forbidden)
+            root.Contains(f).Should().BeFalse(f);
+        root["TenantId"].AsString.Should().Be("t1");
         root["DbConnectionSecretId"].AsString.Should().Be(secret.Id);
-        root["MigratedFrom"].AsString.Should().Be("DataServiceConfigurations");
         root["DatabaseName"].AsString.Should().Be("db-t1");
-        root["LastUpdatedDate"].ToUniversalTime().Should().BeOnOrAfter(copyDate);
+        root["IsCollectionNameEditable"].AsBoolean.Should().BeTrue();
+        root["CollectionNamePattern"].AsString.Should().Be("sb_{SchemaName}s");
+        root["ProjectKey"].AsString.Should().Be("t1");
+        root["ProjectShortKey"].AsString.Should().Be("s");
+        root["AnalyticsConfiguration"]["EnableAnalytics"].AsBoolean.Should().BeTrue();
+        root["CreatedBy"].AsString.Should().Be("creator");
+        root["IsDeleted"].AsBoolean.Should().BeFalse();
+        root["LastUpdatedDate"].ToUniversalTime().Should().Be(copyDate);
+        (await Copies("t1").Find(new BsonDocument()).FirstAsync()).ToJson().Should().Be(oldBefore.ToJson(), "old docs are deleted by the cleanup, never by the Worker");
+        _redis.Removed.Should().BeEmpty();
         _logs.Logs.Should().Contain(l => l.Message.Contains("[dsc-migration] mode=apply tenant=t1 result=migrated"));
         _logs.Logs.Should().NotContain(l => l.AllText().Contains("JobSecretPw"));
     }
 
     [Theory]
-    [InlineData("default", "default")]
-    [InlineData(null, null)]
-    [InlineData("", null)]
-    public async Task Apply_DefaultOrBlank_NoSecret(string? value, string? expectedId)
+    [InlineData("default")]
+    [InlineData("Default")]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task Apply_DefaultOrBlank_SecretWithTheValueDefault(string? value)
     {
         await CopyAsync("t1", value);
-        await RunAsync("apply");
-        _secrets.Calls.Should().BeEmpty();
-        var root = (await RootDocAsync("t1"))!;
-        if (expectedId is null) root["DbConnectionSecretId"].IsBsonNull.Should().BeTrue();
-        else root["DbConnectionSecretId"].AsString.Should().Be(expectedId);
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("migrated kind=default");
+        var secret = _secrets.Secrets.Values.Single();
+        secret.Value.Should().Be("default");
+        secret.Type.Should().Be(SecretTypes.Service);
+        (await RootDocAsync("t1"))!["DbConnectionSecretId"].AsString.Should().Be(secret.Id, "always a secret id, never null or a magic text");
     }
 
     [Fact]
-    public async Task Apply_RootTenant_CopyLivesInTheRootDb_RootDocNextToIt()
+    public async Task Apply_TenantWithoutOldDoc_GetsSeedDefaultsAndADefaultSecret()
+    {
+        _dbs.Add("fresh", false, _fixture);
+
+        var s = await RunAsync("apply");
+
+        s.Results["fresh"].Should().Be("migrated kind=default");
+        var root = (await RootDocAsync("fresh"))!;
+        root["_id"].AsString.Should().Be("fresh");
+        root["TenantId"].AsString.Should().Be("fresh");
+        root["DatabaseName"].AsString.Should().Be("default");
+        root["IsCollectionNameEditable"].AsBoolean.Should().BeFalse();
+        root["CollectionNamePattern"].AsString.Should().Be("sb_{SchemaName}s");
+        root["ProjectKey"].AsString.Should().BeEmpty();
+        root["ProjectShortKey"].AsString.Should().BeEmpty();
+        root["IsDeleted"].AsBoolean.Should().BeFalse();
+        root["AnalyticsConfiguration"].IsBsonNull.Should().BeTrue();
+        _secrets.Secrets[root["DbConnectionSecretId"].AsString].Value.Should().Be("default");
+    }
+
+    [Fact]
+    public async Task Apply_TenantWithoutDbInfo_StillGetsRootDoc_NoOldDocRead()
+    {
+        _dbs.AddNoDb("nodb");
+        var s = await RunAsync("apply");
+        s.Results["nodb"].Should().Be("migrated kind=default");
+        (await RootDocAsync("nodb")).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Apply_BlocksDbTenantsOfTheRootDbToo_RootTenantLegacyDocLivesInTheRootDb()
     {
         await CopyAsync("root-t", Custom, isRoot: true, id: "legacy-root");
         await CopyAsync("t2", "default");
 
         await RunAsync("apply");
 
-        (await RootDocAsync("root-t"))!["ConfigItemId"].AsString.Should().Be("legacy-root");
+        (await RootDocAsync("root-t"))!["DbConnectionSecretId"].AsString.Should().NotBeNullOrEmpty();
         (await Root.CountDocumentsAsync(new BsonDocument("_id", "legacy-root"))).Should().Be(1, "the root tenant's legacy doc is never touched");
+        _secrets.Secrets.Values.Single(x => x.TenantId == "root-t").Value.Should().Be(Custom);
         (await RootDocAsync("t2")).Should().NotBeNull();
         var rerun = await RunAsync("apply");
-        rerun.Results["root-t"].Should().Be("in-sync", "root docs of other tenants in the root DB are never taken for the root tenant's copy");
+        rerun.Results["root-t"].Should().Be("root-exists", "root docs of other tenants in the root DB are never taken for the root tenant's old doc");
+        rerun.Results["t2"].Should().Be("root-exists");
+    }
+
+    // ---------------- apply: 2+ live docs ----------------
+
+    [Fact]
+    public async Task Apply_TwoLiveDocs_TheDocTheOldAppReads_FirstOfFindIsDeletedFalse_ChosenIdLogged_ExtraUntouched()
+    {
+        _dbs.Add("t1", false, _fixture);
+        // natural (insert) order: a deleted doc, then "zz-first", then "aa-second" (sorts first by _id: must NOT win)
+        await Copies("t1").InsertManyAsync([
+            OldDoc("t1", Custom2, "000-deleted", deleted: true),
+            OldDoc("t1", Custom, "zz-first"),
+            OldDoc("t1", "default", "aa-second")
+        ]);
+        var extraBefore = await Copies("t1").Find(new BsonDocument("_id", "aa-second")).FirstAsync();
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("migrated kind=custom");
+        _secrets.Secrets.Values.Single().Value.Should().Be(Custom);
+        (await Copies("t1").Find(new BsonDocument("_id", "aa-second")).FirstAsync()).ToJson().Should().Be(extraBefore.ToJson());
+        (await Copies("t1").CountDocumentsAsync(new BsonDocument())).Should().Be(3);
+        var log = _logs.Logs.Single(l => l.Message.Contains("live-docs=") && l.Message.Contains("using="));
+        log.AllText().Should().Contain("zz-first").And.Contain("aa-second").And.Contain("2");
+        log.AllText().Should().NotContain("JobSecretPw");
+        (await RunAsync("verify")).Results["t1"].Should().Be("verified kind=custom");
     }
 
     [Fact]
-    public async Task Apply_OrphanGuard_CrashBetweenSecretAndRootDoc_ReusesTheSecret_RotatesIfDifferent()
+    public async Task Apply_RootTenant_TwoLegacyDocs_RootDocsOfOtherTenantsInTheSameCollectionAreSkipped()
+    {
+        _dbs.Add("root-t", true, _fixture);
+        _dbs.Add("t9", false, _fixture);
+        // a root doc of another tenant is in the root DB FIRST; then the two legacy docs, "dsc-seed" before "a-dsc-root-2"
+        await Root.InsertOneAsync(new BsonDocument { { "_id", "t9" }, { "IsDeleted", false }, { "DbConnectionSecretId", "x" } });
+        await Root.InsertManyAsync([OldDoc("root-t", "default", "dsc-seed"), OldDoc("root-t", Custom, "a-dsc-root-2")]);
+
+        var s = await RunAsync("apply");
+
+        s.Results["root-t"].Should().Be("migrated kind=default");
+        _secrets.Secrets.Values.Single(x => x.TenantId == "root-t").Value.Should().Be("default");
+        (await Root.CountDocumentsAsync(new BsonDocument { { "_id", new BsonDocument("$in", new BsonArray { "dsc-seed", "a-dsc-root-2" }) } })).Should().Be(2);
+    }
+
+    // ---------------- apply: idempotent re-run ----------------
+
+    [Fact]
+    public async Task Apply_Rerun_RootExistsWithValidSecret_Skipped_NoSecondSecret_NoWrite()
     {
         await CopyAsync("t1", Custom);
-        var orphan = _secrets.Add("t1", Custom2);
-
         await RunAsync("apply");
+        var rootBefore = (await RootDocAsync("t1"))!;
+        var secretCountBefore = _secrets.Secrets.Count;
 
-        _secrets.Secrets.Should().HaveCount(1);
-        (await RootDocAsync("t1"))!["DbConnectionSecretId"].AsString.Should().Be(orphan.Id);
-        orphan.Value.Should().Be(Custom);
+        var again = await RunAsync("apply");
+
+        again.Results["t1"].Should().Be("root-exists");
+        again.Changed.Should().Be(0);
+        _secrets.Secrets.Should().HaveCount(secretCountBefore);
+        _secrets.Calls.Count(c => c.Op == "Set").Should().Be(1);
+        (await RootDocAsync("t1"))!.ToJson().Should().Be(rootBefore.ToJson());
+    }
+
+    [Fact]
+    public async Task Apply_RootDocFromNewServer_ValidSecret_NeverOverwritten()
+    {
+        await CopyAsync("t1", Custom);
+        var made = _secrets.Add("t1", "default");
+        made.Name = "data-source";
+        await Root.InsertOneAsync(new BsonDocument { { "_id", "t1" }, { "TenantId", "t1" }, { "DbConnectionSecretId", made.Id }, { "DatabaseName", "default" } });
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("root-exists");
+        _secrets.Calls.Should().NotContain(c => c.Op == "Set");
+        (await RootDocAsync("t1"))!["DatabaseName"].AsString.Should().Be("default");
+    }
+
+    [Fact]
+    public async Task Apply_RootDocWithOldModelFields_ValidSecret_FieldsRemoved_NothingElseChanged()
+    {
+        await CopyAsync("t1", Custom);
+        var made = _secrets.Add("t1", Custom);
+        await Root.InsertOneAsync(new BsonDocument
+        {
+            { "_id", "t1" }, { "TenantId", "t1" }, { "DbConnectionSecretId", made.Id }, { "DatabaseName", "keep" },
+            { "ConfigItemId", "copy-1" }, { "ValueChangedAfterDeploy", true }, { "MigratedFrom", "DataServiceConfigurations" }
+        });
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("root-normalized");
+        var root = (await RootDocAsync("t1"))!;
+        foreach (var f in Forbidden)
+            root.Contains(f).Should().BeFalse(f);
+        root["DatabaseName"].AsString.Should().Be("keep");
+        root["DbConnectionSecretId"].AsString.Should().Be(made.Id);
+        _secrets.Calls.Should().NotContain(c => c.Op == "Set" || c.Op == "Rotate");
+    }
+
+    [Fact]
+    public async Task Apply_RootDocLinkedSecretGone_NewSecretFromOldDoc_RootRepointed_OldSecretKept()
+    {
+        await CopyAsync("t1", Custom);
+        var broken = _secrets.Add("t1", Custom, SecretStatuses.Deleted);
+        await Root.InsertOneAsync(new BsonDocument { { "_id", "t1" }, { "TenantId", "t1" }, { "DbConnectionSecretId", broken.Id }, { "DatabaseName", "keep" } });
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("secret-repaired");
+        var root = (await RootDocAsync("t1"))!;
+        root["DbConnectionSecretId"].AsString.Should().NotBe(broken.Id);
+        _secrets.Secrets[root["DbConnectionSecretId"].AsString].Value.Should().Be(Custom);
+        _secrets.Secrets[broken.Id].Status.Should().Be(SecretStatuses.Deleted);
+        root["DatabaseName"].AsString.Should().Be("keep");
+    }
+
+    [Fact]
+    public async Task Apply_RootDocLinkedSecretGone_NoOldDoc_Blocker_NothingInvented()
+    {
+        _dbs.Add("t1", false, _fixture);
+        await Root.InsertOneAsync(new BsonDocument { { "_id", "t1" }, { "TenantId", "t1" }, { "DbConnectionSecretId", new string('a', 32) } });
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("blocker:root-secret-broken");
         _secrets.Calls.Should().NotContain(c => c.Op == "Set");
     }
 
     [Fact]
-    public async Task Apply_OrphanGuard_SkipsASecretUsedByAnotherRootDoc()
+    public async Task Apply_OverwrittenRootDoc_HoldsConnectionString_Blocker_NothingWritten()
     {
         await CopyAsync("t1", Custom);
-        var used = _secrets.Add("t1", Custom);
-        await Root.InsertOneAsync(new BsonDocument { { "_id", "someone" }, { "ConfigItemId", "x" }, { "DbConnectionSecretId", used.Id } });
-
-        await RunAsync("apply");
-
-        (await RootDocAsync("t1"))!["DbConnectionSecretId"].AsString.Should().NotBe(used.Id);
-        _secrets.Calls.Should().Contain(c => c.Op == "Set");
-    }
-
-    [Fact]
-    public async Task Apply_Rerun_IsInSync_NoSecondSecret()
-    {
-        await CopyAsync("t1", Custom);
-        await RunAsync("apply");
-        var again = await RunAsync("apply");
-        again.Results["t1"].Should().Be("in-sync");
-        _secrets.Secrets.Should().HaveCount(1);
-    }
-
-    [Fact]
-    public async Task Apply_CopyNewer_NotFlagged_ResyncsFieldsWithSet_RotatesTheValue_MarkerKept()
-    {
-        await CopyAsync("t1", Custom, new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc));
-        await RunAsync("apply");
-        var newer = new DateTime(2026, 10, 5, 0, 0, 0, DateTimeKind.Utc);
-        await Copies("t1").UpdateOneAsync(new BsonDocument(), new BsonDocument("$set", new BsonDocument
-        {
-            { "DbConnectionString", B64(Custom2) }, { "CollectionNamePattern", "new_{SchemaName}" }, { "LastUpdatedDate", newer }
-        }));
+        await Root.InsertOneAsync(new BsonDocument { { "_id", "t1" }, { "DbConnectionString", B64(Custom2) }, { "DatabaseName", "x" } });
 
         var s = await RunAsync("apply");
 
-        s.Results["t1"].Should().Be("resynced");
-        var root = (await RootDocAsync("t1"))!;
-        root["CollectionNamePattern"].AsString.Should().Be("new_{SchemaName}");
-        root["MigratedFrom"].AsString.Should().Be("DataServiceConfigurations");
-        _secrets.Secrets[root["DbConnectionSecretId"].AsString].Value.Should().Be(Custom2);
-        _secrets.Calls.Should().Contain(c => c.Op == "Rotate");
-    }
-
-    [Theory]
-    [InlineData("default", Custom)]
-    [InlineData(Custom, "default")]
-    public async Task Apply_Flagged_CopyNotNewer_ValueDiffers_NoRotate_NoBlocker(string copyValue, string newCodeValue)
-    {
-        await CopyAsync("t1", copyValue, new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc));
-        var newId = newCodeValue == "default" ? "default" : _secrets.Add("t1", newCodeValue).Id;
-        await Root.InsertOneAsync(RootFromCopy("t1", newId, flagged: true, lastUpdated: new DateTime(2026, 10, 3, 0, 0, 0, DateTimeKind.Utc)));
-        var callsBefore = _secrets.Calls.Count;
-
-        var s = await RunAsync("apply");
-
-        s.Results["t1"].Should().Be("in-sync");
-        _secrets.Calls.Skip(callsBefore).Should().NotContain(c => c.Op == "Rotate" || c.Op == "Set");
-        var verify = await RunAsync("verify");
-        verify.Results["t1"].Should().Be("value-changed-after-deploy");
-        verify.Problems.Should().Be(0);
+        s.Results["t1"].Should().Be("blocker:overwritten-root-doc");
+        _secrets.Secrets.Should().BeEmpty();
     }
 
     [Fact]
-    public async Task Apply_Flagged_CopyNewer_ValueDiffers_ValueConflictBlocker_NothingWritten()
+    public async Task Apply_InvalidBase64_Blocker_NothingWritten()
     {
-        await CopyAsync("t1", Custom2, new DateTime(2026, 10, 9, 0, 0, 0, DateTimeKind.Utc));
-        var id = _secrets.Add("t1", Custom).Id;
-        await Root.InsertOneAsync(RootFromCopy("t1", id, flagged: true, lastUpdated: new DateTime(2026, 10, 3, 0, 0, 0, DateTimeKind.Utc)));
-
+        await CopyAsync("t1", null);
+        await Copies("t1").UpdateOneAsync(new BsonDocument(), new BsonDocument("$set", new BsonDocument("DbConnectionString", "%%%")));
         var s = await RunAsync("apply");
-
-        s.Results["t1"].Should().Be("blocker:value-conflict");
-        _secrets.Secrets[id].Value.Should().Be(Custom);
-        (await RunAsync("verify")).Results["t1"].Should().Be("problem:value-conflict");
-        (await RunAsync("plan")).Results["t1"].Should().Be("blocker:value-conflict");
+        s.Results["t1"].Should().Be("blocker:invalid-base64");
+        (await RootDocAsync("t1")).Should().BeNull();
+        _secrets.Secrets.Should().BeEmpty();
     }
 
-    [Fact]
-    public async Task Verify_Flagged_CopyNewer_SameValue_IsCopyNewer_NotValueConflict_ApplyResyncs()
-    {
-        await CopyAsync("t1", Custom, new DateTime(2026, 10, 9, 0, 0, 0, DateTimeKind.Utc));
-        var id = _secrets.Add("t1", Custom).Id;
-        await Root.InsertOneAsync(RootFromCopy("t1", id, flagged: true, lastUpdated: new DateTime(2026, 10, 3, 0, 0, 0, DateTimeKind.Utc)));
-
-        (await RunAsync("verify")).Results["t1"].Should().Be("problem:copy-newer");
-        (await RunAsync("apply")).Results["t1"].Should().Be("resynced");
-        _secrets.Calls.Should().NotContain(c => c.Op == "Rotate" || c.Op == "Set");
-        (await RunAsync("verify")).Results["t1"].Should().Be("value-changed-after-deploy");
-    }
+    // ---------------- apply: races + failures ----------------
 
     [Fact]
     public async Task Apply_DuplicateKeyOnRootInsert_RootExists_DeletesOnlyItsOwnNewSecret()
     {
         await CopyAsync("t1", Custom);
+        var other = _secrets.Add("t1", "default");
         _secrets.BeforeCall = async (op, _) =>
         {
-            if (op == "Set") // a parallel writer creates the root doc between the read and the insert
-                await Root.InsertOneAsync(new BsonDocument { { "_id", "t1" }, { "ConfigItemId", "copy-1" }, { "DbConnectionSecretId", "default" } });
+            if (op == "Set")
+                await Root.InsertOneAsync(new BsonDocument { { "_id", "t1" }, { "TenantId", "t1" }, { "DbConnectionSecretId", other.Id } });
         };
 
         var s = await RunAsync("apply");
 
         s.Results["t1"].Should().Be("root-exists");
-        var created = _secrets.Secrets.Values.Single();
-        created.Status.Should().Be(SecretStatuses.Deleted, "the secret this run created is not left as an orphan");
-        (await RootDocAsync("t1"))!["DbConnectionSecretId"].AsString.Should().Be("default");
+        _secrets.Secrets.Values.Where(x => x.Id != other.Id).Single().Status.Should().Be(SecretStatuses.Deleted);
+        other.Status.Should().Be(SecretStatuses.Active);
+        (await RootDocAsync("t1"))!["DbConnectionSecretId"].AsString.Should().Be(other.Id);
     }
 
     [Fact]
-    public async Task Apply_DuplicateKeyOnRootInsert_ReusedSecretIsNotDeleted()
+    public async Task DisabledTenant_NothingDone_InEveryMode_OthersGoOn()
     {
-        await CopyAsync("t1", Custom);
-        var orphan = _secrets.Add("t1", Custom);
-        _secrets.BeforeCall = async (op, _) =>
-        {
-            if (op == "Find")
-                await Root.InsertOneAsync(new BsonDocument { { "_id", "t1" }, { "ConfigItemId", "copy-1" }, { "DbConnectionSecretId", "default" } });
-        };
-
-        var s = await RunAsync("apply");
-
-        s.Results["t1"].Should().Be("root-exists");
-        orphan.Status.Should().Be(SecretStatuses.Active);
-        _secrets.Calls.Should().NotContain(c => c.Op == "Delete" || c.Op == "Set");
-    }
-
-    [Theory]
-    [InlineData("Default")]
-    [InlineData("DEFAULT")]
-    public async Task DefaultInAnyCase_IsTheBlocksDbSentinel_AsToday(string value)
-    {
-        await CopyAsync("t1", value);
-        _redis.Hashes["t1"] = new() { ["DbConnectionString"] = B64(value), ["DatabaseName"] = "db" };
-
-        (await RunAsync("plan")).Results["t1"].Should().StartWith("kind=default");
-        (await RunAsync("apply")).Results["t1"].Should().Be("migrated kind=default");
-        _secrets.Calls.Should().BeEmpty();
-        (await RootDocAsync("t1"))!["DbConnectionSecretId"].AsString.Should().Be("default");
-        (await RunAsync("scrub-redis", dataDeployed: "yes")).Results["t1"].Should().Be("scrubbed");
-        (await RunAsync("verify")).Results["t1"].Should().Be("verified kind=default");
-    }
-
-    [Fact]
-    public async Task Apply_RootNewer_FieldDiffers_RepairsTheCopy_NonSecretFieldsOnly()
-    {
-        await CopyAsync("t1", Custom, new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc));
-        await RunAsync("apply");
-        var rootDate = new DateTime(2026, 10, 6, 0, 0, 0, DateTimeKind.Utc);
-        await Root.UpdateOneAsync(new BsonDocument("_id", "t1"), new BsonDocument("$set", new BsonDocument
-        {
-            { "CollectionNamePattern", "root_{SchemaName}" }, { "LastUpdatedDate", rootDate }
-        }));
-        (await RunAsync("verify")).Results["t1"].Should().Be("problem:field-differs=CollectionNamePattern");
-
-        var s = await RunAsync("apply");
-
-        s.Results["t1"].Should().Be("copy-repaired");
-        var copy = await Copies("t1").Find(new BsonDocument()).FirstAsync();
-        copy["CollectionNamePattern"].AsString.Should().Be("root_{SchemaName}");
-        copy["DbConnectionString"].AsString.Should().Be(B64(Custom), "never the value");
-        copy["IsDeleted"].AsBoolean.Should().BeFalse();
-        copy["LastUpdatedDate"].ToUniversalTime().Should().Be(rootDate);
-        _logs.Logs.Should().Contain(l => l.Message.Contains("result=copy-repaired"));
-        (await RunAsync("verify")).Results["t1"].Should().StartWith("verified");
-    }
-
-    [Fact]
-    public async Task OverwrittenRootDoc_Blocker_NothingWritten_NeverTakenAsTheRootTenantsLegacyDoc()
-    {
-        await CopyAsync("root-t", "default", isRoot: true, id: "legacy-root");
-        await CopyAsync("t1", Custom);
-        await Root.InsertOneAsync(new BsonDocument { { "_id", "t1" }, { "DbConnectionString", B64(Custom2) }, { "IsDeleted", false } });
-
-        var s = await RunAsync("apply");
-
-        s.Results["t1"].Should().Be("blocker:overwritten-root-doc");
-        (await RootDocAsync("t1"))!.Contains("ConfigItemId").Should().BeFalse();
-        s.Results["root-t"].Should().Be("migrated kind=default", "the overwritten doc (_id = a TenantId) is not a root-tenant copy");
-        (await RunAsync("verify")).Results["t1"].Should().Be("problem:overwritten-root-doc");
-    }
-
-    [Fact]
-    public async Task NoDscDocAnywhere_NoDsc_NotAProblem_RootOnlyTenant_Ok()
-    {
-        _dbs.Add("empty", false, _fixture);
-        _dbs.Add("root-only", false, _fixture);
-        await Root.InsertOneAsync(new BsonDocument { { "_id", "root-only" }, { "ConfigItemId", "x" }, { "DbConnectionSecretId", "default" } });
+        await CopyAsync("disabled", Custom, disabled: true);
+        await CopyAsync("t2", "default");
 
         foreach (var mode in new[] { "plan", "apply", "verify" })
-        {
-            var s = await RunAsync(mode);
-            s.Results["empty"].Should().Be("no-dsc");
-            s.Results["root-only"].Should().Be("root-only");
-            s.Problems.Should().Be(0);
-            s.Blockers.Should().Be(0);
-        }
-    }
+            (await RunAsync(mode)).Results["disabled"].Should().Be("skipped-disabled");
+        _redis.Hashes["disabled"] = new() { ["DbConnectionString"] = B64(Custom) };
+        (await RunAsync("scrub-redis", "yes")).Results["disabled"].Should().Be("skipped-disabled");
 
-    [Theory]
-    [InlineData("malformed")]
-    [InlineData("foreign")]
-    [InlineData("locked")]
-    public async Task Verify_RootOnly_BadRootIdFails(string kind)
-    {
-        _dbs.Add("root-only", false, _fixture);
-        var id = kind switch
-        {
-            "malformed" => "not-hex",
-            "foreign" => _secrets.Add("other-tenant", Custom).Id,
-            _ => _secrets.Add("root-only", Custom, SecretStatuses.Locked).Id
-        };
-        await Root.InsertOneAsync(new BsonDocument { { "_id", "root-only" }, { "ConfigItemId", "x" }, { "DbConnectionSecretId", id } });
-
-        var s = await RunAsync("verify");
-
-        s.Results["root-only"].Should().StartWith("problem:");
+        (await RootDocAsync("disabled")).Should().BeNull();
+        _secrets.Calls.Should().NotContain(c => c.Tenant == "disabled");
+        _redis.Hashes["disabled"].Should().ContainKey("DbConnectionString");
+        (await Copies("disabled").CountDocumentsAsync(new BsonDocument())).Should().Be(1);
+        (await RootDocAsync("t2")).Should().NotBeNull();
     }
 
     [Fact]
-    public async Task Verify_Flagged_LockedSecret_StillFails()
+    public async Task SecretServiceFails_ErrorForThatTenant_NoRootDoc_OthersGoOn()
     {
-        await CopyAsync("t1", "default");
-        var id = _secrets.Add("t1", Custom, SecretStatuses.Locked).Id;
-        await Root.InsertOneAsync(RootFromCopy("t1", id, flagged: true, lastUpdated: new DateTime(2026, 10, 3, 0, 0, 0, DateTimeKind.Utc)));
-        (await RunAsync("verify")).Results["t1"].Should().StartWith("problem:secret-unusable");
-    }
-
-    [Fact]
-    public async Task Verify_LegacyRedisValueLeft_PendingScrub()
-    {
-        await CopyAsync("t1", Custom);
-        await RunAsync("apply");
-        _redis.Hashes["t1"] = new() { ["DbConnectionString"] = B64(Custom), ["DatabaseName"] = "db" };
-        (await RunAsync("verify")).Results["t1"].Should().Be("problem:pending-scrub");
-    }
-
-    [Fact]
-    public async Task DisabledTenant_SetRefused_ErrorForThatTenant_OthersGoOn()
-    {
-        await CopyAsync("disabled", Custom);
+        await CopyAsync("broken", Custom);
         await CopyAsync("t2", "default");
         _secrets.BeforeCall = (op, _) =>
-            op == "Set" && BlocksContext.GetContext()?.TenantId == "disabled"
-                ? throw new SecretAccessDeniedException("TENANT_DISABLED")
+            op == "Set" && BlocksContext.GetContext()?.TenantId == "broken"
+                ? throw new SecretAccessDeniedException("DENIED")
                 : Task.CompletedTask;
 
         var s = await RunAsync("apply");
 
-        s.Results["disabled"].Should().Be("error:SecretAccessDeniedException");
-        (await RootDocAsync("disabled")).Should().BeNull();
+        s.Results["broken"].Should().Be("error:SecretAccessDeniedException");
+        s.Errors.Should().Be(1);
+        (await RootDocAsync("broken")).Should().BeNull();
         (await RootDocAsync("t2")).Should().NotBeNull();
+    }
+
+    // ---------------- verify ----------------
+
+    [Fact]
+    public async Task Verify_AfterApply_Ok_ForCustomAndDefault()
+    {
+        await CopyAsync("t1", Custom);
+        await CopyAsync("t2", "default");
+        _dbs.Add("t3", false, _fixture);
+        await RunAsync("apply");
+
+        var s = await RunAsync("verify");
+
+        s.Results["t1"].Should().Be("verified kind=custom");
+        s.Results["t2"].Should().Be("verified kind=default");
+        s.Results["t3"].Should().Be("verified kind=default");
+        s.Problems.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Verify_Problems_NoRootDoc_LegacyField_InvalidId_Missing_Differs()
+    {
+        await CopyAsync("none", Custom);
+        await CopyAsync("legacy", Custom);
+        await CopyAsync("badid", Custom);
+        await CopyAsync("gone", Custom);
+        await CopyAsync("diff", Custom);
+        await CopyAsync("fielddiff", Custom);
+        await RunAsync("apply");
+        // apply made a root doc for every tenant above; remove the one that must be missing
+        await Root.DeleteOneAsync(new BsonDocument("_id", "none"));
+        await Root.UpdateOneAsync(new BsonDocument("_id", "legacy"), new BsonDocument("$set", new BsonDocument("ConfigItemId", "copy-1")));
+        await Root.UpdateOneAsync(new BsonDocument("_id", "badid"), new BsonDocument("$set", new BsonDocument("DbConnectionSecretId", "default")));
+        var goneId = (await RootDocAsync("gone"))!["DbConnectionSecretId"].AsString;
+        _secrets.Secrets.TryRemove(goneId, out _);
+        _secrets.Secrets[(await RootDocAsync("diff"))!["DbConnectionSecretId"].AsString].Value = Custom2;
+        await Root.UpdateOneAsync(new BsonDocument("_id", "fielddiff"), new BsonDocument("$set", new BsonDocument("CollectionNamePattern", "other")));
+
+        var s = await RunAsync("verify");
+
+        s.Results["none"].Should().Be("problem:no-root-doc");
+        s.Results["legacy"].Should().Be("problem:legacy-field=ConfigItemId");
+        s.Results["badid"].Should().Be("problem:invalid-secret-id");
+        s.Results["gone"].Should().Be("problem:secret-missing");
+        s.Results["diff"].Should().Be("problem:value-differs");
+        s.Results["fielddiff"].Should().Be("problem:field-differs=CollectionNamePattern");
+    }
+
+    [Fact]
+    public async Task Verify_RootDocChangedByTheNewCode_NotComparedWithTheOldDoc()
+    {
+        await CopyAsync("t1", Custom);
+        await RunAsync("apply");
+        var id = (await RootDocAsync("t1"))!["DbConnectionSecretId"].AsString;
+        _secrets.Secrets[id].Value = Custom2;
+        await Root.UpdateOneAsync(new BsonDocument("_id", "t1"), new BsonDocument("$set", new BsonDocument
+        {
+            { "CollectionNamePattern", "new_{SchemaName}" }, { "LastUpdatedDate", DateTime.UtcNow.AddDays(1) }
+        }));
+
+        (await RunAsync("verify")).Results["t1"].Should().Be("verified kind=custom");
+    }
+
+    [Fact]
+    public async Task Verify_LegacyRedisField_OnlyAProblemOnceDataIsDeployed()
+    {
+        await CopyAsync("t1", Custom);
+        await RunAsync("apply");
+        _redis.Hashes["t1"] = new() { ["DbConnectionString"] = B64(Custom), ["DatabaseName"] = "db" };
+
+        (await RunAsync("verify")).Results["t1"].Should().StartWith("verified");
+        (await RunAsync("verify", "yes")).Results["t1"].Should().Be("problem:pending-scrub");
     }
 
     // ---------------- scrub-redis ----------------
 
     [Fact]
-    public async Task Scrub_LegacyEqualsResolvedSecret_OneTransaction_SetIdAndVersion_DeleteLegacy()
+    public async Task Scrub_RemovesOnlyTheLegacyField_KeepsTheRest()
     {
         await CopyAsync("t1", Custom);
         await RunAsync("apply");
-        var id = (await RootDocAsync("t1"))!["DbConnectionSecretId"].AsString;
-        _redis.Hashes["t1"] = new() { ["DbConnectionString"] = B64(Custom), ["DatabaseName"] = "db" };
+        _redis.Hashes["t1"] = new() { ["DbConnectionString"] = B64(Custom), ["DbConnectionSecretId"] = "abc", ["ConnectionType"] = "Custom", ["DatabaseName"] = "db", ["Version"] = "7" };
 
         var s = await RunAsync("scrub-redis", dataDeployed: "yes");
 
         s.Results["t1"].Should().Be("scrubbed");
-        _redis.Scrubbed.Should().ContainSingle().Which.Should().Match<(string Key, string SecretId, string Version)>(x => x.Key == "t1" && x.SecretId == id && x.Version.Length > 0);
-        _redis.Hashes["t1"].Should().NotContainKey("DbConnectionString");
-        (await RunAsync("verify")).Results["t1"].Should().StartWith("verified");
+        _redis.Removed.Should().ContainSingle().Which.Should().Be("t1");
+        _redis.Hashes["t1"].Should().BeEquivalentTo(new Dictionary<string, string> { ["DbConnectionSecretId"] = "abc", ["ConnectionType"] = "Custom", ["DatabaseName"] = "db", ["Version"] = "7" });
+        (await RunAsync("verify", "yes")).Results["t1"].Should().StartWith("verified");
     }
 
     [Fact]
-    public async Task Scrub_LegacyDiffers_Blocker_HashKept()
+    public async Task Scrub_OldShapeHash_IsDeletedWhole_ACacheMiss()
     {
         await CopyAsync("t1", Custom);
         await RunAsync("apply");
-        _redis.Hashes["t1"] = new() { ["DbConnectionString"] = B64(Custom2), ["DatabaseName"] = "db" };
+        _redis.Hashes["t1"] = new() { ["DbConnectionString"] = B64(Custom), ["DatabaseName"] = "db" };
 
-        var s = await RunAsync("scrub-redis", dataDeployed: "yes");
+        (await RunAsync("scrub-redis", "yes")).Results["t1"].Should().Be("scrubbed");
 
-        s.Results["t1"].Should().Be("blocker:legacy-value-differs");
-        _redis.Hashes["t1"].Should().ContainKey("DbConnectionString");
+        _redis.Hashes.Should().NotContainKey("t1");
     }
 
     [Fact]
-    public async Task Scrub_DefaultSentinel_ComparesWithTheSentinel()
+    public async Task Scrub_NoRootDoc_Blocker_HashKept_NoLegacyField_Ok()
     {
-        await CopyAsync("t1", "default");
-        await RunAsync("apply");
-        _redis.Hashes["t1"] = new() { ["DbConnectionString"] = B64("default"), ["DatabaseName"] = "db" };
-        (await RunAsync("scrub-redis", dataDeployed: "yes")).Results["t1"].Should().Be("scrubbed");
-        _redis.Scrubbed.Single().SecretId.Should().Be("default");
+        await CopyAsync("t1", Custom);
+        _redis.Hashes["t1"] = new() { ["DbConnectionString"] = B64(Custom), ["DatabaseName"] = "db" };
+        await CopyAsync("t2", "default");
+
+        var s = await RunAsync("scrub-redis", "yes");
+
+        s.Results["t1"].Should().Be("blocker:no-root-doc");
+        s.Results["t2"].Should().Be("no-legacy-field");
+        _redis.Hashes["t1"].Should().ContainKey("DbConnectionString");
+        _redis.Removed.Should().BeEmpty();
     }
 
     // ---------------- helpers ----------------
 
-    private static BsonDocument RootFromCopy(string tenant, string? secretId, bool flagged, DateTime lastUpdated) => new()
-    {
-        { "_id", tenant }, { "ConfigItemId", "copy-1" }, { "DatabaseName", "db-" + tenant }, { "IsDeleted", false },
-        { "IsCollectionNameEditable", false }, { "CollectionNamePattern", "sb_{SchemaName}s" }, { "ProjectKey", tenant },
-        { "ProjectShortKey", "s" }, { "LastUpdatedDate", lastUpdated },
-        { "DbConnectionSecretId", secretId is null ? BsonNull.Value : secretId }, { "ValueChangedAfterDeploy", flagged }
-    };
-
     private sealed class FakeDatabases(IMongoDatabase root) : IDscMigrationDatabases
     {
-        private readonly ConcurrentDictionary<string, (DscTenant Tenant, IMongoDatabase Db)> _tenants = new();
+        private readonly ConcurrentDictionary<string, (DscTenant Tenant, IMongoDatabase? Db)> _tenants = new();
         public IMongoDatabase Root { get; } = root;
 
-        public void Add(string tenant, bool isRoot, MongoFixture fixture) =>
-            _tenants.GetOrAdd(tenant, _ => (new DscTenant(tenant, isRoot, false, "cs", "db"), isRoot ? Root : fixture.CreateDatabase()));
+        public void Add(string tenant, bool isRoot, MongoFixture fixture, bool disabled = false) =>
+            _tenants.GetOrAdd(tenant, _ => (new DscTenant(tenant, isRoot, disabled, "cs", "db"), isRoot ? Root : fixture.CreateDatabase()));
+
+        public void AddNoDb(string tenant) =>
+            _tenants.GetOrAdd(tenant, _ => (new DscTenant(tenant, false, false, string.Empty, string.Empty), null));
 
         public DscTenant Tenant(string id) => _tenants[id].Tenant;
 
         public Task<IReadOnlyList<DscTenant>> GetTenantsAsync(CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<DscTenant>>(_tenants.Values.Select(v => v.Tenant).ToList());
 
-        public IMongoDatabase TenantDb(DscTenant tenant) => _tenants[tenant.TenantId].Db;
+        public IMongoDatabase TenantDb(DscTenant tenant) =>
+            _tenants[tenant.TenantId].Db ?? throw new InvalidOperationException("tenant has no DB");
     }
 
     private sealed class FakeRedis : IDscMigrationRedis
@@ -532,7 +602,7 @@ public class DataSourceSecretMigrationJobTests
         public bool Released { get; private set; }
         public List<(string Key, TimeSpan Ttl)> LockCalls { get; } = new();
         public ConcurrentDictionary<string, Dictionary<string, string>> Hashes { get; } = new();
-        public List<(string Key, string SecretId, string Version)> Scrubbed { get; } = new();
+        public List<string> Removed { get; } = new();
 
         public Task<bool> TryLockAsync(string key, string token, TimeSpan ttl)
         {
@@ -549,13 +619,16 @@ public class DataSourceSecretMigrationJobTests
         public Task<Dictionary<string, string>> GetHashAsync(string key) =>
             Task.FromResult(Hashes.TryGetValue(key, out var h) ? new Dictionary<string, string>(h) : new Dictionary<string, string>());
 
-        public Task<bool> ScrubAsync(string key, string secretId, string version)
+        /// <summary>Same as the Lua script: HDEL the legacy field; no secret-id field left = DEL the key.</summary>
+        public Task<bool> RemoveLegacyFieldAsync(string key)
         {
-            Scrubbed.Add((key, secretId, version));
-            var h = Hashes.GetOrAdd(key, _ => new());
-            h["DbConnectionSecretId"] = secretId;
-            h["Version"] = version;
-            h.Remove("DbConnectionString");
+            Removed.Add(key);
+            if (Hashes.TryGetValue(key, out var h))
+            {
+                h.Remove("DbConnectionString");
+                if (!h.ContainsKey("DbConnectionSecretId") || !h.ContainsKey("ConnectionType"))
+                    Hashes.TryRemove(key, out _);
+            }
             return Task.FromResult(true);
         }
     }

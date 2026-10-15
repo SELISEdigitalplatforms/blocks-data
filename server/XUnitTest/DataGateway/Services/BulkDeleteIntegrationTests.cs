@@ -46,6 +46,14 @@ public class BulkDeleteIntegrationTests
     private readonly CapturingMessageClient _messages = new();
     private readonly RecordingGqlRepository _repo;
 
+    private static global::DataGateway.DomainService.DataSources.IDataSourceConfigStore StoreMock()
+    {
+        var store = new Mock<global::DataGateway.DomainService.DataSources.IDataSourceConfigStore>();
+        store.Setup(x => x.LoadAsync(It.IsAny<string>()))
+            .ReturnsAsync(new global::DataGateway.DomainService.DataSources.DataSourceRoute(false, "seed-secret", "default", "1"));
+        return store.Object;
+    }
+
     public BulkDeleteIntegrationTests(MongoFixture fixture)
     {
         _fixture = fixture;
@@ -55,7 +63,7 @@ public class BulkDeleteIntegrationTests
         provider.Setup(p => p.GetDatabase(It.IsAny<string>())).Returns(_db);
         provider.Setup(p => p.GetDatabase(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>())).Returns(_db);
         _cache.Setup(c => c.GetHashValueAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<HashEntry>());
-        _repo = new RecordingGqlRepository(new GqlDbRepository(provider.Object, _cache.Object, Mock.Of<IDataSourceClientCache>()));
+        _repo = new RecordingGqlRepository(new GqlDbRepository(provider.Object, _cache.Object, Mock.Of<IDataSourceClientCache>(), StoreMock()));
 
         var schemaRepo = new DbRepository(provider.Object, new Mock<IBlocksSecret>().Object);
         schemaRepo.InsertManyAsync(new List<SchemaDefinition>

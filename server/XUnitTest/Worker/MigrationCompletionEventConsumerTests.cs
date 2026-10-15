@@ -71,13 +71,15 @@ public class MigrationCompletionEventConsumerTests
 
         _dbRepository.Verify(r => r.UpdateManyAsync(
             "DataServiceConfigurations",
-            It.Is<BsonDocument>(f => f["ProjectKey"] == "old-key"),
+            It.Is<BsonDocument>(f => f["_id"] == "new-key" && f["ProjectKey"] == "old-key"),
             It.Is<BsonDocument>(d => d["ProjectKey"] == "new-key" && d["ProjectShortKey"] == "new-slug"),
-            "new-key"), Times.Once);
+            "BlocksRootDb"), Times.Once);
+        _dbRepository.Verify(r => r.UpdateManyAsync(
+            "DataServiceConfigurations", It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), "new-key"), Times.Never);
     }
 
     [Fact]
-    public async Task Consume_UpdatesTheRootDocFirst_ThenTheTenantCopy()
+    public async Task Consume_UpdatesOnlyTheRootDoc_NeverATenantDbDoc()
     {
         GivenTracker(Tracker());
         GivenUpdates(true, true);
@@ -95,11 +97,11 @@ public class MigrationCompletionEventConsumerTests
             It.Is<BsonDocument>(f => f.Contains("_id") && f["_id"] == "new-key" && f["ProjectKey"] == "old-key"),
             It.Is<BsonDocument>(d => d["ProjectKey"] == "new-key" && d["ProjectShortKey"] == "new-slug"),
             "BlocksRootDb"), Times.Once);
-        order.Should().Equal("BlocksRootDb", "new-key");
+        order.Should().Equal("BlocksRootDb");
     }
 
     [Fact]
-    public async Task Consume_RootUpdateNotAcknowledged_TenantCopyNotTouched()
+    public async Task Consume_RootUpdateNotAcknowledged_NoTenantDbDocTouched()
     {
         GivenTracker(Tracker());
         GivenUpdates(true, true);

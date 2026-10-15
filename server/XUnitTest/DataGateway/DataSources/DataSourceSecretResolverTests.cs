@@ -81,15 +81,24 @@ public class DataSourceSecretResolverTests
     [Theory]
     [InlineData(null)]
     [InlineData("")]
-    [InlineData("default")]
-    [InlineData("Default")]
-    [InlineData("DEFAULT")]
-    public async Task Sentinels_ReturnedAsIs_NoSecretCall(string? secretId)
+    public async Task NoSecretId_FailsClosed_NoSecretCall(string? secretId)
     {
         var (resolver, scopes) = Build();
-        (await resolver.ResolveAsync("t", secretId)).Should().Be(secretId);
+        var act = () => resolver.ResolveAsync("t", secretId);
+        await act.Should().ThrowAsync<DataSourceUnavailableException>();
         _secrets.Calls.Should().BeEmpty();
         scopes().Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData("default")]
+    [InlineData("DEFAULT")]
+    public async Task TheTextDefaultAsAnId_IsNoMagic_ItIsLookedUpAsARealId_AndNotFound(string secretId)
+    {
+        var (resolver, _) = Build();
+        var act = () => resolver.ResolveAsync("t", secretId);
+        (await act.Should().ThrowAsync<DataSourceUnavailableException>()).Which.SecretError.Should().BeOfType<SecretNotFoundException>();
+        _secrets.Calls.Should().ContainSingle(c => c.Op == "GetValue");
     }
 
     public static TheoryData<Exception> SecretErrors() => new()

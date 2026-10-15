@@ -20,6 +20,7 @@ import {
   ICreateSchemaPayload,
   ICreateSchemaResponse,
   IDataServiceConfigurationResponse,
+  IDataSourceSavePayload,
   IDefaultResponse,
   IDeleteMockDataPayload,
   IDeleteMockDataResponse,
@@ -52,6 +53,16 @@ import {
 class ConfigurationService {
   getDataServiceDetails(): Promise<IDataServiceConfigurationResponse> {
     return http.get(CONFIGURATION_ENDPOINTS.GET);
+  }
+
+  /** POST when no configuration exists yet, PUT when it does. */
+  saveDataSource(
+    payload: IDataSourceSavePayload,
+    exists: boolean,
+  ): Promise<IDefaultResponse> {
+    return exists
+      ? http.put(CONFIGURATION_ENDPOINTS.UPDATE, payload)
+      : http.post(CONFIGURATION_ENDPOINTS.CREATE, payload);
   }
 
   reloadSchemas(): Promise<IDataServiceConfigurationResponse> {

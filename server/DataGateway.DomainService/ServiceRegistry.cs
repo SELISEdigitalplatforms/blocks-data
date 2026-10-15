@@ -61,6 +61,7 @@ public static class ServiceRegistry
         // (new scope per call, no value cache) and the BYO client cache (secret read only on a miss).
         serviceCollection.AddBlocksSecrets();
         serviceCollection.TryAddSingleton<IDataSourceSecretResolver, DataSourceSecretResolver>();
+        serviceCollection.TryAddSingleton<IDataSourceConfigStore, DataSourceConfigStore>();
         serviceCollection.TryAddSingleton<IDataSourceClientFactory, DataSourceClientFactory>();
         serviceCollection.TryAddSingleton<IClusterRegistry, DriverClusterRegistry>();
         serviceCollection.TryAddSingleton<DataSourceClientCache>(sp => new DataSourceClientCache(

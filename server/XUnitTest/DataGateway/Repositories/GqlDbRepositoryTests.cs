@@ -21,6 +21,14 @@ public class GqlDbRepositoryTests
     private readonly Mock<IDataSourceClientCache> _clientCache = new();
     private readonly GqlDbRepository _repo;
 
+    /// <summary>A store whose rebuilt route is the Blocks DB (the hash is missing in most of these tests).</summary>
+    private static Mock<IDataSourceConfigStore> DefaultStore()
+    {
+        var store = new Mock<IDataSourceConfigStore>();
+        store.Setup(x => x.LoadAsync(It.IsAny<string>())).ReturnsAsync(new DataSourceRoute(false, "seed-secret", "default", "1"));
+        return store;
+    }
+
     public GqlDbRepositoryTests(MongoFixture fixture)
     {
         _fixture = fixture;
@@ -33,7 +41,7 @@ public class GqlDbRepositoryTests
         var provider = new Mock<IDbContextProvider>();
         provider.Setup(p => p.GetDatabase(It.IsAny<string>())).Returns(_db);
         provider.Setup(p => p.GetDatabase(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>())).Returns(_db);
-        _repo = new GqlDbRepository(provider.Object, _cache.Object, _clientCache.Object);
+        _repo = new GqlDbRepository(provider.Object, _cache.Object, _clientCache.Object, DefaultStore().Object);
     }
 
     private static BsonDocument Doc(string name, int qty) =>
@@ -134,15 +142,15 @@ public class GqlDbRepositoryTests
     }
 
     [Fact]
-    public async Task GetDatabaseInfo_UsesCachedConnectionString()
+    public async Task GetDatabaseInfo_DefaultHash_UsesTheBlocksTenantDb()
     {
-        // Drive the cache-backed database resolution path (tenant present, cache hit).
         RequestContextAccessor.Current = new RequestContext { TenantId = "tenant-x" };
-        var conn = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"mongodb://127.0.0.1/"));
         _cache.Setup(c => c.GetHashValueAsync("tenant-x")).ReturnsAsync(new[]
         {
-            new HashEntry("DbConnectionString", conn),
-            new HashEntry("DatabaseName", "somedb")
+            new HashEntry("DbConnectionSecretId", "0123456789abcdef0123456789abcdef"),
+            new HashEntry("DatabaseName", "somedb"),
+            new HashEntry("ConnectionType", "Default"),
+            new HashEntry("Version", "1")
         });
 
         var id = Guid.NewGuid().ToString();
@@ -161,16 +169,19 @@ public class GqlDbRepositoryTests
         var provider = new Mock<IDbContextProvider>();
         provider.Setup(p => p.GetDatabase("dev-tenant")).Returns(dev);
         provider.Setup(p => p.GetDatabase("other-tenant")).Returns(other);
-        provider.Setup(p => p.GetDatabase("custom-connection", custom.DatabaseNamespace.DatabaseName, true))
-            .Returns(custom);
+        var clientCache = new Mock<IDataSourceClientCache>();
+        clientCache.Setup(c => c.GetAsync("custom-tenant", "0123456789abcdef0123456789abcdef", "7", custom.DatabaseNamespace.DatabaseName, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(custom);
         var cache = new Mock<ICacheClient>();
         cache.Setup(c => c.GetHashValueAsync(It.IsAny<string>())).ReturnsAsync(Array.Empty<HashEntry>());
         cache.Setup(c => c.GetHashValueAsync("custom-tenant")).ReturnsAsync(new[]
         {
-            new HashEntry("DbConnectionString", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("custom-connection"))),
-            new HashEntry("DatabaseName", custom.DatabaseNamespace.DatabaseName)
+            new HashEntry("DbConnectionSecretId", "0123456789abcdef0123456789abcdef"),
+            new HashEntry("DatabaseName", custom.DatabaseNamespace.DatabaseName),
+            new HashEntry("ConnectionType", "Custom"),
+            new HashEntry("Version", "7")
         });
-        var repository = new GqlDbRepository(provider.Object, cache.Object, Mock.Of<IDataSourceClientCache>());
+        var repository = new GqlDbRepository(provider.Object, cache.Object, clientCache.Object, DefaultStore().Object);
         var id = Guid.NewGuid().ToString();
 
         foreach (var (tenantId, name) in new[]
@@ -190,15 +201,24 @@ public class GqlDbRepositoryTests
         RequestContextAccessor.Clear();
     }
 
-    // ---------------- routing by hash shape (data SPEC1 §3.5.5, R-PATH-*, R-SEC-TENANT, C11, C16) ----------------
+    // ---------------- routing by hash shape (Default / Custom / rebuilt from the root doc) ----------------
+
+    private const string SecretId = "0123456789abcdef0123456789abcdef";
 
     private sealed class Routing
     {
         public Mock<IDbContextProvider> Provider { get; } = new();
         public Mock<ICacheClient> Cache { get; } = new();
         public Mock<IDataSourceClientCache> ClientCache { get; } = new();
-        public GqlDbRepository Repo => new(Provider.Object, Cache.Object, ClientCache.Object);
+        public Mock<IDataSourceConfigStore> Store { get; } = DefaultStore();
+        public GqlDbRepository Repo => new(Provider.Object, Cache.Object, ClientCache.Object, Store.Object);
     }
+
+    private static HashEntry[] Hash(string type, string id = SecretId, string db = "x", string version = "1") =>
+    [
+        new HashEntry("DbConnectionSecretId", id), new HashEntry("DatabaseName", db),
+        new HashEntry("ConnectionType", type), new HashEntry("Version", version)
+    ];
 
     private Routing Route(string tenant, params HashEntry[] hash)
     {
@@ -212,66 +232,94 @@ public class GqlDbRepositoryTests
         return r;
     }
 
+    private static void NoClientCacheGet(Routing r) =>
+        r.ClientCache.Verify(c => c.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+
     [Fact]
-    public async Task NoHash_BlocksTenantDb_NoSecretPath()
+    public async Task DefaultHash_BlocksTenantDb_ReleasesTheOldClient_NoSecretPath_NoRebuild()
+    {
+        RequestContextAccessor.Current = new RequestContext { TenantId = "t-1" };
+        var r = Route("t-1", Hash("Default"));
+        await r.Repo.GetItemAsync("C", "x");
+        r.Provider.Verify(p => p.GetDatabase("t-1"), Times.Once);
+        r.ClientCache.Verify(c => c.Release("t-1"), Times.Once);
+        NoClientCacheGet(r);
+        r.Store.Verify(x => x.LoadAsync(It.IsAny<string>()), Times.Never);
+        RequestContextAccessor.Clear();
+    }
+
+    [Fact]
+    public async Task CustomHash_GoesThroughTheClientCache_WithVersionAndDbName_NeverGenesisWithAConnectionString()
+    {
+        RequestContextAccessor.Current = new RequestContext { TenantId = "t-byo" };
+        var r = Route("t-byo", Hash("Custom", db: "byo", version: "638900000000000000"));
+        await r.Repo.GetItemAsync("C", "x");
+        r.ClientCache.Verify(c => c.GetAsync("t-byo", SecretId, "638900000000000000", "byo", It.IsAny<CancellationToken>()), Times.Once);
+        r.Provider.Verify(p => p.GetDatabase(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        r.Provider.Verify(p => p.GetDatabase(It.IsAny<string>()), Times.Never);
+        r.Store.Verify(x => x.LoadAsync(It.IsAny<string>()), Times.Never);
+        RequestContextAccessor.Clear();
+    }
+
+    [Fact]
+    public async Task NoHash_IsRebuiltFromTheRootDoc_DefaultRoute_BlocksTenantDb()
     {
         RequestContextAccessor.Current = new RequestContext { TenantId = "t-def" };
         var r = Route("t-def");
         await r.Repo.GetItemAsync("C", "x");
+        r.Store.Verify(x => x.LoadAsync("t-def"), Times.Once);
         r.Provider.Verify(p => p.GetDatabase("t-def"), Times.Once);
-        r.ClientCache.Verify(c => c.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        RequestContextAccessor.Clear();
-    }
-
-    [Theory]
-    [InlineData("default")]
-    [InlineData("Default")]
-    [InlineData("DEFAULT")]
-    [InlineData("")]
-    public async Task SecretIdDefaultOrBlank_BlocksTenantDb_AndReleasesTheOldClient(string id)
-    {
-        RequestContextAccessor.Current = new RequestContext { TenantId = "t-1" };
-        var r = Route("t-1", new HashEntry("DbConnectionSecretId", id), new HashEntry("DatabaseName", "x"), new HashEntry("Version", "1"));
-        await r.Repo.GetItemAsync("C", "x");
-        r.Provider.Verify(p => p.GetDatabase("t-1"), Times.Once);
-        r.ClientCache.Verify(c => c.Release("t-1"), Times.Once);
-        r.ClientCache.Verify(c => c.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        NoClientCacheGet(r);
         RequestContextAccessor.Clear();
     }
 
     [Fact]
-    public async Task SecretId_GoesThroughTheClientCache_WithVersionAndDbName_NeverGenesisWithAConnectionString()
+    public async Task NoHash_RebuiltCustomRoute_UsesTheClientCache()
     {
-        RequestContextAccessor.Current = new RequestContext { TenantId = "t-byo" };
-        var r = Route("t-byo", new HashEntry("DbConnectionSecretId", "0123456789abcdef0123456789abcdef"),
-            new HashEntry("DatabaseName", "byo"), new HashEntry("Version", "638900000000000000"));
+        RequestContextAccessor.Current = new RequestContext { TenantId = "t-c" };
+        var r = Route("t-c");
+        r.Store.Setup(x => x.LoadAsync("t-c")).ReturnsAsync(new DataSourceRoute(true, SecretId, "byo", "42"));
         await r.Repo.GetItemAsync("C", "x");
-        r.ClientCache.Verify(c => c.GetAsync("t-byo", "0123456789abcdef0123456789abcdef", "638900000000000000", "byo", It.IsAny<CancellationToken>()), Times.Once);
-        r.Provider.Verify(p => p.GetDatabase(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        r.ClientCache.Verify(c => c.GetAsync("t-c", SecretId, "42", "byo", It.IsAny<CancellationToken>()), Times.Once);
         r.Provider.Verify(p => p.GetDatabase(It.IsAny<string>()), Times.Never);
         RequestContextAccessor.Clear();
     }
 
-    [Fact]
-    public async Task LegacyConnectionString_TodaysDecodeAndGenesisCall_NoSecretRead()
+    [Theory]
+    [InlineData("OnlyOldField")]
+    [InlineData("NoType")]
+    [InlineData("BadType")]
+    [InlineData("BlankSecretId")]
+    public async Task UnusableHash_IsNeverRead_AsAnOldShape_ItIsRebuilt(string shape)
     {
         RequestContextAccessor.Current = new RequestContext { TenantId = "t-old" };
-        var r = Route("t-old", new HashEntry("DbConnectionString", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("mongodb://legacy/"))),
-            new HashEntry("DatabaseName", "legacydb"));
+        var hash = shape switch
+        {
+            // The removed field is not understood any more: nothing is decoded, the root doc decides.
+            "OnlyOldField" => new[] { new HashEntry("DbConnectionString", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("mongodb://legacy/"))), new HashEntry("DatabaseName", "legacydb") },
+            "NoType" => new[] { new HashEntry("DbConnectionSecretId", SecretId), new HashEntry("DatabaseName", "x"), new HashEntry("Version", "1") },
+            "BadType" => Hash("custom"),
+            _ => Hash("Custom", id: " ")
+        };
+        var r = Route("t-old", hash);
         await r.Repo.GetItemAsync("C", "x");
-        r.Provider.Verify(p => p.GetDatabase("mongodb://legacy/", "legacydb", true), Times.Once);
-        r.ClientCache.Verify(c => c.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        r.Store.Verify(x => x.LoadAsync("t-old"), Times.Once);
+        r.Provider.Verify(p => p.GetDatabase(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        NoClientCacheGet(r);
         RequestContextAccessor.Clear();
     }
 
     [Fact]
-    public async Task LegacyDefault_BlocksTenantDb()
+    public async Task RebuildFailure_FailsClosed_NeverTheBlocksTenantDb()
     {
-        RequestContextAccessor.Current = new RequestContext { TenantId = "t-old" };
-        var r = Route("t-old", new HashEntry("DbConnectionString", Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("default"))),
-            new HashEntry("DatabaseName", "x"));
-        await r.Repo.GetItemAsync("C", "x");
-        r.Provider.Verify(p => p.GetDatabase("t-old"), Times.Once);
+        RequestContextAccessor.Current = new RequestContext { TenantId = "t-x" };
+        var r = Route("t-x");
+        r.Store.Setup(x => x.LoadAsync("t-x")).ThrowsAsync(new DataSourceUnavailableException("secret broken"));
+
+        var act = () => r.Repo.GetItemAsync("C", "x");
+
+        await act.Should().ThrowAsync<DataSourceUnavailableException>().WithMessage("secret broken");
+        r.Provider.Verify(p => p.GetDatabase(It.IsAny<string>()), Times.Never);
         RequestContextAccessor.Clear();
     }
 
@@ -279,7 +327,7 @@ public class GqlDbRepositoryTests
     public async Task SecretFailure_FailsClosed_NeverTheBlocksTenantDb()
     {
         RequestContextAccessor.Current = new RequestContext { TenantId = "t-byo" };
-        var r = Route("t-byo", new HashEntry("DbConnectionSecretId", "0123456789abcdef0123456789abcdef"), new HashEntry("DatabaseName", "byo"), new HashEntry("Version", "1"));
+        var r = Route("t-byo", Hash("Custom", db: "byo"));
         r.ClientCache.Setup(c => c.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new DataSourceUnavailableException("vault down"));
 
@@ -293,9 +341,8 @@ public class GqlDbRepositoryTests
     [Fact]
     public async Task Tenant_AuthenticatedCallerWins_AnonymousUsesTheHeaderTenant()
     {
-        var id = new HashEntry("DbConnectionSecretId", "0123456789abcdef0123456789abcdef");
-        var r = Route("tenant-a", id, new HashEntry("DatabaseName", "a"), new HashEntry("Version", "1"));
-        r.Cache.Setup(c => c.GetHashValueAsync("tenant-b")).ReturnsAsync(new[] { id, new HashEntry("DatabaseName", "b"), new HashEntry("Version", "1") });
+        var r = Route("tenant-a", Hash("Custom", db: "a"));
+        r.Cache.Setup(c => c.GetHashValueAsync("tenant-b")).ReturnsAsync(Hash("Custom", db: "b"));
 
         BlocksTestContext.Set(tenantId: "tenant-a");
         RequestContextAccessor.Current = new RequestContext { TenantId = "tenant-b" };

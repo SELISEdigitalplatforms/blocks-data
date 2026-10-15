@@ -28,8 +28,8 @@ public sealed class DataSourceUnavailableException : Exception
 public interface IDataSourceSecretResolver
 {
     /// <summary>
-    /// Returns the value of <paramref name="secretId"/> in <paramref name="tenantId"/>. A null, empty or
-    /// <c>"default"</c> id is returned as is (no secret call). The caller must not store the result.
+    /// Returns the value of <paramref name="secretId"/> in <paramref name="tenantId"/>. The caller must not store
+    /// the result. A null or empty id is an error (a root doc always has a secret id; there is no magic id).
     /// </summary>
     /// <exception cref="DataSourceUnavailableException">Any failure (fail closed).</exception>
     Task<string?> ResolveAsync(string tenantId, string? secretId, CancellationToken cancellationToken = default);
@@ -50,7 +50,8 @@ public interface IDataSourceSecretResolver
 public sealed class DataSourceSecretResolver : IDataSourceSecretResolver
 {
     public const string ServiceUserId = "blocks-data-datasource";
-    public const string DefaultSentinel = "default";
+    /// <summary>Secret value that means "the tenant's Blocks DB" (plain text, as the old tenant doc used).</summary>
+    public const string DefaultValue = "default";
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<DataSourceSecretResolver> _logger;
@@ -61,17 +62,10 @@ public sealed class DataSourceSecretResolver : IDataSourceSecretResolver
         _logger = logger;
     }
 
-    /// <summary>"default" in any case (as today's <c>StringHelper.IsNullOrWhiteSpaceOrDefault</c>): the Blocks DB.</summary>
-    public static bool IsDefault(string? value) =>
-        string.Equals(value, DefaultSentinel, StringComparison.OrdinalIgnoreCase);
-
-    public static bool IsSentinel(string? secretId) =>
-        string.IsNullOrEmpty(secretId) || IsDefault(secretId);
-
     public async Task<string?> ResolveAsync(string tenantId, string? secretId, CancellationToken cancellationToken = default)
     {
-        if (IsSentinel(secretId))
-            return secretId;
+        if (string.IsNullOrEmpty(secretId))
+            throw new DataSourceUnavailableException("The data source of this project has no secret.");
 
         try
         {

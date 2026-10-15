@@ -32,7 +32,7 @@ public class ConfigurationController : ControllerBase
     /// <summary>
     /// Retrieves the data source configuration for the current tenant.
     /// </summary>
-    /// <returns>Returns the data source configuration details, including the connection string, database name, and project key, or an error message if the data source is not found.</returns>
+    /// <returns>Returns the data source configuration (database name, collection naming, analytics, ConnectionType Default or Custom). The connection string and the secret value are never returned. A tenant with no configuration gets the default one created on first use.</returns>
     [HttpGet]
     [ProtectedEndPoint("blocks-data::configuration::get-configuration")]
     [ProducesResponseType(typeof(ServiceResponse<DataGatewayConfigurationResponse>), StatusCodes.Status200OK)]
@@ -52,9 +52,9 @@ public class ConfigurationController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a new data source configuration. Use this endpoint to add a new database connection for your platform.
+    /// Saves the data source configuration (same save as PUT; the ItemId is ignored). The connection string is stored in Blocks Secrets, never in the configuration document.
     /// </summary>
-    /// <param name="request">The data source details to be saved. Required fields: ItemId (unique identifier), ConnectionString (database connection string), DatabaseName (name of the database), ProjectKey (project identifier).</param>
+    /// <param name="request">The data source details to be saved. ConnectionString: "default" or empty = Blocks DB, otherwise the plain connection string. DatabaseName is required for a custom connection. ProjectKey is required.</param>
     /// <returns>Returns a success response if the data source is created, or an error message if the operation fails.</returns>
     [HttpPost]
     [ProtectedEndPoint("blocks-data::configuration::create-data-source")]
@@ -75,9 +75,9 @@ public class ConfigurationController : ControllerBase
     }
 
     /// <summary>
-    /// Updates an existing data source configuration. Use this endpoint to modify the connection string, database name, or other details for an existing data source.
+    /// Updates the data source configuration. ConnectionString: "default" or empty = Blocks DB, a real string = custom (the secret is rotated), omitted = keep the current one.
     /// </summary>
-    /// <param name="request">The updated data source details. Required fields: ItemId (unique identifier), ConnectionString, DatabaseName, ProjectKey, IsActive.</param>
+    /// <param name="request">The updated data source details. Required fields: ItemId (the id GET returns), ProjectKey.</param>
     /// <returns>Returns a success response if the data source is updated, or an error message if the operation fails.</returns>
     [HttpPut]
     [ProtectedEndPoint("blocks-data::configuration::update-data-source")]

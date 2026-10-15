@@ -15,16 +15,21 @@ public class GqlDbRepository : IGqlDbRepository
 {
     /// <summary>Redis hash fields of a tenant's data source (data SPEC1 §3.5.8).</summary>
     public const string HashFieldSecretId = nameof(DataServiceConfiguration.DbConnectionSecretId);
-    public const string HashFieldLegacyConnectionString = nameof(DataServiceConfiguration.DbConnectionString);
     public const string HashFieldDatabaseName = nameof(DataServiceConfiguration.DatabaseName);
+    public const string HashFieldConnectionType = "ConnectionType";
     public const string HashFieldVersion = "Version";
+    public const string ConnectionTypeDefault = "Default";
+    public const string ConnectionTypeCustom = "Custom";
 
     private readonly IDbContextProvider _dbContextProvider;
     private readonly ICacheClient _cacheClient;
     private readonly IDataSourceClientCache _clientCache;
+    private readonly IDataSourceConfigStore _configStore;
 
-    public GqlDbRepository(IDbContextProvider dbContextProvider, ICacheClient cacheClient, IDataSourceClientCache clientCache)
+    public GqlDbRepository(IDbContextProvider dbContextProvider, ICacheClient cacheClient, IDataSourceClientCache clientCache,
+        IDataSourceConfigStore configStore)
     {
+        _configStore = configStore;
         _dbContextProvider = dbContextProvider;
         _cacheClient = cacheClient;
         _clientCache = clientCache;
@@ -229,13 +234,13 @@ public class GqlDbRepository : IGqlDbRepository
 
     /// <summary>
     /// Resolves the MongoDB database for the project being served by the current request. Runs on every
-    /// repository call and reads the tenant's Redis hash each time (as today; no pin). Hash shapes
-    /// (data SPEC1 §3.5.5):
+    /// repository call and reads the tenant's Redis hash each time. Hash shape (written by the config service):
+    /// <c>DbConnectionSecretId</c>, <c>DatabaseName</c>, <c>ConnectionType</c> (<c>Default</c>/<c>Custom</c>), <c>Version</c>.
     /// <list type="bullet">
-    /// <item><c>DbConnectionSecretId</c> = <c>""</c>/<c>"default"</c> → Blocks tenant DB + release any open BYO client;
-    /// any other id → <see cref="IDataSourceClientCache"/> (a secret read only on a miss).</item>
-    /// <item>only the legacy <c>DbConnectionString</c> (until scrub-redis) → today's decode + Genesis call.</item>
-    /// <item>no hash → Blocks tenant DB.</item>
+    /// <item><c>Default</c> → the tenant's Blocks DB + release any open BYO client.</item>
+    /// <item><c>Custom</c> → <see cref="IDataSourceClientCache"/> (the secret is read only on a miss).</item>
+    /// <item>no hash, or a hash without those fields → rebuilt from the root doc + secret value (and written back);
+    /// a missing root doc is created first (default doc + secret). Any failure fails closed.</item>
     /// </list>
     /// </summary>
     private async Task<IMongoDatabase> GetDatabaseAsync()
@@ -246,20 +251,15 @@ public class GqlDbRepository : IGqlDbRepository
             tenantId = BlocksContext.GetContext()?.TenantId ?? string.Empty;
         }
 
-        var info = await GetDatabaseInfoAsync(tenantId);
-        switch (info.Kind)
-        {
-            case DataSourceKind.Secret:
-                return await _clientCache.GetAsync(tenantId, info.Value, info.Version, info.DbName, RequestAborted());
-            case DataSourceKind.LegacyConnectionString:
-                _clientCache.Release(tenantId);
-                return _dbContextProvider.GetDatabase(info.Value, info.DbName, true)!;
-            case DataSourceKind.BlocksDefault:
-                _clientCache.Release(tenantId);
-                return _dbContextProvider.GetDatabase(tenantId)!;
-            default:
-                return _dbContextProvider.GetDatabase(tenantId)!;
-        }
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return _dbContextProvider.GetDatabase(tenantId)!;
+
+        var route = await GetRouteAsync(tenantId);
+        if (route.IsCustom)
+            return await _clientCache.GetAsync(tenantId, route.SecretId, route.Version, route.DatabaseName, RequestAborted());
+
+        _clientCache.Release(tenantId);
+        return _dbContextProvider.GetDatabase(tenantId)!;
     }
 
     private static CancellationToken RequestAborted()
@@ -274,36 +274,24 @@ public class GqlDbRepository : IGqlDbRepository
         }
     }
 
-    private enum DataSourceKind { NoHash, BlocksDefault, Secret, LegacyConnectionString }
-
-    private readonly record struct DataSourceInfo(DataSourceKind Kind, string Value, string DbName, string Version);
-
-    private async Task<DataSourceInfo> GetDatabaseInfoAsync(string tenantId)
+    private async Task<DataSourceRoute> GetRouteAsync(string tenantId)
     {
-        if (string.IsNullOrWhiteSpace(tenantId))
-            return new DataSourceInfo(DataSourceKind.NoHash, string.Empty, string.Empty, string.Empty);
-
         var hash = (await _cacheClient.GetHashValueAsync(tenantId) ?? []).ToDictionary(
             kv => kv.Name.ToString(),
             kv => kv.Value.ToString());
-        var dbName = hash.TryGetValue(HashFieldDatabaseName, out var name) ? name : string.Empty;
 
-        if (hash.TryGetValue(HashFieldSecretId, out var secretId))
+        if (hash.TryGetValue(HashFieldSecretId, out var secretId) && !string.IsNullOrWhiteSpace(secretId)
+            && hash.TryGetValue(HashFieldConnectionType, out var type)
+            && (type == ConnectionTypeDefault || type == ConnectionTypeCustom))
         {
-            if (DataSourceSecretResolver.IsSentinel(secretId) || string.IsNullOrWhiteSpace(secretId))
-                return new DataSourceInfo(DataSourceKind.BlocksDefault, string.Empty, dbName, string.Empty);
-            var version = hash.TryGetValue(HashFieldVersion, out var v) ? v : string.Empty;
-            return new DataSourceInfo(DataSourceKind.Secret, secretId, dbName, version);
+            return new DataSourceRoute(
+                type == ConnectionTypeCustom,
+                secretId,
+                hash.TryGetValue(HashFieldDatabaseName, out var name) ? name : string.Empty,
+                hash.TryGetValue(HashFieldVersion, out var version) ? version : string.Empty);
         }
 
-        if (!hash.TryGetValue(HashFieldLegacyConnectionString, out var legacy))
-            return new DataSourceInfo(DataSourceKind.NoHash, string.Empty, string.Empty, string.Empty);
-
-        var connectionString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(legacy));
-        if (connectionString.IsNullOrWhiteSpaceOrDefault())
-            return new DataSourceInfo(DataSourceKind.BlocksDefault, string.Empty, dbName, string.Empty);
-
-        return new DataSourceInfo(DataSourceKind.LegacyConnectionString, connectionString, dbName, string.Empty);
+        return await _configStore.LoadAsync(tenantId);
     }
 
     private static List<BsonDocument> GetInitialPipeline(Dictionary<string, string> collectionToSchemaNameMap, BsonDocument? filterBson = null)

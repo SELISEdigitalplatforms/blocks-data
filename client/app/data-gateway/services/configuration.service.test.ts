@@ -36,6 +36,27 @@ describe("ConfigurationService", () => {
     });
   });
 
+  describe("saveDataSource", () => {
+    const payload = {
+      connectionString: "default",
+      databaseName: "default",
+      projectKey: "t1",
+      isCollectionNameEditable: false,
+      collectionNamePattern: "sb_{SchemaName}s",
+      enableAnalytics: false,
+    };
+    it("POSTs when no configuration exists", async () => {
+      vi.mocked(http.post).mockResolvedValue({ isSuccess: true });
+      await configurationService.saveDataSource(payload, false);
+      expect(http.post).toHaveBeenCalledWith(CONFIGURATION_ENDPOINTS.CREATE, payload);
+    });
+    it("PUTs when it exists", async () => {
+      vi.mocked(http.put).mockResolvedValue({ isSuccess: true });
+      await configurationService.saveDataSource(payload, true);
+      expect(http.put).toHaveBeenCalledWith(CONFIGURATION_ENDPOINTS.UPDATE, payload);
+    });
+  });
+
   // ─── reloadSchemas ──────────────────────────────────────────────────────────
   describe("reloadSchemas", () => {
     it("should POST an empty body to the reload endpoint", async () => {

@@ -11,15 +11,34 @@ export interface IDefaultResponse {
   errors: string[];
 }
 
+/** The connection string is never returned: only which kind is saved. */
+export type DataSourceConnectionType = "Default" | "Custom";
+
 export interface IDataSourceResponse {
   projectKey: string;
+  projectShortKey?: string;
   databaseName: string;
-  dbConnectionString: string;
+  connectionType: DataSourceConnectionType;
   ItemId?: string;
+  itemId?: string;
   isActive: boolean;
   isCollectionNameEditable?: boolean;
   collectionNamePattern?: string;
   analyticsConfiguration?: IAnalyticsConfiguration;
+}
+
+/**
+ * Request body of POST/PUT `/configurations`. `connectionString` is "default" or the plain string;
+ * omitted on PUT means "keep the saved one".
+ */
+export interface IDataSourceSavePayload {
+  itemId?: string;
+  connectionString?: string;
+  databaseName: string;
+  projectKey: string;
+  isCollectionNameEditable: boolean;
+  collectionNamePattern: string;
+  enableAnalytics: boolean;
 }
 
 export interface IUnadaptedChangeLogsResponse {

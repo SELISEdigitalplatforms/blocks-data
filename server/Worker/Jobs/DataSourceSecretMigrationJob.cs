@@ -2,8 +2,6 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Blocks.Secrets;
 using DataGateway.DomainService.DataSources;
-using DataGateway.DomainService.Repositories;
-using DataGateway.DomainService.Services;
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -24,11 +22,14 @@ public sealed class DscRunSummary
 }
 
 /// <summary>
-/// Moves every tenant's <c>DataServiceConfigurations</c> doc to the root DB with its connection string in a
-/// Blocks <c>service</c> secret (data SPEC1 §3.6). Off unless <c>DataSourceSecretMigration__Mode</c> is set
-/// (<c>plan</c> | <c>apply</c> | <c>verify</c> | <c>scrub-redis</c>). One replica runs it (Redis lock). It runs
-/// inside the app's own Secrets, Mongo and Redis setup, so a secret lands in the store the app reads.
-/// Never logs a value. There is no mode that writes a value into Redis.
+/// One-time migration of the data-source config to the one model (owner 2026-10-15, no fallback): for EVERY tenant
+/// a Blocks <c>Service</c> secret (<c>data-source</c>, plain value, <c>default</c> = the tenant's Blocks DB) and one
+/// root doc in <c>BlocksRootDb.DataServiceConfigurations</c> (<c>_id</c> = TenantId, same fields as the old tenant doc,
+/// <c>DbConnectionSecretId</c> always set). Old tenant docs are never touched here (the migration script deletes them
+/// after the new code runs). Off unless <c>DataSourceSecretMigration__Mode</c> is set
+/// (<c>plan</c> | <c>apply</c> | <c>verify</c> | <c>scrub-redis</c>). One replica runs it (Redis lock). Never logs a
+/// value. The only Redis write is the removal of the legacy <c>DbConnectionString</c> field (scrub-redis).
+/// Works on <see cref="BsonDocument"/>, not on the server entity.
 /// </summary>
 public sealed class DataSourceSecretMigrationJob : BackgroundService
 {
@@ -37,21 +38,24 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
     public const string LockKey = "datagateway::dsc-secret-migration::lock";
     public static readonly TimeSpan LockTtl = TimeSpan.FromHours(2);
     public const string MigrationUser = "blocks-data-dsc-migration";
-    public const string MarkerField = "MigratedFrom";
-    public const string FlagField = "ValueChangedAfterDeploy";
+
+    public const string SecretName = "data-source";
+    public const string DefaultValue = "default";
 
     public const string ModePlan = "plan";
     public const string ModeApply = "apply";
     public const string ModeVerify = "verify";
     public const string ModeScrub = "scrub-redis";
 
-    /// <summary>Fields compared between root doc and tenant copy (same as the script's DSC_FIELDS).</summary>
+    /// <summary>Fields the old model had and the root doc never has (removed by apply when found).</summary>
+    public static readonly string[] ForbiddenRootFields = ["DbConnectionString", "ConfigItemId", "ValueChangedAfterDeploy", "MigratedFrom"];
+
+    /// <summary>Fields compared between root doc and the chosen old doc (verify, root not changed by the new code).</summary>
     public static readonly string[] CompareFields =
         ["DatabaseName", "IsCollectionNameEditable", "CollectionNamePattern", "ProjectKey", "ProjectShortKey", "AnalyticsConfiguration", "IsDeleted"];
 
-    /// <summary>Fields copied root → tenant copy by the repair (CompareFields minus IsDeleted).</summary>
-    public static readonly string[] RepairFields =
-        ["DatabaseName", "IsCollectionNameEditable", "CollectionNamePattern", "AnalyticsConfiguration", "ProjectKey", "ProjectShortKey"];
+    private static readonly string[] NotCopiedFields =
+        ["_id", "ItemId", "TenantId", "DbConnectionSecretId", .. ForbiddenRootFields];
 
     private static readonly Regex SecretIdPattern = new("^[0-9a-f]{32}$", RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
@@ -100,7 +104,7 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
             return summary;
         }
 
-        if (mode == ModeScrub && !string.Equals(_configuration[DataDeployedConfigKey], "yes", StringComparison.Ordinal))
+        if (mode == ModeScrub && !DataDeployed)
         {
             _logger.LogWarning("[dsc-migration] mode={Mode} refused: needs DataSourceSecretMigration__DataDeployed=yes (no old data pod left)", mode);
             return summary;
@@ -166,6 +170,8 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
         }
     }
 
+    private bool DataDeployed => string.Equals(_configuration[DataDeployedConfigKey], "yes", StringComparison.Ordinal);
+
     #region Per tenant
 
     private enum OutcomeKind { Ok, Changed, Blocker, Problem, Error }
@@ -179,423 +185,342 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
         public static TenantOutcome Error(string r) => new(OutcomeKind.Error, r);
     }
 
+    private enum SecretHealth { Valid, Missing, Broken }
+
     private sealed class TenantState
     {
         public required DscTenant Tenant { get; init; }
+
+        /// <summary>Every live (IsDeleted == false) old doc, in the order the old app's query returns them.</summary>
         public required List<BsonDocument> Live { get; init; }
         public BsonDocument? Root { get; init; }
         public required Dictionary<string, string> Hash { get; init; }
 
-        public BsonDocument? Copy => Live.Count == 1 ? Live[0] : null;
-        public bool RootOverwritten => Root is not null && !Root.Contains("ConfigItemId") && Root.Contains("DbConnectionString");
-        public bool Flagged => Root is not null && Root.TryGetValue(FlagField, out var f) && f.IsBoolean && f.AsBoolean;
+        /// <summary>The ONE doc the old app reads: the first of <c>Find({IsDeleted:false})</c>, no sort.</summary>
+        public BsonDocument? Old => Live.Count > 0 ? Live[0] : null;
         public string Tid => Tenant.TenantId;
     }
 
     private async Task<TenantOutcome> RunTenantAsync(string mode, DscTenant tenant, HashSet<string> allTenantIds, CancellationToken ct)
     {
+        // Owner rule: a disabled tenant is left alone in every mode (nothing read, written or created).
+        if (tenant.IsDisabled)
+            return TenantOutcome.Ok("skipped-disabled");
+
         var state = await ReadStateAsync(tenant, allTenantIds, ct);
-
-        if (state.Live.Count == 0 && state.Root is null)
-            return TenantOutcome.Ok("no-dsc");
-
-        if (state.RootOverwritten)
-            return mode == ModeVerify ? TenantOutcome.Problem("overwritten-root-doc") : TenantOutcome.Blocker("overwritten-root-doc");
-
         if (state.Live.Count > 1)
-            return mode == ModeVerify ? TenantOutcome.Problem($"live-docs={state.Live.Count}") : TenantOutcome.Blocker($"live-docs={state.Live.Count}");
-
-        // Root doc and no tenant copy (os project after X11, a create by new code, or after cleanup): OK.
-        if (state.Copy is null)
-            return mode switch
-            {
-                ModeVerify => await VerifyRootIdAsync(state, "root-only"),
-                ModeScrub => await ScrubAsync(state),
-                _ => TenantOutcome.Ok("root-only")
-            };
-
-        var kind = ValueKind(state.Copy.GetValue("DbConnectionString", BsonNull.Value), out var copyValue);
-        if (kind == "invalid")
-            return mode == ModeVerify ? TenantOutcome.Problem("invalid-base64") : TenantOutcome.Blocker("invalid-base64");
+            _logger.LogWarning(
+                "[dsc-migration] mode={Mode} tenant={TenantId} live-docs={Count} using={UsedId} (first of the old app's query, the doc it reads) extra-ids={ExtraIds}",
+                mode, state.Tid, state.Live.Count, IdText(state.Old!["_id"]), string.Join(",", state.Live.Skip(1).Select(d => IdText(d["_id"]))));
 
         return mode switch
         {
-            ModePlan => await PlanAsync(state, kind, copyValue),
-            ModeApply => await ApplyAsync(state, kind, copyValue),
-            ModeVerify => await VerifyAsync(state, kind, copyValue),
+            ModePlan => await PlanAsync(state),
+            ModeApply => await ApplyAsync(state),
+            ModeVerify => await VerifyAsync(state),
             _ => await ScrubAsync(state)
         };
     }
 
+    /// <summary>
+    /// The old app's own read (blocks-data origin/main <c>DataGatewayConfigurationService.GetConfiguration</c> →
+    /// <c>DbRepository.GetItemAsync(filter)</c>, blocks-os <c>GetDataGatewayConfigurationAsync</c>):
+    /// <c>Find({IsDeleted:false}).FirstOrDefault()</c> in the tenant DB, no sort, no hint. The same query is sent
+    /// here and the whole result is kept, so the first doc is the one the old app returns. In the root DB (root
+    /// tenant) the root docs of the new model are removed in memory (their _id is a TenantId).
+    /// </summary>
     private async Task<TenantState> ReadStateAsync(DscTenant tenant, HashSet<string> allTenantIds, CancellationToken ct)
     {
-        // The root tenant's tenant DB is the root DB: there a tenant copy = a doc without ConfigItemId whose _id is
-        // not a TenantId (a doc without ConfigItemId and _id = TenantId is an overwritten root doc, never a copy).
-        var copyFilter = tenant.IsRootTenant
-            ? new BsonDocument
-            {
-                { "ConfigItemId", new BsonDocument("$exists", false) },
-                { "_id", new BsonDocument("$nin", new BsonArray(allTenantIds)) }
-            }
-            : new BsonDocument();
-        var docs = await _databases.TenantDb(tenant).GetCollection<BsonDocument>(DscMigrationConstants.CollectionName)
-            .Find(copyFilter).ToListAsync(ct);
-        var live = docs.Where(d => d.TryGetValue("IsDeleted", out var v) && v.IsBoolean && !v.AsBoolean).ToList();
+        var live = new List<BsonDocument>();
+        if (tenant.IsRootTenant || (!string.IsNullOrWhiteSpace(tenant.DbConnectionString) && !string.IsNullOrWhiteSpace(tenant.DbName)))
+        {
+            var docs = await _databases.TenantDb(tenant).GetCollection<BsonDocument>(DscMigrationConstants.CollectionName)
+                .Find(new BsonDocument("IsDeleted", false)).ToListAsync(ct);
+            live = tenant.IsRootTenant ? docs.Where(d => !IsRootDocOf(d, allTenantIds)).ToList() : docs;
+        }
+
         var root = await RootCollection.Find(new BsonDocument("_id", tenant.TenantId)).FirstOrDefaultAsync(ct);
         var hash = await _redis.GetHashAsync(tenant.TenantId);
         return new TenantState { Tenant = tenant, Live = live, Root = root, Hash = hash };
     }
 
+    /// <summary>A root doc of the new model (<c>_id</c> = a TenantId, or it has a secret id); never an old tenant doc.</summary>
+    private static bool IsRootDocOf(BsonDocument d, HashSet<string> allTenantIds) =>
+        d.Contains("DbConnectionSecretId") || (d["_id"].IsString && allTenantIds.Contains(d["_id"].AsString));
+
     private IMongoCollection<BsonDocument> RootCollection =>
         _databases.Root.GetCollection<BsonDocument>(DscMigrationConstants.CollectionName);
 
-    private async Task<TenantOutcome> PlanAsync(TenantState s, string kind, string? copyValue)
+    private async Task<TenantOutcome> PlanAsync(TenantState s)
     {
-        var blocker = LegacyRedisBlocker(s, copyValue);
-        if (blocker is not null)
-            return TenantOutcome.Blocker(blocker);
+        var kind = OldKind(s, out var oldValue);
+        if (kind == "invalid")
+            return TenantOutcome.Blocker("invalid-base64");
+        if (IsOverwritten(s.Root))
+            return TenantOutcome.Blocker("overwritten-root-doc");
 
-        var rootState = s.Root is null ? "missing" : s.Root.Contains(MarkerField) ? "migrated" : "new-code";
-        if (s.Root is not null && IsCopyNewer(s) && s.Flagged && !await SameValueAsync(s, kind, copyValue))
-            return TenantOutcome.Blocker("value-conflict");
-        return TenantOutcome.Ok($"kind={kind} root={rootState} hash={HashState(s.Hash)}");
-    }
-
-    private async Task<TenantOutcome> ApplyAsync(TenantState s, string kind, string? copyValue)
-    {
-        var blocker = LegacyRedisBlocker(s, copyValue);
-        if (blocker is not null)
-            return TenantOutcome.Blocker(blocker);
-
+        string rootState;
         if (s.Root is null)
-            return await CreateRootDocAsync(s, kind, copyValue);
-
-        if (IsCopyNewer(s))
+            rootState = "missing";
+        else
         {
-            if (s.Flagged)
-            {
-                // Never rotate from the tenant copy of a flagged tenant (its value is old by design).
-                if (!await SameValueAsync(s, kind, copyValue))
-                    return TenantOutcome.Blocker("value-conflict");
-                await SetRootFieldsFromCopyAsync(s, null);
-                return TenantOutcome.Changed("resynced");
-            }
-
-            var secretId = await SecretIdForCopyValueAsync(s, kind, copyValue);
-            await SetRootFieldsFromCopyAsync(s, secretId);
-            return TenantOutcome.Changed("resynced");
+            var health = await SecretHealthAsync(s, RootSecretId(s.Root));
+            rootState = health != SecretHealth.Valid ? "secret-broken"
+                : ForbiddenRootFields.Any(f => s.Root.Contains(f)) ? "legacy-fields"
+                : "ok";
         }
 
-        // Root newer (or same date) and non-secret fields differ: a tenant-copy write failed after the root write.
-        var differing = RepairFields.Where(f => !SameField(s.Root, s.Copy!, f)).ToList();
-        if (differing.Count > 0)
-        {
-            var set = new BsonDocument();
-            foreach (var f in differing)
-                set[f] = s.Root.GetValue(f, BsonNull.Value);
-            set["LastUpdatedDate"] = s.Root.GetValue("LastUpdatedDate", BsonNull.Value);
-            await _databases.TenantDb(s.Tenant).GetCollection<BsonDocument>(DscMigrationConstants.CollectionName)
-                .UpdateOneAsync(new BsonDocument("_id", s.Copy!["_id"]), new BsonDocument("$set", set));
-            return TenantOutcome.Changed("copy-repaired");
-        }
-
-        return TenantOutcome.Ok("in-sync");
+        var redis = RedisDiffers(s, oldValue) ? " redis=differs" : string.Empty;
+        return TenantOutcome.Ok($"kind={kind} root={rootState} live-docs={s.Live.Count} hash={HashState(s.Hash)}{redis}");
     }
 
-    private async Task<TenantOutcome> CreateRootDocAsync(TenantState s, string kind, string? copyValue)
+    private async Task<TenantOutcome> ApplyAsync(TenantState s)
     {
-        string? secretId;
-        var created = false;
-        switch (kind)
+        var kind = OldKind(s, out var oldValue);
+        if (kind == "invalid")
+            return TenantOutcome.Blocker("invalid-base64");
+        if (IsOverwritten(s.Root))
+            return TenantOutcome.Blocker("overwritten-root-doc");
+
+        var value = oldValue ?? DefaultValue;
+        if (s.Root is null)
+            return await CreateRootDocAsync(s, kind, value);
+
+        var health = await SecretHealthAsync(s, RootSecretId(s.Root));
+        if (health != SecretHealth.Valid)
         {
-            case "blank": secretId = null; break;
-            case "default": secretId = DataSourceSecretResolver.DefaultSentinel; break;
-            default:
-                (secretId, created) = await ReuseOrSetSecretAsync(s.Tid, copyValue!);
-                break;
+            // Broken or missing linked secret: a new secret and the root doc repointed (captcha's repair path). The old
+            // secret is left as it is. Only possible while the old doc still gives the value.
+            if (s.Old is null)
+                return TenantOutcome.Blocker("root-secret-broken");
+            var newId = await CreateSecretAsync(s.Tid, value);
+            try
+            {
+                await RootCollection.UpdateOneAsync(
+                    new BsonDocument("_id", s.Tid),
+                    new BsonDocument("$set", new BsonDocument("DbConnectionSecretId", newId)));
+            }
+            catch
+            {
+                await TryDeleteSecretAsync(s.Tid, newId);
+                throw;
+            }
+            return TenantOutcome.Changed("secret-repaired");
         }
 
-        var root = new BsonDocument();
-        foreach (var element in s.Copy!)
-        {
-            if (element.Name is "_id" or "DbConnectionString")
-                continue;
-            root[element.Name] = element.Value;
-        }
-        root.InsertAt(0, new BsonElement("_id", s.Tid));
-        root["ConfigItemId"] = IdText(s.Copy["_id"]);
-        root["DbConnectionSecretId"] = secretId is null ? BsonNull.Value : new BsonString(secretId);
-        root[MarkerField] = DscMigrationConstants.CollectionName;
-        if (!root.Contains("LastUpdatedDate") || !root["LastUpdatedDate"].IsValidDateTime)
-            root["LastUpdatedDate"] = DateTime.UtcNow;
+        // Root doc with a valid secret: nothing to create. Fields of the old model are removed (one model, no leftovers).
+        var present = ForbiddenRootFields.Where(f => s.Root.Contains(f)).ToList();
+        if (present.Count == 0)
+            return TenantOutcome.Ok("root-exists");
 
+        var unset = new BsonDocument();
+        foreach (var f in present)
+            unset[f] = 1;
+        await RootCollection.UpdateOneAsync(new BsonDocument("_id", s.Tid), new BsonDocument("$unset", unset));
+        return TenantOutcome.Changed("root-normalized");
+    }
+
+    private async Task<TenantOutcome> CreateRootDocAsync(TenantState s, string kind, string value)
+    {
+        var secretId = await CreateSecretAsync(s.Tid, value);
+        var root = BuildRootDoc(s, secretId);
         try
         {
             await RootCollection.InsertOneAsync(root);
         }
         catch (MongoWriteException ex) when (ex.WriteError?.Category == ServerErrorCategory.DuplicateKey)
         {
-            if (created && secretId is not null)
-                await _secrets.ExecuteAsync(s.Tid, async x => { await x.DeleteAsync(secretId); return true; }, MigrationUser);
+            // Race (the new server created its own default root doc): insert-only, the loser deletes its own secret.
+            await TryDeleteSecretAsync(s.Tid, secretId);
             return TenantOutcome.Ok("root-exists");
+        }
+        catch
+        {
+            await TryDeleteSecretAsync(s.Tid, secretId);
+            throw;
         }
 
         return TenantOutcome.Changed($"migrated kind={kind}");
     }
 
-    /// <summary>
-    /// Orphan guard: an active <c>data-source-connection</c> secret (tag <c>data</c>) of this tenant that no other
-    /// root doc uses is reused (rotated when its value differs), so a crash between secret and root doc never
-    /// leaves a second secret. Else a new secret.
-    /// </summary>
-    private async Task<(string SecretId, bool Created)> ReuseOrSetSecretAsync(string tenantId, string value)
+    /// <summary>Same fields as the old doc (no connection string, no helper fields) + TenantId + the secret id.</summary>
+    private static BsonDocument BuildRootDoc(TenantState s, string secretId)
     {
-        var found = await _secrets.ExecuteAsync(tenantId, x => x.FindAsync(new SecretFilter
+        var root = new BsonDocument("_id", s.Tid);
+        if (s.Old is not null)
         {
-            Tags = [DataGatewayConfigurationService.SecretTag],
-            Status = SecretStatuses.Active,
-            PageSize = 100
-        }), MigrationUser);
-
-        foreach (var candidate in found.Data.Where(d =>
-                     d.Name == DataGatewayConfigurationService.SecretName && d.Status == SecretStatuses.Active))
+            foreach (var element in s.Old.Where(e => !NotCopiedFields.Contains(e.Name)))
+                root[element.Name] = element.Value;
+        }
+        else
         {
-            var usedByOther = await RootCollection.Find(new BsonDocument
-            {
-                { "DbConnectionSecretId", candidate.SecretId },
-                { "_id", new BsonDocument("$ne", tenantId) }
-            }).AnyAsync();
-            if (usedByOther)
-                continue;
-
-            var current = await _secrets.ExecuteAsync(tenantId, x => x.GetValueAsync(candidate.SecretId), MigrationUser);
-            if (!string.Equals(current, value, StringComparison.Ordinal))
-                await _secrets.ExecuteAsync(tenantId, async x =>
-                {
-                    await x.RotateAsync(candidate.SecretId, new RotateSecretRequest { Value = value });
-                    return true;
-                }, MigrationUser);
-            return (candidate.SecretId, false);
+            // New tenant without an old doc: the seed doc defaults.
+            var now = DateTime.UtcNow;
+            root["CreatedDate"] = now;
+            root["CreatedBy"] = MigrationUser;
+            root["LastUpdatedDate"] = now;
+            root["LastUpdatedBy"] = MigrationUser;
+            root["Language"] = string.Empty;
+            root["OrganizationId"] = "default";
+            root["Tags"] = new BsonArray();
+            root["IsDeleted"] = false;
+            root["DatabaseName"] = "default";
+            root["IsCollectionNameEditable"] = false;
+            root["CollectionNamePattern"] = "sb_{SchemaName}s";
+            root["ProjectKey"] = string.Empty;
+            root["ProjectShortKey"] = string.Empty;
+            root["AnalyticsConfiguration"] = BsonNull.Value;
         }
 
-        var id = await _secrets.ExecuteAsync(tenantId, x => x.SetAsync(new SetSecretRequest
+        root["TenantId"] = s.Tid;
+        root["DbConnectionSecretId"] = secretId;
+        if (!root.Contains("LastUpdatedDate") || !root["LastUpdatedDate"].IsValidDateTime)
+            root["LastUpdatedDate"] = DateTime.UtcNow;
+        return root;
+    }
+
+    private Task<string> CreateSecretAsync(string tenantId, string value) =>
+        _secrets.ExecuteAsync(tenantId, x => x.SetAsync(new SetSecretRequest
         {
-            Name = DataGatewayConfigurationService.SecretName,
+            Name = SecretName,
             Type = SecretTypes.Service,
-            Tags = [DataGatewayConfigurationService.SecretTag],
-            OrganizationId = "default",
-            Value = value
+            Value = value,
+            Description = "Data source connection"
         }), MigrationUser);
-        return (id, true);
-    }
 
-    /// <summary>Secret id the root doc must point at for the (newer, not flagged) tenant copy value.</summary>
-    private async Task<string?> SecretIdForCopyValueAsync(TenantState s, string kind, string? copyValue)
+    private async Task TryDeleteSecretAsync(string tenantId, string secretId)
     {
-        if (kind == "blank")
-            return null;
-        if (kind == "default")
-            return DataSourceSecretResolver.DefaultSentinel;
-
-        var rootId = RootSecretId(s.Root!);
-        if (rootId is not null && SecretIdPattern.IsMatch(rootId))
+        try
         {
-            var meta = await _secrets.ExecuteAsync(s.Tid, x => x.GetAsync(rootId), MigrationUser);
-            if (meta is not null && (meta.Status == SecretStatuses.Active || meta.Status == SecretStatuses.Locked))
-            {
-                string? current = null;
-                if (meta.Status == SecretStatuses.Active)
-                {
-                    try
-                    {
-                        current = await _secrets.ExecuteAsync(s.Tid, x => x.GetValueAsync(rootId), MigrationUser);
-                    }
-                    catch (SecretNotFoundException)
-                    {
-                        current = null;
-                    }
-                }
-                if (!string.Equals(current, copyValue, StringComparison.Ordinal))
-                    await _secrets.ExecuteAsync(s.Tid, async x =>
-                    {
-                        await x.RotateAsync(rootId, new RotateSecretRequest { Value = copyValue! });
-                        return true;
-                    }, MigrationUser);
-                return rootId;
-            }
+            await _secrets.ExecuteAsync(tenantId, async x => { await x.DeleteAsync(secretId); return true; }, MigrationUser);
         }
-
-        return (await ReuseOrSetSecretAsync(s.Tid, copyValue!)).SecretId;
+        catch (Exception ex)
+        {
+            _logger.LogWarning("[dsc-migration] tenant={TenantId} own secret {SecretId} could not be deleted error={ErrorType}", tenantId, secretId, ex.GetType().Name);
+        }
     }
 
-    /// <summary>Copies the compared fields copy → root with <c>$set</c> (marker kept, never a whole-doc replace).</summary>
-    private async Task SetRootFieldsFromCopyAsync(TenantState s, string? secretIdOrKeep)
-    {
-        var set = new BsonDocument();
-        foreach (var f in CompareFields)
-            set[f] = s.Copy!.GetValue(f, BsonNull.Value);
-        set["LastUpdatedDate"] = s.Copy!.GetValue("LastUpdatedDate", BsonNull.Value);
-        if (!s.Flagged)
-            set["DbConnectionSecretId"] = secretIdOrKeep is null ? BsonNull.Value : new BsonString(secretIdOrKeep);
-        await RootCollection.UpdateOneAsync(new BsonDocument("_id", s.Tid), new BsonDocument("$set", set));
-    }
-
-    private async Task<TenantOutcome> VerifyAsync(TenantState s, string kind, string? copyValue)
+    private async Task<TenantOutcome> VerifyAsync(TenantState s)
     {
         if (s.Root is null)
             return TenantOutcome.Problem("no-root-doc");
-        if (s.Root.Contains("DbConnectionString"))
-            return TenantOutcome.Problem("root-holds-connection-string");
-        if (!string.Equals(s.Root.GetValue("ConfigItemId", BsonNull.Value).ToString(), IdText(s.Copy!["_id"]), StringComparison.Ordinal))
-            return TenantOutcome.Problem("config-item-id-differs");
-
-        if (IsCopyNewer(s))
-        {
-            // Same rule as apply: value-conflict only when a flagged root doc's value differs from the newer copy.
-            var conflict = s.Flagged && !await SameValueAsync(s, kind, copyValue);
-            return TenantOutcome.Problem(conflict ? "value-conflict" : "copy-newer");
-        }
-
-        var differing = CompareFields.FirstOrDefault(f => !SameField(s.Root, s.Copy!, f));
-        if (differing is not null)
-            return TenantOutcome.Problem($"field-differs={differing}");
-
-        if (s.Flagged)
-        {
-            var rootCheck = await VerifyRootIdAsync(s, "value-changed-after-deploy");
-            if (rootCheck.Kind != OutcomeKind.Ok)
-                return rootCheck;
-            return PendingScrub(s) ?? rootCheck;
-        }
+        if (IsOverwritten(s.Root))
+            return TenantOutcome.Problem("overwritten-root-doc");
+        var legacyField = ForbiddenRootFields.FirstOrDefault(f => s.Root.Contains(f));
+        if (legacyField is not null)
+            return TenantOutcome.Problem($"legacy-field={legacyField}");
 
         var sid = RootSecretId(s.Root);
-        switch (kind)
-        {
-            case "blank" when !string.IsNullOrEmpty(sid):
-                return TenantOutcome.Problem("kind-differs");
-            case "default" when !DataSourceSecretResolver.IsDefault(sid):
-                return TenantOutcome.Problem("kind-differs");
-            case "custom":
-                if (sid is null || !SecretIdPattern.IsMatch(sid))
-                    return TenantOutcome.Problem("kind-differs");
-                string? resolved;
-                try
-                {
-                    resolved = await _secrets.ExecuteAsync(s.Tid, x => x.GetValueAsync(sid), MigrationUser);
-                }
-                catch (Exception ex) when (ex is SecretException)
-                {
-                    return TenantOutcome.Problem($"secret-unusable={ex.GetType().Name}");
-                }
-                if (!string.Equals(resolved, copyValue, StringComparison.Ordinal))
-                    return TenantOutcome.Problem("value-differs");
-                break;
-        }
-
-        return PendingScrub(s) ?? TenantOutcome.Ok($"verified kind={kind}");
-    }
-
-    /// <summary>Only "the root doc's own id is valid": null, "default", or a 32-hex id whose secret resolves in that tenant.</summary>
-    private async Task<TenantOutcome> VerifyRootIdAsync(TenantState s, string okResult)
-    {
-        if (s.Root!.Contains("DbConnectionString"))
-            return TenantOutcome.Problem("root-holds-connection-string");
-        var sid = RootSecretId(s.Root);
-        if (DataSourceSecretResolver.IsSentinel(sid))
-            return PendingScrub(s) ?? TenantOutcome.Ok(okResult);
-        if (!SecretIdPattern.IsMatch(sid!))
+        if (sid is null || !SecretIdPattern.IsMatch(sid))
             return TenantOutcome.Problem("invalid-secret-id");
+
+        string? resolved = null;
+        var locked = false;
         try
         {
-            await _secrets.ExecuteAsync(s.Tid, x => x.GetValueAsync(sid!), MigrationUser);
+            var meta = await _secrets.ExecuteAsync(s.Tid, x => x.GetAsync(sid), MigrationUser);
+            if (meta is null)
+                return TenantOutcome.Problem("secret-missing");
+            if (meta.Status == SecretStatuses.Locked)
+                locked = true;
+            else if (meta.Status != SecretStatuses.Active)
+                return TenantOutcome.Problem($"secret-status={meta.Status}");
+            else
+                resolved = await _secrets.ExecuteAsync(s.Tid, x => x.GetValueAsync(sid), MigrationUser);
         }
         catch (Exception ex) when (ex is SecretException)
         {
             return TenantOutcome.Problem($"secret-unusable={ex.GetType().Name}");
         }
-        return PendingScrub(s) ?? TenantOutcome.Ok(okResult);
+
+        // The new code may have changed the root doc (a save); then it is no longer comparable with the old doc.
+        if (s.Old is not null && !RootNewerThanOld(s))
+        {
+            var differing = CompareFields.FirstOrDefault(f => !SameField(s.Root, s.Old, f));
+            if (differing is not null)
+                return TenantOutcome.Problem($"field-differs={differing}");
+
+            if (resolved is not null)
+            {
+                OldKind(s, out var oldValue);
+                if (!string.Equals(resolved, oldValue ?? DefaultValue, StringComparison.Ordinal))
+                    return TenantOutcome.Problem("value-differs");
+            }
+        }
+
+        if (DataDeployed && s.Hash.ContainsKey(DscMigrationConstants.HashFieldLegacyConnectionString))
+            return TenantOutcome.Problem("pending-scrub");
+
+        var kind = locked ? "locked" : IsDefault(resolved) || string.IsNullOrWhiteSpace(resolved) ? "default" : "custom";
+        return TenantOutcome.Ok($"verified kind={kind}");
     }
 
     private async Task<TenantOutcome> ScrubAsync(TenantState s)
     {
-        if (!s.Hash.TryGetValue(GqlDbRepository.HashFieldLegacyConnectionString, out var legacyB64))
+        if (!s.Hash.ContainsKey(DscMigrationConstants.HashFieldLegacyConnectionString))
             return TenantOutcome.Ok("no-legacy-field");
+
+        // Only after the root doc and its secret exist: the new server then reloads the hash from the root doc.
         if (s.Root is null)
             return TenantOutcome.Blocker("no-root-doc");
+        if (await SecretHealthAsync(s, RootSecretId(s.Root)) != SecretHealth.Valid)
+            return TenantOutcome.Blocker("root-secret-broken");
 
-        if (ValueKind(legacyB64, out var legacyValue) == "invalid")
-            return TenantOutcome.Blocker("legacy-invalid-base64");
-
-        var sid = RootSecretId(s.Root);
-        bool same;
-        if (sid is null)
-            same = string.IsNullOrWhiteSpace(legacyValue);
-        else if (DataSourceSecretResolver.IsDefault(sid))
-            same = DataSourceSecretResolver.IsDefault(legacyValue);
-        else
-        {
-            try
-            {
-                var resolved = await _secrets.ExecuteAsync(s.Tid, x => x.GetValueAsync(sid), MigrationUser);
-                same = string.Equals(resolved, legacyValue, StringComparison.Ordinal);
-            }
-            catch (Exception ex) when (ex is SecretException)
-            {
-                return TenantOutcome.Blocker($"secret-unusable={ex.GetType().Name}");
-            }
-        }
-
-        if (!same)
-            return TenantOutcome.Blocker("legacy-value-differs");
-
-        var ok = await _redis.ScrubAsync(s.Tid, sid ?? string.Empty, DateTime.UtcNow.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        return ok ? TenantOutcome.Changed("scrubbed") : TenantOutcome.Error("scrub-transaction-failed");
+        var ok = await _redis.RemoveLegacyFieldAsync(s.Tid);
+        return ok ? TenantOutcome.Changed("scrubbed") : TenantOutcome.Error("scrub-failed");
     }
 
     #endregion
 
     #region Helpers
 
-    /// <summary>Legacy Redis value ≠ tenant copy value → blocker (the app uses the Redis value today).</summary>
-    private static string? LegacyRedisBlocker(TenantState s, string? copyValue)
+    /// <summary>blank | default | custom | invalid of the chosen old doc (none = blank). The value stays in memory only.</summary>
+    private static string OldKind(TenantState s, out string? value)
     {
-        if (!s.Hash.TryGetValue(GqlDbRepository.HashFieldLegacyConnectionString, out var legacyB64))
-            return null;
-        if (s.Flagged)
-            return null;
-        if (ValueKind(legacyB64, out var legacyValue) == "invalid")
-            return "legacy-invalid-base64";
-        return string.Equals(legacyValue ?? string.Empty, copyValue ?? string.Empty, StringComparison.Ordinal) ? null : "redis-differs";
+        value = null;
+        if (s.Old is null)
+            return "default";
+        var kind = ValueKind(s.Old.GetValue("DbConnectionString", BsonNull.Value), out var decoded);
+        value = kind == "custom" ? decoded : null;
+        return kind == "blank" ? "default" : kind;
     }
 
-    private static TenantOutcome? PendingScrub(TenantState s) =>
-        s.Hash.ContainsKey(GqlDbRepository.HashFieldLegacyConnectionString) ? TenantOutcome.Problem("pending-scrub") : null;
+    /// <summary>Root doc that holds an old-style connection string and no usable secret id (never written by the new code).</summary>
+    private static bool IsOverwritten(BsonDocument? root) =>
+        root is not null && root.Contains("DbConnectionString") && (RootSecretId(root) is not { } id || !SecretIdPattern.IsMatch(id));
 
-    private async Task<bool> SameValueAsync(TenantState s, string kind, string? copyValue)
+    private async Task<SecretHealth> SecretHealthAsync(TenantState s, string? secretId)
     {
-        var sid = RootSecretId(s.Root!);
-        if (sid is null)
-            return kind == "blank";
-        if (DataSourceSecretResolver.IsDefault(sid))
-            return kind == "default";
-        if (kind != "custom")
-            return false;
+        if (secretId is null || !SecretIdPattern.IsMatch(secretId))
+            return SecretHealth.Missing;
         try
         {
-            var resolved = await _secrets.ExecuteAsync(s.Tid, x => x.GetValueAsync(sid), MigrationUser);
-            return string.Equals(resolved, copyValue, StringComparison.Ordinal);
+            var meta = await _secrets.ExecuteAsync(s.Tid, x => x.GetAsync(secretId), MigrationUser);
+            if (meta is null)
+                return SecretHealth.Missing;
+            return meta.Status is SecretStatuses.Active or SecretStatuses.Locked ? SecretHealth.Valid : SecretHealth.Broken;
         }
-        catch (SecretException)
+        catch (SecretNotFoundException)
         {
-            return false;
+            return SecretHealth.Missing;
         }
     }
 
-    private static bool IsCopyNewer(TenantState s)
+    private static bool RootNewerThanOld(TenantState s)
     {
-        var copyDate = s.Copy!.GetValue("LastUpdatedDate", BsonNull.Value);
+        var oldDate = s.Old!.GetValue("LastUpdatedDate", BsonNull.Value);
         var rootDate = s.Root!.GetValue("LastUpdatedDate", BsonNull.Value);
-        return copyDate.IsValidDateTime && rootDate.IsValidDateTime && copyDate.ToUniversalTime() > rootDate.ToUniversalTime();
+        return oldDate.IsValidDateTime && rootDate.IsValidDateTime && rootDate.ToUniversalTime() > oldDate.ToUniversalTime();
+    }
+
+    /// <summary>The legacy Redis value is what the old app really connected with; a different value is only reported.</summary>
+    private static bool RedisDiffers(TenantState s, string? oldValue)
+    {
+        if (!s.Hash.TryGetValue(DscMigrationConstants.HashFieldLegacyConnectionString, out var legacyB64))
+            return false;
+        if (ValueKind(legacyB64, out var legacyValue) == "invalid")
+            return true;
+        return !string.Equals(legacyValue ?? DefaultValue, oldValue ?? DefaultValue, StringComparison.Ordinal);
     }
 
     private static string? RootSecretId(BsonDocument root)
@@ -606,11 +531,15 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
 
     private static string HashState(Dictionary<string, string> hash) =>
         hash.Count == 0 ? "none"
-        : hash.ContainsKey(GqlDbRepository.HashFieldLegacyConnectionString) ? "legacy"
-        : hash.ContainsKey(GqlDbRepository.HashFieldSecretId) ? "secret-id"
+        : hash.ContainsKey(DscMigrationConstants.HashFieldLegacyConnectionString) ? "legacy"
+        : hash.ContainsKey(DscMigrationConstants.HashFieldSecretId) ? "secret-id"
         : "other";
 
-    /// <summary>blank | default | custom | invalid (same rule as the script's connKind). The value stays in memory only.</summary>
+    /// <summary>"default" in any case (as the old app's <c>IsNullOrWhiteSpaceOrDefault</c>).</summary>
+    internal static bool IsDefault(string? value) =>
+        string.Equals(value, DefaultValue, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>blank | default | custom | invalid (the base64 rule of the old app). The value stays in memory only.</summary>
     internal static string ValueKind(BsonValue b64Value, out string? value)
     {
         value = null;
@@ -637,8 +566,11 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
         }
         value = Encoding.UTF8.GetString(bytes);
         if (string.IsNullOrWhiteSpace(value))
+        {
+            value = null;
             return "blank";
-        return DataSourceSecretResolver.IsDefault(value) ? "default" : "custom";
+        }
+        return IsDefault(value) ? "default" : "custom";
     }
 
     private static string IdText(BsonValue id) => id.IsString ? id.AsString : id.ToString() ?? string.Empty;

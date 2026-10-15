@@ -48,7 +48,7 @@ public class MigrationCompletionEventConsumer : IConsumer<MigrationCompletionEve
                 _logger.LogWarning("Failed to update schema definitions for tracker id: {@TrackerId}", @event.TrackerId);
                 return;
             }
-            // Root doc first (the source of truth), then the tenant copy; both field $set, retry-safe.
+            // The root doc (BlocksRootDb, _id = TenantId) is the only data-source config; no tenant DB doc exists. Field $set, retry-safe.
             var updateRoot = await _dbRepository.UpdateManyAsync(
                 $"{nameof(DataServiceConfiguration)}s",
                 new BsonDocument {
@@ -67,23 +67,8 @@ public class MigrationCompletionEventConsumer : IConsumer<MigrationCompletionEve
                 return;
             }
 
-            var updateSource = await _dbRepository.UpdateManyAsync(
-                $"{nameof(DataServiceConfiguration)}s",
-                new BsonDocument { { nameof(DataServiceConfiguration.ProjectKey), projectKey } },
-                new BsonDocument {
-                { nameof(DataServiceConfiguration.ProjectKey), targetedProjectKey },
-                { nameof(DataServiceConfiguration.ProjectShortKey), targetedProjectShortKey }
-                    },
-                targetedProjectKey
-            );
-
-            if (!updateSource.Acknowledged)
-            {
-                _logger.LogWarning("Failed to update data service configurations for tracker id: {@TrackerId}", @event.TrackerId);
-                return;
-            }
             _logger.LogInformation("Total impacted data for schema definitions: {@TotalImpactedData}", update.TotalImpactedData);
-            _logger.LogInformation("Total impacted data for data service configurations: {@TotalImpactedData}", updateSource.TotalImpactedData);
+            _logger.LogInformation("Total impacted data for the root data service configuration: {@TotalImpactedData}", updateRoot.TotalImpactedData);
 
             _logger.LogInformation("Migration completion event for tracker id: {@TrackerId} consumed successfully", @event.TrackerId);
         }

@@ -4,7 +4,8 @@ namespace DataGateway.DomainService.Models;
 
 public class DataGatewayConfigurationResponse
 {
-    public string DbConnectionString { get; set; } = string.Empty;
+    /// <summary><c>"Default"</c> (Blocks DB) or <c>"Custom"</c>. The connection string is never returned.</summary>
+    public string ConnectionType { get; set; } = "Default";
     public bool IsCollectionNameEditable { get; set; }
     public string CollectionNamePattern { get; set; } = "sb_{SchemaName}s";
     public string DatabaseName { get; set; } = string.Empty;

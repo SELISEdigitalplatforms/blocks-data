@@ -12,43 +12,42 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Driver;
-using StackExchange.Redis;
 
 namespace DataGateway.DomainService.Services;
 
 /// <summary>
-/// Data-source configuration (data SPEC1 §3.5.6). The source of truth is the ROOT doc
-/// (<c>BlocksRootDb.DataServiceConfigurations</c>, <c>_id = TenantId</c>, connection string in a Blocks
-/// <c>service</c> secret). The tenant copy is read only when there is no root doc, and the new code
-/// writes only its non-secret fields (owner "Stop writing").
+/// Data-source configuration. The source of truth is the ROOT doc (<c>BlocksRootDb.DataServiceConfigurations</c>,
+/// <c>_id = TenantId</c>). The connection string lives only in a Blocks <c>Service</c> secret named
+/// <c>data-source</c> (value: plain text, <c>default</c> = Blocks DB). Save follows blocks-os
+/// <c>CaptchaConfigService.SaveAsync</c>: <c>SetAsync</c> first, <c>RotateAsync</c> on the same id later, and a
+/// new secret when the linked one is broken (archived or missing).
 /// </summary>
 public class DataGatewayConfigurationService : IDataGatewayConfigurationService
 {
-    public const string CollectionName = "DataServiceConfigurations";
-    public const string SecretName = "data-source-connection";
-    public const string SecretTag = "data";
-    public const string NotMigratedMessage = "Data source not migrated yet. Ask ops to run the data migration job.";
+    public const string CollectionName = DataSourceConfigStore.CollectionName;
+    public const string SecretName = DataSourceConfigStore.SecretName;
+    public const string SecretTag = DataSourceConfigStore.SecretTag;
 
-    private readonly ICacheClient _cacheClient;
     private readonly IDbRepository _repository;
     private readonly IRequestValidator _requestValidator;
     private readonly IProjectService _projectService;
     private readonly IDataSourceSecretResolver _secretResolver;
+    private readonly IDataSourceConfigStore _store;
     private readonly ILogger<DataGatewayConfigurationService> _logger;
 
     public DataGatewayConfigurationService(
         IDbRepository repository,
-        ICacheClient cacheClient,
         IRequestValidator requestValidator,
         IProjectService projectService,
         IDataSourceSecretResolver secretResolver,
+        IDataSourceConfigStore store,
         ILogger<DataGatewayConfigurationService>? logger = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        _cacheClient = cacheClient ?? throw new ArgumentNullException(nameof(cacheClient));
         _requestValidator = requestValidator ?? throw new ArgumentNullException(nameof(requestValidator));
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _secretResolver = secretResolver ?? throw new ArgumentNullException(nameof(secretResolver));
+        _store = store ?? throw new ArgumentNullException(nameof(store));
         _logger = logger ?? NullLogger<DataGatewayConfigurationService>.Instance;
     }
 
@@ -57,42 +56,24 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
     public async Task<ServiceResponse<DataGatewayConfigurationResponse>> GetConfiguration(string projectKey)
     {
         var tenantId = TenantContext.GetTenantId();
-        var root = await GetRootDocAsync(tenantId);
-
-        DataServiceConfiguration? source;
-        string connectionString;
-        string itemId;
-        if (root is not null)
-        {
-            source = root;
-            itemId = root.ConfigItemId ?? string.Empty;
-            connectionString = await ResolveForGetAsync(tenantId, root.DbConnectionSecretId);
-        }
-        else
-        {
-            // No root doc: today's code on the tenant copy.
-            source = await GetTenantCopyAsync();
-            if (source is null)
-                return new ServiceResponse<DataGatewayConfigurationResponse>().SetErrorMessage("Data source not found.");
-            itemId = source.ItemId;
-            connectionString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(source.DbConnectionString!));
-        }
+        var root = await _store.EnsureRootAsync(tenantId);
+        var isCustom = await IsCustomAsync(tenantId, root.DbConnectionSecretId);
 
         var projectShortKey = await _projectService.GetTenantSlugAsync(projectKey);
         var response = new DataGatewayConfigurationResponse
         {
-            DbConnectionString = connectionString,
-            DatabaseName = source.DatabaseName,
-            IsCollectionNameEditable = source.IsCollectionNameEditable,
-            CollectionNamePattern = source.CollectionNamePattern,
+            ConnectionType = isCustom ? GqlDbRepository.ConnectionTypeCustom : GqlDbRepository.ConnectionTypeDefault,
+            DatabaseName = root.DatabaseName,
+            IsCollectionNameEditable = root.IsCollectionNameEditable,
+            CollectionNamePattern = root.CollectionNamePattern,
             ProjectKey = projectKey,
             ProjectShortKey = projectShortKey,
-            ItemId = itemId,
+            ItemId = root.ItemId,
             AnalyticsConfiguration = new AnalyticsConfigurationResponse
             {
-                EnableAnalytics = source.AnalyticsConfiguration?.EnableAnalytics ?? false,
-                EnableDate = source.AnalyticsConfiguration?.EnableDate,
-                ValidTill = source.AnalyticsConfiguration?.ValidTill
+                EnableAnalytics = root.AnalyticsConfiguration?.EnableAnalytics ?? false,
+                EnableDate = root.AnalyticsConfiguration?.EnableDate,
+                ValidTill = root.AnalyticsConfiguration?.ValidTill
             }
         };
 
@@ -100,286 +81,204 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
     }
 
     /// <summary>
-    /// Value for the GET answer. A locked, deleted or missing secret, or an active one whose vault value is
-    /// gone, answers <c>""</c> (repair path: the CLI GETs before every save); any other secret error fails.
+    /// Whether the linked secret holds a real connection string. Only the kind leaves this method, never the value.
+    /// A locked, archived, missing or empty secret answers <c>true</c> (custom): at runtime such a tenant fails closed,
+    /// so it must not look like a Blocks DB tenant. A secret-store error fails the call.
     /// </summary>
-    private async Task<string> ResolveForGetAsync(string tenantId, string? secretId)
+    private async Task<bool> IsCustomAsync(string tenantId, string secretId)
     {
-        if (secretId is null)
-            return string.Empty;
-        if (DataSourceSecretResolver.IsSentinel(secretId))
-            return secretId;
+        if (string.IsNullOrEmpty(secretId))
+            return true;
 
-        SecretResult? metadata;
-        try
+        var status = await SecretStatusAsync(tenantId, secretId, failOnError: true);
+        if (status is not LinkedActive)
         {
-            metadata = await _secretResolver.ExecuteAsync(tenantId, s => s.GetAsync(secretId));
-        }
-        catch (Exception ex) when (ex is not DataSourceUnavailableException)
-        {
-            _logger.LogWarning("[dsc] get-secret-failed tenant={TenantId} secret={SecretId} error={ErrorType}",
-                tenantId, secretId, ex.GetType().Name);
-            throw new DataSourceUnavailableException(ex.Message, ex);
-        }
-
-        var unusable = metadata is null ? "missing"
-            : metadata.Status == SecretStatuses.Locked ? "locked"
-            : metadata.Status == SecretStatuses.Deleted ? "deleted"
-            : null;
-        if (unusable is not null)
-        {
-            _logger.LogWarning("[dsc] get-secret-unusable tenant={TenantId} state={State}", tenantId, unusable);
-            return string.Empty;
+            _logger.LogWarning("[dsc] get-secret-unusable tenant={TenantId} state={State}", tenantId, status);
+            return true;
         }
 
         try
         {
-            return await _secretResolver.ResolveAsync(tenantId, secretId) ?? string.Empty;
+            var value = await _secretResolver.ResolveAsync(tenantId, secretId);
+            return !value.IsNullOrWhiteSpaceOrDefault();
         }
         catch (DataSourceUnavailableException ex) when (ex.SecretError is SecretNotFoundException)
         {
             _logger.LogWarning("[dsc] get-secret-unusable tenant={TenantId} state={State}", tenantId, "value-missing");
-            return string.Empty;
+            return true;
         }
     }
 
     #endregion
 
-    #region Insert
+    #region Save
 
-    public async Task<ServiceResponse<ActionResponse>> InsertConfiguration(CreateDataGatewayConfigurationRequest request)
+    private const string LinkedActive = "active";
+    private const string LinkedLocked = "locked";
+    private const string LinkedArchived = "archived";
+    private const string LinkedMissing = "missing";
+    private const string LinkedUnavailable = "unavailable";
+
+    /// <summary>POST: save with the values of the request (<c>ItemId</c> is ignored; the root doc is created if it is missing).</summary>
+    public Task<ServiceResponse<ActionResponse>> InsertConfiguration(CreateDataGatewayConfigurationRequest request) =>
+        SaveAsync(request, null);
+
+    /// <summary>PUT: <c>ItemId</c> must be the root doc id (the TenantId).</summary>
+    public Task<ServiceResponse<ActionResponse>> UpdateConfiguration(UpdateDataGatewayConfigurationRequest request) =>
+        SaveAsync(request, request);
+
+    private async Task<ServiceResponse<ActionResponse>> SaveAsync(
+        CreateDataGatewayConfigurationRequest request, UpdateDataGatewayConfigurationRequest? update)
     {
-        var validationResult = await _requestValidator.ValidateAsync(request);
+        var validationResult = update is null
+            ? await _requestValidator.ValidateAsync(request)
+            : await _requestValidator.ValidateAsync(update);
         if (!validationResult.IsValid)
         {
             return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
         }
 
         var tenantId = TenantContext.GetTenantId();
-        if (await GetRootDocAsync(tenantId, includeDeleted: true) is not null || await GetTenantCopyAsync() is not null)
-        {
-            return new ServiceResponse<ActionResponse>().SetErrorMessage("Data source with this ID already exists.");
-        }
+        var root = await _store.EnsureRootAsync(tenantId);
 
-        var secretId = IsDefaultValue(request.ConnectionString)
-            ? DataSourceSecretResolver.DefaultSentinel
-            : await SetSecretAsync(tenantId, request.ConnectionString);
-
-        var root = new DataServiceConfiguration
-        {
-            ItemId = tenantId,
-            // A blank id gets a new GUID, exactly as today's InjectDefaultValue does.
-            ConfigItemId = string.IsNullOrWhiteSpace(request.ItemId) ? Guid.NewGuid().ToString() : request.ItemId,
-            DbConnectionString = null,
-            DbConnectionSecretId = secretId,
-            DatabaseName = request.DatabaseName,
-            ValueChangedAfterDeploy = true
-        };
-        root.InjectDefaultValue();
-        root.OrganizationId = BlocksContext.GetContext()?.OrganizationId ?? root.OrganizationId;
-        root.AnalyticsConfiguration = new AnalyticsConfiguration
-        {
-            EnableAnalytics = true,
-            EnableDate = root.CreatedDate,
-            ValidTill = root.CreatedDate.AddDays(14)
-        };
-
-        // A failed insert (e.g. DuplicateKey of a parallel create) is today's error; the new secret stays unused.
-        await _repository.InsertAsync(root, GraphQlConstant.BlocksRootDbName);
-        await CacheDataSourceAsync(request.ProjectKey, secretId, root.DatabaseName);
-
-        return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { ItemId = root.ConfigItemId });
-    }
-
-    #endregion
-
-    #region Update
-
-    /// <summary>Secret action of an Update (same table as os SPEC2 §6.5 step 2).</summary>
-    public enum SecretAction { None, Rotate, Set, ToDefault }
-
-    public async Task<ServiceResponse<ActionResponse>> UpdateConfiguration(UpdateDataGatewayConfigurationRequest request)
-    {
-        var validationResult = await _requestValidator.ValidateAsync(request);
-        if (!validationResult.IsValid)
-        {
-            return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
-        }
-
-        var tenantId = TenantContext.GetTenantId();
-        var root = await GetRootDocAsync(tenantId);
-        if (root is null)
-            return RefuseNotMigrated(tenantId);
-
-        if (!string.Equals(root.ConfigItemId, request.ItemId, StringComparison.Ordinal))
+        if (update is not null && !string.Equals(root.ItemId, request.ItemId, StringComparison.Ordinal))
             return new ServiceResponse<ActionResponse>()
                 .SetErrorMessage("Data source not found.")
                 .SetHttpStatusCode(404);
 
-        var oldSecretId = root.DbConnectionSecretId;
-        var (action, _) = await DecideSecretActionAsync(tenantId, request.ConnectionString, oldSecretId);
+        // null on PUT = keep the current data source; "" / "default" = Blocks DB; anything else = the real string.
+        string? value = request.ConnectionString is null && update is not null
+            ? null
+            : DataSourceConnectionString.IsCustom(request.ConnectionString)
+                ? request.ConnectionString!.Trim()
+                : DataSourceSecretResolver.DefaultValue;
 
-        // Flag FIRST (before any secret write): a later failure can never leave a changed value unflagged.
-        if (action != SecretAction.None)
+        var secretId = root.DbConnectionSecretId;
+        string? repairedSecretId = null;
+        if (value is not null)
         {
-            var flagged = await _repository.FindOneAndUpdateAsync(
-                CollectionName,
-                RootFilter(tenantId),
-                new BsonDocument("$set", new BsonDocument(nameof(DataServiceConfiguration.ValueChangedAfterDeploy), true)),
-                isUpsert: false,
-                GraphQlConstant.BlocksRootDbName);
-            if (flagged is null)
-                return RefuseNotMigrated(tenantId);
-        }
-
-        var newSecretId = oldSecretId;
-        switch (action)
-        {
-            case SecretAction.Rotate:
+            var status = await SecretStatusAsync(tenantId, secretId, failOnError: false);
+            if (string.IsNullOrEmpty(secretId) || status is LinkedArchived or LinkedMissing)
+            {
+                // A broken pointer cannot be rotated: new secret, same doc repointed at it (the old one is left as it is).
+                var isRepair = !string.IsNullOrEmpty(secretId);
+                secretId = await _store.SetSecretAsync(tenantId, value);
+                repairedSecretId = isRepair ? secretId : null;
+            }
+            else
+            {
                 await _secretResolver.ExecuteAsync(tenantId, async s =>
                 {
-                    await s.RotateAsync(oldSecretId!, new RotateSecretRequest { Value = request.ConnectionString });
+                    await s.RotateAsync(secretId, new RotateSecretRequest { Value = value });
                     return true;
                 });
-                break;
-            case SecretAction.Set:
-                newSecretId = await SetSecretAsync(tenantId, request.ConnectionString);
-                break;
-            case SecretAction.ToDefault:
-                newSecretId = DataSourceSecretResolver.DefaultSentinel;
-                break;
+            }
         }
 
-        ApplyRequest(root, request);
-        root.LastUpdatedDate = DateTime.UtcNow;
-        root.LastUpdatedBy = BlocksContext.GetContext()?.UserId ?? root.LastUpdatedBy;
-        root.DbConnectionSecretId = newSecretId;
-
-        // Root: field $set (never a whole-doc replace: keeps MigratedFrom and every unknown field).
-        var rootSet = new BsonDocument
+        var now = DateTime.UtcNow;
+        now = new DateTime(DataSourceConfigStore.VersionOf(now), DateTimeKind.Utc);
+        var databaseName = string.IsNullOrWhiteSpace(request.DatabaseName) ? root.DatabaseName : request.DatabaseName;
+        var set = new BsonDocument
         {
-            { nameof(DataServiceConfiguration.DatabaseName), root.DatabaseName },
-            { nameof(DataServiceConfiguration.IsCollectionNameEditable), root.IsCollectionNameEditable },
-            { nameof(DataServiceConfiguration.CollectionNamePattern), root.CollectionNamePattern },
-            { nameof(DataServiceConfiguration.LastUpdatedDate), root.LastUpdatedDate },
-            { nameof(DataServiceConfiguration.LastUpdatedBy), Str(root.LastUpdatedBy) },
+            { nameof(DataServiceConfiguration.DbConnectionSecretId), secretId },
+            { nameof(DataServiceConfiguration.DatabaseName), databaseName },
+            { nameof(DataServiceConfiguration.LastUpdatedDate), now },
+            { nameof(DataServiceConfiguration.LastUpdatedBy), Str(BlocksContext.GetContext()?.UserId ?? root.LastUpdatedBy) },
         };
-        var rootUnset = new BsonDocument();
-        AddOrUnset(rootSet, rootUnset, nameof(DataServiceConfiguration.DbConnectionSecretId), newSecretId is null ? null : new BsonString(newSecretId));
-        AddOrUnset(rootSet, rootUnset, nameof(DataServiceConfiguration.AnalyticsConfiguration), AnalyticsToBson(root.AnalyticsConfiguration));
-        var rootUpdate = new BsonDocument("$set", rootSet);
-        if (rootUnset.ElementCount > 0)
-            rootUpdate.Add("$unset", rootUnset);
-        var updatedRoot = await _repository.FindOneAndUpdateAsync(
-            CollectionName, RootFilter(tenantId), rootUpdate, isUpsert: false, GraphQlConstant.BlocksRootDbName);
+        if (update is not null)
+        {
+            set[nameof(DataServiceConfiguration.IsCollectionNameEditable)] = update.IsCollectionNameEditable;
+            if (!string.IsNullOrWhiteSpace(update.CollectionNamePattern))
+                set[nameof(DataServiceConfiguration.CollectionNamePattern)] = update.CollectionNamePattern;
+            var analytics = ApplyAnalytics(root.AnalyticsConfiguration, update);
+            if (analytics is not null)
+                set[nameof(DataServiceConfiguration.AnalyticsConfiguration)] = analytics.ToBsonDocument();
+        }
 
-        // Tenant copy while it exists: non-secret fields only, no upsert, never DbConnectionString.
-        var copySet = BuildTenantCopySet(root);
-        await _repository.UpdateAsync(
-            CollectionName,
-            new BsonDocument("_id", root.ConfigItemId),
-            copySet);
+        BsonDocument? saved;
+        try
+        {
+            saved = await _repository.FindOneAndUpdateAsync(
+                CollectionName,
+                new BsonDocument { { "_id", tenantId }, { nameof(DataServiceConfiguration.IsDeleted), false } },
+                new BsonDocument("$set", set),
+                isUpsert: false,
+                GraphQlConstant.BlocksRootDbName);
+        }
+        catch
+        {
+            await CompensateRepairAsync(tenantId, repairedSecretId);
+            throw;
+        }
 
-        await CacheDataSourceAsync(request.ProjectKey, newSecretId, root.DatabaseName);
+        if (saved is null)
+        {
+            // Removed between the read above and this write.
+            await CompensateRepairAsync(tenantId, repairedSecretId);
+            return new ServiceResponse<ActionResponse>().SetErrorMessage("Data source not found.").SetHttpStatusCode(404);
+        }
 
-        // A switch to "default" leaves the old secret as it is (owner 2026-10-13 "keep": unused secrets are archived by hand).
+        var isCustom = value is not null
+            ? !value.IsNullOrWhiteSpaceOrDefault()
+            : await IsCustomAsync(tenantId, secretId);
+        await _store.WriteHashAsync(request.ProjectKey, secretId, databaseName, isCustom, now);
 
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse
         {
             Acknowledged = true,
-            TotalImpactedData = updatedRoot is null ? 0 : 1
+            ItemId = tenantId,
+            TotalImpactedData = 1
         });
     }
 
-    /// <summary>
-    /// Reads only. custom + active id: compare (equal → none, differs or value missing → rotate);
-    /// custom + locked → rotate; custom + deleted/not found → set; custom + null/"default" → set;
-    /// "default" + "default" → none; "default" + anything else → to-default.
-    /// </summary>
-    internal async Task<(SecretAction Action, bool OldSecretActiveOrLocked)> DecideSecretActionAsync(
-        string tenantId, string newValue, string? rootSecretId)
+    /// <summary>Metadata read only (no value read). <c>unavailable</c> is not broken: an outage never forces a re-entry.</summary>
+    private async Task<string> SecretStatusAsync(string tenantId, string secretId, bool failOnError)
     {
-        if (IsDefaultValue(newValue))
-        {
-            if (DataSourceSecretResolver.IsDefault(rootSecretId))
-                return (SecretAction.None, false);
-            // No secret call: the old secret is kept as it is (owner 2026-10-13 "keep").
-            return (SecretAction.ToDefault, false);
-        }
-
-        if (DataSourceSecretResolver.IsSentinel(rootSecretId))
-            return (SecretAction.Set, false);
-
-        var metadata = await _secretResolver.ExecuteAsync(tenantId, s => s.GetAsync(rootSecretId!));
-        if (metadata is null || metadata.Status == SecretStatuses.Deleted)
-            return (SecretAction.Set, false);
-        if (metadata.Status == SecretStatuses.Locked)
-            return (SecretAction.Rotate, true);
-
+        if (string.IsNullOrEmpty(secretId))
+            return LinkedMissing;
         try
         {
-            var current = await _secretResolver.ResolveAsync(tenantId, rootSecretId);
-            return (string.Equals(current, newValue, StringComparison.Ordinal) ? SecretAction.None : SecretAction.Rotate, true);
+            var metadata = await _secretResolver.ExecuteAsync(tenantId, s => s.GetAsync(secretId));
+            return metadata is null ? LinkedMissing
+                : metadata.Status == SecretStatuses.Deleted ? LinkedArchived
+                : metadata.Status == SecretStatuses.Locked ? LinkedLocked
+                : LinkedActive;
         }
-        catch (DataSourceUnavailableException ex) when (ex.SecretError is SecretNotFoundException)
+        catch (Exception ex) when (ex is not DataSourceUnavailableException)
         {
-            // Active, but the vault value is gone: rotate writes it again (no compare possible).
-            return (SecretAction.Rotate, true);
+            _logger.LogWarning("[dsc] get-secret-failed tenant={TenantId} error={ErrorType}", tenantId, ex.GetType().Name);
+            if (failOnError)
+                throw new DataSourceUnavailableException(ex.Message, ex);
+            return LinkedUnavailable;
         }
     }
 
-    private ServiceResponse<ActionResponse> RefuseNotMigrated(string tenantId)
+    /// <summary>Retires the secret this save created for a broken pointer when the doc could not be repointed at it.</summary>
+    private async Task CompensateRepairAsync(string tenantId, string? repairedSecretId)
     {
-        _logger.LogWarning("[dsc] update-refused-not-migrated tenant={TenantId}", tenantId);
-        return new ServiceResponse<ActionResponse>()
-            .SetErrorMessage(NotMigratedMessage)
-            .SetHttpStatusCode(409);
+        if (!string.IsNullOrEmpty(repairedSecretId))
+            await _store.DeleteOwnSecretAsync(tenantId, repairedSecretId);
     }
 
-    private static void ApplyRequest(DataServiceConfiguration doc, UpdateDataGatewayConfigurationRequest request)
+    /// <summary>The analytics doc after the request, or null when nothing changes.</summary>
+    private static AnalyticsConfiguration? ApplyAnalytics(AnalyticsConfiguration? current, UpdateDataGatewayConfigurationRequest request)
     {
-        doc.DatabaseName = request.DatabaseName;
-        doc.IsCollectionNameEditable = request.IsCollectionNameEditable;
-        doc.CollectionNamePattern = request.CollectionNamePattern;
-        if (request.EnableAnalytics.HasValue)
+        if (!request.EnableAnalytics.HasValue)
+            return null;
+
+        var analytics = current ?? new AnalyticsConfiguration();
+        if (request.EnableAnalytics.Value && !analytics.EnableDate.HasValue && !analytics.ValidTill.HasValue)
         {
-            doc.AnalyticsConfiguration ??= new AnalyticsConfiguration();
-            if (request.EnableAnalytics.Value
-                && !doc.AnalyticsConfiguration.EnableDate.HasValue
-                && !doc.AnalyticsConfiguration.ValidTill.HasValue)
-            {
-                var enableDate = DateTime.UtcNow;
-                doc.AnalyticsConfiguration.EnableDate = enableDate;
-                doc.AnalyticsConfiguration.ValidTill = enableDate.AddDays(14);
-            }
-
-            doc.AnalyticsConfiguration.EnableAnalytics = request.EnableAnalytics.Value;
+            var enableDate = DateTime.UtcNow;
+            analytics.EnableDate = enableDate;
+            analytics.ValidTill = enableDate.AddDays(14);
         }
-    }
 
-    /// <summary>The $set of a tenant-copy write: non-secret fields only (never DbConnectionString).</summary>
-    internal static BsonDocument BuildTenantCopySet(DataServiceConfiguration root) => new()
-    {
-        { nameof(DataServiceConfiguration.DatabaseName), root.DatabaseName },
-        { nameof(DataServiceConfiguration.IsCollectionNameEditable), root.IsCollectionNameEditable },
-        { nameof(DataServiceConfiguration.CollectionNamePattern), root.CollectionNamePattern },
-        { nameof(DataServiceConfiguration.AnalyticsConfiguration), AnalyticsToBson(root.AnalyticsConfiguration) ?? BsonNull.Value },
-        { nameof(DataServiceConfiguration.LastUpdatedDate), root.LastUpdatedDate },
-        { nameof(DataServiceConfiguration.LastUpdatedBy), Str(root.LastUpdatedBy) },
-    };
+        analytics.EnableAnalytics = request.EnableAnalytics.Value;
+        return analytics;
+    }
 
     private static BsonValue Str(string? value) => value is null ? BsonNull.Value : new BsonString(value);
-
-    private static BsonValue? AnalyticsToBson(AnalyticsConfiguration? analytics) =>
-        analytics is null ? null : analytics.ToBsonDocument();
-
-    private static void AddOrUnset(BsonDocument set, BsonDocument unset, string field, BsonValue? value)
-    {
-        if (value is null || value.IsBsonNull)
-            unset.Add(field, "");
-        else
-            set.Add(field, value);
-    }
 
     #endregion
 
@@ -387,77 +286,9 @@ public class DataGatewayConfigurationService : IDataGatewayConfigurationService
 
     public async Task<bool> CanAccessAnalyticsAsync()
     {
-        // The caller's own root doc (never "the first live doc" of the root DB), else the tenant copy.
-        var dataServiceConfiguration = await GetRootDocAsync(TenantContext.GetTenantId())
-            ?? await GetTenantCopyAsync();
-
-        return dataServiceConfiguration?.AnalyticsConfiguration?.IsAccessibleAt(DateTime.UtcNow) == true;
-    }
-
-    #endregion
-
-    #region Helpers
-
-    private static bool IsDefaultValue(string value) =>
-        DataSourceSecretResolver.IsDefault(value);
-
-    private Task<string> SetSecretAsync(string tenantId, string value) =>
-        _secretResolver.ExecuteAsync(tenantId, s => s.SetAsync(new SetSecretRequest
-        {
-            Name = SecretName,
-            Type = SecretTypes.Service,
-            Tags = [SecretTag],
-            OrganizationId = "default",
-            Value = value
-        }));
-
-    private static BsonDocument RootFilter(string tenantId) => new()
-    {
-        { "_id", tenantId },
-        { nameof(DataServiceConfiguration.ConfigItemId), new BsonDocument("$exists", true) }
-    };
-
-    /// <summary>Root doc of the tenant: <c>_id = TenantId</c> with a <c>ConfigItemId</c> (a doc without one is not a root doc).</summary>
-    private async Task<DataServiceConfiguration?> GetRootDocAsync(string tenantId, bool includeDeleted = false)
-    {
-        if (string.IsNullOrWhiteSpace(tenantId))
-            return null;
-        var builder = Builders<DataServiceConfiguration>.Filter;
-        var filter = builder.Eq(x => x.ItemId, tenantId) & builder.Exists(x => x.ConfigItemId);
-        if (!includeDeleted)
-            filter &= builder.Eq(x => x.IsDeleted, false);
-        return await _repository.GetItemAsync(filter, GraphQlConstant.BlocksRootDbName);
-    }
-
-    /// <summary>
-    /// Live tenant copy in the tenant DB (today's read). Docs with a <c>ConfigItemId</c> are root docs (the
-    /// root tenant's tenant DB is the root DB) and are never taken for a tenant copy.
-    /// </summary>
-    private async Task<DataServiceConfiguration?> GetTenantCopyAsync()
-    {
-        var builder = Builders<DataServiceConfiguration>.Filter;
-        var filter = builder.Eq(x => x.IsDeleted, false) & builder.Exists(x => x.ConfigItemId, false);
-        return await _repository.GetItemAsync(filter);
-    }
-
-    /// <summary>
-    /// Redis hash under <c>request.ProjectKey</c> (as today): KeyExists → RemoveKey → AddHash with
-    /// <c>DbConnectionSecretId</c>, <c>DatabaseName</c>, <c>Version</c>. No value. RemoveKey also drops a legacy field.
-    /// </summary>
-    private async Task CacheDataSourceAsync(string projectKey, string? secretId, string databaseName)
-    {
-        var blocksCtx = BlocksContext.GetContext();
-        if (blocksCtx is null)
-            return;
-
-        if (await _cacheClient.KeyExistsAsync(projectKey))
-            await _cacheClient.RemoveKeyAsync(projectKey);
-
-        await _cacheClient.AddHashValueAsync(projectKey, [
-            new HashEntry(GqlDbRepository.HashFieldSecretId, secretId ?? string.Empty),
-            new HashEntry(GqlDbRepository.HashFieldDatabaseName, databaseName),
-            new HashEntry(GqlDbRepository.HashFieldVersion, DateTime.UtcNow.Ticks)
-        ]);
+        // The caller's own root doc (read only: analytics never creates a doc).
+        var root = await _store.GetRootAsync(TenantContext.GetTenantId());
+        return root?.AnalyticsConfiguration?.IsAccessibleAt(DateTime.UtcNow) == true;
     }
 
     #endregion

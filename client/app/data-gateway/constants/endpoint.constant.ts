@@ -6,6 +6,8 @@ const CONFIGURATIONS_SUBPATH = "/configurations";
 
 export const CONFIGURATION_ENDPOINTS = {
   GET: `${API_BASES.UDS}${CONFIGURATIONS_SUBPATH}`,
+  CREATE: `${API_BASES.UDS}${CONFIGURATIONS_SUBPATH}`,
+  UPDATE: `${API_BASES.UDS}${CONFIGURATIONS_SUBPATH}`,
 } as const;
 
 // ─── Schema configuration (publishing) endpoints ──────────────────────────────

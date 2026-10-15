@@ -15,6 +15,7 @@ import {
   IDeleteSchemaFieldValidationPayload,
   IDeleteSchemaIndexPayload,
   IExecuteGraphQLPayload,
+  IDataSourceSavePayload,
   IGetSchemaFieldValidationPayload,
   IGetSchemaListPayload,
   ISchemaExportPayload,
@@ -35,6 +36,19 @@ export const useGetDataServiceConfiguration = () => {
     queryKey: ["data-service-config", "get", projectKey],
     queryFn: () => configurationService.getDataServiceDetails(),
     enabled: !!projectKey,
+  });
+};
+
+export const useSaveDataSourceConfiguration = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["data-service-config", "save"],
+    mutationFn: ({ payload, exists }: { payload: IDataSourceSavePayload; exists: boolean }) =>
+      configurationService.saveDataSource(payload, exists),
+    onSuccess: (data) => {
+      if (data.isSuccess)
+        queryClient.invalidateQueries({ queryKey: ["data-service-config", "get"] });
+    },
   });
 };
 

@@ -28,6 +28,9 @@ public interface IGqlDbRepository
         int maxDocs,
         long maxBytes);
 
+    /// <summary>Number of documents matching <paramref name="filter"/> (a scan; call only when needed).</summary>
+    Task<long> CountAsync(string collectionName, FilterDefinition<BsonDocument> filter);
+
     Task<(List<BsonDocument> items, long count)> GetItemsWithCountAsync(string collectionName,
         FilterDefinition<BsonDocument> filter,
         BsonDocument? sort = null,

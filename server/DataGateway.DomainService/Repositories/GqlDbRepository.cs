@@ -110,6 +110,13 @@ public class GqlDbRepository : IGqlDbRepository
         return batch;
     }
 
+    public async Task<long> CountAsync(string collectionName, FilterDefinition<BsonDocument> filter)
+    {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
+        return await collection.CountDocumentsAsync(filter);
+    }
+
     public async Task<(List<BsonDocument> items, long count)> GetItemsWithCountAsync(string collectionName,
         FilterDefinition<BsonDocument> filter,
         BsonDocument? sort = null,

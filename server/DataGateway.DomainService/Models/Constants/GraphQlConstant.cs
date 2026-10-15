@@ -36,6 +36,9 @@ public static class GraphQlConstant
     /// Each runs its own database calls, so this bounds how far one request can fan out.
     /// </summary>
     public const int MaxRootFieldsPerOperation = 10;
+
+    /// <summary>Largest page one query may ask for; a bigger <c>pageSize</c> is clamped to this.</summary>
+    public const int MaxPageSize = 1000;
     private const string DefaultProvider = "azure";
     private const string RabbitMqProvider = "rabbitmq";
 

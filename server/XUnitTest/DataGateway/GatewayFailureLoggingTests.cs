@@ -441,6 +441,53 @@ public class IntrospectionDetectionTests
         GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query))
             .Should().BeFalse();
     }
+
+    // The detector runs on the raw request before HotChocolate validates it, so it also sees
+    // documents HotChocolate would reject. A fragment cycle used to recurse until the process
+    // died (StackOverflowException cannot be caught); it must simply yield an answer and leave
+    // the rejection to HotChocolate's own NoFragmentCycles rule.
+    [Theory]
+    [InlineData("query { ...A } fragment A on Query { ...A }")]
+    [InlineData("query { ...A } fragment A on Query { ...B } fragment B on Query { ...A }")]
+    [InlineData("query { ...A } fragment A on Query { getBlxDrives { items { ...A } } }")]
+    public void FragmentCycle_DoesNotRecurseForever(string query)
+    {
+        GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query))
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public void FragmentCycle_StillRecognisesIntrospectionInsideIt()
+    {
+        const string query = "query { ...A } fragment A on Query { ...B } fragment B on Query { ...A __schema { types { name } } }";
+
+        GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query))
+            .Should().BeTrue();
+    }
+
+    // Without a cycle, a chain where every fragment spreads the next one twice is visited 2^n
+    // times by a naive walk — unbounded CPU from a request of a few hundred bytes. Each fragment
+    // is walked once, so the answer is found in linear time, and it is the same answer.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RepeatedFragmentSpreads_AreWalkedOnce(bool introspectionAtTheEnd)
+    {
+        const int depth = 64;
+        var query = new System.Text.StringBuilder("query { ...F0 } ");
+        for (var i = 0; i < depth; i++)
+        {
+            query.Append($"fragment F{i} on Query {{ ...F{i + 1} ...F{i + 1} }} ");
+        }
+        query.Append($"fragment F{depth} on Query {{ {(introspectionAtTheEnd ? "__schema { types { name } }" : "__typename")} }}");
+
+        var stopwatch = Stopwatch.StartNew();
+        var result = GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query.ToString()));
+        stopwatch.Stop();
+
+        result.Should().Be(introspectionAtTheEnd);
+        stopwatch.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(1));
+    }
 }
 
 /// <summary>

@@ -574,6 +574,131 @@ public class DataSourceSecretMigrationJobTests
         _redis.Removed.Should().BeEmpty();
     }
 
+    // ---------------- first-use root doc made by the new Api before apply ----------------
+
+    private static readonly DateTime FirstUseAt = new(2026, 10, 14, 8, 0, 0, DateTimeKind.Utc);
+
+    private async Task<string> FirstUseRootAsync(string tenant, string secretValue = "default", string dbName = "default", DateTime? lastUpdated = null)
+    {
+        var made = _secrets.Add(tenant, secretValue);
+        made.Name = "data-source";
+        await Root.InsertOneAsync(new BsonDocument
+        {
+            { "_id", tenant }, { "TenantId", tenant }, { "DbConnectionSecretId", made.Id }, { "DatabaseName", dbName },
+            { "IsDeleted", false }, { "IsCollectionNameEditable", false }, { "CollectionNamePattern", "sb_{SchemaName}s" },
+            { "ProjectKey", "" }, { "ProjectShortKey", "" }, { "AnalyticsConfiguration", BsonNull.Value },
+            { "CreatedDate", FirstUseAt }, { "CreatedBy", "someone" }, { "LastUpdatedDate", lastUpdated ?? FirstUseAt }, { "LastUpdatedBy", "someone" }
+        });
+        return made.Id;
+    }
+
+    [Fact]
+    public async Task Apply_FirstUseRoot_Byo_Corrected_SameSecretRotated_FieldsCopied_HashDeleted()
+    {
+        await CopyAsync("t1", Custom);
+        var id = await FirstUseRootAsync("t1");
+        _redis.Hashes["t1"] = new Dictionary<string, string> { ["DbConnectionSecretId"] = id, ["ConnectionType"] = "Default" };
+
+        var plan = await RunAsync("plan");
+        plan.Corrected.Should().Be(1);
+        _secrets.Calls.Should().NotContain(c => c.Op == "Rotate" || c.Op == "Set");
+        (await RootDocAsync("t1"))!["DatabaseName"].AsString.Should().Be("default");
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("corrected-first-use kind=custom");
+        s.Corrected.Should().Be(1);
+        var root = (await RootDocAsync("t1"))!;
+        root["DbConnectionSecretId"].AsString.Should().Be(id);
+        _secrets.Secrets[id].Value.Should().Be(Custom);
+        _secrets.Secrets.Should().HaveCount(1);
+        root["DatabaseName"].AsString.Should().Be("db-t1");
+        root["IsCollectionNameEditable"].AsBoolean.Should().BeTrue();
+        root["ProjectKey"].AsString.Should().Be("t1");
+        root["ProjectShortKey"].AsString.Should().Be("s");
+        root["AnalyticsConfiguration"]["EnableAnalytics"].AsBoolean.Should().BeTrue();
+        _redis.Deleted.Should().Equal("t1");
+        _redis.Hashes.Should().NotContainKey("t1");
+        _logs.Logs.Should().Contain(l => l.Message.Contains("corrected-first-use"));
+        _logs.Logs.Should().NotContain(l => l.AllText().Contains("JobSecretPw"));
+        (await RunAsync("verify")).Results["t1"].Should().Be("verified kind=custom");
+    }
+
+    [Fact]
+    public async Task Apply_FirstUseRoot_DefaultSecret_DifferentDatabaseName_Corrected_SecretStaysDefault()
+    {
+        await CopyAsync("t1", null);
+        var id = await FirstUseRootAsync("t1");
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("corrected-first-use kind=default");
+        (await RootDocAsync("t1"))!["DatabaseName"].AsString.Should().Be("db-t1");
+        _secrets.Secrets[id].Value.Should().Be("default");
+        _secrets.Calls.Should().NotContain(c => c.Op == "Set");
+    }
+
+    [Fact]
+    public async Task Verify_FirstUseRoot_StillDiffering_IsAProblem_AfterApplyOk()
+    {
+        await CopyAsync("t1", Custom);
+        await FirstUseRootAsync("t1");
+
+        (await RunAsync("verify")).Results["t1"].Should().Be("problem:first-use-differs=DatabaseName");
+        await RunAsync("apply");
+        (await RunAsync("verify")).Results["t1"].Should().Be("verified kind=custom");
+    }
+
+    [Fact]
+    public async Task Apply_UserSavedRoot_NeverOverwritten_WarnsWhenDifferent()
+    {
+        await CopyAsync("t1", Custom);
+        var id = await FirstUseRootAsync("t1", dbName: "user-db", lastUpdated: FirstUseAt.AddMinutes(5));
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("root-exists");
+        s.Corrected.Should().Be(0);
+        (await RootDocAsync("t1"))!["DatabaseName"].AsString.Should().Be("user-db");
+        _secrets.Secrets[id].Value.Should().Be("default");
+        _secrets.Calls.Should().NotContain(c => c.Op == "Rotate");
+        _redis.Deleted.Should().BeEmpty();
+        _logs.Logs.Should().Contain(l => l.Level == Microsoft.Extensions.Logging.LogLevel.Warning && l.Message.Contains("user-saved-root-differs-from-old-doc"));
+    }
+
+    [Fact]
+    public async Task Apply_FirstUseRoot_NoOldDoc_Untouched()
+    {
+        _dbs.Add("t1", false, _fixture);
+        var id = await FirstUseRootAsync("t1");
+
+        var s = await RunAsync("apply");
+
+        s.Results["t1"].Should().Be("root-exists");
+        (await RootDocAsync("t1"))!["DatabaseName"].AsString.Should().Be("default");
+        _secrets.Secrets[id].Value.Should().Be("default");
+        _redis.Deleted.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Apply_FirstUseCorrection_Rerun_NoOp()
+    {
+        await CopyAsync("t1", Custom);
+        await FirstUseRootAsync("t1");
+        await RunAsync("apply");
+        var before = (await RootDocAsync("t1"))!.ToJson();
+        var rotates = _secrets.Calls.Count(c => c.Op == "Rotate");
+
+        var again = await RunAsync("apply");
+
+        again.Results["t1"].Should().Be("root-exists");
+        again.Changed.Should().Be(0);
+        again.Corrected.Should().Be(0);
+        (await RootDocAsync("t1"))!.ToJson().Should().Be(before);
+        _secrets.Calls.Count(c => c.Op == "Rotate").Should().Be(rotates);
+        _redis.Deleted.Should().HaveCount(1);
+    }
+
     // ---------------- helpers ----------------
 
     private sealed class FakeDatabases(IMongoDatabase root) : IDscMigrationDatabases
@@ -618,6 +743,15 @@ public class DataSourceSecretMigrationJobTests
 
         public Task<Dictionary<string, string>> GetHashAsync(string key) =>
             Task.FromResult(Hashes.TryGetValue(key, out var h) ? new Dictionary<string, string>(h) : new Dictionary<string, string>());
+
+        public Task DeleteHashAsync(string key)
+        {
+            Deleted.Add(key);
+            Hashes.TryRemove(key, out _);
+            return Task.CompletedTask;
+        }
+
+        public List<string> Deleted { get; } = new();
 
         /// <summary>Same as the Lua script: HDEL the legacy field; no secret-id field left = DEL the key.</summary>
         public Task<bool> RemoveLegacyFieldAsync(string key)

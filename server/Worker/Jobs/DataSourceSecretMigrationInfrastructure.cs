@@ -33,6 +33,9 @@ public interface IDscMigrationRedis
     /// Nothing else is written, no value is ever put into Redis.
     /// </summary>
     Task<bool> RemoveLegacyFieldAsync(string key);
+
+    /// <summary>Deletes the tenant's whole hash (a cache miss; the server rebuilds it from the root doc). Used only after a first-use correction.</summary>
+    Task DeleteHashAsync(string key);
 }
 
 public sealed class DscMigrationDatabases : IDscMigrationDatabases
@@ -95,6 +98,12 @@ public sealed class DscMigrationRedis : IDscMigrationRedis
     {
         var entries = await _cacheClient.GetHashValueAsync(key) ?? [];
         return entries.ToDictionary(e => e.Name.ToString(), e => e.Value.ToString(), StringComparer.Ordinal);
+    }
+
+    public async Task DeleteHashAsync(string key)
+    {
+        if (await _cacheClient.KeyExistsAsync(key))
+            await _cacheClient.RemoveKeyAsync(key);
     }
 
     private const string RemoveLegacyScript =

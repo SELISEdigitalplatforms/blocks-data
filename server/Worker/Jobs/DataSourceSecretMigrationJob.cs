@@ -18,6 +18,9 @@ public sealed class DscRunSummary
     public int Blockers { get; set; }
     public int Problems { get; set; }
     public int Errors { get; set; }
+
+    /// <summary>First-use root docs corrected (apply) or that would be corrected (plan).</summary>
+    public int Corrected { get; set; }
     public Dictionary<string, string> Results { get; } = new(StringComparer.Ordinal);
 }
 
@@ -140,6 +143,8 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
                 }
 
                 summary.Results[tenant.TenantId] = outcome.Result;
+                if (outcome.Corrects)
+                    summary.Corrected++;
                 switch (outcome.Kind)
                 {
                     case OutcomeKind.Ok: summary.Ok++; break;
@@ -153,8 +158,9 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
             }
 
             _logger.LogInformation(
-                "[dsc-migration] mode={Mode} totals tenants={Tenants} ok={Ok} changed={Changed} blockers={Blockers} problems={Problems} errors={Errors}",
-                mode, summary.Tenants, summary.Ok, summary.Changed, summary.Blockers, summary.Problems, summary.Errors);
+                "[dsc-migration] mode={Mode} totals tenants={Tenants} ok={Ok} changed={Changed} blockers={Blockers} problems={Problems} errors={Errors} first-use-{CorrectedWord}={Corrected}",
+                mode, summary.Tenants, summary.Ok, summary.Changed, summary.Blockers, summary.Problems, summary.Errors,
+                mode == ModePlan ? "to-correct" : "corrected", summary.Corrected);
             return summary;
         }
         finally
@@ -176,8 +182,9 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
 
     private enum OutcomeKind { Ok, Changed, Blocker, Problem, Error }
 
-    private readonly record struct TenantOutcome(OutcomeKind Kind, string Result)
+    private readonly record struct TenantOutcome(OutcomeKind Kind, string Result, bool Corrects = false)
     {
+        public TenantOutcome Correcting() => this with { Corrects = true };
         public static TenantOutcome Ok(string r) => new(OutcomeKind.Ok, r);
         public static TenantOutcome Changed(string r) => new(OutcomeKind.Changed, r);
         public static TenantOutcome Blocker(string r) => new(OutcomeKind.Blocker, "blocker:" + r);
@@ -212,6 +219,16 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
             _logger.LogWarning(
                 "[dsc-migration] mode={Mode} tenant={TenantId} live-docs={Count} using={UsedId} (first of the old app's query, the doc it reads) extra-ids={ExtraIds}",
                 mode, state.Tid, state.Live.Count, IdText(state.Old!["_id"]), string.Join(",", state.Live.Skip(1).Select(d => IdText(d["_id"]))));
+
+        if (state.Root is not null && state.Old is not null && IsUserSaved(state.Root))
+        {
+            // Saved by a user after the new Api was deployed: never overwritten here; a difference needs a manual look.
+            var differing = CompareFields.Where(f => !SameField(state.Root, state.Old, f)).ToList();
+            if (differing.Count > 0)
+                _logger.LogWarning(
+                    "[dsc-migration] mode={Mode} tenant={TenantId} user-saved-root-differs-from-old-doc fields={Fields} (not changed, check by hand)",
+                    mode, state.Tid, string.Join(",", differing));
+        }
 
         return mode switch
         {
@@ -271,7 +288,17 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
         }
 
         var redis = RedisDiffers(s, oldValue) ? " redis=differs" : string.Empty;
-        return TenantOutcome.Ok($"kind={kind} root={rootState} live-docs={s.Live.Count} hash={HashState(s.Hash)}{redis}");
+        string? firstUseDiff = null;
+        if (s.Root is not null && s.Old is not null && IsFirstUse(s.Root))
+        {
+            firstUseDiff = await FirstUseDiffAsync(s, oldValue);
+            if (firstUseDiff is not null)
+                rootState = "first-use-differs";
+        }
+
+        var result = TenantOutcome.Ok($"kind={kind} root={rootState} live-docs={s.Live.Count} hash={HashState(s.Hash)}{redis}"
+            + (firstUseDiff is not null ? $" would-correct-first-use={firstUseDiff}" : string.Empty));
+        return firstUseDiff is not null ? result.Correcting() : result;
     }
 
     private async Task<TenantOutcome> ApplyAsync(TenantState s)
@@ -285,6 +312,13 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
         var value = oldValue ?? DefaultValue;
         if (s.Root is null)
             return await CreateRootDocAsync(s, kind, value);
+
+        if (s.Old is not null && IsFirstUse(s.Root))
+        {
+            var corrected = await CorrectFirstUseAsync(s, kind, oldValue);
+            if (corrected is not null)
+                return corrected.Value;
+        }
 
         var health = await SecretHealthAsync(s, RootSecretId(s.Root));
         if (health != SecretHealth.Valid)
@@ -319,6 +353,129 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
         await RootCollection.UpdateOneAsync(new BsonDocument("_id", s.Tid), new BsonDocument("$unset", unset));
         return TenantOutcome.Changed("root-normalized");
     }
+
+    /// <summary>
+    /// Root doc made by the new Api's first use and never saved by a user (<see cref="IsFirstUse"/>) while the tenant still has
+    /// its old doc: it holds seed values and a <c>default</c> secret, not the tenant's own. Copy the old fields (same pick rule
+    /// as a new root doc), rotate the SAME secret to the old value (captcha-style <c>RotateAsync</c>), then drop the Redis hash
+    /// so the server rebuilds it. Order: secret first, doc second; a crash in between is repaired by the next run (the doc still
+    /// differs). Returns null when nothing differs.
+    /// </summary>
+    private async Task<TenantOutcome?> CorrectFirstUseAsync(TenantState s, string kind, string? oldValue)
+    {
+        var diff = await FirstUseDiffAsync(s, oldValue);
+        if (diff is null)
+            return null;
+
+        // A user may have saved since the state was read: look again right before touching the secret.
+        var fresh = await RootCollection.Find(new BsonDocument("_id", s.Tid)).FirstOrDefaultAsync();
+        if (fresh is null || !IsFirstUse(fresh))
+            return TenantOutcome.Ok("root-exists");
+
+        var value = oldValue ?? DefaultValue;
+        var secretId = RootSecretId(fresh);
+        string? newSecretId = null;
+        var health = await SecretHealthAsync(s, secretId);
+        var meta = health == SecretHealth.Valid ? await _secrets.ExecuteAsync(s.Tid, x => x.GetAsync(secretId!), MigrationUser) : null;
+        if (meta?.Status == SecretStatuses.Locked)
+            return TenantOutcome.Blocker("first-use-secret-locked");
+
+        if (health == SecretHealth.Valid)
+        {
+            await _secrets.ExecuteAsync(s.Tid, async x =>
+            {
+                await x.RotateAsync(secretId!, new RotateSecretRequest { Value = value });
+                return true;
+            }, MigrationUser);
+        }
+        else
+        {
+            newSecretId = await CreateSecretAsync(s.Tid, value);
+            secretId = newSecretId;
+        }
+
+        var set = new BsonDocument();
+        foreach (var element in s.Old!.Where(e => !NotCopiedFields.Contains(e.Name)))
+            set[element.Name] = element.Value;
+        set["DbConnectionSecretId"] = secretId;
+        var update = new BsonDocument("$set", set);
+        var unset = new BsonDocument();
+        foreach (var f in ForbiddenRootFields.Where(f => fresh.Contains(f)))
+            unset[f] = 1;
+        if (unset.ElementCount > 0)
+            update["$unset"] = unset;
+
+        // Only while the doc is still the one read (a user save changes LastUpdatedDate); second pod = no match = no-op.
+        var filter = new BsonDocument
+        {
+            { "_id", s.Tid },
+            { "CreatedDate", fresh["CreatedDate"] },
+            { "LastUpdatedDate", fresh["LastUpdatedDate"] }
+        };
+        UpdateResult result;
+        try
+        {
+            result = await RootCollection.UpdateOneAsync(filter, update);
+        }
+        catch
+        {
+            if (newSecretId is not null)
+                await TryDeleteSecretAsync(s.Tid, newSecretId);
+            throw;
+        }
+
+        if (result.MatchedCount == 0)
+        {
+            if (newSecretId is not null)
+                await TryDeleteSecretAsync(s.Tid, newSecretId);
+            return TenantOutcome.Ok("root-exists");
+        }
+
+        await _redis.DeleteHashAsync(s.Tid);
+        _logger.LogWarning("[dsc-migration] tenant={TenantId} corrected-first-use differs={Diff} kind={Kind} secret={SecretId} redis-hash-deleted=yes",
+            s.Tid, diff, kind, secretId);
+        return TenantOutcome.Changed($"corrected-first-use kind={kind}").Correcting();
+    }
+
+    /// <summary>First thing a first-use root doc differs in from the old doc (field name, <c>value</c>, <c>secret-broken</c>), or null.</summary>
+    private async Task<string?> FirstUseDiffAsync(TenantState s, string? oldValue)
+    {
+        var differing = CompareFields.FirstOrDefault(f => !SameField(s.Root!, s.Old!, f));
+        if (differing is not null)
+            return differing;
+
+        var sid = RootSecretId(s.Root!);
+        var health = await SecretHealthAsync(s, sid);
+        if (health != SecretHealth.Valid)
+            return "secret-broken";
+        try
+        {
+            var meta = await _secrets.ExecuteAsync(s.Tid, x => x.GetAsync(sid!), MigrationUser);
+            if (meta?.Status != SecretStatuses.Active)
+                return null; // locked: the value cannot be read, nothing to compare
+            var resolved = await _secrets.ExecuteAsync(s.Tid, x => x.GetValueAsync(sid!), MigrationUser);
+            var current = string.IsNullOrWhiteSpace(resolved) || IsDefault(resolved) ? DefaultValue : resolved;
+            return string.Equals(current, oldValue ?? DefaultValue, StringComparison.Ordinal) ? null : "value";
+        }
+        catch (SecretNotFoundException)
+        {
+            return "secret-broken";
+        }
+    }
+
+    private static long? Ms(BsonDocument d, string field)
+    {
+        var v = d.GetValue(field, BsonNull.Value);
+        return v.IsValidDateTime ? v.ToUniversalTime().Ticks / TimeSpan.TicksPerMillisecond : null;
+    }
+
+    /// <summary>
+    /// Made by the new Api's first use and never saved: <c>LastUpdatedDate == CreatedDate</c> (ms). The first-use create sets both
+    /// from one clock read; every user save sets <c>LastUpdatedDate</c> to a later time. A doc without both dates is never a match.
+    /// </summary>
+    private static bool IsFirstUse(BsonDocument root) => Ms(root, "CreatedDate") is { } c && Ms(root, "LastUpdatedDate") == c;
+
+    private static bool IsUserSaved(BsonDocument root) => Ms(root, "CreatedDate") is { } c && Ms(root, "LastUpdatedDate") is { } u && u > c;
 
     private async Task<TenantOutcome> CreateRootDocAsync(TenantState s, string kind, string value)
     {
@@ -433,8 +590,17 @@ public sealed class DataSourceSecretMigrationJob : BackgroundService
             return TenantOutcome.Problem($"secret-unusable={ex.GetType().Name}");
         }
 
+        // A first-use root doc (never saved) must hold the old doc's values: seed values left behind are a problem.
+        if (s.Old is not null && IsFirstUse(s.Root))
+        {
+            OldKind(s, out var firstUseOld);
+            var diff = await FirstUseDiffAsync(s, firstUseOld);
+            if (diff is not null)
+                return TenantOutcome.Problem($"first-use-differs={diff}");
+        }
+
         // The new code may have changed the root doc (a save); then it is no longer comparable with the old doc.
-        if (s.Old is not null && !RootNewerThanOld(s))
+        else if (s.Old is not null && !RootNewerThanOld(s))
         {
             var differing = CompareFields.FirstOrDefault(f => !SameField(s.Root, s.Old, f));
             if (differing is not null)

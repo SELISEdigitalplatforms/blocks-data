@@ -42,17 +42,24 @@ internal static class GraphQLIntrospectionHelper
     /// including through fragments). Note this is a field-name match, so the everyday
     /// <c>__typename</c> is correctly not treated as introspection.
     /// </summary>
+    /// <remarks>
+    /// This runs on the raw request before HotChocolate validates it, so the document may be
+    /// invalid: fragments can spread themselves (a cycle) or spread the same fragment many times
+    /// over (exponential fan-out). Each fragment is therefore walked at most once per document —
+    /// enough for a yes/no answer, and it keeps the walk linear in the document size.
+    /// </remarks>
     public static bool ContainsIntrospectionQuery(DocumentNode document)
     {
         var fragments = document.Definitions
             .OfType<FragmentDefinitionNode>()
             .ToDictionary(fragment => fragment.Name.Value, fragment => fragment);
+        var visitedFragments = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var definition in document.Definitions)
         {
             if (definition is OperationDefinitionNode operation
                 && operation.Operation == OperationType.Query
-                && SelectionSetContainsIntrospection(operation.SelectionSet, fragments))
+                && SelectionSetContainsIntrospection(operation.SelectionSet, fragments, visitedFragments))
             {
                 return true;
             }
@@ -63,7 +70,8 @@ internal static class GraphQLIntrospectionHelper
 
     private static bool SelectionSetContainsIntrospection(
         SelectionSetNode? selectionSet,
-        IReadOnlyDictionary<string, FragmentDefinitionNode> fragments)
+        IReadOnlyDictionary<string, FragmentDefinitionNode> fragments,
+        HashSet<string> visitedFragments)
     {
         if (selectionSet is null)
         {
@@ -80,7 +88,7 @@ internal static class GraphQLIntrospectionHelper
                         return true;
                     }
 
-                    if (SelectionSetContainsIntrospection(field.SelectionSet, fragments))
+                    if (SelectionSetContainsIntrospection(field.SelectionSet, fragments, visitedFragments))
                     {
                         return true;
                     }
@@ -88,7 +96,7 @@ internal static class GraphQLIntrospectionHelper
                     break;
 
                 case InlineFragmentNode inlineFragment:
-                    if (SelectionSetContainsIntrospection(inlineFragment.SelectionSet, fragments))
+                    if (SelectionSetContainsIntrospection(inlineFragment.SelectionSet, fragments, visitedFragments))
                     {
                         return true;
                     }
@@ -96,8 +104,11 @@ internal static class GraphQLIntrospectionHelper
                     break;
 
                 case FragmentSpreadNode fragmentSpread:
-                    if (fragments.TryGetValue(fragmentSpread.Name.Value, out var fragment)
-                        && SelectionSetContainsIntrospection(fragment.SelectionSet, fragments))
+                    // A fragment already walked (or currently being walked, in a cycle) has nothing
+                    // new to add: had it contained introspection, the walk would have returned.
+                    if (visitedFragments.Add(fragmentSpread.Name.Value)
+                        && fragments.TryGetValue(fragmentSpread.Name.Value, out var fragment)
+                        && SelectionSetContainsIntrospection(fragment.SelectionSet, fragments, visitedFragments))
                     {
                         return true;
                     }

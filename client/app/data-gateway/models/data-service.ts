@@ -21,24 +21,9 @@ export interface IDataSourceResponse {
   connectionType: DataSourceConnectionType;
   ItemId?: string;
   itemId?: string;
-  isActive: boolean;
   isCollectionNameEditable?: boolean;
   collectionNamePattern?: string;
   analyticsConfiguration?: IAnalyticsConfiguration;
-}
-
-/**
- * Request body of POST/PUT `/configurations`. `connectionString` is "default" or the plain string;
- * omitted on PUT means "keep the saved one".
- */
-export interface IDataSourceSavePayload {
-  itemId?: string;
-  connectionString?: string;
-  databaseName: string;
-  projectKey: string;
-  isCollectionNameEditable: boolean;
-  collectionNamePattern: string;
-  enableAnalytics: boolean;
 }
 
 export interface IUnadaptedChangeLogsResponse {
@@ -450,7 +435,6 @@ export interface ISchemaFieldValidation {
   value: string;
   secondaryValue: string;
   errorMessage: string;
-  isActive: boolean;
 }
 
 export interface ISchemaFieldValidationData {

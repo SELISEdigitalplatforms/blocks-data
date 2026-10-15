@@ -94,20 +94,9 @@ public class DataSourceErrorAndStartupTests
     }
 
     [Fact]
-    public async Task ConfigController500Body_AndGatewayTraceTag_NeverHoldThePassword()
+    public async Task GatewayTraceTag_NeverHoldsThePassword()
     {
         var failure = await BuildFailureAsync();
-        var service = new Mock<IDataGatewayConfigurationService>();
-        service.Setup(s => s.GetConfiguration(It.IsAny<string>())).ThrowsAsync(failure);
-        var controller = new ConfigurationController(service.Object, NullLogger<ConfigurationController>.Instance);
-
-        var result = (ObjectResult)await controller.GetConfigurationAsync();
-
-        result.StatusCode.Should().Be(500);
-        var body = System.Text.Json.JsonSerializer.Serialize(result.Value);
-        body.Should().Contain("The data source of this project is not available.");
-        body.Should().NotContain(Password);
-
         using var activity = new Activity("request").Start();
         var op = GatewayOperationActivity.MarkFailed(activity, GatewayFailureKind.Unhandled, failure.Message);
         GatewayOperationActivity.Tag(activity, op);

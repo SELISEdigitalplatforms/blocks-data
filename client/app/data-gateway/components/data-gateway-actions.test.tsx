@@ -21,6 +21,8 @@ vi.mock("@seliseblocks/genesis-os", () => ({
 
 vi.mock("@/hooks/use-scoped-path", () => ({
   useDataGatewayPath: () => "/data-gateway",
+  useOsSecretManagementUrl: () =>
+    "http://os/app/p-1/secret-management/data-gateway",
 }));
 
 vi.mock("@/lib/runtime-env", () => ({ getRuntimeEnv: () => "http://api" }));
@@ -129,7 +131,7 @@ describe("DataGatewayActions", () => {
     await user.click(await screen.findByText("Configure"));
 
     expect(openSpy).toHaveBeenCalledWith(
-      "http://api/app/secret-management/data-gateway",
+      "http://os/app/p-1/secret-management/data-gateway",
       "_blank",
     );
     openSpy.mockRestore();

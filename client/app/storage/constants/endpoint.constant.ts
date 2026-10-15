@@ -5,16 +5,10 @@ const FILES_SUBPATH = "/files";
 const FOLDERS_SUBPATH = "/directory";
 const OBJECT_SUBPATH = "/objects";
 
-// Storage Configuration endpoints (IDP host; paths under /api/Storage)
+// Storage Configuration read endpoint (logic host; /api/Storage). Save/delete live in Blocks OS.
 export const STORAGE_CONFIG_ENDPOINTS = {
   get GET_CONFIGS(): string {
     return `${API_BASES.LOGIC}${STORAGE_SUBPATH}/Gets`;
-  },
-  get SAVE_CONFIG(): string {
-    return `${API_BASES.LOGIC}${STORAGE_SUBPATH}/Save`;
-  },
-  get DELETE_CONFIG(): string {
-    return `${API_BASES.LOGIC}${STORAGE_SUBPATH}/Delete`;
   },
 };
 

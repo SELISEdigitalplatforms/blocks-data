@@ -218,45 +218,6 @@ public class DataGatewayControllerTests
         Status(await c.GetDataAccessPolicy("Person")).Should().Be(200);
     }
 
-    // ---------------- ConfigurationController ----------------
-
-    [Fact]
-    public async Task Configuration_Get_Insert_Update_HappyPaths()
-    {
-        ClearContext();
-        SetContext(tenantId: "t1");
-        try
-        {
-            var svc = new Mock<IDataGatewayConfigurationService>();
-            svc.Setup(s => s.GetConfiguration(It.IsAny<string>()))
-                .ReturnsAsync(new ServiceResponse<DataGatewayConfigurationResponse>().SetSuccess(new DataGatewayConfigurationResponse()));
-            svc.Setup(s => s.InsertConfiguration(It.IsAny<CreateDataGatewayConfigurationRequest>())).ReturnsAsync(Ok());
-            svc.Setup(s => s.UpdateConfiguration(It.IsAny<UpdateDataGatewayConfigurationRequest>())).ReturnsAsync(Ok());
-            var c = new ConfigurationController(svc.Object, NullLogger<ConfigurationController>.Instance);
-
-            (await c.GetConfigurationAsync()).Should().BeOfType<OkObjectResult>();
-            Status(await c.InsertDataSourceAsync(new CreateDataGatewayConfigurationRequest())).Should().Be(200);
-            Status(await c.UpdateDataSourceAsync(new UpdateDataGatewayConfigurationRequest())).Should().Be(200);
-        }
-        finally { ClearContext(); }
-    }
-
-    [Fact]
-    public async Task Configuration_Get_OnException_Returns500()
-    {
-        ClearContext();
-        SetContext(tenantId: "t1");
-        try
-        {
-            var svc = new Mock<IDataGatewayConfigurationService>();
-            svc.Setup(s => s.GetConfiguration(It.IsAny<string>())).ThrowsAsync(new InvalidOperationException("boom"));
-            var c = new ConfigurationController(svc.Object, NullLogger<ConfigurationController>.Instance);
-
-            Status(await c.GetConfigurationAsync()).Should().Be(500);
-        }
-        finally { ClearContext(); }
-    }
-
     // ---------------- GraphLogController ----------------
 
     [Fact]

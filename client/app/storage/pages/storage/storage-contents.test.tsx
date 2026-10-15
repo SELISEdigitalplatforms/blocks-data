@@ -13,15 +13,13 @@ vi.mock("react-router", () => ({
 }));
 vi.mock("@/hooks/use-scoped-path", () => ({
   useStoragePath: () => "/console/storage",
+  useOsSecretManagementUrl: () => "https://os.test/app/p-1/secret-management/storage",
 }));
 vi.mock("@/storage/hooks/use-storage-configuration", () => ({
   useGetStorageConfigurations: () => ({ data: storageData, isLoading, isFetching }),
 }));
 vi.mock("../storage-detail/storage-detail", () => ({
   StorageDetail: () => <div data-testid="storage-detail" />,
-}));
-vi.mock("../storage-configuration/save-storage-configuration/save-storage-configuration", () => ({
-  SaveStorageConfiguration: () => <div data-testid="save-config" />,
 }));
 vi.mock("./components/storage-details-drawer/storage-details-drawer", () => ({
   StorageDetailsDrawer: (props: { open?: boolean; storage?: { name?: string } }) =>
@@ -128,10 +126,15 @@ describe("StorageContents", () => {
     expect(screen.getByText("No storage configurations found.")).toBeInTheDocument();
   });
 
-  it("opens the add-configuration dialog", () => {
+  it("opens the Blocks OS storage config page from Add Configuration", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     render(<StorageContents />);
     fireEvent.click(screen.getByText("add"));
-    expect(screen.getByTestId("save-config")).toBeInTheDocument();
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://os.test/app/p-1/secret-management/storage",
+      "_blank",
+    );
+    openSpy.mockRestore();
   });
 
   it("handles non-array data defensively", () => {

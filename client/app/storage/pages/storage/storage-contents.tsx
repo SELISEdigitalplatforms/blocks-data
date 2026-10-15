@@ -1,7 +1,6 @@
 import { FilterChangeHandler } from "@/components/filter-toolbar";
-import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { useStoragePath } from "@/hooks/use-scoped-path";
+import { useOsSecretManagementUrl, useStoragePath } from "@/hooks/use-scoped-path";
 import { useGetStorageConfigurations } from "@/storage/hooks/use-storage-configuration";
 import { IStorageConfiguration } from "@/storage/models/storage.model";
 import { useMemo, useState } from "react";
@@ -10,7 +9,6 @@ import {
   filterStorageConfigurations,
   type StorageFilterValues,
 } from "../../utils/filter-storage-configurations";
-import { SaveStorageConfiguration } from "../storage-configuration/save-storage-configuration/save-storage-configuration";
 import { StorageDetail } from "../storage-detail/storage-detail";
 import {
   StorageCard,
@@ -56,7 +54,7 @@ export function StorageContentsWrapper() {
 export function StorageContents() {
   const navigate = useNavigate();
   const storagePath = useStoragePath();
-  const [open, setOpen] = useState<boolean>(false);
+  const osConfigUrl = useOsSecretManagementUrl("storage");
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const [selectedStorage, setSelectedStorage] =
     useState<IStorageConfiguration | null>(null);
@@ -127,7 +125,7 @@ export function StorageContents() {
           filters={filters}
           onChange={onChange}
           onReset={onReset}
-          onAddConfiguration={() => setOpen(true)}
+          onAddConfiguration={() => window.open(osConfigUrl, "_blank")}
           onConnectStorage={() => console.error("Connect to storage")}
         />
 
@@ -171,9 +169,6 @@ export function StorageContents() {
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <SaveStorageConfiguration onClose={setOpen} />
-      </Dialog>
 
       <StorageDetailsDrawer
         open={detailsOpen}

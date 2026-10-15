@@ -8,12 +8,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
-import { useDataGatewayPath } from "@/hooks/use-scoped-path";
+import { useOsSecretManagementUrl } from "@/hooks/use-scoped-path";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { BookOpen, Download, FolderInput, MoreVertical, Settings } from "lucide-react";
 import { ReactNode, useState } from "react";
-import { useNavigate } from "react-router";
 
 import ExportSchemaModal from "../export-schema/export-schema-modal";
 import ImportSchemaModal from "../import-schema-modal";
@@ -32,8 +31,7 @@ type Utility = {
  * buttons here and are section tabs now, so a destination has exactly one home.
  */
 export const DataGatewayUtilities = () => {
-  const navigate = useNavigate();
-  const dataGatewayPath = useDataGatewayPath();
+  const osConfigUrl = useOsSecretManagementUrl("data-gateway");
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -63,7 +61,8 @@ export const DataGatewayUtilities = () => {
     {
       label: "Configure",
       icon: <Settings className="h-4 w-4" />,
-      onClick: () => navigate(`${dataGatewayPath}/configuration`),
+      // The data source is configured in Blocks OS (secret management), in its own tab.
+      onClick: () => window.open(osConfigUrl, "_blank"),
     },
   ];
 

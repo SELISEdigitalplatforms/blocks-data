@@ -322,44 +322,4 @@ public class DataGatewayControllerExtraTests
     [Fact]
     public void MockData_Constructor_RejectsANullService()
         => Assert.Throws<ArgumentException>(() => new MockDataController(null!));
-
-    // ---------------- ConfigurationController error branches ----------------
-
-    [Fact]
-    public async Task Configuration_Insert_Returns500WhenTheServiceThrows()
-    {
-        var svc = new Mock<IDataGatewayConfigurationService>();
-        svc.Setup(s => s.InsertConfiguration(It.IsAny<CreateDataGatewayConfigurationRequest>()))
-            .ThrowsAsync(new InvalidOperationException("insert failed"));
-        var controller = new ConfigurationController(svc.Object, NullLogger<ConfigurationController>.Instance);
-
-        var result = await controller.InsertDataSourceAsync(new CreateDataGatewayConfigurationRequest());
-
-        Status(result).Should().Be(500);
-        Read(((ObjectResult)result).Value, "message").Should().Be("insert failed");
-    }
-
-    [Fact]
-    public async Task Configuration_Update_Returns500WhenTheServiceThrows()
-    {
-        var svc = new Mock<IDataGatewayConfigurationService>();
-        svc.Setup(s => s.UpdateConfiguration(It.IsAny<UpdateDataGatewayConfigurationRequest>()))
-            .ThrowsAsync(new InvalidOperationException("update failed"));
-        var controller = new ConfigurationController(svc.Object, NullLogger<ConfigurationController>.Instance);
-
-        var result = await controller.UpdateDataSourceAsync(new UpdateDataGatewayConfigurationRequest());
-
-        Status(result).Should().Be(500);
-        Read(((ObjectResult)result).Value, "message").Should().Be("update failed");
-    }
-
-    [Fact]
-    public void Configuration_Constructor_RejectsNullDependencies()
-    {
-        var svc = new Mock<IDataGatewayConfigurationService>().Object;
-
-        Assert.Throws<ArgumentNullException>(() =>
-            new ConfigurationController(null!, NullLogger<ConfigurationController>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new ConfigurationController(svc, null!));
-    }
 }

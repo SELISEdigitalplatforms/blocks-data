@@ -224,7 +224,7 @@ Singleton exported as `configurationService`. All calls use the shared `http` cl
 | ----------------------------------------------- | ------ | ------------------------------------------------------------------------------- |
 | `createDataSource(payload)`                     | POST   | Register a new MongoDB data source for a project                                |
 | `updateDataSource(payload)`                     | PUT    | Update an existing data source connection string or database name               |
-| `getDataServiceDetails(payload)`                | GET    | Fetch the data source configuration for a project                               |
+| `getDataServiceDetails()`                       | GET    | Read the data source configuration from Blocks OS (read only)                   |
 | `reloadSchemas(payload)`                        | POST   | Reload schema definitions from the live database                                |
 | `getSchemaList(payload)`                        | GET    | Paginated, filtered list of schemas (`keyword`, `schemaType`, sort, pagination) |
 | `getSchemaDetails(id, projectKey)`              | GET    | Full schema detail including all fields and access rules                        |
@@ -348,7 +348,7 @@ All paths are defined in `constant/endpoint.constant.ts` and composed from the s
 
 | Group                       | Key                     | Path                                                |
 | --------------------------- | ----------------------- | --------------------------------------------------- |
-| `CONFIGURATION_ENDPOINTS`   | `GET`                   | `UDS/configurations`                                 |
+| `CONFIGURATION_ENDPOINTS`   | `GET`                   | `LOGIC/DataGateway/GetConfig`                                |
 | `SCHEMA_ENDPOINTS`          | `LIST`                  | `UDS/schemas`                                       |
 |                             | `DETAILS`               | `UDS/schemas/{id}`                                  |
 |                             | `CREATE_INFO`           | `UDS/schemas/info`                                  |

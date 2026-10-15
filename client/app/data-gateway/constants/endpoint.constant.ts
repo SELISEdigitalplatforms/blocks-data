@@ -1,13 +1,11 @@
 import { API_BASES } from "@/constants/endpoint.constant";
 
-// ─── Configuration endpoints ─────────────────────────────────────────────────
-
-const CONFIGURATIONS_SUBPATH = "/configurations";
+// ─── Data-source configuration (read only) ───────────────────────────────────
+// The config API (get/save) is owned by Blocks OS (blocks-os `DataGateway/GetConfig`), served on the same
+// logic host as the storage config read. Edit/save happens on the OS page, never here.
 
 export const CONFIGURATION_ENDPOINTS = {
-  GET: `${API_BASES.UDS}${CONFIGURATIONS_SUBPATH}`,
-  CREATE: `${API_BASES.UDS}${CONFIGURATIONS_SUBPATH}`,
-  UPDATE: `${API_BASES.UDS}${CONFIGURATIONS_SUBPATH}`,
+  GET: `${API_BASES.LOGIC}/DataGateway/GetConfig`,
 } as const;
 
 // ─── Schema configuration (publishing) endpoints ──────────────────────────────

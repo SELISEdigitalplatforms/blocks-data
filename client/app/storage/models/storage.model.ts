@@ -48,31 +48,6 @@ export interface IStorageConfiguration {
   uploadCompletionRequiredFor?: ("Public" | "Private")[];
 }
 
-export interface IStorageConfigurationSavePayload {
-  name: string;
-  projectKey: string;
-  storageStrategy: StorageStrategyType;
-  secretKey: string | null;
-  accessKey: string | null;
-  cloudStorageRegionEndPoint: string | null;
-  connectionString: string | null;
-  updateRequest: boolean;
-  itemId: string | null;
-  host: string | null;
-  port: string | null;
-  userName: string | null;
-  password: string | null;
-  remoteBasePath: string | null;
-  uploadUrlExpirySeconds: number;
-  downloadUrlExpirySeconds: number;
-  maxFileSizeInBytes: number;
-  uploadCompletionRequiredFor: ("Public" | "Private")[];
-}
-export interface IStorageConfigurationDeletePayload {
-  projectKey: string;
-  configurationName: string;
-}
-
 /** Mirrors `Storage.DomainService.Enums.FileVerificationStatus` server-side. */
 export type FileVerificationStatus = "Unverified" | "Quarantined" | "Verified" | "Rejected";
 

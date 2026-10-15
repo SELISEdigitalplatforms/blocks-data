@@ -215,34 +215,6 @@ public class SimpleValidatorsTests
     }
 
     [Fact]
-    public void CreateDataSource_Valid_Passes()
-    {
-        var v = new CreateDataSourceRequestValidator();
-        v.Validate(new CreateDataGatewayConfigurationRequest { ConnectionString = "mongodb://localhost:27017", DatabaseName = "d", ProjectKey = "p" }).IsValid.Should().BeTrue();
-    }
-
-    [Fact]
-    public void CreateDataSource_Missing_Fails()
-    {
-        var v = new CreateDataSourceRequestValidator();
-        v.Validate(new CreateDataGatewayConfigurationRequest()).IsValid.Should().BeFalse();
-    }
-
-    [Fact]
-    public void UpdateDataSource_Valid_Passes()
-    {
-        var v = new UpdateDataSourceRequestValidator();
-        v.Validate(new UpdateDataGatewayConfigurationRequest { ItemId = "1", ConnectionString = "mongodb://localhost:27017", DatabaseName = "d", ProjectKey = "p" }).IsValid.Should().BeTrue();
-    }
-
-    [Fact]
-    public void UpdateDataSource_MissingItemId_Fails()
-    {
-        var v = new UpdateDataSourceRequestValidator();
-        v.Validate(new UpdateDataGatewayConfigurationRequest { ConnectionString = "mongodb://localhost:27017", DatabaseName = "d", ProjectKey = "p" }).IsValid.Should().BeFalse();
-    }
-
-    [Fact]
     public void ImportSchema_MissingFileId_Fails()
     {
         var v = new ImportSchemaRequestValidator();

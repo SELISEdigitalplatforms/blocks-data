@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { useProjectStore } from "@seliseblocks/genesis-os";
-import { useDataGatewayPath } from "@/hooks/use-scoped-path";
+import { useDataGatewayPath, useOsSecretManagementUrl } from "@/hooks/use-scoped-path";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { cn } from "@/lib/utils";
 import { BarChart3, BookOpen, Download, FolderInput, MoreVertical, Settings } from "lucide-react";
@@ -51,6 +51,7 @@ export const DataGatewayActions = () => {
   const location = useLocation();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const dataGatewayPath = useDataGatewayPath();
+  const osConfigUrl = useOsSecretManagementUrl("data-gateway");
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importModalInstance, setImportModalInstance] = useState(0);
@@ -108,11 +109,7 @@ export const DataGatewayActions = () => {
     {
       label: "Configure",
       icon: <Settings className="h-4 w-4" />,
-      onClick: () =>
-        window.open(
-          `${getRuntimeEnv("BLOCKS_OS_BASE_URL")}/app/secret-management/data-gateway`,
-          "_blank",
-        ),
+      onClick: () => window.open(osConfigUrl, "_blank"),
     },
   ];
 

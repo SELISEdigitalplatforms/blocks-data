@@ -70,6 +70,13 @@ describe("DataGatewaySections", () => {
     expect(labels()).toEqual(["Schemas", "Security", "Playground"]);
   });
 
+  it("hides Analytics when the OS config could not be read", () => {
+    useGetDataServiceConfiguration.mockReturnValue({ data: undefined });
+    renderAt("/dg");
+
+    expect(labels()).toEqual(["Schemas", "Security", "Playground"]);
+  });
+
   it("marks Schemas current on the root, list params and all", () => {
     renderAt("/dg?type=all&schemaId=s1&page=1&pageSize=10");
 

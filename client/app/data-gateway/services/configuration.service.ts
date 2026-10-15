@@ -20,7 +20,7 @@ import {
   ICreateSchemaPayload,
   ICreateSchemaResponse,
   IDataServiceConfigurationResponse,
-  IDataSourceSavePayload,
+  IDataSourceResponse,
   IDefaultResponse,
   IDeleteMockDataPayload,
   IDeleteMockDataResponse,
@@ -51,18 +51,17 @@ import {
 } from "../models/data-service";
 
 class ConfigurationService {
-  getDataServiceDetails(): Promise<IDataServiceConfigurationResponse> {
-    return http.get(CONFIGURATION_ENDPOINTS.GET);
-  }
-
-  /** POST when no configuration exists yet, PUT when it does. */
-  saveDataSource(
-    payload: IDataSourceSavePayload,
-    exists: boolean,
-  ): Promise<IDefaultResponse> {
-    return exists
-      ? http.put(CONFIGURATION_ENDPOINTS.UPDATE, payload)
-      : http.post(CONFIGURATION_ENDPOINTS.CREATE, payload);
+  /**
+   * Read-only data-source config from Blocks OS. OS answers the bare object (never the connection string or
+   * secret); it is wrapped in the usual `{ isSuccess, data }` envelope the readers already use.
+   */
+  async getDataServiceDetails(): Promise<IDataServiceConfigurationResponse> {
+    const config = await http.get<IDataSourceResponse>(
+      CONFIGURATION_ENDPOINTS.GET,
+      undefined,
+      { absoluteUrl: true },
+    );
+    return { isSuccess: true, errors: null, data: config ?? null };
   }
 
   reloadSchemas(): Promise<IDataServiceConfigurationResponse> {

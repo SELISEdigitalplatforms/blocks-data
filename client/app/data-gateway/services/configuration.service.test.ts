@@ -25,35 +25,22 @@ describe("ConfigurationService", () => {
 
   // ─── getDataServiceDetails ──────────────────────────────────────────────────
   describe("getDataServiceDetails", () => {
-    it("should GET the configuration endpoint", async () => {
-      const response = { config: {} };
-      vi.mocked(http.get).mockResolvedValue(response);
+    it("GETs the Blocks OS config on the absolute logic host and wraps it", async () => {
+      const config = { databaseName: "default", connectionType: "Default" };
+      vi.mocked(http.get).mockResolvedValue(config);
 
       const result = await configurationService.getDataServiceDetails();
 
-      expect(http.get).toHaveBeenCalledWith(CONFIGURATION_ENDPOINTS.GET);
-      expect(result).toEqual(response);
+      expect(CONFIGURATION_ENDPOINTS.GET).toBe(`${API_BASES.LOGIC}/DataGateway/GetConfig`);
+      expect(http.get).toHaveBeenCalledWith(CONFIGURATION_ENDPOINTS.GET, undefined, {
+        absoluteUrl: true,
+      });
+      expect(result).toEqual({ isSuccess: true, errors: null, data: config });
     });
-  });
 
-  describe("saveDataSource", () => {
-    const payload = {
-      connectionString: "default",
-      databaseName: "default",
-      projectKey: "t1",
-      isCollectionNameEditable: false,
-      collectionNamePattern: "sb_{SchemaName}s",
-      enableAnalytics: false,
-    };
-    it("POSTs when no configuration exists", async () => {
-      vi.mocked(http.post).mockResolvedValue({ isSuccess: true });
-      await configurationService.saveDataSource(payload, false);
-      expect(http.post).toHaveBeenCalledWith(CONFIGURATION_ENDPOINTS.CREATE, payload);
-    });
-    it("PUTs when it exists", async () => {
-      vi.mocked(http.put).mockResolvedValue({ isSuccess: true });
-      await configurationService.saveDataSource(payload, true);
-      expect(http.put).toHaveBeenCalledWith(CONFIGURATION_ENDPOINTS.UPDATE, payload);
+    it("answers data null when OS returns no body", async () => {
+      vi.mocked(http.get).mockResolvedValue(undefined);
+      expect((await configurationService.getDataServiceDetails()).data).toBeNull();
     });
   });
 

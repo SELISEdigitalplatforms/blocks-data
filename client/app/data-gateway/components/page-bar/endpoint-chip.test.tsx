@@ -24,7 +24,7 @@ const stubClipboard = (writeText: () => Promise<void>) =>
 describe("EndpointChip", () => {
   beforeEach(() => {
     useGetDataServiceConfiguration.mockReturnValue({
-      data: { data: { isActive: true, databaseName: "dev-data" } },
+      data: { data: { databaseName: "dev-data", connectionType: "Default" } },
     });
   });
 
@@ -67,5 +67,17 @@ describe("EndpointChip", () => {
     await user.click(screen.getByRole("button", { name: "Copy endpoint" }));
 
     expect(screen.getByRole("button", { name: "Copy endpoint" })).toBeInTheDocument();
+  });
+
+  it("shows the green dot once the OS config has loaded with a database", () => {
+    const { container } = render(<EndpointChip />);
+    expect(container.querySelector("span.bg-success")).not.toBeNull();
+  });
+
+  it("shows the grey dot while the config is loading or missing (no data)", () => {
+    useGetDataServiceConfiguration.mockReturnValue({ data: undefined });
+    const { container } = render(<EndpointChip />);
+    expect(container.querySelector("span.bg-success")).toBeNull();
+    expect(container.querySelector("span.bg-muted-foreground\\/40")).not.toBeNull();
   });
 });

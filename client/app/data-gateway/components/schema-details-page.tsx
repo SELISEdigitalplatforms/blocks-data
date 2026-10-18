@@ -519,11 +519,13 @@ export const SchemaDetailsPage = () => {
                         fieldNames,
                       })
                     }
-                    onOpenFieldValidation={({ fieldName, subject, context, validationRule }) =>
+                    onOpenFieldValidation={({ fieldName, subject, context, validationRule, fieldType, enumValues }) =>
                       openValidationInspector({
                         subject,
                         context,
                         fieldName,
+                        fieldType,
+                        enumValues,
                         schemaId: schemaDetails.id,
                         projectKey,
                         initialValidationData: validationRule,
@@ -591,7 +593,9 @@ export const SchemaDetailsPage = () => {
                   validationInspector ? "" : "pointer-events-none"
                 }`}
               >
+                {/* Keyed per field so a half-filled rule never carries over to the next field. */}
                 <ValidationInspector
+                  key={`${lingeringValidation.schemaId}:${lingeringValidation.fieldName}`}
                   target={lingeringValidation}
                   onClose={() => setValidationInspector(null)}
                 />

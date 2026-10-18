@@ -498,6 +498,8 @@ public class BulkDeleteIntegrationTests
         public Task<(List<BsonDocument> items, long count)> GetItemsWithCountAsync(string collectionName, FilterDefinition<BsonDocument> filter, BsonDocument? sort = null, BsonDocument? projection = null, int skip = 0, int limit = 10) =>
             inner.GetItemsWithCountAsync(collectionName, filter, sort, projection, skip, limit);
         public Task<long> CountAsync(string collectionName, FilterDefinition<BsonDocument> filter) => inner.CountAsync(collectionName, filter);
+        public Task<List<BsonValue>> GetDistinctValuesAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values) =>
+            inner.GetDistinctValuesAsync(collectionName, fieldName, values);
         public Task<ActionResponse> UpdateAsync(string collectionName, BsonDocument filter, BsonDocument data) => inner.UpdateAsync(collectionName, filter, data);
         public Task<ActionResponse> UpdateManyAsync(string collectionName, BsonDocument filter, BsonDocument data) => inner.UpdateManyAsync(collectionName, filter, data);
         public Task<ActionResponse> DeleteAsync(string collectionName, BsonDocument filter) => inner.DeleteAsync(collectionName, filter);

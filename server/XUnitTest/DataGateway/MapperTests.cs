@@ -232,6 +232,33 @@ public class DataValidationMappingTests
     }
 }
 
+public class ValidationRuleEvaluationVersionTests
+{
+    [Fact]
+    public void Request_WithoutVersion_IsStoredAsVersionZero_SoApiCallersKeepTodaysBehaviour()
+    {
+        var rule = new ValidationRuleRequest { Type = ValidationType.MaxLength, Value = 50 }.MapToEntity();
+
+        rule.EvaluationVersion.Should().Be(0);
+    }
+
+    [Fact]
+    public void Request_Version_IsKeptAndReturned()
+    {
+        var rule = new ValidationRuleRequest { Type = ValidationType.MaxLength, Value = 50, EvaluationVersion = 1 }.MapToEntity();
+
+        rule.EvaluationVersion.Should().Be(1);
+        rule.MapToResponse().EvaluationVersion.Should().Be(1);
+    }
+
+    [Fact]
+    public void Reference_IsAlwaysVersionOne()
+    {
+        new ValidationRuleRequest { Type = ValidationType.Reference, Value = "Department" }.MapToEntity()
+            .EvaluationVersion.Should().Be(1);
+    }
+}
+
 public class SchemaExportImportMappingTests
 {
     private static SchemaDefinition Schema() => new()

@@ -62,6 +62,7 @@ public class SchemaImportValidator
             (systemSchemas ?? []).Select(s => s.CollectionName).Where(n => !string.IsNullOrWhiteSpace(n)),
             StringComparer.OrdinalIgnoreCase);
 
+        var referenceTargets = await LoadReferenceTargetsAsync(documents);
         var seenSchemaNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         for (int i = 0; i < documents.Count; i++)
@@ -187,11 +188,79 @@ public class SchemaImportValidator
                         if (rule.SecondaryValue is null && rule.Type is ValidationType.Range or ValidationType.LengthRange)
                             errors.Add($"{prefix}.{field.Name}: SecondaryValue is required for validation type '{rule.Type}'.");
                     }
+                    ValidateReferenceRules(field, referenceTargets, $"{prefix}.{field.Name}", errors);
                 }
             }
         }
 
         return errors;
+    }
+
+    /// <summary>
+    /// Reference rules point at a schema by name: it must be an Entity in this import file or already in the
+    /// project, with a matching single-value target field (the same checks as the validation API).
+    /// </summary>
+    private static void ValidateReferenceRules(
+        ExportFieldDefinition field,
+        IReadOnlyDictionary<string, SchemaDefinition> targets,
+        string prefix,
+        List<string> errors)
+    {
+        var references = (field.ValidationRules ?? []).Where(r => r.Type == ValidationType.Reference).ToList();
+        if (references.Count == 0)
+            return;
+        if (references.Count > 1)
+        {
+            errors.Add($"{prefix}: {ReferenceRuleCompatibility.OnlyOneReference}");
+            return;
+        }
+
+        var rule = new ValidationRule { Type = ValidationType.Reference, Value = references[0].Value, SecondaryValue = references[0].SecondaryValue };
+        var targetName = ReferenceTargets.TargetSchemaName(rule);
+        var source = new FieldDefinition { Name = field.Name, Type = field.Type, IsArray = field.IsArray };
+        var problem = ReferenceRuleCompatibility.Check(source, targets.GetValueOrDefault(targetName), ReferenceTargets.TargetFieldName(rule));
+        if (problem is not null)
+            errors.Add($"{prefix}: Reference to '{targetName}.{ReferenceTargets.TargetFieldName(rule)}' is not valid ({problem})");
+    }
+
+    /// <summary>Schemas that Reference rules in <paramref name="documents"/> may point at: the file's own, then the project's.</summary>
+    private async Task<Dictionary<string, SchemaDefinition>> LoadReferenceTargetsAsync(List<SchemaExportDocument> documents)
+    {
+        var targets = new Dictionary<string, SchemaDefinition>(StringComparer.Ordinal);
+        var names = documents
+            .SelectMany(d => d.Fields ?? [])
+            .SelectMany(f => f.ValidationRules ?? [])
+            .Where(r => r.Type == ValidationType.Reference)
+            .Select(r => ReferenceTargets.TargetSchemaName(new ValidationRule { Value = r.Value }))
+            .Where(n => n.Length > 0)
+            .ToHashSet(StringComparer.Ordinal);
+        if (names.Count == 0)
+            return targets;
+
+        foreach (var doc in documents.Where(d => names.Contains(d.SchemaName)))
+        {
+            targets[doc.SchemaName] = new SchemaDefinition
+            {
+                SchemaName = doc.SchemaName,
+                SchemaType = doc.SchemaType,
+                Fields = (doc.Fields ?? []).Select(f => new FieldDefinition
+                {
+                    Name = f.Name, Type = f.Type, IsArray = f.IsArray, IsReferenceField = f.IsReferenceField,
+                }).ToList(),
+            };
+        }
+
+        var missing = names.Where(n => !targets.ContainsKey(n)).ToList();
+        if (missing.Count > 0)
+        {
+            var existing = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
+                Builders<SchemaDefinition>.Filter.And(
+                    Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, missing),
+                    Builders<SchemaDefinition>.Filter.Eq(s => s.IsDeleted, false)));
+            foreach (var schema in existing ?? [])
+                targets.TryAdd(schema.SchemaName, schema);
+        }
+        return targets;
     }
 
     private static void ValidateAccessPolicy(ExportAccessPolicy policy, string prefix, List<string> errors)

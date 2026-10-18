@@ -54,4 +54,10 @@ public class ValidationRuleRequest
     /// Whether this validation is active
     /// </summary>
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// How the rule is evaluated: 0 (the default when omitted) behaves exactly as rules always have;
+    /// 1 checks a list property item by item. The console sends 1 for rules it adds or edits.
+    /// </summary>
+    public int? EvaluationVersion { get; set; }
 }

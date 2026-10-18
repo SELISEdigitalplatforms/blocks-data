@@ -129,6 +129,9 @@ interface SchemaStructureTableProps extends ISchemaDetails {
     subject: string;
     context: string;
     validationRule?: IFieldValidationRule | null;
+    /** The property's type and enum values: decide which rule types the panel offers. */
+    fieldType: string;
+    enumValues?: string[];
   }) => void;
   /**
    * Preview drawer open state, lifted so a host can put its own trigger
@@ -240,6 +243,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   >(null);
   const [currentValidationRule, setCurrentValidationRule] =
     useState<IFieldValidationRule | null>(null);
+  const [currentValidationFieldMeta, setCurrentValidationFieldMeta] =
+    useState<{ fieldType: string; enumValues?: string[] }>({ fieldType: "String" });
   const [currentAccessFieldTarget, setCurrentAccessFieldTarget] =
     useState<FieldAccessTarget | null>(null);
   const [currentAccessDrawerTitle, setCurrentAccessDrawerTitle] =
@@ -462,6 +467,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       resolvedAncestorPath,
       fieldName,
     );
+    const field = schemaDetails.fields?.find((f) => f.name === fieldName);
+    const fieldMeta = { fieldType: field?.type ?? "String", enumValues: field?.enumValues };
 
     if (onOpenFieldValidation) {
       onOpenFieldValidation({
@@ -469,10 +476,12 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         subject: effectiveFieldName,
         context: `Field on ${schemaDetails.schemaName}`,
         validationRule: validationRule ?? null,
+        ...fieldMeta,
       });
       return;
     }
 
+    setCurrentValidationFieldMeta(fieldMeta);
     setCurrentValidationFieldName(effectiveFieldName);
     setCurrentValidationRule(validationRule ?? null);
     setIsValidationDrawerOpen(true);
@@ -1118,7 +1127,10 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
 
       {currentValidationFieldName && (
         <SchemaFieldValidationDrawer
+          key={`${resolvedRootSchemaId}:${currentValidationFieldName}`}
           fieldName={currentValidationFieldName}
+          fieldType={currentValidationFieldMeta.fieldType}
+          enumValues={currentValidationFieldMeta.enumValues}
           schemaId={resolvedRootSchemaId}
           projectKey={projectKey}
           initialValidationData={currentValidationRule}

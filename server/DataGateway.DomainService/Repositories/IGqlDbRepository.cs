@@ -31,6 +31,12 @@ public interface IGqlDbRepository
     /// <summary>Number of documents matching <paramref name="filter"/> (a scan; call only when needed).</summary>
     Task<long> CountAsync(string collectionName, FilterDefinition<BsonDocument> filter);
 
+    /// <summary>
+    /// Which of <paramref name="values"/> occur in <paramref name="fieldName"/> of <paramref name="collectionName"/>:
+    /// a distinct over <c>{ field: { $in: values } }</c>, so a value shared by many documents is returned once.
+    /// </summary>
+    Task<List<BsonValue>> GetDistinctValuesAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values);
+
     Task<(List<BsonDocument> items, long count)> GetItemsWithCountAsync(string collectionName,
         FilterDefinition<BsonDocument> filter,
         BsonDocument? sort = null,

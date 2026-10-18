@@ -1,5 +1,6 @@
 using Blocks.Genesis.Entities.Data;
 using Blocks.Genesis.DataAccess.Evaluation;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Validators;
@@ -300,6 +301,78 @@ public class DataValidationRequestValidatorTests
             Validations = new() { new ValidationRuleRequest { Type = ValidationType.NotEmpty } }
         });
         result.IsValid.Should().BeFalse();
+    }
+
+    private static string Render(FilterDefinition<SchemaDefinition> filter) =>
+        filter.Render(new RenderArgs<SchemaDefinition>(
+            MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry.GetSerializer<SchemaDefinition>(),
+            MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry)).ToString();
+
+    /// <summary>Employee (source) answers lookups by id; <paramref name="target"/> answers lookups by schema name.</summary>
+    private void SetupReference(SchemaDefinition? target, string sourceType = "String")
+    {
+        var employee = new SchemaDefinition
+        {
+            ItemId = "emp", SchemaName = "Employee", SchemaType = SchemaType.Entity,
+            Fields = [new FieldDefinition { Name = "DepartmentId", Type = sourceType }, new FieldDefinition { Name = "Address.DeptId", Type = "String", IsReferenceField = true }],
+        };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.Is<FilterDefinition<SchemaDefinition>>(f => !Render(f).Contains("SchemaName")), ""))
+            .ReturnsAsync(employee);
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.Is<FilterDefinition<SchemaDefinition>>(f => Render(f).Contains("SchemaName")), ""))
+            .ReturnsAsync(target);
+    }
+
+    private static SchemaDefinition Department(SchemaType type = SchemaType.Entity) => new()
+    {
+        ItemId = "dep", SchemaName = "Department", SchemaType = type, Fields = [new FieldDefinition { Name = "Code", Type = "String" }],
+    };
+
+    private static CreateDataValidationRequest ReferenceRequest(string fieldName = "DepartmentId", params ValidationRuleRequest[] extra) => new()
+    {
+        SchemaId = "emp",
+        FieldName = fieldName,
+        Validations = [new ValidationRuleRequest { Type = ValidationType.Reference, Value = "Department" }, .. extra],
+    };
+
+    [Fact]
+    public async Task Create_Reference_ToAnEntity_Passes_IncludingNestedPathsAndOtherTargetFields()
+    {
+        SetupReference(Department());
+        var v = new CreateDataValidationRequestValidator(_repo.Object);
+
+        (await v.ValidateAsync(ReferenceRequest())).IsValid.Should().BeTrue();
+        (await v.ValidateAsync(ReferenceRequest("Address.DeptId"))).IsValid.Should().BeTrue();
+        var byCode = ReferenceRequest();
+        byCode.Validations[0].SecondaryValue = "Code";
+        (await v.ValidateAsync(byCode)).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(SchemaType.Dto, "String", "DepartmentId", ReferenceRuleCompatibility.TargetSchemaMustBeEntity)]
+    [InlineData(SchemaType.Entity, "Boolean", "DepartmentId", ReferenceRuleCompatibility.SourceFieldNotSupported)]
+    [InlineData(SchemaType.Entity, "String", "Unknown", ReferenceRuleCompatibility.SourceFieldMustExist)]
+    public async Task Create_Reference_Refused(SchemaType targetType, string sourceType, string fieldName, string code)
+    {
+        SetupReference(Department(targetType), sourceType);
+        var v = new CreateDataValidationRequestValidator(_repo.Object);
+
+        var result = await v.ValidateAsync(ReferenceRequest(fieldName));
+
+        result.Errors.Select(e => e.ErrorMessage).Should().ContainSingle().Which.Should().Be(code);
+    }
+
+    [Fact]
+    public async Task Create_Reference_MissingTargetOrSecondReference_Refused()
+    {
+        SetupReference(null);
+        var v = new CreateDataValidationRequestValidator(_repo.Object);
+        (await v.ValidateAsync(ReferenceRequest())).Errors.Should().ContainSingle()
+            .Which.ErrorMessage.Should().Be(ReferenceRuleCompatibility.TargetSchemaMustBeEntity);
+
+        SetupReference(Department());
+        var twice = ReferenceRequest("DepartmentId", new ValidationRuleRequest { Type = ValidationType.Reference, Value = "Department" });
+        (await v.ValidateAsync(twice)).Errors.Should().ContainSingle()
+            .Which.ErrorMessage.Should().Be(ReferenceRuleCompatibility.OnlyOneReference);
     }
 
     [Fact]

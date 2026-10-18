@@ -435,28 +435,12 @@ public class MutationService : IMutationService
         var values = ReferenceValueCollector.Collect(inputs, schema, references);
         if (values.Count == 0) return;
 
-        // Parsed input already carries a supplied ItemId as _id.
-        var batchIds = inputs
-            .Select(input => input.TryGetValue(GraphQlConstant.DbEntityIdFieldName, out var id) ? id?.ToString() : null)
-            .OfType<string>()
-            .ToHashSet(StringComparer.Ordinal);
-
+        var batchIds = SuppliedItemIds(inputs);
         var result = new DataValidationResult();
         foreach (var group in values.GroupBy(v => (v.Target.CollectionName, v.Target.DbFieldName)))
         {
-            var requested = group.Select(v => BsonValue.Create(v.Value)).Distinct().ToList();
-            var existing = await _repository.GetDistinctValuesAsync(group.Key.CollectionName, group.Key.DbFieldName, requested);
-            var present = existing.Select(WriteRules.ReferenceKey).ToHashSet(StringComparer.Ordinal);
-
-            foreach (var value in group)
-            {
-                if (present.Contains(WriteRules.ReferenceKey(BsonValue.Create(value.Value)))) continue;
-                if (IsSuppliedByBatch(schema, value, batchIds)) continue;
-                if (result.Errors.Count >= maxErrors) break;
-
-                var itemPrefix = inputs.Count > 1 ? $"Item {value.InputIndex}: " : string.Empty;
-                result.AddError(value.Path, itemPrefix + WriteRules.ReferenceNotFoundMessage(schema.SchemaName, value), nameof(ValidationType.Reference));
-            }
+            var missing = await MissingReferencesAsync(group.Key.CollectionName, group.Key.DbFieldName, group);
+            AddReferenceErrors(result, schema, missing.Where(v => !IsSuppliedByBatch(schema, v, batchIds)), inputs.Count > 1, maxErrors);
         }
 
         if (!result.IsValid)
@@ -465,6 +449,33 @@ public class MutationService : IMutationService
                 operationLabel, schema.SchemaName, result.ErrorMessage);
             MutationValidationHelper.ThrowValidationError(result);
         }
+    }
+
+    /// <summary>One error per missing value, up to <paramref name="maxErrors"/> in all; batches name the item.</summary>
+    private static void AddReferenceErrors(DataValidationResult result, SchemaDefinitionExtended schema, IEnumerable<ReferenceValue> missing, bool isBatch, int maxErrors)
+    {
+        foreach (var value in missing.TakeWhile(_ => result.Errors.Count < maxErrors))
+        {
+            var itemPrefix = isBatch ? $"Item {value.InputIndex}: " : string.Empty;
+            result.AddError(value.Path, itemPrefix + WriteRules.ReferenceNotFoundMessage(schema.SchemaName, value), nameof(ValidationType.Reference));
+        }
+    }
+
+    /// <summary>ItemIds the inputs supply themselves (parsed input carries a supplied ItemId as _id).</summary>
+    private static HashSet<string> SuppliedItemIds(IReadOnlyList<Dictionary<string, object?>> inputs) =>
+        inputs
+            .Select(input => input.TryGetValue(GraphQlConstant.DbEntityIdFieldName, out var id) ? id?.ToString() : null)
+            .OfType<string>()
+            .ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>The referenced values of one target collection and field that are not in it: one distinct query.</summary>
+    private async Task<List<ReferenceValue>> MissingReferencesAsync(string collectionName, string dbFieldName, IEnumerable<ReferenceValue> values)
+    {
+        var all = values.ToList();
+        var requested = all.Select(v => BsonValue.Create(v.Value)).Distinct().ToList();
+        var existing = await _repository.GetDistinctValuesAsync(collectionName, dbFieldName, requested);
+        var present = existing.Select(WriteRules.ReferenceKey).ToHashSet(StringComparer.Ordinal);
+        return all.Where(v => !present.Contains(WriteRules.ReferenceKey(BsonValue.Create(v.Value)))).ToList();
     }
 
     private static bool IsSuppliedByBatch(SchemaDefinitionExtended schema, ReferenceValue value, HashSet<string> batchIds) =>

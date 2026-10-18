@@ -36,6 +36,7 @@ export function DefaultValueButton({
   onOpen: () => void;
 }>) {
   const reason = unavailableReason(fieldName, fieldType, isNewField, isEditMode);
+  const summary = defaultValue ? formatDefaultSummary(defaultValue) : null;
   const shape = wide
     ? "flex w-full min-w-0 items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm"
     : "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border";
@@ -71,12 +72,12 @@ export function DefaultValueButton({
               ? "border-primary/30 bg-primary/10 text-primary"
               : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
           )}
-          aria-label={`Default value for ${fieldName}${defaultValue ? ` (${formatDefaultSummary(defaultValue)})` : ""}`}
+          aria-label={summary ? `Default value for ${fieldName} (${summary})` : `Default value for ${fieldName}`}
         >
           <TextCursorInput className={iconClass} />
         </button>
       </TooltipTrigger>
-      <TooltipContent>{defaultValue ? `Default value: ${formatDefaultSummary(defaultValue)}` : "Set a default value"}</TooltipContent>
+      <TooltipContent>{summary ? `Default value: ${summary}` : "Set a default value"}</TooltipContent>
     </Tooltip>
   );
 }

@@ -203,7 +203,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
       );
       await user.click(screen.getByRole("button", { name: /Add validation/ }));
       await chooseRuleType(user, "Greater than");
-      await user.click(within(screen.getByRole("radiogroup", { name: "Value source" })).getByRole("radio", { name: "Variable" }));
+      await user.click(within(screen.getByRole("group", { name: "Value source" })).getByRole("radio", { name: "Variable" }));
     }
 
     it("offers properties of the same kind and sends the variable as text (UC20)", async () => {
@@ -250,7 +250,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
       await user.click(screen.getByRole("button", { name: /Add validation/ }));
       await chooseRuleType(user, "Range");
       await user.type(screen.getByLabelText("Min"), "1");
-      await user.click(within(screen.getByRole("radiogroup", { name: "Max source" })).getByRole("radio", { name: "Variable" }));
+      await user.click(within(screen.getByRole("group", { name: "Max source" })).getByRole("radio", { name: "Variable" }));
       await user.click(screen.getByRole("combobox", { name: "Pick a property for Max" }));
       await user.click(await screen.findByRole("option", { name: "{{Employee.Age}}" }));
       await user.click(screen.getByRole("button", { name: "Add" }));

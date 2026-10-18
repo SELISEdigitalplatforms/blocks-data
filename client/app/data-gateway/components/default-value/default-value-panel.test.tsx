@@ -28,9 +28,9 @@ function renderPanel(props: Partial<DefaultValuePanelProps> & Pick<DefaultValueP
 }
 
 const kindOptions = () =>
-  within(screen.getByRole("radiogroup", { name: "Default kind" }))
+  within(screen.getByRole("group", { name: "Default kind" }))
     .getAllByRole("radio")
-    .map((radio) => radio.textContent);
+    .map((radio) => (radio as HTMLInputElement).labels?.[0]?.textContent);
 
 /** userEvent reads "{" and "[" as key descriptors; doubled, they type themselves. */
 const literal = (text: string) => text.replaceAll("{", "{{").replaceAll("[", "[[");
@@ -111,7 +111,7 @@ describe("DefaultValuePanel", () => {
     await user.click(screen.getByRole("combobox", { name: "Insert variable" }));
     await user.click(await screen.findByRole("option", { name: "{{Employee.LastName}}" }));
 
-    expect(screen.getByLabelText("Template")).toHaveValue("{{Employee.FirstName}} {{Employee.LastName}}");
+    expect(screen.getByRole("textbox", { name: "Template" })).toHaveValue("{{Employee.FirstName}} {{Employee.LastName}}");
     await user.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() =>
       expect(setFieldDefault).toHaveBeenCalledWith(
@@ -125,7 +125,7 @@ describe("DefaultValuePanel", () => {
     renderPanel({ fieldName: "DisplayName", fieldType: "String" });
 
     await user.click(screen.getByRole("radio", { name: "Template" }));
-    const input = screen.getByLabelText("Template");
+    const input = screen.getByRole("textbox", { name: "Template" });
     await user.type(input, literal("{{Employee.FirstName} {{Employee.LastName}}"));
 
     expect(screen.getByRole("alert")).toHaveTextContent('Unclosed variable at position 1: expected "}}"');
@@ -142,7 +142,7 @@ describe("DefaultValuePanel", () => {
     renderPanel({ fieldName: "DisplayName", fieldType: "String" });
 
     await user.click(screen.getByRole("radio", { name: "Template" }));
-    await user.type(screen.getByLabelText("Template"), literal("{{FirstName}}"));
+    await user.type(screen.getByRole("textbox", { name: "Template" }), literal("{{FirstName}}"));
     expect(screen.getByRole("alert")).toHaveTextContent("Missing prefix at position 1: write {{Employee.FirstName}} or {{Auth.…}}");
   });
 
@@ -186,7 +186,7 @@ describe("DefaultValuePanel", () => {
     renderPanel({ fieldName: "DisplayName", fieldType: "String" });
 
     await user.click(screen.getByRole("radio", { name: "Template" }));
-    await user.type(screen.getByLabelText("Template"), "Hello");
+    await user.type(screen.getByRole("textbox", { name: "Template" }), "Hello");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(

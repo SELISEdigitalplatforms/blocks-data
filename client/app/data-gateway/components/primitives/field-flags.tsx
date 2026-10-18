@@ -46,7 +46,7 @@ export function flagTitlesFromField(field: Partial<Pick<IField, "defaultValue">>
   return field.defaultValue ? { DEF: `Default value: ${formatDefaultSummary(field.defaultValue)}` } : {};
 }
 
-export function FieldFlagChip({ flag, title, className }: { flag: FieldFlag; title?: string; className?: string }) {
+export function FieldFlagChip({ flag, title, className }: Readonly<{ flag: FieldFlag; title?: string; className?: string }>) {
   return (
     <span
       title={title ?? FLAG_TITLES[flag]}
@@ -67,12 +67,12 @@ export function FieldFlags({
   flags,
   titles,
   className,
-}: {
+}: Readonly<{
   flags: FieldFlag[];
   /** Overrides the default hover text per flag. */
   titles?: Partial<Record<FieldFlag, string>>;
   className?: string;
-}) {
+}>) {
   if (flags.length === 0) return null;
 
   return (

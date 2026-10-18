@@ -92,18 +92,9 @@ public static class DefaultValueInjection
 
     public static void InjectDefaultValueOnInsert(this Dictionary<string, object?> input)
     {
+        input[GraphQlConstant.DbEntityIdFieldName] = SuppliedItemId(input) ?? Guid.NewGuid().ToString();
+        input.Remove(nameof(GraphQlBaseEntity.ItemId));
 
-        if (input.TryGetValue(nameof(GraphQlBaseEntity.ItemId), out var value))
-        {
-            var itemId = value is null ? Guid.NewGuid().ToString() :
-                string.IsNullOrWhiteSpace(value.ToString()) ? Guid.NewGuid().ToString() : value.ToString();
-            input.Add(GraphQlConstant.DbEntityIdFieldName, itemId);
-            input.Remove(nameof(GraphQlBaseEntity.ItemId));
-        }
-        else
-        {
-            input.Add(GraphQlConstant.DbEntityIdFieldName, Guid.NewGuid().ToString());
-        }
         var nowDateTime = DateTime.UtcNow;
         input.Add(nameof(GraphQlBaseEntity.CreatedDate), nowDateTime);
         input.Add(nameof(GraphQlBaseEntity.LastUpdatedDate), nowDateTime);
@@ -118,6 +109,21 @@ public static class DefaultValueInjection
                 input.Add(nameof(GraphQlBaseEntity.OrganizationId), blocksCtx.OrganizationId);
             }
         }
+    }
+
+    /// <summary>
+    /// The id a client chose for the new row, or null. GraphQL input already carries it as <c>_id</c>
+    /// (<see cref="GraphQlTypeHelper.MapMutationInput"/> renames ItemId); input built elsewhere may still
+    /// use <c>ItemId</c>. A blank id counts as none.
+    /// </summary>
+    private static string? SuppliedItemId(Dictionary<string, object?> input)
+    {
+        foreach (var key in new[] { GraphQlConstant.DbEntityIdFieldName, nameof(GraphQlBaseEntity.ItemId) })
+        {
+            if (input.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value?.ToString()))
+                return value.ToString();
+        }
+        return null;
     }
 
     public static void InjectDefaultValueOnUpdate(this Dictionary<string, object?> input)

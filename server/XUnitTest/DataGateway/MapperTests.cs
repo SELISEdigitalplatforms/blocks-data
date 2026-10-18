@@ -232,8 +232,54 @@ public class DataValidationMappingTests
     }
 }
 
+public class ValidationRuleEvaluationVersionTests
+{
+    [Fact]
+    public void Request_WithoutVersion_IsStoredAsVersionZero_SoApiCallersKeepTodaysBehaviour()
+    {
+        var rule = new ValidationRuleRequest { Type = ValidationType.MaxLength, Value = 50 }.MapToEntity();
+
+        rule.EvaluationVersion.Should().Be(0);
+    }
+
+    [Fact]
+    public void Request_Version_IsKeptAndReturned()
+    {
+        var rule = new ValidationRuleRequest { Type = ValidationType.MaxLength, Value = 50, EvaluationVersion = 1 }.MapToEntity();
+
+        rule.EvaluationVersion.Should().Be(1);
+        rule.MapToResponse().EvaluationVersion.Should().Be(1);
+    }
+
+    [Fact]
+    public void Reference_IsAlwaysVersionOne()
+    {
+        new ValidationRuleRequest { Type = ValidationType.Reference, Value = "Department" }.MapToEntity()
+            .EvaluationVersion.Should().Be(1);
+    }
+}
+
 public class SchemaExportImportMappingTests
 {
+    [Fact]
+    public void ReferenceRule_SurvivesExportAndImport_ByTargetName_WithItsVersion()
+    {
+        var reference = new ValidationRule
+        {
+            Type = ValidationType.Reference, Value = "Department", SecondaryValue = "Code",
+            ErrorMessage = "Unknown department", IsActive = true, EvaluationVersion = 1,
+        };
+        var legacy = new ValidationRule { Type = ValidationType.MaxLength, Value = 50, IsActive = true };
+
+        var exported = new[] { reference, legacy }.Select(r => r.MapToExportValidationRule()).ToList();
+        var imported = exported.Select(r => r.MapToValidationRule()).ToList();
+
+        // Points at the target by name, so it works in a project where the schema ids differ.
+        imported[0].Should().BeEquivalentTo(reference);
+        // A rule saved before the version existed stays version 0 through the round trip.
+        imported[1].EvaluationVersion.Should().Be(0);
+    }
+
     private static SchemaDefinition Schema() => new()
     {
         ItemId = "s1",

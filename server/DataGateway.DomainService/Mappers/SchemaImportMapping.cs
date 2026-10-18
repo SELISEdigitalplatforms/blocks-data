@@ -102,6 +102,7 @@ public static class SchemaImportMapping
         Value = JsonValueHelper.ToStorableValue(r.Value),
         SecondaryValue = JsonValueHelper.ToStorableValue(r.SecondaryValue),
         ErrorMessage = r.ErrorMessage,
-        IsActive = r.IsActive
+        IsActive = r.IsActive,
+        EvaluationVersion = r.EvaluationVersion
     };
 }

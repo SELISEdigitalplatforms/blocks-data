@@ -6,8 +6,8 @@ import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { Input } from "@/components/ui-kits/input/input";
 import { ScrollArea } from "@/components/ui-kits/scroll-area/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-kits/select/select";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { Textarea } from "@/components/ui-kits/textarea/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -17,7 +17,6 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Pencil, Plus, Sparkles, Trash } from "lucide-react";
 import { useState } from "react";
-import { RegExpParser } from "regexpp";
 import {
   useCreateSchemaFieldValidation,
   useDeleteSchemaFieldValidation,
@@ -30,26 +29,46 @@ import {
   IFieldValidationRule,
   ISchemaFieldValidation,
 } from "../../models/data-service";
+import {
+  VALIDATION_TYPE,
+  VALIDATION_TYPE_META,
+  checkRuleDraft,
+  draftFromRule,
+  formatRuleSummary,
+  getAllowedValidationTypes,
+  ruleFromDraft,
+  ruleTypeLabel,
+  type RuleDraft,
+  type ValidationTypeValue,
+} from "../../utils/validation-rules.util";
 import { StatusSnackbar } from "../primitives";
+import { RuleValueInputs } from "./rule-value-inputs";
 
 export interface SchemaFieldValidationPanelProps {
   fieldName: string;
   schemaId: string;
   projectKey: string;
+  /** The property's type (String, Int, DateTime…): decides which rule types are offered. */
+  fieldType: string;
+  /** Allowed values when the property is an Enum. */
+  enumValues?: string[];
   initialValidationData?: IFieldValidationRule | null;
 }
 
-interface ValidationFormState {
-  value: string;
-  errorMessage: string;
-  isActive: boolean;
+interface ValidationFormState extends RuleDraft {
   editingIndex?: number;
 }
 
-const defaultForm: ValidationFormState = {
-  value: "",
-  errorMessage: "",
-  isActive: true,
+/** A new rule starts as a regex where one fits (the most common rule), otherwise as the first type offered. */
+const newDraft = (fieldType: string): ValidationFormState => {
+  const allowed = getAllowedValidationTypes(fieldType);
+  return {
+    type: allowed.includes(VALIDATION_TYPE.Regex) ? VALIDATION_TYPE.Regex : allowed[0],
+    value: "",
+    secondaryValue: "",
+    errorMessage: "",
+    isActive: true,
+  };
 };
 
 function ValidationSkeleton() {
@@ -79,17 +98,17 @@ export function SchemaFieldValidationPanel({
   fieldName,
   schemaId,
   projectKey,
+  fieldType,
+  enumValues = [],
   initialValidationData,
 }: SchemaFieldValidationPanelProps) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<ValidationFormState>(defaultForm);
-  const [regexError, setRegexError] = useState<string | null>(null);
+  const [form, setForm] = useState<ValidationFormState>(() => newDraft(fieldType));
+  // Shown once the user has typed or tried to save, not while the form is still blank.
+  const [showDraftError, setShowDraftError] = useState(false);
   const [prompt, setPrompt] = useState("");
-  // The values a validation had when editing started, for the dirty check.
-  const [originalForm, setOriginalForm] = useState<Pick<
-    ValidationFormState,
-    "value" | "errorMessage" | "isActive"
-  > | null>(null);
+  // The rule as it was when editing started, for the dirty check.
+  const [originalForm, setOriginalForm] = useState<RuleDraft | null>(null);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(
     null,
   );
@@ -141,11 +160,36 @@ export function SchemaFieldValidationPanel({
     validationData?.validations ?? [];
   const itemId = validationData?.itemId ?? null;
 
+  const isEditMode = form.editingIndex !== undefined;
+  // A field holds at most one Reference rule; keep offering the type a rule being edited already has.
+  const hasOtherReference = validations.some(
+    (v, i) => v.type === VALIDATION_TYPE.Reference && i !== form.editingIndex,
+  );
+  const typeOptions = getAllowedValidationTypes(fieldType).filter(
+    (t) => t !== VALIDATION_TYPE.Reference || !hasOtherReference,
+  );
+  if (isEditMode && !typeOptions.includes(form.type)) typeOptions.unshift(form.type);
+  const draftError = checkRuleDraft(form, fieldType);
+
   const resetForm = () => {
-    setForm(defaultForm);
-    setRegexError(null);
+    setForm(newDraft(fieldType));
+    setShowDraftError(false);
     setShowForm(false);
     setPrompt("");
+  };
+
+  const openNewRule = () => {
+    const draft = newDraft(fieldType);
+    if (draft.type === VALIDATION_TYPE.Reference && hasOtherReference) draft.type = typeOptions[0];
+    setForm(draft);
+    setOriginalForm(null);
+    setShowDraftError(false);
+    setShowForm(true);
+  };
+
+  const updateDraft = (patch: Partial<RuleDraft>) => {
+    setForm((prev) => ({ ...prev, ...patch }));
+    setShowDraftError(true);
   };
 
   const handleGenerateRegex = async () => {
@@ -164,7 +208,6 @@ export function SchemaFieldValidationPanel({
           value: res.pattern,
           errorMessage: res.errorMessage || prev.errorMessage,
         }));
-        setRegexError(null);
         setPrompt("");
       } else {
         setError(["Failed to generate regex"]);
@@ -175,74 +218,33 @@ export function SchemaFieldValidationPanel({
   };
 
   const handleEdit = (index: number) => {
-    const v = validations[index];
-    setOriginalForm({
-      value: v.value,
-      errorMessage: v.errorMessage,
-      isActive: v.isActive,
-    });
-    setForm({
-      value: v.value,
-      errorMessage: v.errorMessage,
-      isActive: v.isActive,
-      editingIndex: index,
-    });
-    setRegexError(null);
+    const draft = draftFromRule(validations[index]);
+    setOriginalForm(draft);
+    setForm({ ...draft, editingIndex: index });
+    setShowDraftError(false);
     setShowForm(true);
   };
 
-  const validateRegex = (pattern: string): boolean => {
-    try {
-      // Parse only — avoids constructing a RegExp from user input (ReDoS).
-      new RegExpParser().parsePattern(pattern);
-      setRegexError(null);
-      return true;
-    } catch {
-      setRegexError("Invalid regex pattern");
-      return false;
-    }
-  };
+  /** Saves the whole list: POST creates the field's validation, PUT replaces its rules. */
+  const saveRules = (rules: ISchemaFieldValidation[]) =>
+    itemId
+      ? updateValidation({ projectKey, itemId, schemaId, fieldName, validations: rules })
+      : createValidation({ projectKey, schemaId, fieldName, validations: rules });
 
   const handleSubmit = async () => {
-    if (!form.value.trim()) {
-      setRegexError("Pattern is required");
+    if (draftError) {
+      setShowDraftError(true);
       return;
     }
-    if (!validateRegex(form.value)) return;
 
-    const newRule: ISchemaFieldValidation = {
-      type: 1,
-      value: form.value.trim(),
-      secondaryValue: "",
-      errorMessage: form.errorMessage,
-      isActive: form.isActive,
-    };
-
-    const res =
-      form.editingIndex !== undefined && itemId
-        ? await updateValidation({
-            projectKey,
-            itemId,
-            schemaId,
-            fieldName,
-            validations: validations.map((v, i) =>
-              i === form.editingIndex ? newRule : v,
-            ),
-          })
-        : await createValidation({
-            projectKey,
-            schemaId,
-            fieldName,
-            // TODO: support multiple validations — use [...validations, newRule]
-            validations: [newRule],
-          });
+    const rule = ruleFromDraft(form, fieldType);
+    const rules = isEditMode
+      ? validations.map((v, i) => (i === form.editingIndex ? rule : v))
+      : [...validations, rule];
+    const res = await saveRules(rules);
 
     if (res.isSuccess) {
-      setSuccess(
-        form.editingIndex !== undefined
-          ? "Validation updated successfully"
-          : "Validation added successfully",
-      );
+      setSuccess(isEditMode ? "Validation updated successfully" : "Validation added successfully");
       setShouldRefetch(true);
       resetForm();
     } else {
@@ -250,21 +252,14 @@ export function SchemaFieldValidationPanel({
     }
   };
 
-  const handleDelete = async (_index: number) => {
-    // TODO: support multiple validations — filter by index and POST remaining via createValidation
-    // const remaining = validations.filter((_, i) => i !== _index);
-    // if (remaining.length > 0) {
-    //   await createValidation({ projectKey, schemaId, fieldName, validations: remaining });
-    //   return;
-    // }
-
+  const handleDelete = async (index: number) => {
     if (!itemId) return;
-    const res = await deleteValidation({
-      id: itemId,
-      projectKey,
-      schemaId,
-      fieldName,
-    });
+    const remaining = validations.filter((_, i) => i !== index);
+    // The last rule takes the field's validation with it; otherwise the others stay.
+    const res =
+      remaining.length > 0
+        ? await saveRules(remaining)
+        : await deleteValidation({ id: itemId, projectKey, schemaId, fieldName });
     if (res.isSuccess) {
       showSuccessToast({ description: "Validation deleted successfully" });
       setShouldRefetch(true);
@@ -276,11 +271,12 @@ export function SchemaFieldValidationPanel({
   const isPending = isCreating || isUpdating || isDeleting;
   // Show skeleton while a mutation is in flight OR while the post-mutation refetch is resolving
   const isRefreshing = isPending || (shouldRefetch && isFetching);
-  const isEditMode = form.editingIndex !== undefined;
   const isDirty =
     !isEditMode ||
     !originalForm ||
+    form.type !== originalForm.type ||
     form.value.trim() !== originalForm.value.trim() ||
+    form.secondaryValue.trim() !== originalForm.secondaryValue.trim() ||
     form.errorMessage !== originalForm.errorMessage ||
     form.isActive !== originalForm.isActive;
 
@@ -308,8 +304,16 @@ export function SchemaFieldValidationPanel({
                     className="flex items-start justify-between gap-3 rounded-sm border border-border/40 bg-card px-4 py-3"
                   >
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <p className="break-all font-mono text-sm text-foreground">
-                        {validation.value}
+                      <span className="w-fit rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                        {ruleTypeLabel(validation.type)}
+                      </span>
+                      <p
+                        className={cn(
+                          "break-all text-sm text-foreground",
+                          validation.type === VALIDATION_TYPE.Regex && "font-mono",
+                        )}
+                      >
+                        {formatRuleSummary(validation)}
                       </p>
                       {validation.errorMessage && (
                         <p className="text-xs text-muted-foreground">
@@ -356,7 +360,31 @@ export function SchemaFieldValidationPanel({
                 {form.editingIndex !== undefined ? "Edit validation" : "Add validation"}
               </p>
 
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                  Rule type
+                </label>
+                <Select
+                  value={String(form.type)}
+                  onValueChange={(value) =>
+                    updateDraft({ type: Number(value) as ValidationTypeValue, value: "", secondaryValue: "" })
+                  }
+                >
+                  <SelectTrigger className="h-9 w-full" aria-label="Rule type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {typeOptions.map((type) => (
+                      <SelectItem key={type} value={String(type)}>
+                        {VALIDATION_TYPE_META[type].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {/* Generate regex from prompt */}
+              {VALIDATION_TYPE_META[form.type]?.input === "regex" && (
               <div className="flex flex-col gap-2 rounded-sm border border-border/40 bg-indigo-500/5 p-3">
                 <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
                   Generate regex from prompt
@@ -386,23 +414,16 @@ export function SchemaFieldValidationPanel({
                   Provide a description to generate regex from AI
                 </p>
               </div>
+              )}
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-                  Regex pattern <span className="text-rose-500">*</span>
-                </label>
-                <Textarea
-                  placeholder="e.g. ^[a-zA-Z]+$"
-                  value={form.value}
-                  onChange={(e) => {
-                    setForm((prev) => ({ ...prev, value: e.target.value }));
-                    if (regexError) validateRegex(e.target.value);
-                  }}
-                  className={cn("resize-none font-mono text-sm", regexError && "border-rose-500")}
-                  rows={4}
-                />
-                {regexError && <p className="text-xs text-rose-500">{regexError}</p>}
-              </div>
+              <RuleValueInputs
+                draft={form}
+                fieldType={fieldType}
+                enumValues={enumValues}
+                projectKey={projectKey}
+                error={showDraftError ? draftError : null}
+                onChange={updateDraft}
+              />
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
@@ -422,7 +443,7 @@ export function SchemaFieldValidationPanel({
 
             </div>
           ) : (
-            !isRefreshing && validations.length === 0 && (
+            !isRefreshing && (
               // `ghost` has no resting background or border of its own — only
               // its hover state — so paired with muted text it read as
               // disabled until the cursor found it. `outline` gives it a
@@ -431,7 +452,7 @@ export function SchemaFieldValidationPanel({
                 type="button"
                 variant="outline"
                 className="w-full gap-2 border-border text-foreground hover:border-primary/40 hover:text-primary"
-                onClick={() => setShowForm(true)}
+                onClick={openNewRule}
               >
                 <Plus className="h-4 w-4" />
                 Add validation
@@ -476,7 +497,7 @@ export function SchemaFieldValidationPanel({
               <Button
                 type="button"
                 size="sm"
-                disabled={isPending || !form.value.trim() || !!regexError || !isDirty}
+                disabled={isPending || !!draftError || !isDirty}
                 onClick={handleSubmit}
               >
                 {isPending ? "Saving…" : isEditMode ? "Update" : "Add"}

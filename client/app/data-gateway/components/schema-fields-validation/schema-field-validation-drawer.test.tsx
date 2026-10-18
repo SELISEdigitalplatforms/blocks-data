@@ -47,6 +47,7 @@ function renderDrawer(
         fieldName="email"
         schemaId="s1"
         projectKey="pk"
+        fieldType="String"
         initialValidationData={initialValidationData as never}
         open
         onOpenChange={vi.fn()}

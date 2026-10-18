@@ -32,6 +32,8 @@ export function SchemaFieldValidationDrawer({
   schemaId,
   projectKey,
   initialValidationData,
+  fieldType,
+  enumValues,
   trigger,
   open,
   onOpenChange,
@@ -71,6 +73,8 @@ export function SchemaFieldValidationDrawer({
           schemaId={schemaId}
           projectKey={projectKey}
           initialValidationData={initialValidationData}
+          fieldType={fieldType}
+          enumValues={enumValues}
         />
       </DrawerContent>
     </Drawer>

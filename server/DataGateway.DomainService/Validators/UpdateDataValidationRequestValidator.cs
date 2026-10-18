@@ -34,5 +34,7 @@ public class UpdateDataValidationRequestValidator : DataValidationRequestValidat
 
         RuleForEach(x => x.Validations)
             .SetValidator(new ValidationRuleRequestValidator());
+
+        ValidateReferenceRules(x => x.SchemaId, x => x.FieldName, x => x.Validations);
     }
 }

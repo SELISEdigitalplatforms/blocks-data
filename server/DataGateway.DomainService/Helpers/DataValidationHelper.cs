@@ -93,6 +93,7 @@ public static class DataValidationHelper
             }
 
             var fieldType = fieldDefinition.Type;
+            var elements = fieldDefinition.IsArray ? AsElements(fieldValue) : null;
             foreach (var validation in fieldDefinition.ValidationRule.Validations)
             {
                 if (!validation.IsActive)
@@ -100,12 +101,60 @@ public static class DataValidationHelper
                     continue;
                 }
 
-                var error = ValidateField(fieldPath, fieldValue, fieldType, validation);
-                if (error is not null)
+                // Rules saved before EvaluationVersion existed (0) keep checking the list as a whole, as they always did.
+                if (elements is null || validation.EvaluationVersion < 1)
                 {
-                    result.Errors.Add(error);
+                    AddIfInvalid(result, ValidateField(fieldPath, fieldValue, fieldType, validation));
+                }
+                else
+                {
+                    ValidateElements(result, fieldPath, elements, fieldType, validation);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// For a version-1 rule, a list of plain values is checked element by element (path <c>Field[i]</c>),
+    /// so e.g. a max length applies to each tag rather than to the list's text. Not empty means the list
+    /// has at least one item; null elements are skipped.
+    /// </summary>
+    private static void ValidateElements(
+        DataValidationResult result,
+        string fieldPath,
+        List<object?> elements,
+        string fieldType,
+        ValidationRule validation)
+    {
+        if (validation.Type == ValidationType.NotEmpty)
+        {
+            if (elements.Count == 0)
+            {
+                var message = string.IsNullOrWhiteSpace(validation.ErrorMessage)
+                    ? $"Field '{fieldPath}' cannot be empty." : validation.ErrorMessage;
+                result.Errors.Add(new ValidationError { FieldName = fieldPath, Message = message, ValidationType = nameof(ValidationType.NotEmpty) });
+            }
+            return;
+        }
+
+        for (var index = 0; index < elements.Count; index++)
+        {
+            if (elements[index] is not null)
+            {
+                AddIfInvalid(result, ValidateField($"{fieldPath}[{index}]", elements[index], fieldType, validation));
+            }
+        }
+    }
+
+    /// <summary>The elements of a list value, or null when the value is not a list (or is a string).</summary>
+    internal static List<object?>? AsElements(object? value) =>
+        value is System.Collections.IEnumerable list and not string ? list.Cast<object?>().ToList() : null;
+
+    private static void AddIfInvalid(DataValidationResult result, ValidationError? error)
+    {
+        if (error is not null)
+        {
+            result.Errors.Add(error);
         }
     }
 
@@ -136,6 +185,8 @@ public static class DataValidationHelper
             ValidationType.GreaterThanOrEqual => ValidateComparison(fieldName, fieldValue, validation.Value, fieldType, ComparisonType.GreaterThanOrEqual, errorMessage),
             ValidationType.LessThanOrEqual => ValidateComparison(fieldName, fieldValue, validation.Value, fieldType, ComparisonType.LessThanOrEqual, errorMessage),
             ValidationType.Range => ValidateRange(fieldName, fieldValue, validation.Value, validation.SecondaryValue, fieldType, errorMessage),
+            // Needs the target schema's data, so it runs as its own async step in MutationService.
+            ValidationType.Reference => null,
             _ => null
         };
     }

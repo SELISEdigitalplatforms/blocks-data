@@ -1,0 +1,187 @@
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { TooltipProvider } from "@/components/ui-kits/tooltip/tooltip";
+
+const createValidation = vi.fn();
+const updateValidation = vi.fn();
+const deleteValidation = vi.fn();
+
+const schemaList = {
+  items: [
+    {
+      id: "dep",
+      schemaName: "Department",
+      schemaType: 1,
+      fields: [
+        { name: "ItemId", type: "String", isArray: false },
+        { name: "Code", type: "String", isArray: false },
+        { name: "Budget", type: "Float", isArray: false },
+      ],
+    },
+  ],
+};
+const useSchemaList = vi.fn((_: unknown) => ({ data: { data: schemaList }, isLoading: false }));
+
+vi.mock("../../hooks/use-configuration", () => ({
+  useGetSchemaFieldValidation: () => ({ data: undefined, isLoading: false, isFetching: false }),
+  useCreateSchemaFieldValidation: () => ({ mutateAsync: createValidation, isPending: false }),
+  useUpdateSchemaFieldValidation: () => ({ mutateAsync: updateValidation, isPending: false }),
+  useDeleteSchemaFieldValidation: () => ({ mutateAsync: deleteValidation, isPending: false }),
+  useGenerateRegex: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSchemaList: (payload: unknown) => useSchemaList(payload),
+}));
+
+vi.mock("@/hooks/use-toast", () => ({ showErrorToast: vi.fn(), showSuccessToast: vi.fn() }));
+
+import { SchemaFieldValidationPanel } from "./schema-field-validation-panel";
+
+const notEmpty = { type: 0, value: null, secondaryValue: null, errorMessage: "", isActive: true };
+const maxLength = { type: 3, value: 50, secondaryValue: null, errorMessage: "Too long", isActive: true };
+
+function renderPanel(fieldType: string, validations: unknown[] | null, extra: { enumValues?: string[] } = {}) {
+  render(
+    <TooltipProvider>
+      <SchemaFieldValidationPanel
+        fieldName="DepartmentId"
+        schemaId="emp"
+        projectKey="pk"
+        fieldType={fieldType}
+        enumValues={extra.enumValues}
+        initialValidationData={(validations ? { itemId: "v1", validations } : null) as never}
+      />
+    </TooltipProvider>,
+  );
+}
+
+async function chooseRuleType(user: ReturnType<typeof userEvent.setup>, label: string) {
+  await user.click(screen.getByRole("combobox", { name: "Rule type" }));
+  await user.click(await screen.findByRole("option", { name: label }));
+}
+
+async function ruleTypeOptions(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("combobox", { name: "Rule type" }));
+  const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+  await user.keyboard("{Escape}");
+  return options;
+}
+
+describe("SchemaFieldValidationPanel: rule types and several rules", () => {
+  beforeAll(() => {
+    // Radix Select uses pointer capture, which jsdom does not implement.
+    Element.prototype.hasPointerCapture ??= () => false;
+    Element.prototype.releasePointerCapture ??= () => {};
+  });
+
+  beforeEach(() => {
+    createValidation.mockReset().mockResolvedValue({ isSuccess: true });
+    updateValidation.mockReset().mockResolvedValue({ isSuccess: true });
+    deleteValidation.mockReset().mockResolvedValue({ isSuccess: true });
+  });
+
+  it("offers the rule types that fit the property's type", async () => {
+    const user = userEvent.setup();
+    renderPanel("Boolean", null);
+    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+
+    expect(await ruleTypeOptions(user)).toEqual(["Not empty", "Equal", "Not equal"]);
+  });
+
+  it("lists each saved rule with its type and a readable summary", () => {
+    renderPanel("String", [notEmpty, maxLength]);
+
+    expect(screen.getByText("Not empty")).toBeInTheDocument();
+    expect(screen.getByText("Must not be empty")).toBeInTheDocument();
+    expect(screen.getByText("Max length")).toBeInTheDocument();
+    expect(screen.getByText("At most 50 characters")).toBeInTheDocument();
+  });
+
+  it("adds another rule after the existing ones, sending lengths as numbers", async () => {
+    const user = userEvent.setup();
+    renderPanel("String", [notEmpty]);
+
+    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    await chooseRuleType(user, "Min length");
+    await user.type(screen.getByLabelText("Length"), "3");
+    await user.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() =>
+      expect(updateValidation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          itemId: "v1",
+          // The existing rule is sent back untouched (no version added); only the new one is version 1.
+          validations: [notEmpty, expect.objectContaining({ type: 2, value: 3, secondaryValue: null, evaluationVersion: 1 })],
+        }),
+      ),
+    );
+    expect(createValidation).not.toHaveBeenCalled();
+  });
+
+  it("refuses a range whose min is above its max", async () => {
+    const user = userEvent.setup();
+    renderPanel("Int", null);
+
+    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    await chooseRuleType(user, "Range");
+    await user.type(screen.getByLabelText("Min"), "10");
+    await user.type(screen.getByLabelText("Max"), "1");
+
+    expect(screen.getByText("Min must be ≤ max")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
+  });
+
+  it("deleting one of two rules keeps the other; deleting the last removes the validation", async () => {
+    const user = userEvent.setup();
+    renderPanel("String", [notEmpty, maxLength]);
+
+    await user.click(document.querySelectorAll("svg.lucide-trash")[0].closest("button")!);
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(updateValidation).toHaveBeenCalledWith(expect.objectContaining({ validations: [maxLength] })),
+    );
+    expect(deleteValidation).not.toHaveBeenCalled();
+  });
+
+  it("deleting the only rule deletes the field's validation", async () => {
+    const user = userEvent.setup();
+    renderPanel("String", [notEmpty]);
+
+    await user.click(document.querySelector("svg.lucide-trash")!.closest("button")!);
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+
+    await waitFor(() => expect(deleteValidation).toHaveBeenCalledWith(expect.objectContaining({ id: "v1" })));
+    expect(updateValidation).not.toHaveBeenCalled();
+  });
+
+  it("picks a Reference target among Entity schemas, defaulting to ItemId", async () => {
+    const user = userEvent.setup();
+    renderPanel("String", null);
+
+    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    await chooseRuleType(user, "Reference");
+    await user.click(screen.getByRole("combobox", { name: "Target schema" }));
+    await user.click(await screen.findByRole("option", { name: "Department" }));
+
+    // Only Entity schemas are searched, and the field list keeps to text fields plus ItemId.
+    expect(useSchemaList).toHaveBeenCalledWith(expect.objectContaining({ schemaType: "1", projectKey: "pk" }));
+    expect(within(screen.getByRole("combobox", { name: "Target field" })).getByText("ItemId")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Add" }));
+    await waitFor(() =>
+      expect(createValidation).toHaveBeenCalledWith(
+        expect.objectContaining({
+          validations: [expect.objectContaining({ type: 12, value: "Department", secondaryValue: "ItemId" })],
+        }),
+      ),
+    );
+  });
+
+  it("offers Reference only once per field", async () => {
+    const user = userEvent.setup();
+    renderPanel("String", [{ type: 12, value: "Department", secondaryValue: "ItemId", errorMessage: "", isActive: true }]);
+
+    expect(screen.getByText("Must exist in Department.ItemId")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    expect(await ruleTypeOptions(user)).not.toContain("Reference");
+  });
+});

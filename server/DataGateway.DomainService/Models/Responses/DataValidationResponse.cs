@@ -68,4 +68,7 @@ public class ValidationRuleResponse
     /// Whether this validation is active
     /// </summary>
     public bool IsActive { get; set; }
+
+    /// <summary>0: rules as they always were; 1: list properties are checked item by item.</summary>
+    public int EvaluationVersion { get; set; }
 }

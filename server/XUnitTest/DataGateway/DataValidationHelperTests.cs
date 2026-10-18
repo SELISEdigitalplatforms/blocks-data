@@ -256,4 +256,91 @@ public class DataValidationHelperTests
         result.IsValid.Should().BeFalse();
         result.ErrorMessage.Should().Contain("err-a").And.Contain("err-b");
     }
+
+    /// <summary>A list property whose rules were saved with EvaluationVersion 1 (item by item).</summary>
+    private static FieldDefinitionResponse ListField(string name, string type, params ValidationRule[] rules)
+    {
+        foreach (var rule in rules) rule.EvaluationVersion = 1;
+        var f = FieldWithValidations(name, type, rules);
+        f.IsArray = true;
+        return f;
+    }
+
+    [Fact]
+    public void Validate_PrimitiveList_VersionZeroRule_KeepsCheckingTheListAsAWhole()
+    {
+        // Rules saved before EvaluationVersion existed must behave exactly as in production today:
+        // the list is checked as its text ("System.Collections.Generic.List`1[...]"), not item by item.
+        var legacy = new ValidationRule { Type = ValidationType.MaxLength, Value = 50 };
+        var field = FieldWithValidations("Tags", "String", legacy);
+        field.IsArray = true;
+        var schema = Schema(fields: new() { field });
+        var longTag = new string('x', 60);
+
+        new Dictionary<string, object?> { ["Tags"] = new List<object?> { longTag } }.Validate(schema).IsValid
+            .Should().BeTrue("the list's text is shorter than 50, which is what a version-0 rule has always measured");
+
+        var notEmpty = FieldWithValidations("Labels", "String", new ValidationRule { Type = ValidationType.NotEmpty });
+        notEmpty.IsArray = true;
+        new Dictionary<string, object?> { ["Labels"] = new List<object?>() }.Validate(Schema(fields: new() { notEmpty })).IsValid
+            .Should().BeTrue("an empty list has never failed a version-0 Not empty rule");
+    }
+
+    [Fact]
+    public void Validate_PrimitiveList_ChecksEachElement()
+    {
+        var schema = Schema(fields: new() { ListField("Tags", "String", V(ValidationType.MaxLength, 5)) });
+        var input = new Dictionary<string, object?> { ["Tags"] = new List<object?> { "ok", "waytoolong", null, "fine" } };
+
+        var result = input.Validate(schema);
+
+        // Only the long element fails; null elements are skipped.
+        result.Errors.Should().ContainSingle();
+        result.Errors[0].FieldName.Should().Be("Tags[1]");
+        result.Errors[0].ValidationType.Should().Be(nameof(ValidationType.MaxLength));
+    }
+
+    [Fact]
+    public void Validate_PrimitiveList_NotEmpty_MeansAtLeastOneItem()
+    {
+        var schema = Schema(fields: new() { ListField("Tags", "String", V(ValidationType.NotEmpty, msg: "Add a tag")) });
+
+        new Dictionary<string, object?> { ["Tags"] = new List<object?>() }.Validate(schema).Errors
+            .Should().ContainSingle().Which.Message.Should().Be("Add a tag");
+        new Dictionary<string, object?> { ["Tags"] = new List<object?> { "a" } }.Validate(schema).IsValid.Should().BeTrue();
+        new Dictionary<string, object?> { ["Tags"] = null }.Validate(schema).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Validate_PrimitiveList_RangeOnNumbers()
+    {
+        var schema = Schema(fields: new() { ListField("Scores", "Int", V(ValidationType.Range, 1, 10)) });
+        var input = new Dictionary<string, object?> { ["Scores"] = new List<object?> { 1, 11, 5 } };
+
+        input.Validate(schema).Errors.Should().ContainSingle().Which.FieldName.Should().Be("Scores[1]");
+    }
+
+    [Fact]
+    public void Validate_Reference_IsLeftToTheMutationStep()
+    {
+        // The existence check needs the target's data, so this synchronous pass never fails on it.
+        var schema = Schema(fields: new() { FieldWithValidations("DepartmentId", "String", V(ValidationType.Reference, "Department", "ItemId")) });
+
+        new Dictionary<string, object?> { ["DepartmentId"] = "does-not-exist" }.Validate(schema).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Validate_SeveralBrokenRules_AreAllReportedTogether()
+    {
+        var schema = Schema(fields: new()
+        {
+            FieldWithValidations("Username", "String",
+                V(ValidationType.MinLength, 3), V(ValidationType.MaxLength, 20), V(ValidationType.Regex, "^[a-z0-9_]+$")),
+        });
+
+        var result = new Dictionary<string, object?> { ["Username"] = "Ab" }.Validate(schema);
+
+        result.Errors.Select(e => e.ValidationType).Should().BeEquivalentTo(
+            [nameof(ValidationType.MinLength), nameof(ValidationType.Regex)]);
+    }
 }

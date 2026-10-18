@@ -117,6 +117,22 @@ public class GqlDbRepository : IGqlDbRepository
         return await collection.CountDocumentsAsync(filter);
     }
 
+    public async Task<List<BsonValue>> GetDistinctValuesAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values)
+    {
+        // Chunked so a large bulk insert never builds one oversized $in.
+        const int chunkSize = 5000;
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
+        var found = new List<BsonValue>();
+        foreach (var chunk in values.Chunk(chunkSize))
+        {
+            var filter = Builders<BsonDocument>.Filter.In(fieldName, chunk);
+            using var cursor = await collection.DistinctAsync<BsonValue>(fieldName, filter);
+            found.AddRange(await cursor.ToListAsync());
+        }
+        return found;
+    }
+
     public async Task<(List<BsonDocument> items, long count)> GetItemsWithCountAsync(string collectionName,
         FilterDefinition<BsonDocument> filter,
         BsonDocument? sort = null,

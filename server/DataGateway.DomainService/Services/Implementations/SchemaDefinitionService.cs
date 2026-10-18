@@ -91,12 +91,14 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
 
+        var previousSchemaName = schema.SchemaName;
         schema.CollectionName = request.CollectionName;
         schema.SchemaName = request.SchemaName;
         schema.SchemaType = request.SchemaType;
         schema.InjectDefaultValue();
 
         var result = await _repository.UpdateAsync(schema);
+        await RenameReferenceTargetsAsync(previousSchemaName, schema.SchemaName);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaUpdate);
         _logger.LogInformation("Schema updated: {SchemaName}", schema.SchemaName);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = result.ItemId });
@@ -401,6 +403,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
 
         var previousGeoJsonFieldNames = schema.Fields.Where(IsGeoIndexed).Select(f => f.Name).ToHashSet();
+        var previousSchemaName = schema.SchemaName;
 
         schema.CollectionName = request.CollectionName;
         schema.Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, EnumValues = f.EnumValues ?? [], IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description, RequiredOn = f.RequiredOn }).ToList() ?? [];
@@ -412,6 +415,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
         var result = await _repository.UpdateAsync(schema);
+        await RenameReferenceTargetsAsync(previousSchemaName, schema.SchemaName);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaUpdate);
         await ReconcileGeoJsonFieldIndexesAsync(schema, previousGeoJsonFieldNames);
         await _referenceHelper.ApplyChangesToReferenceEntityFields(schema);
@@ -571,6 +575,38 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
     // A tenant schema must never point the gateway at a system entity's collection (Users, Roles, ...).
     // Case-insensitive, Entity schemas only (a Dto has no backing collection).
+    /// <summary>
+    /// Reference rules name the schema they point at, so a rename carries them over; otherwise the next
+    /// publish would fail because the old name no longer exists.
+    /// </summary>
+    private async Task RenameReferenceTargetsAsync(string previousName, string newName)
+    {
+        if (string.Equals(previousName, newName, StringComparison.Ordinal))
+            return;
+
+        var filter = new BsonDocument
+        {
+            { nameof(DataValidation.IsDeleted), false },
+            { nameof(DataValidation.Validations), new BsonDocument("$elemMatch", new BsonDocument
+                {
+                    { nameof(ValidationRule.Type), nameof(ValidationType.Reference) },
+                    { nameof(ValidationRule.Value), previousName },
+                }) },
+        };
+        var validations = await _repository.GetItemsAsync<DataValidation, DataValidation>(filter);
+        if (validations is null || validations.Count == 0)
+            return;
+
+        foreach (var rule in validations.SelectMany(v => v.Validations)
+                     .Where(r => r.Type == ValidationType.Reference && ReferenceTargets.TargetSchemaName(r) == previousName))
+        {
+            rule.Value = newName;
+        }
+        await _repository.UpdateManyAsync(validations);
+        _logger.LogInformation("Reference validations on {Count} fields now point at {NewName} (was {PreviousName})",
+            validations.Count, newName, previousName);
+    }
+
     private async Task<bool> IsSystemCollectionNameAsync(string? collectionName, SchemaType schemaType)
     {
         if (schemaType != SchemaType.Entity || string.IsNullOrWhiteSpace(collectionName))

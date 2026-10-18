@@ -151,6 +151,47 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
+    public async Task UpdateSchema_Rename_CarriesReferenceRulesToTheNewName()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Department" });
+        NameIsUnique();
+        var pointing = new DataValidation
+        {
+            ItemId = "v1",
+            FieldName = "DepartmentId",
+            Validations =
+            [
+                new ValidationRule { Type = ValidationType.NotEmpty },
+                new ValidationRule { Type = ValidationType.Reference, Value = "Department", SecondaryValue = "ItemId" },
+                new ValidationRule { Type = ValidationType.Reference, Value = "Skill" },
+            ],
+        };
+        _repo.Setup(r => r.GetItemsAsync<DataValidation, DataValidation>(It.IsAny<FilterDefinition<DataValidation>>(), null, ""))
+            .ReturnsAsync([pointing]);
+        List<DataValidation>? saved = null;
+        _repo.Setup(r => r.UpdateManyAsync(It.IsAny<List<DataValidation>>(), ""))
+            .Callback((List<DataValidation> list, string _) => saved = list)
+            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+
+        await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "Dept", CollectionName = "Departments", SchemaType = SchemaType.Entity });
+
+        // Only the rule that named the old schema changes.
+        saved.Should().ContainSingle();
+        saved![0].Validations.Select(r => r.Value as string).Should().Equal(null, "Dept", "Skill");
+    }
+
+    [Fact]
+    public async Task UpdateSchema_SameName_DoesNotTouchValidations()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Department" });
+        NameIsUnique();
+
+        await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "Department", CollectionName = "Depts", SchemaType = SchemaType.Entity });
+
+        _repo.Verify(r => r.GetItemsAsync<DataValidation, DataValidation>(It.IsAny<FilterDefinition<DataValidation>>(), It.IsAny<SortDefinition<DataValidation>?>(), ""), Times.Never);
+    }
+
+    [Fact]
     public async Task UpdateSchema_RenameToNameUsedByAnotherSchema_Returns400()
     {
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Old" });

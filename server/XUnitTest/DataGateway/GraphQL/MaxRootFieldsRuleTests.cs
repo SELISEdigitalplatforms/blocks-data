@@ -1,3 +1,4 @@
+using DataGateway.DomainService.Helpers;
 using Blocks.Genesis;
 using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis.Entities.Data;
@@ -151,7 +152,7 @@ public class MaxRootFieldsRuleTests
         query.Setup(q => q.GetDataAsync(It.IsAny<IResolverContext>(), It.IsAny<SchemaDefinitionExtended>()))
             .ReturnsAsync(() => { Interlocked.Increment(ref _queryCalls); return new QueryResponse<Dictionary<string, object>>(); });
         var mutation = new Mock<IMutationService>();
-        mutation.Setup(m => m.InsertAsync(It.IsAny<SchemaDefinitionExtended>(), It.IsAny<IResolverContext>(), It.IsAny<InputObjectType>()))
+        mutation.Setup(m => m.InsertAsync(It.IsAny<SchemaDefinitionExtended>(), It.IsAny<IResolverContext>(), It.IsAny<InputObjectType>(), It.IsAny<ReferenceTargets?>()))
             .ReturnsAsync(() => { Interlocked.Increment(ref _mutationCalls); return new ActionResponse { Acknowledged = true }; });
         var schemaBuilder = new GraphqlSchemaBuilder(
             new SchemaResolver(mutation.Object, query.Object), _repo, NullLogger<GraphqlSchemaBuilder>.Instance);

@@ -106,6 +106,7 @@ public static class SchemaExportMapping
         Value = rule.Value,
         SecondaryValue = rule.SecondaryValue,
         ErrorMessage = rule.ErrorMessage,
-        IsActive = rule.IsActive
+        IsActive = rule.IsActive,
+        EvaluationVersion = rule.EvaluationVersion
     };
 }

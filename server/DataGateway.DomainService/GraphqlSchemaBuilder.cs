@@ -41,8 +41,10 @@ public class GraphqlSchemaBuilder
     /// Adds the types built from <paramref name="source"/> (drafts or a published snapshot) to
     /// <paramref name="schemaBuilder"/>. Returns false when the source has no schema definitions,
     /// in which case nothing is added. The source's definitions may be modified while building.
+    /// With <paramref name="strictReferences"/> (a publish), a Reference rule whose target schema or
+    /// field is missing fails the build; otherwise it is logged and left unchecked.
     /// </summary>
-    public bool BuildSchema(string tenantId, SchemaSource source, ISchemaBuilder schemaBuilder)
+    public bool BuildSchema(string tenantId, SchemaSource source, ISchemaBuilder schemaBuilder, bool strictReferences = false)
     {
         try
         {
@@ -90,7 +92,8 @@ public class GraphqlSchemaBuilder
             BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes, childFilterInputTypes);
 
             var queryType = BuildQueryType(dbSchemas, outputTypes, entityFilterInputTypes);
-            var mutationType = BuildMutationType(dbSchemas, insertInputTypes, updateInputTypes, deleteInputTypes, entityFilterInputTypes);
+            var references = ReferenceTargets.Build(schemas, strictReferences, _logger);
+            var mutationType = BuildMutationType(dbSchemas, insertInputTypes, updateInputTypes, deleteInputTypes, entityFilterInputTypes, references);
 
             schemaBuilder.AddQueryType(queryType);
             schemaBuilder.AddMutationType(mutationType);
@@ -432,7 +435,8 @@ public class GraphqlSchemaBuilder
         Dictionary<string, InsertInputType> insertInputTypes,
         Dictionary<string, UpdateInputType> updateInputTypes,
         Dictionary<string, DeleteInputType> deleteInputTypes,
-        Dictionary<string, EntityFilterInputType> entityFilterInputTypes)
+        Dictionary<string, EntityFilterInputType> entityFilterInputTypes,
+        ReferenceTargets references)
     {
         return new ObjectType(descriptor =>
         {
@@ -441,10 +445,10 @@ public class GraphqlSchemaBuilder
             foreach (var schema in schemas)
             {
                 var schemaName = schema.GetSchemaNameForProject();
-                _schemaResolver.ResolveInsertSchema(descriptor, schema, insertInputTypes[schemaName]);
-                _schemaResolver.ResolveBulkInsertSchema(descriptor, schema, insertInputTypes[schemaName]);
-                _schemaResolver.ResolveUpdateSchema(descriptor, schema, updateInputTypes[schemaName], entityFilterInputTypes[schemaName]);
-                _schemaResolver.ResolveBulkUpdateSchema(descriptor, schema, updateInputTypes[schemaName], entityFilterInputTypes[schemaName]);
+                _schemaResolver.ResolveInsertSchema(descriptor, schema, insertInputTypes[schemaName], references);
+                _schemaResolver.ResolveBulkInsertSchema(descriptor, schema, insertInputTypes[schemaName], references);
+                _schemaResolver.ResolveUpdateSchema(descriptor, schema, updateInputTypes[schemaName], entityFilterInputTypes[schemaName], references);
+                _schemaResolver.ResolveBulkUpdateSchema(descriptor, schema, updateInputTypes[schemaName], entityFilterInputTypes[schemaName], references);
                 _schemaResolver.ResolveDeleteSchema(descriptor, schema, deleteInputTypes[schemaName], entityFilterInputTypes[schemaName]);
                 _schemaResolver.ResolveBulkDeleteSchema(descriptor, schema, deleteInputTypes[schemaName], entityFilterInputTypes[schemaName]);
             }

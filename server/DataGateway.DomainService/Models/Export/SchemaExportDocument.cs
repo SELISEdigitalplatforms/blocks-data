@@ -56,4 +56,6 @@ public class ExportValidationRule
     public object? SecondaryValue { get; set; }
     public string? ErrorMessage { get; set; }
     public bool IsActive { get; set; }
+    /// <summary>Missing in files exported before it existed, which import as 0 (rules as they always were).</summary>
+    public int EvaluationVersion { get; set; }
 }

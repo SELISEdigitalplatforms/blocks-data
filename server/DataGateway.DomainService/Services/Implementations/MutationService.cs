@@ -52,7 +52,8 @@ public class MutationService : IMutationService
     public async Task<ActionResponse> InsertAsync(
         SchemaDefinitionExtended schema,
         IResolverContext context,
-        InputObjectType inputType)
+        InputObjectType inputType,
+        ReferenceTargets? references = null)
     {
         var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
         gatewayOperation.SchemaName = context.Selection.Field.Name;
@@ -62,6 +63,7 @@ public class MutationService : IMutationService
         PrepareMutation(schema, PolicyOperation.WRITE, OperationLabelCreate);
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
         ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
+        await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelCreate);
         await ValidateUniquenessOrThrowAsync(schema, [input], null, OperationLabelCreate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.WRITE, OperationLabelCreate);
         input.InjectDefaultValueOnInsert();
@@ -95,7 +97,8 @@ public class MutationService : IMutationService
     public async Task<ActionResponse> UpdateAsync(
         SchemaDefinitionExtended schema,
         IResolverContext context,
-        InputObjectType inputType)
+        InputObjectType inputType,
+        ReferenceTargets? references = null)
     {
         var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
         gatewayOperation.SchemaName = context.Selection.Field.Name;
@@ -110,6 +113,7 @@ public class MutationService : IMutationService
 
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
         ValidateMutationInputOrThrow(input, schema, OperationLabelUpdate);
+        await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelUpdate);
         var currentId = existingDocument[GraphQlConstant.DbEntityIdFieldName]?.ToString();
         await ValidateUniquenessOrThrowAsync(schema, [input], currentId is not null ? [currentId] : null, OperationLabelUpdate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.EDIT, OperationLabelUpdate);
@@ -286,7 +290,8 @@ public class MutationService : IMutationService
     public async Task<BulkActionResponse> BulkInsertAsync(
         SchemaDefinitionExtended schema,
         IResolverContext context,
-        InputObjectType inputType)
+        InputObjectType inputType,
+        ReferenceTargets? references = null)
     {
         var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
         gatewayOperation.SchemaName = context.Selection.Field.Name;
@@ -302,6 +307,7 @@ public class MutationService : IMutationService
         foreach (var input in inputs)
             ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
 
+        await ValidateReferencesOrThrowAsync(schema, inputs, references, OperationLabelCreate);
         await ValidateUniquenessOrThrowAsync(schema, inputs, null, OperationLabelCreate);
 
         var documents = new List<BsonDocument>();
@@ -340,7 +346,8 @@ public class MutationService : IMutationService
     public async Task<ActionResponse> BulkUpdateAsync(
         SchemaDefinitionExtended schema,
         IResolverContext context,
-        InputObjectType inputType)
+        InputObjectType inputType,
+        ReferenceTargets? references = null)
     {
         var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
         gatewayOperation.SchemaName = context.Selection.Field.Name;
@@ -357,6 +364,7 @@ public class MutationService : IMutationService
 
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
         ValidateMutationInputOrThrow(input, schema, OperationLabelUpdate);
+        await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelUpdate);
         var existingIds = existingDocuments
             .Select(d => d[GraphQlConstant.DbEntityIdFieldName]?.ToString())
             .OfType<string>()
@@ -399,6 +407,72 @@ public class MutationService : IMutationService
 
         return response;
     }
+
+    /// <summary>
+    /// Reference rules: every value sent to such a field (each element, for a list) must exist in the target
+    /// schema's data. One distinct query per target collection and field, whatever the number of inputs.
+    /// The caller's access to the target schema is not applied: this is an existence check, like a foreign key.
+    /// In a batch, ItemIds supplied by the batch itself count as existing (rows may point at each other).
+    /// </summary>
+    private async Task ValidateReferencesOrThrowAsync(
+        SchemaDefinitionExtended schema,
+        IReadOnlyList<Dictionary<string, object?>> inputs,
+        ReferenceTargets? references,
+        string operationLabel)
+    {
+        const int maxErrors = 50;
+        if (references is null || !references.HasReferences(schema)) return;
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Validation);
+
+        var values = ReferenceValueCollector.Collect(inputs, schema, references);
+        if (values.Count == 0) return;
+
+        // Parsed input already carries a supplied ItemId as _id.
+        var batchIds = inputs
+            .Select(input => input.TryGetValue(GraphQlConstant.DbEntityIdFieldName, out var id) ? id?.ToString() : null)
+            .OfType<string>()
+            .ToHashSet(StringComparer.Ordinal);
+
+        var result = new DataValidationResult();
+        foreach (var group in values.GroupBy(v => (v.Target.CollectionName, v.Target.DbFieldName)))
+        {
+            var requested = group.Select(v => BsonValue.Create(v.Value)).Distinct().ToList();
+            var existing = await _repository.GetDistinctValuesAsync(group.Key.CollectionName, group.Key.DbFieldName, requested);
+            var present = existing.Select(ReferenceKey).ToHashSet(StringComparer.Ordinal);
+
+            foreach (var value in group)
+            {
+                if (present.Contains(ReferenceKey(BsonValue.Create(value.Value)))) continue;
+                if (IsSuppliedByBatch(schema, value, batchIds)) continue;
+                if (result.Errors.Count >= maxErrors) break;
+
+                var itemPrefix = inputs.Count > 1 ? $"Item {value.InputIndex}: " : string.Empty;
+                var message = string.IsNullOrWhiteSpace(value.Rule.ErrorMessage)
+                    ? $"Value '{value.Value}' of {schema.SchemaName}.{value.Path} was not found in {value.Target.SchemaName}.{value.Target.FieldName}."
+                    : value.Rule.ErrorMessage;
+                result.AddError(value.Path, itemPrefix + message, nameof(ValidationType.Reference));
+            }
+        }
+
+        if (!result.IsValid)
+        {
+            _logger.LogWarning("Reference validation failed for {Op} on schema {SchemaName}: {Errors}",
+                operationLabel, schema.SchemaName, result.ErrorMessage);
+            MutationValidationHelper.ThrowValidationError(result);
+        }
+    }
+
+    private static bool IsSuppliedByBatch(SchemaDefinitionExtended schema, ReferenceValue value, HashSet<string> batchIds) =>
+        batchIds.Count > 0
+        && value.Target.CollectionName == schema.CollectionName
+        && value.Target.DbFieldName == GraphQlConstant.DbEntityIdFieldName
+        && value.Value.ToString() is { } id && batchIds.Contains(id);
+
+    /// <summary>Compares numbers by value (Int 3 matches Float 3.0, as Mongo's $in does) and everything else by its text.</summary>
+    private static string ReferenceKey(BsonValue value) =>
+        value.IsNumeric
+            ? "n:" + value.ToDouble().ToString("R", System.Globalization.CultureInfo.InvariantCulture)
+            : "s:" + (value.IsString ? value.AsString : value.ToString());
 
     /// <summary>
     /// For each unique field in the schema, queries the DB with $in to find which values already exist.

@@ -430,12 +430,21 @@ export interface IGetSchemaFieldValidationPayload {
   enabled?: boolean;
 }
 
+/** A rule's value: a pattern or text, a number (lengths, numeric bounds), or true/false. */
+export type ValidationRuleValue = string | number | boolean | null;
+
 export interface ISchemaFieldValidation {
+  /** ValidationType number; see VALIDATION_TYPE in utils/validation-rules.util. */
   type: number;
-  value: string;
-  secondaryValue: string;
+  value: ValidationRuleValue;
+  secondaryValue: ValidationRuleValue;
   errorMessage: string;
   isActive: boolean;
+  /**
+   * 0 or missing: the rule behaves as rules always have (a list property is checked as a whole).
+   * 1: a list property is checked item by item. Rules added or edited here are saved as 1.
+   */
+  evaluationVersion?: number;
 }
 
 export interface ISchemaFieldValidationData {

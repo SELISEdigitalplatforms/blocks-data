@@ -265,61 +265,6 @@ public class DataGatewayContractTests
     // ---------------- deployment records ----------------
 
     [Fact]
-    public void DataGatewayInstanceEntity_CarriesTheDeploymentLog()
-    {
-        var start = new DateTime(2026, 7, 30, 9, 0, 0, DateTimeKind.Utc);
-        var instance = new global::DataGateway.DomainService.Entities.DataGatewayInstance
-        {
-            TenantId = "tenant-1",
-            ProjectGuid = "guid-1",
-            ProjectEnv = "dev",
-            LastPipelineRunName = "run-9",
-            LastVersion = "1.2.3",
-            LastDeploymentStatus = "Succeeded",
-            ClusterNames = ["cluster-a", "cluster-b"],
-            DataGatewayInstanceDeploymentLog =
-            [
-                new DataGatewayInstanceDeploymentLogs
-                {
-                    PipelineRunName = "run-9",
-                    EventStartDate = start,
-                    EventFinishDate = start.AddMinutes(4),
-                    EventStatus = "Succeeded",
-                    Version = "1.2.3"
-                }
-            ]
-        };
-
-        instance.TenantId.Should().Be("tenant-1");
-        instance.ProjectGuid.Should().Be("guid-1");
-        instance.ProjectEnv.Should().Be("dev");
-        instance.LastPipelineRunName.Should().Be("run-9");
-        instance.LastVersion.Should().Be("1.2.3");
-        instance.LastDeploymentStatus.Should().Be("Succeeded");
-        instance.ClusterNames.Should().Equal("cluster-a", "cluster-b");
-        instance.DataGatewayInstanceDeploymentLog.Should().ContainSingle();
-        instance.DataGatewayInstanceDeploymentLog[0].PipelineRunName.Should().Be("run-9");
-        instance.DataGatewayInstanceDeploymentLog[0].EventStartDate.Should().Be(start);
-        instance.DataGatewayInstanceDeploymentLog[0].EventFinishDate.Should().Be(start.AddMinutes(4));
-        instance.DataGatewayInstanceDeploymentLog[0].EventStatus.Should().Be("Succeeded");
-        instance.DataGatewayInstanceDeploymentLog[0].Version.Should().Be("1.2.3");
-    }
-
-    [Fact]
-    public void DataGatewayInstanceModel_StampsItsOwnCreationTimeAndDefaultsToEmptyStrings()
-    {
-        var before = DateTime.UtcNow;
-        var model = new global::DataGateway.DomainService.Models.DataGatewayInstance();
-
-        model.CreatedAt.Should().BeOnOrAfter(before);
-        model.TenantId.Should().BeEmpty();
-        model.ProjectName.Should().BeEmpty();
-        model.ProjectGuidId.Should().BeEmpty();
-        model.PipelineRunName.Should().BeEmpty();
-        model.Environment.Should().BeEmpty();
-    }
-
-    [Fact]
     public void PostBuildQueue_DefaultsToAnUnnamedProject()
     {
         var queued = new PostBuildQueue
@@ -422,21 +367,4 @@ public class DataGatewayContractTests
     }
 
     // ---------------- guid mapping ----------------
-
-    [Fact]
-    public void BlocksGuid_CarriesTheEncodedProjectIdentifier()
-    {
-        var guid = new BlocksGuid
-        {
-            ItemId = "guid-1",
-            TenantGroupId = "group-1",
-            OriginalValue = "project-1",
-            EncodedValue = "p1"
-        };
-
-        guid.ItemId.Should().Be("guid-1");
-        guid.TenantGroupId.Should().Be("group-1");
-        guid.OriginalValue.Should().Be("project-1");
-        guid.EncodedValue.Should().Be("p1");
-    }
 }

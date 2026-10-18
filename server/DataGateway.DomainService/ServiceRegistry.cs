@@ -40,7 +40,6 @@ public static class ServiceRegistry
     public static void RegisterSchemaServices(this IServiceCollection serviceCollection)
     {
         serviceCollection.AddSingleton<IDbRepository, DbRepository>();
-        serviceCollection.AddSingleton<IProjectService, ProjectService>();
         serviceCollection.AddSingleton<DataGatewayTokenAuthenticator>();
 
         serviceCollection.AddScoped<IDataGatewayConfigurationService, DataGatewayConfigurationService>();

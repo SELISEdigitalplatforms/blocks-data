@@ -13,7 +13,6 @@ namespace XUnitTest.Worker;
 
 public class MigrationCompletionEventConsumerTests
 {
-    private readonly Mock<IProjectService> _projectService = new();
     private readonly Mock<IDbRepository> _dbRepository = new();
     private readonly MigrationCompletionEventConsumer _consumer;
 
@@ -21,7 +20,6 @@ public class MigrationCompletionEventConsumerTests
     {
         _consumer = new MigrationCompletionEventConsumer(
             NullLogger<MigrationCompletionEventConsumer>.Instance,
-            _projectService.Object,
             _dbRepository.Object);
     }
 
@@ -59,20 +57,19 @@ public class MigrationCompletionEventConsumerTests
     {
         GivenTracker(Tracker());
         GivenUpdates(true, true);
-        _projectService.Setup(p => p.GetTenantSlugAsync("new-key")).ReturnsAsync("new-slug");
 
         await _consumer.Consume(Event());
 
         _dbRepository.Verify(r => r.UpdateManyAsync(
             "SchemaDefinitions",
             It.Is<BsonDocument>(f => f["ProjectKey"] == "old-key"),
-            It.Is<BsonDocument>(d => d["ProjectKey"] == "new-key" && d["ProjectShortKey"] == "new-slug"),
+            It.Is<BsonDocument>(d => d["ProjectKey"] == "new-key" && d["ProjectShortKey"] == ""),
             "new-key"), Times.Once);
 
         _dbRepository.Verify(r => r.UpdateManyAsync(
             "DataServiceConfigurations",
             It.Is<BsonDocument>(f => f["_id"] == "new-key" && f["ProjectKey"] == "old-key"),
-            It.Is<BsonDocument>(d => d["ProjectKey"] == "new-key" && d["ProjectShortKey"] == "new-slug"),
+            It.Is<BsonDocument>(d => d["ProjectKey"] == "new-key" && d["ProjectShortKey"] == ""),
             "BlocksRootDb"), Times.Once);
         _dbRepository.Verify(r => r.UpdateManyAsync(
             "DataServiceConfigurations", It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), "new-key"), Times.Never);
@@ -83,7 +80,6 @@ public class MigrationCompletionEventConsumerTests
     {
         GivenTracker(Tracker());
         GivenUpdates(true, true);
-        _projectService.Setup(p => p.GetTenantSlugAsync("new-key")).ReturnsAsync("new-slug");
         var order = new List<string>();
         _dbRepository
             .Setup(r => r.UpdateManyAsync("DataServiceConfigurations", It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), It.IsAny<string>()))
@@ -95,7 +91,7 @@ public class MigrationCompletionEventConsumerTests
         _dbRepository.Verify(r => r.UpdateManyAsync(
             "DataServiceConfigurations",
             It.Is<BsonDocument>(f => f.Contains("_id") && f["_id"] == "new-key" && f["ProjectKey"] == "old-key"),
-            It.Is<BsonDocument>(d => d["ProjectKey"] == "new-key" && d["ProjectShortKey"] == "new-slug"),
+            It.Is<BsonDocument>(d => d["ProjectKey"] == "new-key" && d["ProjectShortKey"] == ""),
             "BlocksRootDb"), Times.Once);
         order.Should().Equal("BlocksRootDb");
     }
@@ -105,7 +101,6 @@ public class MigrationCompletionEventConsumerTests
     {
         GivenTracker(Tracker());
         GivenUpdates(true, true);
-        _projectService.Setup(p => p.GetTenantSlugAsync(It.IsAny<string>())).ReturnsAsync("new-slug");
         _dbRepository
             .Setup(r => r.UpdateManyAsync("DataServiceConfigurations", It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), "BlocksRootDb"))
             .ReturnsAsync(new ActionResponse { Acknowledged = false });
@@ -132,7 +127,6 @@ public class MigrationCompletionEventConsumerTests
     {
         GivenTracker(Tracker());
         GivenUpdates(schemasAcknowledged: false, configurationsAcknowledged: true);
-        _projectService.Setup(p => p.GetTenantSlugAsync(It.IsAny<string>())).ReturnsAsync("new-slug");
 
         await _consumer.Consume(Event());
 
@@ -145,7 +139,6 @@ public class MigrationCompletionEventConsumerTests
     {
         GivenTracker(Tracker());
         GivenUpdates(schemasAcknowledged: true, configurationsAcknowledged: false);
-        _projectService.Setup(p => p.GetTenantSlugAsync(It.IsAny<string>())).ReturnsAsync("new-slug");
 
         var act = () => _consumer.Consume(Event());
 

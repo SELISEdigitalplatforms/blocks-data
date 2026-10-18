@@ -26,7 +26,6 @@ public class SchemaDefinitionServiceTests
 {
     private readonly Mock<IDbRepository> _repo = new();
     private readonly Mock<IRequestValidator> _validator = new();
-    private readonly Mock<IProjectService> _project = new();
     private readonly Mock<ISchemaChangeLogService> _changeLog = new();
     private readonly Mock<ISchemaIndexService> _schemaIndexService = new();
     private readonly SchemaDefinitionReferenceHelper _refHelper;
@@ -54,7 +53,7 @@ public class SchemaDefinitionServiceTests
             .ReturnsAsync(new ServiceResponse<SchemaIndexListResponse>().SetSuccess(new SchemaIndexListResponse()));
 
         _refHelper = new SchemaDefinitionReferenceHelper(_repo.Object, _changeLog.Object);
-        _service = new SchemaDefinitionService(_repo.Object, _validator.Object, _project.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance);
+        _service = new SchemaDefinitionService(_repo.Object, _validator.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance);
     }
 
     private void NameIsUnique() => _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync((SchemaDefinition?)null);
@@ -63,9 +62,8 @@ public class SchemaDefinitionServiceTests
     [Fact]
     public void Constructor_NullArgs_Throw()
     {
-        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(null!, _validator.Object, _project.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(_repo.Object, _validator.Object, null!, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(_repo.Object, _validator.Object, _project.Object, _changeLog.Object, _refHelper, null!, NullLogger<SchemaDefinitionService>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(null!, _validator.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(_repo.Object, _validator.Object, _changeLog.Object, _refHelper, null!, NullLogger<SchemaDefinitionService>.Instance));
     }
 
     [Fact]

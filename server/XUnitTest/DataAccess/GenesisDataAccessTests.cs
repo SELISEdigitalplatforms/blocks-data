@@ -136,7 +136,7 @@ public class GenesisDataAccessTests
         var indexes = new Mock<ISchemaIndexService>();
         indexes.Setup(i => i.GetIndexesAsync(It.IsAny<string>()))
             .ReturnsAsync(new ServiceResponse<SchemaIndexListResponse>().SetSuccess(new SchemaIndexListResponse()));
-        return new SchemaDefinitionService(_repository, validator.Object, Mock.Of<IProjectService>(), changeLog.Object,
+        return new SchemaDefinitionService(_repository, validator.Object, changeLog.Object,
             new SchemaDefinitionReferenceHelper(_repository, changeLog.Object), indexes.Object, NullLogger<SchemaDefinitionService>.Instance);
     }
 

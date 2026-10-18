@@ -11,12 +11,10 @@ namespace Worker.Consumers;
 public class MigrationCompletionEventConsumer : IConsumer<MigrationCompletionEvent>
 {
     private readonly ILogger<MigrationCompletionEventConsumer> _logger;
-    private readonly IProjectService _projectService;
     private readonly IDbRepository _dbRepository;
-    public MigrationCompletionEventConsumer(ILogger<MigrationCompletionEventConsumer> logger, IProjectService projectService, IDbRepository dbRepository)
+    public MigrationCompletionEventConsumer(ILogger<MigrationCompletionEventConsumer> logger, IDbRepository dbRepository)
     {
         _logger = logger;
-        _projectService = projectService;
         _dbRepository = dbRepository;
     }
     public async Task Consume(MigrationCompletionEvent @event)
@@ -33,7 +31,8 @@ public class MigrationCompletionEventConsumer : IConsumer<MigrationCompletionEve
             }
             var projectKey = migrationTracker.GetValue("ProjectKey").AsString;
             var targetedProjectKey = migrationTracker.GetValue("TargetedProjectKey").AsString;
-            var targetedProjectShortKey = await _projectService.GetTenantSlugAsync(targetedProjectKey);
+            // Project short keys (slugs) are no longer used; clear the source project's so it is not carried over.
+            var targetedProjectShortKey = string.Empty;
             var update = await _dbRepository.UpdateManyAsync(
                 $"{nameof(SchemaDefinition)}s",
                 new BsonDocument { { nameof(SchemaDefinition.ProjectKey), projectKey } },

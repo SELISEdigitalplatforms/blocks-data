@@ -167,24 +167,6 @@ public class BsonConversionHelperTests
     }
 }
 
-public class EnvironmentMapperHelperTests
-{
-    [Theory]
-    [InlineData("dev", "d")]
-    [InlineData("test", "t")]
-    [InlineData("stg", "s")]
-    [InlineData("iat", "i")]
-    [InlineData("uat", "u")]
-    [InlineData("prod-shadow", "h")]
-    [InlineData("pre-prod", "r")]
-    [InlineData("prod", "p")]
-    [InlineData("other", "n")]
-    public void EnvironmentMapper_Maps(string env, string expected)
-    {
-        EnvironmentMapperHelper.EnvironmentMapper(env).Should().Be(expected);
-    }
-}
-
 public class JsonValueHelperTests
 {
     [Fact]

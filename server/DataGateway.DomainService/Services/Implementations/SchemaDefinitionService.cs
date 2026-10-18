@@ -29,7 +29,6 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     public SchemaDefinitionService(
         IDbRepository repository,
         IRequestValidator requestValidator,
-        IProjectService projectService,
         ISchemaChangeLogService schemaChangeLogService,
         SchemaDefinitionReferenceHelper referenceHelper,
         ISchemaIndexService schemaIndexService,
@@ -37,7 +36,6 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _requestValidator = requestValidator ?? throw new ArgumentNullException(nameof(requestValidator));
-        _ = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _schemaChangeLogService = schemaChangeLogService ?? throw new ArgumentNullException(nameof(schemaChangeLogService));
         _referenceHelper = referenceHelper ?? throw new ArgumentNullException(nameof(referenceHelper));
         _schemaIndexService = schemaIndexService ?? throw new ArgumentNullException(nameof(schemaIndexService));

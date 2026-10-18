@@ -30,6 +30,15 @@ vi.mock("../../hooks/use-configuration", () => ({
   useDeleteSchemaFieldValidation: () => ({ mutateAsync: deleteValidation, isPending: false }),
   useGenerateRegex: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSchemaList: (payload: unknown) => useSchemaList(payload),
+  useSchemaVariableContext: () => ({
+    schemaName: "Employee",
+    fields: {
+      Name: { type: "String", isArray: false, isObject: false },
+      Age: { type: "Int", isArray: false, isObject: false },
+      StartDate: { type: "DateTime", isArray: false, isObject: false },
+      EndDate: { type: "DateTime", isArray: false, isObject: false },
+    },
+  }),
 }));
 
 vi.mock("@/hooks/use-toast", () => ({ showErrorToast: vi.fn(), showSuccessToast: vi.fn() }));
@@ -183,5 +192,76 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     expect(screen.getByText("Must exist in Department.ItemId")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /Add validation/ }));
     expect(await ruleTypeOptions(user)).not.toContain("Reference");
+  });
+
+  describe("variables in comparison values", () => {
+    async function addGreaterThan(user: ReturnType<typeof userEvent.setup>, fieldType: string) {
+      render(
+        <TooltipProvider>
+          <SchemaFieldValidationPanel fieldName="EndDate" schemaId="emp" projectKey="pk" fieldType={fieldType} initialValidationData={null} />
+        </TooltipProvider>,
+      );
+      await user.click(screen.getByRole("button", { name: /Add validation/ }));
+      await chooseRuleType(user, "Greater than");
+      await user.click(within(screen.getByRole("radiogroup", { name: "Value source" })).getByRole("radio", { name: "Variable" }));
+    }
+
+    it("offers properties of the same kind and sends the variable as text (UC20)", async () => {
+      const user = userEvent.setup();
+      await addGreaterThan(user, "DateTime");
+
+      await user.click(screen.getByRole("combobox", { name: "Pick a property for Value" }));
+      const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+      // Same kind only, and never the property itself.
+      expect(options).toEqual(["{{Employee.StartDate}}"]);
+      await user.click(screen.getByRole("option", { name: "{{Employee.StartDate}}" }));
+      await user.click(screen.getByRole("button", { name: "Add" }));
+
+      await waitFor(() =>
+        expect(createValidation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            validations: [expect.objectContaining({ type: 7, value: "{{Employee.StartDate}}", evaluationVersion: 1 })],
+          }),
+        ),
+      );
+    });
+
+    it.each([
+      ["{{Auth.UserId}}", "Auth values aren't available in validation rules at position 1: use an access policy"],
+      ["{{StartDate}}", "Missing prefix at position 1: write {{Employee.StartDate}}"],
+      ["{{Employee.Name}}", "Employee.Name is text at position 1: a date-time is expected"],
+    ])("shows the error for %s and disables Add (UC22, UC23)", async (typed, message) => {
+      const user = userEvent.setup();
+      await addGreaterThan(user, "DateTime");
+
+      // userEvent treats "{" as a key descriptor; "{{" types one brace.
+      await user.type(screen.getByLabelText("Value"), typed.replaceAll("{", "{{").replaceAll("[", "[["));
+      expect(screen.getByText(message)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
+    });
+
+    it("keeps a number variable as text instead of converting it", async () => {
+      const user = userEvent.setup();
+      render(
+        <TooltipProvider>
+          <SchemaFieldValidationPanel fieldName="Score" schemaId="emp" projectKey="pk" fieldType="Int" initialValidationData={null} />
+        </TooltipProvider>,
+      );
+      await user.click(screen.getByRole("button", { name: /Add validation/ }));
+      await chooseRuleType(user, "Range");
+      await user.type(screen.getByLabelText("Min"), "1");
+      await user.click(within(screen.getByRole("radiogroup", { name: "Max source" })).getByRole("radio", { name: "Variable" }));
+      await user.click(screen.getByRole("combobox", { name: "Pick a property for Max" }));
+      await user.click(await screen.findByRole("option", { name: "{{Employee.Age}}" }));
+      await user.click(screen.getByRole("button", { name: "Add" }));
+
+      await waitFor(() =>
+        expect(createValidation).toHaveBeenCalledWith(
+          expect.objectContaining({
+            validations: [expect.objectContaining({ type: 11, value: 1, secondaryValue: "{{Employee.Age}}" })],
+          }),
+        ),
+      );
+    });
   });
 });

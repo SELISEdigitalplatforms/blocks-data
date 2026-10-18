@@ -11,6 +11,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Blocks.Genesis.Entities.Data;
 using SortDirection = DataGateway.DomainService.Models.SortDirection;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService.Services;
 
@@ -96,9 +97,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         schema.SchemaName = request.SchemaName;
         schema.SchemaType = request.SchemaType;
         schema.InjectDefaultValue();
+        RenameVariablePrefix(schema, previousSchemaName);
 
         var result = await _repository.UpdateAsync(schema);
         await RenameReferenceTargetsAsync(previousSchemaName, schema.SchemaName);
+        await RenameValidationVariablePrefixAsync(schema.ItemId, previousSchemaName, schema.SchemaName);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaUpdate);
         _logger.LogInformation("Schema updated: {SchemaName}", schema.SchemaName);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = result.ItemId });
@@ -172,6 +175,9 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             var existingField = schema.Fields.FirstOrDefault(f => f.Name == field.Name);
             if (existingField != null)
             {
+                // The default is edited on its own (SetFieldDefaultAsync); a new type or list setting makes it meaningless.
+                if (existingField.Type != field.Type || existingField.IsArray != field.IsArray)
+                    existingField.DefaultValue = null;
                 existingField.Type = field.Type;
                 existingField.IsArray = field.IsArray;
                 existingField.EnumValues = field.EnumValues ?? [];
@@ -404,6 +410,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
         var previousGeoJsonFieldNames = schema.Fields.Where(IsGeoIndexed).Select(f => f.Name).ToHashSet();
         var previousSchemaName = schema.SchemaName;
+        var previousFields = schema.Fields.ToDictionary(f => f.Name, StringComparer.Ordinal);
 
         schema.CollectionName = request.CollectionName;
         schema.Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, EnumValues = f.EnumValues ?? [], IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description, RequiredOn = f.RequiredOn }).ToList() ?? [];
@@ -414,8 +421,16 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             schema.AddDefaultFields();
 
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
+        // Defaults aren't part of this request: keep each one whose property still has the same type and list setting.
+        foreach (var field in schema.Fields)
+        {
+            if (previousFields.TryGetValue(field.Name, out var previous) && previous.Type == field.Type && previous.IsArray == field.IsArray)
+                field.DefaultValue = previous.DefaultValue;
+        }
+        RenameVariablePrefix(schema, previousSchemaName);
         var result = await _repository.UpdateAsync(schema);
         await RenameReferenceTargetsAsync(previousSchemaName, schema.SchemaName);
+        await RenameValidationVariablePrefixAsync(schema.ItemId, previousSchemaName, schema.SchemaName);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaUpdate);
         await ReconcileGeoJsonFieldIndexesAsync(schema, previousGeoJsonFieldNames);
         await _referenceHelper.ApplyChangesToReferenceEntityFields(schema);
@@ -575,6 +590,81 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
     // A tenant schema must never point the gateway at a system entity's collection (Users, Roles, ...).
     // Case-insensitive, Entity schemas only (a Dto has no backing collection).
+    /// <inheritdoc />
+    public async Task<ServiceResponse<ActionResponse>> SetFieldDefaultAsync(SetFieldDefaultRequest request)
+    {
+        var schema = string.IsNullOrWhiteSpace(request.SchemaId) ? null : await _repository.GetItemAsync<SchemaDefinition>(request.SchemaId);
+        if (schema is null || schema.IsSystemEntity)
+            return SchemaNotFoundResponse();
+
+        var field = schema.Fields.FirstOrDefault(f => f.Name == request.FieldName);
+        if (field is null)
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Property '{request.FieldName}' was not found on {schema.SchemaName}").SetHttpStatusCode(400);
+
+        FieldDefaultValue? defaultValue = null;
+        if (request.DefaultValue is { } requested)
+        {
+            defaultValue = new FieldDefaultValue
+            {
+                Kind = requested.Kind,
+                Value = JsonValueHelper.ToStorableValue(requested.Value),
+                Offset = requested.Kind == DefaultValueKind.Now ? requested.Offset : null,
+            };
+            var problem = FieldDefaultValueCheck.Check(field.Name, field.Type, field.IsArray, field.EnumValues, defaultValue,
+                schema.SchemaName, VariableSyntax.FieldsOf(schema.Fields));
+            if (problem is not null)
+                return new ServiceResponse<ActionResponse>().SetErrorMessage(problem).SetHttpStatusCode(400);
+        }
+
+        field.DefaultValue = defaultValue;
+        await _repository.UpdateAsync(schema);
+        await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaFieldUpdate);
+        _logger.LogInformation("Default value of {SchemaName}.{FieldName} {Action}", schema.SchemaName, field.Name, defaultValue is null ? "cleared" : "set");
+        return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = schema.ItemId });
+    }
+
+    /// <summary>Templates name their own schema ({{Employee.FirstName}}), so a rename rewrites that prefix.</summary>
+    private static void RenameVariablePrefix(SchemaDefinition schema, string previousName)
+    {
+        if (string.Equals(previousName, schema.SchemaName, StringComparison.Ordinal))
+            return;
+        foreach (var field in schema.Fields.Where(f => f.DefaultValue?.Kind == DefaultValueKind.Template))
+            field.DefaultValue!.Value = RenamePrefix(field.DefaultValue.Value, previousName, schema.SchemaName);
+    }
+
+    /// <summary>Version-1 validation values may be a variable of their own schema; a rename rewrites the prefix.</summary>
+    private async Task RenameValidationVariablePrefixAsync(string schemaId, string previousName, string newName)
+    {
+        if (string.Equals(previousName, newName, StringComparison.Ordinal))
+            return;
+        var filter = new BsonDocument { { nameof(DataValidation.SchemaId), schemaId }, { nameof(DataValidation.IsDeleted), false } };
+        var validations = await _repository.GetItemsAsync<DataValidation, DataValidation>(filter);
+        var changed = new List<DataValidation>();
+        foreach (var validation in validations ?? [])
+        {
+            var touched = false;
+            foreach (var rule in validation.Validations.Where(r => r.EvaluationVersion >= 1))
+            {
+                var value = RenamePrefix(rule.Value, previousName, newName);
+                var secondary = RenamePrefix(rule.SecondaryValue, previousName, newName);
+                touched |= !Equals(value, rule.Value) || !Equals(secondary, rule.SecondaryValue);
+                rule.Value = value;
+                rule.SecondaryValue = secondary;
+            }
+            if (touched)
+                changed.Add(validation);
+        }
+        if (changed.Count > 0)
+            await _repository.UpdateManyAsync(changed);
+    }
+
+    private static object? RenamePrefix(object? value, string previousName, string newName) => value switch
+    {
+        string text => System.Text.RegularExpressions.Regex.Replace(text, @"\{\{(\s*)" + System.Text.RegularExpressions.Regex.Escape(previousName) + @"\.", m => $"{{{{{m.Groups[1].Value}{newName}.", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(1)),
+        System.Collections.IEnumerable list => list.Cast<object?>().Select(item => RenamePrefix(item, previousName, newName)).ToArray(),
+        _ => value,
+    };
+
     /// <summary>
     /// Reference rules name the schema they point at, so a rename carries them over; otherwise the next
     /// publish would fail because the old name no longer exists.

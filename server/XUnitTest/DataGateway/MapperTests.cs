@@ -262,6 +262,20 @@ public class ValidationRuleEvaluationVersionTests
 public class SchemaExportImportMappingTests
 {
     [Fact]
+    public void DefaultValue_SurvivesExportAndImport()
+    {
+        var schema = Schema();
+        schema.Fields[0].DefaultValue = new FieldDefaultValue { Kind = DefaultValueKind.Template, Value = "{{Person.Email}}" };
+        schema.Fields[1].DefaultValue = new FieldDefaultValue { Kind = DefaultValueKind.Now, Offset = new DefaultValueOffset { Days = 365 } };
+
+        var doc = new List<SchemaDefinition> { schema }.MapToExportDocuments([], [], SchemaExportOption.Schema).Single();
+        var imported = doc.MapToSchemaDefinition();
+
+        imported.Fields[0].DefaultValue.Should().BeEquivalentTo(schema.Fields[0].DefaultValue);
+        imported.Fields[1].DefaultValue!.Offset!.Days.Should().Be(365);
+    }
+
+    [Fact]
     public void ReferenceRule_SurvivesExportAndImport_ByTargetName_WithItsVersion()
     {
         var reference = new ValidationRule

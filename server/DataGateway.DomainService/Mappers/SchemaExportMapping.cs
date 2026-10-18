@@ -63,7 +63,8 @@ public static class SchemaExportMapping
                     ReadAccessLevel = field.ReadAccessLevel,
                     WriteAccessLevel = field.WriteAccessLevel,
                     EditAccessLevel = field.EditAccessLevel,
-                    DeleteAccessLevel = field.DeleteAccessLevel
+                    DeleteAccessLevel = field.DeleteAccessLevel,
+                    DefaultValue = field.DefaultValue
                 };
 
                 if (exportOption.HasFlag(SchemaExportOption.AccessPolicies))

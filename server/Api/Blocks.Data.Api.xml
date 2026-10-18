@@ -233,6 +233,14 @@
             <param name="request">Field definitions to be saved: ItemId (schema identifier), Fields (list of field definitions).</param>
             <returns>Returns a success response if the fields are saved, or an error message if the operation fails.</returns>
         </member>
+        <member name="M:Api.Controllers.SchemaController.SetFieldDefault(DataGateway.DomainService.Models.SetFieldDefaultRequest)">
+            <summary>
+            Sets or clears one property's default value, applied on insert when the property isn't sent.
+            A nested property is addressed by its full dotted path (e.g. Read.Roles). Takes effect after publish.
+            </summary>
+            <param name="request">SchemaId, FieldName, and DefaultValue (Kind Static/Template/Now, Value, Offset), or a null DefaultValue to clear it.</param>
+            <returns>Success, or 400 with the reason (e.g. a template syntax error with its position).</returns>
+        </member>
         <member name="M:Api.Controllers.SchemaController.UpdateSchemaDefinition(DataGateway.DomainService.Models.UpdateSchemaDefinitionRequest)">
             <summary>
             Updates an existing schema definition. Use this endpoint to modify the structure or fields of an existing schema.

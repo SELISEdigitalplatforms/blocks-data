@@ -7,6 +7,7 @@ using FluentAssertions;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Moq;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace XUnitTest.DataGateway;
 
@@ -76,5 +77,37 @@ public class SchemaImportReferenceTests
             .Which.Should().Contain(ReferenceRuleCompatibility.TargetFieldMustExist);
         (await Validate(Employee("Department", sourceType: "DateTime"), DepartmentDocument())).Should().ContainSingle()
             .Which.Should().Contain(ReferenceRuleCompatibility.SourceFieldNotSupported);
+    }
+
+    [Fact]
+    public async Task InvalidDefaultValue_IsRefused_ValidOneIsAccepted()   // UC17
+    {
+        SchemaExportDocument WithAgeDefault(object value) => new()
+        {
+            SchemaName = "Employee", CollectionName = "Employees", SchemaType = SchemaType.Entity,
+            Fields = [new ExportFieldDefinition { Name = "Age", Type = "Int", DefaultValue = new FieldDefaultValue { Kind = DefaultValueKind.Static, Value = value } }],
+        };
+
+        (await Validate(WithAgeDefault("abc"))).Should().ContainSingle().Which.Should().Be("Document[0].Age: \"abc\" is not a whole number");
+        (await Validate(WithAgeDefault(30L))).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ValidationVariable_ToAMissingProperty_IsRefused()
+    {
+        var doc = new SchemaExportDocument
+        {
+            SchemaName = "Employee", CollectionName = "Employees", SchemaType = SchemaType.Entity,
+            Fields =
+            [
+                new ExportFieldDefinition
+                {
+                    Name = "EndDate", Type = "DateTime",
+                    ValidationRules = [new ExportValidationRule { Type = ValidationType.GreaterThan, Value = "{{Employee.StartDate}}", IsActive = true, EvaluationVersion = 1 }],
+                },
+            ],
+        };
+
+        (await Validate(doc)).Should().ContainSingle().Which.Should().StartWith("Document[0].EndDate: Unknown property \"Employee.StartDate\"");
     }
 }

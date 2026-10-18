@@ -1,5 +1,6 @@
 import { RegExpParser } from "regexpp";
 import type { ISchemaFieldValidation, ValidationRuleValue } from "../models/data-service";
+import { checkVariables, parseVariables, type VariableField } from "./variable-syntax";
 
 /** Mirrors the server's ValidationType (Genesis); the API sends the number. */
 export const VALIDATION_TYPE = {
@@ -108,14 +109,69 @@ export function draftFromRule(rule: ISchemaFieldValidation): RuleDraft {
   };
 }
 
+/**
+ * Comparison values may be one record variable, e.g. {{Employee.StartDate}}. Only text with "{{" or "}}"
+ * is read as one, the same test the server makes, so fixed values stay fixed.
+ */
+export const looksLikeVariable = (text: string) => text.includes("{{") || text.includes("}}");
+
+/** The schema a rule's variables refer to: its name and properties by full path. */
+export interface RuleVariableContext {
+  schemaName: string;
+  fields: Record<string, VariableField>;
+}
+
+/** The server's kinds for comparing a variable with the property: Enum compares as text. */
+export const variableKind = (type: string) =>
+  type === "Int" || type === "Float" ? "number" : type === "DateTime" ? "date" : type === "Boolean" ? "boolean" : "text";
+
+const describeKind = (type: string, isArray: boolean) =>
+  isArray ? "a list" : ({ number: "a number", date: "a date-time", boolean: "true or false", text: "text" } as const)[variableKind(type)];
+
+/** A variable value's problem, with the server's messages (Genesis `ValidationVariableCheck`), or null. */
+export function checkRuleVariable(text: string, fieldType: string, context: RuleVariableContext): string | null {
+  const problem = checkVariables(text, "single", context.schemaName, context.fields);
+  if (problem) return problem.message;
+  const variable = parseVariables(text, "single", context.schemaName).parts.find((part) => part.prefix !== undefined);
+  if (!variable) return null;
+  const target = context.fields[variable.path!];
+  if (variableKind(target.type) !== variableKind(fieldType) || target.isArray) {
+    return `${variable.prefix}.${variable.path} is ${describeKind(target.type, target.isArray)} at position ${variable.position}: ${describeKind(fieldType, false)} is expected`;
+  }
+  return null;
+}
+
+/** The properties a comparison may name: single values of the same kind, as {{Schema.Path}}. */
+export function fittingVariables(fieldType: string, context: RuleVariableContext, exclude?: string): string[] {
+  return Object.entries(context.fields)
+    .filter(([path, field]) => !field.isObject && !field.isArray && path !== exclude && variableKind(field.type) === variableKind(fieldType))
+    .map(([path]) => `{{${context.schemaName}.${path}}}`);
+}
+
 const isWholeNumber = (text: string) => /^\d+$/.test(text.trim());
 const isNumber = (text: string) => text.trim() !== "" && Number.isFinite(Number(text));
 
-/** Why the draft cannot be saved yet, or null when it can. */
-export function checkRuleDraft(draft: RuleDraft, fieldType: string): string | null {
+/**
+ * Why the draft cannot be saved yet, or null when it can. With `variables`, a comparison value written as
+ * a variable is checked against the schema; without them its syntax is left to the server.
+ */
+export function checkRuleDraft(draft: RuleDraft, fieldType: string, variables?: RuleVariableContext): string | null {
   const input = VALIDATION_TYPE_META[draft.type]?.input;
   const value = draft.value.trim();
   const secondary = draft.secondaryValue.trim();
+  if (input === "value" || input === "valueRange") {
+    const slots = input === "value" ? [value] : [value, secondary];
+    if (slots.some(looksLikeVariable)) {
+      if (slots.some((slot) => slot === "")) return input === "value" ? "Value is required" : "Both values are required";
+      for (const slot of slots.filter(looksLikeVariable)) {
+        const problem = variables?.schemaName ? checkRuleVariable(slot, fieldType, variables) : null;
+        if (problem) return problem;
+      }
+      // A fixed bound next to a variable is still checked for its type; the order is known only at insert.
+      const fixed = slots.filter((slot) => !looksLikeVariable(slot));
+      return valueKindForField(fieldType) === "number" && fixed.some((slot) => !isNumber(slot)) ? "Not a valid number" : null;
+    }
+  }
   switch (input) {
     case "none":
       return null;
@@ -160,6 +216,7 @@ export function ruleFromDraft(draft: RuleDraft, fieldType: string): ISchemaField
   const convert = (text: string): ValidationRuleValue => {
     const trimmed = text.trim();
     if (trimmed === "") return null;
+    if ((input === "value" || input === "valueRange") && looksLikeVariable(trimmed)) return trimmed;
     if (input === "length" || input === "lengthRange" || ((input === "value" || input === "valueRange") && kind === "number")) {
       return Number(trimmed);
     }

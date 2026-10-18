@@ -29,7 +29,7 @@ import {
   FieldArrayWithId,
 } from "react-hook-form";
 import { FieldAccessTarget } from "../../models/schema-access.types";
-import { IField, IDataAccessRuleSet, IFieldValidationRule } from "../../models/data-service";
+import { IField, IDataAccessRuleSet, IFieldDefaultValue, IFieldValidationRule } from "../../models/data-service";
 import { PropertyRow } from "../../models/schema-structure.types";
 import { PropertyTypeSelector } from "./property-type-selector";
 import { EnumValuesEditor } from "./enum-values-editor";
@@ -48,7 +48,8 @@ import {
 import { getValidationDisplayInfo } from "@/data-gateway/utils/schema-normalization";
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
 import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
-import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagsFromField } from "../primitives";
+import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagTitlesFromField, flagsFromField } from "../primitives";
+import { DefaultValueButton } from "./default-value-button";
 
 /**
  * The three genuine booleans on a property, as one column.
@@ -91,6 +92,10 @@ interface SchemaDesktopRowProps {
   searchText: string;
   onOpenAccessDrawer: (fieldTarget: FieldAccessTarget | undefined, title: string) => void;
   onOpenValidationDrawer: (fieldName: string, validationRule?: IFieldValidationRule | null) => void;
+  /** Opens the field's default value; the button shows only when this is given and `showDefaultButton` is on. */
+  onOpenDefaultDrawer?: (fieldName: string, defaultValue?: IFieldDefaultValue | null) => void;
+  /** Defaults apply on insert, so only entities (and properties nested in them) get the button. */
+  showDefaultButton?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: (index: number) => void;
   childSchema?: ISchemaDetails | null;
@@ -132,6 +137,8 @@ export function SchemaDesktopRow({
   searchText,
   onOpenAccessDrawer,
   onOpenValidationDrawer,
+  onOpenDefaultDrawer,
+  showDefaultButton = false,
   isExpanded,
   onToggleExpand,
   childSchema,
@@ -153,6 +160,7 @@ export function SchemaDesktopRow({
     ? fieldSource
     : (originalFieldFromSchema ?? fieldSource);
   const validationInfo = getValidationDisplayInfo(fieldForValidation);
+  const defaultValue = fieldForValidation?.defaultValue ?? null;
 
   const fieldTarget: FieldAccessTarget | undefined = fieldName
     ? {
@@ -436,7 +444,9 @@ export function SchemaDesktopRow({
                   isArray: watch(`properties.${index}.isArray`),
                   isPIIData: watch(`properties.${index}.isPIIData`),
                   isUniqueData: watch(`properties.${index}.isUniqueData`),
+                  defaultValue,
                 })}
+                titles={flagTitlesFromField({ defaultValue })}
               />
             ) : (
               <div className="flex h-9 items-center gap-1.5">
@@ -622,6 +632,16 @@ export function SchemaDesktopRow({
                       </span>
                     )}
                   </button>
+                )}
+
+                {showDefaultButton && onOpenDefaultDrawer && (
+                  <DefaultValueButton
+                    fieldName={fieldName}
+                    fieldType={currentType}
+                    isNewField={isNewField}
+                    defaultValue={defaultValue}
+                    onOpen={() => onOpenDefaultDrawer(fieldName, defaultValue)}
+                  />
                 )}
               </div>
             </TableCell>

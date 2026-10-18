@@ -19,6 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using XUnitTest.Infrastructure;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace XUnitTest.DataGateway.GraphQL;
 

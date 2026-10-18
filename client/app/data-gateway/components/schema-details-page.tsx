@@ -531,6 +531,20 @@ export const SchemaDetailsPage = () => {
                         initialValidationData: validationRule,
                       })
                     }
+                    onOpenFieldDefault={({ fieldName, subject, context, fieldType, isArray, enumValues, defaultValue }) =>
+                      openValidationInspector({
+                        panel: "default",
+                        subject,
+                        context,
+                        fieldName,
+                        fieldType,
+                        isArray,
+                        enumValues,
+                        schemaId: schemaDetails.id,
+                        projectKey,
+                        initialDefault: defaultValue,
+                      })
+                    }
                     onEnterEditMode={closeRightPanel}
                   />
                 </>
@@ -593,9 +607,9 @@ export const SchemaDetailsPage = () => {
                   validationInspector ? "" : "pointer-events-none"
                 }`}
               >
-                {/* Keyed per field so a half-filled rule never carries over to the next field. */}
+                {/* Keyed per panel and field so a half-filled rule or default never carries over. */}
                 <ValidationInspector
-                  key={`${lingeringValidation.schemaId}:${lingeringValidation.fieldName}`}
+                  key={`${lingeringValidation.panel ?? "validation"}:${lingeringValidation.schemaId}:${lingeringValidation.fieldName}`}
                   target={lingeringValidation}
                   onClose={() => setValidationInspector(null)}
                 />

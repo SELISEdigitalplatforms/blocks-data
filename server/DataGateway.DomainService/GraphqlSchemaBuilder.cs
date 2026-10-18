@@ -11,6 +11,7 @@ using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService;
 
@@ -93,6 +94,7 @@ public class GraphqlSchemaBuilder
 
             var queryType = BuildQueryType(dbSchemas, outputTypes, entityFilterInputTypes);
             var references = ReferenceTargets.Build(schemas, strictReferences, _logger);
+            CheckVariables(schemas, strictReferences);
             var mutationType = BuildMutationType(dbSchemas, insertInputTypes, updateInputTypes, deleteInputTypes, entityFilterInputTypes, references);
 
             schemaBuilder.AddQueryType(queryType);
@@ -428,6 +430,51 @@ public class GraphqlSchemaBuilder
                 _schemaResolver.ResolveQuerySchema(descriptor, schema, dynamicTypes, entityFilterInputTypes[schemaName]);
             }
         });
+    }
+
+    /// <summary>
+    /// Default templates and validation variables name properties of their own schema. One whose property
+    /// was renamed or deleted fails a publish (strict) with both names; a pod rebuilding an already
+    /// published version only logs it (the template then renders that part empty; the rule is skipped).
+    /// </summary>
+    private void CheckVariables(IEnumerable<SchemaDefinitionExtended> schemas, bool strict)
+    {
+        var problems = new List<string>();
+        foreach (var schema in schemas.Where(s => s.SchemaType == SchemaType.Entity))
+        {
+            var fields = VariableSyntax.FieldsOf(schema.Fields);
+            foreach (var (path, field) in FlattenFields(schema.Fields, string.Empty))
+            {
+                if (field.DefaultValue is { Kind: DefaultValueKind.Template } template)
+                {
+                    var problem = FieldDefaultValueCheck.Check(path, field.Type, field.IsArray, field.EnumValues, template, schema.SchemaName, fields);
+                    if (problem is not null)
+                        problems.Add($"{schema.SchemaName}.{path} default value: {problem}");
+                }
+                foreach (var rule in field.ValidationRule?.Validations ?? [])
+                {
+                    if (rule.IsActive && ValidationVariableCheck.Check(rule, field.Type, schema.SchemaName, fields) is { } problem)
+                        problems.Add($"{schema.SchemaName}.{path} {rule.Type} rule: {problem}");
+                }
+            }
+        }
+
+        if (problems.Count == 0)
+            return;
+        if (strict)
+            throw new InvalidOperationException(string.Join("; ", problems));
+        _logger.LogWarning("Variables that no longer resolve: {Problems}", string.Join("; ", problems));
+    }
+
+    private static IEnumerable<(string Path, FieldDefinitionResponse Field)> FlattenFields(IEnumerable<FieldDefinitionResponse> fields, string prefix)
+    {
+        foreach (var field in fields)
+        {
+            var path = $"{prefix}{field.Name}";
+            yield return (path, field);
+            foreach (var nested in FlattenFields(field.Fields, $"{path}."))
+                yield return nested;
+        }
     }
 
     private ObjectType BuildMutationType(

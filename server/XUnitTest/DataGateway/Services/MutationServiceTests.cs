@@ -23,6 +23,7 @@ using MongoDB.Driver;
 using Moq;
 using XUnitTest.Infrastructure;
 using static XUnitTest.DataGateway.TestSupport;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace XUnitTest.DataGateway.Services;
 

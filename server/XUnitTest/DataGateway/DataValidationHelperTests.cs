@@ -4,6 +4,7 @@ using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
 using static XUnitTest.DataGateway.TestSupport;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace XUnitTest.DataGateway;
 
@@ -250,7 +251,7 @@ public class DataValidationHelperTests
     [Fact]
     public void DataValidationResult_ErrorMessage_AggregatesErrors()
     {
-        var result = new global::DataGateway.DomainService.Models.Responses.DataValidationResult();
+        var result = new DataValidationResult();
         result.AddError("A", "err-a", "NotEmpty");
         result.AddError("B", "err-b", "NotEmpty");
         result.IsValid.Should().BeFalse();

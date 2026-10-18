@@ -28,11 +28,10 @@ import {
   FieldArrayWithId,
 } from "react-hook-form";
 import { FieldAccessTarget } from "../../models/schema-access.types";
-import { IField, IDataAccessRuleSet, IFieldDefaultValue, IFieldValidationRule } from "../../models/data-service";
+import { IField, IDataAccessRuleSet, IFieldDefaultValue, IFieldValidationRule, ISchemaDetails } from "../../models/data-service";
 import { PropertyRow } from "../../models/schema-structure.types";
 import { PropertyTypeSelector } from "./property-type-selector";
 import { EnumValuesEditor } from "./enum-values-editor";
-import { ISchemaDetails } from "../../models/data-service";
 import { useReadonlyExpanded } from "../../hooks/use-readonly-expanded";
 import {
   readonlyPropertyNames,
@@ -138,7 +137,7 @@ export function SchemaMobileCard({
   showAccessValidationColumn = true,
   originalFieldFromSchema,
   isNestedAttributePanel = false,
-}: SchemaMobileCardProps) {
+}: Readonly<SchemaMobileCardProps>) {
   const [focusEnumEditor, setFocusEnumEditor] = useState(false);
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();
   const name = watch(`properties.${index}.name`);
@@ -191,6 +190,12 @@ export function SchemaMobileCard({
     defaultValue,
   });
   const isFirstRow = isEntityType && index === 0;
+  const flagsReadView =
+    fieldFlags.length > 0 ? (
+      <FieldFlags flags={fieldFlags} titles={flagTitlesFromField({ defaultValue })} />
+    ) : (
+      <p className="text-sm text-muted-foreground/40">—</p>
+    );
 
   return (
     <>
@@ -412,11 +417,7 @@ export function SchemaMobileCard({
               <div className="min-w-0 space-y-1">
                 <span className="block text-xs text-muted-foreground">Flags</span>
                 {!isEditMode ? (
-                  fieldFlags.length > 0 ? (
-                    <FieldFlags flags={fieldFlags} titles={flagTitlesFromField({ defaultValue })} />
-                  ) : (
-                    <p className="text-sm text-muted-foreground/40">—</p>
-                  )
+                  flagsReadView
                 ) : (
                   <div className="flex flex-wrap items-center gap-1.5">
                     {FLAG_TOGGLES.map(({ flag, key, notForChildTypes }) => {

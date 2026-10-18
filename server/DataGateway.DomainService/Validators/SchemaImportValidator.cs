@@ -26,10 +26,27 @@ public class SchemaImportValidator
         _dbRepository = dbRepository ?? throw new ArgumentNullException(nameof(dbRepository));
     }
 
+    /// <summary>What every document is checked against, loaded once per import.</summary>
+    private sealed record ImportContext(
+        HashSet<string> SchemaNamesInBatch,
+        HashSet<string> ExistingCustomSchemaNames,
+        HashSet<string> SystemCollectionNames,
+        Dictionary<string, SchemaDefinition> ReferenceTargets);
+
     public async Task<List<string>> ValidateAsync(List<SchemaExportDocument> documents)
     {
         var errors = new List<string>();
+        var context = await LoadContextAsync(documents);
+        var seenSchemaNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
+        for (int i = 0; i < documents.Count; i++)
+            ValidateDocument(documents[i], $"Document[{i}]", context, seenSchemaNames, errors);
+
+        return errors;
+    }
+
+    private async Task<ImportContext> LoadContextAsync(List<SchemaExportDocument> documents)
+    {
         // Field types are valid if they're a known GraphQL scalar, or the name of another
         // schema (a nested/custom type) either defined in this same import file or already
         // present in the system. Anything else (e.g. "Decimal", "Long") must be rejected here,
@@ -46,17 +63,6 @@ public class SchemaImportValidator
             .Except(schemaNamesInBatch, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        var existingCustomSchemaNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        if (referencedNonScalarTypes.Count > 0)
-        {
-            var existingSchemas = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
-                Builders<SchemaDefinition>.Filter.And(
-                    Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, referencedNonScalarTypes),
-                    Builders<SchemaDefinition>.Filter.Ne(s => s.IsSystemEntity, true)));
-            foreach (var schema in existingSchemas)
-                existingCustomSchemaNames.Add(schema.SchemaName);
-        }
-
         // Collection names of system entities are reserved: an imported schema must not point at them.
         var systemSchemas = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
             Builders<SchemaDefinition>.Filter.Eq(s => s.IsSystemEntity, true));
@@ -64,151 +70,193 @@ public class SchemaImportValidator
             (systemSchemas ?? []).Select(s => s.CollectionName).Where(n => !string.IsNullOrWhiteSpace(n)),
             StringComparer.OrdinalIgnoreCase);
 
-        var referenceTargets = await LoadReferenceTargetsAsync(documents);
-        var seenSchemaNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        return new ImportContext(
+            schemaNamesInBatch,
+            await LoadExistingCustomSchemaNamesAsync(referencedNonScalarTypes),
+            systemCollectionNames,
+            await LoadReferenceTargetsAsync(documents));
+    }
 
-        for (int i = 0; i < documents.Count; i++)
+    private async Task<HashSet<string>> LoadExistingCustomSchemaNamesAsync(List<string> referencedNonScalarTypes)
+    {
+        var existingCustomSchemaNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (referencedNonScalarTypes.Count == 0)
+            return existingCustomSchemaNames;
+
+        var existingSchemas = await _dbRepository.GetItemsAsync<SchemaDefinition, SchemaDefinition>(
+            Builders<SchemaDefinition>.Filter.And(
+                Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, referencedNonScalarTypes),
+                Builders<SchemaDefinition>.Filter.Ne(s => s.IsSystemEntity, true)));
+        foreach (var schema in existingSchemas)
+            existingCustomSchemaNames.Add(schema.SchemaName);
+        return existingCustomSchemaNames;
+    }
+
+    private static void ValidateDocument(SchemaExportDocument doc, string prefix, ImportContext context, HashSet<string> seenSchemaNames, List<string> errors)
+    {
+        ValidateSchemaName(doc, prefix, seenSchemaNames, errors);
+
+        RequireDefined(doc.SchemaType, "SchemaType", prefix, errors);
+        RequireDefined(doc.ReadAccessLevel, "ReadAccessLevel", prefix, errors);
+        RequireDefined(doc.WriteAccessLevel, "WriteAccessLevel", prefix, errors);
+        RequireDefined(doc.EditAccessLevel, "EditAccessLevel", prefix, errors);
+        RequireDefined(doc.DeleteAccessLevel, "DeleteAccessLevel", prefix, errors);
+
+        ValidateCollectionName(doc, prefix, context.SystemCollectionNames, errors);
+
+        if (doc.Fields == null || doc.Fields.Count == 0)
+            errors.Add($"{prefix}: At least one field is required.");
+
+        foreach (var policy in doc.RowLevelPolicies ?? [])
+            ValidateAccessPolicy(policy, $"{prefix}.RowLevelPolicy[{policy.PolicyName}]", errors);
+
+        var seenFieldNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var importFields = ImportFields(doc);
+        foreach (var field in doc.Fields ?? [])
+            ValidateField(doc, field, prefix, context, seenFieldNames, importFields, errors);
+    }
+
+    private static void ValidateSchemaName(SchemaExportDocument doc, string prefix, HashSet<string> seenSchemaNames, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(doc.SchemaName))
         {
-            var doc = documents[i];
-            var prefix = $"Document[{i}]";
-
-            if (string.IsNullOrWhiteSpace(doc.SchemaName))
-            {
-                errors.Add($"{prefix}: SchemaName is required.");
-            }
-            else
-            {
-                if (!seenSchemaNames.Add(doc.SchemaName))
-                    errors.Add($"{prefix}: SchemaName '{doc.SchemaName}' is used by more than one document in this import file. Schema names must be unique.");
-
-                if (doc.SchemaName.Length > 50)
-                    errors.Add($"{prefix}: SchemaName '{doc.SchemaName}' must be between 1 and 50 characters.");
-                else if (!SchemaValidatorHelper.NameAllowedPattern.IsMatch(doc.SchemaName))
-                    errors.Add($"{prefix}: SchemaName '{doc.SchemaName}' may only contain letters, numbers, and underscore, and cannot start with a number.");
-            }
-
-            if (!Enum.IsDefined(doc.SchemaType))
-                errors.Add($"{prefix}: SchemaType '{doc.SchemaType}' is not a valid value.");
-
-            if (!Enum.IsDefined(doc.ReadAccessLevel))
-                errors.Add($"{prefix}: ReadAccessLevel '{doc.ReadAccessLevel}' is not a valid value.");
-            if (!Enum.IsDefined(doc.WriteAccessLevel))
-                errors.Add($"{prefix}: WriteAccessLevel '{doc.WriteAccessLevel}' is not a valid value.");
-            if (!Enum.IsDefined(doc.EditAccessLevel))
-                errors.Add($"{prefix}: EditAccessLevel '{doc.EditAccessLevel}' is not a valid value.");
-            if (!Enum.IsDefined(doc.DeleteAccessLevel))
-                errors.Add($"{prefix}: DeleteAccessLevel '{doc.DeleteAccessLevel}' is not a valid value.");
-
-            if (!SchemaValidatorHelper.DoesNotEmptyCollectionName(doc.CollectionName, doc.SchemaType))
-            {
-                errors.Add($"{prefix}: CollectionName is required for an Entity schema.");
-            }
-            else if (doc.SchemaType == SchemaType.Entity)
-            {
-                if (!SchemaValidatorHelper.IsValidCollectionNameLength(doc.CollectionName, doc.SchemaType))
-                    errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' must be between 1 and 50 characters.");
-                else if (!SchemaValidatorHelper.IsAllowedCollectionName(doc.CollectionName, doc.SchemaType))
-                    errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' may only contain letters, numbers, and underscore, and cannot start with a number.");
-                if (systemCollectionNames.Contains(doc.CollectionName.Trim()))
-                    errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' is reserved by a system entity.");
-            }
-
-            if (doc.Fields == null || doc.Fields.Count == 0)
-                errors.Add($"{prefix}: At least one field is required.");
-
-            foreach (var policy in doc.RowLevelPolicies ?? [])
-            {
-                ValidateAccessPolicy(policy, $"{prefix}.RowLevelPolicy[{policy.PolicyName}]", errors);
-            }
-
-            var seenFieldNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var field in doc.Fields ?? [])
-            {
-                if (string.IsNullOrWhiteSpace(field.Name))
-                {
-                    errors.Add($"{prefix}: A field is missing a Name.");
-                }
-                else
-                {
-                    if (!seenFieldNames.Add(field.Name))
-                        errors.Add($"{prefix}: Field name '{field.Name}' must be unique within a schema.");
-
-                    // Reference fields (e.g. "Address.City") are stored as dotted paths. Each
-                    // segment is an actual schema field name and must satisfy the normal field-name
-                    // rules, but the combined path may legitimately exceed 50 characters.
-                    var namesToCheck = field.IsReferenceField ? field.Name.Split('.') : [field.Name];
-                    if (namesToCheck.Any(name => name.Length is < 1 or > 50))
-                        errors.Add($"{prefix}: Field name '{field.Name}' must be between 1 and 50 characters.");
-                    else if (namesToCheck.Any(name => !SchemaValidatorHelper.NameAllowedPattern.IsMatch(name)))
-                        errors.Add($"{prefix}: Field name '{field.Name}' may only contain letters, numbers, and underscore, and cannot start with a number.");
-                }
-
-                if (string.IsNullOrWhiteSpace(field.Type))
-                {
-                    errors.Add($"{prefix}.{field.Name}: Field Type is required.");
-                }
-                else if (!GraphQlTypeHelper.IsScalar(field.Type) &&
-                         !schemaNamesInBatch.Contains(field.Type) &&
-                         !existingCustomSchemaNames.Contains(field.Type))
-                {
-                    errors.Add(
-                        $"{prefix}.{field.Name}: Type '{field.Type}' is not a supported field type." +
-                        $"{GetTypeSuggestionHint(field.Type)} Supported types are String, Int, Float, " +
-                        "Boolean, DateTime, ID, or the name of another schema in this import (for nested/custom object fields).");
-                }
-
-                if (!Enum.IsDefined(field.ReadAccessLevel))
-                    errors.Add($"{prefix}.{field.Name}: ReadAccessLevel '{field.ReadAccessLevel}' is not a valid value.");
-                if (!Enum.IsDefined(field.WriteAccessLevel))
-                    errors.Add($"{prefix}.{field.Name}: WriteAccessLevel '{field.WriteAccessLevel}' is not a valid value.");
-                if (!Enum.IsDefined(field.EditAccessLevel))
-                    errors.Add($"{prefix}.{field.Name}: EditAccessLevel '{field.EditAccessLevel}' is not a valid value.");
-                if (!Enum.IsDefined(field.DeleteAccessLevel))
-                    errors.Add($"{prefix}.{field.Name}: DeleteAccessLevel '{field.DeleteAccessLevel}' is not a valid value.");
-
-                if (field.AccessPolicies != null)
-                {
-                    foreach (var policy in field.AccessPolicies)
-                    {
-                        ValidateAccessPolicy(policy, $"{prefix}.{field.Name}.Policy[{policy.PolicyName}]", errors);
-                    }
-                }
-
-                if (field.ValidationRules != null)
-                {
-                    foreach (var rule in field.ValidationRules)
-                    {
-                        if (!Enum.IsDefined(rule.Type))
-                        {
-                            errors.Add($"{prefix}.{field.Name}: ValidationType '{rule.Type}' is not a valid value.");
-                            continue;
-                        }
-
-                        if (rule.Value is null && rule.Type != ValidationType.NotEmpty)
-                            errors.Add($"{prefix}.{field.Name}: Value is required for validation type '{rule.Type}'.");
-
-                        if (rule.SecondaryValue is null && rule.Type is ValidationType.Range or ValidationType.LengthRange)
-                            errors.Add($"{prefix}.{field.Name}: SecondaryValue is required for validation type '{rule.Type}'.");
-                    }
-                    ValidateReferenceRules(field, referenceTargets, $"{prefix}.{field.Name}", errors);
-                    foreach (var rule in field.ValidationRules.Select(r => r.MapToValidationRule()))
-                    {
-                        if (ValidationVariableCheck.Check(rule, field.Type, doc.SchemaName, ImportFields(doc)) is { } problem)
-                            errors.Add($"{prefix}.{field.Name}: {problem}");
-                    }
-                }
-
-                if (field.DefaultValue is not null)
-                {
-                    var problem = FieldDefaultValueCheck.Check(field.Name, field.Type, field.IsArray, field.EnumValues,
-                        field.DefaultValue.ToStorable()!, doc.SchemaName, ImportFields(doc));
-                    if (problem is not null)
-                        errors.Add($"{prefix}.{field.Name}: {problem}");
-                }
-            }
+            errors.Add($"{prefix}: SchemaName is required.");
+            return;
         }
 
-        return errors;
+        if (!seenSchemaNames.Add(doc.SchemaName))
+            errors.Add($"{prefix}: SchemaName '{doc.SchemaName}' is used by more than one document in this import file. Schema names must be unique.");
+
+        if (doc.SchemaName.Length > 50)
+            errors.Add($"{prefix}: SchemaName '{doc.SchemaName}' must be between 1 and 50 characters.");
+        else if (!SchemaValidatorHelper.NameAllowedPattern.IsMatch(doc.SchemaName))
+            errors.Add($"{prefix}: SchemaName '{doc.SchemaName}' may only contain letters, numbers, and underscore, and cannot start with a number.");
+    }
+
+    private static void ValidateCollectionName(SchemaExportDocument doc, string prefix, HashSet<string> systemCollectionNames, List<string> errors)
+    {
+        if (!SchemaValidatorHelper.DoesNotEmptyCollectionName(doc.CollectionName, doc.SchemaType))
+        {
+            errors.Add($"{prefix}: CollectionName is required for an Entity schema.");
+            return;
+        }
+        if (doc.SchemaType != SchemaType.Entity)
+            return;
+
+        if (!SchemaValidatorHelper.IsValidCollectionNameLength(doc.CollectionName, doc.SchemaType))
+            errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' must be between 1 and 50 characters.");
+        else if (!SchemaValidatorHelper.IsAllowedCollectionName(doc.CollectionName, doc.SchemaType))
+            errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' may only contain letters, numbers, and underscore, and cannot start with a number.");
+        if (systemCollectionNames.Contains(doc.CollectionName.Trim()))
+            errors.Add($"{prefix}: CollectionName '{doc.CollectionName}' is reserved by a system entity.");
+    }
+
+    private static void ValidateField(
+        SchemaExportDocument doc,
+        ExportFieldDefinition field,
+        string prefix,
+        ImportContext context,
+        HashSet<string> seenFieldNames,
+        Dictionary<string, VariableField> importFields,
+        List<string> errors)
+    {
+        var fieldPrefix = $"{prefix}.{field.Name}";
+        ValidateFieldName(field, prefix, seenFieldNames, errors);
+        ValidateFieldType(field, fieldPrefix, context, errors);
+
+        RequireDefined(field.ReadAccessLevel, "ReadAccessLevel", fieldPrefix, errors);
+        RequireDefined(field.WriteAccessLevel, "WriteAccessLevel", fieldPrefix, errors);
+        RequireDefined(field.EditAccessLevel, "EditAccessLevel", fieldPrefix, errors);
+        RequireDefined(field.DeleteAccessLevel, "DeleteAccessLevel", fieldPrefix, errors);
+
+        foreach (var policy in field.AccessPolicies ?? [])
+            ValidateAccessPolicy(policy, $"{fieldPrefix}.Policy[{policy.PolicyName}]", errors);
+
+        if (field.ValidationRules != null)
+            ValidateFieldRules(doc, field, fieldPrefix, context, importFields, errors);
+
+        if (field.DefaultValue is not null
+            && FieldDefaultValueCheck.Check(field.Name, field.Type, field.IsArray, field.EnumValues,
+                   field.DefaultValue.ToStorable()!, doc.SchemaName, importFields) is { } problem)
+            errors.Add($"{fieldPrefix}: {problem}");
+    }
+
+    private static void ValidateFieldName(ExportFieldDefinition field, string prefix, HashSet<string> seenFieldNames, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(field.Name))
+        {
+            errors.Add($"{prefix}: A field is missing a Name.");
+            return;
+        }
+
+        if (!seenFieldNames.Add(field.Name))
+            errors.Add($"{prefix}: Field name '{field.Name}' must be unique within a schema.");
+
+        // Reference fields (e.g. "Address.City") are stored as dotted paths. Each
+        // segment is an actual schema field name and must satisfy the normal field-name
+        // rules, but the combined path may legitimately exceed 50 characters.
+        var namesToCheck = field.IsReferenceField ? field.Name.Split('.') : [field.Name];
+        if (namesToCheck.Any(name => name.Length is < 1 or > 50))
+            errors.Add($"{prefix}: Field name '{field.Name}' must be between 1 and 50 characters.");
+        else if (namesToCheck.Any(name => !SchemaValidatorHelper.NameAllowedPattern.IsMatch(name)))
+            errors.Add($"{prefix}: Field name '{field.Name}' may only contain letters, numbers, and underscore, and cannot start with a number.");
+    }
+
+    private static void ValidateFieldType(ExportFieldDefinition field, string fieldPrefix, ImportContext context, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(field.Type))
+        {
+            errors.Add($"{fieldPrefix}: Field Type is required.");
+            return;
+        }
+
+        if (!GraphQlTypeHelper.IsScalar(field.Type) &&
+            !context.SchemaNamesInBatch.Contains(field.Type) &&
+            !context.ExistingCustomSchemaNames.Contains(field.Type))
+        {
+            errors.Add(
+                $"{fieldPrefix}: Type '{field.Type}' is not a supported field type." +
+                $"{GetTypeSuggestionHint(field.Type)} Supported types are String, Int, Float, " +
+                "Boolean, DateTime, ID, or the name of another schema in this import (for nested/custom object fields).");
+        }
+    }
+
+    private static void ValidateFieldRules(
+        SchemaExportDocument doc,
+        ExportFieldDefinition field,
+        string fieldPrefix,
+        ImportContext context,
+        Dictionary<string, VariableField> importFields,
+        List<string> errors)
+    {
+        foreach (var rule in field.ValidationRules!)
+        {
+            if (!Enum.IsDefined(rule.Type))
+            {
+                errors.Add($"{fieldPrefix}: ValidationType '{rule.Type}' is not a valid value.");
+                continue;
+            }
+
+            if (rule.Value is null && rule.Type != ValidationType.NotEmpty)
+                errors.Add($"{fieldPrefix}: Value is required for validation type '{rule.Type}'.");
+
+            if (rule.SecondaryValue is null && rule.Type is ValidationType.Range or ValidationType.LengthRange)
+                errors.Add($"{fieldPrefix}: SecondaryValue is required for validation type '{rule.Type}'.");
+        }
+
+        ValidateReferenceRules(field, context.ReferenceTargets, fieldPrefix, errors);
+
+        foreach (var rule in field.ValidationRules!.Select(r => r.MapToValidationRule()))
+        {
+            if (ValidationVariableCheck.Check(rule, field.Type, doc.SchemaName, importFields) is { } problem)
+                errors.Add($"{fieldPrefix}: {problem}");
+        }
+    }
+
+    private static void RequireDefined<TEnum>(TEnum value, string name, string prefix, List<string> errors) where TEnum : struct, Enum
+    {
+        if (!Enum.IsDefined(value))
+            errors.Add($"{prefix}: {name} '{value}' is not a valid value.");
     }
 
     /// <summary>

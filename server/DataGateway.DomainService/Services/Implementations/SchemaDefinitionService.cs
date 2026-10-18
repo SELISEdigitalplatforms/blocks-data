@@ -130,37 +130,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
         if (request.DeletableFieldNames?.Length > 0)
         {
-            var blockingIndexNames = new List<string>();
-            var autoManagedIndexesToDrop = new List<SchemaIndexResponse>();
-
-            foreach (var deletedName in request.DeletableFieldNames)
-            {
-                foreach (var index in existingIndexes.Where(i => i.Fields.Any(f => f.FieldName == deletedName)))
-                {
-                    // A single-field unique index that exactly matches the field being deleted is
-                    // this field's own IsUniqueData-managed index (see ReconcileUniqueFieldIndexesAsync)
-                    // — it becomes moot once the field is gone, so it's dropped instead of blocking
-                    // the deletion. Any other index (compound, or a deliberate non-unique index)
-                    // still blocks, exactly as before.
-                    if (IsAutoManagedUniqueIndex(index, deletedName))
-                        autoManagedIndexesToDrop.Add(index);
-                    else
-                        blockingIndexNames.Add(index.Name);
-                }
-            }
-
+            var blockingIndexNames = await RemoveDeletedFieldsAsync(schema, request.DeletableFieldNames, existingIndexes);
             if (blockingIndexNames.Count > 0)
                 return new ServiceResponse<ActionResponse>()
                     .SetErrorMessage($"FIELD_USED_BY_INDEX: {string.Join(", ", blockingIndexNames.Distinct())}")
                     .SetHttpStatusCode(400);
-
-            foreach (var index in autoManagedIndexesToDrop.DistinctBy(i => i.ItemId))
-            {
-                await _schemaIndexService.DeleteIndexAsync(index.ItemId);
-                existingIndexes.Remove(index);
-            }
-
-            schema.Fields = schema.Fields.Where(f => !request.DeletableFieldNames.Contains(f.Name)).ToList();
         }
 
         // Captured before the merge below overwrites IsUniqueData, so the reconciliation step can
@@ -171,24 +145,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             f => schema.Fields.FirstOrDefault(existing => existing.Name == f.Name)?.IsUniqueData ?? false);
 
         foreach (var field in request.Fields)
-        {
-            var existingField = schema.Fields.FirstOrDefault(f => f.Name == field.Name);
-            if (existingField != null)
-            {
-                // The default is edited on its own (SetFieldDefaultAsync); a new type or list setting makes it meaningless.
-                if (existingField.Type != field.Type || existingField.IsArray != field.IsArray)
-                    existingField.DefaultValue = null;
-                existingField.Type = field.Type;
-                existingField.IsArray = field.IsArray;
-                existingField.EnumValues = field.EnumValues ?? [];
-                existingField.IsPIIData = field.IsPIIData;
-                existingField.IsUniqueData = field.IsUniqueData;
-                existingField.Description = field.Description;
-                existingField.RequiredOn = field.RequiredOn;
-            }
-            else
-                schema.Fields.Add(new FieldDefinition { Name = field.Name, Type = field.Type, IsArray = field.IsArray, EnumValues = field.EnumValues ?? [], IsPIIData = field.IsPIIData, IsUniqueData = field.IsUniqueData, Description = field.Description, RequiredOn = field.RequiredOn });
-        }
+            MergeField(schema, field);
 
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
         var result = await _repository.UpdateAsync(schema);
@@ -197,6 +154,66 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         await ReconcileGeoJsonFieldIndexesAsync(schema, request, previousGeoJsonFieldNames);
         await _referenceHelper.ApplyChangesToReferenceEntityFields(schema);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = schema.ItemId });
+    }
+
+    /// <summary>
+    /// Removes the deleted fields, dropping each one's own IsUniqueData-managed index on the way. Returns the
+    /// names of other indexes that use a deleted field; when there are any, nothing is removed.
+    /// </summary>
+    private async Task<List<string>> RemoveDeletedFieldsAsync(SchemaDefinition schema, string[] deletedNames, List<SchemaIndexResponse> existingIndexes)
+    {
+        var blockingIndexNames = new List<string>();
+        var autoManagedIndexesToDrop = new List<SchemaIndexResponse>();
+
+        foreach (var deletedName in deletedNames)
+        {
+            foreach (var index in existingIndexes.Where(i => i.Fields.Any(f => f.FieldName == deletedName)))
+            {
+                // A single-field unique index that exactly matches the field being deleted is
+                // this field's own IsUniqueData-managed index (see ReconcileUniqueFieldIndexesAsync)
+                // — it becomes moot once the field is gone, so it's dropped instead of blocking
+                // the deletion. Any other index (compound, or a deliberate non-unique index)
+                // still blocks, exactly as before.
+                if (IsAutoManagedUniqueIndex(index, deletedName))
+                    autoManagedIndexesToDrop.Add(index);
+                else
+                    blockingIndexNames.Add(index.Name);
+            }
+        }
+
+        if (blockingIndexNames.Count > 0)
+            return blockingIndexNames;
+
+        foreach (var index in autoManagedIndexesToDrop.DistinctBy(i => i.ItemId))
+        {
+            await _schemaIndexService.DeleteIndexAsync(index.ItemId);
+            existingIndexes.Remove(index);
+        }
+
+        schema.Fields = schema.Fields.Where(f => !deletedNames.Contains(f.Name)).ToList();
+        return blockingIndexNames;
+    }
+
+    /// <summary>Applies one field of the properties table: updates the stored field, or adds it.</summary>
+    private static void MergeField(SchemaDefinition schema, FieldDefinitionRequest field)
+    {
+        var existingField = schema.Fields.FirstOrDefault(f => f.Name == field.Name);
+        if (existingField == null)
+        {
+            schema.Fields.Add(new FieldDefinition { Name = field.Name, Type = field.Type, IsArray = field.IsArray, EnumValues = field.EnumValues ?? [], IsPIIData = field.IsPIIData, IsUniqueData = field.IsUniqueData, Description = field.Description, RequiredOn = field.RequiredOn });
+            return;
+        }
+
+        // The default is edited on its own (SetFieldDefaultAsync); a new type or list setting makes it meaningless.
+        if (existingField.Type != field.Type || existingField.IsArray != field.IsArray)
+            existingField.DefaultValue = null;
+        existingField.Type = field.Type;
+        existingField.IsArray = field.IsArray;
+        existingField.EnumValues = field.EnumValues ?? [];
+        existingField.IsPIIData = field.IsPIIData;
+        existingField.IsUniqueData = field.IsUniqueData;
+        existingField.Description = field.Description;
+        existingField.RequiredOn = field.RequiredOn;
     }
 
     /// <summary>
@@ -628,8 +645,8 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     {
         if (string.Equals(previousName, schema.SchemaName, StringComparison.Ordinal))
             return;
-        foreach (var field in schema.Fields.Where(f => f.DefaultValue?.Kind == DefaultValueKind.Template))
-            field.DefaultValue!.Value = RenamePrefix(field.DefaultValue.Value, previousName, schema.SchemaName);
+        foreach (var template in schema.Fields.Select(f => f.DefaultValue).OfType<FieldDefaultValue>().Where(d => d.Kind == DefaultValueKind.Template))
+            template.Value = RenamePrefix(template.Value, previousName, schema.SchemaName);
     }
 
     /// <summary>Version-1 validation values may be a variable of their own schema; a rename rewrites the prefix.</summary>

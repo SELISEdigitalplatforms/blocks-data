@@ -29,11 +29,10 @@ import {
   FieldArrayWithId,
 } from "react-hook-form";
 import { FieldAccessTarget } from "../../models/schema-access.types";
-import { IField, IDataAccessRuleSet, IFieldDefaultValue, IFieldValidationRule } from "../../models/data-service";
+import { IField, IDataAccessRuleSet, IFieldDefaultValue, IFieldValidationRule, ISchemaDetails } from "../../models/data-service";
 import { PropertyRow } from "../../models/schema-structure.types";
 import { PropertyTypeSelector } from "./property-type-selector";
 import { EnumValuesEditor } from "./enum-values-editor";
-import { ISchemaDetails } from "../../models/data-service";
 import { useReadonlyExpanded } from "../../hooks/use-readonly-expanded";
 import {
   readonlyPropertyNames,
@@ -148,7 +147,7 @@ export function SchemaDesktopRow({
   showAccessValidationColumn = true,
   visibleColumnCount,
   originalFieldFromSchema,
-}: SchemaDesktopRowProps) {
+}: Readonly<SchemaDesktopRowProps>) {
   const [focusEnumEditor, setFocusEnumEditor] = useState(false);
   const compactCellClass = "py-3 align-middle";
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();

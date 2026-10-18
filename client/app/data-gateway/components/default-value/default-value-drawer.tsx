@@ -18,7 +18,7 @@ interface DefaultValueDrawerProps extends DefaultValuePanelProps {
  * The overlay form of the default-value panel, for mobile and nested child
  * tables — the same split `SchemaFieldValidationDrawer` makes for validations.
  */
-export function DefaultValueDrawer({ open, onOpenChange, ...panelProps }: DefaultValueDrawerProps) {
+export function DefaultValueDrawer({ open, onOpenChange, ...panelProps }: Readonly<DefaultValueDrawerProps>) {
   return (
     <Drawer direction="right" open={open} onOpenChange={onOpenChange} handleOnly>
       <DrawerContent className="inset-y-0 left-auto right-0 mt-0 flex h-full w-full flex-col gap-0 rounded-none border-l border-border/40 bg-background p-0 transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right md:w-[480px] [&>div:first-child]:hidden">

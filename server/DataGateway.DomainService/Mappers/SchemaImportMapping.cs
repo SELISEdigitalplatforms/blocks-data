@@ -39,12 +39,19 @@ public static class SchemaImportMapping
     };
 
     /// <summary>A default read from an import file: its value as stored (JSON lists and numbers to plain values).</summary>
-    public static FieldDefaultValue? ToStorable(this FieldDefaultValue? defaultValue) => defaultValue is null ? null : new()
+    public static FieldDefaultValue? ToStorable(this FieldDefaultValue? defaultValue)
     {
-        Kind = defaultValue.Kind,
-        Value = JsonValueHelper.ToStorableValue(defaultValue.Value),
-        Offset = defaultValue.Kind == DefaultValueKind.Now ? defaultValue.Offset : null,
-    };
+        if (defaultValue is null)
+            return null;
+
+        return new FieldDefaultValue
+        {
+            Kind = defaultValue.Kind,
+            Value = JsonValueHelper.ToStorableValue(defaultValue.Value),
+            // Only Now has an offset; one carried on another kind is dropped.
+            Offset = defaultValue.Kind == DefaultValueKind.Now ? defaultValue.Offset : null,
+        };
+    }
 
     /// <summary>
     /// Maps an RLS export policy to a DataAccessPolicy entity for the given schema.

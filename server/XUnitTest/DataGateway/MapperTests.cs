@@ -261,6 +261,25 @@ public class ValidationRuleEvaluationVersionTests
 
 public class SchemaExportImportMappingTests
 {
+    [Fact]
+    public void ReferenceRule_SurvivesExportAndImport_ByTargetName_WithItsVersion()
+    {
+        var reference = new ValidationRule
+        {
+            Type = ValidationType.Reference, Value = "Department", SecondaryValue = "Code",
+            ErrorMessage = "Unknown department", IsActive = true, EvaluationVersion = 1,
+        };
+        var legacy = new ValidationRule { Type = ValidationType.MaxLength, Value = 50, IsActive = true };
+
+        var exported = new[] { reference, legacy }.Select(r => r.MapToExportValidationRule()).ToList();
+        var imported = exported.Select(r => r.MapToValidationRule()).ToList();
+
+        // Points at the target by name, so it works in a project where the schema ids differ.
+        imported[0].Should().BeEquivalentTo(reference);
+        // A rule saved before the version existed stays version 0 through the round trip.
+        imported[1].EvaluationVersion.Should().Be(0);
+    }
+
     private static SchemaDefinition Schema() => new()
     {
         ItemId = "s1",

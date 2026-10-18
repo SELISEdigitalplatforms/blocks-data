@@ -328,4 +328,19 @@ public class DataValidationHelperTests
 
         new Dictionary<string, object?> { ["DepartmentId"] = "does-not-exist" }.Validate(schema).IsValid.Should().BeTrue();
     }
+
+    [Fact]
+    public void Validate_SeveralBrokenRules_AreAllReportedTogether()
+    {
+        var schema = Schema(fields: new()
+        {
+            FieldWithValidations("Username", "String",
+                V(ValidationType.MinLength, 3), V(ValidationType.MaxLength, 20), V(ValidationType.Regex, "^[a-z0-9_]+$")),
+        });
+
+        var result = new Dictionary<string, object?> { ["Username"] = "Ab" }.Validate(schema);
+
+        result.Errors.Select(e => e.ValidationType).Should().BeEquivalentTo(
+            [nameof(ValidationType.MinLength), nameof(ValidationType.Regex)]);
+    }
 }

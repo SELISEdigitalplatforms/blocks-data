@@ -205,12 +205,14 @@ public class ReferenceValidationIntegrationTests
         errors.Select(e => e.Field).Should().BeEquivalentTo("DeptCode", "BudgetRef");
     }
 
-    // Rows supplying their own ItemId and pointing at each other are accepted by the reference check
-    // (IsSuppliedByBatch), but such an insert cannot be exercised here: a supplied ItemId already fails
-    // on dev, before this change, in DefaultValueInjection.InjectDefaultValueOnInsert (_id added twice).
     [Fact]
-    public async Task BulkInsert_ErrorsNameTheItem()
+    public async Task BulkInsert_RowsMayReferenceEachOther_AndErrorsNameTheItem()
     {
+        var ok = await Service().BulkInsertAsync(_employee,
+            Ctx("[{ ItemId: \"m1\", Name: \"Boss\" }, { ItemId: \"e2\", Name: \"Hal\", ManagerId: \"m1\" }]"), _insertInput, _references);
+        ok.Acknowledged.Should().BeTrue();
+        (await Coll("Employees").CountDocumentsAsync(new BsonDocument("_id", new BsonDocument("$in", new BsonArray { "m1", "e2" })))).Should().Be(2);
+
         var act = () => Service().BulkInsertAsync(_employee,
             Ctx("[{ Name: \"Ivy\", DepartmentId: \"d1\" }, { Name: \"Jo\", ManagerId: \"nobody\" }]"), _insertInput, _references);
         var errors = ReferenceErrors((await act.Should().ThrowAsync<GraphQLException>()).Which);

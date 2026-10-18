@@ -34,7 +34,16 @@ public static class SchemaImportMapping
         ReadAccessLevel = f.ReadAccessLevel,
         WriteAccessLevel = f.WriteAccessLevel,
         EditAccessLevel = f.EditAccessLevel,
-        DeleteAccessLevel = f.DeleteAccessLevel
+        DeleteAccessLevel = f.DeleteAccessLevel,
+        DefaultValue = f.DefaultValue.ToStorable()
+    };
+
+    /// <summary>A default read from an import file: its value as stored (JSON lists and numbers to plain values).</summary>
+    public static FieldDefaultValue? ToStorable(this FieldDefaultValue? defaultValue) => defaultValue is null ? null : new()
+    {
+        Kind = defaultValue.Kind,
+        Value = JsonValueHelper.ToStorableValue(defaultValue.Value),
+        Offset = defaultValue.Kind == DefaultValueKind.Now ? defaultValue.Offset : null,
     };
 
     /// <summary>

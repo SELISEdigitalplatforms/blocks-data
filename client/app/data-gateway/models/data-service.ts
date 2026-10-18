@@ -129,11 +129,34 @@ export interface IField {
   writeAccessLevel?: number;
   totalValidationRules?: number;
   validationRule?: IFieldValidationRule | null;
+  /** Filled in on insert when the property isn't sent; null when none. */
+  defaultValue?: IFieldDefaultValue | null;
   /** Nested fields for custom/child type properties */
   fields?: IField[];
 }
 
 export type RequiredOn = "None" | "Insert" | "Update" | "Both";
+
+/** How a default is produced: a fixed value, text built from variables, or the insert time. */
+export type DefaultValueKind = "Static" | "Template" | "Now";
+
+/** A property's default value (Genesis FieldDefaultValue). */
+export interface IFieldDefaultValue {
+  kind: DefaultValueKind;
+  /** Static: a value, or a list for a list property. Template: a template, or a list of them. */
+  value?: string | number | boolean | Array<string | number | boolean> | null;
+  /** Now only: the shift from the insert time; each part may be negative. */
+  offset?: { days: number; hours: number; minutes: number; seconds: number } | null;
+}
+
+export interface ISetFieldDefaultPayload {
+  schemaId: string;
+  /** A nested property by its full dotted path, e.g. Read.Roles. */
+  fieldName: string;
+  /** Null clears the default. */
+  defaultValue: IFieldDefaultValue | null;
+  projectKey: string;
+}
 
 export interface ISchemaDetails {
   id: string;
@@ -218,6 +241,8 @@ export interface IRemoteSchemaField {
   writeAccessLevel?: number;
   totalValidationRules?: number;
   validationRule?: IFieldValidationRule | null;
+  /** Filled in on insert when the property isn't sent; null when none. */
+  defaultValue?: IFieldDefaultValue | null;
   /** Nested fields for custom/child type properties */
   fields?: IRemoteSchemaField[];
 }

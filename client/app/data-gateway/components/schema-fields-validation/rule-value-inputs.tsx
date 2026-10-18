@@ -4,12 +4,15 @@ import { Input } from "@/components/ui-kits/input/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-kits/select/select";
 import { Textarea } from "@/components/ui-kits/textarea/textarea";
 import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import {
   VALIDATION_TYPE,
   VALIDATION_TYPE_META,
+  fittingVariables,
+  looksLikeVariable,
   valueKindForField,
   type RuleDraft,
+  type RuleVariableContext,
   type ValueKind,
 } from "../../utils/validation-rules.util";
 import { ReferenceTargetPicker } from "./reference-target-picker";
@@ -66,6 +69,89 @@ function ValueInput({
 }
 
 /**
+ * A compared value: fixed (entered by type) or one variable naming another property of the same record,
+ * e.g. {{Employee.StartDate}}. Only properties of a fitting kind are offered; typing is checked too.
+ */
+function ComparisonValue({
+  kind,
+  label,
+  value,
+  enumValues,
+  invalid,
+  variableOptions,
+  onChange,
+}: Readonly<{
+  kind: ValueKind;
+  label: string;
+  value: string;
+  enumValues: string[];
+  invalid: boolean;
+  /** Fitting {{Schema.X}} variables; the switch shows only when a context is given. */
+  variableOptions: string[] | null;
+  onChange: (value: string) => void;
+}>) {
+  const [isVariable, setIsVariable] = useState(() => looksLikeVariable(value));
+  const switchTo = (variable: boolean) => {
+    if (variable === isVariable) return;
+    setIsVariable(variable);
+    onChange("");
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {variableOptions && (
+        <div role="radiogroup" aria-label={`${label} source`} className="flex gap-1">
+          {([false, true] as const).map((variable) => (
+            <button
+              key={String(variable)}
+              type="button"
+              role="radio"
+              aria-checked={isVariable === variable}
+              onClick={() => switchTo(variable)}
+              className={cn(
+                "h-6 rounded border px-2 text-[11px] transition-colors",
+                isVariable === variable
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
+              )}
+            >
+              {variable ? "Variable" : "Fixed value"}
+            </button>
+          ))}
+        </div>
+      )}
+      {isVariable && variableOptions ? (
+        <>
+          <Input
+            aria-label={label}
+            placeholder={variableOptions[0] ?? "{{Schema.Property}}"}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className={cn("h-9 font-mono text-sm", invalid && "border-rose-500")}
+          />
+          {variableOptions.length > 0 && (
+            <Select value="" onValueChange={onChange}>
+              <SelectTrigger className="h-8 w-full text-xs" aria-label={`Pick a property for ${label}`}>
+                <SelectValue placeholder="Pick a property…" />
+              </SelectTrigger>
+              <SelectContent>
+                {variableOptions.map((option) => (
+                  <SelectItem key={option} value={option} className="font-mono text-xs">
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </>
+      ) : (
+        <ValueInput kind={kind} label={label} value={value} enumValues={enumValues} invalid={invalid} onChange={onChange} />
+      )}
+    </div>
+  );
+}
+
+/**
  * The inputs a rule type needs, e.g. nothing for Not empty, one number for Min length, two for
  * a range, the pattern for Regex, and the target schema and field for Reference.
  */
@@ -74,6 +160,8 @@ export function RuleValueInputs({
   fieldType,
   enumValues,
   projectKey,
+  variables,
+  fieldName,
   error,
   onChange,
 }: Readonly<{
@@ -81,6 +169,10 @@ export function RuleValueInputs({
   fieldType: string;
   enumValues: string[];
   projectKey: string;
+  /** The schema comparison values may refer to; without it, values are fixed only. */
+  variables?: RuleVariableContext;
+  /** The property being checked, left out of the variables offered. */
+  fieldName?: string;
   /** Why the rule cannot be saved yet, once worth showing. */
   error: string | null;
   onChange: (patch: Partial<RuleDraft>) => void;
@@ -88,6 +180,7 @@ export function RuleValueInputs({
   const input = VALIDATION_TYPE_META[draft.type]?.input;
   const kind = valueKindForField(fieldType);
   const invalid = Boolean(error);
+  const variableOptions = variables?.schemaName ? fittingVariables(fieldType, variables, fieldName) : null;
 
   const body = (() => {
     switch (input) {
@@ -132,17 +225,17 @@ export function RuleValueInputs({
       case "value":
         return (
           <Labelled label="Value">
-            <ValueInput kind={kind} label="Value" value={draft.value} enumValues={enumValues} invalid={invalid} onChange={(value) => onChange({ value })} />
+            <ComparisonValue kind={kind} label="Value" value={draft.value} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} onChange={(value) => onChange({ value })} />
           </Labelled>
         );
       case "valueRange":
         return (
           <div className="flex gap-3">
             <Labelled label="Min">
-              <ValueInput kind={kind} label="Min" value={draft.value} enumValues={enumValues} invalid={invalid} onChange={(value) => onChange({ value })} />
+              <ComparisonValue kind={kind} label="Min" value={draft.value} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} onChange={(value) => onChange({ value })} />
             </Labelled>
             <Labelled label="Max">
-              <ValueInput kind={kind} label="Max" value={draft.secondaryValue} enumValues={enumValues} invalid={invalid} onChange={(secondaryValue) => onChange({ secondaryValue })} />
+              <ComparisonValue kind={kind} label="Max" value={draft.secondaryValue} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} onChange={(secondaryValue) => onChange({ secondaryValue })} />
             </Labelled>
           </div>
         );

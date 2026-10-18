@@ -7,6 +7,7 @@ using DataGateway.DomainService.Validators;
 using FluentAssertions;
 using MongoDB.Driver;
 using Moq;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace XUnitTest.DataGateway;
 
@@ -373,6 +374,50 @@ public class DataValidationRequestValidatorTests
         var twice = ReferenceRequest("DepartmentId", new ValidationRuleRequest { Type = ValidationType.Reference, Value = "Department" });
         (await v.ValidateAsync(twice)).Errors.Should().ContainSingle()
             .Which.ErrorMessage.Should().Be(ReferenceRuleCompatibility.OnlyOneReference);
+    }
+
+    private CreateDataValidationRequestValidator VariableValidator()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new SchemaDefinition
+        {
+            ItemId = "emp", SchemaName = "Employee", SchemaType = SchemaType.Entity,
+            Fields =
+            [
+                new FieldDefinition { Name = "Name", Type = "String" },
+                new FieldDefinition { Name = "StartDate", Type = "DateTime" },
+                new FieldDefinition { Name = "EndDate", Type = "DateTime" },
+            ],
+        });
+        return new CreateDataValidationRequestValidator(_repo.Object);
+    }
+
+    private static CreateDataValidationRequest VariableRule(object value, ValidationType type = ValidationType.GreaterThan, int version = 1) => new()
+    {
+        SchemaId = "emp",
+        FieldName = "EndDate",
+        Validations = [new ValidationRuleRequest { Type = type, Value = value, EvaluationVersion = version }],
+    };
+
+    [Fact]
+    public async Task Create_VariableRule_Accepted_AndVersionZeroValuesStayFixed()   // UC20
+    {
+        var v = VariableValidator();
+
+        (await v.ValidateAsync(VariableRule("{{Employee.StartDate}}"))).IsValid.Should().BeTrue();
+        (await v.ValidateAsync(VariableRule("{{Auth.UserId}}", version: 0))).IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("{{Auth.UserId}}", "Auth values aren't available in validation rules at position 1: use an access policy")]   // UC22
+    [InlineData("{{StartDate}}", "Missing prefix at position 1: write {{Employee.StartDate}}")]                                  // UC23
+    [InlineData("Hi {{Employee.StartDate}}", "A validation value is either a fixed value or one variable, e.g. {{Employee.StartDate}}")]
+    [InlineData("{{Employee.Name}}", "Employee.Name is text at position 1: a date-time is expected")]
+    [InlineData("{{Employee.Xyzzy}}", "Unknown property \"Employee.Xyzzy\" at position 1")]
+    public async Task Create_VariableRule_Refused_WithTheReason(string value, string expected)
+    {
+        var result = await VariableValidator().ValidateAsync(VariableRule(value));
+
+        result.Errors.Select(e => e.ErrorMessage).Should().ContainSingle().Which.Should().Be(expected);
     }
 
     [Fact]

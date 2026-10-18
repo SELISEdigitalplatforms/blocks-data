@@ -36,6 +36,8 @@ public class ExportFieldDefinition
     public List<ExportAccessPolicy>? AccessPolicies { get; set; }
     /// <summary>Validation rules for this field. Null when ValidationRules flag is not set.</summary>
     public List<ExportValidationRule>? ValidationRules { get; set; }
+    /// <summary>The default value applied on insert; null when the field has none.</summary>
+    public FieldDefaultValue? DefaultValue { get; set; }
 }
 
 public class ExportAccessPolicy

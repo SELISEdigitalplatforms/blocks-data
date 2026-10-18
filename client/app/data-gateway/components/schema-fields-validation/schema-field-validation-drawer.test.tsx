@@ -29,6 +29,7 @@ vi.mock("../../hooks/use-configuration", () => ({
     isPending: false,
   }),
   useGenerateRegex: () => ({ mutateAsync: generateRegex, isPending: false }),
+  useSchemaVariableContext: () => ({ schemaName: "", fields: {} }),
 }));
 
 vi.mock("@/hooks/use-toast", () => ({

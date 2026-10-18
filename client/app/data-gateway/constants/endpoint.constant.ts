@@ -27,6 +27,7 @@ export const SCHEMA_ENDPOINTS = {
   UPDATE_FIELDS: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/fields`,
   DELETE: `${API_BASES.UDS}${SCHEMAS_SUBPATH}`,
   UNADAPTED_CHANGE_LOGS: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/unadapted-change-logs`,
+  FIELD_DEFAULT: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/field-default`,
 } as const;
 
 // ─── Schema Index endpoints ───────────────────────────────────────────────────

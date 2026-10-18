@@ -1,11 +1,13 @@
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
+using DataGateway.DomainService.Mappers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Export;
 using DataGateway.DomainService.Repositories;
 using FluentValidation;
 using MongoDB.Driver;
 using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService.Validators;
 
@@ -189,6 +191,19 @@ public class SchemaImportValidator
                             errors.Add($"{prefix}.{field.Name}: SecondaryValue is required for validation type '{rule.Type}'.");
                     }
                     ValidateReferenceRules(field, referenceTargets, $"{prefix}.{field.Name}", errors);
+                    foreach (var rule in field.ValidationRules.Select(r => r.MapToValidationRule()))
+                    {
+                        if (ValidationVariableCheck.Check(rule, field.Type, doc.SchemaName, ImportFields(doc)) is { } problem)
+                            errors.Add($"{prefix}.{field.Name}: {problem}");
+                    }
+                }
+
+                if (field.DefaultValue is not null)
+                {
+                    var problem = FieldDefaultValueCheck.Check(field.Name, field.Type, field.IsArray, field.EnumValues,
+                        field.DefaultValue.ToStorable()!, doc.SchemaName, ImportFields(doc));
+                    if (problem is not null)
+                        errors.Add($"{prefix}.{field.Name}: {problem}");
                 }
             }
         }
@@ -262,6 +277,10 @@ public class SchemaImportValidator
         }
         return targets;
     }
+
+    /// <summary>What a default's template may refer to: the file's own fields for that schema.</summary>
+    private static Dictionary<string, VariableField> ImportFields(SchemaExportDocument doc) =>
+        VariableSyntax.FieldsOf((doc.Fields ?? []).Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray }));
 
     private static void ValidateAccessPolicy(ExportAccessPolicy policy, string prefix, List<string> errors)
     {

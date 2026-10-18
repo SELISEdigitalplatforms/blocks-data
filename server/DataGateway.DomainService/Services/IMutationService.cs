@@ -3,6 +3,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using HotChocolate.Resolvers;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService.Services;
 

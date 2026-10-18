@@ -8,6 +8,7 @@ using DataGateway.DomainService.Services;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using Microsoft.Extensions.Logging;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService.Resolvers;
 

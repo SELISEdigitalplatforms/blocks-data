@@ -11,6 +11,7 @@ using DataGateway.DomainService.Helpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using static XUnitTest.DataGateway.TestSupport;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace XUnitTest.DataGateway;
 
@@ -213,5 +214,31 @@ public class ReferenceValidationTests
 
         Builder().BuildSchema("t", SourcePointingAt("Department"), SchemaBuilder.New()).Should().BeTrue();
         Builder().BuildSchema("t", SourcePointingAt("Employee"), SchemaBuilder.New(), strictReferences: true).Should().BeTrue();
+    }
+
+    [Fact]
+    public void BuildSchema_Strict_FailsWhenATemplateNamesAMissingProperty()
+    {
+        SchemaSource Source(string template) => new()
+        {
+            SchemaDefinitions =
+            [
+                new SchemaDefinition
+                {
+                    ItemId = "emp", SchemaName = "Employee", CollectionName = "Employees", SchemaType = SchemaType.Entity,
+                    Fields =
+                    [
+                        new FieldDefinition { Name = "FirstName", Type = "String" },
+                        new FieldDefinition { Name = "DisplayName", Type = "String", DefaultValue = new FieldDefaultValue { Kind = DefaultValueKind.Template, Value = template } },
+                    ],
+                },
+            ],
+        };
+
+        var strict = () => Builder().BuildSchema("t", Source("{{Employee.LastName}}"), SchemaBuilder.New(), strictReferences: true);
+        strict.Should().Throw<InvalidOperationException>().WithMessage("*Employee.DisplayName default value: Unknown property \"Employee.LastName\"*");
+
+        Builder().BuildSchema("t", Source("{{Employee.LastName}}"), SchemaBuilder.New()).Should().BeTrue();
+        Builder().BuildSchema("t", Source("{{Employee.FirstName}}"), SchemaBuilder.New(), strictReferences: true).Should().BeTrue();
     }
 }

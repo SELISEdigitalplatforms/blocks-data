@@ -6,6 +6,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using MongoDB.Driver;
 using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService.Validators;
 
@@ -46,6 +47,35 @@ public abstract class DataValidationRequestValidatorBase<T> : AbstractValidator<
             var problem = await CheckReferenceRulesAsync(schemaId(request), fieldName(request), rules(request));
             if (problem is not null)
                 context.AddFailure("Validations", problem);
+        });
+    }
+
+    /// <summary>
+    /// Adds the check for variables in comparison values (<c>{{Schema.StartDate}}</c>): well formed, naming an
+    /// existing single-value property of the same kind. Only version-1 rules have variables.
+    /// </summary>
+    protected void ValidateVariableRules(Func<T, string> schemaId, Func<T, string> fieldName, Func<T, List<ValidationRuleRequest>?> rules)
+    {
+        RuleFor(x => x).CustomAsync(async (request, context, _) =>
+        {
+            var candidates = (rules(request) ?? []).Where(r => r.EvaluationVersion >= 1).ToList();
+            if (candidates.Count == 0)
+                return;
+
+            var schema = await _dbRepository.GetItemAsync<SchemaDefinition>(Builders<SchemaDefinition>.Filter.Eq(x => x.ItemId, schemaId(request)));
+            var source = schema?.Fields.FirstOrDefault(f => f.Name == fieldName(request));
+            if (schema is null || source is null)
+                return;
+
+            var fields = VariableSyntax.FieldsOf(schema.Fields);
+            foreach (var rule in candidates)
+            {
+                if (ValidationVariableCheck.Check(rule.MapToEntity(), source.Type, schema.SchemaName, fields) is { } problem)
+                {
+                    context.AddFailure("Validations", problem);
+                    return;
+                }
+            }
         });
     }
 

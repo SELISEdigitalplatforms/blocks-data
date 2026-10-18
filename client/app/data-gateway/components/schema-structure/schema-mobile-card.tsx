@@ -28,7 +28,7 @@ import {
   FieldArrayWithId,
 } from "react-hook-form";
 import { FieldAccessTarget } from "../../models/schema-access.types";
-import { IField, IDataAccessRuleSet, IFieldValidationRule } from "../../models/data-service";
+import { IField, IDataAccessRuleSet, IFieldDefaultValue, IFieldValidationRule } from "../../models/data-service";
 import { PropertyRow } from "../../models/schema-structure.types";
 import { PropertyTypeSelector } from "./property-type-selector";
 import { EnumValuesEditor } from "./enum-values-editor";
@@ -47,7 +47,8 @@ import {
 import { getValidationDisplayInfo } from "@/data-gateway/utils/schema-normalization";
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
 import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
-import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagsFromField } from "../primitives";
+import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagTitlesFromField, flagsFromField } from "../primitives";
+import { DefaultValueButton } from "./default-value-button";
 
 const FLAG_TOGGLES = [
   { flag: "ARR", key: "isArray", notForChildTypes: false },
@@ -83,6 +84,10 @@ interface SchemaMobileCardProps {
   searchText: string;
   onOpenAccessDrawer: (fieldTarget: FieldAccessTarget | undefined, title: string) => void;
   onOpenValidationDrawer: (fieldName: string, validationRule?: IFieldValidationRule | null) => void;
+  /** Opens the field's default value; the button shows only when this is given and `showDefaultButton` is on. */
+  onOpenDefaultDrawer?: (fieldName: string, defaultValue?: IFieldDefaultValue | null) => void;
+  /** Defaults apply on insert, so only entities (and properties nested in them) get the button. */
+  showDefaultButton?: boolean;
   isExpanded?: boolean;
   onToggleExpand?: (index: number) => void;
   childSchema?: ISchemaDetails | null;
@@ -123,6 +128,8 @@ export function SchemaMobileCard({
   searchText,
   onOpenAccessDrawer,
   onOpenValidationDrawer,
+  onOpenDefaultDrawer,
+  showDefaultButton = false,
   isExpanded,
   onToggleExpand,
   childSchema,
@@ -142,6 +149,7 @@ export function SchemaMobileCard({
     ? fieldSource
     : (originalFieldFromSchema ?? fieldSource);
   const validationInfo = getValidationDisplayInfo(fieldForValidation);
+  const defaultValue = fieldForValidation?.defaultValue ?? null;
 
   const fieldTarget: FieldAccessTarget | undefined = fieldName
     ? {
@@ -180,6 +188,7 @@ export function SchemaMobileCard({
     isArray: watch(`properties.${index}.isArray`),
     isPIIData: watch(`properties.${index}.isPIIData`),
     isUniqueData: watch(`properties.${index}.isUniqueData`),
+    defaultValue,
   });
   const isFirstRow = isEntityType && index === 0;
 
@@ -404,7 +413,7 @@ export function SchemaMobileCard({
                 <span className="block text-xs text-muted-foreground">Flags</span>
                 {!isEditMode ? (
                   fieldFlags.length > 0 ? (
-                    <FieldFlags flags={fieldFlags} />
+                    <FieldFlags flags={fieldFlags} titles={flagTitlesFromField({ defaultValue })} />
                   ) : (
                     <p className="text-sm text-muted-foreground/40">—</p>
                   )
@@ -500,7 +509,7 @@ export function SchemaMobileCard({
                 )}
               </div>
 
-              {/* Access | Validation buttons (hidden in Child tab) */}
+              {/* Access | Validation | Default value buttons (hidden in Child tab) */}
               {showAccessValidationColumn && (
                 <div className="min-w-0">
                   <div className="flex min-w-0 gap-2">
@@ -621,6 +630,18 @@ export function SchemaMobileCard({
                           </span>
                         )}
                       </button>
+                    )}
+
+                    {showDefaultButton && onOpenDefaultDrawer && (
+                      <DefaultValueButton
+                        wide
+                        fieldName={fieldName}
+                        fieldType={currentType}
+                        isNewField={isNewField}
+                        isEditMode={isEditMode}
+                        defaultValue={defaultValue}
+                        onOpen={() => onOpenDefaultDrawer(fieldName, defaultValue)}
+                      />
                     )}
                   </div>
                 </div>

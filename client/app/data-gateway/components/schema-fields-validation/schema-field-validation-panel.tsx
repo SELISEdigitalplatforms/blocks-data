@@ -22,6 +22,7 @@ import {
   useDeleteSchemaFieldValidation,
   useGenerateRegex,
   useGetSchemaFieldValidation,
+  useSchemaVariableContext,
   useUpdateSchemaFieldValidation,
 } from "../../hooks/use-configuration";
 import { useTransientStatus } from "../../hooks/use-transient-status";
@@ -143,6 +144,8 @@ export function SchemaFieldValidationPanel({
     useDeleteSchemaFieldValidation();
   const { mutateAsync: generateRegex, isPending: isGenerating } =
     useGenerateRegex();
+  // Comparison values may name another property of the same record, e.g. {{Employee.StartDate}}.
+  const variables = useSchemaVariableContext(schemaId, projectKey);
 
   // Priority: fresh query result (post-mutation) → initial prop → query cache → null
   const freshQueryData =
@@ -169,7 +172,7 @@ export function SchemaFieldValidationPanel({
     (t) => t !== VALIDATION_TYPE.Reference || !hasOtherReference,
   );
   if (isEditMode && !typeOptions.includes(form.type)) typeOptions.unshift(form.type);
-  const draftError = checkRuleDraft(form, fieldType);
+  const draftError = checkRuleDraft(form, fieldType, variables);
 
   const resetForm = () => {
     setForm(newDraft(fieldType));
@@ -417,10 +420,14 @@ export function SchemaFieldValidationPanel({
               )}
 
               <RuleValueInputs
+                // Fresh fixed/variable switches per rule being edited.
+                key={form.editingIndex ?? "new"}
                 draft={form}
                 fieldType={fieldType}
                 enumValues={enumValues}
                 projectKey={projectKey}
+                variables={variables}
+                fieldName={fieldName}
                 error={showDraftError ? draftError : null}
                 onChange={updateDraft}
               />

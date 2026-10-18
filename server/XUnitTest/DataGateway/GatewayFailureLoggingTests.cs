@@ -23,6 +23,7 @@ using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Moq;
 using static XUnitTest.DataGateway.TestSupport;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace XUnitTest.DataGateway;
 

@@ -17,6 +17,7 @@ using System.Collections;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService.Services;
 
@@ -62,10 +63,12 @@ public class MutationService : IMutationService
         _logger.LogInformation("Inserting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.WRITE, OperationLabelCreate);
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
+        var defaults = ApplyFieldDefaults(input, schema, DateTime.UtcNow);
         ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
         await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelCreate);
         await ValidateUniquenessOrThrowAsync(schema, [input], null, OperationLabelCreate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.WRITE, OperationLabelCreate);
+        FieldDefaultsApplier.Apply(input, defaults);
         input.InjectDefaultValueOnInsert();
         MutationInputHelper.EnsureDefaultListsForInsert(input);
 
@@ -112,7 +115,7 @@ public class MutationService : IMutationService
             return MutationInputHelper.ActionResponseNotFound(OperationLabelUpdate);
 
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
-        ValidateMutationInputOrThrow(input, schema, OperationLabelUpdate);
+        ValidateMutationInputOrThrow(input, schema, OperationLabelUpdate, existingDocument);
         await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelUpdate);
         var currentId = existingDocument[GraphQlConstant.DbEntityIdFieldName]?.ToString();
         await ValidateUniquenessOrThrowAsync(schema, [input], currentId is not null ? [currentId] : null, OperationLabelUpdate);
@@ -304,6 +307,9 @@ public class MutationService : IMutationService
         if (inputs == null || inputs.Count == 0)
             return new BulkActionResponse { Acknowledged = true, TotalImpactedData = 0 };
 
+        // One "now" for the whole batch, so every row's Now default is the same.
+        var now = DateTime.UtcNow;
+        var defaultsPerInput = inputs.Select(input => ApplyFieldDefaults(input, schema, now)).ToList();
         foreach (var input in inputs)
             ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
 
@@ -311,9 +317,11 @@ public class MutationService : IMutationService
         await ValidateUniquenessOrThrowAsync(schema, inputs, null, OperationLabelCreate);
 
         var documents = new List<BsonDocument>();
-        foreach (var input in inputs)
+        for (var i = 0; i < inputs.Count; i++)
         {
+            var input = inputs[i];
             ApplyClsRestrictionsToInput(input, schema, PolicyOperation.WRITE, OperationLabelCreate);
+            FieldDefaultsApplier.Apply(input, defaultsPerInput[i]);
             input.InjectDefaultValueOnInsert();
             MutationInputHelper.EnsureDefaultListsForInsert(input);
             documents.Add(InputToBsonDocument(input));
@@ -438,19 +446,16 @@ public class MutationService : IMutationService
         {
             var requested = group.Select(v => BsonValue.Create(v.Value)).Distinct().ToList();
             var existing = await _repository.GetDistinctValuesAsync(group.Key.CollectionName, group.Key.DbFieldName, requested);
-            var present = existing.Select(ReferenceKey).ToHashSet(StringComparer.Ordinal);
+            var present = existing.Select(WriteRules.ReferenceKey).ToHashSet(StringComparer.Ordinal);
 
             foreach (var value in group)
             {
-                if (present.Contains(ReferenceKey(BsonValue.Create(value.Value)))) continue;
+                if (present.Contains(WriteRules.ReferenceKey(BsonValue.Create(value.Value)))) continue;
                 if (IsSuppliedByBatch(schema, value, batchIds)) continue;
                 if (result.Errors.Count >= maxErrors) break;
 
                 var itemPrefix = inputs.Count > 1 ? $"Item {value.InputIndex}: " : string.Empty;
-                var message = string.IsNullOrWhiteSpace(value.Rule.ErrorMessage)
-                    ? $"Value '{value.Value}' of {schema.SchemaName}.{value.Path} was not found in {value.Target.SchemaName}.{value.Target.FieldName}."
-                    : value.Rule.ErrorMessage;
-                result.AddError(value.Path, itemPrefix + message, nameof(ValidationType.Reference));
+                result.AddError(value.Path, itemPrefix + WriteRules.ReferenceNotFoundMessage(schema.SchemaName, value), nameof(ValidationType.Reference));
             }
         }
 
@@ -467,12 +472,6 @@ public class MutationService : IMutationService
         && value.Target.CollectionName == schema.CollectionName
         && value.Target.DbFieldName == GraphQlConstant.DbEntityIdFieldName
         && value.Value.ToString() is { } id && batchIds.Contains(id);
-
-    /// <summary>Compares numbers by value (Int 3 matches Float 3.0, as Mongo's $in does) and everything else by its text.</summary>
-    private static string ReferenceKey(BsonValue value) =>
-        value.IsNumeric
-            ? "n:" + value.ToDouble().ToString("R", System.Globalization.CultureInfo.InvariantCulture)
-            : "s:" + (value.IsString ? value.AsString : value.ToString());
 
     /// <summary>
     /// For each unique field in the schema, queries the DB with $in to find which values already exist.
@@ -693,11 +692,25 @@ public class MutationService : IMutationService
     private PolicyEvaluationResult EvaluateRlsPolicies(SchemaDefinitionExtended schema, PolicyOperation operation) =>
         _resolver.Check(new SchemaAccessRequest(_principals.Current, schema, operation));
 
-    private void ValidateMutationInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel)
+    /// <summary>
+    /// Fills properties the insert didn't send with their default values (before any check, so required
+    /// fields can be satisfied by a default and defaults are validated like sent values). Returns the
+    /// defaults so they can be put back after column access rules removed values the caller can't write.
+    /// </summary>
+    private List<FieldDefaultsApplier.DefaultAssignment> ApplyFieldDefaults(Dictionary<string, object?> input, SchemaDefinitionExtended schema, DateTime nowUtc)
+    {
+        if (!FieldDefaultsApplier.HasDefaults(schema.Fields))
+            return [];
+        var defaults = FieldDefaultsApplier.Compute(input, schema.SchemaName, schema.Fields, _principals.Current, nowUtc);
+        FieldDefaultsApplier.Apply(input, defaults);
+        return defaults;
+    }
+
+    private void ValidateMutationInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel, BsonDocument? storedDocument = null)
     {
 
         ValidateRequiredFieldsOrThrow(input, schema, operationLabel);
-        var r = input.Validate(schema);
+        var r = input.Validate(schema, storedDocument is null ? null : WriteRules.ToRecord(storedDocument));
         if (!r.IsValid) { _logger.LogWarning("Validation failed for {Op} on schema {SchemaName}: {Errors}", operationLabel, schema.SchemaName, r.ErrorMessage); MutationValidationHelper.ThrowValidationError(r); }
     }
 

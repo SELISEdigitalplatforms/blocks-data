@@ -24,6 +24,7 @@ using Moq;
 using StackExchange.Redis;
 using XUnitTest.Infrastructure;
 using static XUnitTest.DataGateway.TestSupport;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace XUnitTest.DataGateway.Services;
 

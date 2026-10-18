@@ -18,6 +18,7 @@ import {
   ICreateSchemaFieldValidationPayload,
   ICreateSchemaIndexPayload,
   ICreateSchemaPayload,
+  ISetFieldDefaultPayload,
   ICreateSchemaResponse,
   IDataServiceConfigurationResponse,
   IDataSourceResponse,
@@ -108,6 +109,11 @@ class ConfigurationService {
     payload: IUpdateSchemaStructure,
   ): Promise<IDataServiceConfigurationResponse> {
     return http.post(SCHEMA_ENDPOINTS.UPDATE_FIELDS, payload);
+  }
+
+  /** Sets or clears (null) one property's default value. */
+  setFieldDefault(payload: ISetFieldDefaultPayload): Promise<IDefaultResponse> {
+    return http.post(SCHEMA_ENDPOINTS.FIELD_DEFAULT, payload);
   }
 
   deleteSchema(payload: {

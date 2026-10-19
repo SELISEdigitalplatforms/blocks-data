@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui-kits/button/button";
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import {
@@ -114,10 +114,23 @@ interface CardForm {
 }
 
 /** Keeps a property name to letters, digits and "_", not starting with a digit. */
-const sanitizeName = (text: string) => text.replace(/\W/g, "").replace(/^\d+/, "");
+const sanitizeName = (text: string) => text.replaceAll(/\W/g, "").replace(/^\d+/, "");
 
 const accessLabel = (level: number | undefined) =>
   ACCESS_TYPE_SHORT_LABELS[ACCESS_LEVEL_TO_TYPE[level ?? 0] ?? ACCESS_TYPES.INHERITED];
+
+const HEADING_CLASS = "block text-xs text-muted-foreground";
+
+/** A field's heading: a <label> for the input it names, plain text when there is no input (view mode, selects that name themselves). */
+function FieldHeading({ htmlFor, children }: Readonly<{ htmlFor?: string; children: ReactNode }>) {
+  return htmlFor ? (
+    <label htmlFor={htmlFor} className={HEADING_CLASS}>
+      {children}
+    </label>
+  ) : (
+    <span className={HEADING_CLASS}>{children}</span>
+  );
+}
 
 /** Why a rules button can't be used: edit mode first, then an unsaved field, then the type. */
 function unavailableReason(isEditMode: boolean, isNewField: boolean, typeReason: string, editReason: string, newReason: string): string | null {
@@ -170,11 +183,13 @@ function NameField({
 }>) {
   const { index, isEditMode, isReadOnly, setValue } = form;
   const nameError = errors.properties?.[index]?.name;
+  const inputId = useId();
   return (
     <div className="min-w-0 space-y-1">
-      <label className="text-xs text-muted-foreground">Property name</label>
+      <FieldHeading htmlFor={isEditMode ? inputId : undefined}>Property name</FieldHeading>
       {isEditMode ? (
         <Input
+          id={inputId}
           {...register(`properties.${index}.name`, {
             required: "Property name is required",
             pattern: {
@@ -257,6 +272,7 @@ function TypeField({
   onToggleExpand,
   isPopoverOpen,
   onPopoverChange,
+  onClosePopover,
   schemaItems,
   onTypeSearchChange,
   searchText,
@@ -267,7 +283,9 @@ function TypeField({
   isExpanded: boolean;
   onToggleExpand?: () => void;
   isPopoverOpen: boolean;
+  /** Opens the type picker (closed for a read-only property) or closes it. */
   onPopoverChange: (open: boolean) => void;
+  onClosePopover: () => void;
   schemaItems: ISchemaDetails[];
   onTypeSearchChange: (value: string) => void;
   searchText: string;
@@ -279,7 +297,7 @@ function TypeField({
   if (!isEditMode) {
     return (
       <div className="min-w-0 space-y-1">
-        <label className="text-xs text-muted-foreground">Property type</label>
+        <FieldHeading>Property type</FieldHeading>
         <div className="flex min-h-[28px] w-full items-center gap-1.5">
           <TypeChip type={currentType} isArray={watch(`properties.${index}.isArray`)} className="min-w-0 max-w-full truncate" />
           {isChildType && childName && onToggleExpand && (
@@ -295,12 +313,12 @@ function TypeField({
     setFocusEnumEditor(type === "Enum" && currentType !== "Enum");
     const enumValues = type === "Enum" ? (watch(`properties.${index}.enumValues`) ?? []) : [];
     setValue(`properties.${index}.enumValues`, enumValues, { shouldDirty: true });
-    onPopoverChange(false);
+    onClosePopover();
   };
 
   return (
     <div className="min-w-0 space-y-1">
-      <label className="text-xs text-muted-foreground">Property type</label>
+      <FieldHeading>Property type</FieldHeading>
       <PropertyTypeSelector
         index={index}
         value={currentType}
@@ -390,7 +408,7 @@ function RequiredField({ form, name }: Readonly<{ form: CardForm; name: string }
   const { index, isEditMode, isReadOnly, watch, setValue } = form;
   return (
     <div className="min-w-0 space-y-1">
-      <label className="text-xs text-muted-foreground">Required</label>
+      <FieldHeading>Required</FieldHeading>
       {isEditMode ? (
         <Select
           value={watch(`properties.${index}.requiredOn`) ?? "None"}
@@ -420,11 +438,13 @@ function RequiredField({ form, name }: Readonly<{ form: CardForm; name: string }
 function DescriptionField({ form }: Readonly<{ form: CardForm }>) {
   const { index, isEditMode, isReadOnly, watch, setValue } = form;
   const description = watch(`properties.${index}.description`) ?? "";
+  const inputId = useId();
   return (
     <div className="min-w-0 space-y-1">
-      <label className="text-xs text-muted-foreground">Description</label>
+      <FieldHeading htmlFor={isEditMode ? inputId : undefined}>Description</FieldHeading>
       {isEditMode ? (
         <Input
+          id={inputId}
           value={description}
           onChange={(e) => setValue(`properties.${index}.description`, e.target.value, { shouldDirty: true })}
           placeholder={isReadOnly ? "—" : "Add description"}
@@ -655,10 +675,9 @@ export function SchemaMobileCard({
                   isExpanded={isExpanded}
                   onToggleExpand={onToggleExpand && (() => onToggleExpand(index))}
                   isPopoverOpen={openMobileTypePopoverIndex === index}
-                  onPopoverChange={(open) => {
-                    if (!open) setOpenMobileTypePopoverIndex(null);
-                    else if (!isReadOnly) setOpenMobileTypePopoverIndex(index);
-                  }}
+                  // A read-only (default) property's type can't be changed, so its picker never opens.
+                  onPopoverChange={(open) => setOpenMobileTypePopoverIndex(open && !isReadOnly ? index : null)}
+                  onClosePopover={() => setOpenMobileTypePopoverIndex(null)}
                   schemaItems={schemaItems}
                   onTypeSearchChange={onTypeSearchChange}
                   searchText={searchText}

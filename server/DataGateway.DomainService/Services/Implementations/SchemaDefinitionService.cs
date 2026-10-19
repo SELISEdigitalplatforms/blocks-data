@@ -148,7 +148,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             MergeField(schema, field);
 
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
-        var result = await _repository.UpdateAsync(schema);
+        await _repository.UpdateAsync(schema);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaFieldUpdate);
         await ReconcileUniqueFieldIndexesAsync(schema, existingIndexes, request.Fields, wasUniqueByFieldName);
         await ReconcileGeoJsonFieldIndexesAsync(schema, request, previousGeoJsonFieldNames);

@@ -22,6 +22,44 @@ public class MutationInputHelperTests
     });
 
     [Fact]
+    public void AddRequesterToAccessLists_AddsTheRequesterOnce_KeepingWhatWasSent()
+    {
+        XUnitTest.Infrastructure.BlocksTestContext.Set(userId: "user-1");
+        try
+        {
+            var input = new Dictionary<string, object?>
+            {
+                ["Read"] = new Dictionary<string, object?> { ["UserIds"] = new List<object?> { "user-9" }, ["Roles"] = new List<object?> { "admin" } },
+                ["Update"] = new Dictionary<string, object?> { ["UserIds"] = new List<object?> { "user-1" } },
+            };
+
+            MutationInputHelper.AddRequesterToAccessLists(input);
+
+            var read = (Dictionary<string, object?>)input["Read"]!;
+            read["UserIds"].Should().BeEquivalentTo(new object?[] { "user-9", "user-1" }, o => o.WithStrictOrdering());
+            read["Roles"].Should().BeEquivalentTo(new object?[] { "admin" });
+            ((Dictionary<string, object?>)input["Update"]!)["UserIds"].Should().BeEquivalentTo(new object?[] { "user-1" });
+            ((Dictionary<string, object?>)input["Delete"]!)["UserIds"].Should().BeEquivalentTo(new object?[] { "user-1" });
+            input.Should().NotContainKey("Create");
+        }
+        finally
+        {
+            XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        }
+    }
+
+    [Fact]
+    public void AddRequesterToAccessLists_WithoutASignedInUser_AddsNothing()
+    {
+        XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        var input = new Dictionary<string, object?>();
+
+        MutationInputHelper.AddRequesterToAccessLists(input);
+
+        input.Should().BeEmpty();
+    }
+
+    [Fact]
     public void GetAllPathsFromInput_FlatAndNested()
     {
         var input = new Dictionary<string, object?>

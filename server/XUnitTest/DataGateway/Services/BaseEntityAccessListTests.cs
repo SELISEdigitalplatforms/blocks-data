@@ -128,7 +128,10 @@ public class BaseEntityAccessListTests
 
         var row = _db.GetCollection<BsonDocument>("Employees").Find(new BsonDocument("_id", "e1")).Single();
         row["Read"]["Roles"].AsBsonArray.Select(v => v.AsString).Should().Equal("admin", "app-user");
-        row.Contains("Create").Should().BeFalse();   // no default there: nothing is written
+        // The requester can read, edit and delete what they insert.
+        foreach (var list in new[] { "Read", "Update", "Delete" })
+            row[list]["UserIds"].AsBsonArray.Select(v => v.AsString).Should().Equal("u1");
+        row.Contains("Create").Should().BeFalse();   // no default and no requester there: nothing is written
     }
 
     private static IResolverContext Ctx(string inputLiteral)

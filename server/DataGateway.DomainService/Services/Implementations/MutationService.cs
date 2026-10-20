@@ -72,6 +72,7 @@ public class MutationService : IMutationService
         FieldDefaultsApplier.Apply(input, defaults);
         input.InjectDefaultValueOnInsert();
         MutationInputHelper.EnsureDefaultListsForInsert(input);
+        MutationInputHelper.AddRequesterToAccessLists(input);
 
         var document = InputToBsonDocument(input);
         gatewayOperation.CollectionName = schema.CollectionName;
@@ -328,6 +329,7 @@ public class MutationService : IMutationService
             FieldDefaultsApplier.Apply(input, defaultsPerInput[i]);
             input.InjectDefaultValueOnInsert();
             MutationInputHelper.EnsureDefaultListsForInsert(input);
+            MutationInputHelper.AddRequesterToAccessLists(input);
             documents.Add(InputToBsonDocument(input));
         }
 

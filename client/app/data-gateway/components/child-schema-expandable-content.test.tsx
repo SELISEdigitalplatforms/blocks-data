@@ -232,7 +232,7 @@ describe("ChildSchemaExpandableContent", () => {
     expect(screen.getByTestId("ss-policy")).toHaveTextContent("Policy");
   });
 
-  it("shows OperationAccess's fixed lists without fetching anything, display only", () => {
+  it("shows OperationAccess's fixed lists without fetching anything, with their rules", () => {
     useSchemaDetails.mockReturnValue({ data: undefined, isLoading: true });
 
     render(
@@ -247,7 +247,7 @@ describe("ChildSchemaExpandableContent", () => {
     expect(useSchemaDetails).toHaveBeenCalledWith(OPERATION_ACCESS_SCHEMA_ID, "proj", { enabled: false });
     expect(screen.getByTestId("ss-fields")).toHaveTextContent('["Roles","UserIds","Permissions"]');
     expect(screen.getByTestId("ss-loading")).toHaveTextContent("false");
-    expect(screen.getByTestId("ss-hide")).toHaveTextContent("true");
+    expect(screen.getByTestId("ss-hide")).toHaveTextContent("undefined");
     expect(screen.getByTestId("ss-ancestor")).toHaveTextContent('["Read"]');
   });
 });

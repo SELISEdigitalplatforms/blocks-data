@@ -57,6 +57,7 @@ public class SchemaImportValidator
 
         var referencedNonScalarTypes = documents
             .SelectMany(d => d.Fields ?? [])
+            .Where(f => !DefaultValueInjection.IsBaseEntityField(f.Name, f.Type))
             .Select(f => f.Type)
             .Where(t => !string.IsNullOrWhiteSpace(t) && !GraphQlTypeHelper.IsScalar(t))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -211,6 +212,7 @@ public class SchemaImportValidator
         }
 
         if (!GraphQlTypeHelper.IsScalar(field.Type) &&
+            !DefaultValueInjection.IsBaseEntityField(field.Name, field.Type) &&
             !context.SchemaNamesInBatch.Contains(field.Type) &&
             !context.ExistingCustomSchemaNames.Contains(field.Type))
         {

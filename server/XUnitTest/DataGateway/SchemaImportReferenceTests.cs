@@ -52,6 +52,20 @@ public class SchemaImportReferenceTests
         new SchemaImportValidator(_repo.Object).ValidateAsync(documents.ToList());
 
     [Fact]
+    public async Task AnExportedEntitysAccessLists_ImportBack_ButOperationAccessIsNoTypeForOtherFields()
+    {
+        // Every exported entity carries the base entity's Create/Read/Update/Delete (type OperationAccess).
+        var exported = DepartmentDocument();
+        exported.Fields.AddRange(new[] { "Create", "Read", "Update", "Delete" }.Select(n => new ExportFieldDefinition { Name = n, Type = "OperationAccess" }));
+        (await Validate(exported)).Should().BeEmpty();
+
+        ProjectHas();
+        var misuse = DepartmentDocument();
+        misuse.Fields.Add(new ExportFieldDefinition { Name = "Owners", Type = "OperationAccess" });
+        (await Validate(misuse)).Should().ContainSingle().Which.Should().Contain("Type 'OperationAccess' is not a supported field type");
+    }
+
+    [Fact]
     public async Task TargetInTheSameFile_IsAccepted()
     {
         (await Validate(Employee("Department"), DepartmentDocument())).Should().BeEmpty();

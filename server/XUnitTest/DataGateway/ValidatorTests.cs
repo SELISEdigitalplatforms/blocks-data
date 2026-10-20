@@ -219,6 +219,31 @@ public class ValidatorTests
         validator.Validate(new FieldDefinitionRequest { Name = "Home", Type = "GhostType" }).IsValid.Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData("Create")]
+    [InlineData("Read")]
+    [InlineData("Update")]
+    [InlineData("Delete")]
+    public void FieldDefinition_TheBaseEntitysAccessLists_PassWithTheirOwnType(string name)
+    {
+        // AddDefaultFields put them on every entity; saving the fields sends them back as they are.
+        var repo = new Mock<IDbRepository>();
+        repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), It.IsAny<string>()))
+            .ReturnsAsync((SchemaDefinition?)null);
+        var validator = new FieldDefinitionRequestValidator(repo.Object);
+        validator.Validate(new FieldDefinitionRequest { Name = name, Type = "OperationAccess" }).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FieldDefinition_OperationAccess_IsNotATypeForANewField()
+    {
+        var repo = new Mock<IDbRepository>();
+        repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), It.IsAny<string>()))
+            .ReturnsAsync((SchemaDefinition?)null);
+        var validator = new FieldDefinitionRequestValidator(repo.Object);
+        validator.Validate(new FieldDefinitionRequest { Name = "Owners", Type = "OperationAccess" }).IsValid.Should().BeFalse();
+    }
+
     [Fact]
     public async Task CreateDataValidation_MissingSchema_Fails()
     {

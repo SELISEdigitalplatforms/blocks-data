@@ -136,8 +136,8 @@ export function ChildSchemaExpandableContent({
         compactView
         rootSchemaId={rootSchemaId ?? parentSchemaId}
         ancestorPath={resolvedAncestorPath}
-        // Tenant schemas carry no Read.Roles-style fields to hang access, rules or defaults on: display only.
-        hideAccessValidation={isOperationAccess || hideAccessValidation}
+        // The server keeps Read.Roles-style entries for these lists, so they take access, rules and defaults like any nested property.
+        hideAccessValidation={hideAccessValidation}
         policyEntitySchemaName={policyEntitySchemaName ?? schemaDetails.schemaName}
         onOpenStandaloneSchemaEditor={onOpenStandaloneSchemaEditor}
       />

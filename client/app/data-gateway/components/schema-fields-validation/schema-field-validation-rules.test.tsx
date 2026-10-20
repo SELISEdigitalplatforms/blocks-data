@@ -216,6 +216,62 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     expect(await ruleTypeOptions(user)).not.toContain("Exists in another schema");
   });
 
+  describe("the suggested failure message", () => {
+    it("writes the message from the validation as it is built, and saves it", async () => {
+      const user = userEvent.setup();
+      render(
+        <TooltipProvider>
+          <SchemaFieldValidationPanel fieldName="Salary" schemaId="emp" projectKey="pk" fieldType="Float" initialValidationData={null} />
+        </TooltipProvider>,
+      );
+      await user.click(screen.getByRole("button", { name: "Add validation" }));
+      await chooseRuleType(user, "Greater than");
+      const message = screen.getByLabelText("Message shown when it fails");
+      expect(message).toHaveValue("");
+
+      await user.type(screen.getByLabelText("Value"), "100");
+      expect(message).toHaveValue("Salary must be greater than 100");
+      expect(screen.getByText("Written from the validation. Change it if you like.")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Add validation" }));
+      await waitFor(() =>
+        expect(createValidation).toHaveBeenCalledWith(
+          expect.objectContaining({ validations: [expect.objectContaining({ errorMessage: "Salary must be greater than 100" })] }),
+        ),
+      );
+    });
+
+    it("stops following the validation once edited, and can go back to the suggestion", async () => {
+      const user = userEvent.setup();
+      render(
+        <TooltipProvider>
+          <SchemaFieldValidationPanel fieldName="Salary" schemaId="emp" projectKey="pk" fieldType="Float" initialValidationData={null} />
+        </TooltipProvider>,
+      );
+      await user.click(screen.getByRole("button", { name: "Add validation" }));
+      await chooseRuleType(user, "Greater than");
+      const value = screen.getByLabelText("Value");
+      await user.type(value, "100");
+      const message = screen.getByLabelText("Message shown when it fails");
+      await user.clear(message);
+      await user.type(message, "Too low");
+
+      await user.clear(value);
+      await user.type(value, "200");
+      expect(message).toHaveValue("Too low");
+
+      await user.click(screen.getByRole("button", { name: "Use suggested message" }));
+      expect(message).toHaveValue("Salary must be greater than 200");
+    });
+
+    it("keeps a saved validation's own message when it is opened", async () => {
+      const user = userEvent.setup();
+      renderPanel("String", [maxLength]);
+      await user.click(screen.getByRole("button", { name: "Edit validation" }));
+      expect(screen.getByLabelText("Message shown when it fails")).toHaveValue("Too long");
+    });
+  });
+
   describe("another property as the compared value", () => {
     function renderField(fieldName: string, fieldType: string) {
       render(

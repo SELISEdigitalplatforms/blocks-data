@@ -281,10 +281,11 @@ describe("SchemaFieldValidationDrawer", () => {
 
     await user.click(screen.getByRole("button", { name: "Add validation" }));
     await user.type(screen.getByPlaceholderText("e.g. ^[a-zA-Z]+$"), "^z$");
-    await user.type(
-      screen.getByPlaceholderText("e.g. Only letters are allowed"),
-      "must be z",
-    );
+    // The box starts with a suggested message; replacing it makes the message the user's own.
+    const message = screen.getByPlaceholderText("e.g. Only letters are allowed");
+    expect(message).toHaveValue("email is not in the right format");
+    await user.clear(message);
+    await user.type(message, "must be z");
     const activeBox = screen.getByRole("switch", { name: "Validation active" });
     await user.click(activeBox);
     expect(activeBox).toHaveAttribute("aria-checked", "false");

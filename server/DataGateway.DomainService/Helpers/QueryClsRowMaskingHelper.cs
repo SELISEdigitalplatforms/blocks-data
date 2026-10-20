@@ -231,7 +231,7 @@ public static class QueryClsRowMaskingHelper
     }
 
     public static bool IsRequestAuthenticated() =>
-        BlocksContext.GetContext()?.IsAuthenticated == true;
+        RequestBlocksContext.Get()?.IsAuthenticated == true;
 
     /// <summary>
     /// When schema has Custom read access and no CLS policies, removes all non-system keys from the row.

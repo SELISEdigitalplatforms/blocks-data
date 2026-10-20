@@ -70,7 +70,7 @@ public class QueryService : IQueryService
                 { "sort", mongoSort ?? (BsonValue)BsonNull.Value }
             }.ToString();
 
-            var (documents, totalCount) = await _repository.GetItemsWithCountAsync(
+            var documents = await _repository.GetItemsAsync(
                 schema.CollectionName,
                 mongoFilter,
                 mongoSort,
@@ -78,17 +78,23 @@ public class QueryService : IQueryService
                 skip,
                 limit);
 
-            var items = BuildResultItems(documents, schema, evaluationOnlyFieldPaths);
+            List<Dictionary<string, object>> items;
+            using (GatewayOperationActivity.Measure(GatewayPhase.Policy))
+            {
+                items = BuildResultItems(documents, schema, evaluationOnlyFieldPaths);
+            }
 
-            gatewayOperation.ResponseSize = documents.Sum(d => d.ToBson().Length);
+            gatewayOperation.ResponseSize = documents.Sum(BsonSize.Of);
             gatewayOperation.DocumentCount = documents.Count;
 
             _logger.LogInformation("Data retrieved for schema {SchemaName}", schema.SchemaName);
 
+            var collectionName = schema.CollectionName;
             return new QueryResponse<Dictionary<string, object>>
             {
                 Items = items,
-                TotalCount = (int)totalCount,
+                // Counted only if the response's totalCount/totalPages/hasNextPage is selected.
+                TotalCountProvider = () => _repository.CountAsync(collectionName, mongoFilter),
                 PageNo = queryInput.PageNo ?? 1,
                 PageSize = queryInput.PageSize ?? items.Count
             };
@@ -269,7 +275,7 @@ public class QueryService : IQueryService
     }
 
     /// <summary>Maps documents to result items with or without CLS masking based on context.</summary>
-    private static List<Dictionary<string, object>> BuildResultItems(
+    internal static List<Dictionary<string, object>> BuildResultItems(
         List<BsonDocument> documents,
         SchemaDefinitionExtended schema,
         HashSet<string> evaluationOnlyFieldPaths)
@@ -284,7 +290,7 @@ public class QueryService : IQueryService
                 schema,
                 clsPoliciesForRow,
                 evaluationOnlyFieldPaths,
-                QueryPolicyRuleEvaluator.RowSatisfiesPolicy))
+                QueryPolicyRuleEvaluator.OncePerRuleGroup()))
             .ToList();
     }
 }

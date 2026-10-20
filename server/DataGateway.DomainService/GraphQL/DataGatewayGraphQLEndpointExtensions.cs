@@ -58,8 +58,9 @@ public static class DataGatewayGraphQLEndpointExtensions
             }
         }
 
-        if (await GraphQLIntrospectionHelper.ContainsIntrospectionQueryAsync(context.Request, context.RequestAborted)
-            && !isAuthenticated)
+        // Only an anonymous caller can be refused introspection, so only their request is read.
+        if (!isAuthenticated
+            && await GraphQLIntrospectionHelper.ContainsIntrospectionQueryAsync(context.Request, context.RequestAborted))
         {
             const string message = "you are not authorized to introspect the schema";
             LogRejected(GatewayFailureKind.Authentication, message, "introspection", isIntrospection: true);

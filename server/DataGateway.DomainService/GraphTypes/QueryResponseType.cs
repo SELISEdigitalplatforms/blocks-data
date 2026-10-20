@@ -29,7 +29,7 @@ public class QueryResponseType : ObjectType
         descriptor
             .Field("totalCount")
             .Type<NonNullType<IntType>>()
-            .Resolve(ctx => ctx.Parent<QueryResponse<Dictionary<string, object>>>().TotalCount);
+            .Resolve(async ctx => (int)await ctx.Parent<QueryResponse<Dictionary<string, object>>>().GetTotalCountAsync());
 
         descriptor
             .Field("pageNo")
@@ -44,12 +44,20 @@ public class QueryResponseType : ObjectType
         descriptor
             .Field("totalPages")
             .Type<NonNullType<IntType>>()
-            .Resolve(ctx => ctx.Parent<QueryResponse<Dictionary<string, object>>>().TotalPages);
+            .Resolve(async ctx =>
+            {
+                var parent = ctx.Parent<QueryResponse<Dictionary<string, object>>>();
+                return QueryResponse<Dictionary<string, object>>.TotalPagesFor(await parent.GetTotalCountAsync(), parent.PageSize);
+            });
 
         descriptor
             .Field("hasNextPage")
             .Type<NonNullType<BooleanType>>()
-            .Resolve(ctx => ctx.Parent<QueryResponse<Dictionary<string, object>>>().HasNextPage);
+            .Resolve(async ctx =>
+            {
+                var parent = ctx.Parent<QueryResponse<Dictionary<string, object>>>();
+                return parent.PageNo < QueryResponse<Dictionary<string, object>>.TotalPagesFor(await parent.GetTotalCountAsync(), parent.PageSize);
+            });
 
         descriptor
             .Field("hasPreviousPage")

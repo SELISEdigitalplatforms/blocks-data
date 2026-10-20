@@ -16,6 +16,9 @@ public interface IGqlDbRepository
         int skip = 0,
         int limit = 10);
 
+    /// <summary>Number of documents matching <paramref name="filter"/> (a scan; call only when needed).</summary>
+    Task<long> CountAsync(string collectionName, FilterDefinition<BsonDocument> filter);
+
     Task<(List<BsonDocument> items, long count)> GetItemsWithCountAsync(string collectionName,
         FilterDefinition<BsonDocument> filter,
         BsonDocument? sort = null,

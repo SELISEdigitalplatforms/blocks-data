@@ -529,7 +529,7 @@ public static class DataAccessPolicyHelper
     /// </summary>
     public static object? GetTokenValue(string propertyName)
     {
-        var blocksContext = BlocksContext.GetContext();
+        var blocksContext = RequestBlocksContext.Get();
         if (blocksContext is null)
             return null;
 

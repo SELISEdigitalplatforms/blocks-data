@@ -65,15 +65,19 @@ public class QueryServiceTests
         return ctx;
     }
 
-    private void SetupRepo(List<BsonDocument> docs, long count) =>
-        _repo.Setup(r => r.GetItemsWithCountAsync(
+    private void SetupRepo(List<BsonDocument> docs, long count)
+    {
+        _repo.Setup(r => r.GetItemsAsync(
                 It.IsAny<string>(),
                 It.IsAny<FilterDefinition<BsonDocument>>(),
                 It.IsAny<BsonDocument>(),
                 It.IsAny<BsonDocument>(),
                 It.IsAny<int>(),
                 It.IsAny<int>()))
-            .ReturnsAsync((docs, count));
+            .ReturnsAsync(docs);
+        _repo.Setup(r => r.CountAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>()))
+            .ReturnsAsync(count);
+    }
 
     private static BsonDocument Doc(string name, int age) =>
         new() { { "_id", Guid.NewGuid().ToString() }, { "Name", name }, { "Age", age } };
@@ -90,7 +94,7 @@ public class QueryServiceTests
 
             var result = await _service.GetDataAsync(Context().Object, schema);
 
-            result.TotalCount.Should().Be(2);
+            (await result.GetTotalCountAsync()).Should().Be(2);
             result.Items.Should().HaveCount(2);
             result.PageNo.Should().Be(1);
             result.PageSize.Should().Be(2); // no PageSize supplied => falls back to item count
@@ -160,16 +164,95 @@ public class QueryServiceTests
 
             var result = await _service.GetDataAsync(Context(input: input, paging: paging).Object, schema);
 
-            result.TotalCount.Should().Be(42);
+            (await result.GetTotalCountAsync()).Should().Be(42);
             result.PageNo.Should().Be(3);
             result.PageSize.Should().Be(7);
-            _repo.Verify(r => r.GetItemsWithCountAsync(
+            _repo.Verify(r => r.GetItemsAsync(
                 schema.CollectionName,
                 It.IsAny<FilterDefinition<BsonDocument>>(),
                 It.IsAny<BsonDocument>(),
                 It.IsAny<BsonDocument>(),
                 14, // (3-1)*7
                 7), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public async Task GetDataAsync_DoesNotCountUntilTheTotalIsAskedFor()
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 42);
+
+            var result = await _service.GetDataAsync(Context().Object, schema);
+            _repo.Verify(r => r.CountAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>()), Times.Never);
+
+            (await result.GetTotalCountAsync()).Should().Be(42);
+            (await result.GetTotalCountAsync()).Should().Be(42);
+            _repo.Verify(r => r.CountAsync(schema.CollectionName, It.IsAny<FilterDefinition<BsonDocument>>()), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
+    /// <summary>
+    /// Paging is exactly as before the count moved: no cap, a page size of 0 still reads every
+    /// matching row, and the reported page size is what the caller sent.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 5000, 0, 5000)]
+    [InlineData(2, 5000, 5000, 5000)]
+    [InlineData(1, 0, 0, 0)]
+    [InlineData(3, 7, 14, 7)]
+    public async Task GetDataAsync_PagesAsRequested(int pageNo, int pageSize, int expectedSkip, int expectedLimit)
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
+            var paging = new PaginationInput { PageNo = pageNo, PageSize = pageSize };
+
+            var result = await _service.GetDataAsync(Context(paging: paging).Object, schema);
+
+            result.PageNo.Should().Be(pageNo);
+            result.PageSize.Should().Be(pageSize);
+            _repo.Verify(r => r.GetItemsAsync(
+                schema.CollectionName,
+                It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(),
+                expectedSkip,
+                expectedLimit), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public async Task GetDataAsync_OnlyAPageSize_ReadsTheDefaultPageButReportsTheRequestedSize()
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
+            var paging = new PaginationInput { PageSize = 50 };
+
+            var result = await _service.GetDataAsync(Context(paging: paging).Object, schema);
+
+            result.PageSize.Should().Be(50);
+            _repo.Verify(r => r.GetItemsAsync(
+                schema.CollectionName,
+                It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(),
+                0,
+                10), Times.Once);
         }
         finally { ClearContext(); }
     }
@@ -187,7 +270,7 @@ public class QueryServiceTests
             var input = new DynamicQueryInput { Filter = "not-json" };
             var result = await _service.GetDataAsync(Context(input: input).Object, schema);
 
-            result.TotalCount.Should().Be(0);
+            (await result.GetTotalCountAsync()).Should().Be(0);
             result.Items.Should().BeEmpty();
         }
         finally { ClearContext(); }
@@ -241,7 +324,7 @@ public class QueryServiceTests
         try
         {
             var schema = Schema(fields: new() { Field("Name") });
-            _repo.Setup(r => r.GetItemsWithCountAsync(
+            _repo.Setup(r => r.GetItemsAsync(
                     It.IsAny<string>(),
                     It.IsAny<FilterDefinition<BsonDocument>>(),
                     It.IsAny<BsonDocument>(),

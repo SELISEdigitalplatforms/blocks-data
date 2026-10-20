@@ -92,8 +92,16 @@ function SchemaTableScrollRegion({
   );
 }
 
+/** Which Rules-column panel is open, and for which property (its qualified name). */
+export interface InspectedRule {
+  panel: "validation" | "default";
+  fieldName: string;
+}
+
 interface SchemaStructureTableProps extends ISchemaDetails {
   isLoading?: boolean;
+  /** The docked inspector's current target, so its row and button show as open. */
+  inspectedRule?: InspectedRule | null;
   /** Use div instead of form when rendered inside Entity table expandable */
   disableFormElement?: boolean;
   /** Hide Attribute tab, Preview, Edit when inside Entity/All expandable (Child tab keeps full UI) */
@@ -130,6 +138,7 @@ interface SchemaStructureTableProps extends ISchemaDetails {
     fieldName: string;
     subject: string;
     context: string;
+    schemaName: string;
     validationRule?: IFieldValidationRule | null;
     /** The property's type and enum values: decide which rule types the panel offers. */
     fieldType: string;
@@ -143,6 +152,7 @@ interface SchemaStructureTableProps extends ISchemaDetails {
     fieldName: string;
     subject: string;
     context: string;
+    schemaName: string;
     fieldType: string;
     isArray: boolean;
     enumValues?: string[];
@@ -183,6 +193,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     onOpenFieldAccess,
     onOpenFieldValidation,
     onOpenFieldDefault,
+    inspectedRule = null,
     isPreviewOpen,
     onPreviewOpenChange,
     onEnterEditMode,
@@ -499,6 +510,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         fieldName: effectiveFieldName,
         subject: effectiveFieldName,
         context: `Field on ${schemaDetails.schemaName}`,
+        schemaName: schemaDetails.schemaName,
         validationRule: validationRule ?? null,
         ...fieldMeta,
       });
@@ -527,6 +539,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         ...target,
         subject: effectiveFieldName,
         context: `Field on ${schemaDetails.schemaName}`,
+        schemaName: schemaDetails.schemaName,
       });
       return;
     }
@@ -833,6 +846,11 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                             isEditMode={isEditMode}
                             isReadOnly={isReadOnly}
                             isNewField={isNewField}
+                            activeRule={
+                              inspectedRule && name && buildValidationFieldName(resolvedAncestorPath, name) === inspectedRule.fieldName
+                                ? inspectedRule.panel
+                                : null
+                            }
                             selectedRows={bulkOperations.selectedRows}
                             onRowSelect={(fieldId, selected) =>
                               bulkOperations.setSelectedRows((prev) => ({
@@ -1184,6 +1202,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           enumValues={currentValidationFieldMeta.enumValues}
           schemaId={resolvedRootSchemaId}
           projectKey={projectKey}
+          schemaName={schemaDetails.schemaName}
           initialValidationData={currentValidationRule}
           open={isValidationDrawerOpen}
           onOpenChange={(open) => {
@@ -1205,6 +1224,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           enumValues={currentDefaultTarget.enumValues}
           schemaId={resolvedRootSchemaId}
           projectKey={projectKey}
+          schemaName={schemaDetails.schemaName}
           initialDefault={currentDefaultTarget.defaultValue}
           open
           onOpenChange={(open) => {

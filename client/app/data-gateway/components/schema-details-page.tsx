@@ -508,6 +508,11 @@ export const SchemaDetailsPage = () => {
                     onOpenStandaloneSchemaEditor={openSchemaInEditor}
                     isPreviewOpen={isPreviewOpen}
                     onPreviewOpenChange={setIsPreviewOpen}
+                    inspectedRule={
+                      validationInspector
+                        ? { panel: validationInspector.panel === "default" ? "default" : "validation", fieldName: validationInspector.fieldName }
+                        : null
+                    }
                     onOpenFieldAccess={({ fieldNames, subject, context }) =>
                       openAccessInspector({
                         subject,
@@ -519,10 +524,11 @@ export const SchemaDetailsPage = () => {
                         fieldNames,
                       })
                     }
-                    onOpenFieldValidation={({ fieldName, subject, context, validationRule, fieldType, enumValues }) =>
+                    onOpenFieldValidation={({ fieldName, subject, context, schemaName, validationRule, fieldType, enumValues }) =>
                       openValidationInspector({
                         subject,
                         context,
+                        schemaName,
                         fieldName,
                         fieldType,
                         enumValues,
@@ -531,11 +537,12 @@ export const SchemaDetailsPage = () => {
                         initialValidationData: validationRule,
                       })
                     }
-                    onOpenFieldDefault={({ fieldName, subject, context, fieldType, isArray, enumValues, defaultValue }) =>
+                    onOpenFieldDefault={({ fieldName, subject, context, schemaName, fieldType, isArray, enumValues, defaultValue }) =>
                       openValidationInspector({
                         panel: "default",
                         subject,
                         context,
+                        schemaName,
                         fieldName,
                         fieldType,
                         isArray,

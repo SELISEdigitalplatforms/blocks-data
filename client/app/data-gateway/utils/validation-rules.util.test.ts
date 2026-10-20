@@ -108,7 +108,7 @@ describe("formatRuleSummary", () => {
   });
 
   it("labels types this client does not know", () => {
-    expect(ruleTypeLabel(T.Reference)).toBe("Reference");
+    expect(ruleTypeLabel(T.Reference)).toBe("Exists in another schema");
     expect(ruleTypeLabel(99)).toBe("Type 99");
   });
 });

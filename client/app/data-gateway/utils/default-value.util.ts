@@ -3,8 +3,15 @@ import { checkVariables, type VariableField } from "./variable-syntax";
 
 /**
  * Default values: which kinds fit a property, the checks before saving, and the one-line summary.
- * Mirrors Genesis `FieldDefaultValueCheck` / `DefaultValueConverter`, with the same messages.
+ * Mirrors Genesis `FieldDefaultValueCheck` / `DefaultValueConverter`, with the same messages. The
+ * console calls the API's `Template` kind an "expression"; the model keeps the API's name.
  */
+
+/** What the console calls each kind. */
+export const DEFAULT_KIND_LABELS: Record<DefaultValueKind, string> = { Static: "Fixed value", Template: "Expression", Now: "Now" };
+
+/** The one-line summary the API's own message says. Server refusals still say "template". */
+export const expressionWording = (message: string) => message.replaceAll("template", "expression").replaceAll("Template", "Expression");
 
 /** Set by the platform on every save; never defaulted. */
 export const LOCKED_DEFAULT_PROPERTIES = ["ItemId", "CreatedBy", "LastUpdatedBy", "CreatedDate", "LastUpdatedDate"];
@@ -15,7 +22,7 @@ export function canHaveDefault(fieldName: string, fieldType: string): boolean {
   return !LOCKED_DEFAULT_PROPERTIES.includes(fieldName) && SUPPORTED_TYPES.has(fieldType);
 }
 
-/** Kinds offered for a property: templates on text, Now on a single date-time. */
+/** Kinds offered for a property: expressions (the API's "Template") on text, Now on a single date-time. */
 export function allowedDefaultKinds(fieldType: string, isArray: boolean): DefaultValueKind[] {
   const kinds: DefaultValueKind[] = ["Static"];
   if (fieldType === "String" || fieldType === "ID") kinds.push("Template");
@@ -61,16 +68,22 @@ export function convertStaticItem(text: string, fieldType: string): string | num
   return value;
 }
 
+/** Which way a Now offset points: into the future or the past. Applied to every part on save. */
+export type OffsetDirection = "+" | "-";
+
 export interface DefaultDraft {
   kind: DefaultValueKind;
   /** Static or Template: one item, or several for a list property. */
   items: string[];
+  /** Now: the shift's direction, then its parts as typed (magnitudes, normally). */
+  direction: OffsetDirection;
   offset: { days: string; hours: string; minutes: string; seconds: string };
 }
 
 export const emptyDefaultDraft = (kind: DefaultValueKind = "Static"): DefaultDraft => ({
   kind,
   items: [""],
+  direction: "+",
   offset: { days: "0", hours: "0", minutes: "0", seconds: "0" },
 });
 
@@ -84,10 +97,16 @@ export function draftFromDefault(value: IFieldDefaultValue | null | undefined): 
   if (!value) return emptyDefaultDraft();
   const items = itemsOf(value.value);
   const offset = value.offset ?? { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  const parts = [offset.days, offset.hours, offset.minutes, offset.seconds];
+  // One direction for the whole shift: into the past when every non-zero part is negative. A
+  // mixed-sign offset (only reachable through import) keeps its signs in the parts themselves.
+  const past = parts.some((n) => n !== 0) && parts.every((n) => n <= 0);
+  const show = (n: number) => String(past ? Math.abs(n) : n);
   return {
     kind: value.kind,
     items: items.length > 0 ? items : [""],
-    offset: { days: String(offset.days), hours: String(offset.hours), minutes: String(offset.minutes), seconds: String(offset.seconds) },
+    direction: past ? "-" : "+",
+    offset: { days: show(offset.days), hours: show(offset.hours), minutes: show(offset.minutes), seconds: show(offset.seconds) },
   };
 }
 
@@ -118,8 +137,8 @@ function checkStaticDraft(items: string[], target: DefaultTarget): string | null
 }
 
 function checkTemplateDraft(items: string[], target: DefaultTarget): string | null {
-  if (target.fieldType !== "String" && target.fieldType !== "ID") return "Templates can only be used on text properties";
-  if (items.every((item) => item.trim() === "")) return "A template is required";
+  if (target.fieldType !== "String" && target.fieldType !== "ID") return "Expressions can only be used on text properties";
+  if (items.every((item) => item.trim() === "")) return "An expression is required";
   for (const item of items) {
     const problem = checkVariables(item, "template", target.schemaName, target.fields, target.isArray);
     if (problem) return problem.message;
@@ -143,7 +162,7 @@ export function checkDefaultDraft(draft: DefaultDraft, target: DefaultTarget): s
     case "Now":
       return checkNowDraft(draft.offset, target);
     default:
-      return "Choose Static, Template or Now";
+      return "Choose a fixed value, an expression or Now";
   }
 }
 
@@ -151,7 +170,9 @@ export function checkDefaultDraft(draft: DefaultDraft, target: DefaultTarget): s
 export function defaultFromDraft(draft: DefaultDraft, target: DefaultTarget): IFieldDefaultValue {
   const items = draftItems(draft, target);
   if (draft.kind === "Now") {
-    const n = (s: string) => Number.parseInt(s.trim(), 10) || 0;
+    const sign = draft.direction === "-" ? -1 : 1;
+    // `|| 0` after the multiply, so a blank or zero part is 0 and never -0.
+    const n = (s: string) => (Number.parseInt(s.trim(), 10) || 0) * sign || 0;
     return {
       kind: "Now",
       value: null,

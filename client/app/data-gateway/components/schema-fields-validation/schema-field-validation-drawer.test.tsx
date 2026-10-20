@@ -83,15 +83,16 @@ describe("SchemaFieldValidationDrawer", () => {
   it("lists existing validations with their active state", () => {
     renderDrawer(existing);
     expect(screen.getByText("^[a-z]+$")).toBeInTheDocument();
-    expect(screen.getByText("Only lowercase")).toBeInTheDocument();
-    expect(screen.getByText("Active")).toBeInTheDocument();
+    expect(screen.getByText("“Only lowercase”")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Rule active" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByText("1 rule")).toBeInTheDocument();
   });
 
-  it("shows the empty state and an Add validation button", () => {
+  it("shows the empty state and an Add rule button", () => {
     renderDrawer(null);
-    expect(screen.getByText("No validations added yet")).toBeInTheDocument();
+    expect(screen.getByText(/No rules\./)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /Add validation/ }),
+      screen.getByRole("button", { name: "Add rule" }),
     ).toBeInTheDocument();
   });
 
@@ -100,9 +101,9 @@ describe("SchemaFieldValidationDrawer", () => {
     createValidation.mockResolvedValue({ isSuccess: true });
     renderDrawer(null);
 
-    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
     await user.type(screen.getByPlaceholderText("e.g. ^[a-zA-Z]+$"), "^x$");
-    await user.click(screen.getByRole("button", { name: "Add" }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
 
     await waitFor(() =>
       expect(createValidation).toHaveBeenCalledWith(
@@ -117,7 +118,7 @@ describe("SchemaFieldValidationDrawer", () => {
     // Reported inline, pinned above the scroll area, instead of a toast that
     // would otherwise sit on top of the panel's own footer.
     await waitFor(() =>
-      expect(screen.getByText("Validation added successfully")).toBeInTheDocument(),
+      expect(screen.getByText("Rule added")).toBeInTheDocument(),
     );
   });
 
@@ -126,7 +127,8 @@ describe("SchemaFieldValidationDrawer", () => {
     generateRegex.mockResolvedValue({ pattern: "^gen$", errorMessage: "" });
     renderDrawer(null);
 
-    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.click(screen.getByRole("button", { name: "Generate from a description" }));
     await user.type(
       screen.getByPlaceholderText(/Generate a regex pattern/),
       "an email",
@@ -169,7 +171,7 @@ describe("SchemaFieldValidationDrawer", () => {
     const pencil = document.querySelector("svg.lucide-pencil");
     await user.click(pencil!.closest("button")!);
 
-    expect(screen.getByText("Edit validation")).toBeInTheDocument();
+    expect(screen.getByText("Edit rule")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("e.g. ^[a-zA-Z]+$")).toHaveValue(
       "^[a-z]+$",
     );
@@ -189,7 +191,7 @@ describe("SchemaFieldValidationDrawer", () => {
     const textarea = screen.getByPlaceholderText("e.g. ^[a-zA-Z]+$");
     // Brackets are special to userEvent.type, so set the value directly.
     fireEvent.change(textarea, { target: { value: "^[A-Z]+$" } });
-    await user.click(screen.getByRole("button", { name: "Update" }));
+    await user.click(screen.getByRole("button", { name: "Save rule" }));
 
     await waitFor(() =>
       expect(updateValidation).toHaveBeenCalledWith(
@@ -202,7 +204,7 @@ describe("SchemaFieldValidationDrawer", () => {
       ),
     );
     await waitFor(() =>
-      expect(screen.getByText("Validation updated successfully")).toBeInTheDocument(),
+      expect(screen.getByText("Rule updated")).toBeInTheDocument(),
     );
   });
 
@@ -211,9 +213,9 @@ describe("SchemaFieldValidationDrawer", () => {
     createValidation.mockResolvedValue({ isSuccess: false, errors: ["nope"] });
     renderDrawer(null);
 
-    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
     await user.type(screen.getByPlaceholderText("e.g. ^[a-zA-Z]+$"), "^y$");
-    await user.click(screen.getByRole("button", { name: "Add" }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
 
     await waitFor(() => expect(screen.getByText("nope")).toBeInTheDocument());
   });
@@ -222,11 +224,11 @@ describe("SchemaFieldValidationDrawer", () => {
     const user = userEvent.setup();
     renderDrawer(null);
 
-    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
     const textarea = screen.getByPlaceholderText("e.g. ^[a-zA-Z]+$");
     // Brackets are special to userEvent.type, so set the value directly.
     fireEvent.change(textarea, { target: { value: "[" } });
-    await user.click(screen.getByRole("button", { name: "Add" }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
 
     expect(await screen.findByText("Invalid regex pattern")).toBeInTheDocument();
     expect(createValidation).not.toHaveBeenCalled();
@@ -241,7 +243,8 @@ describe("SchemaFieldValidationDrawer", () => {
     generateRegex.mockResolvedValue({});
     renderDrawer(null);
 
-    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.click(screen.getByRole("button", { name: "Generate from a description" }));
     await user.type(
       screen.getByPlaceholderText(/Generate a regex pattern/),
       "an email",
@@ -258,7 +261,8 @@ describe("SchemaFieldValidationDrawer", () => {
     generateRegex.mockRejectedValue(new Error("boom"));
     renderDrawer(null);
 
-    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.click(screen.getByRole("button", { name: "Generate from a description" }));
     await user.type(
       screen.getByPlaceholderText(/Generate a regex pattern/),
       "an email",
@@ -270,22 +274,22 @@ describe("SchemaFieldValidationDrawer", () => {
     );
   });
 
-  it("edits the error message and toggles the active checkbox", async () => {
+  it("edits the error message and toggles the active switch", async () => {
     const user = userEvent.setup();
     createValidation.mockResolvedValue({ isSuccess: true });
     renderDrawer(null);
 
-    await user.click(screen.getByRole("button", { name: /Add validation/ }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
     await user.type(screen.getByPlaceholderText("e.g. ^[a-zA-Z]+$"), "^z$");
     await user.type(
       screen.getByPlaceholderText("e.g. Only letters are allowed"),
       "must be z",
     );
-    const activeBox = screen.getByRole("checkbox");
+    const activeBox = screen.getByRole("switch", { name: "Rule active" });
     await user.click(activeBox);
     expect(activeBox).toHaveAttribute("aria-checked", "false");
 
-    await user.click(screen.getByRole("button", { name: "Add" }));
+    await user.click(screen.getByRole("button", { name: "Add rule" }));
     await waitFor(() =>
       expect(createValidation).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -311,13 +315,14 @@ describe("SchemaFieldValidationDrawer", () => {
 
     await waitFor(() =>
       expect(
-        screen.queryByText("Delete validation?"),
+        screen.queryByRole("alertdialog", { name: "Delete this rule?" }),
       ).not.toBeInTheDocument(),
     );
     expect(deleteValidation).not.toHaveBeenCalled();
   });
 
-  it("shows an error toast when a delete fails", async () => {
+  // Delete confirms inline now, so its result shows in the footer like every other save.
+  it("shows a failed delete inline, not as a toast", async () => {
     const user = userEvent.setup();
     deleteValidation.mockResolvedValue({ isSuccess: false, errors: ["del"] });
     renderDrawer(existing);
@@ -326,22 +331,21 @@ describe("SchemaFieldValidationDrawer", () => {
     await user.click(trashIcon!.closest("button")!);
     await user.click(await screen.findByRole("button", { name: "Delete" }));
 
-    await waitFor(() =>
-      expect(showErrorToast).toHaveBeenCalledWith({ errors: ["del"] }),
-    );
+    await waitFor(() => expect(screen.getByText("del")).toBeInTheDocument());
+    expect(showErrorToast).not.toHaveBeenCalled();
   });
 
-  it("closes the delete confirmation from its Cancel button", async () => {
+  it("closes the delete confirmation from its Keep button", async () => {
     const user = userEvent.setup();
     renderDrawer(existing);
 
     const trashIcon = document.querySelector("svg.lucide-trash");
     await user.click(trashIcon!.closest("button")!);
-    expect(await screen.findByText("Delete validation?")).toBeInTheDocument();
+    expect(await screen.findByRole("alertdialog", { name: "Delete this rule?" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(screen.getByRole("button", { name: "Keep" }));
     await waitFor(() =>
-      expect(screen.queryByText("Delete validation?")).not.toBeInTheDocument(),
+      expect(screen.queryByRole("alertdialog", { name: "Delete this rule?" })).not.toBeInTheDocument(),
     );
     expect(deleteValidation).not.toHaveBeenCalled();
   });
@@ -359,18 +363,19 @@ describe("SchemaFieldValidationDrawer", () => {
       const user = userEvent.setup();
       renderDrawer(null);
 
-      expect(screen.queryByText("New validation")).not.toBeInTheDocument();
+      expect(screen.queryByText("Editing a rule")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
 
-      await user.click(screen.getByRole("button", { name: /Add validation/ }));
-      expect(screen.getByText("New validation")).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Add rule" }));
+      expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
     });
 
     it("sits outside the scrolling region", async () => {
       const user = userEvent.setup();
       renderDrawer(null);
-      await user.click(screen.getByRole("button", { name: /Add validation/ }));
+      await user.click(screen.getByRole("button", { name: "Add rule" }));
 
-      const footer = footerOf(screen.getByRole("button", { name: "Add" }));
+      const footer = footerOf(screen.getByRole("button", { name: "Add rule" }));
       expect(footer).not.toBeNull();
       expect(
         footer!.closest("[data-radix-scroll-area-viewport]"),
@@ -384,17 +389,17 @@ describe("SchemaFieldValidationDrawer", () => {
       const pencil = document.querySelector("svg.lucide-pencil");
       await user.click(pencil!.closest("button")!);
 
-      expect(screen.getByText("Editing validation")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Update" })).toBeInTheDocument();
+      expect(screen.getByText("Editing a rule")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save rule" })).toBeInTheDocument();
     });
 
     it("keeps Cancel wired to resetting the form", async () => {
       const user = userEvent.setup();
       renderDrawer(null);
-      await user.click(screen.getByRole("button", { name: /Add validation/ }));
+      await user.click(screen.getByRole("button", { name: "Add rule" }));
 
       await user.click(screen.getByRole("button", { name: "Cancel" }));
-      expect(screen.queryByText("New validation")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
     });
   });
 });

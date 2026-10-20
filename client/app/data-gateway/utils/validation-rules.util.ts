@@ -26,18 +26,18 @@ export type RuleInputKind = "none" | "regex" | "length" | "lengthRange" | "value
 
 export const VALIDATION_TYPE_META: Record<ValidationTypeValue, { label: string; input: RuleInputKind }> = {
   [VALIDATION_TYPE.NotEmpty]: { label: "Not empty", input: "none" },
-  [VALIDATION_TYPE.Regex]: { label: "Regex", input: "regex" },
+  [VALIDATION_TYPE.Regex]: { label: "Matches a pattern", input: "regex" },
   [VALIDATION_TYPE.MinLength]: { label: "Min length", input: "length" },
   [VALIDATION_TYPE.MaxLength]: { label: "Max length", input: "length" },
-  [VALIDATION_TYPE.LengthRange]: { label: "Length range", input: "lengthRange" },
-  [VALIDATION_TYPE.Equal]: { label: "Equal", input: "value" },
-  [VALIDATION_TYPE.NotEqual]: { label: "Not equal", input: "value" },
+  [VALIDATION_TYPE.LengthRange]: { label: "Length between", input: "lengthRange" },
+  [VALIDATION_TYPE.Equal]: { label: "Equals", input: "value" },
+  [VALIDATION_TYPE.NotEqual]: { label: "Does not equal", input: "value" },
   [VALIDATION_TYPE.GreaterThan]: { label: "Greater than", input: "value" },
   [VALIDATION_TYPE.LessThan]: { label: "Less than", input: "value" },
-  [VALIDATION_TYPE.GreaterThanOrEqual]: { label: "Greater than or equal", input: "value" },
-  [VALIDATION_TYPE.LessThanOrEqual]: { label: "Less than or equal", input: "value" },
-  [VALIDATION_TYPE.Range]: { label: "Range", input: "valueRange" },
-  [VALIDATION_TYPE.Reference]: { label: "Reference", input: "reference" },
+  [VALIDATION_TYPE.GreaterThanOrEqual]: { label: "At least", input: "value" },
+  [VALIDATION_TYPE.LessThanOrEqual]: { label: "At most", input: "value" },
+  [VALIDATION_TYPE.Range]: { label: "Between", input: "valueRange" },
+  [VALIDATION_TYPE.Reference]: { label: "Exists in another schema", input: "reference" },
 };
 
 /** The target field a Reference rule uses when none is picked. */

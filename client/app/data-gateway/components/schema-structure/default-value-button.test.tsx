@@ -36,4 +36,9 @@ describe("DefaultValueButton", () => {
     renderButton({ fieldName: "HrYearRenewDate", fieldType: "DateTime", defaultValue: { kind: "Now", offset: { days: 365, hours: 0, minutes: 0, seconds: 0 } } });
     expect(screen.getByRole("button", { name: "Default value for HrYearRenewDate (Now + 365 days)" })).toBeEnabled();
   });
+
+  it("shows as open while its panel is in the inspector", () => {
+    renderButton({ active: true });
+    expect(screen.getByRole("button", { name: "Default value for Tags" })).toHaveAttribute("aria-expanded", "true");
+  });
 });

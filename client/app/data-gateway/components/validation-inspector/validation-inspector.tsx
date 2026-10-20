@@ -1,19 +1,21 @@
 "use client";
 
-import { Check, TextCursorInput } from "lucide-react";
+import { Check, RectangleEllipsis } from "lucide-react";
 
 import { DefaultValuePanel, type DefaultValuePanelProps } from "../default-value/default-value-panel";
-import { PanelHeader, PanelShell } from "../primitives";
+import { FieldSubject, PanelHeader, PanelShell } from "../primitives";
 import {
   SchemaFieldValidationPanel,
   type SchemaFieldValidationPanelProps,
 } from "../schema-fields-validation/schema-field-validation-panel";
 
 interface InspectorHeading {
-  /** Heading: the qualified field name being inspected. */
+  /** The qualified property name being inspected. */
   subject: string;
-  /** Second line, e.g. "Field on Order". */
+  /** Second line when the schema isn't known, e.g. "Field on Order". */
   context?: string;
+  /** The schema the property belongs to; shown as "on Order" after the type. */
+  schemaName?: string;
 }
 
 /** Validations (the default) or the default value of one field: both live in the Rules column. */
@@ -32,7 +34,9 @@ export type ValidationInspectorTarget = InspectorHeading &
  * equivalent sub-view that needs the extra room, so there's nothing on this
  * side to match that exception.
  *
- * The same slot shows a field's default value (`panel: "default"`).
+ * The same slot shows a field's default value (`panel: "default"`). Both
+ * panels name themselves in the title and put the property on the second
+ * line — name, type, schema — so the two are told apart at a glance.
  */
 export function ValidationInspector({
   target,
@@ -42,13 +46,19 @@ export function ValidationInspector({
   onClose: () => void;
 }) {
   if (target.panel === "default") {
-    const { subject, context, panel: _panel, ...panelProps } = target;
+    const { subject, context, schemaName, panel: _panel, ...panelProps } = target;
     return (
       <PanelShell label={`Default value for ${subject}`}>
         <PanelHeader
-          icon={TextCursorInput}
-          title={subject}
-          subtitle={context}
+          icon={RectangleEllipsis}
+          title="Default value"
+          mono={false}
+          subtitle={
+            <>
+              <FieldSubject name={subject} type={panelProps.fieldType} isArray={panelProps.isArray} schemaName={schemaName} />
+              {!schemaName && context && <span className="truncate">{context}</span>}
+            </>
+          }
           onClose={onClose}
           closeLabel="Close default value inspector"
         />
@@ -57,14 +67,20 @@ export function ValidationInspector({
     );
   }
 
-  const { subject, context, panel: _panel, ...panelProps } = target;
+  const { subject, context, schemaName, panel: _panel, ...panelProps } = target;
 
   return (
     <PanelShell label={`Validations for ${subject}`}>
       <PanelHeader
         icon={Check}
-        title={subject}
-        subtitle={context}
+        title="Validation rules"
+        mono={false}
+        subtitle={
+          <>
+            <FieldSubject name={subject} type={panelProps.fieldType} schemaName={schemaName} />
+            {!schemaName && context && <span className="truncate">{context}</span>}
+          </>
+        }
         onClose={onClose}
         closeLabel="Close validation inspector"
       />

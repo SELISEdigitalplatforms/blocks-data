@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui-kits/textarea/textarea";
 import { cn } from "@/lib/utils";
 import { useId, useState, type ReactNode } from "react";
+import { ValueChips } from "../default-value/default-value-fields";
 import {
   VALIDATION_TYPE,
   VALIDATION_TYPE_META,
@@ -17,14 +18,16 @@ import {
 } from "../../utils/validation-rules.util";
 import { ReferenceTargetPicker } from "./reference-target-picker";
 
-const LABEL_CLASS = "text-[11px] font-medium uppercase tracking-widest text-muted-foreground";
+const LABEL_CLASS = "text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground";
+const CONTROL_CLASS = "h-9 rounded-md border-border/60 bg-background text-[12.5px]";
 
-function Labelled({ label, required = true, children }: Readonly<{ label: string; required?: boolean; children: ReactNode }>) {
+function Labelled({ label, action, children }: Readonly<{ label: string; action?: ReactNode; children: ReactNode }>) {
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-      <span className={LABEL_CLASS}>
-        {label} {required && <span className="text-rose-500">*</span>}
-      </span>
+      <div className="flex items-center justify-between gap-2">
+        <span className={LABEL_CLASS}>{label}</span>
+        {action}
+      </div>
       {children}
     </div>
   );
@@ -40,21 +43,7 @@ function ValueInput({
   onChange,
 }: Readonly<{ kind: ValueKind; label: string; value: string; enumValues: string[]; invalid: boolean; onChange: (value: string) => void }>) {
   if (kind === "boolean" || kind === "enum") {
-    const options = kind === "boolean" ? ["true", "false"] : enumValues;
-    return (
-      <Select value={value || undefined} onValueChange={onChange}>
-        <SelectTrigger className="h-9 w-full" aria-label={label}>
-          <SelectValue placeholder="Select a value" />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option} value={option}>
-              {option}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
+    return <ValueChips options={kind === "boolean" ? ["true", "false"] : enumValues} value={value} label={label} onChange={onChange} />;
   }
   const inputType = { number: "number", date: "datetime-local", text: "text" }[kind];
   return (
@@ -63,7 +52,7 @@ function ValueInput({
       aria-label={label}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={cn("h-9", invalid && "border-rose-500")}
+      className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}
     />
   );
 }
@@ -74,6 +63,7 @@ function ValueInput({
  */
 function ComparisonValue({
   kind,
+  heading,
   label,
   value,
   enumValues,
@@ -82,6 +72,9 @@ function ComparisonValue({
   onChange,
 }: Readonly<{
   kind: ValueKind;
+  /** The visible label over the input, e.g. "Compared with" or "From". */
+  heading: string;
+  /** The accessible name of the input, e.g. "Value" or "Min". */
   label: string;
   value: string;
   enumValues: string[];
@@ -98,27 +91,29 @@ function ComparisonValue({
     onChange("");
   };
 
+  // The Fixed value / Another property switch sits on the label's row, right-aligned, as drawn.
   return (
-    <div className="flex flex-col gap-1.5">
-      {variableOptions && (
-        <fieldset className="flex gap-1">
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+      <div className="flex min-h-6 items-center justify-between gap-2">
+        <span className={LABEL_CLASS}>{heading}</span>
+        {variableOptions && (
+        <fieldset className="flex h-6 shrink-0 rounded-md border border-border/60 bg-background p-0.5">
           <legend className="sr-only">{`${label} source`}</legend>
           {([false, true] as const).map((variable) => (
             <label
               key={String(variable)}
               className={cn(
-                "flex h-6 cursor-pointer items-center rounded border px-2 text-[11px] transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40",
-                isVariable === variable
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
+                "flex cursor-pointer items-center rounded-[4px] px-2 text-[10.5px] font-semibold transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40",
+                isVariable === variable ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground",
               )}
             >
               <input type="radio" name={groupName} className="sr-only" checked={isVariable === variable} onChange={() => switchTo(variable)} />
-              {variable ? "Variable" : "Fixed value"}
+              {variable ? "Another property" : "Fixed value"}
             </label>
           ))}
         </fieldset>
-      )}
+        )}
+      </div>
       {isVariable && variableOptions ? (
         <>
           <Input
@@ -126,12 +121,12 @@ function ComparisonValue({
             placeholder={variableOptions[0] ?? "{{Schema.Property}}"}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className={cn("h-9 font-mono text-sm", invalid && "border-rose-500")}
+            className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}
           />
           {variableOptions.length > 0 && (
             <Select value="" onValueChange={onChange}>
-              <SelectTrigger className="h-8 w-full text-xs" aria-label={`Pick a property for ${label}`}>
-                <SelectValue placeholder="Pick a property…" />
+              <SelectTrigger className="h-8 w-full rounded-md border-border/60 bg-background text-xs" aria-label={`Pick a property for ${label}`}>
+                <SelectValue placeholder="Pick a property of this record…" />
               </SelectTrigger>
               <SelectContent>
                 {variableOptions.map((option) => (
@@ -162,6 +157,7 @@ export function RuleValueInputs({
   variables,
   fieldName,
   error,
+  patternAction,
   onChange,
 }: Readonly<{
   draft: RuleDraft;
@@ -174,6 +170,8 @@ export function RuleValueInputs({
   fieldName?: string;
   /** Why the rule cannot be saved yet, once worth showing. */
   error: string | null;
+  /** Shown beside the Pattern label, e.g. the "Generate from a description" toggle. */
+  patternAction?: ReactNode;
   onChange: (patch: Partial<RuleDraft>) => void;
 }>) {
   const input = VALIDATION_TYPE_META[draft.type]?.input;
@@ -184,58 +182,64 @@ export function RuleValueInputs({
   const body = (() => {
     switch (input) {
       case "none":
-        return <p className="text-xs text-muted-foreground">Fails when the value is missing or blank (an empty list, for a list).</p>;
+        return <p className="text-[11px] leading-relaxed text-muted-foreground">Fails when the value is missing or blank (an empty list, for a list).</p>;
       case "regex":
         return (
-          <Labelled label="Regex pattern">
+          <Labelled label="Pattern" action={patternAction}>
             <Textarea
               placeholder="e.g. ^[a-zA-Z]+$"
               value={draft.value}
               onChange={(e) => onChange({ value: e.target.value })}
-              className={cn("resize-none font-mono text-sm", invalid && "border-rose-500")}
-              rows={4}
+              className={cn("resize-none rounded-md border-border/60 bg-background font-mono text-[12.5px]", invalid && "border-rose-500")}
+              rows={3}
             />
           </Labelled>
         );
       case "length":
         return (
-          <Labelled label={draft.type === VALIDATION_TYPE.MinLength ? "Minimum length" : "Maximum length"}>
+          <Labelled label="Characters">
             <Input
               type="number"
               min={0}
               aria-label="Length"
+              placeholder={draft.type === VALIDATION_TYPE.MinLength ? "at least" : "at most"}
               value={draft.value}
               onChange={(e) => onChange({ value: e.target.value })}
-              className={cn("h-9", invalid && "border-rose-500")}
+              className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}
             />
           </Labelled>
         );
       case "lengthRange":
         return (
-          <div className="flex gap-3">
-            <Labelled label="Min length">
-              <Input type="number" min={0} aria-label="Min length" value={draft.value} onChange={(e) => onChange({ value: e.target.value })} className="h-9" />
+          <div className="flex gap-2.5">
+            <Labelled label="Min characters">
+              <Input type="number" min={0} aria-label="Min length" value={draft.value} onChange={(e) => onChange({ value: e.target.value })} className={cn(CONTROL_CLASS, "font-mono")} />
             </Labelled>
-            <Labelled label="Max length">
-              <Input type="number" min={0} aria-label="Max length" value={draft.secondaryValue} onChange={(e) => onChange({ secondaryValue: e.target.value })} className="h-9" />
+            <Labelled label="Max characters">
+              <Input type="number" min={0} aria-label="Max length" value={draft.secondaryValue} onChange={(e) => onChange({ secondaryValue: e.target.value })} className={cn(CONTROL_CLASS, "font-mono")} />
             </Labelled>
           </div>
         );
       case "value":
         return (
-          <Labelled label="Value">
-            <ComparisonValue kind={kind} label="Value" value={draft.value} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} onChange={(value) => onChange({ value })} />
-          </Labelled>
+          <ComparisonValue
+            kind={kind}
+            heading={draft.type === VALIDATION_TYPE.Equal || draft.type === VALIDATION_TYPE.NotEqual ? "Value" : "Compared with"}
+            label="Value"
+            value={draft.value}
+            enumValues={enumValues}
+            invalid={invalid}
+            variableOptions={variableOptions}
+            onChange={(value) => onChange({ value })}
+          />
         );
       case "valueRange":
+        // Side by side when both bounds are fixed; stacked when each carries its own
+        // Fixed value / Another property switch, which needs the full width beside its label.
         return (
-          <div className="flex gap-3">
-            <Labelled label="Min">
-              <ComparisonValue kind={kind} label="Min" value={draft.value} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} onChange={(value) => onChange({ value })} />
-            </Labelled>
-            <Labelled label="Max">
-              <ComparisonValue kind={kind} label="Max" value={draft.secondaryValue} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} onChange={(secondaryValue) => onChange({ secondaryValue })} />
-            </Labelled>
+          <div className={cn("flex gap-2.5", variableOptions && "flex-col gap-3.5")}>
+            <ComparisonValue kind={kind} heading="From" label="Min" value={draft.value} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} onChange={(value) => onChange({ value })} />
+            <ComparisonValue kind={kind} heading="To" label="Max" value={draft.secondaryValue} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} onChange={(secondaryValue) => onChange({ secondaryValue })} />
           </div>
         );
       case "reference":
@@ -248,7 +252,7 @@ export function RuleValueInputs({
               fieldName={draft.secondaryValue}
               onChange={({ schemaName, fieldName }) => onChange({ value: schemaName, secondaryValue: fieldName })}
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
               Inserts and updates are refused when the value (each item, for a list) is not found there. Empty values are not checked.
             </p>
           </>
@@ -261,7 +265,11 @@ export function RuleValueInputs({
   return (
     <div className="flex flex-col gap-1.5">
       {body}
-      {error && <p className="text-xs text-rose-500">{error}</p>}
+      {error && (
+        <p role="alert" className="text-[11.5px] text-rose-500">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

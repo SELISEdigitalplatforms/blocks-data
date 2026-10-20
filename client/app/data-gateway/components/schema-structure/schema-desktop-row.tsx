@@ -95,6 +95,8 @@ interface SchemaDesktopRowProps {
   onOpenDefaultDrawer?: (fieldName: string, defaultValue?: IFieldDefaultValue | null) => void;
   /** Defaults apply on insert, so only entities (and properties nested in them) get the button. */
   showDefaultButton?: boolean;
+  /** The Rules-column panel open for this row in the docked inspector, if any. */
+  activeRule?: "validation" | "default" | null;
   isExpanded?: boolean;
   onToggleExpand?: (index: number) => void;
   childSchema?: ISchemaDetails | null;
@@ -137,6 +139,7 @@ export function SchemaDesktopRow({
   onOpenAccessDrawer,
   onOpenValidationDrawer,
   onOpenDefaultDrawer,
+  activeRule = null,
   showDefaultButton = false,
   isExpanded,
   onToggleExpand,
@@ -221,7 +224,7 @@ export function SchemaDesktopRow({
       {isRowVisible && (
         <TableRow
           key={field.name}
-          className={cn(isReadOnly && isEntityType && "bg-primary/5 hover:bg-primary/10")}
+          className={cn(isReadOnly && isEntityType && "bg-primary/5 hover:bg-primary/10", activeRule && "bg-primary/[0.06]")}
         >
           {isEditMode && (
             <TableCell className={compactCellClass}>
@@ -616,11 +619,14 @@ export function SchemaDesktopRow({
                     onClick={() =>
                       onOpenValidationDrawer(fieldName, fieldForValidation?.validationRule)
                     }
+                    aria-expanded={activeRule === "validation"}
                     className={cn(
                       "flex h-[26px] min-w-[28px] shrink-0 items-center justify-center gap-1 rounded-md border px-1 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
-                      validationInfo.total > 0
-                        ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
+                      activeRule === "validation"
+                        ? "border-primary bg-primary/15 text-primary"
+                        : validationInfo.total > 0
+                          ? "border-primary/30 bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
                     )}
                     aria-label={`Manage validations for ${fieldName}${validationInfo.total > 0 ? ` (${validationInfo.total})` : ""}`}
                   >
@@ -639,6 +645,7 @@ export function SchemaDesktopRow({
                     fieldType={currentType}
                     isNewField={isNewField}
                     defaultValue={defaultValue}
+                    active={activeRule === "default"}
                     onOpen={() => onOpenDefaultDrawer(fieldName, defaultValue)}
                   />
                 )}

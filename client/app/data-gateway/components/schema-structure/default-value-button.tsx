@@ -1,6 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/tooltip/tooltip";
 import { cn } from "@/lib/utils";
-import { TextCursorInput } from "lucide-react";
+import { RectangleEllipsis } from "lucide-react";
 import type { IFieldDefaultValue } from "../../models/data-service";
 import { LOCKED_DEFAULT_PROPERTIES, canHaveDefault, formatDefaultSummary } from "../../utils/default-value.util";
 
@@ -24,6 +24,7 @@ export function DefaultValueButton({
   isEditMode = false,
   defaultValue,
   wide = false,
+  active = false,
   onOpen,
 }: Readonly<{
   fieldName: string;
@@ -33,6 +34,8 @@ export function DefaultValueButton({
   defaultValue: IFieldDefaultValue | null;
   /** The mobile card's full-width form. */
   wide?: boolean;
+  /** Its panel is open in the docked inspector. */
+  active?: boolean;
   onOpen: () => void;
 }>) {
   const reason = unavailableReason(fieldName, fieldType, isNewField, isEditMode);
@@ -51,7 +54,7 @@ export function DefaultValueButton({
             className={cn(shape, "cursor-not-allowed border-border/60 text-muted-foreground/50")}
             aria-label={reason}
           >
-            <TextCursorInput className={iconClass} />
+            <RectangleEllipsis className={iconClass} />
           </button>
         </TooltipTrigger>
         <TooltipContent>{reason}</TooltipContent>
@@ -65,16 +68,17 @@ export function DefaultValueButton({
         <button
           type="button"
           onClick={onOpen}
+          aria-expanded={active}
           className={cn(
             shape,
             "transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
-            defaultValue
-              ? "border-primary/30 bg-primary/10 text-primary"
-              : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
+            active && "border-primary bg-primary/15 text-primary",
+            !active && defaultValue && "border-primary/30 bg-primary/10 text-primary",
+            !active && !defaultValue && "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
           )}
           aria-label={summary ? `Default value for ${fieldName} (${summary})` : `Default value for ${fieldName}`}
         >
-          <TextCursorInput className={iconClass} />
+          <RectangleEllipsis className={iconClass} />
         </button>
       </TooltipTrigger>
       <TooltipContent>{summary ? `Default value: ${summary}` : "Set a default value"}</TooltipContent>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findChildSchemaByType, getPreviewFieldType } from "./schema-structure.utils";
+import { OPERATION_ACCESS_SCHEMA, findChildSchemaByType, getPreviewFieldType } from "./schema-structure.utils";
 import type { ISchemaDetails } from "@/data-gateway/models/data-service";
 
 const schema = (schemaName: string): ISchemaDetails =>
@@ -24,6 +24,21 @@ describe("schema-structure.utils", () => {
 
     it("returns undefined for an empty item list", () => {
       expect(findChildSchemaByType([], "Product")).toBeUndefined();
+    });
+
+    it("gives the base entity's access lists (OperationAccess) their fixed shape, as no project schema holds it", () => {
+      const access = findChildSchemaByType(items, "OperationAccess");
+      expect(access).toBe(OPERATION_ACCESS_SCHEMA);
+      expect(access?.fields.map((f) => [f.name, f.type, f.isArray])).toEqual([
+        ["Roles", "String", true],
+        ["UserIds", "String", true],
+        ["Permissions", "String", true],
+      ]);
+    });
+
+    it("prefers a project's own schema named OperationAccess", () => {
+      const own = schema("OperationAccess");
+      expect(findChildSchemaByType([own], "operationaccess")).toBe(own);
     });
   });
 

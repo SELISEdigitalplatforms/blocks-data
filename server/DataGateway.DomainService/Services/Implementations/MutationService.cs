@@ -63,6 +63,7 @@ public class MutationService : IMutationService
         _logger.LogInformation("Inserting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.WRITE, OperationLabelCreate);
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
+        RecordOrganizationRule.EnsureForInsert([input], _principals.Current);
         var defaults = ApplyFieldDefaults(input, schema, DateTime.UtcNow);
         ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
         await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelCreate);
@@ -120,6 +121,7 @@ public class MutationService : IMutationService
         var currentId = existingDocument[GraphQlConstant.DbEntityIdFieldName]?.ToString();
         await ValidateUniquenessOrThrowAsync(schema, [input], currentId is not null ? [currentId] : null, OperationLabelUpdate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.EDIT, OperationLabelUpdate);
+        RecordOrganizationRule.EnsureForUpdate(input, _principals.Current);
         input.InjectDefaultValueOnUpdate();
 
         var document = InputToBsonDocument(input);
@@ -306,6 +308,8 @@ public class MutationService : IMutationService
         var inputs = GraphQlTypeHelper.MapBulkMutationInput(listNode, inputType);
         if (inputs == null || inputs.Count == 0)
             return new BulkActionResponse { Acknowledged = true, TotalImpactedData = 0 };
+        // Every row is checked before any row is written.
+        RecordOrganizationRule.EnsureForInsert(inputs, _principals.Current);
 
         // One "now" for the whole batch, so every row's Now default is the same.
         var now = DateTime.UtcNow;
@@ -379,6 +383,7 @@ public class MutationService : IMutationService
             .ToList();
         await ValidateUniquenessOrThrowAsync(schema, [input], existingIds, OperationLabelUpdate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.EDIT, OperationLabelUpdate);
+        RecordOrganizationRule.EnsureForUpdate(input, _principals.Current);
         input.InjectDefaultValueOnUpdate();
 
         var document = InputToBsonDocument(input);

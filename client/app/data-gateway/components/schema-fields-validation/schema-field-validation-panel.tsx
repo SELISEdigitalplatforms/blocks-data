@@ -324,7 +324,8 @@ export function SchemaFieldValidationPanel({
     const draft = draftFromRule(validations[index]);
     setOriginalForm(draft);
     setForm({ ...draft, editingIndex: index });
-    setMessageEdited(true);
+    // A saved message is the user's; a validation saved without one gets the suggestion.
+    setMessageEdited(draft.errorMessage.trim() !== "");
     setShowDraftError(false);
     setPendingDeleteIndex(null);
     setShowForm(true);

@@ -264,6 +264,13 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
       expect(message).toHaveValue("Salary must be greater than 200");
     });
 
+    it("suggests a message for a saved validation that has none", async () => {
+      const user = userEvent.setup();
+      renderPanel("Float", [{ type: 7, value: 100, secondaryValue: null, errorMessage: "", isActive: true }]);
+      await user.click(screen.getByRole("button", { name: "Edit validation" }));
+      expect(screen.getByLabelText("Message shown when it fails")).toHaveValue("DepartmentId must be greater than 100");
+    });
+
     it("keeps a saved validation's own message when it is opened", async () => {
       const user = userEvent.setup();
       renderPanel("String", [maxLength]);

@@ -41,11 +41,18 @@ export const CleanTestDataModal = ({
   const mockDataItems = mockDataResponse?.data?.items || [];
 
   // Refetch data when modal opens
+  const [prevOpen, setPrevOpen] = useState<boolean | null>(null);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) {
+      setSelectedSchemas([]);
+      setSelectAll(false);
+    }
+  }
+
   useEffect(() => {
     if (open) {
       refetch();
-      setSelectedSchemas([]);
-      setSelectAll(false);
     }
   }, [open, refetch]);
 

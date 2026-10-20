@@ -17,7 +17,7 @@ import {
 } from "@blocks-idp/authentication/constants/sso-providers.constant";
 import { oauthService } from "@blocks-idp/authentication/services/oauth.service";
 import { sanitizeProviderUrl } from "@blocks-idp/authentication/utils/sanitize-provider-url.util";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 type SsoActivateProps = {
@@ -28,12 +28,11 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
   const { setAuthenticated, setTokens } = useAuthStore();
   const [isChecked, setIsChecked] = useState(false);
   const [isPending, setIsPending] = useState(false);
-  const [providerKey, setProviderKey] = useState<string | null>(null);
+  const [providerKey] = useState<string | null>(() =>
+    sessionStorage.getItem("clicked_sso_provider"),
+  );
   const navigate = useNavigate();
 
-  useEffect(() => {
-    setProviderKey(sessionStorage.getItem("clicked_sso_provider"));
-  }, []);
 
   const { config, providerLabel } = useMemo(() => {
     if (!providerKey) return { config: null, providerLabel: "" };

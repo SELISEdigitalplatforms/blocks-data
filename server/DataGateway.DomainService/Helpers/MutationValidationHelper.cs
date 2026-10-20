@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Responses;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService.Helpers;
 

@@ -1,4 +1,4 @@
-using Storage.DomainService.Shared.Enums;
+using Blocks.Genesis.Entities.Data;
 
 // Namespaced apart from the legacy storage DTOs: a CreateDirectoryRequest already
 // exists there for the directory methods that SPEC B5 retires in the post-migration

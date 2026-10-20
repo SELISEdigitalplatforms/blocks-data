@@ -156,9 +156,9 @@ export const SignupForm = ({
         </Form>
         {ssoSignUpEnabled && emailSignUpEnabled && (
           <div className="my-2 flex items-center">
-            <hr className="flex-grow border-gray-300" />
+            <hr className="grow border-gray-300" />
             <span className="mx-2 text-xs text-gray-500">OR</span>
-            <hr className="flex-grow border-gray-300" />
+            <hr className="grow border-gray-300" />
           </div>
         )}
 

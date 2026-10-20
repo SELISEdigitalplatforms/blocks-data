@@ -98,7 +98,7 @@ export const DataGatewaySections = () => {
   return (
     <nav
       aria-label="Data Gateway sections"
-      className="order-3 flex h-11 w-full min-w-0 items-stretch gap-0.5 overflow-x-auto lg:order-none lg:h-auto lg:w-auto lg:shrink"
+      className="order-3 flex h-11 w-full min-w-0 items-stretch gap-0.5 overflow-x-auto lg:order-0 lg:h-auto lg:w-auto lg:shrink"
     >
       {sections.map(({ label, subPath: sectionPath, badge }) => {
         // A sub-path we don't list (configuration) leaves every tab inactive

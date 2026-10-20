@@ -1,4 +1,7 @@
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis;
 using DataGateway.DomainService.GraphTypes;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Mappers;
@@ -8,6 +11,7 @@ using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService;
 
@@ -38,8 +42,10 @@ public class GraphqlSchemaBuilder
     /// Adds the types built from <paramref name="source"/> (drafts or a published snapshot) to
     /// <paramref name="schemaBuilder"/>. Returns false when the source has no schema definitions,
     /// in which case nothing is added. The source's definitions may be modified while building.
+    /// With <paramref name="strictReferences"/> (a publish), a Reference rule whose target schema or
+    /// field is missing fails the build; otherwise it is logged and left unchecked.
     /// </summary>
-    public bool BuildSchema(string tenantId, SchemaSource source, ISchemaBuilder schemaBuilder)
+    public bool BuildSchema(string tenantId, SchemaSource source, ISchemaBuilder schemaBuilder, bool strictReferences = false)
     {
         try
         {
@@ -87,7 +93,9 @@ public class GraphqlSchemaBuilder
             BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes, childFilterInputTypes);
 
             var queryType = BuildQueryType(dbSchemas, outputTypes, entityFilterInputTypes);
-            var mutationType = BuildMutationType(dbSchemas, insertInputTypes, updateInputTypes, deleteInputTypes, entityFilterInputTypes);
+            var references = ReferenceTargets.Build(schemas, strictReferences, _logger);
+            CheckVariables(schemas, strictReferences);
+            var mutationType = BuildMutationType(dbSchemas, insertInputTypes, updateInputTypes, deleteInputTypes, entityFilterInputTypes, references);
 
             schemaBuilder.AddQueryType(queryType);
             schemaBuilder.AddMutationType(mutationType);
@@ -112,9 +120,12 @@ public class GraphqlSchemaBuilder
     /// </summary>
     public async Task<SchemaSource> ReadDraftSourceAsync(string tenantId)
     {
+        // System entities (platform services' own collections, seeded so DataAccessPolicys can apply to them)
+        // get no GraphQL type, so they never reach the build or a published snapshot.
         var filter = new BsonDocument
         {
             { nameof(SchemaDefinition.IsDeleted), false },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) },
             { nameof(SchemaDefinition.Fields), new BsonDocument
             {
                 { "$ne", BsonNull.Value },
@@ -135,10 +146,18 @@ public class GraphqlSchemaBuilder
             null,
             null, 0, 0, tenantId);
 
-        var policies = await _repository.GetItemsAsync<DataAccessPolicy>(
+        var allPolicies = await _repository.GetItemsAsync<DataAccessPolicy>(
             new BsonDocument { { nameof(DataAccessPolicy.IsDeleted), false } },
             null,
             null, 0, 0, tenantId);
+
+        // A system entity has no GraphQL type, so its policies stay out of the source too.
+        var systemSchemas = await _repository.GetItemsAsync<SchemaDefinition>(
+            new BsonDocument(nameof(SchemaDefinition.IsSystemEntity), true),
+            null,
+            null, 0, 0, tenantId);
+        var systemSchemaIds = (systemSchemas ?? []).Select(s => s.ItemId).ToHashSet();
+        var policies = allPolicies?.Where(p => !systemSchemaIds.Contains(p.SchemaId)).ToList();
 
         return new SchemaSource
         {
@@ -212,8 +231,9 @@ public class GraphqlSchemaBuilder
             schema.Fields = SchemaDefinitionMapping.GetFieldDefinitionResponses(fieldDefinitions, schemaPolicies, schemaValidations);
             schema.Policies = schemaPolicies;
             var rlsSchemaPolicies = schemaPolicies.Where(p => p.PolicyType == PolicyType.RLS);
-            SetFieldsPolicies(schema, schema.Fields, rlsSchemaPolicies, schema.ItemId, string.Empty);
-            CleanupClsPoliciesBaseOnSchemaAccessLevel(schema);
+            SchemaPolicyDerivation.SetFieldsPolicies(schema, schema.Fields, rlsSchemaPolicies, schema.ItemId, string.Empty,
+                AccessPrincipal.From(BlocksContext.GetContext(), isRootTenant: false));
+            SchemaPolicyDerivation.CleanupClsPoliciesBaseOnSchemaAccessLevel(schema);
         }
 
         return schemaDefinitions;
@@ -257,39 +277,6 @@ public class GraphqlSchemaBuilder
         }
     }
 
-    private static void SetFieldsPolicies(SchemaDefinitionExtended schema, List<FieldDefinitionResponse> fields, IEnumerable<DataAccessPolicy> rlsSchemaPolicies, string schemaId, string parentFieldName)
-    {
-        foreach (var field in fields)
-        {
-            var fullPath = string.IsNullOrEmpty(parentFieldName) ? field.Name : parentFieldName + "." + field.Name;
-            if (!GraphQlTypeHelper.IsScalar(field.Type))
-            {
-                SetFieldsPolicies(schema, field.Fields, rlsSchemaPolicies, schemaId, fullPath);
-                continue;
-            }
-            if (field.ReadAccessLevel == SchemaAccessLevel.Inherited)
-            {
-                var rlsForRead = rlsSchemaPolicies.Where(p => p.Operation == PolicyOperation.READ || p.Operation == PolicyOperation.ALL);
-                AddInheritedClsPoliciesToSchema(schema, rlsForRead, fullPath, PolicyOperation.READ);
-            }
-            if (field.WriteAccessLevel == SchemaAccessLevel.Inherited)
-            {
-                var rlsForWrite = rlsSchemaPolicies.Where(p => p.Operation == PolicyOperation.WRITE || p.Operation == PolicyOperation.ALL);
-                AddInheritedClsPoliciesToSchema(schema, rlsForWrite, fullPath, PolicyOperation.WRITE);
-            }
-            if (field.EditAccessLevel == SchemaAccessLevel.Inherited)
-            {
-                var rlsForEdit = rlsSchemaPolicies.Where(p => p.Operation == PolicyOperation.EDIT || p.Operation == PolicyOperation.ALL);
-                AddInheritedClsPoliciesToSchema(schema, rlsForEdit, fullPath, PolicyOperation.EDIT);
-            }
-            if (field.DeleteAccessLevel == SchemaAccessLevel.Inherited)
-            {
-                var rlsForDelete = rlsSchemaPolicies.Where(p => p.Operation == PolicyOperation.DELETE || p.Operation == PolicyOperation.ALL);
-                AddInheritedClsPoliciesToSchema(schema, rlsForDelete, fullPath, PolicyOperation.DELETE);
-            }
-        }
-    }
-
     private void SetFieldValidationRules(List<FieldDefinitionResponse> fields, List<DataValidation> validations, string schemaId, string parentFieldName)
     {
         var parentFieldPath = string.IsNullOrEmpty(parentFieldName) ? string.Empty : $"{parentFieldName}.";
@@ -309,95 +296,6 @@ public class GraphqlSchemaBuilder
                 SetFieldValidationRules(field.Fields, validations, schemaId, propertyName);
             }
         }
-    }
-
-    private static void CleanupClsPoliciesBaseOnSchemaAccessLevel(SchemaDefinitionExtended schema)
-    {
-        var clsPolicies = schema.Policies.Where(p => p.PolicyType == PolicyType.CLS).ToList();
-        foreach (var policy in clsPolicies)
-        {
-            foreach (var fieldPath in policy.FieldNames)
-            {
-                var fieldDef = MutationInputHelper.GetFieldDefForPath(schema, fieldPath);
-                if (fieldDef == null) continue;
-
-                var effectiveRead = fieldDef.ReadAccessLevel == SchemaAccessLevel.Inherited ? schema.ReadAccessLevel : fieldDef.ReadAccessLevel;
-                var effectiveWrite = fieldDef.WriteAccessLevel == SchemaAccessLevel.Inherited ? schema.WriteAccessLevel : fieldDef.WriteAccessLevel;
-                var effectiveEdit = fieldDef.EditAccessLevel == SchemaAccessLevel.Inherited ? schema.EditAccessLevel : fieldDef.EditAccessLevel;
-                var effectiveDelete = fieldDef.DeleteAccessLevel == SchemaAccessLevel.Inherited ? schema.DeleteAccessLevel : fieldDef.DeleteAccessLevel;
-
-                if (policy.Operation == PolicyOperation.READ && IgnoreClsPolicy(schema.ReadAccessLevel, effectiveRead))
-                {
-                    RemoveClsPolicy(schema, policy, fieldPath);
-                }
-                else if (policy.Operation == PolicyOperation.WRITE && IgnoreClsPolicy(schema.WriteAccessLevel, effectiveWrite))
-                {
-                    RemoveClsPolicy(schema, policy, fieldPath);
-                }
-                else if (policy.Operation == PolicyOperation.EDIT && IgnoreClsPolicy(schema.EditAccessLevel, effectiveEdit))
-                {
-                    RemoveClsPolicy(schema, policy, fieldPath);
-                }
-                else if (policy.Operation == PolicyOperation.DELETE && IgnoreClsPolicy(schema.DeleteAccessLevel, effectiveDelete))
-                {
-                    RemoveClsPolicy(schema, policy, fieldPath);
-                }
-            }
-        }
-    }
-    private static bool IgnoreClsPolicy(SchemaAccessLevel schemaAccessLevel, SchemaAccessLevel fieldAccessLevel)
-    {
-        if (fieldAccessLevel == SchemaAccessLevel.Public || fieldAccessLevel == SchemaAccessLevel.User)
-        {
-            return true;
-        }
-        if (fieldAccessLevel == SchemaAccessLevel.Inherited && schemaAccessLevel != SchemaAccessLevel.Custom)
-        {
-            return true;
-        }
-        return false;
-    }
-
-    private static void RemoveClsPolicy(SchemaDefinitionExtended schema, DataAccessPolicy clsPolicy, string fieldName)
-    {
-        if (clsPolicy.FieldNames.Length > 1)
-        {
-            var policy = schema.Policies.FirstOrDefault(p => p.ItemId == clsPolicy.ItemId);
-            if (policy is null)
-            {
-                return;
-            }
-            policy.FieldNames = policy.FieldNames.Where(f => f != fieldName).ToArray();
-        }
-        else
-        {
-            schema.Policies.RemoveAll(p => p.ItemId == clsPolicy.ItemId);
-        }
-    }
-
-    private static void AddInheritedClsPoliciesToSchema(SchemaDefinitionExtended schema,
-        IEnumerable<DataAccessPolicy> rlsSchemaPolicies,
-        string fieldPath,
-        PolicyOperation operation)
-    {
-        if (operation == PolicyOperation.READ && (schema.ReadAccessLevel == SchemaAccessLevel.Public || schema.ReadAccessLevel == SchemaAccessLevel.User))
-        { return; }
-        if (operation == PolicyOperation.WRITE && (schema.WriteAccessLevel == SchemaAccessLevel.Public || schema.WriteAccessLevel == SchemaAccessLevel.User))
-        { return; }
-        if (operation == PolicyOperation.EDIT && (schema.EditAccessLevel == SchemaAccessLevel.Public || schema.EditAccessLevel == SchemaAccessLevel.User))
-        { return; }
-        if (operation == PolicyOperation.DELETE && (schema.DeleteAccessLevel == SchemaAccessLevel.Public || schema.DeleteAccessLevel == SchemaAccessLevel.User))
-        { return; }
-        var clsPolicies = rlsSchemaPolicies.Select(p => p.Clone()).ToList();
-        clsPolicies.ForEach(p =>
-        {
-            p.FieldNames = [fieldPath];
-            p.Operation = operation;
-            p.PolicyType = PolicyType.CLS;
-            p.InjectDefaultValue();
-        });
-        schema.Policies.RemoveAll(p => p.SchemaId == schema.ItemId && p.PolicyType == PolicyType.CLS && p.Operation == operation && p.FieldNames.Contains(fieldPath));
-        schema.Policies.AddRange(clsPolicies);
     }
 
     private static void BuildFilterAndSortTypes(
@@ -534,12 +432,58 @@ public class GraphqlSchemaBuilder
         });
     }
 
+    /// <summary>
+    /// Default templates and validation variables name properties of their own schema. One whose property
+    /// was renamed or deleted fails a publish (strict) with both names; a pod rebuilding an already
+    /// published version only logs it (the template then renders that part empty; the rule is skipped).
+    /// </summary>
+    private void CheckVariables(IEnumerable<SchemaDefinitionExtended> schemas, bool strict)
+    {
+        var problems = new List<string>();
+        foreach (var schema in schemas.Where(s => s.SchemaType == SchemaType.Entity))
+        {
+            var fields = VariableSyntax.FieldsOf(schema.Fields);
+            foreach (var (path, field) in FlattenFields(schema.Fields, string.Empty))
+            {
+                if (field.DefaultValue is { Kind: DefaultValueKind.Template } template)
+                {
+                    var problem = FieldDefaultValueCheck.Check(path, field.Type, field.IsArray, field.EnumValues, template, schema.SchemaName, fields);
+                    if (problem is not null)
+                        problems.Add($"{schema.SchemaName}.{path} default value: {problem}");
+                }
+                foreach (var rule in field.ValidationRule?.Validations ?? [])
+                {
+                    if (rule.IsActive && ValidationVariableCheck.Check(rule, field.Type, schema.SchemaName, fields) is { } problem)
+                        problems.Add($"{schema.SchemaName}.{path} {rule.Type} rule: {problem}");
+                }
+            }
+        }
+
+        if (problems.Count == 0)
+            return;
+        if (strict)
+            throw new InvalidOperationException(string.Join("; ", problems));
+        _logger.LogWarning("Variables that no longer resolve: {Problems}", string.Join("; ", problems));
+    }
+
+    private static IEnumerable<(string Path, FieldDefinitionResponse Field)> FlattenFields(IEnumerable<FieldDefinitionResponse> fields, string prefix)
+    {
+        foreach (var field in fields)
+        {
+            var path = $"{prefix}{field.Name}";
+            yield return (path, field);
+            foreach (var nested in FlattenFields(field.Fields, $"{path}."))
+                yield return nested;
+        }
+    }
+
     private ObjectType BuildMutationType(
         IList<SchemaDefinitionExtended> schemas,
         Dictionary<string, InsertInputType> insertInputTypes,
         Dictionary<string, UpdateInputType> updateInputTypes,
         Dictionary<string, DeleteInputType> deleteInputTypes,
-        Dictionary<string, EntityFilterInputType> entityFilterInputTypes)
+        Dictionary<string, EntityFilterInputType> entityFilterInputTypes,
+        ReferenceTargets references)
     {
         return new ObjectType(descriptor =>
         {
@@ -548,10 +492,10 @@ public class GraphqlSchemaBuilder
             foreach (var schema in schemas)
             {
                 var schemaName = schema.GetSchemaNameForProject();
-                _schemaResolver.ResolveInsertSchema(descriptor, schema, insertInputTypes[schemaName]);
-                _schemaResolver.ResolveBulkInsertSchema(descriptor, schema, insertInputTypes[schemaName]);
-                _schemaResolver.ResolveUpdateSchema(descriptor, schema, updateInputTypes[schemaName], entityFilterInputTypes[schemaName]);
-                _schemaResolver.ResolveBulkUpdateSchema(descriptor, schema, updateInputTypes[schemaName], entityFilterInputTypes[schemaName]);
+                _schemaResolver.ResolveInsertSchema(descriptor, schema, insertInputTypes[schemaName], references);
+                _schemaResolver.ResolveBulkInsertSchema(descriptor, schema, insertInputTypes[schemaName], references);
+                _schemaResolver.ResolveUpdateSchema(descriptor, schema, updateInputTypes[schemaName], entityFilterInputTypes[schemaName], references);
+                _schemaResolver.ResolveBulkUpdateSchema(descriptor, schema, updateInputTypes[schemaName], entityFilterInputTypes[schemaName], references);
                 _schemaResolver.ResolveDeleteSchema(descriptor, schema, deleteInputTypes[schemaName], entityFilterInputTypes[schemaName]);
                 _schemaResolver.ResolveBulkDeleteSchema(descriptor, schema, deleteInputTypes[schemaName], entityFilterInputTypes[schemaName]);
             }

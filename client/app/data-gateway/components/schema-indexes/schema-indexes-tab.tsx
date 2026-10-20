@@ -185,7 +185,7 @@ export function SchemaIndexesTab({
             <AccordionItem
               key={index.itemId || index.name}
               value={index.itemId || index.name}
-              className="rounded-sm border border-border/30 bg-card shadow-sm"
+              className="rounded-sm border border-border/30 bg-card shadow-xs"
             >
               <div className="flex min-w-0 items-center [&>h3]:min-w-0 [&>h3]:flex-1">
                 <AccordionTrigger className="min-w-0 flex-row-reverse justify-end gap-3 px-4 py-3 text-left hover:no-underline">

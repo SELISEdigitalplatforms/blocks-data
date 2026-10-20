@@ -268,7 +268,19 @@ export function SchemaDataTab({
     if (!schemaName) return;
     setIsLoading(true);
     setError(null);
+    await runQuery(page, size, filter, projectionFields, sortBy, sortDescending);
+  };
 
+  /** The request half of fetchData; callers set the loading/error flags first. */
+  const runQuery = async (
+    page: number,
+    size: number,
+    filter: string,
+    projectionFields: string[],
+    sortBy: string,
+    sortDescending: boolean,
+  ) => {
+    if (!schemaName) return;
     try {
       const query = buildGetQuery(
         schemaName,
@@ -305,14 +317,24 @@ export function SchemaDataTab({
     }
   };
 
-  // Reset and fetch on schema change
-  useEffect(() => {
+  // Reset the applied query on schema change (during render, so the new schema never renders
+  // with the old filters), then fetch its first page.
+  const [prevSchemaName, setPrevSchemaName] = useState<typeof schemaName | null>(null);
+  if (schemaName !== prevSchemaName) {
+    setPrevSchemaName(schemaName);
     setPageNo(1);
     setAppliedQueryFilter("");
     setAppliedProjectionFields([]);
     setAppliedSortField("");
     setAppliedSortDirection("asc");
-    fetchData(1, pageSize, "", [], "", false);
+    if (schemaName) {
+      setIsLoading(true);
+      setError(null);
+    }
+  }
+
+  useEffect(() => {
+    runQuery(1, pageSize, "", [], "", false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schemaName]);
 
@@ -440,7 +462,7 @@ export function SchemaDataTab({
                 onClick={() => setViewMode(mode)}
                 className={`flex h-7 w-7 items-center justify-center rounded transition-colors ${
                   viewMode === mode
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >

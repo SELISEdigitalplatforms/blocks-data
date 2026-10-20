@@ -1,4 +1,5 @@
 import { type Page, type Locator, expect } from "@playwright/test";
+import { waitVisible } from "../support/wait-visible";
 
 export type StorageProvider = "AWS" | "Azure" | "SFTP" | "AWS S3 Compatible";
 
@@ -18,10 +19,7 @@ export class StorageConfigurationForm {
   constructor(private page: Page) {}
 
   isDialogOpen(timeout = 5_000): Promise<boolean> {
-    return this.page
-      .getByRole("dialog")
-      .isVisible({ timeout })
-      .catch(() => false);
+    return waitVisible(this.page.getByRole("dialog"), timeout);
   }
 
   getDialog(): Locator {

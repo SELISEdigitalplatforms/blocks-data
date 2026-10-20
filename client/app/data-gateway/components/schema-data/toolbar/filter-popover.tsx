@@ -597,7 +597,7 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                     type="button"
                     onClick={() => removeCondition(condition.id)}
                     title="Remove condition"
-                    className="flex-shrink-0 text-muted-foreground hover:text-foreground"
+                    className="shrink-0 text-muted-foreground hover:text-foreground"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>

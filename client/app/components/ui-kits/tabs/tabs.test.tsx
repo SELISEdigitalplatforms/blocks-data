@@ -28,7 +28,7 @@ describe("TabsContent", () => {
     const inactive = panels.find((panel) => panel.getAttribute("data-state") === "inactive")!;
 
     expect(inactive).toHaveAttribute("hidden");
-    expect(inactive.className).toContain("data-[state=inactive]:!hidden");
+    expect(inactive.className).toContain("data-[state=inactive]:hidden!");
     expect(screen.getByText("First")).toBeInTheDocument();
   });
 });

@@ -43,7 +43,7 @@ export function BucketSizeControl({ value, onChange, isHourlyAllowed }: BucketSi
               onClick={() => onChange(option.value)}
               className={cn(
                 "h-full rounded-sm px-4 text-xs transition-colors",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
                 isSelected
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground",

@@ -41,7 +41,7 @@ export function SidebarMobileView() {
             <Link to="/console">
               <Logo width={72} height={36} className="h-9 w-auto" />
             </Link>
-            <SheetClose className="!mt-0">
+            <SheetClose className="mt-0!">
               <X className="h-4 w-4" />
             </SheetClose>
           </SheetTitle>

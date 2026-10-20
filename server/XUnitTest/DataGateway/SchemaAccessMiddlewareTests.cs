@@ -1,3 +1,5 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Security.Claims;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models;

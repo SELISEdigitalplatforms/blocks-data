@@ -1,3 +1,5 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Diagnostics;
 using System.Globalization;
 using DataGateway.DomainService.Services;
@@ -21,6 +23,7 @@ using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Moq;
 using static XUnitTest.DataGateway.TestSupport;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace XUnitTest.DataGateway;
 
@@ -438,6 +441,73 @@ public class IntrospectionDetectionTests
     {
         GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query))
             .Should().BeFalse();
+    }
+
+    // HotChocolate answers `GET ?sdl` with the whole schema and the request carries no query
+    // text, so the text-based detection alone would wave it through to anonymous callers.
+    [Theory]
+    [InlineData("GET", "?sdl", true)]
+    [InlineData("GET", "?sdl=", true)]
+    [InlineData("GET", "?SDL", true)]
+    [InlineData("GET", "?sdl&query=%7B%20getBlxDrives%20%7B%20totalCount%20%7D%20%7D", true)]
+    [InlineData("GET", "?query=%7B%20getBlxDrives%20%7B%20totalCount%20%7D%20%7D", false)]
+    [InlineData("GET", "", false)]
+    [InlineData("POST", "?sdl", false)] // HotChocolate serves the SDL on GET only
+    public async Task SchemaDownload_CountsAsIntrospection(string method, string queryString, bool expected)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = method;
+        context.Request.QueryString = new QueryString(queryString);
+
+        (await GraphQLIntrospectionHelper.ContainsIntrospectionQueryAsync(context.Request))
+            .Should().Be(expected);
+    }
+
+    // The detector runs on the raw request before HotChocolate validates it, so it also sees
+    // documents HotChocolate would reject. A fragment cycle used to recurse until the process
+    // died (StackOverflowException cannot be caught); it must simply yield an answer and leave
+    // the rejection to HotChocolate's own NoFragmentCycles rule.
+    [Theory]
+    [InlineData("query { ...A } fragment A on Query { ...A }")]
+    [InlineData("query { ...A } fragment A on Query { ...B } fragment B on Query { ...A }")]
+    [InlineData("query { ...A } fragment A on Query { getBlxDrives { items { ...A } } }")]
+    public void FragmentCycle_DoesNotRecurseForever(string query)
+    {
+        GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query))
+            .Should().BeFalse();
+    }
+
+    [Fact]
+    public void FragmentCycle_StillRecognisesIntrospectionInsideIt()
+    {
+        const string query = "query { ...A } fragment A on Query { ...B } fragment B on Query { ...A __schema { types { name } } }";
+
+        GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query))
+            .Should().BeTrue();
+    }
+
+    // Without a cycle, a chain where every fragment spreads the next one twice is visited 2^n
+    // times by a naive walk — unbounded CPU from a request of a few hundred bytes. Each fragment
+    // is walked once, so the answer is found in linear time, and it is the same answer.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RepeatedFragmentSpreads_AreWalkedOnce(bool introspectionAtTheEnd)
+    {
+        const int depth = 64;
+        var query = new System.Text.StringBuilder("query { ...F0 } ");
+        for (var i = 0; i < depth; i++)
+        {
+            query.Append($"fragment F{i} on Query {{ ...F{i + 1} ...F{i + 1} }} ");
+        }
+        query.Append($"fragment F{depth} on Query {{ {(introspectionAtTheEnd ? "__schema { types { name } }" : "__typename")} }}");
+
+        var stopwatch = Stopwatch.StartNew();
+        var result = GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query.ToString()));
+        stopwatch.Stop();
+
+        result.Should().Be(introspectionAtTheEnd);
+        stopwatch.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(1));
     }
 }
 

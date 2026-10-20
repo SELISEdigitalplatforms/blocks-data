@@ -193,6 +193,20 @@ describe("SchemaDesktopRow", () => {
     expect(onToggleExpand).toHaveBeenCalledWith(0);
   });
 
+  it("expands the base entity's OperationAccess properties though no project schema holds that type", async () => {
+    const user = userEvent.setup();
+    const onToggleExpand = vi.fn();
+    render(
+      <Harness
+        properties={[makeField({ name: "Read", type: "OperationAccess" })]}
+        onToggleExpand={onToggleExpand}
+        isExpanded={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Expand OperationAccess attributes" }));
+    expect(onToggleExpand).toHaveBeenCalledWith(0);
+  });
+
   it("shows a collapse control when the child type row is expanded", () => {
     render(
       <Harness
@@ -322,6 +336,27 @@ describe("SchemaDesktopRow", () => {
 
   // Both controls were always disabled in edit mode, each with a tooltip
   // explaining why. The column goes away instead.
+  it("shows a DEF chip with the default's summary and opens the default value", async () => {
+    const onOpenDefaultDrawer = vi.fn();
+    const defaultValue = { kind: "Now" as const, offset: { days: 365, hours: 0, minutes: 0, seconds: 0 } };
+    render(
+      <Harness
+        properties={[makeField({ name: "HrYearRenewDate", type: "DateTime", defaultValue })]}
+        showDefaultButton
+        onOpenDefaultDrawer={onOpenDefaultDrawer}
+      />,
+    );
+
+    expect(screen.getByTitle("Default value: Now + 365 days")).toHaveTextContent("DEF");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Default value for HrYearRenewDate (Now + 365 days)" }));
+    expect(onOpenDefaultDrawer).toHaveBeenCalledWith("HrYearRenewDate", defaultValue);
+  });
+
+  it("leaves the default value button out unless the schema takes defaults", () => {
+    render(<Harness properties={[makeField()]} onOpenDefaultDrawer={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /Default value for/ })).not.toBeInTheDocument();
+  });
+
   it("drops the Rules column entirely in edit mode", () => {
     render(<Harness properties={[makeField()]} isEditMode />);
 

@@ -224,7 +224,7 @@ Singleton exported as `configurationService`. All calls use the shared `http` cl
 | ----------------------------------------------- | ------ | ------------------------------------------------------------------------------- |
 | `createDataSource(payload)`                     | POST   | Register a new MongoDB data source for a project                                |
 | `updateDataSource(payload)`                     | PUT    | Update an existing data source connection string or database name               |
-| `getDataServiceDetails(payload)`                | GET    | Fetch the data source configuration for a project                               |
+| `getDataServiceDetails()`                       | GET    | Read the data source configuration from Blocks OS (read only)                   |
 | `reloadSchemas(payload)`                        | POST   | Reload schema definitions from the live database                                |
 | `getSchemaList(payload)`                        | GET    | Paginated, filtered list of schemas (`keyword`, `schemaType`, sort, pagination) |
 | `getSchemaDetails(id, projectKey)`              | GET    | Full schema detail including all fields and access rules                        |
@@ -259,7 +259,7 @@ Singleton exported as `configurationService`. All calls use the shared `http` cl
 
 | Hook                                     | Query Key                                                      | Description                                                     |
 | ---------------------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
-| `useGetDataServiceConfiguration(option)` | `["data-service-config", "get", option]`                       | Fetch the data source config for a project                      |
+| `useGetDataServiceConfiguration(option)` | `["data-service-config", "get", option]`                       | Read the console options from Data                      |
 | `useSchemaList(payload)`                 | `["schema-list", ...filters]`                                  | Paginated, filtered schema list                                 |
 | `useSchemaDetails(id, projectKey)`       | `["schema-details", id]`                                       | Full schema details; disabled when `id` is falsy                |
 | `useGetMockData(option)`                 | `["mock-data"]`                                                | Mock document counts per collection                             |
@@ -348,7 +348,7 @@ All paths are defined in `constant/endpoint.constant.ts` and composed from the s
 
 | Group                       | Key                     | Path                                                |
 | --------------------------- | ----------------------- | --------------------------------------------------- |
-| `CONFIGURATION_ENDPOINTS`   | `GET`                   | `UDS/configurations`                                 |
+| `CONFIGURATION_ENDPOINTS`   | `GET`                   | `UDS/gateway-options`                                |
 | `SCHEMA_ENDPOINTS`          | `LIST`                  | `UDS/schemas`                                       |
 |                             | `DETAILS`               | `UDS/schemas/{id}`                                  |
 |                             | `CREATE_INFO`           | `UDS/schemas/info`                                  |

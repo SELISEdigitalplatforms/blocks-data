@@ -17,6 +17,7 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { readonlyPropertyNames } from "../constants/input-restrictions";
 import {
   IField,
+  IFieldDefaultValue,
   IFieldValidationRule,
   ISchemaDetails,
   IUpdateSchemaStructure,
@@ -28,6 +29,7 @@ import { sanitizeRuleSet } from "../utils/schema-access.utils";
 import SchemaAccessControlDrawer from "./schema-access-control-drawer";
 import { SchemaPreviewDrawer } from "./schema-preview-drawer";
 import { SchemaFieldValidationDrawer } from "./schema-fields-validation/schema-field-validation-drawer";
+import { DefaultValueDrawer } from "./default-value/default-value-drawer";
 import { SchemaIndexesTab } from "./schema-indexes/schema-indexes-tab";
 import { mapIndexRelatedErrorMessage } from "../utils/schema-index.utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
@@ -65,8 +67,9 @@ const omitFieldArrayId = <T extends { id?: string }>(row: T) => {
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
 
 /**
- * Radix ScrollArea roots use overflow:hidden and only render a vertical thumb; wide nested
- * tables never get a horizontal scrollbar. Embedded (child) schema uses native overflow.
+ * Radix ScrollArea only scrolls sideways when a horizontal scrollbar is mounted, so the
+ * top-level region opts into one for edit mode's wide table. Embedded (child) schema uses
+ * native overflow.
  */
 function SchemaTableScrollRegion({
   embedded,
@@ -77,18 +80,28 @@ function SchemaTableScrollRegion({
 }) {
   if (embedded) {
     return (
-      <div className="flex min-h-0 w-full min-w-0 flex-col overflow-auto overscroll-x-contain [scrollbar-gutter:stable]">
+      <div className="flex min-h-0 w-full min-w-0 flex-col overflow-auto overscroll-x-contain scrollbar-gutter-stable">
         {children}
       </div>
     );
   }
   return (
-    <ScrollArea className="min-h-0 flex-1 [scrollbar-gutter:stable]">{children}</ScrollArea>
+    <ScrollArea className="min-h-0 flex-1 scrollbar-gutter-stable" horizontalScrollbar>
+      {children}
+    </ScrollArea>
   );
+}
+
+/** Which Rules-column panel is open, and for which property (its qualified name). */
+export interface InspectedRule {
+  panel: "validation" | "default";
+  fieldName: string;
 }
 
 interface SchemaStructureTableProps extends ISchemaDetails {
   isLoading?: boolean;
+  /** The docked inspector's current target, so its row and button show as open. */
+  inspectedRule?: InspectedRule | null;
   /** Use div instead of form when rendered inside Entity table expandable */
   disableFormElement?: boolean;
   /** Hide Attribute tab, Preview, Edit when inside Entity/All expandable (Child tab keeps full UI) */
@@ -125,7 +138,25 @@ interface SchemaStructureTableProps extends ISchemaDetails {
     fieldName: string;
     subject: string;
     context: string;
+    schemaName: string;
     validationRule?: IFieldValidationRule | null;
+    /** The property's type and enum values: decide which rule types the panel offers. */
+    fieldType: string;
+    enumValues?: string[];
+  }) => void;
+  /**
+   * Hand a field's default value to the docked inspector instead of opening
+   * the drawer. Same split as `onOpenFieldValidation`.
+   */
+  onOpenFieldDefault?: (target: {
+    fieldName: string;
+    subject: string;
+    context: string;
+    schemaName: string;
+    fieldType: string;
+    isArray: boolean;
+    enumValues?: string[];
+    defaultValue?: IFieldDefaultValue | null;
   }) => void;
   /**
    * Preview drawer open state, lifted so a host can put its own trigger
@@ -161,6 +192,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     onOpenStandaloneSchemaEditor,
     onOpenFieldAccess,
     onOpenFieldValidation,
+    onOpenFieldDefault,
+    inspectedRule = null,
     isPreviewOpen,
     onPreviewOpenChange,
     onEnterEditMode,
@@ -237,6 +270,16 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   >(null);
   const [currentValidationRule, setCurrentValidationRule] =
     useState<IFieldValidationRule | null>(null);
+  const [currentValidationFieldMeta, setCurrentValidationFieldMeta] =
+    useState<{ fieldType: string; enumValues?: string[] }>({ fieldType: "String" });
+  // The drawer form of the default-value panel (mobile and nested child tables).
+  const [currentDefaultTarget, setCurrentDefaultTarget] = useState<{
+    fieldName: string;
+    fieldType: string;
+    isArray: boolean;
+    enumValues?: string[];
+    defaultValue: IFieldDefaultValue | null;
+  } | null>(null);
   const [currentAccessFieldTarget, setCurrentAccessFieldTarget] =
     useState<FieldAccessTarget | null>(null);
   const [currentAccessDrawerTitle, setCurrentAccessDrawerTitle] =
@@ -459,20 +502,49 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       resolvedAncestorPath,
       fieldName,
     );
+    const field = schemaDetails.fields?.find((f) => f.name === fieldName);
+    const fieldMeta = { fieldType: field?.type ?? "String", enumValues: field?.enumValues };
 
     if (onOpenFieldValidation) {
       onOpenFieldValidation({
         fieldName: effectiveFieldName,
         subject: effectiveFieldName,
         context: `Field on ${schemaDetails.schemaName}`,
+        schemaName: schemaDetails.schemaName,
         validationRule: validationRule ?? null,
+        ...fieldMeta,
       });
       return;
     }
 
+    setCurrentValidationFieldMeta(fieldMeta);
     setCurrentValidationFieldName(effectiveFieldName);
     setCurrentValidationRule(validationRule ?? null);
     setIsValidationDrawerOpen(true);
+  };
+
+  const handleOpenDefaultDrawer = (fieldName: string, defaultValue?: IFieldDefaultValue | null) => {
+    const effectiveFieldName = buildValidationFieldName(resolvedAncestorPath, fieldName);
+    const field = schemaDetails.fields?.find((f) => f.name === fieldName);
+    const target = {
+      fieldName: effectiveFieldName,
+      fieldType: field?.type ?? "String",
+      isArray: field?.isArray ?? false,
+      enumValues: field?.enumValues,
+      defaultValue: defaultValue ?? null,
+    };
+
+    if (onOpenFieldDefault) {
+      onOpenFieldDefault({
+        ...target,
+        subject: effectiveFieldName,
+        context: `Field on ${schemaDetails.schemaName}`,
+        schemaName: schemaDetails.schemaName,
+      });
+      return;
+    }
+
+    setCurrentDefaultTarget(target);
   };
 
   const handleEditToggle = () => {
@@ -568,7 +640,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         >
           <div className="flex max-w-md flex-col items-center justify-center space-y-4 text-center">
             <div className="space-y-2">
-              <h3 className="break-words text-base font-semibold leading-snug text-foreground sm:text-lg">
+              <h3 className="wrap-break-word text-base font-semibold leading-snug text-foreground sm:text-lg">
                 <span className="font-medium">{schemaDetails.schemaName}</span>{" "}
                 doesn’t have any{" "}
                 {schemaType === 1 ? "custom property" : "property"} yet.
@@ -596,7 +668,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       <div className="flex min-h-0 flex-1 items-center justify-center py-12">
         <div className="flex flex-col items-center justify-center space-y-4 text-center">
           <div className="space-y-2">
-            <h3 className="break-words px-2 text-center text-base font-semibold leading-snug text-foreground sm:text-lg">
+            <h3 className="wrap-break-word px-2 text-center text-base font-semibold leading-snug text-foreground sm:text-lg">
               This schema doesn’t have any{" "}
               {schemaType === 1 ? "custom property" : "property"} yet. Click Add
               Property to set one up.
@@ -774,6 +846,11 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                             isEditMode={isEditMode}
                             isReadOnly={isReadOnly}
                             isNewField={isNewField}
+                            activeRule={
+                              inspectedRule && name && buildValidationFieldName(resolvedAncestorPath, name) === inspectedRule.fieldName
+                                ? inspectedRule.panel
+                                : null
+                            }
                             selectedRows={bulkOperations.selectedRows}
                             onRowSelect={(fieldId, selected) =>
                               bulkOperations.setSelectedRows((prev) => ({
@@ -827,6 +904,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                               setIsPropertyAccessDrawerOpen(true);
                             }}
                             onOpenValidationDrawer={handleOpenValidationDrawer}
+                            onOpenDefaultDrawer={handleOpenDefaultDrawer}
+                            showDefaultButton={schemaType === 1 || isEmbedded}
                             isExpanded={isExpanded}
                             onToggleExpand={handleToggleExpand}
                             childSchema={childSchema}
@@ -960,6 +1039,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                           setIsPropertyAccessDrawerOpen(true);
                         }}
                         onOpenValidationDrawer={handleOpenValidationDrawer}
+                        onOpenDefaultDrawer={handleOpenDefaultDrawer}
+                        showDefaultButton={schemaType === 1 || isEmbedded}
                         isExpanded={isExpanded}
                         onToggleExpand={handleToggleExpand}
                         childSchema={childSchema}
@@ -1115,9 +1196,13 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
 
       {currentValidationFieldName && (
         <SchemaFieldValidationDrawer
+          key={`${resolvedRootSchemaId}:${currentValidationFieldName}`}
           fieldName={currentValidationFieldName}
+          fieldType={currentValidationFieldMeta.fieldType}
+          enumValues={currentValidationFieldMeta.enumValues}
           schemaId={resolvedRootSchemaId}
           projectKey={projectKey}
+          schemaName={schemaDetails.schemaName}
           initialValidationData={currentValidationRule}
           open={isValidationDrawerOpen}
           onOpenChange={(open) => {
@@ -1126,6 +1211,24 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
               setCurrentValidationFieldName(null);
               setCurrentValidationRule(null);
             }
+          }}
+        />
+      )}
+
+      {currentDefaultTarget && (
+        <DefaultValueDrawer
+          key={`${resolvedRootSchemaId}:${currentDefaultTarget.fieldName}`}
+          fieldName={currentDefaultTarget.fieldName}
+          fieldType={currentDefaultTarget.fieldType}
+          isArray={currentDefaultTarget.isArray}
+          enumValues={currentDefaultTarget.enumValues}
+          schemaId={resolvedRootSchemaId}
+          projectKey={projectKey}
+          schemaName={schemaDetails.schemaName}
+          initialDefault={currentDefaultTarget.defaultValue}
+          open
+          onOpenChange={(open) => {
+            if (!open) setCurrentDefaultTarget(null);
           }}
         />
       )}

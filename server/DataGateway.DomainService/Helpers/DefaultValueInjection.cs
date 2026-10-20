@@ -1,23 +1,15 @@
 using System.Collections;
 using Blocks.Genesis;
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Models.Constants;
 
 namespace DataGateway.DomainService.Helpers;
 
 public static class DefaultValueInjection
 {
-    public static readonly IReadOnlyDictionary<string, string> DefaultFieldDescriptions = new Dictionary<string, string>
-    {
-        [nameof(GraphQlBaseEntity.ItemId)] = "Unique identifier for the record. System-generated and immutable once created.",
-        [nameof(GraphQlBaseEntity.CreatedDate)] = "UTC timestamp when the record was first created. Automatically set on insert and never changed afterward.",
-        [nameof(GraphQlBaseEntity.LastUpdatedDate)] = "UTC timestamp of the most recent update to the record. Automatically refreshed on every write operation.",
-        [nameof(GraphQlBaseEntity.CreatedBy)] = "User ID of the person who originally created the record. Derived from the authentication context at insert time.",
-        [nameof(GraphQlBaseEntity.LastUpdatedBy)] = "User ID of the person who last modified the record. Automatically updated from the authentication context on every write.",
-        [nameof(GraphQlBaseEntity.OrganizationId)] = "List of organization IDs this record belongs to. Used for multi-tenancy and access-control scoping.",
-        [nameof(GraphQlBaseEntity.Language)] = "Language code (e.g. 'en', 'de') that indicates the locale of the record. Used for localization and language-based content filtering.",
-        [nameof(GraphQlBaseEntity.Tags)] = "List of tags associated with the record. Used for categorization, search, and filtering across queries.",
-    };
+    public static readonly IReadOnlyDictionary<string, string> DefaultFieldDescriptions = FieldDefinitionMapper.DefaultFieldDescriptions;
 
     public static void AddDefaultFields(this SchemaDefinition schemaDefinition)
     {
@@ -100,18 +92,9 @@ public static class DefaultValueInjection
 
     public static void InjectDefaultValueOnInsert(this Dictionary<string, object?> input)
     {
+        input[GraphQlConstant.DbEntityIdFieldName] = SuppliedItemId(input) ?? Guid.NewGuid().ToString();
+        input.Remove(nameof(GraphQlBaseEntity.ItemId));
 
-        if (input.TryGetValue(nameof(GraphQlBaseEntity.ItemId), out var value))
-        {
-            var itemId = value is null ? Guid.NewGuid().ToString() :
-                string.IsNullOrWhiteSpace(value.ToString()) ? Guid.NewGuid().ToString() : value.ToString();
-            input.Add(GraphQlConstant.DbEntityIdFieldName, itemId);
-            input.Remove(nameof(GraphQlBaseEntity.ItemId));
-        }
-        else
-        {
-            input.Add(GraphQlConstant.DbEntityIdFieldName, Guid.NewGuid().ToString());
-        }
         var nowDateTime = DateTime.UtcNow;
         input.Add(nameof(GraphQlBaseEntity.CreatedDate), nowDateTime);
         input.Add(nameof(GraphQlBaseEntity.LastUpdatedDate), nowDateTime);
@@ -126,6 +109,21 @@ public static class DefaultValueInjection
                 input.Add(nameof(GraphQlBaseEntity.OrganizationId), blocksCtx.OrganizationId);
             }
         }
+    }
+
+    /// <summary>
+    /// The id a client chose for the new row, or null. GraphQL input already carries it as <c>_id</c>
+    /// (<see cref="GraphQlTypeHelper.MapMutationInput"/> renames ItemId); input built elsewhere may still
+    /// use <c>ItemId</c>. A blank id counts as none.
+    /// </summary>
+    private static string? SuppliedItemId(Dictionary<string, object?> input)
+    {
+        foreach (var key in new[] { GraphQlConstant.DbEntityIdFieldName, nameof(GraphQlBaseEntity.ItemId) })
+        {
+            if (input.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value?.ToString()))
+                return value.ToString();
+        }
+        return null;
     }
 
     public static void InjectDefaultValueOnUpdate(this Dictionary<string, object?> input)

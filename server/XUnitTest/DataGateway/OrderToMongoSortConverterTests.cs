@@ -1,3 +1,5 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Conversion;
 using DataGateway.DomainService.Models;
 using FluentAssertions;

@@ -1,6 +1,8 @@
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using Blocks.Genesis;
 using DataGateway.DomainService.Conversion;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
@@ -20,13 +22,19 @@ namespace DataGateway.DomainService.Services;
 public class QueryService : IQueryService
 {
     private readonly IGqlDbRepository _repository;
+    private readonly IDataAccessPolicyResolutionService _resolver;
+    private readonly IAccessPrincipalAccessor _principals;
     private readonly ILogger<QueryService> _logger;
 
     public QueryService(
         IGqlDbRepository repository,
+        IDataAccessPolicyResolutionService resolver,
+        IAccessPrincipalAccessor principals,
         ILogger<QueryService> logger)
     {
         _repository = repository;
+        _resolver = resolver;
+        _principals = principals;
         _logger = logger;
     }
 
@@ -45,20 +53,20 @@ public class QueryService : IQueryService
 
             var queryInput = GetQueryInputFromContext(ctx);
 
+            var request = new SchemaAccessRequest(_principals.Current, schema, PolicyOperation.READ);
             PolicyEvaluationResult rlsResult;
             BsonDocument mongoFilter;
-            BsonDocument? mongoProjection;
-            HashSet<string> evaluationOnlyFieldPaths;
+            ReadProjection readProjection;
             using (GatewayOperationActivity.Measure(GatewayPhase.Policy))
             {
-                rlsResult = EvaluateRlsPolicies(schema, PolicyOperation.READ);
+                rlsResult = _resolver.Check(request);
                 EnsureReadAccess(rlsResult, schema);
 
                 var userFilterBson = GetUserFilterBson(schema, queryInput.Where, queryInput.Filter);
-                mongoFilter = BuildMongoFilter(schema, userFilterBson, rlsResult);
-                mongoProjection = QueryProjectionHelper.BuildMongoProjectionWithCls(
-                    ctx, schema, out evaluationOnlyFieldPaths);
+                mongoFilter = _resolver.BuildReadFilter(request, userFilterBson, rlsResult);
+                readProjection = _resolver.BuildReadProjection(request, ctx.MapQueryProjection());
             }
+            var mongoProjection = readProjection.Projection;
             var mongoSort = GetMongoSort(schema, queryInput.Order, queryInput.Sort);
             var (skip, limit) = ComputePagination(queryInput.PageNo, queryInput.PageSize);
 
@@ -70,7 +78,7 @@ public class QueryService : IQueryService
                 { "sort", mongoSort ?? (BsonValue)BsonNull.Value }
             }.ToString();
 
-            var (documents, totalCount) = await _repository.GetItemsWithCountAsync(
+            var documents = await _repository.GetItemsAsync(
                 schema.CollectionName,
                 mongoFilter,
                 mongoSort,
@@ -78,19 +86,23 @@ public class QueryService : IQueryService
                 skip,
                 limit);
 
-            var items = BuildResultItems(documents, schema, evaluationOnlyFieldPaths);
+            var items = documents
+                .Select(doc => _resolver.MaskRow(request, doc.ToDictionary(), readProjection))
+                .ToList();
 
             gatewayOperation.ResponseSize = documents.Sum(d => d.ToBson().Length);
             gatewayOperation.DocumentCount = documents.Count;
 
             _logger.LogInformation("Data retrieved for schema {SchemaName}", schema.SchemaName);
 
+            var collectionName = schema.CollectionName;
             return new QueryResponse<Dictionary<string, object>>
             {
                 Items = items,
-                TotalCount = (int)totalCount,
+                // Counted only if the response's totalCount/totalPages/hasNextPage is selected.
+                TotalCountProvider = () => _repository.CountAsync(collectionName, mongoFilter),
                 PageNo = queryInput.PageNo ?? 1,
-                PageSize = queryInput.PageSize ?? items.Count
+                PageSize = queryInput.PageSize is null ? items.Count : limit
             };
         }
         catch (GraphQLException ex)
@@ -179,19 +191,10 @@ public class QueryService : IQueryService
     }
 
     /// <summary>
-    /// Evaluates RLS policies for the schema and operation. When schema access is Custom and no RLS policy exists, access is denied.
+    /// Evaluates RLS policies for the schema and operation through the resolver. When schema access is Custom and no RLS policy exists, access is denied.
     /// </summary>
-    public PolicyEvaluationResult EvaluateRlsPolicies(SchemaDefinitionExtended schema, PolicyOperation operation)
-    {
-        if (schema.ReadAccessLevel != SchemaAccessLevel.Custom || RequestContextAccessor.Current.IsRequestFromBlocksCloud)
-            return new PolicyEvaluationResult { IsAccessGranted = true };
-
-        var rlsPolicies = schema.Policies.Where(p => p.PolicyType == PolicyType.RLS).ToList();
-        if (rlsPolicies.Count == 0)
-            return new PolicyEvaluationResult { IsAccessGranted = false };
-
-        return rlsPolicies.EvaluatePolicies(operation, PolicyType.RLS);
-    }
+    public PolicyEvaluationResult EvaluateRlsPolicies(SchemaDefinitionExtended schema, PolicyOperation operation) =>
+        _resolver.Check(new SchemaAccessRequest(_principals.Current, schema, operation));
 
     /// <summary>Throws GraphQLException if RLS denies read access.</summary>
     private void EnsureReadAccess(PolicyEvaluationResult rlsResult, SchemaDefinitionExtended schema)
@@ -213,78 +216,19 @@ public class QueryService : IQueryService
                 .Build());
     }
 
-    /// <summary>Builds MongoDB filter from user filter BsonDocument with optional RLS and IsDeleted.</summary>
-    private BsonDocument BuildMongoFilter(
-        SchemaDefinitionExtended schema,
-        BsonDocument userFilterBson,
-        PolicyEvaluationResult rlsResult)
-    {
-        var useCustomRls = schema.ReadAccessLevel == SchemaAccessLevel.Custom && !RequestContextAccessor.Current.IsRequestFromBlocksCloud;
-        if (useCustomRls)
-            return BuildFilterWithRlsPolicy(userFilterBson, rlsResult);
-
-        if (userFilterBson.ElementCount == 0)
-            return new BsonDocument();
-
-        var filterDoc = new BsonDocument(userFilterBson);
-        return filterDoc.ReplaceSystemFieldInFilter();
-    }
-
-    /// <summary>Combines user filter with RLS policy data filter when using custom access.</summary>
-    private static BsonDocument BuildFilterWithRlsPolicy(BsonDocument userFilterBson, PolicyEvaluationResult rlsResult)
-    {
-        var rlsFilter = rlsResult.RequiresDataFilter ? rlsResult.DataFilter : new BsonDocument();
-        var defaultFilter = new BsonDocument();
-
-        if (userFilterBson.ElementCount == 0)
-            return rlsFilter.ElementCount == 0 ? defaultFilter : rlsFilter;
-
-        var userFilter = new BsonDocument(userFilterBson);
-        userFilter.ReplaceSystemFieldInFilter();
-        if (rlsFilter.ElementCount > 0)
-            userFilter = new BsonDocument("$and", new BsonArray { userFilter, rlsFilter });
-        return userFilter;
-    }
-
     /// <summary>Computes skip/limit from page number and size.</summary>
     private static (int skip, int limit) ComputePagination(int? pageNo, int? pageSize)
     {
         const int defaultLimit = 10;
         if (pageNo is not null && pageSize is not null)
-            return ((pageNo.Value - 1) * pageSize.Value, pageSize.Value);
+        {
+            var limit = Math.Clamp(pageSize.Value, 1, GraphQlConstant.MaxPageSize);
+            return ((Math.Max(pageNo.Value, 1) - 1) * limit, limit);
+        }
         return (0, defaultLimit);
     }
 
     /// <summary>Parses sort JSON into BsonDocument or null.</summary>
     private static BsonDocument? ParseSortDocument(string? sortJson) =>
         string.IsNullOrEmpty(sortJson) ? null : BsonSerializer.Deserialize<BsonDocument>(sortJson);
-
-    /// <summary>Returns READ CLS policies for the schema (empty when cross-tenant).</summary>
-    private static List<DataAccessPolicy> GetReadClsPolicies(SchemaDefinitionExtended schema)
-    {
-        if (RequestContextAccessor.Current.IsRequestFromBlocksCloud) return [];
-        return schema.Policies
-            .Where(p => p.PolicyType == PolicyType.CLS && p.Operation == PolicyOperation.READ)
-            .ToList();
-    }
-
-    /// <summary>Maps documents to result items with or without CLS masking based on context.</summary>
-    private static List<Dictionary<string, object>> BuildResultItems(
-        List<BsonDocument> documents,
-        SchemaDefinitionExtended schema,
-        HashSet<string> evaluationOnlyFieldPaths)
-    {
-        if (RequestContextAccessor.Current.IsRequestFromBlocksCloud)
-            return documents.Select(doc => doc.ToDictionary()).ToList();
-
-        var clsPoliciesForRow = GetReadClsPolicies(schema);
-        return documents
-            .Select(doc => QueryClsRowMaskingHelper.MaskRowByClsPolicies(
-                doc.ToDictionary(),
-                schema,
-                clsPoliciesForRow,
-                evaluationOnlyFieldPaths,
-                QueryPolicyRuleEvaluator.RowSatisfiesPolicy))
-            .ToList();
-    }
 }

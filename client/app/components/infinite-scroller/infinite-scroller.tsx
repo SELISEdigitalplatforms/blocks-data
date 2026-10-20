@@ -134,6 +134,8 @@ export const InfiniteScroll = <T,>({
           </div>
         )}
       </div>
+      {/* bottomIndicator only wires the handler to a click; the ref is read when it runs. */}
+      {/* eslint-disable-next-line react-hooks/refs -- false positive: callback, not a render read */}
       {isNewDataAvailable && bottomIndicator(bottomIndicatorHanlder)}
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui-kits/button/button";
 import {
   Dialog,
@@ -30,12 +30,15 @@ export function RenameFileDialog({
   file,
   onDone,
 }: Readonly<RenameFileDialogProps>) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(file?.name ?? "");
+  // Reset the field whenever a different file is passed in.
+  const [prevFile, setPrevFile] = useState(file);
+  if (file !== prevFile) {
+    setPrevFile(file);
+    setName(file?.name ?? "");
+  }
   const renameFile = useRenameFile();
 
-  useEffect(() => {
-    setName(file?.name ?? "");
-  }, [file]);
 
   if (!file) return null;
 

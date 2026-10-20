@@ -12,7 +12,9 @@ vi.mock("react-router", async () => {
 vi.mock("@seliseblocks/genesis-os", () => ({
   useProjectStore: () => ({ selectedProject: { tenantId: "t1" } }),
 }));
-vi.mock("@/hooks/use-scoped-path", () => ({ useDataGatewayPath: () => "/dg" }));
+vi.mock("@/hooks/use-scoped-path", () => ({
+  useOsSecretManagementUrl: () => "http://os/app/p-1/secret-management/data-gateway",
+}));
 vi.mock("@/lib/runtime-env", () => ({ getRuntimeEnv: () => "http://api" }));
 vi.mock("../export-schema/export-schema-modal", () => ({
   default: () => <div data-testid="export-modal" />,
@@ -66,7 +68,7 @@ describe("DataGatewayUtilities", () => {
     openSpy.mockRestore();
   });
 
-  it("opens Blocks OS secret management in a new tab from Configure", async () => {
+  it("opens the Blocks OS data-gateway config page in a new tab from Configure", async () => {
     const user = userEvent.setup();
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
     renderUtilities();
@@ -74,7 +76,7 @@ describe("DataGatewayUtilities", () => {
     await user.click(utilityButton(/Configure/));
 
     expect(openSpy).toHaveBeenCalledWith(
-      "http://api/app/secret-management/data-gateway",
+      "http://os/app/p-1/secret-management/data-gateway",
       "_blank",
     );
     expect(navigateMock).not.toHaveBeenCalled();

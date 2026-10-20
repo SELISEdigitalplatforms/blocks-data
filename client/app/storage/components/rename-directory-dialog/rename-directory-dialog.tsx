@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui-kits/button/button";
 import {
   Dialog,
@@ -34,12 +34,15 @@ export function RenameDirectoryDialog({
   directory,
   onDone,
 }: Readonly<RenameDirectoryDialogProps>) {
-  const [name, setName] = useState("");
+  const [name, setName] = useState(directory?.name ?? "");
+  // Reset the field whenever a different directory is passed in.
+  const [prevDirectory, setPrevDirectory] = useState(directory);
+  if (directory !== prevDirectory) {
+    setPrevDirectory(directory);
+    setName(directory?.name ?? "");
+  }
   const updateDirectory = useUpdateDmsDirectory();
 
-  useEffect(() => {
-    setName(directory?.name ?? "");
-  }, [directory]);
 
   if (!directory) return null;
 

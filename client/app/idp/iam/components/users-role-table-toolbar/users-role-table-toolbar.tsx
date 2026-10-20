@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Table } from "@tanstack/react-table";
 import { Button } from "@/components/ui-kits/button/button";
 import { Cross2Icon } from "@radix-ui/react-icons";
@@ -36,9 +36,12 @@ export function UsersRoleTableToolbar<TData>({ table }: UsersRoleTableToolbarPro
   const activeFiltersCount = useActiveFiltersCount(table, dateRange, "name");
   const isFiltered = activeFiltersCount > 0;
 
-  useEffect(() => {
+  // Re-show (desktop) or hide (mobile) the search box when the breakpoint changes.
+  const [prevIsMobile, setPrevIsMobile] = useState(isMobile);
+  if (isMobile !== prevIsMobile) {
+    setPrevIsMobile(isMobile);
     setIsSearchVisible(!isMobile);
-  }, [isMobile]);
+  }
 
   const onSearchInputChange = useCallback(
     (text: string) => {

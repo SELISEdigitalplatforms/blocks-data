@@ -91,7 +91,7 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   // Fetch data source configuration for collection name pattern
-  const { data: configData } = useGetDataServiceConfiguration();
+  const { data: configData } = useGetDataServiceConfiguration({ enabled: isEntity });
   const config = configData?.data as IDataSourceResponse | undefined;
   const isCollectionNameEditable = config?.isCollectionNameEditable ?? false;
   const collectionNamePattern =
@@ -400,7 +400,7 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
               <AlertCircle className="h-4 w-4 text-indigo-400" />
               {editSchemaConfirmationModalData.dialogTitle}
             </DialogTitle>
-            <DialogDescription className="mb-6 mt-2 break-words text-left text-sm font-normal leading-5 text-medium-emphasis">
+            <DialogDescription className="mb-6 mt-2 wrap-break-word text-left text-sm font-normal leading-5 text-medium-emphasis">
               {editSchemaConfirmationModalData.dialogSubtitle}
             </DialogDescription>
           </DialogHeader>

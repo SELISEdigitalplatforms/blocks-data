@@ -71,7 +71,7 @@ export const SelfSignup = () => {
                           value={undefined}
                         />
                       </FormControl>
-                      <FormLabel className={`!mt-0`}>Allow Self Sign-Up</FormLabel>
+                      <FormLabel className={`mt-0!`}>Allow Self Sign-Up</FormLabel>
                     </FormItem>
                   )}
                 </>

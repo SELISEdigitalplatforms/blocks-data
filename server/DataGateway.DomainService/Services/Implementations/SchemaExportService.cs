@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 
@@ -62,8 +63,10 @@ public class SchemaExportService : ISchemaExportService
         ArgumentException.ThrowIfNullOrWhiteSpace(exportEvent.ProjectKey);
         var fileName = $"schema_export_{DateTime.UtcNow:yyyyMMddHHmmss}.json";
 
-        // 1. Fetch all schemas — ProjectKey is a routing key (selects the DB), not a stored document field
-        var schemas = await _dbRepository.GetItemsAsync<SchemaDefinition>(new BsonDocument(), null, null, 0, 1000, exportEvent.ProjectKey);
+        // 1. Fetch all schemas — ProjectKey is a routing key (selects the DB), not a stored document field.
+        //    System entities (IsSystemEntity: the platform services' own collections) are never exported.
+        var schemaFilter = new BsonDocument(nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true));
+        var schemas = await _dbRepository.GetItemsAsync<SchemaDefinition>(schemaFilter, null, null, 0, 1000, exportEvent.ProjectKey);
 
         // 2. Fetch policies only when AccessPolicies flag is set (covers both RLS rules and CLS)
         //    For Schema-only export, access levels are already on SchemaDefinition itself
@@ -104,15 +107,20 @@ public class SchemaExportService : ISchemaExportService
     public async Task InsertExportRecordAsync(SchemaExportEvent exportEvent, string fileName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(exportEvent.ProjectKey);
-        var record = new SchemaExportRecord
-        {
-            FileId = exportEvent.FileId,
-            FileName = fileName,
-            ExportOption = exportEvent.ExportOption,
-            ExportedAt = DateTime.UtcNow
-        };
-        record.InjectDefaultValue();
-        await _dbRepository.InsertAsync(record, exportEvent.ProjectKey);
+        var context = BlocksContext.GetContext();
+        var record = AuditLogDocument.Build(
+            action: AuditLogDocument.ActionSchemaExport,
+            resourceType: AuditLogDocument.ResourceTypeSchemaExport,
+            resourceId: exportEvent.FileId,
+            userId: context?.UserId ?? string.Empty,
+            tenantId: exportEvent.ProjectKey,
+            detail: new Dictionary<string, string>
+            {
+                ["FileName"] = fileName,
+                ["ExportOption"] = exportEvent.ExportOption.ToString()
+            },
+            organizationId: context?.OrganizationId);
+        await _dbRepository.InsertAsync(AuditLogDocument.CollectionName, record, exportEvent.ProjectKey);
         _logger.LogInformation("InsertExportRecordAsync: Record created for fileId={FileId}", exportEvent.FileId);
     }
 

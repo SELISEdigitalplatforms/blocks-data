@@ -2,9 +2,8 @@
 
 import { FilterChangeHandler } from "@/components/filter-toolbar";
 import { Button } from "@/components/ui-kits/button/button";
-import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { useStoragePath } from "@/hooks/use-scoped-path";
+import { useOsSecretManagementUrl, useStoragePath } from "@/hooks/use-scoped-path";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { IStorageConfiguration } from "@/storage/models/storage.model";
 import { useMemo, useState } from "react";
@@ -14,7 +13,6 @@ import {
   filterStorageConfigurations,
   type StorageFilterValues,
 } from "../../utils/filter-storage-configurations";
-import { SaveStorageConfiguration } from "../storage-configuration/save-storage-configuration/save-storage-configuration";
 import {
   StorageCard,
   StorageCardData,
@@ -51,7 +49,7 @@ const mapConfigurationToCardData = (
 export function Storage() {
   const navigate = useNavigate();
   const storagePath = useStoragePath();
-  const [open, setOpen] = useState<boolean>(false);
+  const osConfigUrl = useOsSecretManagementUrl("storage");
   const [detailsOpen, setDetailsOpen] = useState<boolean>(false);
   const [selectedStorage, setSelectedStorage] =
     useState<IStorageConfiguration | null>(null);
@@ -151,7 +149,7 @@ export function Storage() {
           filters={filters}
           onChange={onChange}
           onReset={onReset}
-          onAddConfiguration={() => setOpen(true)}
+          onAddConfiguration={() => window.open(osConfigUrl, "_blank")}
           onConnectStorage={() => console.error("Connect to storage")}
         />
 
@@ -160,7 +158,7 @@ export function Storage() {
             {[...Array(4)].map((_, index) => (
               <div
                 key={index}
-                className="flex h-full flex-col rounded-sm border bg-card p-5 shadow-sm"
+                className="flex h-full flex-col rounded-sm border bg-card p-5 shadow-xs"
               >
                 <div className="flex items-start gap-3 pb-3">
                   <Skeleton className="h-10 w-10 rounded-md" />
@@ -199,9 +197,6 @@ export function Storage() {
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <SaveStorageConfiguration onClose={setOpen} />
-      </Dialog>
 
       <StorageDetailsDrawer
         open={detailsOpen}

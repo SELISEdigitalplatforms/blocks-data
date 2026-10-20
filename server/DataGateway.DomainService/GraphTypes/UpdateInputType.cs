@@ -1,5 +1,7 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.GraphTypes;
 

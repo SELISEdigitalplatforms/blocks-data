@@ -8,6 +8,7 @@ using Storage.DomainService.Utilities;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using System.Diagnostics.CodeAnalysis;
+using Blocks.Genesis.Entities.Data;
 
 namespace DomainService.Storage
 {

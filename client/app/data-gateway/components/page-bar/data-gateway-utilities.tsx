@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
+import { useOsSecretManagementUrl } from "@/hooks/use-scoped-path";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { BookOpen, Download, FolderInput, MoreVertical, Settings } from "lucide-react";
@@ -30,6 +31,7 @@ type Utility = {
  * buttons here and are section tabs now, so a destination has exactly one home.
  */
 export const DataGatewayUtilities = () => {
+  const osConfigUrl = useOsSecretManagementUrl("data-gateway");
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -59,13 +61,8 @@ export const DataGatewayUtilities = () => {
     {
       label: "Configure",
       icon: <Settings className="h-4 w-4" />,
-      // The in-app configuration page is gone; the data source is managed in
-      // Blocks OS secret management, which opens in its own tab.
-      onClick: () =>
-        window.open(
-          `${getRuntimeEnv("BLOCKS_OS_BASE_URL")}/app/secret-management/data-gateway`,
-          "_blank",
-        ),
+      // The data source is configured in Blocks OS (secret management), in its own tab.
+      onClick: () => window.open(osConfigUrl, "_blank"),
     },
   ];
 

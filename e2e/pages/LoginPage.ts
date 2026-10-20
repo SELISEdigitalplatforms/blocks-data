@@ -1,6 +1,7 @@
 import { type Page, type Locator, expect } from "@playwright/test";
 import { BasePage } from "./base/BasePage";
 import { e2eBaseUrl, e2eCredentials } from "../support/env";
+import { waitVisible } from "../support/wait-visible";
 
 export class LoginPage extends BasePage {
   constructor(page: Page) {
@@ -45,7 +46,7 @@ export class LoginPage extends BasePage {
     await this.goto();
 
     const loginButton = this.getLoginButton();
-    if (await loginButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    if (await waitVisible(loginButton, 5_000)) {
       await loginButton.click({ timeout: 8_000 });
     }
 
@@ -56,12 +57,10 @@ export class LoginPage extends BasePage {
       this.page.waitForURL(/\/app\/console/, { timeout: 30_000 }),
     ]);
 
-    const consoleVisible = await this.getConsoleHeading()
-      .isVisible({ timeout: 3_000 })
-      .catch(() => false);
+    const consoleVisible = await waitVisible(this.getConsoleHeading(), 3_000);
     if (consoleVisible) return;
 
-    const emailVisible = await emailField.isVisible({ timeout: 5_000 }).catch(() => false);
+    const emailVisible = await waitVisible(emailField, 5_000);
     if (emailVisible) {
       await emailField.fill(userEmail);
       await this.getPasswordInput().fill(userPassword);
@@ -73,18 +72,10 @@ export class LoginPage extends BasePage {
   }
 
   isLoginSurface = async (): Promise<boolean> => {
-    if (
-      await this.getLoginButton()
-        .isVisible({ timeout: 500 })
-        .catch(() => false)
-    ) {
+    if (await waitVisible(this.getLoginButton(), 500)) {
       return true;
     }
-    if (
-      await this.getEmailInput()
-        .isVisible({ timeout: 500 })
-        .catch(() => false)
-    ) {
+    if (await waitVisible(this.getEmailInput(), 500)) {
       return true;
     }
     try {

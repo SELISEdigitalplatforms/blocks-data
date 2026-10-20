@@ -29,11 +29,10 @@ import {
   FieldArrayWithId,
 } from "react-hook-form";
 import { FieldAccessTarget } from "../../models/schema-access.types";
-import { IField, IDataAccessRuleSet, IFieldValidationRule } from "../../models/data-service";
+import { IField, IDataAccessRuleSet, IFieldDefaultValue, IFieldValidationRule, ISchemaDetails } from "../../models/data-service";
 import { PropertyRow } from "../../models/schema-structure.types";
 import { PropertyTypeSelector } from "./property-type-selector";
 import { EnumValuesEditor } from "./enum-values-editor";
-import { ISchemaDetails } from "../../models/data-service";
 import { useReadonlyExpanded } from "../../hooks/use-readonly-expanded";
 import {
   readonlyPropertyNames,
@@ -48,7 +47,8 @@ import {
 import { getValidationDisplayInfo } from "@/data-gateway/utils/schema-normalization";
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
 import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
-import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagsFromField } from "../primitives";
+import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagTitlesFromField, flagsFromField } from "../primitives";
+import { DefaultValueButton } from "./default-value-button";
 
 /**
  * The three genuine booleans on a property, as one column.
@@ -91,6 +91,12 @@ interface SchemaDesktopRowProps {
   searchText: string;
   onOpenAccessDrawer: (fieldTarget: FieldAccessTarget | undefined, title: string) => void;
   onOpenValidationDrawer: (fieldName: string, validationRule?: IFieldValidationRule | null) => void;
+  /** Opens the field's default value; the button shows only when this is given and `showDefaultButton` is on. */
+  onOpenDefaultDrawer?: (fieldName: string, defaultValue?: IFieldDefaultValue | null) => void;
+  /** Defaults apply on insert, so only entities (and properties nested in them) get the button. */
+  showDefaultButton?: boolean;
+  /** The Rules-column panel open for this row in the docked inspector, if any. */
+  activeRule?: "validation" | "default" | null;
   isExpanded?: boolean;
   onToggleExpand?: (index: number) => void;
   childSchema?: ISchemaDetails | null;
@@ -132,6 +138,9 @@ export function SchemaDesktopRow({
   searchText,
   onOpenAccessDrawer,
   onOpenValidationDrawer,
+  onOpenDefaultDrawer,
+  activeRule = null,
+  showDefaultButton = false,
   isExpanded,
   onToggleExpand,
   childSchema,
@@ -141,7 +150,7 @@ export function SchemaDesktopRow({
   showAccessValidationColumn = true,
   visibleColumnCount,
   originalFieldFromSchema,
-}: SchemaDesktopRowProps) {
+}: Readonly<SchemaDesktopRowProps>) {
   const [focusEnumEditor, setFocusEnumEditor] = useState(false);
   const compactCellClass = "py-3 align-middle";
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();
@@ -153,6 +162,7 @@ export function SchemaDesktopRow({
     ? fieldSource
     : (originalFieldFromSchema ?? fieldSource);
   const validationInfo = getValidationDisplayInfo(fieldForValidation);
+  const defaultValue = fieldForValidation?.defaultValue ?? null;
 
   const fieldTarget: FieldAccessTarget | undefined = fieldName
     ? {
@@ -214,7 +224,7 @@ export function SchemaDesktopRow({
       {isRowVisible && (
         <TableRow
           key={field.name}
-          className={cn(isReadOnly && isEntityType && "bg-primary/5 hover:bg-primary/10")}
+          className={cn(isReadOnly && isEntityType && "bg-primary/5 hover:bg-primary/10", activeRule && "bg-primary/[0.06]")}
         >
           {isEditMode && (
             <TableCell className={compactCellClass}>
@@ -357,7 +367,7 @@ export function SchemaDesktopRow({
                         type="button"
                         onClick={() => onToggleExpand(index)}
                         className={cn(
-                          "flex shrink-0 rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                          "flex shrink-0 rounded p-1 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                           isExpanded
                             ? "bg-primary/10 text-primary"
                             : "text-primary hover:bg-primary/10",
@@ -414,7 +424,7 @@ export function SchemaDesktopRow({
                   <SelectValue />
                 </SelectTrigger>
                 {/* As wide as the field it opens from; the shared 8rem floor would win otherwise. */}
-                <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-0">
+                <SelectContent className="w-(--radix-select-trigger-width) min-w-0">
                   {(["None", "Insert", "Update", "Both"] as const).map((mode) => (
                     <SelectItem key={mode} value={mode} className="py-1 pl-7 text-[13px]">
                       {mode}
@@ -436,7 +446,9 @@ export function SchemaDesktopRow({
                   isArray: watch(`properties.${index}.isArray`),
                   isPIIData: watch(`properties.${index}.isPIIData`),
                   isUniqueData: watch(`properties.${index}.isUniqueData`),
+                  defaultValue,
                 })}
+                titles={flagTitlesFromField({ defaultValue })}
               />
             ) : (
               <div className="flex h-9 items-center gap-1.5">
@@ -542,7 +554,7 @@ export function SchemaDesktopRow({
                           type="button"
                           onClick={() => onOpenAccessDrawer(fieldTarget, drawerTitle)}
                           className={cn(
-                            "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                            "flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md border transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                             hasNonInheritedPolicy
                               ? "border-access-custom-border bg-access-custom-bg text-access-custom-fg"
                               : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
@@ -607,11 +619,14 @@ export function SchemaDesktopRow({
                     onClick={() =>
                       onOpenValidationDrawer(fieldName, fieldForValidation?.validationRule)
                     }
+                    aria-expanded={activeRule === "validation"}
                     className={cn(
-                      "flex h-[26px] min-w-[28px] shrink-0 items-center justify-center gap-1 rounded-md border px-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                      validationInfo.total > 0
-                        ? "border-primary/30 bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
+                      "flex h-[26px] min-w-[28px] shrink-0 items-center justify-center gap-1 rounded-md border px-1 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
+                      activeRule === "validation"
+                        ? "border-primary bg-primary/15 text-primary"
+                        : validationInfo.total > 0
+                          ? "border-primary/30 bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
                     )}
                     aria-label={`Manage validations for ${fieldName}${validationInfo.total > 0 ? ` (${validationInfo.total})` : ""}`}
                   >
@@ -622,6 +637,17 @@ export function SchemaDesktopRow({
                       </span>
                     )}
                   </button>
+                )}
+
+                {showDefaultButton && onOpenDefaultDrawer && (
+                  <DefaultValueButton
+                    fieldName={fieldName}
+                    fieldType={currentType}
+                    isNewField={isNewField}
+                    defaultValue={defaultValue}
+                    active={activeRule === "default"}
+                    onOpen={() => onOpenDefaultDrawer(fieldName, defaultValue)}
+                  />
                 )}
               </div>
             </TableCell>

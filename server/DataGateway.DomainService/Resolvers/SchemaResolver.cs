@@ -1,4 +1,6 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.GraphTypes;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
@@ -6,6 +8,7 @@ using DataGateway.DomainService.Services;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using Microsoft.Extensions.Logging;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService.Resolvers;
 
@@ -45,7 +48,8 @@ public class SchemaResolver
     public void ResolveInsertSchema(
         IObjectTypeDescriptor descriptor,
         SchemaDefinitionExtended schema,
-        InputObjectType inputType)
+        InputObjectType inputType,
+        ReferenceTargets? references = null)
     {
         var schemaName = schema.GetSchemaNameForProject();
         var fieldName = $"insert{schemaName}";
@@ -54,14 +58,15 @@ public class SchemaResolver
             .UseWriteSchemaAccess(schema)
             .Argument(GraphQlConstant.InputFieldName, a => a.Type(inputType).Description("The input data to insert."))
             .Type<ObjectType<ActionResponse>>()
-            .Resolve(async ctx => await _mutationService.InsertAsync(schema, ctx, inputType));
+            .Resolve(async ctx => await _mutationService.InsertAsync(schema, ctx, inputType, references));
     }
 
     public void ResolveUpdateSchema(
         IObjectTypeDescriptor descriptor,
         SchemaDefinitionExtended schema,
         InputObjectType inputType,
-        EntityFilterInputType filterInputType)
+        EntityFilterInputType filterInputType,
+        ReferenceTargets? references = null)
     {
         var schemaName = schema.GetSchemaNameForProject();
         var fieldName = $"update{schemaName}";
@@ -72,7 +77,7 @@ public class SchemaResolver
             .Argument(GraphQlConstant.WhereFieldName, a => a.Type(filterInputType).Description("Filter the results by a MongoDB filter document."))
             .Argument(GraphQlConstant.InputFieldName, a => a.Type(inputType).Description("The input data to update."))
             .Type<ObjectType<ActionResponse>>()
-            .Resolve(async ctx => await _mutationService.UpdateAsync(schema, ctx, inputType));
+            .Resolve(async ctx => await _mutationService.UpdateAsync(schema, ctx, inputType, references));
     }
 
     public void ResolveDeleteSchema(
@@ -116,7 +121,8 @@ public class SchemaResolver
     public void ResolveBulkInsertSchema(
         IObjectTypeDescriptor descriptor,
         SchemaDefinitionExtended schema,
-        InputObjectType inputType)
+        InputObjectType inputType,
+        ReferenceTargets? references = null)
     {
         var schemaName = schema.GetSchemaNameForProject();
         var fieldName = $"insertMany{schemaName}";
@@ -126,14 +132,15 @@ public class SchemaResolver
             .Argument(GraphQlConstant.InputFieldName, a => a.Type(new ListTypeNode(new NamedTypeNode($"{schemaName}InsertInput"))).Description("The input data to bulk insert."))
             .Description($"Bulk insert {schemaName} items.")
             .Type<ObjectType<BulkActionResponse>>()
-            .Resolve(async ctx => await _mutationService.BulkInsertAsync(schema, ctx, inputType));
+            .Resolve(async ctx => await _mutationService.BulkInsertAsync(schema, ctx, inputType, references));
     }
 
     public void ResolveBulkUpdateSchema(
         IObjectTypeDescriptor descriptor,
         SchemaDefinitionExtended schema,
         InputObjectType inputType,
-        EntityFilterInputType filterInputType)
+        EntityFilterInputType filterInputType,
+        ReferenceTargets? references = null)
     {
         var schemaName = schema.GetSchemaNameForProject();
         var fieldName = $"updateMany{schemaName}";
@@ -145,6 +152,6 @@ public class SchemaResolver
             .Argument(GraphQlConstant.InputFieldName, a => a.Type(inputType).Description("The input data to bulk update."))
             .Description($"Bulk update {schemaName} items matching the filter.")
             .Type<ObjectType<ActionResponse>>()
-            .Resolve(async ctx => await _mutationService.BulkUpdateAsync(schema, ctx, inputType));
+            .Resolve(async ctx => await _mutationService.BulkUpdateAsync(schema, ctx, inputType, references));
     }
 }

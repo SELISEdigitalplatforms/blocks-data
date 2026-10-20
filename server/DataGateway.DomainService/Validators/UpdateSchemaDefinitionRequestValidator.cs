@@ -3,6 +3,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Validators;
 
@@ -87,6 +88,9 @@ public class UpdateSchemaDefinitionRequestValidator : AbstractValidator<UpdateSc
         var filter = Builders<SchemaDefinition>.Filter.And(
             Builders<SchemaDefinition>.Filter.Eq(propertyName, propertyValue),
             Builders<SchemaDefinition>.Filter.Ne(nameof(SchemaDefinition.ItemId), itemId));
+        // A tenant may reuse a system entity's schema name; its collection name stays reserved.
+        if (propertyName == nameof(SchemaDefinition.SchemaName))
+            filter = Builders<SchemaDefinition>.Filter.And(filter, Builders<SchemaDefinition>.Filter.Ne(nameof(SchemaDefinition.IsSystemEntity), true));
         var existingSchema = await _dbRepository.GetItemAsync<SchemaDefinition>(filter);
         if (existingSchema is not null)
         {

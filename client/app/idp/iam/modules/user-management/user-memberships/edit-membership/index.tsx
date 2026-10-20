@@ -7,7 +7,7 @@ import { useGetPermissions } from "@blocks-idp/iam/hooks/use-permission";
 import { useGetRoles } from "@blocks-idp/iam/hooks/use-roles";
 import { useGetUserById, useUpdateUser } from "@blocks-idp/iam/hooks/use-user";
 import { IMembership } from "@blocks-idp/iam/models/user";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { RemoveMembership } from "../remove-membership";
 import { MembershipPermissionsTab } from "./membership-permission-tab";
 import { MembershipRolesTab } from "./membership-role-tab";
@@ -81,17 +81,19 @@ export const EditMembership = ({
     setPermissionsPage(0);
   }, []);
 
-  useEffect(() => {
+  // Reset when the dialog opens or closes, or a different membership is passed in.
+  const [resetSource, setResetSource] = useState<{ open: boolean; membership: typeof membership } | null>(null);
+  if (resetSource === null || resetSource.open !== open || resetSource.membership !== membership) {
+    setResetSource({ open, membership });
     if (open) {
       resetSelections();
-      return;
+    } else {
+      setIsEditing(false);
+      setActiveTab("roles");
+      resetFilters();
+      resetSelections();
     }
-
-    setIsEditing(false);
-    setActiveTab("roles");
-    resetFilters();
-    resetSelections();
-  }, [open, resetFilters, resetSelections]);
+  }
 
   // Filter all roles by search in edit mode
   const filteredRolesForEdit = allRoles.filter((role) =>

@@ -1,6 +1,7 @@
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Export;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Mappers;
 
@@ -62,7 +63,8 @@ public static class SchemaExportMapping
                     ReadAccessLevel = field.ReadAccessLevel,
                     WriteAccessLevel = field.WriteAccessLevel,
                     EditAccessLevel = field.EditAccessLevel,
-                    DeleteAccessLevel = field.DeleteAccessLevel
+                    DeleteAccessLevel = field.DeleteAccessLevel,
+                    DefaultValue = field.DefaultValue
                 };
 
                 if (exportOption.HasFlag(SchemaExportOption.AccessPolicies))
@@ -105,6 +107,7 @@ public static class SchemaExportMapping
         Value = rule.Value,
         SecondaryValue = rule.SecondaryValue,
         ErrorMessage = rule.ErrorMessage,
-        IsActive = rule.IsActive
+        IsActive = rule.IsActive,
+        EvaluationVersion = rule.EvaluationVersion
     };
 }

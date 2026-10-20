@@ -25,14 +25,20 @@ describe("ConfigurationService", () => {
 
   // ─── getDataServiceDetails ──────────────────────────────────────────────────
   describe("getDataServiceDetails", () => {
-    it("should GET the configuration endpoint", async () => {
-      const response = { config: {} };
-      vi.mocked(http.get).mockResolvedValue(response);
+    it("GETs console options from Data itself and wraps them", async () => {
+      const config = { isCollectionNameEditable: false, collectionNamePattern: "sb_{SchemaName}s" };
+      vi.mocked(http.get).mockResolvedValue(config);
 
       const result = await configurationService.getDataServiceDetails();
 
+      expect(CONFIGURATION_ENDPOINTS.GET).toBe(`${API_BASES.UDS}/gateway-options`);
       expect(http.get).toHaveBeenCalledWith(CONFIGURATION_ENDPOINTS.GET);
-      expect(result).toEqual(response);
+      expect(result).toEqual({ isSuccess: true, errors: null, data: config });
+    });
+
+    it("answers data null when OS returns no body", async () => {
+      vi.mocked(http.get).mockResolvedValue(undefined);
+      expect((await configurationService.getDataServiceDetails()).data).toBeNull();
     });
   });
 

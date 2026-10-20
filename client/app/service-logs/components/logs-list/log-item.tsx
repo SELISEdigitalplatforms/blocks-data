@@ -36,7 +36,7 @@ export const LogItem = ({ log }: { log: ILog }) => {
         </div>
       </div>
       <div
-        className="whitespace-pre-wrap break-words text-left text-sm text-medium-emphasis"
+        className="whitespace-pre-wrap wrap-break-word text-left text-sm text-medium-emphasis"
         style={{ width: "calc(80vw - 120px)" }}
       >
         {log.message}

@@ -1,3 +1,4 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis;
 
 namespace DataGateway.DomainService.Models.Constants;
@@ -19,7 +20,7 @@ public static class GraphQlConstant
     public const string OrderFieldName = "order";
     public const string InputFieldName = "input";
     public const string PagingFieldName = "paging";
-    public const string DbEntityIdFieldName = "_id";
+    public const string DbEntityIdFieldName = Blocks.Genesis.DataAccess.Evaluation.PolicyConstants.DbEntityIdFieldName;
 
     public const string OwnerPermission = "OWNER";
     public const string CheckForOwnerContextKey = "CheckForOwner";
@@ -28,10 +29,21 @@ public static class GraphQlConstant
     public const string BlocksKeyHeaderKey = "x-blocks-key";
     public const string UnauthorizedErrorCode = "AUTH_NOT_AUTHENTICATED";
     public const string ValidationErrorErrorCode = "VALIDATION_ERROR";
+    public const string TooManyRootFieldsErrorCode = "DATA_GATEWAY_TOO_MANY_ROOT_FIELDS";
+    public const string IntrospectionNotAllowedErrorCode = "DATA_GATEWAY_INTROSPECTION_NOT_ALLOWED";
+
+    /// <summary>
+    /// Root fields (<c>get…s</c>, <c>insert…</c>, …) one query or mutation may select, aliases included.
+    /// Each runs its own database calls, so this bounds how far one request can fan out.
+    /// </summary>
+    public const int MaxRootFieldsPerOperation = 10;
+
+    /// <summary>Largest page one query may ask for; a bigger <c>pageSize</c> is clamped to this.</summary>
+    public const int MaxPageSize = 1000;
     private const string DefaultProvider = "azure";
     private const string RabbitMqProvider = "rabbitmq";
 
-    public const int MaxNestedLevelIterationLimit = 3;
+    public const int MaxNestedLevelIterationLimit = Blocks.Genesis.DataAccess.Evaluation.PolicyConstants.MaxNestedLevelIterationLimit;
 
     public static string TenantId { get; private set; } = string.Empty;
     public static string TenantSlug { get; private set; } = string.Empty;

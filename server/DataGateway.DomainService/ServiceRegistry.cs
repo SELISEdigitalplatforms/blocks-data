@@ -1,7 +1,8 @@
 using FluentValidation;
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models;
+using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
 using DataGateway.DomainService.Services;
@@ -12,6 +13,8 @@ using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Blocks.Genesis;
+using Blocks.Secrets;
+using DataGateway.DomainService.DataSources;
 using DataGateway.DomainService.Authentication;
 using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Helpers;
@@ -20,6 +23,9 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using k8s;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using DataGateway.DomainService.Policies;
 
 namespace DataGateway.DomainService;
 
@@ -34,7 +40,6 @@ public static class ServiceRegistry
     public static void RegisterSchemaServices(this IServiceCollection serviceCollection)
     {
         serviceCollection.AddSingleton<IDbRepository, DbRepository>();
-        serviceCollection.AddSingleton<IProjectService, ProjectService>();
         serviceCollection.AddSingleton<DataGatewayTokenAuthenticator>();
 
         serviceCollection.AddScoped<IDataGatewayConfigurationService, DataGatewayConfigurationService>();
@@ -51,6 +56,20 @@ public static class ServiceRegistry
         serviceCollection.AddSingleton<SchemaImportValidator>();
         serviceCollection.AddSingleton<ISchemaImportService, SchemaImportService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
+
+        // Data-source secrets (data SPEC1 §3.5.1): Blocks Secrets (scoped services), a singleton resolver
+        // (new scope per call, no value cache) and the BYO client cache (secret read only on a miss).
+        serviceCollection.AddBlocksSecrets();
+        serviceCollection.TryAddSingleton<IDataSourceSecretResolver, DataSourceSecretResolver>();
+        serviceCollection.TryAddSingleton<IDataSourceConfigStore, DataSourceConfigStore>();
+        serviceCollection.TryAddSingleton<IDataSourceClientFactory, DataSourceClientFactory>();
+        serviceCollection.TryAddSingleton<IClusterRegistry, DriverClusterRegistry>();
+        serviceCollection.TryAddSingleton<DataSourceClientCache>(sp => new DataSourceClientCache(
+            sp.GetRequiredService<IDataSourceSecretResolver>(),
+            sp.GetRequiredService<IDataSourceClientFactory>(),
+            sp.GetRequiredService<IClusterRegistry>(),
+            sp.GetRequiredService<ILogger<DataSourceClientCache>>()));
+        serviceCollection.TryAddSingleton<IDataSourceClientCache>(sp => sp.GetRequiredService<DataSourceClientCache>());
 
         serviceCollection.AddSingleton<IKubernetes>(_ =>
         {
@@ -78,6 +97,8 @@ public static class ServiceRegistry
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
         serviceCollection.AddSingleton<GraphqlSchemaBuilder>();
         serviceCollection.AddSingleton<IDataChangeEventPublisher, DataChangeEventPublisher>();
+        serviceCollection.AddBlocksDataAccess();
+        serviceCollection.AddSingleton<IAccessPrincipalAccessor, BlocksContextPrincipalAccessor>();
         serviceCollection.AddSingleton<IQueryService, QueryService>();
         serviceCollection.AddSingleton<IMutationService, MutationService>();
         serviceCollection.AddSingleton<SchemaResolver>();
@@ -102,13 +123,15 @@ public static class ServiceRegistry
     private static void AddGraphQLServers(this IServiceCollection serviceCollection)
     {
         serviceCollection.AddHttpResponseFormatter<AuthHttpResponseFormatter>();
+        // Do not call DisableIntrospection() or AddValidationRule() here: they configure only this
+        // template executor, which serves no traffic. Per-tenant validation lives in AddGatewayValidation.
         serviceCollection.AddGraphQLServer()
-            .DisableIntrospection()
             .ModifyCostOptions(options =>
             {
                 options.MaxFieldCost = 3000;
                 options.MaxTypeCost = 3000;
             })
+            .AddGatewayValidation()
             // Each tenant's schema is added per schema name by ProjectExecutorOptionsMonitor.
             //
             // Rides HotChocolate's own instrumentation hook (already part of its implicit default

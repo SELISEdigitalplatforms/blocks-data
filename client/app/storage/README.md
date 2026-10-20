@@ -56,7 +56,6 @@ storage/
 ├── pages/
 │   ├── storage/                   # Storage list page
 │   ├── storage-detail/            # File/folder detail page
-│   ├── storage-configuration/     # Configuration management page
 │   ├── logs/                      # Storage operation logs page
 │   └── index.ts                   # Public page re-exports
 │

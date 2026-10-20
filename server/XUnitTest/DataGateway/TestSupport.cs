@@ -1,6 +1,8 @@
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using Blocks.Genesis;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 
 namespace XUnitTest.DataGateway;
@@ -147,5 +149,20 @@ internal static class TestSupport
     public static void SetBlocksCloud(bool isFromCloud)
     {
         RequestContextAccessor.Current = new RequestContext { IsRequestFromBlocksCloud = isFromCloud };
+    }
+
+    /// <summary>The principal the resolver sees for the ambient context the test set up (BlocksContext + root-tenant flag).</summary>
+    public static AccessPrincipal CurrentPrincipal() =>
+        AccessPrincipal.From(BlocksContext.GetContext(), RequestContextAccessor.Current.IsRequestFromBlocksCloud);
+
+    /// <summary>A real resolver over the schema's own policy list, as the gateway registers it.</summary>
+    public static IDataAccessPolicyResolutionService Resolver() => new DataAccessPolicyResolutionService(new SchemaPolicySource());
+
+    /// <summary>A principal accessor that reads the same ambient context the tests set with <see cref="SetContext"/> and <see cref="SetBlocksCloud"/>.</summary>
+    public static IAccessPrincipalAccessor Principals() => new AmbientPrincipalAccessor();
+
+    private sealed class AmbientPrincipalAccessor : IAccessPrincipalAccessor
+    {
+        public AccessPrincipal Current => CurrentPrincipal();
     }
 }

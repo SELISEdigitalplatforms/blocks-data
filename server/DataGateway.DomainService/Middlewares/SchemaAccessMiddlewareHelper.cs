@@ -6,6 +6,7 @@ using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Resolvers;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Middlewares;
 

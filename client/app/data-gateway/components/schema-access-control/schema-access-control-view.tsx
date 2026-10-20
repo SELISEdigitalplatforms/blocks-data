@@ -385,7 +385,7 @@ export const SchemaAccessControlView = forwardRef<
                   disabled={showRuleSetForm}
                   onClick={() => handleTierPick(type)}
                   className={cn(
-                    "flex h-11 min-w-0 items-center gap-2 rounded-md border px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
+                    "flex h-11 min-w-0 items-center gap-2 rounded-md border px-3 text-left text-xs font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60",
                     iconOnlyTiles && "justify-center",
                     isSelected
                       ? cn(TIER_CONTAINER_CLASS[tier], TIER_VALUE_CLASS[tier])

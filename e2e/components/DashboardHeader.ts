@@ -75,7 +75,7 @@ export class NotificationBell {
     await this.openPopover();
     const markAll = this.getMarkAllAsReadButton();
     await expect(markAll).toBeVisible({ timeout: 10_000 });
-    await markAll.click({ force: true, timeout: 10_000 });
+    await markAll.click({ timeout: 10_000 });
     await expect(this.getPopover()).toHaveCount(0);
   }
 

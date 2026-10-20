@@ -1,6 +1,7 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;

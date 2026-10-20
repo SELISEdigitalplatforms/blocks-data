@@ -2,6 +2,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Export;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Mappers;
 
@@ -33,8 +34,24 @@ public static class SchemaImportMapping
         ReadAccessLevel = f.ReadAccessLevel,
         WriteAccessLevel = f.WriteAccessLevel,
         EditAccessLevel = f.EditAccessLevel,
-        DeleteAccessLevel = f.DeleteAccessLevel
+        DeleteAccessLevel = f.DeleteAccessLevel,
+        DefaultValue = f.DefaultValue.ToStorable()
     };
+
+    /// <summary>A default read from an import file: its value as stored (JSON lists and numbers to plain values).</summary>
+    public static FieldDefaultValue? ToStorable(this FieldDefaultValue? defaultValue)
+    {
+        if (defaultValue is null)
+            return null;
+
+        return new FieldDefaultValue
+        {
+            Kind = defaultValue.Kind,
+            Value = JsonValueHelper.ToStorableValue(defaultValue.Value),
+            // Only Now has an offset; one carried on another kind is dropped.
+            Offset = defaultValue.Kind == DefaultValueKind.Now ? defaultValue.Offset : null,
+        };
+    }
 
     /// <summary>
     /// Maps an RLS export policy to a DataAccessPolicy entity for the given schema.
@@ -101,6 +118,7 @@ public static class SchemaImportMapping
         Value = JsonValueHelper.ToStorableValue(r.Value),
         SecondaryValue = JsonValueHelper.ToStorableValue(r.SecondaryValue),
         ErrorMessage = r.ErrorMessage,
-        IsActive = r.IsActive
+        IsActive = r.IsActive,
+        EvaluationVersion = r.EvaluationVersion
     };
 }

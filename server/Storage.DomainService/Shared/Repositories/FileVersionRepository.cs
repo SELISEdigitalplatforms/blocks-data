@@ -3,6 +3,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
+using Blocks.Genesis.Entities.Data;
 
 namespace Storage.DomainService.Services
 {

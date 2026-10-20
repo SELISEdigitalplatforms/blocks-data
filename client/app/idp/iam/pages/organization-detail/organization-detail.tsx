@@ -1,4 +1,4 @@
-import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
+import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { useGetOrganizationById } from "@blocks-idp/iam/hooks/use-organization";
 import { useProjectStore } from "@seliseblocks/genesis-os";
@@ -15,10 +15,8 @@ export const OrganizationDetail = ({ id }: { id: string }) => {
     projectKey: tenantId,
   });
 
-  BREADCRUMB_CUSTOM_TITLES["/services/iam/organization-detail"] =
-    "Organizations";
-  BREADCRUMB_CUSTOM_TITLES[`/services/iam/organization-detail/${id}`] =
-    data?.organization?.name ?? null;
+  setBreadcrumbTitle("/services/iam/organization-detail", "Organizations");
+  setBreadcrumbTitle(`/services/iam/organization-detail/${id}`, data?.organization?.name ?? null);
 
   return (
     <main className="flex flex-col">

@@ -7,6 +7,7 @@
     <PackageReference Include="KubernetesClient" />
     <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="SeliseBlocks.Genesis.OS" />
+    <PackageReference Include="SeliseBlocks.Secrets.OS" />
     <PackageReference Include="YamlDotNet" />
   </ItemGroup>
   <ItemGroup>

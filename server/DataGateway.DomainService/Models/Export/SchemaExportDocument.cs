@@ -1,4 +1,5 @@
 using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Models.Export;
 
@@ -35,6 +36,8 @@ public class ExportFieldDefinition
     public List<ExportAccessPolicy>? AccessPolicies { get; set; }
     /// <summary>Validation rules for this field. Null when ValidationRules flag is not set.</summary>
     public List<ExportValidationRule>? ValidationRules { get; set; }
+    /// <summary>The default value applied on insert; null when the field has none.</summary>
+    public FieldDefaultValue? DefaultValue { get; set; }
 }
 
 public class ExportAccessPolicy
@@ -55,4 +58,6 @@ public class ExportValidationRule
     public object? SecondaryValue { get; set; }
     public string? ErrorMessage { get; set; }
     public bool IsActive { get; set; }
+    /// <summary>Missing in files exported before it existed, which import as 0 (rules as they always were).</summary>
+    public int EvaluationVersion { get; set; }
 }

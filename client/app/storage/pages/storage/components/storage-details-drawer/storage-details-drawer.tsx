@@ -66,7 +66,7 @@ export function StorageDetailsDrawer({
               <SheetTitle className="text-lg font-semibold">Details</SheetTitle>
               <button
                 onClick={() => onOpenChange(false)}
-                className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>

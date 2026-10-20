@@ -1,8 +1,9 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Net;
 using MongoDB.Driver.Core.Clusters;
 using MongoDB.Driver.Core.Connections;
 using MongoDB.Driver.Core.Servers;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Responses;
@@ -25,7 +26,6 @@ public class SchemaDefinitionServiceTests
 {
     private readonly Mock<IDbRepository> _repo = new();
     private readonly Mock<IRequestValidator> _validator = new();
-    private readonly Mock<IProjectService> _project = new();
     private readonly Mock<ISchemaChangeLogService> _changeLog = new();
     private readonly Mock<ISchemaIndexService> _schemaIndexService = new();
     private readonly SchemaDefinitionReferenceHelper _refHelper;
@@ -53,7 +53,7 @@ public class SchemaDefinitionServiceTests
             .ReturnsAsync(new ServiceResponse<SchemaIndexListResponse>().SetSuccess(new SchemaIndexListResponse()));
 
         _refHelper = new SchemaDefinitionReferenceHelper(_repo.Object, _changeLog.Object);
-        _service = new SchemaDefinitionService(_repo.Object, _validator.Object, _project.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance);
+        _service = new SchemaDefinitionService(_repo.Object, _validator.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance);
     }
 
     private void NameIsUnique() => _repo.Setup(r => r.GetItemAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync((SchemaDefinition?)null);
@@ -62,9 +62,8 @@ public class SchemaDefinitionServiceTests
     [Fact]
     public void Constructor_NullArgs_Throw()
     {
-        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(null!, _validator.Object, _project.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(_repo.Object, _validator.Object, null!, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance));
-        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(_repo.Object, _validator.Object, _project.Object, _changeLog.Object, _refHelper, null!, NullLogger<SchemaDefinitionService>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(null!, _validator.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance));
+        Assert.Throws<ArgumentNullException>(() => new SchemaDefinitionService(_repo.Object, _validator.Object, _changeLog.Object, _refHelper, null!, NullLogger<SchemaDefinitionService>.Instance));
     }
 
     [Fact]
@@ -149,6 +148,47 @@ public class SchemaDefinitionServiceTests
         NameIsUnique(); // no schema at all currently has the target name
         var result = await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "New", CollectionName = "News", SchemaType = SchemaType.Entity });
         result.IsSuccess.Should().BeTrue("renaming to a name nobody else uses must be allowed");
+    }
+
+    [Fact]
+    public async Task UpdateSchema_Rename_CarriesReferenceRulesToTheNewName()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Department" });
+        NameIsUnique();
+        var pointing = new DataValidation
+        {
+            ItemId = "v1",
+            FieldName = "DepartmentId",
+            Validations =
+            [
+                new ValidationRule { Type = ValidationType.NotEmpty },
+                new ValidationRule { Type = ValidationType.Reference, Value = "Department", SecondaryValue = "ItemId" },
+                new ValidationRule { Type = ValidationType.Reference, Value = "Skill" },
+            ],
+        };
+        _repo.Setup(r => r.GetItemsAsync<DataValidation, DataValidation>(It.IsAny<FilterDefinition<DataValidation>>(), null, ""))
+            .ReturnsAsync([pointing]);
+        List<DataValidation>? saved = null;
+        _repo.Setup(r => r.UpdateManyAsync(It.IsAny<List<DataValidation>>(), ""))
+            .Callback((List<DataValidation> list, string _) => saved = list)
+            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+
+        await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "Dept", CollectionName = "Departments", SchemaType = SchemaType.Entity });
+
+        // Only the rule that named the old schema changes.
+        saved.Should().ContainSingle();
+        saved![0].Validations.Select(r => r.Value as string).Should().Equal(null, "Dept", "Skill");
+    }
+
+    [Fact]
+    public async Task UpdateSchema_SameName_DoesNotTouchValidations()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Department" });
+        NameIsUnique();
+
+        await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "1", SchemaName = "Department", CollectionName = "Depts", SchemaType = SchemaType.Entity });
+
+        _repo.Verify(r => r.GetItemsAsync<DataValidation, DataValidation>(It.IsAny<FilterDefinition<DataValidation>>(), It.IsAny<SortDefinition<DataValidation>?>(), ""), Times.Never);
     }
 
     [Fact]
@@ -765,6 +805,26 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
+    public async Task GetAllSchemas_HidesSystemEntities()
+    {
+        BsonDocument? sent = null;
+        _repo.Setup(r => r.GetItemsWithCountAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<SortDefinition<BsonDocument>>(), It.IsAny<ProjectionDefinition<BsonDocument>>(), It.IsAny<int>(), It.IsAny<int>(), ""))
+            .Callback<FilterDefinition<BsonDocument>, SortDefinition<BsonDocument>?, ProjectionDefinition<BsonDocument>?, int, int, string>(
+                (filter, _, _, _, _, _) => sent = RenderFilter(filter))
+            .ReturnsAsync((new List<SchemaDefinition>(), 0L));
+
+        await _service.GetAllSchemasAsync(new GetSchemaDefinitionListRequest { PageNo = 1, PageSize = 10, Keyword = "Ro" });
+
+        sent!["IsSystemEntity"].Should().Be(new BsonDocument("$ne", true));
+        sent.Contains("SchemaName").Should().BeTrue("the caller's own filter is kept");
+    }
+
+    private static BsonDocument RenderFilter(FilterDefinition<BsonDocument> filter) =>
+        filter.Render(new RenderArgs<BsonDocument>(
+            MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry.GetSerializer<BsonDocument>(),
+            MongoDB.Bson.Serialization.BsonSerializer.SerializerRegistry));
+
+    [Fact]
     public async Task GetSchemaAggregation_MapsCounts()
     {
         var doc = new BsonDocument
@@ -833,7 +893,131 @@ public class SchemaDefinitionServiceTests
         result.IsSuccess.Should().BeTrue();
         result.Data!.Fields.Should().NotBeEmpty();
     }
+
+    // ---- Default values --------------------------------------------------------------------------
+
+    private SchemaDefinition EmployeeWithFields(params FieldDefinition[] fields)
+    {
+        var schema = new SchemaDefinition { ItemId = "emp", SchemaName = "Employee", SchemaType = SchemaType.Entity, Fields = fields.ToList() };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("emp", "")).ReturnsAsync(schema);
+        return schema;
+    }
+
+    private static SetFieldDefaultRequest Default(string field, DefaultValueKind kind, object? value = null) =>
+        new() { SchemaId = "emp", FieldName = field, DefaultValue = new FieldDefaultValueRequest { Kind = kind, Value = value } };
+
+    [Fact]
+    public async Task SetFieldDefault_SavesIt_AndMarksTheSchemaChanged()
+    {
+        var schema = EmployeeWithFields(new FieldDefinition { Name = "FirstName", Type = "String" }, new FieldDefinition { Name = "DisplayName", Type = "String" });
+
+        var result = await _service.SetFieldDefaultAsync(Default("DisplayName", DefaultValueKind.Template, "{{Employee.FirstName}}"));
+
+        result.IsSuccess.Should().BeTrue();
+        schema.Fields[1].DefaultValue!.Value.Should().Be("{{Employee.FirstName}}");
+        _repo.Verify(r => r.UpdateAsync(schema, ""), Times.Once);
+        _changeLog.Verify(c => c.CreateSchemaChangeLogAsync("emp", SchemaChangeType.SchemaFieldUpdate), Times.Once);
+    }
+
+    [Fact]
+    public async Task SetFieldDefault_Null_ClearsIt()
+    {
+        var schema = EmployeeWithFields(new FieldDefinition { Name = "Code", Type = "String", DefaultValue = new FieldDefaultValue { Kind = DefaultValueKind.Static, Value = "NEW" } });
+
+        var result = await _service.SetFieldDefaultAsync(new SetFieldDefaultRequest { SchemaId = "emp", FieldName = "Code" });
+
+        result.IsSuccess.Should().BeTrue();
+        schema.Fields[0].DefaultValue.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SetFieldDefault_Refused_WithTheReason()   // UC16
+    {
+        EmployeeWithFields(new FieldDefinition { Name = "FirstName", Type = "String" }, new FieldDefinition { Name = "DisplayName", Type = "String" },
+            new FieldDefinition { Name = "CreatedDate", Type = "DateTime" });
+
+        (await _service.SetFieldDefaultAsync(Default("DisplayName", DefaultValueKind.Template, "{{Employee.FirstNme}}"))).Message.Should()
+            .Be("Unknown property \"Employee.FirstNme\" at position 1 (did you mean Employee.FirstName?)");
+        (await _service.SetFieldDefaultAsync(Default("CreatedDate", DefaultValueKind.Now))).Message.Should()
+            .Be("CreatedDate is set by the platform and can't have a default value");
+        (await _service.SetFieldDefaultAsync(Default("Nope", DefaultValueKind.Static, "x"))).HttpStatusCode.Should().Be(400);
+        _repo.Verify(r => r.UpdateAsync(It.IsAny<SchemaDefinition>(), ""), Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveFields_KeepsADefault_AndClearsItWhenTheTypeChanges()
+    {
+        var keep = new FieldDefaultValue { Kind = DefaultValueKind.Static, Value = "NEW" };
+        var schema = EmployeeWithFields(
+            new FieldDefinition { Name = "Code", Type = "String", DefaultValue = keep },
+            new FieldDefinition { Name = "Score", Type = "String", DefaultValue = new FieldDefaultValue { Kind = DefaultValueKind.Static, Value = "5" } });
+
+        await _service.SaveFieldDefinitionAsync(new SaveFieldDefinitionRequest
+        {
+            SchemaDefinitionItemId = "emp",
+            Fields = [new FieldDefinitionRequest { Name = "Code", Type = "String", Description = "edited" }, new FieldDefinitionRequest { Name = "Score", Type = "Int" }],
+        });
+
+        schema.Fields.Single(f => f.Name == "Code").DefaultValue.Should().BeSameAs(keep);
+        schema.Fields.Single(f => f.Name == "Score").DefaultValue.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task NestedDefault_SurvivesTheChildSchemaBeingRefreshed()
+    {
+        // Employee keeps its own default on the flattened entry Read.Roles; refreshing the child (Access) fields must not drop it.
+        var mine = new FieldDefaultValue { Kind = DefaultValueKind.Static, Value = new object[] { "admin" } };
+        var employee = new SchemaDefinition
+        {
+            ItemId = "emp", SchemaName = "Employee", SchemaType = SchemaType.Entity,
+            Fields = [new FieldDefinition { Name = "Read", Type = "Access" }, new FieldDefinition { Name = "Read.Roles", Type = "String", IsArray = true, IsReferenceField = true, DefaultValue = mine }],
+        };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(
+            new SchemaDefinition { SchemaName = "Access", SchemaType = SchemaType.Dto, Fields = [new FieldDefinition { Name = "Roles", Type = "String", IsArray = true, Description = "changed" }] });
+
+        await _refHelper.AddReferenceInnerFieldsToSchemaAsync(employee);
+
+        employee.Fields.Single(f => f.Name == "Read.Roles").DefaultValue.Should().BeSameAs(mine);
+    }
+
+    [Fact]
+    public async Task Rename_RewritesTheSchemaPrefix_InTemplates()   // UC19
+    {
+        var schema = EmployeeWithFields(new FieldDefinition
+        {
+            Name = "DisplayName", Type = "String",
+            DefaultValue = new FieldDefaultValue { Kind = DefaultValueKind.Template, Value = "{{Employee.FirstName}} ({{Auth.Email}})" },
+        });
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        NameIsUnique();
+
+        await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "emp", SchemaName = "Staff", CollectionName = "Staff", SchemaType = SchemaType.Entity });
+
+        schema.Fields[0].DefaultValue!.Value.Should().Be("{{Staff.FirstName}} ({{Auth.Email}})");
+    }
+
+    [Fact]
+    public async Task Rename_RewritesTheSchemaPrefix_InVersionOneValidationValues()   // UC19
+    {
+        var schema = EmployeeWithFields(new FieldDefinition { Name = "EndDate", Type = "DateTime" });
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        NameIsUnique();
+        var variable = new ValidationRule { Type = ValidationType.Range, Value = "{{Employee.StartDate}}", SecondaryValue = "{{ Employee.LastDay }}", EvaluationVersion = 1 };
+        var legacy = new ValidationRule { Type = ValidationType.Equal, Value = "{{Employee.StartDate}}" };   // version 0: fixed text
+        var validation = new DataValidation { ItemId = "v1", SchemaId = "emp", FieldName = "EndDate", Validations = [variable, legacy] };
+        _repo.Setup(r => r.GetItemsAsync<DataValidation, DataValidation>(It.IsAny<FilterDefinition<DataValidation>>(), null, ""))
+            .ReturnsAsync([validation]);
+        _repo.Setup(r => r.UpdateManyAsync(It.IsAny<List<DataValidation>>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true });
+
+        await _service.UpdateSchemaAsync(new UpdateSchemaRequest { ItemId = "emp", SchemaName = "Staff", CollectionName = "Staff", SchemaType = SchemaType.Entity });
+
+        variable.Value.Should().Be("{{Staff.StartDate}}");
+        variable.SecondaryValue.Should().Be("{{ Staff.LastDay }}");
+        legacy.Value.Should().Be("{{Employee.StartDate}}");
+        _repo.Verify(r => r.UpdateManyAsync(It.Is<List<DataValidation>>(l => l.Contains(validation)), ""), Times.AtLeastOnce);
+    }
 }
+
 
 [Collection("ContextSerial")]
 public class SchemaDefinitionReferenceHelperTests

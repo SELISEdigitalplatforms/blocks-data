@@ -1,4 +1,6 @@
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
@@ -12,25 +14,25 @@ public class DataAccessPolicyHelperFilterBoostTests
     [Fact]
     public void BuildConditionFilter_Contain_NotContain_EndWith_Regex()
     {
-        DataAccessPolicyHelper.BuildConditionFilter("Name", PolicyOperator.CONTAIN, "jo")["Name"]
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Name", PolicyOperator.CONTAIN, "jo")["Name"]
             .AsBsonDocument.Contains("$regex").Should().BeTrue();
-        DataAccessPolicyHelper.BuildConditionFilter("Name", PolicyOperator.NOT_CONTAIN, "jo")["Name"]
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Name", PolicyOperator.NOT_CONTAIN, "jo")["Name"]
             .AsBsonDocument.Contains("$not").Should().BeTrue();
-        DataAccessPolicyHelper.BuildConditionFilter("Name", PolicyOperator.END_WITH, "hn")["Name"]
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Name", PolicyOperator.END_WITH, "hn")["Name"]
             .AsBsonDocument["$regex"].AsString.Should().EndWith("$");
-        DataAccessPolicyHelper.BuildConditionFilter("Name", PolicyOperator.REGEX, "^x")["Name"]
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Name", PolicyOperator.REGEX, "^x")["Name"]
             .AsBsonDocument.Contains("$regex").Should().BeTrue();
     }
 
     [Fact]
     public void BuildConditionFilter_ConvertsClrTypes()
     {
-        DataAccessPolicyHelper.BuildConditionFilter("A", PolicyOperator.EQUAL, 5)["A"].AsInt32.Should().Be(5);
-        DataAccessPolicyHelper.BuildConditionFilter("A", PolicyOperator.EQUAL, 5L)["A"].AsInt64.Should().Be(5L);
-        DataAccessPolicyHelper.BuildConditionFilter("A", PolicyOperator.EQUAL, 1.5)["A"].AsDouble.Should().Be(1.5);
-        DataAccessPolicyHelper.BuildConditionFilter("A", PolicyOperator.EQUAL, true)["A"].AsBoolean.Should().BeTrue();
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "A", PolicyOperator.EQUAL, 5)["A"].AsInt32.Should().Be(5);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "A", PolicyOperator.EQUAL, 5L)["A"].AsInt64.Should().Be(5L);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "A", PolicyOperator.EQUAL, 1.5)["A"].AsDouble.Should().Be(1.5);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "A", PolicyOperator.EQUAL, true)["A"].AsBoolean.Should().BeTrue();
         var dt = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        DataAccessPolicyHelper.BuildConditionFilter("A", PolicyOperator.EQUAL, dt)["A"].BsonType.Should().Be(BsonType.DateTime);
+        DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "A", PolicyOperator.EQUAL, dt)["A"].BsonType.Should().Be(BsonType.DateTime);
     }
 
     [Fact]
@@ -41,7 +43,7 @@ public class DataAccessPolicyHelperFilterBoostTests
         var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
             Group(PolicyLogicalOperator.AND, rule));
 
-        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
         result.IsAccessGranted.Should().BeTrue();
         result.RequiresDataFilter.Should().BeTrue();
@@ -63,7 +65,7 @@ public class DataAccessPolicyHelperFilterBoostTests
             Group(PolicyLogicalOperator.AND, rule));
 
         var result = new List<DataAccessPolicy> { policy }
-            .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+            .EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
         result.DataFilter.Contains("$expr").Should().BeTrue();
         result.DataFilter["$expr"].ToString().Should().Contain(expectedExpression);
@@ -77,7 +79,7 @@ public class DataAccessPolicyHelperFilterBoostTests
         var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
             Group(PolicyLogicalOperator.AND, rule));
 
-        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
         result.IsAccessGranted.Should().BeTrue();
         result.DataFilter.Contains("Age").Should().BeTrue();
@@ -91,7 +93,7 @@ public class DataAccessPolicyHelperFilterBoostTests
             Rule(ConditionSource.SCHEMA_FIELD, "B", PolicyOperator.EQUAL, staticValue: "y"));
         var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(), group);
 
-        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
         result.IsAccessGranted.Should().BeTrue();
         result.DataFilter.Contains("$or").Should().BeTrue();
@@ -105,7 +107,7 @@ public class DataAccessPolicyHelperFilterBoostTests
             Rule(ConditionSource.SCHEMA_FIELD, "B", PolicyOperator.EQUAL, staticValue: "y"));
         var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(), group);
 
-        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
         result.DataFilter.Contains("$and").Should().BeTrue();
     }
@@ -118,7 +120,7 @@ public class DataAccessPolicyHelperFilterBoostTests
         var p2 = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
             Group(PolicyLogicalOperator.AND, Rule(ConditionSource.SCHEMA_FIELD, "B", PolicyOperator.EQUAL, staticValue: "y")), priority: 1);
 
-        var result = new List<DataAccessPolicy> { p1, p2 }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+        var result = new List<DataAccessPolicy> { p1, p2 }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
         result.IsAccessGranted.Should().BeTrue();
         result.DataFilter.Contains("$or").Should().BeTrue();
@@ -135,7 +137,7 @@ public class DataAccessPolicyHelperTokenExprBoostTests
         SetContext(userId: "u-token-1");
         try
         {
-            var filter = DataAccessPolicyHelper.BuildConditionFilter("CreatedBy", PolicyOperator.EQUAL, "{{token.userid}}");
+            var filter = DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "CreatedBy", PolicyOperator.EQUAL, "{{token.userid}}");
             filter["CreatedBy"].AsString.Should().Be("u-token-1");
         }
         finally { ClearContext(); }
@@ -148,7 +150,7 @@ public class DataAccessPolicyHelperTokenExprBoostTests
         SetContext(roles: new[] { "admin", "user" });
         try
         {
-            var filter = DataAccessPolicyHelper.BuildConditionFilter("Role", PolicyOperator.IN, "{{token.roles}}");
+            var filter = DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Role", PolicyOperator.IN, "{{token.roles}}");
             filter["Role"].AsBsonDocument["$in"].AsBsonArray.Count.Should().Be(2);
         }
         finally { ClearContext(); }
@@ -173,7 +175,7 @@ public class DataAccessPolicyHelperTokenExprBoostTests
                 Group(PolicyLogicalOperator.AND, rule));
 
             var result = new List<DataAccessPolicy> { policy }
-                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+                .EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
             result.DataFilter.Contains("$expr").Should().BeTrue();
             result.DataFilter["$expr"].ToString().Should().Contain(expectedExpression);
@@ -195,7 +197,7 @@ public class DataAccessPolicyHelperTokenExprBoostTests
                 Group(PolicyLogicalOperator.AND, rule));
 
             var result = new List<DataAccessPolicy> { policy }
-                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+                .EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
             result.DataFilter.Contains("$or").Should().BeTrue();
             result.DataFilter["$or"].AsBsonArray.Should().HaveCount(2);
@@ -216,7 +218,7 @@ public class DataAccessPolicyHelperTokenExprBoostTests
                 Rule(ConditionSource.SCHEMA_FIELD, "Dept", PolicyOperator.EQUAL, staticValue: "HR"));
             var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(), group);
 
-            var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+            var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
             result.IsAccessGranted.Should().BeFalse();
         }
         finally { ClearContext(); }
@@ -250,7 +252,7 @@ public class DataAccessPolicyHelperMultipleRuleSetTests
         try
         {
             var result = new List<DataAccessPolicy> { RoleAndOrgRuleSet(), SameOrgRuleSet() }
-                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+                .EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
             result.IsAccessGranted.Should().BeTrue();
             result.RequiresDataFilter.Should().BeFalse();
@@ -267,7 +269,7 @@ public class DataAccessPolicyHelperMultipleRuleSetTests
         try
         {
             var result = new List<DataAccessPolicy> { SameOrgRuleSet(), RoleAndOrgRuleSet() }
-                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+                .EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
             result.IsAccessGranted.Should().BeTrue();
             result.RequiresDataFilter.Should().BeFalse();
@@ -283,7 +285,7 @@ public class DataAccessPolicyHelperMultipleRuleSetTests
         try
         {
             var result = new List<DataAccessPolicy> { RoleAndOrgRuleSet(), SameOrgRuleSet() }
-                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+                .EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
             result.IsAccessGranted.Should().BeTrue();
             result.RequiresDataFilter.Should().BeTrue();
@@ -304,7 +306,7 @@ public class DataAccessPolicyHelperMultipleRuleSetTests
                     Rule(ConditionSource.AUTH, "roles", PolicyOperator.CONTAIN, staticValue: "admin")));
 
             var result = new List<DataAccessPolicy> { RoleAndOrgRuleSet(), adminOnly }
-                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+                .EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
             result.IsAccessGranted.Should().BeFalse();
         }
@@ -324,7 +326,7 @@ public class DataAccessPolicyHelperMultipleRuleSetTests
                 isAllow: false, priority: 0, name: "block");
 
             var result = new List<DataAccessPolicy> { RoleAndOrgRuleSet(), deny }
-                .EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+                .EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
             result.IsAccessGranted.Should().BeFalse();
             result.ErrorMessage.Should().Contain("block");
@@ -344,7 +346,7 @@ public class DataAccessPolicyHelperMultipleRuleSetTests
                 Rule(ConditionSource.SCHEMA_FIELD, "Region", PolicyOperator.EQUAL, staticValue: "EU"),
                 Rule(ConditionSource.SCHEMA_FIELD, "Active", PolicyOperator.EQUAL, staticValue: true)));
 
-        var result = new List<DataAccessPolicy> { a, b }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+        var result = new List<DataAccessPolicy> { a, b }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
         result.IsAccessGranted.Should().BeTrue();
         result.RequiresDataFilter.Should().BeTrue();

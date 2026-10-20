@@ -8,8 +8,9 @@ using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
 using XUnitTest.Infrastructure;
-using FileDirectory = Storage.DomainService.Entities.FileDirectory;
-using File = Storage.DomainService.Entities.File;
+using Blocks.Genesis.Entities.Data;
+using FileDirectory = Blocks.Genesis.Entities.Data.FileDirectory;
+using File = Blocks.Genesis.Entities.Data.File;
 
 namespace XUnitTest.Storage;
 

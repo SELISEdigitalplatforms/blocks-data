@@ -7,7 +7,8 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using XUnitTest.Infrastructure;
-using File = Storage.DomainService.Entities.File;
+using Blocks.Genesis.Entities.Data;
+using File = Blocks.Genesis.Entities.Data.File;
 
 namespace XUnitTest.Storage;
 

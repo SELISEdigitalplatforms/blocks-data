@@ -4,106 +4,6 @@
         <name>Api</name>
     </assembly>
     <members>
-        <member name="T:DataGateway.Api.Controllers.ConfigurationController">
-            <summary>
-            OperateSchemaController provides endpoints to manage GraphQL schema operations.
-            It allows reloading the schema configuration, which is necessary after making changes to schema definitions or data sources.
-            </summary>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.#ctor(DataGateway.DomainService.Services.IDataGatewayConfigurationService,Microsoft.Extensions.Logging.ILogger{DataGateway.Api.Controllers.ConfigurationController})">
-            <summary>
-            Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.ConfigurationController"/> class.
-            </summary>
-            <param name="configurationService">The configuration service.</param>
-            <param name="logger">The logger.</param>
-            <exception cref="T:System.ArgumentNullException">Thrown when the schema configuration service, configuration service, or logger is null.</exception>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.GetConfigurationAsync">
-            <summary>
-            Retrieves the data source configuration for the current tenant.
-            </summary>
-            <returns>Returns the data source configuration details, including the connection string, database name, and project key, or an error message if the data source is not found.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.InsertDataSourceAsync(DataGateway.DomainService.Models.CreateDataGatewayConfigurationRequest)">
-            <summary>
-            Creates a new data source configuration. Use this endpoint to add a new database connection for your platform.
-            </summary>
-            <param name="request">The data source details to be saved. Required fields: ItemId (unique identifier), ConnectionString (database connection string), DatabaseName (name of the database), ProjectKey (project identifier).</param>
-            <returns>Returns a success response if the data source is created, or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.ConfigurationController.UpdateDataSourceAsync(DataGateway.DomainService.Models.UpdateDataGatewayConfigurationRequest)">
-            <summary>
-            Updates an existing data source configuration. Use this endpoint to modify the connection string, database name, or other details for an existing data source.
-            </summary>
-            <param name="request">The updated data source details. Required fields: ItemId (unique identifier), ConnectionString, DatabaseName, ProjectKey, IsActive.</param>
-            <returns>Returns a success response if the data source is updated, or an error message if the operation fails.</returns>
-        </member>
-        <member name="T:DataGateway.Api.Controllers.MockDataController">
-            <summary>
-            MockDataController provides endpoints to manage mock data operations.
-            It allows retrieving and deleting mock data for a specific project.
-            </summary>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.MockDataController.#ctor(DataGateway.DomainService.Services.IMockDataService)">
-            <summary>
-            Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.MockDataController"/> class.
-            </summary>
-            <param name="dataManageService"></param>
-            <exception cref="T:System.ArgumentException"></exception>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.MockDataController.GetMockDataAsync">
-            <summary>
-            Gets mock data from the database.
-            </summary>
-            <returns>Returns the mock data for the project.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.MockDataController.DeleteMockData(DataGateway.DomainService.Models.DeleteMockDataRequest)">
-            <summary>
-            Deletes mock data from the database.
-            </summary>
-            <param name="request"></param>
-            <returns></returns>
-        </member>
-        <member name="T:DataGateway.Api.Controllers.SchemaConfigurationController">
-            <summary>
-            OperateSchemaController provides endpoints to manage GraphQL schema operations.
-            It allows reloading the schema configuration, which is necessary after making changes to schema definitions or data sources.
-            </summary>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.#ctor(DataGateway.DomainService.Services.ISchemaConfigurationService,Microsoft.Extensions.Logging.ILogger{DataGateway.Api.Controllers.SchemaConfigurationController})">
-            <summary>
-            Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.SchemaConfigurationController"/> class.
-            </summary>
-            <param name="configurationService">The configuration service.</param>
-            <param name="logger">The logger.</param>
-            <exception cref="T:System.ArgumentNullException">Thrown when the configuration service is null.</exception>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.ReloadDataGatewayServerAsync">
-            <summary>
-            Publishes the tenant's schema drafts to every gateway pod and resolves all unadapted changes.
-            The drafts are test-built first; if they build, they are stored as a new published version and made live
-            (every pod rebuilds when it sees the new version; pods never serve unpublished drafts), this pod's executor
-            is rebuilt before the response, and the pending schema changes are marked as adapted to the server.
-            Use this endpoint after making changes to schema definitions or data sources to refresh the schema and clear deployment badges in the UI.
-            </summary>
-            <returns>Returns a success response carrying the published version and the number of changes it published, 400 with the build error if the definitions do not build (nothing is published), or an error message if the operation fails.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.GetSchemaVersionHistoryAsync">
-            <summary>
-            Lists the tenant's published schema versions that can be rolled back to (the newest 10), newest first,
-            with the version that is live now.
-            </summary>
-            <returns>Returns the live version and the kept versions: when and by whom each was published, how many changes
-            it published, and whether it is the live one.</returns>
-        </member>
-        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.RollbackSchemaVersionAsync(DataGateway.DomainService.Models.RollbackSchemaVersionRequest)">
-            <summary>
-            Makes an earlier published schema version live again on every gateway pod. The schema drafts and the pending
-            (unpublished) changes are not touched, and the next publish still gets a new version number.
-            </summary>
-            <param name="request">The version to roll back to; one of the versions in the version history.</param>
-            <returns>Returns the version now live and the one it replaced, or 404 if that version is not kept.</returns>
-        </member>
         <member name="T:Api.Controllers.DataGateway.DataAccessController">
             <summary>
             Controller for managing data access permissions.
@@ -354,6 +254,26 @@
             <param name="id">The unique identifier of the schema definition to delete.</param>
             <returns>Returns a success response if the schema is deleted, or an error message if the operation fails.</returns>
         </member>
+        <member name="T:Api.Controllers.SchemaFieldDefaultController">
+            <summary>
+            Default values of schema properties: filled in on insert when the property isn't sent.
+            Served under <c>schemas</c>, next to the other schema endpoints.
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.SchemaFieldDefaultController.#ctor(DataGateway.DomainService.Services.ISchemaDefinitionService)">
+            <summary>
+            Initializes a new instance of the <see cref="T:Api.Controllers.SchemaFieldDefaultController"/> class.
+            </summary>
+            <param name="schemaService"></param>
+        </member>
+        <member name="M:Api.Controllers.SchemaFieldDefaultController.SetFieldDefault(DataGateway.DomainService.Models.SetFieldDefaultRequest)">
+            <summary>
+            Sets or clears one property's default value, applied on insert when the property isn't sent.
+            A nested property is addressed by its full dotted path (e.g. Read.Roles). Takes effect after publish.
+            </summary>
+            <param name="request">SchemaId, FieldName, and DefaultValue (Kind Static/Template/Now, Value, Offset), or a null DefaultValue to clear it.</param>
+            <returns>Success, or 400 with the reason (e.g. a template syntax error with its position).</returns>
+        </member>
         <member name="T:Api.Controllers.SchemaIndexController">
             <summary>
             SchemaIndexController manages MongoDB indexes defined on a schema's data collection:
@@ -577,6 +497,81 @@
         </member>
         <member name="M:Api.Controllers.ObjectController.ShareObject(DomainService.Storage.Dms.ShareObjectRequest)">
             <summary>Grants a principal an allow entry and records it as a share.</summary>
+        </member>
+        <member name="T:DataGateway.Api.Controllers.GatewayOptionsController">
+            <summary>Read-only options for the Data console, resolved locally from the tenant's root document.</summary>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.GatewayOptionsController.#ctor(DataGateway.DomainService.Services.IDataGatewayConfigurationService)">
+            <summary>Read-only options for the Data console, resolved locally from the tenant's root document.</summary>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.GatewayOptionsController.GetAsync">
+            <summary>Returns collection naming and analytics options without exposing connection settings.</summary>
+        </member>
+        <member name="T:DataGateway.Api.Controllers.MockDataController">
+            <summary>
+            MockDataController provides endpoints to manage mock data operations.
+            It allows retrieving and deleting mock data for a specific project.
+            </summary>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.MockDataController.#ctor(DataGateway.DomainService.Services.IMockDataService)">
+            <summary>
+            Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.MockDataController"/> class.
+            </summary>
+            <param name="dataManageService"></param>
+            <exception cref="T:System.ArgumentException"></exception>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.MockDataController.GetMockDataAsync">
+            <summary>
+            Gets mock data from the database.
+            </summary>
+            <returns>Returns the mock data for the project.</returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.MockDataController.DeleteMockData(DataGateway.DomainService.Models.DeleteMockDataRequest)">
+            <summary>
+            Deletes mock data from the database.
+            </summary>
+            <param name="request"></param>
+            <returns></returns>
+        </member>
+        <member name="T:DataGateway.Api.Controllers.SchemaConfigurationController">
+            <summary>
+            OperateSchemaController provides endpoints to manage GraphQL schema operations.
+            It allows reloading the schema configuration, which is necessary after making changes to schema definitions or data sources.
+            </summary>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.#ctor(DataGateway.DomainService.Services.ISchemaConfigurationService,Microsoft.Extensions.Logging.ILogger{DataGateway.Api.Controllers.SchemaConfigurationController})">
+            <summary>
+            Initializes a new instance of the <see cref="T:DataGateway.Api.Controllers.SchemaConfigurationController"/> class.
+            </summary>
+            <param name="configurationService">The configuration service.</param>
+            <param name="logger">The logger.</param>
+            <exception cref="T:System.ArgumentNullException">Thrown when the configuration service is null.</exception>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.ReloadDataGatewayServerAsync">
+            <summary>
+            Publishes the tenant's schema drafts to every gateway pod and resolves all unadapted changes.
+            The drafts are test-built first; if they build, they are stored as a new published version and made live
+            (every pod rebuilds when it sees the new version; pods never serve unpublished drafts), this pod's executor
+            is rebuilt before the response, and the pending schema changes are marked as adapted to the server.
+            Use this endpoint after making changes to schema definitions or data sources to refresh the schema and clear deployment badges in the UI.
+            </summary>
+            <returns>Returns a success response carrying the published version and the number of changes it published, 400 with the build error if the definitions do not build (nothing is published), or an error message if the operation fails.</returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.GetSchemaVersionHistoryAsync">
+            <summary>
+            Lists the tenant's published schema versions that can be rolled back to (the newest 10), newest first,
+            with the version that is live now.
+            </summary>
+            <returns>Returns the live version and the kept versions: when and by whom each was published, how many changes
+            it published, and whether it is the live one.</returns>
+        </member>
+        <member name="M:DataGateway.Api.Controllers.SchemaConfigurationController.RollbackSchemaVersionAsync(DataGateway.DomainService.Models.RollbackSchemaVersionRequest)">
+            <summary>
+            Makes an earlier published schema version live again on every gateway pod. The schema drafts and the pending
+            (unpublished) changes are not touched, and the next publish still gets a new version number.
+            </summary>
+            <param name="request">The version to roll back to; one of the versions in the version history.</param>
+            <returns>Returns the version now live and the one it replaced, or 404 if that version is not kept.</returns>
         </member>
         <member name="T:BlocksTemplate.Api.Controllers.RegexAssistantController">
             <summary>

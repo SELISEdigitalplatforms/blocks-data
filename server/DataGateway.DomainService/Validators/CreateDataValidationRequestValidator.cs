@@ -2,6 +2,7 @@ using FluentValidation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Validators;
 
@@ -30,6 +31,9 @@ public class CreateDataValidationRequestValidator : DataValidationRequestValidat
 
         RuleForEach(x => x.Validations)
             .SetValidator(new ValidationRuleRequestValidator());
+
+        ValidateReferenceRules(x => x.SchemaId, x => x.FieldName, x => x.Validations);
+        ValidateVariableRules(x => x.SchemaId, x => x.FieldName, x => x.Validations);
     }
 }
 

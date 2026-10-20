@@ -162,7 +162,7 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                    <FormLabel className="!mt-0">Enable Multi-Organization</FormLabel>
+                    <FormLabel className="mt-0!">Enable Multi-Organization</FormLabel>
                   </FormItem>
                 )}
               />
@@ -181,7 +181,7 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
-                        <FormLabel className="!mt-0">Allow Creation From Cloud</FormLabel>
+                        <FormLabel className="mt-0!">Allow Creation From Cloud</FormLabel>
                       </FormItem>
                     )}
                   />
@@ -199,7 +199,7 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
                             disabled={true}
                           />
                         </FormControl>
-                        <FormLabel className="!mt-0">Allow Creation From Construct</FormLabel>
+                        <FormLabel className="mt-0!">Allow Creation From Construct</FormLabel>
                       </FormItem>
                     )}
                   />

@@ -50,6 +50,7 @@ export const normalizeSchemaFields = (fields: IRemoteSchemaField[] = []): IField
     editAccessLevel: field.editAccessLevel,
     totalValidationRules: field.totalValidationRules ?? 0,
     validationRule: field.validationRule ?? null,
+    defaultValue: field.defaultValue ?? null,
     fields: field.fields?.length ? normalizeSchemaFields(field.fields) : undefined,
   }));
 
@@ -96,6 +97,7 @@ type ParentNestedField = {
   requiredOn?: IField["requiredOn"];
   description?: string;
   validationRule?: unknown;
+  defaultValue?: IField["defaultValue"];
   totalValidationRules?: number;
   readAccessLevel?: number;
   writeAccessLevel?: number;
@@ -113,6 +115,7 @@ const parentToField = (p: ParentNestedField): IField => ({
   requiredOn: p.requiredOn ?? "None",
   description: p.description ?? "",
   validationRule: (p.validationRule as IField["validationRule"]) ?? null,
+  defaultValue: p.defaultValue ?? null,
   totalValidationRules: p.totalValidationRules ?? 0,
   readAccessLevel: p.readAccessLevel,
   writeAccessLevel: p.writeAccessLevel,
@@ -148,6 +151,8 @@ export const mergeFieldsWithParentData = (
       requiredOn: parentField.requiredOn ?? f.requiredOn,
       description: parentField.description ?? f.description,
       validationRule: (parentField.validationRule as IField["validationRule"]) ?? f.validationRule,
+      // Defaults are per entity: a nested property's default is the one stored on the entity, never the child schema's.
+      defaultValue: parentField.defaultValue ?? null,
       totalValidationRules: parentField.totalValidationRules ?? f.totalValidationRules,
       readAccessLevel: parentField.readAccessLevel ?? f.readAccessLevel,
       writeAccessLevel: parentField.writeAccessLevel ?? f.writeAccessLevel,

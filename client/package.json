@@ -93,9 +93,9 @@
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^8.62.0",
     "@typescript-eslint/parser": "^8.62.0",
+    "@tailwindcss/vite": "^4.3.3",
     "@vitejs/plugin-react": "^4.3.0",
     "@vitest/coverage-v8": "^4.1.5",
-    "autoprefixer": "^10.4.19",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9",
     "eslint-plugin-react": "^7.37.5",
@@ -104,20 +104,20 @@
     "msw": "^2.14.6",
     "postcss": "^8.5.10",
     "prettier": "^3",
-    "tailwindcss": "^3.4.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "~5.7.0",
     "vite": "^6.0.0",
     "vitest": "^4.1.5"
   },
   "overrides": {
     "axios": "1.20.0",
-    "brace-expansion": "^5.0.9",
     "follow-redirects": "1.16.0",
     "form-data": "4.0.6",
     "linkify-it": "5.0.2",
     "markdown-it": "14.3.1",
     "ws": "7.5.11",
     "nanoid": "3.3.18",
-    "fast-uri": "3.1.8"
+    "fast-uri": "3.1.8",
+    "source-map-js": "1.2.2"
   }
 }

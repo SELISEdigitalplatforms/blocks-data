@@ -38,12 +38,15 @@ export const FilePreviewModal = ({
   const [isLoadingText, setIsLoadingText] = useState(false);
   const extension = getNormalizedExtension(fileExtension, fileName);
 
-  useEffect(() => {
+  // Clear the previous file's content each time the modal opens.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setIsPdfLoaded(false);
       setTextContent("");
     }
-  }, [open]);
+  }
 
   useEffect(() => {
     const fetchTextContent = async () => {
@@ -167,7 +170,7 @@ export const FilePreviewModal = ({
               <Skeleton className="h-full w-full" />
             </div>
           ) : (
-            <pre className="whitespace-pre-wrap break-words font-mono text-sm">{textContent}</pre>
+            <pre className="whitespace-pre-wrap wrap-break-word font-mono text-sm">{textContent}</pre>
           )}
         </ScrollArea>
       );

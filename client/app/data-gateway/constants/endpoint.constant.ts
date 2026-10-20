@@ -1,11 +1,9 @@
 import { API_BASES } from "@/constants/endpoint.constant";
 
-// ─── Configuration endpoints ─────────────────────────────────────────────────
-
-const CONFIGURATIONS_SUBPATH = "/configurations";
-
+// Read-only console options from Data's own root-document reader.
+// Configuration editing remains in Blocks OS; no cross-service API calls.
 export const CONFIGURATION_ENDPOINTS = {
-  GET: `${API_BASES.UDS}${CONFIGURATIONS_SUBPATH}`,
+  GET: `${API_BASES.UDS}/gateway-options`,
 } as const;
 
 // ─── Schema configuration (publishing) endpoints ──────────────────────────────
@@ -29,6 +27,7 @@ export const SCHEMA_ENDPOINTS = {
   UPDATE_FIELDS: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/fields`,
   DELETE: `${API_BASES.UDS}${SCHEMAS_SUBPATH}`,
   UNADAPTED_CHANGE_LOGS: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/unadapted-change-logs`,
+  FIELD_DEFAULT: `${API_BASES.BLOCKS_DATA}${SCHEMAS_SUBPATH}/field-default`,
 } as const;
 
 // ─── Schema Index endpoints ───────────────────────────────────────────────────

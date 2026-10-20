@@ -1,6 +1,7 @@
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
+using Blocks.Genesis.Entities.Data;
 
 // Namespaced apart from the legacy storage DTOs: a CreateDirectoryRequest already
 // exists there for the directory methods that SPEC B5 retires in the post-migration
@@ -161,7 +162,7 @@ namespace DomainService.Storage.Dms
         public PermissionFlags Permissions { get; set; } = new();
 
         public static DirectoryDetailResponse From(
-            global::Storage.DomainService.Entities.FileDirectory directory, ObjectPermissionFlags? flags) => new()
+            global::Blocks.Genesis.Entities.Data.FileDirectory directory, ObjectPermissionFlags? flags) => new()
             {
                 ItemId = directory.ItemId,
                 Name = directory.Name ?? string.Empty,

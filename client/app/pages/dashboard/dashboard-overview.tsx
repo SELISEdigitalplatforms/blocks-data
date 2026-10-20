@@ -13,33 +13,30 @@ export const DashboardOverview = () => {
   };
   const { data, isLoading } = useGetProject({ projectId: itemId });
   const { mutateAsync } = useValidateCNameProject({ projectKey });
+  const applications = data?.data?.applications;
+  const customDomain = data?.data?.customDomain;
 
   const cNameValidator = useCallback(async () => {
     try {
-      const applicationDomain = data?.data?.applications?.[0]?.domain;
+      const applicationDomain = applications?.[0]?.domain;
       if (
         !applicationDomain ||
         getDomain(applicationDomain) === "seliseblocks.com"
       )
         return;
 
-      if (!data?.data?.customDomain) return;
+      if (!customDomain) return;
 
       await mutateAsync({
         projectKey: projectKey,
-        cookieDomain: new URL(data.data.customDomain).hostname,
+        cookieDomain: new URL(customDomain).hostname,
       });
     } catch (error) {
       if (error && typeof error === "object" && "errors" in error) {
         showErrorToast({ errors: (error as { errors?: unknown }).errors });
       }
     }
-  }, [
-    data?.data?.applications,
-    data?.data?.customDomain,
-    mutateAsync,
-    projectKey,
-  ]);
+  }, [applications, customDomain, mutateAsync, projectKey]);
 
   useEffect(() => {
     cNameValidator();

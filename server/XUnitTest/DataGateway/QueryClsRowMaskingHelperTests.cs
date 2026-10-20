@@ -1,4 +1,6 @@
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
@@ -112,7 +114,7 @@ public class QueryClsRowMaskingHelperPureTests
 
         var allowed = QueryClsRowMaskingHelper.ComputeAllowedFieldNamesForRow(
             row, schema, new List<DataAccessPolicy> { clsPolicy }, protectedByCls,
-            QueryPolicyRuleEvaluator.RowSatisfiesPolicy);
+            ((p, r) => QueryPolicyRuleEvaluator.RowSatisfiesPolicy(CurrentPrincipal(), p, r)));
 
         allowed.Should().Contain("Salary"); // policy satisfied
         allowed.Should().Contain("Name");   // not protected
@@ -132,7 +134,7 @@ public class QueryClsRowMaskingHelperPureTests
 
         var allowed = QueryClsRowMaskingHelper.ComputeAllowedFieldNamesForRow(
             row, schema, new List<DataAccessPolicy> { clsPolicy }, protectedByCls,
-            QueryPolicyRuleEvaluator.RowSatisfiesPolicy);
+            ((p, r) => QueryPolicyRuleEvaluator.RowSatisfiesPolicy(CurrentPrincipal(), p, r)));
 
         allowed.Should().NotContain("Salary");
     }
@@ -156,11 +158,11 @@ public class QueryClsRowMaskingHelperContextTests
     public void IsRequestAuthenticated_ReflectsContext()
     {
         ClearContext();
-        QueryClsRowMaskingHelper.IsRequestAuthenticated().Should().BeFalse();
+        QueryClsRowMaskingHelper.IsRequestAuthenticated(CurrentPrincipal()).Should().BeFalse();
         SetContext(isAuthenticated: true);
         try
         {
-            QueryClsRowMaskingHelper.IsRequestAuthenticated().Should().BeTrue();
+            QueryClsRowMaskingHelper.IsRequestAuthenticated(CurrentPrincipal()).Should().BeTrue();
         }
         finally { ClearContext(); }
     }
@@ -174,7 +176,7 @@ public class QueryClsRowMaskingHelperContextTests
         {
             var schema = Schema(read: SchemaAccessLevel.Custom, fields: new() { Field("Secret") });
             var row = new Dictionary<string, object> { ["_id"] = "1", ["Secret"] = "x", ["ItemId"] = "1" };
-            QueryClsRowMaskingHelper.ApplyCustomSchemaMaskWhenNoCls(row, schema);
+            QueryClsRowMaskingHelper.ApplyCustomSchemaMaskWhenNoCls(CurrentPrincipal(), row, schema);
             row.ContainsKey("Secret").Should().BeFalse();
             row.ContainsKey("_id").Should().BeTrue();  // system field kept
             row.ContainsKey("ItemId").Should().BeTrue();
@@ -191,7 +193,7 @@ public class QueryClsRowMaskingHelperContextTests
         {
             var schema = Schema(read: SchemaAccessLevel.Custom, fields: new() { Field("Secret") });
             var row = new Dictionary<string, object> { ["Secret"] = "x" };
-            QueryClsRowMaskingHelper.ApplyCustomSchemaMaskWhenNoCls(row, schema);
+            QueryClsRowMaskingHelper.ApplyCustomSchemaMaskWhenNoCls(CurrentPrincipal(), row, schema);
             row.ContainsKey("Secret").Should().BeTrue();
         }
         finally { ClearContext(); }
@@ -206,7 +208,7 @@ public class QueryClsRowMaskingHelperContextTests
         {
             var schema = Schema(read: SchemaAccessLevel.Public, fields: new() { Field("Secret") });
             var row = new Dictionary<string, object> { ["Secret"] = "x" };
-            QueryClsRowMaskingHelper.ApplyCustomSchemaMaskWhenNoCls(row, schema);
+            QueryClsRowMaskingHelper.ApplyCustomSchemaMaskWhenNoCls(CurrentPrincipal(), row, schema);
             row.ContainsKey("Secret").Should().BeTrue();
         }
         finally { ClearContext(); }
@@ -222,7 +224,7 @@ public class QueryClsRowMaskingHelperContextTests
             Field("UserField", read: SchemaAccessLevel.User)
         });
         var row = new Dictionary<string, object> { ["PublicField"] = "p", ["UserField"] = "u" };
-        QueryClsRowMaskingHelper.MaskUserOnlyFieldsWhenUnauthenticated(row, schema);
+        QueryClsRowMaskingHelper.MaskUserOnlyFieldsWhenUnauthenticated(CurrentPrincipal(), row, schema);
         row["UserField"].Should().BeNull();
         row["PublicField"].Should().Be("p");
     }
@@ -239,7 +241,7 @@ public class QueryClsRowMaskingHelperContextTests
                 Field("UserField", read: SchemaAccessLevel.User)
             });
             var row = new Dictionary<string, object> { ["UserField"] = "u" };
-            QueryClsRowMaskingHelper.MaskUserOnlyFieldsWhenUnauthenticated(row, schema);
+            QueryClsRowMaskingHelper.MaskUserOnlyFieldsWhenUnauthenticated(CurrentPrincipal(), row, schema);
             row["UserField"].Should().Be("u");
         }
         finally { ClearContext(); }
@@ -255,9 +257,9 @@ public class QueryClsRowMaskingHelperContextTests
         {
             var schema = Schema(read: SchemaAccessLevel.Custom, fields: new() { Field("Secret") });
             var row = new Dictionary<string, object> { ["_id"] = "1", ["Secret"] = "x" };
-            var masked = QueryClsRowMaskingHelper.MaskRowByClsPolicies(
+            var masked = QueryClsRowMaskingHelper.MaskRowByClsPolicies(CurrentPrincipal(), 
                 row, schema, new List<DataAccessPolicy>(), new HashSet<string>(),
-                QueryPolicyRuleEvaluator.RowSatisfiesPolicy);
+                ((p, r) => QueryPolicyRuleEvaluator.RowSatisfiesPolicy(CurrentPrincipal(), p, r)));
             masked.ContainsKey("Secret").Should().BeFalse();
         }
         finally { ClearContext(); }
@@ -280,9 +282,9 @@ public class QueryClsRowMaskingHelperContextTests
                 Group(PolicyLogicalOperator.AND, Rule(ConditionSource.SCHEMA_FIELD, "Role", PolicyOperator.EQUAL, staticValue: "mgr")));
             var row = new Dictionary<string, object> { ["Name"] = "n", ["Salary"] = 100, ["Role"] = "peon" };
 
-            var masked = QueryClsRowMaskingHelper.MaskRowByClsPolicies(
+            var masked = QueryClsRowMaskingHelper.MaskRowByClsPolicies(CurrentPrincipal(), 
                 row, schema, new List<DataAccessPolicy> { clsPolicy }, new HashSet<string>(),
-                QueryPolicyRuleEvaluator.RowSatisfiesPolicy);
+                ((p, r) => QueryPolicyRuleEvaluator.RowSatisfiesPolicy(CurrentPrincipal(), p, r)));
 
             masked["Salary"].Should().BeNull();  // policy not satisfied (Role != mgr)
             masked["Name"].Should().Be("n");

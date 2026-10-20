@@ -199,7 +199,7 @@ export default function SchemasSidebar({
             type="text"
             placeholder="Search schemas…"
             aria-label="Search schemas"
-            className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground/60"
+            className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-hidden placeholder:text-muted-foreground/60"
             {...register("search")}
           />
         </div>
@@ -216,7 +216,7 @@ export default function SchemasSidebar({
               aria-pressed={active}
               onClick={() => onListQueryChange({ type: value, page: 1 })}
               className={cn(
-                "dg-interactive h-[25px] rounded-full border px-2.5 text-[11px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                "dg-interactive h-[25px] rounded-full border px-2.5 text-[11px] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                 active
                   ? "border-primary/30 bg-primary/10 font-semibold text-primary"
                   : "border-border/40 font-medium text-muted-foreground hover:text-foreground",
@@ -251,7 +251,7 @@ export default function SchemasSidebar({
                 aria-current={isSelected ? "true" : undefined}
                 title={references}
                 className={cn(
-                  "dg-interactive relative flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                  "dg-interactive relative flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                   isSelected
                     ? "bg-primary/10 text-primary"
                     : "text-foreground/80 hover:bg-muted/40 hover:text-foreground",

@@ -687,12 +687,12 @@ export function StorageDetail() {
                     }}
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-3">
-                      <Directory className="h-5 w-5 flex-shrink-0 text-yellow-500" />
+                      <Directory className="h-5 w-5 shrink-0 text-yellow-500" />
                       <span className="truncate text-sm font-medium" title={directory.name}>
                         {directory.name}
                       </span>
                     </div>
-                    <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0 -mr-1">
+                    <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0 -mr-1">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
@@ -733,7 +733,7 @@ export function StorageDetail() {
                       >
                         {/* Directory Name */}
                         <TableCell className="flex items-center gap-3 min-w-0">
-                          <Directory className="h-5 w-5 flex-shrink-0 text-yellow-500" />
+                          <Directory className="h-5 w-5 shrink-0 text-yellow-500" />
                           <span className="font-medium truncate max-w-[200px] min-w-0">
                             {directory.name}
                           </span>
@@ -751,7 +751,7 @@ export function StorageDetail() {
 
                         {/* Dropdown Icon*/}
                         <TableCell className="w-px">
-                          <div className="opacity-0 group-hover:opacity-100 flex-shrink-0">
+                          <div className="opacity-0 group-hover:opacity-100 shrink-0">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -830,7 +830,7 @@ export function StorageDetail() {
                           </span>
                         </div>
 
-                        <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0 mr-3">
+                        <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 shrink-0 mr-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -894,7 +894,7 @@ export function StorageDetail() {
 
                         {/* Dropdown icon */}
                         <TableCell className="text-muted-foreground w-px">
-                          <div className="opacity-0 group-hover:opacity-100 flex-shrink-0">
+                          <div className="opacity-0 group-hover:opacity-100 shrink-0">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button

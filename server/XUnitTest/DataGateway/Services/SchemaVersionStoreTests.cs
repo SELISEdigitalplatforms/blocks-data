@@ -67,7 +67,108 @@ public class SchemaVersionStoreTests
             database = _fixture.CreateDatabase();
             _tenantDatabases[tenantId] = database;
         }
-        return database.GetCollection<BsonDocument>("SchemaPublishStates");
+        return database.GetCollection<BsonDocument>("PublishedSchemaSnapshotChunks");
+    }
+
+    /// <summary>The old home of the state doc (only read by the new code, to seed the new doc once).</summary>
+    private IMongoCollection<BsonDocument> LegacyCollection(string tenantId)
+    {
+        StateCollection(tenantId);
+        return _tenantDatabases[tenantId].GetCollection<BsonDocument>("SchemaPublishStates");
+    }
+
+    // ---------------- state doc in the chunk collection (data SPEC1 §3.4, H3/H4, C10) ----------------
+
+    [Fact]
+    public async Task StateDoc_LivesInTheChunkCollection_NoVersionField_OldCollectionNeverCreated()
+    {
+        var store = Store();
+        await PublishAsync(store, "tenant-1");
+
+        var state = await StateCollection("tenant-1").Find(new BsonDocument("_id", "state")).FirstAsync();
+        state["CurrentVersion"].ToInt64().Should().Be(1);
+        state.Contains("Version").Should().BeFalse();
+        state.Contains("Index").Should().BeFalse();
+        state.Contains("Data").Should().BeFalse();
+        (await _tenantDatabases["tenant-1"].ListCollectionNames().ToListAsync()).Should().NotContain("SchemaPublishStates");
+    }
+
+    [Fact]
+    public async Task FirstRead_OnATenantNotYetMigrated_SeedsFromTheOldDocWithMax_NumberingContinues()
+    {
+        await LegacyCollection("tenant-1").InsertOneAsync(new BsonDocument { { "_id", "state" }, { "CurrentVersion", 5L }, { "LastAllocatedVersion", 7L } });
+        var store = Store();
+
+        (await store.GetAsync("tenant-1")).Should().Be(5);
+        var seeded = await StateCollection("tenant-1").Find(new BsonDocument("_id", "state")).FirstAsync();
+        seeded["LastAllocatedVersion"].ToInt64().Should().Be(7);
+        (await store.AllocateAsync("tenant-1")).Should().Be(8);
+        (await LegacyCollection("tenant-1").Find(new BsonDocument("_id", "state")).FirstAsync())["LastAllocatedVersion"].ToInt64()
+            .Should().Be(7, "the old collection is only read");
+    }
+
+    [Fact]
+    public async Task Seed_OldDocWithoutLastAllocatedVersion_OnlyExistingFieldsAreTaken()
+    {
+        await LegacyCollection("tenant-1").InsertOneAsync(new BsonDocument { { "_id", "state" }, { "CurrentVersion", 4L } });
+        var store = Store();
+
+        (await store.AllocateAsync("tenant-1")).Should().Be(5);
+        (await store.MakeCurrentAsync("tenant-1", 5)).Should().Be(5);
+    }
+
+    [Fact]
+    public async Task Seed_EveryWritePathSeedsFirst_SetCurrentAfterSeedDoesNotLoseLastAllocated()
+    {
+        await LegacyCollection("tenant-1").InsertOneAsync(new BsonDocument { { "_id", "state" }, { "CurrentVersion", 3L }, { "LastAllocatedVersion", 9L } });
+        var store = Store();
+
+        await store.SetCurrentAsync("tenant-1", 2);
+
+        (await store.GetAsync("tenant-1")).Should().Be(2);
+        (await store.AllocateAsync("tenant-1")).Should().Be(10);
+    }
+
+    [Fact]
+    public async Task Seed_NewDocExists_OldDocIsIgnored()
+    {
+        await StateCollection("tenant-1").InsertOneAsync(new BsonDocument { { "_id", "state" }, { "CurrentVersion", 2L }, { "LastAllocatedVersion", 2L } });
+        await LegacyCollection("tenant-1").InsertOneAsync(new BsonDocument { { "_id", "state" }, { "CurrentVersion", 50L }, { "LastAllocatedVersion", 50L } });
+
+        (await Store().GetAsync("tenant-1")).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Seed_TwoPodsAtOnce_BothSeeTheSameCounters()
+    {
+        await LegacyCollection("tenant-1").InsertOneAsync(new BsonDocument { { "_id", "state" }, { "CurrentVersion", 6L }, { "LastAllocatedVersion", 6L } });
+        var a = Store();
+        var b = Store();
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 10).Select(i => (i % 2 == 0 ? a : b).GetAsync("tenant-1")));
+
+        results.Should().AllBeEquivalentTo(6L);
+        (await StateCollection("tenant-1").CountDocumentsAsync(new BsonDocument("_id", "state"))).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Seed_DuplicateKeyOnTheUpsert_RetriesTheUpdateOnce()
+    {
+        var repo = new Mock<IDbRepository>();
+        repo.Setup(r => r.GetItemAsync("PublishedSchemaSnapshotChunks", "state", "t")).ReturnsAsync((BsonDocument?)null);
+        repo.Setup(r => r.GetItemAsync("SchemaPublishStates", "state", "t"))
+            .ReturnsAsync(new BsonDocument { { "_id", "state" }, { "CurrentVersion", 3L } });
+        var duplicate = new MongoCommandException(
+            new MongoDB.Driver.Core.Connections.ConnectionId(new MongoDB.Driver.Core.Servers.ServerId(
+                new MongoDB.Driver.Core.Clusters.ClusterId(), new System.Net.DnsEndPoint("localhost", 27017))),
+            "E11000 duplicate key", new BsonDocument(), new BsonDocument { { "ok", 0 }, { "code", 11000 } });
+        repo.SetupSequence(r => r.FindOneAndUpdateAsync("PublishedSchemaSnapshotChunks", It.IsAny<BsonDocument>(), It.IsAny<UpdateDefinition<BsonDocument>>(), true, "t"))
+            .ThrowsAsync(duplicate)
+            .ReturnsAsync(new BsonDocument { { "_id", "state" }, { "CurrentVersion", 3L } });
+        var store = new SchemaVersionStore(repo.Object, _cache, NullLogger<SchemaVersionStore>.Instance);
+
+        (await store.GetAsync("t")).Should().Be(3);
+        repo.Verify(r => r.FindOneAndUpdateAsync("PublishedSchemaSnapshotChunks", It.IsAny<BsonDocument>(), It.IsAny<UpdateDefinition<BsonDocument>>(), true, "t"), Times.Exactly(2));
     }
 
     [Fact]

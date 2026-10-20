@@ -157,7 +157,7 @@ export const SchemaBasicInfo = ({
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="min-w-0 break-words text-sm font-semibold text-foreground">
+                <h2 className="min-w-0 wrap-break-word text-sm font-semibold text-foreground">
                   {schemaName}
                 </h2>
                 <span

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
@@ -22,11 +22,14 @@ export const ProfileImageUploader = ({ projectKey, id }: ProfileImageUploaderPro
   const { mutateAsync: updateUserMutate } = useUpdateUser({ projectKey, id, own: true });
   const [isProfileImageUploading, setIsProfileImageUploading] = useState<boolean>(false);
 
-  useEffect(() => {
+  // Show the stored image whenever the loaded user (or its image) changes.
+  const [prevUserData, setPrevUserData] = useState<typeof data | null>(null);
+  if (data?.data !== prevUserData?.data || data?.data?.profileImageUrl !== prevUserData?.data?.profileImageUrl) {
+    setPrevUserData(data);
     if (data?.data) {
       setImage(data.data.profileImageUrl);
     }
-  }, [data?.data, data?.data.profileImageUrl]);
+  }
 
   const uploadImage = async (file: File) => {
     try {

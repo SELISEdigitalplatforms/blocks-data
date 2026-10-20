@@ -173,7 +173,7 @@ export function Configure() {
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
-                        <FormLabel className="!mt-0 text-muted-foreground">
+                        <FormLabel className="mt-0! text-muted-foreground">
                           Logout on password change
                         </FormLabel>
                         <FormMessage />

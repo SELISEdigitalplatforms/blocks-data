@@ -1,6 +1,7 @@
 import { IImportFile } from "@/data-gateway/models/schema-import-export-notification";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import {
   buildClientSchema,
   getIntrospectionQuery,
@@ -18,23 +19,28 @@ import {
   IGetSchemaFieldValidationPayload,
   IGetSchemaListPayload,
   ISchemaExportPayload,
+  ISetFieldDefaultPayload,
   IUpdateSchemaFieldValidationPayload,
   IUpdateSchemaStructure,
 } from "../models/data-service";
 import {
   configurationService,
 } from "../services/configuration.service";
+import { normalizeSchemaFields } from "../utils/schema-normalization";
+import { variableFieldsOf } from "../utils/variable-syntax";
 
 const getProjectKey = () => useProjectStore.getState().selectedProject?.tenantId || "";
 
-export const useGetDataServiceConfiguration = () => {
+export const useGetDataServiceConfiguration = ({ enabled = true }: { enabled?: boolean } = {}) => {
   // Subscribe so deep-links re-fetch when selectedProject arrives (getState alone does not).
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   return useQuery({
     queryKey: ["data-service-config", "get", projectKey],
     queryFn: () => configurationService.getDataServiceDetails(),
-    enabled: !!projectKey,
+    enabled: !!projectKey && enabled,
+    retry: false,
+    staleTime: 60_000,
   });
 };
 
@@ -109,13 +115,13 @@ export const useSchemasReload = () => {
 /**
  * The published schema versions that can be rolled back to, and which one is
  * live. Not retried: a role without the history permission gets a 403, and the
- * page simply leaves the version out.
+ * history popover reports that history is unavailable.
  */
-export const useSchemaVersionHistory = ({ projectKey }: { projectKey: string }) => {
+export const useSchemaVersionHistory = ({ projectKey, enabled = true }: { projectKey: string; enabled?: boolean }) => {
   return useQuery({
     queryKey: ["schema-version-history", projectKey],
     queryFn: () => configurationService.getSchemaVersionHistory(),
-    enabled: !!projectKey,
+    enabled: !!projectKey && enabled,
     retry: false,
   });
 };
@@ -567,6 +573,45 @@ export const useCreateSchemaFieldValidation = () => {
       });
       queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],
+      });
+    },
+  });
+};
+
+/**
+ * The schema's name and property tree, for variables like {{Employee.FirstName}}. Reads the details the
+ * page already loaded (same query key) without refetching on every panel open; nested tables pass the
+ * root entity's id, since defaults and variables are per entity.
+ */
+export const useSchemaVariableContext = (schemaId: string, projectKey: string) => {
+  const { data } = useQuery({
+    queryKey: ["schema-details", schemaId, projectKey],
+    queryFn: () => configurationService.getSchemaDetails(schemaId, projectKey),
+    enabled: !!schemaId && !!projectKey,
+    staleTime: 60_000,
+  });
+  return useMemo(
+    () => ({
+      schemaName: data?.data?.schemaName ?? "",
+      fields: variableFieldsOf(normalizeSchemaFields(data?.data?.fields ?? [])),
+    }),
+    [data],
+  );
+};
+
+export const useSetFieldDefault = () => {
+  const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
+
+  return useMutation({
+    mutationFn: (payload: ISetFieldDefaultPayload) => configurationService.setFieldDefault(payload),
+    onSuccess: (_data, variables) => {
+      const mutationProjectKey = variables.projectKey || projectKey;
+      queryClient.invalidateQueries({
+        queryKey: ["schema-details", variables.schemaId, mutationProjectKey],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", mutationProjectKey],
       });
     },
   });

@@ -8,6 +8,7 @@ using HotChocolate;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 
@@ -196,7 +197,8 @@ public class SchemaPublishService : ISchemaPublishService
         {
             var builder = SchemaBuilder.New();
             // A tenant without definitions has nothing to validate (and nothing to serve).
-            if (_schemaBuilder.BuildSchema(tenantId, source, builder))
+            // Strict: a Reference rule pointing at a schema or field that no longer exists stops the publish.
+            if (_schemaBuilder.BuildSchema(tenantId, source, builder, strictReferences: true))
             {
                 builder.Create();
             }

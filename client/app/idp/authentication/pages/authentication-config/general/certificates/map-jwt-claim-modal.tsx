@@ -31,7 +31,7 @@ import { useAddJwtClaim, useGetJwtClaim } from "@blocks-idp/authentication/hooks
 import { JwtClaimPayload } from "@blocks-idp/authentication/models/jwt.claim.model";
 import { jwtDecode } from "jwt-decode";
 import { X } from "lucide-react";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo } from "react";
 
 interface DecodedJwt {
   [key: string]: unknown;
@@ -143,7 +143,7 @@ const MappingTableSection: React.FC<MappingTableSectionProps> = ({
                       value={mapping[property]}
                       onValueChange={(value) => onMappingChange(property, value)}
                     >
-                      <SelectTrigger className="border-0 text-foreground shadow-none focus:outline-none focus:ring-0 focus:ring-offset-0">
+                      <SelectTrigger className="border-0 text-foreground shadow-none focus:outline-hidden focus:ring-0 focus:ring-offset-0">
                         <SelectValue placeholder="Select mapping" />
                       </SelectTrigger>
                       <SelectContent>
@@ -216,7 +216,9 @@ const MapJwtClaimModal: React.FC<MapJwtClaimModalProps> = ({ open, onOpenChange 
     open,
   );
 
-  useEffect(() => {
+  const [prevJwtClaim, setPrevJwtClaim] = useState<typeof existingJwtClaim | null>(null);
+  if (existingJwtClaim !== prevJwtClaim) {
+    setPrevJwtClaim(existingJwtClaim);
     if (existingJwtClaim) {
       setMapping({
         userId: existingJwtClaim.userId || "",
@@ -226,7 +228,7 @@ const MapJwtClaimModal: React.FC<MapJwtClaimModalProps> = ({ open, onOpenChange 
         roles: existingJwtClaim.roles || "",
       });
     }
-  }, [existingJwtClaim]);
+  }
 
   const hasDecodedJwt = useMemo(() => decodedJwt.length > 0, [decodedJwt.length]);
   const hasExistingData = useMemo(() => !!existingJwtClaim?.itemId, [existingJwtClaim]);

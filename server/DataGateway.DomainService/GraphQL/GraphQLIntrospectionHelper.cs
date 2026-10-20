@@ -11,6 +11,13 @@ internal static class GraphQLIntrospectionHelper
         HttpRequest request,
         CancellationToken cancellationToken = default)
     {
+        // HotChocolate serves the schema SDL for a GET with an `sdl` query key, with no query text
+        // to inspect. That is the whole schema in one response, so it is introspection too.
+        if (IsSchemaDownload(request))
+        {
+            return true;
+        }
+
         foreach (var query in await ReadQueriesAsync(request, cancellationToken))
         {
             if (string.IsNullOrWhiteSpace(query))
@@ -37,22 +44,33 @@ internal static class GraphQLIntrospectionHelper
     private static bool ContainsIntrospectionQuery(string query) =>
         ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query));
 
+    /// <summary>The same test HotChocolate's HTTP middleware uses to decide to return the SDL.</summary>
+    private static bool IsSchemaDownload(HttpRequest request) =>
+        HttpMethods.IsGet(request.Method) && request.Query.ContainsKey("sdl");
+
     /// <summary>
     /// Whether a parsed document asks for schema introspection (<c>__schema</c> / <c>__type</c>,
     /// including through fragments). Note this is a field-name match, so the everyday
     /// <c>__typename</c> is correctly not treated as introspection.
     /// </summary>
+    /// <remarks>
+    /// This runs on the raw request before HotChocolate validates it, so the document may be
+    /// invalid: fragments can spread themselves (a cycle) or spread the same fragment many times
+    /// over (exponential fan-out). Each fragment is therefore walked at most once per document —
+    /// enough for a yes/no answer, and it keeps the walk linear in the document size.
+    /// </remarks>
     public static bool ContainsIntrospectionQuery(DocumentNode document)
     {
         var fragments = document.Definitions
             .OfType<FragmentDefinitionNode>()
             .ToDictionary(fragment => fragment.Name.Value, fragment => fragment);
+        var visitedFragments = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var definition in document.Definitions)
         {
             if (definition is OperationDefinitionNode operation
                 && operation.Operation == OperationType.Query
-                && SelectionSetContainsIntrospection(operation.SelectionSet, fragments))
+                && SelectionSetContainsIntrospection(operation.SelectionSet, fragments, visitedFragments))
             {
                 return true;
             }
@@ -63,7 +81,8 @@ internal static class GraphQLIntrospectionHelper
 
     private static bool SelectionSetContainsIntrospection(
         SelectionSetNode? selectionSet,
-        IReadOnlyDictionary<string, FragmentDefinitionNode> fragments)
+        IReadOnlyDictionary<string, FragmentDefinitionNode> fragments,
+        HashSet<string> visitedFragments)
     {
         if (selectionSet is null)
         {
@@ -80,7 +99,7 @@ internal static class GraphQLIntrospectionHelper
                         return true;
                     }
 
-                    if (SelectionSetContainsIntrospection(field.SelectionSet, fragments))
+                    if (SelectionSetContainsIntrospection(field.SelectionSet, fragments, visitedFragments))
                     {
                         return true;
                     }
@@ -88,7 +107,7 @@ internal static class GraphQLIntrospectionHelper
                     break;
 
                 case InlineFragmentNode inlineFragment:
-                    if (SelectionSetContainsIntrospection(inlineFragment.SelectionSet, fragments))
+                    if (SelectionSetContainsIntrospection(inlineFragment.SelectionSet, fragments, visitedFragments))
                     {
                         return true;
                     }
@@ -96,8 +115,11 @@ internal static class GraphQLIntrospectionHelper
                     break;
 
                 case FragmentSpreadNode fragmentSpread:
-                    if (fragments.TryGetValue(fragmentSpread.Name.Value, out var fragment)
-                        && SelectionSetContainsIntrospection(fragment.SelectionSet, fragments))
+                    // A fragment already walked (or currently being walked, in a cycle) has nothing
+                    // new to add: had it contained introspection, the walk would have returned.
+                    if (visitedFragments.Add(fragmentSpread.Name.Value)
+                        && fragments.TryGetValue(fragmentSpread.Name.Value, out var fragment)
+                        && SelectionSetContainsIntrospection(fragment.SelectionSet, fragments, visitedFragments))
                     {
                         return true;
                     }

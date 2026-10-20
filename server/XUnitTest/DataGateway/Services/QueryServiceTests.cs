@@ -13,6 +13,8 @@ using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using HotChocolate.Types;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -200,7 +202,42 @@ public class QueryServiceTests
     }
 
     [Fact]
-    public async Task GetDataAsync_PageSizeAboveTheCap_IsClamped()
+    public async Task GetDataAsync_WithAMaxPageSize_ClampsTheRequestedPage()
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            const int maxPageSize = 1000;
+            var service = new QueryService(_repo.Object, Resolver(), Principals(), NullLogger<QueryService>.Instance, maxPageSize);
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
+            var paging = new PaginationInput { PageNo = 2, PageSize = maxPageSize + 1 };
+
+            var result = await service.GetDataAsync(Context(paging: paging).Object, schema);
+
+            result.PageSize.Should().Be(maxPageSize);
+            _repo.Verify(r => r.GetItemsAsync(
+                schema.CollectionName,
+                It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(),
+                maxPageSize, // (2-1) * clamped size
+                maxPageSize), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
+    /// <summary>
+    /// Without a configured maximum, paging is exactly what main serves: no cap, a page size of 0
+    /// still reads every matching row, and the reported page size is what the caller sent.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 5000, 0, 5000)]
+    [InlineData(2, 5000, 5000, 5000)]
+    [InlineData(1, 0, 0, 0)]
+    [InlineData(3, 7, 14, 7)]
+    public async Task GetDataAsync_WithoutAMaxPageSize_PagesAsRequested(int pageNo, int pageSize, int expectedSkip, int expectedLimit)
     {
         ClearContext();
         SetBlocksCloud(false);
@@ -208,18 +245,81 @@ public class QueryServiceTests
         {
             var schema = Schema(fields: new() { Field("Name") });
             SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
-            var paging = new PaginationInput { PageNo = 2, PageSize = GraphQlConstant.MaxPageSize + 1 };
+            var paging = new PaginationInput { PageNo = pageNo, PageSize = pageSize };
 
             var result = await _service.GetDataAsync(Context(paging: paging).Object, schema);
 
-            result.PageSize.Should().Be(GraphQlConstant.MaxPageSize);
+            result.PageNo.Should().Be(pageNo);
+            result.PageSize.Should().Be(pageSize);
             _repo.Verify(r => r.GetItemsAsync(
                 schema.CollectionName,
                 It.IsAny<FilterDefinition<BsonDocument>>(),
                 It.IsAny<BsonDocument>(),
                 It.IsAny<BsonDocument>(),
-                GraphQlConstant.MaxPageSize, // (2-1) * clamped size
-                GraphQlConstant.MaxPageSize), Times.Once);
+                expectedSkip,
+                expectedLimit), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public async Task GetDataAsync_WithoutAMaxPageSize_OnlyAPageSize_ReadsTheDefaultPageButReportsTheRequestedSize()
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
+            var paging = new PaginationInput { PageSize = 50 };
+
+            var result = await _service.GetDataAsync(Context(paging: paging).Object, schema);
+
+            result.PageSize.Should().Be(50);
+            _repo.Verify(r => r.GetItemsAsync(
+                schema.CollectionName,
+                It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(),
+                0,
+                10), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
+    [Theory]
+    [InlineData(null, 5000)]
+    [InlineData("0", 5000)]
+    [InlineData("200", 200)]
+    public async Task QueryService_FromTheContainer_ReadsTheMaxPageSizeSetting(string? setting, int expectedLimit)
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            var settings = new Dictionary<string, string?>();
+            if (setting is not null)
+                settings[QueryService.MaxPageSizeKey] = setting;
+            var services = new ServiceCollection();
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
+            services.AddSingleton(_repo.Object);
+            services.AddSingleton(Resolver());
+            services.AddSingleton(Principals());
+            services.AddLogging();
+            services.AddSingleton<IQueryService, QueryService>();
+            var service = services.BuildServiceProvider().GetRequiredService<IQueryService>();
+
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
+            await service.GetDataAsync(Context(paging: new PaginationInput { PageNo = 1, PageSize = 5000 }).Object, schema);
+
+            _repo.Verify(r => r.GetItemsAsync(
+                schema.CollectionName,
+                It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(),
+                0,
+                expectedLimit), Times.Once);
         }
         finally { ClearContext(); }
     }

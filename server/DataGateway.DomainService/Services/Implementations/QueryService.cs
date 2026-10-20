@@ -8,6 +8,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
 using HotChocolate.Resolvers;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System.Linq;
 using MongoDB.Bson;
@@ -21,22 +22,47 @@ namespace DataGateway.DomainService.Services;
 /// </summary>
 public class QueryService : IQueryService
 {
+    /// <summary>
+    /// The largest page a query may read. Unset (the default), pages are read as requested, as they
+    /// always have been: no limit, and a <c>pageSize</c> of 0 reads every matching row. Set, a larger
+    /// <c>pageSize</c> is clamped to it, a smaller one to at least 1, and <c>pageNo</c> to at least 1.
+    /// Clients that page through everything with a large or zero page size get fewer rows once it is
+    /// set, so turn it on only after checking they do not.
+    /// </summary>
+    public const string MaxPageSizeKey = "DataGateway:MaxPageSize";
+
     private readonly IGqlDbRepository _repository;
     private readonly IDataAccessPolicyResolutionService _resolver;
     private readonly IAccessPrincipalAccessor _principals;
     private readonly ILogger<QueryService> _logger;
+    private readonly int? _maxPageSize;
 
     public QueryService(
         IGqlDbRepository repository,
         IDataAccessPolicyResolutionService resolver,
         IAccessPrincipalAccessor principals,
-        ILogger<QueryService> logger)
+        ILogger<QueryService> logger,
+        IConfiguration configuration)
+        : this(repository, resolver, principals, logger, ReadMaxPageSize(configuration))
+    {
+    }
+
+    internal QueryService(
+        IGqlDbRepository repository,
+        IDataAccessPolicyResolutionService resolver,
+        IAccessPrincipalAccessor principals,
+        ILogger<QueryService> logger,
+        int? maxPageSize = null)
     {
         _repository = repository;
         _resolver = resolver;
         _principals = principals;
         _logger = logger;
+        _maxPageSize = maxPageSize is > 0 ? maxPageSize : null;
     }
+
+    private static int? ReadMaxPageSize(IConfiguration? configuration) =>
+        configuration?.GetValue<int?>(MaxPageSizeKey);
 
     /// <inheritdoc />
     public async Task<QueryResponse<Dictionary<string, object>>> GetDataAsync(
@@ -86,11 +112,15 @@ public class QueryService : IQueryService
                 skip,
                 limit);
 
-            var items = documents
-                .Select(doc => _resolver.MaskRow(request, doc.ToDictionary(), readProjection))
-                .ToList();
+            List<Dictionary<string, object>> items;
+            using (GatewayOperationActivity.Measure(GatewayPhase.Policy))
+            {
+                items = documents
+                    .Select(doc => _resolver.MaskRow(request, doc.ToDictionary(), readProjection))
+                    .ToList();
+            }
 
-            gatewayOperation.ResponseSize = documents.Sum(d => d.ToBson().Length);
+            gatewayOperation.ResponseSize = documents.Sum(BsonSize.Of);
             gatewayOperation.DocumentCount = documents.Count;
 
             _logger.LogInformation("Data retrieved for schema {SchemaName}", schema.SchemaName);
@@ -102,7 +132,7 @@ public class QueryService : IQueryService
                 // Counted only if the response's totalCount/totalPages/hasNextPage is selected.
                 TotalCountProvider = () => _repository.CountAsync(collectionName, mongoFilter),
                 PageNo = queryInput.PageNo ?? 1,
-                PageSize = queryInput.PageSize is null ? items.Count : limit
+                PageSize = _maxPageSize is null ? queryInput.PageSize ?? items.Count : queryInput.PageSize is null ? items.Count : limit
             };
         }
         catch (GraphQLException ex)
@@ -216,13 +246,16 @@ public class QueryService : IQueryService
                 .Build());
     }
 
-    /// <summary>Computes skip/limit from page number and size.</summary>
-    private static (int skip, int limit) ComputePagination(int? pageNo, int? pageSize)
+    /// <summary>Computes skip/limit from page number and size (see <see cref="MaxPageSizeKey"/>).</summary>
+    private (int skip, int limit) ComputePagination(int? pageNo, int? pageSize)
     {
         const int defaultLimit = 10;
         if (pageNo is not null && pageSize is not null)
         {
-            var limit = Math.Clamp(pageSize.Value, 1, GraphQlConstant.MaxPageSize);
+            if (_maxPageSize is not { } maxPageSize)
+                return ((pageNo.Value - 1) * pageSize.Value, pageSize.Value);
+
+            var limit = Math.Clamp(pageSize.Value, 1, maxPageSize);
             return ((Math.Max(pageNo.Value, 1) - 1) * limit, limit);
         }
         return (0, defaultLimit);

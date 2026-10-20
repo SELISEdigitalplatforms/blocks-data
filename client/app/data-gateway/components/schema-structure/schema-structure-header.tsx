@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
-import { ChevronDown, Copy, MoreVertical, Trash } from "lucide-react";
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Copy, MoreVertical, Trash } from "lucide-react";
 
 interface SchemaStructureHeaderProps {
   isEditMode: boolean;
@@ -24,6 +24,9 @@ interface SchemaStructureHeaderProps {
   /** Mobile's "…" menu still has its own Preview entry; desktop's trigger
    * moved to sit beside the Schema Access button in SchemaBasicInfo. */
   setIsPreviewDrawerOpen: (open: boolean) => void;
+  /** Opens every object property in the table's tree; shown only when some row can open. */
+  onExpandAll?: () => void;
+  onCollapseAll?: () => void;
 }
 
 export function SchemaStructureHeader({
@@ -39,6 +42,8 @@ export function SchemaStructureHeader({
   onBulkDelete,
   onSelectAll,
   setIsPreviewDrawerOpen,
+  onExpandAll,
+  onCollapseAll,
 }: SchemaStructureHeaderProps) {
   /**
    * The underline used to switch with no transition at all — the border flipped
@@ -83,6 +88,18 @@ export function SchemaStructureHeader({
         {SchemaTabs}
 
         <div className="flex items-center gap-2">
+          {!isEditMode && activeTab === "attribute" && onExpandAll && onCollapseAll && (
+            <div className="flex items-center">
+              <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs font-medium text-muted-foreground" onClick={onExpandAll}>
+                <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden />
+                Expand all
+              </Button>
+              <Button type="button" variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs font-medium text-muted-foreground" onClick={onCollapseAll}>
+                <ChevronsDownUp className="h-3.5 w-3.5" aria-hidden />
+                Collapse all
+              </Button>
+            </div>
+          )}
           {isEditMode && hasSelectedRows && (
             <span className="text-xs text-muted-foreground">
               {selectedFieldEntriesLength} selected

@@ -208,22 +208,21 @@ export const useSecurityAndPerformanceSchemaList = ({
   });
 };
 
+/** One schema's details, shared by `useSchemaDetails` and the nested-property tree's `useQueries`. */
+export const schemaDetailsQueryOptions = (id: string, projectKey: string, enabled = true) => ({
+  queryKey: ["schema-details", id, projectKey] as const,
+  queryFn: () => configurationService.getSchemaDetails(id, projectKey),
+  enabled: !!id && !!projectKey && enabled,
+  // Schema details include denormalized Child fields. Always refresh when a
+  // schema view mounts so Entity expansions cannot reuse an older Child shape.
+  refetchOnMount: "always" as const,
+});
+
 export const useSchemaDetails = (
   id: string,
   projectKey: string,
   options?: { enabled?: boolean },
-) => {
-  const isEnabled = options?.enabled ?? true;
-
-  return useQuery({
-    queryKey: ["schema-details", id, projectKey],
-    queryFn: () => configurationService.getSchemaDetails(id, projectKey),
-    enabled: !!id && !!projectKey && isEnabled,
-    // Schema details include denormalized Child fields. Always refresh when a
-    // schema view mounts so Entity expansions cannot reuse an older Child shape.
-    refetchOnMount: "always",
-  });
-};
+) => useQuery(schemaDetailsQueryOptions(id, projectKey, options?.enabled ?? true));
 
 const invalidateSchemaList = (
   queryClient: ReturnType<typeof useQueryClient>,

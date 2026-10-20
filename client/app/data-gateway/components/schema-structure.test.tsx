@@ -63,6 +63,27 @@ vi.mock("../hooks/use-configuration", () => ({
   }),
 }));
 
+// The tree's data hook reads the query cache; here it lists each open root's child fields directly.
+const useNestedTree = vi.hoisted(() =>
+  vi.fn(({ roots }: { roots: Array<{ path: string; childSchema: { fields?: Array<{ name: string }> } }> }) =>
+    new Map(
+      roots.map((root) => [
+        root.path,
+        (root.childSchema.fields ?? []).map((field) => ({ kind: "field", path: `${root.path}.${field.name}`, field })),
+      ]),
+    ),
+  ),
+);
+vi.mock("../hooks/use-nested-tree", () => ({ useNestedTree }));
+
+vi.mock("./schema-structure/property-tree", () => ({
+  NestedTreeRowView: (p: { row: { path: string } }) => (
+    <tr>
+      <td data-testid="tree-row">{p.row.path}</td>
+    </tr>
+  ),
+}));
+
 // ---- Heavy child component stubs (echo the props we assert on) -------------
 vi.mock("./schema-structure/schema-structure-header", () => ({
   SchemaStructureHeader: (p: Record<string, unknown>) => (
@@ -543,19 +564,35 @@ describe("SchemaStructureTable", () => {
     expect(header?.className).toContain("top-0");
   });
 
-  it("expands a child-schema row to render nested content", async () => {
+  it("opens a child-schema row as tree rows in the same table", async () => {
     const user = userEvent.setup();
     renderTable({
       fields: [{ name: "home", type: "Address", isArray: false }],
     });
-    expect(screen.queryByTestId("child-content")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("tree-row")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "expand-0" }));
 
-    const nested = await screen.findAllByTestId("child-content");
-    expect(nested.length).toBeGreaterThan(0);
-    expect(nested[0]).toHaveTextContent("child1");
+    expect(await screen.findByTestId("tree-row")).toHaveTextContent("home.street");
+    // No embedded child table on the desktop path any more.
+    expect(screen.queryByTestId("child-content")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "expand-0" }));
+    expect(screen.queryByTestId("tree-row")).not.toBeInTheDocument();
   });
+
+  it("closes the tree when edit mode starts", async () => {
+    const user = userEvent.setup();
+    renderTable({
+      fields: [{ name: "home", type: "Address", isArray: false }],
+    });
+    await user.click(screen.getByRole("button", { name: "expand-0" }));
+    expect(await screen.findByTestId("tree-row")).toBeInTheDocument();
+
+    await user.click(screen.getByText("toggle-edit"));
+    expect(screen.queryByTestId("tree-row")).not.toBeInTheDocument();
+  });
+
   // ── Phase 6: what the edit will actually do ─────────────────────────────
 
   it("reads a rename as a rename, not a delete plus an add", async () => {

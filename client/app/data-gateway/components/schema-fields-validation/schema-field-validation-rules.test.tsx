@@ -80,6 +80,13 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     // Radix Select uses pointer capture, which jsdom does not implement.
     Element.prototype.hasPointerCapture ??= () => false;
     Element.prototype.releasePointerCapture ??= () => {};
+    // cmdk (the Expression menu) scrolls and measures its list.
+    Element.prototype.scrollIntoView ??= () => {};
+    globalThis.ResizeObserver ??= class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    } as unknown as typeof ResizeObserver;
   });
 
   beforeEach(() => {
@@ -209,27 +216,35 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     expect(await ruleTypeOptions(user)).not.toContain("Exists in another schema");
   });
 
-  describe("variables in comparison values", () => {
-    async function addGreaterThan(user: ReturnType<typeof userEvent.setup>, fieldType: string) {
+  describe("another property as the compared value", () => {
+    function renderField(fieldName: string, fieldType: string) {
       render(
         <TooltipProvider>
-          <SchemaFieldValidationPanel fieldName="EndDate" schemaId="emp" projectKey="pk" fieldType={fieldType} initialValidationData={null} />
+          <SchemaFieldValidationPanel fieldName={fieldName} schemaId="emp" projectKey="pk" fieldType={fieldType} initialValidationData={null} />
         </TooltipProvider>,
       );
-      await user.click(screen.getByRole("button", { name: "Add validation" }));
-      await chooseRuleType(user, "Greater than");
-      await user.click(within(screen.getByRole("group", { name: "Value source" })).getByRole("radio", { name: "Another property" }));
     }
 
-    it("offers properties of the same kind and sends the variable as text (UC20)", async () => {
-      const user = userEvent.setup();
-      await addGreaterThan(user, "DateTime");
+    async function pickFromExpression(user: ReturnType<typeof userEvent.setup>, box: string) {
+      await user.click(screen.getByRole("button", { name: `Add an expression to ${box}` }));
+      return (await screen.findAllByRole("option")).map((o) => o.textContent);
+    }
 
-      await user.click(screen.getByRole("combobox", { name: "Pick a property for Value" }));
-      const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    it("offers properties of the same kind from the box's Expression menu and sends the variable as text (UC20)", async () => {
+      const user = userEvent.setup();
+      renderField("EndDate", "DateTime");
+      await user.click(screen.getByRole("button", { name: "Add validation" }));
+      await chooseRuleType(user, "Greater than");
+
+      // No Fixed value / Another property switch any more: one box, with Expression inside it.
+      expect(screen.queryByRole("group", { name: "Value source" })).not.toBeInTheDocument();
       // Same kind only, and never the property itself.
-      expect(options).toEqual(["{{Employee.StartDate}}"]);
-      await user.click(screen.getByRole("option", { name: "{{Employee.StartDate}}" }));
+      expect(await pickFromExpression(user, "Value")).toEqual(["StartDateEmployee.StartDate"]);
+      await user.click(screen.getByRole("option", { name: /StartDate/ }));
+
+      // The property replaces the box, with a way back to a fixed value.
+      expect(screen.getByText("Employee.StartDate")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Use a fixed value" })).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Add validation" }));
 
       await waitFor(() =>
@@ -241,13 +256,28 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
       );
     });
 
+    it("goes back to a fixed value", async () => {
+      const user = userEvent.setup();
+      renderField("EndDate", "DateTime");
+      await user.click(screen.getByRole("button", { name: "Add validation" }));
+      await chooseRuleType(user, "Greater than");
+      await pickFromExpression(user, "Value");
+      await user.click(screen.getByRole("option", { name: /StartDate/ }));
+
+      await user.click(screen.getByRole("button", { name: "Use a fixed value" }));
+      expect(screen.getByLabelText("Value")).toHaveAttribute("type", "datetime-local");
+      expect(screen.getByLabelText("Value")).toHaveValue("");
+    });
+
     it.each([
       ["{{Auth.UserId}}", "Auth values aren't available in validation rules at position 1: use an access policy"],
-      ["{{StartDate}}", "Missing prefix at position 1: write {{Employee.StartDate}}"],
-      ["{{Employee.Name}}", "Employee.Name is text at position 1: a date-time is expected"],
-    ])("shows the error for %s and disables Add (UC22, UC23)", async (typed, message) => {
+      ["{{Name}}", "Missing prefix at position 1: write {{Employee.Name}}"],
+      ["{{Employee.Age}}", "Employee.Age is a number at position 1: text is expected"],
+    ])("shows the error for a typed %s and disables Add (UC22, UC23)", async (typed, message) => {
       const user = userEvent.setup();
-      await addGreaterThan(user, "DateTime");
+      renderField("Nickname", "String");
+      await user.click(screen.getByRole("button", { name: "Add validation" }));
+      await chooseRuleType(user, "Equals");
 
       // userEvent treats "{" as a key descriptor; "{{" types one brace.
       await user.type(screen.getByLabelText("Value"), typed.replaceAll("{", "{{").replaceAll("[", "[["));
@@ -257,17 +287,12 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
 
     it("keeps a number variable as text instead of converting it", async () => {
       const user = userEvent.setup();
-      render(
-        <TooltipProvider>
-          <SchemaFieldValidationPanel fieldName="Score" schemaId="emp" projectKey="pk" fieldType="Int" initialValidationData={null} />
-        </TooltipProvider>,
-      );
+      renderField("Score", "Int");
       await user.click(screen.getByRole("button", { name: "Add validation" }));
       await chooseRuleType(user, "Between");
       await user.type(screen.getByLabelText("Min"), "1");
-      await user.click(within(screen.getByRole("group", { name: "Max source" })).getByRole("radio", { name: "Another property" }));
-      await user.click(screen.getByRole("combobox", { name: "Pick a property for Max" }));
-      await user.click(await screen.findByRole("option", { name: "{{Employee.Age}}" }));
+      expect(await pickFromExpression(user, "Max")).toEqual(["AgeEmployee.Age"]);
+      await user.click(screen.getByRole("option", { name: /Age/ }));
       await user.click(screen.getByRole("button", { name: "Add validation" }));
 
       await waitFor(() =>

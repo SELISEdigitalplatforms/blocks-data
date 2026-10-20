@@ -1,16 +1,16 @@
 "use client";
 
+import { Button } from "@/components/ui-kits/button/button";
 import { Input } from "@/components/ui-kits/input/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-kits/select/select";
 import { Textarea } from "@/components/ui-kits/textarea/textarea";
 import { cn } from "@/lib/utils";
-import { useId, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ValueChips } from "../default-value/default-value-fields";
+import { ExpressionMenu, type ExpressionGroup } from "../primitives";
 import {
   VALIDATION_TYPE,
   VALIDATION_TYPE_META,
   fittingVariables,
-  looksLikeVariable,
   valueKindForField,
   type RuleDraft,
   type RuleVariableContext,
@@ -40,26 +40,52 @@ function ValueInput({
   value,
   enumValues,
   invalid,
+  menu,
   onChange,
-}: Readonly<{ kind: ValueKind; label: string; value: string; enumValues: string[]; invalid: boolean; onChange: (value: string) => void }>) {
+}: Readonly<{
+  kind: ValueKind;
+  label: string;
+  value: string;
+  enumValues: string[];
+  invalid: boolean;
+  /** The "{ } Expression" button, placed inside the box (or after the chips). */
+  menu?: ReactNode;
+  onChange: (value: string) => void;
+}>) {
   if (kind === "boolean" || kind === "enum") {
-    return <ValueChips options={kind === "boolean" ? ["true", "false"] : enumValues} value={value} label={label} onChange={onChange} />;
+    return (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <ValueChips options={kind === "boolean" ? ["true", "false"] : enumValues} value={value} label={label} onChange={onChange} />
+        {menu}
+      </div>
+    );
   }
   const inputType = { number: "number", date: "datetime-local", text: "text" }[kind];
   return (
-    <Input
-      type={inputType}
-      aria-label={label}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}
-    />
+    <div className="relative flex items-center">
+      <Input
+        type={inputType}
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={cn(CONTROL_CLASS, "font-mono [color-scheme:dark]", menu ? "pr-[118px]" : "", invalid && "border-rose-500")}
+      />
+      {menu && <div className="absolute right-1 flex items-center">{menu}</div>}
+    </div>
   );
 }
 
+/** A whole value that is one variable, e.g. "{{Employee.StartDate}}". */
+const IS_ONE_VARIABLE = /^\s*\{\{[^{}]*\}\}\s*$/;
+
+/** "{{Employee.StartDate}}" → "Employee.StartDate". */
+const variableName = (variable: string) => variable.trim().slice(2, -2).trim();
+
 /**
- * A compared value: fixed (entered by type) or one variable naming another property of the same record,
- * e.g. {{Employee.StartDate}}. Only properties of a fitting kind are offered; typing is checked too.
+ * A compared value, in one box: entered by type, or another property of the same record picked from
+ * the box's "{ } Expression" menu (e.g. {{Employee.StartDate}}). A comparison takes one whole
+ * property, never text around it, so a picked property replaces the box with a chip and a way back
+ * to a fixed value. Only properties of a fitting kind are offered; typed variables are checked too.
  */
 function ComparisonValue({
   kind,
@@ -79,67 +105,42 @@ function ComparisonValue({
   value: string;
   enumValues: string[];
   invalid: boolean;
-  /** Fitting {{Schema.X}} variables; the switch shows only when a context is given. */
+  /** Fitting {{Schema.X}} variables; the Expression menu shows only when there are some. */
   variableOptions: string[] | null;
   onChange: (value: string) => void;
 }>) {
-  const [isVariable, setIsVariable] = useState(() => looksLikeVariable(value));
-  const groupName = useId();
-  const switchTo = (variable: boolean) => {
-    if (variable === isVariable) return;
-    setIsVariable(variable);
-    onChange("");
-  };
+  const options = variableOptions ?? [];
+  const groups: ExpressionGroup[] = [
+    {
+      heading: "This record",
+      options: options.map((option) => {
+        const name = variableName(option);
+        return { value: option, label: name.split(".").slice(1).join(".") || name, detail: name };
+      }),
+    },
+  ];
+  const menu = options.length > 0 ? <ExpressionMenu groups={groups} onPick={(option) => onChange(option.value)} label={`Add an expression to ${label}`} /> : undefined;
 
-  // The Fixed value / Another property switch sits on the label's row, right-aligned, as drawn.
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-      <div className="flex min-h-6 items-center justify-between gap-2">
-        <span className={LABEL_CLASS}>{heading}</span>
-        {variableOptions && (
-        <fieldset className="flex h-6 shrink-0 rounded-md border border-border/60 bg-background p-0.5">
-          <legend className="sr-only">{`${label} source`}</legend>
-          {([false, true] as const).map((variable) => (
-            <label
-              key={String(variable)}
-              className={cn(
-                "flex cursor-pointer items-center rounded-[4px] px-2 text-[10.5px] font-semibold transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/40",
-                isVariable === variable ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <input type="radio" name={groupName} className="sr-only" checked={isVariable === variable} onChange={() => switchTo(variable)} />
-              {variable ? "Another property" : "Fixed value"}
-            </label>
-          ))}
-        </fieldset>
-        )}
-      </div>
-      {isVariable && variableOptions ? (
-        <>
-          <Input
-            aria-label={label}
-            placeholder={variableOptions[0] ?? "{{Schema.Property}}"}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}
-          />
-          {variableOptions.length > 0 && (
-            <Select value="" onValueChange={onChange}>
-              <SelectTrigger className="h-8 w-full rounded-md border-border/60 bg-background text-xs" aria-label={`Pick a property for ${label}`}>
-                <SelectValue placeholder="Pick a property of this record…" />
-              </SelectTrigger>
-              <SelectContent>
-                {variableOptions.map((option) => (
-                  <SelectItem key={option} value={option} className="font-mono text-xs">
-                    {option}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <span className={LABEL_CLASS}>{heading}</span>
+      {IS_ONE_VARIABLE.test(value) ? (
+        <div
+          className={cn(
+            "flex min-h-9 items-center gap-2 rounded-md border bg-background py-1 pl-2 pr-1",
+            invalid ? "border-rose-500" : "border-primary/40",
           )}
-        </>
+        >
+          <span aria-label={label} className="truncate rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[12px] text-primary">
+            {variableName(value)}
+          </span>
+          <span className="flex-1 truncate text-[11px] text-muted-foreground">this record&apos;s value</span>
+          <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 text-[11.5px]" onClick={() => onChange("")}>
+            Use a fixed value
+          </Button>
+        </div>
       ) : (
-        <ValueInput kind={kind} label={label} value={value} enumValues={enumValues} invalid={invalid} onChange={onChange} />
+        <ValueInput kind={kind} label={label} value={value} enumValues={enumValues} invalid={invalid} menu={menu} onChange={onChange} />
       )}
     </div>
   );
@@ -234,10 +235,10 @@ export function RuleValueInputs({
           />
         );
       case "valueRange":
-        // Side by side when both bounds are fixed; stacked when each carries its own
-        // Fixed value / Another property switch, which needs the full width beside its label.
+        // Side by side when both bounds are fixed; stacked when each box carries its own
+        // Expression button, which needs the full width.
         return (
-          <div className={cn("flex gap-2.5", variableOptions && "flex-col gap-3.5")}>
+          <div className={cn("flex gap-2.5", variableOptions?.length && "flex-col gap-3.5")}>
             <ComparisonValue kind={kind} heading="From" label="Min" value={draft.value} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} onChange={(value) => onChange({ value })} />
             <ComparisonValue kind={kind} heading="To" label="Max" value={draft.secondaryValue} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} onChange={(secondaryValue) => onChange({ secondaryValue })} />
           </div>

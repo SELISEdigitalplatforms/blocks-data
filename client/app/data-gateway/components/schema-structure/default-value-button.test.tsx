@@ -34,7 +34,7 @@ describe("DefaultValueButton", () => {
 
   it("names the default in its label once one is set", () => {
     renderButton({ fieldName: "HrYearRenewDate", fieldType: "DateTime", defaultValue: { kind: "Now", offset: { days: 365, hours: 0, minutes: 0, seconds: 0 } } });
-    expect(screen.getByRole("button", { name: "Default value for HrYearRenewDate (Now + 365 days)" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Default value for HrYearRenewDate (365 days after the record is created)" })).toBeEnabled();
   });
 
   it("shows as open while its panel is in the inspector", () => {

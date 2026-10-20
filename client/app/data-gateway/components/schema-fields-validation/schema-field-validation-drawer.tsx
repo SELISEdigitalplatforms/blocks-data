@@ -57,7 +57,7 @@ export function SchemaFieldValidationDrawer({
             <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <DrawerTitle className="text-sm font-semibold text-foreground">Validation rules</DrawerTitle>
+            <DrawerTitle className="text-sm font-semibold text-foreground">Validations</DrawerTitle>
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-[11px] text-muted-foreground">
               <FieldSubject name={fieldName} type={fieldType} schemaName={schemaName} />
             </div>

@@ -73,7 +73,7 @@ export function ValidationInspector({
     <PanelShell label={`Validations for ${subject}`}>
       <PanelHeader
         icon={Check}
-        title="Validation rules"
+        title="Validations"
         mono={false}
         subtitle={
           <>

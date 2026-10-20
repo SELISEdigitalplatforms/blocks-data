@@ -64,12 +64,12 @@ function renderPanel(fieldType: string, validations: unknown[] | null, extra: { 
 }
 
 async function chooseRuleType(user: ReturnType<typeof userEvent.setup>, label: string) {
-  await user.click(screen.getByRole("combobox", { name: "Rule type" }));
+  await user.click(screen.getByRole("combobox", { name: "Validation type" }));
   await user.click(await screen.findByRole("option", { name: label }));
 }
 
 async function ruleTypeOptions(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("combobox", { name: "Rule type" }));
+  await user.click(screen.getByRole("combobox", { name: "Validation type" }));
   const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
   await user.keyboard("{Escape}");
   return options;
@@ -91,7 +91,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
   it("offers the rule types that fit the property's type", async () => {
     const user = userEvent.setup();
     renderPanel("Boolean", null);
-    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
 
     expect(await ruleTypeOptions(user)).toEqual(["Not empty", "Equals", "Does not equal"]);
   });
@@ -109,10 +109,10 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     const user = userEvent.setup();
     renderPanel("String", [notEmpty]);
 
-    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
     await chooseRuleType(user, "Min length");
     await user.type(screen.getByLabelText("Length"), "3");
-    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
 
     await waitFor(() =>
       expect(updateValidation).toHaveBeenCalledWith(
@@ -130,28 +130,28 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     const user = userEvent.setup();
     renderPanel("Int", null);
 
-    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
     await chooseRuleType(user, "Between");
     await user.type(screen.getByLabelText("Min"), "10");
     await user.type(screen.getByLabelText("Max"), "1");
 
     expect(screen.getByText("Min must be ≤ max")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Add rule" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add validation" })).toBeDisabled();
   });
 
   it("switches a rule off from the list, sending the others back untouched", async () => {
     const user = userEvent.setup();
     renderPanel("String", [notEmpty, maxLength]);
 
-    expect(screen.getByText("2 rules")).toBeInTheDocument();
-    await user.click(screen.getAllByRole("switch", { name: "Rule active" })[1]);
+    expect(screen.getByText("2 validations")).toBeInTheDocument();
+    await user.click(screen.getAllByRole("switch", { name: "Validation active" })[1]);
 
     await waitFor(() =>
       expect(updateValidation).toHaveBeenCalledWith(
         expect.objectContaining({ itemId: "v1", validations: [notEmpty, { ...maxLength, isActive: false }] }),
       ),
     );
-    expect(await screen.findByText("Rule switched off")).toBeInTheDocument();
+    expect(await screen.findByText("Validation switched off")).toBeInTheDocument();
   });
 
   it("deleting one of two rules keeps the other; deleting the last removes the validation", async () => {
@@ -181,7 +181,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     const user = userEvent.setup();
     renderPanel("String", null);
 
-    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
     await chooseRuleType(user, "Exists in another schema");
     await user.click(screen.getByRole("combobox", { name: "Target schema" }));
     await user.click(await screen.findByRole("option", { name: "Department" }));
@@ -190,7 +190,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     expect(useSchemaList).toHaveBeenCalledWith(expect.objectContaining({ schemaType: "1", projectKey: "pk" }));
     expect(within(screen.getByRole("combobox", { name: "Target field" })).getByText("ItemId")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
     await waitFor(() =>
       expect(createValidation).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -205,7 +205,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     renderPanel("String", [{ type: 12, value: "Department", secondaryValue: "ItemId", errorMessage: "", isActive: true }]);
 
     expect(screen.getByText("Must exist in Department.ItemId")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Add rule" }));
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
     expect(await ruleTypeOptions(user)).not.toContain("Exists in another schema");
   });
 
@@ -216,7 +216,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
           <SchemaFieldValidationPanel fieldName="EndDate" schemaId="emp" projectKey="pk" fieldType={fieldType} initialValidationData={null} />
         </TooltipProvider>,
       );
-      await user.click(screen.getByRole("button", { name: "Add rule" }));
+      await user.click(screen.getByRole("button", { name: "Add validation" }));
       await chooseRuleType(user, "Greater than");
       await user.click(within(screen.getByRole("group", { name: "Value source" })).getByRole("radio", { name: "Another property" }));
     }
@@ -230,7 +230,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
       // Same kind only, and never the property itself.
       expect(options).toEqual(["{{Employee.StartDate}}"]);
       await user.click(screen.getByRole("option", { name: "{{Employee.StartDate}}" }));
-      await user.click(screen.getByRole("button", { name: "Add rule" }));
+      await user.click(screen.getByRole("button", { name: "Add validation" }));
 
       await waitFor(() =>
         expect(createValidation).toHaveBeenCalledWith(
@@ -252,7 +252,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
       // userEvent treats "{" as a key descriptor; "{{" types one brace.
       await user.type(screen.getByLabelText("Value"), typed.replaceAll("{", "{{").replaceAll("[", "[["));
       expect(screen.getByText(message)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Add rule" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Add validation" })).toBeDisabled();
     });
 
     it("keeps a number variable as text instead of converting it", async () => {
@@ -262,13 +262,13 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
           <SchemaFieldValidationPanel fieldName="Score" schemaId="emp" projectKey="pk" fieldType="Int" initialValidationData={null} />
         </TooltipProvider>,
       );
-      await user.click(screen.getByRole("button", { name: "Add rule" }));
+      await user.click(screen.getByRole("button", { name: "Add validation" }));
       await chooseRuleType(user, "Between");
       await user.type(screen.getByLabelText("Min"), "1");
       await user.click(within(screen.getByRole("group", { name: "Max source" })).getByRole("radio", { name: "Another property" }));
       await user.click(screen.getByRole("combobox", { name: "Pick a property for Max" }));
       await user.click(await screen.findByRole("option", { name: "{{Employee.Age}}" }));
-      await user.click(screen.getByRole("button", { name: "Add rule" }));
+      await user.click(screen.getByRole("button", { name: "Add validation" }));
 
       await waitFor(() =>
         expect(createValidation).toHaveBeenCalledWith(

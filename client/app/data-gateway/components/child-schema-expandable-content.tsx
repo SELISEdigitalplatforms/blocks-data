@@ -8,6 +8,7 @@ import {
   normalizeAccessRuleSet,
   normalizeSchemaFields,
 } from "../utils/schema-normalization";
+import { OPERATION_ACCESS_SCHEMA, OPERATION_ACCESS_SCHEMA_ID } from "../utils/schema-structure.utils";
 import SchemaStructureTable from "./schema-structure";
 
 const createEmptySchemaDetails = (projectKey: string): ISchemaDetails => ({
@@ -86,9 +87,11 @@ export function ChildSchemaExpandableContent({
   policyEntitySchemaName,
   onOpenStandaloneSchemaEditor,
 }: ChildSchemaExpandableContentProps) {
-  const { data: schemaDetailsQuery, isLoading } = useSchemaDetails(schemaId, projectKey);
+  // OperationAccess is a fixed platform shape, not a project schema: nothing to fetch.
+  const isOperationAccess = schemaId === OPERATION_ACCESS_SCHEMA_ID;
+  const { data: schemaDetailsQuery, isLoading } = useSchemaDetails(schemaId, projectKey, { enabled: !isOperationAccess });
   const res = schemaDetailsQuery?.data;
-  const schemaDetails: ISchemaDetails = res
+  const fetched: ISchemaDetails | null = res
     ? {
         id: res.id,
         schemaName: res.schemaName,
@@ -112,7 +115,10 @@ export function ChildSchemaExpandableContent({
         editAccessLevel: res.editAccessLevel,
         deleteAccessLevel: res.deleteAccessLevel,
       }
-    : createEmptySchemaDetails(projectKey);
+    : null;
+  const schemaDetails: ISchemaDetails = isOperationAccess
+    ? { ...OPERATION_ACCESS_SCHEMA, projectKey }
+    : (fetched ?? createEmptySchemaDetails(projectKey));
 
   const fieldsWithParentValidation = mergeFieldsWithParentData(
     schemaDetails.fields ?? [],
@@ -126,11 +132,12 @@ export function ChildSchemaExpandableContent({
       <SchemaStructureTable
         {...schemaDetails}
         fields={fieldsWithParentValidation}
-        isLoading={isLoading}
+        isLoading={!isOperationAccess && isLoading}
         compactView
         rootSchemaId={rootSchemaId ?? parentSchemaId}
         ancestorPath={resolvedAncestorPath}
-        hideAccessValidation={hideAccessValidation}
+        // Tenant schemas carry no Read.Roles-style fields to hang access, rules or defaults on: display only.
+        hideAccessValidation={isOperationAccess || hideAccessValidation}
         policyEntitySchemaName={policyEntitySchemaName ?? schemaDetails.schemaName}
         onOpenStandaloneSchemaEditor={onOpenStandaloneSchemaEditor}
       />

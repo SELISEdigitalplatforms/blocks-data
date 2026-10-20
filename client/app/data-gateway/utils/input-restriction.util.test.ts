@@ -104,6 +104,10 @@ describe("input-restriction.util", () => {
       expect(typeOptions).toContain("Enum");
     });
 
+    it("readonlyPropertyNames include the base entity's access lists", () => {
+      expect(readonlyPropertyNames).toEqual(expect.arrayContaining(["Create", "Read", "Update", "Delete"]));
+    });
+
     it("readonlyPropertyNames include system-managed columns", () => {
       expect(readonlyPropertyNames).toContain("ItemId");
       expect(readonlyPropertyNames).toContain("CreatedDate");

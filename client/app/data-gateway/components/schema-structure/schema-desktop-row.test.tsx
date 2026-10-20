@@ -193,6 +193,20 @@ describe("SchemaDesktopRow", () => {
     expect(onToggleExpand).toHaveBeenCalledWith(0);
   });
 
+  it("expands the base entity's OperationAccess properties though no project schema holds that type", async () => {
+    const user = userEvent.setup();
+    const onToggleExpand = vi.fn();
+    render(
+      <Harness
+        properties={[makeField({ name: "Read", type: "OperationAccess" })]}
+        onToggleExpand={onToggleExpand}
+        isExpanded={false}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Expand OperationAccess attributes" }));
+    expect(onToggleExpand).toHaveBeenCalledWith(0);
+  });
+
   it("shows a collapse control when the child type row is expanded", () => {
     render(
       <Harness

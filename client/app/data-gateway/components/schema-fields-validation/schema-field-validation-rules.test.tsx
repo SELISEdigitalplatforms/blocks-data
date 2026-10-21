@@ -161,6 +161,20 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     expect(await screen.findByText("Validation switched off")).toBeInTheDocument();
   });
 
+  it("colours the list's switch by whether it is on, though the tooltip owns its data-state", () => {
+    renderPanel("String", [notEmpty, { ...maxLength, isActive: false }]);
+
+    const [on, off] = screen.getAllByRole("switch", { name: "Validation active" });
+    // The tooltip writes its own data-state over the switch's, so the colours must not depend on it.
+    expect(on).toHaveAttribute("data-state", "closed");
+    expect(on).toHaveAttribute("aria-checked", "true");
+    expect(on.className).toContain("aria-checked:bg-primary");
+    expect(off).toHaveAttribute("aria-checked", "false");
+    expect(off.className).toContain("aria-[checked=false]:bg-muted");
+    // The kit's own navy must not survive to compete with the panel's blue where data-state is intact.
+    expect(on.className).not.toContain("bg-blocks-primary-500");
+  });
+
   it("deleting one of two rules keeps the other; deleting the last removes the validation", async () => {
     const user = userEvent.setup();
     renderPanel("String", [notEmpty, maxLength]);

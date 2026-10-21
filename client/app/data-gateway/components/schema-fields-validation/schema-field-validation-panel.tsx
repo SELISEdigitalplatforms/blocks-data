@@ -57,9 +57,13 @@ const CONTROL_CLASS = "h-9 rounded-md border-border/60 bg-background text-[12.5p
 /**
  * The kit's switch is tuned for light surfaces: its off state is a light grey that reads as "on" here,
  * and its on state a dark navy that reads as grey. On this panel: muted when off, the primary blue when on.
+ * Keyed on aria-checked as well as data-state: the list's switch is a tooltip trigger, and the tooltip
+ * writes its own data-state ("closed", "delayed-open") over the switch's "checked"/"unchecked". The
+ * data-state classes stay so they replace the kit's own data-state colours where data-state is intact.
  */
 const SWITCH_CLASS =
-  "data-[state=unchecked]:border-border data-[state=unchecked]:bg-muted data-[state=checked]:border-primary data-[state=checked]:bg-primary";
+  "data-[state=unchecked]:border-border data-[state=unchecked]:bg-muted data-[state=checked]:border-primary data-[state=checked]:bg-primary " +
+  "aria-[checked=false]:border-border aria-[checked=false]:bg-muted aria-checked:border-primary aria-checked:bg-primary";
 
 /** A new rule starts as a pattern where one fits (the most common rule), otherwise as the first type offered. */
 const newDraft = (fieldType: string): ValidationFormState => {

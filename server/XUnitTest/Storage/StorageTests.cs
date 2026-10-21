@@ -66,31 +66,54 @@ public class StorageConfigurationTests
     }
 }
 
-[CollectionDefinition("StorageSerial", DisableParallelization = true)]
-public class StorageSerialCollection { }
-
-[Collection("StorageSerial")]
 public class StorageServiceFactoryTests
 {
     [Fact]
-    public void GetStorageService_InvalidProvider_ThrowsAndClearsStatics()
+    public void GetStorageService_InvalidProvider_Throws()
     {
         var factory = new StorageServiceFactory(Mock.Of<IServiceProvider>());
-        var config = new StorageConfiguration
-        {
-            StorageStrategy = "unknown-provider",
-            ConnectionString = "cs",
-            SecretKey = "sk",
-            AccessKey = "ak"
-        };
+        var config = new StorageConfiguration { StorageStrategy = "unknown-provider", ConnectionString = "cs", SecretKey = "sk", AccessKey = "ak" };
 
         var act = () => factory.GetStorageService(config);
-        act.Should().Throw<ArgumentException>();
 
-        // finally block resets the ambient StorageProvider statics
-        StorageProvider.ConnectionString.Should().BeEmpty();
-        StorageProvider.SecretKey.Should().BeEmpty();
-        StorageProvider.AccessKey.Should().BeEmpty();
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task GetStorageService_ParallelTenants_EachServiceGetsOnlyItsOwnConfiguration()
+    {
+        // The configuration used to pass through static fields, which concurrent requests shared.
+        // SFTP is the provider whose constructor makes no network call, so it can be built here.
+        var services = new ServiceCollection();
+        services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
+        var factory = new StorageServiceFactory(services.BuildServiceProvider());
+
+        static StorageConfiguration ConfigFor(string tenant) => new()
+        {
+            StorageStrategy = "SftpStorage",
+            Host = $"{tenant}.host",
+            Port = "22",
+            UserName = $"{tenant}-user",
+            Password = $"{tenant}-password",
+            RemoteBasePath = $"/{tenant}/",
+            SftpSecretKey = $"{tenant}-key"
+        };
+
+        static string Field(object service, string name) =>
+            (string)service.GetType().GetField(name, System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(service)!;
+
+        var jobs = Enumerable.Range(0, 200).Select(i => i % 2 == 0 ? "tenant-a" : "tenant-b")
+            .Select(tenant => Task.Run(() => (tenant, service: factory.GetStorageService(ConfigFor(tenant)))));
+        var results = await Task.WhenAll(jobs);
+
+        foreach (var (tenant, service) in results)
+        {
+            Field(service, "_sftpHost").Should().Be($"{tenant}.host");
+            Field(service, "_sftpUsername").Should().Be($"{tenant}-user");
+            Field(service, "_sftpPassword").Should().Be($"{tenant}-password");
+            Field(service, "_remoteBasePath").Should().Be($"/{tenant}");
+            Field(service, "_sftpSecretKey").Should().Be($"{tenant}-key");
+        }
     }
 }
 

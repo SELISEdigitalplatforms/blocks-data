@@ -23,7 +23,6 @@ namespace Blocks.Extension.DependencyInjection
 
             // Register services
             services.AddTransient<IValidator<UpdateFileRequest>, UpdateFileRequestValidator>();
-            services.AddTransient<AwsS3CompatibleStorageService>();
             services.AddSingleton<IFileManagementService, FileManagementService>();
             services.AddSingleton<IFileRepository, FileRepository>();
             services.AddSingleton<IFileVersionRepository, FileVersionRepository>();
@@ -34,9 +33,6 @@ namespace Blocks.Extension.DependencyInjection
             services.AddSingleton<IObjectAccessResolver, ObjectAccessResolver>();
             services.AddSingleton<IUploadKeyRouter, UploadKeyRouter>();
             services.AddSingleton<IUploadVerificationService, UploadVerificationService>();
-            services.AddTransient<AzureBlobStorageService>();
-            services.AddTransient<AwsS3StorageService>();
-            services.AddTransient<SftpStorageService>();
 
         }
     }

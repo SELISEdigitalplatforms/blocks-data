@@ -4,6 +4,7 @@ using Blocks.Genesis;
 using Microsoft.AspNetCore.Http;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Utilities;
+using Blocks.Genesis.Entities.Data;
 using System.Diagnostics.CodeAnalysis;
 
 namespace DomainService.Storage
@@ -20,11 +21,11 @@ namespace DomainService.Storage
         /// <summary>Private bucket backing `Public/Quarantine/...`, `Private/Quarantine/...`, and `Verification/...` candidate keys.</summary>
         protected readonly string _quarantineBucketName;
 
-        public AwsS3StorageService()
+        public AwsS3StorageService(StorageConfiguration configuration)
         {
-            var accessKey = StorageProvider.AccessKey;
-            var secretKey = StorageProvider.SecretKey;
-            var region = StorageProvider.Region;
+            var accessKey = configuration.AccessKey;
+            var secretKey = configuration.SecretKey;
+            var region = configuration.CloudStorageRegionEndPoint;
             _bucketName = BlocksContext.GetContext()?.TenantId ?? string.Empty;
             _quarantineBucketName = GetQuarantineBucketName(_bucketName);
 

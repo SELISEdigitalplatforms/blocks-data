@@ -90,6 +90,8 @@ public class GraphqlSchemaBuilder
 
             RegisterEnumFieldTypes(schemaBuilder, schemas);
             BuildOnlySchemaType(schemaBuilder, customSchemas);
+            if (schemas.Any(s => s.Fields.Any(f => OperationAccessType.Serves(f.Name, f.Type, dbSchemaTypes))))
+                schemaBuilder.AddType<OperationAccessType>();
             BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes, childFilterInputTypes);
 
             var queryType = BuildQueryType(dbSchemas, outputTypes, entityFilterInputTypes);

@@ -33,7 +33,7 @@ public class MutationInputHelperTests
                 ["Update"] = new Dictionary<string, object?> { ["UserIds"] = new List<object?> { "user-1" } },
             };
 
-            MutationInputHelper.AddRequesterToAccessLists(input);
+            MutationInputHelper.AddRequesterToAccessLists(input, SchemaWithAccessLists());
 
             var read = (Dictionary<string, object?>)input["Read"]!;
             read["UserIds"].Should().BeEquivalentTo(new object?[] { "user-9", "user-1" }, o => o.WithStrictOrdering());
@@ -54,9 +54,113 @@ public class MutationInputHelperTests
         XUnitTest.Infrastructure.BlocksTestContext.Clear();
         var input = new Dictionary<string, object?>();
 
-        MutationInputHelper.AddRequesterToAccessLists(input);
+        MutationInputHelper.AddRequesterToAccessLists(input, SchemaWithAccessLists());
 
         input.Should().BeEmpty();
+    }
+
+    /// <summary>A schema with the platform access lists, as schema saving adds them (type OperationAccess).</summary>
+    private static SchemaDefinitionExtended SchemaWithAccessLists(params string[] names) => Schema(fields:
+        (names.Length == 0 ? ["Create", "Read", "Update", "Delete"] : names)
+            .Select(name => Field(name, "OperationAccess", children: new()
+            {
+                Field("Roles", "String", isArray: true),
+                Field("UserIds", "String", isArray: true),
+                Field("Permissions", "String", isArray: true),
+            }))
+            .Prepend(Field("Title", "String"))
+            .ToList());
+
+    [Fact]
+    public void AddRequesterToAccessLists_SchemaWithoutTheProperties_AddsNothing()
+    {
+        XUnitTest.Infrastructure.BlocksTestContext.Set(userId: "user-1");
+        try
+        {
+            var input = new Dictionary<string, object?> { ["Title"] = "Prepare contract" };
+
+            MutationInputHelper.AddRequesterToAccessLists(input, Schema(fields: new() { Field("Title", "String") }));
+
+            input.Keys.Should().Equal("Title");
+        }
+        finally
+        {
+            XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        }
+    }
+
+    [Fact]
+    public void AddRequesterToAccessLists_APropertyOfThatNameWithAnotherType_IsARegularProperty()
+    {
+        XUnitTest.Infrastructure.BlocksTestContext.Set(userId: "user-1");
+        try
+        {
+            var schema = Schema(fields: new()
+            {
+                Field("Title", "String"),
+                Field("Update", "String"),
+                Field("Delete", "Boolean"),
+            });
+            var input = new Dictionary<string, object?>
+            {
+                ["Title"] = "Prepare contract",
+                ["Update"] = "Waiting for client documents",
+                ["Delete"] = false,
+            };
+
+            MutationInputHelper.AddRequesterToAccessLists(input, schema);
+
+            input["Update"].Should().Be("Waiting for client documents");
+            input["Delete"].Should().Be(false);
+            input.Should().NotContainKey("Read");
+        }
+        finally
+        {
+            XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        }
+    }
+
+    [Fact]
+    public void AddRequesterToAccessLists_ALowercasePropertyOfAnotherType_GetsNoAccessListBesideIt()
+    {
+        // Almora's Notification has its own "read" (Boolean) and no platform Read list.
+        XUnitTest.Infrastructure.BlocksTestContext.Set(userId: "user-1");
+        try
+        {
+            var schema = Schema(fields: new() { Field("Message", "String"), Field("read", "Boolean") });
+            var input = new Dictionary<string, object?> { ["Message"] = "Case approved", ["read"] = false };
+
+            MutationInputHelper.AddRequesterToAccessLists(input, schema);
+
+            input.Should().BeEquivalentTo(new Dictionary<string, object?> { ["Message"] = "Case approved", ["read"] = false });
+        }
+        finally
+        {
+            XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        }
+    }
+
+    [Fact]
+    public void AddRequesterToAccessLists_DecidesPerProperty()
+    {
+        XUnitTest.Infrastructure.BlocksTestContext.Set(userId: "user-1");
+        try
+        {
+            var schema = SchemaWithAccessLists("Create", "Read", "Update");
+            schema.Fields.Add(Field("Delete", "Boolean"));
+            var input = new Dictionary<string, object?> { ["Title"] = "Prepare contract", ["Delete"] = false };
+
+            MutationInputHelper.AddRequesterToAccessLists(input, schema);
+
+            ((Dictionary<string, object?>)input["Read"]!)["UserIds"].Should().BeEquivalentTo(new object?[] { "user-1" });
+            ((Dictionary<string, object?>)input["Update"]!)["UserIds"].Should().BeEquivalentTo(new object?[] { "user-1" });
+            input["Delete"].Should().Be(false);
+            input.Should().NotContainKey("Create");
+        }
+        finally
+        {
+            XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        }
     }
 
     [Fact]

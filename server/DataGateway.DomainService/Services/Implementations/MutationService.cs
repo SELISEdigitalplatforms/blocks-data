@@ -104,7 +104,7 @@ public class MutationService : IMutationService
         FieldDefaultsApplier.Apply(input, defaults);
         input.InjectDefaultValueOnInsert();
         MutationInputHelper.EnsureDefaultListsForInsert(input);
-        MutationInputHelper.AddRequesterToAccessLists(input);
+        MutationInputHelper.AddRequesterToAccessLists(input, schema);
 
         var document = InputToBsonDocument(input);
         gatewayOperation.CollectionName = schema.CollectionName;
@@ -368,7 +368,7 @@ public class MutationService : IMutationService
             FieldDefaultsApplier.Apply(input, defaultsPerInput[i]);
             input.InjectDefaultValueOnInsert();
             MutationInputHelper.EnsureDefaultListsForInsert(input);
-            MutationInputHelper.AddRequesterToAccessLists(input);
+            MutationInputHelper.AddRequesterToAccessLists(input, schema);
             documents.Add(InputToBsonDocument(input));
         }
 
@@ -893,7 +893,7 @@ public class MutationService : IMutationService
         var record = WriteRules.ToRecord(InputToBsonDocument(input));
         record.InjectDefaultValueOnInsert();
         MutationInputHelper.EnsureDefaultListsForInsert(record);
-        MutationInputHelper.AddRequesterToAccessLists(record);
+        MutationInputHelper.AddRequesterToAccessLists(record, schema);
         return ClsWriteGuard.RefusedPaths(_principals.Current, schema, PolicyOperation.WRITE, sentPaths, record);
     }
 

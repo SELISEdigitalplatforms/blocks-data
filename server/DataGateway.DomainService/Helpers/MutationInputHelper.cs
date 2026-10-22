@@ -56,8 +56,11 @@ public static class MutationInputHelper
     /// <summary>
     /// The requester can read, edit and delete what they create: on insert their user id is added to the row's
     /// Read, Update and Delete UserIds (kept once; ids already there stay). Nothing without a signed-in user.
+    /// Only into a list the schema declares as the platform access list (that name, type OperationAccess): a
+    /// schema without the property, or whose property of that name has another type, gets nothing, and such a
+    /// property is a regular one, stored as sent.
     /// </summary>
-    public static void AddRequesterToAccessLists(Dictionary<string, object?> input)
+    public static void AddRequesterToAccessLists(Dictionary<string, object?> input, SchemaDefinitionExtended schema)
     {
         var context = BlocksContext.GetContext();
         if (context is not { IsAuthenticated: true } || string.IsNullOrWhiteSpace(context.UserId))
@@ -65,6 +68,9 @@ public static class MutationInputHelper
 
         foreach (var name in AccessListsWithRequester)
         {
+            if (!IsAccessList(schema, name))
+                continue;
+
             var access = input.TryGetValue(name, out var value) && value is Dictionary<string, object?> sent ? sent : new Dictionary<string, object?>();
             var userIds = access.TryGetValue(nameof(OperationAccess.UserIds), out var ids) && ids is System.Collections.IEnumerable list && ids is not string
                 ? list.Cast<object?>().ToList()
@@ -75,6 +81,9 @@ public static class MutationInputHelper
             input[name] = access;
         }
     }
+
+    private static bool IsAccessList(SchemaDefinitionExtended schema, string name) =>
+        schema.Fields.Any(field => field.Name == name && field.Type == nameof(OperationAccess));
 
     /// <summary>Parses the mutation input from the resolver context.</summary>
     public static Dictionary<string, object?> ParseMutationInput(IResolverContext context, InputObjectType inputType)

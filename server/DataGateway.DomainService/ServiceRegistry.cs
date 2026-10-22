@@ -1,3 +1,4 @@
+using DataGateway.DomainService.Notifications;
 using FluentValidation;
 using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Middlewares;
@@ -40,6 +41,7 @@ public static class ServiceRegistry
     public static void RegisterSchemaServices(this IServiceCollection serviceCollection)
     {
         serviceCollection.AddSingleton<IDbRepository, DbRepository>();
+        serviceCollection.AddSingleton<IBuiltInNotificationSender, BuiltInNotificationSender>();
         serviceCollection.AddSingleton<DataGatewayTokenAuthenticator>();
 
         serviceCollection.AddScoped<IDataGatewayConfigurationService, DataGatewayConfigurationService>();

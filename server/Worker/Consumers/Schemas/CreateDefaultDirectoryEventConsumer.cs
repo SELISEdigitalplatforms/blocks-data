@@ -1,4 +1,5 @@
 using Blocks.Genesis;
+using DataGateway.DomainService.Notifications;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
@@ -12,13 +13,40 @@ public class CreateDefaultDirectoryEventConsumer : IConsumer<CreateDefaultDirect
 {
     private readonly ILogger<CreateDefaultDirectoryEventConsumer> _logger;
     private readonly IFileDirectoryRepository _directoryRepository;
+    private readonly IBuiltInNotificationSender? _notifier;
 
     public CreateDefaultDirectoryEventConsumer(
         ILogger<CreateDefaultDirectoryEventConsumer> logger,
-        IFileDirectoryRepository directoryRepository)
+        IFileDirectoryRepository directoryRepository,
+        IBuiltInNotificationSender? notifier = null)
     {
         _logger = logger;
         _directoryRepository = directoryRepository;
+        _notifier = notifier;
+    }
+
+    /// <summary>
+    /// Tells the user of the event context that the default folders were not created. Recipient limit: that
+    /// one user (no project-admin lookup exists here). Best effort: the sender never throws.
+    /// </summary>
+    private async Task NotifyFailedAsync(CreateDefaultDirectoryEvent @event)
+    {
+        if (_notifier is null) return;
+        var context = BlocksContext.GetContext();
+        await _notifier.SendAsync(new BuiltInNotification(
+            context?.TenantId ?? string.Empty,
+            "data-storage-directories-failed",
+            BuiltInNotificationSender.Recipients(context?.UserId),
+            new
+            {
+                @event = "data-storage-directories-failed",
+                title = "Default storage folders not created",
+                description = "The default storage folders of the project were not created.",
+                isSuccess = false,
+                itemId = @event.ItemId,
+                projectKey = @event.ProjectKey,
+                occurredAt = DateTime.UtcNow
+            }));
     }
 
     public async Task Consume(CreateDefaultDirectoryEvent @event)
@@ -42,6 +70,7 @@ public class CreateDefaultDirectoryEventConsumer : IConsumer<CreateDefaultDirect
         catch (System.Exception ex)
         {
             _logger.LogError(ex, "Error consuming create default directory event for item id: {@ItemId}", @event.ItemId);
+            await NotifyFailedAsync(@event);
         }
     }
 

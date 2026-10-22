@@ -6,6 +6,7 @@ using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Events;
+using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Repositories;
 using HotChocolate.Language;
@@ -35,19 +36,47 @@ public class MutationService : IMutationService
     private readonly IDataAccessPolicyResolutionService _resolver;
     private readonly IAccessPrincipalAccessor _principals;
     private readonly ILogger<MutationService> _logger;
+    private readonly IBuiltInNotificationSender? _notifier;
 
     public MutationService(
         IGqlDbRepository repository,
         IDataChangeEventPublisher eventPublisher,
         IDataAccessPolicyResolutionService resolver,
         IAccessPrincipalAccessor principals,
-        ILogger<MutationService> logger)
+        ILogger<MutationService> logger,
+        IBuiltInNotificationSender? notifier = null)
     {
         _repository = repository;
         _eventPublisher = eventPublisher;
         _resolver = resolver;
         _principals = principals;
         _logger = logger;
+        _notifier = notifier;
+    }
+
+    /// <summary>
+    /// One final result per bulk request, to the caller (never per row or per batch). Best effort: the
+    /// sender never throws. Not saved to the inbox (the config has persistence off).
+    /// </summary>
+    private async Task NotifyBulkResultAsync(SchemaDefinitionExtended schema, string operation, bool acknowledged, long count)
+    {
+        if (_notifier is null) return;
+        var context = BlocksContext.GetContext();
+        await _notifier.SendAsync(new BuiltInNotification(
+            context?.TenantId ?? string.Empty,
+            "data-bulk-change-progress",
+            BuiltInNotificationSender.Recipients(context?.UserId),
+            new
+            {
+                @event = "data-bulk-change-progress",
+                title = "Bulk change finished",
+                description = acknowledged ? $"Bulk {operation} finished." : $"Bulk {operation} was not completed.",
+                isSuccess = acknowledged,
+                schemaName = schema.SchemaName,
+                operation,
+                affectedCount = count,
+                occurredAt = DateTime.UtcNow
+            }));
     }
 
     /// <inheritdoc />
@@ -275,6 +304,7 @@ public class MutationService : IMutationService
         _logger.LogInformation("Data bulk deleted for schema {SchemaName} ({Count} documents in {Batches} batches)",
             schema.SchemaName, totalDeleted, batchNumber);
 
+        await NotifyBulkResultAsync(schema, "delete", acknowledged, totalDeleted);
         return new ActionResponse { Acknowledged = acknowledged, TotalImpactedData = totalDeleted };
     }
 
@@ -362,6 +392,7 @@ public class MutationService : IMutationService
 
         _logger.LogInformation("Data bulk inserted for schema {SchemaName}", schema.SchemaName);
 
+        await NotifyBulkResultAsync(schema, "insert", response.Acknowledged, response.TotalImpactedData);
         return response;
     }
 
@@ -435,6 +466,7 @@ public class MutationService : IMutationService
 
         _logger.LogInformation("Data bulk updated for schema {SchemaName}", schema.SchemaName);
 
+        await NotifyBulkResultAsync(schema, "update", response.Acknowledged, response.TotalImpactedData);
         return response;
     }
 

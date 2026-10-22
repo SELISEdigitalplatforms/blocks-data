@@ -1,5 +1,6 @@
 using Blocks.Genesis;
 using DataGateway.DomainService.Models.Events;
+using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Services;
 using DomainService.Storage;
 using FluentAssertions;
@@ -98,9 +99,8 @@ public class SchemaExportEventConsumerTests
             Consumer = new SchemaExportEventConsumer(
                 ExportService.Object,
                 FileManagement.Object,
-                Crypto.Object,
-                Tenants.Object,
-                configuration,
+                new BuiltInNotificationSender(configuration, factory.Object, Tenants.Object, Crypto.Object,
+                    NullLogger<BuiltInNotificationSender>.Instance),
                 factory.Object,
                 NullLogger<SchemaExportEventConsumer>.Instance);
         }

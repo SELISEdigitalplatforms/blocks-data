@@ -38,22 +38,25 @@ public static class ClsWriteGuard
         var row = (IDictionary<string, object>)record!;
         var schemaLevel = ClsInputHelper.GetSchemaAccessLevelForOperation(schema, operation);
         var refused = new List<string>();
-        foreach (var path in paths.Distinct())
+        foreach (var path in paths.Distinct().Where(path => IsCustom(schema, operation, path, schemaLevel)))
         {
-            var field = ClsInputHelper.GetFieldDefForPath(schema, path);
-            if (field is null)
-                continue;
-
-            var rawLevel = operation == PolicyOperation.WRITE ? field.WriteAccessLevel : field.EditAccessLevel;
-            var level = rawLevel == SchemaAccessLevel.Inherited ? schemaLevel : rawLevel;
-            if (level != SchemaAccessLevel.Custom)
-                continue;
-
             var covering = policies.Where(p => p.CoversPath(path)).ToList();
             if (covering.Count > 0 && !covering.Any(p => QueryPolicyRuleEvaluator.RowSatisfiesPolicy(principal, p, row)))
                 refused.Add(path);
         }
         return refused;
+    }
+
+    /// <summary>Whether the field's access for the operation is Custom (its own level, or the schema's when it inherits).</summary>
+    private static bool IsCustom(SchemaDefinitionExtended schema, PolicyOperation operation, string path, SchemaAccessLevel schemaLevel)
+    {
+        var field = ClsInputHelper.GetFieldDefForPath(schema, path);
+        if (field is null)
+            return false;
+
+        var rawLevel = operation == PolicyOperation.WRITE ? field.WriteAccessLevel : field.EditAccessLevel;
+        var level = rawLevel == SchemaAccessLevel.Inherited ? schemaLevel : rawLevel;
+        return level == SchemaAccessLevel.Custom;
     }
 
     /// <summary>

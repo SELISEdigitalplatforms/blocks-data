@@ -23,6 +23,9 @@ public class DataGatewayControllerTests
 {
     private static int Status(IActionResult r) => ((ObjectResult)r).StatusCode!.Value;
 
+    private static IDelegatedAdministrationGuard AllowAllGuard() =>
+        Mock.Of<IDelegatedAdministrationGuard>(g => g.IsAllowed(It.IsAny<string>()));
+
     private static ServiceResponse<ActionResponse> Ok() =>
         new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true });
 
@@ -207,7 +210,7 @@ public class DataGatewayControllerTests
         svc.Setup(s => s.DeleteDataAccessPolicyAsync("i1")).ReturnsAsync(Ok());
         svc.Setup(s => s.GetEntityDataAccessPolicyAsync("Person"))
             .ReturnsAsync(new ServiceResponse<List<DataAccessPolicyResponse>>().SetSuccess(new List<DataAccessPolicyResponse>()));
-        var c = new DataAccessController(svc.Object);
+        var c = new DataAccessController(svc.Object, AllowAllGuard());
 
         Status(await c.ConfigureSecurity(new ConfigureSchemaSecurityRequest())).Should().Be(200);
         Status(await c.CreateDataAccessPolicy(new CreateDataAccessPolicyRequest())).Should().Be(200);

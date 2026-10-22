@@ -28,6 +28,7 @@ public class MutationService : IMutationService
 {
     private const string OperationLabelCreate = "CREATE";
     private const string OperationLabelUpdate = "UPDATE";
+    private const string ColumnAccessValidationType = "ColumnAccess";
     private const string OperationLabelDelete = "DELETE";
     private readonly IGqlDbRepository _repository;
     private readonly IDataChangeEventPublisher _eventPublisher;
@@ -63,11 +64,13 @@ public class MutationService : IMutationService
         _logger.LogInformation("Inserting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.WRITE, OperationLabelCreate);
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
+        var sentPaths = MutationInputHelper.GetAllPathsFromInput(input, string.Empty);
         RecordOrganizationRule.EnsureForInsert([input], _principals.Current);
         var defaults = ApplyFieldDefaults(input, schema, DateTime.UtcNow);
         ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
         await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelCreate);
         await ValidateUniquenessOrThrowAsync(schema, [input], null, OperationLabelCreate);
+        ThrowIfColumnRulesRefuse(schema, [(null, RefusedOnInsert(schema, sentPaths, input))], OperationLabelCreate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.WRITE, OperationLabelCreate);
         FieldDefaultsApplier.Apply(input, defaults);
         input.InjectDefaultValueOnInsert();
@@ -121,6 +124,7 @@ public class MutationService : IMutationService
         await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelUpdate);
         var currentId = existingDocument[GraphQlConstant.DbEntityIdFieldName]?.ToString();
         await ValidateUniquenessOrThrowAsync(schema, [input], currentId is not null ? [currentId] : null, OperationLabelUpdate);
+        ThrowIfColumnRulesRefuse(schema, [(null, RefusedOnEdit(schema, input, existingDocument))], OperationLabelUpdate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.EDIT, OperationLabelUpdate);
         RecordOrganizationRule.EnsureForUpdate(input, _principals.Current);
         input.InjectDefaultValueOnUpdate();
@@ -309,6 +313,7 @@ public class MutationService : IMutationService
         var inputs = GraphQlTypeHelper.MapBulkMutationInput(listNode, inputType);
         if (inputs == null || inputs.Count == 0)
             return new BulkActionResponse { Acknowledged = true, TotalImpactedData = 0 };
+        var sentPathsPerInput = inputs.Select(input => MutationInputHelper.GetAllPathsFromInput(input, string.Empty)).ToList();
         // Every row is checked before any row is written.
         RecordOrganizationRule.EnsureForInsert(inputs, _principals.Current);
 
@@ -320,6 +325,10 @@ public class MutationService : IMutationService
 
         await ValidateReferencesOrThrowAsync(schema, inputs, references, OperationLabelCreate);
         await ValidateUniquenessOrThrowAsync(schema, inputs, null, OperationLabelCreate);
+        ThrowIfColumnRulesRefuse(
+            schema,
+            inputs.Select((input, i) => ((string?)$"Item {i}", RefusedOnInsert(schema, sentPathsPerInput[i], input))).ToList(),
+            OperationLabelCreate);
 
         var documents = new List<BsonDocument>();
         for (var i = 0; i < inputs.Count; i++)
@@ -384,6 +393,12 @@ public class MutationService : IMutationService
             .OfType<string>()
             .ToList();
         await ValidateUniquenessOrThrowAsync(schema, [input], existingIds, OperationLabelUpdate);
+        // One record the rules refuse refuses the whole update, so nothing is half done.
+        ThrowIfColumnRulesRefuse(
+            schema,
+            existingDocuments.Select(document =>
+                ((string?)$"Record {document[GraphQlConstant.DbEntityIdFieldName]}", RefusedOnEdit(schema, input, document))).ToList(),
+            OperationLabelUpdate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.EDIT, OperationLabelUpdate);
         RecordOrganizationRule.EnsureForUpdate(input, _principals.Current);
         input.InjectDefaultValueOnUpdate();
@@ -835,6 +850,44 @@ public class MutationService : IMutationService
             finally { (iterator as IDisposable)?.Dispose(); }
         }
         return false;
+    }
+
+    /// <summary>
+    /// Fields the client sent that a column rule for Create refuses, checked against the record as it will be stored:
+    /// the rules may read CreatedBy, OrganizationId or the access lists, which are only filled in after this point.
+    /// </summary>
+    private List<string> RefusedOnInsert(SchemaDefinitionExtended schema, List<string> sentPaths, Dictionary<string, object?> input)
+    {
+        var record = WriteRules.ToRecord(InputToBsonDocument(input));
+        record.InjectDefaultValueOnInsert();
+        MutationInputHelper.EnsureDefaultListsForInsert(record);
+        MutationInputHelper.AddRequesterToAccessLists(record);
+        return ClsWriteGuard.RefusedPaths(_principals.Current, schema, PolicyOperation.WRITE, sentPaths, record);
+    }
+
+    /// <summary>Fields whose value this update changes and that a column rule for Edit refuses on the stored record.</summary>
+    private List<string> RefusedOnEdit(SchemaDefinitionExtended schema, Dictionary<string, object?> input, BsonDocument stored) =>
+        ClsWriteGuard.RefusedPaths(_principals.Current, schema, PolicyOperation.EDIT, ClsWriteGuard.ChangedPaths(input, stored), WriteRules.ToRecord(stored));
+
+    /// <summary>
+    /// Refuses the whole write when a column rule refuses a field the client sent, naming each field (and, in a batch,
+    /// the item or record), instead of dropping the field and reporting success. Nothing is written.
+    /// </summary>
+    private void ThrowIfColumnRulesRefuse(SchemaDefinitionExtended schema, IReadOnlyList<(string? Item, List<string> Fields)> refused, string operationLabel)
+    {
+        var verb = operationLabel == OperationLabelCreate ? "set" : "change";
+        var result = new DataValidationResult();
+        foreach (var (item, fields) in refused)
+        {
+            var prefix = item is null ? string.Empty : $"{item}: ";
+            foreach (var field in fields.Select(MutationInputHelper.ToSchemaPath).Distinct())
+                result.AddError(field, $"{prefix}You don't have permission to {verb} {field} on this record.", ColumnAccessValidationType);
+        }
+        if (result.IsValid)
+            return;
+
+        _logger.LogWarning("Column access refused for {Op} on schema {SchemaName}: {Errors}", operationLabel, schema.SchemaName, result.ErrorMessage);
+        MutationValidationHelper.ThrowValidationError(result);
     }
 
     private void ApplyClsRestrictionsToInput(Dictionary<string, object?> input, SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)

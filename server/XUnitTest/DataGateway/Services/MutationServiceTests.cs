@@ -431,4 +431,121 @@ public class MutationServiceTests
 
         result.Acknowledged.Should().BeFalse();
     }
+
+    // Column (CLS) rules on Create and Edit, checked against the record: "only the creator may change Email".
+
+    private static readonly PolicyRule CreatorOnly =
+        Rule(ConditionSource.SCHEMA_FIELD, "CreatedBy", PolicyOperator.EQUAL, ConditionSource.AUTH, "UserId");
+
+    private static SchemaDefinitionExtended RunnerSchema(PolicyOperation operation, PolicyRule rule) => Schema(
+        fields: new()
+        {
+            Field("Name"),
+            Field("Age", "Int"),
+            Field("Email", write: operation == PolicyOperation.WRITE ? SchemaAccessLevel.Custom : SchemaAccessLevel.Inherited,
+                edit: operation == PolicyOperation.EDIT ? SchemaAccessLevel.Custom : SchemaAccessLevel.Inherited),
+        },
+        policies: new() { Policy(PolicyType.CLS, operation, ["Email"], Group(PolicyLogicalOperator.AND, rule)) });
+
+    private static BsonDocument StoredBy(string id, string createdBy, string email = "a@x.io") =>
+        new() { { GraphQlConstant.DbEntityIdFieldName, id }, { "Name", "Old" }, { "Email", email }, { "CreatedBy", createdBy } };
+
+    private static Mock<IGqlDbRepository> RepoHolding(BsonDocument stored)
+    {
+        var repo = Repo();
+        repo.Setup(r => r.GetItemAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>())).ReturnsAsync(stored);
+        repo.Setup(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>()))
+            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+        return repo;
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ANonCreatorChangingACreatorOnlyField_IsRefused_AndNothingIsWritten()
+    {
+        var repo = RepoHolding(StoredBy("r1", createdBy: "ali"));
+        var ctx = ContextWith(ObjectLiteral("{ Email: \"b@x.io\", Name: \"New\" }"));
+
+        var act = () => NewService(repo, new Mock<IDataChangeEventPublisher>()).UpdateAsync(RunnerSchema(PolicyOperation.EDIT, CreatorOnly), ctx.Object, _insertInput);
+
+        var error = (await act.Should().ThrowAsync<GraphQLException>()).Which.Errors[0];
+        error.Code.Should().Be(GraphQlConstant.ValidationErrorErrorCode);
+        error.Message.Should().Contain("You don't have permission to change Email on this record");
+        repo.Verify(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_TheCreatorMayChangeIt()
+    {
+        var repo = RepoHolding(StoredBy("r1", createdBy: "user-1"));
+        var ctx = ContextWith(ObjectLiteral("{ Email: \"b@x.io\" }"));
+
+        await NewService(repo, new Mock<IDataChangeEventPublisher>()).UpdateAsync(RunnerSchema(PolicyOperation.EDIT, CreatorOnly), ctx.Object, _insertInput);
+
+        repo.Verify(r => r.UpdateAsync("Persons", It.IsAny<BsonDocument>(), It.Is<BsonDocument>(d => d["Email"] == "b@x.io")), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ANonCreatorSendingTheFieldBackUnchanged_SavesTheRest()
+    {
+        var repo = RepoHolding(StoredBy("r1", createdBy: "ali", email: "a@x.io"));
+        var ctx = ContextWith(ObjectLiteral("{ Email: \"a@x.io\", Name: \"New\" }"));
+
+        await NewService(repo, new Mock<IDataChangeEventPublisher>()).UpdateAsync(RunnerSchema(PolicyOperation.EDIT, CreatorOnly), ctx.Object, _insertInput);
+
+        repo.Verify(r => r.UpdateAsync("Persons", It.IsAny<BsonDocument>(), It.Is<BsonDocument>(d => d["Name"] == "New")), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_OneRecordTheRuleRefuses_RefusesTheWholeUpdate()
+    {
+        var repo = Repo();
+        repo.Setup(r => r.GetItemsAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync(new List<BsonDocument> { StoredBy("mine", "user-1"), StoredBy("alis", "ali") });
+        var ctx = ContextWith(ObjectLiteral("{ Email: \"b@x.io\" }"));
+
+        var act = () => NewService(repo, new Mock<IDataChangeEventPublisher>()).BulkUpdateAsync(RunnerSchema(PolicyOperation.EDIT, CreatorOnly), ctx.Object, _insertInput);
+
+        (await act.Should().ThrowAsync<GraphQLException>()).Which.Errors[0].Message.Should().Contain("Record alis: You don't have permission to change Email");
+        repo.Verify(r => r.UpdateManyAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InsertAsync_ACreateRuleOnTheRecord_SeesCreatedByAsItWillBeStored()
+    {
+        var repo = Repo();
+        repo.Setup(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>())).ReturnsAsync((string _, BsonDocument d) => d);
+        var ctx = ContextWith(ObjectLiteral("{ Name: \"John\", Email: \"a@x.io\" }"));
+
+        await NewService(repo, new Mock<IDataChangeEventPublisher>()).InsertAsync(RunnerSchema(PolicyOperation.WRITE, CreatorOnly), ctx.Object, _insertInput);
+
+        repo.Verify(r => r.InsertAsync("Persons", It.Is<BsonDocument>(d => d["Email"] == "a@x.io")), Times.Once);
+    }
+
+    [Fact]
+    public async Task InsertAsync_AFieldTheRuleRefuses_IsAnErrorNotASilentDrop()
+    {
+        var repo = Repo();
+        var adminsOnly = Rule(ConditionSource.AUTH, "Roles", PolicyOperator.CONTAIN, ConditionSource.STATIC_VALUE, staticValue: "admin");
+        var ctx = ContextWith(ObjectLiteral("{ Name: \"John\", Email: \"a@x.io\" }"));
+
+        var act = () => NewService(repo, new Mock<IDataChangeEventPublisher>()).InsertAsync(RunnerSchema(PolicyOperation.WRITE, adminsOnly), ctx.Object, _insertInput);
+
+        (await act.Should().ThrowAsync<GraphQLException>()).Which.Errors[0].Message.Should().Contain("You don't have permission to set Email");
+        repo.Verify(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InsertAsync_AFieldWithoutAColumnRule_IsUnchanged()
+    {
+        var repo = Repo();
+        repo.Setup(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>())).ReturnsAsync((string _, BsonDocument d) => d);
+        var schema = RunnerSchema(PolicyOperation.WRITE, CreatorOnly);
+        schema.Policies.Clear();   // Email is Custom but no column policy covers it: written, as today
+        var ctx = ContextWith(ObjectLiteral("{ Name: \"John\", Email: \"a@x.io\" }"));
+
+        await NewService(repo, new Mock<IDataChangeEventPublisher>()).InsertAsync(schema, ctx.Object, _insertInput);
+
+        repo.Verify(r => r.InsertAsync("Persons", It.Is<BsonDocument>(d => d["Email"] == "a@x.io")), Times.Once);
+    }
 }

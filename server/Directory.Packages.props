@@ -27,7 +27,7 @@
     <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageVersion Include="Otp.NET" Version="1.4.0" />
     <PackageVersion Include="QRCoder" Version="1.6.0" />
-    <PackageVersion Include="SeliseBlocks.Genesis.OS" Version="4.3.9" />
+    <PackageVersion Include="SeliseBlocks.Genesis.OS" Version="4.3.10" />
     <PackageVersion Include="SeliseBlocks.Secrets.OS" Version="4.0.3" />
     <PackageVersion Include="SSH.NET" Version="2026.0.0" />
     <PackageVersion Include="System.Drawing.Common" Version="8.0.13" />

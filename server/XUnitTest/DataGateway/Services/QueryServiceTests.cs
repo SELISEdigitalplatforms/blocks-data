@@ -378,7 +378,7 @@ public class QueryServiceTests
             var act = () => _service.GetDataAsync(Context().Object, schema);
 
             var ex = await act.Should().ThrowAsync<GraphQLException>();
-            ex.Which.Errors[0].Code.Should().Be(GraphQlConstant.UnauthorizedErrorCode);
+            ex.Which.Errors[0].Code.Should().Be(GraphQlConstant.ForbiddenErrorCode);
         }
         finally { ClearContext(); }
     }

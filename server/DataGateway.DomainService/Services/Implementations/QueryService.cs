@@ -237,12 +237,12 @@ public class QueryService : IQueryService
             System.Diagnostics.Activity.Current,
             GatewayFailureKind.Authorization,
             message,
-            GraphQlConstant.UnauthorizedErrorCode);
+            GraphQlConstant.ForbiddenErrorCode);
 
         throw new GraphQLException(
             ErrorBuilder.New()
                 .SetMessage(message)
-                .SetCode(GraphQlConstant.UnauthorizedErrorCode)
+                .SetCode(GraphQlConstant.ForbiddenErrorCode)
                 .Build());
     }
 

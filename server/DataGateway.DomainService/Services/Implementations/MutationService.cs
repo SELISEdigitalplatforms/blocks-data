@@ -747,10 +747,10 @@ public class MutationService : IMutationService
                 operationLabel.ToUpperInvariant(), schema.SchemaName, rlsResult.ErrorMessage);
             var message = rlsResult.ErrorMessage ?? $"You don't have permission to {operationLabel} records in this entity.";
             GatewayOperationActivity.MarkFailed(
-                Activity.Current, GatewayFailureKind.Authorization, message, GraphQlConstant.UnauthorizedErrorCode);
+                Activity.Current, GatewayFailureKind.Authorization, message, GraphQlConstant.ForbiddenErrorCode);
 
             throw new GraphQLException(
-                ErrorBuilder.New().SetMessage(message).SetCode(GraphQlConstant.UnauthorizedErrorCode).Build());
+                ErrorBuilder.New().SetMessage(message).SetCode(GraphQlConstant.ForbiddenErrorCode).Build());
         }
     }
 

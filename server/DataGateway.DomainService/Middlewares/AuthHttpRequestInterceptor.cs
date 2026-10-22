@@ -24,7 +24,7 @@ public class AuthHttpResponseFormatter : DefaultHttpResponseFormatter
                     return HttpStatusCode.Unauthorized;
                 }
 
-                if (code == "FORBIDDEN" || code == "AUTH_NOT_AUTHORIZED")
+                if (code == GraphQlConstant.ForbiddenErrorCode || code == "AUTH_NOT_AUTHORIZED")
                 {
                     return HttpStatusCode.Forbidden;
                 }

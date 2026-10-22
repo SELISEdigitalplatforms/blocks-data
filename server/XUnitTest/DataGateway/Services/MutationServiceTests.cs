@@ -194,7 +194,7 @@ public class MutationServiceTests
         var act = () => NewService(repo, pub).InsertAsync(schema, ctx.Object, _insertInput);
 
         var ex = await act.Should().ThrowAsync<GraphQLException>();
-        ex.Which.Errors[0].Code.Should().Be(GraphQlConstant.UnauthorizedErrorCode);
+        ex.Which.Errors[0].Code.Should().Be(GraphQlConstant.ForbiddenErrorCode);
     }
 
     [Fact]

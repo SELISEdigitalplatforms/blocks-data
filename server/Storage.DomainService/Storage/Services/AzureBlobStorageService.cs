@@ -26,9 +26,9 @@ namespace DomainService.Storage
         /// <summary>Private container backing `Public/Quarantine/...`, `Private/Quarantine/...`, and `Verification/...` candidate keys. Never created with public access.</summary>
         private readonly BlobContainerClient _quarantineContainerClient;
 
-        public AzureBlobStorageService(IConfigurationRepository configurationRepository)
+        public AzureBlobStorageService(IConfigurationRepository configurationRepository, StorageConfiguration configuration)
         {
-            var blobServiceClient = new BlobServiceClient(StorageProvider.ConnectionString);
+            var blobServiceClient = new BlobServiceClient(configuration.ConnectionString);
             var tenantSegment = BlocksContext.GetContext()?.TenantId.ToLower();
 
             _containerClient = blobServiceClient.GetBlobContainerClient(tenantSegment);

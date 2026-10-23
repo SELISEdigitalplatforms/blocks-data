@@ -347,8 +347,8 @@ describe("SchemaDesktopRow", () => {
       />,
     );
 
-    expect(screen.getByTitle("Default value: Now + 365 days")).toHaveTextContent("DEF");
-    await userEvent.setup().click(screen.getByRole("button", { name: "Default value for HrYearRenewDate (Now + 365 days)" }));
+    expect(screen.getByTitle("Default value: 365 days after the record is created")).toHaveTextContent("DEF");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Default value for HrYearRenewDate (365 days after the record is created)" }));
     expect(onOpenDefaultDrawer).toHaveBeenCalledWith("HrYearRenewDate", defaultValue);
   });
 

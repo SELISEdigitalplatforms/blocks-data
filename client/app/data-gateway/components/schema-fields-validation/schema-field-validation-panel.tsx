@@ -29,6 +29,7 @@ import {
   getAllowedValidationTypes,
   ruleFromDraft,
   ruleTypeLabel,
+  suggestErrorMessage,
   type RuleDraft,
   type ValidationTypeValue,
 } from "../../utils/validation-rules.util";
@@ -53,8 +54,16 @@ interface ValidationFormState extends RuleDraft {
 const LABEL_CLASS = "text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground";
 const HINT_CLASS = "text-[11px] leading-relaxed text-muted-foreground";
 const CONTROL_CLASS = "h-9 rounded-md border-border/60 bg-background text-[12.5px]";
-/** The kit's off state is a light grey made for light surfaces; on this dark panel it reads as "on". */
-const SWITCH_OFF_CLASS = "data-[state=unchecked]:border-border data-[state=unchecked]:bg-muted";
+/**
+ * The kit's switch is tuned for light surfaces: its off state is a light grey that reads as "on" here,
+ * and its on state a dark navy that reads as grey. On this panel: muted when off, the primary blue when on.
+ * Keyed on aria-checked as well as data-state: the list's switch is a tooltip trigger, and the tooltip
+ * writes its own data-state ("closed", "delayed-open") over the switch's "checked"/"unchecked". The
+ * data-state classes stay so they replace the kit's own data-state colours where data-state is intact.
+ */
+const SWITCH_CLASS =
+  "data-[state=unchecked]:border-border data-[state=unchecked]:bg-muted data-[state=checked]:border-primary data-[state=checked]:bg-primary " +
+  "aria-[checked=false]:border-border aria-[checked=false]:bg-muted aria-checked:border-primary aria-checked:bg-primary";
 
 /** A new rule starts as a pattern where one fits (the most common rule), otherwise as the first type offered. */
 const newDraft = (fieldType: string): ValidationFormState => {
@@ -83,20 +92,20 @@ function ValidationSkeleton() {
   );
 }
 
-/** How many rules there are and how many are on, e.g. "2 rules · 1 active, 1 off". */
+/** How many validations there are and how many are on, e.g. "2 validations · 1 active, 1 off". */
 function StatusLine({ rules, fieldName }: Readonly<{ rules: ISchemaFieldValidation[]; fieldName: string }>) {
   if (rules.length === 0) {
     return (
       <div className="flex items-center gap-2.5 rounded-md border border-border/50 bg-background px-3 py-2.5 text-xs text-muted-foreground">
         <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground/40" />
         <span>
-          <strong className="font-semibold text-foreground/80">No rules.</strong> {fieldName} accepts any value of its type.
+          <strong className="font-semibold text-foreground/80">No validations.</strong> {fieldName} accepts any value of its type.
         </span>
       </div>
     );
   }
   const active = rules.filter((r) => r.isActive).length;
-  const count = `${rules.length} ${rules.length === 1 ? "rule" : "rules"}`;
+  const count = `${rules.length} ${rules.length === 1 ? "validation" : "validations"}`;
   let state = "all active";
   if (active === 0) state = "none active";
   else if (active < rules.length) state = `${active} active, ${rules.length - active} off`;
@@ -159,15 +168,15 @@ function RuleCard({
               checked={rule.isActive}
               disabled={busy}
               onCheckedChange={onToggle}
-              aria-label="Rule active"
-              className={cn("mt-0.5 shrink-0", SWITCH_OFF_CLASS)}
+              aria-label="Validation active"
+              className={cn("mt-0.5 shrink-0", SWITCH_CLASS)}
             />
           </TooltipTrigger>
-          <TooltipContent>{rule.isActive ? "Active — switch off to keep the rule without enforcing it" : "Inactive — switch on to enforce it"}</TooltipContent>
+          <TooltipContent>{rule.isActive ? "Active — switch off to keep the validation without enforcing it" : "Inactive — switch on to enforce it"}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" disabled={busy} onClick={onEdit} aria-label="Edit rule">
+            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" disabled={busy} onClick={onEdit} aria-label="Edit validation">
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -175,7 +184,7 @@ function RuleCard({
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-rose-500" disabled={busy} onClick={onAskDelete} aria-label="Delete rule">
+            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-rose-500" disabled={busy} onClick={onAskDelete} aria-label="Delete validation">
               <Trash className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
@@ -183,8 +192,8 @@ function RuleCard({
         </Tooltip>
       </div>
       {confirming && (
-        <div role="alertdialog" aria-label="Delete this rule?" className="mt-2.5 flex items-center gap-2 border-t border-border/50 pt-2.5 text-[11.5px] text-foreground/80">
-          <span className="flex-1">Delete this rule? Records already stored are not re-checked.</span>
+        <div role="alertdialog" aria-label="Delete this validation?" className="mt-2.5 flex items-center gap-2 border-t border-border/50 pt-2.5 text-[11.5px] text-foreground/80">
+          <span className="flex-1">Delete this validation? Records already stored are not re-checked.</span>
           <Button type="button" size="sm" variant="ghost" className="h-7 text-muted-foreground" disabled={busy} onClick={onKeep}>
             Keep
           </Button>
@@ -264,9 +273,15 @@ export function SchemaFieldValidationPanel({
   const typeOptions = getAllowedValidationTypes(fieldType).filter((t) => t !== VALIDATION_TYPE.Reference || !hasOtherReference);
   if (isEditMode && !typeOptions.includes(form.type)) typeOptions.unshift(form.type);
   const draftError = checkRuleDraft(form, fieldType, variables);
+  // The failure message is written for the user from the validation as it stands, until they edit it
+  // (or open a saved one, whose message is theirs). What the box shows is what gets saved.
+  const [messageEdited, setMessageEdited] = useState(false);
+  const suggestedMessage = suggestErrorMessage(form, fieldType, fieldName);
+  const shownMessage = messageEdited ? form.errorMessage : (suggestedMessage ?? "");
 
   const resetForm = () => {
     setForm(newDraft(fieldType));
+    setMessageEdited(false);
     setShowDraftError(false);
     setShowForm(false);
     setShowGenerator(false);
@@ -277,6 +292,7 @@ export function SchemaFieldValidationPanel({
     const draft = newDraft(fieldType);
     if (draft.type === VALIDATION_TYPE.Reference && hasOtherReference) draft.type = typeOptions[0];
     setForm(draft);
+    setMessageEdited(false);
     setOriginalForm(null);
     setShowDraftError(false);
     setPendingDeleteIndex(null);
@@ -296,7 +312,9 @@ export function SchemaFieldValidationPanel({
     try {
       const res = await generateRegex({ description: prompt.trim() });
       if (res.pattern) {
-        setForm((prev) => ({ ...prev, value: res.pattern, errorMessage: res.errorMessage || prev.errorMessage }));
+        setForm((prev) => ({ ...prev, value: res.pattern, errorMessage: res.errorMessage || shownMessage }));
+        // The generator's message is written for its pattern: better than the general line.
+        if (res.errorMessage) setMessageEdited(true);
         setPrompt("");
       } else {
         setError(["Failed to generate regex"]);
@@ -310,6 +328,8 @@ export function SchemaFieldValidationPanel({
     const draft = draftFromRule(validations[index]);
     setOriginalForm(draft);
     setForm({ ...draft, editingIndex: index });
+    // A saved message is the user's; a validation saved without one gets the suggestion.
+    setMessageEdited(draft.errorMessage.trim() !== "");
     setShowDraftError(false);
     setPendingDeleteIndex(null);
     setShowForm(true);
@@ -326,11 +346,11 @@ export function SchemaFieldValidationPanel({
       setShowDraftError(true);
       return;
     }
-    const rule = ruleFromDraft(form, fieldType);
+    const rule = ruleFromDraft({ ...form, errorMessage: shownMessage }, fieldType);
     const rules = isEditMode ? validations.map((v, i) => (i === form.editingIndex ? rule : v)) : [...validations, rule];
     const res = await saveRules(rules);
     if (res.isSuccess) {
-      setSuccess(isEditMode ? "Rule updated" : "Rule added");
+      setSuccess(isEditMode ? "Validation updated" : "Validation added");
       setShouldRefetch(true);
       resetForm();
     } else {
@@ -343,7 +363,7 @@ export function SchemaFieldValidationPanel({
     const rules = validations.map((v, i) => (i === index ? { ...v, isActive: !v.isActive } : v));
     const res = await saveRules(rules);
     if (res.isSuccess) {
-      setSuccess(rules[index].isActive ? "Rule switched on" : "Rule switched off");
+      setSuccess(rules[index].isActive ? "Validation switched on" : "Validation switched off");
       setShouldRefetch(true);
     } else {
       setError(res.errors);
@@ -356,7 +376,7 @@ export function SchemaFieldValidationPanel({
     // The last rule takes the field's validation with it; otherwise the others stay.
     const res = remaining.length > 0 ? await saveRules(remaining) : await deleteValidation({ id: itemId, projectKey, schemaId, fieldName });
     if (res.isSuccess) {
-      setSuccess("Rule deleted");
+      setSuccess("Validation deleted");
       setShouldRefetch(true);
       if (form.editingIndex === index) resetForm();
     } else {
@@ -373,7 +393,7 @@ export function SchemaFieldValidationPanel({
     form.type !== originalForm.type ||
     form.value.trim() !== originalForm.value.trim() ||
     form.secondaryValue.trim() !== originalForm.secondaryValue.trim() ||
-    form.errorMessage !== originalForm.errorMessage ||
+    shownMessage !== originalForm.errorMessage ||
     form.isActive !== originalForm.isActive;
   const isRegex = VALIDATION_TYPE_META[form.type]?.input === "regex";
 
@@ -387,7 +407,7 @@ export function SchemaFieldValidationPanel({
 
           <div className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2">
-              <span className={LABEL_CLASS}>Rules</span>
+              <span className={LABEL_CLASS}>Validations</span>
               <span className="text-[10.5px] text-muted-foreground">checked on insert and update</span>
             </div>
 
@@ -419,7 +439,7 @@ export function SchemaFieldValidationPanel({
                     onClick={openNewRule}
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    Add rule
+                    Add validation
                   </Button>
                 )}
               </div>
@@ -430,10 +450,10 @@ export function SchemaFieldValidationPanel({
 
           {showForm && (
             <div className="flex flex-col gap-3.5 rounded-md border border-primary/30 bg-primary/[0.04] p-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-primary">{isEditMode ? "Edit rule" : "New rule"}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-primary">{isEditMode ? "Edit validation" : "New validation"}</p>
 
               <div className="flex flex-col gap-1.5">
-                <label className={LABEL_CLASS}>Rule</label>
+                <label className={LABEL_CLASS}>Validation type</label>
                 <Select
                   value={String(form.type)}
                   onValueChange={(value) => {
@@ -441,7 +461,7 @@ export function SchemaFieldValidationPanel({
                     setShowDraftError(false);
                   }}
                 >
-                  <SelectTrigger className={cn(CONTROL_CLASS, "w-full")} aria-label="Rule type">
+                  <SelectTrigger className={cn(CONTROL_CLASS, "w-full")} aria-label="Validation type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -510,10 +530,23 @@ export function SchemaFieldValidationPanel({
                 <Input
                   id="rule-message"
                   placeholder="e.g. Only letters are allowed"
-                  value={form.errorMessage}
-                  onChange={(e) => setForm((prev) => ({ ...prev, errorMessage: e.target.value }))}
+                  value={shownMessage}
+                  onChange={(e) => {
+                    setForm((prev) => ({ ...prev, errorMessage: e.target.value }));
+                    setMessageEdited(true);
+                  }}
                   className={CONTROL_CLASS}
                 />
+                {!messageEdited && suggestedMessage && <p className={HINT_CLASS}>Written from the validation. Change it if you like.</p>}
+                {messageEdited && suggestedMessage && suggestedMessage !== form.errorMessage && (
+                  <button
+                    type="button"
+                    onClick={() => setMessageEdited(false)}
+                    className="w-fit text-[11px] font-semibold text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40"
+                  >
+                    Use suggested message
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-2.5">
@@ -522,8 +555,8 @@ export function SchemaFieldValidationPanel({
                   size="sm"
                   checked={form.isActive}
                   onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isActive: checked === true }))}
-                  aria-label="Rule active"
-                  className={SWITCH_OFF_CLASS}
+                  aria-label="Validation active"
+                  className={SWITCH_CLASS}
                 />
                 <label htmlFor="rule-active" className="cursor-pointer text-xs text-foreground/80">
                   {form.isActive ? "Active — enforced on insert and update" : "Inactive — kept, not enforced"}
@@ -546,12 +579,12 @@ export function SchemaFieldValidationPanel({
           <StatusSnackbar status={status} />
           {showForm && (
             <div className="flex items-center gap-2">
-              <span className="flex-1 text-[11px] text-muted-foreground">{isEditMode ? "Editing a rule" : "New rule"}</span>
+              <span className="flex-1 text-[11px] text-muted-foreground">{isEditMode ? "Editing a validation" : "New validation"}</span>
               <Button type="button" size="sm" variant="ghost" className="text-muted-foreground" onClick={resetForm} disabled={isPending}>
                 Cancel
               </Button>
               <Button type="button" size="sm" disabled={isPending || !!draftError || !isDirty} onClick={() => void handleSubmit()}>
-                {isPending ? "Saving…" : isEditMode ? "Save rule" : "Add rule"}
+                {isPending ? "Saving…" : isEditMode ? "Save validation" : "Add validation"}
               </Button>
             </div>
           )}

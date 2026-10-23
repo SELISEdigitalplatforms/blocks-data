@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   VALIDATION_TYPE as T,
+  suggestErrorMessage,
   checkRuleDraft,
   draftFromRule,
   formatRuleSummary,
@@ -110,5 +111,33 @@ describe("formatRuleSummary", () => {
   it("labels types this client does not know", () => {
     expect(ruleTypeLabel(T.Reference)).toBe("Exists in another schema");
     expect(ruleTypeLabel(99)).toBe("Type 99");
+  });
+});
+
+describe("suggestErrorMessage", () => {
+  const draft = (type: number, value = "", secondaryValue = "") => ({ type, value, secondaryValue, errorMessage: "", isActive: true }) as never;
+
+  it.each([
+    [T.NotEmpty, "", "", "String", "Name is required"],
+    [T.Regex, "^a$", "", "String", "Name is not in the right format"],
+    [T.MinLength, "3", "", "String", "Name must be at least 3 characters"],
+    [T.MaxLength, "1", "", "String", "Name must be at most 1 character"],
+    [T.LengthRange, "2", "5", "String", "Name must be between 2 and 5 characters"],
+    [T.Equal, "Active", "", "Enum", "Name must be Active"],
+    [T.NotEqual, "x", "", "String", "Name must not be x"],
+    [T.GreaterThan, "100", "", "Float", "Name must be greater than 100"],
+    [T.LessThanOrEqual, "9", "", "Int", "Name must be at most 9"],
+    [T.Range, "10", "20", "Int", "Name must be between 10 and 20"],
+    [T.GreaterThan, "{{Employee.StartDate}}", "", "DateTime", "Name must be after StartDate"],
+    [T.LessThan, "2026-01-01T09:00", "", "DateTime", "Name must be before 2026-01-01 09:00"],
+    [T.GreaterThanOrEqual, "2026-01-01T09:00", "", "DateTime", "Name must be on or after 2026-01-01 09:00"],
+    [T.Reference, "Department", "ItemId", "String", "Name must match an existing Department"],
+  ])("type %s with %j / %j on %s reads %j", (type, value, secondary, fieldType, expected) => {
+    expect(suggestErrorMessage(draft(type, value, secondary), fieldType, "Employee.Name")).toBe(expected);
+  });
+
+  it("waits for the values it needs", () => {
+    expect(suggestErrorMessage(draft(T.GreaterThan), "Int", "Age")).toBeNull();
+    expect(suggestErrorMessage(draft(T.Range, "1"), "Int", "Age")).toBeNull();
   });
 });

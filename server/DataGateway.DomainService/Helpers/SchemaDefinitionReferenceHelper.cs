@@ -84,6 +84,13 @@ public class SchemaDefinitionReferenceHelper
                     var nestedFields = await GetSchemaDefinitionReferenceFieldsAsync(referencedSchema, currentPath, iteration + 1);
                     result.AddRange(nestedFields);
                 }
+                else if (isRoot)
+                {
+                    // The base entity's Create/Read/Update/Delete (OperationAccess) have no schema of their own: their
+                    // inner lists come from the class, so they can carry access, validation rules and defaults.
+                    result.AddRange(DefaultValueInjection.BaseEntityInnerFields(field.Name, field.Type)
+                        .Select(inner => CreateReferenceFieldDefinition(inner, $"{currentPath}.{inner.Name}", field.Type)));
+                }
             }
         }
         return result;

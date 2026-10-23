@@ -7,31 +7,31 @@ import { cn } from "@/lib/utils";
 import { useRef, useState } from "react";
 import { useSchemaVariableContext, useSetFieldDefault } from "../../hooks/use-configuration";
 import { useTransientStatus } from "../../hooks/use-transient-status";
-import type { DefaultValueKind, IFieldDefaultValue } from "../../models/data-service";
+import type { IFieldDefaultValue } from "../../models/data-service";
 import {
-  allowedDefaultKinds,
+  canUseExpressions,
+  canUseNow,
   checkDefaultDraft,
   defaultFromDraft,
   draftFromDefault,
+  draftKind,
   emptyDefaultDraft,
   expressionWording,
-  formatDefaultSummary,
   type DefaultDraft,
   type DefaultTarget,
 } from "../../utils/default-value.util";
 import { AUTH_NAMES } from "../../utils/variable-syntax";
 import { StatusSnackbar } from "../primitives";
 import {
-  ExpressionVariables,
+  CurrentDateTimeCard,
   HINT_CLASS,
   ItemsEditor,
-  KindPicker,
   LABEL_CLASS,
-  OffsetInputs,
+  ModeBadge,
   StatusLine,
   WillStore,
-  expressionVariables,
-  itemsHeading,
+  describeDraftNow,
+  expressionGroups,
   type DraftItem,
   type PreviewPiece,
 } from "./default-value-fields";
@@ -49,12 +49,30 @@ export interface DefaultValuePanelProps {
   initialDefault?: IFieldDefaultValue | null;
 }
 
-/** One line under the source picker saying what the chosen kind does. */
-function kindHint(kind: DefaultValueKind, fieldType: string): string {
-  if (kind === "Template") return "Text built from this record and the signed-in user at insert time. A missing value becomes empty text.";
-  if (kind === "Now") return "The time of the insert, UTC, shifted by the offset. Every row of a bulk insert gets the same time.";
-  if (fieldType === "DateTime") return "Stored exactly as entered, in UTC. Used only when the insert leaves the property out.";
-  return "Stored exactly as entered. Used only when the insert leaves the property out.";
+/** One line under the value box saying what it takes. */
+function hintFor(fieldType: string, useNow: boolean): string {
+  if (useNow) return "Stored in UTC. Records created together in one bulk insert all get the same date and time.";
+  switch (fieldType) {
+    case "String":
+    case "ID":
+      return "Type fixed text, add expressions filled at insert time, or mix them. A missing value becomes empty text.";
+    case "DateTime":
+      return "Pick a fixed date (UTC), or use Expression to fill in the current date and time when each record is created.";
+    case "Enum":
+      return "One of the allowed values. Pick it again to clear.";
+    case "Boolean":
+      return "Pick true or false. Pick it again to clear.";
+    default:
+      return "Stored exactly as entered.";
+  }
+}
+
+/** What the box shows before anything is typed. */
+function placeholderFor(fieldType: string, fieldName: string): string {
+  if (canUseExpressions(fieldType)) return "Type text, or add an expression";
+  if (fieldType === "Int") return "e.g. 1";
+  if (fieldType === "Float") return "e.g. 0.5";
+  return fieldType === "DateTime" ? "" : `Stored when ${fieldName} is omitted`;
 }
 
 /** An `HttpError` from the client: its status and the response body (or the body's `errors`). */
@@ -76,12 +94,12 @@ function serverMessage(error: unknown): string {
  * The draft and the stable keys of its items (rows are added and removed, so their position is no key),
  * with the edits the panel makes. Every edit marks the draft touched and drops a server refusal.
  */
-function useDefaultDraft(initialDefault: IFieldDefaultValue | null, kinds: DefaultValueKind[], onEdit: () => void) {
+function useDefaultDraft(initialDefault: IFieldDefaultValue | null, nowAllowed: boolean, onEdit: () => void) {
   const counter = useRef(0);
   const newKey = () => `item-${counter.current++}`;
   const [draft, setDraft] = useState<DefaultDraft>(() => {
     const start = draftFromDefault(initialDefault);
-    return kinds.includes(start.kind) ? start : emptyDefaultDraft(kinds[0]);
+    return start.useNow && !nowAllowed ? emptyDefaultDraft() : start;
   });
   // The first rows get fixed keys; rows added later take the counter's, which only event handlers touch.
   const [keys, setKeys] = useState<string[]>(() => draft.items.map((_, i) => `initial-${i}`));
@@ -95,11 +113,11 @@ function useDefaultDraft(initialDefault: IFieldDefaultValue | null, kinds: Defau
   return {
     draft,
     keys,
-    reset: (kind: DefaultValueKind) => {
-      setDraft(emptyDefaultDraft(kind));
+    reset: () => {
+      setDraft(emptyDefaultDraft());
       setKeys([newKey()]);
     },
-    setKind: (kind: DefaultValueKind) => edit(emptyDefaultDraft(kind), [newKey()]),
+    setUseNow: (useNow: boolean) => edit({ ...emptyDefaultDraft(), useNow }, [newKey()]),
     setDirection: (direction: DefaultDraft["direction"]) => edit({ ...draft, direction }),
     setOffset: (offset: DefaultDraft["offset"]) => edit({ ...draft, offset }),
     setItem: (index: number, text: string) => edit({ ...draft, items: draft.items.map((item, i) => (i === index ? text : item)) }),
@@ -112,9 +130,8 @@ function useDefaultDraft(initialDefault: IFieldDefaultValue | null, kinds: Defau
   };
 }
 
-/** The rows on screen: none for Now, every item for a list, the first one otherwise. */
+/** The rows on screen: every item for a list, the first one otherwise. */
 function visibleItems(draft: DefaultDraft, keys: string[], isArray: boolean): DraftItem[] {
-  if (draft.kind === "Now") return [];
   const rows = draft.items.map((text, i) => ({ text, key: keys[i] ?? `item-extra-${text}` }));
   return isArray ? rows : rows.slice(0, 1);
 }
@@ -123,21 +140,21 @@ const VARIABLE_SPLIT = /(\{\{[^}]*\}\})/g;
 const IS_VARIABLE = /^\{\{.*\}\}$/;
 
 /** The preview of what an insert would store, from the draft as it stands. */
-function previewOf(draft: DefaultDraft, payload: IFieldDefaultValue | null, target: DefaultTarget, fieldName: string): { pieces: PreviewPiece[]; caption: string } {
+function previewOf(draft: DefaultDraft, target: DefaultTarget, fieldName: string): { pieces: PreviewPiece[]; caption: string } {
   const text = (t: string): PreviewPiece => ({ text: t, tone: "text" });
   const muted = (t: string): PreviewPiece => ({ text: t, tone: "muted" });
-  if (draft.kind === "Now") {
-    const now = payload ?? defaultFromDraft(draft, target);
-    const o = now.offset ?? { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  const kind = draftKind(draft, target);
+  if (kind === "Now") {
+    const o = defaultFromDraft(draft, target).offset ?? { days: 0, hours: 0, minutes: 0, seconds: 0 };
     const ms = (o.days * 86400 + o.hours * 3600 + o.minutes * 60 + o.seconds) * 1000;
-    const when = Number.isFinite(ms) ? `${new Date(Date.now() + ms).toISOString().slice(0, 19)}Z` : "—";
-    return { pieces: [text(when), muted(formatDefaultSummary(now))], caption: "if inserted right now" };
+    const when = Number.isFinite(ms) ? `${new Date(Date.now() + ms).toISOString().slice(0, 16).replace("T", " ")} UTC` : "—";
+    return { pieces: [text(when)], caption: "for a record created right now" };
   }
   const items = target.isArray ? draft.items.filter((t) => t.trim() !== "") : draft.items.slice(0, 1);
   if (items.every((t) => t.trim() === "")) {
     return { pieces: [muted("—")], caption: `when an insert leaves ${fieldName} out` };
   }
-  if (draft.kind === "Template") {
+  if (kind === "Template") {
     const pieces: PreviewPiece[] = [];
     items.forEach((item, index) => {
       for (const part of item.split(VARIABLE_SPLIT).filter((p) => p !== "")) {
@@ -156,9 +173,10 @@ function previewOf(draft: DefaultDraft, payload: IFieldDefaultValue | null, targ
 }
 
 /**
- * The default value of one property: a fixed value, an expression (the API's "Template"), or Now ± an
- * offset. Used on insert when the property isn't sent. Shared by the docked inspector and the drawer,
- * like the validation panel.
+ * The default value of one property, from one value box: typed fixed text, values filled in when a
+ * record is created (added from the box's "{ } Expression" menu), or both mixed; for a date-time,
+ * a fixed date or the current date & time. The API kind is worked out on save (see `draftKind`).
+ * Shared by the docked inspector and the drawer, like the validation panel.
  */
 export function DefaultValuePanel({
   fieldName,
@@ -169,41 +187,39 @@ export function DefaultValuePanel({
   enumValues = [],
   initialDefault = null,
 }: Readonly<DefaultValuePanelProps>) {
-  const kinds = allowedDefaultKinds(fieldType, isArray);
+  const nowAllowed = canUseNow(fieldType, isArray);
   // What's stored now: the schema response's value, then whatever this panel last saved.
   const [saved, setSaved] = useState<IFieldDefaultValue | null>(initialDefault);
   const [touched, setTouched] = useState(false);
   // A server refusal shows where the syntax errors do, until the draft changes.
   const [serverError, setServerError] = useState<string | null>(null);
-  // Which expression item the insert chips write into.
-  const [activeItem, setActiveItem] = useState(0);
-  const [allVariables, setAllVariables] = useState(false);
   const { status, setSuccess, setError } = useTransientStatus();
   const { mutateAsync: setFieldDefault, isPending } = useSetFieldDefault();
   const variables = useSchemaVariableContext(schemaId, projectKey);
-  const editor = useDefaultDraft(initialDefault, kinds, () => {
+  const editor = useDefaultDraft(initialDefault, nowAllowed, () => {
     setTouched(true);
     setServerError(null);
   });
   const { draft } = editor;
 
   const target: DefaultTarget = { fieldType, isArray, enumValues, schemaName: variables.schemaName, fields: variables.fields };
+  const kind = draftKind(draft, target);
   // Expression references need the schema's fields; until they load only the syntax is checked server-side.
-  const draftError = draft.kind === "Template" && !variables.schemaName ? null : checkDefaultDraft(draft, target);
+  const draftError = kind === "Template" && !variables.schemaName ? null : checkDefaultDraft(draft, target);
   const shownError = serverError ?? (touched ? draftError : null);
   const payload = draftError ? null : defaultFromDraft(draft, target);
-  // An untouched blank form over no saved default is nothing to save, even though "" is a legal text default.
-  const isBlank = draft.kind !== "Now" && draft.items.every((item) => item.trim() === "");
+  // An untouched blank box over no saved default is nothing to save, even though "" is a legal text default.
+  const isBlank = !draft.useNow && draft.items.every((item) => item.trim() === "");
   const isDirty = !(isBlank && !saved) && JSON.stringify(payload) !== JSON.stringify(saved);
-  const preview = previewOf(draft, payload, target, fieldName);
-  const available = expressionVariables(variables.schemaName || "Schema", variables.fields, AUTH_NAMES, isArray);
-
-  const insertVariable = (variable: string) => {
-    const index = Math.min(activeItem, draft.items.length - 1);
-    const current = draft.items[index] ?? "";
-    const spacer = current && !current.endsWith(" ") ? " " : "";
-    editor.setItem(index, `${current}${spacer}${variable}`);
-  };
+  const preview = previewOf(draft, target, fieldName);
+  const groups = expressionGroups({
+    fieldType,
+    isArray,
+    schemaName: variables.schemaName || "Schema",
+    fields: variables.fields,
+    authNames: AUTH_NAMES,
+  });
+  const showBadge = canUseExpressions(fieldType) || nowAllowed;
 
   const save = async (value: IFieldDefaultValue | null) => {
     try {
@@ -215,7 +231,7 @@ export function DefaultValuePanel({
       setSaved(value);
       setServerError(null);
       setTouched(false);
-      if (value === null) editor.reset(kinds[0]);
+      if (value === null) editor.reset();
       setSuccess(value === null ? "Default value cleared" : "Default value saved");
     } catch (error) {
       if (asHttpError(error)?.status === 400) setServerError(serverMessage(error));
@@ -230,16 +246,6 @@ export function DefaultValuePanel({
   };
 
   const canSave = isDirty && !(touched && draftError) && !isPending;
-  const placeholder =
-    draft.kind === "Template"
-      ? `{{${variables.schemaName || "Schema"}.Name}} {{Auth.Email}}`
-      : fieldType === "Int"
-        ? "e.g. 1"
-        : fieldType === "Float"
-          ? "e.g. 0.5"
-          : fieldType === "DateTime"
-            ? ""
-            : `Stored when ${fieldName} is omitted`;
 
   return (
     <>
@@ -248,63 +254,44 @@ export function DefaultValuePanel({
           <StatusLine saved={saved} fieldName={fieldName} />
 
           <div className="flex flex-col gap-2">
-            {kinds.length > 1 && <KindPicker kinds={kinds} value={draft.kind} onChange={editor.setKind} />}
-            <p className={HINT_CLASS}>{kindHint(draft.kind, fieldType)}</p>
-          </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className={LABEL_CLASS}>{isArray ? "Values" : "Value"}</span>
+              {showBadge && <ModeBadge dynamic={kind !== "Static"} />}
+            </div>
 
-          {draft.kind === "Now" ? (
-            <OffsetInputs
-              direction={draft.direction}
-              offset={draft.offset}
-              invalid={Boolean(shownError)}
-              onDirection={editor.setDirection}
-              onChange={editor.setOffset}
-            />
-          ) : (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className={LABEL_CLASS}>{itemsHeading(isArray, draft.kind)}</span>
-                {isArray && <span className="text-[10.5px] text-muted-foreground">one per row, stored as a list</span>}
-              </div>
+            {draft.useNow ? (
+              <CurrentDateTimeCard
+                direction={draft.direction}
+                offset={draft.offset}
+                invalid={Boolean(shownError)}
+                summary={describeDraftNow(draft.direction, draft.offset)}
+                onDirection={editor.setDirection}
+                onChange={editor.setOffset}
+                onUseFixed={() => editor.setUseNow(false)}
+              />
+            ) : (
               <ItemsEditor
                 items={visibleItems(draft, editor.keys, isArray)}
-                isExpression={draft.kind === "Template"}
                 isArray={isArray}
                 fieldType={fieldType}
                 enumValues={enumValues}
-                placeholder={placeholder}
+                placeholder={placeholderFor(fieldType, fieldName)}
                 invalid={Boolean(shownError)}
+                groups={groups}
                 onChange={editor.setItem}
-                onFocusItem={setActiveItem}
-                onAdd={() => {
-                  editor.addItem();
-                  setActiveItem(draft.items.length);
-                }}
-                onRemove={(index) => {
-                  editor.removeItem(index);
-                  setActiveItem(0);
-                }}
+                onUseNow={() => editor.setUseNow(true)}
+                onAdd={editor.addItem}
+                onRemove={editor.removeItem}
               />
-              {(fieldType === "Enum" || fieldType === "Boolean") && draft.kind === "Static" && (
-                <p className={HINT_CLASS}>{fieldType === "Enum" ? "One of the allowed values." : "Pick true or false."} Pick it again to clear.</p>
-              )}
-              {draft.kind === "Template" && (
-                <ExpressionVariables
-                  record={available.record}
-                  auth={available.auth}
-                  expanded={allVariables}
-                  onToggle={() => setAllVariables((v) => !v)}
-                  onInsert={insertVariable}
-                />
-              )}
-            </div>
-          )}
+            )}
 
-          {shownError && (
-            <p role="alert" className="-mt-2 text-[11.5px] text-rose-500">
-              {shownError}
-            </p>
-          )}
+            <p className={HINT_CLASS}>{hintFor(fieldType, draft.useNow)}</p>
+            {shownError && (
+              <p role="alert" className="text-[11.5px] text-rose-500">
+                {shownError}
+              </p>
+            )}
+          </div>
 
           <WillStore pieces={preview.pieces} caption={preview.caption} />
 

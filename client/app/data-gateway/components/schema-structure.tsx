@@ -52,6 +52,16 @@ import { Plus } from "lucide-react";
 import { useReadonlyExpanded } from "../hooks/use-readonly-expanded";
 import { SchemaDataTab } from "./schema-data";
 import { ChildSchemaExpandableContent } from "./child-schema-expandable-content";
+import { NestedTreeRowView, type NestedRowActions } from "./schema-structure/property-tree";
+import { useNestedTree, type TreeRoot } from "../hooks/use-nested-tree";
+import {
+  EVERYTHING_EXPANDED,
+  NOTHING_EXPANDED,
+  isPathExpanded,
+  selfReferenceReason,
+  togglePath,
+  type TreeExpansion,
+} from "../utils/nested-tree.util";
 import { buildValidationFieldName } from "../utils/schema-normalization";
 import { diffSchemaFields } from "../utils/schema-diff";
 
@@ -258,6 +268,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   useEffect(() => {
     setActiveTab("attribute");
     setExpandedRowIndex(null);
+    setTreeExpansion(NOTHING_EXPANDED);
   }, [schemaDetails.id]);
   const [internalPreviewOpen, setInternalPreviewOpen] = useState(false);
   const isPreviewDrawerOpen = isPreviewOpen ?? internalPreviewOpen;
@@ -290,7 +301,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const [openMobileTypePopoverIndex, setOpenMobileTypePopoverIndex] = useState<
     number | null
   >(null);
+  // Mobile cards open one child panel at a time; the desktop table opens any number of tree branches.
   const [expandedRowIndex, setExpandedRowIndex] = useState<number | null>(null);
+  const [treeExpansion, setTreeExpansion] = useState<TreeExpansion>(NOTHING_EXPANDED);
   const addPropertyScroll = useRef<HTMLTableSectionElement | null>(null);
 
   const handleToggleExpand = (index: number) => {
@@ -494,21 +507,18 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     }
   };
 
-  const handleOpenValidationDrawer = (
-    fieldName: string,
-    validationRule?: IFieldValidationRule | null,
-  ) => {
-    const effectiveFieldName = buildValidationFieldName(
-      resolvedAncestorPath,
-      fieldName,
-    );
-    const field = schemaDetails.fields?.find((f) => f.name === fieldName);
+  /**
+   * Opens a property's validations. `qualifiedName` is its full dotted path from the root entity
+   * (Address.Geo.Lat); `field` is the property itself, which a nested one can't be looked up from
+   * this table's own fields.
+   */
+  const openValidationFor = (qualifiedName: string, field: IField | undefined, validationRule?: IFieldValidationRule | null) => {
     const fieldMeta = { fieldType: field?.type ?? "String", enumValues: field?.enumValues };
 
     if (onOpenFieldValidation) {
       onOpenFieldValidation({
-        fieldName: effectiveFieldName,
-        subject: effectiveFieldName,
+        fieldName: qualifiedName,
+        subject: qualifiedName,
         context: `Field on ${schemaDetails.schemaName}`,
         schemaName: schemaDetails.schemaName,
         validationRule: validationRule ?? null,
@@ -518,16 +528,25 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     }
 
     setCurrentValidationFieldMeta(fieldMeta);
-    setCurrentValidationFieldName(effectiveFieldName);
+    setCurrentValidationFieldName(qualifiedName);
     setCurrentValidationRule(validationRule ?? null);
     setIsValidationDrawerOpen(true);
   };
 
-  const handleOpenDefaultDrawer = (fieldName: string, defaultValue?: IFieldDefaultValue | null) => {
-    const effectiveFieldName = buildValidationFieldName(resolvedAncestorPath, fieldName);
-    const field = schemaDetails.fields?.find((f) => f.name === fieldName);
+  const handleOpenValidationDrawer = (
+    fieldName: string,
+    validationRule?: IFieldValidationRule | null,
+  ) =>
+    openValidationFor(
+      buildValidationFieldName(resolvedAncestorPath, fieldName),
+      schemaDetails.fields?.find((f) => f.name === fieldName),
+      validationRule,
+    );
+
+  /** Opens a property's default value; same arguments as `openValidationFor`. */
+  const openDefaultFor = (qualifiedName: string, field: IField | undefined, defaultValue?: IFieldDefaultValue | null) => {
     const target = {
-      fieldName: effectiveFieldName,
+      fieldName: qualifiedName,
       fieldType: field?.type ?? "String",
       isArray: field?.isArray ?? false,
       enumValues: field?.enumValues,
@@ -537,7 +556,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     if (onOpenFieldDefault) {
       onOpenFieldDefault({
         ...target,
-        subject: effectiveFieldName,
+        subject: qualifiedName,
         context: `Field on ${schemaDetails.schemaName}`,
         schemaName: schemaDetails.schemaName,
       });
@@ -545,6 +564,29 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     }
 
     setCurrentDefaultTarget(target);
+  };
+
+  const handleOpenDefaultDrawer = (fieldName: string, defaultValue?: IFieldDefaultValue | null) =>
+    openDefaultFor(
+      buildValidationFieldName(resolvedAncestorPath, fieldName),
+      schemaDetails.fields?.find((f) => f.name === fieldName),
+      defaultValue,
+    );
+
+  /** Opens a property's access: the docked inspector when the page has one, else the drawer. */
+  const openAccessFor = (qualifiedName: string, fieldTarget: FieldAccessTarget | undefined, title: string) => {
+    if (onOpenFieldAccess && qualifiedName) {
+      onOpenFieldAccess({
+        fieldNames: [qualifiedName],
+        subject: qualifiedName,
+        context: `Field on ${schemaDetails.schemaName}`,
+      });
+      return;
+    }
+
+    setCurrentAccessFieldTarget(fieldTarget ?? null);
+    setCurrentAccessDrawerTitle(title);
+    setIsPropertyAccessDrawerOpen(true);
   };
 
   const handleEditToggle = () => {
@@ -564,6 +606,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       fields.map((field, index) => [field.id, { ...(properties[index] ?? {}) }]),
     );
     setExpandedRowIndex(null);
+    setTreeExpansion(NOTHING_EXPANDED);
     setIsEditMode(true);
     onEnterEditMode?.();
   };
@@ -579,6 +622,45 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       bulkOperations.setSelectedRows({});
     }
   };
+
+  // ── The nested-property tree (desktop table, view mode) ──
+  const lineageRoot = schemaDetails.schemaName;
+  /** The object properties of this table that are open: `null` reason means the row can open. */
+  const treeTargets = (schemaDetails.fields ?? []).flatMap((field) => {
+    const childSchema = findChildSchemaByType(schemaItems, field.type);
+    return childSchema ? [{ field, childSchema, blockedReason: selfReferenceReason(childSchema, [lineageRoot]) }] : [];
+  });
+  const isRowHidden = (name: string) => schemaType === 1 && readonlyPropertyNames.includes(name) && !isReadonlyExpanded;
+  const treeRoots: TreeRoot[] = isEditMode
+    ? []
+    : treeTargets
+        .filter(({ field, blockedReason }) => !blockedReason && !isRowHidden(field.name) && isPathExpanded(treeExpansion, field.name))
+        .map(({ field, childSchema }) => ({ path: field.name, field, childSchema }));
+  const nestedRowsByRoot = useNestedTree({
+    roots: treeRoots,
+    lineage: lineageRoot,
+    expansion: treeExpansion,
+    schemaItems,
+    projectKey,
+  });
+  const treeActions: NestedRowActions = {
+    onToggle: (path) => setTreeExpansion((current) => togglePath(current, path)),
+    onOpenAccess: (path, field) => {
+      const qualified = buildValidationFieldName(resolvedAncestorPath, path);
+      openAccessFor(
+        qualified,
+        { name: qualified, readAccess: field.readAccess, writeAccess: field.writeAccess, deleteAccess: field.deleteAccess },
+        `Access for ${qualified}`,
+      );
+    },
+    onOpenValidation: (path, field) =>
+      openValidationFor(buildValidationFieldName(resolvedAncestorPath, path), field, field.validationRule ?? null),
+    onOpenDefault: (path, field) =>
+      openDefaultFor(buildValidationFieldName(resolvedAncestorPath, path), field, field.defaultValue ?? null),
+  };
+  /** The inspector's open panel when it is for `path` (a property of this table, or nested under one). */
+  const activeRuleFor = (path: string) =>
+    inspectedRule && buildValidationFieldName(resolvedAncestorPath, path) === inspectedRule.fieldName ? inspectedRule.panel : null;
 
   // Loading State
   if (isLoading) {
@@ -738,6 +820,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
               onBulkDelete={bulkOperations.handleBulkDelete}
               onSelectAll={handleSelectAll}
               setIsPreviewDrawerOpen={setIsPreviewDrawerOpen}
+              onExpandAll={treeTargets.some((t) => !t.blockedReason) ? () => setTreeExpansion(EVERYTHING_EXPANDED) : undefined}
+              onCollapseAll={treeTargets.some((t) => !t.blockedReason) ? () => setTreeExpansion(NOTHING_EXPANDED) : undefined}
             />
           )}
 
@@ -836,7 +920,9 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                         schemaDetails?.schemaType === 1 &&
                         readonlyPropertyNames.includes(name);
                       const isNewField = index >= schemaDetails.fields.length;
-                      const isExpanded = expandedRowIndex === index;
+                      const treeTarget = treeTargets.find((t) => t.field.name === name);
+                      const isExpanded =
+                        !isEditMode && Boolean(treeTarget) && !treeTarget?.blockedReason && isPathExpanded(treeExpansion, name);
                       return (
                         <Fragment key={field.id}>
                           <SchemaDesktopRow
@@ -846,11 +932,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                             isEditMode={isEditMode}
                             isReadOnly={isReadOnly}
                             isNewField={isNewField}
-                            activeRule={
-                              inspectedRule && name && buildValidationFieldName(resolvedAncestorPath, name) === inspectedRule.fieldName
-                                ? inspectedRule.panel
-                                : null
-                            }
+                            activeRule={name ? activeRuleFor(name) : null}
                             selectedRows={bulkOperations.selectedRows}
                             onRowSelect={(fieldId, selected) =>
                               bulkOperations.setSelectedRows((prev) => ({
@@ -880,34 +962,20 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                             searchText={searchText}
                             onOpenAccessDrawer={(fieldTarget, title) => {
                               const qualified = fieldTarget?.name
-                                ? buildValidationFieldName(
-                                    resolvedAncestorPath,
-                                    fieldTarget.name,
-                                  )
+                                ? buildValidationFieldName(resolvedAncestorPath, fieldTarget.name)
                                 : "";
-
-                              if (onOpenFieldAccess && qualified) {
-                                onOpenFieldAccess({
-                                  fieldNames: [qualified],
-                                  subject: qualified,
-                                  context: `Field on ${schemaDetails.schemaName}`,
-                                });
-                                return;
-                              }
-
-                              setCurrentAccessFieldTarget(fieldTarget ?? null);
-                              setCurrentAccessDrawerTitle(
-                                fieldTarget?.name && resolvedAncestorPath.length > 0
-                                  ? `Access for ${qualified}`
-                                  : title,
+                              openAccessFor(
+                                qualified,
+                                fieldTarget,
+                                fieldTarget?.name && resolvedAncestorPath.length > 0 ? `Access for ${qualified}` : title,
                               );
-                              setIsPropertyAccessDrawerOpen(true);
                             }}
                             onOpenValidationDrawer={handleOpenValidationDrawer}
                             onOpenDefaultDrawer={handleOpenDefaultDrawer}
                             showDefaultButton={schemaType === 1 || isEmbedded}
                             isExpanded={isExpanded}
-                            onToggleExpand={handleToggleExpand}
+                            onToggleExpand={() => treeActions.onToggle(name)}
+                            expandBlockedReason={treeTarget?.blockedReason ?? null}
                             childSchema={childSchema}
                             totalFieldsLength={totalFieldLength}
                             showAccessColumn={schemaType === 1 || isEmbedded}
@@ -917,34 +985,20 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                             visibleColumnCount={visibleColumnCount}
                             originalFieldFromSchema={originalField}
                           />
-                          {isExpanded && childSchema && (
-                            <TableRow key={`${field.id}-expanded`}>
-                              <TableCell
-                                colSpan={visibleColumnCount}
-                                className="bg-muted/30 p-4 align-top dark:bg-muted/25"
-                              >
-                                <ChildSchemaExpandableContent
-                                  schemaId={childSchema.id}
-                                  projectKey={projectKey}
-                                  rootSchemaId={resolvedRootSchemaId}
-                                  ancestorPath={[...resolvedAncestorPath, name]}
-                                  parentSchemaId={schemaDetails.id}
-                                  parentPropertyName={name}
-                                  parentFieldWithNested={originalField}
-                                  hideAccessValidation={
-                                    shouldHideAccessValidation
-                                  }
-                                  policyEntitySchemaName={
-                                    policyEntitySchemaName ??
-                                    schemaDetails.schemaName
-                                  }
-                                  onOpenStandaloneSchemaEditor={
-                                    onOpenStandaloneSchemaEditor
-                                  }
-                                />
-                              </TableCell>
-                            </TableRow>
-                          )}
+                          {isExpanded &&
+                            !isRowHidden(name) &&
+                            (nestedRowsByRoot.get(name) ?? []).map((row) => (
+                              <NestedTreeRowView
+                                key={`${field.id}:${row.path}`}
+                                row={row}
+                                columnCount={visibleColumnCount}
+                                showRules={showRulesColumn}
+                                showAccess={schemaType === 1 || isEmbedded}
+                                showDefault={schemaType === 1 || isEmbedded}
+                                activeRule={row.kind === "field" ? activeRuleFor(row.path) : null}
+                                actions={treeActions}
+                              />
+                            ))}
                         </Fragment>
                       );
                     })}

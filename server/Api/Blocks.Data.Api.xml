@@ -10,11 +10,12 @@
             Provides endpoints to set data access permissions for different schemas.
             </summary>
         </member>
-        <member name="M:Api.Controllers.DataGateway.DataAccessController.#ctor(DataGateway.DomainService.Services.IDataAccessService)">
+        <member name="M:Api.Controllers.DataGateway.DataAccessController.#ctor(DataGateway.DomainService.Services.IDataAccessService,DataGateway.DomainService.Services.IAccessGrantGuard)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.DataGateway.DataAccessController"/> class.
             </summary>
             <param name="dataAccessService">The data access service.</param>
+            <param name="guard">Access grant guard: only the system caller may write access.</param>
         </member>
         <member name="M:Api.Controllers.DataGateway.DataAccessController.ConfigureSecurity(DataGateway.DomainService.Models.ConfigureSchemaSecurityRequest)">
             <summary>
@@ -459,6 +460,12 @@
             access to a directory they cannot Manage.
             </remarks>
         </member>
+        <member name="M:Api.Controllers.ObjectController.NotifyAccessChangedAsync(Storage.DomainService.Services.ObjectAccessOperationResult,System.String,Blocks.Genesis.Entities.Data.ObjectResourceType,Blocks.Genesis.Entities.Data.ObjectPrincipalType,System.String,System.String)">
+            <summary>
+            Tells the affected user that access to a stored item was given or removed. Best effort: it never
+            throws and never changes the response. Only a User principal gets it, and not the acting user.
+            </summary>
+        </member>
         <member name="M:Api.Controllers.ObjectController.GetObjects(DomainService.Storage.Dms.GetObjectRequest)">
             <summary>Access-resolved, cursor-paginated files and directories under one parent.</summary>
         </member>
@@ -497,6 +504,9 @@
         </member>
         <member name="M:Api.Controllers.ObjectController.ShareObject(DomainService.Storage.Dms.ShareObjectRequest)">
             <summary>Grants a principal an allow entry and records it as a share.</summary>
+        </member>
+        <member name="M:Api.Controllers.ObjectController.FindUserPolicyAsync(System.String,System.String)">
+            <summary>The access entry about to be removed, read first so its user can be told. Null when not found or on any error.</summary>
         </member>
         <member name="T:DataGateway.Api.Controllers.GatewayOptionsController">
             <summary>Read-only options for the Data console, resolved locally from the tenant's root document.</summary>

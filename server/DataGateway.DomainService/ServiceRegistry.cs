@@ -1,3 +1,4 @@
+using DataGateway.DomainService.Notifications;
 using FluentValidation;
 using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Middlewares;
@@ -40,6 +41,7 @@ public static class ServiceRegistry
     public static void RegisterSchemaServices(this IServiceCollection serviceCollection)
     {
         serviceCollection.AddSingleton<IDbRepository, DbRepository>();
+        serviceCollection.AddSingleton<IBuiltInNotificationSender, BuiltInNotificationSender>();
         serviceCollection.AddSingleton<DataGatewayTokenAuthenticator>();
 
         serviceCollection.AddScoped<IDataGatewayConfigurationService, DataGatewayConfigurationService>();
@@ -48,6 +50,7 @@ public static class ServiceRegistry
         serviceCollection.AddScoped<ISchemaIndexService, SchemaIndexService>();
         serviceCollection.AddScoped<ISchemaChangeLogService, SchemaChangeLogService>();
         serviceCollection.AddScoped<IDataAccessService, DataAccessService>();
+        serviceCollection.AddSingleton<IAccessGrantGuard, AccessGrantGuard>();
         serviceCollection.AddScoped<IMockDataService, MockDataService>();
         serviceCollection.AddScoped<IDataValidationService, DataValidationService>();
         serviceCollection.AddScoped<IGraphLogHistoryService, GraphLogHistoryService>();
@@ -100,6 +103,9 @@ public static class ServiceRegistry
         serviceCollection.AddBlocksDataAccess();
         serviceCollection.AddSingleton<IAccessPrincipalAccessor, BlocksContextPrincipalAccessor>();
         serviceCollection.AddSingleton<IQueryService, QueryService>();
+        serviceCollection.AddSingleton<AfterWriteQueue>();
+        serviceCollection.AddSingleton<IAfterWriteQueue>(sp => sp.GetRequiredService<AfterWriteQueue>());
+        serviceCollection.AddHostedService(sp => sp.GetRequiredService<AfterWriteQueue>());
         serviceCollection.AddSingleton<IMutationService, MutationService>();
         serviceCollection.AddSingleton<SchemaResolver>();
         serviceCollection.AddSingleton<ISchemaVersionStore, SchemaVersionStore>();

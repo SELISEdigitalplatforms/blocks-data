@@ -34,7 +34,7 @@ public class FieldDefinitionRequestValidator : AbstractValidator<FieldDefinition
 
         RuleFor(x => x.Type)
             .NotEmpty().WithMessage(TypeRequired)
-            .Must((request, type) => IsValidType(type))
+            .Must((request, type) => DefaultValueInjection.IsBaseEntityField(request.Name, type) || IsValidType(type))
             .WithMessage(TypeValid);
 
         RuleFor(x => x.EnumValues)

@@ -28,6 +28,7 @@ public static class GraphQlConstant
     public const string GraphQLPath = "gateway";
     public const string BlocksKeyHeaderKey = "x-blocks-key";
     public const string UnauthorizedErrorCode = "AUTH_NOT_AUTHENTICATED";
+    public const string ForbiddenErrorCode = "FORBIDDEN";
     public const string ValidationErrorErrorCode = "VALIDATION_ERROR";
     public const string TooManyRootFieldsErrorCode = "DATA_GATEWAY_TOO_MANY_ROOT_FIELDS";
     public const string IntrospectionNotAllowedErrorCode = "DATA_GATEWAY_INTROSPECTION_NOT_ALLOWED";
@@ -38,8 +39,6 @@ public static class GraphQlConstant
     /// </summary>
     public const int MaxRootFieldsPerOperation = 10;
 
-    /// <summary>Largest page one query may ask for; a bigger <c>pageSize</c> is clamped to this.</summary>
-    public const int MaxPageSize = 1000;
     private const string DefaultProvider = "azure";
     private const string RabbitMqProvider = "rabbitmq";
 

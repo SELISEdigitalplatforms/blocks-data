@@ -12,6 +12,7 @@ const target: ValidationInspectorTarget = {
   subject: "Order.Email",
   context: "Field on Order",
   fieldName: "Email",
+  fieldType: "String",
   schemaId: "s1",
   projectKey: "pk",
 };

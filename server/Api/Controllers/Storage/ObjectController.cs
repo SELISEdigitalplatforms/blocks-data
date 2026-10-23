@@ -1,4 +1,5 @@
 using Blocks.Genesis;
+using DataGateway.DomainService.Notifications;
 using DomainService.Storage.Dms;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -24,15 +25,50 @@ namespace Api.Controllers
         private readonly IObjectManagementService _objectManagementService;
         private readonly IObjectDiscoveryService _objectDiscoveryService;
         private readonly IFileDirectoryManagementService _directoryManagementService;
+        private readonly IBuiltInNotificationSender? _notifier;
 
         public ObjectController(
             IObjectManagementService objectManagementService,
             IObjectDiscoveryService objectDiscoveryService,
-            IFileDirectoryManagementService directoryManagementService)
+            IFileDirectoryManagementService directoryManagementService,
+            IBuiltInNotificationSender? notifier = null)
         {
             _objectManagementService = objectManagementService;
             _objectDiscoveryService = objectDiscoveryService;
             _directoryManagementService = directoryManagementService;
+            _notifier = notifier;
+        }
+
+        /// <summary>
+        /// Tells the affected user that access to a stored item was given or removed. Best effort: it never
+        /// throws and never changes the response. Only a User principal gets it, and not the acting user.
+        /// </summary>
+        private async Task NotifyAccessChangedAsync(
+            ObjectAccessOperationResult result, string resourceId, ObjectResourceType resourceType,
+            ObjectPrincipalType principalType, string? principalId, string action)
+        {
+            if (_notifier is null || !result.IsSuccess || principalType != ObjectPrincipalType.User) return;
+            var context = BlocksContext.GetContext();
+            var recipients = BuiltInNotificationSender.Recipients(principalId);
+            recipients.RemoveAll(u => string.Equals(u, context?.UserId, StringComparison.Ordinal));
+            if (recipients.Count == 0) return;
+            await _notifier.SendAsync(new BuiltInNotification(
+                context?.TenantId ?? string.Empty,
+                "data-storage-object-shared",
+                recipients,
+                new
+                {
+                    @event = "data-storage-object-shared",
+                    title = action == "revoked" ? "Storage access removed" : "Storage access shared with you",
+                    description = action == "revoked"
+                        ? "Your access to a stored item was removed."
+                        : "A stored item was shared with you.",
+                    isSuccess = true,
+                    resourceId,
+                    resourceType = resourceType.ToString(),
+                    action,
+                    occurredAt = DateTime.UtcNow
+                }));
         }
 
         /// <summary>Access-resolved, cursor-paginated files and directories under one parent.</summary>
@@ -127,6 +163,7 @@ namespace Api.Controllers
         public async Task<IActionResult> GrantAccess([FromBody] GrantAccessRequest request)
         {
             var result = await _objectManagementService.GrantAccessAsync(ToPolicy(request));
+            await NotifyAccessChangedAsync(result, request.ResourceId, request.ResourceType, request.PrincipalType, request.PrincipalId, "shared");
 
             return MapAccess(result, created: true);
         }
@@ -137,6 +174,7 @@ namespace Api.Controllers
         public async Task<IActionResult> UpdateAccessPolicy([FromBody] GrantAccessRequest request)
         {
             var result = await _objectManagementService.UpdateAccessAsync(ToPolicy(request));
+            await NotifyAccessChangedAsync(result, request.ResourceId, request.ResourceType, request.PrincipalType, request.PrincipalId, "changed");
 
             return MapAccess(result, created: false);
         }
@@ -146,7 +184,10 @@ namespace Api.Controllers
         [ProtectedEndPoint("blocks-data::object::revoke-access-policy")]
         public async Task<IActionResult> RevokeAccessPolicy([FromBody] RevokeAccessRequest request)
         {
+            var revoked = await FindUserPolicyAsync(request.ResourceId, request.PolicyItemId);
             var result = await _objectManagementService.RevokeAccessAsync(request.ResourceId, request.PolicyItemId);
+            if (revoked is not null)
+                await NotifyAccessChangedAsync(result, request.ResourceId, revoked.ResourceType, revoked.PrincipalType, revoked.PrincipalId, "revoked");
 
             return MapAccess(result, created: false);
         }
@@ -185,8 +226,24 @@ namespace Api.Controllers
             var result = await _objectManagementService.ShareObjectAsync(
                 request.ResourceId, request.ResourceType, request.PrincipalType,
                 request.PrincipalId, request.Permission, request.ExpiresAt, request.OrganizationId);
+            await NotifyAccessChangedAsync(result, request.ResourceId, request.ResourceType, request.PrincipalType, request.PrincipalId, "shared");
 
             return MapAccess(result, created: true);
+        }
+
+        /// <summary>The access entry about to be removed, read first so its user can be told. Null when not found or on any error.</summary>
+        private async Task<ObjectAccessPolicy?> FindUserPolicyAsync(string resourceId, string policyItemId)
+        {
+            if (_notifier is null) return null;
+            try
+            {
+                var entries = await _objectManagementService.GetAccessAsync(resourceId);
+                return entries.FirstOrDefault(p => string.Equals(p.ItemId, policyItemId, StringComparison.Ordinal));
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         private static ObjectAccessPolicy ToPolicy(GrantAccessRequest request) => new()

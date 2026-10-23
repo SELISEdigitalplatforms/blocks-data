@@ -38,7 +38,8 @@ public class QueryOutputType : ObjectType<object>
             return;
         }
 
-        if (_schemaMap.TryGetValue(field.Type, out _))
+        if (_schemaMap.TryGetValue(field.Type, out _)
+            || OperationAccessType.Serves(field.Name, field.Type, _schemaMap))
         {
             ((IObjectTypeDescriptor)descriptor).ResolveCustomObjectTypeField(field);
         }

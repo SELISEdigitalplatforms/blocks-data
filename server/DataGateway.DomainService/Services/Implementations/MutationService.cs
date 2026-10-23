@@ -6,6 +6,7 @@ using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Events;
+using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Repositories;
 using HotChocolate.Language;
@@ -28,25 +29,68 @@ public class MutationService : IMutationService
 {
     private const string OperationLabelCreate = "CREATE";
     private const string OperationLabelUpdate = "UPDATE";
+    private const string ColumnAccessValidationType = "ColumnAccess";
     private const string OperationLabelDelete = "DELETE";
     private readonly IGqlDbRepository _repository;
     private readonly IDataChangeEventPublisher _eventPublisher;
     private readonly IDataAccessPolicyResolutionService _resolver;
     private readonly IAccessPrincipalAccessor _principals;
     private readonly ILogger<MutationService> _logger;
+    private readonly IBuiltInNotificationSender? _notifier;
+    private readonly IAfterWriteQueue? _afterWrite;
 
     public MutationService(
         IGqlDbRepository repository,
         IDataChangeEventPublisher eventPublisher,
         IDataAccessPolicyResolutionService resolver,
         IAccessPrincipalAccessor principals,
-        ILogger<MutationService> logger)
+        ILogger<MutationService> logger,
+        IBuiltInNotificationSender? notifier = null,
+        IAfterWriteQueue? afterWrite = null)
     {
         _repository = repository;
         _eventPublisher = eventPublisher;
         _resolver = resolver;
         _principals = principals;
         _logger = logger;
+        _notifier = notifier;
+        _afterWrite = afterWrite;
+    }
+
+    /// <summary>
+    /// After a write: the change event and the bulk notification go to the background queue (with a copy
+    /// of the context), so the response does not wait for them. Without a queue they run inline.
+    /// </summary>
+    private Task AfterWriteAsync(Func<Task> work)
+    {
+        if (_afterWrite is null) return work();
+        _afterWrite.Enqueue(work);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// One final result per bulk request, to the caller (never per row or per batch). Best effort: the
+    /// sender never throws. Not saved to the inbox (the config has persistence off).
+    /// </summary>
+    private async Task NotifyBulkResultAsync(SchemaDefinitionExtended schema, string operation, bool acknowledged, long count)
+    {
+        if (_notifier is null) return;
+        var context = BlocksContext.GetContext();
+        await _notifier.SendAsync(new BuiltInNotification(
+            context?.TenantId ?? string.Empty,
+            "data-bulk-change-progress",
+            BuiltInNotificationSender.Recipients(context?.UserId),
+            new
+            {
+                @event = "data-bulk-change-progress",
+                title = "Bulk change finished",
+                description = acknowledged ? $"Bulk {operation} finished." : $"Bulk {operation} was not completed.",
+                isSuccess = acknowledged,
+                schemaName = schema.SchemaName,
+                operation,
+                affectedCount = count,
+                occurredAt = DateTime.UtcNow
+            }));
     }
 
     /// <inheritdoc />
@@ -63,14 +107,18 @@ public class MutationService : IMutationService
         _logger.LogInformation("Inserting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.WRITE, OperationLabelCreate);
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
+        var sentPaths = MutationInputHelper.GetAllPathsFromInput(input, string.Empty);
+        RecordOrganizationRule.EnsureForInsert([input], _principals.Current);
         var defaults = ApplyFieldDefaults(input, schema, DateTime.UtcNow);
         ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
         await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelCreate);
         await ValidateUniquenessOrThrowAsync(schema, [input], null, OperationLabelCreate);
+        ThrowIfColumnRulesRefuse(schema, [(null, RefusedOnInsert(schema, sentPaths, input))], OperationLabelCreate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.WRITE, OperationLabelCreate);
         FieldDefaultsApplier.Apply(input, defaults);
         input.InjectDefaultValueOnInsert();
         MutationInputHelper.EnsureDefaultListsForInsert(input);
+        MutationInputHelper.AddRequesterToAccessLists(input, schema);
 
         var document = InputToBsonDocument(input);
         gatewayOperation.CollectionName = schema.CollectionName;
@@ -85,8 +133,8 @@ public class MutationService : IMutationService
         }
         var itemId = document[GraphQlConstant.DbEntityIdFieldName].ToString();
 
-        await _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted,
-            dataDocuments: new List<BsonDocument> { document });
+        await AfterWriteAsync(() => _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted,
+            dataDocuments: new List<BsonDocument> { document }));
 
         gatewayOperation.ResponseSize = document.ToBson().Length;
         gatewayOperation.DocumentCount = 1;
@@ -119,7 +167,9 @@ public class MutationService : IMutationService
         await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelUpdate);
         var currentId = existingDocument[GraphQlConstant.DbEntityIdFieldName]?.ToString();
         await ValidateUniquenessOrThrowAsync(schema, [input], currentId is not null ? [currentId] : null, OperationLabelUpdate);
+        ThrowIfColumnRulesRefuse(schema, [(null, RefusedOnEdit(schema, input, existingDocument))], OperationLabelUpdate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.EDIT, OperationLabelUpdate);
+        RecordOrganizationRule.EnsureForUpdate(input, _principals.Current);
         input.InjectDefaultValueOnUpdate();
 
         var document = InputToBsonDocument(input);
@@ -181,8 +231,8 @@ public class MutationService : IMutationService
 
         response.ItemId = itemId;
         if (response.Acknowledged)
-            await _eventPublisher.PublishAsync(schema, DataChangeOperation.Deleted,
-                dataDocuments: new List<BsonDocument> { firstDocument! });
+            await AfterWriteAsync(() => _eventPublisher.PublishAsync(schema, DataChangeOperation.Deleted,
+                dataDocuments: new List<BsonDocument> { firstDocument! }));
 
         gatewayOperation.ResponseSize = firstDocument!.ToBson().Length;
         gatewayOperation.DocumentCount = 1;
@@ -245,7 +295,7 @@ public class MutationService : IMutationService
             var batchResponse = await _repository.DeleteManyAsync(schema.CollectionName, deleteFilter);
 
             if (batchResponse.Acknowledged)
-                await _eventPublisher.PublishInChunksAsync(schema, DataChangeOperation.Deleted, batch.Documents);
+                await AfterWriteAsync(() => _eventPublisher.PublishInChunksAsync(schema, DataChangeOperation.Deleted, batch.Documents));
 
             acknowledged &= batchResponse.Acknowledged;
             totalDeleted += batchResponse.TotalImpactedData;
@@ -268,6 +318,7 @@ public class MutationService : IMutationService
         _logger.LogInformation("Data bulk deleted for schema {SchemaName} ({Count} documents in {Batches} batches)",
             schema.SchemaName, totalDeleted, batchNumber);
 
+        await AfterWriteAsync(() => NotifyBulkResultAsync(schema, "delete", acknowledged, totalDeleted));
         return new ActionResponse { Acknowledged = acknowledged, TotalImpactedData = totalDeleted };
     }
 
@@ -306,6 +357,9 @@ public class MutationService : IMutationService
         var inputs = GraphQlTypeHelper.MapBulkMutationInput(listNode, inputType);
         if (inputs == null || inputs.Count == 0)
             return new BulkActionResponse { Acknowledged = true, TotalImpactedData = 0 };
+        var sentPathsPerInput = inputs.Select(input => MutationInputHelper.GetAllPathsFromInput(input, string.Empty)).ToList();
+        // Every row is checked before any row is written.
+        RecordOrganizationRule.EnsureForInsert(inputs, _principals.Current);
 
         // One "now" for the whole batch, so every row's Now default is the same.
         var now = DateTime.UtcNow;
@@ -315,6 +369,10 @@ public class MutationService : IMutationService
 
         await ValidateReferencesOrThrowAsync(schema, inputs, references, OperationLabelCreate);
         await ValidateUniquenessOrThrowAsync(schema, inputs, null, OperationLabelCreate);
+        ThrowIfColumnRulesRefuse(
+            schema,
+            inputs.Select((input, i) => ((string?)$"Item {i}", RefusedOnInsert(schema, sentPathsPerInput[i], input))).ToList(),
+            OperationLabelCreate);
 
         var documents = new List<BsonDocument>();
         for (var i = 0; i < inputs.Count; i++)
@@ -324,6 +382,7 @@ public class MutationService : IMutationService
             FieldDefaultsApplier.Apply(input, defaultsPerInput[i]);
             input.InjectDefaultValueOnInsert();
             MutationInputHelper.EnsureDefaultListsForInsert(input);
+            MutationInputHelper.AddRequesterToAccessLists(input, schema);
             documents.Add(InputToBsonDocument(input));
         }
 
@@ -339,14 +398,16 @@ public class MutationService : IMutationService
             ThrowUniqueConstraintViolation(schema.SchemaName, OperationLabelCreate, duplicateFields);
             throw;
         }
-        if (response.Acknowledged && documents.Count > 0)
-            await _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted, dataDocuments: documents);
 
         gatewayOperation.ResponseSize = documents.Sum(d => d.ToBson().Length);
         gatewayOperation.DocumentCount = documents.Count;
 
         _logger.LogInformation("Data bulk inserted for schema {SchemaName}", schema.SchemaName);
 
+        var publishInsert = response.Acknowledged && documents.Count > 0;
+        await AfterWriteAsync(() => Task.WhenAll(
+            publishInsert ? _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted, dataDocuments: documents) : Task.CompletedTask,
+            NotifyBulkResultAsync(schema, "insert", response.Acknowledged, response.TotalImpactedData)));
         return response;
     }
 
@@ -378,7 +439,14 @@ public class MutationService : IMutationService
             .OfType<string>()
             .ToList();
         await ValidateUniquenessOrThrowAsync(schema, [input], existingIds, OperationLabelUpdate);
+        // One record the rules refuse refuses the whole update, so nothing is half done.
+        ThrowIfColumnRulesRefuse(
+            schema,
+            existingDocuments.Select(document =>
+                ((string?)$"Record {document[GraphQlConstant.DbEntityIdFieldName]}", RefusedOnEdit(schema, input, document))).ToList(),
+            OperationLabelUpdate);
         ApplyClsRestrictionsToInput(input, schema, PolicyOperation.EDIT, OperationLabelUpdate);
+        RecordOrganizationRule.EnsureForUpdate(input, _principals.Current);
         input.InjectDefaultValueOnUpdate();
 
         var document = InputToBsonDocument(input);
@@ -393,19 +461,19 @@ public class MutationService : IMutationService
             ThrowUniqueConstraintViolation(schema.SchemaName, OperationLabelUpdate, duplicateFields);
             throw;
         }
+        List<UpdatedDocument>? updatedDocuments = null;
         if (response.Acknowledged)
         {
             var updatedFields = document.Elements
                 .Select(e => new FieldChange { FieldName = e.Name, NewValue = e.Value?.ToString(), OldValue = null })
                 .ToList();
-            var updatedDocuments = existingDocuments
+            updatedDocuments = existingDocuments
                 .Select(d => new UpdatedDocument
                 {
                     DocumentId = d[GraphQlConstant.DbEntityIdFieldName]?.ToString() ?? string.Empty,
                     UpdatedFields = updatedFields
                 })
                 .ToList();
-            await _eventPublisher.PublishAsync(schema, DataChangeOperation.Updated, updatedDocuments: updatedDocuments);
         }
 
         gatewayOperation.ResponseSize = document.ToBson().Length * existingDocuments.Count;
@@ -413,6 +481,9 @@ public class MutationService : IMutationService
 
         _logger.LogInformation("Data bulk updated for schema {SchemaName}", schema.SchemaName);
 
+        await AfterWriteAsync(() => Task.WhenAll(
+            updatedDocuments is null ? Task.CompletedTask : _eventPublisher.PublishAsync(schema, DataChangeOperation.Updated, updatedDocuments: updatedDocuments),
+            NotifyBulkResultAsync(schema, "update", response.Acknowledged, response.TotalImpactedData)));
         return response;
     }
 
@@ -693,10 +764,10 @@ public class MutationService : IMutationService
                 operationLabel.ToUpperInvariant(), schema.SchemaName, rlsResult.ErrorMessage);
             var message = rlsResult.ErrorMessage ?? $"You don't have permission to {operationLabel} records in this entity.";
             GatewayOperationActivity.MarkFailed(
-                Activity.Current, GatewayFailureKind.Authorization, message, GraphQlConstant.UnauthorizedErrorCode);
+                Activity.Current, GatewayFailureKind.Authorization, message, GraphQlConstant.ForbiddenErrorCode);
 
             throw new GraphQLException(
-                ErrorBuilder.New().SetMessage(message).SetCode(GraphQlConstant.UnauthorizedErrorCode).Build());
+                ErrorBuilder.New().SetMessage(message).SetCode(GraphQlConstant.ForbiddenErrorCode).Build());
         }
     }
 
@@ -830,6 +901,44 @@ public class MutationService : IMutationService
         return false;
     }
 
+    /// <summary>
+    /// Fields the client sent that a column rule for Create refuses, checked against the record as it will be stored:
+    /// the rules may read CreatedBy, OrganizationId or the access lists, which are only filled in after this point.
+    /// </summary>
+    private List<string> RefusedOnInsert(SchemaDefinitionExtended schema, List<string> sentPaths, Dictionary<string, object?> input)
+    {
+        var record = WriteRules.ToRecord(InputToBsonDocument(input));
+        record.InjectDefaultValueOnInsert();
+        MutationInputHelper.EnsureDefaultListsForInsert(record);
+        MutationInputHelper.AddRequesterToAccessLists(record, schema);
+        return ClsWriteGuard.RefusedPaths(_principals.Current, schema, PolicyOperation.WRITE, sentPaths, record);
+    }
+
+    /// <summary>Fields whose value this update changes and that a column rule for Edit refuses on the stored record.</summary>
+    private List<string> RefusedOnEdit(SchemaDefinitionExtended schema, Dictionary<string, object?> input, BsonDocument stored) =>
+        ClsWriteGuard.RefusedPaths(_principals.Current, schema, PolicyOperation.EDIT, ClsWriteGuard.ChangedPaths(input, stored), WriteRules.ToRecord(stored));
+
+    /// <summary>
+    /// Refuses the whole write when a column rule refuses a field the client sent, naming each field (and, in a batch,
+    /// the item or record), instead of dropping the field and reporting success. Nothing is written.
+    /// </summary>
+    private void ThrowIfColumnRulesRefuse(SchemaDefinitionExtended schema, IReadOnlyList<(string? Item, List<string> Fields)> refused, string operationLabel)
+    {
+        var verb = operationLabel == OperationLabelCreate ? "set" : "change";
+        var result = new DataValidationResult();
+        foreach (var (item, fields) in refused)
+        {
+            var prefix = item is null ? string.Empty : $"{item}: ";
+            foreach (var field in fields.Select(MutationInputHelper.ToSchemaPath).Distinct())
+                result.AddError(field, $"{prefix}You don't have permission to {verb} {field} on this record.", ColumnAccessValidationType);
+        }
+        if (result.IsValid)
+            return;
+
+        _logger.LogWarning("Column access refused for {Op} on schema {SchemaName}: {Errors}", operationLabel, schema.SchemaName, result.ErrorMessage);
+        MutationValidationHelper.ThrowValidationError(result);
+    }
+
     private void ApplyClsRestrictionsToInput(Dictionary<string, object?> input, SchemaDefinitionExtended schema, PolicyOperation operation, string operationLabel)
     {
 
@@ -907,7 +1016,7 @@ public class MutationService : IMutationService
                 OldValue = existingDocument.Contains(e.Name) ? existingDocument[e.Name]?.ToString() : null
             })
             .ToList();
-        await _eventPublisher.PublishAsync(schema, DataChangeOperation.Updated,
-            updatedDocuments: new List<UpdatedDocument> { new() { DocumentId = itemId, UpdatedFields = updatedFields } });
+        await AfterWriteAsync(() => _eventPublisher.PublishAsync(schema, DataChangeOperation.Updated,
+            updatedDocuments: new List<UpdatedDocument> { new() { DocumentId = itemId, UpdatedFields = updatedFields } }));
     }
 }

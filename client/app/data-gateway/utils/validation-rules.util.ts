@@ -308,3 +308,65 @@ export function formatRuleSummary(rule: ISchemaFieldValidation): string {
 
 /** The label for a rule type, including types this client does not know yet. */
 export const ruleTypeLabel = (type: number) => VALIDATION_TYPE_META[type as ValidationTypeValue]?.label ?? `Type ${type}`;
+
+/** "{{Employee.StartDate}}" → "StartDate"; anything else as typed. */
+const comparedName = (text: string) => {
+  const trimmed = text.trim();
+  const variable = /^\{\{\s*([^{}]+?)\s*\}\}$/.exec(trimmed);
+  if (!variable) return trimmed;
+  const parts = variable[1].split(".");
+  return parts.length > 1 ? parts.slice(1).join(".") : variable[1];
+};
+
+/** How a compared value reads in a sentence: a property by name, a date-time without its "T". */
+const readable = (text: string, fieldType: string) => {
+  const name = comparedName(text);
+  return fieldType === "DateTime" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(name) ? name.replace("T", " ") : name;
+};
+
+/**
+ * A message to show when the validation fails, from the draft as it stands, e.g. "Salary must be
+ * greater than 100" or "EndDate must be after StartDate". The property is named by its own name
+ * (Address.City → City). Null until the values it needs are filled in. A pattern can't be put into
+ * words, so it gets a general line.
+ */
+export function suggestErrorMessage(draft: RuleDraft, fieldType: string, fieldName: string): string | null {
+  const field = fieldName.split(".").pop() || fieldName;
+  const v = draft.value.trim();
+  const w = draft.secondaryValue.trim();
+  const isDate = fieldType === "DateTime";
+  const a = readable(v, fieldType);
+  const b = readable(w, fieldType);
+  const needOne = (message: string) => (v ? message : null);
+  const needTwo = (message: string) => (v && w ? message : null);
+  switch (draft.type) {
+    case T.NotEmpty:
+      return `${field} is required`;
+    case T.Regex:
+      return `${field} is not in the right format`;
+    case T.MinLength:
+      return needOne(`${field} must be at least ${a} ${a === "1" ? "character" : "characters"}`);
+    case T.MaxLength:
+      return needOne(`${field} must be at most ${a} ${a === "1" ? "character" : "characters"}`);
+    case T.LengthRange:
+      return needTwo(`${field} must be between ${a} and ${b} characters`);
+    case T.Equal:
+      return needOne(`${field} must be ${a}`);
+    case T.NotEqual:
+      return needOne(`${field} must not be ${a}`);
+    case T.GreaterThan:
+      return needOne(`${field} must be ${isDate ? "after" : "greater than"} ${a}`);
+    case T.LessThan:
+      return needOne(`${field} must be ${isDate ? "before" : "less than"} ${a}`);
+    case T.GreaterThanOrEqual:
+      return needOne(`${field} must be ${isDate ? "on or after" : "at least"} ${a}`);
+    case T.LessThanOrEqual:
+      return needOne(`${field} must be ${isDate ? "on or before" : "at most"} ${a}`);
+    case T.Range:
+      return needTwo(`${field} must be between ${a} and ${b}`);
+    case T.Reference:
+      return needOne(`${field} must match an existing ${v}`);
+    default:
+      return null;
+  }
+}

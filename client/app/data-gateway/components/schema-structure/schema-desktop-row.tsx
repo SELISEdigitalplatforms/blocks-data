@@ -15,7 +15,6 @@ import { cn } from "@/lib/utils";
 import {
   Check,
   ChevronDown,
-  ChevronRight,
   Copy,
   MoreVertical,
   Shield,
@@ -49,6 +48,7 @@ import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.uti
 import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
 import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagTitlesFromField, flagsFromField } from "../primitives";
 import { DefaultValueButton } from "./default-value-button";
+import { FieldCount, TreeStem, TreeToggle } from "./property-tree";
 
 /**
  * The three genuine booleans on a property, as one column.
@@ -99,6 +99,8 @@ interface SchemaDesktopRowProps {
   activeRule?: "validation" | "default" | null;
   isExpanded?: boolean;
   onToggleExpand?: (index: number) => void;
+  /** Why this object property can't be opened (its type contains itself); null when it can. */
+  expandBlockedReason?: string | null;
   childSchema?: ISchemaDetails | null;
   totalFieldsLength: number;
   /** Show Access column (false only when Child schema viewed directly in Child tab) */
@@ -143,6 +145,7 @@ export function SchemaDesktopRow({
   showDefaultButton = false,
   isExpanded,
   onToggleExpand,
+  expandBlockedReason = null,
   childSchema,
   schemaType,
   totalFieldsLength,
@@ -244,15 +247,28 @@ export function SchemaDesktopRow({
             </TableCell>
           )}
 
-          {/* Property */}
-          <TableCell className={compactCellClass}>
+          {/* Property: in view mode, the tree's chevron slot, the name, and an object's field count */}
+          <TableCell className={cn(compactCellClass, "relative")}>
             {!isEditMode ? (
-              <span
-                className="block truncate font-mono text-[13px] text-foreground"
-                title={name}
-              >
-                {name}
-              </span>
+              <>
+                {isExpanded && <TreeStem depth={0} />}
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <span className="flex w-5 shrink-0 items-center justify-center">
+                    {isChildType && resolvedChildSchema && onToggleExpand && (
+                      <TreeToggle
+                        expanded={Boolean(isExpanded)}
+                        label={isExpanded ? `Collapse ${resolvedChildSchema.schemaName}` : `Expand ${resolvedChildSchema.schemaName} attributes`}
+                        blockedReason={expandBlockedReason}
+                        onToggle={() => onToggleExpand(index)}
+                      />
+                    )}
+                  </span>
+                  <span className="truncate pl-0.5 font-mono text-[13px] text-foreground" title={name}>
+                    {name}
+                  </span>
+                  {isChildType && <FieldCount count={resolvedChildSchema?.fields?.length} />}
+                </div>
+              </>
             ) : (
             <div className="flex h-9 flex-col justify-center gap-0.5">
               <Input
@@ -359,37 +375,6 @@ export function SchemaDesktopRow({
                     isChildType={isChildType}
                   />
                 </div>
-                )}
-                {!isEditMode && isChildType && resolvedChildSchema && onToggleExpand && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() => onToggleExpand(index)}
-                        className={cn(
-                          "flex shrink-0 rounded p-1 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
-                          isExpanded
-                            ? "bg-primary/10 text-primary"
-                            : "text-primary hover:bg-primary/10",
-                        )}
-                        aria-label={
-                          isExpanded
-                            ? `Collapse ${resolvedChildSchema.schemaName}`
-                            : `Expand ${resolvedChildSchema.schemaName} attributes`
-                        }
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isExpanded ? "Collapse" : "Expand"} {resolvedChildSchema.schemaName}{" "}
-                      attributes
-                    </TooltipContent>
-                  </Tooltip>
                 )}
               </div>
             </div>

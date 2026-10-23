@@ -161,6 +161,7 @@ data-gateway/
 - **Allow/Deny policies**: Create declarative access policies with `isAllowPolicy` flag, priority ordering, and nested rule groups (`IPolicyRuleGroup`).
 - **Rule groups**: Combine conditions with logical operators (`AND`/`OR`) and support unlimited nesting via `nestedGroups`. The rule-set editor builds up to three levels (the root plus two nested levels, e.g. `(A OR B) AND (C OR D)`); policies nested deeper — from the API or a schema import — still load, display, and save intact.
 - **Policy CRUD**: Full create, read (by entity name), update, and delete lifecycle.
+- **Auth values**: A rule's Auth operand, and a static value of the form `{{token.<name>}}` or `{{auth.<name>}}`, must use a name the policy runtime resolves (any case): `UserId` (also `Id`, `Sub`), `Email`, `Roles` (`Role`), `Permissions` (`Permission`), `OrganizationId` (`Organization`), `TenantId` (`Tenant`). Saving a policy (create, update or schema import) with any other name is refused with `Unknown Auth value '<name>'`.
 
 ### Field Validation
 

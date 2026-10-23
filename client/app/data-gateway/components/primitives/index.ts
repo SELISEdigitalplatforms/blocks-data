@@ -24,3 +24,4 @@ export { RequiredBadge } from "./required-badge";
 export { FieldSubject, PanelHeader, PanelShell } from "./panel-shell";
 export { InlineStatusMessage } from "./inline-status-message";
 export { StatusSnackbar } from "./status-snackbar";
+export { ExpressionMenu, insertAt, type ExpressionGroup, type ExpressionOption } from "./expression-menu";

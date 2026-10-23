@@ -8,6 +8,7 @@ using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Models.Events;
+using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
 using DataGateway.DomainService.Services;
@@ -194,7 +195,7 @@ public class MutationServiceTests
         var act = () => NewService(repo, pub).InsertAsync(schema, ctx.Object, _insertInput);
 
         var ex = await act.Should().ThrowAsync<GraphQLException>();
-        ex.Which.Errors[0].Code.Should().Be(GraphQlConstant.UnauthorizedErrorCode);
+        ex.Which.Errors[0].Code.Should().Be(GraphQlConstant.ForbiddenErrorCode);
     }
 
     [Fact]
@@ -430,5 +431,303 @@ public class MutationServiceTests
         var result = await NewService(repo, pub).BulkDeleteAsync(schema, ctx.Object, _deleteInput);
 
         result.Acknowledged.Should().BeFalse();
+    }
+
+    // Column (CLS) rules on Create and Edit, checked against the record: "only the creator may change Email".
+
+    private static readonly PolicyRule CreatorOnly =
+        Rule(ConditionSource.SCHEMA_FIELD, "CreatedBy", PolicyOperator.EQUAL, ConditionSource.AUTH, "UserId");
+
+    private static SchemaDefinitionExtended RunnerSchema(PolicyOperation operation, PolicyRule rule) => Schema(
+        fields: new()
+        {
+            Field("Name"),
+            Field("Age", "Int"),
+            Field("Email", write: operation == PolicyOperation.WRITE ? SchemaAccessLevel.Custom : SchemaAccessLevel.Inherited,
+                edit: operation == PolicyOperation.EDIT ? SchemaAccessLevel.Custom : SchemaAccessLevel.Inherited),
+        },
+        policies: new() { Policy(PolicyType.CLS, operation, ["Email"], Group(PolicyLogicalOperator.AND, rule)) });
+
+    private static BsonDocument StoredBy(string id, string createdBy, string email = "a@x.io") =>
+        new() { { GraphQlConstant.DbEntityIdFieldName, id }, { "Name", "Old" }, { "Email", email }, { "CreatedBy", createdBy } };
+
+    private static Mock<IGqlDbRepository> RepoHolding(BsonDocument stored)
+    {
+        var repo = Repo();
+        repo.Setup(r => r.GetItemAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>())).ReturnsAsync(stored);
+        repo.Setup(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>()))
+            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+        return repo;
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ANonCreatorChangingACreatorOnlyField_IsRefused_AndNothingIsWritten()
+    {
+        var repo = RepoHolding(StoredBy("r1", createdBy: "ali"));
+        var ctx = ContextWith(ObjectLiteral("{ Email: \"b@x.io\", Name: \"New\" }"));
+
+        var act = () => NewService(repo, new Mock<IDataChangeEventPublisher>()).UpdateAsync(RunnerSchema(PolicyOperation.EDIT, CreatorOnly), ctx.Object, _insertInput);
+
+        var error = (await act.Should().ThrowAsync<GraphQLException>()).Which.Errors[0];
+        error.Code.Should().Be(GraphQlConstant.ValidationErrorErrorCode);
+        error.Message.Should().Contain("You don't have permission to change Email on this record");
+        repo.Verify(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_TheCreatorMayChangeIt()
+    {
+        var repo = RepoHolding(StoredBy("r1", createdBy: "user-1"));
+        var ctx = ContextWith(ObjectLiteral("{ Email: \"b@x.io\" }"));
+
+        await NewService(repo, new Mock<IDataChangeEventPublisher>()).UpdateAsync(RunnerSchema(PolicyOperation.EDIT, CreatorOnly), ctx.Object, _insertInput);
+
+        repo.Verify(r => r.UpdateAsync("Persons", It.IsAny<BsonDocument>(), It.Is<BsonDocument>(d => d["Email"] == "b@x.io")), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ANonCreatorSendingTheFieldBackUnchanged_SavesTheRest()
+    {
+        var repo = RepoHolding(StoredBy("r1", createdBy: "ali", email: "a@x.io"));
+        var ctx = ContextWith(ObjectLiteral("{ Email: \"a@x.io\", Name: \"New\" }"));
+
+        await NewService(repo, new Mock<IDataChangeEventPublisher>()).UpdateAsync(RunnerSchema(PolicyOperation.EDIT, CreatorOnly), ctx.Object, _insertInput);
+
+        repo.Verify(r => r.UpdateAsync("Persons", It.IsAny<BsonDocument>(), It.Is<BsonDocument>(d => d["Name"] == "New")), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_OneRecordTheRuleRefuses_RefusesTheWholeUpdate()
+    {
+        var repo = Repo();
+        repo.Setup(r => r.GetItemsAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync(new List<BsonDocument> { StoredBy("mine", "user-1"), StoredBy("alis", "ali") });
+        var ctx = ContextWith(ObjectLiteral("{ Email: \"b@x.io\" }"));
+
+        var act = () => NewService(repo, new Mock<IDataChangeEventPublisher>()).BulkUpdateAsync(RunnerSchema(PolicyOperation.EDIT, CreatorOnly), ctx.Object, _insertInput);
+
+        (await act.Should().ThrowAsync<GraphQLException>()).Which.Errors[0].Message.Should().Contain("Record alis: You don't have permission to change Email");
+        repo.Verify(r => r.UpdateManyAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InsertAsync_ACreateRuleOnTheRecord_SeesCreatedByAsItWillBeStored()
+    {
+        var repo = Repo();
+        repo.Setup(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>())).ReturnsAsync((string _, BsonDocument d) => d);
+        var ctx = ContextWith(ObjectLiteral("{ Name: \"John\", Email: \"a@x.io\" }"));
+
+        await NewService(repo, new Mock<IDataChangeEventPublisher>()).InsertAsync(RunnerSchema(PolicyOperation.WRITE, CreatorOnly), ctx.Object, _insertInput);
+
+        repo.Verify(r => r.InsertAsync("Persons", It.Is<BsonDocument>(d => d["Email"] == "a@x.io")), Times.Once);
+    }
+
+    [Fact]
+    public async Task InsertAsync_AFieldTheRuleRefuses_IsAnErrorNotASilentDrop()
+    {
+        var repo = Repo();
+        var adminsOnly = Rule(ConditionSource.AUTH, "Roles", PolicyOperator.CONTAIN, ConditionSource.STATIC_VALUE, staticValue: "admin");
+        var ctx = ContextWith(ObjectLiteral("{ Name: \"John\", Email: \"a@x.io\" }"));
+
+        var act = () => NewService(repo, new Mock<IDataChangeEventPublisher>()).InsertAsync(RunnerSchema(PolicyOperation.WRITE, adminsOnly), ctx.Object, _insertInput);
+
+        (await act.Should().ThrowAsync<GraphQLException>()).Which.Errors[0].Message.Should().Contain("You don't have permission to set Email");
+        repo.Verify(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task InsertAsync_AFieldWithoutAColumnRule_IsUnchanged()
+    {
+        var repo = Repo();
+        repo.Setup(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>())).ReturnsAsync((string _, BsonDocument d) => d);
+        var schema = RunnerSchema(PolicyOperation.WRITE, CreatorOnly);
+        schema.Policies.Clear();   // Email is Custom but no column policy covers it: written, as today
+        var ctx = ContextWith(ObjectLiteral("{ Name: \"John\", Email: \"a@x.io\" }"));
+
+        await NewService(repo, new Mock<IDataChangeEventPublisher>()).InsertAsync(schema, ctx.Object, _insertInput);
+
+        repo.Verify(r => r.InsertAsync("Persons", It.Is<BsonDocument>(d => d["Email"] == "a@x.io")), Times.Once);
+    }
+
+    // ---- after-write queue: the response does not wait for the change event or the notification ----
+
+    /// <summary>Records the queued work without running it, so a test decides when (and whether) it runs.</summary>
+    private sealed class RecordingQueue : IAfterWriteQueue
+    {
+        public List<Func<Task>> Items { get; } = new();
+
+        public bool Enqueue(Func<Task> work)
+        {
+            Items.Add(work);
+            return true;
+        }
+
+        public async Task RunAllAsync()
+        {
+            foreach (var item in Items.ToList())
+                await item();
+        }
+    }
+
+    private static MutationService NewQueuedService(
+        Mock<IGqlDbRepository> repo, Mock<IDataChangeEventPublisher> pub, RecordingQueue queue, Mock<IBuiltInNotificationSender>? notifier = null) =>
+        new(repo.Object, pub.Object, Resolver(), Principals(), NullLogger<MutationService>.Instance, notifier?.Object, queue);
+
+    private static Mock<IBuiltInNotificationSender> Notifier()
+    {
+        var notifier = new Mock<IBuiltInNotificationSender>();
+        notifier.Setup(n => n.SendAsync(It.IsAny<BuiltInNotification>())).ReturnsAsync(true);
+        return notifier;
+    }
+
+    [Fact]
+    public async Task InsertAsync_WithQueue_ReturnsWithoutPublishing_ThenPublishesWhenTheQueuedWorkRuns()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        var queue = new RecordingQueue();
+        repo.Setup(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()))
+            .ReturnsAsync((string _, BsonDocument d) => d);
+        var schema = Schema(fields: new() { Field("Name"), Field("Age", "Int") });
+        var ctx = ContextWith(ObjectLiteral("{ Name: \"John\", Age: 30 }"));
+
+        var result = await NewQueuedService(repo, pub, queue).InsertAsync(schema, ctx.Object, _insertInput);
+
+        result.Acknowledged.Should().BeTrue();
+        queue.Items.Should().ContainSingle();
+        pub.Invocations.Should().BeEmpty();
+        await queue.RunAllAsync();
+        pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Inserted,
+            It.IsAny<List<BsonDocument>>(), null), Times.Once);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_WithQueue_ReturnsWithoutPublishing_ThenPublishesWhenTheQueuedWorkRuns()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        var queue = new RecordingQueue();
+        repo.Setup(r => r.GetItemAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>()))
+            .ReturnsAsync(PersonDoc("id-1", "Old", 20));
+        repo.Setup(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>()))
+            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+        var schema = Schema(fields: new() { Field("Name"), Field("Age", "Int") });
+        var ctx = ContextWith(ObjectLiteral("{ Name: \"New\", Age: 25 }"));
+
+        var result = await NewQueuedService(repo, pub, queue).UpdateAsync(schema, ctx.Object, _insertInput);
+
+        result.Acknowledged.Should().BeTrue();
+        queue.Items.Should().ContainSingle();
+        pub.Invocations.Should().BeEmpty();
+        await queue.RunAllAsync();
+        pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Updated, null,
+            It.IsAny<List<UpdatedDocument>>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_WithQueue_ReturnsWithoutPublishing_ThenPublishesWhenTheQueuedWorkRuns()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        var queue = new RecordingQueue();
+        repo.Setup(r => r.GetItemsAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync(new List<BsonDocument> { PersonDoc("id-9", "Del", 40) });
+        repo.Setup(r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()))
+            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+        var schema = Schema(fields: new() { Field("Name") });
+        var ctx = ContextWith(ObjectLiteral("{ isHardDelete: true }"));
+
+        var result = await NewQueuedService(repo, pub, queue).DeleteAsync(schema, ctx.Object, _deleteInput);
+
+        result.Acknowledged.Should().BeTrue();
+        queue.Items.Should().ContainSingle();
+        pub.Invocations.Should().BeEmpty();
+        await queue.RunAllAsync();
+        pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Deleted,
+            It.IsAny<List<BsonDocument>>(), null), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkInsertAsync_WithQueue_QueuesOneItemThatPublishesAndNotifies()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        var notifier = Notifier();
+        var queue = new RecordingQueue();
+        repo.Setup(r => r.InsertManyAsync(It.IsAny<string>(), It.IsAny<List<BsonDocument>>()))
+            .ReturnsAsync(new BulkActionResponse { Acknowledged = true, TotalImpactedData = 2 });
+        var schema = Schema(fields: new() { Field("Name"), Field("Age", "Int") });
+        var ctx = ContextWith(ListLiteral("[ { Name: \"A\", Age: 1 }, { Name: \"B\", Age: 2 } ]"));
+
+        var result = await NewQueuedService(repo, pub, queue, notifier).BulkInsertAsync(schema, ctx.Object, _insertInput);
+
+        result.TotalImpactedData.Should().Be(2);
+        queue.Items.Should().ContainSingle();
+        pub.Invocations.Should().BeEmpty();
+        notifier.Invocations.Should().BeEmpty();
+        await queue.RunAllAsync();
+        pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Inserted,
+            It.IsAny<List<BsonDocument>>(), null), Times.Once);
+        notifier.Verify(n => n.SendAsync(It.IsAny<BuiltInNotification>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkUpdateAsync_WithQueue_QueuesOneItemThatPublishesAndNotifies()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        var notifier = Notifier();
+        var queue = new RecordingQueue();
+        repo.Setup(r => r.GetItemsAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<int>()))
+            .ReturnsAsync(new List<BsonDocument> { PersonDoc("id-1", "A", 1), PersonDoc("id-2", "B", 2) });
+        repo.Setup(r => r.UpdateManyAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>()))
+            .ReturnsAsync(new ActionResponse { Acknowledged = true });
+        var schema = Schema(fields: new() { Field("Name"), Field("Age", "Int") });
+        var ctx = ContextWith(ObjectLiteral("{ Name: \"Z\" }"));
+
+        var result = await NewQueuedService(repo, pub, queue, notifier).BulkUpdateAsync(schema, ctx.Object, _insertInput);
+
+        result.Acknowledged.Should().BeTrue();
+        queue.Items.Should().ContainSingle();
+        pub.Invocations.Should().BeEmpty();
+        notifier.Invocations.Should().BeEmpty();
+        await queue.RunAllAsync();
+        pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Updated, null,
+            It.IsAny<List<UpdatedDocument>>()), Times.Once);
+        notifier.Verify(n => n.SendAsync(It.IsAny<BuiltInNotification>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BulkDeleteAsync_WithQueue_QueuesEachBatchPublishThenOneNotification()
+    {
+        var repo = Repo();
+        var pub = new Mock<IDataChangeEventPublisher>();
+        var notifier = Notifier();
+        var queue = new RecordingQueue();
+        repo.SetupSequence(r => r.GetItemsBatchAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<long>()))
+            .ReturnsAsync(Batch(PersonDoc("id-1", "A", 1)))
+            .ReturnsAsync(Batch(PersonDoc("id-2", "B", 2)))
+            .ReturnsAsync(Batch());
+        repo.Setup(r => r.InsertManyAsync(It.IsAny<string>(), It.IsAny<List<BsonDocument>>()))
+            .ReturnsAsync(new BulkActionResponse { Acknowledged = true, TotalImpactedData = 1 });
+        repo.Setup(r => r.DeleteManyAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()))
+            .ReturnsAsync(new ActionResponse { Acknowledged = true, TotalImpactedData = 1 });
+        var schema = Schema(fields: new() { Field("Name") });
+        var ctx = ContextWith(ObjectLiteral("{ isHardDelete: false }"));
+
+        var result = await NewQueuedService(repo, pub, queue, notifier).BulkDeleteAsync(schema, ctx.Object, _deleteInput);
+
+        result.TotalImpactedData.Should().Be(2);
+        queue.Items.Should().HaveCount(3);
+        pub.Invocations.Should().BeEmpty();
+        notifier.Invocations.Should().BeEmpty();
+        await queue.RunAllAsync();
+        pub.Verify(p => p.PublishInChunksAsync(schema, DataChangeOperation.Deleted,
+            It.IsAny<IReadOnlyList<BsonDocument>>()), Times.Exactly(2));
+        notifier.Verify(n => n.SendAsync(It.IsAny<BuiltInNotification>()), Times.Once);
     }
 }

@@ -11,13 +11,13 @@ using static XUnitTest.DataGateway.TestSupport;
 namespace XUnitTest.DataGateway.Services;
 
 [Collection("ContextSerial")]
-public class DelegatedAdministrationGuardTests : IDisposable
+public class AccessGrantGuardTests : IDisposable
 {
-    private readonly Mock<ILogger<DelegatedAdministrationGuard>> _logger = new();
+    private readonly Mock<ILogger<AccessGrantGuard>> _logger = new();
 
     public void Dispose() => ClearContext();
 
-    private DelegatedAdministrationGuard Guard() => new(Principals(), _logger.Object);
+    private AccessGrantGuard Guard() => new(Principals(), _logger.Object);
 
     private void VerifyWarning(string messageStart, Times times) =>
         _logger.Verify(l => l.Log(
@@ -36,7 +36,7 @@ public class DelegatedAdministrationGuardTests : IDisposable
             Guard().IsAllowed("policy/create").Should().BeTrue();
         }
 
-        VerifyWarning("DelegatedAdministration", Times.Never());
+        VerifyWarning("AccessGrant", Times.Never());
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public class DelegatedAdministrationGuardTests : IDisposable
 
         Guard().IsAllowed("policy/delete").Should().BeFalse();
 
-        VerifyWarning("DelegatedAdministration denied", Times.Once());
+        VerifyWarning("AccessGrant denied", Times.Once());
     }
 
     [Fact]

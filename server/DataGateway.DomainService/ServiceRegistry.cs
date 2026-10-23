@@ -50,7 +50,7 @@ public static class ServiceRegistry
         serviceCollection.AddScoped<ISchemaIndexService, SchemaIndexService>();
         serviceCollection.AddScoped<ISchemaChangeLogService, SchemaChangeLogService>();
         serviceCollection.AddScoped<IDataAccessService, DataAccessService>();
-        serviceCollection.AddSingleton<IDelegatedAdministrationGuard, DelegatedAdministrationGuard>();
+        serviceCollection.AddSingleton<IAccessGrantGuard, AccessGrantGuard>();
         serviceCollection.AddScoped<IMockDataService, MockDataService>();
         serviceCollection.AddScoped<IDataValidationService, DataValidationService>();
         serviceCollection.AddScoped<IGraphLogHistoryService, GraphLogHistoryService>();

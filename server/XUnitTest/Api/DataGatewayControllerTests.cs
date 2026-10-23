@@ -23,8 +23,8 @@ public class DataGatewayControllerTests
 {
     private static int Status(IActionResult r) => ((ObjectResult)r).StatusCode!.Value;
 
-    private static IDelegatedAdministrationGuard AllowAllGuard() =>
-        Mock.Of<IDelegatedAdministrationGuard>(g => g.IsAllowed(It.IsAny<string>()));
+    private static IAccessGrantGuard AllowAllGuard() =>
+        Mock.Of<IAccessGrantGuard>(g => g.IsAllowed(It.IsAny<string>()));
 
     private static ServiceResponse<ActionResponse> Ok() =>
         new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true });

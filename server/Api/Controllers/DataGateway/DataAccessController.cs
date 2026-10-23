@@ -16,14 +16,14 @@ namespace Api.Controllers.DataGateway
     public class DataAccessController : ControllerBase
     {
         private readonly IDataAccessService _dataAccessService;
-        private readonly IDelegatedAdministrationGuard _guard;
+        private readonly IAccessGrantGuard _guard;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataAccessController"/> class.
         /// </summary>
         /// <param name="dataAccessService">The data access service.</param>
-        /// <param name="guard">Delegated administration guard: only the system caller may write access.</param>
-        public DataAccessController(IDataAccessService dataAccessService, IDelegatedAdministrationGuard guard)
+        /// <param name="guard">Access grant guard: only the system caller may write access.</param>
+        public DataAccessController(IDataAccessService dataAccessService, IAccessGrantGuard guard)
         {
             _dataAccessService = dataAccessService ?? throw new ArgumentNullException(nameof(dataAccessService));
             _guard = guard ?? throw new ArgumentNullException(nameof(guard));
@@ -33,7 +33,7 @@ namespace Api.Controllers.DataGateway
         {
             if (_guard.IsAllowed(action)) return null;
             var denied = new ServiceResponse<ActionResponse>()
-                .SetErrorMessage(DelegatedAdministrationGuard.ErrorKey)
+                .SetErrorMessage(AccessGrantGuard.ErrorKey)
                 .SetHttpStatusCode(StatusCodes.Status403Forbidden);
             return StatusCode(denied.HttpStatusCode, denied);
         }

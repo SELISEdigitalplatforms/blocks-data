@@ -10,12 +10,12 @@
             Provides endpoints to set data access permissions for different schemas.
             </summary>
         </member>
-        <member name="M:Api.Controllers.DataGateway.DataAccessController.#ctor(DataGateway.DomainService.Services.IDataAccessService,DataGateway.DomainService.Services.IDelegatedAdministrationGuard)">
+        <member name="M:Api.Controllers.DataGateway.DataAccessController.#ctor(DataGateway.DomainService.Services.IDataAccessService,DataGateway.DomainService.Services.IAccessGrantGuard)">
             <summary>
             Initializes a new instance of the <see cref="T:Api.Controllers.DataGateway.DataAccessController"/> class.
             </summary>
             <param name="dataAccessService">The data access service.</param>
-            <param name="guard">Delegated administration guard: only the system caller may write access.</param>
+            <param name="guard">Access grant guard: only the system caller may write access.</param>
         </member>
         <member name="M:Api.Controllers.DataGateway.DataAccessController.ConfigureSecurity(DataGateway.DomainService.Models.ConfigureSchemaSecurityRequest)">
             <summary>

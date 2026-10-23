@@ -6,26 +6,26 @@ using Microsoft.Extensions.Logging;
 namespace DataGateway.DomainService.Services;
 
 /// <summary>
-/// Rule R6 of delegated administration: data-access policies and schema security levels may be written by the
+/// Rule R6 of the access grant feature: data-access policies and schema security levels may be written by the
 /// system caller only. Any other caller is refused and a warning is logged.
 /// </summary>
-public interface IDelegatedAdministrationGuard
+public interface IAccessGrantGuard
 {
     /// <summary>True when the caller may perform <paramref name="action"/>; a refusal is logged.</summary>
     bool IsAllowed(string action);
 }
 
-public sealed class DelegatedAdministrationGuard : IDelegatedAdministrationGuard
+public sealed class AccessGrantGuard : IAccessGrantGuard
 {
     public const string ErrorKey = "Access_Grant_Not_Allowed";
     private const string RuleR6 = "R6";
 
     private readonly IAccessPrincipalAccessor _principals;
-    private readonly ILogger<DelegatedAdministrationGuard> _logger;
+    private readonly ILogger<AccessGrantGuard> _logger;
 
-    public DelegatedAdministrationGuard(
+    public AccessGrantGuard(
         IAccessPrincipalAccessor principals,
-        ILogger<DelegatedAdministrationGuard> logger)
+        ILogger<AccessGrantGuard> logger)
     {
         _principals = principals;
         _logger = logger;
@@ -37,7 +37,7 @@ public sealed class DelegatedAdministrationGuard : IDelegatedAdministrationGuard
         if (RecordOrganizationRule.MaySetAnyOrganization(principal))
             return true;
 
-        _logger.LogWarning("DelegatedAdministration denied {Rule} {CallerId} {OrgId} {Action}",
+        _logger.LogWarning("AccessGrant denied {Rule} {CallerId} {OrgId} {Action}",
             RuleR6, principal.UserId, principal.OrganizationId, action);
         return false;
     }

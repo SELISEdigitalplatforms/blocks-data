@@ -103,6 +103,9 @@ public static class ServiceRegistry
         serviceCollection.AddBlocksDataAccess();
         serviceCollection.AddSingleton<IAccessPrincipalAccessor, BlocksContextPrincipalAccessor>();
         serviceCollection.AddSingleton<IQueryService, QueryService>();
+        serviceCollection.AddSingleton<AfterWriteQueue>();
+        serviceCollection.AddSingleton<IAfterWriteQueue>(sp => sp.GetRequiredService<AfterWriteQueue>());
+        serviceCollection.AddHostedService(sp => sp.GetRequiredService<AfterWriteQueue>());
         serviceCollection.AddSingleton<IMutationService, MutationService>();
         serviceCollection.AddSingleton<SchemaResolver>();
         serviceCollection.AddSingleton<ISchemaVersionStore, SchemaVersionStore>();

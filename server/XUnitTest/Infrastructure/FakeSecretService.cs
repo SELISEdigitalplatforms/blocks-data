@@ -19,6 +19,7 @@ public sealed class FakeSecretService : ISecretService
         public required string Id { get; init; }
         public required string TenantId { get; init; }
         public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
         public string Type { get; set; } = string.Empty;
         public string Status { get; set; } = SecretStatuses.Active;
         public string? Value { get; set; }
@@ -77,6 +78,7 @@ public sealed class FakeSecretService : ISecretService
             Id = Guid.NewGuid().ToString("N"),
             TenantId = tenant,
             Name = request.Name,
+            Description = request.Description,
             Type = request.Type,
             Value = request.Value,
             Tags = request.Tags?.ToList() ?? [],
@@ -90,7 +92,7 @@ public sealed class FakeSecretService : ISecretService
     {
         var tenant = await CallerAsync("Get", secretId);
         var s = Find(tenant, secretId);
-        return s is null ? null : new SecretResult { SecretId = s.Id, Name = s.Name, Type = s.Type, Status = s.Status, Tags = s.Tags };
+        return s is null ? null : new SecretResult { SecretId = s.Id, Name = s.Name, Description = s.Description, Type = s.Type, Status = s.Status, Tags = s.Tags };
     }
 
     public async Task<SecretListResult> FindAsync(SecretFilter filter, CancellationToken cancellationToken = default)
@@ -101,7 +103,7 @@ public sealed class FakeSecretService : ISecretService
             .Where(s => filter.Tags is null || filter.Tags.Count == 0 || s.Tags.Intersect(filter.Tags).Any())
             .Where(s => filter.Status is null || s.Status == filter.Status)
             .Where(s => filter.IncludeDeleted || s.Status != SecretStatuses.Deleted)
-            .Select(s => new SecretResult { SecretId = s.Id, Name = s.Name, Type = s.Type, Status = s.Status, Tags = s.Tags })
+            .Select(s => new SecretResult { SecretId = s.Id, Name = s.Name, Description = s.Description, Type = s.Type, Status = s.Status, Tags = s.Tags })
             .ToList();
         return new SecretListResult { Data = list, TotalCount = list.Count };
     }

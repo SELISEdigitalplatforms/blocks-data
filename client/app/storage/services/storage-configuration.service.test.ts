@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockHttpClientFactory } from "@/test-utils/__mocks__";
 import { http } from "@/lib/http-client";
 import { STORAGE_CONFIG_ENDPOINTS } from "../constants/endpoint.constant";
@@ -10,6 +10,13 @@ describe("StorageConfiguration service", () => {
   const service = new StorageConfiguration();
 
   beforeEach(() => vi.clearAllMocks());
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("reads the list from the Blocks OS API, which owns storage configurations", () => {
+    vi.stubEnv("BLOCKS_OS_BASE_URL", "https://os.example.com/");
+
+    expect(STORAGE_CONFIG_ENDPOINTS.GET_CONFIGS).toBe("https://os.example.com/api/Storage/Gets");
+  });
 
   it("gets normalizes the raw list from the API", async () => {
     vi.mocked(http.get).mockResolvedValue([

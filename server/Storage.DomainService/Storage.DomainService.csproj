@@ -9,6 +9,7 @@
     <PackageReference Include="Azure.Storage.Blobs" />
     <PackageReference Include="FluentValidation" />
     <PackageReference Include="SeliseBlocks.Genesis.OS" />
+    <PackageReference Include="SeliseBlocks.Secrets.OS" />
     <PackageReference Include="SSH.NET" />
   </ItemGroup>
 </Project>

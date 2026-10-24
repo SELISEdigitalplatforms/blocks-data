@@ -21,6 +21,7 @@ export interface SecurityTableProps {
 export interface SecurityAndPerformancePaginationProps {
   pageNo: number;
   totalPages: number;
+  totalCount: number;
   pageSize: number;
   isLoading: boolean;
   onPageChange: (page: number) => void;

@@ -35,12 +35,19 @@ beforeEach(() => {
 afterEach(() => vi.clearAllMocks());
 
 describe("Permissions", () => {
-  it("renders severity summary, toolbar, list and pagination", () => {
+  it("renders severity summary, toolbar and list without a pager when everything fits", () => {
     render(<Permissions />);
     expect(screen.getByTestId("severity")).toBeInTheDocument();
     expect(screen.getByTestId("toolbar")).toBeInTheDocument();
     expect(screen.getByTestId("list")).toHaveTextContent("2 perms");
+    expect(screen.queryByText(/Page \d+ of/)).not.toBeInTheDocument();
+  });
+
+  it("shows pagination when the total exceeds the page size", () => {
+    permResult = { isLoading: false, isFetching: false, data: { data: [{ id: 1 }], totalCount: 30 } };
+    render(<Permissions />);
     expect(screen.getByText("Rows per page")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
   });
 
   it("hides pagination while loading", () => {

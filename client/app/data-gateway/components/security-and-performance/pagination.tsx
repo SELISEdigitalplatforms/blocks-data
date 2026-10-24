@@ -13,6 +13,7 @@ export { PAGE_SIZE_OPTIONS };
 const SecurityAndPerformancePagination = ({
   pageNo,
   totalPages,
+  totalCount,
   pageSize,
   isLoading,
   onPageChange,
@@ -21,6 +22,7 @@ const SecurityAndPerformancePagination = ({
   <Pagination
     pageNo={pageNo}
     totalPages={totalPages}
+    totalCount={totalCount}
     pageSize={pageSize}
     isLoading={isLoading}
     onPageChange={onPageChange}

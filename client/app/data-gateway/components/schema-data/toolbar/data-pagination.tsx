@@ -6,6 +6,7 @@ interface DataPaginationProps {
   pageNo: number;
   pageSize: number;
   totalPages: number;
+  totalCount: number;
   isLoading: boolean;
   onPageChange: (page: number) => void;
   onPageSizeChange: (value: string) => void;

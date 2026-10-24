@@ -348,6 +348,7 @@ export const GraphLogHistory = ({
           pageNo={pageNo}
           pageSize={pageSize}
           totalPages={totalPages}
+          totalCount={totalCount}
           isLoading={isFetching}
           onPageChange={setPageNo}
           onPageSizeChange={(value) => {

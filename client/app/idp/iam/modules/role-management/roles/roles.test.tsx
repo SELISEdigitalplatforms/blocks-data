@@ -48,6 +48,6 @@ describe("Roles", () => {
   it("renders pagination when the total exceeds the page size", () => {
     rolesResult = { isLoading: false, isFetching: false, data: { data: [{ slug: "a" }], totalCount: 30 } };
     render(<Roles />);
-    expect(screen.getByText("Rows per page")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
   });
 });

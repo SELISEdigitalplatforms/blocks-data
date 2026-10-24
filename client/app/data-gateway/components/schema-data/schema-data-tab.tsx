@@ -499,6 +499,7 @@ export function SchemaDataTab({
           pageNo={pageNo}
           pageSize={pageSize}
           totalPages={totalPages}
+          totalCount={totalCount}
           isLoading={isLoading}
           onPageChange={handlePageChange}
           onPageSizeChange={handlePageSizeChange}

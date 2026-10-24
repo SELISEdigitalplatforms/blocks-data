@@ -2,6 +2,10 @@
 
 import { Button } from "@/components/ui-kits/button/button";
 import {
+  getVisiblePageSizeOptions,
+  isPaginationRedundant,
+} from "@/components/ui-kits/pagination/pagination-utils";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -17,6 +21,7 @@ interface PaginationProps {
   pageNo: number;
   pageSize: number;
   totalPages: number;
+  totalCount: number;
   isLoading: boolean;
   onPageChange: (page: number) => void;
   onPageSizeChange: (value: string) => void;
@@ -27,11 +32,17 @@ export function Pagination({
   pageNo,
   pageSize,
   totalPages,
+  totalCount,
   isLoading,
   onPageChange,
   onPageSizeChange,
   className,
 }: PaginationProps) {
+  if (isPaginationRedundant(PAGE_SIZE_OPTIONS, totalCount, pageSize, pageNo <= 1)) return null;
+
+  const pageCount = Math.max(1, totalPages);
+  const pageSizeOptions = getVisiblePageSizeOptions(PAGE_SIZE_OPTIONS, totalCount, pageSize);
+
   return (
     <div
       className={cn(
@@ -39,25 +50,27 @@ export function Pagination({
         className,
       )}
     >
-      <div className="flex items-center gap-2">
-        <span className="hidden text-xs text-muted-foreground sm:inline">Rows per page</span>
-        <Select value={String(pageSize)} onValueChange={onPageSizeChange} disabled={isLoading}>
-          <SelectTrigger className="h-7 w-[72px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {PAGE_SIZE_OPTIONS.map((size) => (
-              <SelectItem key={size} value={String(size)} className="text-xs">
-                {size}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {pageSizeOptions.length > 1 && (
+        <div className="flex items-center gap-2">
+          <span className="hidden text-xs text-muted-foreground sm:inline">Rows per page</span>
+          <Select value={String(pageSize)} onValueChange={onPageSizeChange} disabled={isLoading}>
+            <SelectTrigger className="h-7 w-[72px] text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {pageSizeOptions.map((size) => (
+                <SelectItem key={size} value={String(size)} className="text-xs">
+                  {size}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <span className="text-xs text-muted-foreground">
-          Page {pageNo} of {totalPages}
+          Page {pageNo} of {pageCount}
         </span>
         <div className="flex items-center gap-1">
           <Button
@@ -84,7 +97,7 @@ export function Pagination({
             size="icon"
             variant="outline"
             className="h-7 w-7"
-            disabled={pageNo >= totalPages || isLoading}
+            disabled={pageNo >= pageCount || isLoading}
             onClick={() => onPageChange(pageNo + 1)}
             title="Next page"
           >
@@ -94,8 +107,8 @@ export function Pagination({
             size="icon"
             variant="outline"
             className="h-7 w-7"
-            disabled={pageNo >= totalPages || isLoading}
-            onClick={() => onPageChange(totalPages)}
+            disabled={pageNo >= pageCount || isLoading}
+            onClick={() => onPageChange(pageCount)}
             title="Last page"
           >
             <ChevronLast className="h-4 w-4" />

@@ -422,15 +422,30 @@ public class QueryServiceTests
     }
 
     [Fact]
-    public void EvaluateRlsPolicies_CustomFromCloud_GrantsAccess()
+    public void EvaluateRlsPolicies_CustomImpersonated_GrantsAccess()
     {
         ClearContext();
-        SetBlocksCloud(true);
+        SetContext(impersonated: true);
         try
         {
             var schema = Schema(read: SchemaAccessLevel.Custom);
             var result = _service.EvaluateRlsPolicies(schema, PolicyOperation.READ);
             result.IsAccessGranted.Should().BeTrue();
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public void EvaluateRlsPolicies_CustomFromRootTenantKeyWithoutImpersonation_DeniesAccess()
+    {
+        ClearContext();
+        SetContext();
+        SetBlocksCloud(true);
+        try
+        {
+            var schema = Schema(read: SchemaAccessLevel.Custom);
+            var result = _service.EvaluateRlsPolicies(schema, PolicyOperation.READ);
+            result.IsAccessGranted.Should().BeFalse();
         }
         finally { ClearContext(); }
     }

@@ -3,9 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const useSchemaList = vi.fn();
+let pendingSchemaIds: ReadonlySet<string> = new Set();
 
 vi.mock("../hooks/use-configuration", () => ({
   useSchemaList: (...a: unknown[]) => useSchemaList(...a),
+  usePendingSchemaIds: () => pendingSchemaIds,
 }));
 
 vi.mock("@seliseblocks/genesis-os", () => ({
@@ -32,6 +34,7 @@ function renderRail(props: Partial<Parameters<typeof SchemaRail>[0]> = {}) {
 
 describe("SchemaRail", () => {
   beforeEach(() => {
+    pendingSchemaIds = new Set();
     useSchemaList.mockReset();
     useSchemaList.mockReturnValue({
       data: {
@@ -77,5 +80,24 @@ describe("SchemaRail", () => {
     useSchemaList.mockReturnValue({ data: undefined });
     renderRail();
     expect(screen.queryByRole("button", { name: "Order" })).not.toBeInTheDocument();
+  });
+
+  it("names a schema's live state in its tooltip, since the initial has no room for text", () => {
+    pendingSchemaIds = new Set(["b"]);
+    useSchemaList.mockReturnValue({
+      data: {
+        data: {
+          items: [
+            { id: "a", schemaName: "Order", isLive: false },
+            { id: "b", schemaName: "Customer", isLive: true },
+            { id: "c", schemaName: "Invoice", isLive: true },
+          ],
+        },
+      },
+    });
+    renderRail();
+    expect(screen.getByRole("button", { name: "Order · Not live" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Customer · Unpublished changes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Invoice" })).toBeInTheDocument();
   });
 });

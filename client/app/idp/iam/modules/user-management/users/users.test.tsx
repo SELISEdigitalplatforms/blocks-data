@@ -47,6 +47,6 @@ describe("Users", () => {
   it("shows pagination when the total exceeds the page size", () => {
     usersResult = { isLoading: false, isFetching: false, data: { data: [{ id: 1 }], totalCount: 50 } };
     render(<Users />);
-    expect(screen.getByText("Rows per page")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 5")).toBeInTheDocument();
   });
 });

@@ -12,9 +12,12 @@ vi.mock("./schema-access-control-drawer", () => ({
   ),
 }));
 
+let pendingSchemaIds: ReadonlySet<string> = new Set();
+
 vi.mock("../hooks/use-configuration", () => ({
   useDeleteSchema: () => ({ isPending: false, mutateAsync: deleteAsync }),
   useSchemaIndexes: (...a: unknown[]) => useSchemaIndexes(...a),
+  usePendingSchemaIds: () => pendingSchemaIds,
 }));
 
 vi.mock("@seliseblocks/genesis-os", () => ({
@@ -46,6 +49,7 @@ function baseProps(overrides: Partial<Props> = {}): Props {
 
 describe("SchemaBasicInfo", () => {
   beforeEach(() => {
+    pendingSchemaIds = new Set();
     deleteAsync.mockReset();
     toast.mockReset();
     useSchemaIndexes.mockReset();
@@ -221,5 +225,24 @@ describe("SchemaBasicInfo", () => {
     await user.click(screen.getByRole("button", { name: "More options" }));
     await user.click(await screen.findByText("Preview"));
     expect(onOpenPreview).toHaveBeenCalledTimes(1);
+  });
+
+  it("says when the live version doesn't contain the schema", () => {
+    render(<SchemaBasicInfo {...baseProps({ isLive: false })} />);
+    expect(screen.getByText("Not live")).toBeInTheDocument();
+    expect(screen.getByText(/Apps using the API can't query it until you publish/)).toBeInTheDocument();
+  });
+
+  it("says when the live version lacks the schema's latest changes", () => {
+    pendingSchemaIds = new Set(["s1"]);
+    render(<SchemaBasicInfo {...baseProps({ isLive: true })} />);
+    expect(screen.getByText("Unpublished changes")).toBeInTheDocument();
+    expect(screen.getByText(/Publish to apply them/)).toBeInTheDocument();
+  });
+
+  it("says nothing about a schema that matches the live version", () => {
+    render(<SchemaBasicInfo {...baseProps({ isLive: true })} />);
+    expect(screen.queryByText("Not live")).not.toBeInTheDocument();
+    expect(screen.queryByText("Unpublished changes")).not.toBeInTheDocument();
   });
 });

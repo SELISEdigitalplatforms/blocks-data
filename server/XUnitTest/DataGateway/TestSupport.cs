@@ -4,6 +4,7 @@ using Blocks.Genesis.Entities.Data;
 using Blocks.Genesis;
 using DataGateway.DomainService;
 using DataGateway.DomainService.Models;
+using DataGateway.DomainService.Policies;
 
 namespace XUnitTest.DataGateway;
 
@@ -117,7 +118,8 @@ internal static class TestSupport
         bool isAuthenticated = true,
         string[]? roles = null,
         string[]? permissions = null,
-        string organizationId = "org-1")
+        string organizationId = "org-1",
+        bool impersonated = false)
     {
         var ctx = BlocksContext.Create(
             tenantId: tenantId,
@@ -135,8 +137,8 @@ internal static class TestSupport
             oauthToken: string.Empty,
             originalTenantId: tenantId,
             applicationDomain: string.Empty,
-            impersonated: false,
-            impersonationSessionId: string.Empty);
+            impersonated: impersonated,
+            impersonationSessionId: impersonated ? "session-1" : string.Empty);
         BlocksContext.SetContext(ctx);
     }
 
@@ -151,9 +153,9 @@ internal static class TestSupport
         RequestContextAccessor.Current = new RequestContext { IsRequestFromBlocksCloud = isFromCloud };
     }
 
-    /// <summary>The principal the resolver sees for the ambient context the test set up (BlocksContext + root-tenant flag).</summary>
+    /// <summary>The principal the resolver sees for the ambient BlocksContext the test set up, as the gateway builds it (policies bypassed only when impersonated).</summary>
     public static AccessPrincipal CurrentPrincipal() =>
-        AccessPrincipal.From(BlocksContext.GetContext(), RequestContextAccessor.Current.IsRequestFromBlocksCloud);
+        BlocksContextPrincipalAccessor.For(BlocksContext.GetContext());
 
     /// <summary>A real resolver over the schema's own policy list, as the gateway registers it.</summary>
     public static IDataAccessPolicyResolutionService Resolver() => new DataAccessPolicyResolutionService(new SchemaPolicySource());

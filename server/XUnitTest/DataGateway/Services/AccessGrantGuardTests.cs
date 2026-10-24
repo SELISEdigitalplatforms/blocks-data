@@ -40,10 +40,9 @@ public class AccessGrantGuardTests : IDisposable
     }
 
     [Fact]
-    public void RootTenantCaller_IsAllowed()
+    public void ImpersonatedCaller_IsAllowed()
     {
-        SetContext(organizationId: "org-1");
-        SetBlocksCloud(true);
+        SetContext(organizationId: "org-1", impersonated: true);
 
         Guard().IsAllowed("security/change").Should().BeTrue();
     }

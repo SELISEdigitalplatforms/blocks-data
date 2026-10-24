@@ -210,6 +210,23 @@ public class SimpleValidatorsTests
     }
 
     [Fact]
+    public void ConfigureSecurity_SchemaLevelInherited_Fails()
+    {
+        var v = new ConfigureSchemaSecurityRequestValidator();
+        var result = v.Validate(new ConfigureSchemaSecurityRequest { SchemaId = "1", PolicyType = PolicyType.RLS, Operation = PolicyOperation.READ, AccessLevel = SchemaAccessLevel.Inherited });
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().ContainSingle(e => e.ErrorMessage == "Schema_Access_Level_Cannot_Be_Inherited.");
+    }
+
+    [Fact]
+    public void ConfigureSecurity_PropertyLevelInherited_Passes()
+    {
+        var v = new ConfigureSchemaSecurityRequestValidator();
+        var result = v.Validate(new ConfigureSchemaSecurityRequest { SchemaId = "1", PolicyType = PolicyType.CLS, Operation = PolicyOperation.READ, AccessLevel = SchemaAccessLevel.Inherited, FieldNames = ["Name"] });
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
     public void ConfigureSecurity_MissingSchemaId_Fails()
     {
         var v = new ConfigureSchemaSecurityRequestValidator();

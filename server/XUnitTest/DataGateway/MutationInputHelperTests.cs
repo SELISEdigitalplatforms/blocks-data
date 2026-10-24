@@ -337,10 +337,10 @@ public class MutationInputHelperClsTests
     }
 
     [Fact]
-    public void EvaluateClsPoliciesForInput_BlocksCloud_GrantsAll()
+    public void EvaluateClsPoliciesForInput_Impersonated_GrantsAll()
     {
         ClearContext();
-        SetBlocksCloud(true);
+        SetContext(impersonated: true);
         try
         {
             var result = MutationInputHelper.EvaluateClsPoliciesForInput(CurrentPrincipal(), 

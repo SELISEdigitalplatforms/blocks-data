@@ -233,6 +233,7 @@ const SecurityAndPerformance = ({
             <SecurityAndPerformancePagination
               pageNo={pageNo}
               totalPages={totalPages}
+              totalCount={visibleSchemas.length}
               pageSize={pageSize}
               isLoading={isLoading}
               onPageChange={setPageNo}

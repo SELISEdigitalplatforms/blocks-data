@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui-kits/select/select";
 import { Button } from "@/components/ui-kits/button/button";
+import { getVisiblePageSizeOptions, isPaginationRedundant } from "./pagination-utils";
 
 interface PaginationProps {
   onChange: (pageIndex: number) => void;
@@ -31,16 +32,24 @@ export function Pagination({
   };
 
   const canGoPreviousPage = !!page;
-  const totalPage = Math.ceil(totalCount / pageSize);
+  const totalPage = Math.max(1, Math.ceil(totalCount / pageSize));
   const canGoNextPage = page < totalPage - 1;
 
   const onPageSizeChangeHandler = (value: string) => {
     if (onPageSizeChange) onPageSizeChange(+value);
   };
 
+  if (isPaginationRedundant(pageSizeOptions ?? [], totalCount, pageSize, page === 0)) return null;
+
+  const visiblePageSizeOptions = getVisiblePageSizeOptions(
+    pageSizeOptions ?? [],
+    totalCount,
+    pageSize,
+  );
+
   return (
     <div className="flex flex-col gap-0 md:flex-row md:gap-8">
-      {pageSizeOptions && pageSizeOptions?.length > 0 ? (
+      {visiblePageSizeOptions.length > 1 ? (
         <div className="flex items-center space-x-2">
           <p className="text-sm font-medium">Rows per page</p>
           <Select value={`${pageSize}`} onValueChange={onPageSizeChangeHandler}>
@@ -48,7 +57,7 @@ export function Pagination({
               <SelectValue placeholder={pageSize} />
             </SelectTrigger>
             <SelectContent side="top">
-              {pageSizeOptions?.map((pageSize) => (
+              {visiblePageSizeOptions.map((pageSize) => (
                 <SelectItem key={pageSize} value={`${pageSize}`}>
                   {pageSize}
                 </SelectItem>

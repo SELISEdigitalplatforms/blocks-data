@@ -185,10 +185,10 @@ public class QueryClsRowMaskingHelperContextTests
     }
 
     [Fact]
-    public void ApplyCustomSchemaMaskWhenNoCls_BlocksCloud_KeepsEverything()
+    public void ApplyCustomSchemaMaskWhenNoCls_Impersonated_KeepsEverything()
     {
         ClearContext();
-        SetBlocksCloud(true);
+        SetContext(impersonated: true);
         try
         {
             var schema = Schema(read: SchemaAccessLevel.Custom, fields: new() { Field("Secret") });

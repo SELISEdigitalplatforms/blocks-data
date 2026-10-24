@@ -22,6 +22,7 @@ describe("SecurityAndPerformancePagination", () => {
       <SecurityAndPerformancePagination
         pageNo={2}
         totalPages={5}
+        totalCount={250}
         pageSize={50}
         isLoading={false}
         onPageChange={onPageChange}
@@ -33,6 +34,7 @@ describe("SecurityAndPerformancePagination", () => {
       expect.objectContaining({
         pageNo: 2,
         totalPages: 5,
+        totalCount: 250,
         pageSize: 50,
         isLoading: false,
         onPageChange,

@@ -26,6 +26,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     private readonly SchemaDefinitionReferenceHelper _referenceHelper;
     private readonly ISchemaIndexService _schemaIndexService;
     private readonly ILogger<SchemaDefinitionService> _logger;
+    private readonly ILiveSchemaCatalog? _liveSchemaCatalog;
 
     public SchemaDefinitionService(
         IDbRepository repository,
@@ -33,7 +34,8 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         ISchemaChangeLogService schemaChangeLogService,
         SchemaDefinitionReferenceHelper referenceHelper,
         ISchemaIndexService schemaIndexService,
-        ILogger<SchemaDefinitionService> logger)
+        ILogger<SchemaDefinitionService> logger,
+        ILiveSchemaCatalog? liveSchemaCatalog = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _requestValidator = requestValidator ?? throw new ArgumentNullException(nameof(requestValidator));
@@ -41,6 +43,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         _referenceHelper = referenceHelper ?? throw new ArgumentNullException(nameof(referenceHelper));
         _schemaIndexService = schemaIndexService ?? throw new ArgumentNullException(nameof(schemaIndexService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _liveSchemaCatalog = liveSchemaCatalog;
     }
 
     /// <inheritdoc />
@@ -480,6 +483,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         var policies = allPolicies.Where(p => string.IsNullOrEmpty(p.SchemaId) || p.SchemaId == schema.ItemId).ToList();
         var response = schema.MapToResponse(policies, validations);
         await _referenceHelper.MapDtoSchemasReferencesToResponse(new List<SchemaDefinitionResponse> { response });
+        await MarkLiveAsync([response]);
         return new ServiceResponse<SchemaDefinitionResponse>().SetSuccess(response);
     }
 
@@ -492,7 +496,22 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         var (items, total) = await _repository.GetItemsWithCountAsync<SchemaDefinition>(filter: filter, sort: sort, projection: null, skip: (request.PageNo - 1) * request.PageSize, limit: request.PageSize);
         var list = items.Select(s => s.MapToResponse()).ToList();
         await _referenceHelper.MapDtoSchemasReferencesToResponse(list);
+        await MarkLiveAsync(list);
         return new PaginationResponse<SchemaDefinitionResponse>(total, list);
+    }
+
+    /// <summary>Sets <see cref="SchemaDefinitionResponse.IsLive"/>, left null when the live version is unknown.</summary>
+    private async Task MarkLiveAsync(IReadOnlyCollection<SchemaDefinitionResponse> responses)
+    {
+        if (_liveSchemaCatalog is null || responses.Count == 0)
+            return;
+
+        var liveIds = await _liveSchemaCatalog.GetLiveSchemaIdsAsync(TenantContext.GetTenantId());
+        if (liveIds is null)
+            return;
+
+        foreach (var response in responses)
+            response.IsLive = liveIds.Contains(response.Id);
     }
 
     /// <inheritdoc />

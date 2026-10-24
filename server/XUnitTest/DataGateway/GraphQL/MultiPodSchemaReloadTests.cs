@@ -315,6 +315,85 @@ public class MultiPodSchemaReloadTests
         (await pod.Services.GetRequiredService<ISchemaVersionStore>().GetAsync(Tenant)).Should().Be(1);
     }
 
+    private async Task<Dictionary<string, bool>> PublishedChangesAsync() =>
+        (await _db.GetCollection<SchemaChangeLog>("SchemaChangeLogs").Find(FilterDefinition<SchemaChangeLog>.Empty).ToListAsync())
+            .ToDictionary(log => log.ItemId, log => log.DoesServerAdaptChanges);
+
+    [Fact]
+    public async Task ARollbackMarksTheChangesItUndoesAsPendingAndRollingForwardPublishesThemAgain()
+    {
+        await SeedPersonAsync("Name");
+        await using var pod = StartPod();
+        await SeedChangeLogAsync("in-v1");
+        await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);               // v1
+        await SeedChangeLogAsync("in-v2");
+        await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);               // v2
+        await SeedChangeLogAsync("in-v3");
+        await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);               // v3
+
+        await pod.Configuration.RollbackAsync(Tenant, 1, CancellationToken.None);
+
+        (await PublishedChangesAsync()).Should().BeEquivalentTo(new Dictionary<string, bool>
+        {
+            ["in-v1"] = true,
+            ["in-v2"] = false,
+            ["in-v3"] = false
+        }, "the drafts still have the v2 and v3 changes, but the live version does not");
+
+        await pod.Configuration.RollbackAsync(Tenant, 3, CancellationToken.None);
+
+        (await PublishedChangesAsync()).Values.Should().OnlyContain(published => published);
+    }
+
+    [Fact]
+    public async Task AChangeRepublishedAfterARollbackIsPendingOnlyWhereTheLiveVersionLacksIt()
+    {
+        await SeedPersonAsync("Name");
+        await using var pod = StartPod();
+        await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);               // v1
+        await SeedChangeLogAsync("change");
+        await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);               // v2 has it
+        await pod.Configuration.RollbackAsync(Tenant, 1, CancellationToken.None);
+        await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);               // v3 has it again
+        (await PublishedChangesAsync())["change"].Should().BeTrue();
+
+        await pod.Configuration.RollbackAsync(Tenant, 2, CancellationToken.None);
+        (await PublishedChangesAsync())["change"].Should().BeTrue("v2 already included it");
+
+        await pod.Configuration.RollbackAsync(Tenant, 1, CancellationToken.None);
+        (await PublishedChangesAsync())["change"].Should().BeFalse("only newer versions included it");
+    }
+
+    [Fact]
+    public async Task TheLiveSchemaCatalogFollowsPublishesAndRollbacks()
+    {
+        await SeedPersonAsync("Name");
+        await using var pod = StartPod();
+        var catalog = new LiveSchemaCatalog(
+            pod.Services.GetRequiredService<ISchemaVersionStore>(),
+            pod.Services.GetRequiredService<ISchemaSnapshotStore>(),
+            NullLogger<LiveSchemaCatalog>.Instance);
+        (await catalog.GetLiveSchemaIdsAsync(Tenant)).Should().BeNull("nothing is published yet");
+
+        await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);               // v1: Person
+        var inventoryId = Guid.NewGuid().ToString();
+        await _repository.UpsertAsync(new SchemaDefinition
+        {
+            ItemId = inventoryId,
+            SchemaName = "InventoryItem",
+            CollectionName = "InventoryItems",
+            SchemaType = SchemaType.Entity,
+            Fields = [new FieldDefinition { Name = "Sku", Type = "String" }]
+        });
+        (await catalog.GetLiveSchemaIdsAsync(Tenant)).Should().BeEquivalentTo([_personId], "a draft is not live until published");
+
+        await pod.Configuration.ReloadAsync(Tenant, CancellationToken.None);               // v2: Person, InventoryItem
+        (await catalog.GetLiveSchemaIdsAsync(Tenant)).Should().BeEquivalentTo([_personId, inventoryId]);
+
+        await pod.Configuration.RollbackAsync(Tenant, 1, CancellationToken.None);
+        (await catalog.GetLiveSchemaIdsAsync(Tenant)).Should().BeEquivalentTo([_personId], "v1 does not contain InventoryItem");
+    }
+
     [Fact]
     public async Task TheHistoryKeepsTheNewestTenVersionsAndMarksTheLiveOne()
     {

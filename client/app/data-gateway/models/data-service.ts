@@ -31,6 +31,8 @@ export interface IUnadaptedChangeLogsResponse {
   isSuccess: boolean;
   data: Array<{
     changeType: number;
+    /** The schema the change belongs to. */
+    schemaId?: string;
   }>;
 }
 
@@ -182,6 +184,12 @@ export interface ISchemaDetails {
   editAccessLevel: number;
   readAccessLevel: number;
   writeAccessLevel: number;
+  /**
+   * Whether the live published version contains this schema. False for a
+   * schema added after it (for example after a rollback); null or absent when
+   * the server doesn't know (nothing published yet).
+   */
+  isLive?: boolean | null;
 }
 
 /** Grants at one tier, for a single verb. */

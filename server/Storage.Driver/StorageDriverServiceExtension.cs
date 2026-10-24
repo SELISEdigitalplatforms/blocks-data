@@ -28,7 +28,7 @@ namespace Blocks.Extension.DependencyInjection
             services.AddSingleton<IFileVersionRepository, FileVersionRepository>();
             services.AddSingleton<IFileDirectoryRepository, FileDirectoryRepository>();
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
-            services.AddSingleton<IConfigurationRepository, ConfigurationRepository>();
+            services.AddBlocksStorageConfiguration();
             services.AddSingleton<IObjectAccessRepository, ObjectAccessRepository>();
             services.AddSingleton<IObjectAccessResolver, ObjectAccessResolver>();
             services.AddSingleton<IUploadKeyRouter, UploadKeyRouter>();

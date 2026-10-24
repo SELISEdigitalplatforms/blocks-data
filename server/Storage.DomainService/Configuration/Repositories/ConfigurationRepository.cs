@@ -33,5 +33,11 @@ namespace DomainService.Configuration
             var filter = Builders<StorageConfiguration>.Filter.Eq(mc => mc.StorageStrategy, storageStrategy);
             return await collection.Find(filter).FirstOrDefaultAsync();
         }
+
+        public async Task<List<StorageConfiguration>> GetAllConfigurationsAsync()
+        {
+            var collection = _dbContextProvider.GetCollection<StorageConfiguration>(_collectionName);
+            return await collection.Find(Builders<StorageConfiguration>.Filter.Empty).ToListAsync();
+        }
     }
 }

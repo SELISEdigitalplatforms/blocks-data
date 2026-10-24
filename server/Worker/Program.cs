@@ -46,6 +46,13 @@ IHostBuilder CreateHostBuilder(string[] args) =>
             services.AddSingleton<IDscMigrationRedis, DscMigrationRedis>();
             services.AddHostedService<DataSourceSecretMigrationJob>();
 
+            // Storage-config migration job (StorageConfigurations → KeyValueStores + SecretStore): off unless
+            // StorageConfigMigration__Mode is set. Same lock/tenant infrastructure as the DSC job.
+            services.AddSingleton<IStorageConfigMigrationDatabases, StorageConfigMigrationDatabases>();
+            services.AddSingleton<StorageConfigMigrationVerifier>();
+            services.AddSingleton<StorageConfigMigrationTargets>();
+            services.AddHostedService<StorageConfigMigrationJob>();
+
             services.AddSingleton<IConsumer<MigrationCompletionEvent>, MigrationCompletionEventConsumer>();
             services.AddSingleton<IConsumer<SchemaExportEvent>, SchemaExportEventConsumer>();
             services.AddSingleton<IConsumer<SchemaImportEvent>, SchemaImportEventConsumer>();

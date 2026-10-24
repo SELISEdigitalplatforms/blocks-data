@@ -195,9 +195,7 @@ beforeAll(() => {
 function makeConfig(overrides: Partial<IStorageConfiguration> = {}): IStorageConfiguration {
   return {
     storageStrategy: "S3Compatible",
-    accessKey: "AK",
     cloudStorageRegionEndPoint: null,
-    connectionString: null,
     createdBy: "me",
     createdDate: "2024-01-01",
     itemId: "cfg-1",
@@ -205,13 +203,16 @@ function makeConfig(overrides: Partial<IStorageConfiguration> = {}): IStorageCon
     lastUpdatedDate: "2024-01-02",
     name: "MyStore",
     organizationIds: [],
-    secretKey: "SK",
     tags: [],
     host: "https://minio.local",
     port: null,
     userName: null,
-    password: null,
     remoteBasePath: null,
+    connectionStringStatus: "none",
+    secretKeyStatus: "active",
+    accessKeyStatus: "active",
+    passwordStatus: "none",
+    sftpSecretKeyStatus: "none",
     ...overrides,
   };
 }

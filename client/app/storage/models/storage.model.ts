@@ -18,11 +18,12 @@ export const STORAGE_STRATEGIES: StorageStrategyOption[] = [
   { id: "sftp", label: "SFTP", value: "SftpStorage" },
   { id: "s3compatible", label: "AWS S3 Compatible", value: "S3Compatible" },
 ];
+/** State of one secret of a configuration ("none" = not set for this provider). The API never returns a secret value. */
+export type StorageSecretStatus = "none" | "active" | "locked" | "archived" | "missing" | "unavailable";
+
 export interface IStorageConfiguration {
   storageStrategy: StorageStrategyType;
-  accessKey: string | null;
   cloudStorageRegionEndPoint: string | null;
-  connectionString: string | null;
   createdBy: string;
   createdDate: string;
   itemId: string;
@@ -30,12 +31,10 @@ export interface IStorageConfiguration {
   lastUpdatedDate: string;
   name: string;
   organizationIds: string[];
-  secretKey: string | null;
   tags: string[];
   host: string | null;
   port: string | null;
   userName: string | null;
-  password: string | null;
   remoteBasePath: string | null;
   /**
    * Phase 1 upload-security fields. Optional because a configuration predating Phase 1, or one
@@ -46,6 +45,11 @@ export interface IStorageConfiguration {
   downloadUrlExpirySeconds?: number;
   maxFileSizeInBytes?: number;
   uploadCompletionRequiredFor?: ("Public" | "Private")[];
+  connectionStringStatus: StorageSecretStatus;
+  secretKeyStatus: StorageSecretStatus;
+  accessKeyStatus: StorageSecretStatus;
+  passwordStatus: StorageSecretStatus;
+  sftpSecretKeyStatus: StorageSecretStatus;
 }
 
 /** Mirrors `Storage.DomainService.Enums.FileVerificationStatus` server-side. */

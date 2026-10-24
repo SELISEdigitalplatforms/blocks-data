@@ -32,6 +32,11 @@ public class SchemaDefinitionResponse
     public int TotalWritePolicies { get; set; }
     public int TotalEditPolicies { get; set; }
     public int TotalDeletePolicies { get; set; }
+    /// <summary>
+    /// Whether the live published version contains this schema; null when that is not known
+    /// (no version published yet). A schema added after the live version is false until published.
+    /// </summary>
+    public bool? IsLive { get; set; }
 }
 
 

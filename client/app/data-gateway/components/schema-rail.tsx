@@ -3,8 +3,9 @@
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { PanelLeftOpen } from "lucide-react";
-import { useSchemaList } from "../hooks/use-configuration";
+import { usePendingSchemaIds, useSchemaList } from "../hooks/use-configuration";
 import { ISchemaDetails } from "../models/data-service";
+import { SCHEMA_LIVE_STATE_LABELS, schemaLiveState } from "../utils/schema-live-state";
 
 /**
  * The collapsed Explorer — an initial per schema instead of a bare "Schemas"
@@ -36,6 +37,7 @@ export function SchemaRail({
     schemaType: filterType === "all" ? "" : filterType,
   });
   const schemas = schemaListQuery?.data?.items ?? [];
+  const pendingSchemaIds = usePendingSchemaIds(projectKey);
 
   return (
     <div className="flex h-full w-full shrink-0 flex-col items-center overflow-hidden rounded-sm border border-border/40 bg-card">
@@ -56,12 +58,16 @@ export function SchemaRail({
       <div className="flex min-h-0 flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
         {schemas.map((schema: ISchemaDetails) => {
           const isSelected = schema.id === selectedSchemaId;
+          const liveState = schemaLiveState(schema, pendingSchemaIds);
+          const label = liveState
+            ? `${schema.schemaName} · ${SCHEMA_LIVE_STATE_LABELS[liveState]}`
+            : schema.schemaName;
           return (
             <button
               key={schema.id}
               type="button"
-              title={schema.schemaName}
-              aria-label={schema.schemaName}
+              title={label}
+              aria-label={label}
               aria-current={isSelected ? "true" : undefined}
               onClick={() => onSelectSchema(schema.id)}
               className={cn(
@@ -77,6 +83,13 @@ export function SchemaRail({
                 <span className="absolute inset-y-2 left-[-9px] w-[2.5px] rounded-r-sm bg-primary" />
               )}
               {schema.schemaName.charAt(0).toUpperCase()}
+              {/* No room for text here; the tooltip says which state it is. */}
+              {liveState && (
+                <span
+                  aria-hidden
+                  className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-warning-500"
+                />
+              )}
             </button>
           );
         })}

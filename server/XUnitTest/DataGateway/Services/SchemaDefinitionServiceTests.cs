@@ -804,6 +804,51 @@ public class SchemaDefinitionServiceTests
         result.TotalCount.Should().Be(1);
     }
 
+    private SchemaDefinitionService ServiceWithLiveSchemas(IReadOnlySet<string>? liveIds)
+    {
+        var catalog = new Mock<ILiveSchemaCatalog>();
+        catalog.Setup(c => c.GetLiveSchemaIdsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(liveIds);
+        return new SchemaDefinitionService(_repo.Object, _validator.Object, _changeLog.Object, _refHelper, _schemaIndexService.Object, NullLogger<SchemaDefinitionService>.Instance, catalog.Object);
+    }
+
+    private void ListReturns(params string[] ids) =>
+        _repo.Setup(r => r.GetItemsWithCountAsync<SchemaDefinition>(It.IsAny<FilterDefinition<BsonDocument>>(), It.IsAny<SortDefinition<BsonDocument>>(), It.IsAny<ProjectionDefinition<BsonDocument>>(), It.IsAny<int>(), It.IsAny<int>(), ""))
+            .ReturnsAsync((ids.Select(id => new SchemaDefinition { ItemId = id, SchemaName = $"S{id}", SchemaType = SchemaType.Entity }).ToList(), ids.Length));
+
+    [Fact]
+    public async Task GetAllSchemas_MarksWhichSchemasTheLiveVersionContains()
+    {
+        ListReturns("live", "added-later");
+
+        var result = await ServiceWithLiveSchemas(new HashSet<string> { "live" })
+            .GetAllSchemasAsync(new GetSchemaDefinitionListRequest { PageNo = 1, PageSize = 10 });
+
+        result.Items.Single(s => s.Id == "live").IsLive.Should().BeTrue();
+        result.Items.Single(s => s.Id == "added-later").IsLive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetAllSchemas_LeavesTheLiveStateUnknownWithoutALiveVersion()
+    {
+        ListReturns("1");
+
+        var result = await ServiceWithLiveSchemas(null).GetAllSchemasAsync(new GetSchemaDefinitionListRequest { PageNo = 1, PageSize = 10 });
+
+        result.Items.Single().IsLive.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetSchemaById_MarksWhetherTheLiveVersionContainsIt()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(new SchemaDefinition { ItemId = "1", SchemaName = "Person", SchemaType = SchemaType.Entity });
+        _repo.Setup(r => r.GetItemsAsync<DataValidation>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "")).ReturnsAsync(new List<DataValidation>());
+        _repo.Setup(r => r.GetItemsAsync<DataAccessPolicy>(It.IsAny<FilterDefinition<BsonDocument>>(), null, null, 0, 1000, "")).ReturnsAsync(new List<DataAccessPolicy>());
+
+        var result = await ServiceWithLiveSchemas(new HashSet<string> { "other" }).GetSchemaByIdAsync("1");
+
+        result.Data!.IsLive.Should().BeFalse();
+    }
+
     [Fact]
     public async Task GetAllSchemas_HidesSystemEntities()
     {

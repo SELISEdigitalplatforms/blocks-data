@@ -277,7 +277,7 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
                     {`Every server switches from v${history?.currentVersion} to v${rollbackTarget} within about a second. Apps using the API see v${rollbackTarget}'s schemas and access rules.`}
                   </span>
                   <span className="mt-2 block">
-                    {"Your drafts don't change. Publishing again creates a new version from them."}
+                    {"Your drafts don't change. Changes made after this version show as unpublished, and publishing again creates a new version from them."}
                   </span>
                 </>
               ),

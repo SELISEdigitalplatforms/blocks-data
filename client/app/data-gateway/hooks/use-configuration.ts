@@ -107,7 +107,9 @@ export const useSchemasReload = () => {
       await queryClient.invalidateQueries({
         queryKey: ["unadapted-change-logs", projectKey],
       });
+      // Both carry each schema's live state.
       await invalidateSchemaList(queryClient, projectKey);
+      await invalidateSchemaDetailsForProject(queryClient, projectKey);
     },
   });
 };
@@ -126,7 +128,10 @@ export const useSchemaVersionHistory = ({ projectKey, enabled = true }: { projec
   });
 };
 
-/** Makes an earlier published version live again. Drafts are not touched. */
+/**
+ * Makes an earlier published version live again. Drafts are not touched; the
+ * changes that version doesn't include become pending again.
+ */
 export const useSchemaRollback = () => {
   const queryClient = useQueryClient();
   const selectedProject = useProjectStore().selectedProject;
@@ -137,7 +142,12 @@ export const useSchemaRollback = () => {
     mutationFn: (version: number) => configurationService.rollbackSchemaVersion(version),
     onSuccess: async () => {
       await refreshServedSchema(queryClient, projectKey, projectShortKey);
+      await queryClient.invalidateQueries({
+        queryKey: ["unadapted-change-logs", projectKey],
+      });
+      // Both carry each schema's live state.
       await invalidateSchemaList(queryClient, projectKey);
+      await invalidateSchemaDetailsForProject(queryClient, projectKey);
     },
   });
 };
@@ -530,6 +540,21 @@ export const useGetUnadaptedChangeLogs = (option: { projectKey: string }) => {
         projectKey: option.projectKey,
       }),
   });
+};
+
+/**
+ * The schemas with changes the live version doesn't include. Read from the
+ * same query as the publish control's count, so it costs no extra request.
+ */
+export const usePendingSchemaIds = (projectKey: string): ReadonlySet<string> => {
+  const { data } = useGetUnadaptedChangeLogs({ projectKey });
+  return useMemo(
+    () =>
+      new Set(
+        (data?.data ?? []).flatMap((log) => (log.schemaId ? [log.schemaId] : [])),
+      ),
+    [data],
+  );
 };
 
 export const useGetSchemaFieldValidation = (

@@ -7,12 +7,13 @@ import { showErrorToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Database, Plus, Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, CloudUpload, Database, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useSchemaList } from "../hooks/use-configuration";
+import { usePendingSchemaIds, useSchemaList } from "../hooks/use-configuration";
 import { ISchemaDetails } from "../models/data-service";
 import { schemaExposure } from "../utils/schema-exposure";
+import { SCHEMA_LIVE_STATE_LABELS, schemaLiveState } from "../utils/schema-live-state";
 import { AccessTierDot } from "./primitives";
 
 export type DataGatewayListQueryUpdate = Partial<{
@@ -116,6 +117,7 @@ export default function SchemasSidebar({
     pageSize,
     schemaType: filterType == "all" ? "" : filterType,
   });
+  const pendingSchemaIds = usePendingSchemaIds(projectKey);
 
   const handleImportSchemaNotification = useCallback(
     (notificationData: NotificationData) => {
@@ -242,6 +244,11 @@ export default function SchemasSidebar({
             const references = schema.totalSchemaReferences
               ? `${schema.schemaName} · ${schema.totalSchemaReferences} reference(s)`
               : schema.schemaName;
+            // What the live version serves differs from these drafts.
+            const liveState = schemaLiveState(schema, pendingSchemaIds);
+            const rowTitle = liveState
+              ? `${references} · ${SCHEMA_LIVE_STATE_LABELS[liveState]}`
+              : references;
 
             return (
               <button
@@ -249,7 +256,7 @@ export default function SchemasSidebar({
                 type="button"
                 onClick={() => handleSelectSchema(schema.id)}
                 aria-current={isSelected ? "true" : undefined}
-                title={references}
+                title={rowTitle}
                 className={cn(
                   "dg-interactive relative flex h-[34px] w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
                   isSelected
@@ -269,14 +276,29 @@ export default function SchemasSidebar({
                   {schema.schemaName}
                 </span>
                 {exposure && <AccessTierDot tier={exposure.tier} title={exposure.reason} />}
-                <span
-                  className={cn(
-                    "shrink-0 text-[11px]",
-                    isSelected ? "text-primary/60" : "text-muted-foreground/70",
-                  )}
-                >
-                  {typeLabel}
-                </span>
+                {/* An icon, not a dot: the access tier is already a dot, and
+                    its User tier is the same amber. */}
+                {liveState === "unpublished" && (
+                  <CloudUpload
+                    className="h-3 w-3 shrink-0 text-warning-500"
+                    aria-label={SCHEMA_LIVE_STATE_LABELS.unpublished}
+                  />
+                )}
+                {/* Not live takes the type label's place to keep the row narrow. */}
+                {liveState === "not-live" ? (
+                  <span className="shrink-0 rounded-full border border-warning-500/50 bg-warning-100 px-1.5 text-[10.5px] font-medium leading-4 text-warning-800">
+                    {SCHEMA_LIVE_STATE_LABELS["not-live"]}
+                  </span>
+                ) : (
+                  <span
+                    className={cn(
+                      "shrink-0 text-[11px]",
+                      isSelected ? "text-primary/60" : "text-muted-foreground/70",
+                    )}
+                  >
+                    {typeLabel}
+                  </span>
+                )}
               </button>
             );
           })

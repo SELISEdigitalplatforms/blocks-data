@@ -94,8 +94,8 @@ public class SchemaConfigurationController : ControllerBase
     }
 
     /// <summary>
-    /// Makes an earlier published schema version live again on every gateway pod. The schema drafts and the pending
-    /// (unpublished) changes are not touched, and the next publish still gets a new version number.
+    /// Makes an earlier published schema version live again on every gateway pod. The schema drafts are not touched;
+    /// changes that version does not include are marked unpublished again. The next publish gets a new version number.
     /// </summary>
     /// <param name="request">The version to roll back to; one of the versions in the version history.</param>
     /// <returns>Returns the version now live and the one it replaced, or 404 if that version is not kept.</returns>

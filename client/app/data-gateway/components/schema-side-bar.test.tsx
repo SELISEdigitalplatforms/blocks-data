@@ -10,8 +10,11 @@ const { notifyRef } = vi.hoisted(() => ({
   notifyRef: { current: null as null | ((data: unknown) => void) },
 }));
 
+let pendingSchemaIds: ReadonlySet<string> = new Set();
+
 vi.mock("../hooks/use-configuration", () => ({
   useSchemaList: (...a: unknown[]) => useSchemaList(...a),
+  usePendingSchemaIds: () => pendingSchemaIds,
 }));
 
 vi.mock("@seliseblocks/genesis-os", () => ({
@@ -52,6 +55,7 @@ function renderSidebar(props: Partial<Parameters<typeof SchemasSidebar>[0]> = {}
 
 describe("SchemasSidebar", () => {
   beforeEach(() => {
+    pendingSchemaIds = new Set();
     useSchemaList.mockReset();
   });
 
@@ -310,5 +314,62 @@ describe("SchemasSidebar", () => {
       "title",
       "User · 3 reference(s)",
     );
+  });
+
+  it("marks a schema the live version doesn't contain, in place of its type tag", () => {
+    useSchemaList.mockReturnValue({
+      data: {
+        data: {
+          items: [{ id: "a", schemaName: "InventoryItem", schemaType: 1, isLive: false }],
+          totalCount: 1,
+        },
+      },
+    });
+    renderSidebar();
+    const row = screen.getByRole("button", { name: /InventoryItem/ });
+    expect(row).toHaveTextContent("Not live");
+    expect(row).not.toHaveTextContent("Entity");
+    expect(row).toHaveAttribute("title", "InventoryItem · Not live");
+  });
+
+  it("marks a live schema with unpublished changes and keeps its type tag", () => {
+    pendingSchemaIds = new Set(["a"]);
+    useSchemaList.mockReturnValue({
+      data: {
+        data: {
+          items: [
+            { id: "a", schemaName: "Customer", schemaType: 1, isLive: true },
+            { id: "b", schemaName: "Order", schemaType: 1, isLive: true },
+          ],
+          totalCount: 2,
+        },
+      },
+    });
+    renderSidebar();
+    const changed = screen.getByRole("button", { name: /Customer/ });
+    expect(changed).toHaveTextContent("Entity");
+    expect(changed).toHaveAttribute("title", "Customer · Unpublished changes");
+    expect(screen.getByLabelText("Unpublished changes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Order/ })).toHaveAttribute("title", "Order");
+  });
+
+  it("shows only Not live when a schema that isn't live also has pending changes", () => {
+    pendingSchemaIds = new Set(["a"]);
+    useSchemaList.mockReturnValue({
+      data: { data: { items: [{ id: "a", schemaName: "InventoryItem", schemaType: 1, isLive: false }], totalCount: 1 } },
+    });
+    renderSidebar();
+    expect(screen.getByText("Not live")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Unpublished changes")).not.toBeInTheDocument();
+  });
+
+  it("marks nothing while the live version is unknown", () => {
+    pendingSchemaIds = new Set(["a"]);
+    useSchemaList.mockReturnValue({
+      data: { data: { items: [{ id: "a", schemaName: "Customer", schemaType: 1 }], totalCount: 1 } },
+    });
+    renderSidebar();
+    expect(screen.queryByText("Not live")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Unpublished changes")).not.toBeInTheDocument();
   });
 });

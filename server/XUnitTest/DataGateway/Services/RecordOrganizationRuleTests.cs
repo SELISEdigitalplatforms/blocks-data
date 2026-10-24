@@ -54,10 +54,10 @@ public class RecordOrganizationRuleTests : IDisposable
 
     // ---- callers ---------------------------------------------------------------------------------
 
-    private static void Caller(string organizationId, bool isAuthenticated = true, bool rootTenant = false)
+    private static void Caller(string organizationId, bool isAuthenticated = true, bool impersonated = false, bool rootTenantKey = false)
     {
-        SetContext(organizationId: organizationId, isAuthenticated: isAuthenticated);
-        SetBlocksCloud(rootTenant);
+        SetContext(organizationId: organizationId, isAuthenticated: isAuthenticated, impersonated: impersonated);
+        SetBlocksCloud(rootTenantKey);
     }
 
     private static void SystemCall()
@@ -192,9 +192,9 @@ public class RecordOrganizationRuleTests : IDisposable
     }
 
     [Fact]
-    public async Task Insert_RootTenantCaller_MaySetAnyOrganization()
+    public async Task Insert_ImpersonatedCaller_MaySetAnyOrganization()
     {
-        Caller(OwnOrg, rootTenant: true);
+        Caller(OwnOrg, impersonated: true);
         var repo = new Repo();
         await Service(repo).InsertAsync(_schema, Ctx($"{{ Name: \"A\", OrganizationId: \"{OtherOrg}\" }}"), _insertInput);
         repo.Inserted.Single()["OrganizationId"].AsString.Should().Be(OtherOrg);
@@ -312,12 +312,20 @@ public class RecordOrganizationRuleTests : IDisposable
     }
 
     [Fact]
-    public async Task Update_RootTenantCaller_MaySetAnyOrganization()
+    public async Task Update_ImpersonatedCaller_MaySetAnyOrganization()
     {
-        Caller(OwnOrg, rootTenant: true);
+        Caller(OwnOrg, impersonated: true);
         var repo = new Repo();
         await Service(repo).UpdateAsync(_schema, Ctx($"{{ OrganizationId: \"{OtherOrg}\" }}"), _updateInput);
         repo.Updates.Single()["OrganizationId"].AsString.Should().Be(OtherOrg);
+    }
+
+    [Fact]
+    public async Task Insert_RootTenantKeyWithoutImpersonation_IsRefused()
+    {
+        Caller(OwnOrg, rootTenantKey: true);
+        var repo = new Repo();
+        await ShouldBeRefused(() => Service(repo).InsertAsync(_schema, Ctx($"{{ Name: \"A\", OrganizationId: \"{OtherOrg}\" }}"), _insertInput), repo);
     }
 
     [Fact]

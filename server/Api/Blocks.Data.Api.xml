@@ -183,6 +183,14 @@
             <param name="request">Request parameters for pagination and filtering: Keyword (search term), PageNo, PageSize, SortBy, SortDescending.</param>
             <returns>Returns a paginated list of schema definitions.</returns>
         </member>
+        <member name="M:Api.Controllers.SchemaController.GetReferenceTargets(System.String,System.String)">
+            <summary>
+            The schemas a Reference or Must not exist in rule can point at: the tenant's entities and the system entities,
+            in two groups of at most 50, searched by name and description.
+            </summary>
+            <param name="keyword">Optional plain text to look for in names and descriptions.</param>
+            <param name="schemaName">Optional: only the schema of exactly this name (the picker's chosen target).</param>
+        </member>
         <member name="M:Api.Controllers.SchemaController.GetSchemaDefinitionsSummary(DataGateway.DomainService.Models.GetSchemaDefinitionListRequest)">
             <summary>
             Retrieves a paginated list of schema definitions along with an aggregation summary of access levels (Public, User, Custom) for Read, Write, Edit, and Delete operations.

@@ -60,4 +60,10 @@ public class ValidationRuleRequest
     /// 1 checks a list property item by item. The console sends 1 for rules it adds or edits.
     /// </summary>
     public int? EvaluationVersion { get; set; }
+
+    /// <summary>The rule applies only when this condition holds on the record. Null: always.</summary>
+    public PolicyRuleGroup? When { get; set; }
+
+    /// <summary>Reference and Must not exist in: the target row must also match this condition. Null: any row.</summary>
+    public PolicyRuleGroup? TargetFilter { get; set; }
 }

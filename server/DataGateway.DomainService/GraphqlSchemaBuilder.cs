@@ -98,7 +98,8 @@ public class GraphqlSchemaBuilder
                 schemaBuilder.AddType<OperationAccessType>();
             BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes, childFilterInputTypes);
 
-            var references = ReferenceTargets.Build(schemas, strictReferences, _logger);
+            // System entities a rule points at are targets too; a tenant schema of the same name comes first and wins.
+            var references = ReferenceTargets.Build([.. schemas, .. source.SystemEntitySchemas.Select(SystemTarget)], strictReferences, _logger);
             CheckVariables(schemas, strictReferences);
 
             // HotChocolate refuses a Query or Mutation type without fields, and only entities add them.
@@ -175,9 +176,50 @@ public class GraphqlSchemaBuilder
         {
             SchemaDefinitions = data,
             DataValidations = validations ?? [],
-            DataAccessPolicies = policies ?? []
+            DataAccessPolicies = policies ?? [],
+            SystemEntitySchemas = SystemTargetsOf(data, validations ?? [], systemSchemas ?? [])
         };
     }
+
+    /// <summary>
+    /// The system entities the tenant's own rules point at, from the system schemas already read above: no extra query,
+    /// and nothing at all when no rule points at one.
+    /// </summary>
+    private static List<SchemaDefinition> SystemTargetsOf(List<SchemaDefinition> tenantSchemas, List<DataValidation> validations, List<SchemaDefinition> systemSchemas)
+    {
+        var tenantIds = tenantSchemas.Select(s => s.ItemId).ToHashSet(StringComparer.Ordinal);
+        // Only a tenant Entity of the same name takes the target's place, as in ReferenceTargets.Build.
+        var tenantNames = tenantSchemas.Where(s => s.SchemaType == SchemaType.Entity).Select(s => s.SchemaName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var targetNames = validations
+            .Where(v => tenantIds.Contains(v.SchemaId))
+            .SelectMany(v => v.Validations ?? [])
+            .Where(r => r.IsActive && ReferenceTargets.IsLookupRule(r))
+            .Select(ReferenceTargets.TargetSchemaName)
+            .Where(name => !tenantNames.Contains(name))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (targetNames.Count == 0)
+            return [];
+
+        return systemSchemas
+            .Where(s => !s.IsDeleted && s.SchemaType == SchemaType.Entity && targetNames.Contains(s.SchemaName))
+            .ToList();
+    }
+
+    /// <summary>
+    /// A system entity as a reference target: its name, collection and properties, with no rules of its own. Its
+    /// nested properties are stored as dotted rows ("MfaMethods.Active"), which a filter may name.
+    /// </summary>
+    private static SchemaDefinitionExtended SystemTarget(SchemaDefinition schema) => new()
+    {
+        ItemId = schema.ItemId,
+        SchemaName = schema.SchemaName,
+        SchemaType = schema.SchemaType,
+        CollectionName = schema.CollectionName,
+        IsSystemEntity = true,
+        Fields = schema.Fields
+            .Select(f => new FieldDefinitionResponse { Name = f.Name, Type = f.Type, IsArray = f.IsArray, EnumValues = f.EnumValues ?? [] })
+            .ToList(),
+    };
 
     /// <summary>
     /// Turns the stored definitions into the shape the GraphQL types are built from: fields with
@@ -204,6 +246,7 @@ public class GraphqlSchemaBuilder
             ItemId = s.ItemId,
             IsDeleted = s.IsDeleted,
             SchemaName = s.SchemaName,
+            Description = s.Description,
             SchemaType = s.SchemaType,
             ProjectKey = s.ProjectKey,
             ProjectShortKey = s.ProjectShortKey,
@@ -482,10 +525,15 @@ public class GraphqlSchemaBuilder
                     if (problem is not null)
                         problems.Add($"{schema.SchemaName}.{path} default value: {problem}");
                 }
+                var ruleField = new RuleField(path, field.Type, field.IsArray, field.EnumValues);
                 foreach (var rule in field.ValidationRule?.Validations ?? [])
                 {
                     if (rule.IsActive && ValidationVariableCheck.Check(rule, field.Type, schema.SchemaName, fields) is { } problem)
                         problems.Add($"{schema.SchemaName}.{path} {rule.Type} rule: {problem}");
+                    // Only rules that use what the validation and access rules plan added get a message here (G12).
+                    if (rule.IsActive)
+                        problems.AddRange(ValidationRuleCheck.Check(rule, ruleField, schema.SchemaName, schema.IsSystemEntity, fields)
+                            .Select(newRuleProblem => $"{schema.SchemaName}.{path} {rule.Type} rule: {newRuleProblem}"));
                 }
             }
         }

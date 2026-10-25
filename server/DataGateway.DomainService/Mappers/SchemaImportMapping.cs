@@ -11,6 +11,7 @@ public static class SchemaImportMapping
     public static SchemaDefinition MapToSchemaDefinition(this SchemaExportDocument doc) => new()
     {
         CollectionName = doc.CollectionName,
+        Description = SchemaDescription.Normalize(doc.Description),
         SchemaName = doc.SchemaName,
         SchemaType = doc.SchemaType,
         ReadAccessLevel = doc.ReadAccessLevel,
@@ -112,13 +113,15 @@ public static class SchemaImportMapping
             .ToList();
     }
 
-    public static ValidationRule MapToValidationRule(this ExportValidationRule r) => new()
+    public static ValidationRule MapToValidationRule(this ExportValidationRule r) => new ValidationRule
     {
         Type = r.Type,
         Value = JsonValueHelper.ToStorableValue(r.Value),
         SecondaryValue = JsonValueHelper.ToStorableValue(r.SecondaryValue),
         ErrorMessage = r.ErrorMessage,
         IsActive = r.IsActive,
-        EvaluationVersion = r.EvaluationVersion
-    };
+        EvaluationVersion = r.EvaluationVersion,
+        When = r.When,
+        TargetFilter = r.TargetFilter
+    }.WithPlainList();
 }

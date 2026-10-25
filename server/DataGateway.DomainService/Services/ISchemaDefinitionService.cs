@@ -19,6 +19,14 @@ public interface ISchemaDefinitionService
     Task<PaginationResponse<SchemaDefinitionResponse>> GetAllSchemasAsync(GetSchemaDefinitionListRequest request);
 
     Task<ServiceResponse<SchemaAggregationResponse>> GetSchemaAggregationAsync();
+
+    /// <summary>
+    /// Every Entity schema a Reference or Must not exist in rule can point at, the tenant's and the system's, in two
+    /// groups of at most <see cref="SchemaDefinitionService.ReferenceTargetsPerGroup"/>, optionally narrowed to names
+    /// and descriptions containing <paramref name="keyword"/>. With <paramref name="schemaName"/>, only the schema of
+    /// exactly that name, however many others mention it.
+    /// </summary>
+    Task<ServiceResponse<ReferenceTargetsResponse>> GetReferenceTargetsAsync(string? keyword, string? schemaName = null);
     Task<Dictionary<string, bool>> ResetSchemaStructureAsync(int pageNo = 1, int pageSize = 10);
     Task<ServiceResponse<CollectionListResponse>> GetEntityCollectionsAsync();
     Task<ServiceResponse<CollectionDetailResponse>> GetEntityCollectionByNameAsync(string projectSchemaName);

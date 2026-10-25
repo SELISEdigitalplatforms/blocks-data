@@ -188,6 +188,7 @@ public class SchemaImportService : ISchemaImportService
                 var mapped = doc.MapToSchemaDefinition();
                 existing.SchemaName = mapped.SchemaName;
                 existing.SchemaType = mapped.SchemaType;
+                existing.Description = mapped.Description;
                 existing.ReadAccessLevel = mapped.ReadAccessLevel;
                 existing.WriteAccessLevel = mapped.WriteAccessLevel;
                 existing.EditAccessLevel = mapped.EditAccessLevel;

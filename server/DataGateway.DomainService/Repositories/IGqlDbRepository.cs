@@ -37,6 +37,22 @@ public interface IGqlDbRepository
     /// </summary>
     Task<List<BsonValue>> GetDistinctValuesAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values);
 
+    /// <summary>
+    /// As <see cref="GetDistinctValuesAsync(string, string, IReadOnlyCollection{BsonValue})"/>, counting only the rows that
+    /// also match <paramref name="condition"/> (a Reference or Must not exist in rule's filter and deleted-rows clause).
+    /// <see cref="GqlDbRepository"/> implements it. A repository that doesn't refuses the write rather than checking the
+    /// rule without its condition.
+    /// </summary>
+    Task<List<BsonValue>> GetDistinctValuesAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values, BsonDocument condition) =>
+        throw new NotSupportedException($"{GetType().Name} can't look values up with a condition.");
+
+    /// <summary>
+    /// The same lookup on a system entity's collection. The platform services write those into the tenant's default
+    /// database, so it is read there even when the tenant's own records live on a custom data source.
+    /// </summary>
+    Task<List<BsonValue>> GetDistinctValuesInDefaultDatabaseAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values, BsonDocument? condition) =>
+        throw new NotSupportedException($"{GetType().Name} can't look values up in the default database.");
+
     Task<(List<BsonDocument> items, long count)> GetItemsWithCountAsync(string collectionName,
         FilterDefinition<BsonDocument> filter,
         BsonDocument? sort = null,

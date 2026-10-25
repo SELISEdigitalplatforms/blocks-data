@@ -105,6 +105,9 @@ public class SchemaImportValidator
 
         ValidateCollectionName(doc, prefix, context.SystemCollectionNames, errors);
 
+        if (!SchemaDescription.HasValidLength(doc.Description))
+            errors.Add($"{prefix}: Description must be at most {SchemaDescription.MaxLength} characters.");
+
         if (doc.Fields == null || doc.Fields.Count == 0)
             errors.Add($"{prefix}: At least one field is required.");
 
@@ -239,7 +242,7 @@ public class SchemaImportValidator
                 continue;
             }
 
-            if (rule.Value is null && rule.Type != ValidationType.NotEmpty)
+            if (rule.Value is null && rule.Type is not (ValidationType.NotEmpty or ValidationType.UniqueItems))
                 errors.Add($"{fieldPrefix}: Value is required for validation type '{rule.Type}'.");
 
             if (rule.SecondaryValue is null && rule.Type is ValidationType.Range or ValidationType.LengthRange)
@@ -248,10 +251,17 @@ public class SchemaImportValidator
 
         ValidateReferenceRules(field, context.ReferenceTargets, fieldPrefix, errors);
 
-        foreach (var rule in field.ValidationRules!.Select(r => r.MapToValidationRule()))
+        var ruleField = new RuleField(field.Name, field.Type, field.IsArray, field.EnumValues);
+        var newRuleProblems = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var rule in field.ValidationRules!.Where(r => Enum.IsDefined(r.Type)).Select(r => r.MapToValidationRule()))
         {
             if (ValidationVariableCheck.Check(rule, field.Type, doc.SchemaName, importFields) is { } problem)
                 errors.Add($"{fieldPrefix}: {problem}");
+            foreach (var newRuleProblem in ValidationRuleCheck.Check(rule, ruleField, doc.SchemaName, systemSchema: false, importFields))
+            {
+                if (newRuleProblems.Add(newRuleProblem))
+                    errors.Add($"{fieldPrefix}: {newRuleProblem}");
+            }
         }
     }
 
@@ -262,8 +272,8 @@ public class SchemaImportValidator
     }
 
     /// <summary>
-    /// Reference rules point at a schema by name: it must be an Entity in this import file or already in the
-    /// project, with a matching single-value target field (the same checks as the validation API).
+    /// Reference and Must not exist in rules point at a schema by name: it must be an Entity in this import file or
+    /// already in the project, with a matching single-value target field (the same checks as the validation API).
     /// </summary>
     private static void ValidateReferenceRules(
         ExportFieldDefinition field,
@@ -271,31 +281,41 @@ public class SchemaImportValidator
         string prefix,
         List<string> errors)
     {
-        var references = (field.ValidationRules ?? []).Where(r => r.Type == ValidationType.Reference).ToList();
-        if (references.Count == 0)
+        var lookups = (field.ValidationRules ?? []).Where(r => r.Type is ValidationType.Reference or ValidationType.NotExistsIn).ToList();
+        if (lookups.Count == 0)
             return;
-        if (references.Count > 1)
+        if (lookups.Count(r => r.Type == ValidationType.Reference) > 1)
         {
             errors.Add($"{prefix}: {ReferenceRuleCompatibility.OnlyOneReference}");
             return;
         }
+        if (lookups.Count(r => r.Type == ValidationType.NotExistsIn) > 1)
+        {
+            errors.Add($"{prefix}: {DataValidationRequestValidatorMessages.OnlyOneMustNotExistIn}");
+            return;
+        }
 
-        var rule = new ValidationRule { Type = ValidationType.Reference, Value = references[0].Value, SecondaryValue = references[0].SecondaryValue };
-        var targetName = ReferenceTargets.TargetSchemaName(rule);
         var source = new FieldDefinition { Name = field.Name, Type = field.Type, IsArray = field.IsArray };
-        var problem = ReferenceRuleCompatibility.Check(source, targets.GetValueOrDefault(targetName), ReferenceTargets.TargetFieldName(rule));
-        if (problem is not null)
-            errors.Add($"{prefix}: Reference to '{targetName}.{ReferenceTargets.TargetFieldName(rule)}' is not valid ({problem})");
+        foreach (var lookup in lookups)
+        {
+            var rule = new ValidationRule { Type = lookup.Type, Value = lookup.Value, SecondaryValue = lookup.SecondaryValue };
+            var targetName = ReferenceTargets.TargetSchemaName(rule);
+            var target = targets.GetValueOrDefault(targetName);
+            var problem = ReferenceRuleCompatibility.Check(source, target, ReferenceTargets.TargetFieldName(rule));
+            if (problem is not null)
+                errors.Add($"{prefix}: {(lookup.Type == ValidationType.Reference ? "Reference to" : "Must not exist in")} '{targetName}.{ReferenceTargets.TargetFieldName(rule)}' is not valid ({problem})");
+            errors.AddRange(DataValidationRequestValidatorMessages.FilterProblems(lookup.TargetFilter, target).Select(p => $"{prefix}: {p}"));
+        }
     }
 
-    /// <summary>Schemas that Reference rules in <paramref name="documents"/> may point at: the file's own, then the project's.</summary>
+    /// <summary>Schemas that Reference and Must not exist in rules in <paramref name="documents"/> may point at: the file's own, then the project's.</summary>
     private async Task<Dictionary<string, SchemaDefinition>> LoadReferenceTargetsAsync(List<SchemaExportDocument> documents)
     {
         var targets = new Dictionary<string, SchemaDefinition>(StringComparer.Ordinal);
         var names = documents
             .SelectMany(d => d.Fields ?? [])
             .SelectMany(f => f.ValidationRules ?? [])
-            .Where(r => r.Type == ValidationType.Reference)
+            .Where(r => r.Type is ValidationType.Reference or ValidationType.NotExistsIn)
             .Select(r => ReferenceTargets.TargetSchemaName(new ValidationRule { Value = r.Value }))
             .Where(n => n.Length > 0)
             .ToHashSet(StringComparer.Ordinal);
@@ -322,7 +342,8 @@ public class SchemaImportValidator
                 Builders<SchemaDefinition>.Filter.And(
                     Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, missing),
                     Builders<SchemaDefinition>.Filter.Eq(s => s.IsDeleted, false)));
-            foreach (var schema in existing ?? [])
+            // The tenant's own Entity of a name before a system entity of the same name, as the schema build picks it.
+            foreach (var schema in (existing ?? []).OrderBy(s => s.IsSystemEntity))
                 targets.TryAdd(schema.SchemaName, schema);
         }
         return targets;

@@ -48,6 +48,22 @@ namespace Api.Controllers
         }
 
         /// <summary>
+        /// The schemas a Reference or Must not exist in rule can point at: the tenant's entities and the system entities,
+        /// in two groups of at most 50, searched by name and description.
+        /// </summary>
+        /// <param name="keyword">Optional plain text to look for in names and descriptions.</param>
+        /// <param name="schemaName">Optional: only the schema of exactly this name (the picker's chosen target).</param>
+        [HttpGet("reference-targets")]
+        [ProtectedEndPoint("blocks-data::schema::get-schema-definitions")]
+        [ProducesResponseType(typeof(ServiceResponse<ReferenceTargetsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetReferenceTargets([FromQuery] string? keyword, [FromQuery] string? schemaName)
+        {
+            var response = await _schemaService.GetReferenceTargetsAsync(keyword, schemaName);
+            return StatusCode(response.HttpStatusCode, response);
+        }
+
+        /// <summary>
         /// Retrieves a paginated list of schema definitions along with an aggregation summary of access levels (Public, User, Custom) for Read, Write, Edit, and Delete operations.
         /// </summary>
         /// <param name="request">Request parameters for pagination and filtering.</param>

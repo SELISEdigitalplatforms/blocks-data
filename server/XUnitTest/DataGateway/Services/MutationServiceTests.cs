@@ -557,10 +557,10 @@ public class MutationServiceTests
     {
         public List<Func<Task>> Items { get; } = new();
 
-        public bool Enqueue(Func<Task> work)
+        public Task<bool> EnqueueAsync(Func<Task> work)
         {
             Items.Add(work);
-            return true;
+            return Task.FromResult(true);
         }
 
         public async Task RunAllAsync()

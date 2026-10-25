@@ -64,6 +64,7 @@ vi.mock("../hooks/use-configuration", () => ({
   useCreateSchema: () => createSchemaHook,
   useGetUnadaptedChangeLogs: () => changeLogsResult,
   useSchemaDetails: () => schemaDetailsResult,
+  useSchemaList: () => ({ data: { data: { totalCount: 0 } } }),
 }));
 
 vi.mock("@seliseblocks/genesis-os", () => ({

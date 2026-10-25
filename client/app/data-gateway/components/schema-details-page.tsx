@@ -19,6 +19,7 @@ import {
   getPolicyDataQueryOptions,
   useCreateSchema,
   useSchemaDetails,
+  useSchemaList,
 } from "../hooks/use-configuration";
 import { useDataGatewaySearchParams } from "../hooks/use-data-gateway-search-params";
 import {
@@ -267,6 +268,16 @@ export const SchemaDetailsPage = () => {
   );
   const { mutateAsync: createSchema } = useCreateSchema();
 
+  // The page bar's own total read (same params, so the same cache entry: no extra request). Until it
+  // arrives the panel says "select", so a project with schemas never flashes "your first schema".
+  const { data: schemaTotalQuery } = useSchemaList({
+    projectKey,
+    pageNo: 1,
+    pageSize: 1,
+    schemaType: "",
+  });
+  const hasSchemas = schemaTotalQuery?.data?.totalCount !== 0;
+
   const onSchemaCreate = async (values: ICreateSchemaDefaultValues): Promise<boolean> => {
     try {
       const payload: ICreateSchemaPayload = {
@@ -475,6 +486,7 @@ export const SchemaDetailsPage = () => {
             <div className="hidden min-h-0 flex-1 flex-col lg:flex">
               {!selectedSchemaId ? (
                 <CreateFirstSchemaPanel
+                  hasSchemas={hasSchemas}
                   onCreateSchema={openAddSchemaModal}
                   onImportSchema={openImportModal}
                 />

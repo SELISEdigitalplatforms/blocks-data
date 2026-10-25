@@ -73,7 +73,7 @@ describe("NotificationClientService", () => {
     expect(HubConnectionBuilder).toHaveBeenCalled();
     expect(builder.withUrl).toHaveBeenCalledWith(
       `${BLOCKS_LOGIC_SITE_ORIGIN}/NotificationHub?x-blocks-key=test-blocks-key`,
-      { transport: HttpTransportType.WebSockets },
+      { transport: HttpTransportType.WebSockets, skipNegotiation: true },
     );
     expect(builder.withAutomaticReconnect).toHaveBeenCalled();
     expect(builder.build).toHaveBeenCalled();

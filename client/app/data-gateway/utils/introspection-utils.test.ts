@@ -16,6 +16,7 @@ import {
   getFullMutationSnippets,
   OMIT_PAGINATION_MIRROR_SELECTION_FIELDS,
 } from "./introspection-utils";
+import { EMPTY_QUERY_FIELD_NAME } from "./graphql-constants";
 
 const SDL = `
   scalar DateTime
@@ -180,6 +181,12 @@ describe("introspection-utils", () => {
       expect(getScalar.insertText).toBe('getScalar(\n  id: "${1}"\n)');
       // No trailing selection block (the `{` present is only the snippet placeholder).
       expect(getScalar.insertText).not.toMatch(/\)\s*\{/);
+    });
+
+    it("leaves out the server's placeholder field of a tenant without entities", () => {
+      const emptySchema = buildSchema(`type Query { ${EMPTY_QUERY_FIELD_NAME}: Boolean }`);
+      expect(getQuerySuggestions(emptySchema)).toEqual([]);
+      expect(getFullQuerySnippets(emptySchema)).toEqual([]);
     });
 
     it("returns [] when the schema has no query type", () => {

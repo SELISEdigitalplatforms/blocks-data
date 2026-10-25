@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { EMPTY_QUERY_FIELD_NAME } from "@/data-gateway/utils/graphql-constants";
 import { SchemasDrawer } from "./schemas-drawer";
 
 const introspection = {
@@ -85,6 +86,36 @@ describe("SchemasDrawer", () => {
     // The User object type appears (as a return type annotation and Types entry)
     expect(screen.getAllByText("User").length).toBeGreaterThan(0);
     expect(screen.getByText("Types")).toBeInTheDocument();
+  });
+
+  it("hides the server's placeholder query of a tenant without entities", () => {
+    renderDrawer({
+      data: {
+        data: {
+          __schema: {
+            queryType: { name: "Query" },
+            mutationType: null,
+            types: [
+              {
+                name: "Query",
+                kind: "OBJECT",
+                fields: [
+                  {
+                    name: EMPTY_QUERY_FIELD_NAME,
+                    args: [],
+                    description: "No entity schemas are published yet. Always null.",
+                    type: { kind: "SCALAR", name: "Boolean", ofType: null },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    });
+    // With nothing left to list, the Queries section is not shown at all.
+    expect(screen.queryByText("Queries")).not.toBeInTheDocument();
+    expect(screen.queryByText(EMPTY_QUERY_FIELD_NAME)).not.toBeInTheDocument();
   });
 
   it("emits a generated query when 'Use in Query Editor' is clicked", async () => {

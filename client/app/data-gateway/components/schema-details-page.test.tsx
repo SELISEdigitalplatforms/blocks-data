@@ -8,6 +8,7 @@ const navigateMock = vi.fn();
 const setQueryParams = vi.fn();
 const useDataGatewaySearchParams = vi.fn();
 const useGetUnadaptedChangeLogs = vi.fn();
+const useSchemaList = vi.fn();
 
 vi.mock("react-router", async () => {
   const actual = await vi.importActual<typeof import("react-router")>(
@@ -28,6 +29,7 @@ vi.mock("../hooks/use-configuration", () => ({
   useCreateSchema: () => ({ mutateAsync: vi.fn() }),
   useGetUnadaptedChangeLogs: () => useGetUnadaptedChangeLogs(),
   useSchemaDetails: () => ({ data: undefined, isLoading: false }),
+  useSchemaList: () => useSchemaList(),
 }));
 
 vi.mock("@seliseblocks/genesis-os", () => ({
@@ -174,6 +176,8 @@ describe("SchemaDetailsPage", () => {
     setQueryParams.mockReset();
     useGetUnadaptedChangeLogs.mockReset();
     useGetUnadaptedChangeLogs.mockReturnValue({ data: { data: [] } });
+    useSchemaList.mockReset();
+    useSchemaList.mockReturnValue({ data: { data: { totalCount: 0 } } });
   });
 
   it("always renders the schema view — security is its own route now", () => {
@@ -200,11 +204,29 @@ describe("SchemaDetailsPage", () => {
     // The mobile copy of basic-info/schema-structure still mounts (CSS-hidden,
     // per this suite's existing convention) — it's the desktop one only one
     // instance replaces, so check for the canvas rather than their absence.
-    it("shows the create-first-schema canvas on the desktop panel", () => {
+    it("shows the create-first-schema canvas on the desktop panel when there are no schemas", () => {
       withNoSelection();
+      useSchemaList.mockReturnValue({ data: { data: { totalCount: 0 } } });
       renderPage();
 
       expect(screen.getByText("Create your first schema")).toBeInTheDocument();
+    });
+
+    it("asks to select or add a schema when the project already has some", () => {
+      withNoSelection();
+      useSchemaList.mockReturnValue({ data: { data: { totalCount: 3 } } });
+      renderPage();
+
+      expect(screen.getByText("Select a schema or add a new one")).toBeInTheDocument();
+      expect(screen.queryByText("Create your first schema")).not.toBeInTheDocument();
+    });
+
+    it("does not claim the first schema while the count is still loading", () => {
+      withNoSelection();
+      useSchemaList.mockReturnValue({ data: undefined });
+      renderPage();
+
+      expect(screen.queryByText("Create your first schema")).not.toBeInTheDocument();
     });
 
     it("opens the add-schema modal defaulting to Entity from the New schema button", async () => {

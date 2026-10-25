@@ -33,12 +33,14 @@ const KINDS = [
  * The desktop main panel when nothing is selected — either the project has
  * no schemas at all, or it has some and none is picked yet. Both land here
  * rather than the old bare "select a schema" text, matching the board's own
- * first-run canvas.
+ * first-run canvas; only the heading and intro differ between the two.
  */
 export function CreateFirstSchemaPanel({
+  hasSchemas,
   onCreateSchema,
   onImportSchema,
 }: {
+  hasSchemas: boolean;
   onCreateSchema: (kind?: "Entity" | "DTO") => void;
   onImportSchema: () => void;
 }) {
@@ -50,12 +52,12 @@ export function CreateFirstSchemaPanel({
         </div>
 
         <h2 className="mt-4 text-xl font-semibold text-foreground">
-          Create your first schema
+          {hasSchemas ? "Select a schema or add a new one" : "Create your first schema"}
         </h2>
         <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
-          A schema defines one shape of data and generates its GraphQL queries
-          and mutations. Pick the kind you need — you can add the other
-          later.
+          {hasSchemas
+            ? "Open a schema from the list to see its fields and access, or pick a kind below to add another."
+            : "A schema defines one shape of data, with the queries and mutations to read and write it. Pick the kind you need — you can add the other later."}
         </p>
 
         <div className="mt-6 flex w-full flex-col gap-3 sm:flex-row">

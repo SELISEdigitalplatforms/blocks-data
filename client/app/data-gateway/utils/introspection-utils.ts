@@ -5,6 +5,7 @@ import type {
   GraphQLArgument,
   GraphQLNamedType,
   GraphQLInputObjectType,
+  GraphQLObjectType,
 } from "graphql";
 import {
   isObjectType,
@@ -17,6 +18,7 @@ import {
 import {
   COLLAPSIBLE_FILTER_FIELD,
   COLLAPSIBLE_LIST_FIELDS,
+  EMPTY_QUERY_FIELD_NAME,
   LOGICAL_OPERATOR_FIELDS,
   EXCLUDED_QUERY_ARG_NAMES,
   EXCLUDED_MUTATION_FILTER_ARG_NAMES,
@@ -473,6 +475,10 @@ const buildFieldSelectionSnippet = (
 // Public API
 // ---------------------------------------------------------------------------
 
+/** The Query fields offered to the user: all but the server's placeholder for an empty schema. */
+const getListedQueryFields = (queryType: GraphQLObjectType) =>
+  Object.values(queryType.getFields()).filter((field) => field.name !== EMPTY_QUERY_FIELD_NAME);
+
 /**
  * Extract all top-level Query fields as completion suggestions.
  */
@@ -480,7 +486,7 @@ export const getQuerySuggestions = (schema: GraphQLSchema): IntrospectionSuggest
   const queryType = schema.getQueryType();
   if (!queryType) return [];
 
-  return Object.values(queryType.getFields()).map((field) => {
+  return getListedQueryFields(queryType).map((field) => {
     const returnType = getNamedType(field.type);
     const argSnippet = buildArgumentSnippet(field.args, "query", field.name);
     const fieldSelection = isObjectType(returnType)
@@ -909,7 +915,7 @@ export const getFullQuerySnippets = (schema: GraphQLSchema): IntrospectionSugges
   const queryType = schema.getQueryType();
   if (!queryType) return [];
 
-  return Object.values(queryType.getFields()).map((field) => ({
+  return getListedQueryFields(queryType).map((field) => ({
     label: field.name,
     detail: `Full Query → ${resolveTypeString(field.type)}`,
     documentation: field.description || `Full query: ${field.name}`,

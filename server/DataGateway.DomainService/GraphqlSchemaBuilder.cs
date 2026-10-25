@@ -30,7 +30,8 @@ public class GraphqlSchemaBuilder
 
     /// <summary>
     /// Adds the types built from the tenant's current drafts to <paramref name="schemaBuilder"/>.
-    /// Returns false when the tenant has no schema definitions, in which case nothing is added.
+    /// Returns false when the tenant has no schema definitions, in which case only the empty query
+    /// type is added (see <see cref="EmptyQueryFieldName"/>).
     /// </summary>
     public async Task<bool> BuildSchema(string tenantId, ISchemaBuilder schemaBuilder, CancellationToken cancellationToken)
     {
@@ -41,7 +42,9 @@ public class GraphqlSchemaBuilder
     /// <summary>
     /// Adds the types built from <paramref name="source"/> (drafts or a published snapshot) to
     /// <paramref name="schemaBuilder"/>. Returns false when the source has no schema definitions,
-    /// in which case nothing is added. The source's definitions may be modified while building.
+    /// in which case only the empty query type is added. Without an entity there is no Mutation
+    /// type and the Query type holds only <see cref="EmptyQueryFieldName"/>, so the schema still
+    /// builds and introspects. The source's definitions may be modified while building.
     /// With <paramref name="strictReferences"/> (a publish), a Reference rule whose target schema or
     /// field is missing fails the build; otherwise it is logged and left unchecked.
     /// </summary>
@@ -52,7 +55,8 @@ public class GraphqlSchemaBuilder
             var schemas = Assemble(source);
             if (schemas.Count == 0)
             {
-                _logger.LogDebug("Tenant {TenantId} has no schema definitions; nothing to build", tenantId);
+                _logger.LogDebug("Tenant {TenantId} has no schema definitions; building the empty schema", tenantId);
+                schemaBuilder.AddQueryType(BuildEmptyQueryType());
                 return false;
             }
 
@@ -94,13 +98,19 @@ public class GraphqlSchemaBuilder
                 schemaBuilder.AddType<OperationAccessType>();
             BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes, childFilterInputTypes);
 
-            var queryType = BuildQueryType(dbSchemas, outputTypes, entityFilterInputTypes);
             var references = ReferenceTargets.Build(schemas, strictReferences, _logger);
             CheckVariables(schemas, strictReferences);
-            var mutationType = BuildMutationType(dbSchemas, insertInputTypes, updateInputTypes, deleteInputTypes, entityFilterInputTypes, references);
 
-            schemaBuilder.AddQueryType(queryType);
-            schemaBuilder.AddMutationType(mutationType);
+            // HotChocolate refuses a Query or Mutation type without fields, and only entities add them.
+            if (dbSchemas.Length == 0)
+            {
+                schemaBuilder.AddQueryType(BuildEmptyQueryType());
+            }
+            else
+            {
+                schemaBuilder.AddQueryType(BuildQueryType(dbSchemas, outputTypes, entityFilterInputTypes));
+                schemaBuilder.AddMutationType(BuildMutationType(dbSchemas, insertInputTypes, updateInputTypes, deleteInputTypes, entityFilterInputTypes, references));
+            }
 
             _logger.LogDebug("GraphQL types built for tenant {TenantId}", tenantId);
             return true;
@@ -413,6 +423,25 @@ public class GraphqlSchemaBuilder
             definitions.Add(schema.SchemaName, fields);
             return fields;
         }
+    }
+
+    /// <summary>The only Query field of a tenant without entities. Always null.</summary>
+    public const string EmptyQueryFieldName = "_empty";
+
+    /// <summary>
+    /// The Query type of a tenant without entities. GraphQL requires a query type with at least one
+    /// field, and introspection lives on it, so the playground shows an empty API instead of failing.
+    /// </summary>
+    private static ObjectType BuildEmptyQueryType()
+    {
+        return new ObjectType(descriptor =>
+        {
+            descriptor.Name("Query");
+            descriptor.Field(EmptyQueryFieldName)
+                .Type<BooleanType>()
+                .Description("No entity schemas are published yet. Always null.")
+                .Resolve(_ => null);
+        });
     }
 
     private ObjectType BuildQueryType(

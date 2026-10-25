@@ -41,8 +41,10 @@ export class NotificationClientService {
     this.connection = new HubConnectionBuilder()
       .withUrl(
         `${BLOCKS_LOGIC_SITE_ORIGIN}/NotificationHub?x-blocks-key=${getRuntimeEnv("BLOCKS_X_BLOCKS_KEY")}`,
+        // One request opens the socket, so it cannot split across Api pods without sticky sessions.
         {
           transport: HttpTransportType.WebSockets,
+          skipNegotiation: true,
         },
       )
       .withAutomaticReconnect()

@@ -18,6 +18,7 @@ import {
   resolveTypeName,
   type SchemaField,
 } from "@/data-gateway/utils/generate-preview-queries";
+import { EMPTY_QUERY_FIELD_NAME } from "@/data-gateway/utils/graphql-constants";
 import { Boxes, Check, ChevronDown, ChevronRight, FilePenLine, Loader, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -63,7 +64,7 @@ function categorizeTypes(response: IntrospectionResponse): CategorizedSchema {
   const resultSuffixes = ["Result", "Response"];
 
   const result: CategorizedSchema = {
-    queries: queryType?.fields ?? [],
+    queries: (queryType?.fields ?? []).filter((f) => f.name !== EMPTY_QUERY_FIELD_NAME),
     mutations: mutationType?.fields ?? [],
     objectTypes: [],
     resultTypes: [],

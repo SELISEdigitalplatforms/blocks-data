@@ -11,10 +11,13 @@ import {
 } from "@/components/ui-kits/form/form";
 import { Input } from "@/components/ui-kits/input/input";
 import {
+  IN_OPERATORS,
   NULL_OPERATORS,
   POLICY_OPERATION,
   POLICY_TYPE,
+  RULE_SOURCE_TYPES,
 } from "@/data-gateway/constants/schema-access-control";
+import { staticValueError, type StaticValueSpec } from "@/data-gateway/utils/rule-static-value";
 import type { PresetRuleSet } from "@/data-gateway/utils/access-presets";
 import type {
   ICreatePolicyPayload,
@@ -35,7 +38,7 @@ import { cn } from "@/lib/utils";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { ChevronLeft, Plus, SquarePlus } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { z } from "zod";
 import {
@@ -46,45 +49,6 @@ import {
   type SchemaField,
 } from "./rule-condition-row";
 import { RuleGroupChildren } from "./rule-group-editor";
-
-const ruleRowSchema = z
-  .object({
-    source: z.string().min(1, "Source is required"),
-    field: z.string().min(1, "Field is required"),
-    operator: z.string().min(1, "Operator is required"),
-    compareSource: z.string().default(""),
-    compareValue: z.string().default(""),
-  })
-  .superRefine((data, ctx) => {
-    if (NULL_OPERATORS.includes(data.operator)) return;
-
-    const directValueOps = ["REGEX", "START_WITH", "END_WITH"];
-    if (directValueOps.includes(data.operator)) {
-      if (!data.compareValue) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Value is required",
-          path: ["compareValue"],
-        });
-      }
-      return;
-    }
-
-    if (!data.compareSource) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Compare source is required",
-        path: ["compareSource"],
-      });
-    }
-    if (!data.compareValue) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Compare value is required",
-        path: ["compareValue"],
-      });
-    }
-  });
 
 /**
  * A group needs something inside it. The server evaluates an empty group to
@@ -98,28 +62,87 @@ const logicalOperatorSchema = z.enum(["AND", "OR"], {
   required_error: "Please select a rule relation",
 });
 
-const ruleGroupSchema: z.ZodType<RuleGroupValues, z.ZodTypeDef, unknown> = z
-  .object({
-    logicalOperator: logicalOperatorSchema,
-    rules: z.array(ruleRowSchema),
-    nestedGroups: z.array(z.lazy(() => ruleGroupSchema)),
-  })
-  .refine(groupHasContent, {
-    message: "A group needs at least one rule",
-    path: ["rules"],
-  });
+/**
+ * The rule set's checks. A static value is also checked against the type of the property it is
+ * compared with (a whole number for Int, true or false for Boolean, ...), so `valueSpecOf` gives the
+ * left operand's value spec.
+ */
+const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => StaticValueSpec) => {
+  const ruleRowSchema = z
+    .object({
+      source: z.string().min(1, "Source is required"),
+      field: z.string().min(1, "Field is required"),
+      operator: z.string().min(1, "Operator is required"),
+      compareSource: z.string().default(""),
+      compareValue: z.string().default(""),
+    })
+    .superRefine((data, ctx) => {
+      if (NULL_OPERATORS.includes(data.operator)) return;
 
-const ruleSetSchema = z
-  .object({
-    name: z.string().trim().min(1, "Rule Set Name is required"),
-    logicalOperator: logicalOperatorSchema,
-    rules: z.array(ruleRowSchema),
-    nestedGroups: z.array(ruleGroupSchema),
-  })
-  .refine(groupHasContent, {
-    message: "At least one complete rule is required",
-    path: ["rules"],
-  });
+      const directValueOps = ["REGEX", "START_WITH", "END_WITH"];
+      if (directValueOps.includes(data.operator)) {
+        if (!data.compareValue) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Value is required",
+            path: ["compareValue"],
+          });
+        }
+        return;
+      }
+
+      if (!data.compareSource) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Compare source is required",
+          path: ["compareSource"],
+        });
+      }
+      if (!data.compareValue) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Compare value is required",
+          path: ["compareValue"],
+        });
+        return;
+      }
+      if (data.compareSource === RULE_SOURCE_TYPES.STATIC_VALUE) {
+        const message = staticValueError(
+          valueSpecOf(data.source, data.field),
+          data.compareValue,
+          IN_OPERATORS.includes(data.operator),
+        );
+        if (message) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message, path: ["compareValue"] });
+        }
+      }
+    });
+
+  const ruleGroupSchema: z.ZodType<RuleGroupValues, z.ZodTypeDef, unknown> = z
+    .object({
+      logicalOperator: logicalOperatorSchema,
+      rules: z.array(ruleRowSchema),
+      nestedGroups: z.array(z.lazy(() => ruleGroupSchema)),
+    })
+    .refine(groupHasContent, {
+      message: "A group needs at least one rule",
+      path: ["rules"],
+    });
+
+  const ruleSetSchema = z
+    .object({
+      name: z.string().trim().min(1, "Rule Set Name is required"),
+      logicalOperator: logicalOperatorSchema,
+      rules: z.array(ruleRowSchema),
+      nestedGroups: z.array(ruleGroupSchema),
+    })
+    .refine(groupHasContent, {
+      message: "At least one complete rule is required",
+      path: ["rules"],
+    });
+
+  return ruleSetSchema;
+};
 
 /** The verb shown under the title, e.g. "Order · Update". */
 const OPERATION_LABEL: Record<number, string> = {
@@ -180,6 +203,16 @@ export const RuleSetForm = ({
 
   const isEditMode = !!editingPolicy;
 
+  /** The option lists and type rules every condition row picks from, root or nested. */
+  const ruleBuilderHelpers = useMemo(
+    () => createRuleBuilderHelpers(schemaFields, schemaName),
+    [schemaFields, schemaName],
+  );
+  const ruleSetSchema = useMemo(
+    () => createRuleSetSchema(ruleBuilderHelpers.getStaticValueSpec),
+    [ruleBuilderHelpers],
+  );
+
   const form = useForm<RuleSetFormValues>({
     resolver: zodResolver(ruleSetSchema),
     mode: "onChange",
@@ -194,6 +227,13 @@ export const RuleSetForm = ({
           }),
     },
   });
+
+  // A saved rule set can hold a value that no longer fits its property (its type changed, an Enum
+  // value was removed). Check it on open so the row says why, instead of only greying out Save.
+  useEffect(() => {
+    if (editingPolicy) void form.trigger();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the form opens
+  }, []);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -238,9 +278,8 @@ export const RuleSetForm = ({
   const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   useFocusNewRow(fields, rowRefs);
 
-  /** The option lists and type rules every condition row picks from, root or nested. */
   const ruleBuilderCtx: RuleBuilderContext = {
-    ...createRuleBuilderHelpers(schemaFields, schemaName),
+    ...ruleBuilderHelpers,
     projectKey,
     openCell,
     setOpenCellSynced,

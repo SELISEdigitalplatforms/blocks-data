@@ -34,6 +34,16 @@ import {
   getFieldTypeCategory,
   type FieldTypeCategory,
 } from "@/data-gateway/constants/schema-access-control";
+import {
+  BOOLEAN_VALUES,
+  TEXT_VALUE_SPEC,
+  displayStaticValue,
+  fromDateInput,
+  splitList,
+  staticValueSpec,
+  toDateInput,
+  type StaticValueSpec,
+} from "@/data-gateway/utils/rule-static-value";
 import type { RuleSetFormValues } from "@/data-gateway/utils/schema-access-control.utils";
 import { cn } from "@/lib/utils";
 import { CheckIcon } from "@radix-ui/react-icons";
@@ -47,6 +57,8 @@ export interface SchemaField {
   name: string;
   type?: string | null;
   isArray?: boolean | null;
+  /** Allowed values when type is Enum. */
+  enumValues?: string[] | null;
   /** Nested properties for child-schema (object) fields, e.g. AddressInfo's own fields */
   fields?: SchemaField[];
 }
@@ -56,6 +68,7 @@ interface SchemaFieldOption {
   value: string;
   type?: string | null;
   isArray?: boolean | null;
+  enumValues?: string[] | null;
 }
 
 /**
@@ -74,7 +87,7 @@ const flattenSchemaFields = (
       if (depth >= MAX_NESTED_FIELD_DEPTH) return [];
       return flattenSchemaFields(f.fields, value, depth + 1);
     }
-    return [{ label: value, value, type: f.type, isArray: f.isArray }];
+    return [{ label: value, value, type: f.type, isArray: f.isArray, enumValues: f.enumValues }];
   });
 
 /**
@@ -106,6 +119,16 @@ export const createRuleBuilderHelpers = (schemaFields: SchemaField[], schemaName
       return getFieldTypeCategory(sf?.type, sf?.isArray);
     }
     return undefined;
+  };
+
+  /**
+   * How the static value compared with this left operand is entered. Only a property of the
+   * schema has a type to follow; Auth values and a static left operand stay text.
+   */
+  const getStaticValueSpec = (source: string, fieldName: string): StaticValueSpec => {
+    if (source !== RULE_SOURCE_TYPES.SCHEMA_FIELD || !fieldName) return TEXT_VALUE_SPEC;
+    const sf = schemaFieldOptions.find((f) => f.value === fieldName);
+    return sf ? staticValueSpec(sf.type, sf.isArray, sf.enumValues) : TEXT_VALUE_SPEC;
   };
 
   /** Filter RULE_OPERATORS to those valid for the category (all if unknown) */
@@ -140,8 +163,12 @@ export const createRuleBuilderHelpers = (schemaFields: SchemaField[], schemaName
   /** Filter compare source options by category */
   const getFilteredCompareSourceOptions = (category: FieldTypeCategory | undefined) => {
     if (!category) return compareSourceOptions;
-    // Numeric: no auth fields are numeric, so remove Auth
-    if (category === FIELD_TYPE_CATEGORY.NUMERIC) {
+    // No Auth value is a number, a date or a bool, so Auth is no match for those.
+    if (
+      category === FIELD_TYPE_CATEGORY.NUMERIC ||
+      category === FIELD_TYPE_CATEGORY.DATE ||
+      category === FIELD_TYPE_CATEGORY.BOOLEAN
+    ) {
       return compareSourceOptions.filter((o) => o.value !== RULE_SOURCE_TYPES.AUTH);
     }
     return compareSourceOptions;
@@ -157,18 +184,25 @@ export const createRuleBuilderHelpers = (schemaFields: SchemaField[], schemaName
     }
     if (cmpSource === RULE_SOURCE_TYPES.SCHEMA_FIELD) {
       if (!category) return schemaFieldOptions;
+      // An Enum value is stored as text, so it compares with text and the other way round.
+      const isTextLike = (cat: FieldTypeCategory) =>
+        cat === FIELD_TYPE_CATEGORY.STRING || cat === FIELD_TYPE_CATEGORY.ENUM;
       return schemaFieldOptions.filter((f) => {
         const fCat = getFieldTypeCategory(f.type, f.isArray);
-        if (category === FIELD_TYPE_CATEGORY.STRING) {
-          return fCat === FIELD_TYPE_CATEGORY.STRING || fCat === FIELD_TYPE_CATEGORY.ARRAY;
+        if (category === FIELD_TYPE_CATEGORY.STRING || category === FIELD_TYPE_CATEGORY.ENUM) {
+          return isTextLike(fCat) || fCat === FIELD_TYPE_CATEGORY.ARRAY;
         }
         if (category === FIELD_TYPE_CATEGORY.ARRAY) {
           // Collection operators can compare against either one string or
           // another string-array schema field.
-          return getFieldTypeCategory(f.type, false) === FIELD_TYPE_CATEGORY.STRING;
+          return isTextLike(getFieldTypeCategory(f.type, false));
         }
-        if (category === FIELD_TYPE_CATEGORY.NUMERIC) {
-          return getFieldTypeCategory(f.type, false) === FIELD_TYPE_CATEGORY.NUMERIC;
+        if (
+          category === FIELD_TYPE_CATEGORY.NUMERIC ||
+          category === FIELD_TYPE_CATEGORY.DATE ||
+          category === FIELD_TYPE_CATEGORY.BOOLEAN
+        ) {
+          return getFieldTypeCategory(f.type, false) === category;
         }
         return true;
       });
@@ -179,6 +213,7 @@ export const createRuleBuilderHelpers = (schemaFields: SchemaField[], schemaName
   return {
     getFieldOptions,
     getLeftFieldCategory,
+    getStaticValueSpec,
     getFilteredOperators,
     getFilteredCompareSourceOptions,
     getRightFieldOptions,
@@ -248,6 +283,7 @@ export const RuleConditionRow = ({
   const {
     getFieldOptions,
     getLeftFieldCategory,
+    getStaticValueSpec,
     getFilteredOperators,
     getFilteredCompareSourceOptions,
     getRightFieldOptions,
@@ -277,6 +313,16 @@ export const RuleConditionRow = ({
   const isCompareStatic = compareSource === RULE_SOURCE_TYPES.STATIC_VALUE;
   const isInOp = IN_OPERATORS.includes(operatorValue);
   const isDirectValueOp = ["REGEX", "START_WITH", "END_WITH"].includes(operatorValue);
+  /** How a static right operand is entered: by the left property's type. */
+  const valueSpec = getStaticValueSpec(source, leftField);
+  const staticOptions =
+    valueSpec.kind === "boolean"
+      ? BOOLEAN_VALUES
+      : valueSpec.kind === "enum"
+        ? valueSpec.enumValues
+        : [];
+  /** Boolean and Enum take their static value from a dropdown: a list for In / Not in, else one. */
+  const isStaticDropdown = isCompareStatic && !isDirectValueOp && staticOptions.length > 0;
   /**
    * Tenant-scoped principal selector eligibility.
    *
@@ -298,13 +344,7 @@ export const RuleConditionRow = ({
     isCompareStatic &&
     (principalScalarOps.includes(operatorValue) || IN_OPERATORS.includes(operatorValue));
 
-  const selectedInValues =
-    isInOp && compareValue
-      ? compareValue
-          .split(",")
-          .map((v) => v.trim())
-          .filter(Boolean)
-      : [];
+  const selectedInValues = isInOp && compareValue ? splitList(compareValue) : [];
 
   const sourceLabel = ruleSourceOptions.find((option) => option.value === source)?.label;
   const leftFieldLabel =
@@ -313,8 +353,13 @@ export const RuleConditionRow = ({
   const compareSourceLabel = filteredCompareSourceOptions.find(
     (option) => option.value === compareSource,
   )?.label;
-  const compareValueLabel =
-    compareFieldOptions.find((option) => option.value === compareValue)?.label ?? compareValue;
+  const compareValueLabel = isCompareStatic
+    ? displayStaticValue(valueSpec, compareValue)
+    : (compareFieldOptions.find((option) => option.value === compareValue)?.label ?? compareValue);
+  /** A static value that does not fit its property (from the form's check). Empty values are not flagged here. */
+  const compareValueError = compareValue
+    ? form.getFieldState(path("compareValue"), form.formState).error?.message
+    : undefined;
 
   const isCellActive = (key: RuleCellKey) => openCell?.ruleId === ruleId && openCell.key === key;
 
@@ -444,7 +489,11 @@ export const RuleConditionRow = ({
     form.setValue(path("compareValue"), "", {
       shouldValidate: true,
     });
-    openCellFor("compareValue");
+    // A one-value dropdown is a popover of its own: not opened from inside this popover's
+    // pick, for the reason given in pickOperator.
+    const opensDropdown =
+      value === RULE_SOURCE_TYPES.STATIC_VALUE && staticOptions.length > 0 && !isInOp;
+    openCellFor(opensDropdown ? null : "compareValue");
   };
 
   const pickCompareValue = (value: string) => {
@@ -606,80 +655,24 @@ export const RuleConditionRow = ({
             );
           }
 
-          if (isInOp && isCompareStatic) {
-            return (
-              <Input
-                className="h-9 w-full min-w-0 rounded-md px-3 text-xs"
-                placeholder="Values"
-                value={field.value}
-                onChange={field.onChange}
-                onBlur={() => openCellFor(null)}
-                autoFocus
-              />
+          if (isInOp && isStaticDropdown) {
+            return renderMultiSelect(
+              staticOptions.map((option) => ({ value: option, label: option })),
+              "Select values",
+              field.onChange,
             );
+          }
+
+          if (isInOp && isCompareStatic) {
+            return renderStaticInput(field.value, field.onChange, true);
           }
 
           if (isInOp && !isCompareStatic && compareSource) {
-            return (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    className="flex h-9 w-full min-w-0 items-center justify-between rounded-md border border-input bg-background px-3 text-xs"
-                  >
-                    <span className="truncate text-left">
-                      {selectedInValues.length > 0 ? selectedInValues.join(", ") : "Select fields"}
-                    </span>
-                    <ChevronDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-52 p-0" align="start">
-                  <Command>
-                    <CommandList>
-                      <CommandGroup>
-                        {compareFieldOptions.map((option) => {
-                          const selected = selectedInValues.includes(option.value);
-                          return (
-                            <CommandItem
-                              key={option.value}
-                              onSelect={() => {
-                                const updated = selected
-                                  ? selectedInValues.filter((value) => value !== option.value)
-                                  : [...selectedInValues, option.value];
-                                field.onChange(updated.join(","));
-                              }}
-                            >
-                              <div
-                                className={cn(
-                                  "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                  selected
-                                    ? "bg-primary text-primary-foreground"
-                                    : "opacity-50 [&_svg]:invisible",
-                                )}
-                              >
-                                <CheckIcon className="h-4 w-4" />
-                              </div>
-                              <span>{option.label}</span>
-                            </CommandItem>
-                          );
-                        })}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            );
+            return renderMultiSelect(compareFieldOptions, "Select fields", field.onChange);
           }
 
           return isCompareStatic ? (
-            <Input
-              className="h-9 w-full min-w-0 rounded-md px-3 text-xs"
-              placeholder="Enter value"
-              value={field.value}
-              onChange={field.onChange}
-              onBlur={() => openCellFor(null)}
-              autoFocus
-            />
+            renderStaticInput(field.value, field.onChange, false)
           ) : (
             <Select
               value={field.value || undefined}
@@ -702,6 +695,127 @@ export const RuleConditionRow = ({
           );
         }}
       />
+    );
+  };
+
+  /** Several values ticked from a list: In / Not in over fields, or over a property's Enum values. */
+  const renderMultiSelect = (
+    options: { value: string; label: string }[],
+    placeholder: string,
+    onChange: (value: string) => void,
+  ) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-9 w-full min-w-0 items-center justify-between rounded-md border border-input bg-background px-3 text-xs"
+        >
+          <span className="truncate text-left">
+            {selectedInValues.length > 0 ? selectedInValues.join(", ") : placeholder}
+          </span>
+          <ChevronDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-52 p-0" align="start">
+        <Command>
+          <CommandList>
+            <CommandGroup>
+              {options.map((option) => {
+                const selected = selectedInValues.includes(option.value);
+                return (
+                  <CommandItem
+                    key={option.value}
+                    onSelect={() => {
+                      const updated = selected
+                        ? selectedInValues.filter((value) => value !== option.value)
+                        : [...selectedInValues, option.value];
+                      onChange(updated.join(","));
+                    }}
+                  >
+                    <div
+                      className={cn(
+                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                        selected
+                          ? "bg-primary text-primary-foreground"
+                          : "opacity-50 [&_svg]:invisible",
+                      )}
+                    >
+                      <CheckIcon className="h-4 w-4" />
+                    </div>
+                    <span>{option.label}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+
+  /**
+   * A typed static value: a UTC date-time picker for a DateTime property (one value), else a text
+   * box with the expected form named at its right ("whole number", "numbers, comma-separated").
+   */
+  const renderStaticInput = (value: string, onChange: (value: string) => void, isList: boolean) => {
+    if (valueSpec.kind === "date" && !isList) {
+      return (
+        <div className="relative flex items-center">
+          <Input
+            type="datetime-local"
+            aria-label="Date and time (UTC)"
+            className="h-9 w-full min-w-0 rounded-md px-3 pr-12 font-mono text-xs [color-scheme:light] dark:[color-scheme:dark]"
+            value={toDateInput(value)}
+            onChange={(e) => onChange(fromDateInput(e.target.value))}
+            onBlur={() => openCellFor(null)}
+            autoFocus
+          />
+          <span className="pointer-events-none absolute right-3 text-[11px] text-muted-foreground">
+            UTC
+          </span>
+        </div>
+      );
+    }
+
+    const hint =
+      valueSpec.kind === "int"
+        ? isList
+          ? "whole numbers, comma-separated"
+          : "whole number"
+        : valueSpec.kind === "float"
+          ? isList
+            ? "numbers, comma-separated"
+            : "number"
+          : valueSpec.kind === "date"
+            ? "dates, comma-separated"
+            : "";
+    const isNumber = valueSpec.kind === "int" || valueSpec.kind === "float";
+
+    return (
+      <div className="relative flex items-center">
+        <Input
+          className={cn(
+            "h-9 w-full min-w-0 rounded-md px-3 text-xs",
+            hint && (isList ? "pr-48" : "pr-24"),
+            isNumber && "font-mono",
+            compareValueError && "border-destructive",
+          )}
+          placeholder={isList ? "Values" : "Enter value"}
+          inputMode={
+            isNumber && !isList ? (valueSpec.kind === "int" ? "numeric" : "decimal") : undefined
+          }
+          aria-invalid={Boolean(compareValueError) || undefined}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => openCellFor(null)}
+          autoFocus
+        />
+        {hint && (
+          <span className="pointer-events-none absolute right-3 truncate text-[11px] text-muted-foreground">
+            {hint}
+          </span>
+        )}
+      </div>
     );
   };
 
@@ -760,6 +874,14 @@ export const RuleConditionRow = ({
             !isInOp
           ) {
             return renderOptionsChip(cell, compareFieldOptions, pickCompareValue);
+          }
+          // Boolean / Enum against one static value: a dropdown, like the operator chip.
+          if (cell.key === "compareValue" && isStaticDropdown && !isInOp) {
+            return renderOptionsChip(
+              cell,
+              staticOptions.map((option) => ({ value: option, label: option })),
+              pickCompareValue,
+            );
           }
 
           // Roles / users: the chip is the picker, like the other option chips — one
@@ -828,6 +950,11 @@ export const RuleConditionRow = ({
           );
         })}
       </div>
+      {compareValueError && (
+        <p role="alert" className="mt-1.5 text-xs text-destructive">
+          {compareValueError}
+        </p>
+      )}
     </Card>
   );
 };

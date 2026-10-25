@@ -1,5 +1,6 @@
 using System;
 using Blocks.Genesis;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Models;
 

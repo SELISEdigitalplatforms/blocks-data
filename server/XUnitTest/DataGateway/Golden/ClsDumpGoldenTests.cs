@@ -2,11 +2,12 @@ using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using Blocks.Genesis;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
+using File = System.IO.File;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
-using DataGateway.DomainService.Services;
 using FluentAssertions;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -76,13 +77,12 @@ public class ClsDumpGoldenTests
                 {
                     var plainWatch = Stopwatch.StartNew();
                     var plain = documents
-                        .Select(doc => QueryClsRowMaskingHelper.MaskRowByClsPolicies(
-                            doc.ToDictionary(), schema, clsPolicies, [], QueryPolicyRuleEvaluator.RowSatisfiesPolicy))
+                        .Select(doc => Plain(doc, schema, clsPolicies))
                         .ToList();
                     plainWatch.Stop();
 
                     var servedWatch = Stopwatch.StartNew();
-                    var served = QueryService.BuildResultItems(documents, schema, []);
+                    var served = Served(documents, schema, clsPolicies);
                     servedWatch.Stop();
 
                     var plainJson = plain.Select(ToCanonicalJson).ToList();
@@ -182,14 +182,13 @@ public class ClsDumpGoldenTests
 
                 var plainWatch = Stopwatch.StartNew();
                 var plain = documents
-                    .Select(doc => QueryClsRowMaskingHelper.MaskRowByClsPolicies(
-                        doc.ToDictionary(), schema, clsPolicies, [], QueryPolicyRuleEvaluator.RowSatisfiesPolicy))
+                    .Select(doc => Plain(doc, schema, clsPolicies))
                     .Select(ToCanonicalJson)
                     .ToList();
                 plainWatch.Stop();
 
                 var servedWatch = Stopwatch.StartNew();
-                var served = QueryService.BuildResultItems(documents, schema, []).Select(ToCanonicalJson).ToList();
+                var served = Served(documents, schema, clsPolicies).Select(ToCanonicalJson).ToList();
                 servedWatch.Stop();
 
                 served.Should().Equal(plain, $"{collectionName} as {role} must mask identically");
@@ -219,6 +218,26 @@ public class ClsDumpGoldenTests
         });
         var dataFiles = Directory.GetFiles(dumpDir, "*.json").Where(f => !IsMetadataFile(f)).Order().ToList();
         return (schemas, dataFiles, prefix);
+    }
+
+    /// <summary>The unoptimized masking: every READ CLS policy evaluated for the row.</summary>
+    private static Dictionary<string, object> Plain(BsonDocument doc, SchemaDefinitionExtended schema, List<DataAccessPolicy> clsPolicies)
+    {
+        var principal = TestSupport.CurrentPrincipal();
+        if (principal.IsRootTenant)
+            return doc.ToDictionary();
+        return QueryClsRowMaskingHelper.MaskRowByClsPolicies(
+            principal, doc.ToDictionary(), schema, clsPolicies, [],
+            (policy, row) => QueryPolicyRuleEvaluator.RowSatisfiesPolicy(principal, policy, row));
+    }
+
+    /// <summary>The masking the gateway serves: the resolver, with the caller read once for the request as QueryService does.</summary>
+    private static List<Dictionary<string, object>> Served(List<BsonDocument> documents, SchemaDefinitionExtended schema, List<DataAccessPolicy> clsPolicies)
+    {
+        var resolver = TestSupport.Resolver();
+        var request = new SchemaAccessRequest(TestSupport.CurrentPrincipal(), schema, PolicyOperation.READ);
+        var projection = new ReadProjection(new BsonDocument(), [], clsPolicies);
+        return documents.Select(doc => resolver.MaskRow(request, doc.ToDictionary(), projection)).ToList();
     }
 
     private sealed record Caller(string Name, Action Apply);

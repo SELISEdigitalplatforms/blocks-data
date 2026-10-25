@@ -5,6 +5,7 @@ using FluentAssertions;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Services;
 using Storage.DomainService.Utilities;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.Storage;
 

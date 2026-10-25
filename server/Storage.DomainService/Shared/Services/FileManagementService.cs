@@ -16,7 +16,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
 using System.Text.Json;
-using File = Storage.DomainService.Entities.File;
+using Blocks.Genesis.Entities.Data;
+using File = Blocks.Genesis.Entities.Data.File;
 using Response = Storage.DomainService.Storage.Response;
 
 namespace Storage.DomainService.Services
@@ -24,7 +25,7 @@ namespace Storage.DomainService.Services
     [ExcludeFromCodeCoverage]
     public class FileManagementService : IFileManagementService
     {
-        private readonly IConfigurationRepository _configurationRepository;
+        private readonly IStorageConfigurationProvider _configurationProvider;
         private readonly IFileRepository _fileRepository;
         private readonly IFileVersionRepository _versionRepository;
         private readonly IStorageServiceFactory _storageServiceFactory;
@@ -45,7 +46,7 @@ namespace Storage.DomainService.Services
             IFileRepository fileRepository,
             IStorageServiceFactory storageServiceFactory,
             IFileVersionRepository versionRepository,
-            IConfigurationRepository configurationRepository,
+            IStorageConfigurationProvider configurationProvider,
             IFileDirectoryRepository directoryRepository,
             IValidator<GetPreSignedUrlForUploadRequest> requestValidator,
             IValidator<LocalStorageUploadRequest> localStorageRequestValidator,
@@ -61,7 +62,7 @@ namespace Storage.DomainService.Services
             _fileRepository = fileRepository;
             _storageServiceFactory = storageServiceFactory;
             _versionRepository = versionRepository;
-            _configurationRepository = configurationRepository;
+            _configurationProvider = configurationProvider;
             _directoryRepository = directoryRepository;
             _requestValidator = requestValidator;
             _localStorageRequestValidator = localStorageRequestValidator;
@@ -425,7 +426,7 @@ namespace Storage.DomainService.Services
 
         private async Task<StorageConfiguration> GetConfigurationAsync(string? configurationName)
         {
-            return await _configurationRepository.GetConfigurationByNameAsync(configurationName ?? Constants.DefaultConfigurationName);
+            return await _configurationProvider.GetByNameAsync(configurationName ?? Constants.DefaultConfigurationName);
         }
 
         private IStorageService GetStorageService(StorageConfiguration configuration)
@@ -543,7 +544,7 @@ namespace Storage.DomainService.Services
             var file = await _fileRepository.GetFileByItemIdAsync(request.FileId);
             if (file is null || !await AuthorizeFileAsync(file, ObjectPermission.Download, "Download", default))
                 return AccessDenied<FileResponse>();
-            var configuration = await _configurationRepository.GetConfigurationByNameAsync(request.ConfigurationName ?? Constants.DefaultConfigurationName);
+            var configuration = await _configurationProvider.GetByNameAsync(request.ConfigurationName ?? Constants.DefaultConfigurationName);
 
             if (configuration == null)
             {
@@ -575,7 +576,7 @@ namespace Storage.DomainService.Services
             }
 
             var result = _fileRepository.GetRequiredFiles(request.FileIds, null);
-            var configuration = await _configurationRepository.GetConfigurationByNameAsync(request.ConfigurationName ?? Constants.DefaultConfigurationName);
+            var configuration = await _configurationProvider.GetByNameAsync(request.ConfigurationName ?? Constants.DefaultConfigurationName);
 
             if (configuration == null)
             {
@@ -836,7 +837,7 @@ namespace Storage.DomainService.Services
 
         private async Task<BlobContainerClient> InitializeBlobContainerClientAsync()
         {
-            var configuration = await _configurationRepository.GetConfigurationByNameAsync(Constants.DefaultConfigurationName);
+            var configuration = await _configurationProvider.GetByNameAsync(Constants.DefaultConfigurationName);
             var blobContainerClient = new BlobContainerClient(configuration.ConnectionString, Constants.CertificateCollectionName);
             await blobContainerClient.CreateIfNotExistsAsync(PublicAccessType.Blob);
 
@@ -998,10 +999,10 @@ namespace Storage.DomainService.Services
         {
             // Retrieve configuration (custom first, fallback to default sftp)
             var configuration = !string.IsNullOrEmpty(configurationName)
-                ? await _configurationRepository.GetConfigurationByNameAsync(configurationName)
+                ? await _configurationProvider.GetByNameAsync(configurationName)
                 : null;
 
-            configuration ??= await _configurationRepository.GetConfigurationByStrategyAsync("SftpStorage");
+            configuration ??= await _configurationProvider.GetByStrategyAsync("SftpStorage");
 
             return configuration;
         }

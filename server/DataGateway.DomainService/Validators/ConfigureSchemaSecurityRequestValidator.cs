@@ -1,5 +1,6 @@
 using FluentValidation;
 using DataGateway.DomainService.Models;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Validators;
 
@@ -11,6 +12,7 @@ public class ConfigureSchemaSecurityRequestValidator : AbstractValidator<Configu
     private const string OperationInvalid = "Policy_Operation_Must_Be_Valid.";
     private const string AccessLevelInvalid = "Access_Level_Must_Be_Valid.";
     private const string FieldNamesRequiredForCls = "Field_Names_Are_Required_For_Column_Level_Security.";
+    private const string SchemaAccessLevelCannotBeInherited = "Schema_Access_Level_Cannot_Be_Inherited.";
     private const string FieldNameEmpty = "Field_Name_Must_Not_Be_Empty.";
 
     public ConfigureSchemaSecurityRequestValidator()
@@ -27,6 +29,12 @@ public class ConfigureSchemaSecurityRequestValidator : AbstractValidator<Configu
 
         RuleFor(x => x.AccessLevel)
             .IsInEnum().WithMessage(AccessLevelInvalid);
+
+        // Inherited means "use the schema's level", so only a property can have it.
+        RuleFor(x => x.AccessLevel)
+            .NotEqual(SchemaAccessLevel.Inherited)
+            .When(x => x.PolicyType == PolicyType.RLS)
+            .WithMessage(SchemaAccessLevelCannotBeInherited);
 
         RuleFor(x => x.FieldNames)
             .NotNull()

@@ -29,6 +29,7 @@ import {
   useSchemaDetails,
   useSchemaExport,
   useSchemaList,
+  usePendingSchemaIds,
   useSchemaRollback,
   useSchemasReload,
   useSchemaVersionHistory,
@@ -98,6 +99,11 @@ describe("use-configuration hooks", () => {
   // ─── Query hooks ────────────────────────────────────────────────────────────
 
   describe("useGetDataServiceConfiguration", () => {
+    it("skips configuration when the consumer does not need it", () => {
+      const { result } = renderHook(() => useGetDataServiceConfiguration({ enabled: false }), { wrapper: createWrapper() });
+      expect(result.current.fetchStatus).toBe("idle");
+      expect(configurationService.getDataServiceDetails).not.toHaveBeenCalled();
+    });
     it("should fetch configuration successfully", async () => {
       const response = { config: { id: "1" } };
       vi.mocked(configurationService.getDataServiceDetails).mockResolvedValue(
@@ -277,6 +283,26 @@ describe("use-configuration hooks", () => {
     });
   });
 
+  describe("usePendingSchemaIds", () => {
+    it("collects the schemas that have pending changes, once each", async () => {
+      vi.mocked(configurationService.getUnadaptedChangeLogs).mockResolvedValue({
+        data: [
+          { changeType: 1, schemaId: "a" },
+          { changeType: 2, schemaId: "a" },
+          { changeType: 3, schemaId: "b" },
+          { changeType: 4 },
+        ],
+      } as never);
+
+      const { result } = renderHook(() => usePendingSchemaIds("pk"), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.size).toBe(2));
+      expect([...result.current]).toEqual(["a", "b"]);
+    });
+  });
+
   describe("useGetSchemaFieldValidation", () => {
     it("should fetch when schemaId, fieldName and projectKey are present", async () => {
       vi.mocked(configurationService.getSchemaFieldValidation).mockResolvedValue({
@@ -401,13 +427,17 @@ describe("use-configuration hooks", () => {
       },
       {
         name: "useSetDataAccess",
-        hook: () => useSetDataAccess("s1"),
+        hook: function useSetDataAccessForS1() {
+          return useSetDataAccess("s1");
+        },
         method: "setDataAccess",
         payload: { schemaName: "User" },
       },
       {
         name: "useSetRowColumnPermission",
-        hook: () => useSetRowColumnPermission("s1"),
+        hook: function useSetRowColumnPermissionForS1() {
+          return useSetRowColumnPermission("s1");
+        },
         method: "setRowColumnPermissions",
         payload: { schemaName: "User" },
       },
@@ -425,7 +455,9 @@ describe("use-configuration hooks", () => {
       },
       {
         name: "useImportSchemaFile",
-        hook: () => useImportSchemaFile({} as never),
+        hook: function useImportSchemaFileForTest() {
+          return useImportSchemaFile({} as never);
+        },
         method: "importSchemaFile",
         payload: { fileName: "schema.json" },
       },
@@ -500,6 +532,11 @@ describe("use-configuration hooks", () => {
   });
 
   describe("useSchemaVersionHistory", () => {
+    it("stays idle until history is requested", () => {
+      const { result } = renderHook(() => useSchemaVersionHistory({ projectKey: "pk", enabled: false }), { wrapper: createWrapper() });
+      expect(result.current.fetchStatus).toBe("idle");
+      expect(configurationService.getSchemaVersionHistory).not.toHaveBeenCalled();
+    });
     it("should read the version history for the project", async () => {
       vi.mocked(configurationService.getSchemaVersionHistory).mockResolvedValue({
         isSuccess: true,
@@ -543,6 +580,35 @@ describe("use-configuration hooks", () => {
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(configurationService.rollbackSchemaVersion).toHaveBeenCalledWith(3);
       expect(configurationService.executeGraphQLOperation).toHaveBeenCalled();
+    });
+
+    it("should re-read the pending changes, which the rollback reopens", async () => {
+      vi.mocked(configurationService.rollbackSchemaVersion).mockResolvedValue({
+        isSuccess: true,
+        message: "Version 1 is live.",
+        errors: null,
+        data: { version: 1, previousVersion: 3 },
+      });
+      vi.mocked(configurationService.executeGraphQLOperation).mockResolvedValue(
+        introspectionResult,
+      );
+      vi.mocked(configurationService.getUnadaptedChangeLogs).mockResolvedValue({ data: [] } as never);
+
+      const { result } = renderHook(
+        () => ({
+          rollback: useSchemaRollback(),
+          // The selected project's key, which the rollback refreshes.
+          changeLogs: useGetUnadaptedChangeLogs({ projectKey: "t1" }),
+        }),
+        { wrapper: createWrapper() },
+      );
+      await waitFor(() => expect(result.current.changeLogs.isSuccess).toBe(true));
+      vi.mocked(configurationService.getUnadaptedChangeLogs).mockClear();
+
+      result.current.rollback.mutate(1);
+
+      await waitFor(() => expect(result.current.rollback.isSuccess).toBe(true));
+      expect(configurationService.getUnadaptedChangeLogs).toHaveBeenCalled();
     });
 
     it("should not re-read the schema when the rollback fails", async () => {

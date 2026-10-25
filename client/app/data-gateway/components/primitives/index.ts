@@ -16,10 +16,12 @@ export {
   FieldFlags,
   FlagToggleChip,
   flagsFromField,
+  flagTitlesFromField,
   type FieldFlag,
 } from "./field-flags";
 export { TypeChip, categoryForType, type TypeCategory } from "./type-chip";
 export { RequiredBadge } from "./required-badge";
-export { PanelHeader, PanelShell } from "./panel-shell";
+export { FieldSubject, PanelHeader, PanelShell } from "./panel-shell";
 export { InlineStatusMessage } from "./inline-status-message";
 export { StatusSnackbar } from "./status-snackbar";
+export { ExpressionMenu, insertAt, type ExpressionGroup, type ExpressionOption } from "./expression-menu";

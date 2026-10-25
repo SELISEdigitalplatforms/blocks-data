@@ -1,23 +1,15 @@
 using System.Collections;
 using Blocks.Genesis;
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Models.Constants;
 
 namespace DataGateway.DomainService.Helpers;
 
 public static class DefaultValueInjection
 {
-    public static readonly IReadOnlyDictionary<string, string> DefaultFieldDescriptions = new Dictionary<string, string>
-    {
-        [nameof(GraphQlBaseEntity.ItemId)] = "Unique identifier for the record. System-generated and immutable once created.",
-        [nameof(GraphQlBaseEntity.CreatedDate)] = "UTC timestamp when the record was first created. Automatically set on insert and never changed afterward.",
-        [nameof(GraphQlBaseEntity.LastUpdatedDate)] = "UTC timestamp of the most recent update to the record. Automatically refreshed on every write operation.",
-        [nameof(GraphQlBaseEntity.CreatedBy)] = "User ID of the person who originally created the record. Derived from the authentication context at insert time.",
-        [nameof(GraphQlBaseEntity.LastUpdatedBy)] = "User ID of the person who last modified the record. Automatically updated from the authentication context on every write.",
-        [nameof(GraphQlBaseEntity.OrganizationId)] = "List of organization IDs this record belongs to. Used for multi-tenancy and access-control scoping.",
-        [nameof(GraphQlBaseEntity.Language)] = "Language code (e.g. 'en', 'de') that indicates the locale of the record. Used for localization and language-based content filtering.",
-        [nameof(GraphQlBaseEntity.Tags)] = "List of tags associated with the record. Used for categorization, search, and filtering across queries.",
-    };
+    public static readonly IReadOnlyDictionary<string, string> DefaultFieldDescriptions = FieldDefinitionMapper.DefaultFieldDescriptions;
 
     public static void AddDefaultFields(this SchemaDefinition schemaDefinition)
     {
@@ -31,30 +23,7 @@ public static class DefaultValueInjection
             if (existingFieldNames.Contains(baseEntityField.Name))
                 continue;
 
-            var propertyType = baseEntityField.PropertyType;
-            bool isArray = false;
-
-            if (Nullable.GetUnderlyingType(propertyType) != null)
-            {
-                propertyType = Nullable.GetUnderlyingType(propertyType);
-            }
-            Type elementType = propertyType;
-
-            if (propertyType.IsArray)
-            {
-                elementType = propertyType.GetElementType();
-                isArray = true;
-            }
-            else if (propertyType.IsGenericType
-            && propertyType.GetGenericArguments().Length == 1
-            && typeof(IEnumerable).IsAssignableFrom(propertyType)
-            && propertyType != typeof(string))
-            {
-                elementType = propertyType.GetGenericArguments()[0];
-                isArray = true;
-            }
-
-            var graphQlType = GraphQlTypeHelper.GetScalarType(elementType);
+            var (graphQlType, isArray) = Describe(baseEntityField.PropertyType);
 
             schemaDefinition.Fields.Add(new FieldDefinition
             {
@@ -70,6 +39,64 @@ public static class DefaultValueInjection
 
             existingFieldNames.Add(baseEntityField.Name);
         }
+    }
+
+    private static readonly IReadOnlyDictionary<string, string> InnerFieldDescriptions = new Dictionary<string, string>
+    {
+        [nameof(OperationAccess.Roles)] = "Roles allowed",
+        [nameof(OperationAccess.UserIds)] = "Users allowed",
+        [nameof(OperationAccess.Permissions)] = "Permissions allowed",
+    };
+
+    /// <summary>
+    /// The base entity's own property of that name and type, as <see cref="AddDefaultFields"/> put it on the schema
+    /// (e.g. Read: OperationAccess). Such a type is valid under that name only; it is not a type to give a new field.
+    /// </summary>
+    public static bool IsBaseEntityField(string? name, string? type) =>
+        !string.IsNullOrWhiteSpace(name)
+        && typeof(BaseEntity).GetProperty(name) is { } property
+        && string.Equals(Describe(property.PropertyType).Type, type, StringComparison.Ordinal);
+
+    /// <summary>
+    /// The inner fields of a base entity object property (Create/Read/Update/Delete hold Roles, UserIds and
+    /// Permissions), so they get flattened entries like a child schema's; empty for anything else.
+    /// </summary>
+    public static List<FieldDefinition> BaseEntityInnerFields(string name, string type)
+    {
+        if (!IsBaseEntityField(name, type) || typeof(BaseEntity).GetProperty(name) is not { } property)
+            return [];
+        var objectType = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
+        if (!objectType.IsClass || objectType == typeof(string) || typeof(IEnumerable).IsAssignableFrom(objectType))
+            return [];
+
+        return objectType.GetProperties()
+            .Where(p => p.CanWrite)
+            .Select(p =>
+            {
+                var (innerType, isArray) = Describe(p.PropertyType);
+                return new FieldDefinition
+                {
+                    Name = p.Name,
+                    Type = innerType,
+                    IsArray = isArray,
+                    Description = InnerFieldDescriptions.GetValueOrDefault(p.Name, string.Empty),
+                };
+            })
+            .ToList();
+    }
+
+    /// <summary>A CLR property type as a schema field: its scalar (or class) name, and whether it is a list.</summary>
+    private static (string Type, bool IsArray) Describe(Type propertyType)
+    {
+        var type = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
+        if (type.IsArray)
+            return (GraphQlTypeHelper.GetScalarType(type.GetElementType()!), true);
+        if (type.IsGenericType
+            && type.GetGenericArguments().Length == 1
+            && typeof(IEnumerable).IsAssignableFrom(type)
+            && type != typeof(string))
+            return (GraphQlTypeHelper.GetScalarType(type.GetGenericArguments()[0]), true);
+        return (GraphQlTypeHelper.GetScalarType(type), false);
     }
     public static void InjectDefaultValue<T>(this T entity) where T : GraphQlBaseEntity
     {
@@ -100,18 +127,9 @@ public static class DefaultValueInjection
 
     public static void InjectDefaultValueOnInsert(this Dictionary<string, object?> input)
     {
+        input[GraphQlConstant.DbEntityIdFieldName] = SuppliedItemId(input) ?? Guid.NewGuid().ToString();
+        input.Remove(nameof(GraphQlBaseEntity.ItemId));
 
-        if (input.TryGetValue(nameof(GraphQlBaseEntity.ItemId), out var value))
-        {
-            var itemId = value is null ? Guid.NewGuid().ToString() :
-                string.IsNullOrWhiteSpace(value.ToString()) ? Guid.NewGuid().ToString() : value.ToString();
-            input.Add(GraphQlConstant.DbEntityIdFieldName, itemId);
-            input.Remove(nameof(GraphQlBaseEntity.ItemId));
-        }
-        else
-        {
-            input.Add(GraphQlConstant.DbEntityIdFieldName, Guid.NewGuid().ToString());
-        }
         var nowDateTime = DateTime.UtcNow;
         input.Add(nameof(GraphQlBaseEntity.CreatedDate), nowDateTime);
         input.Add(nameof(GraphQlBaseEntity.LastUpdatedDate), nowDateTime);
@@ -126,6 +144,21 @@ public static class DefaultValueInjection
                 input.Add(nameof(GraphQlBaseEntity.OrganizationId), blocksCtx.OrganizationId);
             }
         }
+    }
+
+    /// <summary>
+    /// The id a client chose for the new row, or null. GraphQL input already carries it as <c>_id</c>
+    /// (<see cref="GraphQlTypeHelper.MapMutationInput"/> renames ItemId); input built elsewhere may still
+    /// use <c>ItemId</c>. A blank id counts as none.
+    /// </summary>
+    private static string? SuppliedItemId(Dictionary<string, object?> input)
+    {
+        foreach (var key in new[] { GraphQlConstant.DbEntityIdFieldName, nameof(GraphQlBaseEntity.ItemId) })
+        {
+            if (input.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value?.ToString()))
+                return value.ToString();
+        }
+        return null;
     }
 
     public static void InjectDefaultValueOnUpdate(this Dictionary<string, object?> input)

@@ -17,6 +17,9 @@ const GATEWAY_LABEL = "/gateway";
 /**
  * Endpoint and connected database, in the page bar.
  *
+ * The dot is green once the data-source config (read from Blocks OS) has loaded with a database name:
+ * the config does not carry an "active" flag, so "configured and readable" is what it shows.
+ *
  * This was nowhere in the old UI — people had to open the playground or the
  * configuration page to find out which database they were editing.
  */
@@ -51,7 +54,7 @@ export const EndpointChip = () => {
       <span
         className={cn(
           "h-1.5 w-1.5 shrink-0 rounded-full",
-          configuration?.isActive ? "bg-success" : "bg-muted-foreground/40",
+          configuration?.databaseName ? "bg-success" : "bg-muted-foreground/40",
         )}
         aria-hidden
       />

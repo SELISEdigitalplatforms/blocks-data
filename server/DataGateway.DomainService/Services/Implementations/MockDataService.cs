@@ -5,6 +5,7 @@ using DataGateway.DomainService.Models.Responses;
 using DataGateway.DomainService.Repositories;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 
@@ -22,7 +23,9 @@ public class MockDataService : IMockDataService
     {
         var response = new ServiceResponse<MockDataResponse>();
 
-        var schemaFilter = Builders<BsonDocument>.Filter.Eq(nameof(SchemaDefinition.SchemaType), 1);
+        var schemaFilter = Builders<BsonDocument>.Filter.And(
+            Builders<BsonDocument>.Filter.Eq(nameof(SchemaDefinition.SchemaType), 1),
+            Builders<BsonDocument>.Filter.Ne(nameof(SchemaDefinition.IsSystemEntity), true));
         var projection = new BsonDocument
         {
             { nameof(SchemaDefinition.CollectionName), 1 },

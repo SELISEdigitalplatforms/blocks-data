@@ -55,7 +55,7 @@ export function ConsoleHeader() {
               className={`flex w-full flex-wrap items-start gap-3 ${isConsoleButtonVisible ? "justify-between" : "justify-end"}`}
             >
               {isConsoleButtonVisible && (
-                <div className="min-w-fit flex-shrink">
+                <div className="min-w-fit shrink">
                   <BackToConsoleNavigator />
                 </div>
               )}

@@ -3,22 +3,48 @@ import { test } from "../../support/test-base";
 import { openEnvironment } from "../../support/navigation";
 import { dismissSessionConflictIfPresent } from "../../support/session-conflict";
 import { openDataGateway } from "../../support/open-data-gateway";
+import { waitVisible } from "../../support/wait-visible";
 
-async function openAnalytics(page: Page) {
+type AnalyticsEntry =
+  | { linkHidden: true }
+  | { linkHidden: false; configurationSettled: Promise<Response | null> };
+
+async function openAnalytics(page: Page): Promise<AnalyticsEntry> {
   await openDataGateway(page);
-  const analyticsTab = page.getByRole("link", { name: "Analytics" });
-  await expect(analyticsTab).toBeVisible({ timeout: 15_000 });
-  await analyticsTab.click();
+  // The "Analytics" section link renders only while the project's
+  // analyticsConfiguration.enableAnalytics is on (data-gateway-sections.tsx).
+  // Users reach the page through this link — report a hidden link and a
+  // missing configuration response as the two different outcomes they are.
+  const analyticsLink = page
+    .locator('nav[aria-label="Data Gateway sections"]')
+    .getByRole("link", { name: "Analytics" });
+  const linkVisible = await analyticsLink
+    .waitFor({ state: "visible", timeout: 8_000 })
+    .then(
+      () => true,
+      () => false,
+    );
+  if (!linkVisible) {
+    return { linkHidden: true };
+  }
+  // Arm BEFORE the click: the analytics page refetches the configuration on
+  // mount (staleTime 0) and that response decides the entitlement gate.
+  const configurationSettled = page
+    .waitForResponse((resp) => resp.url().includes("/api/configurations"), {
+      timeout: 20_000,
+    })
+    .catch(() => null);
+  await analyticsLink.click();
   await expect(page).toHaveURL(/\/analytics/, { timeout: 30_000 });
+  return { linkHidden: false, configurationSettled };
 }
 
 test.describe("flow: Data Gateway — Analytics page", () => {
-  // Single merged test that runs the whole spec as one Playwright test.
-  // Sections are run in dependency order: Data Gateway (Indexes, Access) → Analytics.
-  test("Data Gateway & Analytics — full flow (Indexes, Access pills, Analytics tabs and history)", async ({
-    page,
-  }) => {
-    test.setTimeout(900_000);
+  // Two tests: the Data Gateway sections run unconditionally, and the
+  // Analytics entitlement gate skips on its own without dragging the rest
+  // of the file into a "skipped" report.
+  test("Data Gateway — Indexes & Access flow", async ({ page }) => {
+    test.setTimeout(600_000);
     await page.setViewportSize({ width: 1440, height: 900 });
     await openEnvironment(page);
     await dismissSessionConflictIfPresent(page);
@@ -36,7 +62,7 @@ test.describe("flow: Data Gateway — Analytics page", () => {
         timeout: 30_000,
       });
       const addButton = page.getByRole("button", { name: "Add Schema", exact: true }).first();
-      if (await addButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (await waitVisible(addButton, 5_000)) {
         await addButton.click();
         await expect(page.getByRole("heading", { name: "Add New Schema" })).toBeVisible({
           timeout: 30_000,
@@ -125,7 +151,7 @@ test.describe("flow: Data Gateway — Analytics page", () => {
         timeout: 30_000,
       });
       const addButton = page.getByRole("button", { name: "Add Schema", exact: true }).first();
-      if (await addButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (await waitVisible(addButton, 5_000)) {
         await addButton.click();
       } else {
         await page.getByRole("button", { name: "Add", exact: true }).first().click();
@@ -148,7 +174,7 @@ test.describe("flow: Data Gateway — Analytics page", () => {
       const pill = page
         .getByRole("button", { name: /Logged-in users|Public|Custom|Inherited/ })
         .first();
-      if (await pill.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (await waitVisible(pill, 5_000)) {
         await pill.click();
         const drawer = page.getByRole("dialog");
         await expect(drawer).toBeVisible({ timeout: 10_000 });
@@ -161,11 +187,11 @@ test.describe("flow: Data Gateway — Analytics page", () => {
       // schema-access-drawer — so this step passes gracefully when they are absent.
       for (const name of ["Toggle row level security", "Toggle column level security"]) {
         const toggle = page.getByRole("switch", { name });
-        if (!(await toggle.isVisible({ timeout: 5_000 }).catch(() => false))) continue;
+        if (!(await waitVisible(toggle, 5_000))) continue;
         const initial = await toggle.getAttribute("aria-checked");
         await toggle.click();
         const dialog = page.getByRole("dialog");
-        if (await dialog.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        if (await waitVisible(dialog, 5_000)) {
           await page.getByRole("button", { name: "Cancel" }).click();
           await expect(dialog).toBeHidden({ timeout: 10_000 });
           await expect(toggle).toHaveAttribute("aria-checked", initial ?? "");
@@ -176,7 +202,7 @@ test.describe("flow: Data Gateway — Analytics page", () => {
     await test.step("Access: Child/nested field expansion round-trips when a child type exists", async () => {
       // Child rows render only for child-typed fields; expand/collapse is a graceful no-op otherwise.
       const expandButton = page.getByRole("button", { name: /Expand .* attributes/i }).first();
-      if (await expandButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (await waitVisible(expandButton, 5_000)) {
         await expandButton.click();
         const collapseButton = page.getByRole("button", { name: /Collapse /i }).first();
         await expect(collapseButton).toBeVisible({ timeout: 10_000 });
@@ -189,16 +215,16 @@ test.describe("flow: Data Gateway — Analytics page", () => {
 
     await test.step("Access: Bulk Action menu lists Duplicate/Delete items in edit mode", async () => {
       const editButton = page.getByRole("button", { name: "Edit", exact: true });
-      if (!(await editButton.isVisible({ timeout: 5_000 }).catch(() => false))) return;
+      if (!(await waitVisible(editButton, 5_000))) return;
       await editButton.click();
       await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeVisible({
         timeout: 15_000,
       });
       const selectAll = page.getByRole("checkbox", { name: "Select all properties" });
-      if (await selectAll.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (await waitVisible(selectAll, 5_000)) {
         await selectAll.click();
         const actionButton = page.getByRole("button", { name: "Action" });
-        if (await actionButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        if (await waitVisible(actionButton, 5_000)) {
           await actionButton.click();
           await expect(page.getByRole("menuitem", { name: "Duplicate" })).toBeVisible({
             timeout: 10_000,
@@ -223,11 +249,23 @@ test.describe("flow: Data Gateway — Analytics page", () => {
         timeout: 15_000,
       });
     });
+  });
 
-    // ------------------------------------------------------------------
-    // Section C: Analytics page
-    // ------------------------------------------------------------------
-    await openAnalytics(page);
+  test("Analytics — tabs, bucket/date controls, filters and history", async ({ page }) => {
+    test.setTimeout(480_000);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openEnvironment(page);
+    await dismissSessionConflictIfPresent(page);
+
+    const analytics = await openAnalytics(page);
+    test.skip(
+      analytics.linkHidden,
+      "Analytics section link is hidden — enableAnalytics is off for this project",
+    );
+    // test.skip threw above when hidden, so the link was visible here.
+    const configurationSettled = analytics.linkHidden
+      ? null
+      : analytics.configurationSettled;
 
     // Preview projects often have enableAnalytics=false / expired validTill.
     // When gated, the page shows an overlay and aria-hides the tablist — assert
@@ -240,7 +278,22 @@ test.describe("flow: Data Gateway — Analytics page", () => {
       await expect(unavailable.or(trafficTab).or(analyticsLabel).first()).toBeVisible({
         timeout: 30_000,
       });
-      if (await unavailable.isVisible().catch(() => false)) {
+
+      // The gate only renders once the configuration query resolves, which on
+      // a loaded dev backend lands after the tabs — settle on that decision
+      // before trusting the visible tabs as "granted". A response that never
+      // arrives is an environment failure, not "analytics disabled".
+      if (configurationSettled === null) {
+        throw new Error(
+          "Analytics configuration response did not arrive within 20s after opening /analytics",
+        );
+      }
+      await configurationSettled;
+      const gateAppeared = await unavailable
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (gateAppeared) {
         await expect(
           page.getByText(/Analytics is not available for this project/i),
         ).toBeVisible();
@@ -377,7 +430,7 @@ test.describe("flow: Data Gateway — Analytics page", () => {
 
     await test.step("Analytics: Requests sorting toggles Time ascending/descending via the column header", async () => {
       const sortButton = page.getByRole("button", { name: "Sort by Time" });
-      if (await sortButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (await waitVisible(sortButton, 5_000)) {
         await sortButton.click();
         await expect(page.locator('th[aria-sort="ascending"]')).toBeVisible({ timeout: 10_000 });
         await sortButton.click();
@@ -388,12 +441,12 @@ test.describe("flow: Data Gateway — Analytics page", () => {
     await test.step("Analytics: Requests row opens the details sheet and closes via the X button", async () => {
       // Clickable data rows carry cursor-pointer; the "No requests in this range" empty row does not.
       const dataRow = page.locator("table tbody tr.cursor-pointer").first();
-      if (await dataRow.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (await waitVisible(dataRow, 5_000)) {
         await dataRow.click();
         const sheet = page.locator('[role="dialog"]');
         await expect(sheet).toBeVisible({ timeout: 10_000 });
         const close = sheet.getByRole("button", { name: "Close details" });
-        if (await close.isVisible({ timeout: 5_000 }).catch(() => false)) {
+        if (await waitVisible(close, 5_000)) {
           await close.click();
           await expect(sheet).toBeHidden({ timeout: 10_000 });
         } else {

@@ -42,6 +42,7 @@ vi.mock("./schema-structure", () => ({
 }));
 
 import { ChildSchemaExpandableContent } from "./child-schema-expandable-content";
+import { OPERATION_ACCESS_SCHEMA_ID } from "../utils/schema-structure.utils";
 
 type RemoteField = {
   name: string;
@@ -229,5 +230,24 @@ describe("ChildSchemaExpandableContent", () => {
     );
 
     expect(screen.getByTestId("ss-policy")).toHaveTextContent("Policy");
+  });
+
+  it("shows OperationAccess's fixed lists without fetching anything, with their rules", () => {
+    useSchemaDetails.mockReturnValue({ data: undefined, isLoading: true });
+
+    render(
+      <ChildSchemaExpandableContent
+        schemaId={OPERATION_ACCESS_SCHEMA_ID}
+        projectKey="proj"
+        rootSchemaId="employee-id"
+        ancestorPath={["Read"]}
+      />,
+    );
+
+    expect(useSchemaDetails).toHaveBeenCalledWith(OPERATION_ACCESS_SCHEMA_ID, "proj", { enabled: false });
+    expect(screen.getByTestId("ss-fields")).toHaveTextContent('["Roles","UserIds","Permissions"]');
+    expect(screen.getByTestId("ss-loading")).toHaveTextContent("false");
+    expect(screen.getByTestId("ss-hide")).toHaveTextContent("undefined");
+    expect(screen.getByTestId("ss-ancestor")).toHaveTextContent('["Read"]');
   });
 });

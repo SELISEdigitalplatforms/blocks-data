@@ -3,11 +3,11 @@
 import React from "react";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { LogsViewer } from "@/service-logs";
-import { BREADCRUMB_CUSTOM_TITLES } from "@/constants/breadcrumb-custom-title";
+import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 
 export const StorageLogs = () => {
-  BREADCRUMB_CUSTOM_TITLES["/services/storage"] = "Storage";
-  BREADCRUMB_CUSTOM_TITLES["/services/storage/logs"] = "Logs";
+  setBreadcrumbTitle("/services/storage", "Storage");
+  setBreadcrumbTitle("/services/storage/logs", "Logs");
   return (
     <div>
       <PageBreadcrumb breadcrumbIndex={2} />

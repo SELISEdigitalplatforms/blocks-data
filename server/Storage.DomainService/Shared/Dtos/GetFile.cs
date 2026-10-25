@@ -2,6 +2,7 @@
 using MongoDB.Bson.Serialization.Attributes;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
+using Blocks.Genesis.Entities.Data;
 
 namespace Storage.DomainService.Dtos
 {

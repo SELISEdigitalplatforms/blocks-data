@@ -100,9 +100,9 @@ export const Signin = ({ ssoError }: SigninProps) => {
           {loginOption?.allowedGrantTypes.includes(GRANT_TYPES.password) && <SigninForm />}
           {loginOption?.allowedGrantTypes.includes(GRANT_TYPES.password) && (
             <div className="my-2 mt-4 flex items-center">
-              <hr className="flex-grow border" />
+              <hr className="grow border" />
               <span className="mx-2 text-xs text-low-emphasis">OR</span>
-              <hr className="flex-grow border" />
+              <hr className="grow border" />
             </div>
           )}
           {loginOption?.allowedGrantTypes.includes(GRANT_TYPES.social) && (

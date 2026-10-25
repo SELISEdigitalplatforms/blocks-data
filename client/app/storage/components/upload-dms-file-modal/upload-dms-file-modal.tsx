@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -84,7 +84,6 @@ export const UploadDmsFileModal = ({
 }: UploadDmsFileModalProps) => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [files, setFiles] = useState<File[]>([]);
-  const [, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [objectAccessLevel, setObjectAccessLevel] = useState("");
   const [accessModifier, setAccessModifier] = useState<StorageAccessModifier>("Private");
@@ -95,18 +94,12 @@ export const UploadDmsFileModal = ({
   const { mutateAsync: uploadfileMutate } = useUploadFile();
   const { mutateAsync: completeUploadMutate } = useCompleteUpload();
 
-  useEffect(() => {
-    const urls = files.map((f) => URL.createObjectURL(f));
-    setPreviews(urls);
-    return () => urls.forEach(URL.revokeObjectURL);
-  }, [files]);
 
   const removeFile = (idx: number) => setFiles((prev) => prev.filter((_, i) => i !== idx));
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen && !isUploading) {
       setFiles([]);
-      setPreviews([]);
       setObjectAccessLevel("");
       setAccessModifier("Private");
     }
@@ -219,7 +212,6 @@ export const UploadDmsFileModal = ({
 
       // Reset state
       setFiles([]);
-      setPreviews([]);
       setObjectAccessLevel("");
       setAccessModifier("Private");
       handleOpenChange(false);
@@ -274,7 +266,7 @@ export const UploadDmsFileModal = ({
                 multiple: true,
               }}
             >
-              <FileInput className="flex min-h-36 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-primary/30 bg-primary/[0.03] px-4 py-6 text-center transition-colors hover:border-primary/60 hover:bg-primary/[0.06]">
+              <FileInput className="flex min-h-36 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-primary/30 bg-primary/3 px-4 py-6 text-center transition-colors hover:border-primary/60 hover:bg-primary/6">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <CloudUpload className="h-5 w-5" aria-hidden="true" />
                 </div>
@@ -300,7 +292,7 @@ export const UploadDmsFileModal = ({
                     onClick={() => setAccessModifier(o.value)}
                     disabled={isUploading}
                     className={cn(
-                      "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                      "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-hidden focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
                       active
                         ? "bg-primary text-primary-foreground"
                         : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -330,7 +322,7 @@ export const UploadDmsFileModal = ({
                     onClick={() => setObjectAccessLevel(o.value)}
                     disabled={isUploading}
                     className={cn(
-                      "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
+                      "border-r border-input px-3 py-1.5 text-sm font-medium transition-colors last:border-r-0 focus:relative focus:outline-hidden focus:ring-2 focus:ring-ring disabled:pointer-events-none disabled:opacity-50",
                       active
                         ? "bg-primary text-primary-foreground"
                         : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",

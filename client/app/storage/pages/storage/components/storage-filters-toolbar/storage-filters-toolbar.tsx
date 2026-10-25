@@ -78,7 +78,7 @@ export function StorageFiltersToolbar({
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onAddConfiguration}>
             <Plus className="mr-2 h-4 w-4" />
-            Add Configuration
+            Configure in Blocks OS
           </DropdownMenuItem>
           {/* <DropdownMenuItem onClick={onConnectStorage}>
             <Plus className="mr-2 h-4 w-4" />

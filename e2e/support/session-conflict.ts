@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test"
+import { waitVisible } from "./wait-visible"
 
 /**
  * Genesis-OS ImpersonationBlocked / session-moved overlays.
@@ -24,7 +25,7 @@ export async function dismissSessionConflictIfPresent(page: Page): Promise<boole
     .waitFor({ state: "visible", timeout: 2_000 })
     .then(() => true)
     .catch(() => false)
-  if (returnedVisible && (await reopen.isVisible({ timeout: 2_000 }).catch(() => false))) {
+  if (returnedVisible && (await waitVisible(reopen, 2_000))) {
     await reopen.click()
     await expect(returnedHeading.or(reopen).first())
       .toBeHidden({ timeout: 20_000 })

@@ -17,11 +17,12 @@ import SchemaAccessControlDrawer from "./schema-access-control-drawer";
 import { AccessVerbPill } from "./primitives";
 import { readonlyPropertyNames } from "../constants/input-restrictions";
 import { ISchemaDetails } from "../models/data-service";
-import { useDeleteSchema, useSchemaIndexes } from "../hooks/use-configuration";
+import { useDeleteSchema, usePendingSchemaIds, useSchemaIndexes } from "../hooks/use-configuration";
 import { useNarrowContainer } from "../hooks/use-narrow-container";
+import { SCHEMA_LIVE_STATE_LABELS, schemaLiveState } from "../utils/schema-live-state";
 import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
-import { Database, Eye, MoreVertical, Shield, Trash2 } from "lucide-react";
+import { CloudOff, CloudUpload, Database, Eye, MoreVertical, Shield, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 /** Below this width the header can no longer fit Preview + Schema Access +
@@ -73,6 +74,8 @@ export const SchemaBasicInfo = ({
 
   const { isPending: isDeleteSchemaPending, mutateAsync: deleteAsync } = useDeleteSchema();
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
+  const pendingSchemaIds = usePendingSchemaIds(projectKey);
+  const liveState = schemaLiveState(props, pendingSchemaIds);
 
   const onConfirmDelete = async () => {
     try {
@@ -157,7 +160,7 @@ export const SchemaBasicInfo = ({
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="min-w-0 break-words text-sm font-semibold text-foreground">
+                <h2 className="min-w-0 wrap-break-word text-sm font-semibold text-foreground">
                   {schemaName}
                 </h2>
                 <span
@@ -168,6 +171,18 @@ export const SchemaBasicInfo = ({
                 >
                   {schemaType}
                 </span>
+                {liveState === "not-live" && (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-warning-500/50 bg-warning-100 px-1.5 py-0.5 text-[10.5px] font-medium leading-none text-warning-800">
+                    <CloudOff className="h-3 w-3" aria-hidden />
+                    {SCHEMA_LIVE_STATE_LABELS["not-live"]}
+                  </span>
+                )}
+                {liveState === "unpublished" && (
+                  <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium text-warning-800">
+                    <CloudUpload className="h-3 w-3 text-warning-500" aria-hidden />
+                    {SCHEMA_LIVE_STATE_LABELS.unpublished}
+                  </span>
+                )}
               </div>
               {/* Narrow: collection and counts stack on two lines, without the
                   dot, which a wrapping line would leave dangling at its end. */}
@@ -190,6 +205,13 @@ export const SchemaBasicInfo = ({
                 )}
                 <span>{fieldsSummary}</span>
               </div>
+              {liveState && (
+                <p className="text-[11px] text-warning-800">
+                  {liveState === "not-live"
+                    ? "Not in the live version. Apps using the API can't query it until you publish."
+                    : "The live version doesn't include the latest changes to this schema. Publish to apply them."}
+                </p>
+              )}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">

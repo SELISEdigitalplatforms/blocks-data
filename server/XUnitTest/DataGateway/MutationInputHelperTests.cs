@@ -1,4 +1,6 @@
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
@@ -18,6 +20,148 @@ public class MutationInputHelperTests
         }),
         Field("Courses", "Course", isArray: true, children: new() { Field("Title", "String") })
     });
+
+    [Fact]
+    public void AddRequesterToAccessLists_AddsTheRequesterOnce_KeepingWhatWasSent()
+    {
+        XUnitTest.Infrastructure.BlocksTestContext.Set(userId: "user-1");
+        try
+        {
+            var input = new Dictionary<string, object?>
+            {
+                ["Read"] = new Dictionary<string, object?> { ["UserIds"] = new List<object?> { "user-9" }, ["Roles"] = new List<object?> { "admin" } },
+                ["Update"] = new Dictionary<string, object?> { ["UserIds"] = new List<object?> { "user-1" } },
+            };
+
+            MutationInputHelper.AddRequesterToAccessLists(input, SchemaWithAccessLists());
+
+            var read = (Dictionary<string, object?>)input["Read"]!;
+            read["UserIds"].Should().BeEquivalentTo(new object?[] { "user-9", "user-1" }, o => o.WithStrictOrdering());
+            read["Roles"].Should().BeEquivalentTo(new object?[] { "admin" });
+            ((Dictionary<string, object?>)input["Update"]!)["UserIds"].Should().BeEquivalentTo(new object?[] { "user-1" });
+            ((Dictionary<string, object?>)input["Delete"]!)["UserIds"].Should().BeEquivalentTo(new object?[] { "user-1" });
+            input.Should().NotContainKey("Create");
+        }
+        finally
+        {
+            XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        }
+    }
+
+    [Fact]
+    public void AddRequesterToAccessLists_WithoutASignedInUser_AddsNothing()
+    {
+        XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        var input = new Dictionary<string, object?>();
+
+        MutationInputHelper.AddRequesterToAccessLists(input, SchemaWithAccessLists());
+
+        input.Should().BeEmpty();
+    }
+
+    /// <summary>A schema with the platform access lists, as schema saving adds them (type OperationAccess).</summary>
+    private static SchemaDefinitionExtended SchemaWithAccessLists(params string[] names) => Schema(fields:
+        (names.Length == 0 ? ["Create", "Read", "Update", "Delete"] : names)
+            .Select(name => Field(name, "OperationAccess", children: new()
+            {
+                Field("Roles", "String", isArray: true),
+                Field("UserIds", "String", isArray: true),
+                Field("Permissions", "String", isArray: true),
+            }))
+            .Prepend(Field("Title", "String"))
+            .ToList());
+
+    [Fact]
+    public void AddRequesterToAccessLists_SchemaWithoutTheProperties_AddsNothing()
+    {
+        XUnitTest.Infrastructure.BlocksTestContext.Set(userId: "user-1");
+        try
+        {
+            var input = new Dictionary<string, object?> { ["Title"] = "Prepare contract" };
+
+            MutationInputHelper.AddRequesterToAccessLists(input, Schema(fields: new() { Field("Title", "String") }));
+
+            input.Keys.Should().Equal("Title");
+        }
+        finally
+        {
+            XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        }
+    }
+
+    [Fact]
+    public void AddRequesterToAccessLists_APropertyOfThatNameWithAnotherType_IsARegularProperty()
+    {
+        XUnitTest.Infrastructure.BlocksTestContext.Set(userId: "user-1");
+        try
+        {
+            var schema = Schema(fields: new()
+            {
+                Field("Title", "String"),
+                Field("Update", "String"),
+                Field("Delete", "Boolean"),
+            });
+            var input = new Dictionary<string, object?>
+            {
+                ["Title"] = "Prepare contract",
+                ["Update"] = "Waiting for client documents",
+                ["Delete"] = false,
+            };
+
+            MutationInputHelper.AddRequesterToAccessLists(input, schema);
+
+            input["Update"].Should().Be("Waiting for client documents");
+            input["Delete"].Should().Be(false);
+            input.Should().NotContainKey("Read");
+        }
+        finally
+        {
+            XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        }
+    }
+
+    [Fact]
+    public void AddRequesterToAccessLists_ALowercasePropertyOfAnotherType_GetsNoAccessListBesideIt()
+    {
+        // Almora's Notification has its own "read" (Boolean) and no platform Read list.
+        XUnitTest.Infrastructure.BlocksTestContext.Set(userId: "user-1");
+        try
+        {
+            var schema = Schema(fields: new() { Field("Message", "String"), Field("read", "Boolean") });
+            var input = new Dictionary<string, object?> { ["Message"] = "Case approved", ["read"] = false };
+
+            MutationInputHelper.AddRequesterToAccessLists(input, schema);
+
+            input.Should().BeEquivalentTo(new Dictionary<string, object?> { ["Message"] = "Case approved", ["read"] = false });
+        }
+        finally
+        {
+            XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        }
+    }
+
+    [Fact]
+    public void AddRequesterToAccessLists_DecidesPerProperty()
+    {
+        XUnitTest.Infrastructure.BlocksTestContext.Set(userId: "user-1");
+        try
+        {
+            var schema = SchemaWithAccessLists("Create", "Read", "Update");
+            schema.Fields.Add(Field("Delete", "Boolean"));
+            var input = new Dictionary<string, object?> { ["Title"] = "Prepare contract", ["Delete"] = false };
+
+            MutationInputHelper.AddRequesterToAccessLists(input, schema);
+
+            ((Dictionary<string, object?>)input["Read"]!)["UserIds"].Should().BeEquivalentTo(new object?[] { "user-1" });
+            ((Dictionary<string, object?>)input["Update"]!)["UserIds"].Should().BeEquivalentTo(new object?[] { "user-1" });
+            input["Delete"].Should().Be(false);
+            input.Should().NotContainKey("Create");
+        }
+        finally
+        {
+            XUnitTest.Infrastructure.BlocksTestContext.Clear();
+        }
+    }
 
     [Fact]
     public void GetAllPathsFromInput_FlatAndNested()
@@ -193,13 +337,13 @@ public class MutationInputHelperClsTests
     }
 
     [Fact]
-    public void EvaluateClsPoliciesForInput_BlocksCloud_GrantsAll()
+    public void EvaluateClsPoliciesForInput_Impersonated_GrantsAll()
     {
         ClearContext();
-        SetBlocksCloud(true);
+        SetContext(impersonated: true);
         try
         {
-            var result = MutationInputHelper.EvaluateClsPoliciesForInput(
+            var result = MutationInputHelper.EvaluateClsPoliciesForInput(CurrentPrincipal(), 
                 CustomSchema(), PolicyOperation.WRITE, new List<string> { "Salary" });
             result.IsAccessGranted.Should().BeTrue();
             result.ExcludedFields.Should().BeEmpty();
@@ -214,7 +358,7 @@ public class MutationInputHelperClsTests
         SetContext(isAuthenticated: true);
         try
         {
-            var result = MutationInputHelper.EvaluateClsPoliciesForInput(
+            var result = MutationInputHelper.EvaluateClsPoliciesForInput(CurrentPrincipal(), 
                 CustomSchema(), PolicyOperation.WRITE, new List<string> { "Name", "Salary" });
             result.ExcludedFields.Should().Contain("Salary");
             result.ExcludedFields.Should().NotContain("Name"); // public field allowed
@@ -229,7 +373,7 @@ public class MutationInputHelperClsTests
         SetContext();
         try
         {
-            var result = MutationInputHelper.EvaluateClsPoliciesForInput(
+            var result = MutationInputHelper.EvaluateClsPoliciesForInput(CurrentPrincipal(), 
                 CustomSchema(), PolicyOperation.WRITE, new List<string> { "GhostField" });
             result.ExcludedFields.Should().Contain("GhostField");
         }
@@ -240,7 +384,7 @@ public class MutationInputHelperClsTests
     public void ShouldExcludeFieldByCls_NoPolicies_False()
     {
         var schema = Schema(fields: new() { Field("X", "String") });
-        MutationInputHelper.ShouldExcludeFieldByCls(schema, PolicyOperation.WRITE, "X", SchemaAccessLevel.Custom)
+        MutationInputHelper.ShouldExcludeFieldByCls(CurrentPrincipal(), schema, PolicyOperation.WRITE, "X", SchemaAccessLevel.Custom)
             .Should().BeFalse();
     }
 }

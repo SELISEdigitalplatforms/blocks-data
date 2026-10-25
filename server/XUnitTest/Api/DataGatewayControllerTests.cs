@@ -9,6 +9,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using Blocks.Genesis.Entities.Data;
 using static XUnitTest.DataGateway.TestSupport;
 
 namespace XUnitTest.Api;
@@ -21,6 +22,9 @@ namespace XUnitTest.Api;
 public class DataGatewayControllerTests
 {
     private static int Status(IActionResult r) => ((ObjectResult)r).StatusCode!.Value;
+
+    private static IAccessGrantGuard AllowAllGuard() =>
+        Mock.Of<IAccessGrantGuard>(g => g.IsAllowed(It.IsAny<string>()));
 
     private static ServiceResponse<ActionResponse> Ok() =>
         new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true });
@@ -206,7 +210,7 @@ public class DataGatewayControllerTests
         svc.Setup(s => s.DeleteDataAccessPolicyAsync("i1")).ReturnsAsync(Ok());
         svc.Setup(s => s.GetEntityDataAccessPolicyAsync("Person"))
             .ReturnsAsync(new ServiceResponse<List<DataAccessPolicyResponse>>().SetSuccess(new List<DataAccessPolicyResponse>()));
-        var c = new DataAccessController(svc.Object);
+        var c = new DataAccessController(svc.Object, AllowAllGuard());
 
         Status(await c.ConfigureSecurity(new ConfigureSchemaSecurityRequest())).Should().Be(200);
         Status(await c.CreateDataAccessPolicy(new CreateDataAccessPolicyRequest())).Should().Be(200);
@@ -215,45 +219,6 @@ public class DataGatewayControllerTests
         Status(await c.DeleteDataAccessPolicy("i1")).Should().Be(200);
         Status(await c.GetDataAccessPolicy("")).Should().Be(400);
         Status(await c.GetDataAccessPolicy("Person")).Should().Be(200);
-    }
-
-    // ---------------- ConfigurationController ----------------
-
-    [Fact]
-    public async Task Configuration_Get_Insert_Update_HappyPaths()
-    {
-        ClearContext();
-        SetContext(tenantId: "t1");
-        try
-        {
-            var svc = new Mock<IDataGatewayConfigurationService>();
-            svc.Setup(s => s.GetConfiguration(It.IsAny<string>()))
-                .ReturnsAsync(new ServiceResponse<DataGatewayConfigurationResponse>().SetSuccess(new DataGatewayConfigurationResponse()));
-            svc.Setup(s => s.InsertConfiguration(It.IsAny<CreateDataGatewayConfigurationRequest>())).ReturnsAsync(Ok());
-            svc.Setup(s => s.UpdateConfiguration(It.IsAny<UpdateDataGatewayConfigurationRequest>())).ReturnsAsync(Ok());
-            var c = new ConfigurationController(svc.Object, NullLogger<ConfigurationController>.Instance);
-
-            (await c.GetConfigurationAsync()).Should().BeOfType<OkObjectResult>();
-            Status(await c.InsertDataSourceAsync(new CreateDataGatewayConfigurationRequest())).Should().Be(200);
-            Status(await c.UpdateDataSourceAsync(new UpdateDataGatewayConfigurationRequest())).Should().Be(200);
-        }
-        finally { ClearContext(); }
-    }
-
-    [Fact]
-    public async Task Configuration_Get_OnException_Returns500()
-    {
-        ClearContext();
-        SetContext(tenantId: "t1");
-        try
-        {
-            var svc = new Mock<IDataGatewayConfigurationService>();
-            svc.Setup(s => s.GetConfiguration(It.IsAny<string>())).ThrowsAsync(new InvalidOperationException("boom"));
-            var c = new ConfigurationController(svc.Object, NullLogger<ConfigurationController>.Instance);
-
-            Status(await c.GetConfigurationAsync()).Should().Be(500);
-        }
-        finally { ClearContext(); }
     }
 
     // ---------------- GraphLogController ----------------

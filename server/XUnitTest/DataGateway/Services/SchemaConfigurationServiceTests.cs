@@ -1,10 +1,11 @@
+using MongoDB.Bson;
 using System.Net;
 using Blocks.Genesis;
 using DataGateway.DomainService;
 using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models.Constants;
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
@@ -179,8 +180,9 @@ public class SchemaConfigurationServiceTests
         await harness.Service.ReloadAsync(tenantId!, CancellationToken.None);
 
         harness.Resolver.Verify(r => r.EvictRequestExecutor(Schema.DefaultName), Times.Once);
-        (await _db.GetCollection<SchemaPublishState>("SchemaPublishStates").CountDocumentsAsync(FilterDefinition<SchemaPublishState>.Empty))
+        (await _db.GetCollection<BsonDocument>("PublishedSchemaSnapshotChunks").CountDocumentsAsync(new BsonDocument("_id", SchemaPublishState.StateId)))
             .Should().Be(0, "a blank tenant has no version to raise");
+        (await _db.ListCollectionNames().ToListAsync()).Should().NotContain("SchemaPublishStates");
     }
 
     [Fact]

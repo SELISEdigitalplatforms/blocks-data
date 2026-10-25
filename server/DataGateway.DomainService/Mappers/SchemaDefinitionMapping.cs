@@ -1,4 +1,6 @@
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.DataAccess;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 
@@ -66,81 +68,8 @@ public static class SchemaDefinitionMapping
         }
         return fieldResponses;
     }
-    public static List<FieldDefinitionResponse> GetFieldDefinitionResponses(List<FieldDefinition> fields, List<DataAccessPolicy> policies, List<DataValidation> validations, string parentPath = "")
-    {
-        var fieldResponses = new List<FieldDefinitionResponse>();
-        var isRoot = string.IsNullOrWhiteSpace(parentPath);
-
-        // At root: direct fields are those with ReferenceFieldPath == ""
-        // At nested level: direct children are unique first segments under parentPath
-        List<string> directChildSegments;
-        if (isRoot)
-        {
-            directChildSegments = fields
-                .Where(f => !f.IsReferenceField)
-                .Select(f => f.Name)
-                .Distinct()
-                .ToList();
-        }
-        else
-        {
-            var prefix = parentPath + ".";
-            directChildSegments = fields
-                .Where(f => f.Name.StartsWith(prefix))
-                .Select(f =>
-                {
-                    var afterPrefix = f.Name.Substring(prefix.Length);
-                    var nextDot = afterPrefix.IndexOf('.');
-                    return nextDot >= 0 ? afterPrefix.Substring(0, nextDot) : afterPrefix;
-                })
-                .Distinct()
-                .ToList();
-        }
-
-        foreach (var segment in directChildSegments)
-        {
-            var currentPath = isRoot ? segment : parentPath + "." + segment;
-            var field = fields.FirstOrDefault(f => f.Name == currentPath);
-
-            FieldDefinitionResponse fieldResponse;
-            if (field != null)
-            {
-                fieldResponse = field.MapFieldToResponse(policies);
-                if (GraphQlTypeHelper.IsScalar(field.Type))
-                {
-                    fieldResponse.ValidationRule = validations.FirstOrDefault(v => v.FieldName == currentPath);
-                }
-                else
-                {
-                    fieldResponse.Fields = GetFieldDefinitionResponses(fields, policies, validations, currentPath);
-                }
-            }
-            else
-            {
-                // Synthetic reference node (e.g. Child.L2Child with only Child.L2Child.Name and Child.L2Child.Qty)
-                var descendantPrefix = currentPath + ".";
-                fieldResponse = new FieldDefinitionResponse
-                {
-                    Name = segment,
-                    Type = fields.FirstOrDefault(f =>
-                        f.Name.StartsWith(descendantPrefix, StringComparison.Ordinal))?.ReferenceFieldType ?? string.Empty,
-                    IsArray = false,
-                    IsPIIData = false,
-                    IsUniqueData = false,
-                    Description = string.Empty,
-                    Fields = GetFieldDefinitionResponses(fields, policies, validations, currentPath),
-                    ReadAccessLevel = SchemaAccessLevel.Inherited,
-                    WriteAccessLevel = SchemaAccessLevel.Inherited,
-                    EditAccessLevel = SchemaAccessLevel.Inherited,
-                    DeleteAccessLevel = SchemaAccessLevel.Inherited
-                };
-            }
-
-            fieldResponses.Add(fieldResponse);
-        }
-
-        return fieldResponses;
-    }
+    public static List<FieldDefinitionResponse> GetFieldDefinitionResponses(List<FieldDefinition> fields, List<DataAccessPolicy> policies, List<DataValidation> validations, string parentPath = "") =>
+        FieldDefinitionMapper.GetFieldDefinitionResponses(fields, policies, validations, parentPath);
 
     public static List<CollectionFieldResponse> MapToCollectionFields(this List<FieldDefinitionResponse> fields)
     {
@@ -188,37 +117,7 @@ public static class SchemaDefinitionMapping
     }
 
 
-    private static FieldDefinitionResponse MapFieldToResponse(this FieldDefinition field, IEnumerable<DataAccessPolicy> policies = null)
-    {
-        var fieldNameParts = field.Name?.Split('.') ?? [];
-        var response = new FieldDefinitionResponse
-        {
-            Name = fieldNameParts is null || fieldNameParts.Length < 1 ? string.Empty : fieldNameParts.Last(),
-            Type = field.Type,
-            IsArray = field.IsArray,
-            EnumValues = field.EnumValues ?? [],
-            IsPIIData = field.IsPIIData,
-            IsUniqueData = field.IsUniqueData,
-            Description = !string.IsNullOrEmpty(field.Description)
-                ? field.Description
-                : DefaultValueInjection.DefaultFieldDescriptions.TryGetValue(field.Name, out var fallback)
-                    ? fallback
-                    : string.Empty,
-            RequiredOn = field.RequiredOn,
-            ReadAccessLevel = field.ReadAccessLevel,
-            WriteAccessLevel = field.WriteAccessLevel,
-            EditAccessLevel = field.EditAccessLevel,
-            DeleteAccessLevel = field.DeleteAccessLevel
-        };
-        if (policies is not null)
-        {
-            response.TotalReadPolicies = policies.Count(p => p.PolicyType == PolicyType.CLS && p.Operation == PolicyOperation.READ && p.FieldNames.Contains(field.Name));
-            response.TotalWritePolicies = policies.Count(p => p.PolicyType == PolicyType.CLS && p.Operation == PolicyOperation.WRITE && p.FieldNames.Contains(field.Name));
-            response.TotalEditPolicies = policies.Count(p => p.PolicyType == PolicyType.CLS && p.Operation == PolicyOperation.EDIT && p.FieldNames.Contains(field.Name));
-            response.TotalDeletePolicies = policies.Count(p => p.PolicyType == PolicyType.CLS && p.Operation == PolicyOperation.DELETE && p.FieldNames.Contains(field.Name));
-        }
-
-        return response;
-    }
+    private static FieldDefinitionResponse MapFieldToResponse(this FieldDefinition field, IEnumerable<DataAccessPolicy>? policies = null) =>
+        FieldDefinitionMapper.MapFieldToResponse(field, policies);
 
 }

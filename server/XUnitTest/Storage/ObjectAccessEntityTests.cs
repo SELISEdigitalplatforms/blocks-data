@@ -3,6 +3,7 @@ using MongoDB.Bson;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
 using XUnitTest.Infrastructure;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.Storage;
 
@@ -181,6 +182,6 @@ public class ObjectAccessEntityTests
         Enum.GetNames<ObjectEffect>().Should().BeEquivalentTo("Allow", "Deny");
         Enum.GetNames<ObjectPrincipalType>().Should().BeEquivalentTo(
             "User", "Role", "Everyone", "Organization");
-        Enum.GetNames<ObjectResourceType>().Should().BeEquivalentTo("Directory", "File");
+        Enum.GetNames<ObjectResourceType>().Should().BeEquivalentTo("Directory", "File", "SchemaExport", "DataRecord");
     }
 }

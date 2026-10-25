@@ -11,12 +11,16 @@ export interface IDefaultResponse {
   errors: string[];
 }
 
+/** The connection string is never returned: only which kind is saved. */
+export type DataSourceConnectionType = "Default" | "Custom";
+
 export interface IDataSourceResponse {
   projectKey: string;
+  projectShortKey?: string;
   databaseName: string;
-  dbConnectionString: string;
+  connectionType: DataSourceConnectionType;
   ItemId?: string;
-  isActive: boolean;
+  itemId?: string;
   isCollectionNameEditable?: boolean;
   collectionNamePattern?: string;
   analyticsConfiguration?: IAnalyticsConfiguration;
@@ -27,6 +31,8 @@ export interface IUnadaptedChangeLogsResponse {
   isSuccess: boolean;
   data: Array<{
     changeType: number;
+    /** The schema the change belongs to. */
+    schemaId?: string;
   }>;
 }
 
@@ -125,11 +131,34 @@ export interface IField {
   writeAccessLevel?: number;
   totalValidationRules?: number;
   validationRule?: IFieldValidationRule | null;
+  /** Filled in on insert when the property isn't sent; null when none. */
+  defaultValue?: IFieldDefaultValue | null;
   /** Nested fields for custom/child type properties */
   fields?: IField[];
 }
 
 export type RequiredOn = "None" | "Insert" | "Update" | "Both";
+
+/** How a default is produced: a fixed value, text built from variables, or the insert time. */
+export type DefaultValueKind = "Static" | "Template" | "Now";
+
+/** A property's default value (Genesis FieldDefaultValue). */
+export interface IFieldDefaultValue {
+  kind: DefaultValueKind;
+  /** Static: a value, or a list for a list property. Template: a template, or a list of them. */
+  value?: string | number | boolean | Array<string | number | boolean> | null;
+  /** Now only: the shift from the insert time; each part may be negative. */
+  offset?: { days: number; hours: number; minutes: number; seconds: number } | null;
+}
+
+export interface ISetFieldDefaultPayload {
+  schemaId: string;
+  /** A nested property by its full dotted path, e.g. Read.Roles. */
+  fieldName: string;
+  /** Null clears the default. */
+  defaultValue: IFieldDefaultValue | null;
+  projectKey: string;
+}
 
 export interface ISchemaDetails {
   id: string;
@@ -155,6 +184,12 @@ export interface ISchemaDetails {
   editAccessLevel: number;
   readAccessLevel: number;
   writeAccessLevel: number;
+  /**
+   * Whether the live published version contains this schema. False for a
+   * schema added after it (for example after a rollback); null or absent when
+   * the server doesn't know (nothing published yet).
+   */
+  isLive?: boolean | null;
 }
 
 /** Grants at one tier, for a single verb. */
@@ -214,6 +249,8 @@ export interface IRemoteSchemaField {
   writeAccessLevel?: number;
   totalValidationRules?: number;
   validationRule?: IFieldValidationRule | null;
+  /** Filled in on insert when the property isn't sent; null when none. */
+  defaultValue?: IFieldDefaultValue | null;
   /** Nested fields for custom/child type properties */
   fields?: IRemoteSchemaField[];
 }
@@ -426,12 +463,21 @@ export interface IGetSchemaFieldValidationPayload {
   enabled?: boolean;
 }
 
+/** A rule's value: a pattern or text, a number (lengths, numeric bounds), or true/false. */
+export type ValidationRuleValue = string | number | boolean | null;
+
 export interface ISchemaFieldValidation {
+  /** ValidationType number; see VALIDATION_TYPE in utils/validation-rules.util. */
   type: number;
-  value: string;
-  secondaryValue: string;
+  value: ValidationRuleValue;
+  secondaryValue: ValidationRuleValue;
   errorMessage: string;
   isActive: boolean;
+  /**
+   * 0 or missing: the rule behaves as rules always have (a list property is checked as a whole).
+   * 1: a list property is checked item by item. Rules added or edited here are saved as 1.
+   */
+  evaluationVersion?: number;
 }
 
 export interface ISchemaFieldValidationData {

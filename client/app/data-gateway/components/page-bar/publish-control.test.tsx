@@ -23,7 +23,7 @@ vi.mock("../../hooks/use-configuration", () => ({
     mutateAsync: reloadMutateAsync,
     isPending: reloadIsPending.current,
   }),
-  useSchemaVersionHistory: () => useSchemaVersionHistory(),
+  useSchemaVersionHistory: (...args: unknown[]) => useSchemaVersionHistory(...args),
   useSchemaRollback: () => ({ mutateAsync: rollbackMutateAsync, isPending: false }),
 }));
 
@@ -57,7 +57,7 @@ describe("PublishControl", () => {
     render(<PublishControl />);
 
     expect(screen.queryByText(/unpublished/)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button"));
+    await user.click(screen.getByRole("button", { name: "Publish" }));
     await waitFor(() => expect(reloadMutateAsync).toHaveBeenCalled());
   });
 
@@ -180,11 +180,15 @@ describe("PublishControl", () => {
       expect(screen.getByText(/live v12/)).toBeInTheDocument();
     });
 
-    it("leaves the version and the history out without access to it", () => {
+    it("requests history only when opened and shows a failed read", async () => {
+      const user = userEvent.setup();
+      useSchemaVersionHistory.mockReturnValue({ data: undefined, isError: true });
       render(<PublishControl />);
-
+      expect(useSchemaVersionHistory).toHaveBeenLastCalledWith({ projectKey: "t1", enabled: false });
+      await user.click(screen.getByRole("button", { name: "Version history" }));
+      expect(useSchemaVersionHistory).toHaveBeenLastCalledWith({ projectKey: "t1", enabled: true });
+      expect(screen.getByText("Version history is unavailable.")).toBeInTheDocument();
       expect(screen.getByText("Published")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Version history" })).not.toBeInTheDocument();
     });
 
     it("lists the kept versions with the live one marked", async () => {

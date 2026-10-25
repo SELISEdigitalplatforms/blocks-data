@@ -5,6 +5,7 @@ using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Validators;
 
@@ -33,7 +34,7 @@ public class FieldDefinitionRequestValidator : AbstractValidator<FieldDefinition
 
         RuleFor(x => x.Type)
             .NotEmpty().WithMessage(TypeRequired)
-            .Must((request, type) => IsValidType(type))
+            .Must((request, type) => DefaultValueInjection.IsBaseEntityField(request.Name, type) || IsValidType(type))
             .WithMessage(TypeValid);
 
         RuleFor(x => x.EnumValues)
@@ -73,7 +74,9 @@ public class FieldDefinitionRequestValidator : AbstractValidator<FieldDefinition
         if (isValid)
             return true;
 
-        var filter = Builders<SchemaDefinition>.Filter.Eq(s => s.SchemaName, type);
+        var filter = Builders<SchemaDefinition>.Filter.And(
+            Builders<SchemaDefinition>.Filter.Eq(s => s.SchemaName, type),
+            Builders<SchemaDefinition>.Filter.Ne(s => s.IsSystemEntity, true));
         var customSchema = _dbRepository.GetItemAsync<SchemaDefinition>(filter).Result;
         return customSchema is not null;
     }

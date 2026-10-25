@@ -1,13 +1,11 @@
 import { type Page, type Locator, expect } from "@playwright/test";
+import { waitVisible } from "../support/wait-visible";
 
 export class ImportSchemaModal {
   constructor(private page: Page) {}
 
   isDialogOpen(timeout = 5_000): Promise<boolean> {
-    return this.page
-      .getByRole("dialog")
-      .isVisible({ timeout })
-      .catch(() => false);
+    return waitVisible(this.page.getByRole("dialog"), timeout);
   }
 
   getDialog(): Locator {

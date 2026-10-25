@@ -1,3 +1,5 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
@@ -162,24 +164,6 @@ public class BsonConversionHelperTests
         var now = DateTime.UtcNow;
         var result = BsonConversionHelper.BsonValueToObject(new BsonDateTime(now));
         result.Should().BeOfType<DateTime>();
-    }
-}
-
-public class EnvironmentMapperHelperTests
-{
-    [Theory]
-    [InlineData("dev", "d")]
-    [InlineData("test", "t")]
-    [InlineData("stg", "s")]
-    [InlineData("iat", "i")]
-    [InlineData("uat", "u")]
-    [InlineData("prod-shadow", "h")]
-    [InlineData("pre-prod", "r")]
-    [InlineData("prod", "p")]
-    [InlineData("other", "n")]
-    public void EnvironmentMapper_Maps(string env, string expected)
-    {
-        EnvironmentMapperHelper.EnvironmentMapper(env).Should().Be(expected);
     }
 }
 

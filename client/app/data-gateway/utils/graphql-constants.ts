@@ -4,6 +4,12 @@
 // and `schemas-drawer.tsx` (schema-drawer "Use in Editor" queries).
 // ---------------------------------------------------------------------------
 
+/**
+ * The server's only Query field while a tenant has no entity schemas (GraphQL needs at least one).
+ * It always returns null, so it is left out of every list of queries.
+ */
+export const EMPTY_QUERY_FIELD_NAME = "_empty";
+
 /** Field name collapsed to `{}` in generated queries (user fills in as needed). */
 export const COLLAPSIBLE_FILTER_FIELD = "where";
 

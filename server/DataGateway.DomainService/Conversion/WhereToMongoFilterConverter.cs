@@ -1,3 +1,4 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
@@ -7,6 +8,7 @@ using MongoDB.Bson;
 using System.Collections;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Conversion;
 
@@ -87,7 +89,7 @@ public static class WhereToMongoFilterConverter
             var value = kv.Value;
             if (value is null) continue;
 
-            var dbFieldName = key == nameof(Entities.GraphQlBaseEntity.ItemId)
+            var dbFieldName = key == nameof(GraphQlBaseEntity.ItemId)
                 ? (string.IsNullOrEmpty(pathPrefix)
                     ? GraphQlConstant.DbEntityIdFieldName
                     : $"{pathPrefix}.{GraphQlConstant.DbEntityIdFieldName}")

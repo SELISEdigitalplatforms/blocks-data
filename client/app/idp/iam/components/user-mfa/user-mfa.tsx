@@ -52,7 +52,7 @@ export const ProjectMFA = () => {
           </Button>
         </div>
       </CardHeader>
-      <CardContent className="!pt-0">
+      <CardContent className="pt-0!">
         <div className="space-y-2 text-base font-normal text-high-emphasis">
           <p>
             Multi-Factor Authentication (MFA) enhances your account security by requiring an
@@ -74,7 +74,7 @@ const LoadingSkelton = () => {
           <Skeleton className="h-6 w-1/6" />
         </div>
       </CardHeader>
-      <CardContent className="!pt-0">
+      <CardContent className="pt-0!">
         <Skeleton className="h-6 w-1/2" />
         <Skeleton className="my-2 h-6" />
         <Skeleton className="my-2 h-6" />

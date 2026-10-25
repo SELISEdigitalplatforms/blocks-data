@@ -1,11 +1,12 @@
 using Blocks.Genesis;
 using DataGateway.DomainService.Models.Events;
+using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Services;
 using DomainService.Storage;
 using Storage.DomainService.Services;
-using Storage.DomainService.Shared.Enums;
 using System.Text;
 using System.Text.Json;
+using Blocks.Genesis.Entities.Data;
 
 namespace Worker.Consumers;
 
@@ -13,26 +14,20 @@ public class SchemaExportEventConsumer : IConsumer<SchemaExportEvent>
 {
     private readonly ISchemaExportService _schemaExportService;
     private readonly IFileManagementService _fileManagementService;
-    private readonly ICryptoService _cryptoService;
-    private readonly ITenants _tenants;
-    private readonly IConfiguration _configuration;
+    private readonly IBuiltInNotificationSender _notificationSender;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<SchemaExportEventConsumer> _logger;
 
     public SchemaExportEventConsumer(
         ISchemaExportService schemaExportService,
         IFileManagementService fileManagementService,
-        ICryptoService cryptoService,
-        ITenants tenants,
-        IConfiguration configuration,
+        IBuiltInNotificationSender notificationSender,
         IHttpClientFactory httpClientFactory,
         ILogger<SchemaExportEventConsumer> logger)
     {
         _schemaExportService = schemaExportService;
         _fileManagementService = fileManagementService;
-        _cryptoService = cryptoService;
-        _tenants = tenants;
-        _configuration = configuration;
+        _notificationSender = notificationSender;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
     }
@@ -110,65 +105,19 @@ public class SchemaExportEventConsumer : IConsumer<SchemaExportEvent>
         return response.IsSuccessStatusCode;
     }
 
-    private async Task SendNotificationAsync(bool isSuccess, SchemaExportEvent exportEvent)
-    {
-        var url = _configuration["NotificationServiceUrl"];
-        if (string.IsNullOrEmpty(url))
-        {
-            _logger.LogWarning("SendNotificationAsync: NotificationServiceUrl is not configured");
-            return;
-        }
-
-        var callerTenantId = exportEvent.CallerTenantId ?? string.Empty;
-        var salt = _tenants.GetTenantByID(callerTenantId)?.TenantSalt;
-        if (string.IsNullOrEmpty(callerTenantId) || string.IsNullOrEmpty(salt))
-        {
-            _logger.LogWarning("SendNotificationAsync: CallerTenantId or TenantSalt is not available — notification skipped for fileId={FileId}", exportEvent.FileId);
-            return;
-        }
-        var secret = _cryptoService.Hash(callerTenantId, salt);
-
-        var payload = new
-        {
-            ConnectionId = exportEvent.MessageCoRelationId,
-            Roles = new List<string>(),
-            UserIds = new List<string> { exportEvent.CallerUserId ?? string.Empty },
-            DenormalizedPayload = JsonSerializer.Serialize(new
+    private Task SendNotificationAsync(bool isSuccess, SchemaExportEvent exportEvent) =>
+        _notificationSender.SendAsync(new BuiltInNotification(
+            exportEvent.CallerTenantId ?? string.Empty,
+            "schema-export",
+            new List<string> { exportEvent.CallerUserId ?? string.Empty },
+            new
             {
                 IsSuccess = isSuccess,
                 exportEvent.FileId,
                 title = "Schema Export Completed",
                 description = isSuccess ? "Schema export completed successfully." : "Schema export failed."
-            }),
-            SaveDenormalizedPayloadAsAnObject = false,
-            ConfigurationName = "schema-export",
-            ContentAvailable = true,
-            ResponseKey = exportEvent.MessageCoRelationId,
-            ResponseValue = isSuccess.ToString()
-        };
-
-        try
-        {
-            var httpClient = _httpClientFactory.CreateClient();
-            using var request = new HttpRequestMessage(HttpMethod.Post, url)
-            {
-                Content = new StringContent(
-                    JsonSerializer.Serialize(payload),
-                    Encoding.UTF8,
-                    "application/json")
-            };
-            request.Headers.TryAddWithoutValidation("x-blocks-key", callerTenantId);
-            request.Headers.TryAddWithoutValidation("Secret", secret ?? string.Empty);
-
-            var response = await httpClient.SendAsync(request);
-            if (response.IsSuccessStatusCode)
-                _logger.LogInformation("SendNotificationAsync: Notification sent for fileId={FileId}", exportEvent.FileId);
-            else
-                _logger.LogError("SendNotificationAsync: Notification failed for fileId={FileId}, status={Status}", exportEvent.FileId, response.StatusCode);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "SendNotificationAsync: Error sending notification for fileId={FileId}", exportEvent.FileId);
-        }
-    }
+            },
+            ConnectionId: exportEvent.MessageCoRelationId,
+            ResponseKey: exportEvent.MessageCoRelationId,
+            ResponseValue: isSuccess.ToString()));
 }

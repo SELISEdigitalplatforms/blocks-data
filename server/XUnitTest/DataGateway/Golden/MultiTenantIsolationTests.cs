@@ -1,7 +1,6 @@
-using System.Security.Claims;
 using Blocks.Genesis;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
@@ -101,7 +100,7 @@ public class MultiTenantCountIsolationTests
             }
         });
 
-        var queryService = new QueryService(_gql.Object, NullLogger<QueryService>.Instance);
+        var queryService = new QueryService(_gql.Object, Resolver(), Principals(), NullLogger<QueryService>.Instance);
         var schemaBuilder = new GraphqlSchemaBuilder(
             new SchemaResolver(new Mock<IMutationService>().Object, queryService), _repo, NullLogger<GraphqlSchemaBuilder>.Instance);
 
@@ -117,63 +116,5 @@ public class MultiTenantCountIsolationTests
             .ConfigureSchemaAsync((builder, ct) => new ValueTask(schemaBuilder.BuildSchema("", builder, ct)));
         var provider = services.BuildServiceProvider();
         return await provider.GetRequiredService<IRequestExecutorResolver>().GetRequestExecutorAsync();
-    }
-}
-
-/// <summary>
-/// The caller kept for a request is that request's caller, never another one's, however many
-/// requests of different tenants and users run at once.
-/// </summary>
-[Collection("ContextSerial")]
-public class MultiTenantCallerIsolationTests
-{
-    [Fact]
-    public async Task ConcurrentRequests_EachReadTheirOwnCaller()
-    {
-        var previousAccessor = BlocksHttpContextAccessor.Instance;
-        ClearContext();
-        // The real accessor: like ASP.NET Core, it carries the request in the async flow.
-        BlocksHttpContextAccessor.Instance = new HttpContextAccessor();
-        try
-        {
-            var requests = Enumerable.Range(0, 200).Select(i => (Tenant: $"tenant-{i % 7}", User: $"user-{i}")).ToList();
-
-            var mismatches = await Task.WhenAll(requests.Select(request => Task.Run(async () =>
-            {
-                BlocksHttpContextAccessor.Instance!.HttpContext = RequestFor(request.Tenant, request.User);
-                var seen = new List<string>();
-                for (var read = 0; read < 10; read++)
-                {
-                    await Task.Delay(Random.Shared.Next(0, 3));
-                    if (read == 5)
-                        GC.Collect();
-
-                    var caller = RequestBlocksContext.Get();
-                    seen.Add($"{caller?.TenantId}/{caller?.UserId}/{DataAccessPolicyHelper.GetTokenValue("userId")}");
-                }
-                return seen.Where(s => s != $"{request.Tenant}/{request.User}/{request.User}").ToList();
-            })));
-
-            mismatches.SelectMany(m => m).Should().BeEmpty();
-        }
-        finally
-        {
-            BlocksHttpContextAccessor.Instance = previousAccessor;
-            ClearContext();
-        }
-    }
-
-    private static DefaultHttpContext RequestFor(string tenant, string user)
-    {
-        var identity = new ClaimsIdentity(
-            [
-                new Claim(BlocksContext.TENANT_ID_CLAIM, tenant),
-                new Claim(BlocksContext.USER_ID_CLAIM, user),
-                new Claim(BlocksContext.ROLES_CLAIM, "lawyer"),
-            ],
-            "Bearer", BlocksContext.USER_NAME_CLAIM, BlocksContext.ROLES_CLAIM);
-        var httpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) };
-        httpContext.Request.Headers["x-blocks-key"] = tenant;
-        return httpContext;
     }
 }

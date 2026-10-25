@@ -3,11 +3,13 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
+using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Repositories;
 using HotChocolate;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 
@@ -23,19 +25,22 @@ public class SchemaPublishService : ISchemaPublishService
     private readonly ISchemaVersionStore _versionStore;
     private readonly IDbRepository _repository;
     private readonly ILogger<SchemaPublishService> _logger;
+    private readonly IBuiltInNotificationSender? _notifier;
 
     public SchemaPublishService(
         GraphqlSchemaBuilder schemaBuilder,
         ISchemaSnapshotStore snapshotStore,
         ISchemaVersionStore versionStore,
         IDbRepository repository,
-        ILogger<SchemaPublishService> logger)
+        ILogger<SchemaPublishService> logger,
+        IBuiltInNotificationSender? notifier = null)
     {
         _schemaBuilder = schemaBuilder ?? throw new ArgumentNullException(nameof(schemaBuilder));
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
         _versionStore = versionStore ?? throw new ArgumentNullException(nameof(versionStore));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _notifier = notifier;
     }
 
     public async Task<SchemaPublishResult> PublishAsync(string tenantId, CancellationToken cancellationToken = default)
@@ -76,17 +81,12 @@ public class SchemaPublishService : ISchemaPublishService
             isLive = true;
 
             step = "marking the published changes";
-            if (pendingChangeLogIds.Count > 0)
-            {
-                var filter = new BsonDocument(GraphQlConstant.DbEntityIdFieldName,
-                    new BsonDocument("$in", new BsonArray(pendingChangeLogIds)));
-                var update = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), true);
-                await _repository.UpdateManyAsync(ChangeLogCollectionName, filter, update, tenantId);
-            }
+            await SetChangeLogsPublishedAsync(tenantId, pendingChangeLogIds, published: true);
 
             // Both handle and log their own failures; the publish has succeeded by now.
             await _versionStore.AnnounceAsync(tenantId, version.Value);
             await PruneAsync(tenantId, version.Value, cancellationToken);
+            await NotifyVersionLiveAsync(tenantId, version.Value, "publish", userId);
 
             _logger.LogInformation("Published schema version {Version} for tenant {TenantId}: {SchemaCount} schemas, {ChangeCount} changes, {RawKb} KB stored as {CompressedKb} KB in {ChunkCount} chunks; test build {BuildMs} ms, total {ElapsedMs} ms",
                 version, tenantId, content.SchemaCount, pendingChangeLogIds.Count, ToKb(content.RawSizeBytes),
@@ -126,11 +126,84 @@ public class SchemaPublishService : ISchemaPublishService
         }
 
         await _versionStore.SetCurrentAsync(tenantId, version, cancellationToken);
+        var reopenedCount = await MatchPendingChangesToLiveVersionAsync(tenantId, version, cancellationToken);
         await _versionStore.AnnounceAsync(tenantId, version);
+        await NotifyVersionLiveAsync(tenantId, version, "rollback", userId);
 
-        _logger.LogInformation("Rolled back the schema for tenant {TenantId} from version {PreviousVersion} to {Version}, requested by user {UserId} ({UserEmail})",
-            tenantId, previousVersion, version, userId, maskedEmail);
+        _logger.LogInformation("Rolled back the schema for tenant {TenantId} from version {PreviousVersion} to {Version}, requested by user {UserId} ({UserEmail}); {ReopenedCount} changes it does not include are pending again",
+            tenantId, previousVersion, version, userId, maskedEmail, reopenedCount);
         return new SchemaRollbackResult(version, previousVersion);
+    }
+
+    /// <summary>
+    /// After a rollback, makes the pending changes describe the difference between the drafts and
+    /// the live version again. A change is published when the live version or an older kept one
+    /// included it; a change only newer versions included is pending again, because the drafts
+    /// still have it but the live schema does not. Versions older than the kept ones are older than
+    /// any rollback target, so their changes stay published. Rolling forward again publishes them.
+    /// Best effort: the rollback has succeeded by now, so a failure is logged and leaves the
+    /// pending count as it was. Returns how many changes are pending again.
+    /// </summary>
+    private async Task<int> MatchPendingChangesToLiveVersionAsync(string tenantId, long version, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // No limit: the live version is kept even when it is older than the newest ten.
+            var manifests = await _snapshotStore.ListAsync(tenantId, 0, cancellationToken);
+            var includedByLive = manifests
+                .Where(m => m.Version <= version)
+                .SelectMany(m => m.ChangeLogIds)
+                .ToHashSet(StringComparer.Ordinal);
+            var notIncludedByLive = manifests
+                .Where(m => m.Version > version)
+                .SelectMany(m => m.ChangeLogIds)
+                .Where(id => !includedByLive.Contains(id))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            await SetChangeLogsPublishedAsync(tenantId, includedByLive, published: true);
+            await SetChangeLogsPublishedAsync(tenantId, notIncludedByLive, published: false);
+            return notIncludedByLive.Count;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Rolled back tenant {TenantId} to schema version {Version}, but could not mark the changes it does not include as pending; the pending count is stale until the next publish",
+                tenantId, version);
+            return 0;
+        }
+    }
+
+    private async Task SetChangeLogsPublishedAsync(string tenantId, IReadOnlyCollection<string> changeLogIds, bool published)
+    {
+        if (changeLogIds.Count == 0)
+        {
+            return;
+        }
+
+        var filter = new BsonDocument(GraphQlConstant.DbEntityIdFieldName,
+            new BsonDocument("$in", new BsonArray(changeLogIds)));
+        var update = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), published);
+        await _repository.UpdateManyAsync(ChangeLogCollectionName, filter, update, tenantId);
+    }
+
+    /// <summary>
+    /// Tells the acting user that a schema version is live. Best effort: the sender never throws.
+    /// Recipient limit: the acting user only (no project-people lookup exists in this service).
+    /// </summary>
+    private async Task NotifyVersionLiveAsync(string tenantId, long version, string kind, string userId)
+    {
+        if (_notifier is null) return;
+        var recipients = BuiltInNotificationSender.Recipients(userId);
+        await _notifier.SendAsync(new BuiltInNotification(tenantId, "data-schema-version-live", recipients, new
+        {
+            @event = "data-schema-version-live",
+            title = "Schema version is live",
+            description = kind == "rollback" ? $"Schema version {version} is live again." : $"Schema version {version} is live.",
+            isSuccess = true,
+            version,
+            kind,
+            occurredAt = DateTime.UtcNow
+        }));
     }
 
     public async Task<SchemaVersionHistory> GetHistoryAsync(string tenantId, CancellationToken cancellationToken = default)
@@ -196,7 +269,8 @@ public class SchemaPublishService : ISchemaPublishService
         {
             var builder = SchemaBuilder.New();
             // A tenant without definitions has nothing to validate (and nothing to serve).
-            if (_schemaBuilder.BuildSchema(tenantId, source, builder))
+            // Strict: a Reference rule pointing at a schema or field that no longer exists stops the publish.
+            if (_schemaBuilder.BuildSchema(tenantId, source, builder, strictReferences: true))
             {
                 builder.Create();
             }

@@ -19,7 +19,7 @@ function ChildMenuItem({ menu }: { menu: MenuItemType }) {
       to={menu.path}
       className={cn(
         "flex h-9 items-center px-3 py-1.5 text-sm transition-colors hover:text-foreground",
-        isActiveMenu && "!text-primary",
+        isActiveMenu && "text-primary!",
         menu.disabled && "pointer-events-none cursor-not-allowed opacity-50",
       )}
     >
@@ -71,7 +71,7 @@ export function DesktopMenuItem({
 
   const baseClasses = cn(
     "relative mx-1 flex h-9 cursor-pointer items-center gap-3 rounded-md px-3 py-1.5 text-sm text-muted-foreground/60 transition-colors hover:bg-muted/30 hover:text-muted-foreground",
-    isActiveMenu && "bg-primary/10 !text-primary",
+    isActiveMenu && "bg-primary/10 text-primary!",
   );
 
   if (!hasChildren) {

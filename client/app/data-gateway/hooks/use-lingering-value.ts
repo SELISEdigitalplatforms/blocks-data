@@ -17,13 +17,15 @@ export function useLingeringValue<T>(value: T | null, delay: number): T | null {
   // implies `T | undefined`.
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // A new value shows straight away; only clearing it is delayed.
+  if (value !== null && value !== lingering) {
+    setLingering(value);
+  }
+
   useEffect(() => {
     clearTimeout(timeoutRef.current);
 
-    if (value !== null) {
-      setLingering(value);
-      return;
-    }
+    if (value !== null) return;
 
     timeoutRef.current = setTimeout(() => setLingering(null), delay);
     return () => clearTimeout(timeoutRef.current);

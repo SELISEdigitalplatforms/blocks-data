@@ -1,7 +1,8 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Diagnostics;
 using DataGateway.DomainService.Helpers;
 using System.Collections.Immutable;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
@@ -12,6 +13,8 @@ using HotChocolate.Execution.Processing;
 using HotChocolate.Language;
 using HotChocolate.Resolvers;
 using HotChocolate.Types;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -32,7 +35,7 @@ public class QueryServiceTests
 
     public QueryServiceTests()
     {
-        _service = new QueryService(_repo.Object, NullLogger<QueryService>.Instance);
+        _service = new QueryService(_repo.Object, Resolver(), Principals(), NullLogger<QueryService>.Instance);
     }
 
     private static FieldNode ParseQueryField(string query)
@@ -198,16 +201,43 @@ public class QueryServiceTests
         finally { ClearContext(); }
     }
 
+    [Fact]
+    public async Task GetDataAsync_WithAMaxPageSize_ClampsTheRequestedPage()
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            const int maxPageSize = 1000;
+            var service = new QueryService(_repo.Object, Resolver(), Principals(), NullLogger<QueryService>.Instance, maxPageSize);
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
+            var paging = new PaginationInput { PageNo = 2, PageSize = maxPageSize + 1 };
+
+            var result = await service.GetDataAsync(Context(paging: paging).Object, schema);
+
+            result.PageSize.Should().Be(maxPageSize);
+            _repo.Verify(r => r.GetItemsAsync(
+                schema.CollectionName,
+                It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(),
+                maxPageSize, // (2-1) * clamped size
+                maxPageSize), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
     /// <summary>
-    /// Paging is exactly as before the count moved: no cap, a page size of 0 still reads every
-    /// matching row, and the reported page size is what the caller sent.
+    /// Without a configured maximum, paging is exactly what main serves: no cap, a page size of 0
+    /// still reads every matching row, and the reported page size is what the caller sent.
     /// </summary>
     [Theory]
     [InlineData(1, 5000, 0, 5000)]
     [InlineData(2, 5000, 5000, 5000)]
     [InlineData(1, 0, 0, 0)]
     [InlineData(3, 7, 14, 7)]
-    public async Task GetDataAsync_PagesAsRequested(int pageNo, int pageSize, int expectedSkip, int expectedLimit)
+    public async Task GetDataAsync_WithoutAMaxPageSize_PagesAsRequested(int pageNo, int pageSize, int expectedSkip, int expectedLimit)
     {
         ClearContext();
         SetBlocksCloud(false);
@@ -233,7 +263,7 @@ public class QueryServiceTests
     }
 
     [Fact]
-    public async Task GetDataAsync_OnlyAPageSize_ReadsTheDefaultPageButReportsTheRequestedSize()
+    public async Task GetDataAsync_WithoutAMaxPageSize_OnlyAPageSize_ReadsTheDefaultPageButReportsTheRequestedSize()
     {
         ClearContext();
         SetBlocksCloud(false);
@@ -253,6 +283,43 @@ public class QueryServiceTests
                 It.IsAny<BsonDocument>(),
                 0,
                 10), Times.Once);
+        }
+        finally { ClearContext(); }
+    }
+
+    [Theory]
+    [InlineData(null, 5000)]
+    [InlineData("0", 5000)]
+    [InlineData("200", 200)]
+    public async Task QueryService_FromTheContainer_ReadsTheMaxPageSizeSetting(string? setting, int expectedLimit)
+    {
+        ClearContext();
+        SetBlocksCloud(false);
+        try
+        {
+            var settings = new Dictionary<string, string?>();
+            if (setting is not null)
+                settings[QueryService.MaxPageSizeKey] = setting;
+            var services = new ServiceCollection();
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
+            services.AddSingleton(_repo.Object);
+            services.AddSingleton(Resolver());
+            services.AddSingleton(Principals());
+            services.AddLogging();
+            services.AddSingleton<IQueryService, QueryService>();
+            var service = services.BuildServiceProvider().GetRequiredService<IQueryService>();
+
+            var schema = Schema(fields: new() { Field("Name") });
+            SetupRepo(new List<BsonDocument> { Doc("Alice", 30) }, 1);
+            await service.GetDataAsync(Context(paging: new PaginationInput { PageNo = 1, PageSize = 5000 }).Object, schema);
+
+            _repo.Verify(r => r.GetItemsAsync(
+                schema.CollectionName,
+                It.IsAny<FilterDefinition<BsonDocument>>(),
+                It.IsAny<BsonDocument>(),
+                It.IsAny<BsonDocument>(),
+                0,
+                expectedLimit), Times.Once);
         }
         finally { ClearContext(); }
     }
@@ -311,7 +378,7 @@ public class QueryServiceTests
             var act = () => _service.GetDataAsync(Context().Object, schema);
 
             var ex = await act.Should().ThrowAsync<GraphQLException>();
-            ex.Which.Errors[0].Code.Should().Be(GraphQlConstant.UnauthorizedErrorCode);
+            ex.Which.Errors[0].Code.Should().Be(GraphQlConstant.ForbiddenErrorCode);
         }
         finally { ClearContext(); }
     }
@@ -355,15 +422,30 @@ public class QueryServiceTests
     }
 
     [Fact]
-    public void EvaluateRlsPolicies_CustomFromCloud_GrantsAccess()
+    public void EvaluateRlsPolicies_CustomImpersonated_GrantsAccess()
     {
         ClearContext();
-        SetBlocksCloud(true);
+        SetContext(impersonated: true);
         try
         {
             var schema = Schema(read: SchemaAccessLevel.Custom);
             var result = _service.EvaluateRlsPolicies(schema, PolicyOperation.READ);
             result.IsAccessGranted.Should().BeTrue();
+        }
+        finally { ClearContext(); }
+    }
+
+    [Fact]
+    public void EvaluateRlsPolicies_CustomFromRootTenantKeyWithoutImpersonation_DeniesAccess()
+    {
+        ClearContext();
+        SetContext();
+        SetBlocksCloud(true);
+        try
+        {
+            var schema = Schema(read: SchemaAccessLevel.Custom);
+            var result = _service.EvaluateRlsPolicies(schema, PolicyOperation.READ);
+            result.IsAccessGranted.Should().BeFalse();
         }
         finally { ClearContext(); }
     }

@@ -1,5 +1,6 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Mappers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Export;
@@ -231,8 +232,68 @@ public class DataValidationMappingTests
     }
 }
 
+public class ValidationRuleEvaluationVersionTests
+{
+    [Fact]
+    public void Request_WithoutVersion_IsStoredAsVersionZero_SoApiCallersKeepTodaysBehaviour()
+    {
+        var rule = new ValidationRuleRequest { Type = ValidationType.MaxLength, Value = 50 }.MapToEntity();
+
+        rule.EvaluationVersion.Should().Be(0);
+    }
+
+    [Fact]
+    public void Request_Version_IsKeptAndReturned()
+    {
+        var rule = new ValidationRuleRequest { Type = ValidationType.MaxLength, Value = 50, EvaluationVersion = 1 }.MapToEntity();
+
+        rule.EvaluationVersion.Should().Be(1);
+        rule.MapToResponse().EvaluationVersion.Should().Be(1);
+    }
+
+    [Fact]
+    public void Reference_IsAlwaysVersionOne()
+    {
+        new ValidationRuleRequest { Type = ValidationType.Reference, Value = "Department" }.MapToEntity()
+            .EvaluationVersion.Should().Be(1);
+    }
+}
+
 public class SchemaExportImportMappingTests
 {
+    [Fact]
+    public void DefaultValue_SurvivesExportAndImport()
+    {
+        var schema = Schema();
+        schema.Fields[0].DefaultValue = new FieldDefaultValue { Kind = DefaultValueKind.Template, Value = "{{Person.Email}}" };
+        schema.Fields[1].DefaultValue = new FieldDefaultValue { Kind = DefaultValueKind.Now, Offset = new DefaultValueOffset { Days = 365 } };
+
+        var doc = new List<SchemaDefinition> { schema }.MapToExportDocuments([], [], SchemaExportOption.Schema).Single();
+        var imported = doc.MapToSchemaDefinition();
+
+        imported.Fields[0].DefaultValue.Should().BeEquivalentTo(schema.Fields[0].DefaultValue);
+        imported.Fields[1].DefaultValue!.Offset!.Days.Should().Be(365);
+    }
+
+    [Fact]
+    public void ReferenceRule_SurvivesExportAndImport_ByTargetName_WithItsVersion()
+    {
+        var reference = new ValidationRule
+        {
+            Type = ValidationType.Reference, Value = "Department", SecondaryValue = "Code",
+            ErrorMessage = "Unknown department", IsActive = true, EvaluationVersion = 1,
+        };
+        var legacy = new ValidationRule { Type = ValidationType.MaxLength, Value = 50, IsActive = true };
+
+        var exported = new[] { reference, legacy }.Select(r => r.MapToExportValidationRule()).ToList();
+        var imported = exported.Select(r => r.MapToValidationRule()).ToList();
+
+        // Points at the target by name, so it works in a project where the schema ids differ.
+        imported[0].Should().BeEquivalentTo(reference);
+        // A rule saved before the version existed stays version 0 through the round trip.
+        imported[1].EvaluationVersion.Should().Be(0);
+    }
+
     private static SchemaDefinition Schema() => new()
     {
         ItemId = "s1",

@@ -97,16 +97,21 @@ export const AddEditProviderModal = ({ existingData }: AddEditProviderModalProps
         issuer: existingData.issuer || "",
         audience: existingData.audiences?.join(", ") || "",
       });
+    }
+  }, [existingData, form]);
 
+  const [prevExistingData, setPrevExistingData] = useState<typeof existingData | null>(null);
+  if (existingData !== prevExistingData) {
+    setPrevExistingData(existingData);
+    if (existingData) {
       // Set provider based on existing data
       if (existingData.providerName) {
         setSelectedProvider(existingData.providerName);
       }
-
       // Always select public-url in edit mode
       setCertificateMethod("public-url");
     }
-  }, [existingData, form]);
+  }
 
   // Reset certificate method to public-url when switching from "others" to another provider
   const prevProviderRef = useRef(selectedProvider);

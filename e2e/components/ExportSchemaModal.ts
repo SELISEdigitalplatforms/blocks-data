@@ -1,13 +1,11 @@
 import { type Page, type Locator, expect } from "@playwright/test";
+import { waitVisible } from "../support/wait-visible";
 
 export class ExportSchemaModal {
   constructor(private page: Page) {}
 
   isDialogOpen(timeout = 5_000): Promise<boolean> {
-    return this.page
-      .getByRole("dialog")
-      .isVisible({ timeout })
-      .catch(() => false);
+    return waitVisible(this.page.getByRole("dialog"), timeout);
   }
 
   getDialog(): Locator {
@@ -32,7 +30,7 @@ export class ExportSchemaModal {
 
   async exportWithDefaultOptions(): Promise<void> {
     const selectButton = this.getSelectFileTypeButton();
-    if (await selectButton.isVisible({ timeout: 5_000 }).catch(() => false)) {
+    if (await waitVisible(selectButton, 5_000)) {
       await selectButton.click();
     }
 

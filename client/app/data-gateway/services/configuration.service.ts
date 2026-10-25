@@ -18,8 +18,10 @@ import {
   ICreateSchemaFieldValidationPayload,
   ICreateSchemaIndexPayload,
   ICreateSchemaPayload,
+  ISetFieldDefaultPayload,
   ICreateSchemaResponse,
   IDataServiceConfigurationResponse,
+  IDataSourceResponse,
   IDefaultResponse,
   IDeleteMockDataPayload,
   IDeleteMockDataResponse,
@@ -50,8 +52,12 @@ import {
 } from "../models/data-service";
 
 class ConfigurationService {
-  getDataServiceDetails(): Promise<IDataServiceConfigurationResponse> {
-    return http.get(CONFIGURATION_ENDPOINTS.GET);
+  /** Read the console options from Data itself; never fetch the OS configuration API. */
+  async getDataServiceDetails(): Promise<IDataServiceConfigurationResponse> {
+    const config = await http.get<Pick<IDataSourceResponse,
+      "isCollectionNameEditable" | "collectionNamePattern" | "analyticsConfiguration"
+    >>(CONFIGURATION_ENDPOINTS.GET);
+    return { isSuccess: true, errors: null, data: config ?? null };
   }
 
   reloadSchemas(): Promise<IDataServiceConfigurationResponse> {
@@ -103,6 +109,11 @@ class ConfigurationService {
     payload: IUpdateSchemaStructure,
   ): Promise<IDataServiceConfigurationResponse> {
     return http.post(SCHEMA_ENDPOINTS.UPDATE_FIELDS, payload);
+  }
+
+  /** Sets or clears (null) one property's default value. */
+  setFieldDefault(payload: ISetFieldDefaultPayload): Promise<IDefaultResponse> {
+    return http.post(SCHEMA_ENDPOINTS.FIELD_DEFAULT, payload);
   }
 
   deleteSchema(payload: {

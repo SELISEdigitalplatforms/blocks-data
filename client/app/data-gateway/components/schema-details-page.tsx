@@ -19,6 +19,7 @@ import {
   getPolicyDataQueryOptions,
   useCreateSchema,
   useSchemaDetails,
+  useSchemaList,
 } from "../hooks/use-configuration";
 import { useDataGatewaySearchParams } from "../hooks/use-data-gateway-search-params";
 import {
@@ -267,6 +268,16 @@ export const SchemaDetailsPage = () => {
   );
   const { mutateAsync: createSchema } = useCreateSchema();
 
+  // The page bar's own total read (same params, so the same cache entry: no extra request). Until it
+  // arrives the panel says "select", so a project with schemas never flashes "your first schema".
+  const { data: schemaTotalQuery } = useSchemaList({
+    projectKey,
+    pageNo: 1,
+    pageSize: 1,
+    schemaType: "",
+  });
+  const hasSchemas = schemaTotalQuery?.data?.totalCount !== 0;
+
   const onSchemaCreate = async (values: ICreateSchemaDefaultValues): Promise<boolean> => {
     try {
       const payload: ICreateSchemaPayload = {
@@ -328,7 +339,14 @@ export const SchemaDetailsPage = () => {
     void queryClient.prefetchQuery(getPolicyDataQueryOptions(schemaName, projectKey));
   }, [selectedSchemaId, projectKey, schemaDetailsQuery?.data?.schemaName, queryClient]);
 
-  useEffect(() => {
+  // Load the fetched schema into local state whenever the server data (or project) changes.
+  const loadedSchemaData = schemaDetailsQuery?.data;
+  const [loadedFrom, setLoadedFrom] = useState<{
+    data: typeof loadedSchemaData;
+    projectKey: typeof projectKey;
+  } | null>(null);
+  if (loadedFrom === null || loadedFrom.data !== loadedSchemaData || loadedFrom.projectKey !== projectKey) {
+    setLoadedFrom({ data: loadedSchemaData, projectKey });
     if (schemaDetailsQuery?.data) {
       const res = schemaDetailsQuery.data;
       setSchemaDetails({
@@ -355,7 +373,7 @@ export const SchemaDetailsPage = () => {
         deleteAccessLevel: res.deleteAccessLevel,
       });
     }
-  }, [schemaDetailsQuery, projectKey]);
+  }
 
   return (
     <>
@@ -381,7 +399,7 @@ export const SchemaDetailsPage = () => {
                 "--dg-rail-w": `${SHELL.railWidth}px`,
               } as React.CSSProperties
             }
-            className={`dg-panel-collapse relative shrink-0 overflow-hidden lg:w-[var(--dg-explorer-w)] ${
+            className={`dg-panel-collapse relative shrink-0 overflow-hidden lg:w-(--dg-explorer-w) ${
               selectedSchemaId ? "hidden lg:block" : "block"
             }`}
           >
@@ -390,7 +408,7 @@ export const SchemaDetailsPage = () => {
               aria-hidden={isRightPanelOpen}
               inert={isRightPanelOpen}
               style={{ opacity: isRightPanelOpen ? 0 : 1 }}
-              className={`dg-fade-layer h-full w-full lg:w-[var(--dg-explorer-open-w)] ${
+              className={`dg-fade-layer h-full w-full lg:w-(--dg-explorer-open-w) ${
                 isRightPanelOpen ? "pointer-events-none" : ""
               }`}
             >
@@ -409,7 +427,7 @@ export const SchemaDetailsPage = () => {
               aria-hidden={!isRightPanelOpen}
               inert={!isRightPanelOpen}
               style={{ opacity: isRightPanelOpen ? 1 : 0 }}
-              className={`dg-fade-layer absolute inset-y-0 left-0 hidden w-[var(--dg-rail-w)] lg:block ${
+              className={`dg-fade-layer absolute inset-y-0 left-0 hidden w-(--dg-rail-w) lg:block ${
                 isRightPanelOpen ? "" : "pointer-events-none"
               }`}
             >
@@ -468,6 +486,7 @@ export const SchemaDetailsPage = () => {
             <div className="hidden min-h-0 flex-1 flex-col lg:flex">
               {!selectedSchemaId ? (
                 <CreateFirstSchemaPanel
+                  hasSchemas={hasSchemas}
                   onCreateSchema={openAddSchemaModal}
                   onImportSchema={openImportModal}
                 />
@@ -501,6 +520,11 @@ export const SchemaDetailsPage = () => {
                     onOpenStandaloneSchemaEditor={openSchemaInEditor}
                     isPreviewOpen={isPreviewOpen}
                     onPreviewOpenChange={setIsPreviewOpen}
+                    inspectedRule={
+                      validationInspector
+                        ? { panel: validationInspector.panel === "default" ? "default" : "validation", fieldName: validationInspector.fieldName }
+                        : null
+                    }
                     onOpenFieldAccess={({ fieldNames, subject, context }) =>
                       openAccessInspector({
                         subject,
@@ -512,14 +536,32 @@ export const SchemaDetailsPage = () => {
                         fieldNames,
                       })
                     }
-                    onOpenFieldValidation={({ fieldName, subject, context, validationRule }) =>
+                    onOpenFieldValidation={({ fieldName, subject, context, schemaName, validationRule, fieldType, enumValues }) =>
                       openValidationInspector({
                         subject,
                         context,
+                        schemaName,
                         fieldName,
+                        fieldType,
+                        enumValues,
                         schemaId: schemaDetails.id,
                         projectKey,
                         initialValidationData: validationRule,
+                      })
+                    }
+                    onOpenFieldDefault={({ fieldName, subject, context, schemaName, fieldType, isArray, enumValues, defaultValue }) =>
+                      openValidationInspector({
+                        panel: "default",
+                        subject,
+                        context,
+                        schemaName,
+                        fieldName,
+                        fieldType,
+                        isArray,
+                        enumValues,
+                        schemaId: schemaDetails.id,
+                        projectKey,
+                        initialDefault: defaultValue,
                       })
                     }
                     onEnterEditMode={closeRightPanel}
@@ -548,7 +590,7 @@ export const SchemaDetailsPage = () => {
                 opacity: isRightPanelOpen ? 1 : 0,
               } as React.CSSProperties
             }
-            className={`dg-panel-collapse relative hidden min-h-0 shrink-0 overflow-hidden lg:block lg:w-[var(--dg-inspector-w)] ${
+            className={`dg-panel-collapse relative hidden min-h-0 shrink-0 overflow-hidden lg:block lg:w-(--dg-inspector-w) ${
               isRightPanelOpen ? "" : "pointer-events-none"
             }`}
           >
@@ -557,7 +599,7 @@ export const SchemaDetailsPage = () => {
                 aria-hidden={!inspector}
                 inert={!inspector}
                 style={{ opacity: inspector ? 1 : 0 }}
-                className={`dg-fade-layer absolute inset-y-0 right-0 flex w-[var(--dg-inspector-panel-w)] min-h-0 ${
+                className={`dg-fade-layer absolute inset-y-0 right-0 flex w-(--dg-inspector-panel-w) min-h-0 ${
                   inspector ? "" : "pointer-events-none"
                 }`}
               >
@@ -580,11 +622,13 @@ export const SchemaDetailsPage = () => {
                 aria-hidden={!validationInspector}
                 inert={!validationInspector}
                 style={{ opacity: validationInspector ? 1 : 0 }}
-                className={`dg-fade-layer absolute inset-y-0 right-0 flex w-[var(--dg-inspector-panel-w)] min-h-0 ${
+                className={`dg-fade-layer absolute inset-y-0 right-0 flex w-(--dg-inspector-panel-w) min-h-0 ${
                   validationInspector ? "" : "pointer-events-none"
                 }`}
               >
+                {/* Keyed per panel and field so a half-filled rule or default never carries over. */}
                 <ValidationInspector
+                  key={`${lingeringValidation.panel ?? "validation"}:${lingeringValidation.schemaId}:${lingeringValidation.fieldName}`}
                   target={lingeringValidation}
                   onClose={() => setValidationInspector(null)}
                 />

@@ -142,7 +142,7 @@ export function DataListView({ data, piiFields }: DataListViewProps) {
   return (
     <div className="space-y-3">
       {data.map((item, index) => (
-        <div key={index} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+        <div key={index} className="rounded-lg border border-border bg-card p-4 shadow-xs">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="rounded bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">
               #{index + 1}

@@ -2,7 +2,7 @@
 
 Blocks Data is the data service of the SELISE Blocks platform. It covers two domains:
 
-- **Data Gateway**: schema-driven structured data on MongoDB. Users define schemas (entities and reusable objects), and the service exposes each project's data through a per-tenant GraphQL API with row-level and column-level access control (RLS/CLS), field validation rules, mock data generation, and schema import/export.
+- **Data Gateway**: schema-driven structured data on MongoDB. Users define schemas (entities and reusable objects, with field types including enums), and the service exposes each project's data through a per-tenant GraphQL API with row-level and column-level access control (RLS/CLS), per-operation access lists, field validation rules and defaults, indexes, mock data generation, schema import/export, and a query log. Schema changes are drafted and published, and after a rollback the designer shows what is live next to the drafts. Schema, access policy, storage and bulk changes send built-in notifications.
 - **Storage**: unstructured file storage and document management (DMS) over multiple back ends (Azure Blob, AWS S3 and S3-compatible services, SFTP), including pre-signed upload/download URLs, file versioning, and nested folders. Folders and files carry per-resource access policies scoped to users, roles, organizations or everyone, with inheritance from the parent and a per-resource override. Listings are access-resolved and cursor-paginated, so a caller sees only what they may view. Standard document-management features are included: search, a trash with restore, copy and move, and an audit trail of every access decision.
 
 The repository ships a .NET backend, a React single-page application, and a Playwright end-to-end suite. It is released under the [MIT license](LICENSE).
@@ -18,23 +18,30 @@ server/   .NET backend
                               services, RLS/CLS policy evaluation, validators, repositories
   Storage.DomainService/    Storage domain: storage providers, file management, configuration
   Worker/                   Background host: message consumers (schema import/export,
-                            migration completion, default folder creation) and a periodic ping
+                            migration completion, default folder creation), a periodic
+                            ping, and opt-in one-off migration jobs (see Worker jobs below)
   DataGateway.Driver/       Source of the SeliseBlocks.DataGatewayDriver NuGet package
   Storage.Driver/           Source of the SeliseBlocks.StorageDriver NuGet package
   XUnitTest/                xUnit test suite for the backend
 client/   React + Vite SPA (schema designer, data browser, GraphQL playground,
           access control and validation UIs, storage/DMS UIs)
 e2e/      Playwright end-to-end tests (see e2e/README.md)
-scripts/  Maintainer scripts (scan and deploy entry points)
+scripts/  CI helpers: junit-to-sonar.py (vitest JUnit -> SonarQube generic test
+          format) and th-transform.py (TruffleHog output -> Shield explorer)
 ```
 
-Multi-tenancy: one instance serves all tenants. The tenant is resolved from the access token when the request is authenticated, otherwise from the `x-blocks-key` header. REST endpoints are protected with permission scopes of the form `blocks-data::<action>`.
+Multi-tenancy: one instance serves all tenants. The tenant is resolved from the access token when the request is authenticated, otherwise from the `x-blocks-key` header. REST endpoints are protected with permission scopes of the form `blocks-data::<area>::<action>`, for example `blocks-data::schema::…` or `blocks-data::object::grant-access`.
 
-The API and Worker use Genesis 4.2.2 to resolve each tenant's stored `DbConnectionString` and `DBName` from the central root registry. `BlocksRootDb` lookups remain on the main connection. The Data Gateway's explicitly configured external data source remains an override for GraphQL data operations; it does not change where tenant metadata, schemas, files, or import/export records are stored. Schema import/export messages carry the target project key, which is used for their database operations. Deploy both the API and Worker with the updated package before routing new environments to separate clusters.
+The API and Worker use Genesis (`SeliseBlocks.Genesis.OS`, pinned in `server/Directory.Packages.props`) to resolve each tenant's stored `DbConnectionString` and `DBName` from the central root registry. `BlocksRootDb` lookups remain on the main connection. The Data Gateway's explicitly configured external data source remains an override for GraphQL data operations; it does not change where tenant metadata, schemas, files, or import/export records are stored. Schema import/export messages carry the target project key, which is used for their database operations. Deploy both the API and Worker with the updated package before routing new environments to separate clusters.
+
+The API also runs two background services in each pod:
+
+- `AfterWriteQueue` takes after-write work (the change event and the bulk notification) off the request path. It is in-process and best effort: items still queued when the process dies are lost.
+- `SchemaPublishSubscriber` listens for schema publishes over Redis so every pod picks up a new schema straight away. It is only a speed-up; without Redis, pods still catch up by polling.
 
 ## Prerequisites
 
-- **.NET SDK 10.0** (the solution targets `net10.0`; the two driver packages target `net9.0`, which the 10.0 SDK builds)
+- **.NET SDK 10.0** (every project, including the two driver packages, targets `net10.0`)
 - **Node.js 20+** with **npm** (Node 22 is used in the Docker build; Node 24 is known to work)
 - Backend runtime dependencies are provisioned through the Blocks Genesis platform (secret vault, MongoDB, cache, message bus). Without access to a Blocks environment you can build and unit-test everything, but the API and Worker will not start end to end.
 
@@ -63,6 +70,8 @@ npm ci --prefix e2e
 ./run.sh -b    # .NET API (port 5000)
 ./run.sh -w    # .NET Worker
 ./run.sh -a    # build frontend into server/Api/wwwroot, then run API + Worker
+./run.sh -k    # free the API port
+./run.sh -n …  # run an npm command in client/
 ./run.sh -h    # all options, including test shortcuts
 ```
 
@@ -109,13 +118,13 @@ Two things worth knowing before reading a failure here:
 
 The DMS exposes three controllers under `server/Api/Controllers/Storage/`:
 
-| Controller | Covers |
-|---|---|
-| `FilesController` | File metadata, presigned upload and download, versions, copy, move |
-| `FoldersController` | Folder create, read, children listing, rename, move, delete |
-| `ContentController` | Sharing, access policies, search, trash |
+| Controller | Route | Covers |
+|---|---|---|
+| `DirectoryController` | `directory` | Folder create (including the root folder), read, update, move, delete |
+| `FilesController` | `files` | File metadata, presigned upload and upload completion, download, versions, copy, move, rename |
+| `ObjectController` | `objects` | Listing, search, trash, shared items, sharing, access policies, inheritance, access resolution |
 
-Every action is authorised twice. `[ProtectedEndPoint("blocks-data::<verb>")]` decides who may call it at all, and the service then resolves the caller's access to the specific resource through `IContentAccessResolver`. Holding the endpoint permission does not grant access to any particular folder or file.
+Every action is authorised twice. `[ProtectedEndPoint("blocks-data::<area>::<action>")]` decides who may call it at all, and the service then resolves the caller's access to the specific resource through `IObjectAccessResolver`. Holding the endpoint permission does not grant access to any particular folder or file.
 
 Access policies attach to a folder or a file and name a principal: a user, a role, an organization, or everyone. A resource inherits its parent's policies unless inheritance is switched off, which is refused while nothing else grants access, since the resource would otherwise become invisible to everyone including the person switching it. Deny beats allow, except that a deny aimed at the owner of the resource it sits on is rejected rather than stored.
 
@@ -124,10 +133,22 @@ Two conventions are easy to break by accident:
 - **A read the caller may not perform answers 404, not 403.** Returning "forbidden" would confirm that a folder exists to someone who may not see it, which is enough to map a tree they have no access to.
 - **The listing visibility shortcut is only valid for one folder's children.** It treats a purely inheriting resource as visible because its parent already was. Any query that crosses folders, such as search or the trash, resolves `View` per item instead.
 
+### Storage configurations
+
+A tenant's storage configurations live in its `KeyValueStores` under `storage-config:<Name>`. The secrets (connection strings and keys) are kept in SecretStore, and the row stores only their ids. Secrets are read on every call and never cached. The old `StorageConfigurations` collection is read only when a configuration has no row yet, until the migration's cleanup step drops it.
+
+Blocks OS owns the storage configuration API (list, save, delete). The SPA reads the list from Blocks OS, which returns a status per secret, never a secret value.
+
+## Worker jobs
+
+The Worker hosts two migration jobs. Each does nothing unless its mode variable is set, and both take a Redis lock so only one Worker runs them.
+
+- `DataSourceSecretMigrationJob` moves every tenant's data source configuration to the new model: a `data-source` secret in SecretStore plus one root document per tenant in `BlocksRootDb.DataServiceConfigurations`. It never touches the old tenant documents. Enable with `DataSourceSecretMigration__Mode` set to `plan`, `apply`, `verify` or `scrub-redis`. `scrub-redis` removes the legacy connection string from Redis and also requires `DataSourceSecretMigration__DataDeployed=yes`, meaning no pod running the old code is left.
+- `StorageConfigMigrationJob` moves storage configurations from `StorageConfigurations` into `KeyValueStores` and SecretStore. Enable with `StorageConfigMigration__Mode` set to `plan`, `apply`, `verify` or `cleanup`. `cleanup` drops the old data and also requires `StorageConfigMigration__SnapshotTaken=yes`.
+
 ## Scan and deploy
 
-- `scripts/scan.sh` is the repository's scan entry point (SAST, SCA, and secret scanning). It runs in the maintainers' environment and is intentionally not tracked in git.
-- `scripts/deploy.sh` builds and deploys to the maintainers' dev VM. **Warning:** it runs `git reset --hard origin/inception` on the working copy and rewrites systemd units; it is not a general-purpose installer.
+Scanning and deployment run in CI and in the maintainers' environment. The two tracked helpers in `scripts/` are used there: `junit-to-sonar.py` converts the vitest JUnit report so SonarQube shows client test counts, and `th-transform.py` reshapes TruffleHog findings for the Shield explorer without printing them to the CI log. Install their dependency with `pip install -r scripts/requirements.txt`.
 
 ## Configuration
 
@@ -140,10 +161,14 @@ Do not commit secrets. All values below are supplied per environment.
 - `AiCompletionUrl`, `ChatGptTemperature` (Api): endpoint and temperature for the regex assistant's AI completion calls.
 - `SwaggerOptions` (Api): OpenAPI document settings.
 - `DownloadFilesControllerUrl`, `NotificationServiceUrl` (Worker): service URLs used by consumers.
-- `FrontendRuntime` (Api): `BLOCKS_*` values injected into the built SPA at startup by replacing `__BLOCKS_*__` placeholders in `wwwroot`.
+- `FrontendRuntime` (Api, set per environment): `BLOCKS_*` values injected into the built SPA at startup by replacing `__BLOCKS_*__` placeholders in `wwwroot`.
+- `Csp` (Api): `ExtraConnectSrc` and `ExtraImgSrc` (space- or comma-separated, e.g. `Csp__ExtraConnectSrc`) add origins the SPA needs that no `FrontendRuntime` key describes, such as Rollbar, the CDN and the storage host for presigned uploads. The rest of the Content Security Policy is derived from `FrontendRuntime`.
+- `DataGateway:MaxPageSize` (Api, optional): caps the page size of GraphQL queries. Unset, pages are read as requested and a `pageSize` of 0 reads every matching row. Set, larger pages are clamped, so check that no client pages through everything with a large or zero page size before turning it on.
+- `PeriodicPingConfiguration` (Worker): `Enabled`, `PingIntervalInSeconds` and `PingUrl` for the periodic ping.
+- `VerioSystemSettings` (Worker): `BaseUri` and `ApiKey`.
 - `SecretManager`: how the Genesis secret vault is reached (see `server/Api/appsetting.Development.example`). Connection strings, certificates, and API keys are resolved from the vault at startup, not from appsettings.
 
-**Client** (`client/.env.example`): `BLOCKS_`-prefixed variables read by Vite (API base URL, notification URL, utility API origin, tenant key, captcha site key, construct URL). Copy to `client/.env` and fill in values for your environment.
+**Client** (`client/.env.example`): `BLOCKS_`-prefixed variables read by Vite (API base URL, notification URL, GraphQL gateway origin, utility API origin, Blocks OS URL, tenant key, captcha site key, construct URL, Rollbar client token and environment). The GraphQL gateway origin is optional and is derived from the current environment when unset. Without the Blocks OS URL, storage configuration calls still derive it, but the secret management links and the app launcher entry need it set. Copy to `client/.env` and fill in values for your environment.
 
 **E2E** (`e2e/.env.e2e.example`): target base URL and test-account credentials. Copy to `e2e/.env.e2e`; the file is gitignored.
 

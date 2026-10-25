@@ -1,3 +1,5 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using System.Diagnostics;
 using System.Globalization;
 using DataGateway.DomainService.Services;
@@ -21,6 +23,7 @@ using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using Moq;
 using static XUnitTest.DataGateway.TestSupport;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace XUnitTest.DataGateway;
 
@@ -438,6 +441,26 @@ public class IntrospectionDetectionTests
     {
         GraphQLIntrospectionHelper.ContainsIntrospectionQuery(Utf8GraphQLParser.Parse(query))
             .Should().BeFalse();
+    }
+
+    // HotChocolate answers `GET ?sdl` with the whole schema and the request carries no query
+    // text, so the text-based detection alone would wave it through to anonymous callers.
+    [Theory]
+    [InlineData("GET", "?sdl", true)]
+    [InlineData("GET", "?sdl=", true)]
+    [InlineData("GET", "?SDL", true)]
+    [InlineData("GET", "?sdl&query=%7B%20getBlxDrives%20%7B%20totalCount%20%7D%20%7D", true)]
+    [InlineData("GET", "?query=%7B%20getBlxDrives%20%7B%20totalCount%20%7D%20%7D", false)]
+    [InlineData("GET", "", false)]
+    [InlineData("POST", "?sdl", false)] // HotChocolate serves the SDL on GET only
+    public async Task SchemaDownload_CountsAsIntrospection(string method, string queryString, bool expected)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Method = method;
+        context.Request.QueryString = new QueryString(queryString);
+
+        (await GraphQLIntrospectionHelper.ContainsIntrospectionQueryAsync(context.Request))
+            .Should().Be(expected);
     }
 
     // The detector runs on the raw request before HotChocolate validates it, so it also sees

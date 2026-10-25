@@ -8,7 +8,8 @@ using Storage.DomainService.Enums;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
 using XUnitTest.Infrastructure;
-using File = Storage.DomainService.Entities.File;
+using Blocks.Genesis.Entities.Data;
+using File = Blocks.Genesis.Entities.Data.File;
 
 namespace XUnitTest.Storage;
 
@@ -23,7 +24,7 @@ public class CompleteUploadOrchestrationTests : IDisposable
     private readonly Mock<IFileRepository> _fileRepository = new();
     private readonly Mock<IStorageServiceFactory> _storageServiceFactory = new();
     private readonly Mock<IFileVersionRepository> _versionRepository = new();
-    private readonly Mock<IConfigurationRepository> _configurationRepository = new();
+    private readonly Mock<IStorageConfigurationProvider> _configurationProvider = new();
     private readonly Mock<IObjectAccessResolver> _accessResolver = new();
     private readonly Mock<IObjectAccessRepository> _accessRepository = new();
     private readonly Mock<IUploadVerificationService> _uploadVerificationService = new();
@@ -43,8 +44,8 @@ public class CompleteUploadOrchestrationTests : IDisposable
             .Setup(r => r.WriteAuditAsync(It.IsAny<ObjectAuditLog>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _storageServiceFactory.Setup(f => f.GetStorageService(It.IsAny<StorageConfiguration>())).Returns(_storageService.Object);
-        _configurationRepository
-            .Setup(r => r.GetConfigurationByNameAsync(It.IsAny<string>()))
+        _configurationProvider
+            .Setup(r => r.GetByNameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new StorageConfiguration { Name = "Default", StorageStrategy = "Azure" });
     }
 
@@ -58,7 +59,7 @@ public class CompleteUploadOrchestrationTests : IDisposable
         _fileRepository.Object,
         _storageServiceFactory.Object,
         _versionRepository.Object,
-        _configurationRepository.Object,
+        _configurationProvider.Object,
         Mock.Of<IFileDirectoryRepository>(),
         Mock.Of<IValidator<GetPreSignedUrlForUploadRequest>>(),
         Mock.Of<IValidator<LocalStorageUploadRequest>>(),
@@ -197,7 +198,7 @@ public class CompleteUploadOrchestrationTests : IDisposable
     {
         _fileRepository.Setup(r => r.GetFileByItemIdAsync(FileId)).ReturnsAsync(QuarantinedFile());
         _versionRepository.Setup(r => r.GetFileVersionAsync(FileId, FileVersionId)).ReturnsAsync(QuarantinedVersion());
-        _configurationRepository.Setup(r => r.GetConfigurationByNameAsync(It.IsAny<string>())).ReturnsAsync((StorageConfiguration)null!);
+        _configurationProvider.Setup(r => r.GetByNameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((StorageConfiguration?)null);
         var sut = CreateSut();
 
         var result = await sut.CompleteUploadAsync(new CompleteUploadRequest { FileId = FileId, FileVersionId = FileVersionId });

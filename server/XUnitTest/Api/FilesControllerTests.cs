@@ -10,6 +10,7 @@ using Storage.DomainService.Entities;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
 using System.Text;
+using Blocks.Genesis.Entities.Data;
 
 namespace XUnitTest.Api
 {
@@ -273,6 +274,18 @@ namespace XUnitTest.Api
             var result = await _sut.CreateFileVersion(new CreateFileVersionRequest { FileId = "x" });
 
             result.Should().BeOfType<BadRequestObjectResult>();
+        }
+
+        [Fact]
+        public void CompleteUpload_IsProtectedByCompleteUploadPermission()
+        {
+            // Owner decision 2026-10-14: was [Authorize] only (any token of the tenant).
+            var method = typeof(FileController).GetMethod(nameof(FileController.CompleteUpload))!;
+
+            var guard = (ProtectedEndPointAttribute?)System.Attribute.GetCustomAttribute(method, typeof(ProtectedEndPointAttribute));
+            guard.Should().NotBeNull();
+            guard!.ResourceName.Should().Be("blocks-data::file::complete-upload");
+            System.Attribute.GetCustomAttribute(method, typeof(Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute)).Should().BeNull();
         }
     }
 }

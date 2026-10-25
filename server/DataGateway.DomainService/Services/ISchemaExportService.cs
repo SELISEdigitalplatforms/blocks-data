@@ -17,7 +17,7 @@ public interface ISchemaExportService
     Task<(byte[] JsonBytes, string FileName)> BuildExportBytesAsync(SchemaExportEvent exportEvent);
 
     /// <summary>
-    /// Persists a SchemaExportRecord in the database after a successful upload.
+    /// Writes one ObjectAuditLogs row (Action schema-export) after a successful upload.
     /// </summary>
     Task InsertExportRecordAsync(SchemaExportEvent exportEvent, string fileName);
 }

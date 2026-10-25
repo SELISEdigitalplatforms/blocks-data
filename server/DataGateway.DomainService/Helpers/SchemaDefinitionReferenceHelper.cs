@@ -6,6 +6,7 @@ using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Services;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Helpers;
 
@@ -72,12 +73,23 @@ public class SchemaDefinitionReferenceHelper
             }
             else
             {
-                var filter = new BsonDocument { { nameof(SchemaDefinition.SchemaName), field.Type } };
+                var filter = new BsonDocument
+                {
+                    { nameof(SchemaDefinition.SchemaName), field.Type },
+                    { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
+                };
                 var referencedSchema = await _repository.GetItemAsync<SchemaDefinition>(filter);
                 if (referencedSchema != null)
                 {
                     var nestedFields = await GetSchemaDefinitionReferenceFieldsAsync(referencedSchema, currentPath, iteration + 1);
                     result.AddRange(nestedFields);
+                }
+                else if (isRoot)
+                {
+                    // The base entity's Create/Read/Update/Delete (OperationAccess) have no schema of their own: their
+                    // inner lists come from the class, so they can carry access, validation rules and defaults.
+                    result.AddRange(DefaultValueInjection.BaseEntityInnerFields(field.Name, field.Type)
+                        .Select(inner => CreateReferenceFieldDefinition(inner, $"{currentPath}.{inner.Name}", field.Type)));
                 }
             }
         }
@@ -93,7 +105,8 @@ public class SchemaDefinitionReferenceHelper
 
         var filter = new BsonDocument
         {
-            { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.Type)}", schema.SchemaName }
+            { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.Type)}", schema.SchemaName },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
         };
         var referencingSchemas = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 100) ?? new List<SchemaDefinition>();
 
@@ -118,7 +131,8 @@ public class SchemaDefinitionReferenceHelper
 
         var dtoFilter = new BsonDocument
         {
-            { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.Type)}", new BsonDocument("$in", new BsonArray(dtoSchemas)) }
+            { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.Type)}", new BsonDocument("$in", new BsonArray(dtoSchemas)) },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
         };
 
         var dtoUsedInEntities = await _repository.GetItemsAsync<SchemaDefinition>(dtoFilter, null, null, 0, 100);

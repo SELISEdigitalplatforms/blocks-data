@@ -11,8 +11,8 @@ import {
 } from "@/components/ui-kits/popover/popover";
 import { showErrorToast } from "@/hooks/use-toast";
 import { getRuntimeEnv } from "@/lib/runtime-env";
-import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { cn, navigateToUrl } from "@/lib/utils";
+import { useState } from "react";
 import { useLocation } from "react-router";
 interface BlocksApp {
   key: string;
@@ -372,7 +372,7 @@ function AppTile({ app, onClick, isLoading }: AppTileProps) {
     <button
       onClick={onClick}
       disabled={isLoading}
-      className="group flex flex-col items-center gap-2 rounded-xl p-3 text-center transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+      className="group flex flex-col items-center gap-2 rounded-xl p-3 text-center transition-colors hover:bg-accent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
     >
       <div className="flex h-12 w-12 items-center justify-center overflow-hidden">
         {app.icon}
@@ -432,18 +432,15 @@ function StarIcon({ filled }: { filled: boolean }) {
 export function BlocksAppLauncher() {
   const [open, setOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [favouriteKeys, setFavouriteKeys] = useState<Set<string>>(new Set());
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [loadingKey, setLoadingKey] = useState<string | null>(null);
-  const location = useLocation();
-  useEffect(() => {
+  // Read once on mount; this client-only SPA always has localStorage.
+  const [favouriteKeys, setFavouriteKeys] = useState<Set<string>>(() => {
     const stored = localStorage.getItem("blocks-app-favourites");
-    const keys = stored
+    return stored
       ? new Set<string>(JSON.parse(stored) as string[])
       : new Set<string>(["iam", "localization"]);
-    setFavouriteKeys(keys);
-    setIsHydrated(true);
-  }, []);
+  });
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const location = useLocation();
   const saveFavourites = (keys: Set<string>) => {
     setFavouriteKeys(keys);
     localStorage.setItem(
@@ -473,8 +470,8 @@ export function BlocksAppLauncher() {
       const response = await fetch(initiateUrl, { headers });
       const data = await response.json();
 
-      if (data.redirect_uri) {
-        window.location.href = data.redirect_uri as string;
+      if (data.redirect_uri && navigateToUrl(data.redirect_uri as string)) {
+        return;
       } else {
         showErrorToast({ errors: "Failed to get authorization URL" });
         setLoadingKey(null);
@@ -485,7 +482,6 @@ export function BlocksAppLauncher() {
       setLoadingKey(null);
     }
   };
-  if (!isHydrated) return null;
   const favourites = SELISE_APPS.filter((a) => favouriteKeys.has(a.key));
   const moreApps = SELISE_APPS.filter((a) => !favouriteKeys.has(a.key));
   return (
@@ -496,7 +492,7 @@ export function BlocksAppLauncher() {
             aria-label="SELISE Blocks apps"
             className={cn(
               "flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors",
-              "hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
               open && "bg-accent text-foreground",
             )}
           >
@@ -562,7 +558,7 @@ export function BlocksAppLauncher() {
                 key={app.key}
                 onClick={() => toggleFavourite(app.key)}
                 className={cn(
-                  "group flex flex-col items-center gap-2 rounded-xl border border-transparent bg-muted/40 p-4 shadow-sm transition-all hover:bg-accent hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                  "group flex flex-col items-center gap-2 rounded-xl border border-transparent bg-muted/40 p-4 shadow-xs transition-all hover:bg-accent hover:shadow-md focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary",
                   favouriteKeys.has(app.key) && "border-primary bg-primary/10",
                 )}
                 aria-pressed={favouriteKeys.has(app.key)}

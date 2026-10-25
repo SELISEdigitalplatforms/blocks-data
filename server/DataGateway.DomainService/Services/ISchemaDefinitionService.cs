@@ -10,6 +10,8 @@ public interface ISchemaDefinitionService
     Task<ServiceResponse<ActionResponse>> CreateSchemaAsync(CreateSchemaRequest request);
     Task<ServiceResponse<ActionResponse>> UpdateSchemaAsync(UpdateSchemaRequest request);
     Task<ServiceResponse<ActionResponse>> SaveFieldDefinitionAsync(SaveFieldDefinitionRequest request);
+    /// <summary>Sets or clears (null) one property's default value, checked first; marks the schema as changed.</summary>
+    Task<ServiceResponse<ActionResponse>> SetFieldDefaultAsync(SetFieldDefaultRequest request);
     Task<ServiceResponse<ActionResponse>> CreateSchemaDefinitionAsync(CreateSchemaDefinitionRequest request);
     Task<ServiceResponse<ActionResponse>> UpdateSchemaDefinitionAsync(UpdateSchemaDefinitionRequest request);
     Task<ServiceResponse<ActionResponse>> DeleteSchemaAsync(string id);

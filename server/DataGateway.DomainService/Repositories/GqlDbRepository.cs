@@ -1,4 +1,5 @@
 using Blocks.Genesis;
+using DataGateway.DomainService.DataSources;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
@@ -12,13 +13,26 @@ namespace DataGateway.DomainService.Repositories;
 
 public class GqlDbRepository : IGqlDbRepository
 {
+    /// <summary>Redis hash fields of a tenant's data source (data SPEC1 §3.5.8).</summary>
+    public const string HashFieldSecretId = nameof(DataServiceConfiguration.DbConnectionSecretId);
+    public const string HashFieldDatabaseName = nameof(DataServiceConfiguration.DatabaseName);
+    public const string HashFieldConnectionType = "ConnectionType";
+    public const string HashFieldVersion = "Version";
+    public const string ConnectionTypeDefault = "Default";
+    public const string ConnectionTypeCustom = "Custom";
+
     private readonly IDbContextProvider _dbContextProvider;
     private readonly ICacheClient _cacheClient;
+    private readonly IDataSourceClientCache _clientCache;
+    private readonly IDataSourceConfigStore _configStore;
 
-    public GqlDbRepository(IDbContextProvider dbContextProvider, ICacheClient cacheClient)
+    public GqlDbRepository(IDbContextProvider dbContextProvider, ICacheClient cacheClient, IDataSourceClientCache clientCache,
+        IDataSourceConfigStore configStore)
     {
+        _configStore = configStore;
         _dbContextProvider = dbContextProvider;
         _cacheClient = cacheClient;
+        _clientCache = clientCache;
     }
 
 
@@ -35,7 +49,7 @@ public class GqlDbRepository : IGqlDbRepository
     public async Task<BsonDocument?> GetItemAsync(string collectionName, FilterDefinition<BsonDocument> filter)
     {
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
-        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
         return await collection.Find(filter).FirstOrDefaultAsync();
     }
 
@@ -48,18 +62,75 @@ public class GqlDbRepository : IGqlDbRepository
         int limit = 10)
     {
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
-        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.GetItemsAsync(collection, filter, sort, projection, skip, limit);
     }
 
 
 
 
+    /// <inheritdoc />
+    public async Task<DocumentBatch> GetItemsBatchAsync(string collectionName,
+        BsonDocument filter,
+        BsonDocument sort,
+        int maxDocs,
+        long maxBytes)
+    {
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
+        if (maxDocs < 1)
+            maxDocs = 1;
+        var collection = (await GetDatabaseAsync()).GetCollection<RawBsonDocument>(collectionName);
+        var options = new FindOptions<RawBsonDocument> { BatchSize = maxDocs, Limit = maxDocs, Sort = sort };
+        var batch = new DocumentBatch();
+        using var cursor = await collection.FindAsync(new BsonDocumentFilterDefinition<RawBsonDocument>(filter), options);
+        while (await cursor.MoveNextAsync())
+        {
+            var current = cursor.Current.ToList();
+            for (var i = 0; i < current.Count; i++)
+            {
+                var raw = current[i];
+                var size = raw.Slice.Length;
+                // Always at least one doc; never more than maxBytes read into one batch.
+                var full = batch.Documents.Count > 0 && batch.TotalBytes + size > maxBytes;
+                if (!full)
+                {
+                    var bytes = new byte[size];
+                    raw.Slice.GetBytes(0, bytes, 0, size);
+                    batch.Add(BsonSerializer.Deserialize<BsonDocument>(bytes), size);
+                }
+                raw.Dispose();
+                if (full || batch.Documents.Count >= maxDocs || batch.TotalBytes >= maxBytes)
+                {
+                    for (var j = i + 1; j < current.Count; j++)
+                        current[j].Dispose();
+                    return batch;
+                }
+            }
+        }
+        return batch;
+    }
+
     public async Task<long> CountAsync(string collectionName, FilterDefinition<BsonDocument> filter)
     {
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
-        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
         return await collection.CountDocumentsAsync(filter);
+    }
+
+    public async Task<List<BsonValue>> GetDistinctValuesAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values)
+    {
+        // Chunked so a large bulk insert never builds one oversized $in.
+        const int chunkSize = 5000;
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
+        var found = new List<BsonValue>();
+        foreach (var chunk in values.Chunk(chunkSize))
+        {
+            var filter = Builders<BsonDocument>.Filter.In(fieldName, chunk);
+            using var cursor = await collection.DistinctAsync<BsonValue>(fieldName, filter);
+            found.AddRange(await cursor.ToListAsync());
+        }
+        return found;
     }
 
     public async Task<(List<BsonDocument> items, long count)> GetItemsWithCountAsync(string collectionName,
@@ -70,7 +141,7 @@ public class GqlDbRepository : IGqlDbRepository
         int limit = 10)
     {
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
-        var db = GetDatabase();
+        var db = await GetDatabaseAsync();
         var collection = db.GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.GetItemsWithCountAsync(collection, filter, sort, projection, skip, limit);
     }
@@ -83,7 +154,7 @@ public class GqlDbRepository : IGqlDbRepository
     public async Task<BsonDocument> InsertAsync(string collectionName, BsonDocument data)
     {
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
-        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.InsertAsync(collection, data);
     }
 
@@ -93,7 +164,7 @@ public class GqlDbRepository : IGqlDbRepository
         if (data == null || data.Count == 0)
             return new BulkActionResponse { Acknowledged = true, TotalImpactedData = 0 };
 
-        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
         await collection.InsertManyAsync(data);
         var itemIds = data
             .Where(d => d.Contains(GraphQlConstant.DbEntityIdFieldName))
@@ -118,7 +189,7 @@ public class GqlDbRepository : IGqlDbRepository
         BsonDocument data)
     {
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
-        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.UpdateOneAsync(collection, filter, data);
     }
     public async Task<ActionResponse> UpdateManyAsync(string collectionName,
@@ -126,7 +197,7 @@ public class GqlDbRepository : IGqlDbRepository
             BsonDocument data)
     {
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
-        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.UpdateManyAsync(collection, filter, data);
     }
     #endregion
@@ -137,13 +208,13 @@ public class GqlDbRepository : IGqlDbRepository
     public async Task<ActionResponse> DeleteAsync(string collectionName, BsonDocument filter)
     {
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
-        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.DeleteOneAsync(collection, filter);
     }
     public async Task<ActionResponse> DeleteManyAsync(string collectionName, BsonDocument filter)
     {
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
-        var collection = GetDatabase().GetCollection<BsonDocument>(collectionName);
+        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
         return await MongoCollectionOperations.DeleteManyAsync(collection, filter);
     }
 
@@ -153,7 +224,7 @@ public class GqlDbRepository : IGqlDbRepository
 
     public async Task<List<CollectionsDataCount>> GetCollectionsDataCount(Dictionary<string, string> collectionToSchemaNameMap, FilterDefinition<BsonDocument>? filter = null)
     {
-        var database = GetDatabase();
+        var database = await GetDatabaseAsync();
 
         var result = new List<CollectionsDataCount>();
 
@@ -185,11 +256,17 @@ public class GqlDbRepository : IGqlDbRepository
     #endregion
 
     /// <summary>
-    /// Resolves the MongoDB database for the project being served by the current request.
-    /// In a single-tenant deployment the tenant is fixed (environment), in the consolidated
-    /// multi-project deployment it is carried per request through the request context.
+    /// Resolves the MongoDB database for the project being served by the current request. Runs on every
+    /// repository call and reads the tenant's Redis hash each time. Hash shape (written by the config service):
+    /// <c>DbConnectionSecretId</c>, <c>DatabaseName</c>, <c>ConnectionType</c> (<c>Default</c>/<c>Custom</c>), <c>Version</c>.
+    /// <list type="bullet">
+    /// <item><c>Default</c> → the tenant's Blocks DB + release any open BYO client.</item>
+    /// <item><c>Custom</c> → <see cref="IDataSourceClientCache"/> (the secret is read only on a miss).</item>
+    /// <item>no hash, or a hash without those fields → rebuilt from the root doc + secret value (and written back);
+    /// a missing root doc is created first (default doc + secret). Any failure fails closed.</item>
+    /// </list>
     /// </summary>
-    private IMongoDatabase GetDatabase()
+    private async Task<IMongoDatabase> GetDatabaseAsync()
     {
         var tenantId = TenantContext.GetTenantId();
         if (string.IsNullOrWhiteSpace(tenantId))
@@ -197,37 +274,47 @@ public class GqlDbRepository : IGqlDbRepository
             tenantId = BlocksContext.GetContext()?.TenantId ?? string.Empty;
         }
 
-        var (connectionString, dbName) = GetDatabaseInfo(tenantId);
+        if (string.IsNullOrWhiteSpace(tenantId))
+            return _dbContextProvider.GetDatabase(tenantId)!;
 
+        var route = await GetRouteAsync(tenantId);
+        if (route.IsCustom)
+            return await _clientCache.GetAsync(tenantId, route.SecretId, route.Version, route.DatabaseName, RequestAborted());
 
-        var database = (string.IsNullOrWhiteSpace(connectionString)
-            ? _dbContextProvider.GetDatabase(tenantId)
-            : _dbContextProvider.GetDatabase(connectionString, dbName, true))!;
-
-        return database;
+        _clientCache.Release(tenantId);
+        return _dbContextProvider.GetDatabase(tenantId)!;
     }
 
-    private (string ConnectionString, string DbName) GetDatabaseInfo(string tenantId)
+    private static CancellationToken RequestAborted()
     {
-        if (string.IsNullOrWhiteSpace(tenantId))
-            return (string.Empty, string.Empty);
+        try
+        {
+            return BlocksHttpContextAccessor.Instance?.HttpContext?.RequestAborted ?? CancellationToken.None;
+        }
+        catch
+        {
+            return CancellationToken.None;
+        }
+    }
 
-        var cache = _cacheClient.GetHashValue(tenantId).ToDictionary(
-            kv => kv.Name,
-            kv => kv.Value
-        );
-        if (!cache.ContainsKey(nameof(DataServiceConfiguration.DbConnectionString)))
-            return (string.Empty, string.Empty);
+    private async Task<DataSourceRoute> GetRouteAsync(string tenantId)
+    {
+        var hash = (await _cacheClient.GetHashValueAsync(tenantId) ?? []).ToDictionary(
+            kv => kv.Name.ToString(),
+            kv => kv.Value.ToString());
 
-        var connectionStringByte = Convert.FromBase64String(cache[nameof(DataServiceConfiguration.DbConnectionString)]);
-        var connectionString = System.Text.Encoding.UTF8.GetString(connectionStringByte);
-        if (connectionString.IsNullOrWhiteSpaceOrDefault())
-            return (string.Empty, string.Empty);
+        if (hash.TryGetValue(HashFieldSecretId, out var secretId) && !string.IsNullOrWhiteSpace(secretId)
+            && hash.TryGetValue(HashFieldConnectionType, out var type)
+            && (type == ConnectionTypeDefault || type == ConnectionTypeCustom))
+        {
+            return new DataSourceRoute(
+                type == ConnectionTypeCustom,
+                secretId,
+                hash.TryGetValue(HashFieldDatabaseName, out var name) ? name : string.Empty,
+                hash.TryGetValue(HashFieldVersion, out var version) ? version : string.Empty);
+        }
 
-        var dbName = cache[nameof(DataServiceConfiguration.DatabaseName)];
-
-        return (connectionString, dbName);
-
+        return await _configStore.LoadAsync(tenantId);
     }
 
     private static List<BsonDocument> GetInitialPipeline(Dictionary<string, string> collectionToSchemaNameMap, BsonDocument? filterBson = null)

@@ -1,4 +1,6 @@
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
@@ -132,7 +134,7 @@ public class DataAccessPolicyHelperFilterTests
     [Fact]
     public void BuildConditionFilter_Equal()
     {
-        var filter = DataAccessPolicyHelper.BuildConditionFilter("Age", PolicyOperator.EQUAL, 30);
+        var filter = DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Age", PolicyOperator.EQUAL, 30);
         Assert.Equal(new BsonDocument("Age", 30), filter);
     }
 
@@ -140,20 +142,20 @@ public class DataAccessPolicyHelperFilterTests
     public void BuildConditionFilter_NotEqual_Gt_Lt()
     {
         Assert.Equal(new BsonDocument("Age", new BsonDocument("$ne", 30)),
-            DataAccessPolicyHelper.BuildConditionFilter("Age", PolicyOperator.NOT_EQUAL, 30));
+            DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Age", PolicyOperator.NOT_EQUAL, 30));
         Assert.Equal(new BsonDocument("Age", new BsonDocument("$gt", 30)),
-            DataAccessPolicyHelper.BuildConditionFilter("Age", PolicyOperator.GREATER_THAN, 30));
+            DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Age", PolicyOperator.GREATER_THAN, 30));
         Assert.Equal(new BsonDocument("Age", new BsonDocument("$lte", 30)),
-            DataAccessPolicyHelper.BuildConditionFilter("Age", PolicyOperator.LESS_THAN_OR_EQUAL, 30));
+            DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Age", PolicyOperator.LESS_THAN_OR_EQUAL, 30));
     }
 
     [Fact]
     public void BuildConditionFilter_In_NotIn()
     {
-        var inFilter = DataAccessPolicyHelper.BuildConditionFilter("Status", PolicyOperator.IN, new object[] { "a", "b" });
+        var inFilter = DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Status", PolicyOperator.IN, new object[] { "a", "b" });
         inFilter["Status"].AsBsonDocument.Contains("$in").Should().BeTrue();
 
-        var ninFilter = DataAccessPolicyHelper.BuildConditionFilter("Status", PolicyOperator.NOT_IN, new object[] { "a" });
+        var ninFilter = DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Status", PolicyOperator.NOT_IN, new object[] { "a" });
         ninFilter["Status"].AsBsonDocument.Contains("$nin").Should().BeTrue();
     }
 
@@ -162,16 +164,16 @@ public class DataAccessPolicyHelperFilterTests
     {
         Assert.Equal(
             new BsonDocument("OwnerId", new BsonDocument("$in", new BsonArray { "u1", "u2" })),
-            DataAccessPolicyHelper.BuildConditionFilter("OwnerId", PolicyOperator.EQUAL, "u1,u2"));
+            DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "OwnerId", PolicyOperator.EQUAL, "u1,u2"));
         Assert.Equal(
             new BsonDocument("OwnerId", new BsonDocument("$nin", new BsonArray { "u1", "u2" })),
-            DataAccessPolicyHelper.BuildConditionFilter("OwnerId", PolicyOperator.NOT_EQUAL, "u1,u2"));
+            DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "OwnerId", PolicyOperator.NOT_EQUAL, "u1,u2"));
     }
 
     [Fact]
     public void BuildConditionFilter_StartWith_UsesRegex()
     {
-        var filter = DataAccessPolicyHelper.BuildConditionFilter("Name", PolicyOperator.START_WITH, "Jo");
+        var filter = DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "Name", PolicyOperator.START_WITH, "Jo");
         var inner = filter["Name"].AsBsonDocument;
         inner["$regex"].AsString.Should().StartWith("^");
         inner["$options"].AsString.Should().Be("i");
@@ -181,9 +183,9 @@ public class DataAccessPolicyHelperFilterTests
     public void BuildConditionFilter_IsNull_IsNotNull()
     {
         Assert.Equal(new BsonDocument("X", BsonNull.Value),
-            DataAccessPolicyHelper.BuildConditionFilter("X", PolicyOperator.IS_NULL, null));
+            DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "X", PolicyOperator.IS_NULL, null));
         Assert.Equal(new BsonDocument("X", new BsonDocument("$ne", BsonNull.Value)),
-            DataAccessPolicyHelper.BuildConditionFilter("X", PolicyOperator.IS_NOT_NULL, null));
+            DataAccessPolicyHelper.BuildConditionFilter(CurrentPrincipal(), "X", PolicyOperator.IS_NOT_NULL, null));
     }
 }
 
@@ -258,7 +260,7 @@ public class DataAccessPolicyHelperEvaluatePoliciesTests
     [Fact]
     public void EvaluatePolicies_EmptyList_DeniesAccess()
     {
-        var result = new List<DataAccessPolicy>().EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+        var result = new List<DataAccessPolicy>().EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
         result.IsAccessGranted.Should().BeFalse();
     }
 
@@ -268,7 +270,7 @@ public class DataAccessPolicyHelperEvaluatePoliciesTests
         // Policy is for WRITE, we ask for READ
         var policy = Policy(PolicyType.RLS, PolicyOperation.WRITE, Array.Empty<string>(),
             Group(PolicyLogicalOperator.AND, Rule(ConditionSource.STATIC_VALUE, "x", PolicyOperator.EQUAL, staticValue: "x")));
-        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
         result.IsAccessGranted.Should().BeFalse();
     }
 
@@ -277,7 +279,7 @@ public class DataAccessPolicyHelperEvaluatePoliciesTests
     {
         var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
             Group(PolicyLogicalOperator.AND)); // no rules
-        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
         result.IsAccessGranted.Should().BeFalse();
         result.ErrorMessage.Should().NotBeNull();
     }
@@ -290,7 +292,7 @@ public class DataAccessPolicyHelperEvaluatePoliciesTests
         var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
             Group(PolicyLogicalOperator.AND, rule));
 
-        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+        var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
         result.IsAccessGranted.Should().BeTrue();
         result.RequiresDataFilter.Should().BeTrue();
@@ -307,7 +309,7 @@ public class DataAccessPolicyHelperEvaluatePoliciesTests
         {
             var deny = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
                 Group(PolicyLogicalOperator.AND, denyRule), isAllow: false);
-            var result = new List<DataAccessPolicy> { deny }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+            var result = new List<DataAccessPolicy> { deny }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
             result.IsAccessGranted.Should().BeFalse();
             result.ErrorMessage.Should().Contain("Access denied by policy");
         }
@@ -321,7 +323,7 @@ public class DataAccessPolicyHelperEvaluatePoliciesTests
     public void EvaluatePolicy_NullRuleGroup_Denies()
     {
         var policy = new DataAccessPolicy { RuleGroup = null! };
-        policy.EvaluatePolicy().IsAccessGranted.Should().BeFalse();
+        policy.EvaluatePolicy(CurrentPrincipal()).IsAccessGranted.Should().BeFalse();
     }
 }
 
@@ -332,7 +334,7 @@ public class DataAccessPolicyHelperTokenTests
     public void GetTokenValue_NoContext_ReturnsNull()
     {
         TestSupport.ClearContext();
-        DataAccessPolicyHelper.GetTokenValue("userid").Should().BeNull();
+        DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "userid").Should().BeNull();
     }
 
     [Fact]
@@ -342,13 +344,13 @@ public class DataAccessPolicyHelperTokenTests
             roles: new[] { "admin" }, permissions: new[] { "READ" });
         try
         {
-            DataAccessPolicyHelper.GetTokenValue("userid").Should().Be("u-1");
-            DataAccessPolicyHelper.GetTokenValue("sub").Should().Be("u-1");
-            DataAccessPolicyHelper.GetTokenValue("email").Should().Be("e@x.com");
-            DataAccessPolicyHelper.GetTokenValue("tenantid").Should().Be("t-1");
-            DataAccessPolicyHelper.GetTokenValue("roles").Should().BeEquivalentTo(new[] { "admin" });
-            DataAccessPolicyHelper.GetTokenValue("permissions").Should().BeEquivalentTo(new[] { "READ" });
-            DataAccessPolicyHelper.GetTokenValue("unknownclaim").Should().BeNull();
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "userid").Should().Be("u-1");
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "sub").Should().Be("u-1");
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "email").Should().Be("e@x.com");
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "tenantid").Should().Be("t-1");
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "roles").Should().BeEquivalentTo(new[] { "admin" });
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "permissions").Should().BeEquivalentTo(new[] { "READ" });
+            DataAccessPolicyHelper.GetTokenValue(CurrentPrincipal(), "unknownclaim").Should().BeNull();
         }
         finally
         {
@@ -367,7 +369,7 @@ public class DataAccessPolicyHelperTokenTests
             var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
                 Group(PolicyLogicalOperator.AND, rule));
 
-            var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+            var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
             result.IsAccessGranted.Should().BeTrue();
             result.RequiresDataFilter.Should().BeFalse();
@@ -390,7 +392,7 @@ public class DataAccessPolicyHelperTokenTests
             var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
                 Group(PolicyLogicalOperator.AND, rule));
 
-            var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+            var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
             result.IsAccessGranted.Should().BeTrue();
             result.RequiresDataFilter.Should().BeTrue();
@@ -414,7 +416,7 @@ public class DataAccessPolicyHelperTokenTests
             var policy = Policy(PolicyType.RLS, PolicyOperation.READ, Array.Empty<string>(),
                 Group(PolicyLogicalOperator.AND, rule));
 
-            var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(PolicyOperation.READ, PolicyType.RLS);
+            var result = new List<DataAccessPolicy> { policy }.EvaluatePolicies(CurrentPrincipal(), PolicyOperation.READ, PolicyType.RLS);
 
             result.IsAccessGranted.Should().BeFalse();
         }

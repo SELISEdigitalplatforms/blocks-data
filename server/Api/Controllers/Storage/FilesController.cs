@@ -1,7 +1,6 @@
 ﻿using Blocks.Genesis;
 using DomainService.Storage;
 using DomainService.Storage.Dms;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Driver;
 using Storage.DomainService.Services;
@@ -89,8 +88,7 @@ namespace Api.Controllers
         /// <param name="request">The file and version to complete.</param>
         /// <returns>The resulting verification status.</returns>
         [HttpPost("complete-upload")]
-        [Authorize]
-        // [ProtectedEndPoint("blocks-data::file::complete-upload")]
+        [ProtectedEndPoint("blocks-data::file::complete-upload")]
         public async Task<CompleteUploadResponse> CompleteUpload([FromBody] CompleteUploadRequest request)
         {
             return await _fileManagementService.CompleteUploadAsync(request);

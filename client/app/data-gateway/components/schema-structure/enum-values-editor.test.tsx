@@ -38,7 +38,7 @@ describe("EnumValuesEditor", () => {
     expect(onChange).toHaveBeenLastCalledWith(["One", "Two", "Three"]);
   });
 
-  it("commits the pending value on blur", async () => {
+  it("commits the pending value on blur-sm", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);

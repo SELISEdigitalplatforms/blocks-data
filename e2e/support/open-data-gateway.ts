@@ -3,6 +3,7 @@ import { openEnvironment } from "./navigation"
 import { dismissSessionConflictIfPresent, isConsoleUrl } from "./session-conflict"
 import { readDataProject } from "./data-project"
 import { e2eBaseUrl } from "./env"
+import { waitVisible } from "./wait-visible"
 
 export function resolveDataProjectId(page: Page): string | null {
   const fixture = readDataProject()
@@ -64,7 +65,7 @@ export async function openDataGateway(page: Page) {
 
     if (!/\/data-gateway(\/|$)/i.test(new URL(page.url()).pathname)) {
       const nav = page.getByRole("link", { name: "Data Gateway" }).first()
-      if (await nav.isVisible({ timeout: 5_000 }).catch(() => false)) {
+      if (await waitVisible(nav, 5_000)) {
         await nav.click()
         await dismissSessionConflictIfPresent(page)
       }
@@ -98,7 +99,7 @@ export async function openDataGateway(page: Page) {
 /** Wait until SchemaListSkeleton (h-10 w-full animate-pulse bars) is gone. */
 async function waitForSchemaListReady(page: Page, timeoutMs = 45_000): Promise<boolean> {
   const search = page.getByPlaceholder(/Search schemas/)
-  if (!(await search.isVisible({ timeout: 5_000 }).catch(() => false))) return false
+  if (!(await waitVisible(search, 5_000))) return false
 
   // SchemaListSkeleton uses Skeleton with className "h-10 w-full rounded-md".
   const skeletons = page.locator(".animate-pulse.h-10.w-full")
@@ -116,14 +117,14 @@ async function waitForSchemaListReady(page: Page, timeoutMs = 45_000): Promise<b
 }
 
 async function enterSchemasSidebar(page: Page): Promise<boolean> {
-  if (await page.getByPlaceholder(/Search schemas/).isVisible({ timeout: 1_500 }).catch(() => false)) {
+  if (await waitVisible(page.getByPlaceholder(/Search schemas/), 1_500)) {
     return waitForSchemaListReady(page)
   }
   // Prefer SPA navigation via a landing-table row click (avoids brittle ?type=all remounts).
   const landing = page.getByRole("heading", { name: "Security Assessment" })
   if (await landing.isVisible().catch(() => false)) {
     const firstDataRow = page.locator("table tbody tr").first()
-    if (await firstDataRow.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (await waitVisible(firstDataRow, 3_000)) {
       await firstDataRow.click()
       const search = page.getByPlaceholder(/Search schemas/)
       const ok = await search
@@ -151,11 +152,11 @@ async function enterSchemasSidebar(page: Page): Promise<boolean> {
   ).toBeVisible({ timeout: 45_000 })
   if (await page.getByRole("heading", { name: "Security Assessment" }).isVisible().catch(() => false)) {
     const firstDataRow = page.locator("table tbody tr").first()
-    if (await firstDataRow.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (await waitVisible(firstDataRow, 3_000)) {
       await firstDataRow.click()
     }
   }
-  const visible = await page.getByPlaceholder(/Search schemas/).isVisible({ timeout: 15_000 }).catch(() => false)
+  const visible = await waitVisible(page.getByPlaceholder(/Search schemas/), 15_000)
   if (!visible) return false
   return waitForSchemaListReady(page)
 }
@@ -170,10 +171,7 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
     const emptyDetails = page.getByText(
       "Select a schema from the sidebar to view its details.",
     )
-    if (
-      (await focused.isVisible({ timeout: 1_500 }).catch(() => false)) &&
-      !(await emptyDetails.isVisible({ timeout: 500 }).catch(() => false))
-    ) {
+    if ((await waitVisible(focused, 1_500)) && !(await waitVisible(emptyDetails, 500))) {
       return true
     }
   }
@@ -202,13 +200,13 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
         .getByRole("row")
         .filter({ has: page.getByRole("cell", { name: schemaName, exact: true }) })
         .first()
-      if (await row.isVisible({ timeout: 1_500 }).catch(() => false)) {
+      if (await waitVisible(row, 1_500)) {
         await row.click()
         if (await confirmSelected()) return true
         break
       }
       const next = page.getByRole("button", { name: "Next page" })
-      if (!(await next.isVisible({ timeout: 500 }).catch(() => false))) break
+      if (!(await waitVisible(next, 500))) break
       if (await next.isDisabled().catch(() => false)) break
       await next.click()
     }
@@ -232,9 +230,9 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
 
     async function clickSidebar(): Promise<boolean> {
       const row = schemaRow()
-      if (!(await row.isVisible({ timeout: 2_000 }).catch(() => false))) {
+      if (!(await waitVisible(row, 2_000))) {
         const byText = page.getByText(schemaName, { exact: true }).first()
-        if (await byText.isVisible({ timeout: 2_000 }).catch(() => false)) {
+        if (await waitVisible(byText, 2_000)) {
           await byText.click()
           return confirmSelected()
         }
@@ -249,27 +247,23 @@ export async function selectSchema(page: Page, schemaName: string): Promise<bool
     await search.fill("")
     await waitForSchemaListReady(page)
     await search.fill(schemaName)
-    // Schema list search is debounced (~500ms) then refetches.
-    await page.waitForTimeout(700)
-    await waitForSchemaListReady(page)
-    await expect(schemaRow()).toBeVisible({ timeout: 20_000 }).catch(() => {})
-    if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
+    // The search is debounced (~500ms) then refetches; the row wait below
+    // polls through the debounce, the refetch and any skeleton phase.
+    if (await waitVisible(schemaRow(), 20_000)) {
       if (await clickSidebar()) return true
     }
 
     await search.fill("")
-    await page.waitForTimeout(700)
-    await waitForSchemaListReady(page)
-    if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (await waitVisible(schemaRow(), 20_000)) {
       if (await clickSidebar()) return true
     }
     for (let i = 0; i < 10; i++) {
       const next = page.getByRole("button", { name: "Next page" })
-      if (!(await next.isVisible({ timeout: 500 }).catch(() => false))) break
+      if (!(await waitVisible(next, 500))) break
       if (await next.isDisabled().catch(() => false)) break
       await next.click()
       await waitForSchemaListReady(page)
-      if (await schemaRow().isVisible({ timeout: 2_000 }).catch(() => false)) {
+      if (await waitVisible(schemaRow(), 2_000)) {
         if (await clickSidebar()) return true
       }
     }

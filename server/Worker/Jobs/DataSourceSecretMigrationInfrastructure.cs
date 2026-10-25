@@ -1,0 +1,133 @@
+using Blocks.Genesis;
+using DataGateway.DomainService.Models.Constants;
+using MongoDB.Bson;
+using MongoDB.Driver;
+using StackExchange.Redis;
+
+namespace Worker.Jobs;
+
+/// <summary>One row of <c>BlocksRootDb.Tenants</c> (disabled tenants too).</summary>
+public sealed record DscTenant(string TenantId, bool IsRootTenant, bool IsDisabled, string DbConnectionString, string DbName);
+
+/// <summary>Databases the DSC migration job reads and writes (fake in tests).</summary>
+public interface IDscMigrationDatabases
+{
+    IMongoDatabase Root { get; }
+
+    Task<IReadOnlyList<DscTenant>> GetTenantsAsync(CancellationToken cancellationToken);
+
+    /// <summary>The tenant DB; for the root tenant this is the root DB.</summary>
+    IMongoDatabase TenantDb(DscTenant tenant);
+}
+
+/// <summary>Redis calls of the DSC migration job (fake in tests).</summary>
+public interface IDscMigrationRedis
+{
+    Task<bool> TryLockAsync(string key, string token, TimeSpan ttl);
+    Task ReleaseLockAsync(string key, string token);
+    Task<Dictionary<string, string>> GetHashAsync(string key);
+
+    /// <summary>
+    /// One atomic script: <c>HDEL DbConnectionString</c>; when the hash then lacks <c>DbConnectionSecretId</c> or
+    /// <c>ConnectionType</c> (an old-shape hash) the whole key is deleted (a missing hash is a normal cache miss; the server reloads it from the root doc).
+    /// Nothing else is written, no value is ever put into Redis.
+    /// </summary>
+    Task<bool> RemoveLegacyFieldAsync(string key);
+
+    /// <summary>Deletes the tenant's whole hash (a cache miss; the server rebuilds it from the root doc). Used only after a first-use correction.</summary>
+    Task DeleteHashAsync(string key);
+}
+
+public sealed class DscMigrationDatabases : IDscMigrationDatabases
+{
+    private readonly IDbContextProvider _dbContextProvider;
+    private readonly IBlocksSecret _blocksSecret;
+
+    public DscMigrationDatabases(IDbContextProvider dbContextProvider, IBlocksSecret blocksSecret)
+    {
+        _dbContextProvider = dbContextProvider;
+        _blocksSecret = blocksSecret;
+    }
+
+    public IMongoDatabase Root =>
+        _dbContextProvider.GetDatabase(_blocksSecret.DatabaseConnectionString, _blocksSecret.RootDatabaseName);
+
+    public async Task<IReadOnlyList<DscTenant>> GetTenantsAsync(CancellationToken cancellationToken)
+    {
+        var docs = await Root.GetCollection<BsonDocument>("Tenants")
+            .Find(new BsonDocument())
+            .ToListAsync(cancellationToken);
+        return docs.Select(d => new DscTenant(
+                d.GetValue("TenantId", BsonString.Empty).ToString() ?? string.Empty,
+                d.GetValue("IsRootTenant", false).ToBoolean(),
+                d.GetValue("IsDisabled", false).ToBoolean(),
+                d.GetValue("DbConnectionString", BsonString.Empty).ToString() ?? string.Empty,
+                d.GetValue("DBName", BsonString.Empty).ToString() ?? string.Empty))
+            .Where(t => !string.IsNullOrWhiteSpace(t.TenantId))
+            .ToList();
+    }
+
+    public IMongoDatabase TenantDb(DscTenant tenant) =>
+        tenant.IsRootTenant
+            ? Root
+            : _dbContextProvider.GetDatabase(tenant.DbConnectionString, tenant.DbName);
+}
+
+public sealed class DscMigrationRedis : IDscMigrationRedis
+{
+    private readonly ICacheClient _cacheClient;
+
+    public DscMigrationRedis(ICacheClient cacheClient)
+    {
+        _cacheClient = cacheClient;
+    }
+
+    public Task<bool> TryLockAsync(string key, string token, TimeSpan ttl) =>
+        _cacheClient.CacheDatabase().StringSetAsync(key, token, ttl, When.NotExists);
+
+    public async Task ReleaseLockAsync(string key, string token)
+    {
+        var db = _cacheClient.CacheDatabase();
+        var tran = db.CreateTransaction();
+        tran.AddCondition(Condition.StringEqual(key, token));
+        _ = tran.KeyDeleteAsync(key);
+        await tran.ExecuteAsync();
+    }
+
+    public async Task<Dictionary<string, string>> GetHashAsync(string key)
+    {
+        var entries = await _cacheClient.GetHashValueAsync(key) ?? [];
+        return entries.ToDictionary(e => e.Name.ToString(), e => e.Value.ToString(), StringComparer.Ordinal);
+    }
+
+    public async Task DeleteHashAsync(string key)
+    {
+        if (await _cacheClient.KeyExistsAsync(key))
+            await _cacheClient.RemoveKeyAsync(key);
+    }
+
+    private const string RemoveLegacyScript =
+        "redis.call('HDEL', KEYS[1], ARGV[1]) " +
+        "if redis.call('HEXISTS', KEYS[1], ARGV[2]) == 0 or redis.call('HEXISTS', KEYS[1], ARGV[3]) == 0 then redis.call('DEL', KEYS[1]) end " +
+        "return 1";
+
+    public async Task<bool> RemoveLegacyFieldAsync(string key)
+    {
+        var result = await _cacheClient.CacheDatabase().ScriptEvaluateAsync(
+            RemoveLegacyScript,
+            [(RedisKey)key],
+            [(RedisValue)DscMigrationConstants.HashFieldLegacyConnectionString, (RedisValue)DscMigrationConstants.HashFieldSecretId, (RedisValue)DscMigrationConstants.HashFieldConnectionType]);
+        return (long)result == 1;
+    }
+}
+
+internal static class DscMigrationConstants
+{
+    public const string CollectionName = "DataServiceConfigurations";
+    public const string RootDbName = GraphQlConstant.BlocksRootDbName;
+
+    // Redis hash of a tenant (key = TenantId). The Worker only ever removes the legacy field.
+    public const string HashFieldLegacyConnectionString = "DbConnectionString";
+    public const string HashFieldSecretId = "DbConnectionSecretId";
+    public const string HashFieldConnectionType = "ConnectionType";
+}

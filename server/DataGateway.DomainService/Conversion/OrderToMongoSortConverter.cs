@@ -1,7 +1,9 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using MongoDB.Bson;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Conversion;
 
@@ -39,7 +41,7 @@ public static class OrderToMongoSortConverter
             if (!allowedFields.Contains(fieldName))
                 throw new ArgumentException($"Sort field '{fieldName}' is not defined on the schema.");
 
-            var dbFieldName = fieldName == nameof(Entities.GraphQlBaseEntity.ItemId)
+            var dbFieldName = fieldName == nameof(GraphQlBaseEntity.ItemId)
                 ? GraphQlConstant.DbEntityIdFieldName
                 : fieldName;
 

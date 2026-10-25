@@ -8,6 +8,7 @@ using DataGateway.DomainService.Helpers;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Microsoft.Extensions.Logging;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 
@@ -72,6 +73,13 @@ public class DataValidationService : IDataValidationService
                 .SetHttpStatusCode(200);
         }
 
+        if (await IsSystemSchemaAsync(dataValidation.SchemaId))
+        {
+            return new ServiceResponse<ActionResponse>()
+                .SetErrorMessage("Data validation not found")
+                .SetHttpStatusCode(200);
+        }
+
         // Check if updating to a different field that already has validation
         if ((dataValidation.SchemaId != request.SchemaId || dataValidation.FieldName != request.FieldName) &&
             await IsValidationExistsForFieldAsync(request.SchemaId, request.FieldName))
@@ -105,6 +113,13 @@ public class DataValidationService : IDataValidationService
                 .SetHttpStatusCode(200);
         }
 
+        if (await IsSystemSchemaAsync(dataValidation.SchemaId))
+        {
+            return new ServiceResponse<ActionResponse>()
+                .SetErrorMessage("Data validation not found")
+                .SetHttpStatusCode(200);
+        }
+
         var filter = Builders<DataValidation>.Filter.Eq(x => x.ItemId, id);
         var result = await _repository.DeleteAsync(filter);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(dataValidation.SchemaId, SchemaChangeType.SchemaFieldValidationDelete);
@@ -118,7 +133,7 @@ public class DataValidationService : IDataValidationService
     {
         var dataValidation = await _repository.GetItemAsync<DataValidation>(id);
 
-        if (dataValidation is null)
+        if (dataValidation is null || await IsSystemSchemaAsync(dataValidation.SchemaId))
         {
             return new ServiceResponse<DataValidationResponse>()
                 .SetErrorMessage("Data validation not found")
@@ -131,6 +146,16 @@ public class DataValidationService : IDataValidationService
     public async Task<ServiceResponse<PaginationResponse<DataValidationResponse>>> GetAllDataValidationsAsync(GetDataValidationListRequest request)
     {
         var filter = GetFilter(request);
+        var systemSchemaIds = await GetSystemSchemaIdsAsync();
+        if (systemSchemaIds.Count > 0)
+        {
+            // An explicit SchemaId filter already holds a string; combine instead of overwriting it.
+            filter = new BsonDocument("$and", new BsonArray
+            {
+                filter,
+                new BsonDocument(nameof(DataValidation.SchemaId), new BsonDocument("$nin", new BsonArray(systemSchemaIds)))
+            });
+        }
         var sort = GetSorting(request.SortBy, request.SortDescending);
 
         var result = await _repository.GetItemsWithCountAsync<DataValidation>(
@@ -150,6 +175,9 @@ public class DataValidationService : IDataValidationService
 
     public async Task<ServiceResponse<List<DataValidationResponse>>> GetValidationsBySchemaIdAsync(string schemaId)
     {
+        if (await IsSystemSchemaAsync(schemaId))
+            return new ServiceResponse<List<DataValidationResponse>>().SetSuccess([]);
+
         var filter = new BsonDocument
         {
             { nameof(DataValidation.SchemaId), schemaId }
@@ -163,6 +191,13 @@ public class DataValidationService : IDataValidationService
 
     public async Task<ServiceResponse<DataValidationResponse>> GetValidationBySchemaAndFieldAsync(string schemaId, string fieldName)
     {
+        if (await IsSystemSchemaAsync(schemaId))
+        {
+            return new ServiceResponse<DataValidationResponse>()
+                .SetErrorMessage("Data validation not found for this schema field")
+                .SetHttpStatusCode(200);
+        }
+
         var filter = Builders<DataValidation>.Filter.And(
             Builders<DataValidation>.Filter.Eq(x => x.SchemaId, schemaId),
             Builders<DataValidation>.Filter.Eq(x => x.FieldName, fieldName)
@@ -178,6 +213,21 @@ public class DataValidationService : IDataValidationService
         }
 
         return new ServiceResponse<DataValidationResponse>().SetSuccess(dataValidation.MapToResponse());
+    }
+
+    private async Task<bool> IsSystemSchemaAsync(string? schemaId)
+    {
+        if (string.IsNullOrWhiteSpace(schemaId))
+            return false;
+        var schema = await _repository.GetItemAsync<SchemaDefinition>(schemaId);
+        return schema is { IsSystemEntity: true };
+    }
+
+    private async Task<List<string>> GetSystemSchemaIdsAsync()
+    {
+        var schemas = await _repository.GetItemsAsync<SchemaDefinition>(
+            new BsonDocument(nameof(SchemaDefinition.IsSystemEntity), true), null, null, 0, 1000);
+        return (schemas ?? []).Select(s => s.ItemId).ToList();
     }
 
     private async Task<bool> IsValidationExistsForFieldAsync(string schemaId, string fieldName)

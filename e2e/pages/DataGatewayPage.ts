@@ -1,5 +1,6 @@
 import { type Page, type Locator, expect } from "@playwright/test";
 import { BasePage } from "./base/BasePage";
+import { waitVisible } from "../support/wait-visible";
 
 export class DataGatewayPage extends BasePage {
   constructor(page: Page) {
@@ -110,9 +111,7 @@ export class DataGatewayPage extends BasePage {
   }
 
   hasUnadaptedChanges(timeout = 5_000): Promise<boolean> {
-    return this.getUnadaptedAlert()
-      .isVisible({ timeout })
-      .catch(() => false);
+    return waitVisible(this.getUnadaptedAlert(), timeout);
   }
 
   async openConfiguration(): Promise<void> {

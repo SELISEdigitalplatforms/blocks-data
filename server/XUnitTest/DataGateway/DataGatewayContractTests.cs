@@ -1,3 +1,5 @@
+using MongoDB.Bson;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Events;
@@ -263,61 +265,6 @@ public class DataGatewayContractTests
     // ---------------- deployment records ----------------
 
     [Fact]
-    public void DataGatewayInstanceEntity_CarriesTheDeploymentLog()
-    {
-        var start = new DateTime(2026, 7, 30, 9, 0, 0, DateTimeKind.Utc);
-        var instance = new global::DataGateway.DomainService.Entities.DataGatewayInstance
-        {
-            TenantId = "tenant-1",
-            ProjectGuid = "guid-1",
-            ProjectEnv = "dev",
-            LastPipelineRunName = "run-9",
-            LastVersion = "1.2.3",
-            LastDeploymentStatus = "Succeeded",
-            ClusterNames = ["cluster-a", "cluster-b"],
-            DataGatewayInstanceDeploymentLog =
-            [
-                new DataGatewayInstanceDeploymentLogs
-                {
-                    PipelineRunName = "run-9",
-                    EventStartDate = start,
-                    EventFinishDate = start.AddMinutes(4),
-                    EventStatus = "Succeeded",
-                    Version = "1.2.3"
-                }
-            ]
-        };
-
-        instance.TenantId.Should().Be("tenant-1");
-        instance.ProjectGuid.Should().Be("guid-1");
-        instance.ProjectEnv.Should().Be("dev");
-        instance.LastPipelineRunName.Should().Be("run-9");
-        instance.LastVersion.Should().Be("1.2.3");
-        instance.LastDeploymentStatus.Should().Be("Succeeded");
-        instance.ClusterNames.Should().Equal("cluster-a", "cluster-b");
-        instance.DataGatewayInstanceDeploymentLog.Should().ContainSingle();
-        instance.DataGatewayInstanceDeploymentLog[0].PipelineRunName.Should().Be("run-9");
-        instance.DataGatewayInstanceDeploymentLog[0].EventStartDate.Should().Be(start);
-        instance.DataGatewayInstanceDeploymentLog[0].EventFinishDate.Should().Be(start.AddMinutes(4));
-        instance.DataGatewayInstanceDeploymentLog[0].EventStatus.Should().Be("Succeeded");
-        instance.DataGatewayInstanceDeploymentLog[0].Version.Should().Be("1.2.3");
-    }
-
-    [Fact]
-    public void DataGatewayInstanceModel_StampsItsOwnCreationTimeAndDefaultsToEmptyStrings()
-    {
-        var before = DateTime.UtcNow;
-        var model = new global::DataGateway.DomainService.Models.DataGatewayInstance();
-
-        model.CreatedAt.Should().BeOnOrAfter(before);
-        model.TenantId.Should().BeEmpty();
-        model.ProjectName.Should().BeEmpty();
-        model.ProjectGuidId.Should().BeEmpty();
-        model.PipelineRunName.Should().BeEmpty();
-        model.Environment.Should().BeEmpty();
-    }
-
-    [Fact]
     public void PostBuildQueue_DefaultsToAnUnnamedProject()
     {
         var queued = new PostBuildQueue
@@ -391,57 +338,33 @@ public class DataGatewayContractTests
     // ---------------- mutation audit record ----------------
 
     [Fact]
-    public void DataMutationRecord_DefaultsToTheLatestRevisionWithEmptyIdentifiers()
+    public void AuditLogDocument_HasTheObjectAuditLogShape_DetailIsJsonText_NoRecordWhenNull()
     {
-        var record = new DataMutationRecord { Record = new { Name = "Ada" } };
+        var doc = AuditLogDocument.Build("schema-export", "SchemaExport", "file-1", "user-1", "tenant-1",
+            new Dictionary<string, string> { ["FileName"] = "f.json", ["ExportOption"] = "Schema" });
 
-        record.IsLatest.Should().BeTrue();
-        record.CollectionName.Should().BeEmpty();
-        record.SchemaName.Should().BeEmpty();
-        record.SchemaId.Should().BeEmpty();
-        record.RecordItemId.Should().BeEmpty();
-        record.Operation.Should().BeEmpty();
+        doc["_id"].IsString.Should().BeTrue();
+        foreach (var field in new[] { "CreatedDate", "LastUpdatedDate", "CreatedBy", "LastUpdatedBy", "Language", "OrganizationId", "Tags",
+                     "TenantId", "ResourceId", "ResourceType", "UserId", "Action", "Granted", "Detail" })
+            doc.Contains(field).Should().BeTrue(field);
+        doc["Detail"].IsString.Should().BeTrue();
+        doc["Granted"].AsBoolean.Should().BeTrue();
+        doc.Contains("Record").Should().BeFalse();
+        doc.Contains("IsLatest").Should().BeFalse();
+        doc.Contains("Operation").Should().BeFalse();
     }
 
     [Fact]
-    public void DataMutationRecord_CarriesTheArchivedRevision()
+    public void AuditLogDocument_WithRecord_KeepsTheDeletedDoc()
     {
-        var record = new DataMutationRecord
-        {
-            CollectionName = "Persons",
-            SchemaName = "Person",
-            SchemaId = "schema-1",
-            RecordItemId = "person-1",
-            Operation = "Updated",
-            IsLatest = false,
-            Record = new { Name = "Ada" }
-        };
+        var record = new BsonDocument { { "_id", "p-1" }, { "Name", "Ada" } };
+        var doc = AuditLogDocument.Build("data-delete", "DataRecord", "p-1", "user-1", "tenant-1",
+            new Dictionary<string, string> { ["CollectionName"] = "Persons", ["SchemaName"] = "Person", ["SchemaId"] = "s-1" }, record);
 
-        record.CollectionName.Should().Be("Persons");
-        record.SchemaName.Should().Be("Person");
-        record.SchemaId.Should().Be("schema-1");
-        record.RecordItemId.Should().Be("person-1");
-        record.Operation.Should().Be("Updated");
-        record.IsLatest.Should().BeFalse();
-        ((object)record.Record).Should().NotBeNull();
+        doc["Record"]["Name"].AsString.Should().Be("Ada");
+        doc["Action"].AsString.Should().Be("data-delete");
+        doc["ResourceType"].AsString.Should().Be("DataRecord");
     }
 
     // ---------------- guid mapping ----------------
-
-    [Fact]
-    public void BlocksGuid_CarriesTheEncodedProjectIdentifier()
-    {
-        var guid = new BlocksGuid
-        {
-            ItemId = "guid-1",
-            TenantGroupId = "group-1",
-            OriginalValue = "project-1",
-            EncodedValue = "p1"
-        };
-
-        guid.ItemId.Should().Be("guid-1");
-        guid.TenantGroupId.Should().Be("group-1");
-        guid.OriginalValue.Should().Be("project-1");
-        guid.EncodedValue.Should().Be("p1");
-    }
 }

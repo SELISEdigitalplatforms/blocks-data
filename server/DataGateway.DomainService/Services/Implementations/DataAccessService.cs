@@ -3,10 +3,13 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Responses;
+using DataGateway.DomainService.Notifications;
+using Blocks.Genesis;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Validators;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Services;
 
@@ -15,12 +18,39 @@ public class DataAccessService : IDataAccessService
     private readonly IDbRepository _dbRepository;
     private readonly IRequestValidator _requestValidator;
     private readonly ISchemaChangeLogService _schemaChangeLogService;
+    private readonly IBuiltInNotificationSender? _notifier;
 
-    public DataAccessService(IDbRepository dbRepository, IRequestValidator requestValidator, ISchemaChangeLogService schemaChangeLogService)
+    public DataAccessService(IDbRepository dbRepository, IRequestValidator requestValidator, ISchemaChangeLogService schemaChangeLogService, IBuiltInNotificationSender? notifier = null)
     {
         _dbRepository = dbRepository;
         _requestValidator = requestValidator;
         _schemaChangeLogService = schemaChangeLogService;
+        _notifier = notifier;
+    }
+
+    /// <summary>
+    /// Tells the acting user that a data access policy changed. Best effort: the sender never throws.
+    /// Recipient limit: the acting user only (no project-people lookup exists here).
+    /// </summary>
+    private async Task NotifyPolicyChangedAsync(string action, string policyId, string schemaId)
+    {
+        if (_notifier is null) return;
+        var context = BlocksContext.GetContext();
+        await _notifier.SendAsync(new BuiltInNotification(
+            context?.TenantId ?? string.Empty,
+            "data-access-policy-changed",
+            BuiltInNotificationSender.Recipients(context?.UserId),
+            new
+            {
+                @event = "data-access-policy-changed",
+                title = "Data access policy changed",
+                description = $"A data access policy was {action}.",
+                isSuccess = true,
+                policyId,
+                schemaId,
+                action,
+                occurredAt = DateTime.UtcNow
+            }));
     }
 
     public async Task<ServiceResponse<ActionResponse>> ConfigureSecurityAsync(ConfigureSchemaSecurityRequest request)
@@ -87,6 +117,7 @@ public class DataAccessService : IDataAccessService
         await _dbRepository.InsertAsync(policy);
         await ChangeSchemaFieldAccessLevelWhenCustomPolicyAppliedAsync(schema, policy);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaPolicyCreate);
+        await NotifyPolicyChangedAsync("created", policy.ItemId, schema.ItemId);
         return response.SetSuccess(new ActionResponse
         {
             ItemId = policy.ItemId,
@@ -128,6 +159,7 @@ public class DataAccessService : IDataAccessService
         await _dbRepository.UpdateAsync(filter, policy);
         await ChangeSchemaFieldAccessLevelWhenCustomPolicyAppliedAsync(schema, policy);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(policy.SchemaId, SchemaChangeType.SchemaPolicyUpdate);
+        await NotifyPolicyChangedAsync("updated", policy.ItemId, policy.SchemaId);
         return response.SetSuccess(new ActionResponse
         {
             ItemId = policy.ItemId,
@@ -147,6 +179,7 @@ public class DataAccessService : IDataAccessService
         }
         await _dbRepository.DeleteAsync(filter);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(policy.SchemaId, SchemaChangeType.SchemaPolicyDelete);
+        await NotifyPolicyChangedAsync("deleted", policy.ItemId, policy.SchemaId);
         return response.SetSuccess(new ActionResponse
         {
             ItemId = policy.ItemId,

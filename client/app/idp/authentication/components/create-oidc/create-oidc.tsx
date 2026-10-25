@@ -82,15 +82,33 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
         clientBrandColor: credential.clientBrandColor || "#124091",
         clientDisplayName: credential.clientDisplayName || "",
       });
-      setClientLogoUrl(credential.clientLogoUrl || "");
     } else if (!isEditMode && open) {
       form.reset({
         ...createOIDCFormDefaultValue,
         clientBrandColor: "#124091",
       });
-      setClientLogoUrl("");
     }
   }, [existingOidc, isEditMode, open, form]);
+
+  // The logo is plain state, so it follows the same open/edit-target changes during render.
+  const [logoSource, setLogoSource] = useState<{
+    existingOidc: typeof existingOidc;
+    isEditMode: typeof isEditMode;
+    open: boolean;
+  } | null>(null);
+  if (
+    logoSource === null ||
+    logoSource.existingOidc !== existingOidc ||
+    logoSource.isEditMode !== isEditMode ||
+    logoSource.open !== open
+  ) {
+    setLogoSource({ existingOidc, isEditMode, open });
+    if (isEditMode && existingOidc?.oIDCClientCredential && open) {
+      setClientLogoUrl(existingOidc.oIDCClientCredential.clientLogoUrl || "");
+    } else if (!isEditMode && open) {
+      setClientLogoUrl("");
+    }
+  }
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

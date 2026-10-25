@@ -18,18 +18,11 @@ export const PasswordStrengthChecker: React.FC<PasswordStrengthCheckerProps> = (
   excludePasswordLabel,
 }) => {
   const { checks, requirements } = usePasswordStrength(password);
-  const [passwordsMatch, setPasswordsMatch] = useState(false);
-  const [isDifferentFromExcluded, setIsDifferentFromExcluded] = useState(true);
+  const passwordsMatch = password === confirmPassword && password !== "";
+  const isDifferentFromExcluded =
+    excludePassword && password !== "" ? password !== excludePassword : true;
 
   useEffect(() => {
-    setPasswordsMatch(password === confirmPassword && password !== "");
-
-    if (excludePassword && password !== "") {
-      setIsDifferentFromExcluded(password !== excludePassword);
-    } else {
-      setIsDifferentFromExcluded(true);
-    }
-
     const allMet =
       Object.values(checks).every((check) => check) && passwordsMatch && isDifferentFromExcluded;
     onRequirementsMet(allMet);
@@ -72,7 +65,7 @@ export const PasswordStrengthChecker: React.FC<PasswordStrengthCheckerProps> = (
   };
 
   return (
-    <div className="border-primary-50 mx-auto w-full rounded-lg border px-6 py-4 shadow-sm">
+    <div className="border-primary-50 mx-auto w-full rounded-lg border px-6 py-4 shadow-xs">
       <h2 className="mb-2 text-sm font-semibold text-high-emphasis">Password Requirements</h2>
       <div className="bg-primary-50 mb-2 h-1 w-full rounded">
         <div

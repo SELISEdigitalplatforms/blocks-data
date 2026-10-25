@@ -1,3 +1,4 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
@@ -35,7 +36,9 @@ public class EntityFilterInputType : InputObjectType
                 .Description($"Filter by {field.Name}.");
         }
 
-        foreach (var field in _schema.Fields.Where(f => !GraphQlTypeHelper.IsScalar(f.Type) && f.Fields.Count > 0))
+        // The base entity's access lists (OperationAccess) are not GraphQL types: no filter type exists for them.
+        foreach (var field in _schema.Fields.Where(f => !GraphQlTypeHelper.IsScalar(f.Type) && f.Fields.Count > 0
+                     && !DefaultValueInjection.IsBaseEntityField(f.Name, f.Type)))
         {
             descriptor.Field(field.Name)
                 .Type(new NamedTypeNode($"{field.Type}FilterInput"))

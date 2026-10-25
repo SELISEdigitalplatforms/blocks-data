@@ -31,7 +31,7 @@ describe("StorageFiltersToolbar", () => {
     const user = userEvent.setup();
     const props = renderToolbar();
     await user.click(screen.getByRole("button", { name: /^Add$/ }));
-    await user.click(await screen.findByText("Add Configuration"));
+    await user.click(await screen.findByText("Configure in Blocks OS"));
     expect(props.onAddConfiguration).toHaveBeenCalledTimes(1);
   });
 });

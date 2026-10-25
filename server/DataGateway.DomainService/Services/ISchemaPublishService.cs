@@ -22,8 +22,9 @@ public interface ISchemaPublishService
     Task<(long Version, SchemaSource Source)> BootstrapAsync(string tenantId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Makes an earlier published version live again and tells every pod. The drafts and the
-    /// pending changes are not touched, and the next publish still gets a new version number.
+    /// Makes an earlier published version live again and tells every pod. The drafts are not
+    /// touched; changes that version does not include are marked pending again, so the pending
+    /// changes still show what publishing would apply. The next publish gets a new version number.
     /// Throws <see cref="SchemaVersionNotFoundException"/> when that version is not kept.
     /// </summary>
     Task<SchemaRollbackResult> RollbackAsync(string tenantId, long version, CancellationToken cancellationToken = default);

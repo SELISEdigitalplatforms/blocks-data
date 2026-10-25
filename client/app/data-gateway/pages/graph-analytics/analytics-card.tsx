@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
  * `border-border/40` frame, no drop shadow, a small icon-in-a-tinted-square
  * badge beside a compact semibold title) — the generic `Card` ui-kit these
  * analytics cards used instead was a visibly different style: a heavier
- * `shadow-sm`, a solid default border, and a much larger `text-xl` title.
+ * `shadow-xs`, a solid default border, and a much larger `text-xl` title.
  */
 export function AnalyticsCard({
   icon: Icon,

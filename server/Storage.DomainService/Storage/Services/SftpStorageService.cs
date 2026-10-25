@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using Blocks.Genesis.Entities.Data;
 
 namespace DomainService.Storage.Services
 {
@@ -22,14 +23,14 @@ namespace DomainService.Storage.Services
         private readonly string _sftpSecretKey;
         private readonly IConfiguration _configuration;
 
-        public SftpStorageService(IConfiguration configuration)
+        public SftpStorageService(IConfiguration configuration, StorageConfiguration storageConfiguration)
         {
-            _sftpHost = StorageProvider.Host;
-            _sftpPort = StorageProvider.Port;
-            _sftpUsername = StorageProvider.UserName;
-            _sftpPassword = StorageProvider.Password;
-            _remoteBasePath = StorageProvider.RemoteBasePath.TrimEnd('/');
-            _sftpSecretKey = StorageProvider.SftpSecretKey;
+            _sftpHost = storageConfiguration.Host;
+            _sftpPort = storageConfiguration.Port;
+            _sftpUsername = storageConfiguration.UserName;
+            _sftpPassword = storageConfiguration.Password;
+            _remoteBasePath = (storageConfiguration.RemoteBasePath ?? string.Empty).TrimEnd('/');
+            _sftpSecretKey = storageConfiguration.SftpSecretKey;
             _configuration = configuration;
         }
 

@@ -1,7 +1,10 @@
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using Blocks.Genesis;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
+using DataGateway.DomainService.Policies;
 
 namespace XUnitTest.DataGateway;
 
@@ -115,7 +118,8 @@ internal static class TestSupport
         bool isAuthenticated = true,
         string[]? roles = null,
         string[]? permissions = null,
-        string organizationId = "org-1")
+        string organizationId = "org-1",
+        bool impersonated = false)
     {
         var ctx = BlocksContext.Create(
             tenantId: tenantId,
@@ -133,8 +137,8 @@ internal static class TestSupport
             oauthToken: string.Empty,
             originalTenantId: tenantId,
             applicationDomain: string.Empty,
-            impersonated: false,
-            impersonationSessionId: string.Empty);
+            impersonated: impersonated,
+            impersonationSessionId: impersonated ? "session-1" : string.Empty);
         BlocksContext.SetContext(ctx);
     }
 
@@ -147,5 +151,20 @@ internal static class TestSupport
     public static void SetBlocksCloud(bool isFromCloud)
     {
         RequestContextAccessor.Current = new RequestContext { IsRequestFromBlocksCloud = isFromCloud };
+    }
+
+    /// <summary>The principal the resolver sees for the ambient BlocksContext the test set up, as the gateway builds it (policies bypassed only when impersonated).</summary>
+    public static AccessPrincipal CurrentPrincipal() =>
+        BlocksContextPrincipalAccessor.For(BlocksContext.GetContext());
+
+    /// <summary>A real resolver over the schema's own policy list, as the gateway registers it.</summary>
+    public static IDataAccessPolicyResolutionService Resolver() => new DataAccessPolicyResolutionService(new SchemaPolicySource());
+
+    /// <summary>A principal accessor that reads the same ambient context the tests set with <see cref="SetContext"/> and <see cref="SetBlocksCloud"/>.</summary>
+    public static IAccessPrincipalAccessor Principals() => new AmbientPrincipalAccessor();
+
+    private sealed class AmbientPrincipalAccessor : IAccessPrincipalAccessor
+    {
+        public AccessPrincipal Current => CurrentPrincipal();
     }
 }

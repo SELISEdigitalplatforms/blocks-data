@@ -67,6 +67,6 @@ describe("Organizations", () => {
   it("shows pagination when the total exceeds the page size", () => {
     orgResult = { isLoading: false, isFetching: false, data: { organizations: [{ id: 1 }], totalCount: 25 } };
     render(<Organizations />);
-    expect(screen.getByText("Rows per page")).toBeInTheDocument();
+    expect(screen.getByText("Page 1 of 3")).toBeInTheDocument();
   });
 });

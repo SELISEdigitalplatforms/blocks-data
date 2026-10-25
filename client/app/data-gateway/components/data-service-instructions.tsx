@@ -1,14 +1,11 @@
 "use client";
 import { Button } from "@/components/ui-kits/button/button";
-import { getRuntimeEnv } from "@/lib/runtime-env";
+import { useOsSecretManagementUrl } from "@/hooks/use-scoped-path";
 import { dataServiceInstructions } from "../constants/instructions";
 
 export function DataServiceInstructions() {
-  const openBlocksOsConfiguration = () =>
-    window.open(
-      `${getRuntimeEnv("BLOCKS_OS_BASE_URL")}/app/secret-management/data-gateway`,
-      "_blank",
-    );
+  const osConfigUrl = useOsSecretManagementUrl("data-gateway");
+  const openBlocksOsConfiguration = () => window.open(osConfigUrl, "_blank");
 
   return (
     <div className="space-y-4 overflow-hidden p-6">

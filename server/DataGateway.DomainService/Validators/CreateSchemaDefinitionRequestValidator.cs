@@ -4,6 +4,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.Validators;
 

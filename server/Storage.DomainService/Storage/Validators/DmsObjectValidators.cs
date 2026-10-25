@@ -2,6 +2,7 @@ using DomainService.Storage.Dms;
 using FluentValidation;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Services;
+using Blocks.Genesis.Entities.Data;
 
 namespace Storage.DomainService.Storage.Validators
 {

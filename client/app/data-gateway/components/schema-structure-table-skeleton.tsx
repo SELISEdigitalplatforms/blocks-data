@@ -61,7 +61,7 @@ export const SchemaStructureTableSkeleton = () => {
         ))}
       </div>
 
-      <ScrollArea className="mt-4 hidden min-h-0 flex-1 xl:block [scrollbar-gutter:stable]">
+      <ScrollArea className="mt-4 hidden min-h-0 flex-1 xl:block scrollbar-gutter-stable">
         <Table className="w-full table-fixed">
           <colgroup>
             {COLUMN_WIDTHS.map((width, index) => (

@@ -1,8 +1,10 @@
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using HotChocolate.Language;
+using Blocks.Genesis.Entities.Data;
 
 namespace DataGateway.DomainService.GraphTypes;
 
@@ -36,7 +38,8 @@ public class QueryOutputType : ObjectType<object>
             return;
         }
 
-        if (_schemaMap.TryGetValue(field.Type, out _))
+        if (_schemaMap.TryGetValue(field.Type, out _)
+            || OperationAccessType.Serves(field.Name, field.Type, _schemaMap))
         {
             ((IObjectTypeDescriptor)descriptor).ResolveCustomObjectTypeField(field);
         }

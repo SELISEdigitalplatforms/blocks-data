@@ -5,9 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
-using Storage.DomainService.Shared.Enums;
 using Storage.DomainService.Services;
-using FileDirectory = Storage.DomainService.Entities.FileDirectory;
+using Blocks.Genesis.Entities.Data;
+using FileDirectory = Blocks.Genesis.Entities.Data.FileDirectory;
 
 namespace XUnitTest.Api
 {
@@ -321,6 +321,18 @@ namespace XUnitTest.Api
 
             result!.Value.Should().BeOfType<ChildrenResponse>()
                 .Which.TotalChildCount.Should().Be(1);
+        }
+
+        [Fact]
+        public void GetSharedObjects_IsProtectedWithNoPlainAuthorize()
+        {
+            // Owner decision 2026-10-14: no plain [Authorize] next to [ProtectedEndPoint].
+            var method = typeof(ObjectController).GetMethod(nameof(ObjectController.GetSharedObjects))!;
+            var guard = (Blocks.Genesis.ProtectedEndPointAttribute?)System.Attribute.GetCustomAttribute(
+                method, typeof(Blocks.Genesis.ProtectedEndPointAttribute));
+            guard!.ResourceName.Should().Be("blocks-data::object::get-shared-objects");
+            System.Attribute.GetCustomAttributes(method, typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute))
+                .Should().NotContain(a => a.GetType() == typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute));
         }
 
         [Theory]

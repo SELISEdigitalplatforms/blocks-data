@@ -1,5 +1,6 @@
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Conversion;
-using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.GraphTypes;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;

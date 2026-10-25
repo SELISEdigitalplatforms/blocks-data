@@ -1,4 +1,5 @@
-using DataGateway.DomainService.Entities;
+using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Mappers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Responses;

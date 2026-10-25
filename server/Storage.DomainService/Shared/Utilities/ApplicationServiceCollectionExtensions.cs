@@ -1,4 +1,5 @@
-﻿using Blocks.Genesis;
+﻿using Blocks.Extension.DependencyInjection;
+using Blocks.Genesis;
 using DomainService.Configuration;
 using DomainService.Storage;
 using DomainService.Storage.Dms;
@@ -55,11 +56,7 @@ namespace Storage.DomainService.Utilities
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
             services.AddSingleton<IUploadKeyRouter, UploadKeyRouter>();
             services.AddSingleton<IUploadVerificationService, UploadVerificationService>();
-            services.AddSingleton<IConfigurationRepository, ConfigurationRepository>();
-            services.AddTransient<AzureBlobStorageService>();
-            services.AddTransient<AwsS3StorageService>();
-            services.AddTransient<SftpStorageService>();
-            services.AddTransient<AwsS3CompatibleStorageService>();
+            services.AddBlocksStorageConfiguration();
             services.AddHttpContextAccessor();
         }
     }

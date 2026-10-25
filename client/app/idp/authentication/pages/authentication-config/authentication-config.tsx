@@ -21,7 +21,7 @@ export const AuthenticationConfig = () => {
       <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value)}>
         <div className="mb-4 flex items-start justify-between gap-4">
           <>
-            <div className="hidden w-full overflow-x-auto sm:block [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="hidden w-full overflow-x-auto sm:block scrollbar-none [&::-webkit-scrollbar]:hidden">
               <TabsList className="w-max">
                 {AuthenticationTabs.map((item) => (
                   <TabsTrigger key={item.id} value={item.value}>

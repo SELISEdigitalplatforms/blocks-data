@@ -1,164 +1,35 @@
-using Blocks.Genesis;
-using DataGateway.DomainService.Entities;
-using DataGateway.DomainService.Helpers;
-using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Responses;
-using DataGateway.DomainService.Repositories;
-using DataGateway.DomainService.Validators;
-using MongoDB.Driver;
-using StackExchange.Redis;
+using DataGateway.DomainService.DataSources;
+using DataGateway.DomainService.Helpers;
 
 namespace DataGateway.DomainService.Services;
 
+/// <summary>
+/// Read-only access to the data-source root doc (<c>BlocksRootDb.DataServiceConfigurations</c>, <c>_id = TenantId</c>).
+/// The config API (get/save/create) is owned by blocks-os; blocks-data never writes this doc.
+/// </summary>
 public class DataGatewayConfigurationService : IDataGatewayConfigurationService
 {
-    private readonly ICacheClient _cacheClient;
-    private readonly IDbRepository _repository;
-    private readonly IRequestValidator _requestValidator;
-    private readonly IProjectService _projectService;
+    private readonly IDataSourceConfigStore _store;
 
-    public DataGatewayConfigurationService(
-        IDbRepository repository,
-        ICacheClient cacheClient,
-        IRequestValidator requestValidator,
-        IProjectService projectService)
+    public DataGatewayConfigurationService(IDataSourceConfigStore store)
     {
-        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        _cacheClient = cacheClient ?? throw new ArgumentNullException(nameof(cacheClient));
-        _requestValidator = requestValidator ?? throw new ArgumentNullException(nameof(requestValidator));
-        _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
+        _store = store ?? throw new ArgumentNullException(nameof(store));
     }
 
-    public async Task<ServiceResponse<DataGatewayConfigurationResponse>> GetConfiguration(string projectKey)
+    public async Task<GatewayOptions?> GetOptionsAsync()
     {
-        var filter = Builders<DataServiceConfiguration>.Filter.Eq(x => x.IsDeleted, false);
-        var dataServiceConfiguration = await _repository.GetItemAsync(filter);
-
-        if (dataServiceConfiguration is null)
-            return new ServiceResponse<DataGatewayConfigurationResponse>().SetErrorMessage("Data source not found.");
-
-        var projectShortKey = await _projectService.GetTenantSlugAsync(projectKey);
-        var response = new DataGatewayConfigurationResponse
-        {
-            DbConnectionString = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(dataServiceConfiguration.DbConnectionString)),
-            DatabaseName = dataServiceConfiguration.DatabaseName,
-            IsCollectionNameEditable = dataServiceConfiguration.IsCollectionNameEditable,
-            CollectionNamePattern = dataServiceConfiguration.CollectionNamePattern,
-            ProjectKey = projectKey,
-            ProjectShortKey = projectShortKey,
-            ItemId = dataServiceConfiguration.ItemId,
-            AnalyticsConfiguration = new AnalyticsConfigurationResponse
-            {
-                EnableAnalytics = dataServiceConfiguration.AnalyticsConfiguration?.EnableAnalytics ?? false,
-                EnableDate = dataServiceConfiguration.AnalyticsConfiguration?.EnableDate,
-                ValidTill = dataServiceConfiguration.AnalyticsConfiguration?.ValidTill
-            }
-        };
-
-        return new ServiceResponse<DataGatewayConfigurationResponse>().SetSuccess(response);
-    }
-    public async Task<ServiceResponse<ActionResponse>> InsertConfiguration(CreateDataGatewayConfigurationRequest request)
-    {
-        var validationResult = await _requestValidator.ValidateAsync(request);
-        if (!validationResult.IsValid)
-        {
-            return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
-        }
-
-        var dataServiceConfiguration = await _repository.GetItemAsync<DataServiceConfiguration>(request.ItemId);
-
-        if (dataServiceConfiguration is not null)
-        {
-            return new ServiceResponse<ActionResponse>().SetErrorMessage("Data source with this ID already exists.");
-        }
-
-        dataServiceConfiguration = new DataServiceConfiguration
-        {
-            ItemId = request.ItemId,
-            DbConnectionString = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(request.ConnectionString)),
-            DatabaseName = request.DatabaseName
-        };
-        dataServiceConfiguration.InjectDefaultValue();
-        dataServiceConfiguration.AnalyticsConfiguration = new AnalyticsConfiguration
-        {
-            EnableAnalytics = true,
-            EnableDate = dataServiceConfiguration.CreatedDate,
-            ValidTill = dataServiceConfiguration.CreatedDate.AddDays(14)
-        };
-
-        var result = await _repository.InsertAsync(dataServiceConfiguration);
-        await CacheDataSourceAsync(result, request.ProjectKey);
-
-        return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { ItemId = result.ItemId });
-    }
-    public async Task<ServiceResponse<ActionResponse>> UpdateConfiguration(UpdateDataGatewayConfigurationRequest request)
-    {
-        var validationResult = await _requestValidator.ValidateAsync(request);
-        if (!validationResult.IsValid)
-        {
-            return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
-        }
-
-        var dataServiceConfiguration = await _repository.GetItemAsync<DataServiceConfiguration>(request.ItemId);
-        if (dataServiceConfiguration is null)
-            return
-            new ServiceResponse<ActionResponse>()
-            .SetErrorMessage("Data source not found.")
-            .SetHttpStatusCode(404);
-
-        dataServiceConfiguration.DbConnectionString = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(request.ConnectionString));
-        dataServiceConfiguration.DatabaseName = request.DatabaseName;
-        dataServiceConfiguration.IsCollectionNameEditable = request.IsCollectionNameEditable;
-        dataServiceConfiguration.CollectionNamePattern = request.CollectionNamePattern;
-        if (request.EnableAnalytics.HasValue)
-        {
-            dataServiceConfiguration.AnalyticsConfiguration ??= new AnalyticsConfiguration();
-            if (request.EnableAnalytics.Value
-                && !dataServiceConfiguration.AnalyticsConfiguration.EnableDate.HasValue
-                && !dataServiceConfiguration.AnalyticsConfiguration.ValidTill.HasValue)
-            {
-                var enableDate = DateTime.UtcNow;
-                dataServiceConfiguration.AnalyticsConfiguration.EnableDate = enableDate;
-                dataServiceConfiguration.AnalyticsConfiguration.ValidTill = enableDate.AddDays(14);
-            }
-
-            dataServiceConfiguration.AnalyticsConfiguration.EnableAnalytics = request.EnableAnalytics.Value;
-        }
-
-        var result = await _repository.UpdateAsync(dataServiceConfiguration);
-        await CacheDataSourceAsync(dataServiceConfiguration, request.ProjectKey);
-        return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse
-        {
-            ItemId = result.ItemId,
-            Acknowledged = result.Acknowledged,
-            TotalImpactedData = result.TotalImpactedData
-        });
+        var root = await _store.GetRootAsync(TenantContext.GetTenantId());
+        return root is null ? null : new GatewayOptions(
+            root.IsCollectionNameEditable,
+            root.CollectionNamePattern,
+            root.AnalyticsConfiguration);
     }
 
     public async Task<bool> CanAccessAnalyticsAsync()
     {
-        var filter = Builders<DataServiceConfiguration>.Filter.Eq(x => x.IsDeleted, false);
-        var dataServiceConfiguration = await _repository.GetItemAsync(filter);
-
-        return dataServiceConfiguration?.AnalyticsConfiguration?.IsAccessibleAt(DateTime.UtcNow) == true;
-    }
-
-    private async Task CacheDataSourceAsync(DataServiceConfiguration dataServiceConfiguration, string projectKey)
-    {
-        var blocksCtx = BlocksContext.GetContext();
-        if (blocksCtx is null)
-            return;
-
-        if (await _cacheClient.KeyExistsAsync(projectKey))
-            await _cacheClient.RemoveKeyAsync(projectKey);
-
-        if (!dataServiceConfiguration.IsDeleted)
-        {
-            await _cacheClient.AddHashValueAsync(projectKey, [
-                    new HashEntry(nameof(DataServiceConfiguration.DbConnectionString),
-                dataServiceConfiguration.DbConnectionString),
-            new HashEntry(nameof(DataServiceConfiguration.DatabaseName), dataServiceConfiguration.DatabaseName)
-                ]);
-        }
+        // The caller's own root doc (read only: analytics never creates a doc).
+        var root = await _store.GetRootAsync(TenantContext.GetTenantId());
+        return root?.AnalyticsConfiguration?.IsAccessibleAt(DateTime.UtcNow) == true;
     }
 }

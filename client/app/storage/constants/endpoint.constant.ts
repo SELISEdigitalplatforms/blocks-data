@@ -1,20 +1,23 @@
 import { API_BASES } from "@/constants/endpoint.constant";
+import { deriveOsBaseUrl } from "@/lib/blocks-url.util";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 
 const STORAGE_SUBPATH = "/Storage";
 const FILES_SUBPATH = "/files";
 const FOLDERS_SUBPATH = "/directory";
 const OBJECT_SUBPATH = "/objects";
 
-// Storage Configuration endpoints (IDP host; paths under /api/Storage)
+/** Blocks OS API base (`<os origin>/api`): `BLOCKS_OS_BASE_URL`, else derived from this host's environment. */
+const resolveOsApiBase = (): string => {
+  const origin = getRuntimeEnv("BLOCKS_OS_BASE_URL").trim() || deriveOsBaseUrl();
+  return `${origin.endsWith("/") ? origin.slice(0, -1) : origin}/api`;
+};
+
+// Storage Configuration read endpoint. Blocks OS owns the storage configuration API (list, save, delete);
+// the list returns settings and a status per secret, never a secret value.
 export const STORAGE_CONFIG_ENDPOINTS = {
   get GET_CONFIGS(): string {
-    return `${API_BASES.LOGIC}${STORAGE_SUBPATH}/Gets`;
-  },
-  get SAVE_CONFIG(): string {
-    return `${API_BASES.LOGIC}${STORAGE_SUBPATH}/Save`;
-  },
-  get DELETE_CONFIG(): string {
-    return `${API_BASES.LOGIC}${STORAGE_SUBPATH}/Delete`;
+    return `${resolveOsApiBase()}${STORAGE_SUBPATH}/Gets`;
   },
 };
 

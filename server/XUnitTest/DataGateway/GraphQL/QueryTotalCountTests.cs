@@ -1,7 +1,7 @@
 using Blocks.Genesis;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService;
-using DataGateway.DomainService.Entities;
-using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
 using DataGateway.DomainService.Services;
@@ -112,7 +112,7 @@ public class QueryTotalCountTests
             }
         });
 
-        var queryService = new QueryService(_gql.Object, NullLogger<QueryService>.Instance);
+        var queryService = new QueryService(_gql.Object, Resolver(), Principals(), NullLogger<QueryService>.Instance);
         var schemaBuilder = new GraphqlSchemaBuilder(
             new SchemaResolver(new Mock<IMutationService>().Object, queryService), _repo, NullLogger<GraphqlSchemaBuilder>.Instance);
 

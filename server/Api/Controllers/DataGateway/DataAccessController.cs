@@ -16,14 +16,26 @@ namespace Api.Controllers.DataGateway
     public class DataAccessController : ControllerBase
     {
         private readonly IDataAccessService _dataAccessService;
+        private readonly IAccessGrantGuard _guard;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DataAccessController"/> class.
         /// </summary>
         /// <param name="dataAccessService">The data access service.</param>
-        public DataAccessController(IDataAccessService dataAccessService)
+        /// <param name="guard">Access grant guard: only the system caller may write access.</param>
+        public DataAccessController(IDataAccessService dataAccessService, IAccessGrantGuard guard)
         {
             _dataAccessService = dataAccessService ?? throw new ArgumentNullException(nameof(dataAccessService));
+            _guard = guard ?? throw new ArgumentNullException(nameof(guard));
+        }
+
+        private ObjectResult? DenyUnlessSystemCaller(string action)
+        {
+            if (_guard.IsAllowed(action)) return null;
+            var denied = new ServiceResponse<ActionResponse>()
+                .SetErrorMessage(AccessGrantGuard.ErrorKey)
+                .SetHttpStatusCode(StatusCodes.Status403Forbidden);
+            return StatusCode(denied.HttpStatusCode, denied);
         }
 
         /// <summary>
@@ -38,6 +50,9 @@ namespace Api.Controllers.DataGateway
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> ConfigureSecurity([FromBody] ConfigureSchemaSecurityRequest request)
         {
+            var denied = DenyUnlessSystemCaller("security/change");
+            if (denied is not null) return denied;
+
             var response = await _dataAccessService.ConfigureSecurityAsync(request);
             return StatusCode(response.HttpStatusCode, response);
 
@@ -53,6 +68,9 @@ namespace Api.Controllers.DataGateway
         [ProtectedEndPoint("blocks-data::data-access::create-data-access-policy")]
         public async Task<IActionResult> CreateDataAccessPolicy([FromBody] CreateDataAccessPolicyRequest request)
         {
+            var denied = DenyUnlessSystemCaller("policy/create");
+            if (denied is not null) return denied;
+
             var response = await _dataAccessService.CreateDataAccessPolicyAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -66,6 +84,9 @@ namespace Api.Controllers.DataGateway
         [ProtectedEndPoint("blocks-data::data-access::update-data-access-policy")]
         public async Task<IActionResult> UpdateDataAccessPolicy([FromBody] UpdateDataAccessPolicyRequest request)
         {
+            var denied = DenyUnlessSystemCaller("policy/update");
+            if (denied is not null) return denied;
+
             var response = await _dataAccessService.UpdateDataAccessPolicyAsync(request);
             return StatusCode(response.HttpStatusCode, response);
         }
@@ -79,6 +100,9 @@ namespace Api.Controllers.DataGateway
         [ProtectedEndPoint("blocks-data::data-access::delete-data-access-policy")]
         public async Task<IActionResult> DeleteDataAccessPolicy([FromQuery] string itemId)
         {
+            var denied = DenyUnlessSystemCaller("policy/delete");
+            if (denied is not null) return denied;
+
             if (string.IsNullOrWhiteSpace(itemId))
                 return StatusCode(400, new { Message = "INVALID_ITEM_ID" });
             var response = await _dataAccessService.DeleteDataAccessPolicyAsync(itemId);

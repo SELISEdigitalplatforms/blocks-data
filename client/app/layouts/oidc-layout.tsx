@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useSearchParams } from "react-router";
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, ReactNode } from "react";
 import { Logo } from "@/components/logo";
 import { Loader } from "lucide-react";
 import { extractOIDCParams } from "@blocks-idp/authentication/utils/oidc-utils";
@@ -44,12 +44,9 @@ function OIDCProvider({ children }: { children: ReactNode }) {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const [params, setParams] = useState<OIDCContextType>({
-    themeColor: "#124091",
-    isLoading: true,
-  });
-
-  useEffect(() => {
+  // Recomputed when the route or query changes. extractOIDCParams reads window.location and the
+  // stored flow params, so the route values are the real dependencies.
+  const params = useMemo<OIDCContextType>(() => {
     const urlParams = extractOIDCParams(true);
 
     let stored: OIDCContextType = {};
@@ -62,7 +59,7 @@ function OIDCProvider({ children }: { children: ReactNode }) {
       console.error("Failed to parse stored params:", e);
     }
 
-    const mergedParams: OIDCContextType = {
+    return {
       projectKey: urlParams.projectKey || stored.projectKey,
       userName: urlParams.userName || stored.userName,
       logoUrl: urlParams.logoUrl || stored.logoUrl,
@@ -74,17 +71,16 @@ function OIDCProvider({ children }: { children: ReactNode }) {
       nonce: urlParams.nonce || stored.nonce,
       isLoading: false,
     };
-
-    const hasAnyParams = Object.values(mergedParams).some(
-      (value) => value && value !== "#124091",
-    );
-
-    if (hasAnyParams) {
-      localStorage.setItem("oidc-flow-params", JSON.stringify(mergedParams));
-    }
-
-    setParams(mergedParams);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- route values stand in for window.location
   }, [location.pathname, searchParams]);
+
+  // Remember the flow params for later pages of the same flow.
+  useEffect(() => {
+    const hasAnyParams = Object.values(params).some((value) => value && value !== "#124091");
+    if (hasAnyParams) {
+      localStorage.setItem("oidc-flow-params", JSON.stringify(params));
+    }
+  }, [params]);
 
   return <OIDCContext.Provider value={params}>{children}</OIDCContext.Provider>;
 }

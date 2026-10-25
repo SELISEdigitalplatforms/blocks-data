@@ -41,11 +41,12 @@ export const DropdownSearchInput: React.FC<DropdownSearchInputProps> = ({
     setState(value);
   }
 
-  const debounced = useRef(
+  // Created once, like the ref it replaces: the first onChange is the one that gets called.
+  const [debounced] = useState(() =>
     debounce((val: ValueType) => {
       onChange(val);
     }, 300),
-  ).current;
+  );
 
   useEffect(() => {
     return () => {

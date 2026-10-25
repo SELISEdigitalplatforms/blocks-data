@@ -24,7 +24,7 @@ const Item = ({ label, children }: { label: string; children: ReactNode }) => {
   return (
     <div className="min-w-0">
       <p className="mb-2 text-sm font-medium text-low-emphasis">{label}</p>
-      <div className="break-words text-base font-normal text-high-emphasis">{children}</div>
+      <div className="wrap-break-word text-base font-normal text-high-emphasis">{children}</div>
     </div>
   );
 };

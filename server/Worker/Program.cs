@@ -9,6 +9,7 @@ using Storage.DomainService.Utilities;
 using Worker;
 using Worker.Configuration;
 using Worker.Consumers;
+using Worker.Jobs;
 
 const string _serviceName = GraphQlConstant.WorkerServiceName;
 
@@ -39,6 +40,18 @@ IHostBuilder CreateHostBuilder(string[] args) =>
             services.Configure<VerioSystemSettings>(services.BuildServiceProvider().GetRequiredService<IConfiguration>().GetSection("VerioSystemSettings"));
 
             services.AddHostedService<PeriodicPingBackgroundService>();
+
+            // DSC secret migration job (data SPEC1 §3.6): off unless DataSourceSecretMigration__Mode is set.
+            services.AddSingleton<IDscMigrationDatabases, DscMigrationDatabases>();
+            services.AddSingleton<IDscMigrationRedis, DscMigrationRedis>();
+            services.AddHostedService<DataSourceSecretMigrationJob>();
+
+            // Storage-config migration job (StorageConfigurations → KeyValueStores + SecretStore): off unless
+            // StorageConfigMigration__Mode is set. Same lock/tenant infrastructure as the DSC job.
+            services.AddSingleton<IStorageConfigMigrationDatabases, StorageConfigMigrationDatabases>();
+            services.AddSingleton<StorageConfigMigrationVerifier>();
+            services.AddSingleton<StorageConfigMigrationTargets>();
+            services.AddHostedService<StorageConfigMigrationJob>();
 
             services.AddSingleton<IConsumer<MigrationCompletionEvent>, MigrationCompletionEventConsumer>();
             services.AddSingleton<IConsumer<SchemaExportEvent>, SchemaExportEventConsumer>();

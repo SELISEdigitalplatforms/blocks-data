@@ -62,7 +62,7 @@ export const PeopleManagement = () => {
                     className="flex items-center justify-between rounded-md border p-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--avatar-surface-default)] text-sm font-medium text-[var(--avatar-text-high-emphasis)]">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-(--avatar-surface-default) text-sm font-medium text-(--avatar-text-high-emphasis)">
                         {person.peopleDetails?.firstName?.[0] || person.peopleDetails?.email?.[0] || "?"}
                       </div>
                       <div>

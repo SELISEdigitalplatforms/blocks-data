@@ -103,7 +103,7 @@ export const SSOPermissionsList = ({ permissions, onDelete }: SSOPermissionsList
               className="cursor-pointer"
             >
               {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id} className="!py-4">
+                <TableCell key={cell.id} className="py-4!">
                   {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </TableCell>
               ))}

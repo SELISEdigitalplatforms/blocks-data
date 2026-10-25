@@ -7,15 +7,14 @@ const useSchemaListMock = vi.fn(() => ({
   data: { data: { items: [] as Array<{ schemaName: string }> } },
 }));
 
+// The data-source config is read from Blocks OS; the pattern and editable flag come from it.
+let osConfig: Record<string, unknown> | undefined = {
+  isCollectionNameEditable: true,
+  collectionNamePattern: "sb_{SchemaName}s",
+};
+
 vi.mock("../hooks/use-configuration", () => ({
-  useGetDataServiceConfiguration: () => ({
-    data: {
-      data: {
-        isCollectionNameEditable: true,
-        collectionNamePattern: "sb_{SchemaName}s",
-      },
-    },
-  }),
+  useGetDataServiceConfiguration: () => ({ data: { data: osConfig } }),
   useSchemaList: (...a: unknown[]) => useSchemaListMock(...(a as [])),
 }));
 
@@ -84,6 +83,34 @@ describe("AddEditSchemaModal", () => {
         entityName: "sb_Users",
       }),
     );
+  });
+
+  it("applies the collection-name pattern read from the OS config", async () => {
+    osConfig = { isCollectionNameEditable: false, collectionNamePattern: "acme_{SchemaName}" };
+    try {
+      const user = userEvent.setup();
+      renderModal();
+      await user.type(screen.getByPlaceholderText("Enter schema name"), "User");
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText("Enter entity name")).toHaveValue("acme_User"),
+      );
+    } finally {
+      osConfig = { isCollectionNameEditable: true, collectionNamePattern: "sb_{SchemaName}s" };
+    }
+  });
+
+  it("falls back to the default pattern when the OS config is not available", async () => {
+    osConfig = undefined;
+    try {
+      const user = userEvent.setup();
+      renderModal();
+      await user.type(screen.getByPlaceholderText("Enter schema name"), "User");
+      await waitFor(() =>
+        expect(screen.getByPlaceholderText("Enter entity name")).toHaveValue("sb_Users"),
+      );
+    } finally {
+      osConfig = { isCollectionNameEditable: true, collectionNamePattern: "sb_{SchemaName}s" };
+    }
   });
 
   it("shows a duplicate-name error when the name already exists", async () => {

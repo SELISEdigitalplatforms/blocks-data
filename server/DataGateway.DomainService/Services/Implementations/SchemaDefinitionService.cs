@@ -9,7 +9,9 @@ using FluentValidation;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using Blocks.Genesis.Entities.Data;
 using SortDirection = DataGateway.DomainService.Models.SortDirection;
+using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService.Services;
 
@@ -24,23 +26,24 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     private readonly SchemaDefinitionReferenceHelper _referenceHelper;
     private readonly ISchemaIndexService _schemaIndexService;
     private readonly ILogger<SchemaDefinitionService> _logger;
+    private readonly ILiveSchemaCatalog? _liveSchemaCatalog;
 
     public SchemaDefinitionService(
         IDbRepository repository,
         IRequestValidator requestValidator,
-        IProjectService projectService,
         ISchemaChangeLogService schemaChangeLogService,
         SchemaDefinitionReferenceHelper referenceHelper,
         ISchemaIndexService schemaIndexService,
-        ILogger<SchemaDefinitionService> logger)
+        ILogger<SchemaDefinitionService> logger,
+        ILiveSchemaCatalog? liveSchemaCatalog = null)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _requestValidator = requestValidator ?? throw new ArgumentNullException(nameof(requestValidator));
-        _ = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _schemaChangeLogService = schemaChangeLogService ?? throw new ArgumentNullException(nameof(schemaChangeLogService));
         _referenceHelper = referenceHelper ?? throw new ArgumentNullException(nameof(referenceHelper));
         _schemaIndexService = schemaIndexService ?? throw new ArgumentNullException(nameof(schemaIndexService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _liveSchemaCatalog = liveSchemaCatalog;
     }
 
     /// <inheritdoc />
@@ -52,6 +55,9 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
         if (await IsSchemaNameExistsAsync(request.SchemaName))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
+
+        if (await IsSystemCollectionNameAsync(request.CollectionName, request.SchemaType))
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Collection name '{request.CollectionName}' is reserved by a system entity").SetHttpStatusCode(400);
 
         var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, excludeItemId: null);
         if (collidingSchemaName is not null)
@@ -76,22 +82,29 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
 
         var schema = await _repository.GetItemAsync<SchemaDefinition>(request.ItemId);
-        if (schema is null)
+        if (schema is null || schema.IsSystemEntity)
             return SchemaNotFoundResponse();
 
         if (await IsSchemaNameExistsAsync(request.SchemaName, schema.ItemId))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
 
+        if (await IsSystemCollectionNameAsync(request.CollectionName, request.SchemaType))
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Collection name '{request.CollectionName}' is reserved by a system entity").SetHttpStatusCode(400);
+
         var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, schema.ItemId);
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
 
+        var previousSchemaName = schema.SchemaName;
         schema.CollectionName = request.CollectionName;
         schema.SchemaName = request.SchemaName;
         schema.SchemaType = request.SchemaType;
         schema.InjectDefaultValue();
+        RenameVariablePrefix(schema, previousSchemaName);
 
         var result = await _repository.UpdateAsync(schema);
+        await RenameReferenceTargetsAsync(previousSchemaName, schema.SchemaName);
+        await RenameValidationVariablePrefixAsync(schema.ItemId, previousSchemaName, schema.SchemaName);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaUpdate);
         _logger.LogInformation("Schema updated: {SchemaName}", schema.SchemaName);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = result.ItemId });
@@ -105,7 +118,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
 
         var schema = await _repository.GetItemAsync<SchemaDefinition>(request.SchemaDefinitionItemId);
-        if (schema == null)
+        if (schema == null || schema.IsSystemEntity)
             return SchemaNotFoundResponse();
 
         var indexesResponse = await _schemaIndexService.GetIndexesAsync(schema.ItemId);
@@ -120,37 +133,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
         if (request.DeletableFieldNames?.Length > 0)
         {
-            var blockingIndexNames = new List<string>();
-            var autoManagedIndexesToDrop = new List<SchemaIndexResponse>();
-
-            foreach (var deletedName in request.DeletableFieldNames)
-            {
-                foreach (var index in existingIndexes.Where(i => i.Fields.Any(f => f.FieldName == deletedName)))
-                {
-                    // A single-field unique index that exactly matches the field being deleted is
-                    // this field's own IsUniqueData-managed index (see ReconcileUniqueFieldIndexesAsync)
-                    // — it becomes moot once the field is gone, so it's dropped instead of blocking
-                    // the deletion. Any other index (compound, or a deliberate non-unique index)
-                    // still blocks, exactly as before.
-                    if (IsAutoManagedUniqueIndex(index, deletedName))
-                        autoManagedIndexesToDrop.Add(index);
-                    else
-                        blockingIndexNames.Add(index.Name);
-                }
-            }
-
+            var blockingIndexNames = await RemoveDeletedFieldsAsync(schema, request.DeletableFieldNames, existingIndexes);
             if (blockingIndexNames.Count > 0)
                 return new ServiceResponse<ActionResponse>()
                     .SetErrorMessage($"FIELD_USED_BY_INDEX: {string.Join(", ", blockingIndexNames.Distinct())}")
                     .SetHttpStatusCode(400);
-
-            foreach (var index in autoManagedIndexesToDrop.DistinctBy(i => i.ItemId))
-            {
-                await _schemaIndexService.DeleteIndexAsync(index.ItemId);
-                existingIndexes.Remove(index);
-            }
-
-            schema.Fields = schema.Fields.Where(f => !request.DeletableFieldNames.Contains(f.Name)).ToList();
         }
 
         // Captured before the merge below overwrites IsUniqueData, so the reconciliation step can
@@ -161,29 +148,75 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             f => schema.Fields.FirstOrDefault(existing => existing.Name == f.Name)?.IsUniqueData ?? false);
 
         foreach (var field in request.Fields)
-        {
-            var existingField = schema.Fields.FirstOrDefault(f => f.Name == field.Name);
-            if (existingField != null)
-            {
-                existingField.Type = field.Type;
-                existingField.IsArray = field.IsArray;
-                existingField.EnumValues = field.EnumValues ?? [];
-                existingField.IsPIIData = field.IsPIIData;
-                existingField.IsUniqueData = field.IsUniqueData;
-                existingField.Description = field.Description;
-                existingField.RequiredOn = field.RequiredOn;
-            }
-            else
-                schema.Fields.Add(new FieldDefinition { Name = field.Name, Type = field.Type, IsArray = field.IsArray, EnumValues = field.EnumValues ?? [], IsPIIData = field.IsPIIData, IsUniqueData = field.IsUniqueData, Description = field.Description, RequiredOn = field.RequiredOn });
-        }
+            MergeField(schema, field);
 
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
-        var result = await _repository.UpdateAsync(schema);
+        await _repository.UpdateAsync(schema);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaFieldUpdate);
         await ReconcileUniqueFieldIndexesAsync(schema, existingIndexes, request.Fields, wasUniqueByFieldName);
         await ReconcileGeoJsonFieldIndexesAsync(schema, request, previousGeoJsonFieldNames);
         await _referenceHelper.ApplyChangesToReferenceEntityFields(schema);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = schema.ItemId });
+    }
+
+    /// <summary>
+    /// Removes the deleted fields, dropping each one's own IsUniqueData-managed index on the way. Returns the
+    /// names of other indexes that use a deleted field; when there are any, nothing is removed.
+    /// </summary>
+    private async Task<List<string>> RemoveDeletedFieldsAsync(SchemaDefinition schema, string[] deletedNames, List<SchemaIndexResponse> existingIndexes)
+    {
+        var blockingIndexNames = new List<string>();
+        var autoManagedIndexesToDrop = new List<SchemaIndexResponse>();
+
+        foreach (var deletedName in deletedNames)
+        {
+            foreach (var index in existingIndexes.Where(i => i.Fields.Any(f => f.FieldName == deletedName)))
+            {
+                // A single-field unique index that exactly matches the field being deleted is
+                // this field's own IsUniqueData-managed index (see ReconcileUniqueFieldIndexesAsync)
+                // — it becomes moot once the field is gone, so it's dropped instead of blocking
+                // the deletion. Any other index (compound, or a deliberate non-unique index)
+                // still blocks, exactly as before.
+                if (IsAutoManagedUniqueIndex(index, deletedName))
+                    autoManagedIndexesToDrop.Add(index);
+                else
+                    blockingIndexNames.Add(index.Name);
+            }
+        }
+
+        if (blockingIndexNames.Count > 0)
+            return blockingIndexNames;
+
+        foreach (var index in autoManagedIndexesToDrop.DistinctBy(i => i.ItemId))
+        {
+            await _schemaIndexService.DeleteIndexAsync(index.ItemId);
+            existingIndexes.Remove(index);
+        }
+
+        schema.Fields = schema.Fields.Where(f => !deletedNames.Contains(f.Name)).ToList();
+        return blockingIndexNames;
+    }
+
+    /// <summary>Applies one field of the properties table: updates the stored field, or adds it.</summary>
+    private static void MergeField(SchemaDefinition schema, FieldDefinitionRequest field)
+    {
+        var existingField = schema.Fields.FirstOrDefault(f => f.Name == field.Name);
+        if (existingField == null)
+        {
+            schema.Fields.Add(new FieldDefinition { Name = field.Name, Type = field.Type, IsArray = field.IsArray, EnumValues = field.EnumValues ?? [], IsPIIData = field.IsPIIData, IsUniqueData = field.IsUniqueData, Description = field.Description, RequiredOn = field.RequiredOn });
+            return;
+        }
+
+        // The default is edited on its own (SetFieldDefaultAsync); a new type or list setting makes it meaningless.
+        if (existingField.Type != field.Type || existingField.IsArray != field.IsArray)
+            existingField.DefaultValue = null;
+        existingField.Type = field.Type;
+        existingField.IsArray = field.IsArray;
+        existingField.EnumValues = field.EnumValues ?? [];
+        existingField.IsPIIData = field.IsPIIData;
+        existingField.IsUniqueData = field.IsUniqueData;
+        existingField.Description = field.Description;
+        existingField.RequiredOn = field.RequiredOn;
     }
 
     /// <summary>
@@ -349,6 +382,9 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (await IsSchemaNameExistsAsync(request.SchemaName))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
 
+        if (await IsSystemCollectionNameAsync(request.CollectionName, request.SchemaType))
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Collection name '{request.CollectionName}' is reserved by a system entity").SetHttpStatusCode(400);
+
         var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, excludeItemId: null);
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
@@ -379,17 +415,22 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             return new ServiceResponse<ActionResponse>().SetErrors(validationResult.Errors);
 
         var schema = await _repository.GetItemAsync<SchemaDefinition>(request.ItemId);
-        if (schema == null)
+        if (schema == null || schema.IsSystemEntity)
             return SchemaNotFoundResponse();
 
         if (await IsSchemaNameExistsAsync(request.SchemaName, schema.ItemId))
             return new ServiceResponse<ActionResponse>().SetErrorMessage("Schema with the same name already exists").SetHttpStatusCode(400);
+
+        if (await IsSystemCollectionNameAsync(request.CollectionName, request.SchemaType))
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Collection name '{request.CollectionName}' is reserved by a system entity").SetHttpStatusCode(400);
 
         var collidingSchemaName = await FindCollidingSchemaNameAsync(request.SchemaName, schema.ItemId);
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
 
         var previousGeoJsonFieldNames = schema.Fields.Where(IsGeoIndexed).Select(f => f.Name).ToHashSet();
+        var previousSchemaName = schema.SchemaName;
+        var previousFields = schema.Fields.ToDictionary(f => f.Name, StringComparer.Ordinal);
 
         schema.CollectionName = request.CollectionName;
         schema.Fields = request.Fields?.Select(f => new FieldDefinition { Name = f.Name, Type = f.Type, IsArray = f.IsArray, EnumValues = f.EnumValues ?? [], IsPIIData = f.IsPIIData, IsUniqueData = f.IsUniqueData, Description = f.Description, RequiredOn = f.RequiredOn }).ToList() ?? [];
@@ -400,7 +441,16 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             schema.AddDefaultFields();
 
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
+        // Defaults aren't part of this request: keep each one whose property still has the same type and list setting.
+        foreach (var field in schema.Fields)
+        {
+            if (previousFields.TryGetValue(field.Name, out var previous) && previous.Type == field.Type && previous.IsArray == field.IsArray)
+                field.DefaultValue = previous.DefaultValue;
+        }
+        RenameVariablePrefix(schema, previousSchemaName);
         var result = await _repository.UpdateAsync(schema);
+        await RenameReferenceTargetsAsync(previousSchemaName, schema.SchemaName);
+        await RenameValidationVariablePrefixAsync(schema.ItemId, previousSchemaName, schema.SchemaName);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaUpdate);
         await ReconcileGeoJsonFieldIndexesAsync(schema, previousGeoJsonFieldNames);
         await _referenceHelper.ApplyChangesToReferenceEntityFields(schema);
@@ -411,7 +461,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     public async Task<ServiceResponse<ActionResponse>> DeleteSchemaAsync(string id)
     {
         var schema = await _repository.GetItemAsync<SchemaDefinition>(id);
-        if (schema == null)
+        if (schema == null || schema.IsSystemEntity)
             return SchemaNotFoundResponse();
 
         var filter = Builders<SchemaDefinition>.Filter.Eq(x => x.ItemId, id);
@@ -424,13 +474,16 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     public async Task<ServiceResponse<SchemaDefinitionResponse>> GetSchemaByIdAsync(string id)
     {
         var schema = await _repository.GetItemAsync<SchemaDefinition>(id);
-        if (schema == null)
+        if (schema == null || schema.IsSystemEntity)
             return new ServiceResponse<SchemaDefinitionResponse>().SetErrorMessage("Schema not found").SetHttpStatusCode(204);
 
         var validations = await _repository.GetItemsAsync<DataValidation>(new BsonDocument { { nameof(DataValidation.SchemaId), schema.ItemId } }, null, null, 0, 1000);
-        var policies = await _repository.GetItemsAsync<DataAccessPolicy>(new BsonDocument { { nameof(DataAccessPolicy.SchemaName), schema.SchemaName } }, null, null, 0, 1000);
+        var allPolicies = await _repository.GetItemsAsync<DataAccessPolicy>(new BsonDocument { { nameof(DataAccessPolicy.SchemaName), schema.SchemaName } }, null, null, 0, 1000);
+        // Matched by name, which a system schema of the same name shares: keep only this schema's own policies.
+        var policies = allPolicies.Where(p => string.IsNullOrEmpty(p.SchemaId) || p.SchemaId == schema.ItemId).ToList();
         var response = schema.MapToResponse(policies, validations);
         await _referenceHelper.MapDtoSchemasReferencesToResponse(new List<SchemaDefinitionResponse> { response });
+        await MarkLiveAsync([response]);
         return new ServiceResponse<SchemaDefinitionResponse>().SetSuccess(response);
     }
 
@@ -438,11 +491,27 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     public async Task<PaginationResponse<SchemaDefinitionResponse>> GetAllSchemasAsync(GetSchemaDefinitionListRequest request)
     {
         var filter = SchemaDefinitionFilterHelper.GetFilter(request);
+        filter.Add(nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true));
         var sort = SchemaDefinitionFilterHelper.GetSorting(request.SortBy, request.SortDescending);
         var (items, total) = await _repository.GetItemsWithCountAsync<SchemaDefinition>(filter: filter, sort: sort, projection: null, skip: (request.PageNo - 1) * request.PageSize, limit: request.PageSize);
         var list = items.Select(s => s.MapToResponse()).ToList();
         await _referenceHelper.MapDtoSchemasReferencesToResponse(list);
+        await MarkLiveAsync(list);
         return new PaginationResponse<SchemaDefinitionResponse>(total, list);
+    }
+
+    /// <summary>Sets <see cref="SchemaDefinitionResponse.IsLive"/>, left null when the live version is unknown.</summary>
+    private async Task MarkLiveAsync(IReadOnlyCollection<SchemaDefinitionResponse> responses)
+    {
+        if (_liveSchemaCatalog is null || responses.Count == 0)
+            return;
+
+        var liveIds = await _liveSchemaCatalog.GetLiveSchemaIdsAsync(TenantContext.GetTenantId());
+        if (liveIds is null)
+            return;
+
+        foreach (var response in responses)
+            response.IsLive = liveIds.Contains(response.Id);
     }
 
     /// <inheritdoc />
@@ -476,7 +545,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     public async Task<Dictionary<string, bool>> ResetSchemaStructureAsync(int pageNo = 1, int pageSize = 10)
     {
         var result = new Dictionary<string, bool>();
-        var filter = new BsonDocument { { nameof(SchemaDefinition.SchemaType), SchemaType.Entity } };
+        var filter = new BsonDocument
+        {
+            { nameof(SchemaDefinition.SchemaType), SchemaType.Entity },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
+        };
         var schemaDefinitions = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1000);
 
         foreach (var schemaDefinition in schemaDefinitions)
@@ -501,7 +574,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
     public async Task<ServiceResponse<CollectionListResponse>> GetEntityCollectionsAsync()
     {
-        var filter = new BsonDocument(nameof(SchemaDefinition.SchemaType), SchemaType.Entity);
+        var filter = new BsonDocument
+        {
+            { nameof(SchemaDefinition.SchemaType), SchemaType.Entity },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
+        };
         var schemas = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1000);
 
         var collections = schemas.Select(s => new CollectionSummaryResponse
@@ -522,7 +599,8 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         var filter = new BsonDocument
         {
             { nameof(SchemaDefinition.SchemaName), projectSchemaName },
-            { nameof(SchemaDefinition.SchemaType), SchemaType.Entity }
+            { nameof(SchemaDefinition.SchemaType), SchemaType.Entity },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
         };
         var schemas = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1);
         var schema = schemas.FirstOrDefault();
@@ -546,11 +624,137 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         });
     }
 
+    // A tenant schema must never point the gateway at a system entity's collection (Users, Roles, ...).
+    // Case-insensitive, Entity schemas only (a Dto has no backing collection).
+    /// <inheritdoc />
+    public async Task<ServiceResponse<ActionResponse>> SetFieldDefaultAsync(SetFieldDefaultRequest request)
+    {
+        var schema = string.IsNullOrWhiteSpace(request.SchemaId) ? null : await _repository.GetItemAsync<SchemaDefinition>(request.SchemaId);
+        if (schema is null || schema.IsSystemEntity)
+            return SchemaNotFoundResponse();
+
+        var field = schema.Fields.FirstOrDefault(f => f.Name == request.FieldName);
+        if (field is null)
+            return new ServiceResponse<ActionResponse>().SetErrorMessage($"Property '{request.FieldName}' was not found on {schema.SchemaName}").SetHttpStatusCode(400);
+
+        FieldDefaultValue? defaultValue = null;
+        if (request.DefaultValue is { } requested)
+        {
+            defaultValue = new FieldDefaultValue
+            {
+                Kind = requested.Kind,
+                Value = JsonValueHelper.ToStorableValue(requested.Value),
+                Offset = requested.Kind == DefaultValueKind.Now ? requested.Offset : null,
+            };
+            var problem = FieldDefaultValueCheck.Check(field.Name, field.Type, field.IsArray, field.EnumValues, defaultValue,
+                schema.SchemaName, VariableSyntax.FieldsOf(schema.Fields));
+            if (problem is not null)
+                return new ServiceResponse<ActionResponse>().SetErrorMessage(problem).SetHttpStatusCode(400);
+        }
+
+        field.DefaultValue = defaultValue;
+        await _repository.UpdateAsync(schema);
+        await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaFieldUpdate);
+        _logger.LogInformation("Default value of {SchemaName}.{FieldName} {Action}", schema.SchemaName, field.Name, defaultValue is null ? "cleared" : "set");
+        return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = schema.ItemId });
+    }
+
+    /// <summary>Templates name their own schema ({{Employee.FirstName}}), so a rename rewrites that prefix.</summary>
+    private static void RenameVariablePrefix(SchemaDefinition schema, string previousName)
+    {
+        if (string.Equals(previousName, schema.SchemaName, StringComparison.Ordinal))
+            return;
+        foreach (var template in schema.Fields.Select(f => f.DefaultValue).OfType<FieldDefaultValue>().Where(d => d.Kind == DefaultValueKind.Template))
+            template.Value = RenamePrefix(template.Value, previousName, schema.SchemaName);
+    }
+
+    /// <summary>Version-1 validation values may be a variable of their own schema; a rename rewrites the prefix.</summary>
+    private async Task RenameValidationVariablePrefixAsync(string schemaId, string previousName, string newName)
+    {
+        if (string.Equals(previousName, newName, StringComparison.Ordinal))
+            return;
+        var filter = new BsonDocument { { nameof(DataValidation.SchemaId), schemaId }, { nameof(DataValidation.IsDeleted), false } };
+        var validations = await _repository.GetItemsAsync<DataValidation, DataValidation>(filter);
+        var changed = new List<DataValidation>();
+        foreach (var validation in validations ?? [])
+        {
+            var touched = false;
+            foreach (var rule in validation.Validations.Where(r => r.EvaluationVersion >= 1))
+            {
+                var value = RenamePrefix(rule.Value, previousName, newName);
+                var secondary = RenamePrefix(rule.SecondaryValue, previousName, newName);
+                touched |= !Equals(value, rule.Value) || !Equals(secondary, rule.SecondaryValue);
+                rule.Value = value;
+                rule.SecondaryValue = secondary;
+            }
+            if (touched)
+                changed.Add(validation);
+        }
+        if (changed.Count > 0)
+            await _repository.UpdateManyAsync(changed);
+    }
+
+    private static object? RenamePrefix(object? value, string previousName, string newName) => value switch
+    {
+        string text => System.Text.RegularExpressions.Regex.Replace(text, @"\{\{(\s*)" + System.Text.RegularExpressions.Regex.Escape(previousName) + @"\.", m => $"{{{{{m.Groups[1].Value}{newName}.", System.Text.RegularExpressions.RegexOptions.None, TimeSpan.FromSeconds(1)),
+        System.Collections.IEnumerable list => list.Cast<object?>().Select(item => RenamePrefix(item, previousName, newName)).ToArray(),
+        _ => value,
+    };
+
+    /// <summary>
+    /// Reference rules name the schema they point at, so a rename carries them over; otherwise the next
+    /// publish would fail because the old name no longer exists.
+    /// </summary>
+    private async Task RenameReferenceTargetsAsync(string previousName, string newName)
+    {
+        if (string.Equals(previousName, newName, StringComparison.Ordinal))
+            return;
+
+        var filter = new BsonDocument
+        {
+            { nameof(DataValidation.IsDeleted), false },
+            { nameof(DataValidation.Validations), new BsonDocument("$elemMatch", new BsonDocument
+                {
+                    { nameof(ValidationRule.Type), nameof(ValidationType.Reference) },
+                    { nameof(ValidationRule.Value), previousName },
+                }) },
+        };
+        var validations = await _repository.GetItemsAsync<DataValidation, DataValidation>(filter);
+        if (validations is null || validations.Count == 0)
+            return;
+
+        foreach (var rule in validations.SelectMany(v => v.Validations)
+                     .Where(r => r.Type == ValidationType.Reference && ReferenceTargets.TargetSchemaName(r) == previousName))
+        {
+            rule.Value = newName;
+        }
+        await _repository.UpdateManyAsync(validations);
+        _logger.LogInformation("Reference validations on {Count} fields now point at {NewName} (was {PreviousName})",
+            validations.Count, newName, previousName);
+    }
+
+    private async Task<bool> IsSystemCollectionNameAsync(string? collectionName, SchemaType schemaType)
+    {
+        if (schemaType != SchemaType.Entity || string.IsNullOrWhiteSpace(collectionName))
+            return false;
+
+        var filter = new BsonDocument
+        {
+            { nameof(SchemaDefinition.IsSystemEntity), true },
+            { nameof(SchemaDefinition.CollectionName), new BsonRegularExpression($"^{System.Text.RegularExpressions.Regex.Escape(collectionName.Trim())}$", "i") }
+        };
+        var matches = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1);
+        return matches is { Count: > 0 };
+    }
+
     // excludeItemId lets a rename check "is this name taken by some OTHER schema" instead of
     // treating the schema's own current name as a collision with itself.
     private async Task<bool> IsSchemaNameExistsAsync(string schemaName, string? excludeItemId = null)
     {
-        var filter = Builders<SchemaDefinition>.Filter.Eq(x => x.SchemaName, schemaName);
+        // System entities (platform-owned) never count: a tenant may reuse their names.
+        var filter = Builders<SchemaDefinition>.Filter.And(
+            Builders<SchemaDefinition>.Filter.Eq(x => x.SchemaName, schemaName),
+            Builders<SchemaDefinition>.Filter.Ne(x => x.IsSystemEntity, true));
         var schema = await _repository.GetItemAsync(filter);
         return schema != null && schema.ItemId != excludeItemId;
     }
@@ -565,7 +769,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
     private async Task<string?> FindCollidingSchemaNameAsync(string schemaName, string? excludeItemId)
     {
-        var filter = new BsonDocument(nameof(SchemaDefinition.IsDeleted), false);
+        var filter = new BsonDocument
+        {
+            { nameof(SchemaDefinition.IsDeleted), false },
+            { nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true) }
+        };
         var existingSchemas = await _repository.GetItemsAsync<SchemaDefinition>(filter, null, null, 0, 1000);
         var candidateNames = ReservedSchemaNameSuffixes.Select(suffix => schemaName + suffix).ToHashSet(StringComparer.Ordinal);
 

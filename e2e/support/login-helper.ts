@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test"
 import { dismissSessionConflictIfPresent } from "./session-conflict"
 import { e2eBaseUrl, e2eCredentials } from "./env"
+import { waitVisible } from "./wait-visible"
 
 function oidcEmailField(page: Page) {
   return page.locator("#oidc-email").or(page.getByRole("textbox", { name: "Work Email" }))
@@ -20,16 +21,11 @@ const authenticatingButton = (page: Page) =>
 
 /** True when the page is the product login gate or OIDC credential form. */
 export async function isLoginSurface(page: Page): Promise<boolean> {
-  if (
-    await page
-      .getByRole("button", { name: "Log in to your account" })
-      .isVisible({ timeout: 500 })
-      .catch(() => false)
-  ) {
+  if (await waitVisible(page.getByRole("button", { name: "Log in to your account" }), 500)) {
     return true
   }
 
-  if (await oidcEmailField(page).isVisible({ timeout: 500 }).catch(() => false)) {
+  if (await waitVisible(oidcEmailField(page), 500)) {
     return true
   }
 
@@ -57,12 +53,12 @@ async function fillCredentialsAndSubmit(page: Page) {
 async function waitForConsoleAfterOidc(page: Page, timeoutMs = 60_000): Promise<boolean> {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    if (await consoleHeading(page).isVisible({ timeout: 500 }).catch(() => false)) {
+    if (await waitVisible(consoleHeading(page), 500)) {
       return true
     }
     try {
       if (/\/app\/console\/?$/i.test(new URL(page.url()).pathname)) {
-        if (await consoleHeading(page).isVisible({ timeout: 5_000 }).catch(() => false)) {
+        if (await waitVisible(consoleHeading(page), 5_000)) {
           return true
         }
       }
@@ -71,9 +67,7 @@ async function waitForConsoleAfterOidc(page: Page, timeoutMs = 60_000): Promise<
     }
 
     // IAM sometimes sticks on "Authenticating…" / Validating Credentials.
-    const stuck = await authenticatingButton(page)
-      .isVisible({ timeout: 400 })
-      .catch(() => false)
+    const stuck = await waitVisible(authenticatingButton(page), 400)
     if (stuck && Date.now() + 25_000 < deadline) {
       // Give a short grace, then abort and let caller retry.
       const cleared = await authenticatingButton(page)
@@ -100,16 +94,16 @@ export async function loginThroughOidc(page: Page, options?: { loginPath?: strin
   await page.goto(loginPath, { waitUntil: "domcontentloaded" })
 
   for (let attempt = 0; attempt < 4; attempt++) {
-    if (await consoleHeading(page).isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (await waitVisible(consoleHeading(page), 3_000)) {
       return
     }
 
     const loginButton = page.getByRole("button", { name: "Log in to your account" })
-    if (await loginButton.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    if (await waitVisible(loginButton, 3_000)) {
       try {
         await loginButton.click({ timeout: 8_000 })
       } catch {
-        if (await consoleHeading(page).isVisible({ timeout: 3_000 }).catch(() => false)) return
+        if (await waitVisible(consoleHeading(page), 3_000)) return
         await page.goto(`${base}/app/console`, { waitUntil: "domcontentloaded" })
         continue
       }
@@ -138,7 +132,7 @@ export async function loginThroughOidc(page: Page, options?: { loginPath?: strin
     }
 
     // Already on OIDC form (no gate button).
-    if (await oidcEmailField(page).isVisible({ timeout: 1_500 }).catch(() => false)) {
+    if (await waitVisible(oidcEmailField(page), 1_500)) {
       await fillCredentialsAndSubmit(page)
       if (await waitForConsoleAfterOidc(page, 60_000)) return
       await page.goto(loginPath, { waitUntil: "domcontentloaded" })
@@ -161,7 +155,7 @@ export async function ensureAuthenticated(page: Page) {
   await page.goto(`${base}/app/console`, { waitUntil: "domcontentloaded" })
   await dismissSessionConflictIfPresent(page)
 
-  if (await consoleHeading(page).isVisible({ timeout: 15_000 }).catch(() => false)) {
+  if (await waitVisible(consoleHeading(page), 15_000)) {
     return
   }
 
@@ -181,7 +175,7 @@ export async function ensureAuthenticatedOnCurrentOrigin(page: Page) {
   await page.goto(`${origin}/app/console`, { waitUntil: "domcontentloaded" })
   await dismissSessionConflictIfPresent(page)
 
-  if (await consoleHeading(page).isVisible({ timeout: 15_000 }).catch(() => false)) {
+  if (await waitVisible(consoleHeading(page), 15_000)) {
     return
   }
 

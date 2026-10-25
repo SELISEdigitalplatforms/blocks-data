@@ -8,6 +8,7 @@ const navigateMock = vi.fn();
 const setQueryParams = vi.fn();
 const useDataGatewaySearchParams = vi.fn();
 const useGetUnadaptedChangeLogs = vi.fn();
+const useSchemaList = vi.fn();
 
 vi.mock("react-router", async () => {
   const actual = await vi.importActual<typeof import("react-router")>(
@@ -28,6 +29,7 @@ vi.mock("../hooks/use-configuration", () => ({
   useCreateSchema: () => ({ mutateAsync: vi.fn() }),
   useGetUnadaptedChangeLogs: () => useGetUnadaptedChangeLogs(),
   useSchemaDetails: () => ({ data: undefined, isLoading: false }),
+  useSchemaList: () => useSchemaList(),
 }));
 
 vi.mock("@seliseblocks/genesis-os", () => ({
@@ -47,6 +49,7 @@ vi.mock("@/lib/runtime-env", () => ({ getRuntimeEnv: () => "http://x" }));
 vi.mock("./schema-structure", () => ({
   default: ({
     onOpenFieldAccess,
+    onOpenFieldValidation,
     isPreviewOpen,
     onEnterEditMode,
   }: {
@@ -54,6 +57,12 @@ vi.mock("./schema-structure", () => ({
       fieldNames: string[];
       subject: string;
       context: string;
+    }) => void;
+    onOpenFieldValidation?: (t: {
+      fieldName: string;
+      subject: string;
+      context: string;
+      fieldType: string;
     }) => void;
     isPreviewOpen?: boolean;
     onEnterEditMode?: () => void;
@@ -70,6 +79,16 @@ vi.mock("./schema-structure", () => ({
       >
         open-field-access
       </button>
+      {["Email", "Name"].map((fieldName) => (
+        <button
+          key={fieldName}
+          onClick={() =>
+            onOpenFieldValidation?.({ fieldName, subject: fieldName, context: "Field on Orders", fieldType: "String" })
+          }
+        >
+          {`open-validation-${fieldName}`}
+        </button>
+      ))}
       <button onClick={() => onEnterEditMode?.()}>enter-edit-mode</button>
     </div>
   ),
@@ -115,6 +134,17 @@ vi.mock("./page-bar", () => ({
 }));
 // The inspector pulls in the whole access-control stack, which reaches the
 // http client at import time; the page's job here is just to mount it.
+// Counts mounts: a panel kept across fields would keep a half-filled form.
+const validationMounts = vi.hoisted(() => ({ count: 0 }));
+vi.mock("./validation-inspector/validation-inspector", async () => {
+  const { useState } = await import("react");
+  return {
+    ValidationInspector: ({ target }: { target: { fieldName: string; fieldType: string } }) => {
+      const [mount] = useState(() => ++validationMounts.count);
+      return <div data-testid="validation-inspector">{`${target.fieldName}:${target.fieldType}:${mount}`}</div>;
+    },
+  };
+});
 vi.mock("./access-inspector", () => ({
   AccessInspector: ({ target }: { target: { subject: string } }) => (
     <div data-testid="access-inspector">{target.subject}</div>
@@ -146,6 +176,8 @@ describe("SchemaDetailsPage", () => {
     setQueryParams.mockReset();
     useGetUnadaptedChangeLogs.mockReset();
     useGetUnadaptedChangeLogs.mockReturnValue({ data: { data: [] } });
+    useSchemaList.mockReset();
+    useSchemaList.mockReturnValue({ data: { data: { totalCount: 0 } } });
   });
 
   it("always renders the schema view — security is its own route now", () => {
@@ -172,11 +204,29 @@ describe("SchemaDetailsPage", () => {
     // The mobile copy of basic-info/schema-structure still mounts (CSS-hidden,
     // per this suite's existing convention) — it's the desktop one only one
     // instance replaces, so check for the canvas rather than their absence.
-    it("shows the create-first-schema canvas on the desktop panel", () => {
+    it("shows the create-first-schema canvas on the desktop panel when there are no schemas", () => {
       withNoSelection();
+      useSchemaList.mockReturnValue({ data: { data: { totalCount: 0 } } });
       renderPage();
 
       expect(screen.getByText("Create your first schema")).toBeInTheDocument();
+    });
+
+    it("asks to select or add a schema when the project already has some", () => {
+      withNoSelection();
+      useSchemaList.mockReturnValue({ data: { data: { totalCount: 3 } } });
+      renderPage();
+
+      expect(screen.getByText("Select a schema or add a new one")).toBeInTheDocument();
+      expect(screen.queryByText("Create your first schema")).not.toBeInTheDocument();
+    });
+
+    it("does not claim the first schema while the count is still loading", () => {
+      withNoSelection();
+      useSchemaList.mockReturnValue({ data: undefined });
+      renderPage();
+
+      expect(screen.queryByText("Create your first schema")).not.toBeInTheDocument();
     });
 
     it("opens the add-schema modal defaulting to Entity from the New schema button", async () => {
@@ -271,6 +321,22 @@ describe("SchemaDetailsPage", () => {
     // Mobile and desktop both mount the table; only the desktop one docks.
     await user.click(screen.getAllByText("open-field-access").at(-1)!);
     expect(screen.getByTestId("access-inspector")).toHaveTextContent("Email");
+  });
+
+  it("opens a fresh validation inspector per property, with the property's type", async () => {
+    const user = userEvent.setup();
+    withSchema();
+    renderPage();
+
+    await user.click(screen.getAllByText("open-validation-Email").at(-1)!);
+    const first = screen.getByTestId("validation-inspector").textContent!;
+    expect(first).toMatch(/^Email:String:/);
+
+    await user.click(screen.getAllByText("open-validation-Name").at(-1)!);
+    const second = screen.getByTestId("validation-inspector").textContent!;
+    expect(second).toMatch(/^Name:String:/);
+    // Keyed per field: switching mounts a new panel instead of reusing the previous field's form.
+    expect(second.split(":")[2]).not.toBe(first.split(":")[2]);
   });
 
   it("opens the inspector on the schema from the access pills", async () => {

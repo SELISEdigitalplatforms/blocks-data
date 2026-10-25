@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useEffect, useRef, useState } from "react";
+import React, { createContext, useCallback, useState } from "react";
 import { useLocation } from "react-router";
 import useIsMobile from "@/hooks/use-is-mobile";
 
@@ -47,53 +47,57 @@ export function DashboardLayoutProvider({
 }) {
   const isMobile = useIsMobile();
   const { pathname } = useLocation();
-  const isMountedRef = useRef(false);
+  const [hasRestored, setHasRestored] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(isOpen);
   const [isSidebarSubMenuOpen, setIsSidebarSubMenuOpen] = useState(isSubMenuOpen);
-  const [subMenuId, setSubMenuId] = useState<string | null>(null);
+  const [subMenuId, setSubMenuId] = useState<string | null>(() => localStorage.getItem("subMenuId"));
   const [servicesSearchTerm, setServicesSearchTerm] = useState("");
 
-  useEffect(() => {
-    if (persist && !isMountedRef.current) {
-      isMountedRef.current = true;
-      if (!isMobile) {
-        const stored = localStorage.getItem(storageKey);
-        if (stored !== null) {
-          setIsSidebarOpen(JSON.parse(stored) as boolean);
-          return;
-        }
-      } else {
-        setIsSidebarOpen(false);
-      }
-    }
-  }, [isMobile, persist, storageKey]);
+  // The layout state below follows isMobile / persist / pathname / isSidebarOpen. Each block runs
+  // on the first render and whenever its inputs change, in the same order as the effects it
+  // replaces, so the final state is the same but never paints a stale frame first.
 
-  useEffect(() => {
+  // Restore the persisted sidebar state once, the first time persistence is on.
+  if (persist && !hasRestored) {
+    setHasRestored(true);
+    if (!isMobile) {
+      const stored = localStorage.getItem(storageKey);
+      if (stored !== null) {
+        setIsSidebarOpen(JSON.parse(stored) as boolean);
+      }
+    } else {
+      setIsSidebarOpen(false);
+    }
+  }
+
+  const sidebarLayoutKey = `${isMobile}|${persist}`;
+  const [appliedSidebarLayout, setAppliedSidebarLayout] = useState<string | null>(null);
+  if (sidebarLayoutKey !== appliedSidebarLayout) {
+    setAppliedSidebarLayout(sidebarLayoutKey);
     if (!persist) {
       setIsSidebarOpen(!isMobile);
     } else if (isMobile) {
       setIsSidebarOpen(false);
     }
-  }, [isMobile, persist]);
+  }
 
-  useEffect(() => {
-    const menuId = localStorage.getItem("subMenuId");
-    if (menuId !== null) {
-      setSubMenuId(menuId);
-    }
-  }, []);
-
-  useEffect(() => {
+  const subMenuRouteKey = `${pathname}|${isMobile}`;
+  const [appliedSubMenuRoute, setAppliedSubMenuRoute] = useState<string | null>(null);
+  if (subMenuRouteKey !== appliedSubMenuRoute) {
+    setAppliedSubMenuRoute(subMenuRouteKey);
     if (!isMobile && pathname.startsWith("/services")) {
       setIsSidebarSubMenuOpen(true);
     }
-  }, [pathname, isMobile]);
+  }
 
-  useEffect(() => {
+  const subMenuSidebarKey = `${isSidebarOpen}|${isMobile}`;
+  const [appliedSubMenuSidebar, setAppliedSubMenuSidebar] = useState<string | null>(null);
+  if (subMenuSidebarKey !== appliedSubMenuSidebar) {
+    setAppliedSubMenuSidebar(subMenuSidebarKey);
     if (isSidebarOpen && !isMobile) {
       setIsSidebarSubMenuOpen(false);
     }
-  }, [isSidebarOpen, isMobile]);
+  }
 
   const toggleSidebar = useCallback(() => {
     setIsSidebarOpen((prev) => {

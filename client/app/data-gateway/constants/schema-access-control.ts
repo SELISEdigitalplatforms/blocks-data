@@ -45,6 +45,9 @@ export const FIELD_TYPE_CATEGORY = {
   STRING: "string",
   ARRAY: "array",
   NUMERIC: "numeric",
+  BOOLEAN: "boolean",
+  DATE: "date",
+  ENUM: "enum",
 } as const;
 
 export type FieldTypeCategory = (typeof FIELD_TYPE_CATEGORY)[keyof typeof FIELD_TYPE_CATEGORY];
@@ -214,10 +217,22 @@ export const NUMERIC_OPERATORS = [
   "IS_NOT_NULL",
 ];
 
+/** true / false: In and Not in add nothing to Equal and Not equal, and ordering means nothing. */
+export const BOOLEAN_OPERATORS = ["EQUAL", "NOT_EQUAL", "IS_NULL", "IS_NOT_NULL"];
+
+/** A list of exact date-times is rarely what anyone means, so dates compare and order only. */
+export const DATE_OPERATORS = NUMERIC_OPERATORS.filter((op) => op !== "IN" && op !== "NOT_IN");
+
+/** One of the property's values, or several for In / Not in; no text matching. */
+export const ENUM_OPERATORS = ["EQUAL", "NOT_EQUAL", "IN", "NOT_IN", "IS_NULL", "IS_NOT_NULL"];
+
 export const OPERATORS_BY_CATEGORY: Record<FieldTypeCategory, string[]> = {
   [FIELD_TYPE_CATEGORY.STRING]: STRING_OPERATORS,
   [FIELD_TYPE_CATEGORY.ARRAY]: ARRAY_OPERATORS,
   [FIELD_TYPE_CATEGORY.NUMERIC]: NUMERIC_OPERATORS,
+  [FIELD_TYPE_CATEGORY.BOOLEAN]: BOOLEAN_OPERATORS,
+  [FIELD_TYPE_CATEGORY.DATE]: DATE_OPERATORS,
+  [FIELD_TYPE_CATEGORY.ENUM]: ENUM_OPERATORS,
 };
 
 /** Auth fields that are string type (for right-side filtering when left is array) */
@@ -234,7 +249,6 @@ const NUMERIC_FIELD_TYPES = new Set([
   "float",
   "double",
   "decimal",
-  "datetime",
 ]);
 
 /** Resolve the field type category for a schema field */
@@ -245,6 +259,9 @@ export function getFieldTypeCategory(
   if (isArray) return FIELD_TYPE_CATEGORY.ARRAY;
   const normalized = (type ?? "").toLowerCase();
   if (NUMERIC_FIELD_TYPES.has(normalized)) return FIELD_TYPE_CATEGORY.NUMERIC;
+  if (normalized === "boolean" || normalized === "bool") return FIELD_TYPE_CATEGORY.BOOLEAN;
+  if (normalized === "datetime" || normalized === "date") return FIELD_TYPE_CATEGORY.DATE;
+  if (normalized === "enum") return FIELD_TYPE_CATEGORY.ENUM;
   return FIELD_TYPE_CATEGORY.STRING;
 }
 

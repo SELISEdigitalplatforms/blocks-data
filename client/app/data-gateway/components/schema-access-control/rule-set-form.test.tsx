@@ -1074,3 +1074,167 @@ describe("RuleSetForm nested groups", () => {
     expect(screen.getByText("AND")).toBeInTheDocument();
   });
 });
+
+describe("RuleSetForm static values by property type", () => {
+  const typedFields = [
+    { name: "IsActive", type: "Boolean", isArray: false },
+    { name: "Status", type: "Enum", isArray: false, enumValues: ["Draft", "Approved", "Rejected"] },
+    { name: "JoinedOn", type: "DateTime", isArray: false },
+    { name: "Quantity", type: "Int", isArray: false },
+    { name: "Price", type: "Float", isArray: false },
+    { name: "Region", type: "String", isArray: false },
+  ];
+  const typedProps = { ...baseProps, schemaFields: typedFields };
+
+  const OPEN_LABEL: Record<number, string> = {
+    0: "Set Left operand",
+    1: "Set Left value",
+    2: "Set Operator",
+    3: "Set Right operand",
+    4: "Set Right value",
+  };
+  const pick = async (user: ReturnType<typeof userEvent.setup>, index: number, name: RegExp | string) => {
+    if (!screen.queryAllByRole("option").length) {
+      await user.click(screen.getByRole("button", { name: OPEN_LABEL[index] }));
+    }
+    await user.click(await screen.findByRole("option", { name }));
+  };
+
+  /** Starts a named rule set and a rule comparing `field` with a static value. */
+  const startStaticRule = async (user: ReturnType<typeof userEvent.setup>, field: string, operator: RegExp) => {
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), { target: { value: "Typed" } });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Products");
+    await pick(user, 1, field);
+    await pick(user, 2, operator);
+    await pick(user, 3, "Static Value");
+  };
+
+  const saveAndGetRule = async (user: ReturnType<typeof userEvent.setup>) => {
+    const saveBtn = screen.getByRole("button", { name: "Save rule set" });
+    await waitFor(() => expect(saveBtn).toBeEnabled());
+    await user.click(saveBtn);
+    await waitFor(() => expect(onStage).toHaveBeenCalled());
+    return onStage.mock.calls[0][0].payload.ruleGroup.rules[0];
+  };
+
+  it("offers a Boolean only Equal, Not equal and the null checks", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...typedProps} />);
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Products");
+    await pick(user, 1, "IsActive");
+    await user.click(screen.getByRole("button", { name: "Set Operator" }));
+
+    const offered = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(offered).toEqual(["Equal", "Not Equal", "Is Null", "Is Not Null"]);
+  });
+
+  it("takes a Boolean's value from a true / false dropdown", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...typedProps} />);
+    await startStaticRule(user, "IsActive", /^Equal$/);
+
+    await user.click(screen.getByRole("button", { name: "Set Right value" }));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["true", "false"]);
+    await user.click(screen.getByRole("option", { name: "true" }));
+
+    expect((await saveAndGetRule(user)).staticValue).toBe("true");
+  });
+
+  it("takes one Enum value from a dropdown of the property's values", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...typedProps} />);
+    await startStaticRule(user, "Status", /^Equal$/);
+
+    await user.click(screen.getByRole("button", { name: "Set Right value" }));
+    expect((await screen.findAllByRole("option")).map((o) => o.textContent)).toEqual(["Draft", "Approved", "Rejected"]);
+    await user.click(screen.getByRole("option", { name: "Approved" }));
+
+    expect((await saveAndGetRule(user)).staticValue).toBe("Approved");
+  });
+
+  it("ticks several Enum values for In", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...typedProps} />);
+    await startStaticRule(user, "Status", /^In$/);
+
+    await user.click(await screen.findByRole("button", { name: /Select values/ }));
+    await user.click(await screen.findByRole("option", { name: "Draft" }));
+    await user.click(await screen.findByRole("option", { name: "Approved" }));
+
+    expect((await saveAndGetRule(user)).staticValue).toBe("Draft,Approved");
+  });
+
+  it("picks a DateTime value in UTC, and offers no In for it", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...typedProps} />);
+    fireEvent.change(screen.getByPlaceholderText("Enter a rule name"), { target: { value: "Typed" } });
+    await user.click(screen.getByRole("button", { name: /Add Rule/ }));
+    await pick(user, 0, "Products");
+    await pick(user, 1, "JoinedOn");
+    await user.click(screen.getByRole("button", { name: "Set Operator" }));
+    expect(screen.queryByRole("option", { name: /^In$/ })).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("option", { name: "Greater Than or Equal" }));
+    await pick(user, 3, "Static Value");
+
+    fireEvent.change(await screen.findByLabelText("Date and time (UTC)"), { target: { value: "2025-01-01T09:30" } });
+
+    expect((await saveAndGetRule(user)).staticValue).toBe("2025-01-01T09:30:00Z");
+  });
+
+  it("refuses a decimal for an Int and says why", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...typedProps} />);
+    await startStaticRule(user, "Quantity", /^Equal$/);
+
+    const input = await screen.findByPlaceholderText("Enter value");
+    fireEvent.change(input, { target: { value: "10.5" } });
+    expect(await screen.findByText("Enter a whole number")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save rule set" })).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: "10" } });
+    await waitFor(() => expect(screen.queryByText("Enter a whole number")).not.toBeInTheDocument());
+    expect((await saveAndGetRule(user)).staticValue).toBe("10");
+  });
+
+  it("checks every number in a Float In list", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...typedProps} />);
+    await startStaticRule(user, "Price", /^In$/);
+
+    fireEvent.change(await screen.findByPlaceholderText("Values"), { target: { value: "10, abc" } });
+    expect(await screen.findByText("Enter numbers separated by commas")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save rule set" })).toBeDisabled();
+  });
+
+  it("keeps a String's value free text", async () => {
+    const user = userEvent.setup({ pointerEventsCheck: 0 });
+    render(<RuleSetForm {...typedProps} />);
+    await startStaticRule(user, "Region", /^Equal$/);
+
+    fireEvent.change(await screen.findByPlaceholderText("Enter value"), { target: { value: "anything 1.5" } });
+
+    expect((await saveAndGetRule(user)).staticValue).toBe("anything 1.5");
+  });
+
+  it("flags a saved value that no longer fits its property as soon as the set opens", async () => {
+    const stale = {
+      itemId: "policy-9",
+      policyName: "Stale",
+      policyDescription: "",
+      fieldNames: [],
+      priority: 1,
+      isAllowPolicy: true,
+      ruleGroup: {
+        logicalOperator: 0,
+        rules: [{ leftSource: 1, leftOperand: "Quantity", operator: 0, rightSource: 2, rightOperand: "", staticValue: "abc" }],
+        nestedGroups: [],
+      },
+    } as unknown as Parameters<typeof RuleSetForm>[0]["editingPolicy"];
+    render(<RuleSetForm {...typedProps} editingPolicy={stale} />);
+
+    expect(await screen.findByText("Enter a whole number")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save rule set" })).toBeDisabled();
+  });
+});

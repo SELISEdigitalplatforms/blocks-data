@@ -8,6 +8,7 @@ using DataGateway.DomainService.Resolvers;
 using DataGateway.DomainService.Services;
 using FluentAssertions;
 using HotChocolate;
+using HotChocolate.Execution;
 using Microsoft.Extensions.Logging.Abstractions;
 using MongoDB.Driver;
 using Moq;
@@ -135,16 +136,76 @@ public class SchemaBuildIntegrationTests
         addressFilter.Fields.Should().NotContain(f => f.Name == "and" || f.Name == "or");
     }
 
+    // A tenant with no schemas used to get no Query type, so HotChocolate refused the schema and
+    // every /gateway request (the playground's introspection included) failed with a 500.
     [Fact]
-    public async Task BuildSchema_NoDefinitions_DoesNotThrow()
+    public async Task BuildSchema_NoDefinitions_BuildsTheEmptySchema()
     {
         var builder = BuildBuilder();
         var schemaBuilder = SchemaBuilder.New();
 
-        await builder.BuildSchema("", schemaBuilder, CancellationToken.None);
+        var hasDefinitions = await builder.BuildSchema("", schemaBuilder, CancellationToken.None);
+        var schema = schemaBuilder.Create();
 
-        // With no query type registered, Create() throws; assert the builder path completed without exception.
-        var act = () => schemaBuilder.Create();
-        act.Should().Throw<Exception>();
+        hasDefinitions.Should().BeFalse();
+        schema.QueryType.Fields.Where(f => !f.IsIntrospectionField).Select(f => f.Name)
+            .Should().Equal(GraphqlSchemaBuilder.EmptyQueryFieldName);
+        schema.MutationType.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task BuildSchema_NoDefinitions_AnswersIntrospectionAndTheEmptyField()
+    {
+        var schemaBuilder = SchemaBuilder.New();
+        await BuildBuilder().BuildSchema("", schemaBuilder, CancellationToken.None);
+        var executor = schemaBuilder.Create().MakeExecutable();
+
+        var result = (IOperationResult)await executor.ExecuteAsync("{ __schema { queryType { name } mutationType { name } } _empty }");
+
+        result.Errors.Should().BeNullOrEmpty();
+        result.ToJson().Should().Contain("\"queryType\": {").And.Contain("\"mutationType\": null").And.Contain("\"_empty\": null");
+    }
+
+    // Only entities add Query and Mutation fields, so reusable objects alone hit the same failure.
+    [Fact]
+    public void BuildSchema_OnlyDtos_BuildsTheDtoTypesWithoutAMutationType()
+    {
+        var source = new SchemaSource
+        {
+            SchemaDefinitions =
+            [
+                new SchemaDefinition
+                {
+                    ItemId = Guid.NewGuid().ToString(),
+                    SchemaName = "Address",
+                    CollectionName = "Addresses",
+                    SchemaType = SchemaType.Dto,
+                    Fields = new() { new FieldDefinition { Name = "City", Type = "String" } }
+                }
+            ]
+        };
+        var schemaBuilder = SchemaBuilder.New();
+
+        var hasDefinitions = BuildBuilder().BuildSchema("t", source, schemaBuilder, strictReferences: true);
+        var schema = schemaBuilder.Create();
+
+        hasDefinitions.Should().BeTrue();
+        schema.Types.Should().Contain(t => t.Name == "Address");
+        schema.Types.Should().Contain(t => t.Name == "AddressInput");
+        schema.QueryType.Fields.Where(f => !f.IsIntrospectionField).Select(f => f.Name)
+            .Should().Equal(GraphqlSchemaBuilder.EmptyQueryFieldName);
+        schema.MutationType.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task BuildSchema_WithAnEntity_HasNoEmptyField()
+    {
+        await SeedAsync();
+        var schemaBuilder = SchemaBuilder.New();
+
+        await BuildBuilder().BuildSchema("", schemaBuilder, CancellationToken.None);
+        var schema = schemaBuilder.Create();
+
+        schema.QueryType.Fields.Should().NotContain(f => f.Name == GraphqlSchemaBuilder.EmptyQueryFieldName);
     }
 }

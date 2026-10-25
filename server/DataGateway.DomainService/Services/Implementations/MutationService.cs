@@ -64,8 +64,7 @@ public class MutationService : IMutationService
     private Task AfterWriteAsync(Func<Task> work)
     {
         if (_afterWrite is null) return work();
-        _afterWrite.Enqueue(work);
-        return Task.CompletedTask;
+        return _afterWrite.EnqueueAsync(work);
     }
 
     /// <summary>

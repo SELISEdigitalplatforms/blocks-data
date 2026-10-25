@@ -163,6 +163,8 @@ export interface ISetFieldDefaultPayload {
 export interface ISchemaDetails {
   id: string;
   schemaName: string;
+  /** Plain text; missing when the schema has none. */
+  description?: string;
   schemaType: number;
   collectionName: string;
   fields: IField[];
@@ -217,6 +219,30 @@ export interface IPermissionAggregation {
 }
 
 // Permission counts
+/** A property of a schema a Reference or Must not exist in rule can point at. */
+export interface IReferenceTargetField {
+  name: string;
+  type: string;
+  isArray: boolean;
+  isPIIData: boolean;
+  isUniqueData: boolean;
+}
+
+/** A schema the target picker offers: the tenant's own, or a system entity (section 8). */
+export interface IReferenceTargetSchema {
+  schemaName: string;
+  description?: string;
+  isSystemEntity: boolean;
+  fields: IReferenceTargetField[];
+}
+
+export interface IGetReferenceTargetsResponse extends IDefaultResponse {
+  data: {
+    entities: IReferenceTargetSchema[];
+    systemEntities: IReferenceTargetSchema[];
+  };
+}
+
 export interface IGetSchemaListResponse extends IDataServiceConfigurationResponse {
   data: {
     items: ISchemaDetails[];
@@ -259,6 +285,7 @@ export interface IGetSchemaDetailsResponse extends IDataServiceConfigurationResp
   data: {
     id: string;
     schemaName: string;
+    description?: string;
     schemaType: number;
     collectionName: string;
     fields: IRemoteSchemaField[];
@@ -288,6 +315,8 @@ export interface ICreateSchemaPayload {
   schemaName: string;
   collectionName: string | undefined;
   schemaType: number;
+  /** Plain text, at most 500 characters. On update, leaving it out keeps the stored one; empty text removes it. */
+  description?: string;
   itemId?: string;
   projectKey: string;
 }
@@ -296,6 +325,8 @@ export interface ICreateSchemaDefaultValues {
   schemaName: string;
   schemaType: "Entity" | "DTO";
   entityName?: string;
+  /** Plain text, at most 500 characters (section 7). */
+  description?: string;
 }
 
 export interface IUpdateSchemaStructure {
@@ -464,7 +495,8 @@ export interface IGetSchemaFieldValidationPayload {
 }
 
 /** A rule's value: a pattern or text, a number (lengths, numeric bounds), or true/false. */
-export type ValidationRuleValue = string | number | boolean | null;
+/** A rule's value: one fixed value, or a list of them for "is one of" / "is not one of". */
+export type ValidationRuleValue = string | number | boolean | null | Array<string | number | boolean>;
 
 export interface ISchemaFieldValidation {
   /** ValidationType number; see VALIDATION_TYPE in utils/validation-rules.util. */
@@ -475,9 +507,14 @@ export interface ISchemaFieldValidation {
   isActive: boolean;
   /**
    * 0 or missing: the rule behaves as rules always have (a list property is checked as a whole).
-   * 1: a list property is checked item by item. Rules added or edited here are saved as 1.
+   * 1: a list property is checked item by item.
+   * 2: deleted target records no longer count for Reference rules. Rules added here are saved as 2.
    */
   evaluationVersion?: number;
+  /** The rule applies only when this condition holds on the record. Missing: always. */
+  when?: IPolicyRuleGroup | null;
+  /** Reference and Must not exist in: the target record must also match this condition. Missing: any record. */
+  targetFilter?: IPolicyRuleGroup | null;
 }
 
 export interface ISchemaFieldValidationData {

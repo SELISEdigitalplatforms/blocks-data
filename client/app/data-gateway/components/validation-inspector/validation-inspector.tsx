@@ -77,7 +77,7 @@ export function ValidationInspector({
         mono={false}
         subtitle={
           <>
-            <FieldSubject name={subject} type={panelProps.fieldType} schemaName={schemaName} />
+            <FieldSubject name={subject} type={panelProps.fieldType} isArray={panelProps.isArray} schemaName={schemaName} />
             {!schemaName && context && <span className="truncate">{context}</span>}
           </>
         }

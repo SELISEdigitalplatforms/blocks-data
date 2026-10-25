@@ -30,6 +30,7 @@ import {
   IDeleteSchemaFieldValidationPayload,
   IDeleteSchemaIndexPayload,
   IGetPolicyResponse,
+  IGetReferenceTargetsResponse,
   IGetSchemaDetailsResponse,
   IGetSchemaFieldValidationPayload,
   IGetSchemaFieldValidationResponse,
@@ -78,6 +79,13 @@ class ConfigurationService {
   ): Promise<IGetSchemaListResponse> {
     const url = `${SCHEMA_ENDPOINTS.LIST}?Keyword=${payload.keyword}&PageSize=${payload.pageSize}&PageNo=${payload.pageNo}&SortDescending=${payload.sortDescending}&SortBy=${payload.sortBy}&SchemaType=${payload.schemaType}`;
     return http.get(url);
+  }
+
+  /** The target picker's schemas, in two groups of at most 50, searched by name and description on the server. */
+  getReferenceTargets(keyword: string, schemaName?: string): Promise<IGetReferenceTargetsResponse> {
+    // With a schema name, only that schema: a keyword search returns at most 50 per group and could miss it.
+    const params = new URLSearchParams({ keyword, ...(schemaName ? { schemaName } : {}) });
+    return http.get(`${SCHEMA_ENDPOINTS.REFERENCE_TARGETS}?${params.toString()}`);
   }
 
   getSecurityAndPerformanceSchemaList(

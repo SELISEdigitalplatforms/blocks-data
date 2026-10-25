@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui-kits/button/button";
 import { Input } from "@/components/ui-kits/input/input";
 import { ScrollArea } from "@/components/ui-kits/scroll-area/scroll-area";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui-kits/select/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui-kits/select/select";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { Switch } from "@/components/ui-kits/switch/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/tooltip/tooltip";
@@ -20,21 +20,31 @@ import {
 } from "../../hooks/use-configuration";
 import { useTransientStatus } from "../../hooks/use-transient-status";
 import { IFieldValidationRule, ISchemaFieldValidation } from "../../models/data-service";
+import { conditionDraftError, conditionGroupFrom, conditionGroupText, newConditionRow, type ConditionField } from "../../utils/validation-conditions";
 import {
   VALIDATION_TYPE,
   VALIDATION_TYPE_META,
+  WHOLE_LIST_TYPES,
   checkRuleDraft,
+  conditionFieldsOf,
   draftFromRule,
   formatRuleSummary,
   getAllowedValidationTypes,
+  isInsideListOfObjects,
+  isLookupType,
+  isOlderReference,
   ruleFromDraft,
-  ruleTypeLabel,
+  ruleScope,
+  ruleTypeTag,
   suggestErrorMessage,
   type RuleDraft,
   type ValidationTypeValue,
 } from "../../utils/validation-rules.util";
+import { RULE_MESSAGES } from "../../utils/rule-messages";
 import { StatusSnackbar } from "../primitives";
-import { RuleValueInputs } from "./rule-value-inputs";
+import { ConditionEditor, ConditionTag } from "./condition-editor";
+import { useReferenceTarget } from "./reference-target-picker";
+import { RuleValueInputs, filterFieldsOf } from "./rule-value-inputs";
 
 export interface SchemaFieldValidationPanelProps {
   fieldName: string;
@@ -44,6 +54,8 @@ export interface SchemaFieldValidationPanelProps {
   fieldType: string;
   /** Allowed values when the property is an Enum. */
   enumValues?: string[];
+  /** A list property: offers the whole-list rules and tags each rule's scope (D8). */
+  isArray?: boolean;
   initialValidationData?: IFieldValidationRule | null;
 }
 
@@ -109,6 +121,8 @@ function StatusLine({ rules, fieldName }: Readonly<{ rules: ISchemaFieldValidati
   let state = "all active";
   if (active === 0) state = "none active";
   else if (active < rules.length) state = `${active} active, ${rules.length - active} off`;
+  const conditional = rules.filter((r) => r.when).length;
+  if (conditional > 0) state += ` · ${conditional} only when a condition holds`;
   return (
     <div className="flex items-center gap-2.5 rounded-md border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5 text-xs text-muted-foreground">
       <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
@@ -122,6 +136,8 @@ function StatusLine({ rules, fieldName }: Readonly<{ rules: ISchemaFieldValidati
 /** One saved rule: what it checks, the message it shows, and whether it is on. */
 function RuleCard({
   rule,
+  isArray,
+  conditionFields,
   editing,
   confirming,
   busy,
@@ -132,6 +148,8 @@ function RuleCard({
   onDelete,
 }: Readonly<{
   rule: ISchemaFieldValidation;
+  isArray: boolean;
+  conditionFields: ConditionField[];
   editing: boolean;
   confirming: boolean;
   busy: boolean;
@@ -141,6 +159,8 @@ function RuleCard({
   onKeep: () => void;
   onDelete: () => void;
 }>) {
+  // Saved without a version (0), a rule checks the list as a whole.
+  const scope = ruleScope(rule.type, isArray, rule.evaluationVersion ?? 0);
   return (
     <div
       className={cn(
@@ -152,13 +172,31 @@ function RuleCard({
       <div className="flex items-start gap-2.5">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
+            {scope && (
+              <span className="shrink-0 rounded border border-border/70 px-1 py-px text-[9px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                {scope === "list" ? "Whole list" : "Each item"}
+              </span>
+            )}
             <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-primary">
-              {ruleTypeLabel(rule.type)}
+              {ruleTypeTag(rule.type)}
             </span>
             <span className={cn("truncate text-[12.5px] text-foreground", rule.type === VALIDATION_TYPE.Regex && "font-mono")} title={formatRuleSummary(rule)}>
               {formatRuleSummary(rule)}
             </span>
           </div>
+          {rule.targetFilter && (
+            <div className="mt-1 flex items-start gap-1.5">
+              <ConditionTag kind="filter" />
+              <span className="font-mono text-[11.5px] text-foreground/85">{conditionGroupText(rule.targetFilter, [])}</span>
+            </div>
+          )}
+          {rule.when && (
+            <div className="mt-1 flex items-start gap-1.5">
+              <ConditionTag kind="when" />
+              <span className="font-mono text-[11.5px] text-foreground/85">{conditionGroupText(rule.when, conditionFields)}</span>
+            </div>
+          )}
+          {isOlderReference(rule) && <p className="mt-1 text-[11px] text-muted-foreground">Deleted records count · older rule</p>}
           {rule.errorMessage && <p className="mt-1 text-[11.5px] text-muted-foreground">“{rule.errorMessage}”</p>}
         </div>
         <Tooltip>
@@ -220,6 +258,7 @@ export function SchemaFieldValidationPanel({
   projectKey,
   fieldType,
   enumValues = [],
+  isArray = false,
   initialValidationData,
 }: SchemaFieldValidationPanelProps) {
   const [showForm, setShowForm] = useState(false);
@@ -268,11 +307,30 @@ export function SchemaFieldValidationPanel({
   const itemId = validationData?.itemId ?? null;
 
   const isEditMode = form.editingIndex !== undefined;
-  // A field holds at most one Reference rule; keep offering the type a rule being edited already has.
-  const hasOtherReference = validations.some((v, i) => v.type === VALIDATION_TYPE.Reference && i !== form.editingIndex);
-  const typeOptions = getAllowedValidationTypes(fieldType).filter((t) => t !== VALIDATION_TYPE.Reference || !hasOtherReference);
+  // A field holds at most one Reference rule and one Must not exist in rule; keep offering the type a rule being edited already has.
+  const hasOther = (type: number) => validations.some((v, i) => v.type === type && i !== form.editingIndex);
+  const hasOtherReference = hasOther(VALIDATION_TYPE.Reference);
+  const typeOptions = getAllowedValidationTypes(fieldType, isArray).filter((t) => !isLookupType(t) || !hasOther(t));
   if (isEditMode && !typeOptions.includes(form.type)) typeOptions.unshift(form.type);
-  const draftError = checkRuleDraft(form, fieldType, variables);
+  const conditionFields = conditionFieldsOf(variables);
+  const editedRule = isEditMode ? validations[form.editingIndex!] : undefined;
+  // The target's properties, for its filter; fetched only for a lookup rule with a target.
+  const target = useReferenceTarget(isLookupType(form.type) ? form.value : "");
+  const draftError = checkRuleDraft(form, fieldType, variables, {
+    fieldPath: fieldName,
+    enumValues,
+    ...(target ? { targetFields: filterFieldsOf(target) } : {}),
+  });
+  // A condition can't be scoped to one item of a list of objects yet (Genesis ConditionInsideList).
+  const conditionUnavailable = isInsideListOfObjects(fieldName, variables);
+  // An edit that adds a variable switches a version-0 list rule from the whole list to each item (decision 5, R4).
+  const becomesPerItem =
+    isArray &&
+    !!editedRule &&
+    ruleScope(editedRule.type, true, editedRule.evaluationVersion ?? 0) === "list" &&
+    ruleScope(form.type, true, ruleFromDraft(form, fieldType).evaluationVersion ?? 0) === "item";
+  const whenError = form.whenOn && form.when ? conditionDraftError(form.when, conditionFields, "when") : null;
+
   // The failure message is written for the user from the validation as it stands, until they edit it
   // (or open a saved one, whose message is theirs). What the box shows is what gets saved.
   const [messageEdited, setMessageEdited] = useState(false);
@@ -387,6 +445,14 @@ export function SchemaFieldValidationPanel({
   const isPending = isCreating || isUpdating || isDeleting;
   // Show skeleton while a mutation is in flight OR while the post-mutation refetch is resolving
   const isRefreshing = isPending || (shouldRefetch && isFetching);
+  // The parts the newer rules add: list values, the condition and the filter while on, and "Use the new behaviour".
+  const newerParts = (draft: RuleDraft) =>
+    JSON.stringify({
+      values: draft.values ?? [],
+      when: draft.whenOn && draft.when ? conditionGroupFrom(draft.when) : null,
+      filter: isLookupType(draft.type) && draft.filterOn && draft.targetFilter ? conditionGroupFrom(draft.targetFilter) : null,
+      useNewBehaviour: !!draft.useNewBehaviour,
+    });
   const isDirty =
     !isEditMode ||
     !originalForm ||
@@ -394,7 +460,8 @@ export function SchemaFieldValidationPanel({
     form.value.trim() !== originalForm.value.trim() ||
     form.secondaryValue.trim() !== originalForm.secondaryValue.trim() ||
     shownMessage !== originalForm.errorMessage ||
-    form.isActive !== originalForm.isActive;
+    form.isActive !== originalForm.isActive ||
+    newerParts(form) !== newerParts(originalForm);
   const isRegex = VALIDATION_TYPE_META[form.type]?.input === "regex";
 
   const showList = !(isRefreshing || (isLoading && !hasInitialData));
@@ -418,6 +485,8 @@ export function SchemaFieldValidationPanel({
                     // Rules have no id of their own; the list is replaced whole on every save.
                     key={`${index}-${validation.type}-${String(validation.value)}`}
                     rule={validation}
+                    isArray={isArray}
+                    conditionFields={conditionFields}
                     editing={form.editingIndex === index && showForm}
                     confirming={pendingDeleteIndex === index}
                     busy={isPending}
@@ -457,7 +526,8 @@ export function SchemaFieldValidationPanel({
                 <Select
                   value={String(form.type)}
                   onValueChange={(value) => {
-                    updateDraft({ type: Number(value) as ValidationTypeValue, value: "", secondaryValue: "" });
+                    // The condition applies to every type; values and a target's filter belong to the old type.
+                    updateDraft({ type: Number(value) as ValidationTypeValue, value: "", secondaryValue: "", values: [], targetFilter: null, filterOn: false });
                     setShowDraftError(false);
                   }}
                 >
@@ -465,11 +535,30 @@ export function SchemaFieldValidationPanel({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {typeOptions.map((type) => (
-                      <SelectItem key={type} value={String(type)}>
-                        {VALIDATION_TYPE_META[type].label}
-                      </SelectItem>
-                    ))}
+                    {isArray ? (
+                      // D8: on a list, the rules that check the whole list, then the ones that check each item.
+                      [
+                        { label: "The whole list", types: typeOptions.filter((t) => WHOLE_LIST_TYPES.includes(t)) },
+                        { label: "Each item", types: typeOptions.filter((t) => !WHOLE_LIST_TYPES.includes(t)) },
+                      ]
+                        .filter((group) => group.types.length > 0)
+                        .map((group) => (
+                          <SelectGroup key={group.label}>
+                            <SelectLabel className="text-[10px] uppercase tracking-[0.09em] text-muted-foreground">{group.label}</SelectLabel>
+                            {group.types.map((type) => (
+                              <SelectItem key={type} value={String(type)}>
+                                {VALIDATION_TYPE_META[type]?.label ?? `Type ${type}`}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        ))
+                    ) : (
+                      typeOptions.map((type) => (
+                        <SelectItem key={type} value={String(type)}>
+                          {VALIDATION_TYPE_META[type]?.label ?? `Type ${type}`}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -483,7 +572,9 @@ export function SchemaFieldValidationPanel({
                 projectKey={projectKey}
                 variables={variables}
                 fieldName={fieldName}
-                error={showDraftError ? draftError : null}
+                error={showDraftError && draftError !== whenError ? draftError : null}
+                olderReference={!!editedRule && isOlderReference(editedRule)}
+                showConditionErrors={showDraftError}
                 patternAction={
                   isRegex ? (
                     <button
@@ -521,6 +612,54 @@ export function SchemaFieldValidationPanel({
                   </div>
                   <p className={HINT_CLASS}>The pattern is written for you; check it before saving.</p>
                 </div>
+              )}
+
+              {becomesPerItem && (
+                <p className={HINT_CLASS}>Saving switches this rule from the list as a whole to each item of the list.</p>
+              )}
+
+              {/* A lookup runs whatever the record holds, so it takes a filter, not a condition. */}
+              {!isLookupType(form.type) && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2.5">
+                  <Switch
+                    id="rule-when"
+                    size="sm"
+                    disabled={conditionUnavailable}
+                    checked={!!form.whenOn}
+                    onCheckedChange={(checked) =>
+                      updateDraft({
+                        whenOn: checked === true,
+                        when: checked === true && (!form.when || (!form.when.locked && form.when.rows.length === 0))
+                          ? { combine: form.when?.combine ?? "AND", rows: [newConditionRow(conditionFields)], locked: null }
+                          : form.when,
+                      })
+                    }
+                    aria-label="Only when…"
+                    className={SWITCH_CLASS}
+                  />
+                  <label htmlFor="rule-when" className="flex cursor-pointer items-center gap-2 text-xs text-foreground/80">
+                    <ConditionTag kind="when" />
+                    Only when…
+                    {!form.whenOn && <span className="text-muted-foreground">(off: checked on every save)</span>}
+                  </label>
+                </div>
+                {conditionUnavailable && <p className={HINT_CLASS}>{RULE_MESSAGES.ConditionInsideList}</p>}
+                {form.whenOn && form.when && (
+                  <>
+                    <ConditionEditor kind="when" draft={form.when} fields={conditionFields} showErrors={showDraftError} onChange={(when) => updateDraft({ when })} />
+                    <p className={HINT_CLASS}>
+                      Conditions read this record&apos;s own values: a fixed value, or another property of the same record. Text values are shown in
+                      quotes, property names without. To depend on who is saving, use an access policy.
+                    </p>
+                    {showDraftError && whenError && whenError !== "Fix the conditions above" && (
+                      <p role="alert" className="text-[11.5px] text-rose-500">
+                        {whenError}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
               )}
 
               <div className="flex flex-col gap-1.5">

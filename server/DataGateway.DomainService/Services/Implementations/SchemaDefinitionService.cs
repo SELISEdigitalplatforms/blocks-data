@@ -547,10 +547,16 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             });
         }
 
-        BsonArray Group(BsonValue isSystem) => new()
+        BsonArray Group(BsonDocument groupMatch) => new()
         {
-            new BsonDocument("$match", new BsonDocument(nameof(SchemaDefinition.IsSystemEntity), isSystem)),
+            new BsonDocument("$match", groupMatch),
             new BsonDocument("$limit", ReferenceTargetsPerGroup),
+        };
+        // Only the system entities a lookup may see, before the limit so hidden ones take no place (SystemLookupTargets).
+        var systemGroup = new BsonDocument
+        {
+            { nameof(SchemaDefinition.IsSystemEntity), true },
+            { nameof(SchemaDefinition.SchemaName), new BsonDocument("$in", new BsonArray(SystemLookupTargets.SchemaNames)) },
         };
         var pipeline = new[]
         {
@@ -570,8 +576,8 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             new BsonDocument("$sort", new BsonDocument(nameof(SchemaDefinition.SchemaName), 1)),
             new BsonDocument("$facet", new BsonDocument
             {
-                { "Entities", Group(new BsonDocument("$ne", true)) },
-                { "SystemEntities", Group(true) },
+                { "Entities", Group(new BsonDocument(nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true))) },
+                { "SystemEntities", Group(systemGroup) },
             }),
         };
         var result = await _repository.AggregateOneAsync<SchemaDefinition>(pipeline);
@@ -581,8 +587,15 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         return new ServiceResponse<ReferenceTargetsResponse>().SetSuccess(new ReferenceTargetsResponse
         {
             Entities = Read("Entities"),
-            SystemEntities = Read("SystemEntities"),
+            SystemEntities = Read("SystemEntities").Select(OnlyOpenFields).ToList(),
         });
+    }
+
+    /// <summary>A system entity with only the properties a lookup may name (SystemLookupTargets).</summary>
+    private static ReferenceTargetSchema OnlyOpenFields(ReferenceTargetSchema schema)
+    {
+        schema.Fields = schema.Fields.Where(f => SystemLookupTargets.IsOpen(schema.SchemaName, f.Name)).ToList();
+        return schema;
     }
 
     private static ReferenceTargetSchema ToReferenceTarget(BsonDocument schema) => new()

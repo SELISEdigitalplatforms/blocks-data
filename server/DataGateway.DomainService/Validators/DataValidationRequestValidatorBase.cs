@@ -36,13 +36,13 @@ public static class DataValidationRequestValidatorMessages
 
     /// <summary>
     /// The schema a rule's target name means: the tenant's own Entity of that name first, as the schema build picks it,
-    /// then a system entity.
+    /// then a system entity, holding only what a lookup may see (<see cref="SystemLookupTargets"/>).
     /// </summary>
     public static async Task<SchemaDefinition?> FindTargetAsync(IDbRepository repository, string schemaName)
     {
         var byName = Builders<SchemaDefinition>.Filter.Eq(x => x.SchemaName, schemaName) & Builders<SchemaDefinition>.Filter.Eq(x => x.IsDeleted, false);
         return await repository.GetItemAsync(byName & Builders<SchemaDefinition>.Filter.Ne(x => x.IsSystemEntity, true))
-            ?? await repository.GetItemAsync(byName & Builders<SchemaDefinition>.Filter.Eq(x => x.IsSystemEntity, true));
+            ?? SystemLookupTargets.Restrict(await repository.GetItemAsync(byName & Builders<SchemaDefinition>.Filter.Eq(x => x.IsSystemEntity, true)));
     }
 }
 

@@ -1,4 +1,5 @@
 using Blocks.Genesis;
+using Blocks.Genesis.DataAccess.Rules;
 using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService;
 using DataGateway.DomainService.Helpers;
@@ -167,17 +168,94 @@ public class SystemReferenceTargetsTests
     }
 
     [Fact]
-    public async Task ReferenceTargets_ReturnsAtMost50PerGroup()
+    public async Task ReferenceTargets_ReturnsAtMost50PerGroup_HiddenSystemEntitiesTakeNoPlace()
     {
+        // System00… aren't entities Genesis opens to rules, so they never reach the limit; User does.
         await _db.GetCollection<SchemaDefinition>("SchemaDefinitions").InsertManyAsync(
             Enumerable.Range(0, 60).Select(i => Entity($"t{i}", $"Tenant{i:00}"))
-                .Concat(Enumerable.Range(0, 55).Select(i => Entity($"y{i}", $"System{i:00}", system: true))));
+                .Concat(Enumerable.Range(0, 55).Select(i => Entity($"y{i}", $"System{i:00}", system: true)))
+                .Append(Entity("u", "User", system: true)));
 
         var response = (await Service().GetReferenceTargetsAsync(null)).Data!;
 
         response.Entities.Should().HaveCount(50);
-        response.SystemEntities.Should().HaveCount(50);
+        response.SystemEntities.Select(s => s.SchemaName).Should().Equal("User");
         response.Entities.First().SchemaName.Should().Be("Tenant00");   // by name
+    }
+
+    // ── Secrets are never lookup targets ──
+
+    private static SchemaDefinition UserWithSecrets() => Entity("sch-user", "User", system: true, fields:
+    [
+        new FieldDefinition { Name = "ItemId", Type = "String" },
+        new FieldDefinition { Name = "Email", Type = "String" },
+        new FieldDefinition { Name = "Password", Type = "String" },
+        new FieldDefinition { Name = "SecurityStamp", Type = "String" },
+    ]);
+
+    [Fact]
+    public async Task ThePicker_OffersOnlyWhatGenesisOpensToRules_NeverSecrets()
+    {
+        await _db.GetCollection<SchemaDefinition>("SchemaDefinitions").InsertManyAsync([UserWithSecrets(), Entity("sch-secret", "Secret", system: true)]);
+
+        var response = (await Service().GetReferenceTargetsAsync(null)).Data!;
+
+        response.SystemEntities.Select(s => s.SchemaName).Should().Equal("User");
+        response.SystemEntities.Single().Fields.Select(f => f.Name).Should().Equal("ItemId", "Email");
+        (await Service().GetReferenceTargetsAsync(null, schemaName: "Secret")).Data!.SystemEntities.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Saving_ARuleOnASecret_IsRefused_AsTheFieldOrInTheFilter()
+    {
+        await _db.GetCollection<SchemaDefinition>("SchemaDefinitions").InsertManyAsync([UserWithSecrets(), Entity("sch-secret", "Secret", system: true)]);
+        var source = new FieldDefinition { Name = "Email", Type = "String" };
+
+        var user = await DataValidationRequestValidatorMessages.FindTargetAsync(_repository, "User");
+        user!.Fields.Select(f => f.Name).Should().Equal("ItemId", "Email");
+        ReferenceRuleCompatibility.Check(source, user, "Password").Should().NotBeNull();
+        ReferenceRuleCompatibility.Check(source, user, "Email").Should().BeNull();
+        var byPassword = new PolicyRuleGroup { Rules = [new() { LeftOperand = "Password", Operator = PolicyOperator.EQUAL, RightSource = ConditionSource.STATIC_VALUE, StaticValue = "x" }] };
+        DataValidationRequestValidatorMessages.FilterProblems(byPassword, user).Should().Equal("Password isn't a property of User");
+
+        (await DataValidationRequestValidatorMessages.FindTargetAsync(_repository, "Secret")).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Importing_ARuleOnASecret_IsRefused()
+    {
+        await _db.GetCollection<SchemaDefinition>("SchemaDefinitions").InsertManyAsync([UserWithSecrets(), Entity("sch-secret", "Secret", system: true)]);
+        ExportFieldDefinition Email(string target, string field) => new()
+        {
+            Name = "Email", Type = "String",
+            ValidationRules = [new ExportValidationRule { Type = ValidationType.NotExistsIn, Value = target, SecondaryValue = field, IsActive = true, EvaluationVersion = 2 }],
+        };
+        var documents = new List<SchemaExportDocument>
+        {
+            new() { SchemaName = "Lead", CollectionName = "Leads", SchemaType = SchemaType.Entity, Fields = [Email("User", "Email")] },
+            new() { SchemaName = "Order", CollectionName = "Orders", SchemaType = SchemaType.Entity, Fields = [Email("User", "Password")] },
+            new() { SchemaName = "Note", CollectionName = "Notes", SchemaType = SchemaType.Entity, Fields = [Email("Secret", "Email")] },
+        };
+
+        var errors = await new SchemaImportValidator(_repository).ValidateAsync(documents);
+
+        errors.Should().HaveCount(2);
+        errors.Should().Contain(e => e.Contains("'User.Password'")).And.Contain(e => e.Contains("'Secret.Email'"));
+    }
+
+    [Theory]
+    [InlineData("User", "Password")]
+    [InlineData("Secret", "Email")]
+    public async Task APublish_WithARuleOnASecret_Fails(string target, string field)
+    {
+        await _db.GetCollection<SchemaDefinition>("SchemaDefinitions").InsertManyAsync([Entity("sch-invoice", "Invoice"), UserWithSecrets(), Entity("sch-secret", "Secret", system: true)]);
+        var rule = new ValidationRule { Type = ValidationType.NotExistsIn, Value = target, SecondaryValue = field, EvaluationVersion = 2, IsActive = true };
+        await _db.GetCollection<DataValidation>("DataValidations").InsertOneAsync(new DataValidation { ItemId = "val-1", SchemaId = "sch-invoice", FieldName = "Email", Validations = [rule] });
+        var source = await _builder.ReadDraftSourceAsync(Tenant);
+
+        var publish = () => _builder.BuildSchema(Tenant, source, SchemaBuilder.New(), strictReferences: true);
+        publish.Should().Throw<InvalidOperationException>();
+        _builder.BuildSchema(Tenant, source, SchemaBuilder.New()).Should().BeTrue();   // otherwise left unchecked
     }
 
     // ── Found in review ──
@@ -185,14 +263,14 @@ public class SystemReferenceTargetsTests
     [Fact]
     public async Task AFilter_OnANestedPropertyOfASystemEntity_Resolves()
     {
-        // The seed stores a system schema's nested properties as dotted reference rows.
+        // The seed stores a system schema's nested properties as dotted reference rows; Addresses is open to rules.
         await _db.GetCollection<SchemaDefinition>("SchemaDefinitions").InsertManyAsync(
         [
             Entity("sch-invoice", "Invoice"),
-            Entity("sch-user", "User", system: true, fields: [new FieldDefinition { Name = "Email", Type = "String" }, new FieldDefinition { Name = "MfaMethods.Active", Type = "Boolean", IsReferenceField = true }]),
+            Entity("sch-org", "Organization", system: true, fields: [new FieldDefinition { Name = "Email", Type = "String" }, new FieldDefinition { Name = "Addresses.City", Type = "String", IsReferenceField = true }]),
         ]);
-        var rule = Reference("User", ValidationType.NotExistsIn);
-        rule.TargetFilter = new PolicyRuleGroup { Rules = [new() { LeftOperand = "MfaMethods.Active", Operator = PolicyOperator.EQUAL, RightSource = ConditionSource.STATIC_VALUE, StaticValue = "true" }] };
+        var rule = Reference("Organization", ValidationType.NotExistsIn);
+        rule.TargetFilter = new PolicyRuleGroup { Rules = [new() { LeftOperand = "Addresses.City", Operator = PolicyOperator.EQUAL, RightSource = ConditionSource.STATIC_VALUE, StaticValue = "Bern" }] };
         await _db.GetCollection<DataValidation>("DataValidations").InsertOneAsync(new DataValidation { ItemId = "val-1", SchemaId = "sch-invoice", FieldName = "Email", Validations = [rule] });
 
         _builder.BuildSchema(Tenant, await _builder.ReadDraftSourceAsync(Tenant), SchemaBuilder.New(), strictReferences: true).Should().BeTrue();

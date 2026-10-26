@@ -99,7 +99,10 @@ public class GraphqlSchemaBuilder
             BuildFilterAndSortTypes(schemaBuilder, entityFilterInputTypes, childFilterInputTypes);
 
             // System entities a rule points at are targets too; a tenant schema of the same name comes first and wins.
-            var references = ReferenceTargets.Build([.. schemas, .. source.SystemEntitySchemas.Select(SystemTarget)], strictReferences, _logger);
+            // Each holds only what a lookup may see, also when read from an older snapshot: a rule on anything else
+            // fails the publish, and is otherwise left unchecked.
+            var systemTargets = source.SystemEntitySchemas.Select(SystemLookupTargets.Restrict).OfType<SchemaDefinition>().Select(SystemTarget);
+            var references = ReferenceTargets.Build([.. schemas, .. systemTargets], strictReferences, _logger);
             CheckVariables(schemas, strictReferences);
 
             // HotChocolate refuses a Query or Mutation type without fields, and only entities add them.

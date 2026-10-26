@@ -343,8 +343,12 @@ public class SchemaImportValidator
                     Builders<SchemaDefinition>.Filter.In(s => s.SchemaName, missing),
                     Builders<SchemaDefinition>.Filter.Eq(s => s.IsDeleted, false)));
             // The tenant's own Entity of a name before a system entity of the same name, as the schema build picks it.
+            // A system entity holds only what a lookup may see.
             foreach (var schema in (existing ?? []).OrderBy(s => s.IsSystemEntity))
-                targets.TryAdd(schema.SchemaName, schema);
+            {
+                if (!targets.ContainsKey(schema.SchemaName) && SystemLookupTargets.Restrict(schema) is { } target)
+                    targets.Add(schema.SchemaName, target);
+            }
         }
         return targets;
     }

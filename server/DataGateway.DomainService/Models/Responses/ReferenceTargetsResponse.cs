@@ -29,4 +29,7 @@ public class ReferenceTargetField
     public bool IsPIIData { get; set; }
     /// <summary>Unique values have an index, so a lookup on the field is fast.</summary>
     public bool IsUniqueData { get; set; }
+    /// <summary>An Enum field's values, so a filter on it offers them. Left out for other fields.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? EnumValues { get; set; }
 }

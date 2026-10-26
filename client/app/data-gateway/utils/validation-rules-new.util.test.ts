@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { ISchemaFieldValidation } from "../models/data-service";
 import { RULE_MESSAGE_FORMATS, RULE_MESSAGES } from "./rule-messages";
 import { newConditionRow, type ConditionField } from "./validation-conditions";
+import { filterFieldsOf } from "../components/schema-fields-validation/rule-value-inputs";
 import {
   CURRENT_EVALUATION_VERSION,
   VALIDATION_TYPE as T,
   checkRuleDraft,
+  conditionFieldsOf,
   draftFromRule,
   formatRuleSummary,
   getAllowedValidationTypes,
@@ -13,6 +15,7 @@ import {
   messageLeftToServer,
   ruleFromDraft,
   ruleScope,
+  ruleTypeTag,
   suggestErrorMessage,
   type RuleDraft,
 } from "./validation-rules.util";
@@ -228,3 +231,37 @@ describe("found in review", () => {
   });
 });
 
+describe("minor findings from the manual run (2026-10-26)", () => {
+  it("a condition never offers a property inside a list of objects", () => {
+    const fields = conditionFieldsOf({
+      schemaName: "Lead",
+      fields: {
+        Country: { type: "String", isArray: false, isObject: false },
+        Items: { type: "Item", isArray: true, isObject: true },
+        "Items.Qty": { type: "Int", isArray: false, isObject: false },
+        "Address.City": { type: "String", isArray: false, isObject: false },
+        Address: { type: "Address", isArray: false, isObject: true },
+      },
+    }).map((f) => f.path);
+    expect(fields).toEqual(["Country", "Address.City"]);
+  });
+
+  it("a filter offers only single values, with an Enum's values", () => {
+    const fields = filterFieldsOf({
+      fields: [
+        { name: "Status", type: "Enum", isArray: false, enumValues: ["Active", "Inactive"] },
+        { name: "Read", type: "OperationAccess", isArray: false },
+        { name: "Tags", type: "String", isArray: true },
+        { name: "Email", type: "String", isArray: false },
+      ],
+    });
+    expect(fields).toEqual([
+      { path: "Status", type: "Enum", isArray: false, enumValues: ["Active", "Inactive"] },
+      { path: "Email", type: "String", isArray: false },
+    ]);
+  });
+
+  it("Must not exist in reads as its label on the card", () => {
+    expect(ruleTypeTag(T.NotExistsIn)).toBe("Must not exist in another schema");
+  });
+});

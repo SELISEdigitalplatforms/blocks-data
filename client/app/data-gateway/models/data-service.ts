@@ -226,6 +226,8 @@ export interface IReferenceTargetField {
   isArray: boolean;
   isPIIData: boolean;
   isUniqueData: boolean;
+  /** An Enum field's values; absent for other fields. */
+  enumValues?: string[];
 }
 
 /** A schema the target picker offers: the tenant's own, or a system entity (section 8). */

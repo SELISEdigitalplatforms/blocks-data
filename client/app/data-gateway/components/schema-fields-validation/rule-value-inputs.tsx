@@ -271,7 +271,7 @@ function ValueListInput({
         />
       </div>
       <p className="text-[11px] text-muted-foreground">
-        {values.length} of up to {MAX_LIST_VALUES}. Exact match: approved is not Approved. Paste a comma-separated list to add several.
+        {values.length} of up to {MAX_LIST_VALUES}.{kind === "text" ? " Exact match: approved is not Approved." : ""} Paste a comma-separated list to add several.
       </p>
     </div>
   );
@@ -359,9 +359,14 @@ function ComparisonValue({
  * The inputs a rule type needs, e.g. nothing for Not empty, one number for Min length, two for
  * a range, the pattern for Regex, and the target schema and field for Reference.
  */
-/** The target's single-value properties a filter can name. */
-export function filterFieldsOf(target: { fields: { name: string; type: string; isArray: boolean }[] } | undefined): ConditionField[] {
-  return (target?.fields ?? []).filter((f) => !f.isArray).map((f) => ({ path: f.name, type: f.type, isArray: false }));
+/** Types a filter can compare with a fixed value; objects such as the access lists (Read, Update…) are left out. */
+const FILTERABLE_TYPES = ["String", "ID", "Int", "Float", "DateTime", "Boolean", "Enum"];
+
+/** The target's single-value properties a filter can name, with an Enum's values so they are offered as toggles. */
+export function filterFieldsOf(target: { fields: { name: string; type: string; isArray: boolean; enumValues?: string[] }[] } | undefined): ConditionField[] {
+  return (target?.fields ?? [])
+    .filter((f) => !f.isArray && FILTERABLE_TYPES.includes(f.type))
+    .map((f) => ({ path: f.name, type: f.type, isArray: false, ...(f.enumValues?.length ? { enumValues: f.enumValues } : {}) }));
 }
 
 /**
@@ -582,7 +587,7 @@ export function RuleValueInputs({
         );
       case "valueList":
         return (
-          <Labelled label="Allowed values">
+          <Labelled label={draft.type === VALIDATION_TYPE.NotIn ? "Refused values" : "Allowed values"}>
             <ValueListInput values={draft.values ?? []} enumValues={enumValues} kind={kind} invalid={invalid} fieldLabel={shortField} onChange={(values) => onChange({ values })} />
           </Labelled>
         );

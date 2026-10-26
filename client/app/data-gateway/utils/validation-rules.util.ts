@@ -60,7 +60,7 @@ export const VALIDATION_TYPE_META: Record<ValidationTypeValue, { label: string; 
   [VALIDATION_TYPE.MinItems]: { label: "At least … items", input: "count", tag: "At least" },
   [VALIDATION_TYPE.MaxItems]: { label: "At most … items", input: "count", tag: "At most" },
   [VALIDATION_TYPE.UniqueItems]: { label: "No duplicates", input: "none" },
-  [VALIDATION_TYPE.NotExistsIn]: { label: "Must not exist in another schema", input: "reference", tag: "Not in" },
+  [VALIDATION_TYPE.NotExistsIn]: { label: "Must not exist in another schema", input: "reference" },
 };
 
 /** Rules that check a whole list: the count, or duplicates. Every other rule checks each item of a list (D8). */
@@ -214,10 +214,10 @@ export function isInsideListOfObjects(fieldPath: string, variables?: RuleVariabl
   });
 }
 
-/** The properties an "only when" condition can name: the record's single values. */
+/** The properties an "only when" condition can name: the record's single values, never one inside a list of objects. */
 export function conditionFieldsOf(variables?: RuleVariableContext): ConditionField[] {
   return Object.entries(variables?.fields ?? {})
-    .filter(([, field]) => !field.isObject && !field.isArray)
+    .filter(([path, field]) => !field.isObject && !field.isArray && !isInsideListOfObjects(path, variables))
     .map(([path, field]) => ({ path, type: field.type, isArray: false, enumValues: variables?.enumValues?.[path] }));
 }
 

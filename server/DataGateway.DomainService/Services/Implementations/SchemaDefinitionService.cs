@@ -572,6 +572,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
                 { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.IsPIIData)}", 1 },
                 { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.IsUniqueData)}", 1 },
                 { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.IsReferenceField)}", 1 },
+                { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.EnumValues)}", 1 },
             }),
             new BsonDocument("$sort", new BsonDocument(nameof(SchemaDefinition.SchemaName), 1)),
             new BsonDocument("$facet", new BsonDocument
@@ -614,6 +615,9 @@ public class SchemaDefinitionService : ISchemaDefinitionService
                 IsArray = f.GetValue(nameof(FieldDefinition.IsArray), false).ToBoolean(),
                 IsPIIData = f.GetValue(nameof(FieldDefinition.IsPIIData), false).ToBoolean(),
                 IsUniqueData = f.GetValue(nameof(FieldDefinition.IsUniqueData), false).ToBoolean(),
+                EnumValues = f.GetValue(nameof(FieldDefinition.EnumValues), BsonNull.Value) is BsonArray { Count: > 0 } values
+                    ? values.Where(v => v.IsString).Select(v => v.AsString).ToList()
+                    : null,
             })
             .ToList(),
     };

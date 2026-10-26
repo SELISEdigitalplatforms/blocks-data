@@ -153,6 +153,18 @@ public class SystemReferenceTargetsTests
         response.SystemEntities.Single().IsSystemEntity.Should().BeTrue();
     }
 
+    [Fact]
+    public async Task ReferenceTargets_CarryAnEnumsValues_SoAFilterCanOfferThem()
+    {
+        await _db.GetCollection<SchemaDefinition>("SchemaDefinitions").InsertOneAsync(Entity("s1", "Invoice", fields:
+            [new FieldDefinition { Name = "Status", Type = "Enum", EnumValues = ["Open", "Paid"] }, new FieldDefinition { Name = "Email", Type = "String" }]));
+
+        var fields = (await Service().GetReferenceTargetsAsync(null)).Data!.Entities.Single().Fields;
+
+        fields.Single(f => f.Name == "Status").EnumValues.Should().Equal("Open", "Paid");
+        fields.Single(f => f.Name == "Email").EnumValues.Should().BeNull();
+    }
+
     [Theory]
     [InlineData("inv", "Invoice")]      // name, any case
     [InlineData("BILLS", "Invoice")]    // description

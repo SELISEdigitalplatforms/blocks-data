@@ -138,6 +138,15 @@ describe("SchemaFieldValidationPanel: the newer rules", () => {
     expect(sent(createValidation)[0]).toEqual(expect.objectContaining({ type: 17, errorMessage: "" }));
   });
 
+  it("Is not one of lists refused values, and a number list has no letter-case hint", async () => {
+    const user = userEvent.setup();
+    renderPanel({ fieldName: "Age", fieldType: "Int" });
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
+    await chooseRuleType(user, "Is not one of");
+    expect(screen.getByText("Refused values")).toBeInTheDocument();
+    expect(screen.getByText("0 of up to 500. Paste a comma-separated list to add several.")).toBeInTheDocument();
+  });
+
   it("adds an Is one of rule from typed and pasted values, sent as a list at the current version", async () => {
     const user = userEvent.setup();
     renderPanel();

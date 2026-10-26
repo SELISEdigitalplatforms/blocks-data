@@ -38,6 +38,7 @@ export function SchemaFieldValidationDrawer({
   initialValidationData,
   fieldType,
   enumValues,
+  isArray,
   schemaName,
   trigger,
   open,
@@ -59,7 +60,7 @@ export function SchemaFieldValidationDrawer({
           <div className="min-w-0 flex-1">
             <DrawerTitle className="text-sm font-semibold text-foreground">Validations</DrawerTitle>
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-[11px] text-muted-foreground">
-              <FieldSubject name={fieldName} type={fieldType} schemaName={schemaName} />
+              <FieldSubject name={fieldName} type={fieldType} isArray={isArray} schemaName={schemaName} />
             </div>
           </div>
           <DrawerClose asChild>
@@ -80,6 +81,7 @@ export function SchemaFieldValidationDrawer({
           initialValidationData={initialValidationData}
           fieldType={fieldType}
           enumValues={enumValues}
+          isArray={isArray}
         />
       </DrawerContent>
     </Drawer>

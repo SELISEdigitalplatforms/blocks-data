@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using DataGateway.DomainService.Entities;
 using Blocks.Genesis.Entities.Data;
 
@@ -7,6 +8,9 @@ public class SchemaExportDocument
 {
     public string CollectionName { get; set; } = string.Empty;
     public string SchemaName { get; set; } = string.Empty;
+    /// <summary>Left out when the schema has none, so such schemas export as before.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
     public SchemaType SchemaType { get; set; }
     public SchemaAccessLevel ReadAccessLevel { get; set; }
     public SchemaAccessLevel WriteAccessLevel { get; set; }
@@ -60,4 +64,10 @@ public class ExportValidationRule
     public bool IsActive { get; set; }
     /// <summary>Missing in files exported before it existed, which import as 0 (rules as they always were).</summary>
     public int EvaluationVersion { get; set; }
+    /// <summary>Left out when the rule has none, so older rules export as before.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PolicyRuleGroup? When { get; set; }
+    /// <summary>Left out when the rule has none, so older rules export as before.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PolicyRuleGroup? TargetFilter { get; set; }
 }

@@ -44,6 +44,9 @@ public class SchemaSnapshotStore : ISchemaSnapshotStore
             { nameof(SchemaSource.DataValidations), new BsonArray(source.DataValidations.Select(v => v.ToBsonDocument())) },
             { nameof(SchemaSource.DataAccessPolicies), new BsonArray(source.DataAccessPolicies.Select(p => p.ToBsonDocument())) }
         };
+        // Written only when a rule points at a system entity, so other snapshots keep their exact shape.
+        if (source.SystemEntitySchemas.Count > 0)
+            document.Add(nameof(SchemaSource.SystemEntitySchemas), new BsonArray(source.SystemEntitySchemas.Select(d => d.ToBsonDocument())));
         var raw = document.ToBson();
 
         using var compressed = new MemoryStream();
@@ -66,7 +69,10 @@ public class SchemaSnapshotStore : ISchemaSnapshotStore
         {
             SchemaDefinitions = ReadArray<SchemaDefinition>(document, nameof(SchemaSource.SchemaDefinitions)),
             DataValidations = ReadArray<DataValidation>(document, nameof(SchemaSource.DataValidations)),
-            DataAccessPolicies = ReadArray<DataAccessPolicy>(document, nameof(SchemaSource.DataAccessPolicies))
+            DataAccessPolicies = ReadArray<DataAccessPolicy>(document, nameof(SchemaSource.DataAccessPolicies)),
+            SystemEntitySchemas = document.Contains(nameof(SchemaSource.SystemEntitySchemas))
+                ? ReadArray<SchemaDefinition>(document, nameof(SchemaSource.SystemEntitySchemas))
+                : []
         };
     }
 

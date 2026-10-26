@@ -108,8 +108,9 @@ public class MutationService : IMutationService
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
         var sentPaths = MutationInputHelper.GetAllPathsFromInput(input, string.Empty);
         RecordOrganizationRule.EnsureForInsert([input], _principals.Current);
-        var defaults = ApplyFieldDefaults(input, schema, DateTime.UtcNow);
-        ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
+        var now = DateTime.UtcNow;
+        var defaults = ApplyFieldDefaults(input, schema, now);
+        ValidateMutationInputOrThrow(input, schema, OperationLabelCreate, now);
         await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelCreate);
         await ValidateUniquenessOrThrowAsync(schema, [input], null, OperationLabelCreate);
         ThrowIfColumnRulesRefuse(schema, [(null, RefusedOnInsert(schema, sentPaths, input))], OperationLabelCreate);
@@ -162,7 +163,7 @@ public class MutationService : IMutationService
             return MutationInputHelper.ActionResponseNotFound(OperationLabelUpdate);
 
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
-        ValidateMutationInputOrThrow(input, schema, OperationLabelUpdate, existingDocument);
+        ValidateMutationInputOrThrow(input, schema, OperationLabelUpdate, DateTime.UtcNow, existingDocument);
         await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelUpdate);
         var currentId = existingDocument[GraphQlConstant.DbEntityIdFieldName]?.ToString();
         await ValidateUniquenessOrThrowAsync(schema, [input], currentId is not null ? [currentId] : null, OperationLabelUpdate);
@@ -364,7 +365,7 @@ public class MutationService : IMutationService
         var now = DateTime.UtcNow;
         var defaultsPerInput = inputs.Select(input => ApplyFieldDefaults(input, schema, now)).ToList();
         foreach (var input in inputs)
-            ValidateMutationInputOrThrow(input, schema, OperationLabelCreate);
+            ValidateMutationInputOrThrow(input, schema, OperationLabelCreate, now);
 
         await ValidateReferencesOrThrowAsync(schema, inputs, references, OperationLabelCreate);
         await ValidateUniquenessOrThrowAsync(schema, inputs, null, OperationLabelCreate);
@@ -431,7 +432,7 @@ public class MutationService : IMutationService
             return MutationInputHelper.ActionResponseNotFound(OperationLabelUpdate);
 
         var input = MutationInputHelper.ParseMutationInput(context, inputType);
-        ValidateMutationInputOrThrow(input, schema, OperationLabelUpdate);
+        ValidateBulkUpdateInputOrThrow(input, schema, existingDocuments);
         await ValidateReferencesOrThrowAsync(schema, [input], references, OperationLabelUpdate);
         var existingIds = existingDocuments
             .Select(d => d[GraphQlConstant.DbEntityIdFieldName]?.ToString())
@@ -488,9 +489,10 @@ public class MutationService : IMutationService
 
     /// <summary>
     /// Reference rules: every value sent to such a field (each element, for a list) must exist in the target
-    /// schema's data. One distinct query per target collection and field, whatever the number of inputs.
-    /// The caller's access to the target schema is not applied: this is an existence check, like a foreign key.
-    /// In a batch, ItemIds supplied by the batch itself count as existing (rows may point at each other).
+    /// schema's data. Must not exist in rules: it must not. One distinct query per lookup (target collection, field,
+    /// filter and deleted-rows clause), whatever the number of inputs. The caller's access to the target schema is
+    /// not applied: this is an existence check, like a foreign key. In a batch, ItemIds supplied by the batch itself
+    /// count as existing for a Reference rule (rows may point at each other), when they match the rule's filter.
     /// </summary>
     private async Task ValidateReferencesOrThrowAsync(
         SchemaDefinitionExtended schema,
@@ -505,12 +507,53 @@ public class MutationService : IMutationService
         var values = ReferenceValueCollector.Collect(inputs, schema, references);
         if (values.Count == 0) return;
 
-        var batchIds = SuppliedItemIds(inputs);
+        var batchRows = SuppliedRows(inputs);
         var result = new DataValidationResult();
-        foreach (var group in values.GroupBy(v => (v.Target.CollectionName, v.Target.DbFieldName)))
+        void Unchecked(ReferenceValue value)
         {
-            var missing = await MissingReferencesAsync(group.Key.CollectionName, group.Key.DbFieldName, group);
-            AddReferenceErrors(result, schema, missing.Where(v => !IsSuppliedByBatch(schema, v, batchIds)), inputs.Count > 1, maxErrors);
+            if (result.Errors.Count < maxErrors)
+                result.AddError(value.Path, ItemPrefix(value, inputs.Count > 1) + (string.IsNullOrWhiteSpace(value.Rule.ErrorMessage) ? DataValidationHelper.ConditionNotChecked : value.Rule.ErrorMessage), value.Rule.Type.ToString());
+        }
+
+        // Each rule's lookup condition is worked out once, however many values it checks.
+        var conditions = new Dictionary<ValidationRule, (bool Built, BsonDocument? Condition, string Key)>(ReferenceEqualityComparer.Instance);
+        var lookups = new List<(ReferenceValue Value, BsonDocument? Condition, string Key)>();
+        foreach (var value in values)
+        {
+            if (!conditions.TryGetValue(value.Rule, out var built))
+            {
+                var ok = ReferenceLookup.TryCondition(value.Rule, out var condition);
+                conditions[value.Rule] = built = (ok, condition, condition?.ToJson() ?? string.Empty);
+            }
+            if (built.Built)
+                lookups.Add((value, built.Condition, built.Key));
+            else
+                Unchecked(value);
+        }
+
+        foreach (var group in lookups.GroupBy(l => (l.Value.Target.CollectionName, l.Value.Target.DbFieldName, l.Value.Target.IsSystemEntity, l.Key)))
+        {
+            var condition = group.First().Condition;
+            HashSet<string> present;
+            try
+            {
+                present = await PresentReferenceKeysAsync(group.Key.CollectionName, group.Key.DbFieldName, group.Key.IsSystemEntity, group.Select(l => l.Value), condition);
+            }
+            // A filter Mongo refuses (a pattern .NET reads but PCRE doesn't) fails its values instead of the write.
+            catch (MongoCommandException) when (condition is not null)
+            {
+                foreach (var (value, _, _) in group)
+                    Unchecked(value);
+                continue;
+            }
+            bool Exists(ReferenceValue v) => present.Contains(WriteRules.ReferenceKey(BsonValue.Create(v.Value)));
+
+            var mustExist = group.Select(l => l.Value).Where(v => v.Rule.Type == ValidationType.Reference);
+            AddReferenceErrors(result, schema, mustExist.Where(v => !Exists(v) && !IsSuppliedByBatch(schema, v, batchRows, condition)), inputs.Count > 1, maxErrors);
+
+            var mustNotExist = group.Select(l => l.Value).Where(v => v.Rule.Type == ValidationType.NotExistsIn);
+            foreach (var value in mustNotExist.Where(Exists).TakeWhile(_ => result.Errors.Count < maxErrors))
+                result.AddError(value.Path, ItemPrefix(value, inputs.Count > 1) + WriteRules.ReferenceFoundMessage(schema.SchemaName, value), nameof(ValidationType.NotExistsIn));
         }
 
         if (!result.IsValid)
@@ -526,33 +569,62 @@ public class MutationService : IMutationService
     {
         foreach (var value in missing.TakeWhile(_ => result.Errors.Count < maxErrors))
         {
-            var itemPrefix = isBatch ? $"Item {value.InputIndex}: " : string.Empty;
-            result.AddError(value.Path, itemPrefix + WriteRules.ReferenceNotFoundMessage(schema.SchemaName, value), nameof(ValidationType.Reference));
+            result.AddError(value.Path, ItemPrefix(value, isBatch) + WriteRules.ReferenceNotFoundMessage(schema.SchemaName, value), nameof(ValidationType.Reference));
         }
     }
 
-    /// <summary>ItemIds the inputs supply themselves (parsed input carries a supplied ItemId as _id).</summary>
-    private static HashSet<string> SuppliedItemIds(IReadOnlyList<Dictionary<string, object?>> inputs) =>
-        inputs
-            .Select(input => input.TryGetValue(GraphQlConstant.DbEntityIdFieldName, out var id) ? id?.ToString() : null)
-            .OfType<string>()
-            .ToHashSet(StringComparer.Ordinal);
+    private static string ItemPrefix(ReferenceValue value, bool isBatch) => isBatch ? $"Item {value.InputIndex}: " : string.Empty;
 
-    /// <summary>The referenced values of one target collection and field that are not in it: one distinct query.</summary>
-    private async Task<List<ReferenceValue>> MissingReferencesAsync(string collectionName, string dbFieldName, IEnumerable<ReferenceValue> values)
+    /// <summary>The rows the inputs supply themselves, by the ItemId they give (parsed input carries it as _id).</summary>
+    private static Dictionary<string, List<Dictionary<string, object?>>> SuppliedRows(IReadOnlyList<Dictionary<string, object?>> inputs) =>
+        inputs
+            .Select(input => (Id: input.TryGetValue(GraphQlConstant.DbEntityIdFieldName, out var id) ? id?.ToString() : null, Input: input))
+            .Where(row => row.Id is not null)
+            .GroupBy(row => row.Id!, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.Select(row => row.Input).ToList(), StringComparer.Ordinal);
+
+    /// <summary>
+    /// The keys of the values found in one target collection and field, among the rows that match the condition when
+    /// there is one: one distinct query. Without a condition, exactly the lookup sent before rules could have one (G4).
+    /// </summary>
+    private async Task<HashSet<string>> PresentReferenceKeysAsync(string collectionName, string dbFieldName, bool systemEntity, IEnumerable<ReferenceValue> values, BsonDocument? condition)
     {
-        var all = values.ToList();
-        var requested = all.Select(v => BsonValue.Create(v.Value)).Distinct().ToList();
-        var existing = await _repository.GetDistinctValuesAsync(collectionName, dbFieldName, requested);
-        var present = existing.Select(WriteRules.ReferenceKey).ToHashSet(StringComparer.Ordinal);
-        return all.Where(v => !present.Contains(WriteRules.ReferenceKey(BsonValue.Create(v.Value)))).ToList();
+        var requested = values.Select(v => BsonValue.Create(v.Value)).Distinct().ToList();
+        // A system entity's collection is in the tenant's default database, even on a custom data source.
+        var existing = systemEntity
+            ? await _repository.GetDistinctValuesInDefaultDatabaseAsync(collectionName, dbFieldName, requested, condition)
+            : condition is null
+                ? await _repository.GetDistinctValuesAsync(collectionName, dbFieldName, requested)
+                : await _repository.GetDistinctValuesAsync(collectionName, dbFieldName, requested, condition);
+        return existing.Select(WriteRules.ReferenceKey).ToHashSet(StringComparer.Ordinal);
     }
 
-    private static bool IsSuppliedByBatch(SchemaDefinitionExtended schema, ReferenceValue value, HashSet<string> batchIds) =>
-        batchIds.Count > 0
-        && value.Target.CollectionName == schema.CollectionName
-        && value.Target.DbFieldName == GraphQlConstant.DbEntityIdFieldName
-        && value.Value.ToString() is { } id && batchIds.Contains(id);
+    /// <summary>
+    /// A batch row supplies the referenced ItemId of its own schema. With a filter, the row counts only when it
+    /// matches it, as a stored row would.
+    /// </summary>
+    private static bool IsSuppliedByBatch(SchemaDefinitionExtended schema, ReferenceValue value, Dictionary<string, List<Dictionary<string, object?>>> batchRows, BsonDocument? condition)
+    {
+        if (batchRows.Count == 0
+            || value.Target.CollectionName != schema.CollectionName
+            || value.Target.DbFieldName != GraphQlConstant.DbEntityIdFieldName
+            || value.Value.ToString() is not { } id || !batchRows.TryGetValue(id, out var rows))
+            return false;
+        return condition is null || rows.Any(row => BatchRowMatches(InputToBsonDocument(row), condition));
+    }
+
+    private static bool BatchRowMatches(BsonDocument row, BsonDocument condition)
+    {
+        try
+        {
+            return BsonFilterMatcher.Matches(row, condition);
+        }
+        // A filter the matcher can't run doesn't make the row count.
+        catch (Exception ex) when (ex is NotSupportedException or ArgumentException)
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// For each unique field in the schema, queries the DB with $in to find which values already exist.
@@ -787,13 +859,41 @@ public class MutationService : IMutationService
         return defaults;
     }
 
-    private void ValidateMutationInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel, BsonDocument? storedDocument = null)
+    private void ValidateMutationInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, string operationLabel, DateTime nowUtc, BsonDocument? storedDocument = null)
     {
 
         ValidateRequiredFieldsOrThrow(input, schema, operationLabel);
-        var r = input.Validate(schema, storedDocument is null ? null : WriteRules.ToRecord(storedDocument));
+        var r = input.Validate(schema, storedDocument is null ? null : WriteRules.ToRecord(storedDocument), nowUtc);
         if (!r.IsValid) { _logger.LogWarning("Validation failed for {Op} on schema {SchemaName}: {Errors}", operationLabel, schema.SchemaName, r.ErrorMessage); MutationValidationHelper.ThrowValidationError(r); }
     }
+
+    /// <summary>
+    /// Bulk update: the input is checked once, without a stored record, as before. Rules with an "only when" condition
+    /// are then checked on each matched record (already loaded), and their errors name the record.
+    /// </summary>
+    private void ValidateBulkUpdateInputOrThrow(Dictionary<string, object?> input, SchemaDefinitionExtended schema, List<BsonDocument> existingDocuments)
+    {
+        ValidateRequiredFieldsOrThrow(input, schema, OperationLabelUpdate);
+        var now = DateTime.UtcNow;
+        var r = input.ValidateWithoutConditions(schema, now);
+        if (HasConditionalRules(schema.Fields))
+        {
+            // At most 50 record errors, as for references: a bulk update over many records stops there.
+            const int maxErrors = 50;
+            foreach (var document in existingDocuments)
+            {
+                if (r.Errors.Count >= maxErrors)
+                    break;
+                var recordPrefix = $"Record {document[GraphQlConstant.DbEntityIdFieldName]}: ";
+                foreach (var error in input.ValidateConditions(schema, WriteRules.ToRecord(document), now).Errors.Take(maxErrors - r.Errors.Count))
+                    r.AddError(error.FieldName, recordPrefix + error.Message, error.ValidationType);
+            }
+        }
+        if (!r.IsValid) { _logger.LogWarning("Validation failed for {Op} on schema {SchemaName}: {Errors}", OperationLabelUpdate, schema.SchemaName, r.ErrorMessage); MutationValidationHelper.ThrowValidationError(r); }
+    }
+
+    private static bool HasConditionalRules(List<FieldDefinitionResponse> fields) =>
+        fields.Any(f => (f.ValidationRule?.Validations ?? []).Any(rule => rule.IsActive && rule.When is not null) || HasConditionalRules(f.Fields));
 
     private static void ValidateRequiredFieldsOrThrow(
         Dictionary<string, object?> input,

@@ -22,7 +22,8 @@ const draft = (over: Partial<RuleDraft>): RuleDraft => ({
 
 describe("getAllowedValidationTypes", () => {
   it("offers text rules and Reference on text fields", () => {
-    expect(getAllowedValidationTypes("String")).toEqual([
+    // Today's types first and unchanged; the newer ones follow (validation rules plan, G10).
+    expect(getAllowedValidationTypes("String").slice(0, 8)).toEqual([
       T.NotEmpty, T.Regex, T.MinLength, T.MaxLength, T.LengthRange, T.Equal, T.NotEqual, T.Reference,
     ]);
   });
@@ -36,7 +37,7 @@ describe("getAllowedValidationTypes", () => {
 
   it("keeps booleans, enums and other types to what makes sense", () => {
     expect(getAllowedValidationTypes("Boolean")).toEqual([T.NotEmpty, T.Equal, T.NotEqual]);
-    expect(getAllowedValidationTypes("Enum")).toEqual([T.NotEmpty, T.Equal, T.NotEqual, T.Reference]);
+    expect(getAllowedValidationTypes("Enum").slice(0, 4)).toEqual([T.NotEmpty, T.Equal, T.NotEqual, T.Reference]);
     expect(getAllowedValidationTypes("GeoJson")).toEqual([T.NotEmpty]);
   });
 });
@@ -83,8 +84,8 @@ describe("ruleFromDraft", () => {
     expect(ruleFromDraft(draft({ type: T.NotEmpty, value: "ignored" }), "String").value).toBeNull();
   });
 
-  it("marks every rule it builds as version 1 (lists checked item by item)", () => {
-    expect(ruleFromDraft(draft({ type: T.MaxLength, value: "20" }), "String").evaluationVersion).toBe(1);
+  it("marks every new rule it builds as the current version, 2 (lists checked item by item; plan decision 2)", () => {
+    expect(ruleFromDraft(draft({ type: T.MaxLength, value: "20" }), "String").evaluationVersion).toBe(2);
   });
 
   it("defaults a Reference's target field to ItemId", () => {

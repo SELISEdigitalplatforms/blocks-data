@@ -1,3 +1,4 @@
+using Blocks.Genesis.DataAccess.Rules;
 using Blocks.Genesis;
 using DataGateway.DomainService.DataSources;
 using DataGateway.DomainService.Entities;
@@ -117,16 +118,31 @@ public class GqlDbRepository : IGqlDbRepository
         return await collection.CountDocumentsAsync(filter);
     }
 
-    public async Task<List<BsonValue>> GetDistinctValuesAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values)
+    public async Task<List<BsonValue>> GetDistinctValuesAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values) =>
+        await DistinctValuesAsync(await GetDatabaseAsync(), collectionName, fieldName, values, condition: null);
+
+    public async Task<List<BsonValue>> GetDistinctValuesAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values, BsonDocument condition) =>
+        await DistinctValuesAsync(await GetDatabaseAsync(), collectionName, fieldName, values, condition);
+
+    public Task<List<BsonValue>> GetDistinctValuesInDefaultDatabaseAsync(string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values, BsonDocument? condition)
+    {
+        var tenantId = TenantContext.GetTenantId();
+        if (string.IsNullOrWhiteSpace(tenantId))
+            tenantId = BlocksContext.GetContext()?.TenantId ?? string.Empty;
+        return DistinctValuesAsync(_dbContextProvider.GetDatabase(tenantId)!, collectionName, fieldName, values, condition);
+    }
+
+    private static async Task<List<BsonValue>> DistinctValuesAsync(IMongoDatabase database, string collectionName, string fieldName, IReadOnlyCollection<BsonValue> values, BsonDocument? condition)
     {
         // Chunked so a large bulk insert never builds one oversized $in.
         const int chunkSize = 5000;
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Database);
-        var collection = (await GetDatabaseAsync()).GetCollection<BsonDocument>(collectionName);
+        var collection = database.GetCollection<BsonDocument>(collectionName);
         var found = new List<BsonValue>();
         foreach (var chunk in values.Chunk(chunkSize))
         {
-            var filter = Builders<BsonDocument>.Filter.In(fieldName, chunk);
+            // Without a condition, exactly the lookup sent before rules could have one (G4).
+            var filter = ReferenceLookup.Filter(fieldName, chunk, condition);
             using var cursor = await collection.DistinctAsync<BsonValue>(fieldName, filter);
             found.AddRange(await cursor.ToListAsync());
         }

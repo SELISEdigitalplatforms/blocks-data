@@ -150,9 +150,10 @@ interface SchemaStructureTableProps extends ISchemaDetails {
     context: string;
     schemaName: string;
     validationRule?: IFieldValidationRule | null;
-    /** The property's type and enum values: decide which rule types the panel offers. */
+    /** The property's type, enum values and whether it is a list: decide which rule types the panel offers. */
     fieldType: string;
     enumValues?: string[];
+    isArray?: boolean;
   }) => void;
   /**
    * Hand a field's default value to the docked inspector instead of opening
@@ -282,7 +283,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const [currentValidationRule, setCurrentValidationRule] =
     useState<IFieldValidationRule | null>(null);
   const [currentValidationFieldMeta, setCurrentValidationFieldMeta] =
-    useState<{ fieldType: string; enumValues?: string[] }>({ fieldType: "String" });
+    useState<{ fieldType: string; enumValues?: string[]; isArray?: boolean }>({ fieldType: "String" });
   // The drawer form of the default-value panel (mobile and nested child tables).
   const [currentDefaultTarget, setCurrentDefaultTarget] = useState<{
     fieldName: string;
@@ -513,7 +514,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
    * this table's own fields.
    */
   const openValidationFor = (qualifiedName: string, field: IField | undefined, validationRule?: IFieldValidationRule | null) => {
-    const fieldMeta = { fieldType: field?.type ?? "String", enumValues: field?.enumValues };
+    const fieldMeta = { fieldType: field?.type ?? "String", enumValues: field?.enumValues, isArray: field?.isArray ?? false };
 
     if (onOpenFieldValidation) {
       onOpenFieldValidation({
@@ -1254,6 +1255,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           fieldName={currentValidationFieldName}
           fieldType={currentValidationFieldMeta.fieldType}
           enumValues={currentValidationFieldMeta.enumValues}
+          isArray={currentValidationFieldMeta.isArray}
           schemaId={resolvedRootSchemaId}
           projectKey={projectKey}
           schemaName={schemaDetails.schemaName}

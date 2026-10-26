@@ -34,6 +34,7 @@ public class CreateDataValidationRequestValidator : DataValidationRequestValidat
 
         ValidateReferenceRules(x => x.SchemaId, x => x.FieldName, x => x.Validations);
         ValidateVariableRules(x => x.SchemaId, x => x.FieldName, x => x.Validations);
+        ValidateNewRules(x => x.SchemaId, x => x.FieldName, x => x.Validations);
     }
 }
 
@@ -48,10 +49,10 @@ public class ValidationRuleRequestValidator : AbstractValidator<ValidationRuleRe
         RuleFor(x => x.Type)
             .IsInEnum().WithMessage(ValidationTypeValid);
 
-        // Value is required for most validation types (except NotEmpty)
+        // Value is required for most validation types (except NotEmpty and UniqueItems)
         RuleFor(x => x.Value)
             .NotNull()
-            .When(x => x.Type != ValidationType.NotEmpty)
+            .When(x => x.Type is not (ValidationType.NotEmpty or ValidationType.UniqueItems))
             .WithMessage(ValueRequiredForValidationType);
 
         // Secondary value is required for range validations

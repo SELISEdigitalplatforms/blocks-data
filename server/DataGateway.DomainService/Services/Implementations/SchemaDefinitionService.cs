@@ -63,7 +63,11 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         if (collidingSchemaName is not null)
             return new ServiceResponse<ActionResponse>().SetErrorMessage($"Schema name '{request.SchemaName}' conflicts with the GraphQL types generated for existing schema '{collidingSchemaName}'").SetHttpStatusCode(400);
 
-        var schema = new SchemaDefinition { CollectionName = request.CollectionName, SchemaName = request.SchemaName, SchemaType = request.SchemaType };
+        var schema = new SchemaDefinition
+        {
+            CollectionName = request.CollectionName, SchemaName = request.SchemaName, SchemaType = request.SchemaType,
+            Description = SchemaDescription.Normalize(request.Description),
+        };
         schema.InjectDefaultValue();
         if (request.SchemaType == SchemaType.Entity)
             schema.AddDefaultFields();
@@ -99,6 +103,9 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         schema.CollectionName = request.CollectionName;
         schema.SchemaName = request.SchemaName;
         schema.SchemaType = request.SchemaType;
+        // Null: a caller that doesn't know descriptions keeps the stored one. Empty text removes it.
+        if (request.Description is not null)
+            schema.Description = SchemaDescription.Normalize(request.Description);
         schema.InjectDefaultValue();
         RenameVariablePrefix(schema, previousSchemaName);
 
@@ -514,6 +521,103 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             response.IsLive = liveIds.Contains(response.Id);
     }
 
+    public const int ReferenceTargetsPerGroup = 50;
+    private const int MaxReferenceTargetKeywordLength = 100;
+
+    /// <inheritdoc />
+    public async Task<ServiceResponse<ReferenceTargetsResponse>> GetReferenceTargetsAsync(string? keyword, string? schemaName = null)
+    {
+        // One query: the projected, non-deleted Entity schemas, matched in Mongo and capped per group by $facet.
+        var match = new BsonDocument
+        {
+            { nameof(SchemaDefinition.IsDeleted), false },
+            { nameof(SchemaDefinition.SchemaType), (int)SchemaType.Entity },
+        };
+        var search = keyword?.Trim();
+        if (!string.IsNullOrWhiteSpace(schemaName))
+            match.Add(nameof(SchemaDefinition.SchemaName), schemaName.Trim());
+        else if (!string.IsNullOrEmpty(search))
+        {
+            // Plain text, any case: the keyword is escaped, never read as a pattern.
+            var text = new BsonRegularExpression(System.Text.RegularExpressions.Regex.Escape(search[..Math.Min(search.Length, MaxReferenceTargetKeywordLength)]), "i");
+            match.Add("$or", new BsonArray
+            {
+                new BsonDocument(nameof(SchemaDefinition.SchemaName), text),
+                new BsonDocument(nameof(SchemaDefinition.Description), text),
+            });
+        }
+
+        BsonArray Group(BsonDocument groupMatch) => new()
+        {
+            new BsonDocument("$match", groupMatch),
+            new BsonDocument("$limit", ReferenceTargetsPerGroup),
+        };
+        // Only the system entities a lookup may see, before the limit so hidden ones take no place (SystemLookupTargets).
+        var systemGroup = new BsonDocument
+        {
+            { nameof(SchemaDefinition.IsSystemEntity), true },
+            { nameof(SchemaDefinition.SchemaName), new BsonDocument("$in", new BsonArray(SystemLookupTargets.SchemaNames)) },
+        };
+        var pipeline = new[]
+        {
+            new BsonDocument("$match", match),
+            new BsonDocument("$project", new BsonDocument
+            {
+                { nameof(SchemaDefinition.SchemaName), 1 },
+                { nameof(SchemaDefinition.Description), 1 },
+                { nameof(SchemaDefinition.IsSystemEntity), 1 },
+                { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.Name)}", 1 },
+                { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.Type)}", 1 },
+                { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.IsArray)}", 1 },
+                { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.IsPIIData)}", 1 },
+                { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.IsUniqueData)}", 1 },
+                { $"{nameof(SchemaDefinition.Fields)}.{nameof(FieldDefinition.IsReferenceField)}", 1 },
+            }),
+            new BsonDocument("$sort", new BsonDocument(nameof(SchemaDefinition.SchemaName), 1)),
+            new BsonDocument("$facet", new BsonDocument
+            {
+                { "Entities", Group(new BsonDocument(nameof(SchemaDefinition.IsSystemEntity), new BsonDocument("$ne", true))) },
+                { "SystemEntities", Group(systemGroup) },
+            }),
+        };
+        var result = await _repository.AggregateOneAsync<SchemaDefinition>(pipeline);
+
+        List<ReferenceTargetSchema> Read(string group) =>
+            result?.GetValue(group, new BsonArray()).AsBsonArray.Select(item => ToReferenceTarget(item.AsBsonDocument)).ToList() ?? [];
+        return new ServiceResponse<ReferenceTargetsResponse>().SetSuccess(new ReferenceTargetsResponse
+        {
+            Entities = Read("Entities"),
+            SystemEntities = Read("SystemEntities").Select(OnlyOpenFields).ToList(),
+        });
+    }
+
+    /// <summary>A system entity with only the properties a lookup may name (SystemLookupTargets).</summary>
+    private static ReferenceTargetSchema OnlyOpenFields(ReferenceTargetSchema schema)
+    {
+        schema.Fields = schema.Fields.Where(f => SystemLookupTargets.IsOpen(schema.SchemaName, f.Name)).ToList();
+        return schema;
+    }
+
+    private static ReferenceTargetSchema ToReferenceTarget(BsonDocument schema) => new()
+    {
+        SchemaName = schema.GetValue(nameof(SchemaDefinition.SchemaName), string.Empty).AsString,
+        Description = schema.GetValue(nameof(SchemaDefinition.Description), BsonNull.Value) is BsonString { Value: var description } ? description : null,
+        IsSystemEntity = schema.GetValue(nameof(SchemaDefinition.IsSystemEntity), false).ToBoolean(),
+        // Reference fields (dotted paths into another schema) can't be targets.
+        Fields = schema.GetValue(nameof(SchemaDefinition.Fields), new BsonArray()).AsBsonArray
+            .Select(f => f.AsBsonDocument)
+            .Where(f => !f.GetValue(nameof(FieldDefinition.IsReferenceField), false).ToBoolean())
+            .Select(f => new ReferenceTargetField
+            {
+                Name = f.GetValue(nameof(FieldDefinition.Name), string.Empty).AsString,
+                Type = f.GetValue(nameof(FieldDefinition.Type), string.Empty).AsString,
+                IsArray = f.GetValue(nameof(FieldDefinition.IsArray), false).ToBoolean(),
+                IsPIIData = f.GetValue(nameof(FieldDefinition.IsPIIData), false).ToBoolean(),
+                IsUniqueData = f.GetValue(nameof(FieldDefinition.IsUniqueData), false).ToBoolean(),
+            })
+            .ToList(),
+    };
+
     /// <inheritdoc />
     public async Task<ServiceResponse<SchemaAggregationResponse>> GetSchemaAggregationAsync()
     {
@@ -702,8 +806,8 @@ public class SchemaDefinitionService : ISchemaDefinitionService
     };
 
     /// <summary>
-    /// Reference rules name the schema they point at, so a rename carries them over; otherwise the next
-    /// publish would fail because the old name no longer exists.
+    /// Reference and Must not exist in rules name the schema they point at, so a rename carries them over; otherwise
+    /// the next publish would fail because the old name no longer exists.
     /// </summary>
     private async Task RenameReferenceTargetsAsync(string previousName, string newName)
     {
@@ -715,7 +819,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             { nameof(DataValidation.IsDeleted), false },
             { nameof(DataValidation.Validations), new BsonDocument("$elemMatch", new BsonDocument
                 {
-                    { nameof(ValidationRule.Type), nameof(ValidationType.Reference) },
+                    { nameof(ValidationRule.Type), new BsonDocument("$in", new BsonArray { nameof(ValidationType.Reference), nameof(ValidationType.NotExistsIn) }) },
                     { nameof(ValidationRule.Value), previousName },
                 }) },
         };
@@ -724,7 +828,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
             return;
 
         foreach (var rule in validations.SelectMany(v => v.Validations)
-                     .Where(r => r.Type == ValidationType.Reference && ReferenceTargets.TargetSchemaName(r) == previousName))
+                     .Where(r => ReferenceTargets.IsLookupRule(r) && ReferenceTargets.TargetSchemaName(r) == previousName))
         {
             rule.Value = newName;
         }

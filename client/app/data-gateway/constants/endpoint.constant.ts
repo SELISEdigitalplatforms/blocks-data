@@ -27,6 +27,8 @@ export const SCHEMA_ENDPOINTS = {
   UPDATE_FIELDS: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/fields`,
   DELETE: `${API_BASES.UDS}${SCHEMAS_SUBPATH}`,
   UNADAPTED_CHANGE_LOGS: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/unadapted-change-logs`,
+  /** Every Entity a Reference / Must not exist in rule can point at, the tenant's and the system's. */
+  REFERENCE_TARGETS: `${API_BASES.UDS}${SCHEMAS_SUBPATH}/reference-targets`,
   FIELD_DEFAULT: `${API_BASES.BLOCKS_DATA}${SCHEMAS_SUBPATH}/field-default`,
 } as const;
 

@@ -37,5 +37,6 @@ public class UpdateDataValidationRequestValidator : DataValidationRequestValidat
 
         ValidateReferenceRules(x => x.SchemaId, x => x.FieldName, x => x.Validations);
         ValidateVariableRules(x => x.SchemaId, x => x.FieldName, x => x.Validations);
+        ValidateNewRules(x => x.SchemaId, x => x.FieldName, x => x.Validations);
     }
 }

@@ -12,6 +12,9 @@ public class SchemaDefinitionResponse
     public string CollectionName { get; set; } = string.Empty;
     public List<FieldDefinitionResponse> Fields { get; set; } = [];
     public string SchemaName { get; set; } = string.Empty;
+    /// <summary>The schema's description; left out when it has none.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Description { get; set; }
     public SchemaType SchemaType { get; set; }
     public string ProjectKey { get; set; } = string.Empty;
     public string ProjectShortKey { get; set; } = string.Empty;

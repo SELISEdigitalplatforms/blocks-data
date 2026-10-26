@@ -78,8 +78,8 @@ const SWITCH_CLASS =
   "aria-[checked=false]:border-border aria-[checked=false]:bg-muted aria-checked:border-primary aria-checked:bg-primary";
 
 /** A new rule starts as a pattern where one fits (the most common rule), otherwise as the first type offered. */
-const newDraft = (fieldType: string): ValidationFormState => {
-  const allowed = getAllowedValidationTypes(fieldType);
+const newDraft = (fieldType: string, isArray = false): ValidationFormState => {
+  const allowed = getAllowedValidationTypes(fieldType, isArray);
   return {
     type: allowed.includes(VALIDATION_TYPE.Regex) ? VALIDATION_TYPE.Regex : allowed[0],
     value: "",
@@ -262,7 +262,7 @@ export function SchemaFieldValidationPanel({
   initialValidationData,
 }: SchemaFieldValidationPanelProps) {
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<ValidationFormState>(() => newDraft(fieldType));
+  const [form, setForm] = useState<ValidationFormState>(() => newDraft(fieldType, isArray));
   // Shown once the user has typed or tried to save, not while the form is still blank.
   const [showDraftError, setShowDraftError] = useState(false);
   const [showGenerator, setShowGenerator] = useState(false);
@@ -338,7 +338,7 @@ export function SchemaFieldValidationPanel({
   const shownMessage = messageEdited ? form.errorMessage : (suggestedMessage ?? "");
 
   const resetForm = () => {
-    setForm(newDraft(fieldType));
+    setForm(newDraft(fieldType, isArray));
     setMessageEdited(false);
     setShowDraftError(false);
     setShowForm(false);
@@ -347,7 +347,7 @@ export function SchemaFieldValidationPanel({
   };
 
   const openNewRule = () => {
-    const draft = newDraft(fieldType);
+    const draft = newDraft(fieldType, isArray);
     if (draft.type === VALIDATION_TYPE.Reference && hasOtherReference) draft.type = typeOptions[0];
     setForm(draft);
     setMessageEdited(false);

@@ -93,6 +93,25 @@ public class SchemaDefinitionMappingTests
     }
 
     [Fact]
+    public void GetFieldDefinitionResponses_AListOfObjects_CarriesOnlyItsItemCounts()
+    {
+        var fields = new List<FieldDefinition>
+        {
+            new() { Name = "Items", Type = "Item", IsArray = true },
+            new() { Name = "Items.Qty", Type = "Int", IsReferenceField = true, ReferenceFieldType = "Item" },
+        };
+        var validations = new List<DataValidation>
+        {
+            new() { FieldName = "Items", Validations = [new ValidationRule { Type = ValidationType.MinItems, Value = 1L }, new ValidationRule { Type = ValidationType.NotEmpty }] },
+        };
+
+        var items = SchemaDefinitionMapping.GetFieldDefinitionResponses(fields, new List<DataAccessPolicy>(), validations, "").Single(f => f.Name == "Items");
+
+        items.ValidationRule!.Validations.Select(r => r.Type).Should().Equal(ValidationType.MinItems);
+        items.Fields.Should().ContainSingle(f => f.Name == "Qty");
+    }
+
+    [Fact]
     public void GetFieldDefinitionResponses_SyntheticReferenceNode()
     {
         var fields = new List<FieldDefinition>

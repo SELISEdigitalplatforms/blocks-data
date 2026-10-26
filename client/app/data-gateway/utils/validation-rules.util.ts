@@ -1,4 +1,5 @@
 import { RegExpParser } from "regexpp";
+import { typeOptions } from "../constants/input-restrictions";
 import type { ISchemaFieldValidation, ValidationRuleValue } from "../models/data-service";
 import { describeRelativeNow, isRelativeNowWritten, parseRelativeNow } from "./relative-now";
 import { MAX_LIST_VALUES, RULE_MESSAGE_FORMATS, RULE_MESSAGES } from "./rule-messages";
@@ -85,12 +86,17 @@ export const DEFAULT_REFERENCE_FIELD = "ItemId";
 const T = VALIDATION_TYPE;
 const COMPARISONS = [T.GreaterThan, T.LessThan, T.GreaterThanOrEqual, T.LessThanOrEqual, T.Range];
 
+/** True for a property whose type is another schema (an object, or a list of objects). */
+export const isObjectType = (fieldType: string) => !typeOptions.includes(fieldType);
+
 /**
  * The rule types that make sense for a property's type. Must match what the server accepts: Reference and Must not
  * exist in only on text and number fields (Genesis `ReferenceRuleCompatibility`), Is one of not on dates or true/false.
- * The newer types come after today's, and a list property also gets the whole-list rules.
+ * The newer types come after today's, and a list property also gets the whole-list rules. A list of objects can only
+ * be counted (No duplicates needs values), and a single object takes no rule.
  */
 export function getAllowedValidationTypes(fieldType: string, isArray = false): ValidationTypeValue[] {
+  if (isObjectType(fieldType)) return isArray ? [T.MinItems, T.MaxItems] : [];
   const types = singleValueTypes(fieldType);
   const lists: ValidationTypeValue[] = ["String", "ID", "Enum", "Int", "Float"].includes(fieldType) ? [T.In, T.NotIn] : [];
   const lookups: ValidationTypeValue[] = types.includes(T.Reference) ? [T.NotExistsIn] : [];

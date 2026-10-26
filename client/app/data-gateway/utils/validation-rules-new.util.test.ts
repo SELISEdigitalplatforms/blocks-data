@@ -46,6 +46,11 @@ describe("rule types offered", () => {
     expect(getAllowedValidationTypes("String")).not.toContain(T.MinItems);
   });
 
+  it("a list of objects can only be counted, a single object takes no rule", () => {
+    expect(getAllowedValidationTypes("OrderItem", true)).toEqual([T.MinItems, T.MaxItems]);
+    expect(getAllowedValidationTypes("Address", false)).toEqual([]);
+  });
+
   it("tags list rules by scope (D8)", () => {
     expect(ruleScope(T.MinItems, true)).toBe("list");
     expect(ruleScope(T.MaxLength, true)).toBe("item");

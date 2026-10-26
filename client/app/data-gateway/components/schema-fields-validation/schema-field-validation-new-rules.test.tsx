@@ -112,6 +112,21 @@ describe("SchemaFieldValidationPanel: the newer rules", () => {
     expect(within(listbox).getByRole("option", { name: "No duplicates" })).toBeInTheDocument();
   });
 
+  it("a list of objects is counted: only At least and At most items are offered", async () => {
+    const user = userEvent.setup();
+    renderPanel({ fieldName: "Items", fieldType: "Item", isArray: true });
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
+    await user.click(screen.getByRole("combobox", { name: "Validation type" }));
+    const listbox = await screen.findByRole("listbox");
+    expect(within(listbox).getAllByRole("option").map((o) => o.textContent)).toEqual(["At least … items", "At most … items"]);
+    await user.click(within(listbox).getByRole("option", { name: "At least … items" }));
+
+    await user.type(screen.getByRole("spinbutton", { name: "Items" }), "1");
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
+    await waitFor(() => expect(createValidation).toHaveBeenCalled());
+    expect(sent(createValidation)[0]).toEqual(expect.objectContaining({ type: 15, value: 1 }));
+  });
+
   it("adds an Is one of rule from typed and pasted values, sent as a list at the current version", async () => {
     const user = userEvent.setup();
     renderPanel();

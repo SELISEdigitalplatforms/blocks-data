@@ -10,6 +10,7 @@ import {
   formatRuleSummary,
   getAllowedValidationTypes,
   isOlderReference,
+  messageLeftToServer,
   ruleFromDraft,
   ruleScope,
   suggestErrorMessage,
@@ -172,9 +173,17 @@ describe("how the new rules read", () => {
     expect(suggest({ type: T.NotIn, values: ["N/A"] })).toBe("Status must not be one of N/A");
     expect(suggest({ type: T.MinItems, value: "1" })).toBe("Status must have at least 1 item");
     expect(suggest({ type: T.MaxItems, value: "10" })).toBe("Status must have at most 10 items");
-    expect(suggest({ type: T.UniqueItems })).toBe("Status must not list the same value twice");
     expect(suggest({ type: T.NotExistsIn, value: "Customer" })).toBe("Status must not match an existing Customer");
-    expect(suggest({ type: T.LessThanOrEqual, value: "{{Now-18y}}" }, "DateTime")).toBe("Status must be on or before now − 18 years");
+  });
+
+  it("suggests no message where the server's own names the detail: the repeated value, the date now stood for (D3, F1)", () => {
+    const suggest = (patch: Partial<RuleDraft>) => suggestErrorMessage(draft(patch), "DateTime", "Order.Due");
+    expect(suggest({ type: T.UniqueItems })).toBeNull();
+    expect(suggest({ type: T.LessThanOrEqual, value: "{{Now-18y}}" })).toBeNull();
+    expect(suggest({ type: T.Range, value: "2026-01-01T00:00", secondaryValue: "{{Now+30d}}" })).toBeNull();
+    expect(messageLeftToServer(draft({ type: T.UniqueItems }))).toBe("repeated");
+    expect(messageLeftToServer(draft({ type: T.GreaterThan, value: "{{Now}}" }))).toBe("date");
+    expect(messageLeftToServer(draft({ type: T.GreaterThan, value: "{{Order.Created}}" }))).toBeNull();
   });
 });
 

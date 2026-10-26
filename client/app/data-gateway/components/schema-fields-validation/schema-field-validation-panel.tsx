@@ -31,6 +31,7 @@ import {
   formatRuleSummary,
   getAllowedValidationTypes,
   isInsideListOfObjects,
+  messageLeftToServer,
   isLookupType,
   isOlderReference,
   ruleFromDraft,
@@ -677,6 +678,11 @@ export function SchemaFieldValidationPanel({
                   className={CONTROL_CLASS}
                 />
                 {!messageEdited && suggestedMessage && <p className={HINT_CLASS}>Written from the validation. Change it if you like.</p>}
+                {!shownMessage && messageLeftToServer(form) && (
+                  <p className={HINT_CLASS}>
+                    Left empty, the message names the {messageLeftToServer(form) === "date" ? "date the value was checked against" : "value listed twice"}.
+                  </p>
+                )}
                 {messageEdited && suggestedMessage && suggestedMessage !== form.errorMessage && (
                   <button
                     type="button"

@@ -127,6 +127,17 @@ describe("SchemaFieldValidationPanel: the newer rules", () => {
     expect(sent(createValidation)[0]).toEqual(expect.objectContaining({ type: 15, value: 1 }));
   });
 
+  it("leaves No duplicates' message empty, so the server's names the repeated value (D3)", async () => {
+    const user = userEvent.setup();
+    renderPanel({ fieldName: "Tags", isArray: true });
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
+    await chooseRuleType(user, "No duplicates");
+    expect(screen.getByText("Left empty, the message names the value listed twice.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add validation" }));
+    await waitFor(() => expect(createValidation).toHaveBeenCalled());
+    expect(sent(createValidation)[0]).toEqual(expect.objectContaining({ type: 17, errorMessage: "" }));
+  });
+
   it("adds an Is one of rule from typed and pasted values, sent as a list at the current version", async () => {
     const user = userEvent.setup();
     renderPanel();
@@ -215,10 +226,12 @@ describe("SchemaFieldValidationPanel: the newer rules", () => {
     await user.clear(amount);
     await user.type(amount, "18");
     expect(screen.getByText(/Saved today, BirthDate must be on or before .*\. The bound moves with each save\. Times are UTC\./)).toBeInTheDocument();
+    // F1: no message is suggested, so the server's names the date the value was checked against.
+    expect(screen.getByText("Left empty, the message names the date the value was checked against.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Add validation" }));
 
     await waitFor(() => expect(createValidation).toHaveBeenCalled());
-    expect(sent(createValidation)[0]).toEqual(expect.objectContaining({ type: 10, value: "{{Now-18y}}" }));
+    expect(sent(createValidation)[0]).toEqual(expect.objectContaining({ type: 10, value: "{{Now-18y}}", errorMessage: "" }));
   });
 
   it("lists your entities, then the system entities, with their descriptions (section 8)", async () => {

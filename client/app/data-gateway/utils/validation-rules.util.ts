@@ -564,7 +564,18 @@ const readable = (text: string, fieldType: string) => {
  * (Address.City → City). Null until the values it needs are filled in. A pattern can't be put into
  * words, so it gets a general line.
  */
+/**
+ * What the server's own message names when the rule's message is left empty, which a fixed message can't: the
+ * repeated value of No duplicates, or the date a bound relative to now stood for when the value was checked. Null
+ * for every other rule. No message is suggested for these, so that one is used.
+ */
+export function messageLeftToServer(draft: Pick<RuleDraft, "type" | "value" | "secondaryValue">): "repeated" | "date" | null {
+  if (draft.type === T.UniqueItems) return "repeated";
+  return isRelativeNowWritten(draft.value.trim()) || isRelativeNowWritten(draft.secondaryValue.trim()) ? "date" : null;
+}
+
 export function suggestErrorMessage(draft: RuleDraft, fieldType: string, fieldName: string): string | null {
+  if (messageLeftToServer(draft)) return null;
   const field = fieldName.split(".").pop() || fieldName;
   const v = draft.value.trim();
   const w = draft.secondaryValue.trim();
@@ -610,8 +621,6 @@ export function suggestErrorMessage(draft: RuleDraft, fieldType: string, fieldNa
       return needOne(`${field} must have at least ${a} ${a === "1" ? "item" : "items"}`);
     case T.MaxItems:
       return needOne(`${field} must have at most ${a} ${a === "1" ? "item" : "items"}`);
-    case T.UniqueItems:
-      return `${field} must not list the same value twice`;
     case T.NotExistsIn:
       return needOne(`${field} must not match an existing ${v}`);
     default:

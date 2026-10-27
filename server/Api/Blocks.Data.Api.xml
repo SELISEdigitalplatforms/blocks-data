@@ -513,6 +513,9 @@
         <member name="M:Api.Controllers.ObjectController.ShareObject(DomainService.Storage.Dms.ShareObjectRequest)">
             <summary>Grants a principal an allow entry and records it as a share.</summary>
         </member>
+        <member name="M:Api.Controllers.ObjectController.ShareObjects(DomainService.Storage.Dms.ShareObjectsRequest)">
+            <summary>Shares several resources with several principals at one permission. All or nothing.</summary>
+        </member>
         <member name="M:Api.Controllers.ObjectController.FindUserPolicyAsync(System.String,System.String)">
             <summary>The access entry about to be removed, read first so its user can be told. Null when not found or on any error.</summary>
         </member>

@@ -215,6 +215,60 @@ public class BuiltInNotificationCallSiteTests
         _sent.Should().BeEmpty();
     }
 
+    private static ObjectAccessPolicy Created(string resourceId, string principalId, ObjectPrincipalType type = ObjectPrincipalType.User) => new()
+    {
+        ItemId = Guid.NewGuid().ToString(), ResourceId = resourceId, ResourceType = ObjectResourceType.Directory,
+        PrincipalType = type, PrincipalId = principalId, Permission = ObjectPermission.View,
+    };
+
+    private static Mock<IObjectManagementService> ShareObjectsReturns(ObjectShareBatchResult outcome)
+    {
+        var management = new Mock<IObjectManagementService>();
+        management.Setup(m => m.ShareObjectsAsync(It.IsAny<ShareObjectsRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(outcome);
+        return management;
+    }
+
+    private static ShareObjectsRequest BulkShare() => new()
+    {
+        ResourceIds = ["dir-1"],
+        Principals = [new SharePrincipal { PrincipalType = ObjectPrincipalType.User, PrincipalId = "friend-1" }],
+        Permission = ObjectPermission.View,
+    };
+
+    [Fact]
+    public async Task BulkShare_NotifiesEachAffectedUserPerResource()
+    {
+        var management = ShareObjectsReturns(ObjectShareBatchResult.Success(
+            [Created("dir-1", "friend-1"), Created("file-1", "friend-1"), Created("dir-1", "friend-2")]));
+
+        await Controller(management).ShareObjects(BulkShare());
+
+        _sent.Select(n => n.UserIds.Single()).Should().Equal("friend-1", "friend-1", "friend-2");
+        _sent.Should().OnlyContain(n => n.ConfigurationName == "data-storage-object-shared");
+    }
+
+    [Fact]
+    public async Task BulkShare_SkipsRolesAndTheActingUser()
+    {
+        var management = ShareObjectsReturns(ObjectShareBatchResult.Success(
+            [Created("dir-1", "editors", ObjectPrincipalType.Role), Created("dir-1", "user-1"), Created("dir-1", "friend-1")]));
+
+        await Controller(management).ShareObjects(BulkShare());
+
+        _sent.Should().ContainSingle().Which.UserIds.Should().Equal("friend-1");
+    }
+
+    [Fact]
+    public async Task BulkShare_FailureSendsNothing()
+    {
+        var management = ShareObjectsReturns(ObjectShareBatchResult.Failure(ObjectAccessOperationStatus.NotPermitted, ["dir-1"]));
+
+        await Controller(management).ShareObjects(BulkShare());
+
+        _sent.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task Share_RefusedSendsNothing()
     {

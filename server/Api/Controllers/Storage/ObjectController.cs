@@ -231,6 +231,19 @@ namespace Api.Controllers
             return MapAccess(result, created: true);
         }
 
+        /// <summary>Shares several resources with several principals at one permission. All or nothing.</summary>
+        [HttpPost("share-objects")]
+        [ProtectedEndPoint("blocks-data::object::share-object")]
+        public async Task<IActionResult> ShareObjects([FromBody] ShareObjectsRequest request)
+        {
+            var result = await _objectManagementService.ShareObjectsAsync(request);
+            foreach (var policy in result.Policies)
+                await NotifyAccessChangedAsync(ObjectAccessOperationResult.Success(policy.ItemId), policy.ResourceId,
+                    policy.ResourceType, policy.PrincipalType, policy.PrincipalId, "shared");
+
+            return MapShareBatch(result);
+        }
+
         /// <summary>The access entry about to be removed, read first so its user can be told. Null when not found or on any error.</summary>
         private async Task<ObjectAccessPolicy?> FindUserPolicyAsync(string resourceId, string policyItemId)
         {
@@ -277,6 +290,29 @@ namespace Api.Controllers
             ObjectAccessOperationStatus.PolicyNotFound =>
                 NotFound(new { message = "Access policy not found." }),
             _ => NotFound(new { message = "Resource not found." }),
+        };
+
+        private IActionResult MapShareBatch(ObjectShareBatchResult result) => result.Status switch
+        {
+            ObjectAccessOperationStatus.Succeeded => Ok(new
+            {
+                items = result.Policies.Select(p => new
+                {
+                    resourceId = p.ResourceId,
+                    resourceType = p.ResourceType,
+                    principalType = p.PrincipalType,
+                    principalId = p.PrincipalId,
+                    itemId = p.ItemId,
+                }).ToList(),
+            }),
+            ObjectAccessOperationStatus.ResourceNotFound =>
+                NotFound(new { message = "Resource not found.", resourceIds = result.FailedResourceIds }),
+            ObjectAccessOperationStatus.InvalidRequest =>
+                BadRequest(new { message = "The share request is invalid.", errors = result.Errors }),
+            ObjectAccessOperationStatus.NotPermitted =>
+                StatusCode(StatusCodes.Status403Forbidden,
+                    new { message = "You cannot manage access on these resources.", resourceIds = result.FailedResourceIds }),
+            _ => MapAccess(ObjectAccessOperationResult.Failure(result.Status), created: false),
         };
 
         private IActionResult MapTrash(TrashOperationResult result, string resourceId) => result.Status switch

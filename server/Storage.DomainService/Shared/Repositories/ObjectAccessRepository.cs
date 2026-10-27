@@ -116,6 +116,14 @@ namespace Storage.DomainService.Services
             await Policies.InsertOneAsync(policy, cancellationToken: cancellationToken);
         }
 
+        public async Task GrantManyAsync(IReadOnlyCollection<ObjectAccessPolicy> policies, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(policies);
+            if (policies.Count == 0) return;
+            await EnsurePolicyIndexesAsync(cancellationToken);
+            await Policies.InsertManyAsync(policies, cancellationToken: cancellationToken);
+        }
+
         public async Task UpdateAsync(ObjectAccessPolicy policy, CancellationToken cancellationToken = default)
         {
             ArgumentNullException.ThrowIfNull(policy);
@@ -151,6 +159,14 @@ namespace Storage.DomainService.Services
             ArgumentNullException.ThrowIfNull(entry);
             await EnsureAuditIndexesAsync(cancellationToken);
             await AuditLogs.InsertOneAsync(entry, cancellationToken: cancellationToken);
+        }
+
+        public async Task WriteAuditManyAsync(IReadOnlyCollection<ObjectAuditLog> entries, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(entries);
+            if (entries.Count == 0) return;
+            await EnsureAuditIndexesAsync(cancellationToken);
+            await AuditLogs.InsertManyAsync(entries, cancellationToken: cancellationToken);
         }
 
         public async Task<List<ObjectAuditLog>> GetAuditForResourceAsync(string resourceId, int limit = 100, CancellationToken cancellationToken = default)

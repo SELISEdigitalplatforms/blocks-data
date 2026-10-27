@@ -327,4 +327,93 @@ public class DmsObjectValidatorTests
         new CreateFileVersionRequestValidator().Validate(new CreateFileVersionRequest { FileId = "" }).IsValid.Should().BeFalse();
         new CreateFileVersionRequestValidator().Validate(new CreateFileVersionRequest { FileId = "file-1" }).IsValid.Should().BeTrue();
     }
+
+    // Bulk share
+
+    private static ShareObjectsRequest ValidBulkShare() => new()
+    {
+        ResourceIds = ["dir-1", "file-5"],
+        Principals = [new SharePrincipal { PrincipalType = ObjectPrincipalType.User, PrincipalId = "user-9" }],
+        Permission = ObjectPermission.View,
+    };
+
+    [Fact]
+    public void A_bulk_share_with_resources_and_principals_is_valid()
+    {
+        new ShareObjectsRequestValidator().Validate(ValidBulkShare()).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_bulk_share_needs_at_least_one_resource_and_one_principal()
+    {
+        var validator = new ShareObjectsRequestValidator();
+
+        var noResources = ValidBulkShare();
+        noResources.ResourceIds = [];
+        validator.Validate(noResources).IsValid.Should().BeFalse();
+
+        var noPrincipals = ValidBulkShare();
+        noPrincipals.Principals = [];
+        validator.Validate(noPrincipals).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_bulk_share_rejects_more_than_fifty_resources_or_principals()
+    {
+        var validator = new ShareObjectsRequestValidator();
+        static List<SharePrincipal> Users(int count) => Enumerable.Range(0, count)
+            .Select(i => new SharePrincipal { PrincipalType = ObjectPrincipalType.User, PrincipalId = $"user-{i}" }).ToList();
+
+        var request = ValidBulkShare();
+        request.ResourceIds = Enumerable.Range(0, 51).Select(i => $"dir-{i}").ToList();
+        validator.Validate(request).IsValid.Should().BeFalse();
+        request.ResourceIds = Enumerable.Range(0, 50).Select(i => $"dir-{i}").ToList();
+        validator.Validate(request).IsValid.Should().BeTrue();
+
+        request.Principals = Users(51);
+        validator.Validate(request).IsValid.Should().BeFalse();
+        request.Principals = Users(50);
+        validator.Validate(request).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_bulk_share_rejects_a_blank_resource_id()
+    {
+        var request = ValidBulkShare();
+        request.ResourceIds = ["dir-1", " "];
+
+        new ShareObjectsRequestValidator().Validate(request).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_bulk_share_principal_follows_the_single_share_rules()
+    {
+        var validator = new ShareObjectsRequestValidator();
+        bool Valid(SharePrincipal principal)
+        {
+            var request = ValidBulkShare();
+            request.Principals = [principal];
+            return validator.Validate(request).IsValid;
+        }
+
+        Valid(new SharePrincipal { PrincipalType = ObjectPrincipalType.User }).Should().BeFalse();
+        Valid(new SharePrincipal { PrincipalType = ObjectPrincipalType.Everyone }).Should().BeTrue();
+        Valid(new SharePrincipal { PrincipalType = ObjectPrincipalType.User, PrincipalId = "user-9", OrganizationId = "o2" }).Should().BeFalse();
+        Valid(new SharePrincipal { PrincipalType = ObjectPrincipalType.Role, PrincipalId = "r2", OrganizationId = "o2" }).Should().BeTrue();
+        Valid(new SharePrincipal { PrincipalType = (ObjectPrincipalType)99, PrincipalId = "x" }).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_bulk_share_rejects_a_past_expiry_and_an_undefined_permission()
+    {
+        var validator = new ShareObjectsRequestValidator();
+
+        var expired = ValidBulkShare();
+        expired.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
+        validator.Validate(expired).IsValid.Should().BeFalse();
+
+        var undefined = ValidBulkShare();
+        undefined.Permission = (ObjectPermission)99;
+        validator.Validate(undefined).IsValid.Should().BeFalse();
+    }
 }

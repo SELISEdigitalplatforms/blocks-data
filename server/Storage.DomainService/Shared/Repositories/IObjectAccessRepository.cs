@@ -27,6 +27,9 @@ namespace Storage.DomainService.Services
 
         Task GrantAsync(ObjectAccessPolicy policy, CancellationToken cancellationToken = default);
 
+        /// <summary>Inserts several entries in one round trip. A no-op for an empty list.</summary>
+        Task GrantManyAsync(IReadOnlyCollection<ObjectAccessPolicy> policies, CancellationToken cancellationToken = default);
+
         Task UpdateAsync(ObjectAccessPolicy policy, CancellationToken cancellationToken = default);
 
         /// <summary>Removes one entry. Returns false when it did not exist.</summary>
@@ -36,6 +39,9 @@ namespace Storage.DomainService.Services
         Task<long> RevokeAllForResourceAsync(string resourceId, CancellationToken cancellationToken = default);
 
         Task WriteAuditAsync(ObjectAuditLog entry, CancellationToken cancellationToken = default);
+
+        /// <summary>Writes several audit entries in one round trip. A no-op for an empty list.</summary>
+        Task WriteAuditManyAsync(IReadOnlyCollection<ObjectAuditLog> entries, CancellationToken cancellationToken = default);
 
         Task<List<ObjectAuditLog>> GetAuditForResourceAsync(string resourceId, int limit = 100, CancellationToken cancellationToken = default);
     }

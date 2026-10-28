@@ -7,5 +7,6 @@ public class SchemaImportEvent
     public string? MessageCoRelationId { get; set; }
     public string? CallerUserId { get; set; }
     public string? CallerTenantId { get; set; }
+    public string? CallerOrganizationId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -68,7 +68,8 @@ namespace Api.Controllers
                     resourceType = resourceType.ToString(),
                     action,
                     occurredAt = DateTime.UtcNow
-                }));
+                },
+                OrganizationId: context?.OrganizationId));
         }
 
         /// <summary>Access-resolved, cursor-paginated files and directories under one parent.</summary>

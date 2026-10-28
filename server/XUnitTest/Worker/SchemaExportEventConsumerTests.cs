@@ -1,10 +1,10 @@
 using Blocks.Genesis;
+using Blocks.Genesis.Notifications;
 using DataGateway.DomainService.Models.Events;
 using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Services;
 using DomainService.Storage;
 using FluentAssertions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Storage.DomainService.Services;
@@ -17,7 +17,6 @@ namespace XUnitTest.Worker;
 public class SchemaExportEventConsumerTests
 {
     private const string UploadUrl = "https://blob.example.com/upload";
-    private const string NotificationUrl = "https://notify.example.com/send";
 
     /// <summary>
     /// Records each request plus a snapshot of its method, uri, headers and body. The consumer
@@ -52,15 +51,12 @@ public class SchemaExportEventConsumerTests
     {
         public Mock<ISchemaExportService> ExportService { get; } = new();
         public Mock<IFileManagementService> FileManagement { get; } = new();
-        public Mock<ICryptoService> Crypto { get; } = new();
-        public Mock<ITenants> Tenants { get; } = new();
+        public List<NotificationRequest> Published { get; } = [];
         public StubHandler Handler { get; }
         public SchemaExportEventConsumer Consumer { get; }
 
         public Harness(
-            Func<HttpRequestMessage, HttpResponseMessage>? responder = null,
-            string? notificationUrl = NotificationUrl,
-            string? tenantSalt = "salt-1")
+            Func<HttpRequestMessage, HttpResponseMessage>? responder = null)
         {
             Handler = new StubHandler(responder ?? (_ => new HttpResponseMessage(HttpStatusCode.OK)));
 
@@ -68,27 +64,8 @@ public class SchemaExportEventConsumerTests
             factory.Setup(f => f.CreateClient(It.IsAny<string>()))
                    .Returns(() => new HttpClient(Handler));
 
-            var settings = new Dictionary<string, string?>();
-            if (notificationUrl is not null)
-                settings["NotificationServiceUrl"] = notificationUrl;
-            var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
-
-            Tenants.Setup(t => t.GetTenantByID(It.IsAny<string>()))
-                   .Returns(tenantSalt is null
-                       ? null
-                       : new Tenant
-                       {
-                           TenantSalt = tenantSalt,
-                           DbConnectionString = "mongodb://localhost:27017",
-                           JwtTokenParameters = new JwtTokenParameters
-                           {
-                               PrivateCertificatePassword = "pwd",
-                               IssueDate = DateTime.UtcNow,
-                           },
-                       });
-
-            Crypto.Setup(c => c.Hash(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()))
-                  .Returns("hashed-secret");
+            var publisher = new Mock<INotificationPublisher>();
+            publisher.Setup(p => p.Publish(It.IsAny<NotificationRequest>())).Callback<NotificationRequest>(Published.Add);
 
             ExportService.Setup(s => s.BuildExportBytesAsync(It.IsAny<SchemaExportEvent>()))
                          .ReturnsAsync(([1, 2, 3], "export.json"));
@@ -99,8 +76,7 @@ public class SchemaExportEventConsumerTests
             Consumer = new SchemaExportEventConsumer(
                 ExportService.Object,
                 FileManagement.Object,
-                new BuiltInNotificationSender(configuration, factory.Object, Tenants.Object, Crypto.Object,
-                    NullLogger<BuiltInNotificationSender>.Instance),
+                new BuiltInNotificationSender(publisher.Object),
                 factory.Object,
                 NullLogger<SchemaExportEventConsumer>.Instance);
         }
@@ -110,12 +86,8 @@ public class SchemaExportEventConsumerTests
     /// The notification carries its payload as a nested JSON string, so it has to be parsed
     /// twice rather than substring-matched.
     /// </summary>
-    private static JsonElement Payload(string? body)
-    {
-        using var envelope = JsonDocument.Parse(body!);
-        var inner = envelope.RootElement.GetProperty("DenormalizedPayload").GetString()!;
-        return JsonDocument.Parse(inner).RootElement.Clone();
-    }
+    private static JsonElement Payload(NotificationRequest request) =>
+        JsonDocument.Parse(JsonSerializer.Serialize(request.Payload)).RootElement.Clone();
 
     private static SchemaExportEvent Event() => new()
     {
@@ -124,6 +96,7 @@ public class SchemaExportEventConsumerTests
         MessageCoRelationId = "corr-1",
         CallerUserId = "user-1",
         CallerTenantId = "tenant-1",
+        CallerOrganizationId = "org-1",
     };
 
     [Fact]
@@ -182,68 +155,25 @@ public class SchemaExportEventConsumerTests
 
         await h.Consumer.Consume(Event());
 
-        var notification = h.Handler.Requests.Single(r => r.Method == HttpMethod.Post);
-        Payload(notification.Body).GetProperty("IsSuccess").GetBoolean().Should().BeFalse();
+        Payload(h.Published.Single()).GetProperty("IsSuccess").GetBoolean().Should().BeFalse();
     }
 
     [Fact]
-    public async Task Consume_NotifiesSuccessWithTheTenantKeyAndSecretHeaders()
+    public async Task Consume_NotifiesSuccessToTheCallerInTheirTenantAndOrganization()
     {
         var h = new Harness();
 
         await h.Consumer.Consume(Event());
 
-        var notification = h.Handler.Requests.Single(r => r.Method == HttpMethod.Post);
-        notification.Uri.Should().Be(NotificationUrl);
-        notification.Headers["x-blocks-key"].Should().ContainSingle().Which.Should().Be("tenant-1");
-        notification.Headers["Secret"].Should().ContainSingle().Which.Should().Be("hashed-secret");
-        var payload = Payload(notification.Body);
+        var notification = h.Published.Single();
+        notification.Name.Should().Be("schema-export");
+        notification.TenantId.Should().Be("tenant-1");
+        notification.OrganizationId.Should().Be("org-1");
+        notification.NamedUserIds.Should().Equal("user-1");
+        notification.ResponseKey.Should().Be("corr-1");
+        var payload = Payload(notification);
         payload.GetProperty("IsSuccess").GetBoolean().Should().BeTrue();
         payload.GetProperty("FileId").GetString().Should().Be("file-1");
         payload.GetProperty("title").GetString().Should().Be("Schema Export Completed");
-    }
-
-    [Fact]
-    public async Task Consume_SkipsTheNotificationWhenTheUrlIsNotConfigured()
-    {
-        var h = new Harness(notificationUrl: null);
-
-        await h.Consumer.Consume(Event());
-
-        h.Handler.Requests.Should().NotContain(r => r.Method == HttpMethod.Post);
-    }
-
-    [Fact]
-    public async Task Consume_SkipsTheNotificationWhenTheTenantHasNoSalt()
-    {
-        var h = new Harness(tenantSalt: null);
-
-        await h.Consumer.Consume(Event());
-
-        h.Handler.Requests.Should().NotContain(r => r.Method == HttpMethod.Post);
-    }
-
-    [Fact]
-    public async Task Consume_SwallowsNotificationTransportFailures()
-    {
-        var h = new Harness(r => r.Method == HttpMethod.Post
-            ? throw new HttpRequestException("network down")
-            : new HttpResponseMessage(HttpStatusCode.OK));
-
-        var act = () => h.Consumer.Consume(Event());
-
-        await act.Should().NotThrowAsync();
-        h.ExportService.Verify(s => s.InsertExportRecordAsync(It.IsAny<SchemaExportEvent>(), "export.json"), Times.Once);
-    }
-
-    [Fact]
-    public async Task Consume_LogsButDoesNotThrowWhenTheNotificationIsRejected()
-    {
-        var h = new Harness(r => new HttpResponseMessage(
-            r.Method == HttpMethod.Post ? HttpStatusCode.BadRequest : HttpStatusCode.OK));
-
-        var act = () => h.Consumer.Consume(Event());
-
-        await act.Should().NotThrowAsync();
     }
 }

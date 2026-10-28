@@ -36,7 +36,7 @@ public class MutationService : IMutationService
     private readonly IDataAccessPolicyResolutionService _resolver;
     private readonly IAccessPrincipalAccessor _principals;
     private readonly ILogger<MutationService> _logger;
-    private readonly IBuiltInNotificationSender? _notifier;
+    private readonly IMutationNotifier? _notifier;
     private readonly IAfterWriteQueue? _afterWrite;
 
     public MutationService(
@@ -45,7 +45,7 @@ public class MutationService : IMutationService
         IDataAccessPolicyResolutionService resolver,
         IAccessPrincipalAccessor principals,
         ILogger<MutationService> logger,
-        IBuiltInNotificationSender? notifier = null,
+        IMutationNotifier? notifier = null,
         IAfterWriteQueue? afterWrite = null)
     {
         _repository = repository;
@@ -68,28 +68,16 @@ public class MutationService : IMutationService
     }
 
     /// <summary>
-    /// One final result per bulk request, to the caller (never per row or per batch). Best effort: the
-    /// sender never throws. Not saved to the inbox (the config has persistence off).
+    /// After a write: one <c>data-record-changed</c> (count or id, never values) when the tenant watches it; for a bulk
+    /// request also one final result to the caller. Best effort: the notifier never throws.
     /// </summary>
-    private async Task NotifyBulkResultAsync(SchemaDefinitionExtended schema, string operation, bool acknowledged, long count)
+    private async Task NotifyWriteAsync(string schemaName, RecordChangeKind kind, string? recordId, long count, bool? bulkAcknowledged = null)
     {
         if (_notifier is null) return;
-        var context = BlocksContext.GetContext();
-        await _notifier.SendAsync(new BuiltInNotification(
-            context?.TenantId ?? string.Empty,
-            "data-bulk-change-progress",
-            BuiltInNotificationSender.Recipients(context?.UserId),
-            new
-            {
-                @event = "data-bulk-change-progress",
-                title = "Bulk change finished",
-                description = acknowledged ? $"Bulk {operation} finished." : $"Bulk {operation} was not completed.",
-                isSuccess = acknowledged,
-                schemaName = schema.SchemaName,
-                operation,
-                affectedCount = count,
-                occurredAt = DateTime.UtcNow
-            }));
+        if (count > 0)
+            await _notifier.NotifyRecordsChangedAsync(schemaName, kind, recordId, count);
+        if (bulkAcknowledged.HasValue)
+            await _notifier.NotifyBulkResultAsync(schemaName, MutationNotifier.KindName(kind), bulkAcknowledged.Value, count);
     }
 
     /// <inheritdoc />
@@ -133,8 +121,11 @@ public class MutationService : IMutationService
         }
         var itemId = document[GraphQlConstant.DbEntityIdFieldName].ToString();
 
-        await AfterWriteAsync(() => _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted,
-            dataDocuments: new List<BsonDocument> { document }));
+        await AfterWriteAsync(async () =>
+        {
+            await _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted, dataDocuments: new List<BsonDocument> { document });
+            await NotifyWriteAsync(schema.SchemaName, RecordChangeKind.Insert, itemId, 1);
+        });
 
         gatewayOperation.ResponseSize = document.ToBson().Length;
         gatewayOperation.DocumentCount = 1;
@@ -231,8 +222,11 @@ public class MutationService : IMutationService
 
         response.ItemId = itemId;
         if (response.Acknowledged)
-            await AfterWriteAsync(() => _eventPublisher.PublishAsync(schema, DataChangeOperation.Deleted,
-                dataDocuments: new List<BsonDocument> { firstDocument! }));
+            await AfterWriteAsync(async () =>
+            {
+                await _eventPublisher.PublishAsync(schema, DataChangeOperation.Deleted, dataDocuments: new List<BsonDocument> { firstDocument! });
+                await NotifyWriteAsync(schema.SchemaName, RecordChangeKind.Delete, itemId, 1);
+            });
 
         gatewayOperation.ResponseSize = firstDocument!.ToBson().Length;
         gatewayOperation.DocumentCount = 1;
@@ -318,7 +312,7 @@ public class MutationService : IMutationService
         _logger.LogInformation("Data bulk deleted for schema {SchemaName} ({Count} documents in {Batches} batches)",
             schema.SchemaName, totalDeleted, batchNumber);
 
-        await AfterWriteAsync(() => NotifyBulkResultAsync(schema, "delete", acknowledged, totalDeleted));
+        await AfterWriteAsync(() => NotifyWriteAsync(schema.SchemaName, RecordChangeKind.Delete, null, totalDeleted, acknowledged));
         return new ActionResponse { Acknowledged = acknowledged, TotalImpactedData = totalDeleted };
     }
 
@@ -407,7 +401,7 @@ public class MutationService : IMutationService
         var publishInsert = response.Acknowledged && documents.Count > 0;
         await AfterWriteAsync(() => Task.WhenAll(
             publishInsert ? _eventPublisher.PublishAsync(schema, DataChangeOperation.Inserted, dataDocuments: documents) : Task.CompletedTask,
-            NotifyBulkResultAsync(schema, "insert", response.Acknowledged, response.TotalImpactedData)));
+            NotifyWriteAsync(schema.SchemaName, RecordChangeKind.Insert, null, response.TotalImpactedData, response.Acknowledged)));
         return response;
     }
 
@@ -483,7 +477,7 @@ public class MutationService : IMutationService
 
         await AfterWriteAsync(() => Task.WhenAll(
             updatedDocuments is null ? Task.CompletedTask : _eventPublisher.PublishAsync(schema, DataChangeOperation.Updated, updatedDocuments: updatedDocuments),
-            NotifyBulkResultAsync(schema, "update", response.Acknowledged, response.TotalImpactedData)));
+            NotifyWriteAsync(schema.SchemaName, RecordChangeKind.Update, null, response.TotalImpactedData, response.Acknowledged)));
         return response;
     }
 
@@ -1115,7 +1109,11 @@ public class MutationService : IMutationService
                 OldValue = existingDocument.Contains(e.Name) ? existingDocument[e.Name]?.ToString() : null
             })
             .ToList();
-        await AfterWriteAsync(() => _eventPublisher.PublishAsync(schema, DataChangeOperation.Updated,
-            updatedDocuments: new List<UpdatedDocument> { new() { DocumentId = itemId, UpdatedFields = updatedFields } }));
+        await AfterWriteAsync(async () =>
+        {
+            await _eventPublisher.PublishAsync(schema, DataChangeOperation.Updated,
+                updatedDocuments: new List<UpdatedDocument> { new() { DocumentId = itemId, UpdatedFields = updatedFields } });
+            await NotifyWriteAsync(schema.SchemaName, RecordChangeKind.Update, itemId, 1);
+        });
     }
 }

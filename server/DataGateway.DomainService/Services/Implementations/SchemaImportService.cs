@@ -51,7 +51,8 @@ public class SchemaImportService : ISchemaImportService
                 ProjectKey = tenantId,
                 MessageCoRelationId = request.MessageCoRelationId,
                 CallerUserId = context?.UserId ?? string.Empty,
-                CallerTenantId = context?.OriginalTenantId ?? string.Empty
+                CallerTenantId = context?.OriginalTenantId ?? string.Empty,
+                CallerOrganizationId = context?.OrganizationId ?? string.Empty
             }
         });
 

@@ -25,6 +25,7 @@ using k8s;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.Notifications;
 using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Policies;
 
@@ -41,7 +42,10 @@ public static class ServiceRegistry
     public static void RegisterSchemaServices(this IServiceCollection serviceCollection)
     {
         serviceCollection.AddSingleton<IDbRepository, DbRepository>();
+        serviceCollection.AddBlocksNotifications();
         serviceCollection.AddSingleton<IBuiltInNotificationSender, BuiltInNotificationSender>();
+        serviceCollection.AddSingleton<ISchemaChangeNotifier, SchemaChangeNotifier>();
+        serviceCollection.AddSingleton<IMutationNotifier, MutationNotifier>();
         serviceCollection.AddSingleton<DataGatewayTokenAuthenticator>();
 
         serviceCollection.AddScoped<IDataGatewayConfigurationService, DataGatewayConfigurationService>();

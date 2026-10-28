@@ -88,6 +88,7 @@ public class SchemaIndexService : ISchemaIndexService
         indexDefinition.InjectDefaultValue();
         var inserted = await _repository.InsertAsync(indexDefinition);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaIndexCreate);
+        await _schemaChangeLogService.NotifyChangedAsync(schema, SchemaChangeType.SchemaIndexCreate);
 
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = inserted.ItemId });
     }
@@ -158,6 +159,8 @@ public class SchemaIndexService : ISchemaIndexService
         var filter = Builders<SchemaIndexDefinition>.Filter.Eq(x => x.ItemId, indexDefinition.ItemId);
         await _repository.DeleteAsync(filter);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(indexDefinition.SchemaDefinitionItemId, SchemaChangeType.SchemaIndexDelete);
+        if (schema is not null)
+            await _schemaChangeLogService.NotifyChangedAsync(schema, SchemaChangeType.SchemaIndexDelete);
 
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = indexDefinition.ItemId });
     }

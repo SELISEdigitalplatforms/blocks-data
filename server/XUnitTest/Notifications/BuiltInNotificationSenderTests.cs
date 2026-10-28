@@ -1,160 +1,101 @@
 using Blocks.Genesis;
+using Blocks.Genesis.Notifications;
 using DataGateway.DomainService.Notifications;
 using FluentAssertions;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using System.Net;
-using System.Text.Json;
+using XUnitTest.Infrastructure;
 
 namespace XUnitTest.Notifications;
 
-public class BuiltInNotificationSenderTests
+[Collection("ContextSerial")]
+public class BuiltInNotificationSenderTests : IDisposable
 {
-    private sealed class StubHandler : HttpMessageHandler
+    private readonly List<NotificationRequest> _published = [];
+    private readonly BuiltInNotificationSender _sender;
+
+    public BuiltInNotificationSenderTests()
     {
-        private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _responder;
-        public List<(Dictionary<string, List<string>> Headers, string Body)> Requests { get; } = [];
-
-        public StubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder) => _responder = responder;
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            Requests.Add((request.Headers.ToDictionary(h => h.Key, h => h.Value.ToList()),
-                await request.Content!.ReadAsStringAsync(cancellationToken)));
-            return await _responder(request, cancellationToken);
-        }
+        var publisher = new Mock<INotificationPublisher>();
+        publisher.Setup(p => p.Publish(It.IsAny<NotificationRequest>())).Callback<NotificationRequest>(_published.Add);
+        _sender = new BuiltInNotificationSender(publisher.Object);
     }
 
-    private static BuiltInNotificationSender Create(StubHandler handler, string? url = "https://notify.example.com/send", string? salt = "salt-1")
-    {
-        var factory = new Mock<IHttpClientFactory>();
-        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(() => new HttpClient(handler));
-        var settings = new Dictionary<string, string?>();
-        if (url is not null) settings[BuiltInNotificationSender.UrlConfigKey] = url;
-        var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
-        var tenants = new Mock<ITenants>();
-        tenants.Setup(t => t.GetTenantByID(It.IsAny<string>())).Returns(salt is null ? null : new Tenant
-        {
-            TenantSalt = salt,
-            DbConnectionString = "mongodb://localhost:27017",
-            JwtTokenParameters = new JwtTokenParameters { PrivateCertificatePassword = "pwd", IssueDate = DateTime.UtcNow },
-        });
-        var crypto = new Mock<ICryptoService>();
-        crypto.Setup(c => c.Hash(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>())).Returns("hashed-secret");
-        return new BuiltInNotificationSender(configuration, factory.Object, tenants.Object, crypto.Object,
-            NullLogger<BuiltInNotificationSender>.Instance);
-    }
+    public void Dispose() => BlocksTestContext.Clear();
 
-    private static StubHandler Ok() => new((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)));
+    private static BuiltInNotification Message(IReadOnlyList<string>? users = null, string? organizationId = null, bool includeActor = true) =>
+        new("tenant-1", "data-test", users ?? ["user-1"], new { @event = "data-test", title = "t" },
+            OrganizationId: organizationId, IncludeImpersonatedActor: includeActor);
 
-    private static BuiltInNotification Message(IReadOnlyList<string>? users = null) =>
-        new("tenant-1", "data-test", users ?? ["user-1"], new { @event = "data-test", title = "t" });
+    private static void Impersonated(string rootUserId) =>
+        BlocksContext.SetContext(BlocksContext.Create(
+            tenantId: "tenant-1", roles: null, userId: rootUserId, impersonated: true,
+            isAuthenticated: true, requestUri: "https://test", organizationId: "org-1",
+            permissions: null, expireOn: DateTime.UtcNow.AddHours(1), email: "a@b.com",
+            userName: "root", phoneNumber: null, displayName: "R", oauthToken: null,
+            originalTenantId: "root-tenant", impersonationSessionId: null, applicationDomain: "test"));
 
     [Fact]
-    public async Task Send_PostsWithTenantKeyAndSecretHeaders()
+    public async Task Send_PublishesNameTenantOrganizationUsersAndResponseKey()
     {
-        var handler = Ok();
+        var ok = await _sender.SendAsync(Message(["user-1", "user-1", " "], "org-7") with { ResponseKey = "k", ResponseValue = "v" });
 
-        var sent = await Create(handler).SendAsync(Message());
-
-        sent.Should().BeTrue();
-        var request = handler.Requests.Single();
-        request.Headers["x-blocks-key"].Should().Equal("tenant-1");
-        request.Headers["Secret"].Should().Equal("hashed-secret");
+        ok.Should().BeTrue();
+        var request = _published.Should().ContainSingle().Subject;
+        request.Name.Should().Be("data-test");
+        request.TenantId.Should().Be("tenant-1");
+        request.OrganizationId.Should().Be("org-7");
+        request.NamedUserIds.Should().Equal("user-1");
+        request.ResponseKey.Should().Be("k");
+        request.ResponseValue.Should().Be("v");
+        request.Payload.Should().NotBeNull();
     }
 
     [Fact]
-    public async Task Send_BodyCarriesConfigNameRecipientsAndPayloadString()
+    public async Task Send_WithoutOrganization_UsesTheContextOrganization()
     {
-        var handler = Ok();
+        BlocksTestContext.Set(userId: "actor-1", organizationId: "ctx-org", tenantId: "tenant-1");
 
-        await Create(handler).SendAsync(Message());
+        await _sender.SendAsync(Message());
 
-        using var body = JsonDocument.Parse(handler.Requests.Single().Body);
-        body.RootElement.GetProperty("ConfigurationName").GetString().Should().Be("data-test");
-        body.RootElement.GetProperty("UserIds").EnumerateArray().Select(e => e.GetString()).Should().Equal("user-1");
-        body.RootElement.GetProperty("SaveDenormalizedPayloadAsAnObject").GetBoolean().Should().BeFalse();
-        body.RootElement.GetProperty("ContentAvailable").GetBoolean().Should().BeTrue();
-        body.RootElement.GetProperty("DenormalizedPayload").GetString().Should().Contain("data-test");
+        _published.Single().OrganizationId.Should().Be("ctx-org");
     }
 
     [Fact]
-    public async Task Send_NeverPutsTheSecretInTheBody()
+    public async Task Send_ImpersonatedRootUser_IsAddedAsNamedUser_SoConsoleUsersGetIt()
     {
-        var handler = Ok();
+        Impersonated("root-user");
 
-        await Create(handler).SendAsync(Message());
+        await _sender.SendAsync(Message());
 
-        handler.Requests.Single().Body.Should().NotContain("hashed-secret").And.NotContain("salt-1");
+        _published.Single().NamedUserIds.Should().Equal("user-1", "root-user");
     }
 
     [Fact]
-    public async Task Send_SkipsWhenThereIsNoRecipient()
+    public async Task Send_ImpersonatedRootUser_NoticeWhereTheActorMustNotGetIt_DoesNotAddThem()
     {
-        var handler = Ok();
+        Impersonated("root-user");
 
-        var sent = await Create(handler).SendAsync(Message([]));
+        await _sender.SendAsync(Message(includeActor: false));
 
-        sent.Should().BeFalse();
-        handler.Requests.Should().BeEmpty();
+        _published.Single().NamedUserIds.Should().Equal("user-1");
     }
 
     [Fact]
-    public async Task Send_SkipsWhenTheUrlIsNotConfigured()
+    public async Task Send_NormalUser_DoesNotAddTheActor()
     {
-        var handler = Ok();
+        BlocksTestContext.Set(userId: "actor-1", organizationId: "org-1", tenantId: "tenant-1");
 
-        (await Create(handler, url: null).SendAsync(Message())).Should().BeFalse();
-        handler.Requests.Should().BeEmpty();
+        await _sender.SendAsync(Message());
+
+        _published.Single().NamedUserIds.Should().Equal("user-1");
     }
 
     [Fact]
-    public async Task Send_SkipsWhenTheTenantHasNoSalt()
+    public async Task Send_WithoutAConfigName_PublishesNothing()
     {
-        var handler = Ok();
+        var ok = await _sender.SendAsync(Message() with { ConfigurationName = " " });
 
-        (await Create(handler, salt: null).SendAsync(Message())).Should().BeFalse();
-        handler.Requests.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task Send_SwallowsTransportFailures()
-    {
-        var handler = new StubHandler((_, _) => throw new HttpRequestException("network down"));
-
-        var act = () => Create(handler).SendAsync(Message());
-
-        (await act.Should().NotThrowAsync()).Subject.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task Send_ReturnsFalseWhenTheNotifierRejects()
-    {
-        var handler = new StubHandler((_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)));
-
-        (await Create(handler).SendAsync(Message())).Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task Send_GivesUpAfterTheTimeout()
-    {
-        var handler = new StubHandler(async (_, ct) =>
-        {
-            await Task.Delay(TimeSpan.FromSeconds(60), ct);
-            return new HttpResponseMessage(HttpStatusCode.OK);
-        });
-        var started = DateTime.UtcNow;
-
-        var sent = await Create(handler).SendAsync(Message());
-
-        sent.Should().BeFalse();
-        (DateTime.UtcNow - started).Should().BeLessThan(BuiltInNotificationSender.Timeout + TimeSpan.FromSeconds(5));
-    }
-
-    [Fact]
-    public void Recipients_DropsBlanksAndDuplicates()
-    {
-        BuiltInNotificationSender.Recipients("a", null, "", " ", "a", "b").Should().Equal("a", "b");
+        ok.Should().BeFalse();
+        _published.Should().BeEmpty();
     }
 }

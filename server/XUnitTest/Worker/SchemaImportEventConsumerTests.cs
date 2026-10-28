@@ -1,10 +1,10 @@
 using Blocks.Genesis;
+using Blocks.Genesis.Notifications;
 using DataGateway.DomainService.Models.Events;
 using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Services;
 using DomainService.Storage;
 using FluentAssertions;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Storage.DomainService.Services;
@@ -17,7 +17,6 @@ namespace XUnitTest.Worker;
 public class SchemaImportEventConsumerTests
 {
     private const string DownloadUrl = "https://blob.example.com/schema.json";
-    private const string NotificationUrl = "https://notify.example.com/send";
 
     private sealed class StubHandler : HttpMessageHandler
     {
@@ -43,15 +42,12 @@ public class SchemaImportEventConsumerTests
     {
         public Mock<ISchemaImportService> ImportService { get; } = new();
         public Mock<IFileManagementService> FileManagement { get; } = new();
-        public Mock<ICryptoService> Crypto { get; } = new();
-        public Mock<ITenants> Tenants { get; } = new();
+        public List<NotificationRequest> Published { get; } = [];
         public StubHandler Handler { get; }
         public SchemaImportEventConsumer Consumer { get; }
 
         public Harness(
-            Func<HttpRequestMessage, HttpResponseMessage>? responder = null,
-            string? notificationUrl = NotificationUrl,
-            string? tenantSalt = "salt-1")
+            Func<HttpRequestMessage, HttpResponseMessage>? responder = null)
         {
             Handler = new StubHandler(responder ?? (_ => new HttpResponseMessage(HttpStatusCode.OK)
             {
@@ -61,27 +57,8 @@ public class SchemaImportEventConsumerTests
             var factory = new Mock<IHttpClientFactory>();
             factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(() => new HttpClient(Handler));
 
-            var settings = new Dictionary<string, string?>();
-            if (notificationUrl is not null)
-                settings["NotificationServiceUrl"] = notificationUrl;
-            var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
-
-            Tenants.Setup(t => t.GetTenantByID(It.IsAny<string>()))
-                   .Returns(tenantSalt is null
-                       ? null
-                       : new Tenant
-                       {
-                           TenantSalt = tenantSalt,
-                           DbConnectionString = "mongodb://localhost:27017",
-                           JwtTokenParameters = new JwtTokenParameters
-                           {
-                               PrivateCertificatePassword = "pwd",
-                               IssueDate = DateTime.UtcNow,
-                           },
-                       });
-
-            Crypto.Setup(c => c.Hash(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()))
-                  .Returns("hashed-secret");
+            var publisher = new Mock<INotificationPublisher>();
+            publisher.Setup(p => p.Publish(It.IsAny<NotificationRequest>())).Callback<NotificationRequest>(Published.Add);
 
             FileManagement.Setup(f => f.GetUrlForDownloadFileAsync(It.IsAny<GetFileRequest>()))
                           .ReturnsAsync(new FileResponse { Url = DownloadUrl, Name = "schema.json" });
@@ -92,19 +69,14 @@ public class SchemaImportEventConsumerTests
             Consumer = new SchemaImportEventConsumer(
                 ImportService.Object,
                 FileManagement.Object,
-                new BuiltInNotificationSender(configuration, factory.Object, Tenants.Object, Crypto.Object,
-                    NullLogger<BuiltInNotificationSender>.Instance),
+                new BuiltInNotificationSender(publisher.Object),
                 factory.Object,
                 NullLogger<SchemaImportEventConsumer>.Instance);
         }
     }
 
-    private static JsonElement Payload(string? body)
-    {
-        using var envelope = JsonDocument.Parse(body!);
-        var inner = envelope.RootElement.GetProperty("DenormalizedPayload").GetString()!;
-        return JsonDocument.Parse(inner).RootElement.Clone();
-    }
+    private static JsonElement Payload(NotificationRequest request) =>
+        JsonDocument.Parse(JsonSerializer.Serialize(request.Payload)).RootElement.Clone();
 
     private static SchemaImportEvent Event() => new()
     {
@@ -135,7 +107,7 @@ public class SchemaImportEventConsumerTests
 
         await h.Consumer.Consume(Event());
 
-        var payload = Payload(h.Handler.Requests.Single(r => r.Method == HttpMethod.Post).Body);
+        var payload = Payload(h.Published.Single());
         payload.GetProperty("IsSuccess").GetBoolean().Should().BeTrue();
         payload.GetProperty("ImportedSchemaCount").GetInt32().Should().Be(4);
         payload.GetProperty("title").GetString().Should().Be("Schema Import Completed");
@@ -151,7 +123,7 @@ public class SchemaImportEventConsumerTests
         await h.Consumer.Consume(Event());
 
         h.ImportService.Verify(s => s.ProcessImportAsync(It.IsAny<SchemaImportEvent>(), It.IsAny<byte[]>()), Times.Never);
-        var payload = Payload(h.Handler.Requests.Single(r => r.Method == HttpMethod.Post).Body);
+        var payload = Payload(h.Published.Single());
         payload.GetProperty("IsSuccess").GetBoolean().Should().BeFalse();
         payload.GetProperty("ImportedSchemaCount").GetInt32().Should().Be(0);
     }
@@ -165,7 +137,7 @@ public class SchemaImportEventConsumerTests
 
         await h.Consumer.Consume(Event());
 
-        var payload = Payload(h.Handler.Requests.Single(r => r.Method == HttpMethod.Post).Body);
+        var payload = Payload(h.Published.Single());
         payload.GetProperty("IsSuccess").GetBoolean().Should().BeFalse();
     }
 
@@ -178,52 +150,8 @@ public class SchemaImportEventConsumerTests
 
         await h.Consumer.Consume(Event());
 
-        var payload = Payload(h.Handler.Requests.Single(r => r.Method == HttpMethod.Post).Body);
+        var payload = Payload(h.Published.Single());
         payload.GetProperty("IsSuccess").GetBoolean().Should().BeFalse();
     }
 
-    [Fact]
-    public async Task Consume_SkipsTheNotificationWhenTheUrlIsNotConfigured()
-    {
-        var h = new Harness(notificationUrl: null);
-
-        await h.Consumer.Consume(Event());
-
-        h.Handler.Requests.Should().NotContain(r => r.Method == HttpMethod.Post);
-    }
-
-    [Fact]
-    public async Task Consume_SkipsTheNotificationWhenTheTenantHasNoSalt()
-    {
-        var h = new Harness(tenantSalt: null);
-
-        await h.Consumer.Consume(Event());
-
-        h.Handler.Requests.Should().NotContain(r => r.Method == HttpMethod.Post);
-    }
-
-    [Fact]
-    public async Task Consume_SwallowsNotificationTransportFailures()
-    {
-        var h = new Harness(r => r.Method == HttpMethod.Post
-            ? throw new HttpRequestException("network down")
-            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1, 2, 3]) });
-
-        var act = () => h.Consumer.Consume(Event());
-
-        await act.Should().NotThrowAsync();
-        h.ImportService.Verify(s => s.ProcessImportAsync(It.IsAny<SchemaImportEvent>(), It.IsAny<byte[]>()), Times.Once);
-    }
-
-    [Fact]
-    public async Task Consume_DoesNotThrowWhenTheNotificationIsRejected()
-    {
-        var h = new Harness(r => r.Method == HttpMethod.Post
-            ? new HttpResponseMessage(HttpStatusCode.BadRequest)
-            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent([1, 2, 3]) });
-
-        var act = () => h.Consumer.Consume(Event());
-
-        await act.Should().NotThrowAsync();
-    }
 }

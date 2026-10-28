@@ -74,6 +74,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
 
         var result = await _repository.InsertAsync<SchemaDefinition>(schema);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(result.ItemId, SchemaChangeType.SchemaCreate);
+        await _schemaChangeLogService.NotifyChangedAsync(schema, SchemaChangeType.SchemaCreate);
         _logger.LogInformation("Schema created: {SchemaName}, ItemId: {ItemId}", schema.SchemaName, result.ItemId);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = result.ItemId });
     }
@@ -113,6 +114,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         await RenameReferenceTargetsAsync(previousSchemaName, schema.SchemaName);
         await RenameValidationVariablePrefixAsync(schema.ItemId, previousSchemaName, schema.SchemaName);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaUpdate);
+        await _schemaChangeLogService.NotifyChangedAsync(schema, SchemaChangeType.SchemaUpdate);
         _logger.LogInformation("Schema updated: {SchemaName}", schema.SchemaName);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = result.ItemId });
     }
@@ -160,6 +162,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
         await _repository.UpdateAsync(schema);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaFieldUpdate);
+        await _schemaChangeLogService.NotifyChangedAsync(schema, SchemaChangeType.SchemaFieldUpdate);
         await ReconcileUniqueFieldIndexesAsync(schema, existingIndexes, request.Fields, wasUniqueByFieldName);
         await ReconcileGeoJsonFieldIndexesAsync(schema, request, previousGeoJsonFieldNames);
         await _referenceHelper.ApplyChangesToReferenceEntityFields(schema);
@@ -410,6 +413,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         await _referenceHelper.AddReferenceInnerFieldsToSchemaAsync(schema);
         var result = await _repository.InsertAsync<SchemaDefinition>(schema);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaCreate);
+        await _schemaChangeLogService.NotifyChangedAsync(schema, SchemaChangeType.SchemaCreate);
         await ReconcileGeoJsonFieldIndexesAsync(schema, []);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = result.ItemId });
     }
@@ -459,6 +463,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         await RenameReferenceTargetsAsync(previousSchemaName, schema.SchemaName);
         await RenameValidationVariablePrefixAsync(schema.ItemId, previousSchemaName, schema.SchemaName);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaUpdate);
+        await _schemaChangeLogService.NotifyChangedAsync(schema, SchemaChangeType.SchemaUpdate);
         await ReconcileGeoJsonFieldIndexesAsync(schema, previousGeoJsonFieldNames);
         await _referenceHelper.ApplyChangesToReferenceEntityFields(schema);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = result.ItemId });
@@ -474,6 +479,7 @@ public class SchemaDefinitionService : ISchemaDefinitionService
         var filter = Builders<SchemaDefinition>.Filter.Eq(x => x.ItemId, id);
         var result = await _repository.DeleteAsync(filter);
         await _schemaChangeLogService.CreateSchemaChangeLogAsync(schema.ItemId, SchemaChangeType.SchemaDelete);
+        await _schemaChangeLogService.NotifyChangedAsync(schema, SchemaChangeType.SchemaDelete);
         return new ServiceResponse<ActionResponse>().SetSuccess(new ActionResponse { Acknowledged = true, ItemId = result.ItemId });
     }
 

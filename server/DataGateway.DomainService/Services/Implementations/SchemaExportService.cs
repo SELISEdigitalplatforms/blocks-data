@@ -49,7 +49,8 @@ public class SchemaExportService : ISchemaExportService
                 MessageCoRelationId = request.MessageCoRelationId,
                 ExportOption = request.ExportOption,
                 CallerUserId = context?.UserId ?? string.Empty,
-                CallerTenantId = context?.OriginalTenantId ?? string.Empty
+                CallerTenantId = context?.OriginalTenantId ?? string.Empty,
+                CallerOrganizationId = context?.OrganizationId ?? string.Empty
             }
         });
 

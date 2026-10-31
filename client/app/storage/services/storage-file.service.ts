@@ -1,4 +1,5 @@
 import { http } from "@/lib/http-client";
+import { getRuntimeEnv } from "@/lib/runtime-env";
 import {
   ICompleteUploadPayload,
   ICompleteUploadResponse,
@@ -13,7 +14,16 @@ import {
   IUpdateFileAdditionalInfoPayload,
   IUpdateFileAdditionalInfoResponse,
 } from "../models/storage.model";
-import { STORAGE_FILE_ENDPOINTS } from "../constants/endpoint.constant";
+import {
+  IPrepareZipDownloadPayload,
+  IPrepareZipDownloadResponse,
+} from "../models/zip-download.model";
+import { STORAGE_FILE_ENDPOINTS, ZIP_DOWNLOAD_ENDPOINTS } from "../constants/endpoint.constant";
+
+/** URL the browser's download manager hits to stream a prepared zip (anonymous; the ticket is the credential). */
+export const buildZipDownloadUrl = (ticket: string, tenantId: string): string =>
+  `${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}${ZIP_DOWNLOAD_ENDPOINTS.DOWNLOAD}` +
+  `?ticket=${encodeURIComponent(ticket)}&x-blocks-key=${encodeURIComponent(tenantId)}`;
 
 export class StorageFile {
   getFileByFileId(payload: IGetFileByFileIDPayload): Promise<IGetFileByFileIDResponse> {
@@ -53,5 +63,12 @@ export class StorageFile {
     return http.get(
       `${STORAGE_FILE_ENDPOINTS.GET_FILE}?FileId=${meta.fileId}&ProjectKey=${meta.projectKey}`,
     );
+  }
+
+  prepareZipDownload(
+    payload: IPrepareZipDownloadPayload,
+    signal?: AbortSignal,
+  ): Promise<IPrepareZipDownloadResponse> {
+    return http.post(ZIP_DOWNLOAD_ENDPOINTS.PREPARE, payload, undefined, { signal });
   }
 }

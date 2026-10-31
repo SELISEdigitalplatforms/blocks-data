@@ -12,9 +12,9 @@ import {
   mockGetFilesInfoPayload,
 } from "../test-utils/__mocks__";
 import { http } from "@/lib/http-client";
-import { StorageFile } from "./storage-file.service";
+import { StorageFile, buildZipDownloadUrl } from "./storage-file.service";
 import { TEST_PROJECT_KEY } from "@/test-utils/__mocks__/data.mock";
-import { STORAGE_FILE_ENDPOINTS } from "../constants/endpoint.constant";
+import { STORAGE_FILE_ENDPOINTS, ZIP_DOWNLOAD_ENDPOINTS } from "../constants/endpoint.constant";
 
 vi.mock("@/lib/http-client", () => mockHttpClientFactory());
 
@@ -196,6 +196,40 @@ describe("StorageFile", () => {
       await expect(
         service.getFilesDownloadUrl({ fileId: "file-1", projectKey: TEST_PROJECT_KEY }),
       ).rejects.toThrow("Download URL not found");
+    });
+  });
+
+  // ─── prepareZipDownload ────────────────────────────────────────────────────
+
+  describe("prepareZipDownload", () => {
+    it("posts the payload with the abort signal", async () => {
+      const response = {
+        ticket: "t",
+        tenantId: "tenant",
+        fileCount: 1,
+        totalBytes: 2,
+        zipName: "a.zip",
+      };
+      vi.mocked(http.post).mockResolvedValue(response);
+      const payload = { itemIds: ["f1"], directoryIds: ["d1"], configurationName: "cfg" };
+      const { signal } = new AbortController();
+
+      const result = await service.prepareZipDownload(payload, signal);
+
+      expect(http.post).toHaveBeenCalledWith(ZIP_DOWNLOAD_ENDPOINTS.PREPARE, payload, undefined, {
+        signal,
+      });
+      expect(result).toEqual(response);
+    });
+  });
+
+  // ─── buildZipDownloadUrl ───────────────────────────────────────────────────
+
+  describe("buildZipDownloadUrl", () => {
+    it("encodes ticket and tenant", () => {
+      expect(buildZipDownloadUrl("a+b", "t/1")).toMatch(
+        /\/api\/objects\/download-zip\?ticket=a%2Bb&x-blocks-key=t%2F1$/,
+      );
     });
   });
 });

@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
 using Storage.DomainService.Storage.Validators;
+using Storage.DomainService.Storage.ZipDownload;
 
 namespace Storage.DomainService.Utilities
 {
@@ -39,6 +40,7 @@ namespace Storage.DomainService.Utilities
             services.AddTransient<IValidator<RestoreFromTrashRequest>, RestoreFromTrashRequestValidator>();
             services.AddTransient<IValidator<CreateFileVersionRequest>, CreateFileVersionRequestValidator>();
             services.AddTransient<IValidator<GetFileVersionsRequest>, GetFileVersionsRequestValidator>();
+            services.AddTransient<IValidator<PrepareZipDownloadRequest>, PrepareZipDownloadRequestValidator>();
 
             // Register services
             services.AddSingleton<IFileManagementService, FileManagementService>();

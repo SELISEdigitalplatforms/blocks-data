@@ -1,9 +1,11 @@
 ﻿using Azure.Storage.Blobs;
 using Blocks.Genesis;
+using Blocks.Genesis.Entities.Data;
 using DomainService.Storage;
 using DomainService.Storage.Dms;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Storage;
+using Storage.DomainService.Storage.ZipDownload;
 
 namespace Storage.DomainService.Services
 {
@@ -31,5 +33,15 @@ namespace Storage.DomainService.Services
 
         /// <summary>Verifies and promotes (or rejects) a Quarantined version. Idempotent and concurrency-safe.</summary>
         Task<CompleteUploadResponse> CompleteUploadAsync(CompleteUploadRequest request);
+
+        /// <summary>
+        /// Resolves file ids to the readable latest version of each, in input order. Files that are
+        /// missing, quarantined or rejected are dropped. With <paramref name="authorize"/>, each file must also
+        /// be unarchived and pass an audited Download check; without it the caller already holds the access decision.
+        /// </summary>
+        Task<List<ZipSourceFile>> ResolveZipSourcesAsync(IReadOnlyList<string> fileIds, bool authorize, CancellationToken cancellationToken);
+
+        /// <summary>Opens the bytes of a resolved version, or returns null when the provider cannot supply them.</summary>
+        Task<Stream?> OpenZipSourceAsync(ZipSourceFile source, StorageConfiguration configuration, CancellationToken cancellationToken);
     }
 }

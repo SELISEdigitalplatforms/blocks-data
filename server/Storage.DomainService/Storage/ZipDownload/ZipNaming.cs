@@ -11,8 +11,8 @@ public static class ZipNaming
     private static readonly HashSet<char> UnsafeChars = BuildUnsafeChars();
 
     /// <summary>
-    /// Makes a single path segment safe for a zip entry: separators and invalid file-name characters
-    /// become <c>_</c>, surrounding spaces are trimmed, and an empty or dots-only result becomes <c>unnamed</c>.
+    /// Makes a single path segment safe for a zip entry: separators, invalid file-name characters and control
+    /// characters become <c>_</c>, surrounding spaces are trimmed, and an empty or dots-only result becomes <c>unnamed</c>.
     /// </summary>
     public static string SanitizeSegment(string? name)
     {
@@ -24,7 +24,7 @@ public static class ZipNaming
         var sb = new StringBuilder(name.Length);
         foreach (var c in name)
         {
-            sb.Append(UnsafeChars.Contains(c) ? '_' : c);
+            sb.Append(UnsafeChars.Contains(c) || char.IsControl(c) ? '_' : c);
         }
 
         var result = sb.ToString().Trim(' ');

@@ -9,7 +9,10 @@ namespace Storage.DomainService.Storage.ZipDownload;
 /// <summary>Holds the resolved download behind an unguessable, single-use ticket.</summary>
 public interface IZipTicketStore
 {
-    /// <summary>Stores the ticket for <see cref="ZipDownloadLimits.TicketTtlSeconds"/> seconds and returns its id.</summary>
+    /// <summary>
+    /// Stores the ticket for <see cref="ZipDownloadLimits.TicketTtlSeconds"/> seconds and returns its id.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The ticket was not stored.</exception>
     Task<string> SaveAsync(ZipTicket ticket);
 
     /// <summary>Atomically reads and removes the ticket; null when unknown, expired, already used or malformed.</summary>
@@ -36,7 +39,17 @@ public sealed partial class ZipTicketStore : IZipTicketStore
     {
         var id = Base64Url(RandomNumberGenerator.GetBytes(16));
         var json = JsonSerializer.Serialize(ticket, JsonOptions);
-        await _cache.AddStringValueAsync(KeyPrefix + id, json, ZipDownloadLimits.TicketTtlSeconds).ConfigureAwait(false);
+
+        // One SET with the expiry (SET then a separate EXPIRE could leave a ticket that never expires), and only
+        // when the key is new, so a stored ticket is never silently overwritten.
+        var stored = await _cache.CacheDatabase()
+            .StringSetAsync(KeyPrefix + id, json, TimeSpan.FromSeconds(ZipDownloadLimits.TicketTtlSeconds), When.NotExists, CommandFlags.None)
+            .ConfigureAwait(false);
+        if (!stored)
+        {
+            throw new InvalidOperationException("zip ticket could not be stored");
+        }
+
         return id;
     }
 

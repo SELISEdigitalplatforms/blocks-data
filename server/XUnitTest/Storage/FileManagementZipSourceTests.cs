@@ -139,6 +139,37 @@ public class FileManagementZipSourceTests : IDisposable
     }
 
     [Fact]
+    public async Task Resolve_skips_a_malformed_version_aggregate_and_keeps_the_rest()
+    {
+        var good = Aggregate("f1", "Ready");
+        var malformed = Aggregate("f2", "Ready");
+        malformed.Remove("VersionId");
+        _fileRepository
+            .Setup(r => r.GetRequiredFiles(It.IsAny<IEnumerable<string>>(), null))
+            .Returns((new List<BsonDocument> { malformed, good }, new[] { Response("f1"), Response("f2") }));
+        var sut = CreateSut();
+
+        var result = await sut.ResolveZipSourcesAsync(["f1", "f2"], authorize: false, CancellationToken.None);
+
+        result.Select(s => s.FileId).Should().Equal("f1");
+    }
+
+    [Fact]
+    public async Task Resolve_reads_a_size_stored_as_Int32()
+    {
+        var doc = Aggregate("f1", "Ready");
+        doc["SizeInBytes"] = new BsonInt32(512);
+        _fileRepository
+            .Setup(r => r.GetRequiredFiles(It.IsAny<IEnumerable<string>>(), null))
+            .Returns((new List<BsonDocument> { doc }, new[] { Response("f1") }));
+        var sut = CreateSut();
+
+        var result = await sut.ResolveZipSourcesAsync(["f1"], authorize: false, CancellationToken.None);
+
+        result.Should().ContainSingle().Which.SizeInBytes.Should().Be(512);
+    }
+
+    [Fact]
     public async Task Resolve_with_authorize_drops_denied_archived_and_missing_files()
     {
         SetupFile("f1");

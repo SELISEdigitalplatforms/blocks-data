@@ -729,23 +729,33 @@ namespace Storage.DomainService.Services
             {
                 if (!aggregate.Any()) continue;
 
-                var fileId = aggregate["_id"].AsString;
-                if (!responsesById.TryGetValue(fileId, out var response)) continue;
-                if (!ReadReadinessPolicy.IsContentReadable(ParseVerificationStatus(aggregate))) continue;
-
-                resolvedById[fileId] = new ZipSourceFile
+                // One malformed version row (a missing field, an unexpected BSON type) skips that file only,
+                // like any other file that cannot be included, instead of failing the whole prepare.
+                try
                 {
-                    FileId = fileId,
-                    Name = response.Name,
-                    VersionId = aggregate["VersionId"].AsString,
-                    VersionNo = aggregate["MaxVersion"].IsBsonNull ? 0 : aggregate["MaxVersion"].AsInt64,
-                    StorageKey = aggregate.Contains("StorageKey") && !aggregate["StorageKey"].IsBsonNull
-                        ? aggregate["StorageKey"].AsString
-                        : null,
-                    AccessModifier = response.AccessModifier,
-                    SizeInBytes = aggregate["SizeInBytes"].IsBsonNull ? 0 : aggregate["SizeInBytes"].AsInt64,
-                    TenantId = response.TenantId,
-                };
+                    var fileId = aggregate["_id"].AsString;
+                    if (!responsesById.TryGetValue(fileId, out var response)) continue;
+                    if (!ReadReadinessPolicy.IsContentReadable(ParseVerificationStatus(aggregate))) continue;
+
+                    resolvedById[fileId] = new ZipSourceFile
+                    {
+                        FileId = fileId,
+                        Name = response.Name,
+                        VersionId = aggregate["VersionId"].AsString,
+                        VersionNo = aggregate["MaxVersion"].IsBsonNull ? 0 : aggregate["MaxVersion"].AsInt64,
+                        StorageKey = aggregate.Contains("StorageKey") && !aggregate["StorageKey"].IsBsonNull
+                            ? aggregate["StorageKey"].AsString
+                            : null,
+                        AccessModifier = response.AccessModifier,
+                        // Older rows may hold the size as Int32.
+                        SizeInBytes = aggregate["SizeInBytes"].IsBsonNull ? 0 : aggregate["SizeInBytes"].ToInt64(),
+                        TenantId = response.TenantId,
+                    };
+                }
+                catch (Exception)
+                {
+                    // Skipped silently by design: unincludable files never fail the zip.
+                }
             }
 
             foreach (var fileId in requested)

@@ -259,6 +259,40 @@ public class ZipDownloadServiceStreamTests : IDisposable
     }
 
     [Fact]
+    public async Task Source_failing_mid_copy_because_the_client_left_is_a_cancellation()
+    {
+        // Providers often surface a cancelled read as their own exception (here IOException), not as an OCE.
+        using var cts = new CancellationTokenSource();
+        var reads = 0;
+        var failing = new TrackingStream(Bytes(100, seed: 1), failAfterBytes: 10, onRead: () =>
+        {
+            if (++reads == 2) cts.Cancel();
+        });
+        SetSource("f1", failing);
+        SetSource("f2", new TrackingStream(Bytes(10, seed: 2)));
+
+        var act = () => CreateSut().WriteZipAsync(Ticket(), new NonSeekableStream(new MemoryStream()), cts.Token);
+
+        var thrown = await act.Should().ThrowAsync<OperationCanceledException>();
+        thrown.Which.Should().NotBeOfType<ZipEntryCopyException>();
+        failing.Disposed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Source_failing_before_its_first_byte_because_the_client_left_is_a_cancellation_not_a_skip()
+    {
+        using var cts = new CancellationTokenSource();
+        var failing = new TrackingStream(Bytes(10, seed: 1), failAfterBytes: 0, onRead: () => cts.Cancel());
+        SetSource("f1", failing);
+        SetSource("f2", new TrackingStream(Bytes(10, seed: 2)));
+
+        var act = () => CreateSut().WriteZipAsync(Ticket(), new NonSeekableStream(new MemoryStream()), cts.Token);
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+        _logs.Logs.Should().NotContain(l => l.Message.Contains("entry-skipped"));
+    }
+
+    [Fact]
     public async Task Missing_configuration_throws_before_writing_anything()
     {
         _configurations

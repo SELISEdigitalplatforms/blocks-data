@@ -321,8 +321,10 @@ public sealed class ZipDownloadService : IZipDownloadService
             {
                 read = await stream.ReadAsync(buffer.AsMemory(0, CopyBufferSize), cancellationToken).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (Exception) when (cancellationToken.IsCancellationRequested)
             {
+                // Whatever the provider threw, a read that failed because the client left is a cancellation.
+                cancellationToken.ThrowIfCancellationRequested();
                 throw;
             }
             catch (Exception ex)
@@ -343,8 +345,11 @@ public sealed class ZipDownloadService : IZipDownloadService
                 {
                     read = await stream.ReadAsync(buffer.AsMemory(0, CopyBufferSize), cancellationToken).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                catch (Exception) when (cancellationToken.IsCancellationRequested)
                 {
+                    // A provider may surface the cancelled read as its own exception (IOException, SDK types);
+                    // the client leaving is still a cancellation, not a broken file.
+                    cancellationToken.ThrowIfCancellationRequested();
                     throw;
                 }
                 catch (Exception ex)
@@ -380,7 +385,11 @@ public sealed class ZipDownloadService : IZipDownloadService
             .ToList();
     }
 
-    /// <summary>Returns false as soon as the folder file candidates pass <see cref="ZipDownloadLimits.MaxFiles"/>.</summary>
+    /// <summary>
+    /// Returns false as soon as the folder entries (selected roots and subfolders) pass
+    /// <see cref="ZipDownloadLimits.MaxFolders"/> or the folder file candidates pass <see cref="ZipDownloadLimits.MaxFiles"/>;
+    /// the walk then stops without listing anything further.
+    /// </summary>
     private async Task<bool> WalkDirectoriesAsync(
         List<FileDirectory> directories,
         ZipPathBuilder paths,
@@ -392,8 +401,13 @@ public sealed class ZipDownloadService : IZipDownloadService
         var visited = directories.Select(d => d.ItemId).ToHashSet(StringComparer.Ordinal);
         var queue = new Queue<(string DirectoryId, string Path)>();
 
+        // Every folder entry counts, the selected roots included: folder headers are what the stream's pending
+        // queue holds (see AsyncOnlyOutputStream), so this cap is what keeps it bounded.
+        var folderCount = 0;
+
         foreach (var directory in directories)
         {
+            if (++folderCount > ZipDownloadLimits.MaxFolders) return false;
             var path = paths.AddFolder(string.Empty, directory.Name);
             entries.Add(FolderEntry(path));
             queue.Enqueue((directory.ItemId, path));
@@ -414,6 +428,7 @@ public sealed class ZipDownloadService : IZipDownloadService
                     if (child.Type == StructureType.Directory)
                     {
                         if (!visited.Add(child.ItemId)) continue;
+                        if (++folderCount > ZipDownloadLimits.MaxFolders) return false;
                         var path = paths.AddFolder(parentPath, child.Name);
                         entries.Add(FolderEntry(path));
                         queue.Enqueue((child.ItemId, path));

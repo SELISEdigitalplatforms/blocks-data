@@ -7,10 +7,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
 using Moq;
 using Storage.DomainService.Storage.ZipDownload;
+using XUnitTest.Infrastructure;
 
 namespace XUnitTest.Api;
 
@@ -23,10 +24,11 @@ public class ZipDownloadControllerTests
     private readonly Mock<IZipDownloadService> _service = new();
     private readonly ZipDownloadController _sut;
     private readonly DefaultHttpContext _http = new();
+    private readonly RecordingLoggerProvider _logs = new();
 
     public ZipDownloadControllerTests()
     {
-        _sut = new ZipDownloadController(_service.Object, NullLogger<ZipDownloadController>.Instance)
+        _sut = new ZipDownloadController(_service.Object, _logs.CreateLogger<ZipDownloadController>())
         {
             ControllerContext = new ControllerContext { HttpContext = _http }
         };
@@ -233,5 +235,61 @@ public class ZipDownloadControllerTests
 
         result.Should().BeOfType<EmptyResult>();
         lifetime.Verify(l => l.Abort(), Times.Never);
+    }
+
+    [Fact]
+    public async Task Failure_after_the_response_started_logs_only_the_exception_type()
+    {
+        GivenTicket(Ticket());
+        _http.Features.Set<IHttpResponseFeature>(new StartedResponseFeature());
+        _http.Features.Set(new Mock<IHttpRequestLifetimeFeature>().Object);
+        _service.Setup(s => s.WriteZipAsync(It.IsAny<ZipTicket>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new ZipEntryCopyException("f1", new IOException("NoSuchKey: Private/f1/v1/secret-plan.pdf")));
+
+        await _sut.Download("tk");
+
+        var error = _logs.Logs.Should().ContainSingle(l => l.Level == LogLevel.Error).Subject;
+        error.Exception.Should().BeNull();
+        error.AllText().Should().Contain(nameof(ZipEntryCopyException));
+        error.AllText().Should().NotContain("secret-plan").And.NotContain("NoSuchKey");
+    }
+
+    [Fact]
+    public async Task Any_failure_after_the_client_left_returns_quietly()
+    {
+        GivenTicket(Ticket());
+        using var cts = new CancellationTokenSource();
+        _http.Features.Set<IHttpResponseFeature>(new StartedResponseFeature());
+        var lifetime = new Mock<IHttpRequestLifetimeFeature>();
+        lifetime.SetupProperty(l => l.RequestAborted, cts.Token);
+        _http.Features.Set(lifetime.Object);
+        _service.Setup(s => s.WriteZipAsync(It.IsAny<ZipTicket>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .Returns<ZipTicket, Stream, CancellationToken>((_, _, _) =>
+            {
+                cts.Cancel();
+                throw new ZipEntryCopyException("f1", new IOException("connection reset"));
+            });
+
+        var result = await _sut.Download("tk");
+
+        result.Should().BeOfType<EmptyResult>();
+        lifetime.Verify(l => l.Abort(), Times.Never);
+        _logs.Logs.Should().NotContain(l => l.Level >= LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task Failure_before_the_response_started_drops_the_zip_headers()
+    {
+        GivenTicket(Ticket());
+        _service.Setup(s => s.WriteZipAsync(It.IsAny<ZipTicket>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("configuration missing"));
+
+        var act = () => _sut.Download("tk");
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _http.Response.Headers.ContainsKey(HeaderNames.ContentDisposition).Should().BeFalse();
+        _http.Response.Headers.ContainsKey("X-Accel-Buffering").Should().BeFalse();
+        _http.Response.Headers.ContainsKey(HeaderNames.ContentType).Should().BeFalse();
+        _http.Response.ContentType.Should().BeNull();
     }
 }

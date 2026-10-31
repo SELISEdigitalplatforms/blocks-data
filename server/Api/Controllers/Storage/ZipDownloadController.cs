@@ -53,16 +53,27 @@ namespace Api.Controllers
             {
                 await _zipDownloadService.WriteZipAsync(zipTicket, Response.Body, HttpContext.RequestAborted);
             }
-            catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+            catch (Exception ex) when (HttpContext.RequestAborted.IsCancellationRequested)
             {
-                // The client left; there is nobody to respond to.
+                // The client left; there is nobody to respond to. Whatever was thrown (an OCE, or the provider's or
+                // Kestrel's own exception for the broken connection) is a disconnect, not an error.
+                _logger.LogDebug("Zip download ended because the client disconnected ({Reason}).", ex.GetType().Name);
             }
             catch (Exception ex) when (Response.HasStarted)
             {
                 // Part of the archive is already on the wire. Completing the response would hand the user a
                 // truncated zip that looks valid, so reset the connection and let the browser fail the download.
-                _logger.LogError(ex, "Zip download aborted after the response started.");
+                // Only the type is logged: provider messages can carry object keys and file names.
+                _logger.LogError("Zip download aborted after the response started ({Reason}).", ex.GetType().Name);
                 HttpContext.Abort();
+            }
+            catch
+            {
+                // Nothing was sent yet, so the error response must not go out labelled as a zip attachment.
+                Response.Headers.Remove(HeaderNames.ContentDisposition);
+                Response.Headers.Remove("X-Accel-Buffering");
+                Response.Headers.Remove(HeaderNames.ContentType);
+                throw;
             }
 
             return new EmptyResult();

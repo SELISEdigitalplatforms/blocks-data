@@ -10,8 +10,10 @@ namespace Storage.DomainService.Storage.ZipDownload;
 /// async API: an entry's data descriptor when its stream is disposed, and an unopened entry's local header when the
 /// next entry is created. Those synchronous writes are queued here and sent, in order, ahead of the next
 /// <see cref="WriteAsync(ReadOnlyMemory{byte}, CancellationToken)"/> or <see cref="FlushAsync(CancellationToken)"/>.
-/// The queue only ever holds headers and descriptors, so it stays a few hundred bytes. The output is never disposed
-/// by this wrapper.
+/// The queue only ever holds local headers and data descriptors, but folder entries are never opened, so the local
+/// headers of a run of folders pile up here until the next file's data is written. It is therefore bounded by the
+/// folder cap (<see cref="ZipDownloadLimits.MaxFolders"/>), at roughly 30 bytes plus the entry path per folder. The
+/// output is never disposed by this wrapper.
 /// </summary>
 internal sealed class AsyncOnlyOutputStream : Stream
 {

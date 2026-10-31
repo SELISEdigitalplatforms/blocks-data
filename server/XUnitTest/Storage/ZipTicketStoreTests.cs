@@ -21,10 +21,15 @@ public class ZipTicketStoreTests
     public ZipTicketStoreTests()
     {
         _cache.Setup(c => c.CacheDatabase()).Returns(_database.Object);
-        _cache.Setup(c => c.AddStringValueAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>()))
-            .ReturnsAsync(true);
+        SetupStringSet(true);
         _store = new ZipTicketStore(_cache.Object);
     }
+
+    private void SetupStringSet(bool stored, Action<RedisValue>? onSet = null) =>
+        _database
+            .Setup(d => d.StringSetAsync(It.IsAny<RedisKey>(), It.IsAny<RedisValue>(), It.IsAny<TimeSpan?>(), It.IsAny<When>(), It.IsAny<CommandFlags>()))
+            .Callback<RedisKey, RedisValue, TimeSpan?, When, CommandFlags>((_, v, _, _, _) => onSet?.Invoke(v))
+            .ReturnsAsync(stored);
 
     private static ZipTicket SampleTicket() => new()
     {
@@ -55,15 +60,29 @@ public class ZipTicketStoreTests
     };
 
     [Fact]
-    public async Task Save_stores_json_under_prefixed_key_with_120s_ttl()
+    public async Task Save_stores_json_under_prefixed_key_with_120s_ttl_in_one_atomic_set()
     {
         var id = await _store.SaveAsync(SampleTicket());
 
         Regex.IsMatch(id, "^[A-Za-z0-9_-]{22}$").Should().BeTrue();
-        _cache.Verify(c => c.AddStringValueAsync(
-            It.Is<string>(k => k == "zipdl:" + id),
-            It.Is<string>(v => v.Contains("tenant-1")),
-            120), Times.Once);
+        // One SET carrying the expiry (never SET then a separate EXPIRE), and only if the key is new.
+        _database.Verify(d => d.StringSetAsync(
+            It.Is<RedisKey>(k => k == (RedisKey)("zipdl:" + id)),
+            It.Is<RedisValue>(v => v.ToString().Contains("tenant-1")),
+            TimeSpan.FromSeconds(120),
+            When.NotExists,
+            It.IsAny<CommandFlags>()), Times.Once);
+        _cache.Verify(c => c.AddStringValueAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Save_throws_when_the_ticket_was_not_stored()
+    {
+        SetupStringSet(false);
+
+        var act = () => _store.SaveAsync(SampleTicket());
+
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("zip ticket could not be stored");
     }
 
     [Fact]
@@ -77,13 +96,11 @@ public class ZipTicketStoreTests
     [Fact]
     public async Task Take_reads_and_deletes_in_one_call()
     {
-        string? saved = null;
-        _cache.Setup(c => c.AddStringValueAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>()))
-            .Callback<string, string, long>((_, v, _) => saved = v)
-            .ReturnsAsync(true);
+        RedisValue saved = RedisValue.Null;
+        SetupStringSet(true, v => saved = v);
         await _store.SaveAsync(SampleTicket());
         _database.Setup(d => d.StringGetDeleteAsync("zipdl:" + TicketId, CommandFlags.None))
-            .ReturnsAsync((RedisValue)saved!);
+            .ReturnsAsync(saved);
 
         var ticket = await _store.TakeAsync(TicketId);
 

@@ -4,6 +4,7 @@ namespace Storage.DomainService.Storage.ZipDownload;
 public static class ZipDownloadLimits
 {
     public const int MaxFiles = 5_000;
+    public const int MaxFolders = 5_000;
     public const long MaxTotalBytes = 2L * 1024 * 1024 * 1024;
     public const int MaxRequestIds = 1_000;
     public const int TicketTtlSeconds = 120;

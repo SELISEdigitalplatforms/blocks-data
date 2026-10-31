@@ -327,6 +327,40 @@ public class ZipDownloadServicePrepareTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData(ZipDownloadLimits.MaxFolders, true)]
+    [InlineData(ZipDownloadLimits.MaxFolders + 1, false)]
+    public async Task Exactly_5000_folders_succeeds_and_5001_fails_early(int folderCount, bool succeeds)
+    {
+        // The selected folder counts too, so it holds folderCount - 1 empty subfolders (and one file).
+        AddDirectory("D", "Docs");
+        _listing
+            .Setup(l => l.GetVisibleChildrenAsync(It.IsAny<string>(), null, ZipDownloadLimits.ListingPageSize, null, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new VisibleChildrenPage { Items = [], HasMore = false });
+        var children = new[] { FileItem("x", "x.txt") }
+            .Concat(Enumerable.Range(0, folderCount - 1).Select(i => Folder($"s{i}", $"s{i}")))
+            .ToArray();
+        SetChildren("D", children);
+        AddSource("x", "x.txt");
+
+        var response = await CreateSut().PrepareAsync(Request(dirs: ["D"]), CancellationToken.None);
+
+        if (succeeds)
+        {
+            response.IsSuccess.Should().BeTrue();
+            _saved.Single().Entries.Count(e => e.Kind == ZipEntryKind.Folder).Should().Be(ZipDownloadLimits.MaxFolders);
+        }
+        else
+        {
+            ShouldFailWith(response, ZipDownloadLimits.LimitExceeded);
+            _store.Verify(s => s.SaveAsync(It.IsAny<ZipTicket>()), Times.Never);
+            _resolveCalls.Should().BeEmpty();
+            // The walk stops at the folder that passes the cap: none of the subfolders is ever listed.
+            _listing.Verify(l => l.GetVisibleChildrenAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<int>(),
+                It.IsAny<StructureType?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+        }
+    }
+
     [Fact]
     public async Task File_limit_counts_folder_and_loose_files_together()
     {

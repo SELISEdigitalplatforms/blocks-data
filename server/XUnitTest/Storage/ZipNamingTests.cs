@@ -13,6 +13,9 @@ public class ZipNamingTests
     [InlineData("  ", "unnamed")]
     [InlineData(null, "unnamed")]
     [InlineData("q:1?.txt", "q_1_.txt")]
+    [InlineData("line\nbreak.txt", "line_break.txt")]
+    [InlineData("tab\tbed.txt", "tab_bed.txt")]
+    [InlineData("bell\u0007\u007F.txt", "bell__.txt")]
     public void SanitizeSegment_makes_one_safe_segment(string? input, string expected) =>
         ZipNaming.SanitizeSegment(input).Should().Be(expected);
 

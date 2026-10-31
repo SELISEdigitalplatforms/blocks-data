@@ -1,3 +1,4 @@
+using Blocks.Data.Api.Filters;
 using Blocks.Genesis;
 using DomainService.Storage.Dms;
 using Microsoft.AspNetCore.Authorization;
@@ -39,6 +40,7 @@ namespace Api.Controllers
         /// <summary>Creates a directory beneath an existing parent.</summary>
         [HttpPost("create-directory")]
         [ProtectedEndPoint("blocks-data::directory::create-directory")]
+        [ValidateRequest]
         public async Task<IActionResult> CreateDirectory([FromBody] CreateDirectoryRequest request)
         {
             if (request is null) return BadRequest();
@@ -78,6 +80,7 @@ namespace Api.Controllers
         [ApiExplorerSettings(IgnoreApi = true)]
         [HttpPost("create-root-directory")]
         [ProtectedEndPoint("blocks-data::directory::create-root-directory")]
+        [ValidateRequest]
         public async Task<IActionResult> CreateRootDirectory([FromBody] CreateDirectoryRequest request)
         {
             var result = await _directoryManagementService.CreateDirectoryAsync(
@@ -106,6 +109,7 @@ namespace Api.Controllers
         /// <summary>Renames a directory or updates its description.</summary>
         [HttpPost("update-directory")]
         [ProtectedEndPoint("blocks-data::directory::update-directory")]
+        [ValidateRequest]
         public async Task<IActionResult> UpdateDirectory([FromBody] UpdateDirectoryRequest request)
         {
             var result = await _directoryManagementService.UpdateDirectoryAsync(
@@ -143,6 +147,7 @@ namespace Api.Controllers
         /// <summary>Re-parents a directory and rewrites the cached ancestry beneath it.</summary>
         [HttpPost("move-directory")]
         [ProtectedEndPoint("blocks-data::directory::move-directory")]
+        [ValidateRequest]
         public async Task<IActionResult> MoveDirectory([FromBody] MoveDirectoryRequest request)
         {
             var result = await _objectHierarchyService.MoveDirectoryAsync(request.DirectoryId, request.TargetDirectoryId);

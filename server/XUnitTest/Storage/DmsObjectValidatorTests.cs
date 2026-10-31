@@ -85,6 +85,38 @@ public class DmsObjectValidatorTests
         validator.Validate(new UpdateDirectoryRequest { DirectoryId = "", Name = "ok" }).IsValid.Should().BeFalse();
     }
 
+    [Fact]
+    public void A_directory_access_level_must_be_creator_or_organization()
+    {
+        var create = new CreateDirectoryRequestValidator();
+
+        create.Validate(new CreateDirectoryRequest { Name = "Reports", ObjectAccessLevel = "Everyone" }).IsValid.Should().BeFalse();
+        create.Validate(new CreateDirectoryRequest { Name = "Reports", ObjectAccessLevel = "organization" }).IsValid.Should().BeTrue();
+        create.Validate(new CreateDirectoryRequest { Name = "Reports", ObjectAccessLevel = null }).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_directory_update_checks_the_access_level_only_when_it_changes_it()
+    {
+        var validator = new UpdateDirectoryRequestValidator();
+
+        validator.Validate(new UpdateDirectoryRequest { DirectoryId = "dir-1", ObjectAccessLevel = "Everyone", UpdateObjectAccessLevel = true })
+            .IsValid.Should().BeFalse();
+        validator.Validate(new UpdateDirectoryRequest { DirectoryId = "dir-1", ObjectAccessLevel = "Everyone", UpdateObjectAccessLevel = false })
+            .IsValid.Should().BeTrue("the level is ignored unless the update asks to change it");
+    }
+
+    [Fact]
+    public void A_directory_description_longer_than_the_limit_is_rejected()
+    {
+        new CreateDirectoryRequestValidator()
+            .Validate(new CreateDirectoryRequest { Name = "Reports", Description = new string('a', 2001) })
+            .IsValid.Should().BeFalse();
+        new UpdateDirectoryRequestValidator()
+            .Validate(new UpdateDirectoryRequest { DirectoryId = "dir-1", Description = new string('a', 2001) })
+            .IsValid.Should().BeFalse();
+    }
+
     // Listing
 
     [Fact]
@@ -110,6 +142,26 @@ public class DmsObjectValidatorTests
         validator.Validate(new GetObjectRequest { ParentDirectoryId = "dir-1", Cursor = "obviously not base64 !!" }).IsValid.Should().BeFalse();
     }
 
+    [Fact]
+    public void A_children_search_longer_than_a_name_is_rejected()
+    {
+        var validator = new GetObjectRequestValidator();
+
+        validator.Validate(new GetObjectRequest { Search = new string('a', 256) }).IsValid.Should().BeFalse();
+        validator.Validate(new GetObjectRequest { Search = new string('a', 255) }).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_shared_listing_validates_its_page_size_and_cursor()
+    {
+        var validator = new SharedObjectRequestValidator();
+
+        validator.Validate(new SharedObjectRequest { Limit = 0 }).IsValid.Should().BeFalse();
+        validator.Validate(new SharedObjectRequest { Limit = 201 }).IsValid.Should().BeFalse();
+        validator.Validate(new SharedObjectRequest { Cursor = "bad!" }).IsValid.Should().BeFalse();
+        validator.Validate(new SharedObjectRequest { Limit = 200, Cursor = ValidCursor() }).IsValid.Should().BeTrue();
+    }
+
     // Copy and move
 
     [Fact]
@@ -121,6 +173,25 @@ public class DmsObjectValidatorTests
 
         new MoveFileRequestValidator().Validate(new MoveFileRequest { FileId = "file-1", TargetDirectoryId = "" }).IsValid.Should().BeFalse();
         new MoveFileRequestValidator().Validate(new MoveFileRequest { FileId = "file-1", TargetDirectoryId = "dir-1" }).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_rename_needs_the_file_and_a_name_within_the_limit()
+    {
+        var validator = new RenameFileRequestValidator();
+
+        validator.Validate(new RenameFileRequest { FileId = "", Name = "report.pdf" }).IsValid.Should().BeFalse();
+        validator.Validate(new RenameFileRequest { FileId = "file-1", Name = "" }).IsValid.Should().BeFalse();
+        validator.Validate(new RenameFileRequest { FileId = "file-1", Name = new string('a', 256) }).IsValid.Should().BeFalse();
+        validator.Validate(new RenameFileRequest { FileId = "file-1", Name = "report.pdf" }).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_directory_move_needs_the_directory()
+    {
+        new MoveDirectoryRequestValidator()
+            .Validate(new MoveDirectoryRequest { DirectoryId = "", TargetDirectoryId = "dir-2" })
+            .IsValid.Should().BeFalse();
     }
 
     [Fact]
@@ -200,6 +271,75 @@ public class DmsObjectValidatorTests
             PrincipalType = ObjectPrincipalType.Role, PrincipalId = "r2",
             OrganizationId = "o2", Permission = ObjectPermission.View,
         }).IsValid.Should().BeTrue();
+    }
+
+    private static ShareObjectRequest ValidShare() => new()
+    {
+        ResourceId = "file-5", ResourceType = ObjectResourceType.File,
+        PrincipalType = ObjectPrincipalType.User, PrincipalId = "user-9",
+        Permission = ObjectPermission.View,
+    };
+
+    [Theory]
+    [InlineData(ObjectPrincipalType.User)]
+    [InlineData(ObjectPrincipalType.Role)]
+    [InlineData(ObjectPrincipalType.Organization)]
+    public void A_share_needs_a_principal_for_every_kind_except_everyone(ObjectPrincipalType principalType)
+    {
+        var share = ValidShare();
+        share.PrincipalType = principalType;
+        share.PrincipalId = "";
+
+        new ShareObjectRequestValidator().Validate(share).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_share_with_everyone_needs_no_principal()
+    {
+        var share = ValidShare();
+        share.PrincipalType = ObjectPrincipalType.Everyone;
+        share.PrincipalId = null;
+
+        new ShareObjectRequestValidator().Validate(share).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_share_rejects_an_organization_scope_on_a_non_role_principal()
+    {
+        var share = ValidShare();
+        share.OrganizationId = "o2";
+
+        new ShareObjectRequestValidator().Validate(share).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_share_rejects_a_past_expiry()
+    {
+        var validator = new ShareObjectRequestValidator();
+        var share = ValidShare();
+
+        share.ExpiresAt = DateTime.UtcNow.AddMinutes(-1);
+        validator.Validate(share).IsValid.Should().BeFalse();
+        share.ExpiresAt = DateTime.UtcNow.AddHours(1);
+        validator.Validate(share).IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_share_needs_a_resource_and_defined_enum_values()
+    {
+        var validator = new ShareObjectRequestValidator();
+
+        var share = ValidShare();
+        share.ResourceId = "";
+        validator.Validate(share).IsValid.Should().BeFalse();
+
+        share = ValidShare();
+        share.ResourceType = default;
+        validator.Validate(share).IsValid.Should().BeFalse();
+
+        share = ValidShare();
+        share.Permission = (ObjectPermission)99;
+        validator.Validate(share).IsValid.Should().BeFalse();
     }
 
     [Fact]

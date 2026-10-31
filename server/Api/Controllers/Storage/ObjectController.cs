@@ -1,3 +1,4 @@
+using Blocks.Data.Api.Filters;
 using Blocks.Genesis;
 using DataGateway.DomainService.Notifications;
 using DomainService.Storage.Dms;
@@ -75,6 +76,7 @@ namespace Api.Controllers
         /// <summary>Access-resolved, cursor-paginated files and directories under one parent.</summary>
         [HttpGet("get-objects")]
         [ProtectedEndPoint("blocks-data::object::get-objects")]
+        [ValidateRequest]
         public async Task<IActionResult> GetObjects([FromQuery] GetObjectRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.ParentDirectoryId) && request.ModuleName.HasValue)
@@ -99,6 +101,7 @@ namespace Api.Controllers
         /// <summary>Name search across directorys and files the caller may view.</summary>
         [HttpGet("search-objects")]
         [ProtectedEndPoint("blocks-data::object::search-objects")]
+        [ValidateRequest]
         public async Task<IActionResult> SearchObjects([FromQuery] ObjectSearchRequest request)
         {
             var page = await _objectDiscoveryService.SearchAsync(
@@ -110,6 +113,7 @@ namespace Api.Controllers
         /// <summary>Archived directorys and files the caller may view.</summary>
         [HttpGet("get-trash")]
         [ProtectedEndPoint("blocks-data::object::get-trash")]
+        [ValidateRequest]
         public async Task<IActionResult> GetTrash([FromQuery] TrashRequest request)
         {
             var page = await _objectDiscoveryService.GetTrashAsync(ObjectKind.FromApiString(request.Type), request.Cursor, request.Limit);
@@ -120,6 +124,7 @@ namespace Api.Controllers
         /// <summary>Live files and directorys explicitly shared with the caller.</summary>
         [HttpGet("get-shared-objects")]
         [ProtectedEndPoint("blocks-data::object::get-shared-objects")]
+        [ValidateRequest]
         public async Task<IActionResult> GetSharedObjects([FromQuery] SharedObjectRequest request)
         {
             var page = await _objectDiscoveryService.GetSharedAsync(
@@ -131,6 +136,7 @@ namespace Api.Controllers
         /// <summary>Returns an archived item to its original parent.</summary>
         [HttpPost("restore-from-trash")]
         [ProtectedEndPoint("blocks-data::object::restore-object")]
+        [ValidateRequest]
         public async Task<IActionResult> RestoreFromTrash([FromBody] RestoreFromTrashRequest request)
         {
             var result = await _objectDiscoveryService.RestoreAsync(request.ResourceId);
@@ -161,6 +167,7 @@ namespace Api.Controllers
         /// <summary>Creates an access entry. Requires Manage on the resource.</summary>
         [HttpPost("grant-access")]
         [ProtectedEndPoint("blocks-data::object::grant-access")]
+        [ValidateRequest]
         public async Task<IActionResult> GrantAccess([FromBody] GrantAccessRequest request)
         {
             var result = await _objectManagementService.GrantAccessAsync(ToPolicy(request));
@@ -172,6 +179,7 @@ namespace Api.Controllers
         /// <summary>Updates an existing access entry.</summary>
         [HttpPost("update-access-policy")]
         [ProtectedEndPoint("blocks-data::object::update-access-policy")]
+        [ValidateRequest]
         public async Task<IActionResult> UpdateAccessPolicy([FromBody] GrantAccessRequest request)
         {
             var result = await _objectManagementService.UpdateAccessAsync(ToPolicy(request));
@@ -183,6 +191,7 @@ namespace Api.Controllers
         /// <summary>Deletes an access entry.</summary>
         [HttpPost("revoke-access-policy")]
         [ProtectedEndPoint("blocks-data::object::revoke-access-policy")]
+        [ValidateRequest]
         public async Task<IActionResult> RevokeAccessPolicy([FromBody] RevokeAccessRequest request)
         {
             var revoked = await FindUserPolicyAsync(request.ResourceId, request.PolicyItemId);
@@ -211,6 +220,7 @@ namespace Api.Controllers
         /// <summary>Switches a resource between inheriting its parent's access and standing alone.</summary>
         [HttpPost("toggle-inheritance")]
         [ProtectedEndPoint("blocks-data::object::toggle-inheritance")]
+        [ValidateRequest]
         public async Task<IActionResult> ToggleInheritance([FromBody] ToggleInheritanceRequest request)
         {
             var result = await _objectManagementService.ToggleInheritanceAsync(
@@ -222,6 +232,7 @@ namespace Api.Controllers
         /// <summary>Grants a principal an allow entry and records it as a share.</summary>
         [HttpPost("share-object")]
         [ProtectedEndPoint("blocks-data::object::share-object")]
+        [ValidateRequest]
         public async Task<IActionResult> ShareObject([FromBody] ShareObjectRequest request)
         {
             var result = await _objectManagementService.ShareObjectAsync(

@@ -775,8 +775,9 @@ namespace Storage.DomainService.Services
                     : GetFileInfo(source.FileId, source.VersionId, source.Name, source.AccessModifier, category).filePath;
                 return await storageService.DownloadFileAsync(key);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                // Only the request's own cancellation stops the zip; a provider SDK timeout skips this file.
                 throw;
             }
             catch (Exception)

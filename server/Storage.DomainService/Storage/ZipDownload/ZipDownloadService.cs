@@ -1,5 +1,10 @@
+using System.Buffers;
+using System.Diagnostics;
+using System.IO.Compression;
+using System.Text.Json;
 using Blocks.Genesis;
 using Blocks.Genesis.Entities.Data;
+using DomainService.Configuration;
 using Microsoft.Extensions.Logging;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
@@ -18,17 +23,53 @@ public interface IZipDownloadService
     /// <see cref="ZipDownloadLimits.LimitExceeded"/> or <see cref="ZipDownloadLimits.NothingToDownload"/>.
     /// </summary>
     Task<PrepareZipDownloadResponse> PrepareAsync(PrepareZipDownloadRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Atomically takes the single-use ticket. Null when it is missing, malformed, expired, already used, corrupt,
+    /// or was prepared under a different tenant than the request's.
+    /// </summary>
+    Task<ZipTicket?> TakeTicketAsync(string ticket, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Writes the ticket's entries as a zip into <paramref name="output"/>, which may be non-seekable, one provider
+    /// stream at a time. Files that cannot be opened (or fail before their first byte) are skipped.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The ticket's storage configuration no longer exists; nothing was written.</exception>
+    /// <exception cref="ZipEntryCopyException">A source failed after its first byte was read; the archive is left unfinished.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled; the archive is left unfinished.</exception>
+    Task<ZipWriteResult> WriteZipAsync(ZipTicket ticket, Stream output, CancellationToken cancellationToken);
+}
+
+/// <summary>Counts of a finished zip write: entries written (folders and files) and file entries skipped.</summary>
+public sealed record ZipWriteResult(int EntriesWritten, int EntriesSkipped);
+
+/// <summary>
+/// A source stream failed after part of the file was already written into the zip. The entry cannot be undone,
+/// so the response must be aborted rather than completed with a silently truncated file.
+/// </summary>
+public sealed class ZipEntryCopyException : Exception
+{
+    public ZipEntryCopyException(string fileId, Exception innerException)
+        : base($"Reading file '{fileId}' failed partway through its zip entry.", innerException)
+    {
+        FileId = fileId;
+    }
+
+    /// <summary>The id of the file whose source failed (never its name).</summary>
+    public string FileId { get; }
 }
 
 public sealed class ZipDownloadService : IZipDownloadService
 {
     private const string ErrorKey = "zip";
+    private const int CopyBufferSize = 81_920;
 
     private readonly IFileDirectoryRepository _directoryRepository;
     private readonly IObjectAccessResolver _accessResolver;
     private readonly IObjectListingService _listingService;
     private readonly IFileManagementService _fileManagementService;
     private readonly IZipTicketStore _ticketStore;
+    private readonly IStorageConfigurationProvider _configurationProvider;
     private readonly ILogger<ZipDownloadService> _logger;
 
     public ZipDownloadService(
@@ -37,6 +78,7 @@ public sealed class ZipDownloadService : IZipDownloadService
         IObjectListingService listingService,
         IFileManagementService fileManagementService,
         IZipTicketStore ticketStore,
+        IStorageConfigurationProvider configurationProvider,
         ILogger<ZipDownloadService> logger)
     {
         _directoryRepository = directoryRepository;
@@ -44,6 +86,7 @@ public sealed class ZipDownloadService : IZipDownloadService
         _listingService = listingService;
         _fileManagementService = fileManagementService;
         _ticketStore = ticketStore;
+        _configurationProvider = configurationProvider;
         _logger = logger;
     }
 
@@ -141,6 +184,176 @@ public sealed class ZipDownloadService : IZipDownloadService
             ZipName = zipName,
         };
     }
+
+    public async Task<ZipTicket?> TakeTicketAsync(string ticket, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        ZipTicket? taken;
+        try
+        {
+            taken = await _ticketStore.TakeAsync(ticket).ConfigureAwait(false);
+        }
+        catch (JsonException)
+        {
+            // GETDEL already removed the corrupt value, so it behaves exactly like a missing ticket.
+            _logger.LogWarning("[zip-download] ticket-corrupt");
+            return null;
+        }
+
+        if (taken is null)
+        {
+            return null;
+        }
+
+        // The ticket alone carries the authority, so it only works under the tenant it was prepared for.
+        var requestTenantId = BlocksContext.GetContext()?.TenantId;
+        if (string.IsNullOrEmpty(requestTenantId) || !string.Equals(taken.TenantId, requestTenantId, StringComparison.Ordinal))
+        {
+            _logger.LogWarning(
+                "[zip-download] ticket-tenant-mismatch ticketTenant={TicketTenantId} requestTenant={RequestTenantId}",
+                taken.TenantId, requestTenantId);
+            return null;
+        }
+
+        return taken;
+    }
+
+    public async Task<ZipWriteResult> WriteZipAsync(ZipTicket ticket, Stream output, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(ticket);
+        ArgumentNullException.ThrowIfNull(output);
+
+        // Resolved before the archive exists, so a missing configuration fails with nothing written.
+        var configuration = await _configurationProvider.GetByNameAsync(ticket.ConfigurationName, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"Storage configuration '{ticket.ConfigurationName}' was not found.");
+
+        var stopwatch = Stopwatch.StartNew();
+        var written = 0;
+        var skipped = 0;
+        var buffer = ArrayPool<byte>.Shared.Rent(CopyBufferSize);
+        try
+        {
+            // Deliberately not `await using`: after a failed copy or a cancellation the archive is abandoned unfinished.
+            // Disposing it would close the broken entry and append a central directory, handing the user a valid-looking
+            // zip with a truncated file, and would keep writing into a response that is already gone. It holds no
+            // unmanaged resources, and leaveOpen keeps the output for the caller.
+#pragma warning disable CA2000
+            var archive = await ZipArchive.CreateAsync(output, ZipArchiveMode.Create, leaveOpen: true, entryNameEncoding: null, cancellationToken).ConfigureAwait(false);
+#pragma warning restore CA2000
+
+            foreach (var entry in ticket.Entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (entry.Kind == ZipEntryKind.Folder)
+                {
+                    var folderPath = entry.ZipPath.EndsWith('/') ? entry.ZipPath : entry.ZipPath + "/";
+                    archive.CreateEntry(folderPath, CompressionLevel.NoCompression);
+                    written++;
+                }
+                else if (await WriteFileEntryAsync(archive, entry, configuration, buffer, cancellationToken).ConfigureAwait(false))
+                {
+                    written++;
+                }
+                else
+                {
+                    skipped++;
+                }
+            }
+
+            await archive.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                "[zip-download] stream-aborted tenant={TenantId} entriesWritten={EntriesWritten} entriesSkipped={EntriesSkipped} elapsedMs={ElapsedMs} reason={Reason}",
+                ticket.TenantId, written, skipped, stopwatch.ElapsedMilliseconds, ex.GetType().Name);
+            throw;
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
+
+        _logger.LogInformation(
+            "[zip-download] stream-completed tenant={TenantId} entriesWritten={EntriesWritten} entriesSkipped={EntriesSkipped} elapsedMs={ElapsedMs}",
+            ticket.TenantId, written, skipped, stopwatch.ElapsedMilliseconds);
+
+        return new ZipWriteResult(written, skipped);
+    }
+
+    /// <summary>
+    /// Copies one file into the archive. False (skipped) when the source cannot be opened or fails before its first
+    /// byte; <see cref="ZipEntryCopyException"/> when it fails after its entry already holds data.
+    /// </summary>
+    private async Task<bool> WriteFileEntryAsync(
+        ZipArchive archive, ZipTicketEntry entry, StorageConfiguration configuration, byte[] buffer, CancellationToken cancellationToken)
+    {
+        var source = entry.Source;
+        if (source is null)
+        {
+            LogSkipped(string.Empty, "no-source");
+            return false;
+        }
+
+        var stream = await _fileManagementService.OpenZipSourceAsync(source, configuration, cancellationToken).ConfigureAwait(false);
+        if (stream is null)
+        {
+            LogSkipped(source.FileId, "open-failed");
+            return false;
+        }
+
+        await using (stream.ConfigureAwait(false))
+        {
+            // The first chunk is read before the entry exists, so a source that fails straight away is skipped like
+            // one that could not be opened, instead of breaking the whole archive.
+            int read;
+            try
+            {
+                read = await stream.ReadAsync(buffer.AsMemory(0, CopyBufferSize), cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                LogSkipped(source.FileId, "read-failed:" + ex.GetType().Name);
+                return false;
+            }
+
+            var zipEntry = archive.CreateEntry(entry.ZipPath, CompressionLevel.NoCompression);
+            var destination = await zipEntry.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+            // Read and write are separated so only a failing source becomes a ZipEntryCopyException; a failing
+            // output (client gone) surfaces as itself.
+            while (read > 0)
+            {
+                await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    read = await stream.ReadAsync(buffer.AsMemory(0, CopyBufferSize), cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    throw new ZipEntryCopyException(source.FileId, ex);
+                }
+            }
+
+            // Only a fully copied entry is closed; a broken one is left open with the archive (see WriteZipAsync).
+            await destination.DisposeAsync().ConfigureAwait(false);
+        }
+
+        return true;
+    }
+
+    private void LogSkipped(string fileId, string reason)
+        => _logger.LogWarning("[zip-download] entry-skipped fileId={FileId} reason={Reason}", fileId, reason);
 
     private async Task<List<FileDirectory>> LoadSelectedDirectoriesAsync(List<string> directoryIds, CancellationToken cancellationToken)
     {

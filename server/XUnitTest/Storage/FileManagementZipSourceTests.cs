@@ -228,14 +228,34 @@ public class FileManagementZipSourceTests : IDisposable
     }
 
     [Fact]
-    public async Task Open_rethrows_cancellation()
+    public async Task Open_rethrows_cancellation_of_the_request()
     {
-        _storageService.Setup(s => s.DownloadFileAsync(It.IsAny<string>(), null, null, null)).ThrowsAsync(new OperationCanceledException());
+        using var cts = new CancellationTokenSource();
+        _storageService
+            .Setup(s => s.DownloadFileAsync(It.IsAny<string>(), null, null, null))
+            .Returns(() =>
+            {
+                cts.Cancel();
+                throw new OperationCanceledException(cts.Token);
+            });
         var sut = CreateSut();
 
-        var act = () => sut.OpenZipSourceAsync(Source(), new StorageConfiguration { StorageStrategy = "AWS" }, CancellationToken.None);
+        var act = () => sut.OpenZipSourceAsync(Source(), new StorageConfiguration { StorageStrategy = "AWS" }, cts.Token);
 
         await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Fact]
+    public async Task Open_returns_null_when_the_provider_times_out_while_the_request_is_live()
+    {
+        _storageService
+            .Setup(s => s.DownloadFileAsync(It.IsAny<string>(), null, null, null))
+            .ThrowsAsync(new TaskCanceledException("provider timeout"));
+        var sut = CreateSut();
+
+        var result = await sut.OpenZipSourceAsync(Source(), new StorageConfiguration { StorageStrategy = "AWS" }, CancellationToken.None);
+
+        result.Should().BeNull();
     }
 
     private static ZipSourceFile Source(string? storageKey = null) => new()

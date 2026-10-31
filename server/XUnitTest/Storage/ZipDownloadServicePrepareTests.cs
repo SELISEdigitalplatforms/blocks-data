@@ -64,6 +64,7 @@ public class ZipDownloadServicePrepareTests : IDisposable
         _listing.Object,
         _files.Object,
         _store.Object,
+        Mock.Of<DomainService.Configuration.IStorageConfigurationProvider>(),
         NullLogger<ZipDownloadService>.Instance);
 
     private void AddSource(string id, string name, long size = 10)

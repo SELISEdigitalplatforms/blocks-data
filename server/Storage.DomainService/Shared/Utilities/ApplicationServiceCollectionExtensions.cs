@@ -60,6 +60,7 @@ namespace Storage.DomainService.Utilities
             services.AddSingleton<IUploadKeyRouter, UploadKeyRouter>();
             services.AddSingleton<IUploadVerificationService, UploadVerificationService>();
             services.AddSingleton<IZipTicketStore, ZipTicketStore>();
+            services.AddSingleton<IZipDownloadService, ZipDownloadService>();
             services.AddBlocksStorageConfiguration();
             services.AddHttpContextAccessor();
         }

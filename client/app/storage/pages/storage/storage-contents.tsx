@@ -9,6 +9,7 @@ import {
   filterStorageConfigurations,
   type StorageFilterValues,
 } from "../../utils/filter-storage-configurations";
+import { DownloadPanel } from "../../components/download-panel/download-panel";
 import { StorageDetail } from "../storage-detail/storage-detail";
 import {
   StorageCard,
@@ -43,12 +44,14 @@ export function StorageContentsWrapper() {
   const params = new URLSearchParams(location.search);
   const storageId = params.get("id");
 
-  // Render detail view or list view based on storageId query parameter
-  if (storageId) {
-    return <StorageDetail />;
-  }
-
-  return <StorageContents />;
+  // Render detail view or list view based on storageId query parameter.
+  // The download panel is mounted here so it shows on both and survives navigation between them.
+  return (
+    <>
+      {storageId ? <StorageDetail /> : <StorageContents />}
+      <DownloadPanel />
+    </>
+  );
 }
 
 export function StorageContents() {

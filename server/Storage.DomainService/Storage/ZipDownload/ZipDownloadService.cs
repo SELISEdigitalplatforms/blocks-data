@@ -232,6 +232,10 @@ public sealed class ZipDownloadService : IZipDownloadService
         var written = 0;
         var skipped = 0;
         var buffer = ArrayPool<byte>.Shared.Rent(CopyBufferSize);
+
+        // ZipArchive writes data descriptors and some local headers synchronously; the adapter queues those and sends
+        // them on the next async write, so the response body never sees synchronous IO. Disposing it never drains.
+        await using var asyncOutput = new AsyncOnlyOutputStream(output);
         try
         {
             // Deliberately not `await using`: after a failed copy or a cancellation the archive is abandoned unfinished.
@@ -239,7 +243,7 @@ public sealed class ZipDownloadService : IZipDownloadService
             // zip with a truncated file, and would keep writing into a response that is already gone. It holds no
             // unmanaged resources, and leaveOpen keeps the output for the caller.
 #pragma warning disable CA2000
-            var archive = await ZipArchive.CreateAsync(output, ZipArchiveMode.Create, leaveOpen: true, entryNameEncoding: null, cancellationToken).ConfigureAwait(false);
+            var archive = await ZipArchive.CreateAsync(asyncOutput, ZipArchiveMode.Create, leaveOpen: true, entryNameEncoding: null, cancellationToken).ConfigureAwait(false);
 #pragma warning restore CA2000
 
             foreach (var entry in ticket.Entries)
@@ -263,6 +267,10 @@ public sealed class ZipDownloadService : IZipDownloadService
             }
 
             await archive.DisposeAsync().ConfigureAwait(false);
+
+            // Sends whatever the archive wrote synchronously last (the final entry's data descriptor, unopened
+            // folder headers). Only reached on success: an aborted archive leaves its queue unsent.
+            await asyncOutput.FlushAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

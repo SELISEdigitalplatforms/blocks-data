@@ -22,6 +22,12 @@ const schemaList = {
   ],
 };
 const useSchemaList = vi.fn((_: unknown) => ({ data: { data: schemaList }, isLoading: false }));
+// The target picker reads its schemas from schemas/reference-targets (validation and access rules plan, section 8).
+const referenceTargets = {
+  entities: schemaList.items.map((s) => ({ schemaName: s.schemaName, isSystemEntity: false, fields: s.fields.map((f) => ({ ...f, isPIIData: false, isUniqueData: false })) })),
+  systemEntities: [],
+};
+const useReferenceTargets = vi.fn((_: string) => ({ data: { data: referenceTargets }, isLoading: false }));
 
 vi.mock("../../hooks/use-configuration", () => ({
   useGetSchemaFieldValidation: () => ({ data: undefined, isLoading: false, isFetching: false }),
@@ -30,6 +36,7 @@ vi.mock("../../hooks/use-configuration", () => ({
   useDeleteSchemaFieldValidation: () => ({ mutateAsync: deleteValidation, isPending: false }),
   useGenerateRegex: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useSchemaList: (payload: unknown) => useSchemaList(payload),
+  useReferenceTargets: (keyword: string) => useReferenceTargets(keyword),
   useSchemaVariableContext: () => ({
     schemaName: "Employee",
     fields: {
@@ -126,7 +133,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
         expect.objectContaining({
           itemId: "v1",
           // The existing rule is sent back untouched (no version added); only the new one is version 1.
-          validations: [notEmpty, expect.objectContaining({ type: 2, value: 3, secondaryValue: null, evaluationVersion: 1 })],
+          validations: [notEmpty, expect.objectContaining({ type: 2, value: 3, secondaryValue: null, evaluationVersion: 2 })],
         }),
       ),
     );
@@ -208,7 +215,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
     await user.click(await screen.findByRole("option", { name: "Department" }));
 
     // Only Entity schemas are searched, and the field list keeps to text fields plus ItemId.
-    expect(useSchemaList).toHaveBeenCalledWith(expect.objectContaining({ schemaType: "1", projectKey: "pk" }));
+    expect(useReferenceTargets).toHaveBeenCalled();
     expect(within(screen.getByRole("combobox", { name: "Target field" })).getByText("ItemId")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Add validation" }));
@@ -316,7 +323,8 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
       // No Fixed value / Another property switch any more: one box, with Expression inside it.
       expect(screen.queryByRole("group", { name: "Value source" })).not.toBeInTheDocument();
       // Same kind only, and never the property itself.
-      expect(await pickFromExpression(user, "Value")).toEqual(["StartDateEmployee.StartDate"]);
+      // Plus a date relative to now on date-time comparisons (validation and access rules plan, section 3).
+      expect(await pickFromExpression(user, "Value")).toEqual(["StartDateEmployee.StartDate", "Nownow, or an amount before or after it"]);
       await user.click(screen.getByRole("option", { name: /StartDate/ }));
 
       // The property replaces the box, with a way back to a fixed value.
@@ -327,7 +335,7 @@ describe("SchemaFieldValidationPanel: rule types and several rules", () => {
       await waitFor(() =>
         expect(createValidation).toHaveBeenCalledWith(
           expect.objectContaining({
-            validations: [expect.objectContaining({ type: 7, value: "{{Employee.StartDate}}", evaluationVersion: 1 })],
+            validations: [expect.objectContaining({ type: 7, value: "{{Employee.StartDate}}", evaluationVersion: 2 })],
           }),
         ),
       );

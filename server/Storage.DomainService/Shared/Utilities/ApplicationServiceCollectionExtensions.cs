@@ -30,6 +30,7 @@ namespace Storage.DomainService.Utilities
             services.AddTransient<IValidator<MoveDirectoryRequest>, MoveDirectoryRequestValidator>();
             services.AddTransient<IValidator<GrantAccessRequest>, GrantAccessRequestValidator>();
             services.AddTransient<IValidator<ShareObjectRequest>, ShareObjectRequestValidator>();
+            services.AddTransient<IValidator<ShareObjectsRequest>, ShareObjectsRequestValidator>();
             services.AddTransient<IValidator<RevokeAccessRequest>, RevokeAccessRequestValidator>();
             services.AddTransient<IValidator<ToggleInheritanceRequest>, ToggleInheritanceRequestValidator>();
             services.AddTransient<IValidator<ObjectSearchRequest>, ObjectSearchRequestValidator>();

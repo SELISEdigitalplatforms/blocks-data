@@ -1,5 +1,15 @@
 import { RegExpParser } from "regexpp";
+import { typeOptions } from "../constants/input-restrictions";
 import type { ISchemaFieldValidation, ValidationRuleValue } from "../models/data-service";
+import { describeRelativeNow, isRelativeNowWritten, parseRelativeNow } from "./relative-now";
+import { MAX_LIST_VALUES, RULE_MESSAGE_FORMATS, RULE_MESSAGES } from "./rule-messages";
+import {
+  conditionDraftError,
+  conditionDraftFrom,
+  conditionGroupFrom,
+  type ConditionDraft,
+  type ConditionField,
+} from "./validation-conditions";
 import { checkVariables, parseVariables, type VariableField } from "./variable-syntax";
 
 /** Mirrors the server's ValidationType (Genesis); the API sends the number. */
@@ -17,14 +27,21 @@ export const VALIDATION_TYPE = {
   LessThanOrEqual: 10,
   Range: 11,
   Reference: 12,
+  In: 13,
+  NotIn: 14,
+  MinItems: 15,
+  MaxItems: 16,
+  UniqueItems: 17,
+  NotExistsIn: 18,
 } as const;
 
 export type ValidationTypeValue = (typeof VALIDATION_TYPE)[keyof typeof VALIDATION_TYPE];
 
 /** Which inputs a rule type needs in the form. */
-export type RuleInputKind = "none" | "regex" | "length" | "lengthRange" | "value" | "valueRange" | "reference";
+export type RuleInputKind = "none" | "regex" | "length" | "lengthRange" | "value" | "valueRange" | "reference" | "valueList" | "count";
 
-export const VALIDATION_TYPE_META: Record<ValidationTypeValue, { label: string; input: RuleInputKind }> = {
+/** `tag` is the short name on a rule's card where it differs from the menu label. */
+export const VALIDATION_TYPE_META: Record<ValidationTypeValue, { label: string; input: RuleInputKind; tag?: string }> = {
   [VALIDATION_TYPE.NotEmpty]: { label: "Not empty", input: "none" },
   [VALIDATION_TYPE.Regex]: { label: "Matches a pattern", input: "regex" },
   [VALIDATION_TYPE.MinLength]: { label: "Min length", input: "length" },
@@ -38,7 +55,30 @@ export const VALIDATION_TYPE_META: Record<ValidationTypeValue, { label: string; 
   [VALIDATION_TYPE.LessThanOrEqual]: { label: "At most", input: "value" },
   [VALIDATION_TYPE.Range]: { label: "Between", input: "valueRange" },
   [VALIDATION_TYPE.Reference]: { label: "Exists in another schema", input: "reference" },
+  [VALIDATION_TYPE.In]: { label: "Is one of", input: "valueList", tag: "One of" },
+  [VALIDATION_TYPE.NotIn]: { label: "Is not one of", input: "valueList", tag: "Not one of" },
+  [VALIDATION_TYPE.MinItems]: { label: "At least … items", input: "count", tag: "At least" },
+  [VALIDATION_TYPE.MaxItems]: { label: "At most … items", input: "count", tag: "At most" },
+  [VALIDATION_TYPE.UniqueItems]: { label: "No duplicates", input: "none" },
+  [VALIDATION_TYPE.NotExistsIn]: { label: "Must not exist in another schema", input: "reference" },
 };
+
+/** Rules that check a whole list: the count, or duplicates. Every other rule checks each item of a list (D8). */
+export const WHOLE_LIST_TYPES: ValidationTypeValue[] = [VALIDATION_TYPE.MinItems, VALIDATION_TYPE.MaxItems, VALIDATION_TYPE.UniqueItems];
+
+/**
+ * On a list property, what a rule checks: the whole list or each item. Null on a single value. A rule saved before
+ * versions (0) checks the whole list, as the server does; Is one of always checks each item.
+ */
+export function ruleScope(type: number, isArray: boolean, evaluationVersion: number = CURRENT_EVALUATION_VERSION): "list" | "item" | null {
+  if (!isArray) return null;
+  if (WHOLE_LIST_TYPES.includes(type as ValidationTypeValue)) return "list";
+  if (type === VALIDATION_TYPE.In || type === VALIDATION_TYPE.NotIn) return "item";
+  return evaluationVersion < 1 ? "list" : "item";
+}
+
+/** Rules that look the value up in another schema. */
+export const isLookupType = (type: number) => type === VALIDATION_TYPE.Reference || type === VALIDATION_TYPE.NotExistsIn;
 
 /** The target field a Reference rule uses when none is picked. */
 export const DEFAULT_REFERENCE_FIELD = "ItemId";
@@ -46,11 +86,24 @@ export const DEFAULT_REFERENCE_FIELD = "ItemId";
 const T = VALIDATION_TYPE;
 const COMPARISONS = [T.GreaterThan, T.LessThan, T.GreaterThanOrEqual, T.LessThanOrEqual, T.Range];
 
+/** True for a property whose type is another schema (an object, or a list of objects). */
+export const isObjectType = (fieldType: string) => !typeOptions.includes(fieldType);
+
 /**
- * The rule types that make sense for a property's type. Must match what the server accepts:
- * Reference only on text and number fields (Genesis `ReferenceRuleCompatibility`).
+ * The rule types that make sense for a property's type. Must match what the server accepts: Reference and Must not
+ * exist in only on text and number fields (Genesis `ReferenceRuleCompatibility`), Is one of not on dates or true/false.
+ * The newer types come after today's, and a list property also gets the whole-list rules. A list of objects can only
+ * be counted (No duplicates needs values), and a single object takes no rule.
  */
-export function getAllowedValidationTypes(fieldType: string): ValidationTypeValue[] {
+export function getAllowedValidationTypes(fieldType: string, isArray = false): ValidationTypeValue[] {
+  if (isObjectType(fieldType)) return isArray ? [T.MinItems, T.MaxItems] : [];
+  const types = singleValueTypes(fieldType);
+  const lists: ValidationTypeValue[] = ["String", "ID", "Enum", "Int", "Float"].includes(fieldType) ? [T.In, T.NotIn] : [];
+  const lookups: ValidationTypeValue[] = types.includes(T.Reference) ? [T.NotExistsIn] : [];
+  return [...types, ...lists, ...lookups, ...(isArray ? WHOLE_LIST_TYPES : [])];
+}
+
+function singleValueTypes(fieldType: string): ValidationTypeValue[] {
   switch (fieldType) {
     case "String":
     case "ID":
@@ -95,9 +148,26 @@ export interface RuleDraft {
   secondaryValue: string;
   errorMessage: string;
   isActive: boolean;
+  /** Is one of / is not one of: the values, as typed. */
+  values?: string[];
+  /** The version the rule was saved with (0 when saved without one); missing for a new rule. */
+  evaluationVersion?: number;
+  /** "Only when…": kept while switched off, saved only while on (D3). */
+  when?: ConditionDraft | null;
+  whenOn?: boolean;
+  /** Reference / Must not exist in: only target records where… */
+  targetFilter?: ConditionDraft | null;
+  filterOn?: boolean;
+  /** "Use the new behaviour" on an older Reference rule (D2, decision 5). */
+  useNewBehaviour?: boolean;
+  /** The rule as saved, for an edit: what the version decision compares with. Missing for a new rule. */
+  saved?: { type: number; value: string; secondaryValue: string };
 }
 
-const asText = (value: ValidationRuleValue | undefined): string => (value === null || value === undefined ? "" : String(value));
+const hasConditions = (group: ISchemaFieldValidation["when"]) => !!group && (group.rules.length > 0 || (group.nestedGroups?.length ?? 0) > 0);
+
+const asText = (value: ValidationRuleValue | undefined): string =>
+  value === null || value === undefined || Array.isArray(value) ? "" : String(value);
 
 export function draftFromRule(rule: ISchemaFieldValidation): RuleDraft {
   return {
@@ -106,8 +176,20 @@ export function draftFromRule(rule: ISchemaFieldValidation): RuleDraft {
     secondaryValue: asText(rule.secondaryValue),
     errorMessage: rule.errorMessage ?? "",
     isActive: rule.isActive,
+    values: Array.isArray(rule.value) ? rule.value.map(String) : [],
+    evaluationVersion: rule.evaluationVersion ?? 0,
+    when: conditionDraftFrom(rule.when),
+    // A stored empty condition means "always", as on the server.
+    whenOn: hasConditions(rule.when),
+    targetFilter: conditionDraftFrom(rule.targetFilter),
+    filterOn: hasConditions(rule.targetFilter),
+    saved: { type: rule.type, value: asText(rule.value), secondaryValue: asText(rule.secondaryValue) },
   };
 }
+
+/** Saved before deleted records stopped counting: deleted target records still count (D2). */
+export const isOlderReference = (rule: Pick<ISchemaFieldValidation, "type" | "evaluationVersion">) =>
+  rule.type === VALIDATION_TYPE.Reference && (rule.evaluationVersion ?? 0) < 2;
 
 /**
  * Comparison values may be one record variable, e.g. {{Employee.StartDate}}. Only text with "{{" or "}}"
@@ -119,6 +201,24 @@ export const looksLikeVariable = (text: string) => text.includes("{{") || text.i
 export interface RuleVariableContext {
   schemaName: string;
   fields: Record<string, VariableField>;
+  /** An Enum property's values, by path; for "only when" conditions. */
+  enumValues?: Record<string, string[]>;
+}
+
+/** True when the property sits inside a list of objects (Items.Qty), where a condition can't be scoped yet. */
+export function isInsideListOfObjects(fieldPath: string, variables?: RuleVariableContext): boolean {
+  const segments = fieldPath.split(".");
+  return segments.slice(0, -1).some((_, i) => {
+    const parent = variables?.fields[segments.slice(0, i + 1).join(".")];
+    return !!parent && parent.isArray && parent.isObject;
+  });
+}
+
+/** The properties an "only when" condition can name: the record's single values, never one inside a list of objects. */
+export function conditionFieldsOf(variables?: RuleVariableContext): ConditionField[] {
+  return Object.entries(variables?.fields ?? {})
+    .filter(([path, field]) => !field.isObject && !field.isArray && !isInsideListOfObjects(path, variables))
+    .map(([path, field]) => ({ path, type: field.type, isArray: false, enumValues: variables?.enumValues?.[path] }));
 }
 
 /** The server's kinds for comparing a variable with the property: Enum compares as text. */
@@ -170,7 +270,8 @@ const isNumber = (text: string) => text.trim() !== "" && Number.isFinite(Number(
 function checkVariableSlots(slots: string[], fieldType: string, variables?: RuleVariableContext): string | null | undefined {
   if (!slots.some(looksLikeVariable)) return undefined;
   if (slots.includes("")) return slots.length === 1 ? "Value is required" : "Both values are required";
-  for (const slot of slots.filter(looksLikeVariable)) {
+  // A date relative to now is not a variable: Genesis checks it on its own (ValidationRuleCheck).
+  for (const slot of slots.filter((slot) => looksLikeVariable(slot) && !isRelativeNowWritten(slot))) {
     const problem = variables?.schemaName ? checkRuleVariable(slot, fieldType, variables) : null;
     if (problem) return problem;
   }
@@ -209,6 +310,39 @@ function checkValueRange(value: string, secondary: string, fieldType: string): s
   return kind === "date" && new Date(value) > new Date(secondary) ? "Min must be ≤ max" : null;
 }
 
+const ORDERING_TYPES: ValidationTypeValue[] = [T.GreaterThan, T.LessThan, T.GreaterThanOrEqual, T.LessThanOrEqual, T.Range];
+
+/** A date relative to now in a comparison value: well formed, on a date-time property, in an ordering rule. */
+function checkRelativeNow(slots: string[], type: ValidationTypeValue, fieldType: string): string | null | undefined {
+  const written = slots.filter((slot) => isRelativeNowWritten(slot));
+  if (written.length === 0) return undefined;
+  const malformed = written.find((slot) => !parseRelativeNow(slot));
+  if (malformed) return RULE_MESSAGE_FORMATS.InvalidNow(malformed);
+  if (fieldType !== "DateTime") return RULE_MESSAGES.NowOnlyForDates;
+  if (!ORDERING_TYPES.includes(type)) return RULE_MESSAGES.NowOnlyForComparisons;
+  return null;
+}
+
+/** Is one of / is not one of: some values, at most 500, each of the property's type, none twice (Genesis `ValidationRuleCheck`). */
+function checkValueList(values: string[], fieldType: string, options?: RuleCheckOptions): string | null {
+  const items = values.map((v) => v.trim());
+  if (items.length === 0) return RULE_MESSAGES.ValuesMustNotBeEmpty;
+  if (items.length > MAX_LIST_VALUES) return RULE_MESSAGES.TooManyValues;
+  const seen = new Set<string>();
+  for (const item of items) {
+    // 1.0 is a whole number, as on the server.
+    if (fieldType === "Int" && !(isNumber(item) && Number.isInteger(Number(item)))) return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, "whole number");
+    if (fieldType === "Enum" && options?.enumValues?.length && !options.enumValues.includes(item))
+      return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, `value of ${options.fieldPath ?? "the property"}`);
+    if (fieldType === "Float" && !isNumber(item)) return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, "number");
+    // Exact match, as Equal: "de" and "DE" are two values; 2 and 2.0 are one.
+    const key = fieldType === "Int" || fieldType === "Float" ? String(Number(item)) : item;
+    if (seen.has(key)) return RULE_MESSAGE_FORMATS.DuplicateValue(item);
+    seen.add(key);
+  }
+  return null;
+}
+
 /** The fixed-value check for each kind of rule input. */
 const INPUT_CHECKS: Record<RuleInputKind, (value: string, secondary: string, fieldType: string) => string | null> = {
   none: () => null,
@@ -218,28 +352,92 @@ const INPUT_CHECKS: Record<RuleInputKind, (value: string, secondary: string, fie
   value: (value, _secondary, fieldType) => checkValue(value, fieldType),
   valueRange: checkValueRange,
   reference: (value) => (value ? null : "Choose the schema the value must exist in"),
+  // The list is checked from the draft's values, in checkRuleDraft.
+  valueList: () => null,
+  count: (value) => (isWholeNumber(value) ? null : RULE_MESSAGES.CountMustBeWholeNumber),
 };
+
+/** What the checks of a rule need besides the record's own properties. */
+export interface RuleCheckOptions {
+  /** The target schema's properties, for a Reference / Must not exist in filter. Without them only an empty filter is refused. */
+  targetFields?: ConditionField[];
+  /** The property's full path, e.g. Items.Qty. */
+  fieldPath?: string;
+  /** An Enum property's values. */
+  enumValues?: string[];
+}
 
 /**
  * Why the draft cannot be saved yet, or null when it can. With `variables`, a comparison value written as
  * a variable is checked against the schema; without them its syntax is left to the server.
  */
-export function checkRuleDraft(draft: RuleDraft, fieldType: string, variables?: RuleVariableContext): string | null {
+export function checkRuleDraft(draft: RuleDraft, fieldType: string, variables?: RuleVariableContext, options?: RuleCheckOptions): string | null {
+  const valueProblem = checkRuleValues(draft, fieldType, variables, options);
+  if (valueProblem) return valueProblem;
+  if (draft.whenOn && draft.when) {
+    // The lookup runs whatever the record holds (Genesis refuses this too).
+    if (isLookupType(draft.type)) return RULE_MESSAGES.ConditionOnLookup;
+    if (options?.fieldPath && isInsideListOfObjects(options.fieldPath, variables)) return RULE_MESSAGES.ConditionInsideList;
+    const problem = conditionDraftError(draft.when, conditionFieldsOf(variables), "when");
+    if (problem) return problem;
+  }
+  if (isLookupType(draft.type) && draft.filterOn && draft.targetFilter) {
+    const filter = options?.targetFields ? draft.targetFilter : { ...draft.targetFilter, rows: draft.targetFilter.rows.slice(0, 1) };
+    if (draft.targetFilter.rows.length === 0 || options?.targetFields) return conditionDraftError(filter, options?.targetFields ?? [], "filter");
+  }
+  return null;
+}
+
+function checkRuleValues(draft: RuleDraft, fieldType: string, variables?: RuleVariableContext, options?: RuleCheckOptions): string | null {
   const input = VALIDATION_TYPE_META[draft.type]?.input;
   if (!input) return "Choose a rule type";
   const value = draft.value.trim();
   const secondary = draft.secondaryValue.trim();
+  if (input === "valueList") return checkValueList(draft.values ?? [], fieldType, options);
+  if (draft.type === T.NotExistsIn) {
+    if (!value) return RULE_MESSAGES.TargetSchemaRequired;
+    if (variables?.schemaName && value.toLowerCase() === variables.schemaName.toLowerCase()) return RULE_MESSAGES.NotExistsInOwnSchema;
+  }
   if (input === "value" || input === "valueRange") {
-    const variableProblem = checkVariableSlots(input === "value" ? [value] : [value, secondary], fieldType, variables);
+    const slots = input === "value" ? [value] : [value, secondary];
+    const nowProblem = checkRelativeNow(slots, draft.type, fieldType);
+    if (nowProblem) return nowProblem;
+    const variableProblem = checkVariableSlots(slots, fieldType, variables);
     if (variableProblem !== undefined) return variableProblem;
   }
   return INPUT_CHECKS[input](value, secondary, fieldType);
 }
 
-/** Rules added or edited in the console; rules saved earlier keep their version until edited. */
-export const CURRENT_EVALUATION_VERSION = 1;
+/**
+ * The version rules added in the console are saved with. From 2, deleted target records no longer count for
+ * Reference rules; every other rule type behaves as at version 1. A rule saved earlier keeps its version when edited.
+ */
+export const CURRENT_EVALUATION_VERSION = 2;
 
-/** The rule to send: lengths and numbers as numbers, booleans as booleans, the rest as text. */
+/**
+ * The version a rule is saved with. A new rule gets the current one. An edited rule keeps its own (decision 5, R4),
+ * raised to 1 only when the edit adds a variable or a date relative to now, and to the current one only with "Use
+ * the new behaviour". A condition or a filter needs no version.
+ */
+function versionFor(draft: RuleDraft, input: RuleInputKind): number {
+  const kept = draft.evaluationVersion;
+  if (kept === undefined || draft.useNewBehaviour) return CURRENT_EVALUATION_VERSION;
+  // Changed into a Reference rule: it has no older behaviour to keep.
+  if (draft.type === VALIDATION_TYPE.Reference && draft.saved && draft.saved.type !== VALIDATION_TYPE.Reference) return CURRENT_EVALUATION_VERSION;
+  // Only a variable the edit adds raises it: text the rule already held stays as it was read.
+  const slots: [string, string | undefined][] = [
+    [draft.value, draft.saved?.value],
+    [draft.secondaryValue, draft.saved?.secondaryValue],
+  ];
+  const added = (input === "value" || input === "valueRange") && slots.some(([now, before]) => looksLikeVariable(now) && now.trim() !== (before ?? "").trim());
+  return added && kept < 1 ? 1 : kept;
+}
+
+/**
+ * The rule to send: lengths, counts and numbers as numbers, booleans as booleans, the rest as text; Is one of as a
+ * list. An edited rule keeps its version (see `versionFor`). The condition and the filter are sent only while
+ * switched on, so a rule without them is sent exactly as before.
+ */
 export function ruleFromDraft(draft: RuleDraft, fieldType: string): ISchemaFieldValidation {
   const input = VALIDATION_TYPE_META[draft.type].input;
   const kind = valueKindForField(fieldType);
@@ -259,21 +457,41 @@ export function ruleFromDraft(draft: RuleDraft, fieldType: string): ISchemaField
   if (input === "none") value = null;
   if (input === "regex") value = draft.value.trim();
   if (input === "reference") secondaryValue = draft.secondaryValue.trim() || DEFAULT_REFERENCE_FIELD;
+  if (input === "count") value = Number(draft.value.trim());
+  if (input === "valueList") {
+    const items = (draft.values ?? []).map((v) => v.trim()).filter(Boolean);
+    value = kind === "number" ? items.map(Number) : items;
+  }
 
-  return {
+  const rule: ISchemaFieldValidation = {
     type: draft.type,
     value,
     secondaryValue,
     errorMessage: draft.errorMessage,
     isActive: draft.isActive,
-    evaluationVersion: CURRENT_EVALUATION_VERSION,
+    evaluationVersion: versionFor(draft, input),
   };
+  if (draft.whenOn && draft.when && !isLookupType(draft.type)) rule.when = conditionGroupFrom(draft.when);
+  if (isLookupType(draft.type) && draft.filterOn && draft.targetFilter) rule.targetFilter = conditionGroupFrom(draft.targetFilter);
+  return rule;
 }
+
+/** A list value on a card: the first three, then how many more, e.g. "Draft, Submitted, Approved +1". */
+const shortList = (value: ValidationRuleValue) => {
+  const items = Array.isArray(value) ? value.map(String) : [];
+  return items.length > 3 ? `${items.slice(0, 3).join(", ")} +${items.length - 3}` : items.join(", ");
+};
+
+/** "{{Now-18y}}" → "now − 18 years"; anything else as it is. */
+const nowOrText = (text: string) => {
+  const now = parseRelativeNow(text);
+  return now ? describeRelativeNow(now) : text;
+};
 
 /** One line describing a saved rule, e.g. "3–50 characters" or "Must exist in Department.ItemId". */
 export function formatRuleSummary(rule: ISchemaFieldValidation): string {
-  const value = asText(rule.value);
-  const secondary = asText(rule.secondaryValue);
+  const value = nowOrText(asText(rule.value));
+  const secondary = nowOrText(asText(rule.secondaryValue));
   switch (rule.type) {
     case T.NotEmpty:
       return "Must not be empty";
@@ -301,6 +519,17 @@ export function formatRuleSummary(rule: ISchemaFieldValidation): string {
       return `Between ${value} and ${secondary}`;
     case T.Reference:
       return `Must exist in ${value}.${secondary || DEFAULT_REFERENCE_FIELD}`;
+    case T.In:
+    case T.NotIn:
+      return shortList(rule.value);
+    case T.MinItems:
+      return `At least ${value} ${value === "1" ? "item" : "items"}`;
+    case T.MaxItems:
+      return `At most ${value} ${value === "1" ? "item" : "items"}`;
+    case T.UniqueItems:
+      return "No duplicates";
+    case T.NotExistsIn:
+      return `Must not exist in ${value}.${secondary || DEFAULT_REFERENCE_FIELD}`;
     default:
       return value;
   }
@@ -308,6 +537,9 @@ export function formatRuleSummary(rule: ISchemaFieldValidation): string {
 
 /** The label for a rule type, including types this client does not know yet. */
 export const ruleTypeLabel = (type: number) => VALIDATION_TYPE_META[type as ValidationTypeValue]?.label ?? `Type ${type}`;
+
+/** The short name on a rule's card: the label, or a shorter tag for the newer types. */
+export const ruleTypeTag = (type: number) => VALIDATION_TYPE_META[type as ValidationTypeValue]?.tag ?? ruleTypeLabel(type);
 
 /** "{{Employee.StartDate}}" → "StartDate"; anything else as typed. */
 const comparedName = (text: string) => {
@@ -318,8 +550,10 @@ const comparedName = (text: string) => {
   return parts.length > 1 ? parts.slice(1).join(".") : variable[1];
 };
 
-/** How a compared value reads in a sentence: a property by name, a date-time without its "T". */
+/** How a compared value reads in a sentence: a property by name, a date relative to now in words, a date-time without its "T". */
 const readable = (text: string, fieldType: string) => {
+  const now = parseRelativeNow(text);
+  if (now) return describeRelativeNow(now);
   const name = comparedName(text);
   return fieldType === "DateTime" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(name) ? name.replace("T", " ") : name;
 };
@@ -330,7 +564,18 @@ const readable = (text: string, fieldType: string) => {
  * (Address.City → City). Null until the values it needs are filled in. A pattern can't be put into
  * words, so it gets a general line.
  */
+/**
+ * What the server's own message names when the rule's message is left empty, which a fixed message can't: the
+ * repeated value of No duplicates, or the date a bound relative to now stood for when the value was checked. Null
+ * for every other rule. No message is suggested for these, so that one is used.
+ */
+export function messageLeftToServer(draft: Pick<RuleDraft, "type" | "value" | "secondaryValue">): "repeated" | "date" | null {
+  if (draft.type === T.UniqueItems) return "repeated";
+  return isRelativeNowWritten(draft.value.trim()) || isRelativeNowWritten(draft.secondaryValue.trim()) ? "date" : null;
+}
+
 export function suggestErrorMessage(draft: RuleDraft, fieldType: string, fieldName: string): string | null {
+  if (messageLeftToServer(draft)) return null;
   const field = fieldName.split(".").pop() || fieldName;
   const v = draft.value.trim();
   const w = draft.secondaryValue.trim();
@@ -366,6 +611,18 @@ export function suggestErrorMessage(draft: RuleDraft, fieldType: string, fieldNa
       return needTwo(`${field} must be between ${a} and ${b}`);
     case T.Reference:
       return needOne(`${field} must match an existing ${v}`);
+    case T.In:
+    case T.NotIn: {
+      const items = (draft.values ?? []).map((item) => item.trim()).filter(Boolean);
+      if (items.length === 0) return null;
+      return `${field} must ${draft.type === T.NotIn ? "not " : ""}be one of ${items.join(", ")}`;
+    }
+    case T.MinItems:
+      return needOne(`${field} must have at least ${a} ${a === "1" ? "item" : "items"}`);
+    case T.MaxItems:
+      return needOne(`${field} must have at most ${a} ${a === "1" ? "item" : "items"}`);
+    case T.NotExistsIn:
+      return needOne(`${field} must not match an existing ${v}`);
     default:
       return null;
   }

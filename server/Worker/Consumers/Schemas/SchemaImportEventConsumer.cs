@@ -93,7 +93,7 @@ public class SchemaImportEventConsumer : IConsumer<SchemaImportEvent>
                     ? $"Schema import completed successfully."
                     : $"Schema import failed"
             },
-            ConnectionId: importEvent.MessageCoRelationId,
             ResponseKey: importEvent.MessageCoRelationId,
-            ResponseValue: isSuccess.ToString()));
+            ResponseValue: isSuccess.ToString(),
+            OrganizationId: importEvent.CallerOrganizationId));
 }

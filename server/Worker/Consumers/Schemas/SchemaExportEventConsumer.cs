@@ -117,7 +117,7 @@ public class SchemaExportEventConsumer : IConsumer<SchemaExportEvent>
                 title = "Schema Export Completed",
                 description = isSuccess ? "Schema export completed successfully." : "Schema export failed."
             },
-            ConnectionId: exportEvent.MessageCoRelationId,
             ResponseKey: exportEvent.MessageCoRelationId,
-            ResponseValue: isSuccess.ToString()));
+            ResponseValue: isSuccess.ToString(),
+            OrganizationId: exportEvent.CallerOrganizationId));
 }

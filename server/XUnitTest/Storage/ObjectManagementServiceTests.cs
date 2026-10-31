@@ -1,3 +1,4 @@
+using DomainService.Storage.Dms;
 using Blocks.Genesis;
 using FluentAssertions;
 using MongoDB.Driver;
@@ -396,6 +397,184 @@ public class ObjectManagementServiceTests : IDisposable
             "dir-1", ObjectResourceType.Directory, ObjectPrincipalType.User, "user-9", ObjectPermission.View);
 
         result.Status.Should().Be(ObjectAccessOperationStatus.NotPermitted);
+    }
+
+    // Bulk share
+
+    private static SharePrincipal Principal(ObjectPrincipalType type, string? id, string? organizationId = null)
+        => new() { PrincipalType = type, PrincipalId = id, OrganizationId = organizationId };
+
+    private Task<ObjectShareBatchResult> ShareMany(
+        List<string> resourceIds, List<SharePrincipal> principals, ObjectPermission permission, DateTime? expiresAt)
+        => _management.ShareObjectsAsync(new ShareObjectsRequest
+        {
+            ResourceIds = resourceIds, Principals = principals, Permission = permission, ExpiresAt = expiresAt,
+        });
+
+    [Fact]
+    public async Task Bulk_sharing_creates_one_allow_entry_per_resource_and_principal()
+    {
+        await OwnedDirectory();
+        await FileDoc();
+
+        var result = await ShareMany(
+            ["dir-1", "file-1"],
+            [Principal(ObjectPrincipalType.User, "user-9"), Principal(ObjectPrincipalType.Role, "r2")],
+            ObjectPermission.Download, expiresAt: null);
+
+        result.Status.Should().Be(ObjectAccessOperationStatus.Succeeded);
+        result.Policies.Should().HaveCount(4);
+
+        var onDirectory = await _accessRepository.GetByResourceAsync("dir-1");
+        onDirectory.Should().HaveCount(2).And.OnlyContain(p =>
+            p.Effect == ObjectEffect.Allow && p.Permission == ObjectPermission.Download
+            && p.ResourceType == ObjectResourceType.Directory && p.GrantedBy == "user-1");
+
+        // The type comes from the stored resource, so a mixed list needs no type per id.
+        (await _accessRepository.GetByResourceAsync("file-1")).Should().HaveCount(2)
+            .And.OnlyContain(p => p.ResourceType == ObjectResourceType.File);
+
+        (await Audit("dir-1")).Where(a => a.Action == "Share").Should().HaveCount(2);
+        (await Audit("file-1")).Where(a => a.Action == "Share").Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Bulk_sharing_applies_the_expiry_and_organization_scope()
+    {
+        await OwnedDirectory();
+        var expires = DateTime.UtcNow.AddDays(7);
+
+        await ShareMany(
+            ["dir-1"],
+            [Principal(ObjectPrincipalType.Role, "r2", "o2"), Principal(ObjectPrincipalType.Role, "r3")],
+            ObjectPermission.View, expires);
+
+        var stored = await _accessRepository.GetByResourceAsync("dir-1");
+        stored.Single(p => p.PrincipalId == "r2").OrganizationId.Should().Be("o2");
+        stored.Single(p => p.PrincipalId == "r3").OrganizationId.Should().Be("org-1");
+        stored.Should().OnlyContain(p => p.ExpiresAt!.Value > expires.AddSeconds(-1) && p.ExpiresAt!.Value < expires.AddSeconds(1));
+    }
+
+    [Fact]
+    public async Task Bulk_sharing_ignores_repeated_resources_and_principals()
+    {
+        await OwnedDirectory();
+
+        var result = await ShareMany(
+            ["dir-1", "dir-1"],
+            [Principal(ObjectPrincipalType.User, "user-9"), Principal(ObjectPrincipalType.User, "user-9")],
+            ObjectPermission.View, expiresAt: null);
+
+        result.Policies.Should().ContainSingle();
+        (await _accessRepository.GetByResourceAsync("dir-1")).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Bulk_sharing_with_everyone_needs_no_principal_id()
+    {
+        await OwnedDirectory();
+
+        var result = await ShareMany(
+            ["dir-1"], [Principal(ObjectPrincipalType.Everyone, null)], ObjectPermission.View, expiresAt: null);
+
+        result.Status.Should().Be(ObjectAccessOperationStatus.Succeeded);
+        (await _accessRepository.GetByResourceAsync("dir-1")).Should().ContainSingle()
+            .Which.PrincipalType.Should().Be(ObjectPrincipalType.Everyone);
+    }
+
+    [Fact]
+    public async Task Bulk_sharing_writes_nothing_when_one_resource_is_not_manageable()
+    {
+        await OwnedDirectory("dir-1");
+        await OwnedDirectory("dir-2", createdBy: "someone-else");
+        await RestrictToAnotherUser("dir-2");
+
+        var result = await ShareMany(
+            ["dir-1", "dir-2"], [Principal(ObjectPrincipalType.User, "user-9")], ObjectPermission.View, expiresAt: null);
+
+        result.Status.Should().Be(ObjectAccessOperationStatus.NotPermitted);
+        result.FailedResourceIds.Should().Equal("dir-2");
+        result.Policies.Should().BeEmpty();
+        (await _accessRepository.GetByResourceAsync("dir-1")).Should().BeEmpty("nothing is written when any resource fails");
+        (await _accessRepository.GetByResourceAsync("dir-2")).Should().ContainSingle(p => p.PrincipalId == "user-2");
+        (await Audit("dir-2")).Should().ContainSingle(a => a.Action == "Manage" && !a.Granted);
+    }
+
+    [Fact]
+    public async Task Bulk_sharing_writes_nothing_and_names_the_missing_resources()
+    {
+        await OwnedDirectory();
+
+        var result = await ShareMany(
+            ["dir-1", "ghost-1", "ghost-2"], [Principal(ObjectPrincipalType.User, "user-9")], ObjectPermission.View, expiresAt: null);
+
+        result.Status.Should().Be(ObjectAccessOperationStatus.ResourceNotFound);
+        result.FailedResourceIds.Should().BeEquivalentTo("ghost-1", "ghost-2");
+        (await _accessRepository.GetByResourceAsync("dir-1")).Should().BeEmpty();
+        (await Audit("dir-1")).Should().BeEmpty("no Manage check runs once a resource is missing");
+    }
+
+    [Fact]
+    public async Task Bulk_sharing_rejects_organization_scope_on_a_non_role_principal()
+    {
+        await OwnedDirectory();
+
+        var result = await ShareMany(
+            ["dir-1"], [Principal(ObjectPrincipalType.User, "user-9", "o2")], ObjectPermission.View, expiresAt: null);
+
+        result.Status.Should().Be(ObjectAccessOperationStatus.InvalidRequest);
+        (await _accessRepository.GetByResourceAsync("dir-1")).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Bulk_sharing_rejects_a_missing_principal_id()
+    {
+        await OwnedDirectory();
+
+        var result = await ShareMany(
+            ["dir-1"], [Principal(ObjectPrincipalType.User, "user-9"), Principal(ObjectPrincipalType.User, null)],
+            ObjectPermission.View, expiresAt: null);
+
+        result.Status.Should().Be(ObjectAccessOperationStatus.InvalidRequest);
+        (await _accessRepository.GetByResourceAsync("dir-1")).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Bulk_sharing_rejects_an_empty_request_before_writing_anything()
+    {
+        await OwnedDirectory();
+
+        var result = await ShareMany([], [Principal(ObjectPrincipalType.User, "user-9")], ObjectPermission.View, expiresAt: null);
+
+        result.Status.Should().Be(ObjectAccessOperationStatus.InvalidRequest);
+        result.Errors.Should().ContainKey("ResourceIds");
+    }
+
+    [Fact]
+    public async Task Bulk_sharing_enforces_the_batch_limit()
+    {
+        // The cap is what keeps one call from fanning out into thousands of rows and
+        // notifications, so it is enforced where the work happens, not left to the caller.
+        await OwnedDirectory();
+        var ids = Enumerable.Range(0, 51).Select(i => $"dir-{i}").ToList();
+
+        var result = await ShareMany(ids, [Principal(ObjectPrincipalType.User, "user-9")], ObjectPermission.View, expiresAt: null);
+
+        result.Status.Should().Be(ObjectAccessOperationStatus.InvalidRequest);
+        (await _accessRepository.GetByResourceAsync("dir-1")).Should().BeEmpty();
+        (await Audit("dir-1")).Should().BeEmpty("validation runs before any Manage check");
+    }
+
+    [Fact]
+    public async Task Bulk_sharing_rejects_a_past_expiry_and_a_null_principal()
+    {
+        await OwnedDirectory();
+
+        (await ShareMany(["dir-1"], [Principal(ObjectPrincipalType.User, "user-9")], ObjectPermission.View, DateTime.UtcNow.AddMinutes(-1)))
+            .Status.Should().Be(ObjectAccessOperationStatus.InvalidRequest);
+        (await ShareMany(["dir-1"], [null!], ObjectPermission.View, expiresAt: null))
+            .Status.Should().Be(ObjectAccessOperationStatus.InvalidRequest);
+        (await _accessRepository.GetByResourceAsync("dir-1")).Should().BeEmpty();
     }
 
     // Inheritance

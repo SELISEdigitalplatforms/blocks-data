@@ -571,43 +571,42 @@ public class MutationServiceTests
     }
 
     private static MutationService NewQueuedService(
-        Mock<IGqlDbRepository> repo, Mock<IDataChangeEventPublisher> pub, RecordingQueue queue, Mock<IBuiltInNotificationSender>? notifier = null) =>
+        Mock<IGqlDbRepository> repo, Mock<IDataChangeEventPublisher> pub, RecordingQueue queue, Mock<IMutationNotifier>? notifier = null) =>
         new(repo.Object, pub.Object, Resolver(), Principals(), NullLogger<MutationService>.Instance, notifier?.Object, queue);
 
-    private static Mock<IBuiltInNotificationSender> Notifier()
-    {
-        var notifier = new Mock<IBuiltInNotificationSender>();
-        notifier.Setup(n => n.SendAsync(It.IsAny<BuiltInNotification>())).ReturnsAsync(true);
-        return notifier;
-    }
+    private static Mock<IMutationNotifier> Notifier() => new();
 
     [Fact]
-    public async Task InsertAsync_WithQueue_ReturnsWithoutPublishing_ThenPublishesWhenTheQueuedWorkRuns()
+    public async Task InsertAsync_WithQueue_ReturnsWithoutPublishing_ThenPublishesAndNotifiesWhenTheQueuedWorkRuns()
     {
         var repo = Repo();
         var pub = new Mock<IDataChangeEventPublisher>();
         var queue = new RecordingQueue();
+        var notifier = Notifier();
         repo.Setup(r => r.InsertAsync(It.IsAny<string>(), It.IsAny<BsonDocument>()))
             .ReturnsAsync((string _, BsonDocument d) => d);
         var schema = Schema(fields: new() { Field("Name"), Field("Age", "Int") });
         var ctx = ContextWith(ObjectLiteral("{ Name: \"John\", Age: 30 }"));
 
-        var result = await NewQueuedService(repo, pub, queue).InsertAsync(schema, ctx.Object, _insertInput);
+        var result = await NewQueuedService(repo, pub, queue, notifier).InsertAsync(schema, ctx.Object, _insertInput);
 
         result.Acknowledged.Should().BeTrue();
         queue.Items.Should().ContainSingle();
         pub.Invocations.Should().BeEmpty();
+        notifier.Invocations.Should().BeEmpty();
         await queue.RunAllAsync();
         pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Inserted,
             It.IsAny<List<BsonDocument>>(), null), Times.Once);
+        notifier.Verify(n => n.NotifyRecordsChangedAsync(schema.SchemaName, RecordChangeKind.Insert, It.Is<string?>(id => !string.IsNullOrEmpty(id)), 1), Times.Once);
     }
 
     [Fact]
-    public async Task UpdateAsync_WithQueue_ReturnsWithoutPublishing_ThenPublishesWhenTheQueuedWorkRuns()
+    public async Task UpdateAsync_WithQueue_ReturnsWithoutPublishing_ThenPublishesAndNotifiesWhenTheQueuedWorkRuns()
     {
         var repo = Repo();
         var pub = new Mock<IDataChangeEventPublisher>();
         var queue = new RecordingQueue();
+        var notifier = Notifier();
         repo.Setup(r => r.GetItemAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>()))
             .ReturnsAsync(PersonDoc("id-1", "Old", 20));
         repo.Setup(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>()))
@@ -615,22 +614,25 @@ public class MutationServiceTests
         var schema = Schema(fields: new() { Field("Name"), Field("Age", "Int") });
         var ctx = ContextWith(ObjectLiteral("{ Name: \"New\", Age: 25 }"));
 
-        var result = await NewQueuedService(repo, pub, queue).UpdateAsync(schema, ctx.Object, _insertInput);
+        var result = await NewQueuedService(repo, pub, queue, notifier).UpdateAsync(schema, ctx.Object, _insertInput);
 
         result.Acknowledged.Should().BeTrue();
         queue.Items.Should().ContainSingle();
         pub.Invocations.Should().BeEmpty();
+        notifier.Invocations.Should().BeEmpty();
         await queue.RunAllAsync();
         pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Updated, null,
             It.IsAny<List<UpdatedDocument>>()), Times.Once);
+        notifier.Verify(n => n.NotifyRecordsChangedAsync(schema.SchemaName, RecordChangeKind.Update, It.Is<string?>(id => !string.IsNullOrEmpty(id)), 1), Times.Once);
     }
 
     [Fact]
-    public async Task DeleteAsync_WithQueue_ReturnsWithoutPublishing_ThenPublishesWhenTheQueuedWorkRuns()
+    public async Task DeleteAsync_WithQueue_ReturnsWithoutPublishing_ThenPublishesAndNotifiesWhenTheQueuedWorkRuns()
     {
         var repo = Repo();
         var pub = new Mock<IDataChangeEventPublisher>();
         var queue = new RecordingQueue();
+        var notifier = Notifier();
         repo.Setup(r => r.GetItemsAsync(It.IsAny<string>(), It.IsAny<FilterDefinition<BsonDocument>>(),
                 It.IsAny<BsonDocument>(), It.IsAny<BsonDocument>(), It.IsAny<int>(), It.IsAny<int>()))
             .ReturnsAsync(new List<BsonDocument> { PersonDoc("id-9", "Del", 40) });
@@ -639,14 +641,16 @@ public class MutationServiceTests
         var schema = Schema(fields: new() { Field("Name") });
         var ctx = ContextWith(ObjectLiteral("{ isHardDelete: true }"));
 
-        var result = await NewQueuedService(repo, pub, queue).DeleteAsync(schema, ctx.Object, _deleteInput);
+        var result = await NewQueuedService(repo, pub, queue, notifier).DeleteAsync(schema, ctx.Object, _deleteInput);
 
         result.Acknowledged.Should().BeTrue();
         queue.Items.Should().ContainSingle();
         pub.Invocations.Should().BeEmpty();
+        notifier.Invocations.Should().BeEmpty();
         await queue.RunAllAsync();
         pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Deleted,
             It.IsAny<List<BsonDocument>>(), null), Times.Once);
+        notifier.Verify(n => n.NotifyRecordsChangedAsync(schema.SchemaName, RecordChangeKind.Delete, It.Is<string?>(id => !string.IsNullOrEmpty(id)), 1), Times.Once);
     }
 
     [Fact]
@@ -670,7 +674,8 @@ public class MutationServiceTests
         await queue.RunAllAsync();
         pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Inserted,
             It.IsAny<List<BsonDocument>>(), null), Times.Once);
-        notifier.Verify(n => n.SendAsync(It.IsAny<BuiltInNotification>()), Times.Once);
+        notifier.Verify(n => n.NotifyBulkResultAsync(schema.SchemaName, "insert", true, 2), Times.Once);
+        notifier.Verify(n => n.NotifyRecordsChangedAsync(schema.SchemaName, RecordChangeKind.Insert, null, 2), Times.Once);
     }
 
     [Fact]
@@ -697,7 +702,7 @@ public class MutationServiceTests
         await queue.RunAllAsync();
         pub.Verify(p => p.PublishAsync(schema, DataChangeOperation.Updated, null,
             It.IsAny<List<UpdatedDocument>>()), Times.Once);
-        notifier.Verify(n => n.SendAsync(It.IsAny<BuiltInNotification>()), Times.Once);
+        notifier.Verify(n => n.NotifyBulkResultAsync(schema.SchemaName, "update", true, It.IsAny<long>()), Times.Once);
     }
 
     [Fact]
@@ -728,6 +733,7 @@ public class MutationServiceTests
         await queue.RunAllAsync();
         pub.Verify(p => p.PublishInChunksAsync(schema, DataChangeOperation.Deleted,
             It.IsAny<IReadOnlyList<BsonDocument>>()), Times.Exactly(2));
-        notifier.Verify(n => n.SendAsync(It.IsAny<BuiltInNotification>()), Times.Once);
+        notifier.Verify(n => n.NotifyBulkResultAsync(schema.SchemaName, "delete", true, 2), Times.Once);
+        notifier.Verify(n => n.NotifyRecordsChangedAsync(schema.SchemaName, RecordChangeKind.Delete, null, 2), Times.Once);
     }
 }

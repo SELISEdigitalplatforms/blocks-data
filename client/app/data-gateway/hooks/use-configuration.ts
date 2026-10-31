@@ -11,6 +11,7 @@ import {
   ICreateSchemaFieldValidationPayload,
   ICreateSchemaIndexPayload,
   ICreateSchemaPayload,
+  IField,
   IDeleteMockDataPayload,
   IDeletePolicyPayload,
   IDeleteSchemaFieldValidationPayload,
@@ -614,14 +615,39 @@ export const useSchemaVariableContext = (schemaId: string, projectKey: string) =
     enabled: !!schemaId && !!projectKey,
     staleTime: 60_000,
   });
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    const fields = normalizeSchemaFields(data?.data?.fields ?? []);
+    return {
       schemaName: data?.data?.schemaName ?? "",
-      fields: variableFieldsOf(normalizeSchemaFields(data?.data?.fields ?? [])),
-    }),
-    [data],
-  );
+      fields: variableFieldsOf(fields),
+      // "Only when" conditions on an Enum property pick from its values.
+      enumValues: enumValuesOf(fields),
+    };
+  }, [data]);
 };
+
+/** Each Enum property's values, by full path. */
+function enumValuesOf(fields: IField[], prefix = ""): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const field of fields) {
+    const path = `${prefix}${field.name}`;
+    if (field.enumValues?.length) result[path] = field.enumValues;
+    if (field.fields?.length) Object.assign(result, enumValuesOf(field.fields, `${path}.`));
+  }
+  return result;
+}
+
+/**
+ * The schemas a Reference or Must not exist in rule can point at (section 8): the tenant's entities, then the system
+ * entities, searched on the server. Only fetched while the picker needs it.
+ */
+export const useReferenceTargets = (keyword: string, enabled = true, schemaName?: string) =>
+  useQuery({
+    queryKey: ["reference-targets", keyword, schemaName ?? ""],
+    queryFn: () => configurationService.getReferenceTargets(keyword, schemaName),
+    enabled,
+    staleTime: 60_000,
+  });
 
 export const useSetFieldDefault = () => {
   const queryClient = useQueryClient();

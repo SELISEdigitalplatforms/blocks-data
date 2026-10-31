@@ -46,7 +46,8 @@ public class CreateDefaultDirectoryEventConsumer : IConsumer<CreateDefaultDirect
                 itemId = @event.ItemId,
                 projectKey = @event.ProjectKey,
                 occurredAt = DateTime.UtcNow
-            }));
+            },
+            OrganizationId: context?.OrganizationId));
     }
 
     public async Task Consume(CreateDefaultDirectoryEvent @event)

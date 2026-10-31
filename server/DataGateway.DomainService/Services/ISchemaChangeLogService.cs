@@ -13,6 +13,12 @@ public interface ISchemaChangeLogService
     Task<SchemaChangeLog> CreateSchemaChangeLogAsync(string schemaId, SchemaChangeType changeType, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Tells the people who own the schema (creator and last editor, not the actor) that it changed. Best effort:
+    /// never throws, so the schema change is never turned into a failure.
+    /// </summary>
+    Task NotifyChangedAsync(SchemaDefinition schema, SchemaChangeType changeType);
+
+    /// <summary>
     /// Gets all schema change logs where DoesServerAdoptChanges is false.
     /// </summary>
     Task<ServiceResponse<List<SchemaChangeLog>>> GetUnadaptedSchemaChangeLogsAsync(CancellationToken cancellationToken = default);

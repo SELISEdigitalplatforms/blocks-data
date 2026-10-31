@@ -23,6 +23,8 @@ public class QueryOutputType : ObjectType<object>
     {
         var schemaName = _schema.GetSchemaNameForProject();
         descriptor.Name(schemaName);
+        if (!string.IsNullOrWhiteSpace(_schema.Description))
+            descriptor.Description(_schema.Description);
 
         foreach (var field in _schema.Fields)
         {

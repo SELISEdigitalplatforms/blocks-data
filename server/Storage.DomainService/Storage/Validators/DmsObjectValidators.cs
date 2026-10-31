@@ -14,6 +14,7 @@ namespace Storage.DomainService.Storage.Validators
         internal const int MaxNameLength = 255;
         internal const int MaxPageSize = 200;
         internal const int MaxVersionPageSize = 100;
+        internal const int MaxShareBatchSize = 50;
 
         /// <summary>
         /// A cursor is opaque to callers, so the only thing worth checking is that it
@@ -176,6 +177,43 @@ namespace Storage.DomainService.Storage.Validators
                 .Must(string.IsNullOrWhiteSpace)
                 .When(r => r.PrincipalType != ObjectPrincipalType.Role)
                 .WithMessage("OrganizationId can only be used with a Role principal.");
+            RuleFor(r => r.ExpiresAt)
+                .Must(e => e is null || e > DateTime.UtcNow)
+                .WithMessage("An expiry must be in the future.");
+        }
+    }
+
+    public class SharePrincipalValidator : AbstractValidator<SharePrincipal>
+    {
+        public SharePrincipalValidator()
+        {
+            RuleFor(p => p.PrincipalType).IsInEnum();
+            RuleFor(p => p.PrincipalId)
+                .NotEmpty()
+                .When(p => p.PrincipalType != ObjectPrincipalType.Everyone)
+                .WithMessage("A principal is required for every principal type except Everyone.");
+            RuleFor(p => p.OrganizationId)
+                .Must(string.IsNullOrWhiteSpace)
+                .When(p => p.PrincipalType != ObjectPrincipalType.Role)
+                .WithMessage("OrganizationId can only be used with a Role principal.");
+        }
+    }
+
+    public class ShareObjectsRequestValidator : AbstractValidator<ShareObjectsRequest>
+    {
+        public ShareObjectsRequestValidator()
+        {
+            RuleFor(r => r.ResourceIds)
+                .NotEmpty()
+                .Must(ids => ids is null || ids.Count <= DmsValidationRules.MaxShareBatchSize)
+                .WithMessage($"At most {DmsValidationRules.MaxShareBatchSize} resources can be shared at once.");
+            RuleForEach(r => r.ResourceIds).NotEmpty();
+            RuleFor(r => r.Principals)
+                .NotEmpty()
+                .Must(principals => principals is null || principals.Count <= DmsValidationRules.MaxShareBatchSize)
+                .WithMessage($"At most {DmsValidationRules.MaxShareBatchSize} principals can be shared with at once.");
+            RuleForEach(r => r.Principals).NotNull().SetValidator(new SharePrincipalValidator());
+            RuleFor(r => r.Permission).IsInEnum();
             RuleFor(r => r.ExpiresAt)
                 .Must(e => e is null || e > DateTime.UtcNow)
                 .WithMessage("An expiry must be in the future.");

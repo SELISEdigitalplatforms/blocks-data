@@ -1,3 +1,4 @@
+using Blocks.Data.Api.Filters;
 using Blocks.Genesis;
 using DataGateway.DomainService.Notifications;
 using DomainService.Storage.Dms;
@@ -68,12 +69,14 @@ namespace Api.Controllers
                     resourceType = resourceType.ToString(),
                     action,
                     occurredAt = DateTime.UtcNow
-                }));
+                },
+                OrganizationId: context?.OrganizationId));
         }
 
         /// <summary>Access-resolved, cursor-paginated files and directories under one parent.</summary>
         [HttpGet("get-objects")]
         [ProtectedEndPoint("blocks-data::object::get-objects")]
+        [ValidateRequest]
         public async Task<IActionResult> GetObjects([FromQuery] GetObjectRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.ParentDirectoryId) && request.ModuleName.HasValue)
@@ -98,6 +101,7 @@ namespace Api.Controllers
         /// <summary>Name search across directorys and files the caller may view.</summary>
         [HttpGet("search-objects")]
         [ProtectedEndPoint("blocks-data::object::search-objects")]
+        [ValidateRequest]
         public async Task<IActionResult> SearchObjects([FromQuery] ObjectSearchRequest request)
         {
             var page = await _objectDiscoveryService.SearchAsync(
@@ -109,6 +113,7 @@ namespace Api.Controllers
         /// <summary>Archived directorys and files the caller may view.</summary>
         [HttpGet("get-trash")]
         [ProtectedEndPoint("blocks-data::object::get-trash")]
+        [ValidateRequest]
         public async Task<IActionResult> GetTrash([FromQuery] TrashRequest request)
         {
             var page = await _objectDiscoveryService.GetTrashAsync(ObjectKind.FromApiString(request.Type), request.Cursor, request.Limit);
@@ -119,6 +124,7 @@ namespace Api.Controllers
         /// <summary>Live files and directorys explicitly shared with the caller.</summary>
         [HttpGet("get-shared-objects")]
         [ProtectedEndPoint("blocks-data::object::get-shared-objects")]
+        [ValidateRequest]
         public async Task<IActionResult> GetSharedObjects([FromQuery] SharedObjectRequest request)
         {
             var page = await _objectDiscoveryService.GetSharedAsync(
@@ -130,6 +136,7 @@ namespace Api.Controllers
         /// <summary>Returns an archived item to its original parent.</summary>
         [HttpPost("restore-from-trash")]
         [ProtectedEndPoint("blocks-data::object::restore-object")]
+        [ValidateRequest]
         public async Task<IActionResult> RestoreFromTrash([FromBody] RestoreFromTrashRequest request)
         {
             var result = await _objectDiscoveryService.RestoreAsync(request.ResourceId);
@@ -160,6 +167,7 @@ namespace Api.Controllers
         /// <summary>Creates an access entry. Requires Manage on the resource.</summary>
         [HttpPost("grant-access")]
         [ProtectedEndPoint("blocks-data::object::grant-access")]
+        [ValidateRequest]
         public async Task<IActionResult> GrantAccess([FromBody] GrantAccessRequest request)
         {
             var result = await _objectManagementService.GrantAccessAsync(ToPolicy(request));
@@ -171,6 +179,7 @@ namespace Api.Controllers
         /// <summary>Updates an existing access entry.</summary>
         [HttpPost("update-access-policy")]
         [ProtectedEndPoint("blocks-data::object::update-access-policy")]
+        [ValidateRequest]
         public async Task<IActionResult> UpdateAccessPolicy([FromBody] GrantAccessRequest request)
         {
             var result = await _objectManagementService.UpdateAccessAsync(ToPolicy(request));
@@ -182,6 +191,7 @@ namespace Api.Controllers
         /// <summary>Deletes an access entry.</summary>
         [HttpPost("revoke-access-policy")]
         [ProtectedEndPoint("blocks-data::object::revoke-access-policy")]
+        [ValidateRequest]
         public async Task<IActionResult> RevokeAccessPolicy([FromBody] RevokeAccessRequest request)
         {
             var revoked = await FindUserPolicyAsync(request.ResourceId, request.PolicyItemId);
@@ -210,6 +220,7 @@ namespace Api.Controllers
         /// <summary>Switches a resource between inheriting its parent's access and standing alone.</summary>
         [HttpPost("toggle-inheritance")]
         [ProtectedEndPoint("blocks-data::object::toggle-inheritance")]
+        [ValidateRequest]
         public async Task<IActionResult> ToggleInheritance([FromBody] ToggleInheritanceRequest request)
         {
             var result = await _objectManagementService.ToggleInheritanceAsync(
@@ -221,6 +232,7 @@ namespace Api.Controllers
         /// <summary>Grants a principal an allow entry and records it as a share.</summary>
         [HttpPost("share-object")]
         [ProtectedEndPoint("blocks-data::object::share-object")]
+        [ValidateRequest]
         public async Task<IActionResult> ShareObject([FromBody] ShareObjectRequest request)
         {
             var result = await _objectManagementService.ShareObjectAsync(
@@ -229,6 +241,19 @@ namespace Api.Controllers
             await NotifyAccessChangedAsync(result, request.ResourceId, request.ResourceType, request.PrincipalType, request.PrincipalId, "shared");
 
             return MapAccess(result, created: true);
+        }
+
+        /// <summary>Shares several resources with several principals at one permission. All or nothing.</summary>
+        [HttpPost("share-objects")]
+        [ProtectedEndPoint("blocks-data::object::share-object")]
+        public async Task<IActionResult> ShareObjects([FromBody] ShareObjectsRequest request)
+        {
+            var result = await _objectManagementService.ShareObjectsAsync(request);
+            foreach (var policy in result.Policies)
+                await NotifyAccessChangedAsync(ObjectAccessOperationResult.Success(policy.ItemId), policy.ResourceId,
+                    policy.ResourceType, policy.PrincipalType, policy.PrincipalId, "shared");
+
+            return MapShareBatch(result);
         }
 
         /// <summary>The access entry about to be removed, read first so its user can be told. Null when not found or on any error.</summary>
@@ -277,6 +302,29 @@ namespace Api.Controllers
             ObjectAccessOperationStatus.PolicyNotFound =>
                 NotFound(new { message = "Access policy not found." }),
             _ => NotFound(new { message = "Resource not found." }),
+        };
+
+        private IActionResult MapShareBatch(ObjectShareBatchResult result) => result.Status switch
+        {
+            ObjectAccessOperationStatus.Succeeded => Ok(new
+            {
+                items = result.Policies.Select(p => new
+                {
+                    resourceId = p.ResourceId,
+                    resourceType = p.ResourceType,
+                    principalType = p.PrincipalType,
+                    principalId = p.PrincipalId,
+                    itemId = p.ItemId,
+                }).ToList(),
+            }),
+            ObjectAccessOperationStatus.ResourceNotFound =>
+                NotFound(new { message = "Resource not found.", resourceIds = result.FailedResourceIds }),
+            ObjectAccessOperationStatus.InvalidRequest =>
+                BadRequest(new { message = "The share request is invalid.", errors = result.Errors }),
+            ObjectAccessOperationStatus.NotPermitted =>
+                StatusCode(StatusCodes.Status403Forbidden,
+                    new { message = "You cannot manage access on these resources.", resourceIds = result.FailedResourceIds }),
+            _ => MapAccess(ObjectAccessOperationResult.Failure(result.Status), created: false),
         };
 
         private IActionResult MapTrash(TrashOperationResult result, string resourceId) => result.Status switch

@@ -51,7 +51,8 @@ public class SchemaImportService : ISchemaImportService
                 ProjectKey = tenantId,
                 MessageCoRelationId = request.MessageCoRelationId,
                 CallerUserId = context?.UserId ?? string.Empty,
-                CallerTenantId = context?.OriginalTenantId ?? string.Empty
+                CallerTenantId = context?.OriginalTenantId ?? string.Empty,
+                CallerOrganizationId = context?.OrganizationId ?? string.Empty
             }
         });
 
@@ -188,6 +189,7 @@ public class SchemaImportService : ISchemaImportService
                 var mapped = doc.MapToSchemaDefinition();
                 existing.SchemaName = mapped.SchemaName;
                 existing.SchemaType = mapped.SchemaType;
+                existing.Description = mapped.Description;
                 existing.ReadAccessLevel = mapped.ReadAccessLevel;
                 existing.WriteAccessLevel = mapped.WriteAccessLevel;
                 existing.EditAccessLevel = mapped.EditAccessLevel;

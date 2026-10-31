@@ -53,12 +53,28 @@ describe("useZipDownloadStore", () => {
     ]);
   });
 
+  it("gives rows distinct ids without crypto.randomUUID (non-secure origins)", () => {
+    vi.spyOn(crypto, "randomUUID").mockImplementation(() => {
+      throw new TypeError("crypto.randomUUID is not available on insecure origins");
+    });
+    prepare.mockReturnValue(new Promise(() => {}));
+
+    void useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: [] });
+    void useZipDownloadStore.getState().start({ itemIds: ["g"], directoryIds: [] });
+
+    const rowIds = rows().map((r) => r.id);
+    expect(rowIds).toHaveLength(2);
+    expect(new Set(rowIds).size).toBe(2);
+  });
+
   it("success marks the row started and clicks a hidden download link", async () => {
     prepare.mockResolvedValue(response);
 
-    await useZipDownloadStore
+    const outcome = await useZipDownloadStore
       .getState()
       .start({ itemIds: ["f"], directoryIds: [], configurationName: "cfg" });
+
+    expect(outcome).toBe("started");
 
     expect(prepare).toHaveBeenCalledWith(
       { itemIds: ["f"], directoryIds: [], configurationName: "cfg" },
@@ -80,8 +96,11 @@ describe("useZipDownloadStore", () => {
   ])("maps %s to its message", async (code, message) => {
     prepare.mockRejectedValue(new HttpError(400, { errors: { zip: code } }));
 
-    await useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: [] });
+    const outcome = await useZipDownloadStore
+      .getState()
+      .start({ itemIds: ["f"], directoryIds: [] });
 
+    expect(outcome).toBe("failed");
     expect(rows()[0]).toMatchObject({ status: "failed", error: message });
     expect(click).not.toHaveBeenCalled();
   });
@@ -116,7 +135,7 @@ describe("useZipDownloadStore", () => {
     expect(rows()).toEqual([]);
 
     resolvePrepare(response); // late result is ignored
-    await pending;
+    await expect(pending).resolves.toBe("cancelled");
     expect(click).not.toHaveBeenCalled();
     expect(rows()).toEqual([]);
   });
@@ -133,7 +152,7 @@ describe("useZipDownloadStore", () => {
     const pending = useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: [] });
     useZipDownloadStore.getState().close();
     rejectPrepare(new DOMException("aborted", "AbortError"));
-    await pending;
+    await expect(pending).resolves.toBe("cancelled");
 
     expect(rows()).toEqual([]);
   });

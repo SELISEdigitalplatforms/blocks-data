@@ -18,10 +18,16 @@ export interface IZipDownloadSelection {
   configurationName?: string;
 }
 
+/**
+ * How a `start` ended: the browser was handed the download, prepare failed, or the row was closed
+ * (aborted) before prepare finished.
+ */
+export type ZipDownloadOutcome = "started" | "failed" | "cancelled";
+
 export interface IZipDownloadStore {
   rows: ZipDownloadRow[];
   collapsed: boolean;
-  start: (selection: IZipDownloadSelection) => Promise<void>;
+  start: (selection: IZipDownloadSelection) => Promise<ZipDownloadOutcome>;
   toggleCollapsed: () => void;
   close: () => void;
 }
@@ -54,6 +60,10 @@ const triggerBrowserDownload = (url: string, fileName?: string): void => {
     link.remove();
   }
 };
+
+// Row ids only need to be unique within this tab. A counter, not crypto.randomUUID, which is
+// missing on non-secure (plain http) origins.
+let rowSeq = 0;
 
 export const useZipDownloadStore = create<IZipDownloadStore>()((set, get) => {
   let autoCloseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -88,7 +98,7 @@ export const useZipDownloadStore = create<IZipDownloadStore>()((set, get) => {
     collapsed: false,
 
     async start(selection) {
-      const id = crypto.randomUUID();
+      const id = `zip-${++rowSeq}`;
       const controller = new AbortController();
       const row: ZipDownloadRow = {
         id,
@@ -110,7 +120,7 @@ export const useZipDownloadStore = create<IZipDownloadStore>()((set, get) => {
           },
           controller.signal,
         );
-        if (controller.signal.aborted || !isLive()) return;
+        if (controller.signal.aborted || !isLive()) return "cancelled";
         updateRow(id, {
           status: "started",
           zipName: response.zipName,
@@ -120,9 +130,11 @@ export const useZipDownloadStore = create<IZipDownloadStore>()((set, get) => {
           buildZipDownloadUrl(response.ticket, response.tenantId),
           response.zipName,
         );
+        return "started";
       } catch (error) {
-        if (controller.signal.aborted || !isLive()) return;
+        if (controller.signal.aborted || !isLive()) return "cancelled";
         updateRow(id, { status: "failed", error: mapPrepareError(error) });
+        return "failed";
       }
     },
 

@@ -46,12 +46,44 @@ describe("DownloadPanel", () => {
     expect(screen.getByText("Download failed")).toBeInTheDocument();
   });
 
-  it("started row shows zip name and size, e.g. 'Project-Docs.zip · 24.0 MB'", () => {
+  it("started row shows the zip name as its primary text and the size beneath it", () => {
     seed([
       row({ status: "started", zipName: "Project-Docs.zip", totalBytes: 24 * 1024 * 1024 }),
     ]);
     render(<DownloadPanel />);
-    expect(screen.getByText("Project-Docs.zip · 24.0 MB")).toBeInTheDocument();
+
+    const item = screen.getByRole("listitem");
+    const [primary, secondary] = item.querySelectorAll("p");
+    expect(primary).toHaveTextContent(/^Project-Docs\.zip$/);
+    expect(primary).toHaveAttribute("title", "Project-Docs.zip");
+    expect(secondary).toHaveTextContent(/^24\.0 MB$/);
+    expect(secondary).toHaveAttribute("title", "24.0 MB");
+    expect(screen.queryByText("Zipping 3 files")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Started")).toBeInTheDocument();
+  });
+
+  it("started 0-byte row shows no size line and no dangling separator", () => {
+    seed([row({ status: "started", zipName: "Empty.zip", totalBytes: 0 })]);
+    render(<DownloadPanel />);
+
+    const item = screen.getByRole("listitem");
+    expect(item.querySelectorAll("p")).toHaveLength(1);
+    expect(item).toHaveTextContent(/^Empty\.zip$/);
+    expect(item.textContent).not.toContain("·");
+  });
+
+  it("preparing row keeps the 'Zipping n files' label as its primary text", () => {
+    seed([row({ label: "Zipping 3 files" })]);
+    render(<DownloadPanel />);
+
+    expect(screen.getByText("Zipping 3 files")).toHaveAttribute("title", "Zipping 3 files");
+  });
+
+  it("header text is announced politely", () => {
+    seed([row()]);
+    render(<DownloadPanel />);
+
+    expect(screen.getByText("Preparing download")).toHaveAttribute("aria-live", "polite");
   });
 
   it("failed row shows its message under the name", () => {

@@ -239,13 +239,14 @@ export function StorageDetail() {
   const selection = useItemSelection(`${currentParentId}|${filters.search}`);
   const startZip = useZipDownloadStore((state) => state.start);
 
-  const handleDownloadSelection = () => {
-    void startZip({
+  const handleDownloadSelection = async () => {
+    const outcome = await startZip({
       itemIds: [...selection.fileIds],
       directoryIds: [...selection.directoryIds],
       configurationName: storage?.name,
     });
-    selection.clear();
+    // A zip that failed or was closed before it started keeps the selection, so it can be retried.
+    if (outcome === "started") selection.clear();
   };
 
   // Helper to build URL with directory navigation params

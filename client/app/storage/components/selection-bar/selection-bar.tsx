@@ -15,7 +15,7 @@ export function SelectionBar({ count, onDownload, onClear }: Readonly<SelectionB
 
   return (
     <div
-      role="toolbar"
+      role="group"
       aria-label="Selection"
       className="flex items-center gap-3 rounded-md border bg-muted/50 px-3 py-1.5"
     >

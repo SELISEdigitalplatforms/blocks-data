@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   DmsItemType,
@@ -1032,9 +1032,11 @@ describe("StorageDetail", () => {
       };
       renderDetail();
 
+      mocks.startZip.mockResolvedValueOnce("started");
       await user.click(await screen.findByRole("checkbox", { name: "Select Documents" }));
       await user.click(screen.getByRole("checkbox", { name: "Select report.pdf" }));
       expect(screen.getByText("2 selected")).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Selection" })).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Download" }));
 
@@ -1044,10 +1046,41 @@ describe("StorageDetail", () => {
         directoryIds: ["fold-1"],
         configurationName: "MyStore",
       });
-      // The selection is handed off and cleared.
-      expect(screen.queryByText(/selected$/)).not.toBeInTheDocument();
+      // The zip started, so the selection is handed off and cleared.
+      await waitFor(() => expect(screen.queryByText(/selected$/)).not.toBeInTheDocument());
       expect(screen.getByRole("checkbox", { name: "Select Documents" })).not.toBeChecked();
     });
+
+    it.each(["failed", "cancelled"])(
+      "Download keeps the selection when the zip %s",
+      async (outcome) => {
+        const user = userEvent.setup();
+        mocks.dmsState.response = {
+          dmsFileAndDirectoryInfos: [makeFile({ name: "report.pdf", itemId: "file-1" })],
+          totalCount: 1,
+        };
+        renderDetail();
+
+        let settle!: (value: string) => void;
+        mocks.startZip.mockReturnValueOnce(
+          new Promise<string>((resolve) => {
+            settle = resolve;
+          }),
+        );
+        await user.click(await screen.findByRole("checkbox", { name: "Select report.pdf" }));
+        await user.click(screen.getByRole("button", { name: "Download" }));
+
+        // Still preparing: nothing is cleared yet.
+        expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+        await act(async () => {
+          settle(outcome);
+        });
+
+        expect(screen.getByText("1 selected")).toBeInTheDocument();
+        expect(screen.getByRole("checkbox", { name: "Select report.pdf" })).toBeChecked();
+      },
+    );
 
     it("Clear empties the selection", async () => {
       const user = userEvent.setup();
@@ -1154,7 +1187,8 @@ describe("StorageDetail", () => {
       };
       renderDetail();
 
-      // An unrelated selection is not swept into the single-folder zip.
+      // An unrelated selection is not swept into the single-folder zip, nor cleared by it.
+      mocks.startZip.mockResolvedValueOnce("started");
       await user.click(await screen.findByRole("checkbox", { name: "Select report.pdf" }));
 
       await user.click(screen.getAllByRole("button", { name: "More options" })[0]);
@@ -1170,6 +1204,8 @@ describe("StorageDetail", () => {
         configurationName: "MyStore",
       });
       expect(mocks.navigate).not.toHaveBeenCalled();
+      await act(async () => {});
+      expect(screen.getByText("1 selected")).toBeInTheDocument();
     });
 
     it("clicking a checkbox does not open the folder or file", async () => {

@@ -55,6 +55,18 @@ public class QueryLockInTests
         """, LockInCaller.User("u1", "admin"));
 
     [Fact]
+    public Task GetAndWhere() => RunAsync("get-and-where", """
+        { getProducts(where: { and: [{ Status: { eq: Live } }, { Owner: { eq: "u1" } }] }) { items { ItemId } } }
+        """, LockInCaller.User("u1", "admin"));
+
+    // Address is not filterable in the generated SDL (ProductFilterInput has no Address field), so the second branch of the or
+    // filters on Title instead of a nested city.
+    [Fact]
+    public Task GetNestedAndOr() => RunAsync("get-nested-and-or", """
+        { getProducts(where: { or: [{ and: [{ Status: { eq: Live } }, { Stock: { gte: 0 } }] }, { Title: { eq: "Bravo" } }] }) { items { ItemId } } }
+        """, LockInCaller.User("u1", "admin"));
+
+    [Fact]
     public Task GetUnknownSortField() => RunAsync("get-unknown-sort-field", """
         { getProducts(order: [{ field: "Nope" }]) { items { ItemId } } }
         """, LockInCaller.User("u1", "admin"));

@@ -71,6 +71,11 @@ public class MutationLockInTests
         """, LockInCaller.User("u1"));
 
     [Fact]
+    public Task UpdateLegacyFilter() => RunAsync("update-legacy-filter", $$"""
+        mutation { updateProduct(filter: "{\"_id\":\"p1\"}", input: { Price: 9 }) { {{Single}} } }
+        """, LockInCaller.User("u1"));
+
+    [Fact]
     public Task UpdateNotFound() => RunAsync("update-not-found", $$"""
         mutation { updateProduct(where: { ItemId: { eq: "nope" } }, input: { Price: 9 }) { {{Single}} } }
         """, LockInCaller.User("u1"));
@@ -114,6 +119,11 @@ public class MutationLockInTests
     public Task DeleteManyRlsScoped() => RunAsync("deleteMany-rls-scoped", $$"""
         mutation { deleteManyProduct(where: { Status: { eq: Draft } }, input: { isHardDelete: true }) { {{Single}} } }
         """, LockInCaller.User("u1"), LockInTenant.WithAuditLog);
+
+    [Fact]
+    public Task DeleteManyAndWhere() => RunAsync("deleteMany-and-where", $$"""
+        mutation { deleteManyProduct(where: { and: [{ Status: { eq: Draft } }, { Owner: { eq: "u1" } }] }, input: { isHardDelete: true }) { {{Single}} } }
+        """, LockInCaller.User("u1", "admin"), LockInTenant.WithAuditLog);
 
     [Fact]
     public Task DeleteManySoft() => RunAsync("deleteMany-soft", $$"""

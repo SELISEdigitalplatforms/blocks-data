@@ -6,6 +6,7 @@ using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
+using DataGateway.DomainService.Schema;
 using DataGateway.DomainService.Services;
 using System.Text;
 using System.Text.Json;
@@ -81,6 +82,8 @@ public class MultiPodSchemaReloadTests
         services.AddSingleton<ICacheClient>(_cache);
         services.AddSingleton(new SchemaResolver(new Mock<IMutationService>().Object, new Mock<IQueryService>().Object));
         services.AddSingleton<GraphqlSchemaBuilder>();
+        services.AddSingleton<SchemaAssembler>();
+        services.AddSingleton<IPublishedSchemaValidator, GraphQLPublishedSchemaValidator>();
         services.AddSingleton<ISchemaVersionStore, SchemaVersionStore>();
         services.AddSingleton<ISchemaSnapshotStore>(new SchemaSnapshotStore(_repository));
         services.AddSingleton<ISchemaPublishService, SchemaPublishService>();

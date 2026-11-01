@@ -5,7 +5,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Repositories;
-using HotChocolate;
+using DataGateway.DomainService.Schema;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -20,20 +20,23 @@ public class SchemaPublishService : ISchemaPublishService
 
     private const string ChangeLogCollectionName = $"{nameof(SchemaChangeLog)}s";
 
-    private readonly GraphqlSchemaBuilder _schemaBuilder;
+    private readonly SchemaAssembler _schemaAssembler;
+    private readonly IPublishedSchemaValidator _validator;
     private readonly ISchemaSnapshotStore _snapshotStore;
     private readonly ISchemaVersionStore _versionStore;
     private readonly IDbRepository _repository;
     private readonly ILogger<SchemaPublishService> _logger;
 
     public SchemaPublishService(
-        GraphqlSchemaBuilder schemaBuilder,
+        SchemaAssembler schemaAssembler,
+        IPublishedSchemaValidator validator,
         ISchemaSnapshotStore snapshotStore,
         ISchemaVersionStore versionStore,
         IDbRepository repository,
         ILogger<SchemaPublishService> logger)
     {
-        _schemaBuilder = schemaBuilder ?? throw new ArgumentNullException(nameof(schemaBuilder));
+        _schemaAssembler = schemaAssembler ?? throw new ArgumentNullException(nameof(schemaAssembler));
+        _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
         _versionStore = versionStore ?? throw new ArgumentNullException(nameof(versionStore));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
@@ -57,7 +60,7 @@ public class SchemaPublishService : ISchemaPublishService
                 tenantId, userId, maskedEmail, pendingChangeLogIds.Count);
 
             step = "reading the drafts";
-            var source = await _schemaBuilder.ReadDraftSourceAsync(tenantId);
+            var source = await _schemaAssembler.ReadDraftSourceAsync(tenantId);
 
             // Pack before building: building modifies the definitions, and the snapshot must hold
             // exactly what was read. What is stored is then what was validated.
@@ -202,7 +205,7 @@ public class SchemaPublishService : ISchemaPublishService
     public async Task<(long Version, SchemaSource Source)> BootstrapAsync(string tenantId, CancellationToken cancellationToken = default)
     {
         using var scope = SchemaLog.BeginScope(_logger, SchemaLog.Bootstrap, tenantId);
-        var source = await _schemaBuilder.ReadDraftSourceAsync(tenantId);
+        var source = await _schemaAssembler.ReadDraftSourceAsync(tenantId);
         var content = SchemaSnapshotStore.Pack(source);
 
         var version = await _versionStore.AllocateAsync(tenantId, cancellationToken);
@@ -242,13 +245,7 @@ public class SchemaPublishService : ISchemaPublishService
         var started = Stopwatch.GetTimestamp();
         try
         {
-            var builder = SchemaBuilder.New();
-            // A tenant without definitions has nothing to validate (and nothing to serve).
-            // Strict: a Reference rule pointing at a schema or field that no longer exists stops the publish.
-            if (_schemaBuilder.BuildSchema(tenantId, source, builder, strictReferences: true))
-            {
-                builder.Create();
-            }
+            _validator.Validate(tenantId, source);
         }
         catch (Exception ex)
         {

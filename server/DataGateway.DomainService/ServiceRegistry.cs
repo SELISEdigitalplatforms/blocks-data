@@ -6,6 +6,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
+using DataGateway.DomainService.Schema;
 using DataGateway.DomainService.Services;
 using DataGateway.DomainService.Services.RegexAssistant;
 using DataGateway.DomainService.Validators;
@@ -102,7 +103,9 @@ public static class ServiceRegistry
     {
         serviceCollection.AddSingleton<ISchemaConfigurationService, SchemaConfigurationService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
+        serviceCollection.AddSingleton<SchemaAssembler>();
         serviceCollection.AddSingleton<GraphqlSchemaBuilder>();
+        serviceCollection.AddSingleton<IPublishedSchemaValidator, GraphQLPublishedSchemaValidator>();
         serviceCollection.AddSingleton<IDataChangeEventPublisher, DataChangeEventPublisher>();
         serviceCollection.AddBlocksDataAccess();
         serviceCollection.AddSingleton<IAccessPrincipalAccessor, BlocksContextPrincipalAccessor>();

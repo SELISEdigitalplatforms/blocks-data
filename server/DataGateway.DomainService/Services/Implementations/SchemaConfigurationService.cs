@@ -55,7 +55,7 @@ public class SchemaConfigurationService : ISchemaConfigurationService
         if (string.IsNullOrWhiteSpace(tenantId))
         {
             _logger.LogWarning("Schema reload requested without a tenant; evicting the default schema only");
-            _executorResolver.EvictRequestExecutor(Schema.DefaultName);
+            _executorResolver.EvictRequestExecutor(HotChocolate.Schema.DefaultName);
             return null;
         }
 

@@ -28,12 +28,14 @@ import { z } from "zod";
 import { useProjectStore } from "@/store/use-project-store";
 import { useSaveOrganization } from "@blocks-idp/iam/hooks/use-organization";
 import { Plus } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface AddOrganizationProps {
   disabled?: boolean;
 }
 
 export const AddOrganization = ({ disabled }: AddOrganizationProps) => {
+  const { t } = useT("data.idp.iam");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { mutateAsync, isPending } = useSaveOrganization();
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
@@ -59,7 +61,7 @@ export const AddOrganization = ({ disabled }: AddOrganizationProps) => {
         showErrorToast({ errors: res.errors });
         return;
       }
-      showSuccessToast({ description: "Organization added successfully" });
+      showSuccessToast({ description: t("ADD_ORGANIZATION.ORGANIZATION_ADDED_SUCCESSFULLY") });
       setIsModalOpen(false);
       form.reset();
     } catch (error: unknown) {
@@ -81,14 +83,14 @@ export const AddOrganization = ({ disabled }: AddOrganizationProps) => {
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm" disabled={disabled} className="text-primary">
           <Plus className="h-5 w-5 text-primary md:mr-2.5" />
-          <span className="sr-only sm:not-sr-only">Add Organization</span>
+          <span className="sr-only sm:not-sr-only">{t("ADD_ORGANIZATION.ADD_ORGANIZATION")}</span>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="mb-4">
-          <DialogTitle>Add Organization</DialogTitle>
+          <DialogTitle>{t("ADD_ORGANIZATION.ADD_ORGANIZATION")}</DialogTitle>
           <DialogDescription>
-            Please fill in the details to add a new organization.
+            {t("ADD_ORGANIZATION.PLEASE_FILL_IN_THE_DETAILS_TO")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -98,9 +100,9 @@ export const AddOrganization = ({ disabled }: AddOrganizationProps) => {
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>{t("common:NAME")}</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Enter organization name" />
+                    <Input {...field} placeholder={t("ADD_ORGANIZATION.ENTER_ORGANIZATION_NAME")} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -109,11 +111,11 @@ export const AddOrganization = ({ disabled }: AddOrganizationProps) => {
             <DialogFooter className="mt-6">
               <DialogClose asChild>
                 <Button className="min-w-[80px]" variant="outline" disabled={isPending}>
-                  Cancel
+                  {t("common:CANCEL")}
                 </Button>
               </DialogClose>
               <Button className="min-w-[80px]" type="submit" disabled={isPending || !isDirty}>
-                {isPending ? "Adding..." : "Add"}
+                {isPending ? t("ADD_ORGANIZATION.ADDING") : t("common:ADD")}
               </Button>
             </DialogFooter>
           </form>

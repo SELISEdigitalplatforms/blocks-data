@@ -20,6 +20,7 @@ import {
 } from "@radix-ui/react-select";
 import { TabsContent } from "@radix-ui/react-tabs";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type MembershipPermissionsTabProps = {
   isEditing: boolean;
@@ -51,16 +52,18 @@ export const MembershipPermissionsTab = ({
   totalPermissions,
   totalPermissionPages,
   onPermissionToggle,
-}: MembershipPermissionsTabProps) => (
+}: MembershipPermissionsTabProps) => {
+  const { t } = useT("data.idp.iam");
+  return (
   <TabsContent value="permissions" className="mt-4">
     {isEditing ? (
       <div className="flex flex-col gap-4">
-        <p className="text-sm font-medium">Assigned Permissions</p>
+        <p className="text-sm font-medium">{t("MEMBERSHIP_PERMISSION_TAB.ASSIGNED_PERMISSIONS")}</p>
         <div className="flex gap-2">
           <Input
             data-testid="permission-tab-searchbar"
             name="permission-tab-searchbar"
-            placeholder="Search"
+            placeholder={t("common:SEARCH")}
             value={permissionsSearch}
             onChange={(e) => onPermissionsSearchChange(e.target.value)}
             className="flex-1 focus-visible:ring-inset focus-visible:ring-offset-0"
@@ -70,10 +73,10 @@ export const MembershipPermissionsTab = ({
             onValueChange={(value) => onPermissionsTypeFilterChange(value)}
           >
             <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Type" />
+              <SelectValue placeholder={t("common:TYPE")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="all">{t("common:ALL")}</SelectItem>
               {RESOURCE_TYPE.map((type) => (
                 <SelectItem key={type.value} value={type.value}>
                   {type.label}
@@ -95,9 +98,9 @@ export const MembershipPermissionsTab = ({
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[50px]"></TableHead>
-                    <TableHead>Permission</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Role</TableHead>
+                    <TableHead>{t("MEMBERSHIP_PERMISSION_TAB.PERMISSION")}</TableHead>
+                    <TableHead>{t("common:TYPE")}</TableHead>
+                    <TableHead>{t("MEMBERSHIP_PERMISSION_TAB.ROLE")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -117,7 +120,7 @@ export const MembershipPermissionsTab = ({
                   {allPermissions.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center text-muted-foreground">
-                        No permissions found
+                        {t("MEMBERSHIP_PERMISSION_TAB.NO_PERMISSIONS_FOUND")}
                       </TableCell>
                     </TableRow>
                   )}
@@ -126,9 +129,11 @@ export const MembershipPermissionsTab = ({
             </div>
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span>
-                Showing {permissionsPage * 10 + 1}-
-                {Math.min((permissionsPage + 1) * 10, totalPermissions)} of {totalPermissions}{" "}
-                permissions
+                {t("MEMBERSHIP_PERMISSION_TAB.SHOWING_RANGE_OF_TOTAL_PERMISSIONS", {
+                  from: permissionsPage * 10 + 1,
+                  to: Math.min((permissionsPage + 1) * 10, totalPermissions),
+                  total: totalPermissions,
+                })}
               </span>
               <div className="flex items-center gap-2">
                 <Button
@@ -138,7 +143,7 @@ export const MembershipPermissionsTab = ({
                   disabled={permissionsPage === 0}
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  {t("common:PREVIOUS")}
                 </Button>
                 <div className="flex items-center gap-1">
                   {Array.from({ length: Math.min(3, totalPermissionPages) }).map((_, i) => {
@@ -165,7 +170,7 @@ export const MembershipPermissionsTab = ({
                   }
                   disabled={permissionsPage >= totalPermissionPages - 1}
                 >
-                  Next
+                  {t("common:NEXT")}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -175,20 +180,20 @@ export const MembershipPermissionsTab = ({
       </div>
     ) : (
       <div className="flex flex-col gap-4">
-        <p className="text-sm font-medium">Assigned Permissions</p>
+        <p className="text-sm font-medium">{t("MEMBERSHIP_PERMISSION_TAB.ASSIGNED_PERMISSIONS")}</p>
         <div className="flex gap-2">
           <Input
-            placeholder="Search"
+            placeholder={t("common:SEARCH")}
             value={permissionsSearch}
             onChange={(e) => onPermissionsSearchChange(e.target.value)}
             className="flex-1 focus-visible:ring-inset focus-visible:ring-offset-0"
           />
           <Select value={permissionsTypeFilter} onValueChange={onPermissionsTypeFilterChange}>
             <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Type" />
+              <SelectValue placeholder={t("common:TYPE")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="all">{t("common:ALL")}</SelectItem>
               {RESOURCE_TYPE.map((type) => (
                 <SelectItem key={type.value} value={type.value}>
                   {type.label}
@@ -201,9 +206,9 @@ export const MembershipPermissionsTab = ({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Permission</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Role</TableHead>
+                <TableHead>{t("MEMBERSHIP_PERMISSION_TAB.PERMISSION")}</TableHead>
+                <TableHead>{t("common:TYPE")}</TableHead>
+                <TableHead>{t("MEMBERSHIP_PERMISSION_TAB.ROLE")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -226,7 +231,7 @@ export const MembershipPermissionsTab = ({
               {selectedPermissions.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={3} className="text-center text-muted-foreground">
-                    No permissions assigned
+                    {t("MEMBERSHIP_PERMISSION_TAB.NO_PERMISSIONS_ASSIGNED")}
                   </TableCell>
                 </TableRow>
               )}
@@ -234,9 +239,10 @@ export const MembershipPermissionsTab = ({
           </Table>
         </div>
         <span className="text-sm text-muted-foreground">
-          Showing 1-{selectedPermissions.length} of {selectedPermissions.length} permissions
+          {t("MEMBERSHIP_PERMISSION_TAB.SHOWING_1_LENGTH_OF_LENGTH_PERMISSIONS", { length: selectedPermissions.length })}
         </span>
       </div>
     )}
   </TabsContent>
 );
+};

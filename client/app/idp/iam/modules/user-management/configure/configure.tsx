@@ -25,8 +25,10 @@ import { IIAMConfiguration } from "@blocks-idp/iam/models/configuration.model";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { Card, CardContent } from "@/components/ui-kits/card/card";
 import { isErrorWithErrors } from "@/lib/error";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export function Configure() {
+  const { t } = useT("data.idp.iam");
   const { isLoading, data } = useGetIamConfiguration();
   const { mutateAsync, isPending } = useSaveIamConfiguration();
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
@@ -44,7 +46,7 @@ export function Configure() {
         projectKey: tenantId,
       });
       form.reset(data);
-      showSuccessToast({ description: "Configuration updated successfully" });
+      showSuccessToast({ description: t("CONFIGURE.CONFIGURATION_UPDATED_SUCCESSFULLY") });
     } catch (error) {
       if (isErrorWithErrors(error)) {
         const { errors } = error;
@@ -59,7 +61,7 @@ export function Configure() {
 
       <div className="mb-6 mt-2 flex h-8 items-center justify-between">
         <div className="item-center flex gap-2">
-          <h1 className="text-2xl font-semibold">User Configuration</h1>
+          <h1 className="text-2xl font-semibold">{t("CONFIGURE.USER_CONFIGURATION")}</h1>
         </div>
       </div>
       <Card>
@@ -83,10 +85,10 @@ export function Configure() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-muted-foreground">
-                          Account activation url
+                          {t("CONFIGURE.ACCOUNT_ACTIVATION_URL")}
                         </FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter account activation url" {...field} />
+                          <Input placeholder={t("CONFIGURE.ENTER_ACCOUNT_ACTIVATION_URL")} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -98,10 +100,10 @@ export function Configure() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-muted-foreground">
-                          Account verification url
+                          {t("CONFIGURE.ACCOUNT_VERIFICATION_URL")}
                         </FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter account verification url" {...field} />
+                          <Input placeholder={t("CONFIGURE.ENTER_ACCOUNT_VERIFICATION_URL")} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -113,10 +115,10 @@ export function Configure() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-muted-foreground">
-                          Recovery account URL
+                          {t("CONFIGURE.RECOVERY_ACCOUNT_URL")}
                         </FormLabel>
                         <FormControl>
-                          <Input placeholder="Enter recovery account URL" {...field} />
+                          <Input placeholder={t("CONFIGURE.ENTER_RECOVERY_ACCOUNT_URL")} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -129,12 +131,12 @@ export function Configure() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-muted-foreground">
-                          Activation url lifetime (mins)
+                          {t("CONFIGURE.ACTIVATION_URL_LIFETIME_MINS")}
                         </FormLabel>
                         <FormControl>
                           <Input
                             type="number"
-                            placeholder="Enter activation url lifetime (mins)"
+                            placeholder={t("CONFIGURE.ENTER_ACTIVATION_URL_LIFETIME_MINS")}
                             {...field}
                           />
                         </FormControl>
@@ -148,12 +150,12 @@ export function Configure() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-muted-foreground">
-                          Recovery account URL lifetime (mins)
+                          {t("CONFIGURE.RECOVERY_ACCOUNT_URL_LIFETIME_MINS")}
                         </FormLabel>
                         <FormControl>
                           <Input
                             type="number"
-                            placeholder="Enter recovery account URL lifetime (mins)"
+                            placeholder={t("CONFIGURE.ENTER_RECOVERY_ACCOUNT_URL_LIFETIME")}
                             {...field}
                           />
                         </FormControl>
@@ -174,7 +176,7 @@ export function Configure() {
                           />
                         </FormControl>
                         <FormLabel className="mt-0! text-muted-foreground">
-                          Logout on password change
+                          {t("CONFIGURE.LOGOUT_ON_PASSWORD_CHANGE")}
                         </FormLabel>
                         <FormMessage />
                       </FormItem>
@@ -185,7 +187,7 @@ export function Configure() {
                 <div className="mt-6 flex items-center justify-end gap-2">
                   <Button variant="outline" size="sm" className="h-10" type="reset">
                     <Undo2 className="mr-2 h-5 w-4" />
-                    Reset
+                    {t("common:RESET")}
                   </Button>
                   <Button
                     size="sm"
@@ -195,7 +197,7 @@ export function Configure() {
                   >
                     <Edit className="mr-2 h-5 w-4" />
 
-                    {isPending ? "Changing" : "Change"}
+                    {isPending ? t("CONFIGURE.CHANGING") : t("CONFIGURE.CHANGE")}
                   </Button>
                 </div>
               </form>

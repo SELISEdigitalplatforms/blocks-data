@@ -28,8 +28,10 @@ import { useProjectStore } from "@/store/use-project-store";
 import { useAddRole } from "@blocks-idp/iam/hooks/use-roles";
 import { PrimaryButton } from "@/components/action-buttons/primary-button";
 import { Textarea } from "@/components/ui-kits/textarea/textarea";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const AddRole = () => {
+  const { t } = useT("data.idp.iam");
   const [isAddRoleOpenModal, setIsAddRoleOpenModal] = useState(false);
   const { mutateAsync, isPending } = useAddRole();
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
@@ -52,7 +54,7 @@ export const AddRole = () => {
     };
     try {
       await mutateAsync(newRole);
-      showSuccessToast({ description: "Role added successfully" });
+      showSuccessToast({ description: t("ADD_ROLE.ROLE_ADDED_SUCCESSFULLY") });
       setIsAddRoleOpenModal(false);
       form.reset();
     } catch (error: unknown) {
@@ -61,8 +63,8 @@ export const AddRole = () => {
 
         if (httpError.status === 403) {
           showErrorToast({
-            title: "Forbidden",
-            errors: "You are not allowed to perform this action.",
+            title: t("ADD_ROLE.FORBIDDEN"),
+            errors: t("ADD_ROLE.YOU_ARE_NOT_ALLOWED_TO_PERFORM"),
           });
         } else {
           showErrorToast({ errors: httpError.errors });
@@ -82,12 +84,12 @@ export const AddRole = () => {
       }}
     >
       <DialogTrigger asChild>
-        <PrimaryButton label="Add Role" />
+        <PrimaryButton label={t("ADD_ROLE.ADD_ROLE")} />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="mb-4">
-          <DialogTitle>Add Role</DialogTitle>
-          <DialogDescription>Please fill in the details to add a new role.</DialogDescription>
+          <DialogTitle>{t("ADD_ROLE.ADD_ROLE")}</DialogTitle>
+          <DialogDescription>{t("ADD_ROLE.PLEASE_FILL_IN_THE_DETAILS_TO")}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -96,9 +98,9 @@ export const AddRole = () => {
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>{t("common:NAME")}</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Enter name" />
+                    <Input {...field} placeholder={t("ADD_ROLE.ENTER_NAME")} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -109,9 +111,9 @@ export const AddRole = () => {
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Slug</FormLabel>
+                  <FormLabel>{t("ADD_ROLE.SLUG")}</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Enter slug" />
+                    <Input {...field} placeholder={t("ADD_ROLE.ENTER_SLUG")} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -122,9 +124,9 @@ export const AddRole = () => {
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>{t("common:DESCRIPTION")}</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="Enter description" />
+                    <Textarea {...field} placeholder={t("ADD_ROLE.ENTER_DESCRIPTION")} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -133,11 +135,11 @@ export const AddRole = () => {
             <DialogFooter className="mt-6">
               <DialogTrigger asChild>
                 <Button className="min-w-[80px]" variant="outline" disabled={isPending}>
-                  Cancel
+                  {t("common:CANCEL")}
                 </Button>
               </DialogTrigger>
               <Button className="min-w-[80px]" type="submit" disabled={isPending || !isDirty}>
-                {isPending ? "Adding..." : "Add"}
+                {isPending ? t("ADD_ROLE.ADDING") : t("common:ADD")}
               </Button>
             </DialogFooter>
           </form>

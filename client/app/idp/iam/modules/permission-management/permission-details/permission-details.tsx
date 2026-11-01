@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { Card, CardContent } from "@/components/ui-kits/card/card";
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { cn } from "@/lib/utils";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type PermissionDetailsProps = {
   id: string;
@@ -34,6 +35,7 @@ const FormLOadingSkeleton = () => (
 );
 
 export const PermissionDetails = ({ id }: PermissionDetailsProps) => {
+  const { t } = useT("data.idp.iam");
   const selectedTenantId = useProjectStore().selectedProject?.tenantId || "";
   const { data, isLoading } = useGetPermissionById({ id, projectKey: selectedTenantId });
   const { isPending, mutateAsync } = useUpdatePermission({ id, projectKey: selectedTenantId });
@@ -49,14 +51,14 @@ export const PermissionDetails = ({ id }: PermissionDetailsProps) => {
         itemId: id,
       });
       if (!res.isSuccess) return showErrorToast({ errors: res.errors });
-      showSuccessToast({ description: "Permission Updated successfully" });
+      showSuccessToast({ description: t("PERMISSION_DETAILS.PERMISSION_UPDATED_SUCCESSFULLY") });
     } catch (error) {
       if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
-      showErrorToast({ errors: "Something went wrong" });
+      showErrorToast({ errors: t("PERMISSION_DETAILS.SOMETHING_WENT_WRONG") });
     }
   };
 
-  setBreadcrumbTitle("/services/iam/permission-detail", "Permissions");
+  setBreadcrumbTitle("/services/iam/permission-detail", t("PERMISSION_DETAILS.PERMISSIONS"));
   setBreadcrumbTitle(`/services/iam/permission-detail/${id}`, data?.data.name || "");
 
   return (
@@ -70,7 +72,7 @@ export const PermissionDetails = ({ id }: PermissionDetailsProps) => {
           <Badge
             className={cn(data?.data.isBuiltIn ? "bg-gray-300! text-gray-800!" : "bg-purple-100! text-purple-700!")}
           >
-            {data?.data.isBuiltIn ? "Built In" : "Custom"}
+            {data?.data.isBuiltIn ? t("PERMISSION_DETAILS.BUILT_IN") : t("PERMISSION_DETAILS.CUSTOM")}
           </Badge>
         )}
       </div>

@@ -17,6 +17,7 @@ import {
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import { useGetPermissions } from "@blocks-idp/iam/hooks/use-permission";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface PermissionSelectionProps {
   // removed isBuiltIn prop
@@ -28,6 +29,7 @@ export const PermissionSelection = forwardRef(function PermissionSelection(
   { slug, resourceGroups }: PermissionSelectionProps,
   ref,
 ) {
+  const { t } = useT("data.idp.iam");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const {
     isLoading: isPermissionLoading,
@@ -385,16 +387,18 @@ export const PermissionSelection = forwardRef(function PermissionSelection(
                       <h3 className="text-left text-2xl font-semibold">{groupName}</h3>
                     </div>
                     <span className="text-left text-muted-foreground">
-                      Total Permissions: {groupResource.count} | Selected:{" "}
-                      {getSelectedCount(groupName)}
+                      {t("PERMISSION_SELECTION.TOTAL_PERMISSIONS_SELECTED", {
+                        total: groupResource.count,
+                        selected: getSelectedCount(groupName),
+                      })}
                     </span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
                   {isLoading ? (
-                    <div className="py-4 text-center">Loading group permissions...</div>
+                    <div className="py-4 text-center">{t("PERMISSION_SELECTION.LOADING_GROUP_PERMISSIONS")}</div>
                   ) : groupObj.allIds.length === 0 ? (
-                    <div className="py-4 text-center">Click to load permissions for this group</div>
+                    <div className="py-4 text-center">{t("PERMISSION_SELECTION.CLICK_TO_LOAD_PERMISSIONS_FOR_THIS")}</div>
                   ) : (
                     <ul className="ml-4">
                       {/* FE Actions with dependents */}
@@ -413,7 +417,7 @@ export const PermissionSelection = forwardRef(function PermissionSelection(
                               {fa.name}
                             </label>
                             <span className="ml-2 rounded border bg-muted px-2 py-0.5 text-xs">
-                              FE Action
+                              {t("PERMISSION_SELECTION.FE_ACTION")}
                             </span>
                           </div>
                           {/* Render dependents */}

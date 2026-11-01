@@ -11,6 +11,7 @@ import { IHistories } from "@blocks-idp/iam/models/user";
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
 import { useMemo } from "react";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 type HistoryListProps = {
   isLoading: boolean;
@@ -26,18 +27,19 @@ const LoadingSkelton = () => (
 );
 
 const EVENT_TYPE = {
-  issued_refresh_token: "Refresh Token Issued",
-  revoke_access_by_logout: "Access Revoked (Logout)",
+  get issued_refresh_token() { return tStatic("data.idp.iam", "USER_HISTORY_LIST.REFRESH_TOKEN_ISSUED"); },
+  get revoke_access_by_logout() { return tStatic("data.idp.iam", "USER_HISTORY_LIST.ACCESS_REVOKED_LOGOUT"); },
 };
 
 export const UserHistoryList = ({ isLoading, data }: HistoryListProps) => {
+  const { t } = useT("data.idp.iam");
   const columns: ColumnDef<IHistories>[] = useMemo(
     () => [
       {
         accessorKey: "Event",
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Event</span>
+            <span className="font-bold text-medium-emphasis">{t("USER_HISTORY_LIST.EVENT")}</span>
           </div>
         ),
         cell: ({ row }) => (
@@ -51,7 +53,7 @@ export const UserHistoryList = ({ isLoading, data }: HistoryListProps) => {
         accessorKey: "LastUpdatedDate",
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Time</span>
+            <span className="font-bold text-medium-emphasis">{t("USER_HISTORY_LIST.TIME")}</span>
           </div>
         ),
         cell: ({ row }) => (
@@ -68,7 +70,7 @@ export const UserHistoryList = ({ isLoading, data }: HistoryListProps) => {
         accessorKey: "accessFrom",
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Accessed from</span>
+            <span className="font-bold text-medium-emphasis">{t("USER_HISTORY_LIST.ACCESSED_FROM")}</span>
           </div>
         ),
         cell: ({ row }) => {
@@ -76,7 +78,7 @@ export const UserHistoryList = ({ isLoading, data }: HistoryListProps) => {
           return (
             <div className="flex w-[200px] flex-col">
               <div className="mb-2 flex items-center">
-                <span>IP:</span>
+                <span>{t("USER_HISTORY_LIST.IP")}</span>
                 <div className="ml-2 rounded-[4px] bg-blocks-primary-shades-300 px-2 py-1">
                   <span>{row.original.IpAddresses}</span>
                 </div>
@@ -85,14 +87,14 @@ export const UserHistoryList = ({ isLoading, data }: HistoryListProps) => {
                 <span>
                   {deviceInfo.Device
                     ? `${deviceInfo.Device.charAt(0).toUpperCase() + deviceInfo.Device.slice(1)}`
-                    : "Unknown Device"}{" "}
+                    : t("USER_HISTORY_LIST.UNKNOWN_DEVICE")}{" "}
                   {deviceInfo.Model
                     ? `${deviceInfo.Model.charAt(0).toUpperCase() + deviceInfo.Model.slice(1)}`
                     : ""}
                 </span>
                 <span>
-                  {deviceInfo.Browser ? `${deviceInfo.Browser}` : "Unknown Browser"}{" "}
-                  {deviceInfo.OS ? `on ${deviceInfo.OS}` : " "}
+                  {deviceInfo.Browser ? `${deviceInfo.Browser}` : t("USER_HISTORY_LIST.UNKNOWN_BROWSER")}{" "}
+                  {deviceInfo.OS ? t("USER_HISTORY_LIST.ON_OS", { OS: deviceInfo.OS }) : " "}
                 </span>
               </div>
             </div>
@@ -100,7 +102,7 @@ export const UserHistoryList = ({ isLoading, data }: HistoryListProps) => {
         },
       },
     ],
-    [],
+    [t],
   );
 
   const table = useReactTable({
@@ -143,7 +145,7 @@ export const UserHistoryList = ({ isLoading, data }: HistoryListProps) => {
         ) : (
           <TableRow>
             <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-              No results.
+              {t("USER_HISTORY_LIST.NO_RESULTS")}
             </TableCell>
           </TableRow>
         )}

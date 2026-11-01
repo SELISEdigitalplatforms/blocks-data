@@ -19,6 +19,7 @@ import { useGetRoles } from "@blocks-idp/iam/hooks/use-roles";
 import { useUserRoles } from "@blocks-idp/iam/hooks/use-user";
 import { CirclePlus } from "lucide-react";
 import { useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type AddUserRoleProps = {
   userId: string;
@@ -26,6 +27,7 @@ type AddUserRoleProps = {
 };
 
 export const AddUserRole = ({ userId, projectKey }: AddUserRoleProps) => {
+  const { t } = useT("data.idp.iam");
   const [open, setOpen] = useState<boolean>(false);
   const [selectedRolos, setSelectedRoles] = useState<string[]>([]);
   const [filter, setFilter] = useState({ page: 0, pageSize: 10, search: "" });
@@ -45,12 +47,12 @@ export const AddUserRole = ({ userId, projectKey }: AddUserRoleProps) => {
     try {
       const res = await addRoles(selectedRolos);
       if (!res.isSuccess) return showErrorToast({ errors: res.errors });
-      showSuccessToast({ description: "New role assigned successfully" });
+      showSuccessToast({ description: t("ADD_USER_ROLE.NEW_ROLE_ASSIGNED_SUCCESSFULLY") });
       setSelectedRoles([]);
       setOpen(false);
     } catch (error) {
       if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
-      showErrorToast({ errors: "Something went wrong" });
+      showErrorToast({ errors: t("ADD_USER_ROLE.SOMETHING_WENT_WRONG") });
     }
   };
 
@@ -80,12 +82,12 @@ export const AddUserRole = ({ userId, projectKey }: AddUserRoleProps) => {
       <DialogTrigger>
         <Button size="sm" variant="default" className="h-10 bg-primary text-sm">
           <CirclePlus className="h-5 w-5 md:mr-2.5" />
-          <span className="sr-only sm:not-sr-only">Assign Role</span>
+          <span className="sr-only sm:not-sr-only">{t("ADD_USER_ROLE.ASSIGN_ROLE")}</span>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-left">Assign roles</DialogTitle>
+          <DialogTitle className="text-left">{t("ADD_USER_ROLE.ASSIGN_ROLES")}</DialogTitle>
           <DialogDescription></DialogDescription>
         </DialogHeader>
         <div>
@@ -93,7 +95,7 @@ export const AddUserRole = ({ userId, projectKey }: AddUserRoleProps) => {
             value={filter.search}
             onChange={(value) => setFilter((prev) => ({ ...prev, search: value, page: 0 }))}
             className="h-fit w-full py-3"
-            placeholder="Search by roles name"
+            placeholder={t("ADD_USER_ROLE.SEARCH_BY_ROLES_NAME")}
           />
         </div>
         <Card>
@@ -130,7 +132,7 @@ export const AddUserRole = ({ userId, projectKey }: AddUserRoleProps) => {
                   </div>
                 ))
               ) : (
-                <div className="flex h-24 items-center justify-center">No roles found</div>
+                <div className="flex h-24 items-center justify-center">{t("ADD_USER_ROLE.NO_ROLES_FOUND")}</div>
               )}
             </div>
             {/* <Table>
@@ -192,7 +194,7 @@ export const AddUserRole = ({ userId, projectKey }: AddUserRoleProps) => {
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" size="default" disabled={isPending}>
-              Cancel
+              {t("common:CANCEL")}
             </Button>
           </DialogClose>
           <Button
@@ -200,7 +202,7 @@ export const AddUserRole = ({ userId, projectKey }: AddUserRoleProps) => {
             onClick={onClickHandler}
             disabled={isPending || !selectedRolos.length}
           >
-            {isPending ? "Including" : "Include"}
+            {isPending ? t("ADD_USER_ROLE.INCLUDING") : t("ADD_USER_ROLE.INCLUDE")}
           </Button>
         </DialogFooter>
       </DialogContent>

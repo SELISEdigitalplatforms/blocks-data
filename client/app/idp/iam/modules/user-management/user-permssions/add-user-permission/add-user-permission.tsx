@@ -29,6 +29,7 @@ import { useUserPermissions } from "@blocks-idp/iam/hooks/use-user";
 import { RESOURCE_TYPE } from "@blocks-idp/iam/models/permission";
 import { CirclePlus } from "lucide-react";
 import { useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type AddUserPermissionProps = {
   userId: string;
@@ -36,6 +37,7 @@ type AddUserPermissionProps = {
 };
 
 export const AddUserPermission = ({ userId, projectKey }: AddUserPermissionProps) => {
+  const { t } = useT("data.idp.iam");
   const [open, setOpen] = useState<boolean>(false);
   const [selectedPermisson, setSelectedPermissions] = useState<string[]>([]);
   const [filter, setFilter] = useState({
@@ -59,13 +61,13 @@ export const AddUserPermission = ({ userId, projectKey }: AddUserPermissionProps
       const res = await addPermissions(selectedPermisson);
       if (!res.isSuccess) return showErrorToast({ errors: res.errors });
       showSuccessToast({
-        description: `${selectedPermisson.length > 1 ? "New permissions added" : "New permission added"}`,
+        description: `${selectedPermisson.length > 1 ? t("ADD_USER_PERMISSION.NEW_PERMISSIONS_ADDED") : t("ADD_USER_PERMISSION.NEW_PERMISSION_ADDED")}`,
       });
       setSelectedPermissions([]);
       setOpen(false);
     } catch (error) {
       if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
-      showErrorToast({ errors: "Something went wrong" });
+      showErrorToast({ errors: t("ADD_USER_PERMISSION.SOMETHING_WENT_WRONG") });
     }
   };
 
@@ -108,17 +110,17 @@ export const AddUserPermission = ({ userId, projectKey }: AddUserPermissionProps
           }}
         >
           <CirclePlus className="h-5 w-5 md:mr-2.5" />
-          <span className="sr-only sm:not-sr-only">Assign Permissions</span>
+          <span className="sr-only sm:not-sr-only">{t("ADD_USER_PERMISSION.ASSIGN_PERMISSIONS")}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="text-left">Include Permissions</DialogTitle>
-          <DialogDescription>Maximum 5 permissions are allowed</DialogDescription>
+          <DialogTitle className="text-left">{t("ADD_USER_PERMISSION.INCLUDE_PERMISSIONS")}</DialogTitle>
+          <DialogDescription>{t("ADD_USER_PERMISSION.MAXIMUM_5_PERMISSIONS_ARE_ALLOWED")}</DialogDescription>
         </DialogHeader>
         <div>
           <FilterControls.SearchInput
-            placeholder="Search by permission name"
+            placeholder={t("ADD_USER_PERMISSION.SEARCH_BY_PERMISSION_NAME")}
             onChange={(search) => setFilter((prev) => ({ ...prev, search, page: 0 }))}
             value={filter.search}
             className="h-fit w-full py-3"
@@ -131,8 +133,8 @@ export const AddUserPermission = ({ userId, projectKey }: AddUserPermissionProps
               <TableHeader>
                 <TableRow>
                   <TableHead></TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>{t("common:NAME")}</TableHead>
+                  <TableHead>{t("common:TYPE")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -180,7 +182,7 @@ export const AddUserPermission = ({ userId, projectKey }: AddUserPermissionProps
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" size="default" disabled={isPending}>
-              Cancel
+              {t("common:CANCEL")}
             </Button>
           </DialogClose>
           <Button
@@ -188,7 +190,7 @@ export const AddUserPermission = ({ userId, projectKey }: AddUserPermissionProps
             onClick={onClickHandler}
             disabled={isPending || !selectedPermisson.length}
           >
-            {isPending ? "Including" : "Include"}
+            {isPending ? t("ADD_USER_PERMISSION.INCLUDING") : t("ADD_USER_PERMISSION.INCLUDE")}
           </Button>
         </DialogFooter>
       </DialogContent>

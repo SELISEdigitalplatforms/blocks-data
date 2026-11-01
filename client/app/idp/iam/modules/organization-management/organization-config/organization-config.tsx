@@ -37,6 +37,7 @@ import {
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { cn } from "@/lib/utils";
 import { ChevronsUpDown, Check, Settings } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface OrganizationConfigProps {
   configData: IOrganizationConfigResponse | null | undefined;
@@ -44,6 +45,7 @@ interface OrganizationConfigProps {
 }
 
 export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfigProps) => {
+  const { t } = useT("data.idp.iam");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
@@ -123,7 +125,7 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
         showErrorToast({ errors: res.errors });
         return;
       }
-      showSuccessToast({ description: "Organization config saved successfully" });
+      showSuccessToast({ description: t("ORGANIZATION_CONFIG.ORGANIZATION_CONFIG_SAVED_SUCCESSFULLY") });
       setIsModalOpen(false);
     } catch (error: unknown) {
       if (error && typeof error === "object" && "errors" in error) {
@@ -137,16 +139,16 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           <Settings className="h-5 w-5" />
-          <span className="sr-only sm:not-sr-only sm:ml-2.5">Configure Organization</span>
+          <span className="sr-only sm:not-sr-only sm:ml-2.5">{t("ORGANIZATION_CONFIG.CONFIGURE_ORGANIZATION")}</span>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="mb-4">
-          <DialogTitle>Organization Configuration</DialogTitle>
-          <DialogDescription>Configure organization settings for your project.</DialogDescription>
+          <DialogTitle>{t("ORGANIZATION_CONFIG.ORGANIZATION_CONFIGURATION")}</DialogTitle>
+          <DialogDescription>{t("ORGANIZATION_CONFIG.CONFIGURE_ORGANIZATION_SETTINGS_FOR")}</DialogDescription>
         </DialogHeader>
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">Loading...</div>
+          <div className="flex items-center justify-center py-8">{t("common:LOADING")}</div>
         ) : (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4">
@@ -162,7 +164,7 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
-                    <FormLabel className="mt-0!">Enable Multi-Organization</FormLabel>
+                    <FormLabel className="mt-0!">{t("ORGANIZATION_CONFIG.ENABLE_MULTI_ORGANIZATION")}</FormLabel>
                   </FormItem>
                 )}
               />
@@ -181,7 +183,7 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
                             onCheckedChange={field.onChange}
                           />
                         </FormControl>
-                        <FormLabel className="mt-0!">Allow Creation From Cloud</FormLabel>
+                        <FormLabel className="mt-0!">{t("ORGANIZATION_CONFIG.ALLOW_CREATION_FROM_CLOUD")}</FormLabel>
                       </FormItem>
                     )}
                   />
@@ -199,18 +201,18 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
                             disabled={true}
                           />
                         </FormControl>
-                        <FormLabel className="mt-0!">Allow Creation From Construct</FormLabel>
+                        <FormLabel className="mt-0!">{t("ORGANIZATION_CONFIG.ALLOW_CREATION_FROM_CONSTRUCT")}</FormLabel>
                       </FormItem>
                     )}
                   />
 
                   {form.watch("allowCreationFromConstruct") && (
                     <div className="mt-3 space-y-2">
-                      <label className="text-sm font-medium">Default Roles</label>
+                      <label className="text-sm font-medium">{t("ORGANIZATION_CONFIG.DEFAULT_ROLES")}</label>
                       {isRolesLoading ? (
-                        <div className="p-2 text-sm text-muted-foreground">Loading roles...</div>
+                        <div className="p-2 text-sm text-muted-foreground">{t("ORGANIZATION_CONFIG.LOADING_ROLES")}</div>
                       ) : roles.length === 0 ? (
-                        <div className="p-2 text-sm text-muted-foreground">No roles available</div>
+                        <div className="p-2 text-sm text-muted-foreground">{t("ORGANIZATION_CONFIG.NO_ROLES_AVAILABLE")}</div>
                       ) : (
                         <Popover>
                           <PopoverTrigger asChild>
@@ -223,7 +225,7 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
                                 <div className="flex flex-wrap gap-1">
                                   {selectedRoles.length > 2 ? (
                                     <Badge variant="secondary">
-                                      {selectedRoles.length} selected
+                                      {t("ORGANIZATION_CONFIG.LENGTH_SELECTED", { length: selectedRoles.length })}
                                     </Badge>
                                   ) : (
                                     selectedRoles.map((slug) => {
@@ -237,16 +239,16 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
                                   )}
                                 </div>
                               ) : (
-                                "Select Roles"
+                                t("ORGANIZATION_CONFIG.SELECT_ROLES")
                               )}
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-full p-0" align="start">
                             <Command>
-                              <CommandInput placeholder="Search roles..." />
+                              <CommandInput placeholder={t("ORGANIZATION_CONFIG.SEARCH_ROLES")} />
                               <CommandList>
-                                <CommandEmpty>No roles found.</CommandEmpty>
+                                <CommandEmpty>{t("ORGANIZATION_CONFIG.NO_ROLES_FOUND")}</CommandEmpty>
                                 <CommandGroup>
                                   {roleOptions.map((option) => {
                                     const isSelected = selectedRoles.includes(option.value);
@@ -284,11 +286,11 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
               <DialogFooter className="mt-6">
                 <DialogClose asChild>
                   <Button className="min-w-[80px]" variant="outline" disabled={isPending}>
-                    Cancel
+                    {t("common:CANCEL")}
                   </Button>
                 </DialogClose>
                 <Button className="min-w-[80px]" type="submit" disabled={isPending || !isDirty}>
-                  {isPending ? "Saving..." : "Save"}
+                  {isPending ? t("ORGANIZATION_CONFIG.SAVING") : t("common:SAVE")}
                 </Button>
               </DialogFooter>
             </form>

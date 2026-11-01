@@ -7,6 +7,7 @@ import { MFA_Provider_Data } from "@blocks-idp/mfa/utils/mfa-config";
 import { useGetUserById } from "@blocks-idp/iam/hooks/use-user";
 import { useContext, useMemo } from "react";
 import { profileMfaContext } from "../profile-mfa";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type UserMFAMethodListProps = {
   selected: number;
@@ -14,6 +15,7 @@ type UserMFAMethodListProps = {
 };
 
 export const ProfileMFAMethodList = ({ selected, setSelected }: UserMFAMethodListProps) => {
+  const { t } = useT("data.idp.iam");
   const { userId, projectKey } = useContext(profileMfaContext);
   const { isLoading, isFetching, data } = useGetMFAConfig({ projectKey });
   const { data: userData } = useGetUserById({ id: userId, projectKey });
@@ -47,7 +49,7 @@ export const ProfileMFAMethodList = ({ selected, setSelected }: UserMFAMethodLis
                 </Label>
               </div>
               {userData && userData.data.mfaEnabled && userData.data.userMfaType === item.type && (
-                <Badge variant="success"> Enabled</Badge>
+                <Badge variant="success"> {t("common:ENABLED")}</Badge>
               )}
             </div>
           ))}

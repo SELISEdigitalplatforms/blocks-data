@@ -27,6 +27,7 @@ import { useProjectStore } from "@/store/use-project-store";
 import { useState } from "react";
 import { isErrorWithErrors } from "@/lib/error";
 import { PrimaryButton } from "@/components/action-buttons/primary-button";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const inviteOrganizationUserFormDefaultValue = {
   email: "",
@@ -34,25 +35,26 @@ const inviteOrganizationUserFormDefaultValue = {
   lastName: "",
 };
 
-const inviteOrganizationUserFormSchema = z.object({
-  email: z.string().email("Invalid email address"),
+const inviteOrganizationUserFormSchema = z.lazy(() => z.object({
+  email: z.string().email(tStatic("data.idp.iam", "INVITE_ORGANIZATION_USER.INVALID_EMAIL_ADDRESS")),
   firstName: z
     .string()
-    .min(1, "First name is required")
-    .max(150, "First name must be at most 150 characters")
+    .min(1, tStatic("data.idp.iam", "INVITE_ORGANIZATION_USER.FIRST_NAME_IS_REQUIRED"))
+    .max(150, tStatic("data.idp.iam", "INVITE_ORGANIZATION_USER.FIRST_NAME_MUST_BE_AT_MOST"))
     .trim(),
   lastName: z
     .string()
-    .min(1, "Last name is required")
-    .max(150, "Last name must be at most 150 characters")
+    .min(1, tStatic("data.idp.iam", "INVITE_ORGANIZATION_USER.LAST_NAME_IS_REQUIRED"))
+    .max(150, tStatic("data.idp.iam", "INVITE_ORGANIZATION_USER.LAST_NAME_MUST_BE_AT_MOST"))
     .trim(),
-});
+}));
 
 interface InviteOrganizationUserProps {
   organizationId: string;
 }
 
 export const InviteOrganizationUser = ({ organizationId }: InviteOrganizationUserProps) => {
+  const { t } = useT("data.idp.iam");
   const { isPending, mutateAsync } = useAddUser();
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const [open, setOpen] = useState(false);
@@ -73,7 +75,7 @@ export const InviteOrganizationUser = ({ organizationId }: InviteOrganizationUse
         organizationId: organizationId,
       });
       if (res.isSuccess) {
-        showSuccessToast({ description: "Invitation is sent" });
+        showSuccessToast({ description: t("INVITE_ORGANIZATION_USER.INVITATION_IS_SENT") });
         form.reset();
         setOpen(false);
       } else {
@@ -89,13 +91,13 @@ export const InviteOrganizationUser = ({ organizationId }: InviteOrganizationUse
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <PrimaryButton label="Invite User" />
+        <PrimaryButton label={t("INVITE_ORGANIZATION_USER.INVITE_USER")} />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="mb-4">
-          <DialogTitle>Invite User</DialogTitle>
+          <DialogTitle>{t("INVITE_ORGANIZATION_USER.INVITE_USER")}</DialogTitle>
           <DialogDescription className="mt-2! text-sm text-medium-emphasis">
-            Invite a new user to the organization
+            {t("INVITE_ORGANIZATION_USER.INVITE_A_NEW_USER_TO_THE")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -106,9 +108,9 @@ export const InviteOrganizationUser = ({ organizationId }: InviteOrganizationUse
                 name="firstName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>First name</FormLabel>
+                    <FormLabel>{t("INVITE_ORGANIZATION_USER.FIRST_NAME")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter first name" {...field} />
+                      <Input placeholder={t("INVITE_ORGANIZATION_USER.ENTER_FIRST_NAME")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -119,9 +121,9 @@ export const InviteOrganizationUser = ({ organizationId }: InviteOrganizationUse
                 name="lastName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Last name</FormLabel>
+                    <FormLabel>{t("INVITE_ORGANIZATION_USER.LAST_NAME")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter last name" {...field} />
+                      <Input placeholder={t("INVITE_ORGANIZATION_USER.ENTER_LAST_NAME")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -132,9 +134,9 @@ export const InviteOrganizationUser = ({ organizationId }: InviteOrganizationUse
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("common:EMAIL")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter email" {...field} />
+                      <Input placeholder={t("INVITE_ORGANIZATION_USER.ENTER_EMAIL")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -144,10 +146,10 @@ export const InviteOrganizationUser = ({ organizationId }: InviteOrganizationUse
             <DialogFooter className="mt-6">
               <DialogClose asChild>
                 <Button variant="secondary" disabled={isPending}>
-                  Cancel
+                  {t("common:CANCEL")}
                 </Button>
               </DialogClose>
-              <Button disabled={isPending}>{isPending ? "Sending..." : "Send"}</Button>
+              <Button disabled={isPending}>{isPending ? t("INVITE_ORGANIZATION_USER.SENDING") : t("INVITE_ORGANIZATION_USER.SEND")}</Button>
             </DialogFooter>
           </form>
         </Form>

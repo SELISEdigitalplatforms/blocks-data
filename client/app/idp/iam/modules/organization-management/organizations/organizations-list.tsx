@@ -26,6 +26,7 @@ import { EllipsisVertical, Pencil, Power, PowerOff } from "lucide-react";
 import { UpdateOrganization } from "../update-organization";
 import { ToggleOrganizationStatus } from "../toggle-organization-status";
 import { useNavigate } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type OrganizationTableProps = {
   organizations: IOrganization[];
@@ -45,6 +46,7 @@ type OrganizationActionsProps = {
 };
 
 const OrganizationActions = ({ organization }: OrganizationActionsProps) => {
+  const { t } = useT("data.idp.iam");
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [isToggleStatusModalOpen, setIsToggleStatusModalOpen] = useState(false);
 
@@ -69,18 +71,18 @@ const OrganizationActions = ({ organization }: OrganizationActionsProps) => {
         <DropdownMenuContent align="end">
           <DropdownMenuItem className="gap-2" onSelect={() => setIsRenameModalOpen(true)}>
             <Pencil className="aspect-square w-4" />
-            <span>Rename</span>
+            <span>{t("ORGANIZATIONS_LIST.RENAME")}</span>
           </DropdownMenuItem>
           <DropdownMenuItem className="gap-2" onSelect={() => setIsToggleStatusModalOpen(true)}>
             {organization.isEnable ? (
               <>
                 <PowerOff className="aspect-square w-4" />
-                <span>Disable</span>
+                <span>{t("ORGANIZATIONS_LIST.DISABLE")}</span>
               </>
             ) : (
               <>
                 <Power className="aspect-square w-4" />
-                <span>Enable</span>
+                <span>{t("ORGANIZATIONS_LIST.ENABLE")}</span>
               </>
             )}
           </DropdownMenuItem>
@@ -100,6 +102,7 @@ const OrganizationActions = ({ organization }: OrganizationActionsProps) => {
 };
 
 export const OrganizationsList = ({ organizations, isLoading }: OrganizationTableProps) => {
+  const { t } = useT("data.idp.iam");
   const { sortQueryParams, setSortQueryParams } = useOrganizationsSortQueryParams();
   const navigate = useNavigate();
 
@@ -116,7 +119,7 @@ export const OrganizationsList = ({ organizations, isLoading }: OrganizationTabl
         accessorFn: (row) => `${row.name}`.trim(),
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Name</span>
+            <span className="font-bold text-medium-emphasis">{t("common:NAME")}</span>
           </div>
         ),
         cell: (organization) => (
@@ -129,7 +132,7 @@ export const OrganizationsList = ({ organizations, isLoading }: OrganizationTabl
         id: "status",
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Status</span>
+            <span className="font-bold text-medium-emphasis">{t("common:STATUS")}</span>
           </div>
         ),
         cell: (organization) => (
@@ -138,7 +141,7 @@ export const OrganizationsList = ({ organizations, isLoading }: OrganizationTabl
               className="w-fit"
               variant={organization.row.original.isEnable ? "success" : "error"}
             >
-              {organization.row.original.isEnable ? "Active" : "Disabled"}
+              {organization.row.original.isEnable ? t("ORGANIZATIONS_LIST.ACTIVE") : t("common:DISABLED")}
             </Badge>
           </div>
         ),
@@ -159,7 +162,7 @@ export const OrganizationsList = ({ organizations, isLoading }: OrganizationTabl
         ),
       },
     ],
-    [sortQueryParams, setSortQueryParams],
+    [sortQueryParams, setSortQueryParams, t],
   );
 
   const table = useReactTable({
@@ -175,7 +178,7 @@ export const OrganizationsList = ({ organizations, isLoading }: OrganizationTabl
   if (organizations.length === 0) {
     return (
       <div className="flex h-[200px] items-center justify-center text-medium-emphasis">
-        No organizations found
+        {t("ORGANIZATIONS_LIST.NO_ORGANIZATIONS_FOUND")}
       </div>
     );
   }

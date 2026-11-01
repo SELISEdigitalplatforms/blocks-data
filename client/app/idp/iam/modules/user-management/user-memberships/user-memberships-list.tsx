@@ -28,6 +28,7 @@ import { Button } from "@/components/ui-kits/button/button";
 import { EllipsisVertical, Settings, XCircle } from "lucide-react";
 import { RemoveMembership } from "./remove-membership";
 import { EditMembership } from "./edit-membership";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type UserMembershipsListProps = {
   memberships: IMembership[];
@@ -88,6 +89,7 @@ export const UserMembershipsList = ({
   userId,
   projectKey,
 }: UserMembershipsListProps) => {
+  const { t } = useT("data.idp.iam");
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const [selectedMembership, setSelectedMembership] = useState<IMembership | null>(null);
@@ -109,7 +111,7 @@ export const UserMembershipsList = ({
         accessorFn: (row) => orgNameMap.get(row.organizationId) || row.organizationId,
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Name</span>
+            <span className="font-bold text-medium-emphasis">{t("common:NAME")}</span>
           </div>
         ),
         cell: ({ row }) => (
@@ -123,7 +125,7 @@ export const UserMembershipsList = ({
         accessorFn: (row) => row.roles.join(", "),
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Roles</span>
+            <span className="font-bold text-medium-emphasis">{t("USER_MEMBERSHIPS_LIST.ROLES")}</span>
           </div>
         ),
         cell: ({ row }) => (
@@ -136,7 +138,7 @@ export const UserMembershipsList = ({
         id: "permissions",
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Permissions</span>
+            <span className="font-bold text-medium-emphasis">{t("USER_MEMBERSHIPS_LIST.PERMISSIONS")}</span>
           </div>
         ),
         cell: ({ row }) => (
@@ -164,14 +166,14 @@ export const UserMembershipsList = ({
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={() => handleEditClick(row.original)}>
                   <Settings className="mr-2 h-4 w-4" />
-                  Configure
+                  {t("USER_MEMBERSHIPS_LIST.CONFIGURE")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive"
                   onSelect={() => handleRemoveClick(row.original)}
                 >
                   <XCircle className="mr-2 h-4 w-4" />
-                  Unassign User
+                  {t("USER_MEMBERSHIPS_LIST.UNASSIGN_USER")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -179,7 +181,7 @@ export const UserMembershipsList = ({
         ),
       },
     ],
-    [orgNameMap],
+    [orgNameMap, t],
   );
 
   const table = useReactTable({
@@ -195,7 +197,7 @@ export const UserMembershipsList = ({
   if (memberships.length === 0) {
     return (
       <div className="flex h-[100px] items-center justify-center text-medium-emphasis">
-        No organization memberships found
+        {t("USER_MEMBERSHIPS_LIST.NO_ORGANIZATION_MEMBERSHIPS_FOUND")}
       </div>
     );
   }

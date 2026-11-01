@@ -15,8 +15,10 @@ import { ProfileMFAMethodList } from "./profile-mfa-methods-list";
 import { useGetUserById } from "@blocks-idp/iam/hooks/use-user";
 import { isErrorWithErrors } from "@/lib/error";
 import { profileMfaContext } from "../profile-mfa";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const UserMFAConfirmationEnable = () => {
+  const { t } = useT("data.idp.iam");
   const { projectKey, userId, showVerifyModal } = useContext(profileMfaContext);
   const [open, setOpen] = useState<boolean>(false);
 
@@ -33,7 +35,7 @@ export const UserMFAConfirmationEnable = () => {
         userMfaType: type,
       });
       if (!res.isSuccess) return showErrorToast({ errors: res.errors });
-      showSuccessToast({ description: "MFA enabled successfully" });
+      showSuccessToast({ description: t("PROFILE_MFA_CONFIRMATION_ENABLE.MFA_ENABLED_SUCCESSFULLY") });
       setOpen(false);
       showVerifyModal(type);
     } catch (error) {
@@ -45,15 +47,15 @@ export const UserMFAConfirmationEnable = () => {
     if (!userData?.data.isVarified) {
       return toast({
         variant: "info",
-        title: "Info",
-        description: `Please verify the user first`,
+        title: t("PROFILE_MFA_CONFIRMATION_ENABLE.INFO"),
+        description: t("PROFILE_MFA_CONFIRMATION_ENABLE.PLEASE_VERIFY_THE_USER_FIRST"),
       });
     }
     if (!userData?.data.active) {
       return toast({
         variant: "info",
-        title: "Info",
-        description: `Please active the user first`,
+        title: t("PROFILE_MFA_CONFIRMATION_ENABLE.INFO"),
+        description: t("PROFILE_MFA_CONFIRMATION_ENABLE.PLEASE_ACTIVE_THE_USER_FIRST"),
       });
     }
     return setOpen(true);
@@ -66,19 +68,19 @@ export const UserMFAConfirmationEnable = () => {
   return (
     <Dialog open={open} onOpenChange={onOpenChangeHandler}>
       <Button variant="outline" onClick={onTriggerHandler} size="sm">
-        Enable
+        {t("PROFILE_MFA_CONFIRMATION_ENABLE.ENABLE")}
       </Button>
 
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Enable MFA?</DialogTitle>
-          <DialogDescription>Select the method of MFA for this user.</DialogDescription>
+          <DialogTitle>{t("PROFILE_MFA_CONFIRMATION_ENABLE.ENABLE_MFA")}</DialogTitle>
+          <DialogDescription>{t("PROFILE_MFA_CONFIRMATION_ENABLE.SELECT_THE_METHOD_OF_MFA_FOR")}</DialogDescription>
         </DialogHeader>
         <ProfileMFAMethodList selected={type} setSelected={setType} />
         <DialogFooter className="mt-4 flex flex-row gap-2">
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" disabled={isPending}>
-              Cancel
+              {t("common:CANCEL")}
             </Button>
           </DialogTrigger>
           <Button
@@ -86,7 +88,7 @@ export const UserMFAConfirmationEnable = () => {
             onClick={onClickHandler}
             disabled={isPending || type === 0 || isLoading || isFetching}
           >
-            {isPending ? "Saving" : "Save"}
+            {isPending ? t("PROFILE_MFA_CONFIRMATION_ENABLE.SAVING") : t("common:SAVE")}
           </Button>
         </DialogFooter>
       </DialogContent>

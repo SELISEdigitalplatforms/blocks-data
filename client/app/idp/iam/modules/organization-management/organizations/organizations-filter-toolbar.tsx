@@ -13,7 +13,9 @@ export const useOrganizationsFilterQueryParams = () => {
 };
 
 export const useOrganizationsSortQueryParams = () =>
-  useSortQueryParams({ initial: { property: "Name", isDescending: false } });
+  {
+  return (useSortQueryParams({ initial: { property: "Name", isDescending: false } }));
+};
 
 export function OrganizationsFilterToolbar() {
   const { queryParams, setQueryParams } = useOrganizationsFilterQueryParams();

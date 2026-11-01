@@ -5,6 +5,7 @@ import { useGetOrganizations } from "@blocks-idp/iam/hooks/use-organization";
 import { UserMembershipsList } from "./user-memberships-list";
 import { AssignOrganization } from "./assign-organization";
 import { useMemo } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type UserMembershipsProps = {
     id: string;
@@ -12,6 +13,7 @@ type UserMembershipsProps = {
 };
 
 export const UserMemberships = ({ id, projectKey }: UserMembershipsProps) => {
+  const { t } = useT("data.idp.iam");
     const { data: userData, isLoading: isUserLoading } = useGetUserById({ id, projectKey });
     const { data: orgsData, isLoading: isOrgsLoading } = useGetOrganizations({
         projectKey,
@@ -36,7 +38,7 @@ export const UserMemberships = ({ id, projectKey }: UserMembershipsProps) => {
     return (
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Organization</CardTitle>
+                <CardTitle>{t("USER_MEMBERSHIPS.ORGANIZATION")}</CardTitle>
                 <AssignOrganization userId={id} projectKey={projectKey} />
             </CardHeader>
             <CardContent>

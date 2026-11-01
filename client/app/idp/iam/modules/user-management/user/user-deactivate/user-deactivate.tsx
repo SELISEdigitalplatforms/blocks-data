@@ -4,6 +4,7 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@/store/use-project-store";
 import { useAccountDeactivate } from "@blocks-idp/iam/hooks/use-account";
 import { isErrorWithErrors } from "@/lib/error";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type UserDeactivateProps = {
   userId: string;
@@ -16,6 +17,7 @@ export const UserDeactivate = ({
   open,
   setOpen,
 }: UserDeactivateProps) => {
+  const { t } = useT("data.idp.iam");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const { mutateAsync, isPending } = useAccountDeactivate();
   const onClickHandler = async () => {
@@ -23,7 +25,7 @@ export const UserDeactivate = ({
       const res = await mutateAsync({ projectKey: tenantId, userId });
       if (res.isSuccess) {
         showSuccessToast(
-          { description: "User has been deactivated successfully." }
+          { description: t("USER_DEACTIVATE.USER_HAS_BEEN_DEACTIVATED_SUCCESSFULLY") }
         );
       }
       else { showErrorToast({ errors: res.errors }); }
@@ -32,7 +34,7 @@ export const UserDeactivate = ({
         showErrorToast({ errors: error.errors });
       }
       else {
-        showErrorToast({ errors: "Something went wrong" });
+        showErrorToast({ errors: t("USER_DEACTIVATE.SOMETHING_WENT_WRONG") });
       }
     } finally {
       setOpen(false);
@@ -45,9 +47,9 @@ export const UserDeactivate = ({
         onCancel={() => setOpen(false)}
         onConfirm={onClickHandler}
         data={{
-          dialogTitle: "Confirmation",
-          dialogSubtitle: "Are you sure you want to deactivate this user?",
-          confirmButton: "Deactivate",
+          dialogTitle: t("USER_DEACTIVATE.CONFIRMATION"),
+          dialogSubtitle: t("USER_DEACTIVATE.ARE_YOU_SURE_YOU_WANT_TO"),
+          confirmButton: t("USER_DEACTIVATE.DEACTIVATE"),
         }}
         buttonState={{
           confirm: { disable: isPending },

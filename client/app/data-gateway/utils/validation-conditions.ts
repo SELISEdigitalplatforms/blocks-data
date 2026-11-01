@@ -9,6 +9,7 @@ import {
 import type { IPolicyRule, IPolicyRuleGroup } from "../models/data-service";
 import { RULE_MESSAGE_FORMATS, RULE_MESSAGES } from "./rule-messages";
 import { BOOLEAN_VALUES, displayStaticValue, splitList, staticValueError, staticValueSpec } from "./rule-static-value";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * The "only when" condition of a validation rule, and the filter of a Reference / Must not exist in rule, as the rule
@@ -69,33 +70,33 @@ export function operatorsFor(field: ConditionField | undefined): string[] {
 }
 
 const LABELS: Record<string, string> = {
-  EQUAL: "equals",
-  NOT_EQUAL: "is not",
-  GREATER_THAN: "greater than",
-  GREATER_THAN_OR_EQUAL: "at least",
-  LESS_THAN: "less than",
-  LESS_THAN_OR_EQUAL: "at most",
-  CONTAIN: "contains",
-  NOT_CONTAIN: "doesn't contain",
-  IN: "is one of",
-  NOT_IN: "is not one of",
-  START_WITH: "starts with",
-  END_WITH: "ends with",
-  IS_NULL: "is empty",
-  IS_NOT_NULL: "is not empty",
-  REGEX: "matches",
+  get EQUAL() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.EQUALS"); },
+  get NOT_EQUAL() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.IS_NOT"); },
+  get GREATER_THAN() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.GREATER_THAN"); },
+  get GREATER_THAN_OR_EQUAL() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.AT_LEAST"); },
+  get LESS_THAN() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.LESS_THAN"); },
+  get LESS_THAN_OR_EQUAL() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.AT_MOST"); },
+  get CONTAIN() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.CONTAINS"); },
+  get NOT_CONTAIN() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.DOESN_T_CONTAIN"); },
+  get IN() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.IS_ONE_OF"); },
+  get NOT_IN() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.IS_NOT_ONE_OF"); },
+  get START_WITH() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.STARTS_WITH"); },
+  get END_WITH() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.ENDS_WITH"); },
+  get IS_NULL() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.IS_EMPTY"); },
+  get IS_NOT_NULL() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.IS_NOT_EMPTY"); },
+  get REGEX() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.MATCHES"); },
 };
 const DATE_LABELS: Record<string, string> = {
-  GREATER_THAN: "is after",
-  GREATER_THAN_OR_EQUAL: "on or after",
-  LESS_THAN: "is before",
-  LESS_THAN_OR_EQUAL: "on or before",
+  get GREATER_THAN() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.IS_AFTER"); },
+  get GREATER_THAN_OR_EQUAL() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.ON_OR_AFTER"); },
+  get LESS_THAN() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.IS_BEFORE"); },
+  get LESS_THAN_OR_EQUAL() { return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.ON_OR_BEFORE"); },
 };
 
 /** How an operator reads for a property's type: "is after" for dates, "is" for true/false. */
 export function operatorLabel(operator: string, type: string): string {
   if (type === "DateTime" && DATE_LABELS[operator]) return DATE_LABELS[operator];
-  if (type === "Boolean" && operator === "EQUAL") return "is";
+  if (type === "Boolean" && operator === "EQUAL") return tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.IS");
   return LABELS[operator] ?? operator;
 }
 
@@ -216,24 +217,24 @@ export function conditionRowError(row: ConditionRow, fields: ConditionField[]): 
   const field = fields.find((f) => f.path === row.field);
   if (!field) return RULE_MESSAGE_FORMATS.UnknownProperty(row.field);
   if (isNullOperator(row.operator)) return null;
-  if (row.mode === "property" && canCompareProperties(row.operator)) return row.other ? null : "Pick the property to compare with";
+  if (row.mode === "property" && canCompareProperties(row.operator)) return row.other ? null : tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.PICK_THE_PROPERTY_TO_COMPARE_WITH");
 
   const list = isListOperator(row.operator);
   const items = list ? splitList(row.value) : [row.value.trim()].filter(Boolean);
   switch (kindOf(field.type)) {
     case "boolean":
-      return items.length ? null : "Pick a value";
+      return items.length ? null : tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.PICK_A_VALUE");
     case "date":
-      return items.length ? null : "Pick a date and time";
+      return items.length ? null : tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.PICK_A_DATE_AND_TIME");
     case "number":
-      if (!items.length || items.some((item) => !NUMBER_PATTERN.test(item))) return list ? "Enter numbers, separated by commas" : "Enter a number";
+      if (!items.length || items.some((item) => !NUMBER_PATTERN.test(item))) return list ? tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.ENTER_NUMBERS_SEPARATED_BY_COMMAS") : tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.ENTER_A_NUMBER");
       return null;
   }
   if (field.type === "Enum" && field.enumValues?.length) {
-    if (!items.length) return list ? "Pick at least one value" : "Pick a value";
+    if (!items.length) return list ? tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.PICK_AT_LEAST_ONE_VALUE") : tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.PICK_A_VALUE");
     return staticValueError(staticValueSpec(field.type, false, field.enumValues), row.value, list);
   }
-  if (!items.length) return list ? "Enter one or more values, separated by commas" : RULE_MESSAGES.ConditionNeedsValue;
+  if (!items.length) return list ? tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.ENTER_ONE_OR_MORE_VALUES_SEPARATED") : RULE_MESSAGES.ConditionNeedsValue;
   // As the server: "{{" starts a placeholder, which a fixed value can't hold.
   if (items.some((item) => item.includes("{{"))) return RULE_MESSAGES.PlaceholderNotAllowed;
   return !list && row.value.includes(",") ? RULE_MESSAGES.CommaInSingleValue : null;
@@ -242,8 +243,8 @@ export function conditionRowError(row: ConditionRow, fields: ConditionField[]): 
 /** Why a switched-on condition can't be saved yet, or null. Each row's own error shows on the row. */
 export function conditionDraftError(draft: ConditionDraft, fields: ConditionField[], kind: "when" | "filter"): string | null {
   if (draft.locked) return null;
-  if (draft.rows.length === 0) return kind === "when" ? "Add a condition, or turn “Only when” off." : "Add a condition, or turn the filter off.";
-  return draft.rows.some((row) => conditionRowError(row, fields)) ? "Fix the conditions above" : null;
+  if (draft.rows.length === 0) return kind === "when" ? tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.ADD_A_CONDITION_OR_TURN_ONLY") : tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.ADD_A_CONDITION_OR_TURN_THE");
+  return draft.rows.some((row) => conditionRowError(row, fields)) ? tStatic("data.gateway.validation", "VALIDATION_CONDITIONS.FIX_THE_CONDITIONS_ABOVE") : null;
 }
 
 const SYMBOLS: Record<string, string> = {

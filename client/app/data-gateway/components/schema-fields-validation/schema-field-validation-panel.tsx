@@ -46,6 +46,7 @@ import { StatusSnackbar } from "../primitives";
 import { ConditionEditor, ConditionTag } from "./condition-editor";
 import { useReferenceTarget } from "./reference-target-picker";
 import { RuleValueInputs, filterFieldsOf } from "./rule-value-inputs";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export interface SchemaFieldValidationPanelProps {
   fieldName: string;
@@ -107,23 +108,26 @@ function ValidationSkeleton() {
 
 /** How many validations there are and how many are on, e.g. "2 validations · 1 active, 1 off". */
 function StatusLine({ rules, fieldName }: Readonly<{ rules: ISchemaFieldValidation[]; fieldName: string }>) {
+  const { t: tx } = useT("data.gateway.validation");
   if (rules.length === 0) {
     return (
       <div className="flex items-center gap-2.5 rounded-md border border-border/50 bg-background px-3 py-2.5 text-xs text-muted-foreground">
         <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground/40" />
         <span>
-          <strong className="font-semibold text-foreground/80">No validations.</strong> {fieldName} accepts any value of its type.
+          <strong className="font-semibold text-foreground/80">{tx("SCHEMA_FIELD_VALIDATION_PANEL.NO_VALIDATIONS")}</strong> {tx("SCHEMA_FIELD_VALIDATION_PANEL.FIELDNAME_ACCEPTS_ANY_VALUE_OF_ITS", { fieldName })}
         </span>
       </div>
     );
   }
   const active = rules.filter((r) => r.isActive).length;
-  const count = `${rules.length} ${rules.length === 1 ? "validation" : "validations"}`;
-  let state = "all active";
-  if (active === 0) state = "none active";
-  else if (active < rules.length) state = `${active} active, ${rules.length - active} off`;
+  const count = tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_COUNT", { count: rules.length });
+  let state = tx("SCHEMA_FIELD_VALIDATION_PANEL.ALL_ACTIVE");
+  if (active === 0) state = tx("SCHEMA_FIELD_VALIDATION_PANEL.NONE_ACTIVE");
+  else if (active < rules.length)
+    state = tx("SCHEMA_FIELD_VALIDATION_PANEL.SOME_ACTIVE", { active, off: rules.length - active });
   const conditional = rules.filter((r) => r.when).length;
-  if (conditional > 0) state += ` · ${conditional} only when a condition holds`;
+  if (conditional > 0)
+    state += ` · ${tx("SCHEMA_FIELD_VALIDATION_PANEL.CONDITIONAL_COUNT", { count: conditional })}`;
   return (
     <div className="flex items-center gap-2.5 rounded-md border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5 text-xs text-muted-foreground">
       <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
@@ -160,6 +164,7 @@ function RuleCard({
   onKeep: () => void;
   onDelete: () => void;
 }>) {
+  const { t: tx } = useT("data.gateway.validation");
   // Saved without a version (0), a rule checks the list as a whole.
   const scope = ruleScope(rule.type, isArray, rule.evaluationVersion ?? 0);
   return (
@@ -175,7 +180,7 @@ function RuleCard({
           <div className="flex items-center gap-2">
             {scope && (
               <span className="shrink-0 rounded border border-border/70 px-1 py-px text-[9px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                {scope === "list" ? "Whole list" : "Each item"}
+                {scope === "list" ? tx("SCHEMA_FIELD_VALIDATION_PANEL.WHOLE_LIST") : tx("SCHEMA_FIELD_VALIDATION_PANEL.EACH_ITEM")}
               </span>
             )}
             <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-[0.08em] text-primary">
@@ -197,7 +202,7 @@ function RuleCard({
               <span className="font-mono text-[11.5px] text-foreground/85">{conditionGroupText(rule.when, conditionFields)}</span>
             </div>
           )}
-          {isOlderReference(rule) && <p className="mt-1 text-[11px] text-muted-foreground">Deleted records count · older rule</p>}
+          {isOlderReference(rule) && <p className="mt-1 text-[11px] text-muted-foreground">{tx("SCHEMA_FIELD_VALIDATION_PANEL.DELETED_RECORDS_COUNT_OLDER_RULE")}</p>}
           {rule.errorMessage && <p className="mt-1 text-[11.5px] text-muted-foreground">“{rule.errorMessage}”</p>}
         </div>
         <Tooltip>
@@ -207,37 +212,37 @@ function RuleCard({
               checked={rule.isActive}
               disabled={busy}
               onCheckedChange={onToggle}
-              aria-label="Validation active"
+              aria-label={tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_ACTIVE")}
               className={cn("mt-0.5 shrink-0", SWITCH_CLASS)}
             />
           </TooltipTrigger>
-          <TooltipContent>{rule.isActive ? "Active — switch off to keep the validation without enforcing it" : "Inactive — switch on to enforce it"}</TooltipContent>
+          <TooltipContent>{rule.isActive ? tx("SCHEMA_FIELD_VALIDATION_PANEL.ACTIVE_SWITCH_OFF_TO_KEEP_THE") : tx("SCHEMA_FIELD_VALIDATION_PANEL.INACTIVE_SWITCH_ON_TO_ENFORCE_IT")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" disabled={busy} onClick={onEdit} aria-label="Edit validation">
+            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-foreground" disabled={busy} onClick={onEdit} aria-label={tx("SCHEMA_FIELD_VALIDATION_PANEL.EDIT_VALIDATION")}>
               <Pencil className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Edit</TooltipContent>
+          <TooltipContent>{tx("common:EDIT")}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-rose-500" disabled={busy} onClick={onAskDelete} aria-label="Delete validation">
+            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0 text-muted-foreground hover:text-rose-500" disabled={busy} onClick={onAskDelete} aria-label={tx("SCHEMA_FIELD_VALIDATION_PANEL.DELETE_VALIDATION")}>
               <Trash className="h-3.5 w-3.5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Delete</TooltipContent>
+          <TooltipContent>{tx("common:DELETE")}</TooltipContent>
         </Tooltip>
       </div>
       {confirming && (
-        <div role="alertdialog" aria-label="Delete this validation?" className="mt-2.5 flex items-center gap-2 border-t border-border/50 pt-2.5 text-[11.5px] text-foreground/80">
-          <span className="flex-1">Delete this validation? Records already stored are not re-checked.</span>
+        <div role="alertdialog" aria-label={tx("SCHEMA_FIELD_VALIDATION_PANEL.DELETE_THIS_VALIDATION")} className="mt-2.5 flex items-center gap-2 border-t border-border/50 pt-2.5 text-[11.5px] text-foreground/80">
+          <span className="flex-1">{tx("SCHEMA_FIELD_VALIDATION_PANEL.DELETE_THIS_VALIDATION_RECORDS_ALREADY")}</span>
           <Button type="button" size="sm" variant="ghost" className="h-7 text-muted-foreground" disabled={busy} onClick={onKeep}>
-            Keep
+            {tx("SCHEMA_FIELD_VALIDATION_PANEL.KEEP")}
           </Button>
           <Button type="button" size="sm" className="h-7 bg-rose-500/15 text-rose-400 hover:bg-rose-500/25" disabled={busy} onClick={onDelete}>
-            Delete
+            {tx("common:DELETE")}
           </Button>
         </div>
       )}
@@ -262,6 +267,7 @@ export function SchemaFieldValidationPanel({
   isArray = false,
   initialValidationData,
 }: SchemaFieldValidationPanelProps) {
+  const { t: tx } = useT("data.gateway.validation");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ValidationFormState>(() => newDraft(fieldType, isArray));
   // Shown once the user has typed or tried to save, not while the form is still blank.
@@ -365,7 +371,7 @@ export function SchemaFieldValidationPanel({
 
   const handleGenerateRegex = async () => {
     if (!prompt.trim()) {
-      setError(["Please enter a prompt"]);
+      setError([tx("SCHEMA_FIELD_VALIDATION_PANEL.PLEASE_ENTER_A_PROMPT")]);
       return;
     }
     try {
@@ -376,10 +382,10 @@ export function SchemaFieldValidationPanel({
         if (res.errorMessage) setMessageEdited(true);
         setPrompt("");
       } else {
-        setError(["Failed to generate regex"]);
+        setError([tx("SCHEMA_FIELD_VALIDATION_PANEL.FAILED_TO_GENERATE_REGEX")]);
       }
     } catch {
-      setError(["Error generating regex"]);
+      setError([tx("SCHEMA_FIELD_VALIDATION_PANEL.ERROR_GENERATING_REGEX")]);
     }
   };
 
@@ -409,7 +415,7 @@ export function SchemaFieldValidationPanel({
     const rules = isEditMode ? validations.map((v, i) => (i === form.editingIndex ? rule : v)) : [...validations, rule];
     const res = await saveRules(rules);
     if (res.isSuccess) {
-      setSuccess(isEditMode ? "Validation updated" : "Validation added");
+      setSuccess(isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_UPDATED") : tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_ADDED"));
       setShouldRefetch(true);
       resetForm();
     } else {
@@ -422,7 +428,7 @@ export function SchemaFieldValidationPanel({
     const rules = validations.map((v, i) => (i === index ? { ...v, isActive: !v.isActive } : v));
     const res = await saveRules(rules);
     if (res.isSuccess) {
-      setSuccess(rules[index].isActive ? "Validation switched on" : "Validation switched off");
+      setSuccess(rules[index].isActive ? tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_SWITCHED_ON") : tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_SWITCHED_OFF"));
       setShouldRefetch(true);
     } else {
       setError(res.errors);
@@ -435,7 +441,7 @@ export function SchemaFieldValidationPanel({
     // The last rule takes the field's validation with it; otherwise the others stay.
     const res = remaining.length > 0 ? await saveRules(remaining) : await deleteValidation({ id: itemId, projectKey, schemaId, fieldName });
     if (res.isSuccess) {
-      setSuccess("Validation deleted");
+      setSuccess(tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_DELETED"));
       setShouldRefetch(true);
       if (form.editingIndex === index) resetForm();
     } else {
@@ -475,8 +481,8 @@ export function SchemaFieldValidationPanel({
 
           <div className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-2">
-              <span className={LABEL_CLASS}>Validations</span>
-              <span className="text-[10.5px] text-muted-foreground">checked on insert and update</span>
+              <span className={LABEL_CLASS}>{tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATIONS")}</span>
+              <span className="text-[10.5px] text-muted-foreground">{tx("SCHEMA_FIELD_VALIDATION_PANEL.CHECKED_ON_INSERT_AND_UPDATE")}</span>
             </div>
 
             {showList ? (
@@ -509,7 +515,7 @@ export function SchemaFieldValidationPanel({
                     onClick={openNewRule}
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    Add validation
+                    {tx("SCHEMA_FIELD_VALIDATION_PANEL.ADD_VALIDATION")}
                   </Button>
                 )}
               </div>
@@ -520,10 +526,10 @@ export function SchemaFieldValidationPanel({
 
           {showForm && (
             <div className="flex flex-col gap-3.5 rounded-md border border-primary/30 bg-primary/[0.04] p-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-primary">{isEditMode ? "Edit validation" : "New validation"}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-primary">{isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.EDIT_VALIDATION") : tx("SCHEMA_FIELD_VALIDATION_PANEL.NEW_VALIDATION")}</p>
 
               <div className="flex flex-col gap-1.5">
-                <label className={LABEL_CLASS}>Validation type</label>
+                <label className={LABEL_CLASS}>{tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_TYPE")}</label>
                 <Select
                   value={String(form.type)}
                   onValueChange={(value) => {
@@ -532,15 +538,15 @@ export function SchemaFieldValidationPanel({
                     setShowDraftError(false);
                   }}
                 >
-                  <SelectTrigger className={cn(CONTROL_CLASS, "w-full")} aria-label="Validation type">
+                  <SelectTrigger className={cn(CONTROL_CLASS, "w-full")} aria-label={tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_TYPE")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {isArray ? (
                       // D8: on a list, the rules that check the whole list, then the ones that check each item.
                       [
-                        { label: "The whole list", types: typeOptions.filter((t) => WHOLE_LIST_TYPES.includes(t)) },
-                        { label: "Each item", types: typeOptions.filter((t) => !WHOLE_LIST_TYPES.includes(t)) },
+                        { label: tx("SCHEMA_FIELD_VALIDATION_PANEL.THE_WHOLE_LIST"), types: typeOptions.filter((t) => WHOLE_LIST_TYPES.includes(t)) },
+                        { label: tx("SCHEMA_FIELD_VALIDATION_PANEL.EACH_ITEM"), types: typeOptions.filter((t) => !WHOLE_LIST_TYPES.includes(t)) },
                       ]
                         .filter((group) => group.types.length > 0)
                         .map((group) => (
@@ -548,7 +554,7 @@ export function SchemaFieldValidationPanel({
                             <SelectLabel className="text-[10px] uppercase tracking-[0.09em] text-muted-foreground">{group.label}</SelectLabel>
                             {group.types.map((type) => (
                               <SelectItem key={type} value={String(type)}>
-                                {VALIDATION_TYPE_META[type]?.label ?? `Type ${type}`}
+                                {VALIDATION_TYPE_META[type]?.label ?? tx("SCHEMA_FIELD_VALIDATION_PANEL.TYPE_TYPE", { type })}
                               </SelectItem>
                             ))}
                           </SelectGroup>
@@ -556,7 +562,7 @@ export function SchemaFieldValidationPanel({
                     ) : (
                       typeOptions.map((type) => (
                         <SelectItem key={type} value={String(type)}>
-                          {VALIDATION_TYPE_META[type]?.label ?? `Type ${type}`}
+                          {VALIDATION_TYPE_META[type]?.label ?? tx("SCHEMA_FIELD_VALIDATION_PANEL.TYPE_TYPE", { type })}
                         </SelectItem>
                       ))
                     )}
@@ -585,7 +591,7 @@ export function SchemaFieldValidationPanel({
                       className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40"
                     >
                       <Wand className="h-3 w-3" aria-hidden />
-                      Generate from a description
+                      {tx("SCHEMA_FIELD_VALIDATION_PANEL.GENERATE_FROM_A_DESCRIPTION")}
                     </button>
                   ) : null
                 }
@@ -595,12 +601,12 @@ export function SchemaFieldValidationPanel({
               {isRegex && showGenerator && (
                 <div className="flex flex-col gap-2 rounded-md border border-border/50 bg-background p-3">
                   <label htmlFor="regex-prompt" className={LABEL_CLASS}>
-                    Describe what the value should look like
+                    {tx("SCHEMA_FIELD_VALIDATION_PANEL.DESCRIBE_WHAT_THE_VALUE_SHOULD_LOOK")}
                   </label>
                   <div className="flex gap-2">
                     <Input
                       id="regex-prompt"
-                      placeholder="e.g. Generate a regex pattern to validate email addresses"
+                      placeholder={tx("SCHEMA_FIELD_VALIDATION_PANEL.E_G_GENERATE_A_REGEX_PATTERN")}
                       value={prompt}
                       onChange={(e) => setPrompt(e.target.value)}
                       disabled={isGenerating}
@@ -608,15 +614,15 @@ export function SchemaFieldValidationPanel({
                     />
                     <Button type="button" size="sm" className="h-9 gap-1.5 text-xs" onClick={() => void handleGenerateRegex()} disabled={isGenerating || !prompt.trim()}>
                       <Sparkles size={13} className={cn(isGenerating && "animate-spin")} />
-                      {isGenerating ? "Generating…" : "Generate"}
+                      {isGenerating ? "Generating…" : tx("SCHEMA_FIELD_VALIDATION_PANEL.GENERATE")}
                     </Button>
                   </div>
-                  <p className={HINT_CLASS}>The pattern is written for you; check it before saving.</p>
+                  <p className={HINT_CLASS}>{tx("SCHEMA_FIELD_VALIDATION_PANEL.THE_PATTERN_IS_WRITTEN_FOR_YOU")}</p>
                 </div>
               )}
 
               {becomesPerItem && (
-                <p className={HINT_CLASS}>Saving switches this rule from the list as a whole to each item of the list.</p>
+                <p className={HINT_CLASS}>{tx("SCHEMA_FIELD_VALIDATION_PANEL.SAVING_SWITCHES_THIS_RULE_FROM_THE")}</p>
               )}
 
               {/* A lookup runs whatever the record holds, so it takes a filter, not a condition. */}
@@ -636,13 +642,13 @@ export function SchemaFieldValidationPanel({
                           : form.when,
                       })
                     }
-                    aria-label="Only when…"
+                    aria-label={tx("SCHEMA_FIELD_VALIDATION_PANEL.ONLY_WHEN")}
                     className={SWITCH_CLASS}
                   />
                   <label htmlFor="rule-when" className="flex cursor-pointer items-center gap-2 text-xs text-foreground/80">
                     <ConditionTag kind="when" />
-                    Only when…
-                    {!form.whenOn && <span className="text-muted-foreground">(off: checked on every save)</span>}
+                    {tx("SCHEMA_FIELD_VALIDATION_PANEL.ONLY_WHEN")}
+                    {!form.whenOn && <span className="text-muted-foreground">{tx("SCHEMA_FIELD_VALIDATION_PANEL.OFF_CHECKED_ON_EVERY_SAVE")}</span>}
                   </label>
                 </div>
                 {conditionUnavailable && <p className={HINT_CLASS}>{RULE_MESSAGES.ConditionInsideList}</p>}
@@ -650,8 +656,7 @@ export function SchemaFieldValidationPanel({
                   <>
                     <ConditionEditor kind="when" draft={form.when} fields={conditionFields} showErrors={showDraftError} onChange={(when) => updateDraft({ when })} />
                     <p className={HINT_CLASS}>
-                      Conditions read this record&apos;s own values: a fixed value, or another property of the same record. Text values are shown in
-                      quotes, property names without. To depend on who is saving, use an access policy.
+                      {tx("SCHEMA_FIELD_VALIDATION_PANEL.CONDITIONS_READ_THIS_RECORD_S_OWN")}
                     </p>
                     {showDraftError && whenError && whenError !== "Fix the conditions above" && (
                       <p role="alert" className="text-[11.5px] text-rose-500">
@@ -665,11 +670,11 @@ export function SchemaFieldValidationPanel({
 
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="rule-message" className={LABEL_CLASS}>
-                  Message shown when it fails
+                  {tx("SCHEMA_FIELD_VALIDATION_PANEL.MESSAGE_SHOWN_WHEN_IT_FAILS")}
                 </label>
                 <Input
                   id="rule-message"
-                  placeholder="e.g. Only letters are allowed"
+                  placeholder={tx("SCHEMA_FIELD_VALIDATION_PANEL.E_G_ONLY_LETTERS_ARE_ALLOWED")}
                   value={shownMessage}
                   onChange={(e) => {
                     setForm((prev) => ({ ...prev, errorMessage: e.target.value }));
@@ -677,10 +682,10 @@ export function SchemaFieldValidationPanel({
                   }}
                   className={CONTROL_CLASS}
                 />
-                {!messageEdited && suggestedMessage && <p className={HINT_CLASS}>Written from the validation. Change it if you like.</p>}
+                {!messageEdited && suggestedMessage && <p className={HINT_CLASS}>{tx("SCHEMA_FIELD_VALIDATION_PANEL.WRITTEN_FROM_THE_VALIDATION_CHANGE_IT")}</p>}
                 {!shownMessage && messageLeftToServer(form) && (
                   <p className={HINT_CLASS}>
-                    Left empty, the message names the {messageLeftToServer(form) === "date" ? "date the value was checked against" : "value listed twice"}.
+                    {tx(messageLeftToServer(form) === "date" ? "SCHEMA_FIELD_VALIDATION_PANEL.LEFT_EMPTY_NAMES_THE_DATE" : "SCHEMA_FIELD_VALIDATION_PANEL.LEFT_EMPTY_NAMES_THE_VALUE")}
                   </p>
                 )}
                 {messageEdited && suggestedMessage && suggestedMessage !== form.errorMessage && (
@@ -689,7 +694,7 @@ export function SchemaFieldValidationPanel({
                     onClick={() => setMessageEdited(false)}
                     className="w-fit text-[11px] font-semibold text-primary hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40"
                   >
-                    Use suggested message
+                    {tx("SCHEMA_FIELD_VALIDATION_PANEL.USE_SUGGESTED_MESSAGE")}
                   </button>
                 )}
               </div>
@@ -700,11 +705,11 @@ export function SchemaFieldValidationPanel({
                   size="sm"
                   checked={form.isActive}
                   onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isActive: checked === true }))}
-                  aria-label="Validation active"
+                  aria-label={tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_ACTIVE")}
                   className={SWITCH_CLASS}
                 />
                 <label htmlFor="rule-active" className="cursor-pointer text-xs text-foreground/80">
-                  {form.isActive ? "Active — enforced on insert and update" : "Inactive — kept, not enforced"}
+                  {form.isActive ? tx("SCHEMA_FIELD_VALIDATION_PANEL.ACTIVE_ENFORCED_ON_INSERT_AND_UPDATE") : tx("SCHEMA_FIELD_VALIDATION_PANEL.INACTIVE_KEPT_NOT_ENFORCED")}
                 </label>
               </div>
             </div>
@@ -724,12 +729,12 @@ export function SchemaFieldValidationPanel({
           <StatusSnackbar status={status} />
           {showForm && (
             <div className="flex items-center gap-2">
-              <span className="flex-1 text-[11px] text-muted-foreground">{isEditMode ? "Editing a validation" : "New validation"}</span>
+              <span className="flex-1 text-[11px] text-muted-foreground">{isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.EDITING_A_VALIDATION") : tx("SCHEMA_FIELD_VALIDATION_PANEL.NEW_VALIDATION")}</span>
               <Button type="button" size="sm" variant="ghost" className="text-muted-foreground" onClick={resetForm} disabled={isPending}>
-                Cancel
+                {tx("common:CANCEL")}
               </Button>
               <Button type="button" size="sm" disabled={isPending || !!draftError || !isDirty} onClick={() => void handleSubmit()}>
-                {isPending ? "Saving…" : isEditMode ? "Save validation" : "Add validation"}
+                {isPending ? "Saving…" : isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.SAVE_VALIDATION") : tx("SCHEMA_FIELD_VALIDATION_PANEL.ADD_VALIDATION")}
               </Button>
             </div>
           )}

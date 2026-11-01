@@ -24,6 +24,7 @@ import {
 } from "../../utils/validation-rules.util";
 import { ConditionEditor, ConditionTag } from "./condition-editor";
 import { ReferenceTargetPicker, useReferenceTarget } from "./reference-target-picker";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const LABEL_CLASS = "text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground";
 const CONTROL_CLASS = "h-9 rounded-md border-border/60 bg-background text-[12.5px]";
@@ -86,11 +87,11 @@ const T = VALIDATION_TYPE;
 const ORDERING_TYPES: number[] = [T.GreaterThan, T.LessThan, T.GreaterThanOrEqual, T.LessThanOrEqual, T.Range];
 
 /** How the bound of a rule type reads with a date, e.g. "on or before". */
-const BOUND_WORD: Record<number, string> = {
-  [T.GreaterThan]: "after",
-  [T.LessThan]: "before",
-  [T.GreaterThanOrEqual]: "on or after",
-  [T.LessThanOrEqual]: "on or before",
+const BOUND_SENTENCE_KEY: Record<number, string> = {
+  [T.GreaterThan]: "RULE_VALUE_INPUTS.FIELD_MUST_BE_AFTER",
+  [T.LessThan]: "RULE_VALUE_INPUTS.FIELD_MUST_BE_BEFORE",
+  [T.GreaterThanOrEqual]: "RULE_VALUE_INPUTS.FIELD_MUST_BE_ON_OR_AFTER",
+  [T.LessThanOrEqual]: "RULE_VALUE_INPUTS.FIELD_MUST_BE_ON_OR_BEFORE",
 };
 
 /** A moment in UTC as it reads: "25 Oct 2008", with the time when it matters (now, hours, minutes). */
@@ -110,6 +111,7 @@ function RelativeNowEditor({
   sentence,
   onChange,
 }: Readonly<{ label: string; value: string; invalid: boolean; sentence: (bound: string) => string; onChange: (value: string) => void }>) {
+  const { t } = useT("data.gateway.validation");
   const parsed = parseRelativeNow(value);
   // Kept here as the sign is: "{{Now}}" (an amount of 0) carries neither.
   const [sign, setSign] = useState<1 | -1>(parsed && parsed.amount > 0 ? 1 : -1);
@@ -128,9 +130,9 @@ function RelativeNowEditor({
       <div className="flex items-center gap-1.5">
         <span className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[12px] text-primary">
           <Clock className="h-3 w-3" aria-hidden />
-          Now
+          {t("RULE_VALUE_INPUTS.NOW")}
         </span>
-        <div role="group" aria-label={`${label}: before or after now`} className="flex gap-0.5 rounded-md border border-border/50 p-0.5">
+        <div role="group" aria-label={t("RULE_VALUE_INPUTS.LABEL_BEFORE_OR_AFTER_NOW", { label })} className="flex gap-0.5 rounded-md border border-border/50 p-0.5">
           {([1, -1] as const).map((option) => (
             <button
               key={option}
@@ -151,7 +153,7 @@ function RelativeNowEditor({
           type="number"
           min={0}
           max={9999}
-          aria-label={`${label}: amount`}
+          aria-label={t("RULE_VALUE_INPUTS.LABEL_AMOUNT", { label })}
           value={parsed ? String(amount) : ""}
           onChange={(e) => write({ amount: Math.min(9999, Math.max(0, Math.trunc(Number(e.target.value) || 0))) })}
           className={cn(CONTROL_CLASS, "w-[76px] font-mono")}
@@ -163,7 +165,7 @@ function RelativeNowEditor({
             write({ unit: next as RelativeNowUnit });
           }}
         >
-          <SelectTrigger className={cn(CONTROL_CLASS, "w-[110px]")} aria-label={`${label}: unit`}>
+          <SelectTrigger className={cn(CONTROL_CLASS, "w-[110px]")} aria-label={t("RULE_VALUE_INPUTS.LABEL_UNIT", { label })}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -175,12 +177,12 @@ function RelativeNowEditor({
           </SelectContent>
         </Select>
         <Button type="button" variant="outline" size="sm" className="ml-auto h-7 shrink-0 text-[11.5px]" onClick={() => onChange("")}>
-          Use a fixed value
+          {t("RULE_VALUE_INPUTS.USE_A_FIXED_VALUE")}
         </Button>
       </div>
       {bound && (
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Saved today, {sentence(shownMoment(bound, withTime))}. The bound moves with each save. Times are UTC.
+          {t("RULE_VALUE_INPUTS.SAVED_TODAY_BOUND_MOVES", { sentence: sentence(shownMoment(bound, withTime)) })}
         </p>
       )}
     </div>
@@ -199,13 +201,14 @@ function ValueListInput({
   fieldLabel,
   onChange,
 }: Readonly<{ values: string[]; enumValues: string[]; kind: ValueKind; invalid: boolean; fieldLabel: string; onChange: (values: string[]) => void }>) {
+  const { t } = useT("data.gateway.validation");
   const [typed, setTyped] = useState("");
   if (kind === "enum" && enumValues.length > 0) {
     // A value the Enum no longer has stays visible, so it can be taken out.
     const stale = values.filter((value) => !enumValues.includes(value));
     return (
       <div className="flex flex-col gap-1.5">
-        <div role="group" aria-label="Allowed values" className="flex flex-wrap gap-1.5">
+        <div role="group" aria-label={t("RULE_VALUE_INPUTS.ALLOWED_VALUES")} className="flex flex-wrap gap-1.5">
           {[...enumValues, ...stale].map((option) => {
             const on = values.includes(option);
             const gone = stale.includes(option);
@@ -226,10 +229,10 @@ function ValueListInput({
             );
           })}
         </div>
-        <p className="text-[11px] text-muted-foreground">The enum&apos;s own values, picked as toggles.</p>
+        <p className="text-[11px] text-muted-foreground">{t("RULE_VALUE_INPUTS.THE_ENUM_S_OWN_VALUES_PICKED")}</p>
         {stale.length > 0 && (
           <p className="text-[11px] text-rose-400">
-            {stale.join(", ")} {stale.length === 1 ? "is" : "are"} no longer a value of {fieldLabel}: switch {stale.length === 1 ? "it" : "them"} off to save.
+            {t("RULE_VALUE_INPUTS.STALE_VALUES_NO_LONGER_ALLOWED", { values: stale.join(", "), field: fieldLabel, count: stale.length })}
           </p>
         )}
       </div>
@@ -247,16 +250,16 @@ function ValueListInput({
         {values.map((value, index) => (
           <span key={`${index}-${value}`} className="inline-flex items-center gap-1 rounded bg-primary/10 py-0.5 pl-1.5 pr-0.5 font-mono text-[12px] text-primary">
             {value}
-            <button type="button" aria-label={`Remove ${value}`} className="rounded p-0.5 hover:bg-primary/20" onClick={() => onChange(values.filter((_, i) => i !== index))}>
+            <button type="button" aria-label={t("RULE_VALUE_INPUTS.REMOVE_VALUE", { value })} className="rounded p-0.5 hover:bg-primary/20" onClick={() => onChange(values.filter((_, i) => i !== index))}>
               <X className="h-3 w-3" />
             </button>
           </span>
         ))}
         <input
-          aria-label="Add a value"
+          aria-label={t("RULE_VALUE_INPUTS.ADD_A_VALUE")}
           inputMode={kind === "number" ? "decimal" : undefined}
           value={typed}
-          placeholder={values.length === 0 ? "Type a value, then Enter" : ""}
+          placeholder={values.length === 0 ? t("RULE_VALUE_INPUTS.TYPE_A_VALUE_THEN_ENTER") : ""}
           onChange={(e) => (e.target.value.includes(",") ? add(e.target.value) : setTyped(e.target.value))}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -271,7 +274,7 @@ function ValueListInput({
         />
       </div>
       <p className="text-[11px] text-muted-foreground">
-        {values.length} of up to {MAX_LIST_VALUES}.{kind === "text" ? " Exact match: approved is not Approved." : ""} Paste a comma-separated list to add several.
+        {t("RULE_VALUE_INPUTS.LIST_COUNT", { count: values.length, max: MAX_LIST_VALUES })}{kind === "text" ? ` ${t("RULE_VALUE_INPUTS.EXACT_MATCH_APPROVED_IS_NOT_APPROVED")}` : ""} {t("RULE_VALUE_INPUTS.PASTE_A_COMMA_SEPARATED_LIST_TO")}
       </p>
     </div>
   );
@@ -314,19 +317,20 @@ function ComparisonValue({
   nowSentence?: (bound: string) => string;
   onChange: (value: string) => void;
 }>) {
+  const { t } = useT("data.gateway.validation");
   const options = variableOptions ?? [];
   const groups: ExpressionGroup[] = [
     {
-      heading: "This record",
+      heading: t("RULE_VALUE_INPUTS.THIS_RECORD"),
       options: options.map((option) => {
         const name = variableName(option);
         return { value: option, label: name.split(".").slice(1).join(".") || name, detail: name };
       }),
     },
   ];
-  if (nowSentence) groups.push({ heading: "Relative to now", options: [{ value: "{{Now}}", label: "Now", detail: "now, or an amount before or after it" }] });
+  if (nowSentence) groups.push({ heading: t("RULE_VALUE_INPUTS.RELATIVE_TO_NOW"), options: [{ value: "{{Now}}", label: t("RULE_VALUE_INPUTS.NOW"), detail: t("RULE_VALUE_INPUTS.NOW_OR_AN_AMOUNT_BEFORE_OR") }] });
   const hasOptions = options.length > 0 || !!nowSentence;
-  const menu = hasOptions ? <ExpressionMenu groups={groups.filter((g) => g.options.length > 0)} onPick={(option) => onChange(option.value)} label={`Add an expression to ${label}`} /> : undefined;
+  const menu = hasOptions ? <ExpressionMenu groups={groups.filter((g) => g.options.length > 0)} onPick={(option) => onChange(option.value)} label={t("RULE_VALUE_INPUTS.ADD_AN_EXPRESSION_TO_LABEL", { label })} /> : undefined;
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -343,9 +347,9 @@ function ComparisonValue({
           <span aria-label={label} className="truncate rounded bg-primary/10 px-1.5 py-0.5 font-mono text-[12px] text-primary">
             {variableName(value)}
           </span>
-          <span className="flex-1 truncate text-[11px] text-muted-foreground">this record&apos;s value</span>
+          <span className="flex-1 truncate text-[11px] text-muted-foreground">{t("RULE_VALUE_INPUTS.THIS_RECORD_S_VALUE")}</span>
           <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 text-[11.5px]" onClick={() => onChange("")}>
-            Use a fixed value
+            {t("RULE_VALUE_INPUTS.USE_A_FIXED_VALUE")}
           </Button>
         </div>
       ) : (
@@ -392,6 +396,7 @@ function ReferenceInputs({
   showConditionErrors?: boolean;
   onChange: (patch: Partial<RuleDraft>) => void;
 }>) {
+  const { t } = useT("data.gateway.validation");
   const mustNotExist = draft.type === VALIDATION_TYPE.NotExistsIn;
   const target = useReferenceTarget(draft.value);
   const targetName = draft.value || "target";
@@ -405,16 +410,15 @@ function ReferenceInputs({
       {showOlderNote && (
         <div className="flex flex-col gap-2 rounded-md border border-border/60 bg-muted/30 p-2.5">
           <p className="text-[11.5px] leading-relaxed text-foreground/85">
-            This rule was saved before deleted records were left out, so a deleted {targetName} still counts as existing. With the new behaviour,
-            deleted {targetName} records stop counting.
+            {t("RULE_VALUE_INPUTS.THIS_RULE_WAS_SAVED_BEFORE_DELETED", { targetName })}
           </p>
           <Button type="button" size="sm" variant="outline" className="h-7 w-fit text-[11.5px]" onClick={() => onChange({ useNewBehaviour: true })}>
-            Use the new behaviour
+            {t("RULE_VALUE_INPUTS.USE_THE_NEW_BEHAVIOUR")}
           </Button>
         </div>
       )}
       {olderReference && draft.useNewBehaviour && !mustNotExist && (
-        <p className="text-[11px] text-muted-foreground">Deleted {targetName} records stop counting once the rule is saved.</p>
+        <p className="text-[11px] text-muted-foreground">{t("RULE_VALUE_INPUTS.DELETED_TARGETNAME_RECORDS_STOP", { targetName })}</p>
       )}
 
       <ReferenceTargetPicker
@@ -447,12 +451,16 @@ function ReferenceInputs({
                       : draft.targetFilter,
                 })
               }
-              aria-label={`Only ${targetName} records where…`}
+              aria-label={t("RULE_VALUE_INPUTS.ONLY_TARGETNAME_RECORDS_WHERE", { targetName })}
             />
             <label htmlFor="rule-filter" className="flex cursor-pointer items-center gap-2 text-xs text-foreground/80">
               <ConditionTag kind="filter" />
-              Only {targetName} records where…
-              {!draft.filterOn && <span className="text-muted-foreground">(off: {skipsDeleted ? "any live record" : "any record"})</span>}
+              {t("RULE_VALUE_INPUTS.ONLY_TARGETNAME_RECORDS_WHERE", { targetName })}
+              {!draft.filterOn && (
+                <span className="text-muted-foreground">
+                  {t(skipsDeleted ? "RULE_VALUE_INPUTS.OFF_ANY_LIVE_RECORD" : "RULE_VALUE_INPUTS.OFF_ANY_RECORD")}
+                </span>
+              )}
             </label>
           </div>
           {draft.filterOn && (
@@ -466,7 +474,7 @@ function ReferenceInputs({
                 onChange={(targetFilter) => onChange({ targetFilter })}
               />
               <p className="text-[11px] leading-relaxed text-muted-foreground">
-                Compared with fixed values.{skipsDeleted ? ` Deleted ${targetName} records never count.` : ""}
+                {t("RULE_VALUE_INPUTS.COMPARED_WITH_FIXED_VALUES")}{skipsDeleted ? ` ${t("RULE_VALUE_INPUTS.DELETED_TARGETNAME_RECORDS_NEVER_COUNT", { targetName })}` : ""}
               </p>
             </>
           )}
@@ -475,8 +483,8 @@ function ReferenceInputs({
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
         {mustNotExist
-          ? `Inserts and updates are refused when the value (each item, for a list) is found there. Checked when the record is saved: if a ${targetName} with the same ${ownFieldName} is created at the same moment, both saves can get through.`
-          : "Inserts and updates are refused when the value (each item, for a list) is not found there. Empty values are not checked."}
+          ? t("RULE_VALUE_INPUTS.INSERTS_AND_UPDATES_ARE_REFUSED_WHEN", { targetName, ownFieldName })
+          : t("RULE_VALUE_INPUTS.INSERTS_AND_UPDATES_ARE_REFUSED_WHEN_2")}
       </p>
     </div>
   );
@@ -513,32 +521,35 @@ export function RuleValueInputs({
   showConditionErrors?: boolean;
   onChange: (patch: Partial<RuleDraft>) => void;
 }>) {
+  const { t } = useT("data.gateway.validation");
   const input = VALIDATION_TYPE_META[draft.type]?.input;
   const kind = valueKindForField(fieldType);
   const invalid = Boolean(error);
   const variableOptions = variables?.schemaName ? fittingVariables(fieldType, variables, fieldName) : null;
-  const shortField = (fieldName ?? "").split(".").pop() || "The value";
+  const shortField = (fieldName ?? "").split(".").pop() || t("RULE_VALUE_INPUTS.THE_VALUE");
   // Dates relative to now: on date-time properties, in ordering rules (Genesis ValidationRuleCheck).
-  const nowSentence = (word: string) =>
-    fieldType === "DateTime" && ORDERING_TYPES.includes(draft.type) ? (bound: string) => `${shortField} must be ${word} ${bound}` : undefined;
+  const nowSentence = (sentenceKey: string) =>
+    fieldType === "DateTime" && ORDERING_TYPES.includes(draft.type)
+      ? (bound: string) => t(sentenceKey, { field: shortField, bound })
+      : undefined;
 
   const body = (() => {
     switch (input) {
       case "none":
         if (draft.type === VALIDATION_TYPE.UniqueItems) {
-          return <p className="text-[11px] leading-relaxed text-muted-foreground">Fails when the list holds the same value twice (exact match).</p>;
+          return <p className="text-[11px] leading-relaxed text-muted-foreground">{t("RULE_VALUE_INPUTS.FAILS_WHEN_THE_LIST_HOLDS_THE")}</p>;
         }
         return (
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Fails when the value is missing or blank (an empty list, for a list).
-            {draft.whenOn ? ` With a condition, it fails even when ${shortField} isn't sent.` : ""}
+            {t("RULE_VALUE_INPUTS.FAILS_WHEN_THE_VALUE_IS_MISSING")}
+            {draft.whenOn ? ` ${t("RULE_VALUE_INPUTS.WITH_A_CONDITION_IT_FAILS_EVEN", { shortField })}` : ""}
           </p>
         );
       case "regex":
         return (
-          <Labelled label="Pattern" action={patternAction}>
+          <Labelled label={t("RULE_VALUE_INPUTS.PATTERN")} action={patternAction}>
             <Textarea
-              placeholder="e.g. ^[a-zA-Z]+$"
+              placeholder={t("RULE_VALUE_INPUTS.E_G_A_ZA_Z")}
               value={draft.value}
               onChange={(e) => onChange({ value: e.target.value })}
               className={cn("resize-none rounded-md border-border/60 bg-background font-mono text-[12.5px]", invalid && "border-rose-500")}
@@ -548,12 +559,12 @@ export function RuleValueInputs({
         );
       case "length":
         return (
-          <Labelled label="Characters">
+          <Labelled label={t("RULE_VALUE_INPUTS.CHARACTERS")}>
             <Input
               type="number"
               min={0}
-              aria-label="Length"
-              placeholder={draft.type === VALIDATION_TYPE.MinLength ? "at least" : "at most"}
+              aria-label={t("RULE_VALUE_INPUTS.LENGTH")}
+              placeholder={draft.type === VALIDATION_TYPE.MinLength ? t("RULE_VALUE_INPUTS.AT_LEAST") : t("RULE_VALUE_INPUTS.AT_MOST")}
               value={draft.value}
               onChange={(e) => onChange({ value: e.target.value })}
               className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}
@@ -563,11 +574,11 @@ export function RuleValueInputs({
       case "lengthRange":
         return (
           <div className="flex gap-2.5">
-            <Labelled label="Min characters">
-              <Input type="number" min={0} aria-label="Min length" value={draft.value} onChange={(e) => onChange({ value: e.target.value })} className={cn(CONTROL_CLASS, "font-mono")} />
+            <Labelled label={t("RULE_VALUE_INPUTS.MIN_CHARACTERS")}>
+              <Input type="number" min={0} aria-label={t("RULE_VALUE_INPUTS.MIN_LENGTH")} value={draft.value} onChange={(e) => onChange({ value: e.target.value })} className={cn(CONTROL_CLASS, "font-mono")} />
             </Labelled>
-            <Labelled label="Max characters">
-              <Input type="number" min={0} aria-label="Max length" value={draft.secondaryValue} onChange={(e) => onChange({ secondaryValue: e.target.value })} className={cn(CONTROL_CLASS, "font-mono")} />
+            <Labelled label={t("RULE_VALUE_INPUTS.MAX_CHARACTERS")}>
+              <Input type="number" min={0} aria-label={t("RULE_VALUE_INPUTS.MAX_LENGTH")} value={draft.secondaryValue} onChange={(e) => onChange({ secondaryValue: e.target.value })} className={cn(CONTROL_CLASS, "font-mono")} />
             </Labelled>
           </div>
         );
@@ -575,36 +586,36 @@ export function RuleValueInputs({
         return (
           <ComparisonValue
             kind={kind}
-            heading={draft.type === VALIDATION_TYPE.Equal || draft.type === VALIDATION_TYPE.NotEqual ? "Value" : "Compared with"}
-            label="Value"
+            heading={draft.type === VALIDATION_TYPE.Equal || draft.type === VALIDATION_TYPE.NotEqual ? t("RULE_VALUE_INPUTS.VALUE") : t("RULE_VALUE_INPUTS.COMPARED_WITH")}
+            label={t("RULE_VALUE_INPUTS.VALUE")}
             value={draft.value}
             enumValues={enumValues}
             invalid={invalid}
             variableOptions={variableOptions}
-            nowSentence={nowSentence(BOUND_WORD[draft.type] ?? "")}
+            nowSentence={nowSentence(BOUND_SENTENCE_KEY[draft.type] ?? "")}
             onChange={(value) => onChange({ value })}
           />
         );
       case "valueList":
         return (
-          <Labelled label={draft.type === VALIDATION_TYPE.NotIn ? "Refused values" : "Allowed values"}>
+          <Labelled label={draft.type === VALIDATION_TYPE.NotIn ? t("RULE_VALUE_INPUTS.REFUSED_VALUES") : t("RULE_VALUE_INPUTS.ALLOWED_VALUES")}>
             <ValueListInput values={draft.values ?? []} enumValues={enumValues} kind={kind} invalid={invalid} fieldLabel={shortField} onChange={(values) => onChange({ values })} />
           </Labelled>
         );
       case "count":
         return (
-          <Labelled label="Items">
+          <Labelled label={t("RULE_VALUE_INPUTS.ITEMS")}>
             <Input
               type="number"
               min={0}
-              aria-label="Items"
-              placeholder={draft.type === VALIDATION_TYPE.MinItems ? "at least" : "at most"}
+              aria-label={t("RULE_VALUE_INPUTS.ITEMS")}
+              placeholder={draft.type === VALIDATION_TYPE.MinItems ? t("RULE_VALUE_INPUTS.AT_LEAST") : t("RULE_VALUE_INPUTS.AT_MOST")}
               value={draft.value}
               onChange={(e) => onChange({ value: e.target.value })}
               className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}
             />
             <p className="text-[11px] leading-relaxed text-muted-foreground">
-              A save without {shortField} isn&apos;t counted. Mark {shortField} as required to make sure it is sent.
+              {t("RULE_VALUE_INPUTS.A_SAVE_WITHOUT_SHORTFIELD_ISN_T", { shortField })}
             </p>
           </Labelled>
         );
@@ -613,8 +624,8 @@ export function RuleValueInputs({
         // Expression button, which needs the full width.
         return (
           <div className={cn("flex gap-2.5", variableOptions?.length && "flex-col gap-3.5")}>
-            <ComparisonValue kind={kind} heading="From" label="Min" value={draft.value} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} nowSentence={nowSentence("on or after")} onChange={(value) => onChange({ value })} />
-            <ComparisonValue kind={kind} heading="To" label="Max" value={draft.secondaryValue} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} nowSentence={nowSentence("on or before")} onChange={(secondaryValue) => onChange({ secondaryValue })} />
+            <ComparisonValue kind={kind} heading={t("RULE_VALUE_INPUTS.FROM")} label={t("RULE_VALUE_INPUTS.MIN")} value={draft.value} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} nowSentence={nowSentence(BOUND_SENTENCE_KEY[T.GreaterThanOrEqual])} onChange={(value) => onChange({ value })} />
+            <ComparisonValue kind={kind} heading={t("RULE_VALUE_INPUTS.TO")} label={t("RULE_VALUE_INPUTS.MAX")} value={draft.secondaryValue} enumValues={enumValues} invalid={invalid} variableOptions={variableOptions} nowSentence={nowSentence(BOUND_SENTENCE_KEY[T.LessThanOrEqual])} onChange={(secondaryValue) => onChange({ secondaryValue })} />
           </div>
         );
       case "reference":

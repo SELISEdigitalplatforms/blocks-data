@@ -20,13 +20,14 @@ import {
   type ConditionField,
   type ConditionRow,
 } from "../../utils/validation-conditions";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const CONTROL_CLASS = "h-8 rounded-md border-border/60 bg-background text-[12px]";
 
 /** D1: a condition on the record being saved is pink (ONLY WHEN); a filter on another schema is teal (WHERE). */
 export const CONDITION_TONE = {
-  when: { tag: "bg-[#2A1626] text-[#F2A7D8]", border: "border-[#F2A7D8]/30", label: "Only when" },
-  filter: { tag: "bg-[#0A1F1E] text-[#5FD4C4]", border: "border-[#5FD4C4]/30", label: "Where" },
+  when: { tag: "bg-[#2A1626] text-[#F2A7D8]", border: "border-[#F2A7D8]/30", get label() { return tStatic("data.gateway.validation", "CONDITION_EDITOR.ONLY_WHEN"); } },
+  filter: { tag: "bg-[#0A1F1E] text-[#5FD4C4]", border: "border-[#5FD4C4]/30", get label() { return tStatic("data.gateway.validation", "CONDITION_EDITOR.WHERE"); } },
 } as const;
 
 export function ConditionTag({ kind }: Readonly<{ kind: "when" | "filter" }>) {
@@ -79,6 +80,7 @@ function RowValue({
   invalid,
   onChange,
 }: Readonly<{ row: ConditionRow; field: ConditionField | undefined; invalid: boolean; onChange: (value: string) => void }>) {
+  const { t } = useT("data.gateway.validation");
   const list = row.operator === "IN" || row.operator === "NOT_IN";
   const type = field?.type ?? "String";
   const choices = type === "Boolean" ? BOOLEAN_VALUES : type === "Enum" ? (field?.enumValues ?? []) : [];
@@ -89,7 +91,7 @@ function RowValue({
         selected={splitList(row.value)}
         multiple={list}
         invalid={invalid}
-        label="Condition value"
+        label={t("CONDITION_EDITOR.CONDITION_VALUE")}
         onChange={(selected) => onChange(selected.join(", "))}
       />
     );
@@ -98,7 +100,7 @@ function RowValue({
     return (
       <Input
         type="datetime-local"
-        aria-label="Condition value"
+        aria-label={t("CONDITION_EDITOR.CONDITION_VALUE")}
         value={toDateInput(row.value)}
         onChange={(e) => onChange(fromDateInput(e.target.value))}
         className={cn(CONTROL_CLASS, "font-mono [color-scheme:dark]", invalid && "border-rose-500")}
@@ -107,9 +109,9 @@ function RowValue({
   }
   return (
     <Input
-      aria-label="Condition value"
+      aria-label={t("CONDITION_EDITOR.CONDITION_VALUE")}
       inputMode={type === "Int" || type === "Float" ? "decimal" : undefined}
-      placeholder={list ? "DE, AT, CH" : type === "Int" || type === "Float" ? "0" : "value"}
+      placeholder={list ? t("CONDITION_EDITOR.DE_AT_CH") : type === "Int" || type === "Float" ? "0" : "value"}
       value={row.value}
       onChange={(e) => onChange(e.target.value)}
       className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}
@@ -132,6 +134,7 @@ function ConditionRowEditor({
   onChange: (row: ConditionRow) => void;
   onRemove: () => void;
 }>) {
+  const { t } = useT("data.gateway.validation");
   const field = fields.find((f) => f.path === row.field);
   const others = allowProperties ? fittingProperties(row, fields) : [];
   const canSwitch = others.length > 0 && canCompareProperties(row.operator);
@@ -143,8 +146,8 @@ function ConditionRowEditor({
     <div className="flex flex-col gap-1.5 rounded-md border border-border/50 bg-background/60 p-2">
       <div className="flex items-center gap-1.5">
         <Select value={row.field || undefined} onValueChange={(path) => onChange(rowForField(row, path, fields))}>
-          <SelectTrigger className={cn(CONTROL_CLASS, "min-w-0 flex-1")} aria-label="Condition property">
-            <SelectValue placeholder="Property" />
+          <SelectTrigger className={cn(CONTROL_CLASS, "min-w-0 flex-1")} aria-label={t("CONDITION_EDITOR.CONDITION_PROPERTY")}>
+            <SelectValue placeholder={t("CONDITION_EDITOR.PROPERTY")} />
           </SelectTrigger>
           <SelectContent>
             {fields.map((f) => (
@@ -155,7 +158,7 @@ function ConditionRowEditor({
           </SelectContent>
         </Select>
         <Select value={row.operator} onValueChange={(operator) => onChange(rowForOperator(row, operator))}>
-          <SelectTrigger className={cn(CONTROL_CLASS, "w-[130px] shrink-0")} aria-label="Condition operator">
+          <SelectTrigger className={cn(CONTROL_CLASS, "w-[130px] shrink-0")} aria-label={t("CONDITION_EDITOR.CONDITION_OPERATOR")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -166,7 +169,7 @@ function ConditionRowEditor({
             ))}
           </SelectContent>
         </Select>
-        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-rose-500" aria-label="Remove condition" onClick={onRemove}>
+        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-rose-500" aria-label={t("CONDITION_EDITOR.REMOVE_CONDITION")} onClick={onRemove}>
           <X className="h-3.5 w-3.5" />
         </Button>
       </div>
@@ -174,8 +177,8 @@ function ConditionRowEditor({
       {needsValue ? (
         asProperty ? (
           <Select value={row.other || undefined} onValueChange={(other) => onChange({ ...row, other })}>
-            <SelectTrigger className={cn(CONTROL_CLASS, "w-full", error && "border-rose-500")} aria-label="Compared property">
-              <SelectValue placeholder="Pick a property" />
+            <SelectTrigger className={cn(CONTROL_CLASS, "w-full", error && "border-rose-500")} aria-label={t("CONDITION_EDITOR.COMPARED_PROPERTY")}>
+              <SelectValue placeholder={t("CONDITION_EDITOR.PICK_A_PROPERTY")} />
             </SelectTrigger>
             <SelectContent>
               {others.map((name) => (
@@ -189,11 +192,11 @@ function ConditionRowEditor({
           <RowValue row={row} field={field} invalid={!!error} onChange={(value) => onChange({ ...row, value })} />
         )
       ) : (
-        <span className="text-[11px] text-muted-foreground">no value needed</span>
+        <span className="text-[11px] text-muted-foreground">{t("CONDITION_EDITOR.NO_VALUE_NEEDED")}</span>
       )}
 
       {canSwitch && (
-        <div role="group" aria-label="Compare with" className="flex w-fit gap-0.5 rounded-md border border-border/50 p-0.5 text-[10.5px]">
+        <div role="group" aria-label={t("CONDITION_EDITOR.COMPARE_WITH")} className="flex w-fit gap-0.5 rounded-md border border-border/50 p-0.5 text-[10.5px]">
           {(["value", "property"] as const).map((mode) => (
             <button
               key={mode}
@@ -202,7 +205,7 @@ function ConditionRowEditor({
               onClick={() => onChange({ ...row, mode, other: mode === "value" ? "" : row.other })}
               className={cn("rounded px-2 py-0.5", row.mode === mode ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}
             >
-              {mode === "value" ? "Value" : "Property"}
+              {mode === "value" ? t("CONDITION_EDITOR.VALUE") : t("CONDITION_EDITOR.PROPERTY")}
             </button>
           ))}
         </div>
@@ -239,6 +242,7 @@ export function ConditionEditor({
   targetName?: string;
   onChange: (draft: ConditionDraft) => void;
 }>) {
+  const { t } = useT("data.gateway.validation");
   const text = conditionDraftText(draft, fields);
   if (draft.locked) {
     return (
@@ -248,8 +252,7 @@ export function ConditionEditor({
           <span className="font-mono text-[11.5px] text-foreground/90">{text}</span>
         </div>
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          This condition has groups, so it can&apos;t be edited here. Change it through the API or an import. The message and the switch can still be
-          changed, and the condition is kept as it is.
+          {t("CONDITION_EDITOR.THIS_CONDITION_HAS_GROUPS_SO_IT")}
         </p>
       </div>
     );
@@ -261,7 +264,7 @@ export function ConditionEditor({
   return (
     <div className={cn("flex flex-col gap-2 rounded-md border bg-background p-2.5", CONDITION_TONE[kind].border)}>
       {draft.rows.length >= 2 && (
-        <div role="group" aria-label="How the conditions combine" className="flex w-fit gap-0.5 rounded-md border border-border/50 p-0.5 text-[11px]">
+        <div role="group" aria-label={t("CONDITION_EDITOR.HOW_THE_CONDITIONS_COMBINE")} className="flex w-fit gap-0.5 rounded-md border border-border/50 p-0.5 text-[11px]">
           {(["AND", "OR"] as const).map((combine) => (
             <button
               key={combine}
@@ -270,7 +273,7 @@ export function ConditionEditor({
               onClick={() => onChange({ ...draft, combine })}
               className={cn("rounded px-2 py-0.5", draft.combine === combine ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground")}
             >
-              {combine === "AND" ? "All match" : "Any matches"}
+              {combine === "AND" ? t("CONDITION_EDITOR.ALL_MATCH") : t("CONDITION_EDITOR.ANY_MATCHES")}
             </button>
           ))}
         </div>
@@ -299,12 +302,12 @@ export function ConditionEditor({
         onClick={() => update([...draft.rows, newConditionRow(fields)])}
       >
         <Plus className="h-3 w-3" />
-        Add condition
+        {t("CONDITION_EDITOR.ADD_CONDITION")}
       </Button>
 
       {draft.rows.length > 0 && (
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          {kind === "when" ? "Checked only when " : `Counts only ${targetName || "target"} records where `}
+          {kind === "when" ? t("CONDITION_EDITOR.CHECKED_ONLY_WHEN") : t("CONDITION_EDITOR.COUNTS_ONLY_RECORDS_WHERE", { name: targetName || t("CONDITION_EDITOR.TARGET") })}
           <span className="font-mono text-foreground/90">{text}</span>.
         </p>
       )}

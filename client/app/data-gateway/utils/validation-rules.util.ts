@@ -11,6 +11,7 @@ import {
   type ConditionField,
 } from "./validation-conditions";
 import { checkVariables, parseVariables, type VariableField } from "./variable-syntax";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /** Mirrors the server's ValidationType (Genesis); the API sends the number. */
 export const VALIDATION_TYPE = {
@@ -42,25 +43,25 @@ export type RuleInputKind = "none" | "regex" | "length" | "lengthRange" | "value
 
 /** `tag` is the short name on a rule's card where it differs from the menu label. */
 export const VALIDATION_TYPE_META: Record<ValidationTypeValue, { label: string; input: RuleInputKind; tag?: string }> = {
-  [VALIDATION_TYPE.NotEmpty]: { label: "Not empty", input: "none" },
-  [VALIDATION_TYPE.Regex]: { label: "Matches a pattern", input: "regex" },
-  [VALIDATION_TYPE.MinLength]: { label: "Min length", input: "length" },
-  [VALIDATION_TYPE.MaxLength]: { label: "Max length", input: "length" },
-  [VALIDATION_TYPE.LengthRange]: { label: "Length between", input: "lengthRange" },
-  [VALIDATION_TYPE.Equal]: { label: "Equals", input: "value" },
-  [VALIDATION_TYPE.NotEqual]: { label: "Does not equal", input: "value" },
-  [VALIDATION_TYPE.GreaterThan]: { label: "Greater than", input: "value" },
-  [VALIDATION_TYPE.LessThan]: { label: "Less than", input: "value" },
-  [VALIDATION_TYPE.GreaterThanOrEqual]: { label: "At least", input: "value" },
-  [VALIDATION_TYPE.LessThanOrEqual]: { label: "At most", input: "value" },
-  [VALIDATION_TYPE.Range]: { label: "Between", input: "valueRange" },
-  [VALIDATION_TYPE.Reference]: { label: "Exists in another schema", input: "reference" },
-  [VALIDATION_TYPE.In]: { label: "Is one of", input: "valueList", tag: "One of" },
-  [VALIDATION_TYPE.NotIn]: { label: "Is not one of", input: "valueList", tag: "Not one of" },
-  [VALIDATION_TYPE.MinItems]: { label: "At least … items", input: "count", tag: "At least" },
-  [VALIDATION_TYPE.MaxItems]: { label: "At most … items", input: "count", tag: "At most" },
-  [VALIDATION_TYPE.UniqueItems]: { label: "No duplicates", input: "none" },
-  [VALIDATION_TYPE.NotExistsIn]: { label: "Must not exist in another schema", input: "reference" },
+  [VALIDATION_TYPE.NotEmpty]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.NOT_EMPTY"); }, input: "none" },
+  [VALIDATION_TYPE.Regex]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MATCHES_A_PATTERN"); }, input: "regex" },
+  [VALIDATION_TYPE.MinLength]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MIN_LENGTH"); }, input: "length" },
+  [VALIDATION_TYPE.MaxLength]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MAX_LENGTH"); }, input: "length" },
+  [VALIDATION_TYPE.LengthRange]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.LENGTH_BETWEEN"); }, input: "lengthRange" },
+  [VALIDATION_TYPE.Equal]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.EQUALS"); }, input: "value" },
+  [VALIDATION_TYPE.NotEqual]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.DOES_NOT_EQUAL"); }, input: "value" },
+  [VALIDATION_TYPE.GreaterThan]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.GREATER_THAN"); }, input: "value" },
+  [VALIDATION_TYPE.LessThan]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.LESS_THAN"); }, input: "value" },
+  [VALIDATION_TYPE.GreaterThanOrEqual]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.AT_LEAST"); }, input: "value" },
+  [VALIDATION_TYPE.LessThanOrEqual]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.AT_MOST"); }, input: "value" },
+  [VALIDATION_TYPE.Range]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.BETWEEN"); }, input: "valueRange" },
+  [VALIDATION_TYPE.Reference]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.EXISTS_IN_ANOTHER_SCHEMA"); }, input: "reference" },
+  [VALIDATION_TYPE.In]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.IS_ONE_OF"); }, input: "valueList", tag: "One of" },
+  [VALIDATION_TYPE.NotIn]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.IS_NOT_ONE_OF"); }, input: "valueList", tag: "Not one of" },
+  [VALIDATION_TYPE.MinItems]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.AT_LEAST_ITEMS"); }, input: "count", tag: "At least" },
+  [VALIDATION_TYPE.MaxItems]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.AT_MOST_ITEMS"); }, input: "count", tag: "At most" },
+  [VALIDATION_TYPE.UniqueItems]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.NO_DUPLICATES"); }, input: "none" },
+  [VALIDATION_TYPE.NotExistsIn]: { get label() { return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MUST_NOT_EXIST_IN_ANOTHER_SCHEMA"); }, input: "reference" },
 };
 
 /** Rules that check a whole list: the count, or duplicates. Every other rule checks each item of a list (D8). */
@@ -237,7 +238,14 @@ export function variableKind(type: string): "number" | "date" | "boolean" | "tex
 }
 
 const describeKind = (type: string, isArray: boolean) =>
-  isArray ? "a list" : ({ number: "a number", date: "a date-time", boolean: "true or false", text: "text" } as const)[variableKind(type)];
+  isArray
+    ? tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.KIND_LIST")
+    : {
+        number: tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.KIND_NUMBER"),
+        date: tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.KIND_DATE_TIME"),
+        boolean: tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.KIND_BOOLEAN"),
+        text: tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.KIND_TEXT"),
+      }[variableKind(type)];
 
 /** A variable value's problem, with the server's messages (Genesis `ValidationVariableCheck`), or null. */
 export function checkRuleVariable(text: string, fieldType: string, context: RuleVariableContext): string | null {
@@ -247,7 +255,7 @@ export function checkRuleVariable(text: string, fieldType: string, context: Rule
   if (!variable) return null;
   const target = context.fields[variable.path!];
   if (variableKind(target.type) !== variableKind(fieldType) || target.isArray) {
-    return `${variable.prefix}.${variable.path} is ${describeKind(target.type, target.isArray)} at position ${variable.position}: ${describeKind(fieldType, false)} is expected`;
+    return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.VARIABLE_KIND_MISMATCH", { variable: `${variable.prefix}.${variable.path}`, actual: describeKind(target.type, target.isArray), position: variable.position, expected: describeKind(fieldType, false) });
   }
   return null;
 }
@@ -269,45 +277,45 @@ const isNumber = (text: string) => text.trim() !== "" && Number.isFinite(Number(
  */
 function checkVariableSlots(slots: string[], fieldType: string, variables?: RuleVariableContext): string | null | undefined {
   if (!slots.some(looksLikeVariable)) return undefined;
-  if (slots.includes("")) return slots.length === 1 ? "Value is required" : "Both values are required";
+  if (slots.includes("")) return slots.length === 1 ? tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.VALUE_IS_REQUIRED") : tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.BOTH_VALUES_ARE_REQUIRED");
   // A date relative to now is not a variable: Genesis checks it on its own (ValidationRuleCheck).
   for (const slot of slots.filter((slot) => looksLikeVariable(slot) && !isRelativeNowWritten(slot))) {
     const problem = variables?.schemaName ? checkRuleVariable(slot, fieldType, variables) : null;
     if (problem) return problem;
   }
   const fixed = slots.filter((slot) => !looksLikeVariable(slot));
-  return valueKindForField(fieldType) === "number" && fixed.some((slot) => !isNumber(slot)) ? "Not a valid number" : null;
+  return valueKindForField(fieldType) === "number" && fixed.some((slot) => !isNumber(slot)) ? tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.NOT_A_VALID_NUMBER") : null;
 }
 
 function checkRegex(value: string): string | null {
-  if (!value) return "Pattern is required";
+  if (!value) return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.PATTERN_IS_REQUIRED");
   try {
     // Parse only — avoids constructing a RegExp from user input (ReDoS).
     new RegExpParser().parsePattern(value);
     return null;
   } catch {
-    return "Invalid regex pattern";
+    return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.INVALID_REGEX_PATTERN");
   }
 }
 
 function checkLengthRange(value: string, secondary: string): string | null {
-  if (!isWholeNumber(value) || !isWholeNumber(secondary)) return "Enter whole numbers of 0 or more";
-  return Number(value) <= Number(secondary) ? null : "Min must be ≤ max";
+  if (!isWholeNumber(value) || !isWholeNumber(secondary)) return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.ENTER_WHOLE_NUMBERS_OF_0_OR");
+  return Number(value) <= Number(secondary) ? null : tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MIN_MUST_BE_MAX");
 }
 
 function checkValue(value: string, fieldType: string): string | null {
-  if (!value) return "Value is required";
-  return valueKindForField(fieldType) === "number" && !isNumber(value) ? "Not a valid number" : null;
+  if (!value) return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.VALUE_IS_REQUIRED");
+  return valueKindForField(fieldType) === "number" && !isNumber(value) ? tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.NOT_A_VALID_NUMBER") : null;
 }
 
 function checkValueRange(value: string, secondary: string, fieldType: string): string | null {
-  if (!value || !secondary) return "Both values are required";
+  if (!value || !secondary) return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.BOTH_VALUES_ARE_REQUIRED");
   const kind = valueKindForField(fieldType);
   if (kind === "number") {
-    if (!isNumber(value) || !isNumber(secondary)) return "Not a valid number";
-    return Number(value) <= Number(secondary) ? null : "Min must be ≤ max";
+    if (!isNumber(value) || !isNumber(secondary)) return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.NOT_A_VALID_NUMBER");
+    return Number(value) <= Number(secondary) ? null : tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MIN_MUST_BE_MAX");
   }
-  return kind === "date" && new Date(value) > new Date(secondary) ? "Min must be ≤ max" : null;
+  return kind === "date" && new Date(value) > new Date(secondary) ? tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MIN_MUST_BE_MAX") : null;
 }
 
 const ORDERING_TYPES: ValidationTypeValue[] = [T.GreaterThan, T.LessThan, T.GreaterThanOrEqual, T.LessThanOrEqual, T.Range];
@@ -331,10 +339,10 @@ function checkValueList(values: string[], fieldType: string, options?: RuleCheck
   const seen = new Set<string>();
   for (const item of items) {
     // 1.0 is a whole number, as on the server.
-    if (fieldType === "Int" && !(isNumber(item) && Number.isInteger(Number(item)))) return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, "whole number");
+    if (fieldType === "Int" && !(isNumber(item) && Number.isInteger(Number(item)))) return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.EXPECTED_WHOLE_NUMBER"));
     if (fieldType === "Enum" && options?.enumValues?.length && !options.enumValues.includes(item))
-      return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, `value of ${options.fieldPath ?? "the property"}`);
-    if (fieldType === "Float" && !isNumber(item)) return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, "number");
+      return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.EXPECTED_VALUE_OF", { name: options.fieldPath ?? tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.THE_PROPERTY") }));
+    if (fieldType === "Float" && !isNumber(item)) return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.EXPECTED_NUMBER"));
     // Exact match, as Equal: "de" and "DE" are two values; 2 and 2.0 are one.
     const key = fieldType === "Int" || fieldType === "Float" ? String(Number(item)) : item;
     if (seen.has(key)) return RULE_MESSAGE_FORMATS.DuplicateValue(item);
@@ -347,11 +355,11 @@ function checkValueList(values: string[], fieldType: string, options?: RuleCheck
 const INPUT_CHECKS: Record<RuleInputKind, (value: string, secondary: string, fieldType: string) => string | null> = {
   none: () => null,
   regex: (value) => checkRegex(value),
-  length: (value) => (isWholeNumber(value) ? null : "Enter a whole number of 0 or more"),
+  length: (value) => (isWholeNumber(value) ? null : tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.ENTER_A_WHOLE_NUMBER_OF_0")),
   lengthRange: (value, secondary) => checkLengthRange(value, secondary),
   value: (value, _secondary, fieldType) => checkValue(value, fieldType),
   valueRange: checkValueRange,
-  reference: (value) => (value ? null : "Choose the schema the value must exist in"),
+  reference: (value) => (value ? null : tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.CHOOSE_THE_SCHEMA_THE_VALUE_MUST")),
   // The list is checked from the draft's values, in checkRuleDraft.
   valueList: () => null,
   count: (value) => (isWholeNumber(value) ? null : RULE_MESSAGES.CountMustBeWholeNumber),
@@ -390,7 +398,7 @@ export function checkRuleDraft(draft: RuleDraft, fieldType: string, variables?: 
 
 function checkRuleValues(draft: RuleDraft, fieldType: string, variables?: RuleVariableContext, options?: RuleCheckOptions): string | null {
   const input = VALIDATION_TYPE_META[draft.type]?.input;
-  if (!input) return "Choose a rule type";
+  if (!input) return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.CHOOSE_A_RULE_TYPE");
   const value = draft.value.trim();
   const secondary = draft.secondaryValue.trim();
   if (input === "valueList") return checkValueList(draft.values ?? [], fieldType, options);
@@ -494,15 +502,15 @@ export function formatRuleSummary(rule: ISchemaFieldValidation): string {
   const secondary = nowOrText(asText(rule.secondaryValue));
   switch (rule.type) {
     case T.NotEmpty:
-      return "Must not be empty";
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MUST_NOT_BE_EMPTY");
     case T.Regex:
       return value;
     case T.MinLength:
-      return `At least ${value} characters`;
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.AT_LEAST_VALUE_CHARACTERS", { value });
     case T.MaxLength:
-      return `At most ${value} characters`;
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.AT_MOST_VALUE_CHARACTERS", { value });
     case T.LengthRange:
-      return `${value}–${secondary} characters`;
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.VALUE_SECONDARY_CHARACTERS", { value, secondary });
     case T.Equal:
       return `= ${value}`;
     case T.NotEqual:
@@ -516,27 +524,27 @@ export function formatRuleSummary(rule: ISchemaFieldValidation): string {
     case T.LessThanOrEqual:
       return `≤ ${value}`;
     case T.Range:
-      return `Between ${value} and ${secondary}`;
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.BETWEEN_VALUE_AND_SECONDARY", { value, secondary });
     case T.Reference:
-      return `Must exist in ${value}.${secondary || DEFAULT_REFERENCE_FIELD}`;
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MUST_EXIST_IN", { target: `${value}.${secondary || DEFAULT_REFERENCE_FIELD}` });
     case T.In:
     case T.NotIn:
       return shortList(rule.value);
     case T.MinItems:
-      return `At least ${value} ${value === "1" ? "item" : "items"}`;
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.AT_LEAST_ITEMS", { count: Number(value), value });
     case T.MaxItems:
-      return `At most ${value} ${value === "1" ? "item" : "items"}`;
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.AT_MOST_ITEMS", { count: Number(value), value });
     case T.UniqueItems:
-      return "No duplicates";
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.NO_DUPLICATES");
     case T.NotExistsIn:
-      return `Must not exist in ${value}.${secondary || DEFAULT_REFERENCE_FIELD}`;
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MUST_NOT_EXIST_IN", { target: `${value}.${secondary || DEFAULT_REFERENCE_FIELD}` });
     default:
       return value;
   }
 }
 
 /** The label for a rule type, including types this client does not know yet. */
-export const ruleTypeLabel = (type: number) => VALIDATION_TYPE_META[type as ValidationTypeValue]?.label ?? `Type ${type}`;
+export const ruleTypeLabel = (type: number) => VALIDATION_TYPE_META[type as ValidationTypeValue]?.label ?? tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.TYPE_NUMBER", { number: type });
 
 /** The short name on a rule's card: the label, or a shorter tag for the newer types. */
 export const ruleTypeTag = (type: number) => VALIDATION_TYPE_META[type as ValidationTypeValue]?.tag ?? ruleTypeLabel(type);
@@ -586,43 +594,43 @@ export function suggestErrorMessage(draft: RuleDraft, fieldType: string, fieldNa
   const needTwo = (message: string) => (v && w ? message : null);
   switch (draft.type) {
     case T.NotEmpty:
-      return `${field} is required`;
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.FIELD_IS_REQUIRED", { field });
     case T.Regex:
-      return `${field} is not in the right format`;
+      return tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.FIELD_IS_NOT_IN_THE_RIGHT", { field });
     case T.MinLength:
-      return needOne(`${field} must be at least ${a} ${a === "1" ? "character" : "characters"}`);
+      return needOne(tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MESSAGE_MIN_LENGTH", { field, value: a, count: Number(a) }));
     case T.MaxLength:
-      return needOne(`${field} must be at most ${a} ${a === "1" ? "character" : "characters"}`);
+      return needOne(tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MESSAGE_MAX_LENGTH", { field, value: a, count: Number(a) }));
     case T.LengthRange:
-      return needTwo(`${field} must be between ${a} and ${b} characters`);
+      return needTwo(tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MESSAGE_LENGTH_RANGE", { field, min: a, max: b }));
     case T.Equal:
-      return needOne(`${field} must be ${a}`);
+      return needOne(tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MESSAGE_EQUAL", { field, value: a }));
     case T.NotEqual:
-      return needOne(`${field} must not be ${a}`);
+      return needOne(tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MESSAGE_NOT_EQUAL", { field, value: a }));
     case T.GreaterThan:
-      return needOne(`${field} must be ${isDate ? "after" : "greater than"} ${a}`);
+      return needOne(tStatic("data.gateway.validation", isDate ? "VALIDATION_RULES_UTIL.MESSAGE_AFTER" : "VALIDATION_RULES_UTIL.MESSAGE_GREATER_THAN", { field, value: a }));
     case T.LessThan:
-      return needOne(`${field} must be ${isDate ? "before" : "less than"} ${a}`);
+      return needOne(tStatic("data.gateway.validation", isDate ? "VALIDATION_RULES_UTIL.MESSAGE_BEFORE" : "VALIDATION_RULES_UTIL.MESSAGE_LESS_THAN", { field, value: a }));
     case T.GreaterThanOrEqual:
-      return needOne(`${field} must be ${isDate ? "on or after" : "at least"} ${a}`);
+      return needOne(tStatic("data.gateway.validation", isDate ? "VALIDATION_RULES_UTIL.MESSAGE_ON_OR_AFTER" : "VALIDATION_RULES_UTIL.MESSAGE_AT_LEAST", { field, value: a }));
     case T.LessThanOrEqual:
-      return needOne(`${field} must be ${isDate ? "on or before" : "at most"} ${a}`);
+      return needOne(tStatic("data.gateway.validation", isDate ? "VALIDATION_RULES_UTIL.MESSAGE_ON_OR_BEFORE" : "VALIDATION_RULES_UTIL.MESSAGE_AT_MOST", { field, value: a }));
     case T.Range:
-      return needTwo(`${field} must be between ${a} and ${b}`);
+      return needTwo(tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MESSAGE_RANGE", { field, min: a, max: b }));
     case T.Reference:
-      return needOne(`${field} must match an existing ${v}`);
+      return needOne(tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MESSAGE_REFERENCE", { field, target: v }));
     case T.In:
     case T.NotIn: {
       const items = (draft.values ?? []).map((item) => item.trim()).filter(Boolean);
       if (items.length === 0) return null;
-      return `${field} must ${draft.type === T.NotIn ? "not " : ""}be one of ${items.join(", ")}`;
+      return tStatic("data.gateway.validation", draft.type === T.NotIn ? "VALIDATION_RULES_UTIL.MESSAGE_NOT_IN" : "VALIDATION_RULES_UTIL.MESSAGE_IN", { field, values: items.join(", ") });
     }
     case T.MinItems:
-      return needOne(`${field} must have at least ${a} ${a === "1" ? "item" : "items"}`);
+      return needOne(tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MESSAGE_MIN_ITEMS", { field, value: a, count: Number(a) }));
     case T.MaxItems:
-      return needOne(`${field} must have at most ${a} ${a === "1" ? "item" : "items"}`);
+      return needOne(tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MESSAGE_MAX_ITEMS", { field, value: a, count: Number(a) }));
     case T.NotExistsIn:
-      return needOne(`${field} must not match an existing ${v}`);
+      return needOne(tStatic("data.gateway.validation", "VALIDATION_RULES_UTIL.MESSAGE_NOT_EXISTS_IN", { field, target: v }));
     default:
       return null;
   }

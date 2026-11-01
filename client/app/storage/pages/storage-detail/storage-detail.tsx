@@ -44,6 +44,8 @@ import {
 import { RenameDirectoryDialog } from "@/storage/components/rename-directory-dialog";
 import { RenameFileDialog } from "@/storage/components/rename-file-dialog";
 import { SelectionBar } from "@/storage/components/selection-bar/selection-bar";
+import { ShareObjectsModal } from "@/storage/components/share-objects-modal/share-objects-modal";
+import { MAX_SHARE_ITEMS } from "@/storage/constants/share.constant";
 import {
   ItemCheckbox,
   SelectAllCheckbox,
@@ -184,6 +186,7 @@ export function StorageDetail() {
   });
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [accessItem, setAccessItem] = useState<DmsItem | null>(null);
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [versionsFile, setVersionsFile] = useState<DmsItem | null>(null);
   const [transfer, setTransfer] = useState<{ item: DmsItem; mode: MoveCopyMode } | null>(null);
   const [renameDirectory, setRenameDirectory] = useState<DmsDirectoryItem | null>(null);
@@ -248,6 +251,17 @@ export function StorageDetail() {
     // A zip that failed or was closed before it started keeps the selection, so it can be retried.
     if (outcome === "started") selection.clear();
   };
+
+  // The selected rows in listing order, for the bulk share. The server shares all or
+  // nothing, so Share is offered only when every selected item allows managing access
+  // and the selection fits in one request.
+  const selectedItems = [...dmsItemsById.values()].filter((item) => selection.isSelected(item.itemId));
+  const shareDisabledReason =
+    selection.count > MAX_SHARE_ITEMS
+      ? `Share up to ${MAX_SHARE_ITEMS} items at a time`
+      : selectedItems.some((item) => !itemActions(item).canManageAccess)
+        ? "You can't manage access on some selected items"
+        : undefined;
 
   // Helper to build URL with directory navigation params
   const buildDirectoryUrl = useCallback((directoryId: string, path: BreadcrumbItem[]) => {
@@ -713,6 +727,8 @@ export function StorageDetail() {
           <div className="px-3 pt-3">
             <SelectionBar
               count={selection.count}
+              onShare={() => setIsShareOpen(true)}
+              shareDisabledReason={shareDisabledReason}
               onDownload={handleDownloadSelection}
               onClear={selection.clear}
             />
@@ -1038,6 +1054,15 @@ export function StorageDetail() {
           </div>
         )}
       </div>
+
+      {isShareOpen && (
+        <ShareObjectsModal
+          open={isShareOpen}
+          onOpenChange={setIsShareOpen}
+          items={selectedItems.map((item) => ({ itemId: item.itemId, name: item.name }))}
+          onShared={selection.clear}
+        />
+      )}
 
       {accessItem && (
         <ManageAccessModal

@@ -42,12 +42,10 @@ import {
   ObjectPrincipalType,
   DmsItem,
 } from "../../models/dms.model";
-import { PrincipalPicker } from "../principal-picker/principal-picker";
+import { PrincipalSelector, usePrincipalSelection } from "../principal-selector/principal-selector";
 
-const PRINCIPAL_TYPES: ObjectPrincipalType[] = ["User", "Role", "Organization", "Everyone"];
 const PERMISSIONS: ObjectPermission[] = ["View", "Download", "Edit", "Delete", "Manage", "Owner"];
 const EFFECTS: ObjectEffect[] = ["Allow", "Deny"];
-const GLOBAL_ROLE_SCOPE = "__all_organizations__";
 
 const GENERAL_ACCESS_OPTIONS = [
   { value: "", label: "Default (unrestricted until shared)" },
@@ -82,11 +80,10 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
   const revoke = useRevokeAccess(item.itemId);
   const toggleInheritance = useToggleInheritance(item.itemId);
 
-  const [principalType, setPrincipalType] = useState<ObjectPrincipalType>("User");
+  const selection = usePrincipalSelection(open);
+  const { principalType, selectedPrincipals, options, needsPrincipal } = selection;
   const [permission, setPermission] = useState<ObjectPermission>("View");
   const [effect, setEffect] = useState<ObjectEffect>("Allow");
-  const [selectedPrincipals, setSelectedPrincipals] = useState<string[]>([]);
-  const [roleOrganizationId, setRoleOrganizationId] = useState(GLOBAL_ROLE_SCOPE);
 
   // General access: the default this item grants when nothing above has been
   // explicitly added yet. Read from whichever detail endpoint matches the item
@@ -148,7 +145,6 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
 
   const rows = useMemo(() => policies.data ?? [], [policies.data]);
   const ownEntries = rows.filter((p) => !p.isInherited);
-  const needsPrincipal = principalType !== "Everyone";
   const canSubmit = !needsPrincipal || selectedPrincipals.length > 0;
 
   // Access rules carry IAM ids, not names ("b41a3acb-..." rather than "Editor").
@@ -187,46 +183,6 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
     return principalNameById(policy.principalType).get(policy.principalId) ?? policy.principalId;
   };
 
-  // Reset the selection whenever the principal type changes — a user id and a
-  // role slug are not interchangeable, so carrying one over to the next list
-  // would create invalid grants. Done in the change handler (rather than an
-  // effect) to avoid cascading renders.
-  const handlePrincipalTypeChange = (next: ObjectPrincipalType) => {
-    setPrincipalType(next);
-    setSelectedPrincipals([]);
-    setRoleOrganizationId(GLOBAL_ROLE_SCOPE);
-    setSearch("");
-  };
-
-  // The IAM search hooks are wired unconditionally so their cache keys are
-  // stable; each one stays dormant (`enabled: false`) until the matching
-  // principal type is selected, and only re-queries when the user has typed.
-  const [search, setSearch] = useState("");
-  const users = useIamUsers(search, open && principalType === "User");
-  const roles = useIamRoles(search, open && principalType === "Role");
-  const organizations = useIamOrganizations(
-    principalType === "Organization" ? search : "",
-    open && (principalType === "Organization" || principalType === "Role"),
-  );
-
-  const options =
-    principalType === "User"
-      ? (users.data ?? [])
-      : principalType === "Role"
-        ? (roles.data ?? [])
-        : principalType === "Organization"
-          ? (organizations.data ?? [])
-          : [];
-
-  const isLoading =
-    principalType === "User"
-      ? users.isLoading
-      : principalType === "Role"
-        ? roles.isLoading
-        : principalType === "Organization"
-          ? organizations.isLoading
-          : false;
-
   const resourceType = item.type === "directory" ? "Directory" : "File";
 
   const handleGrant = async () => {
@@ -242,12 +198,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
             resourceType,
             principalType,
             principalId,
-            organizationId:
-              principalType === "Role"
-                ? roleOrganizationId === GLOBAL_ROLE_SCOPE
-                  ? "default"
-                  : roleOrganizationId
-                : undefined,
+            organizationId: selection.roleScopeOrganizationId,
             permission,
             effect,
           }),
@@ -261,8 +212,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
             ? `${permission} on ${item.name}.`
             : `${permission} on ${item.name} for ${count} principals.`,
       });
-      setSelectedPrincipals([]);
-      setSearch("");
+      selection.clearPicks();
     } catch {
       showErrorToast({
         title: "Could not grant access",
@@ -386,71 +336,10 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Who should have access?</label>
-              <div className="flex flex-wrap gap-2">
-                {PRINCIPAL_TYPES.map((t) => {
-                  const active = principalType === t;
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => handlePrincipalTypeChange(t)}
-                      className={cn(
-                        "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring",
-                        active
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
-                      )}
-                      aria-pressed={active}
-                    >
-                      {t}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {needsPrincipal ? (
-              <div className="space-y-4">
-                <PrincipalPicker
-                  label={`Select ${principalType.toLowerCase()}${principalType === "Organization" ? "s" : ""}`}
-                  options={options}
-                  selected={selectedPrincipals}
-                  onChange={setSelectedPrincipals}
-                  isLoading={isLoading}
-                  onSearchChange={setSearch}
-                  hint="You can select more than one. Each selection becomes its own rule."
-                />
-                {principalType === "Role" ? (
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium" htmlFor="role-organization-scope">
-                      Role scope
-                    </label>
-                    <Select value={roleOrganizationId} onValueChange={setRoleOrganizationId}>
-                      <SelectTrigger id="role-organization-scope" aria-label="Role scope">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={GLOBAL_ROLE_SCOPE}>All organizations</SelectItem>
-                        {(organizations.data ?? []).map((organization) => (
-                          <SelectItem key={organization.value} value={organization.value}>
-                            {organization.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <span className="text-xs text-muted-foreground">
-                      Choose an organization to grant the role only within that organization.
-                    </span>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <div className="rounded-lg border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
-                Everyone matches any authenticated caller. No selection is needed.
-              </div>
-            )}
+            <PrincipalSelector
+              selection={selection}
+              hint="You can select more than one. Each selection becomes its own rule."
+            />
             <div className="space-y-2">
               <label className="text-sm font-medium">Permission</label>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -17,6 +17,7 @@ import {
   GrantAccessDto,
   MoveDirectoryDto,
   ShareObjectDto,
+  ShareObjectsDto,
   TrashQuery,
   UpdateDirectoryDto,
 } from "../models/dms.model";
@@ -232,6 +233,22 @@ export const useShareObject = (resourceId: string) => {
     mutationFn: (payload: ShareObjectDto) => dmsContentService.shareObject(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: dmsPoliciesKey(projectKey, resourceId) });
+    },
+  });
+};
+
+/** One all-or-nothing share of several resources; refreshes each shared resource's access list. */
+export const useShareObjects = () => {
+  const queryClient = useQueryClient();
+  const projectKey = getProjectKey();
+
+  return useMutation({
+    mutationKey: ["dms", "access", "share-many"],
+    mutationFn: (payload: ShareObjectsDto) => dmsContentService.shareObjects(payload),
+    onSuccess: (_result, payload) => {
+      payload.resourceIds.forEach((resourceId) =>
+        queryClient.invalidateQueries({ queryKey: dmsPoliciesKey(projectKey, resourceId) }),
+      );
     },
   });
 };

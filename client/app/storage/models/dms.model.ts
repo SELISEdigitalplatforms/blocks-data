@@ -154,6 +154,30 @@ export interface ShareObjectDto {
   expiresAt?: string;
 }
 
+/** One recipient of a bulk share. `organizationId` only scopes a Role principal. */
+export interface SharePrincipalDto {
+  principalType: ObjectPrincipalType;
+  principalId?: string;
+  organizationId?: string;
+}
+
+/** Shares several files and directories with several principals at one permission. All or nothing. */
+export interface ShareObjectsDto {
+  resourceIds: string[];
+  principals: SharePrincipalDto[];
+  permission: ObjectPermission;
+  expiresAt?: string;
+}
+
+export interface ShareObjectsResponse {
+  items: {
+    resourceId: string;
+    principalType: ObjectPrincipalType;
+    principalId?: string;
+    itemId: string;
+  }[];
+}
+
 export interface FileVersionDto {
   itemId: string;
   no: number;

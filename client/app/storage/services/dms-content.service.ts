@@ -8,6 +8,8 @@ import {
   FileVersionsResponse,
   GrantAccessDto,
   ShareObjectDto,
+  ShareObjectsDto,
+  ShareObjectsResponse,
   TrashQuery,
 } from "../models/dms.model";
 import { toQuery } from "./dms-directory.service";
@@ -69,6 +71,10 @@ export class DmsContentService {
 
   shareObject(payload: ShareObjectDto): Promise<{ itemId: string }> {
     return http.post(OBJECT_ENDPOINTS.SHARE, payload);
+  }
+
+  shareObjects(payload: ShareObjectsDto): Promise<ShareObjectsResponse> {
+    return http.post(OBJECT_ENDPOINTS.SHARE_MANY, payload);
   }
 
   getFileVersions(fileId: string, cursor?: string, limit?: number): Promise<FileVersionsResponse> {

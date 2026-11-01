@@ -131,6 +131,24 @@ vi.mock("@/storage/components/manage-access-modal/manage-access-modal", () => ({
   ),
 }));
 
+vi.mock("@/storage/components/share-objects-modal/share-objects-modal", () => ({
+  ShareObjectsModal: ({
+    open,
+    items,
+    onShared,
+  }: {
+    open: boolean;
+    items: { itemId: string; name: string }[];
+    onShared: () => void;
+  }) => (
+    <div data-testid="share-objects-modal" data-open={String(open)} data-items={JSON.stringify(items)}>
+      <button type="button" onClick={onShared}>
+        mock shared
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("@/storage/components/file-versions-drawer/file-versions-drawer", () => ({
   FileVersionsDrawer: ({ open }: { open: boolean }) => (
     <div data-testid="versions-drawer" data-open={String(open)} />
@@ -1235,6 +1253,84 @@ describe("StorageDetail", () => {
       expect(mocks.navigate).not.toHaveBeenCalled();
       expect(mocks.fetchFile).not.toHaveBeenCalled();
       expect(screen.queryByTestId("preview-modal")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("sharing the selection", () => {
+    it("Share opens the bulk share modal with the selected files and folders", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [
+          makeDirectory({ name: "Documents", itemId: "fold-1" }),
+          makeFile({ name: "report.pdf", itemId: "file-1" }),
+        ],
+        totalCount: 2,
+      };
+      renderDetail();
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select Documents" }));
+      await user.click(screen.getByRole("checkbox", { name: "Select report.pdf" }));
+      expect(screen.queryByTestId("share-objects-modal")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Share" }));
+
+      const modal = screen.getByTestId("share-objects-modal");
+      expect(modal).toHaveAttribute("data-open", "true");
+      expect(JSON.parse(modal.getAttribute("data-items") ?? "[]")).toEqual([
+        { itemId: "fold-1", name: "Documents" },
+        { itemId: "file-1", name: "report.pdf" },
+      ]);
+    });
+
+    it("clears the selection once the share succeeded", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [makeFile({ name: "report.pdf", itemId: "file-1" })],
+        totalCount: 1,
+      };
+      renderDetail();
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select report.pdf" }));
+      await user.click(screen.getByRole("button", { name: "Share" }));
+      await user.click(screen.getByRole("button", { name: "mock shared" }));
+
+      await waitFor(() => expect(screen.queryByText(/selected$/)).not.toBeInTheDocument());
+      expect(screen.getByRole("checkbox", { name: "Select report.pdf" })).not.toBeChecked();
+    });
+
+    it("disables Share when the caller cannot manage access on the selection", async () => {
+      const user = userEvent.setup();
+      mocks.permissions = { ...mocks.permissions, canManage: false };
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [makeFile({ name: "report.pdf", itemId: "file-1" })],
+        totalCount: 1,
+      };
+      renderDetail();
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select report.pdf" }));
+
+      const share = screen.getByRole("button", { name: "Share" });
+      expect(share).toBeDisabled();
+      expect(share).toHaveAttribute("title", "You can't manage access on some selected items");
+    });
+
+    it("disables Share above 50 selected items", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: Array.from({ length: 51 }, (_, i) =>
+          makeFile({ name: `file-${i}.txt`, itemId: `file-${i}` }),
+        ),
+        totalCount: 51,
+      };
+      const { container } = renderDetail();
+
+      await switchToList(container, user);
+      await user.click(await screen.findByRole("checkbox", { name: "Select all files" }));
+
+      expect(screen.getByText("51 selected")).toBeInTheDocument();
+      const share = screen.getByRole("button", { name: "Share" });
+      expect(share).toBeDisabled();
+      expect(share).toHaveAttribute("title", "Share up to 50 items at a time");
     });
   });
 });

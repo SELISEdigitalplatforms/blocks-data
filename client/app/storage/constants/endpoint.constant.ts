@@ -66,6 +66,7 @@ export const OBJECT_ENDPOINTS = {
   RESOLVE: `${API_BASES.UDS}${OBJECT_SUBPATH}/resolve-access`,
   INHERITANCE: `${API_BASES.UDS}${OBJECT_SUBPATH}/toggle-inheritance`,
   SHARE: `${API_BASES.UDS}${OBJECT_SUBPATH}/share-object`,
+  SHARE_MANY: `${API_BASES.UDS}${OBJECT_SUBPATH}/share-objects`,
 } as const;
 
 // File endpoints added by the DMS revamp, alongside the existing ones above (see FileController).

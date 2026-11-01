@@ -9,13 +9,14 @@ export const activationFormDefaultValue = {
 };
 
 const hasWhitespace = /\s/;
-const noWhitespaceMessage = "Password must not contain spaces";
+const noWhitespaceMessage = () =>
+  tStatic("data.idp.authentication", "ACTIVATION_UTILS.PASSWORD_MUST_NOT_CONTAIN_SPACES");
 
 const passwordSchema = z
   .string()
   .superRefine((value, ctx) => {
     if (value && hasWhitespace.test(value)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: noWhitespaceMessage });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: noWhitespaceMessage() });
     }
   })
   .transform((value) => value.trim());

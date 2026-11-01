@@ -21,6 +21,7 @@
   "ACTIVATION_SUCCESS.YOU_HAVE_SUCCESSFULLY_ACTIVATED_YOUR": "You have successfully activated your account",
   "ACTIVATION_UTILS.FIRST_NAME_IS_REQUIRED": "First name is required",
   "ACTIVATION_UTILS.LAST_NAME_IS_REQUIRED": "Last name is required",
+  "ACTIVATION_UTILS.PASSWORD_MUST_NOT_CONTAIN_SPACES": "Password must not contain spaces",
   "ADD_EDIT_PROVIDER_MODAL.ADD_PROVIDER": "Add provider",
   "ADD_EDIT_PROVIDER_MODAL.AUDIENCE_OPTIONAL": "Audience (Optional)",
   "ADD_EDIT_PROVIDER_MODAL.CERTIFICATE_FILES_CRT_PFX_P12_DER": "Certificate files (.crt, .pfx, .p12, .der) up to 2 MB",

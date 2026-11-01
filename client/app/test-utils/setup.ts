@@ -1,5 +1,4 @@
 import "@testing-library/jest-dom/vitest";
-import "../i18n";
 import { afterEach, vi } from "vitest";
 
 vi.mock("@seliseblocks/genesis-os/observability", async (importOriginal) => {
@@ -134,6 +133,9 @@ if (globalThis.window !== undefined && !globalThis.window.matchMedia) {
     dispatchEvent: vi.fn(),
   }));
 }
+
+// English text for every module. Loaded after matchMedia exists: the genesis settings store reads it on import.
+await import("../i18n");
 
 // jsdom lacks ResizeObserver / IntersectionObserver used by some UI primitives.
 class MockObserver {

@@ -519,6 +519,19 @@
         <member name="M:Api.Controllers.ObjectController.FindUserPolicyAsync(System.String,System.String)">
             <summary>The access entry about to be removed, read first so its user can be told. Null when not found or on any error.</summary>
         </member>
+        <member name="T:Api.Controllers.ZipDownloadController">
+            <summary>
+            Downloads a selection of files and folders as one streamed zip, in two calls: an authenticated prepare that
+            resolves and permission-checks the selection into a single-use ticket, then an anonymous GET (a browser
+            navigation cannot send a Bearer header) whose only authority is that ticket.
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.ZipDownloadController.Prepare(Storage.DomainService.Storage.ZipDownload.PrepareZipDownloadRequest)">
+            <summary>Resolves the selection into a ticket. 400 carries <c>errors.zip</c> with the reason.</summary>
+        </member>
+        <member name="M:Api.Controllers.ZipDownloadController.Download(System.String)">
+            <summary>Streams the ticket's zip. 404 when the ticket is unknown, used, expired or from another tenant.</summary>
+        </member>
         <member name="T:DataGateway.Api.Controllers.GatewayOptionsController">
             <summary>Read-only options for the Data console, resolved locally from the tenant's root document.</summary>
         </member>

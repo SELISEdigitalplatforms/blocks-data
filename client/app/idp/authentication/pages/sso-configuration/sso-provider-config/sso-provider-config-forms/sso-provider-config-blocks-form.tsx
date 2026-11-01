@@ -12,14 +12,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { createCommonOAuthFields } from "../sso-provider-config-field-factory.util";
-import { ssoProviderConfigBaseSchema } from "../sso-provider-config.schema";
+import { createSsoProviderConfigBaseSchema } from "../sso-provider-config.schema";
 import { SSOProviderConfigFormFieldType } from "../sso-provider-config.type";
 import { SSOProviderConfigFormField } from "./sso-provider-config-form-fields";
 import { SsoConfigForms } from "./sso-provider-config-forms";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const SCOPE_OPTIONS = [
-  { label: "Open Id", value: "openid" },
-  { label: "Email", value: "email" },
+  { get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.OPEN_ID"); }, value: "openid" },
+  { get label() { return tStatic("data.idp.authentication", "common:EMAIL"); }, value: "email" },
 ];
 
 const SCOPE_VALUE_SET = new Set(SCOPE_OPTIONS.map((option) => option.value.toLowerCase()));
@@ -56,20 +57,20 @@ const SSOBlocksFormFields: SSOProviderConfigFormFieldType[] = [
   }),
   {
     id: "6",
-    label: "Scope",
+    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.SCOPE"); },
     type: "multi-select",
     name: "scope",
     options: SCOPE_OPTIONS,
-    placeholder: "Select scopes",
+    get placeholder() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.SELECT_SCOPES"); },
   },
   {
     id: "7",
-    label: "Is Auto Redirect",
+    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.IS_AUTO_REDIRECT"); },
     type: "radio",
     name: "isAutoRedirect",
     options: [
-      { label: "True", value: "true" },
-      { label: "False", value: "false" },
+      { get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.TRUE"); }, value: "true" },
+      { get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.FALSE"); }, value: "false" },
     ],
   },
 ];
@@ -84,18 +85,21 @@ type FormValue = {
   isAutoRedirect: "true" | "false";
 };
 
-const schema = ssoProviderConfigBaseSchema.extend({
-  scope: z.array(z.string().trim()).nonempty({ message: "Select at least one scope." }),
-  isAutoRedirect: z.enum(["true", "false"]),
-});
+const schema = z.lazy(() =>
+  createSsoProviderConfigBaseSchema().extend({
+    scope: z.array(z.string().trim()).nonempty({ message: tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.SELECT_AT_LEAST_ONE_SCOPE") }),
+    isAutoRedirect: z.enum(["true", "false"]),
+  }),
+);
 
 export const SSOProviderConfigBlocksForm: React.FC<SsoConfigForms> = () => {
+  const { t } = useT("data.idp.authentication");
   const tenantId = useProjectStore()?.selectedProject?.tenantId || "";
   const { data: existingConfiguration } = useSaveGetOIDCCredential(tenantId);
   const { mutateAsync } = useSaveOIDCCredential();
 
   const mapResponseToFormValue = (configuration?: IGetOIDCCredentialResponse): FormValue => ({
-    provider: "SELISE OIDC",
+    provider: t("SSO_PROVIDER_CONFIG_BLOCKS_FORM.SELISE_OIDC"),
     audience: configuration?.audience || "",
     clientId: configuration?.itemId || "",
     clientSecret: configuration?.clientSecret || "",
@@ -121,7 +125,7 @@ export const SSOProviderConfigBlocksForm: React.FC<SsoConfigForms> = () => {
     const res = await mutateAsync(payload);
 
     if (!res.isSuccess) return showErrorToast({ errors: res.errors });
-    showSuccessToast({ description: `Blocks OIDC is configured successfully` });
+    showSuccessToast({ description: t("SSO_PROVIDER_CONFIG_BLOCKS_FORM.BLOCKS_OIDC_IS_CONFIGURED_SUCCESSFULLY") });
   };
 
   return (
@@ -132,7 +136,7 @@ export const SSOProviderConfigBlocksForm: React.FC<SsoConfigForms> = () => {
       >
         <Card>
           <CardHeader>
-            <CardTitle>General</CardTitle>
+            <CardTitle>{t("SSO_PROVIDER_CONFIG_BLOCKS_FORM.GENERAL")}</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <SSOProviderConfigFormField fields={SSOBlocksFormFields} form={form} />
@@ -140,7 +144,7 @@ export const SSOProviderConfigBlocksForm: React.FC<SsoConfigForms> = () => {
         </Card>
 
         <div className="flex items-center justify-end gap-2">
-          <Button type="submit">Save</Button>
+          <Button type="submit">{t("common:SAVE")}</Button>
         </div>
       </form>
     </Form>

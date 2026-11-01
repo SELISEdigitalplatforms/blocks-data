@@ -21,8 +21,10 @@ import { useEffect } from "react";
 import { useAccountRecover } from "@blocks-idp/iam/hooks/use-account";
 import { isErrorWithErrors } from "@/lib/error";
 import { useCaptcha } from "@blocks-idp/captcha/hooks/use-captcha";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const ForgotPasswordForm = () => {
+  const { t } = useT("data.idp.authentication");
   const x_blocks_key = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY");
 
   const navigate = useNavigate();
@@ -58,7 +60,7 @@ export const ForgotPasswordForm = () => {
     } catch (error) {
       resetCaptcha();
       if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
-      showErrorToast({ errors: "Something went wrong" });
+      showErrorToast({ errors: t("FORGOT_PASSWORD_FORM.SOMETHING_WENT_WRONG") });
     }
   };
 
@@ -75,9 +77,9 @@ export const ForgotPasswordForm = () => {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>{t("common:EMAIL")}</FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="Enter your email" {...field} />
+                  <Input type="email" placeholder={t("FORGOT_PASSWORD_FORM.ENTER_YOUR_EMAIL")} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -87,7 +89,7 @@ export const ForgotPasswordForm = () => {
 
           <div className="my-2 flex items-center">
             <hr className="grow border-gray-300" />
-            <span className="mx-2 text-xs text-gray-500">OR</span>
+            <span className="mx-2 text-xs text-gray-500">{t("FORGOT_PASSWORD_FORM.OR")}</span>
             <hr className="grow border-gray-300" />
           </div>
 
@@ -96,13 +98,13 @@ export const ForgotPasswordForm = () => {
             className="w-full rounded"
             disabled={isPending || !isValid || !captchaCode}
           >
-            Continue
+            {t("common:CONTINUE")}
           </Button>
         </div>
         <div className="mt-4 text-center text-base text-foreground">
-          Already a member?{" "}
+          {t("FORGOT_PASSWORD_FORM.ALREADY_A_MEMBER")}
           <Link to={"/login"} className="text-primary hover:underline">
-            Log in
+            {t("FORGOT_PASSWORD_FORM.LOG_IN")}
           </Link>
         </div>
       </form>

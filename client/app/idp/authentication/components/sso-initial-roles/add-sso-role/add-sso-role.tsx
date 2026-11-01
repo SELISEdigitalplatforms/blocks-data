@@ -19,6 +19,7 @@ import { useGetRoles } from "@blocks-idp/iam/hooks/use-roles";
 import { IRole } from "@blocks-idp/iam/models/role";
 import { CirclePlus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type AddSSORoleProps = {
   roles: IRole[];
@@ -26,6 +27,7 @@ type AddSSORoleProps = {
 };
 
 export const AddSSORole = ({ onAdd, roles }: AddSSORoleProps) => {
+  const { t } = useT("data.idp.authentication");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const [open, setOpen] = useState<boolean>(false);
   const [selectedRolos, setSelectedRoles] = useState<IRole[]>([]);
@@ -74,12 +76,12 @@ export const AddSSORole = ({ onAdd, roles }: AddSSORoleProps) => {
       <DialogTrigger asChild>
         <Button size="sm" variant="default" className="h-10 bg-primary text-sm" type="button">
           <CirclePlus className="h-5 w-5 md:mr-2.5" />
-          <span className="sr-only sm:not-sr-only">Assign Role</span>
+          <span className="sr-only sm:not-sr-only">{t("ADD_SSO_ROLE.ASSIGN_ROLE")}</span>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-left">Assign roles</DialogTitle>
+          <DialogTitle className="text-left">{t("ADD_SSO_ROLE.ASSIGN_ROLES")}</DialogTitle>
           <DialogDescription></DialogDescription>
         </DialogHeader>
         <div>
@@ -87,7 +89,7 @@ export const AddSSORole = ({ onAdd, roles }: AddSSORoleProps) => {
             value={filter.search}
             onChange={(value) => setFilter((prev) => ({ ...prev, search: value, page: 0 }))}
             className="h-fit w-full py-3"
-            placeholder="Search by role name"
+            placeholder={t("ADD_SSO_ROLE.SEARCH_BY_ROLE_NAME")}
           />
         </div>
         <Card>
@@ -126,7 +128,7 @@ export const AddSSORole = ({ onAdd, roles }: AddSSORoleProps) => {
                   </div>
                 ))
               ) : (
-                <div className="flex h-24 items-center justify-center">No roles are found</div>
+                <div className="flex h-24 items-center justify-center">{t("ADD_SSO_ROLE.NO_ROLES_ARE_FOUND")}</div>
               )}
             </div>
             {/* <Table>
@@ -190,7 +192,7 @@ export const AddSSORole = ({ onAdd, roles }: AddSSORoleProps) => {
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" size="default">
-              Cancel
+              {t("common:CANCEL")}
             </Button>
           </DialogClose>
           <Button
@@ -202,7 +204,7 @@ export const AddSSORole = ({ onAdd, roles }: AddSSORoleProps) => {
               setOpen(false);
             }}
           >
-            Add
+            {t("common:ADD")}
           </Button>
         </DialogFooter>
       </DialogContent>

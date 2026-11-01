@@ -32,6 +32,7 @@ import { JwtClaimPayload } from "@blocks-idp/authentication/models/jwt.claim.mod
 import { jwtDecode } from "jwt-decode";
 import { X } from "lucide-react";
 import { useState, useCallback, useMemo } from "react";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 interface DecodedJwt {
   [key: string]: unknown;
@@ -47,11 +48,11 @@ type RequiredProperty = "userId" | "email" | "name" | "userName" | "roles";
 const REQUIRED_PROPERTIES: RequiredProperty[] = ["userId", "email", "name", "userName", "roles"];
 
 const PROPERTY_LABELS: Record<RequiredProperty, string> = {
-  userId: "User Id",
-  email: "Email",
+  get userId() { return tStatic("data.idp.authentication", "MAP_JWT_CLAIM_MODAL.USER_ID"); },
+  get email() { return tStatic("data.idp.authentication", "common:EMAIL"); },
   name: "Name",
-  userName: "User Name",
-  roles: "Roles",
+  get userName() { return tStatic("data.idp.authentication", "MAP_JWT_CLAIM_MODAL.USER_NAME"); },
+  get roles() { return tStatic("data.idp.authentication", "MAP_JWT_CLAIM_MODAL.ROLES"); },
 };
 
 // JWT Input Section Component
@@ -67,21 +68,24 @@ const JwtInputSection: React.FC<JwtInputSectionProps> = ({
   onTokenChange,
   validationError,
   onDecode,
-}) => (
+}) => {
+  const { t } = useT("data.idp.authentication");
+  return (
   <div className="space-y-3">
-    <p className="text-sm font-medium text-foreground">JSON Web Token (JWT)</p>
+    <p className="text-sm font-medium text-foreground">{t("MAP_JWT_CLAIM_MODAL.JSON_WEB_TOKEN_JWT")}</p>
     <Textarea
       value={jwtToken}
       onChange={(e) => onTokenChange(e.target.value)}
-      placeholder="Paste here..."
+      placeholder={t("MAP_JWT_CLAIM_MODAL.PASTE_HERE")}
       className="h-[142px] w-full resize-none rounded-md border px-3 py-2 text-sm placeholder:align-top placeholder:text-muted-foreground"
     />
     {validationError && <p className="text-sm text-destructive">{validationError}</p>}
     <Button onClick={onDecode} variant="outline" className="w-full sm:w-auto">
-      Decode
+      {t("MAP_JWT_CLAIM_MODAL.DECODE")}
     </Button>
   </div>
 );
+};
 
 // Mapping Table Section Component
 interface MappingTableSectionProps {
@@ -101,6 +105,7 @@ const MappingTableSection: React.FC<MappingTableSectionProps> = ({
   mapping,
   onMappingChange,
 }) => {
+  const { t } = useT("data.idp.authentication");
   const existingMappedValues = useMemo(() => {
     const values = Object.values(mapping).filter((value) => value !== "");
     return Array.from(new Set(values));
@@ -108,12 +113,12 @@ const MappingTableSection: React.FC<MappingTableSectionProps> = ({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col space-y-3">
-      <p className="border-t pt-3 text-sm font-medium text-foreground">Mapping Table</p>
+      <p className="border-t pt-3 text-sm font-medium text-foreground">{t("MAP_JWT_CLAIM_MODAL.MAPPING_TABLE")}</p>
 
       {!hasDecodedJwt && !hasExistingData && (
         <div className="flex flex-1 items-center justify-center py-10">
           <p className="text-sm text-muted-foreground">
-            Please paste a valid JWT above to view and map its fields.
+            {t("MAP_JWT_CLAIM_MODAL.PLEASE_PASTE_A_VALID_JWT_ABOVE")}
           </p>
         </div>
       )}
@@ -124,10 +129,10 @@ const MappingTableSection: React.FC<MappingTableSectionProps> = ({
             <TableHeader className="sticky top-0 z-10 bg-background">
               <TableRow>
                 <TableHead className="w-1/2 text-left font-semibold text-foreground">
-                  JWT Key
+                  {t("MAP_JWT_CLAIM_MODAL.JWT_KEY")}
                 </TableHead>
                 <TableHead className="w-1/2 text-left font-semibold text-foreground">
-                  Map To
+                  {t("MAP_JWT_CLAIM_MODAL.MAP_TO")}
                 </TableHead>
               </TableRow>
             </TableHeader>
@@ -144,7 +149,7 @@ const MappingTableSection: React.FC<MappingTableSectionProps> = ({
                       onValueChange={(value) => onMappingChange(property, value)}
                     >
                       <SelectTrigger className="border-0 text-foreground shadow-none focus:outline-hidden focus:ring-0 focus:ring-offset-0">
-                        <SelectValue placeholder="Select mapping" />
+                        <SelectValue placeholder={t("MAP_JWT_CLAIM_MODAL.SELECT_MAPPING")} />
                       </SelectTrigger>
                       <SelectContent>
                         {(hasDecodedJwt ? decodedJwt : existingMappedValues).map((jwtKey) => (
@@ -178,22 +183,26 @@ const ModalFooter: React.FC<ModalFooterProps> = ({
   onSave,
   isSaveDisabled,
   isLoading,
-}) => (
+}) => {
+  const { t } = useT("data.idp.authentication");
+  return (
   <div className="flex flex-col gap-2 pt-4 sm:flex-row sm:justify-end sm:gap-3">
     <Button onClick={onCancel} variant="outline" className="w-full sm:w-auto">
-      Cancel
+      {t("common:CANCEL")}
     </Button>
     <Button
       onClick={onSave}
       disabled={isSaveDisabled}
       className="w-full bg-primary text-primary-foreground sm:w-auto"
     >
-      {isLoading ? "Saving..." : "Save"}
+      {isLoading ? t("MAP_JWT_CLAIM_MODAL.SAVING") : t("common:SAVE")}
     </Button>
   </div>
 );
+};
 
 const MapJwtClaimModal: React.FC<MapJwtClaimModalProps> = ({ open, onOpenChange }) => {
+  const { t } = useT("data.idp.authentication");
   const [jwtToken, setJwtToken] = useState<string>("");
   const [decodedJwt, setDecodedJwt] = useState<string[]>([]);
   const [mapping, setMapping] = useState<Record<RequiredProperty, string>>({
@@ -243,7 +252,7 @@ const MapJwtClaimModal: React.FC<MapJwtClaimModalProps> = ({ open, onOpenChange 
 
   const handleDecode = useCallback(() => {
     if (!jwtToken.trim()) {
-      setValidationError("JWT is required.");
+      setValidationError(t("MAP_JWT_CLAIM_MODAL.JWT_IS_REQUIRED"));
       setDecodedJwt([]);
       return;
     }
@@ -272,7 +281,7 @@ const MapJwtClaimModal: React.FC<MapJwtClaimModalProps> = ({ open, onOpenChange 
       extractKeys(result);
 
       if (jwtKeys.length === 0) {
-        setValidationError("Invalid JWT Token: No properties found.");
+        setValidationError(t("MAP_JWT_CLAIM_MODAL.INVALID_JWT_TOKEN_NO_PROPERTIES_FOUND"));
         setDecodedJwt([]);
         return;
       }
@@ -280,14 +289,14 @@ const MapJwtClaimModal: React.FC<MapJwtClaimModalProps> = ({ open, onOpenChange 
       setDecodedJwt(jwtKeys);
       setValidationError("");
       showSuccessToast({
-        description: "JWT decoded successfully. You can now update the mapping table.",
+        description: t("MAP_JWT_CLAIM_MODAL.JWT_DECODED_SUCCESSFULLY_YOU_CAN_NOW"),
       });
     } catch (error) {
       console.error("JWT decode error:", error);
-      setValidationError("Invalid JWT Token.");
+      setValidationError(t("MAP_JWT_CLAIM_MODAL.INVALID_JWT_TOKEN"));
       setDecodedJwt([]);
     }
-  }, [jwtToken]);
+  }, [jwtToken, t]);
 
   const handleMappingChange = useCallback((property: RequiredProperty, value: string) => {
     setMapping((prev) => ({
@@ -311,15 +320,15 @@ const MapJwtClaimModal: React.FC<MapJwtClaimModalProps> = ({ open, onOpenChange 
       const res = await saveJWTClaim(payload);
 
       if (res?.isSuccess) {
-        showSuccessToast({ description: "JWT Claim Saved Successfully" });
+        showSuccessToast({ description: t("MAP_JWT_CLAIM_MODAL.JWT_CLAIM_SAVED_SUCCESSFULLY") });
         onOpenChange(false);
       } else {
-        showErrorToast({ errors: "Something went wrong!" });
+        showErrorToast({ errors: t("MAP_JWT_CLAIM_MODAL.SOMETHING_WENT_WRONG") });
       }
     } catch (error) {
       showErrorToast({ errors: error });
     }
-  }, [mapping, projectKey, existingJwtClaim, saveJWTClaim, onOpenChange]);
+  }, [mapping, projectKey, existingJwtClaim, saveJWTClaim, onOpenChange, t]);
 
   const handleCancel = useCallback(() => {
     onOpenChange(false);
@@ -337,13 +346,13 @@ const MapJwtClaimModal: React.FC<MapJwtClaimModalProps> = ({ open, onOpenChange 
         <div className="flex flex-1 flex-col">
           <div className="flex items-center justify-between gap-4">
             <DrawerTitle className="text-lg font-semibold leading-none tracking-tight">
-              Map JWT Claim
+              {t("MAP_JWT_CLAIM_MODAL.MAP_JWT_CLAIM")}
             </DrawerTitle>
             <DrawerClose asChild>
               <button
                 type="button"
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
-                aria-label="Close drawer"
+                aria-label={t("MAP_JWT_CLAIM_MODAL.CLOSE_DRAWER")}
               >
                 <X className="h-4 w-4" />
               </button>

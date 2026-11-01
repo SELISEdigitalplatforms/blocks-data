@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export const authConfigFormDefaultValues = {
   refreshTokenValidForNumberMinutes: 0,
@@ -8,40 +9,40 @@ export const authConfigFormDefaultValues = {
   rememberMeRefreshTokenValidForNumberMinutes: 0,
 };
 
-export const authConfigFormSchema = z.object({
+export const authConfigFormSchema = z.lazy(() => z.object({
   refreshTokenValidForNumberMinutes: z.coerce
     .number()
-    .int({ message: "Must be a whole number." })
-    .positive({ message: "Must be a positive number." })
+    .int({ message: tStatic("data.idp.authentication", "SETTINGS_UTILS.MUST_BE_A_WHOLE_NUMBER") })
+    .positive({ message: tStatic("data.idp.authentication", "SETTINGS_UTILS.MUST_BE_A_POSITIVE_NUMBER") })
     .max(2147483647, {
-      message: "Value exceeds the allowed limit (1 - 2,147,483,647).",
+      message: tStatic("data.idp.authentication", "SETTINGS_UTILS.VALUE_EXCEEDS_THE_ALLOWED_LIMIT_1"),
     }),
   getNumberOfWrongAttemptsToLockTheAccount: z.coerce
     .number()
-    .int({ message: "Must be a whole number." })
-    .positive({ message: "Must be a positive number." })
+    .int({ message: tStatic("data.idp.authentication", "SETTINGS_UTILS.MUST_BE_A_WHOLE_NUMBER") })
+    .positive({ message: tStatic("data.idp.authentication", "SETTINGS_UTILS.MUST_BE_A_POSITIVE_NUMBER") })
     .max(2147483647, {
-      message: "Value exceeds the allowed limit (1 - 2,147,483,647).",
+      message: tStatic("data.idp.authentication", "SETTINGS_UTILS.VALUE_EXCEEDS_THE_ALLOWED_LIMIT_1"),
     }),
   accountLockDurationInMinutes: z.coerce
     .number()
-    .int({ message: "Must be a whole number." })
-    .positive({ message: "Must be a positive number." })
+    .int({ message: tStatic("data.idp.authentication", "SETTINGS_UTILS.MUST_BE_A_WHOLE_NUMBER") })
+    .positive({ message: tStatic("data.idp.authentication", "SETTINGS_UTILS.MUST_BE_A_POSITIVE_NUMBER") })
     .max(2147483647, {
-      message: "Value exceeds the allowed limit (1 - 2,147,483,647).",
+      message: tStatic("data.idp.authentication", "SETTINGS_UTILS.VALUE_EXCEEDS_THE_ALLOWED_LIMIT_1"),
     }),
   accessTokenValidForNumberMinutes: z.coerce
     .number()
-    .int({ message: "Must be a whole number." })
-    .positive({ message: "Must be a positive number." })
+    .int({ message: tStatic("data.idp.authentication", "SETTINGS_UTILS.MUST_BE_A_WHOLE_NUMBER") })
+    .positive({ message: tStatic("data.idp.authentication", "SETTINGS_UTILS.MUST_BE_A_POSITIVE_NUMBER") })
     .max(2147483647, {
-      message: "Value exceeds the allowed limit (1 - 2,147,483,647).",
+      message: tStatic("data.idp.authentication", "SETTINGS_UTILS.VALUE_EXCEEDS_THE_ALLOWED_LIMIT_1"),
     }),
   rememberMeRefreshTokenValidForNumberMinutes: z.coerce
     .number()
-    .int({ message: "Must be a whole number." })
-    .positive({ message: "Must be a positive number." })
+    .int({ message: tStatic("data.idp.authentication", "SETTINGS_UTILS.MUST_BE_A_WHOLE_NUMBER") })
+    .positive({ message: tStatic("data.idp.authentication", "SETTINGS_UTILS.MUST_BE_A_POSITIVE_NUMBER") })
     .max(2147483647, {
-      message: "Value exceeds the allowed limit (1 - 2,147,483,647).",
+      message: tStatic("data.idp.authentication", "SETTINGS_UTILS.VALUE_EXCEEDS_THE_ALLOWED_LIMIT_1"),
     }),
-});
+}));

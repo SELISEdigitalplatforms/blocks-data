@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export const activationFormDefaultValue = {
   firstname: "",
@@ -19,10 +20,10 @@ const passwordSchema = z
   })
   .transform((value) => value.trim());
 
-export const activationFormSchema = z.object({
-  firstname: z.string().min(1, "First name is required"),
-  lastname: z.string().min(1, "Last name is required"),
+export const activationFormSchema = z.lazy(() => z.object({
+  firstname: z.string().min(1, tStatic("data.idp.authentication", "ACTIVATION_UTILS.FIRST_NAME_IS_REQUIRED")),
+  lastname: z.string().min(1, tStatic("data.idp.authentication", "ACTIVATION_UTILS.LAST_NAME_IS_REQUIRED")),
   password: passwordSchema,
   confirmPassword: passwordSchema,
-});
+}));
 

@@ -10,16 +10,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { createCommonOAuthFields } from "../sso-provider-config-field-factory.util";
-import { ssoProviderConfigBaseSchema } from "../sso-provider-config.schema";
+import { createSsoProviderConfigBaseSchema } from "../sso-provider-config.schema";
 import { SSOProviderConfigFormFieldType } from "../sso-provider-config.type";
 import { SSOProviderConfigFormField } from "./sso-provider-config-form-fields";
 import { SsoConfigForms } from "./sso-provider-config-forms";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const SSOOwnSSOFormFields: SSOProviderConfigFormFieldType[] = [
   ...createCommonOAuthFields({ clientId: { description: "" } }),
   {
     id: "6",
-    label: "Well Known URL",
+    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_OWN_SSO_FORM.WELL_KNOWN_URL"); },
     type: "input",
     name: "wellKnownUrl",
   },
@@ -34,13 +35,16 @@ type FormValue = {
   wellKnownUrl: string;
 };
 
-const schema = ssoProviderConfigBaseSchema.extend({
-  clientId: z.string().trim().nonempty("Client id is required"),
-  clientSecret: z.string().trim().nonempty("Client secret is required"),
-  wellKnownUrl: z.string().url({ message: "Well known URL must be a valid URL." }).trim(),
-});
+const schema = z.lazy(() =>
+  createSsoProviderConfigBaseSchema().extend({
+    clientId: z.string().trim().nonempty(tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_OWN_SSO_FORM.CLIENT_ID_IS_REQUIRED")),
+    clientSecret: z.string().trim().nonempty(tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_OWN_SSO_FORM.CLIENT_SECRET_IS_REQUIRED")),
+    wellKnownUrl: z.string().url({ message: tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_OWN_SSO_FORM.WELL_KNOWN_URL_MUST_BE_A") }).trim(),
+  }),
+);
 
 export const SSOProviderConfigOwnSSOForm: React.FC<SsoConfigForms> = ({ configuration }) => {
+  const { t } = useT("data.idp.authentication");
   const projectKey = useProjectStore()?.selectedProject?.tenantId || "";
   const { mutateAsync } = useSaveSsoCredential();
 
@@ -73,7 +77,7 @@ export const SSOProviderConfigOwnSSOForm: React.FC<SsoConfigForms> = ({ configur
     const res = await mutateAsync(payload);
 
     if (!res.isSuccess) return showErrorToast({ errors: res.errors });
-    showSuccessToast({ description: `Bring your own SSO is configured successfully` });
+    showSuccessToast({ description: t("SSO_PROVIDER_CONFIG_BLOCKS_OWN_SSO_FORM.BRING_YOUR_OWN_SSO_IS_CONFIGURED") });
   };
 
   return (
@@ -84,7 +88,7 @@ export const SSOProviderConfigOwnSSOForm: React.FC<SsoConfigForms> = ({ configur
       >
         <Card>
           <CardHeader>
-            <CardTitle>General</CardTitle>
+            <CardTitle>{t("SSO_PROVIDER_CONFIG_BLOCKS_OWN_SSO_FORM.GENERAL")}</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <SSOProviderConfigFormField fields={SSOOwnSSOFormFields} form={form} />
@@ -92,7 +96,7 @@ export const SSOProviderConfigOwnSSOForm: React.FC<SsoConfigForms> = ({ configur
         </Card>
 
         <div className="flex items-center justify-end gap-2">
-          <Button type="submit">Save</Button>
+          <Button type="submit">{t("common:SAVE")}</Button>
         </div>
       </form>
     </Form>

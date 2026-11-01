@@ -9,14 +9,16 @@ import { Permissions } from "@blocks-idp/iam/modules/permission-management";
 import { AddRole, Roles } from "@blocks-idp/iam/modules/role-management";
 import { PrimaryButton } from "@/components/action-buttons/primary-button";
 import { Link } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const AuthenticationConfig = () => {
+  const { t } = useT("data.idp.authentication");
   const [selectedTab, setSelectedTab] = useQueryState("tab", { defaultValue: "general" });
 
   return (
     <div>
       <div className="mb-[18px] flex items-center justify-between md:mb-[24px]">
-        <h1 className="text-lg font-semibold md:text-2xl">IDP</h1>
+        <h1 className="text-lg font-semibold md:text-2xl">{t("AUTHENTICATION_CONFIG.IDP")}</h1>
       </div>
       <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value)}>
         <div className="mb-4 flex items-start justify-between gap-4">
@@ -50,7 +52,7 @@ export const AuthenticationConfig = () => {
             {selectedTab === "roles" && <AddRole />}
             {selectedTab === "permissions" && (
               <Link to="/services/iam/permission-detail/new">
-                <PrimaryButton label="Add Permission" />
+                <PrimaryButton label={t("AUTHENTICATION_CONFIG.ADD_PERMISSION")} />
               </Link>
             )}
           </>
@@ -61,20 +63,20 @@ export const AuthenticationConfig = () => {
         </TabsContent>
         <TabsContent value="signin-flow">
           <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="text-lg font-semibold">Signin flow</h3>
-            <p className="text-muted-foreground mt-2">Configure your signin flow settings</p>
+            <h3 className="text-lg font-semibold">{t("AUTHENTICATION_CONFIG.SIGNIN_FLOW")}</h3>
+            <p className="text-muted-foreground mt-2">{t("AUTHENTICATION_CONFIG.CONFIGURE_YOUR_SIGNIN_FLOW_SETTINGS")}</p>
           </div>
         </TabsContent>
         <TabsContent value="signup-flow">
           <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="text-lg font-semibold">Signup flow</h3>
-            <p className="text-muted-foreground mt-2">Configure your signup flow settings</p>
+            <h3 className="text-lg font-semibold">{t("AUTHENTICATION_CONFIG.SIGNUP_FLOW")}</h3>
+            <p className="text-muted-foreground mt-2">{t("AUTHENTICATION_CONFIG.CONFIGURE_YOUR_SIGNUP_FLOW_SETTINGS")}</p>
           </div>
         </TabsContent>
         <TabsContent value="oidc-template">
           <div className="rounded-lg border border-border bg-card p-6">
-            <h3 className="text-lg font-semibold">OIDC template</h3>
-            <p className="text-muted-foreground mt-2">Configure your OIDC template settings</p>
+            <h3 className="text-lg font-semibold">{t("AUTHENTICATION_CONFIG.OIDC_TEMPLATE")}</h3>
+            <p className="text-muted-foreground mt-2">{t("AUTHENTICATION_CONFIG.CONFIGURE_YOUR_OIDC_TEMPLATE_SETTINGS")}</p>
           </div>
         </TabsContent>
         <TabsContent value="roles">

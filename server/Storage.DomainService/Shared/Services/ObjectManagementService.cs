@@ -1,6 +1,9 @@
+using DomainService.Storage.Dms;
 using Blocks.Genesis;
+using FluentValidation;
 using MongoDB.Driver;
 using Storage.DomainService.Entities;
+using Storage.DomainService.Storage.Validators;
 using Blocks.Genesis.Entities.Data;
 using FileDirectory = Blocks.Genesis.Entities.Data.FileDirectory;
 using File = Blocks.Genesis.Entities.Data.File;
@@ -25,16 +28,19 @@ namespace Storage.DomainService.Services
         private readonly IObjectAccessRepository _accessRepository;
         private readonly IObjectAccessResolver _resolver;
         private readonly IObjectItemWriter? _objectItems;
+        private readonly IValidator<ShareObjectsRequest> _shareObjectsValidator;
 
         public ObjectManagementService(
             IDbContextProvider dbContextProvider,
             IObjectAccessRepository accessRepository,
-            IObjectAccessResolver resolver, IObjectItemWriter? objectItems = null)
+            IObjectAccessResolver resolver, IObjectItemWriter? objectItems = null,
+            IValidator<ShareObjectsRequest>? shareObjectsValidator = null)
         {
             _dbContextProvider = dbContextProvider;
             _accessRepository = accessRepository;
             _resolver = resolver;
             _objectItems = objectItems;
+            _shareObjectsValidator = shareObjectsValidator ?? new ShareObjectsRequestValidator();
         }
 
         private static string TenantId => BlocksContext.GetContext()?.TenantId ?? string.Empty;
@@ -156,6 +162,85 @@ namespace Storage.DomainService.Services
             return ObjectAccessOperationResult.Success(policy.ItemId);
         }
 
+        public async Task<ObjectShareBatchResult> ShareObjectsAsync(ShareObjectsRequest request, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(request);
+
+            // Validated here because nothing upstream runs request validators, and the batch
+            // limit is what keeps one call from fanning out into thousands of rows.
+            var validation = await _shareObjectsValidator.ValidateAsync(request, cancellationToken);
+            if (!validation.IsValid)
+            {
+                return ObjectShareBatchResult.Invalid(validation.Errors
+                    .GroupBy(e => e.PropertyName)
+                    .ToDictionary(g => g.Key, g => g.First().ErrorMessage));
+            }
+
+            var ids = request.ResourceIds.Distinct(StringComparer.Ordinal).ToList();
+            var recipients = request.Principals
+                .DistinctBy(p => (p.PrincipalType, p.PrincipalId, ResolveOrganizationId(p.OrganizationId)))
+                .ToList();
+
+            // Every resource is checked before anything is written, so a failure leaves no
+            // partial share behind. Missing resources are reported without running any Manage
+            // check, which would otherwise fill the audit with denials for a request that
+            // could never have succeeded.
+            var resources = new List<ResourceHandle>(ids.Count);
+            var missing = new List<string>();
+            foreach (var id in ids)
+            {
+                var resource = await FindResourceAsync(id, cancellationToken);
+                if (resource is null) missing.Add(id);
+                else resources.Add(resource);
+            }
+
+            if (missing.Count > 0) return ObjectShareBatchResult.Failure(ObjectAccessOperationStatus.ResourceNotFound, missing);
+
+            var denied = new List<string>();
+            foreach (var resource in resources)
+            {
+                if (!await CanManageAsync(resource, cancellationToken)) denied.Add(resource.Descriptor.ResourceId);
+            }
+
+            if (denied.Count > 0) return ObjectShareBatchResult.Failure(ObjectAccessOperationStatus.NotPermitted, denied);
+
+            var now = DateTime.UtcNow;
+            var policies = new List<ObjectAccessPolicy>(resources.Count * recipients.Count);
+            foreach (var resource in resources)
+            {
+                foreach (var recipient in recipients)
+                {
+                    var policy = new ObjectAccessPolicy
+                    {
+                        ItemId = Guid.NewGuid().ToString(),
+                        TenantId = TenantId,
+                        ResourceId = resource.Descriptor.ResourceId,
+                        ResourceType = resource.Type,
+                        PrincipalType = recipient.PrincipalType,
+                        PrincipalId = recipient.PrincipalId,
+                        OrganizationId = ResolveOrganizationId(recipient.OrganizationId),
+                        Permission = request.Permission,
+                        Effect = ObjectEffect.Allow,
+                        ExpiresAt = request.ExpiresAt,
+                        GrantedBy = UserId,
+                        CreatedDate = now,
+                    };
+
+                    var rejection = await ValidatePolicyAsync(resource, policy, cancellationToken);
+                    if (rejection is not null) return ObjectShareBatchResult.Failure(rejection.Status);
+
+                    policies.Add(policy);
+                }
+            }
+
+            await _accessRepository.GrantManyAsync(policies, cancellationToken);
+            await _accessRepository.WriteAuditManyAsync(
+                policies.Select(p => NewAudit(p.ResourceId, p.ResourceType, "Share", true, DescribePrincipal(p))).ToList(),
+                cancellationToken);
+
+            return ObjectShareBatchResult.Success(policies);
+        }
+
         public async Task<ObjectAccessOperationResult> ToggleInheritanceAsync(string resourceId, bool inherits, CancellationToken cancellationToken = default)
         {
             var (resource, failure) = await AuthoriseManageAsync(resourceId, cancellationToken);
@@ -213,13 +298,21 @@ namespace Storage.DomainService.Services
                 return (null, ObjectAccessOperationResult.Failure(ObjectAccessOperationStatus.ResourceNotFound));
             }
 
-            if (!await _resolver.ResolveAsync(resource.Descriptor, ObjectPermission.Manage, cancellationToken))
+            if (!await CanManageAsync(resource, cancellationToken))
             {
-                await AuditAsync(resourceId, resource.Type, "Manage", false, "denied", cancellationToken);
                 return (null, ObjectAccessOperationResult.Failure(ObjectAccessOperationStatus.NotPermitted));
             }
 
             return (resource, null);
+        }
+
+        /// <summary>Whether the caller holds Manage on a loaded resource. A denial is audited.</summary>
+        private async Task<bool> CanManageAsync(ResourceHandle resource, CancellationToken cancellationToken)
+        {
+            if (await _resolver.ResolveAsync(resource.Descriptor, ObjectPermission.Manage, cancellationToken)) return true;
+
+            await AuditAsync(resource.Descriptor.ResourceId, resource.Type, "Manage", false, "denied", cancellationToken);
+            return false;
         }
 
         private async Task<ObjectAccessOperationResult?> ValidatePolicyAsync(ResourceHandle resource, ObjectAccessPolicy policy, CancellationToken cancellationToken)
@@ -300,7 +393,10 @@ namespace Storage.DomainService.Services
         }
 
         private Task AuditAsync(string resourceId, ObjectResourceType resourceType, string action, bool granted, string? detail, CancellationToken cancellationToken) =>
-            _accessRepository.WriteAuditAsync(new ObjectAuditLog
+            _accessRepository.WriteAuditAsync(NewAudit(resourceId, resourceType, action, granted, detail), cancellationToken);
+
+        private static ObjectAuditLog NewAudit(string resourceId, ObjectResourceType resourceType, string action, bool granted, string? detail) =>
+            new()
             {
                 ItemId = Guid.NewGuid().ToString(),
                 TenantId = TenantId,
@@ -312,7 +408,7 @@ namespace Storage.DomainService.Services
                 Detail = detail,
                 CreatedDate = DateTime.UtcNow,
                 CreatedBy = UserId,
-            }, cancellationToken);
+            };
 
         private static ObjectResourceType ResourceTypeOf(ResourceHandle resource) => resource.Type;
 

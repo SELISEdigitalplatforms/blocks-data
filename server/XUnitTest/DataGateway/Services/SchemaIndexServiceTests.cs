@@ -426,4 +426,31 @@ public class SchemaIndexServiceTests
         _repo.Verify(r => r.DropIndexAsync("Customers", "email_1", ""), Times.Once);
         _changeLog.Verify(c => c.CreateSchemaChangeLogAsync("schema-1", SchemaChangeType.SchemaIndexDelete), Times.Once);
     }
+
+    [Fact]
+    public async Task DeleteIndex_TellsTheOwnersOfTheSchema()
+    {
+        var schema = EntitySchema();
+        _repo.Setup(r => r.GetItemAsync<SchemaIndexDefinition>("idx-1", "")).ReturnsAsync(new SchemaIndexDefinition { ItemId = "idx-1", SchemaDefinitionItemId = "schema-1", Name = "email_1" });
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("schema-1", "")).ReturnsAsync(schema);
+        _repo.Setup(r => r.DropIndexAsync("Customers", "email_1", "")).ReturnsAsync(new ActionResponse { Acknowledged = true });
+        _repo.Setup(r => r.DeleteAsync(It.IsAny<FilterDefinition<SchemaIndexDefinition>>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true });
+
+        await _service.DeleteIndexAsync("idx-1");
+
+        _changeLog.Verify(c => c.NotifyChangedAsync(schema, SchemaChangeType.SchemaIndexDelete), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteIndex_OfAMissingSchema_NotifiesNobody()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaIndexDefinition>("idx-1", "")).ReturnsAsync(new SchemaIndexDefinition { ItemId = "idx-1", SchemaDefinitionItemId = "gone", Name = "email_1" });
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>("gone", "")).ReturnsAsync((SchemaDefinition?)null);
+        _repo.Setup(r => r.DeleteAsync(It.IsAny<FilterDefinition<SchemaIndexDefinition>>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true });
+
+        var result = await _service.DeleteIndexAsync("idx-1");
+
+        result.IsSuccess.Should().BeTrue();
+        _changeLog.Verify(c => c.NotifyChangedAsync(It.IsAny<SchemaDefinition>(), It.IsAny<SchemaChangeType>()), Times.Never);
+    }
 }

@@ -50,7 +50,8 @@ public class DataAccessService : IDataAccessService
                 schemaId,
                 action,
                 occurredAt = DateTime.UtcNow
-            }));
+            },
+            OrganizationId: context?.OrganizationId));
     }
 
     public async Task<ServiceResponse<ActionResponse>> ConfigureSecurityAsync(ConfigureSchemaSecurityRequest request)

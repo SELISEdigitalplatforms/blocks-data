@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createWrapper } from "@/test-utils/test-providers/query-client";
+import { QueryClient } from "@tanstack/react-query";
 import { DmsChildrenResponse } from "../models/dms.model";
 
 vi.mock("@seliseblocks/genesis-os", () => ({
@@ -50,6 +51,7 @@ vi.mock("../services/dms-content.service", () => ({
     grantAccess: vi.fn(),
     revokeAccessPolicy: vi.fn(),
     shareObject: vi.fn(),
+    shareObjects: vi.fn(),
     toggleInheritance: vi.fn(),
     getFileVersions: vi.fn(),
     copyFile: vi.fn(),
@@ -76,6 +78,7 @@ import {
   useRestoreFromTrash,
   useRevokeAccess,
   useShareObject,
+  useShareObjects,
   useToggleInheritance,
   useUpdateDmsDirectory,
 } from "./use-dms";
@@ -380,6 +383,25 @@ describe("the mutations", () => {
     });
 
     expect(dmsContentService.shareObject).toHaveBeenCalled();
+  });
+
+  it("shares several objects in one call and refreshes each one's access list", async () => {
+    vi.mocked(dmsContentService.shareObjects).mockResolvedValue({ items: [] });
+    const invalidate = vi.spyOn(QueryClient.prototype, "invalidateQueries");
+    const payload = {
+      resourceIds: ["file-1", "dir-1"],
+      principals: [{ principalType: "User" as const, principalId: "user-2" }],
+      permission: "View" as const,
+    };
+
+    const { result } = renderHook(() => useShareObjects(), { wrapper: createWrapper() });
+    await result.current.mutateAsync(payload);
+
+    expect(dmsContentService.shareObjects).toHaveBeenCalledWith(payload);
+    const keys = invalidate.mock.calls.map(([filters]) => filters?.queryKey);
+    expect(keys).toContainEqual(["dms", "policies", expect.any(String), "file-1"]);
+    expect(keys).toContainEqual(["dms", "policies", expect.any(String), "dir-1"]);
+    invalidate.mockRestore();
   });
 
   it("toggles inheritance against its resource", async () => {

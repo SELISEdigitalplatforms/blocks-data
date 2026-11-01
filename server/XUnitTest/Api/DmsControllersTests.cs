@@ -531,5 +531,94 @@ namespace XUnitTest.Api
 
             result.Should().BeOfType<CreatedResult>();
         }
+
+        private static System.Text.Json.JsonElement Body(IActionResult result) =>
+            System.Text.Json.JsonSerializer.SerializeToElement(((ObjectResult)result).Value);
+
+        private void ShareObjectsReturns(ObjectShareBatchResult outcome) =>
+            _management.Setup(m => m.ShareObjectsAsync(It.IsAny<ShareObjectsRequest>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(outcome);
+
+        private static ShareObjectsRequest BulkShare() => new()
+        {
+            ResourceIds = ["dir-1", "file-1"],
+            Principals =
+            [
+                new SharePrincipal { PrincipalType = ObjectPrincipalType.User, PrincipalId = "u1" },
+                new SharePrincipal { PrincipalType = ObjectPrincipalType.Role, PrincipalId = "r2" },
+            ],
+            Permission = ObjectPermission.Download,
+        };
+
+        [Fact]
+        public async Task ShareObjects_ForwardsEveryArgumentAndListsTheCreatedEntries()
+        {
+            var expires = new DateTime(2027, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+            var request = BulkShare();
+            request.ExpiresAt = expires;
+            _management.Setup(m => m.ShareObjectsAsync(request, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(ObjectShareBatchResult.Success(
+                [
+                    new ObjectAccessPolicy { ItemId = "p1", ResourceId = "dir-1", ResourceType = ObjectResourceType.Directory, PrincipalType = ObjectPrincipalType.User, PrincipalId = "u1" },
+                    new ObjectAccessPolicy { ItemId = "p2", ResourceId = "file-1", ResourceType = ObjectResourceType.File, PrincipalType = ObjectPrincipalType.Role, PrincipalId = "r2" },
+                ]));
+
+            var result = await _sut.ShareObjects(request);
+
+            result.Should().BeOfType<OkObjectResult>();
+            var items = Body(result).GetProperty("items").EnumerateArray().ToList();
+            items.Should().HaveCount(2);
+            items[0].GetProperty("resourceId").GetString().Should().Be("dir-1");
+            items[0].GetProperty("resourceType").GetString().Should().Be(nameof(ObjectResourceType.Directory));
+            items[0].GetProperty("principalType").GetString().Should().Be(nameof(ObjectPrincipalType.User));
+            items[0].GetProperty("principalId").GetString().Should().Be("u1");
+            items[0].GetProperty("itemId").GetString().Should().Be("p1");
+            items[1].GetProperty("itemId").GetString().Should().Be("p2");
+        }
+
+        [Fact]
+        public async Task ShareObjects_MapsMissingResourcesToNotFoundWithTheirIds()
+        {
+            ShareObjectsReturns(ObjectShareBatchResult.Failure(ObjectAccessOperationStatus.ResourceNotFound, ["ghost-1"]));
+
+            var result = await _sut.ShareObjects(BulkShare());
+
+            result.Should().BeOfType<NotFoundObjectResult>();
+            Body(result).GetProperty("resourceIds").EnumerateArray().Select(e => e.GetString()).Should().Equal("ghost-1");
+        }
+
+        [Fact]
+        public async Task ShareObjects_MapsUnmanageableResourcesTo403WithTheirIds()
+        {
+            ShareObjectsReturns(ObjectShareBatchResult.Failure(ObjectAccessOperationStatus.NotPermitted, ["dir-2"]));
+
+            var result = await _sut.ShareObjects(BulkShare());
+
+            ((ObjectResult)result).StatusCode.Should().Be(403);
+            Body(result).GetProperty("resourceIds").EnumerateArray().Select(e => e.GetString()).Should().Equal("dir-2");
+        }
+
+        [Fact]
+        public async Task ShareObjects_MapsAnInvalidRequestToBadRequestWithItsErrors()
+        {
+            ShareObjectsReturns(ObjectShareBatchResult.Invalid(new Dictionary<string, string> { ["ResourceIds"] = "'Resource Ids' must not be empty." }));
+
+            var result = await _sut.ShareObjects(BulkShare());
+
+            result.Should().BeOfType<BadRequestObjectResult>();
+            Body(result).GetProperty("errors").GetProperty("ResourceIds").GetString().Should().Be("'Resource Ids' must not be empty.");
+        }
+
+        [Theory]
+        [InlineData(ObjectAccessOperationStatus.PrincipalRequired)]
+        [InlineData(ObjectAccessOperationStatus.InvalidOrganizationScope)]
+        public async Task ShareObjects_MapsPrincipalProblemsToBadRequest(ObjectAccessOperationStatus status)
+        {
+            ShareObjectsReturns(ObjectShareBatchResult.Failure(status));
+
+            var result = await _sut.ShareObjects(BulkShare());
+
+            result.Should().BeOfType<BadRequestObjectResult>();
+        }
     }
 }

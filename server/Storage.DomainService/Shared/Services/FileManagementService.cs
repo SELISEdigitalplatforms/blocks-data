@@ -11,6 +11,7 @@ using Storage.DomainService.Dtos;
 using Storage.DomainService.Entities;
 using Storage.DomainService.Enums;
 using Storage.DomainService.Storage;
+using Storage.DomainService.Storage.ZipDownload;
 using Storage.DomainService.Utilities;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
@@ -697,6 +698,101 @@ namespace Storage.DomainService.Services
                             : $"Private/{fileId}/{fileVersionId}/{fileName}";
                         return (filePath, TimeSpan.FromDays(3));
                     }
+            }
+        }
+
+        public async Task<List<ZipSourceFile>> ResolveZipSourcesAsync(IReadOnlyList<string> fileIds, bool authorize, CancellationToken cancellationToken)
+        {
+            var requested = fileIds.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToList();
+
+            if (authorize)
+            {
+                var allowed = new List<string>(requested.Count);
+                foreach (var fileId in requested)
+                {
+                    var file = await _fileRepository.GetFileByItemIdAsync(fileId);
+                    if (file is null || file.IsArchived) continue;
+                    if (!await AuthorizeFileAsync(file, ObjectPermission.Download, "ZipDownload", cancellationToken)) continue;
+                    allowed.Add(fileId);
+                }
+                requested = allowed;
+            }
+
+            var sources = new List<ZipSourceFile>();
+            if (requested.Count == 0) return sources;
+
+            var (aggregates, responses) = _fileRepository.GetRequiredFiles(requested, null);
+            var responsesById = responses.ToDictionary(r => r.ItemId, r => r);
+            var resolvedById = new Dictionary<string, ZipSourceFile>();
+
+            foreach (var aggregate in aggregates)
+            {
+                if (!aggregate.Any()) continue;
+
+                // One malformed version row (a missing field, an unexpected BSON type) skips that file only,
+                // like any other file that cannot be included, instead of failing the whole prepare.
+                try
+                {
+                    var fileId = aggregate["_id"].AsString;
+                    if (!responsesById.TryGetValue(fileId, out var response)) continue;
+                    if (!ReadReadinessPolicy.IsContentReadable(ParseVerificationStatus(aggregate))) continue;
+
+                    resolvedById[fileId] = new ZipSourceFile
+                    {
+                        FileId = fileId,
+                        Name = response.Name,
+                        VersionId = aggregate["VersionId"].AsString,
+                        VersionNo = aggregate["MaxVersion"].IsBsonNull ? 0 : aggregate["MaxVersion"].AsInt64,
+                        StorageKey = aggregate.Contains("StorageKey") && !aggregate["StorageKey"].IsBsonNull
+                            ? aggregate["StorageKey"].AsString
+                            : null,
+                        AccessModifier = response.AccessModifier,
+                        // Older rows may hold the size as Int32.
+                        SizeInBytes = aggregate["SizeInBytes"].IsBsonNull ? 0 : aggregate["SizeInBytes"].ToInt64(),
+                        TenantId = response.TenantId,
+                    };
+                }
+                catch (Exception)
+                {
+                    // Skipped silently by design: unincludable files never fail the zip.
+                }
+            }
+
+            foreach (var fileId in requested)
+            {
+                if (resolvedById.TryGetValue(fileId, out var source)) sources.Add(source);
+            }
+
+            return sources;
+        }
+
+        public async Task<Stream?> OpenZipSourceAsync(ZipSourceFile source, StorageConfiguration configuration, CancellationToken cancellationToken)
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var storageService = _storageServiceFactory.GetStorageService(configuration);
+                _ = StorageTypes.TryGetCategory(configuration.StorageStrategy, out var category);
+
+                if (category == StorageStrategyCategory.Local)
+                {
+                    return await storageService.DownloadFileAsync(source.Name, source.TenantId, source.FileId, source.VersionNo.ToString());
+                }
+
+                // Same key choice as GetFileUrlResponse: the version's own StorageKey survives renames.
+                var key = !string.IsNullOrEmpty(source.StorageKey)
+                    ? source.StorageKey
+                    : GetFileInfo(source.FileId, source.VersionId, source.Name, source.AccessModifier, category).filePath;
+                return await storageService.DownloadFileAsync(key);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                // Only the request's own cancellation stops the zip; a provider SDK timeout skips this file.
+                throw;
+            }
+            catch (Exception)
+            {
+                return null;
             }
         }
 

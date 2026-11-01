@@ -195,7 +195,7 @@ namespace Storage.DomainService.Services
                 .ToList();
         }
 
-        private static ObjectResourceDescriptor Describe(FileDirectory directory) => new()
+        internal static ObjectResourceDescriptor Describe(FileDirectory directory) => new()
         {
             ResourceId = directory.ItemId,
             AncestorIds = directory.AncestorIds ?? new List<string>(),

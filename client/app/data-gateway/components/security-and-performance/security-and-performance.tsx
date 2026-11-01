@@ -88,6 +88,7 @@ const SecurityAndPerformance = ({
       schemaName: values.schemaName,
       collectionName: values.schemaType == "Entity" ? values.entityName : "",
       schemaType: values.schemaType == "Entity" ? 1 : 2,
+      ...(values.description?.trim() ? { description: values.description.trim() } : {}),
       projectKey,
     };
     const res = await createSchema(payload);

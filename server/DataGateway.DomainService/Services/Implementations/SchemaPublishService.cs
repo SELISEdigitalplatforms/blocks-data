@@ -25,22 +25,19 @@ public class SchemaPublishService : ISchemaPublishService
     private readonly ISchemaVersionStore _versionStore;
     private readonly IDbRepository _repository;
     private readonly ILogger<SchemaPublishService> _logger;
-    private readonly IBuiltInNotificationSender? _notifier;
 
     public SchemaPublishService(
         GraphqlSchemaBuilder schemaBuilder,
         ISchemaSnapshotStore snapshotStore,
         ISchemaVersionStore versionStore,
         IDbRepository repository,
-        ILogger<SchemaPublishService> logger,
-        IBuiltInNotificationSender? notifier = null)
+        ILogger<SchemaPublishService> logger)
     {
         _schemaBuilder = schemaBuilder ?? throw new ArgumentNullException(nameof(schemaBuilder));
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
         _versionStore = versionStore ?? throw new ArgumentNullException(nameof(versionStore));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _notifier = notifier;
     }
 
     public async Task<SchemaPublishResult> PublishAsync(string tenantId, CancellationToken cancellationToken = default)
@@ -86,7 +83,6 @@ public class SchemaPublishService : ISchemaPublishService
             // Both handle and log their own failures; the publish has succeeded by now.
             await _versionStore.AnnounceAsync(tenantId, version.Value);
             await PruneAsync(tenantId, version.Value, cancellationToken);
-            await NotifyVersionLiveAsync(tenantId, version.Value, "publish", userId);
 
             _logger.LogInformation("Published schema version {Version} for tenant {TenantId}: {SchemaCount} schemas, {ChangeCount} changes, {RawKb} KB stored as {CompressedKb} KB in {ChunkCount} chunks; test build {BuildMs} ms, total {ElapsedMs} ms",
                 version, tenantId, content.SchemaCount, pendingChangeLogIds.Count, ToKb(content.RawSizeBytes),
@@ -128,7 +124,6 @@ public class SchemaPublishService : ISchemaPublishService
         await _versionStore.SetCurrentAsync(tenantId, version, cancellationToken);
         var reopenedCount = await MatchPendingChangesToLiveVersionAsync(tenantId, version, cancellationToken);
         await _versionStore.AnnounceAsync(tenantId, version);
-        await NotifyVersionLiveAsync(tenantId, version, "rollback", userId);
 
         _logger.LogInformation("Rolled back the schema for tenant {TenantId} from version {PreviousVersion} to {Version}, requested by user {UserId} ({UserEmail}); {ReopenedCount} changes it does not include are pending again",
             tenantId, previousVersion, version, userId, maskedEmail, reopenedCount);
@@ -184,26 +179,6 @@ public class SchemaPublishService : ISchemaPublishService
             new BsonDocument("$in", new BsonArray(changeLogIds)));
         var update = new BsonDocument(nameof(SchemaChangeLog.DoesServerAdaptChanges), published);
         await _repository.UpdateManyAsync(ChangeLogCollectionName, filter, update, tenantId);
-    }
-
-    /// <summary>
-    /// Tells the acting user that a schema version is live. Best effort: the sender never throws.
-    /// Recipient limit: the acting user only (no project-people lookup exists in this service).
-    /// </summary>
-    private async Task NotifyVersionLiveAsync(string tenantId, long version, string kind, string userId)
-    {
-        if (_notifier is null) return;
-        var recipients = BuiltInNotificationSender.Recipients(userId);
-        await _notifier.SendAsync(new BuiltInNotification(tenantId, "data-schema-version-live", recipients, new
-        {
-            @event = "data-schema-version-live",
-            title = "Schema version is live",
-            description = kind == "rollback" ? $"Schema version {version} is live again." : $"Schema version {version} is live.",
-            isSuccess = true,
-            version,
-            kind,
-            occurredAt = DateTime.UtcNow
-        }));
     }
 
     public async Task<SchemaVersionHistory> GetHistoryAsync(string tenantId, CancellationToken cancellationToken = default)

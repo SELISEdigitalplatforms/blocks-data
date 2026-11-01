@@ -9,6 +9,7 @@ import {
 } from "@/components/ui-kits/dialog/dialog";
 import { Input } from "@/components/ui-kits/input/input";
 import { Label } from "@/components/ui-kits/label/label";
+import { Textarea } from "@/components/ui-kits/textarea/textarea";
 import {
   Select,
   SelectContent,
@@ -39,7 +40,11 @@ type SchemaFormValues = {
   schemaName: string;
   schemaType: "Entity" | "DTO";
   entityName?: string;
+  description?: string;
 };
+
+/** A schema's description: plain text, at most this many characters (server `SchemaDescription.MaxLength`). */
+export const SCHEMA_DESCRIPTION_MAX_LENGTH = 500;
 
 type SchemaModalProps = {
   mode: "add" | "edit";
@@ -69,6 +74,7 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
       schemaName: "",
       schemaType: "Entity",
       entityName: "",
+      description: "",
     },
   });
 
@@ -115,12 +121,14 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
         schemaName: defaultValues.schemaName,
         schemaType: defaultValues.schemaType,
         entityName: defaultValues.entityName ?? "",
+        description: defaultValues.description ?? "",
       });
     } else {
       reset({
         schemaName: "",
         schemaType: "Entity",
         entityName: "",
+        description: "",
       });
     }
   }, [mode, defaultValues, reset]);
@@ -371,6 +379,23 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                 )}
               </div>
             )}
+            {/* Description (section 7): shown under the name, and in the target picker. */}
+            <div>
+              <label htmlFor="schemaDescription" className="text-sm font-medium text-medium-emphasis">
+                Description <span className="font-normal text-muted-foreground">(optional)</span>
+              </label>
+              <Textarea
+                id="schemaDescription"
+                rows={2}
+                placeholder="What this schema holds, e.g. Companies and people we sell to"
+                className="mt-1 w-full resize-none rounded border px-3 py-2 text-sm"
+                {...register("description", {
+                  validate: (value) =>
+                    (value ?? "").trim().length <= SCHEMA_DESCRIPTION_MAX_LENGTH || `At most ${SCHEMA_DESCRIPTION_MAX_LENGTH} characters`,
+                })}
+              />
+              {errors.description && <p className="mt-1 text-sm text-red-500">{errors.description.message}</p>}
+            </div>
           </div>
 
           <DialogFooter className="mt-4">

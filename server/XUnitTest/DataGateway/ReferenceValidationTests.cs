@@ -177,13 +177,14 @@ public class ReferenceValidationTests
     }
 
     [Fact]
-    public void Check_TargetMustBeAnExistingNonSystemEntity()
+    public void Check_TargetMustBeAnExistingEntity_TenantOrSystem()
     {
         var source = new FieldDefinition { Name = "DepartmentId", Type = "String" };
 
         ReferenceRuleCompatibility.Check(source, null, "ItemId").Should().Be(ReferenceRuleCompatibility.TargetSchemaMustBeEntity);
         ReferenceRuleCompatibility.Check(source, Target(SchemaType.Dto), "ItemId").Should().Be(ReferenceRuleCompatibility.TargetSchemaMustBeEntity);
-        ReferenceRuleCompatibility.Check(source, Target(isSystem: true), "ItemId").Should().Be(ReferenceRuleCompatibility.TargetSchemaMustBeEntity);
+        // A tenant rule may point at a system entity (owner decision 2026-10-25, validation and access rules plan, section 8).
+        ReferenceRuleCompatibility.Check(source, Target(isSystem: true), "ItemId").Should().BeNull();
     }
 
     // ---- Schema build (publish vs pod rebuild) ----------------------------------------------

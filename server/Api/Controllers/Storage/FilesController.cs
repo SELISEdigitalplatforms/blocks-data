@@ -1,4 +1,5 @@
-﻿using Blocks.Genesis;
+﻿using Blocks.Data.Api.Filters;
+using Blocks.Genesis;
 using DomainService.Storage;
 using DomainService.Storage.Dms;
 using Microsoft.AspNetCore.Mvc;
@@ -165,6 +166,7 @@ namespace Api.Controllers
         [HttpGet("GetFileVersions")]
         [HttpGet("get-file-versions")]
         [ProtectedEndPoint("blocks-data::file::get-file-versions")]
+        [ValidateRequest]
         public async Task<IActionResult> GetFileVersions([FromQuery] GetFileVersionsRequest request)
         {
             var page = await _fileService.GetVersionsAsync(request.FileId, request.Cursor, request.Limit);
@@ -184,6 +186,7 @@ namespace Api.Controllers
         [HttpPost("CreateFileVersion")]
         [HttpPost("create-file-version")]
         [ProtectedEndPoint("blocks-data::file::create-file-version")]
+        [ValidateRequest]
         public async Task<IActionResult> CreateFileVersion([FromBody] CreateFileVersionRequest request)
         {
             var result = await _fileManagementService.CreateFileVersionAsync(request);
@@ -198,6 +201,7 @@ namespace Api.Controllers
         [HttpPost("CopyFile")]
         [HttpPost("copy-file")]
         [ProtectedEndPoint("blocks-data::file::copy-file")]
+        [ValidateRequest]
         public async Task<IActionResult> CopyFile([FromBody] CopyFileRequest request)
         {
             var result = await _fileService.CopyFileAsync(request.FileId, request.TargetDirectoryId, request.CopyAccessPolicies);
@@ -214,6 +218,7 @@ namespace Api.Controllers
         [HttpPost("MoveFile")]
         [HttpPost("move-file")]
         [ProtectedEndPoint("blocks-data::file::move-file")]
+        [ValidateRequest]
         public async Task<IActionResult> MoveFile([FromBody] MoveFileRequest request)
         {
             var result = await _fileService.MoveFileAsync(request.FileId, request.TargetDirectoryId);
@@ -230,6 +235,7 @@ namespace Api.Controllers
         [HttpPost("RenameFile")]
         [HttpPost("rename-file")]
         [ProtectedEndPoint("blocks-data::file::rename-file")]
+        [ValidateRequest]
         public async Task<IActionResult> RenameFile([FromBody] RenameFileRequest request)
         {
             var result = await _fileService.RenameFileAsync(request.FileId, request.Name);

@@ -284,6 +284,7 @@ export const SchemaDetailsPage = () => {
         schemaName: values.schemaName,
         collectionName: values.schemaType == "Entity" ? values.entityName : "",
         schemaType: values.schemaType == "Entity" ? 1 : 2,
+        ...(values.description?.trim() ? { description: values.description.trim() } : {}),
         projectKey,
       };
 
@@ -352,6 +353,7 @@ export const SchemaDetailsPage = () => {
       setSchemaDetails({
         id: res.id,
         schemaName: res.schemaName,
+        description: res.description,
         schemaType: res.schemaType,
         collectionName: res.collectionName,
         fields: normalizeSchemaFields(res.fields),
@@ -536,7 +538,7 @@ export const SchemaDetailsPage = () => {
                         fieldNames,
                       })
                     }
-                    onOpenFieldValidation={({ fieldName, subject, context, schemaName, validationRule, fieldType, enumValues }) =>
+                    onOpenFieldValidation={({ fieldName, subject, context, schemaName, validationRule, fieldType, enumValues, isArray }) =>
                       openValidationInspector({
                         subject,
                         context,
@@ -544,6 +546,7 @@ export const SchemaDetailsPage = () => {
                         fieldName,
                         fieldType,
                         enumValues,
+                        isArray,
                         schemaId: schemaDetails.id,
                         projectKey,
                         initialValidationData: validationRule,

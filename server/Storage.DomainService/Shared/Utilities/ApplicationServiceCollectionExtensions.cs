@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Storage.DomainService.Services;
 using Storage.DomainService.Storage;
 using Storage.DomainService.Storage.Validators;
+using Storage.DomainService.Storage.ZipDownload;
 
 namespace Storage.DomainService.Utilities
 {
@@ -30,6 +31,7 @@ namespace Storage.DomainService.Utilities
             services.AddTransient<IValidator<MoveDirectoryRequest>, MoveDirectoryRequestValidator>();
             services.AddTransient<IValidator<GrantAccessRequest>, GrantAccessRequestValidator>();
             services.AddTransient<IValidator<ShareObjectRequest>, ShareObjectRequestValidator>();
+            services.AddTransient<IValidator<ShareObjectsRequest>, ShareObjectsRequestValidator>();
             services.AddTransient<IValidator<RevokeAccessRequest>, RevokeAccessRequestValidator>();
             services.AddTransient<IValidator<ToggleInheritanceRequest>, ToggleInheritanceRequestValidator>();
             services.AddTransient<IValidator<ObjectSearchRequest>, ObjectSearchRequestValidator>();
@@ -38,6 +40,7 @@ namespace Storage.DomainService.Utilities
             services.AddTransient<IValidator<RestoreFromTrashRequest>, RestoreFromTrashRequestValidator>();
             services.AddTransient<IValidator<CreateFileVersionRequest>, CreateFileVersionRequestValidator>();
             services.AddTransient<IValidator<GetFileVersionsRequest>, GetFileVersionsRequestValidator>();
+            services.AddTransient<IValidator<PrepareZipDownloadRequest>, PrepareZipDownloadRequestValidator>();
 
             // Register services
             services.AddSingleton<IFileManagementService, FileManagementService>();
@@ -56,6 +59,8 @@ namespace Storage.DomainService.Utilities
             services.AddSingleton<IStorageServiceFactory, StorageServiceFactory>();
             services.AddSingleton<IUploadKeyRouter, UploadKeyRouter>();
             services.AddSingleton<IUploadVerificationService, UploadVerificationService>();
+            services.AddSingleton<IZipTicketStore, ZipTicketStore>();
+            services.AddSingleton<IZipDownloadService, ZipDownloadService>();
             services.AddBlocksStorageConfiguration();
             services.AddHttpContextAccessor();
         }

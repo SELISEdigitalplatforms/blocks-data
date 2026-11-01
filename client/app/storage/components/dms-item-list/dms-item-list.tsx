@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { File as FileIcon, Folder as DirectoryIcon } from "lucide-react";
 import { ReactNode } from "react";
 import { DmsItem } from "../../models/dms.model";
+import { formatSize } from "../../utils/format-size";
 
 export interface DmsItemListProps {
   items: DmsItem[];
@@ -15,18 +16,6 @@ export interface DmsItemListProps {
   renderActions?: (item: DmsItem) => ReactNode;
   emptyMessage?: string;
 }
-
-const formatSize = (bytes: number | undefined): string => {
-  if (!bytes) return "";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${value.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
-};
 
 /**
  * A flat list of directorys and files with a cursor-driven "load more".

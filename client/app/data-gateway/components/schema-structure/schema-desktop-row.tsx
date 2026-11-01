@@ -190,6 +190,8 @@ export function SchemaDesktopRow({
   const currentType = watch(`properties.${index}.type`);
   const description = watch(`properties.${index}.description`) ?? "";
   const isPrimitiveType = typeOptions.includes(currentType);
+  // A list of objects can be counted (At least / At most items); a single object takes no rule.
+  const canValidate = isPrimitiveType || Boolean(watch(`properties.${index}.isArray`));
   const resolvedChildSchema = childSchema ?? findChildSchemaByType(schemaItems, currentType);
   const isChildType = Boolean(resolvedChildSchema);
 
@@ -576,7 +578,7 @@ export function SchemaDesktopRow({
                   )
                 )}
 
-                {isNewField || !isPrimitiveType ? (
+                {isNewField || !canValidate ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
@@ -586,7 +588,7 @@ export function SchemaDesktopRow({
                         aria-label={
                           isNewField
                             ? "Save the field before adding validations"
-                            : "Validations are only available for primitive types"
+                            : "Validations are only available for primitive types and lists"
                         }
                       >
                         <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -595,7 +597,7 @@ export function SchemaDesktopRow({
                     <TooltipContent>
                       {isNewField
                         ? "Save the field before adding validations"
-                        : "Validations are only available for primitive types"}
+                        : "Validations are only available for primitive types and lists"}
                     </TooltipContent>
                   </Tooltip>
                 ) : (

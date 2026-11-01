@@ -11,6 +11,8 @@ const showErrorToast = vi.fn();
 const showSuccessToast = vi.fn();
 
 vi.mock("../../hooks/use-configuration", () => ({
+  // The target picker's schemas (validation and access rules plan, section 8).
+  useReferenceTargets: () => ({ data: { data: { entities: [], systemEntities: [] } }, isLoading: false }),
   useGetSchemaFieldValidation: () => ({
     data: undefined,
     isLoading: false,

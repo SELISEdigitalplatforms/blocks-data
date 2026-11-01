@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Blocks.Genesis;
+using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
@@ -32,7 +33,8 @@ internal static class SchemaAccessMiddlewareHelper
         Console.WriteLine($"{middlewareName}: accessLevel: {accessLevel}");
         var httpContextAccessor = context.Services.GetService<IHttpContextAccessor>();
         var httpContext = httpContextAccessor?.HttpContext;
-        if (!IsValidTenant(httpContext))
+        var decision = SchemaAccessGate.Check(httpContext, accessLevel);
+        if (decision == SchemaAccessDecision.InvalidTenant)
         {
             Console.WriteLine($"{middlewareName}: tenant is not valid");
             throw Rejected(GatewayFailureKind.Authentication, "Tenant is not valid.");
@@ -45,10 +47,10 @@ internal static class SchemaAccessMiddlewareHelper
         }
 
         Console.WriteLine($"{middlewareName}: accessLevel is not public");
-        var isAuthenticated = IsAuthenticated(httpContext);
+        var isAuthenticated = decision == SchemaAccessDecision.Allowed;
         Console.WriteLine($"{middlewareName}: isAuthenticated: {isAuthenticated}");
 
-        if (!isAuthenticated)
+        if (decision == SchemaAccessDecision.NotAuthenticated)
         {
             Console.WriteLine($"{middlewareName}: user is not authenticated");
             throw Rejected(GatewayFailureKind.Authentication, "User is not authenticated.");
@@ -71,41 +73,5 @@ internal static class SchemaAccessMiddlewareHelper
                 .SetMessage(message)
                 .SetCode(GraphQlConstant.UnauthorizedErrorCode)
                 .Build());
-    }
-
-    private static bool IsValidTenant(HttpContext? httpContext)
-    {
-        // if x-blocks-key from header matches with constant tenantid or is a blocks cloud tenant then it's a valid tenant
-        var blocksKey = httpContext?.Request.Headers[GraphQlConstant.BlocksKeyHeaderKey].FirstOrDefault();
-        if (string.IsNullOrWhiteSpace(blocksKey))
-            return false;
-
-        return blocksKey == Helpers.TenantContext.GetTenantId() || RequestContextAccessor.Current.IsRequestFromBlocksCloud;
-    }
-
-
-    private static bool IsAuthenticated(HttpContext? httpContext)
-    {
-        if (httpContext is null)
-            return false;
-
-        var hasAuthorizationHeader = !string.IsNullOrWhiteSpace(httpContext.Request.Headers.Authorization);
-        var hasAuthCookie = HasAuthCookie(httpContext);
-        var isUserAuthenticated = httpContext.User?.Identity?.IsAuthenticated ?? false;
-
-        return (hasAuthorizationHeader || hasAuthCookie) && isUserAuthenticated;
-    }
-
-    private static bool HasAuthCookie(HttpContext httpContext)
-    {
-        var requestCookies = httpContext.Request.Cookies;
-
-        // Cookie key is always access_token_{x-blocks-key}
-        var blocksKey = httpContext.Request.Headers[GraphQlConstant.BlocksKeyHeaderKey].FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(blocksKey))
-        {
-            return true;
-        }
-        return false;
     }
 }

@@ -1,4 +1,5 @@
 import { API_BASES } from "@/constants/endpoint.constant";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const API_ENDPOINT_CONFIG_SUBPATH = "/ApiEndpointConfig";
 
@@ -12,32 +13,32 @@ export const API_SETTINGS_ENDPOINTS = {
 /** Client-side metadata for known service groups. */
 export const SERVICE_META: Record<string, { description: string; icon: string }> = {
   Authentication: {
-    description: "Authentication and user identity provisioning endpoints.",
+    get description() { return tStatic("data.idp.security", "ENDPOINT_CONSTANT.AUTHENTICATION_AND_USER_IDENTITY"); },
     icon: "Lock",
   },
   Captcha: {
-    description: "Captcha verification and challenge endpoints.",
+    get description() { return tStatic("data.idp.security", "ENDPOINT_CONSTANT.CAPTCHA_VERIFICATION_AND_CHALLENGE"); },
     icon: "Shield",
   },
   Iam: {
-    description: "Identity and access management endpoints.",
+    get description() { return tStatic("data.idp.security", "ENDPOINT_CONSTANT.IDENTITY_AND_ACCESS_MANAGEMENT"); },
     icon: "Users",
   },
   Mfa: {
-    description: "Multi-factor authentication endpoints.",
+    get description() { return tStatic("data.idp.security", "ENDPOINT_CONSTANT.MULTI_FACTOR_AUTHENTICATION_ENDPOINTS"); },
     icon: "Smartphone",
   },
   Storage: {
-    description: "S3-compatible object storage and bucket management.",
+    get description() { return tStatic("data.idp.security", "ENDPOINT_CONSTANT.S3_COMPATIBLE_OBJECT_STORAGE_AND"); },
     icon: "HardDrive",
   },
   Communication: {
-    description: "Email, SMS, and notification delivery endpoints.",
+    get description() { return tStatic("data.idp.security", "ENDPOINT_CONSTANT.EMAIL_SMS_AND_NOTIFICATION_DELIVERY"); },
     icon: "Mail",
   },
 };
 
 export const DEFAULT_SERVICE_META = {
-  description: "Service endpoints.",
+  get description() { return tStatic("data.idp.security", "ENDPOINT_CONSTANT.SERVICE_ENDPOINTS"); },
   icon: "Settings",
 };

@@ -27,6 +27,7 @@ import { MFA_Provider_Data } from "../../utils/mfa-config";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type MethodInfo = {
   enable: boolean;
@@ -45,6 +46,7 @@ const LoadingSkelton = () => {
 };
 
 export const ConfigureMFA = () => {
+  const { t } = useT("data.idp.security");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const { isLoading, isFetching, data } = useGetMFAConfig({ projectKey: tenantId });
   const [openEnableDisableModal, setOpenEnableDisableModal] = useState<boolean>(false);
@@ -59,7 +61,7 @@ export const ConfigureMFA = () => {
     () => [
       {
         accessorKey: "provider",
-        header: "Provider",
+        header: t("CONFIGURE_MFA.PROVIDER"),
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             {<row.original.Icon className="h-4 w-4" />}
@@ -69,11 +71,11 @@ export const ConfigureMFA = () => {
       },
       {
         accessorKey: "status",
-        header: "Status",
+        header: t("common:STATUS"),
         cell: ({ row }) => (
           <div className="flex max-w-[200px]">
             <Badge variant={data?.userMfaType.includes(row.original.type) ? "success" : "error"}>
-              {data?.userMfaType.includes(row.original.type) ? "Enabled" : "Disabled"}
+              {data?.userMfaType.includes(row.original.type) ? t("common:ENABLED") : t("common:DISABLED")}
             </Badge>
           </div>
         ),
@@ -100,7 +102,7 @@ export const ConfigureMFA = () => {
                     }));
                   }}
                 >
-                  {data?.userMfaType.includes(row.original.type) ? "Disable" : "Enable"}
+                  {data?.userMfaType.includes(row.original.type) ? t("CONFIGURE_MFA.DISABLE") : t("CONFIGURE_MFA.ENABLE")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -108,7 +110,7 @@ export const ConfigureMFA = () => {
         ),
       },
     ],
-    [data?.userMfaType],
+    [data?.userMfaType, t],
   );
 
   const { isPending, mutateAsync } = useSaveMFAConfig();
@@ -136,7 +138,10 @@ export const ConfigureMFA = () => {
     const res = await mutateAsync(payload);
     if (!res.isSuccess) return showErrorToast({ errors: res.errors });
     showSuccessToast({
-      description: `${methodInfo.name} MFA ${methodInfo.enable ? "enabled" : "disabled"} successfully`,
+      description: t(
+        methodInfo.enable ? "CONFIGURE_MFA.METHOD_MFA_ENABLED_SUCCESSFULLY" : "CONFIGURE_MFA.METHOD_MFA_DISABLED_SUCCESSFULLY",
+        { method: methodInfo.name },
+      ),
     });
     setOpenEnableDisableModal(false);
   };
@@ -163,7 +168,7 @@ export const ConfigureMFA = () => {
                 <LoadingSkelton />
               ) : mfaConfigData.length === 0 ? (
                 <div className="flex h-32 flex-wrap items-center justify-center rounded-sm border-none bg-background p-4 text-center">
-                  <p className="text-muted-foreground">No configurations found. MFA is not yet configured for this project.</p>
+                  <p className="text-muted-foreground">{t("CONFIGURE_MFA.NO_CONFIGURATIONS_FOUND_MFA_IS_NOT")}</p>
                 </div>
               ) : (
                 <Table className="text-sm md:table-fixed">
@@ -199,8 +204,11 @@ export const ConfigureMFA = () => {
           onCancel={() => {}}
           onConfirm={() => onSaveHandler(methodInfo)}
           data={{
-            dialogTitle: "Confirmation",
-            dialogSubtitle: `Are you sure you want to ${methodInfo.enable ? "enable" : "disable"} ${methodInfo.name} MFA?`,
+            dialogTitle: t("CONFIGURE_MFA.CONFIRMATION"),
+            dialogSubtitle: t(
+              methodInfo.enable ? "CONFIGURE_MFA.ARE_YOU_SURE_YOU_WANT_TO_ENABLE" : "CONFIGURE_MFA.ARE_YOU_SURE_YOU_WANT_TO_DISABLE",
+              { method: methodInfo.name },
+            ),
           }}
           buttonState={{ confirm: { disable: isPending } }}
         />

@@ -12,6 +12,7 @@ import { EndpointRow } from "./endpoint-row";
 import { SecurityPresetsPopover } from "./security-presets-popover";
 import { IApiEndpoint } from "../models/api-endpoint.model";
 import { SERVICE_META, DEFAULT_SERVICE_META } from "../constants/endpoint.constant";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 type ServiceGroupCardProps = {
   controller: string;
   endpoints: IApiEndpoint[];
@@ -35,6 +36,7 @@ export const ServiceGroupCard = ({
   onBulkGroupMfa,
   onBulkGroupCaptcha,
 }: ServiceGroupCardProps) => {
+  const { t } = useT("data.idp.security");
   const [open, setOpen] = useState(false);
   const meta = SERVICE_META[controller] || DEFAULT_SERVICE_META;
 
@@ -71,7 +73,7 @@ export const ServiceGroupCard = ({
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <Badge className="hidden sm:flex rounded-full font-mono text-xs bg-primary/10 text-primary">
-              {endpoints.length} Endpoint{endpoints.length !== 1 ? "s" : ""}
+              {t("SERVICE_GROUP_CARD.ENDPOINTS_COUNT", { count: endpoints.length })}
             </Badge>
             <SecurityPresetsPopover
               onEnableAllMfa={() => onBulkGroupMfa(groupIds, true)}

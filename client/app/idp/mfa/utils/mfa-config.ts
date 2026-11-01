@@ -1,21 +1,21 @@
 import { Mail, Smartphone } from "lucide-react";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export const MFA_Provider_Data = [
   {
     provider: "email",
-    label: "Email",
+    get label() { return tStatic("data.idp.security", "common:EMAIL"); },
     Icon: Mail,
     status: false,
     type: 2,
-    description: "Receive a verification code in your registered email to complete sign-in.",
+    get description() { return tStatic("data.idp.security", "MFA_CONFIG.RECEIVE_A_VERIFICATION_CODE_IN_YOUR"); },
   },
   {
     provider: "authenticator_app",
-    label: "Authenticator app",
+    get label() { return tStatic("data.idp.security", "MFA_CONFIG.AUTHENTICATOR_APP"); },
     Icon: Smartphone,
     status: false,
     type: 1,
-    description:
-      "Use an authentication app or browser extension to get two-factor authentication codes when prompted.",
+    get description() { return tStatic("data.idp.security", "MFA_CONFIG.USE_AN_AUTHENTICATION_APP_OR_BROWSER"); },
   },
 ];

@@ -13,7 +13,7 @@ export const ZIP_ERROR_MESSAGES = {
 } as const;
 
 export interface IZipDownloadSelection {
-  itemIds: string[];
+  fileIds: string[];
   directoryIds: string[];
   configurationName?: string;
 }
@@ -32,8 +32,8 @@ export interface IZipDownloadStore {
   close: () => void;
 }
 
-const buildLabel = ({ itemIds, directoryIds }: IZipDownloadSelection): string => {
-  const count = itemIds.length + directoryIds.length;
+const buildLabel = ({ fileIds, directoryIds }: IZipDownloadSelection): string => {
+  const count = fileIds.length + directoryIds.length;
   return `Zipping ${count} ${directoryIds.length === 0 ? "files" : "items"}`;
 };
 
@@ -114,7 +114,7 @@ export const useZipDownloadStore = create<IZipDownloadStore>()((set, get) => {
       try {
         const response = await storageService.file.prepareZipDownload(
           {
-            itemIds: selection.itemIds,
+            fileIds: selection.fileIds,
             directoryIds: selection.directoryIds,
             configurationName: selection.configurationName,
           },

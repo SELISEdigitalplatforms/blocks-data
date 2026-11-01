@@ -21,13 +21,13 @@ public class PrepareZipDownloadRequestValidatorTests
 
     [Fact]
     public void Exactly_1000_ids_is_valid() =>
-        Validate(new() { ItemIds = Ids(600), DirectoryIds = Ids(400) }).IsValid.Should().BeTrue();
+        Validate(new() { FileIds = Ids(600), DirectoryIds = Ids(400) }).IsValid.Should().BeTrue();
 
     [Fact]
     public void Over_1000_ids_is_invalid() =>
-        Validate(new() { ItemIds = Ids(600), DirectoryIds = Ids(401) }).IsValid.Should().BeFalse();
+        Validate(new() { FileIds = Ids(600), DirectoryIds = Ids(401) }).IsValid.Should().BeFalse();
 
     [Fact]
     public void Blank_id_is_invalid() =>
-        Validate(new() { ItemIds = ["f1", " "] }).IsValid.Should().BeFalse();
+        Validate(new() { FileIds = ["f1", " "] }).IsValid.Should().BeFalse();
 }

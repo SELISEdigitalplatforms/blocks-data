@@ -98,7 +98,7 @@ public class ZipDownloadServicePrepareTests : IDisposable
             .ReturnsAsync(new VisibleChildrenPage { Items = items.ToList(), NextCursor = nextCursor, HasMore = nextCursor != null });
 
     private static PrepareZipDownloadRequest Request(IEnumerable<string>? items = null, IEnumerable<string>? dirs = null)
-        => new() { ItemIds = (items ?? []).ToList(), DirectoryIds = (dirs ?? []).ToList() };
+        => new() { FileIds = (items ?? []).ToList(), DirectoryIds = (dirs ?? []).ToList() };
 
     private static List<string> Paths(ZipTicket ticket) => ticket.Entries.Select(e => e.ZipPath).ToList();
 

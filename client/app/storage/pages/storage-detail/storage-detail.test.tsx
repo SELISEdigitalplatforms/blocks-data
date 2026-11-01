@@ -1021,7 +1021,7 @@ describe("StorageDetail", () => {
       expect(screen.getByRole("checkbox", { name: "Select report.pdf" })).toBeChecked();
     });
 
-    it("Download calls start with itemIds, directoryIds and the page's configuration name", async () => {
+    it("Download calls start with fileIds, directoryIds and the page's configuration name", async () => {
       const user = userEvent.setup();
       mocks.dmsState.response = {
         dmsFileAndDirectoryInfos: [
@@ -1042,7 +1042,7 @@ describe("StorageDetail", () => {
 
       expect(mocks.startZip).toHaveBeenCalledTimes(1);
       expect(mocks.startZip).toHaveBeenCalledWith({
-        itemIds: ["file-1"],
+        fileIds: ["file-1"],
         directoryIds: ["fold-1"],
         configurationName: "MyStore",
       });
@@ -1199,7 +1199,7 @@ describe("StorageDetail", () => {
       await user.click(await screen.findByText("Download as zip"));
 
       expect(mocks.startZip).toHaveBeenCalledWith({
-        itemIds: [],
+        fileIds: [],
         directoryIds: ["fold-1"],
         configurationName: "MyStore",
       });

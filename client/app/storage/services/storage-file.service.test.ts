@@ -211,7 +211,7 @@ describe("StorageFile", () => {
         zipName: "a.zip",
       };
       vi.mocked(http.post).mockResolvedValue(response);
-      const payload = { itemIds: ["f1"], directoryIds: ["d1"], configurationName: "cfg" };
+      const payload = { fileIds: ["f1"], directoryIds: ["d1"], configurationName: "cfg" };
       const { signal } = new AbortController();
 
       const result = await service.prepareZipDownload(payload, signal);

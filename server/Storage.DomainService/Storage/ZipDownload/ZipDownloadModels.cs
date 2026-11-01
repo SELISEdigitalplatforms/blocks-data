@@ -5,7 +5,7 @@ namespace Storage.DomainService.Storage.ZipDownload;
 
 public class PrepareZipDownloadRequest
 {
-    public List<string> ItemIds { get; set; } = new();
+    public List<string> FileIds { get; set; } = new();
     public List<string> DirectoryIds { get; set; } = new();
     public string? ConfigurationName { get; set; }
     public string? ZipName { get; set; }

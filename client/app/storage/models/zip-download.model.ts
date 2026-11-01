@@ -1,5 +1,5 @@
 export interface IPrepareZipDownloadPayload {
-  itemIds: string[];
+  fileIds: string[];
   directoryIds: string[];
   configurationName?: string;
   zipName?: string;

@@ -44,8 +44,8 @@ describe("useZipDownloadStore", () => {
   it("labels files-only as 'Zipping 3 files' and mixed as 'Zipping 2 items'", async () => {
     prepare.mockReturnValue(new Promise(() => {}));
 
-    void useZipDownloadStore.getState().start({ itemIds: ids(3), directoryIds: [] });
-    void useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: ["d"] });
+    void useZipDownloadStore.getState().start({ fileIds: ids(3), directoryIds: [] });
+    void useZipDownloadStore.getState().start({ fileIds: ["f"], directoryIds: ["d"] });
 
     expect(rows().map((r) => [r.label, r.status])).toEqual([
       ["Zipping 3 files", "preparing"],
@@ -59,8 +59,8 @@ describe("useZipDownloadStore", () => {
     });
     prepare.mockReturnValue(new Promise(() => {}));
 
-    void useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: [] });
-    void useZipDownloadStore.getState().start({ itemIds: ["g"], directoryIds: [] });
+    void useZipDownloadStore.getState().start({ fileIds: ["f"], directoryIds: [] });
+    void useZipDownloadStore.getState().start({ fileIds: ["g"], directoryIds: [] });
 
     const rowIds = rows().map((r) => r.id);
     expect(rowIds).toHaveLength(2);
@@ -72,12 +72,12 @@ describe("useZipDownloadStore", () => {
 
     const outcome = await useZipDownloadStore
       .getState()
-      .start({ itemIds: ["f"], directoryIds: [], configurationName: "cfg" });
+      .start({ fileIds: ["f"], directoryIds: [], configurationName: "cfg" });
 
     expect(outcome).toBe("started");
 
     expect(prepare).toHaveBeenCalledWith(
-      { itemIds: ["f"], directoryIds: [], configurationName: "cfg" },
+      { fileIds: ["f"], directoryIds: [], configurationName: "cfg" },
       expect.any(AbortSignal),
     );
     expect(rows()[0]).toMatchObject({
@@ -98,7 +98,7 @@ describe("useZipDownloadStore", () => {
 
     const outcome = await useZipDownloadStore
       .getState()
-      .start({ itemIds: ["f"], directoryIds: [] });
+      .start({ fileIds: ["f"], directoryIds: [] });
 
     expect(outcome).toBe("failed");
     expect(rows()[0]).toMatchObject({ status: "failed", error: message });
@@ -106,11 +106,11 @@ describe("useZipDownloadStore", () => {
   });
 
   it('maps any other error to "Couldn\'t prepare the download"', async () => {
-    prepare.mockRejectedValueOnce(new HttpError(400, { errors: { itemIds: "too_many" } }));
+    prepare.mockRejectedValueOnce(new HttpError(400, { errors: { fileIds: "too_many" } }));
     prepare.mockRejectedValueOnce(new Error("network"));
 
-    await useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: [] });
-    await useZipDownloadStore.getState().start({ itemIds: ["g"], directoryIds: [] });
+    await useZipDownloadStore.getState().start({ fileIds: ["f"], directoryIds: [] });
+    await useZipDownloadStore.getState().start({ fileIds: ["g"], directoryIds: [] });
 
     expect(rows().map((r) => r.error)).toEqual([
       "Couldn't prepare the download",
@@ -128,7 +128,7 @@ describe("useZipDownloadStore", () => {
       });
     });
 
-    const pending = useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: [] });
+    const pending = useZipDownloadStore.getState().start({ fileIds: ["f"], directoryIds: [] });
     useZipDownloadStore.getState().close();
 
     expect(signal.aborted).toBe(true);
@@ -149,7 +149,7 @@ describe("useZipDownloadStore", () => {
         }),
     );
 
-    const pending = useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: [] });
+    const pending = useZipDownloadStore.getState().start({ fileIds: ["f"], directoryIds: [] });
     useZipDownloadStore.getState().close();
     rejectPrepare(new DOMException("aborted", "AbortError"));
     await expect(pending).resolves.toBe("cancelled");
@@ -171,7 +171,7 @@ describe("useZipDownloadStore", () => {
 
     it("clears all rows 10s after every row started", async () => {
       prepare.mockResolvedValue(response);
-      await useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: [] });
+      await useZipDownloadStore.getState().start({ fileIds: ["f"], directoryIds: [] });
 
       vi.advanceTimersByTime(9_999);
       expect(rows()).toHaveLength(1);
@@ -181,11 +181,11 @@ describe("useZipDownloadStore", () => {
 
     it("restarts the countdown when a new row is added and waits for it", async () => {
       prepare.mockResolvedValueOnce(response);
-      await useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: [] });
+      await useZipDownloadStore.getState().start({ fileIds: ["f"], directoryIds: [] });
       vi.advanceTimersByTime(8_000);
 
       prepare.mockReturnValueOnce(new Promise(() => {}));
-      void useZipDownloadStore.getState().start({ itemIds: ["g"], directoryIds: [] });
+      void useZipDownloadStore.getState().start({ fileIds: ["g"], directoryIds: [] });
       vi.advanceTimersByTime(60_000);
 
       expect(rows()).toHaveLength(2); // second row still preparing: no auto-close
@@ -194,8 +194,8 @@ describe("useZipDownloadStore", () => {
     it("keeps the card open when a row failed", async () => {
       prepare.mockResolvedValueOnce(response);
       prepare.mockRejectedValueOnce(new Error("boom"));
-      await useZipDownloadStore.getState().start({ itemIds: ["f"], directoryIds: [] });
-      await useZipDownloadStore.getState().start({ itemIds: ["g"], directoryIds: [] });
+      await useZipDownloadStore.getState().start({ fileIds: ["f"], directoryIds: [] });
+      await useZipDownloadStore.getState().start({ fileIds: ["g"], directoryIds: [] });
 
       vi.advanceTimersByTime(60_000);
 

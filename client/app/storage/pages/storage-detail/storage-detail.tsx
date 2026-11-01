@@ -241,7 +241,7 @@ export function StorageDetail() {
 
   const handleDownloadSelection = async () => {
     const outcome = await startZip({
-      itemIds: [...selection.fileIds],
+      fileIds: [...selection.fileIds],
       directoryIds: [...selection.directoryIds],
       configurationName: storage?.name,
     });
@@ -419,7 +419,7 @@ export function StorageDetail() {
             onClick={(e) => {
               e.stopPropagation();
               void startZip({
-                itemIds: [],
+                fileIds: [],
                 directoryIds: [row.itemId],
                 configurationName: storage?.name,
               });

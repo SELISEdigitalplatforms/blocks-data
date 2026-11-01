@@ -98,9 +98,9 @@ public sealed class ZipDownloadService : IZipDownloadService
         var tenantId = context?.TenantId ?? string.Empty;
         var userId = context?.UserId ?? string.Empty;
 
-        var itemIds = DistinctIds(request.ItemIds);
+        var fileIds = DistinctIds(request.FileIds);
         var directoryIds = DistinctIds(request.DirectoryIds);
-        var requestedCount = itemIds.Count + directoryIds.Count;
+        var requestedCount = fileIds.Count + directoryIds.Count;
 
         var paths = new ZipPathBuilder();
         var entries = new List<ZipTicketEntry>();
@@ -119,7 +119,7 @@ public sealed class ZipDownloadService : IZipDownloadService
         }
 
         // 3. Loose files already reached through a selected folder appear only once, inside that folder.
-        var looseIds = itemIds.Where(id => !collectedIds.Contains(id)).ToList();
+        var looseIds = fileIds.Where(id => !collectedIds.Contains(id)).ToList();
         var looseSources = looseIds.Count == 0
             ? new List<ZipSourceFile>()
             : await _fileManagementService.ResolveZipSourcesAsync(looseIds, authorize: true, cancellationToken).ConfigureAwait(false);
@@ -153,7 +153,7 @@ public sealed class ZipDownloadService : IZipDownloadService
         }
 
         // 5. A lone selected folder names the zip; a requested name overrides it.
-        var singleFolderName = directoryIds.Count == 1 && itemIds.Count == 0 && directories.Count == 1
+        var singleFolderName = directoryIds.Count == 1 && fileIds.Count == 0 && directories.Count == 1
             ? directories[0].Name
             : null;
         var zipName = ZipNaming.BuildZipName(request.ZipName, singleFolderName, DateTime.UtcNow);

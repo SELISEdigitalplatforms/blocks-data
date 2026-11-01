@@ -1,6 +1,5 @@
 using System.Diagnostics;
-using System.Security.Claims;
-using DataGateway.DomainService.Authentication;
+using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models.Constants;
 using Microsoft.AspNetCore.Builder;
@@ -45,18 +44,7 @@ public static class DataGatewayGraphQLEndpointExtensions
 
     private static async Task DispatchAsync(HttpContext context)
     {
-        bool isAuthenticated = false;
-        var blocksKey = RequestContextAccessor.Current.BlocksKey;
-        if (!string.IsNullOrWhiteSpace(blocksKey))
-        {
-            var authenticator = context.RequestServices.GetRequiredService<DataGatewayTokenAuthenticator>();
-            var principal = await authenticator.GetPrincipalFromTokenAsync(context.Request, blocksKey);
-            if (principal is not null)
-            {
-                context.User = principal;
-                isAuthenticated = true;
-            }
-        }
+        var isAuthenticated = await GatewayCallerResolver.AuthenticateAsync(context);
 
         // Only an anonymous caller can be refused introspection, so only their request is read.
         if (!isAuthenticated
@@ -74,8 +62,8 @@ public static class DataGatewayGraphQLEndpointExtensions
         }
 
         // Token first (authenticated requests), then the x-blocks-key header.
-        var tenantId = TenantContext.GetTenantId();
-        if (string.IsNullOrWhiteSpace(tenantId))
+        var tenantId = GatewayCallerResolver.ResolveTenantId();
+        if (tenantId is null)
         {
             var message = $"Unable to resolve tenant. Provide a valid bearer token or the '{GraphQlConstant.BlocksKeyHeaderKey}' header.";
             LogRejected(GatewayFailureKind.Authentication, message);

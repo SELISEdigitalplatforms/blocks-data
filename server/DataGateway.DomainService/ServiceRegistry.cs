@@ -1,16 +1,13 @@
 using DataGateway.DomainService.Notifications;
 using FluentValidation;
 using Blocks.Genesis.Entities.Data;
-using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
-using DataGateway.DomainService.Resolvers;
 using DataGateway.DomainService.Schemas;
 using DataGateway.DomainService.Services;
 using DataGateway.DomainService.Services.RegexAssistant;
 using DataGateway.DomainService.Validators;
-using HotChocolate.AspNetCore.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -18,9 +15,7 @@ using Blocks.Genesis;
 using Blocks.Secrets;
 using DataGateway.DomainService.DataSources;
 using DataGateway.DomainService.Authentication;
-using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Helpers;
-using HotChocolate.Execution.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using k8s;
 using Microsoft.Extensions.Configuration;
@@ -29,6 +24,7 @@ using Blocks.Genesis.DataAccess;
 using Blocks.Genesis.Notifications;
 using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Policies;
+using DataGateway.DomainService.Gateway;
 
 namespace DataGateway.DomainService;
 
@@ -37,7 +33,7 @@ public static class ServiceRegistry
     public static void AddDataGatewayDomainServices(this IServiceCollection serviceCollection)
     {
         serviceCollection.RegisterSchemaServices();
-        serviceCollection.RegisterGraphQlServices();
+        serviceCollection.RegisterGatewayServices();
     }
 
     public static void RegisterSchemaServices(this IServiceCollection serviceCollection)
@@ -99,67 +95,28 @@ public static class ServiceRegistry
         #endregion
 
     }
-    public static void RegisterGraphQlServices(this IServiceCollection serviceCollection)
+    public static void RegisterGatewayServices(this IServiceCollection serviceCollection)
     {
-        serviceCollection.AddSingleton<ISchemaConfigurationService, SchemaConfigurationService>();
         serviceCollection.AddSingleton<IGqlDbRepository, GqlDbRepository>();
         serviceCollection.AddSingleton<SchemaAssembler>();
-        serviceCollection.AddSingleton<GraphqlSchemaBuilder>();
-        serviceCollection.AddSingleton<IPublishedSchemaValidator, GraphQLPublishedSchemaValidator>();
         serviceCollection.AddSingleton<IDataChangeEventPublisher, DataChangeEventPublisher>();
         serviceCollection.AddBlocksDataAccess();
         serviceCollection.AddSingleton<IAccessPrincipalAccessor, BlocksContextPrincipalAccessor>();
-        serviceCollection.AddSingleton<IQueryService, QueryService>();
         serviceCollection.AddSingleton<AfterWriteQueue>();
         serviceCollection.AddSingleton<IAfterWriteQueue>(sp => sp.GetRequiredService<AfterWriteQueue>());
         serviceCollection.AddHostedService(sp => sp.GetRequiredService<AfterWriteQueue>());
-        serviceCollection.AddSingleton<IMutationService, MutationService>();
-        serviceCollection.AddSingleton<SchemaResolver>();
+        serviceCollection.AddSingleton<IGatewayDataEngine>(sp => new MongoGatewayDataEngine(
+            sp.GetRequiredService<IGqlDbRepository>(),
+            sp.GetRequiredService<IDataAccessPolicyResolutionService>(),
+            sp.GetRequiredService<IAccessPrincipalAccessor>(),
+            sp.GetRequiredService<ILogger<MongoGatewayDataEngine>>(),
+            sp.GetRequiredService<IConfiguration>().GetValue<int?>(MongoGatewayDataEngine.MaxPageSizeKey),
+            sp.GetRequiredService<IDataChangeEventPublisher>(),
+            sp.GetRequiredService<IMutationNotifier>(),
+            sp.GetRequiredService<IAfterWriteQueue>()));
         serviceCollection.AddSingleton<ISchemaVersionStore, SchemaVersionStore>();
         serviceCollection.AddSingleton<ISchemaSnapshotStore>(sp => new SchemaSnapshotStore(sp.GetRequiredService<IDbRepository>()));
         serviceCollection.AddSingleton<ISchemaPublishService, SchemaPublishService>();
         serviceCollection.AddSingleton<ILiveSchemaCatalog, LiveSchemaCatalog>();
-        serviceCollection.AddSingleton<BuiltSchemaVersions>();
-        serviceCollection.AddSingleton<ITenantSchemaConfigurator, TenantSchemaConfigurator>();
-        serviceCollection.AddSingleton(sp => new SchemaVersionTracker(
-            sp.GetRequiredService<ISchemaVersionStore>(),
-            sp.GetRequiredService<BuiltSchemaVersions>(),
-            sp,
-            sp.GetRequiredService<IConfiguration>(),
-            sp.GetRequiredService<ILogger<SchemaVersionTracker>>()));
-        serviceCollection.AddHostedService(sp => new SchemaPublishSubscriber(
-            sp.GetRequiredService<ICacheClient>(),
-            sp.GetRequiredService<SchemaVersionTracker>(),
-            sp.GetRequiredService<ILogger<SchemaPublishSubscriber>>()));
-        serviceCollection.AddGraphQLServers();
-
-    }
-    private static void AddGraphQLServers(this IServiceCollection serviceCollection)
-    {
-        serviceCollection.AddHttpResponseFormatter<AuthHttpResponseFormatter>();
-        // Do not call DisableIntrospection() or AddValidationRule() here: they configure only this
-        // template executor, which serves no traffic. Per-tenant validation lives in AddGatewayValidation.
-        serviceCollection.AddGraphQLServer()
-            .ModifyCostOptions(options =>
-            {
-                options.MaxFieldCost = 3000;
-                options.MaxTypeCost = 3000;
-            })
-            .AddGatewayValidation()
-            // Each tenant's schema is added per schema name by ProjectExecutorOptionsMonitor.
-            //
-            // Rides HotChocolate's own instrumentation hook (already part of its implicit default
-            // pipeline) instead of a custom request middleware, so nothing about the pipeline
-            // itself needs to be touched or rebuilt.
-            .AddDiagnosticEventListener<GatewayActivityDiagnosticEventListener>();
-
-        // A separate GraphQL schema/executor is served per tenant (identified by the x-blocks-key
-        // header). Replace the executor options monitor so an executor can be resolved for any tenant
-        // id at runtime, and register the dispatcher that routes requests to the right one.
-        serviceCollection.RemoveAll<IRequestExecutorOptionsMonitor>();
-        serviceCollection.AddSingleton<ProjectExecutorOptionsMonitor>();
-        serviceCollection.AddSingleton<IRequestExecutorOptionsMonitor>(sp =>
-            sp.GetRequiredService<ProjectExecutorOptionsMonitor>());
-        serviceCollection.AddSingleton<DataGatewayPipelineDispatcher>();
     }
 }

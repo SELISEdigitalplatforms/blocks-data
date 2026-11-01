@@ -180,7 +180,7 @@ public class GraphQLArgumentNormalizerTests
         };
         var schema = PersonSchema();
 
-        var viaObject = WhereToMongoFilterConverter.Convert((object?)where, schema);
+        var viaObject = GraphQLArgumentNormalizer.ConvertWhere((object?)where, schema);
         var viaNode = WhereToMongoFilterConverter.Convert(GraphQLArgumentNormalizer.ToWhere(where), schema);
         var viaDictionary = WhereToMongoFilterConverter.Convert(GraphQLArgumentNormalizer.ToWhere(where)!.Root, schema);
 

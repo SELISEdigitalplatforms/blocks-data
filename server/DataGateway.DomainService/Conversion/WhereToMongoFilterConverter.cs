@@ -1,6 +1,5 @@
 using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
-using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
@@ -33,30 +32,6 @@ public static class WhereToMongoFilterConverter
 
     private static readonly HashSet<string> LogicalOperators = new(StringComparer.OrdinalIgnoreCase)
         { "or", "and" };
-
-    /// <summary>
-    /// Converts a where argument as the GraphQL layer coerced it (CLR input objects with <c>Optional&lt;T&gt;</c>
-    /// members, dictionaries, lists) to a MongoDB filter. It normalises the value to plain values first, then
-    /// converts. Moves into <c>GraphQLArgumentNormalizer</c> as <c>ConvertWhere</c> when the GraphQL code is split out.
-    /// </summary>
-    public static BsonDocument? Convert(
-        object? where,
-        SchemaDefinitionExtended schema,
-        string pathPrefix = "")
-        => Convert(GraphQLArgumentNormalizer.ToWhere(where)?.Root, schema, pathPrefix);
-
-    /// <summary>
-    /// A <see cref="Dictionary{TKey,TValue}"/> is what callers build by hand and what HotChocolate hands over for
-    /// an object-typed argument, and its members may still be CLR input objects with <c>Optional&lt;T&gt;</c>. This
-    /// overload exists so such a dictionary is normalised like any other coerced argument rather than binding to the
-    /// plain-value core (an <see cref="IReadOnlyDictionary{TKey,TValue}"/> parameter is a worse match for it than
-    /// this exact type). Removed with the <c>object?</c> overload when the GraphQL code is split out.
-    /// </summary>
-    public static BsonDocument? Convert(
-        Dictionary<string, object?>? where,
-        SchemaDefinitionExtended schema,
-        string pathPrefix = "")
-        => Convert((object?)where, schema, pathPrefix);
 
     /// <summary>Converts a gateway where filter (plain values only) to a MongoDB filter.</summary>
     public static BsonDocument? Convert(WhereNode? where, SchemaDefinitionExtended schema)
@@ -122,7 +97,7 @@ public static class WhereToMongoFilterConverter
                     ? GraphQlConstant.DbEntityIdFieldName
                     : $"{pathPrefix}.{GraphQlConstant.DbEntityIdFieldName}")
                 : fullPath;
-            if (GraphQlTypeHelper.IsScalar(fieldDef.Type))
+            if (SchemaTypeHelper.IsScalar(fieldDef.Type))
             {
                 var opBson = ConvertScalarOperation(fieldDef.Type, dbFieldName, value);
                 if (opBson != null)
@@ -339,7 +314,7 @@ public static class WhereToMongoFilterConverter
             "Boolean" => AllowedBoolOps,
             "DateTime" => AllowedDateTimeOps,
             GeoJsonValidator.TypeName => AllowedGeoJsonOps,
-            GraphQlTypeHelper.EnumTypeName => AllowedEnumOps,
+            SchemaTypeHelper.EnumTypeName => AllowedEnumOps,
             _ => AllowedStringOps
         };
     }

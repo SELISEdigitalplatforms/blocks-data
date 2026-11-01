@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="Api/Api.csproj" />
   <Project Path="DataGateway.DomainService/DataGateway.DomainService.csproj" />
+  <Project Path="DataGateway.GraphQL/DataGateway.GraphQL.csproj" />
   <Project Path="Storage.DomainService/Storage.DomainService.csproj" />
   <Project Path="Worker/Worker.csproj" />
   <Project Path="XUnitTest/XUnitTest.csproj" />

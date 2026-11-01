@@ -1,5 +1,9 @@
 using System.Collections;
 using System.Reflection;
+using Blocks.Genesis.DataAccess;
+using Blocks.Genesis.DataAccess.Evaluation;
+using Blocks.Genesis.Entities.Data;
+using DataGateway.DomainService.Conversion;
 using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.Models;
 using HotChocolate;
@@ -30,31 +34,19 @@ public static class GraphQLArgumentNormalizer
     }
 
     /// <summary>
+    /// Converts a where argument as HotChocolate coerced it (CLR input objects with <see cref="Optional{T}"/>
+    /// members, dictionaries, lists) to a MongoDB filter: it normalises the value to plain values first, then
+    /// hands it to the GraphQL-free <see cref="WhereToMongoFilterConverter"/> core.
+    /// </summary>
+    public static BsonDocument? ConvertWhere(object? where, SchemaDefinitionExtended schema)
+        => WhereToMongoFilterConverter.Convert(ToWhere(where)?.Root, schema);
+
+    /// <summary>
     /// Reads a coerced <c>order</c> argument (a list of <c>{ field, direction }</c> entries). Entries that are not
     /// objects or have no field are skipped; a missing or unrecognised direction means ascending. Returns null when
     /// no entry remains.
     /// </summary>
-    public static IReadOnlyList<OrderItem>? ToOrder(object? order)
-    {
-        if (order is not IList<object> list || list.Count == 0) return null;
-
-        var items = new List<OrderItem>();
-        foreach (var item in list)
-        {
-            if (item is not IReadOnlyDictionary<string, object?> entry)
-                continue;
-            if (!entry.TryGetValue("field", out var fieldObj) || fieldObj is null)
-                continue;
-
-            var direction = SortDirection.ASC;
-            if (entry.TryGetValue("direction", out var directionObj) && directionObj != null)
-                direction = directionObj.ToString()?.ToUpperInvariant() == "DESC" ? SortDirection.DESC : SortDirection.ASC;
-
-            items.Add(new OrderItem(fieldObj.ToString()?.Trim() ?? string.Empty, direction));
-        }
-
-        return items.Count == 0 ? null : items;
-    }
+    public static IReadOnlyList<OrderItem>? ToOrder(object? order) => OrderToMongoSortConverter.ToOrderItems(order);
 
     /// <summary>
     /// Returns the plain form of <paramref name="value"/>. <paramref name="omitted"/> is true when the value was an

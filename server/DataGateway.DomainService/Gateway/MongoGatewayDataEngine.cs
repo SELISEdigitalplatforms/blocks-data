@@ -168,7 +168,7 @@ public sealed partial class MongoGatewayDataEngine : IGatewayDataEngine
             try
             {
                 var doc = BsonSerializer.Deserialize<BsonDocument>(filterJson) ?? new BsonDocument();
-                return doc.ReplaceSystemFieldInFilter();
+                return SystemFieldHelper.ReplaceSystemFieldInFilter(doc);
             }
             catch { /* fall through to default */ }
         }

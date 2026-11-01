@@ -18,6 +18,8 @@
   <ItemGroup>
     <!-- The unit tests cover a few internal helpers directly (e.g. introspection detection). -->
     <InternalsVisibleTo Include="XUnitTest" />
+    <!-- The temporary GraphQL project keeps test forwarders to a few internal engine members. Removed with it. -->
+    <InternalsVisibleTo Include="DataGateway.GraphQL" />
   </ItemGroup>
 
 </Project>

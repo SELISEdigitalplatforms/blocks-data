@@ -1,6 +1,7 @@
 using Blocks.Genesis.Entities.Data;
 using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Conversion;
+using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
 using MongoDB.Bson;
@@ -378,7 +379,7 @@ public class WhereToMongoFilterConverterTests
             Name = new ClrStringOp { Eq = "Abcde" }
         };
 
-        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+        var result = GraphQLArgumentNormalizer.ConvertWhere(where, PersonSchema());
 
         Assert.Equal(new BsonDocument("Name", new BsonDocument("$eq", "Abcde")), result);
     }
@@ -391,7 +392,7 @@ public class WhereToMongoFilterConverterTests
             ["Name"] = new ClrStringOp { Eq = "Abcde" }
         };
 
-        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+        var result = GraphQLArgumentNormalizer.ConvertWhere(where, PersonSchema());
 
         Assert.Equal(new BsonDocument("Name", new BsonDocument("$eq", "Abcde")), result);
     }
@@ -411,7 +412,7 @@ public class WhereToMongoFilterConverterTests
             }
         };
 
-        var result = WhereToMongoFilterConverter.Convert(where, PersonSchema());
+        var result = GraphQLArgumentNormalizer.ConvertWhere(where, PersonSchema());
 
         result.Should().NotBeNull();
         result!.Contains("$or").Should().BeTrue();

@@ -103,7 +103,7 @@ public class GraphQlResolverContextTests
             context.Setup(c => c.ArgumentValue<object?>(GraphQlConstant.WhereFieldName)).Returns(where);
             context.Setup(c => c.ArgumentValue<string?>(GraphQlConstant.FilterFieldName)).Returns((string?)null);
 
-            var filter = MutationFilterHelper.BuildBaseFilter(context.Object, schema);
+            var filter = GraphQLMutationFilterHelper.BuildBaseFilter(context.Object, schema);
             filter.Contains("Name").Should().BeTrue();
         }
         finally { ClearContext(); }
@@ -121,7 +121,7 @@ public class GraphQlResolverContextTests
             context.Setup(c => c.ArgumentValue<object?>(GraphQlConstant.WhereFieldName)).Returns((object?)null);
             context.Setup(c => c.ArgumentValue<string?>(GraphQlConstant.FilterFieldName)).Returns("{\"Age\": 25}");
 
-            var filter = MutationFilterHelper.BuildBaseFilter(context.Object, schema);
+            var filter = GraphQLMutationFilterHelper.BuildBaseFilter(context.Object, schema);
             filter["Age"].AsInt32.Should().Be(25);
         }
         finally { ClearContext(); }
@@ -146,7 +146,7 @@ public class GraphQlResolverContextTests
             PolicyEvaluationResult Evaluate(SchemaDefinitionExtended s, PolicyOperation op) =>
                 new PolicyEvaluationResult { IsAccessGranted = true };
 
-            var filter = MutationFilterHelper.BuildFilterWithRls(context.Object, schema, PolicyOperation.EDIT, Evaluate);
+            var filter = GraphQLMutationFilterHelper.BuildFilterWithRls(context.Object, schema, PolicyOperation.EDIT, Evaluate);
             filter.Contains("Name").Should().BeTrue();
             filter.Contains("$and").Should().BeFalse();
         }
@@ -164,7 +164,7 @@ public class GraphQlResolverContextTests
             var fieldNode = ParseQueryField("{ getPersons { items { Name Age } } }");
             var context = ContextWithSyntaxNode(fieldNode);
 
-            var projection = QueryProjectionHelper.BuildMongoProjectionWithCls(CurrentPrincipal(), context.Object, schema, out var evalOnly);
+            var projection = GraphQLQueryProjectionHelper.BuildMongoProjectionWithCls(CurrentPrincipal(), context.Object, schema, out var evalOnly);
 
             projection.Contains("Name").Should().BeTrue();
             projection.Contains("Age").Should().BeTrue();

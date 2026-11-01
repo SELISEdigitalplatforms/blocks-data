@@ -613,7 +613,7 @@ public sealed partial class MongoGatewayDataEngine
     {
         var conflicts = new Dictionary<string, HashSet<BsonValue>>();
         var uniqueFields = schema.Fields
-            .Where(f => f.IsUniqueData && GraphQlTypeHelper.IsScalar(f.Type) && !f.IsArray)
+            .Where(f => f.IsUniqueData && SchemaTypeHelper.IsScalar(f.Type) && !f.IsArray)
             .ToList();
         if (uniqueFields.Count == 0) return conflicts;
 
@@ -687,7 +687,7 @@ public sealed partial class MongoGatewayDataEngine
         using var _ = GatewayOperationActivity.Measure(GatewayPhase.Validation);
 
         var uniqueFields = schema.Fields
-            .Where(f => f.IsUniqueData && GraphQlTypeHelper.IsScalar(f.Type) && !f.IsArray)
+            .Where(f => f.IsUniqueData && SchemaTypeHelper.IsScalar(f.Type) && !f.IsArray)
             .ToList();
         if (uniqueFields.Count == 0) return;
 

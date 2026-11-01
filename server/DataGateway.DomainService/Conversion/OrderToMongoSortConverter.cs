@@ -1,7 +1,6 @@
 using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Gateway;
-using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using MongoDB.Bson;
@@ -22,7 +21,34 @@ public static class OrderToMongoSortConverter
     /// <param name="schema">Schema used to validate field names.</param>
     /// <returns>BsonDocument sort, or null if order is null/empty.</returns>
     public static BsonDocument? Convert(object? order, SchemaDefinitionExtended schema)
-        => Convert(GraphQLArgumentNormalizer.ToOrder(order), schema);
+        => Convert(ToOrderItems(order), schema);
+
+    /// <summary>
+    /// Reads an <c>order</c> argument (a list of <c>{ field, direction }</c> entries). Entries that are not
+    /// objects or have no field are skipped; a missing or unrecognised direction means ascending. Returns null when
+    /// no entry remains.
+    /// </summary>
+    public static IReadOnlyList<OrderItem>? ToOrderItems(object? order)
+    {
+        if (order is not IList<object> list || list.Count == 0) return null;
+
+        var items = new List<OrderItem>();
+        foreach (var item in list)
+        {
+            if (item is not IReadOnlyDictionary<string, object?> entry)
+                continue;
+            if (!entry.TryGetValue("field", out var fieldObj) || fieldObj is null)
+                continue;
+
+            var direction = SortDirection.ASC;
+            if (entry.TryGetValue("direction", out var directionObj) && directionObj != null)
+                direction = directionObj.ToString()?.ToUpperInvariant() == "DESC" ? SortDirection.DESC : SortDirection.ASC;
+
+            items.Add(new OrderItem(fieldObj.ToString()?.Trim() ?? string.Empty, direction));
+        }
+
+        return items.Count == 0 ? null : items;
+    }
 
     /// <summary>
     /// Converts plain sort entries to a MongoDB BsonDocument sort definition, validating each field against the schema.

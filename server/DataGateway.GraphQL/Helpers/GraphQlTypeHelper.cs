@@ -16,18 +16,7 @@ public static class GraphQlTypeHelper
 
     public static bool IsScalar(string type) => SchemaTypeHelper.IsScalar(type);
 
-    public static string GetScalarType(Type type)
-    {
-        var typeName = type.Name;
-        if (type == typeof(string)) return "String";
-        if (type == typeof(int) || type == typeof(Int32)) return "Int";
-        if (type == typeof(long) || type == typeof(Int64)) return "Int";
-        if (type == typeof(double) || type == typeof(float)) return "Float";
-        if (type == typeof(bool)) return "Boolean";
-        if (type == typeof(DateTime)) return "DateTime";
-        if (type == typeof(Guid)) return "String";
-        return typeName;
-    }
+    public static string GetScalarType(Type type) => ScalarTypeName.Of(type);
 
     public static ITypeNode GetTypeNode(string type, bool isArray = false)
     {

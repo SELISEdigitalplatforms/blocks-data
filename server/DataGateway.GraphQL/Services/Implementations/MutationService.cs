@@ -146,7 +146,7 @@ public class MutationService : IMutationService
         new(
             ctx.Selection.Field.Name,
             ReadWhere(ctx),
-            MutationInputHelper.IsHardDeleteRequested(ctx, inputType),
+            GraphQLMutationInputHelper.IsHardDeleteRequested(ctx, inputType),
             ReadLegacyFilter(ctx),
             IsOwnerCheckRequested(ctx));
 
@@ -154,12 +154,12 @@ public class MutationService : IMutationService
         new(
             ctx.Selection.Field.Name,
             ReadWhere(ctx),
-            MutationInputHelper.IsHardDeleteRequested(ctx, inputType),
+            GraphQLMutationInputHelper.IsHardDeleteRequested(ctx, inputType),
             ReadLegacyFilter(ctx),
             IsOwnerCheckRequested(ctx));
 
     private static Lazy<Dictionary<string, object?>> ParseInputLazily(IResolverContext ctx, InputObjectType inputType) =>
-        new(() => MutationInputHelper.ParseMutationInput(ctx, inputType));
+        new(() => GraphQLMutationInputHelper.ParseMutationInput(ctx, inputType));
 
     private static WhereNode? ReadWhere(IResolverContext ctx) =>
         GraphQLArgumentNormalizer.ToWhere(ctx.ArgumentValue<object?>(GraphQlConstant.WhereFieldName));

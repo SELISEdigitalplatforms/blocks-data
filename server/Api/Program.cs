@@ -59,6 +59,7 @@ cloudSecret.ChatGptEncryptedSecret = builder.Configuration["ChatGptEncryptedSecr
 cloudSecret.ChatGptEncryptionKey = builder.Configuration["ChatGptEncryptionKey"];
 
 services.AddDataGatewayDomainServices();
+services.AddDataGatewayGraphQL();
 services.AddStorageDomainServices();
 
 var app = builder.Build();

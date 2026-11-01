@@ -1,0 +1,127 @@
+{
+  "response": {
+    "errors": [
+      {
+        "message": "User is not authenticated.",
+        "locations": [
+          {
+            "line": 1,
+            "column": 3
+          }
+        ],
+        "path": [
+          "getProducts"
+        ],
+        "extensions": {
+          "code": "AUTH_NOT_AUTHENTICATED"
+        }
+      }
+    ],
+    "data": {
+      "getProducts": null
+    }
+  },
+  "mongoAfter": {
+    "Notes": [
+      {
+        "IsDeleted": false,
+        "ItemId": "n1",
+        "Text": "Hello",
+        "_id": "n1"
+      }
+    ],
+    "Products": [
+      {
+        "Address": {
+          "City": "Zurich",
+          "Zip": "8000"
+        },
+        "IsDeleted": false,
+        "ItemId": "p1",
+        "Location": {
+          "coordinates": [
+            8.5417000000000005,
+            47.376899999999999
+          ],
+          "type": "Point"
+        },
+        "Owner": "u1",
+        "Price": 10.5,
+        "Secret": "s-one",
+        "Status": "Draft",
+        "Stock": 5,
+        "Tags": [
+          "red",
+          "new"
+        ],
+        "Title": "Alpha",
+        "_id": "p1"
+      },
+      {
+        "Address": {
+          "City": "Lucerne",
+          "Zip": "6000"
+        },
+        "IsDeleted": false,
+        "ItemId": "p2",
+        "Location": {
+          "coordinates": [
+            8.3093000000000004,
+            47.050199999999997
+          ],
+          "type": "Point"
+        },
+        "Owner": "u2",
+        "Price": 20.0,
+        "Secret": "s-two",
+        "Status": "Draft",
+        "Stock": 0,
+        "Tags": [
+          "blue"
+        ],
+        "Title": "Bravo",
+        "_id": "p2"
+      },
+      {
+        "Address": {
+          "City": "Zurich",
+          "Zip": "8004"
+        },
+        "IsDeleted": false,
+        "ItemId": "p3",
+        "Location": {
+          "coordinates": [
+            8.5816999999999997,
+            47.376899999999999
+          ],
+          "type": "Point"
+        },
+        "Owner": "u1",
+        "Price": 30.25,
+        "Secret": "s-three",
+        "Status": "Live",
+        "Stock": 12,
+        "Tags": [],
+        "Title": "Charlie",
+        "_id": "p3"
+      }
+    ]
+  },
+  "events": [],
+  "operationTags": {
+    "SchemaName": "getProducts",
+    "EntityName": "Product",
+    "CollectionName": "",
+    "OperationType": "query",
+    "OperationQuery": "{\n  getProducts {\n    items {\n      Title\n    }\n  }\n}",
+    "MongoQuery": "",
+    "ResponseStatus": "failed",
+    "FailureKind": "authentication",
+    "FailureCode": "AUTH_NOT_AUTHENTICATED",
+    "FailureMessage": "User is not authenticated.",
+    "ResponseSize": 0,
+    "DocumentCount": 0,
+    "InAppRequest": true,
+    "IsIntrospection": false
+  }
+}

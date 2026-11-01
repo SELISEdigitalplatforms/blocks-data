@@ -3,14 +3,14 @@
 import { Button } from "@/components/ui-kits/button/button";
 import { cn } from "@/lib/utils";
 import { CornerDownRight, Database, Plus, Upload } from "lucide-react";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const KINDS = [
   {
     kind: "Entity" as const,
-    title: "Entity",
-    description:
-      "A top-level record with its own collection, queries and mutations. Carries its own access rules.",
-    examples: "Order · Customer · Product",
+    get title() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.ENTITY"); },
+    get description() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.A_TOP_LEVEL_RECORD_WITH_ITS"); },
+    get examples() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.ORDER_CUSTOMER_PRODUCT"); },
     icon: Database,
     border: "border-primary/30",
     background: "bg-primary/5 hover:bg-primary/10",
@@ -18,10 +18,9 @@ const KINDS = [
   },
   {
     kind: "DTO" as const,
-    title: "Child",
-    description:
-      "A reusable shape nested inside an entity. No collection of its own, and it inherits the parent's access.",
-    examples: "OrderItem · Address · TaxLine",
+    get title() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.CHILD"); },
+    get description() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.A_REUSABLE_SHAPE_NESTED_INSIDE_AN"); },
+    get examples() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.ORDERITEM_ADDRESS_TAXLINE"); },
     icon: CornerDownRight,
     border: "border-border/40",
     background: "hover:bg-muted/20",
@@ -44,6 +43,7 @@ export function CreateFirstSchemaPanel({
   onCreateSchema: (kind?: "Entity" | "DTO") => void;
   onImportSchema: () => void;
 }) {
+  const { t } = useT("data.gateway.schema");
   return (
     <div className="flex flex-1 items-start justify-center rounded-sm border border-border/40 bg-card p-8">
       <div className="mt-[8vh] flex w-full max-w-2xl flex-col items-center text-center">
@@ -52,12 +52,12 @@ export function CreateFirstSchemaPanel({
         </div>
 
         <h2 className="mt-4 text-xl font-semibold text-foreground">
-          {hasSchemas ? "Select a schema or add a new one" : "Create your first schema"}
+          {hasSchemas ? t("CREATE_FIRST_SCHEMA_PANEL.SELECT_A_SCHEMA_OR_ADD_A") : t("CREATE_FIRST_SCHEMA_PANEL.CREATE_YOUR_FIRST_SCHEMA")}
         </h2>
         <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
           {hasSchemas
-            ? "Open a schema from the list to see its fields and access, or pick a kind below to add another."
-            : "A schema defines one shape of data, with the queries and mutations to read and write it. Pick the kind you need — you can add the other later."}
+            ? t("CREATE_FIRST_SCHEMA_PANEL.OPEN_A_SCHEMA_FROM_THE_LIST")
+            : t("CREATE_FIRST_SCHEMA_PANEL.A_SCHEMA_DEFINES_ONE_SHAPE_OF")}
         </p>
 
         <div className="mt-6 flex w-full flex-col gap-3 sm:flex-row">
@@ -98,12 +98,12 @@ export function CreateFirstSchemaPanel({
         <div className="mt-6 flex items-center gap-3">
           <Button className="gap-1.5" onClick={() => onCreateSchema()}>
             <Plus className="h-4 w-4" aria-hidden />
-            New schema
+            {t("CREATE_FIRST_SCHEMA_PANEL.NEW_SCHEMA")}
           </Button>
-          <span className="text-xs text-muted-foreground/60">or</span>
+          <span className="text-xs text-muted-foreground/60">{t("CREATE_FIRST_SCHEMA_PANEL.OR")}</span>
           <Button variant="outline" className="gap-1.5" onClick={onImportSchema}>
             <Upload className="h-4 w-4" aria-hidden />
-            Import from file
+            {t("CREATE_FIRST_SCHEMA_PANEL.IMPORT_FROM_FILE")}
           </Button>
         </div>
       </div>

@@ -2,6 +2,7 @@ import type { AccessTier } from "../components/primitives";
 import { tierFromLevel } from "../components/primitives";
 import type { IPermissionAggregation } from "../models/data-service";
 import type { Schema } from "../models/security-and-performance";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /** Highest-exposure thing true of a schema, worst first. */
 /**
@@ -42,12 +43,12 @@ export type SchemaRisk = {
 };
 
 const RISK_LABELS: Record<RiskKey, string> = {
-  "public-write": "Public write",
-  "public-read": "Public read",
-  "user-write": "Signed-in write",
-  "user-read": "Signed-in read",
-  custom: "Custom rules",
-  inherited: "Inherited",
+  get "public-write"() { return tStatic("data.gateway.schema", "SECURITY_SUMMARY.PUBLIC_WRITE"); },
+  get "public-read"() { return tStatic("data.gateway.schema", "SECURITY_SUMMARY.PUBLIC_READ"); },
+  get "user-write"() { return tStatic("data.gateway.schema", "SECURITY_SUMMARY.SIGNED_IN_WRITE"); },
+  get "user-read"() { return tStatic("data.gateway.schema", "SECURITY_SUMMARY.SIGNED_IN_READ"); },
+  get custom() { return tStatic("data.gateway.schema", "SECURITY_SUMMARY.CUSTOM_RULES"); },
+  get inherited() { return tStatic("data.gateway.schema", "SECURITY_SUMMARY.INHERITED"); },
 };
 
 const SEVERITY: Record<RiskKey, SchemaRisk["severity"]> = {
@@ -158,9 +159,9 @@ export function exposureBreakdown(
   const custom = aggregation?.totalCustomPermission ?? 0;
 
   const counts: [ExposureSegment["tier"], string, number][] = [
-    ["public", "Public", publicCount],
-    ["user", "Signed-in", user],
-    ["custom", "Custom", custom],
+    ["public", tStatic("data.gateway.schema", "SECURITY_SUMMARY.PUBLIC"), publicCount],
+    ["user", tStatic("data.gateway.schema", "SECURITY_SUMMARY.SIGNED_IN"), user],
+    ["custom", tStatic("data.gateway.schema", "SECURITY_SUMMARY.CUSTOM"), custom],
   ];
 
   return {
@@ -206,22 +207,22 @@ export function securityAlerts(schemas: Schema[]): SecurityAlert[] {
     {
       id: "public-write",
       count: publicWrite,
-      label: "Public write",
-      hint: "Anyone can create, edit or delete records",
+      label: tStatic("data.gateway.schema", "SECURITY_SUMMARY.PUBLIC_WRITE"),
+      hint: tStatic("data.gateway.schema", "SECURITY_SUMMARY.ANYONE_CAN_CREATE_EDIT_OR_DELETE"),
       severity: "high",
     },
     {
       id: "public-read",
       count: publicRead,
-      label: "Public read",
-      hint: "Readable without signing in",
+      label: tStatic("data.gateway.schema", "SECURITY_SUMMARY.PUBLIC_READ"),
+      hint: tStatic("data.gateway.schema", "SECURITY_SUMMARY.READABLE_WITHOUT_SIGNING_IN"),
       severity: "medium",
     },
     {
       id: "public-pii",
       count: publicPii,
-      label: "PII exposed publicly",
-      hint: "Fields marked PII on a publicly reachable schema",
+      label: tStatic("data.gateway.schema", "SECURITY_SUMMARY.PII_EXPOSED_PUBLICLY"),
+      hint: tStatic("data.gateway.schema", "SECURITY_SUMMARY.FIELDS_MARKED_PII_ON_A_PUBLICLY"),
       severity: "high",
     },
   ];

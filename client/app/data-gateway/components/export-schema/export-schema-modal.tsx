@@ -30,6 +30,7 @@ import {
   SchemaExportOption,
   SchemaExportOptionValue,
 } from "../../models/data-service";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const exportFormats = [{ id: "json", label: "JSON" }] as const;
 
@@ -48,21 +49,20 @@ interface ExportOptionRow {
 const EXPORT_OPTIONS: ExportOptionRow[] = [
   {
     key: "schema",
-    label: "Schema",
-    description:
-      "Structure and field access levels (Read/Write/Edit/Delete) from schema definition",
+    get label() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.SCHEMA"); },
+    get description() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.STRUCTURE_AND_FIELD_ACCESS_LEVELS_READ"); },
     alwaysSelected: true,
   },
   {
     key: "accessPolicies",
-    label: "Access Policies",
-    description: "RLS and CLS policies from data access policy",
+    get label() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.ACCESS_POLICIES"); },
+    get description() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.RLS_AND_CLS_POLICIES_FROM_DATA"); },
     alwaysSelected: false,
   },
   {
     key: "validationRules",
-    label: "Validation Rules",
-    description: "Per-field validation rules",
+    get label() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.VALIDATION_RULES"); },
+    get description() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.PER_FIELD_VALIDATION_RULES"); },
     alwaysSelected: false,
   },
 ];
@@ -121,6 +121,7 @@ export default function ExportSchemaModal({
 }: {
   onClose: () => void;
 }) {
+  const { t } = useT("data.gateway.schema");
   const [currentStep, setCurrentStep] = useState(1);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
@@ -167,22 +168,22 @@ export default function ExportSchemaModal({
           a.click();
           document.body.removeChild(a);
           toast({
-            title: "Status",
-            description: "Schema export downloaded successfully.",
+            title: t("common:STATUS"),
+            description: t("EXPORT_SCHEMA_MODAL.SCHEMA_EXPORT_DOWNLOADED_SUCCESSFULLY"),
             variant: "success",
           });
         }
       } catch (error) {
         pendingExportFileIdsRef.current.delete(fileId);
         toast({
-          title: "Download Failed",
+          title: t("EXPORT_SCHEMA_MODAL.DOWNLOAD_FAILED"),
           description:
-            "Download failed. Please check the logs for more details.",
+            t("EXPORT_SCHEMA_MODAL.DOWNLOAD_FAILED_PLEASE_CHECK_THE_LOGS"),
           variant: "destructive",
         });
       }
     },
-    [projectKey, queryClient],
+    [projectKey, queryClient, t],
   );
 
   /** Backend notifier payload for schema export completion. */
@@ -240,7 +241,7 @@ export default function ExportSchemaModal({
       });
 
       if (!exportResponse.isSuccess) {
-        throw new Error(exportResponse.message || "Export request failed.");
+        throw new Error(exportResponse.message || t("EXPORT_SCHEMA_MODAL.EXPORT_REQUEST_FAILED"));
       }
 
       const itemId = exportResponse.data?.itemId;
@@ -249,8 +250,8 @@ export default function ExportSchemaModal({
       }
 
       toast({
-        title: "Export in progress",
-        description: "Download begins automatically when your export is ready.",
+        title: t("EXPORT_SCHEMA_MODAL.EXPORT_IN_PROGRESS"),
+        description: t("EXPORT_SCHEMA_MODAL.DOWNLOAD_BEGINS_AUTOMATICALLY_WHEN"),
         variant: "info",
       });
 
@@ -267,7 +268,7 @@ export default function ExportSchemaModal({
         errors: [
           error instanceof Error
             ? error.message
-            : "Export failed. Please try again.",
+            : t("EXPORT_SCHEMA_MODAL.EXPORT_FAILED_PLEASE_TRY_AGAIN"),
         ],
       });
     }
@@ -282,10 +283,10 @@ export default function ExportSchemaModal({
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <Download className="h-4 w-4 text-indigo-400" />
-          Export Schema
+          {t("EXPORT_SCHEMA_MODAL.EXPORT_SCHEMA")}
         </DialogTitle>
         <DialogDescription className="text-xs text-muted-foreground/60">
-          Select the data you&apos;d like to export
+          {t("EXPORT_SCHEMA_MODAL.SELECT_THE_DATA_YOU_D_LIKE")}
         </DialogDescription>
       </DialogHeader>
 
@@ -302,7 +303,7 @@ export default function ExportSchemaModal({
                 onCheckedChange={(checked) => handleSelectAllChange(checked === true)}
               />
               <Label htmlFor="export-schema-select-all" className="cursor-pointer text-sm font-medium text-foreground/80">
-                Select all
+                {t("EXPORT_SCHEMA_MODAL.SELECT_ALL")}
               </Label>
             </div>
 
@@ -351,11 +352,11 @@ export default function ExportSchemaModal({
               ))}
             </RadioGroup>
 
-            <p className="text-xs text-muted-foreground/50">How would you like to export?</p>
+            <p className="text-xs text-muted-foreground/50">{t("EXPORT_SCHEMA_MODAL.HOW_WOULD_YOU_LIKE_TO_EXPORT")}</p>
 
             <div className="flex items-center gap-2">
               <Checkbox id="schema-download" checked={downloadChecked} onCheckedChange={(checked) => setDownloadChecked(checked === true)} />
-              <Label htmlFor="schema-download" className="cursor-pointer text-sm text-foreground/80">Download</Label>
+              <Label htmlFor="schema-download" className="cursor-pointer text-sm text-foreground/80">{t("common:DOWNLOAD")}</Label>
             </div>
           </div>
         </Stepperwithoutindicator>
@@ -365,21 +366,21 @@ export default function ExportSchemaModal({
         {currentStep === 1 ? (
           <div className="flex flex-row-reverse gap-2">
             <Button size="sm" className="shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)]" onClick={handleSelectFileType}>
-              Select file type
+              {t("EXPORT_SCHEMA_MODAL.SELECT_FILE_TYPE")}
             </Button>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="border border-border/40 text-muted-foreground/70">Cancel</Button>
+              <Button variant="ghost" size="sm" className="border border-border/40 text-muted-foreground/70">{t("common:CANCEL")}</Button>
             </DialogTrigger>
           </div>
         ) : (
           <div className="flex justify-between gap-2">
             <DialogTrigger asChild>
-              <Button variant="ghost" size="sm" className="border border-border/40 text-muted-foreground/70">Cancel</Button>
+              <Button variant="ghost" size="sm" className="border border-border/40 text-muted-foreground/70">{t("common:CANCEL")}</Button>
             </DialogTrigger>
             <div className="flex gap-2">
-              <Button size="sm" variant="ghost" className="border border-border/40" onClick={handleBack}>Back</Button>
+              <Button size="sm" variant="ghost" className="border border-border/40" onClick={handleBack}>{t("common:BACK")}</Button>
               <Button size="sm" className="shadow-[0_0_12px_-2px_rgba(99,102,241,0.3)]" onClick={handleExport} disabled={!downloadChecked || isExporting}>
-                {isExporting ? "Exporting…" : "Export"}
+                {isExporting ? "Exporting…" : t("EXPORT_SCHEMA_MODAL.EXPORT")}
               </Button>
             </div>
           </div>

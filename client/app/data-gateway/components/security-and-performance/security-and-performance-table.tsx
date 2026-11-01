@@ -7,6 +7,7 @@ import { ChevronRight, Database, ShieldOff } from "lucide-react";
 import { ACCESS_LEVEL_TO_TYPE } from "../../constants/schema-access-control";
 import { piiFieldCount, schemaRisk, type SchemaRisk } from "../../utils/security-summary";
 import { ACCESS_TIER_LABELS, AccessTierBadge, tierFromLevel } from "../primitives";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * View/Create/Edit/Delete, not Create/Read/Update/Delete — the verbs the
@@ -18,10 +19,10 @@ import { ACCESS_TIER_LABELS, AccessTierBadge, tierFromLevel } from "../primitive
  * schema page's own left-to-right order) changed.
  */
 const CRUD_COLUMNS = [
-  { key: "V", verb: "View", levelKey: "readAccessLevel" },
-  { key: "C", verb: "Create", levelKey: "writeAccessLevel" },
-  { key: "E", verb: "Edit", levelKey: "editAccessLevel" },
-  { key: "D", verb: "Delete", levelKey: "deleteAccessLevel" },
+  { key: "V", get verb() { return tStatic("data.gateway.schema", "common:VIEW"); }, levelKey: "readAccessLevel" },
+  { key: "C", get verb() { return tStatic("data.gateway.schema", "common:CREATE"); }, levelKey: "writeAccessLevel" },
+  { key: "E", get verb() { return tStatic("data.gateway.schema", "common:EDIT"); }, levelKey: "editAccessLevel" },
+  { key: "D", get verb() { return tStatic("data.gateway.schema", "common:DELETE"); }, levelKey: "deleteAccessLevel" },
 ] as const;
 
 const SEVERITY_EDGE: Record<SchemaRisk["severity"], string> = {
@@ -37,11 +38,12 @@ const RISK_TEXT: Record<SchemaRisk["severity"], string> = {
 };
 
 const CrudCell = ({ letter, level, verb }: { letter: string; level: number; verb: string }) => {
+  const { t } = useT("data.gateway.schema");
   if (ACCESS_LEVEL_TO_TYPE[level] === undefined) {
     return (
       <span
         className="inline-flex h-[26px] w-[30px] items-center justify-center rounded-md text-[11px] text-muted-foreground/40"
-        title={`${verb} — not set`}
+        title={t("SECURITY_AND_PERFORMANCE_TABLE.VERB_NOT_SET", { verb })}
       >
         —
       </span>
@@ -60,11 +62,12 @@ const CrudCell = ({ letter, level, verb }: { letter: string; level: number; verb
 };
 
 const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps) => {
+  const { t } = useT("data.gateway.schema");
   if (!schemas.length) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
         <ShieldOff className="h-8 w-8 opacity-20" />
-        <p className="text-sm">No schemas to display</p>
+        <p className="text-sm">{t("SECURITY_AND_PERFORMANCE_TABLE.NO_SCHEMAS_TO_DISPLAY")}</p>
       </div>
     );
   }
@@ -72,10 +75,10 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
   return (
     <div className="min-w-0 md:min-w-[760px]">
       <div className="sticky top-0 z-10 hidden h-8 items-center gap-4 border-b border-border/30 bg-muted/20 px-5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground md:flex">
-        <span className="min-w-0 flex-1">Schema</span>
-        <span className="w-[186px] shrink-0 whitespace-nowrap">View · Create · Edit · Delete</span>
-        <span className="w-[150px] shrink-0">Exposure</span>
-        <span className="w-[110px] shrink-0">PII fields</span>
+        <span className="min-w-0 flex-1">{t("SECURITY_AND_PERFORMANCE_TABLE.SCHEMA")}</span>
+        <span className="w-[186px] shrink-0 whitespace-nowrap">{t("SECURITY_AND_PERFORMANCE_TABLE.VIEW_CREATE_EDIT_DELETE")}</span>
+        <span className="w-[150px] shrink-0">{t("SECURITY_AND_PERFORMANCE_TABLE.EXPOSURE")}</span>
+        <span className="w-[110px] shrink-0">{t("SECURITY_AND_PERFORMANCE_TABLE.PII_FIELDS")}</span>
         <span className="w-6 shrink-0" />
       </div>
 
@@ -91,7 +94,7 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
                 onClick={() => onRowClick(schema)}
                 // The row reads as a long run of text; the name is what a
                 // screen reader should announce for it.
-                aria-label={`Open ${schema.schemaName}`}
+                aria-label={t("SECURITY_AND_PERFORMANCE_TABLE.OPEN_SCHEMANAME", { schemaName: schema.schemaName })}
                 className="group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-b border-border/20 px-3 py-3 text-left transition-colors hover:bg-muted/20 md:flex md:h-[52px] md:gap-4 md:px-5 md:py-0"
               >
                 <span
@@ -134,7 +137,7 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
                     pii > 0 ? "text-access-user-fg" : "text-muted-foreground/60",
                   )}
                 >
-                  {pii === 0 ? "None" : pii === 1 ? "1 field" : `${pii} fields`}
+                  {pii === 0 ? t("SECURITY_AND_PERFORMANCE_TABLE.NONE") : pii === 1 ? t("SECURITY_AND_PERFORMANCE_TABLE.1_FIELD") : t("SECURITY_AND_PERFORMANCE_TABLE.PII_FIELDS_2", { pii })}
                 </span>
 
                 <ChevronRight

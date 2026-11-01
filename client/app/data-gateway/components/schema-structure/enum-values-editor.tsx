@@ -3,6 +3,7 @@
 import { SCHEMA_NAME_ALLOWED_PATTERN } from "@/data-gateway/utils/input-restriction.util";
 import { X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 interface EnumValuesEditorProps {
   values: string[];
@@ -23,11 +24,11 @@ const SEPARATORS = /[\s,]+/;
 
 /** Returns an error message for `value`, or null when it can be added next to `others`. */
 function validate(value: string, others: string[]): string | null {
-  if (value.length > 100) return "Value must be 1–100 characters.";
+  if (value.length > 100) return tStatic("data.gateway.schema", "ENUM_VALUES_EDITOR.VALUE_MUST_BE_1_100_CHARACTERS");
   if (!SCHEMA_NAME_ALLOWED_PATTERN.test(value)) {
     return "Only letters, numbers, and '_'; cannot start with a number.";
   }
-  if (others.includes(value)) return "Already added.";
+  if (others.includes(value)) return tStatic("data.gateway.schema", "ENUM_VALUES_EDITOR.ALREADY_ADDED");
   return null;
 }
 
@@ -45,6 +46,7 @@ export function EnumValuesEditor({
   autoFocus,
   onAutoFocused,
 }: Readonly<EnumValuesEditorProps>) {
+  const { t } = useT("data.gateway.schema");
   const [draft, setDraft] = useState("");
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
@@ -63,7 +65,7 @@ export function EnumValuesEditor({
   const atLimit = values.length >= MAX_VALUES;
   const draftError = draft
     ? atLimit
-      ? `At most ${MAX_VALUES} values.`
+      ? t("ENUM_VALUES_EDITOR.AT_MOST_MAX_VALUES_VALUES", { MAX_VALUES })
       : validate(draft, values)
     : null;
   const editError =
@@ -126,9 +128,9 @@ export function EnumValuesEditor({
   if (disabled) {
     return (
       <div id={id} className="mt-2 space-y-1.5">
-        <span className="text-[11px] font-medium text-muted-foreground">Allowed values</span>
+        <span className="text-[11px] font-medium text-muted-foreground">{t("ENUM_VALUES_EDITOR.ALLOWED_VALUES")}</span>
         {values.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No allowed values defined.</p>
+          <p className="text-xs text-muted-foreground">{t("ENUM_VALUES_EDITOR.NO_ALLOWED_VALUES_DEFINED")}</p>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {values.map((v, i) => (
@@ -144,7 +146,7 @@ export function EnumValuesEditor({
 
   return (
     <div ref={rootRef} id={id} className="mt-2 space-y-1.5">
-      <span className="text-[11px] font-medium text-muted-foreground">Allowed values</span>
+      <span className="text-[11px] font-medium text-muted-foreground">{t("ENUM_VALUES_EDITOR.ALLOWED_VALUES")}</span>
       <div
         // Same quiet field look as the name / type / description inputs beside it.
         className={`flex min-h-9 cursor-text flex-wrap items-center gap-1.5 rounded-md border bg-transparent px-2 py-1 text-[13px] transition-colors focus-within:ring-1 ${
@@ -161,7 +163,7 @@ export function EnumValuesEditor({
             <input
               key={`edit-${i}`}
               autoFocus
-              aria-label={`Edit ${v}`}
+              aria-label={t("ENUM_VALUES_EDITOR.EDIT_V", { v })}
               value={editText}
               onChange={(e) => setEditText(e.target.value.replace(SEPARATORS, ""))}
               onBlur={commitEdit}
@@ -179,7 +181,7 @@ export function EnumValuesEditor({
           ) : (
             <span
               key={`${v}-${i}`}
-              title="Double-click to edit"
+              title={t("ENUM_VALUES_EDITOR.DOUBLE_CLICK_TO_EDIT")}
               onDoubleClick={() => {
                 setEditIndex(i);
                 setEditText(v);
@@ -189,7 +191,7 @@ export function EnumValuesEditor({
               <span>{v}</span>
               <button
                 type="button"
-                aria-label={`Remove ${v}`}
+                aria-label={t("ENUM_VALUES_EDITOR.REMOVE_V", { v })}
                 className="rounded p-0.5 text-muted-foreground hover:bg-background hover:text-foreground"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -223,8 +225,8 @@ export function EnumValuesEditor({
             commitTokens(e.clipboardData.getData("text").split(SEPARATORS));
           }}
           onBlur={() => draft && commitTokens([draft.trim()])}
-          placeholder={values.length === 0 ? "Add a value…" : "Add…"}
-          aria-label="New enum value"
+          placeholder={values.length === 0 ? t("ENUM_VALUES_EDITOR.ADD_A_VALUE") : "Add…"}
+          aria-label={t("ENUM_VALUES_EDITOR.NEW_ENUM_VALUE")}
           aria-invalid={!!error}
           className="h-6 min-w-16 flex-1 bg-transparent text-[13px] outline-hidden placeholder:text-muted-foreground/60"
         />
@@ -233,13 +235,13 @@ export function EnumValuesEditor({
         {error ? (
           <p className="text-destructive">{error}</p>
         ) : values.length === 0 ? (
-          <p className="text-muted-foreground">Add at least one allowed value for Enum.</p>
+          <p className="text-muted-foreground">{t("ENUM_VALUES_EDITOR.ADD_AT_LEAST_ONE_ALLOWED_VALUE")}</p>
         ) : (
           <span />
         )}
         {values.length > 0 && (
           <span
-            title="Enter, comma or space adds a value; you can also paste a list"
+            title={t("ENUM_VALUES_EDITOR.ENTER_COMMA_OR_SPACE_ADDS_A")}
             className="shrink-0 tabular-nums text-muted-foreground/70"
           >
             {values.length} / {MAX_VALUES}

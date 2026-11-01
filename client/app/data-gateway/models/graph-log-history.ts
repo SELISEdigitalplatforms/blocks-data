@@ -1,3 +1,4 @@
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 export type GraphLogOperationType = "query" | "mutation";
 export type GraphLogResponseStatus = "success" | "failed";
 export type GraphLogOutcome = "allowed" | "denied" | "error";
@@ -16,13 +17,13 @@ export type GraphLogFailureKind =
 
 /** Reader-facing names for each failure reason, used by the table, filter and details panel. */
 export const FAILURE_KIND_LABELS: Record<GraphLogFailureKind, string> = {
-  authentication: "Authentication",
-  authorization: "Authorization",
-  validation: "Validation",
-  syntax_error: "Syntax error",
-  bad_request: "Bad request",
-  unhandled: "Server error",
-  unknown: "Others",
+  get authentication() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.AUTHENTICATION"); },
+  get authorization() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.AUTHORIZATION"); },
+  get validation() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.VALIDATION"); },
+  get syntax_error() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.SYNTAX_ERROR"); },
+  get bad_request() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.BAD_REQUEST"); },
+  get unhandled() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.SERVER_ERROR"); },
+  get unknown() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.OTHERS"); },
 };
 
 export const failureKindLabel = (failureKind: string) =>

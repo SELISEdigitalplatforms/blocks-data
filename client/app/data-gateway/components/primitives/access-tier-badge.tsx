@@ -4,6 +4,7 @@ import { CornerDownRight, Globe, Settings2, User, type LucideIcon } from "lucide
 import { cn } from "@/lib/utils";
 
 import { ACCESS_LEVEL_TO_TYPE, ACCESS_TYPES } from "../../constants/schema-access-control";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * Single source of truth for how an access tier looks.
@@ -56,10 +57,10 @@ const TYPE_TO_TIER: Record<string, AccessTier> = {
 };
 
 export const ACCESS_TIER_LABELS: Record<AccessTier, string> = {
-  public: "Public",
-  user: "Signed-in users",
-  custom: "Custom",
-  inherited: "Inherited",
+  get public() { return tStatic("data.gateway.schema", "ACCESS_TIER_BADGE.PUBLIC"); },
+  get user() { return tStatic("data.gateway.schema", "ACCESS_TIER_BADGE.SIGNED_IN_USERS"); },
+  get custom() { return tStatic("data.gateway.schema", "ACCESS_TIER_BADGE.CUSTOM"); },
+  get inherited() { return tStatic("data.gateway.schema", "ACCESS_TIER_BADGE.INHERITED"); },
 };
 
 /** Tier's icon, for compact chips/tiles where the label text is dropped. */

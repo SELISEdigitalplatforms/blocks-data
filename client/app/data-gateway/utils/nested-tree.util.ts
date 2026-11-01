@@ -1,5 +1,6 @@
 import type { IField, ISchemaDetails } from "../models/data-service";
 import { mergeFieldsWithParentData } from "./schema-normalization";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * The nested-property tree of the schema table: which object properties are open, and the rows
@@ -55,7 +56,7 @@ export function togglePath(expansion: TreeExpansion, path: string): TreeExpansio
 export function selfReferenceReason(childSchema: ISchemaDetails, lineage: readonly string[]): string | null {
   const name = childSchema.schemaName.trim().toLowerCase();
   return lineage.some((ancestor) => ancestor.trim().toLowerCase() === name)
-    ? `${childSchema.schemaName} contains itself, so it isn't opened again here`
+    ? tStatic("data.gateway.schema", "NESTED_TREE_UTIL.SCHEMANAME_CONTAINS_ITSELF_SO_IT_ISN", { schemaName: childSchema.schemaName })
     : null;
 }
 

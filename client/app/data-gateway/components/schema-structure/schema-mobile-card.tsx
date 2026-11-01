@@ -48,6 +48,7 @@ import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.uti
 import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
 import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagTitlesFromField, flagsFromField } from "../primitives";
 import { DefaultValueButton } from "./default-value-button";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const FLAG_TOGGLES = [
   { flag: "ARR", key: "isArray", notForChildTypes: false },
@@ -153,6 +154,7 @@ function DisabledWideButton({ reason, icon }: Readonly<{ reason: string; icon: R
 }
 
 function ReadonlySectionHeader({ count }: Readonly<{ count: number }>) {
+  const { t } = useT("data.gateway.schema");
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();
   return (
     <div className="rounded-lg bg-primary/5 px-4 py-3">
@@ -162,7 +164,7 @@ function ReadonlySectionHeader({ count }: Readonly<{ count: number }>) {
         className="flex w-full items-center gap-2 text-sm font-medium text-foreground transition-colors hover:text-primary"
       >
         <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", isReadonlyExpanded ? "rotate-0" : "-rotate-90")} />
-        <span>Default Properties ({count})</span>
+        <span>{t("SCHEMA_MOBILE_CARD.DEFAULT_PROPERTIES_COUNT", { count })}</span>
       </button>
     </div>
   );
@@ -181,28 +183,29 @@ function NameField({
   errors: FieldErrors<{ properties: IField[] }>;
   properties: PropertyRow[];
 }>) {
+  const { t } = useT("data.gateway.schema");
   const { index, isEditMode, isReadOnly, setValue } = form;
   const nameError = errors.properties?.[index]?.name;
   const inputId = useId();
   return (
     <div className="min-w-0 space-y-1">
-      <FieldHeading htmlFor={isEditMode ? inputId : undefined}>Property name</FieldHeading>
+      <FieldHeading htmlFor={isEditMode ? inputId : undefined}>{t("SCHEMA_MOBILE_CARD.PROPERTY_NAME")}</FieldHeading>
       {isEditMode ? (
         <Input
           id={inputId}
           {...register(`properties.${index}.name`, {
-            required: "Property name is required",
+            required: t("SCHEMA_MOBILE_CARD.PROPERTY_NAME_IS_REQUIRED"),
             pattern: {
               value: SCHEMA_NAME_ALLOWED_PATTERN,
-              message: "Only letters, numbers, and '_' are allowed. Cannot start with a number.",
+              message: t("SCHEMA_MOBILE_CARD.ONLY_LETTERS_NUMBERS_AND_ARE_ALLOWED"),
             },
             validate: (value) => {
               const allNames = properties.map((p) => p.name.trim().toLowerCase());
               const occurrences = allNames.filter((n) => n === value.trim().toLowerCase()).length;
-              return occurrences <= 1 || "Duplicate property name not allowed";
+              return occurrences <= 1 || t("SCHEMA_MOBILE_CARD.DUPLICATE_PROPERTY_NAME_NOT_ALLOWED");
             },
           })}
-          placeholder="Click to edit"
+          placeholder={t("SCHEMA_MOBILE_CARD.CLICK_TO_EDIT")}
           readOnly={isReadOnly}
           onChange={(e) => {
             setValue(`properties.${index}.name`, sanitizeName(e.target.value), { shouldValidate: true, shouldDirty: true });
@@ -242,6 +245,7 @@ function ExpandChildButton({
   isExpanded,
   onToggle,
 }: Readonly<{ childName: string; isExpanded: boolean; onToggle: () => void }>) {
+  const { t } = useT("data.gateway.schema");
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -252,13 +256,13 @@ function ExpandChildButton({
             "flex shrink-0 rounded p-1 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40",
             isExpanded ? "bg-primary/10 text-primary" : "text-primary hover:bg-primary/10",
           )}
-          aria-label={isExpanded ? `Collapse ${childName}` : `Expand ${childName} attributes`}
+          aria-label={isExpanded ? t("SCHEMA_MOBILE_CARD.COLLAPSE_CHILDNAME", { childName }) : t("SCHEMA_MOBILE_CARD.EXPAND_CHILDNAME_ATTRIBUTES", { childName })}
         >
           {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
       </TooltipTrigger>
       <TooltipContent>
-        {isExpanded ? "Collapse" : "Expand"} {childName} attributes
+        {isExpanded ? t("SCHEMA_MOBILE_CARD.COLLAPSE") : t("SCHEMA_MOBILE_CARD.EXPAND")} {childName} {t("SCHEMA_MOBILE_CARD.ATTRIBUTES")}
       </TooltipContent>
     </Tooltip>
   );
@@ -290,6 +294,7 @@ function TypeField({
   onTypeSearchChange: (value: string) => void;
   searchText: string;
 }>) {
+  const { t } = useT("data.gateway.schema");
   const { index, isEditMode, isReadOnly, watch, setValue } = form;
   const [focusEnumEditor, setFocusEnumEditor] = useState(false);
   const currentType = watch(`properties.${index}.type`);
@@ -297,7 +302,7 @@ function TypeField({
   if (!isEditMode) {
     return (
       <div className="min-w-0 space-y-1">
-        <FieldHeading>Property type</FieldHeading>
+        <FieldHeading>{t("SCHEMA_MOBILE_CARD.PROPERTY_TYPE")}</FieldHeading>
         <div className="flex min-h-[28px] w-full items-center gap-1.5">
           <TypeChip type={currentType} isArray={watch(`properties.${index}.isArray`)} className="min-w-0 max-w-full truncate" />
           {isChildType && childName && onToggleExpand && (
@@ -318,7 +323,7 @@ function TypeField({
 
   return (
     <div className="min-w-0 space-y-1">
-      <FieldHeading>Property type</FieldHeading>
+      <FieldHeading>{t("SCHEMA_MOBILE_CARD.PROPERTY_TYPE")}</FieldHeading>
       <PropertyTypeSelector
         index={index}
         value={currentType}
@@ -351,6 +356,7 @@ function FlagsField({
   isChildType,
   defaultValue,
 }: Readonly<{ form: CardForm; isChildType: boolean; defaultValue: IFieldDefaultValue | null }>) {
+  const { t } = useT("data.gateway.schema");
   const { index, isEditMode, isReadOnly, watch, setValue } = form;
   if (!isEditMode) {
     // Every board shows ARR as its own chip even when the type chip already
@@ -364,7 +370,7 @@ function FlagsField({
     });
     return (
       <div className="min-w-0 space-y-1">
-        <span className="block text-xs text-muted-foreground">Flags</span>
+        <span className="block text-xs text-muted-foreground">{t("SCHEMA_MOBILE_CARD.FLAGS")}</span>
         {flags.length > 0 ? (
           <FieldFlags flags={flags} titles={flagTitlesFromField({ defaultValue })} />
         ) : (
@@ -376,7 +382,7 @@ function FlagsField({
 
   return (
     <div className="min-w-0 space-y-1">
-      <span className="block text-xs text-muted-foreground">Flags</span>
+      <span className="block text-xs text-muted-foreground">{t("SCHEMA_MOBILE_CARD.FLAGS")}</span>
       <div className="flex flex-wrap items-center gap-1.5">
         {FLAG_TOGGLES.map(({ flag, key, notForChildTypes }) => {
           const notApplicable = notForChildTypes && isChildType;
@@ -394,7 +400,7 @@ function FlagsField({
             <Tooltip key={key}>
               <TooltipTrigger asChild>{chip}</TooltipTrigger>
               <TooltipContent>
-                {notApplicable ? `${flag} is not applicable for child types` : `${flag} is read-only for default properties`}
+                {notApplicable ? t("SCHEMA_MOBILE_CARD.FLAG_IS_NOT_APPLICABLE_FOR_CHILD", { flag }) : t("SCHEMA_MOBILE_CARD.FLAG_IS_READ_ONLY_FOR_DEFAULT", { flag })}
               </TooltipContent>
             </Tooltip>
           );
@@ -405,23 +411,24 @@ function FlagsField({
 }
 
 function RequiredField({ form, name }: Readonly<{ form: CardForm; name: string }>) {
+  const { t } = useT("data.gateway.schema");
   const { index, isEditMode, isReadOnly, watch, setValue } = form;
   return (
     <div className="min-w-0 space-y-1">
-      <FieldHeading>Required</FieldHeading>
+      <FieldHeading>{t("SCHEMA_MOBILE_CARD.REQUIRED")}</FieldHeading>
       {isEditMode ? (
         <Select
           value={watch(`properties.${index}.requiredOn`) ?? "None"}
           onValueChange={(value) => setValue(`properties.${index}.requiredOn`, value as IField["requiredOn"], { shouldDirty: true })}
           disabled={isReadOnly}
         >
-          <SelectTrigger aria-label={`IsRequired for ${name || "property"}`} className={PROPERTY_FIELD_CLASS}>
+          <SelectTrigger aria-label={t("SCHEMA_MOBILE_CARD.ISREQUIRED_FOR_NAME", { name: name || "property" })} className={PROPERTY_FIELD_CLASS}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {(["None", "Insert", "Update", "Both"] as const).map((mode) => (
               <SelectItem key={mode} value={mode}>
-                {mode}
+                {mode === "None" ? t("SCHEMA_MOBILE_CARD.NONE") : mode === "Insert" ? t("SCHEMA_MOBILE_CARD.INSERT") : mode === "Update" ? t("common:UPDATE") : t("SCHEMA_MOBILE_CARD.BOTH")}
               </SelectItem>
             ))}
           </SelectContent>
@@ -436,18 +443,19 @@ function RequiredField({ form, name }: Readonly<{ form: CardForm; name: string }
 }
 
 function DescriptionField({ form }: Readonly<{ form: CardForm }>) {
+  const { t } = useT("data.gateway.schema");
   const { index, isEditMode, isReadOnly, watch, setValue } = form;
   const description = watch(`properties.${index}.description`) ?? "";
   const inputId = useId();
   return (
     <div className="min-w-0 space-y-1">
-      <FieldHeading htmlFor={isEditMode ? inputId : undefined}>Description</FieldHeading>
+      <FieldHeading htmlFor={isEditMode ? inputId : undefined}>{t("common:DESCRIPTION")}</FieldHeading>
       {isEditMode ? (
         <Input
           id={inputId}
           value={description}
           onChange={(e) => setValue(`properties.${index}.description`, e.target.value, { shouldDirty: true })}
-          placeholder={isReadOnly ? "—" : "Add description"}
+          placeholder={isReadOnly ? "—" : t("SCHEMA_MOBILE_CARD.ADD_DESCRIPTION")}
           readOnly={isReadOnly}
           className={cn("w-full min-w-0", PROPERTY_FIELD_CLASS, isReadOnly && "cursor-not-allowed bg-muted opacity-50")}
         />
@@ -464,12 +472,13 @@ function AccessButton({
   label,
   onOpen,
 }: Readonly<{ reason: string | null; fieldSource?: IField; label: string; onOpen: () => void }>) {
+  const { t } = useT("data.gateway.schema");
   if (reason) return <DisabledWideButton reason={reason} icon={<Shield className="h-4 w-4 shrink-0" />} />;
 
   const levels = [
-    { label: "View", level: fieldSource?.readAccessLevel },
-    { label: "Create", level: fieldSource?.writeAccessLevel },
-    { label: "Edit", level: fieldSource?.editAccessLevel },
+    { label: t("common:VIEW"), level: fieldSource?.readAccessLevel },
+    { label: t("common:CREATE"), level: fieldSource?.writeAccessLevel },
+    { label: t("common:EDIT"), level: fieldSource?.editAccessLevel },
   ] as const;
   const isCustom = levels.some(({ level }) => (ACCESS_LEVEL_TO_TYPE[level ?? 0] ?? ACCESS_TYPES.INHERITED) !== ACCESS_TYPES.INHERITED);
   return (
@@ -509,8 +518,9 @@ function ValidationButton({
   total,
   onOpen,
 }: Readonly<{ reason: string | null; fieldName: string; total: number; onOpen: () => void }>) {
+  const { t: tx } = useT("data.gateway.schema");
   if (reason) return <DisabledWideButton reason={reason} icon={<Check className="h-4 w-4 shrink-0" />} />;
-  const label = total > 0 ? `Manage validations for ${fieldName} (${total})` : `Manage validations for ${fieldName}`;
+  const label = total > 0 ? tx("SCHEMA_MOBILE_CARD.MANAGE_VALIDATIONS_FOR_FIELDNAME_TOTAL", { fieldName, total }) : tx("SCHEMA_MOBILE_CARD.MANAGE_VALIDATIONS_FOR_FIELDNAME", { fieldName });
   return (
     <button
       type="button"
@@ -529,21 +539,22 @@ function ValidationButton({
 }
 
 function CardActions({ index, name, onDuplicate, onDelete }: Readonly<{ index: number; name: string; onDuplicate: (index: number) => void; onDelete: (index: number) => void }>) {
+  const { t } = useT("data.gateway.schema");
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 shrink-0 p-0" aria-label={`More actions for ${name || "property"}`}>
+        <Button variant="ghost" className="h-8 w-8 shrink-0 p-0" aria-label={t("SCHEMA_MOBILE_CARD.MORE_ACTIONS_FOR_NAME", { name: name || "property" })}>
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem className="cursor-pointer" onClick={() => onDuplicate(index)}>
           <Copy className="mr-2 h-4 w-4" />
-          <span>Duplicate</span>
+          <span>{t("SCHEMA_MOBILE_CARD.DUPLICATE")}</span>
         </DropdownMenuItem>
         <DropdownMenuItem className="cursor-pointer" onClick={() => onDelete(index)}>
           <Trash className="mr-2 h-4 w-4 text-red-500" />
-          <span className="text-red-500">Delete</span>
+          <span className="text-red-500">{t("common:DELETE")}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -551,6 +562,7 @@ function CardActions({ index, name, onDuplicate, onDelete }: Readonly<{ index: n
 }
 
 function SelectRowCheckbox({ checked, disabled, label, onChange }: Readonly<{ checked: boolean; disabled: boolean; label: string; onChange: (selected: boolean) => void }>) {
+  const { t } = useT("data.gateway.schema");
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -558,7 +570,7 @@ function SelectRowCheckbox({ checked, disabled, label, onChange }: Readonly<{ ch
           <Checkbox checked={checked} onCheckedChange={(value) => onChange(value === true)} disabled={disabled} aria-label={label} className="mt-1" />
         </div>
       </TooltipTrigger>
-      {disabled && <TooltipContent>Save the field before selecting</TooltipContent>}
+      {disabled && <TooltipContent>{t("SCHEMA_MOBILE_CARD.SAVE_THE_FIELD_BEFORE_SELECTING")}</TooltipContent>}
     </Tooltip>
   );
 }
@@ -604,6 +616,7 @@ export function SchemaMobileCard({
   originalFieldFromSchema,
   isNestedAttributePanel = false,
 }: Readonly<SchemaMobileCardProps>) {
+  const { t } = useT("data.gateway.schema");
   const [isReadonlyExpanded] = useReadonlyExpanded();
   const form: CardForm = { index, isEditMode, isReadOnly, watch, setValue };
   const name = watch(`properties.${index}.name`);
@@ -621,17 +634,17 @@ export function SchemaMobileCard({
   const accessReason = unavailableReason(
     isEditMode,
     isNewField,
-    typeReason && "Access is not available for custom property types",
-    "Exit edit mode to manage access",
-    "Save the field before setting access",
+    typeReason && t("SCHEMA_MOBILE_CARD.ACCESS_IS_NOT_AVAILABLE_FOR_CUSTOM"),
+    t("SCHEMA_MOBILE_CARD.EXIT_EDIT_MODE_TO_MANAGE_ACCESS"),
+    t("SCHEMA_MOBILE_CARD.SAVE_THE_FIELD_BEFORE_SETTING_ACCESS"),
   );
   // A list of objects can be counted (At least / At most items); a single object takes no rule.
   const validationReason = unavailableReason(
     isEditMode,
     isNewField,
-    typeReason && !watch(`properties.${index}.isArray`) ? "Validations are only available for primitive types and lists" : "",
-    "Exit edit mode to manage validations",
-    "Save the field before adding validations",
+    typeReason && !watch(`properties.${index}.isArray`) ? t("SCHEMA_MOBILE_CARD.VALIDATIONS_ARE_ONLY_AVAILABLE_FOR") : "",
+    t("SCHEMA_MOBILE_CARD.EXIT_EDIT_MODE_TO_MANAGE_VALIDATIONS"),
+    t("SCHEMA_MOBILE_CARD.SAVE_THE_FIELD_BEFORE_ADDING"),
   );
   const fieldTarget: FieldAccessTarget | undefined = fieldName
     ? { name: fieldName, readAccess: fieldSource?.readAccess, writeAccess: fieldSource?.writeAccess, deleteAccess: fieldSource?.deleteAccess }
@@ -660,7 +673,7 @@ export function SchemaMobileCard({
               <SelectRowCheckbox
                 checked={!!selectedRows[field.id]}
                 disabled={isNewField}
-                label={`Select ${name || "property"}`}
+                label={t("SCHEMA_MOBILE_CARD.SELECT_NAME", { name: name || "property" })}
                 onChange={(selected) => onRowSelect(field.id, selected)}
               />
             )}
@@ -697,8 +710,8 @@ export function SchemaMobileCard({
                       <AccessButton
                         reason={accessReason}
                         fieldSource={fieldSource}
-                        label={`View access for ${fieldTarget?.name || schemaName}`}
-                        onOpen={() => onOpenAccessDrawer(fieldTarget, fieldName ? `Access for ${fieldName}` : `Access for ${schemaName}`)}
+                        label={t("SCHEMA_MOBILE_CARD.VIEW_ACCESS_FOR_NAME", { name: fieldTarget?.name || schemaName })}
+                        onOpen={() => onOpenAccessDrawer(fieldTarget, fieldName ? t("SCHEMA_MOBILE_CARD.ACCESS_FOR_FIELDNAME", { fieldName }) : t("SCHEMA_MOBILE_CARD.ACCESS_FOR_SCHEMANAME", { schemaName }))}
                       />
                     )}
                     <ValidationButton

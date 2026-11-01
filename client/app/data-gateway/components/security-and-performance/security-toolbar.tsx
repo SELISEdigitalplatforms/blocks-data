@@ -2,13 +2,14 @@ import { cn } from "@/lib/utils";
 import { ArrowDownWideNarrow } from "lucide-react";
 
 import type { SecurityFilter } from "../../utils/security-summary";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const CHIPS: { value: SecurityFilter; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "attention", label: "Needs attention" },
-  { value: "public", label: "Public" },
-  { value: "user", label: "Signed-in" },
-  { value: "custom", label: "Custom" },
+  { value: "all", get label() { return tStatic("data.gateway.schema", "common:ALL"); } },
+  { value: "attention", get label() { return tStatic("data.gateway.schema", "SECURITY_TOOLBAR.NEEDS_ATTENTION"); } },
+  { value: "public", get label() { return tStatic("data.gateway.schema", "SECURITY_TOOLBAR.PUBLIC"); } },
+  { value: "user", get label() { return tStatic("data.gateway.schema", "SECURITY_TOOLBAR.SIGNED_IN"); } },
+  { value: "custom", get label() { return tStatic("data.gateway.schema", "SECURITY_TOOLBAR.CUSTOM"); } },
 ];
 
 /**
@@ -31,6 +32,7 @@ export function SecurityToolbar({
   onFilterChange: (filter: SecurityFilter) => void;
   onSortToggle: () => void;
 }) {
+  const { t } = useT("data.gateway.schema");
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/40 px-5 py-2.5">
       {CHIPS.map(({ value, label }) => {
@@ -70,7 +72,7 @@ export function SecurityToolbar({
         )}
       >
         <ArrowDownWideNarrow className="h-3.5 w-3.5" aria-hidden />
-        Exposure, high to low
+        {t("SECURITY_TOOLBAR.EXPOSURE_HIGH_TO_LOW")}
       </button>
     </div>
   );

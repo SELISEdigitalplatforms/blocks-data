@@ -15,6 +15,7 @@ import { ISchemaDetails } from "../models/data-service";
 import { schemaExposure } from "../utils/schema-exposure";
 import { SCHEMA_LIVE_STATE_LABELS, schemaLiveState } from "../utils/schema-live-state";
 import { AccessTierDot } from "./primitives";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export type DataGatewayListQueryUpdate = Partial<{
   type: string;
@@ -55,12 +56,12 @@ const SchemaListSkeleton = () => (
  * are. Values match the server's SchemaType: 1 Entity, 2 Child.
  */
 const TYPE_FILTERS = [
-  { value: "all", label: "All" },
-  { value: "1", label: "Entity" },
-  { value: "2", label: "Child" },
+  { value: "all", get label() { return tStatic("data.gateway.schema", "common:ALL"); } },
+  { value: "1", get label() { return tStatic("data.gateway.schema", "SCHEMA_SIDE_BAR.ENTITY"); } },
+  { value: "2", get label() { return tStatic("data.gateway.schema", "SCHEMA_SIDE_BAR.CHILD"); } },
 ] as const;
 
-const SCHEMA_TYPE_LABELS: Record<number, string> = { 1: "Entity", 2: "Child" };
+const SCHEMA_TYPE_LABELS: Record<number, string> = { get 1() { return tStatic("data.gateway.schema", "SCHEMA_SIDE_BAR.ENTITY"); }, get 2() { return tStatic("data.gateway.schema", "SCHEMA_SIDE_BAR.CHILD"); } };
 
 export default function SchemasSidebar({
   onAddSchema,
@@ -70,6 +71,7 @@ export default function SchemasSidebar({
   pageSize,
   onListQueryChange,
 }: SchemaListProps) {
+  const { t } = useT("data.gateway.schema");
   const queryClient = useQueryClient();
 
   const { register, watch } = useForm<SearchFormValues>({
@@ -139,11 +141,11 @@ export default function SchemasSidebar({
       } catch (error) {
         console.error(error);
         showErrorToast({
-          errors: "Error processing import schema",
+          errors: t("SCHEMA_SIDE_BAR.ERROR_PROCESSING_IMPORT_SCHEMA"),
         });
       }
     },
-    [queryClient],
+    [queryClient, t],
   );
 
   useNotificationListener("schema-import", handleImportSchemaNotification);
@@ -180,16 +182,16 @@ export default function SchemasSidebar({
     <div className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-sm border border-border/40 bg-card">
       {/* Header */}
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/40 pl-4 pr-2">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground">Schemas</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground">{t("SCHEMA_SIDE_BAR.SCHEMAS")}</h2>
         {schemaListQuery?.data && (
-          <span className="text-[11px] text-muted-foreground" aria-label={`${totalCount} schemas`}>
+          <span className="text-[11px] text-muted-foreground" aria-label={t("SCHEMA_SIDE_BAR.TOTALCOUNT_SCHEMAS", { totalCount })}>
             {totalCount}
           </span>
         )}
         <div className="flex-1" />
         <Button size="sm" className="h-[26px] shrink-0 gap-1 px-2.5 text-xs" onClick={onAddSchema}>
           <Plus className="h-3.5 w-3.5" />
-          Add
+          {t("common:ADD")}
         </Button>
       </div>
 
@@ -199,8 +201,8 @@ export default function SchemasSidebar({
           <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
           <input
             type="text"
-            placeholder="Search schemas…"
-            aria-label="Search schemas"
+            placeholder={t("SCHEMA_SIDE_BAR.SEARCH_SCHEMAS")}
+            aria-label={t("SCHEMA_SIDE_BAR.SEARCH_SCHEMAS_2")}
             className="min-w-0 flex-1 bg-transparent text-xs text-foreground outline-hidden placeholder:text-muted-foreground/60"
             {...register("search")}
           />
@@ -242,7 +244,7 @@ export default function SchemasSidebar({
             // Reference count used to be a badge behind the Child filter. The
             // row has no room for it in a flat list, so it rides the tooltip.
             const references = schema.totalSchemaReferences
-              ? `${schema.schemaName} · ${schema.totalSchemaReferences} reference(s)`
+              ? t("SCHEMA_SIDE_BAR.SCHEMANAME_TOTALSCHEMAREFERENCES", { schemaName: schema.schemaName, totalSchemaReferences: schema.totalSchemaReferences })
               : schema.schemaName;
             // What the live version serves differs from these drafts.
             const liveState = schemaLiveState(schema, pendingSchemaIds);
@@ -304,7 +306,7 @@ export default function SchemasSidebar({
           })
         ) : isFilteredOrSearched ? (
           <div className="flex h-full items-center justify-center py-8 text-sm text-muted-foreground/60">
-            No schemas found
+            {t("SCHEMA_SIDE_BAR.NO_SCHEMAS_FOUND")}
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-8 text-center">
@@ -312,9 +314,9 @@ export default function SchemasSidebar({
               <Database className="h-[19px] w-[19px]" aria-hidden />
             </div>
             <p className="text-[12.5px] leading-relaxed text-muted-foreground/70">
-              No schemas yet.
+              {t("SCHEMA_SIDE_BAR.NO_SCHEMAS_YET")}
               <br />
-              They will be listed here.
+              {t("SCHEMA_SIDE_BAR.THEY_WILL_BE_LISTED_HERE")}
             </p>
           </div>
         )}
@@ -327,7 +329,7 @@ export default function SchemasSidebar({
           <Button
             variant="outline"
             size="icon"
-            aria-label="Previous page"
+            aria-label={t("SCHEMA_SIDE_BAR.PREVIOUS_PAGE")}
             onClick={handlePrev}
             disabled={page <= 1}
             className="h-6 w-6 rounded-md border-border/40 disabled:opacity-30"
@@ -337,7 +339,7 @@ export default function SchemasSidebar({
           <Button
             variant="outline"
             size="icon"
-            aria-label="Next page"
+            aria-label={t("SCHEMA_SIDE_BAR.NEXT_PAGE")}
             onClick={handleNext}
             disabled={page * pageSize >= totalCount}
             className="h-6 w-6 rounded-md border-border/40 disabled:opacity-30"

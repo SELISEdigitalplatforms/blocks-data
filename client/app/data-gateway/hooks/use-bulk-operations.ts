@@ -4,6 +4,7 @@ import { IField } from "../models/data-service";
 import { PropertyRow } from "../models/schema-structure.types";
 import { FieldAccessTarget } from "../models/schema-access.types";
 import { sanitizeRuleSet } from "../utils/schema-access.utils";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface UseBulkOperationsProps {
   fields: FieldArrayWithId<{ properties: IField[] }, "properties", "id">[];
@@ -22,6 +23,7 @@ export const useBulkOperations = ({
   readonlyPropertyNames,
   schemaType,
 }: UseBulkOperationsProps) => {
+  const { t } = useT("data.gateway.schema");
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
   const [bulkAccessTargets, setBulkAccessTargets] = useState<FieldAccessTarget[] | null>(null);
   const [isBulkAccessDrawerOpen, setIsBulkAccessDrawerOpen] = useState(false);
@@ -110,11 +112,11 @@ export const useBulkOperations = ({
     setBulkAccessTargets(targets);
     setBulkAccessTitle(
       targets.length === 1
-        ? `Access for ${targets[0].name}`
-        : `Access for ${targets.length} fields`,
+        ? t("USE_BULK_OPERATIONS.ACCESS_FOR_NAME", { name: targets[0].name })
+        : t("USE_BULK_OPERATIONS.ACCESS_FOR_LENGTH_FIELDS", { length: targets.length }),
     );
     setIsBulkAccessDrawerOpen(true);
-  }, [hasSelectedRows, selectedFieldEntries]);
+  }, [hasSelectedRows, selectedFieldEntries, t]);
 
   const clearSelection = useCallback(() => {
     setSelectedRows({});

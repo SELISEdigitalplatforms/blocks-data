@@ -16,6 +16,7 @@ import { ReactNode, useState } from "react";
 
 import ExportSchemaModal from "../export-schema/export-schema-modal";
 import ImportSchemaModal from "../import-schema-modal";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type Utility = {
   label: string;
@@ -31,6 +32,7 @@ type Utility = {
  * buttons here and are section tabs now, so a destination has exactly one home.
  */
 export const DataGatewayUtilities = () => {
+  const { t } = useT("data.gateway.schema");
   const osConfigUrl = useOsSecretManagementUrl("data-gateway");
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -39,13 +41,13 @@ export const DataGatewayUtilities = () => {
 
   const utilities: Utility[] = [
     {
-      label: "API Docs",
+      label: t("DATA_GATEWAY_UTILITIES.API_DOCS"),
       icon: <BookOpen className="h-4 w-4" />,
       onClick: () =>
         window.open(`${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`, "_blank"),
     },
     {
-      label: "Import",
+      label: t("DATA_GATEWAY_UTILITIES.IMPORT"),
       icon: <FolderInput className="h-4 w-4" />,
       onClick: () => {
         // Remount the modal so a second import starts from a clean form.
@@ -54,12 +56,12 @@ export const DataGatewayUtilities = () => {
       },
     },
     {
-      label: "Export",
+      label: t("DATA_GATEWAY_UTILITIES.EXPORT"),
       icon: <Download className="h-4 w-4" />,
       onClick: () => setIsExportModalOpen(true),
     },
     {
-      label: "Configure",
+      label: t("DATA_GATEWAY_UTILITIES.CONFIGURE"),
       icon: <Settings className="h-4 w-4" />,
       // The data source is configured in Blocks OS (secret management), in its own tab.
       onClick: () => window.open(osConfigUrl, "_blank"),
@@ -77,7 +79,7 @@ export const DataGatewayUtilities = () => {
               variant="outline"
               size="icon"
               className="h-8 w-8 border-border/50 text-muted-foreground"
-              aria-label="Utilities"
+              aria-label={t("DATA_GATEWAY_UTILITIES.UTILITIES")}
             >
               <MoreVertical className="h-4 w-4" />
             </Button>

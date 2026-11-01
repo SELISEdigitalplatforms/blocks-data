@@ -33,6 +33,7 @@ import {
   mapIndexRelatedErrorMessage,
 } from "../../utils/schema-index.utils";
 import { SchemaIndexForm } from "./schema-index-form";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /** Backend SchemaType.Dto — indexes are only supported on SchemaType.Entity (1). */
 const DTO_SCHEMA_TYPE = 2;
@@ -53,7 +54,7 @@ const TAG_TONES = {
 const DEFAULT_ITEM_ID_INDEX: ISchemaIndex = {
   itemId: "__default-item-id-index__",
   name: "_id_",
-  fields: [{ fieldName: "ItemId", direction: "ASC" }],
+  fields: [{ get fieldName() { return tStatic("data.gateway.schema", "SCHEMA_INDEXES_TAB.ITEMID"); }, direction: "ASC" }],
   isUnique: true,
   createdDate: "",
 };
@@ -69,6 +70,7 @@ export function SchemaIndexesTab({
   schemaType,
   fields,
 }: SchemaIndexesTabProps) {
+  const { t } = useT("data.gateway.schema");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [pendingDeleteItemId, setPendingDeleteItemId] = useState<string | null>(
     null,
@@ -100,10 +102,10 @@ export function SchemaIndexesTab({
         schemaDefinitionItemId,
       });
       if (res.isSuccess) {
-        showSuccessToast({ description: "Index deleted successfully" });
+        showSuccessToast({ description: t("SCHEMA_INDEXES_TAB.INDEX_DELETED_SUCCESSFULLY") });
       } else {
         const mapped = mapIndexRelatedErrorMessage(res);
-        showErrorToast({ errors: mapped ?? res.errors ?? "Failed to delete index." });
+        showErrorToast({ errors: mapped ?? res.errors ?? t("SCHEMA_INDEXES_TAB.FAILED_TO_DELETE_INDEX") });
       }
     } catch (error) {
       const mapped = mapIndexErrorFromException(error);
@@ -123,7 +125,7 @@ export function SchemaIndexesTab({
       onClick={() => setIsFormOpen(true)}
     >
       <Plus className="h-4 w-4" />
-      Add index
+      {t("SCHEMA_INDEXES_TAB.ADD_INDEX")}
     </Button>
   );
 
@@ -131,7 +133,7 @@ export function SchemaIndexesTab({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-muted-foreground">
-          {indexes.length} of {MAX_INDEXES_PER_SCHEMA} custom indexes
+          {t("SCHEMA_INDEXES_TAB.LENGTH_OF_MAX_INDEXES_PER_SCHEMA", { length: indexes.length, MAX_INDEXES_PER_SCHEMA })}
         </p>
 
         {!isFormOpen &&
@@ -142,8 +144,8 @@ export function SchemaIndexesTab({
               </TooltipTrigger>
               <TooltipContent>
                 {isDto
-                  ? "Indexes are only supported on Entity schemas."
-                  : "Maximum of 15 indexes reached."}
+                  ? t("SCHEMA_INDEXES_TAB.INDEXES_ARE_ONLY_SUPPORTED_ON_ENTITY")
+                  : t("SCHEMA_INDEXES_TAB.MAXIMUM_OF_15_INDEXES_REACHED")}
               </TooltipContent>
             </Tooltip>
           ) : (
@@ -153,7 +155,7 @@ export function SchemaIndexesTab({
 
       {isDto && (
         <p className="text-sm text-muted-foreground">
-          Indexes are only supported on Entity schemas.
+          {t("SCHEMA_INDEXES_TAB.INDEXES_ARE_ONLY_SUPPORTED_ON_ENTITY")}
         </p>
       )}
 
@@ -174,7 +176,7 @@ export function SchemaIndexesTab({
       ) : displayedIndexes.length === 0 ? (
         !isFormOpen && (
           <div className="flex items-center justify-center rounded-sm border border-dashed border-border/30 bg-muted/5 py-8 text-sm text-muted-foreground">
-            No indexes yet
+            {t("SCHEMA_INDEXES_TAB.NO_INDEXES_YET")}
           </div>
         )
       ) : (
@@ -197,25 +199,25 @@ export function SchemaIndexesTab({
                       {index.fields.length} {index.fields.length === 1 ? "property" : "properties"}
                     </span>
                     <Badge variant="outline" className={cn(TAG_BASE, index.isSystem ? TAG_TONES.system : TAG_TONES.custom)}>
-                      {index.isSystem ? "System" : "Custom"}
+                      {index.isSystem ? t("SCHEMA_INDEXES_TAB.SYSTEM") : t("SCHEMA_INDEXES_TAB.CUSTOM")}
                     </Badge>
                     {isGeo && (
                       <Badge
                         variant="outline"
                         className={cn(TAG_BASE, TAG_TONES.geo)}
-                        title="Created and dropped automatically with the GeoJson field"
+                        title={t("SCHEMA_INDEXES_TAB.CREATED_AND_DROPPED_AUTOMATICALLY_WITH")}
                       >
-                        Geospatial · Auto
+                        {t("SCHEMA_INDEXES_TAB.GEOSPATIAL_AUTO")}
                       </Badge>
                     )}
                     {index.fields.length > 1 && (
                       <Badge variant="outline" className={cn(TAG_BASE, TAG_TONES.compound)}>
-                        Compound
+                        {t("SCHEMA_INDEXES_TAB.COMPOUND")}
                       </Badge>
                     )}
                     {index.isUnique && (
                       <Badge variant="outline" className={cn(TAG_BASE, TAG_TONES.unique)}>
-                        Unique
+                        {t("SCHEMA_INDEXES_TAB.UNIQUE")}
                       </Badge>
                     )}
                   </div>
@@ -230,24 +232,24 @@ export function SchemaIndexesTab({
                         variant="ghost"
                         size="icon"
                         className="mr-2 h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
-                        aria-label={`Delete index ${index.name}`}
+                        aria-label={t("SCHEMA_INDEXES_TAB.DELETE_INDEX_NAME", { name: index.name })}
                         onClick={() => setPendingDeleteItemId(index.itemId)}
                       >
                         <Trash className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Delete</TooltipContent>
+                    <TooltipContent>{t("common:DELETE")}</TooltipContent>
                   </Tooltip>
                 )}
               </div>
 
               <AccordionContent className="border-t border-border/30 pb-4 pl-11 pr-4 pt-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Properties
+                  {t("SCHEMA_INDEXES_TAB.PROPERTIES")}
                 </p>
                 <ul
                   className="mt-2 flex items-center gap-6 overflow-x-auto pb-1"
-                  aria-label={`Properties for ${index.name}`}
+                  aria-label={t("SCHEMA_INDEXES_TAB.PROPERTIES_FOR_NAME", { name: index.name })}
                 >
                   {index.fields.map((field, position) => (
                     <li
@@ -282,11 +284,11 @@ export function SchemaIndexesTab({
           onCancel={() => setPendingDeleteItemId(null)}
           onConfirm={() => void handleDelete()}
           data={{
-            dialogTitle: "Delete index?",
+            dialogTitle: t("SCHEMA_INDEXES_TAB.DELETE_INDEX"),
             dialogSubtitle:
-              "Are you sure you want to delete this index? This action cannot be undone.",
-            confirmButton: "Delete",
-            cancelButton: "Cancel",
+              t("SCHEMA_INDEXES_TAB.ARE_YOU_SURE_YOU_WANT_TO"),
+            confirmButton: t("common:DELETE"),
+            cancelButton: t("common:CANCEL"),
           }}
           buttonState={{ confirm: { disable: isDeleting } }}
         />

@@ -6,6 +6,7 @@ import {
 } from "../constants/schema-access-control";
 import type { AccessTier } from "../components/primitives";
 import type { IPolicyItem, IPolicyRule, IPolicyRuleGroup } from "../models/data-service";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * How alarming an effect is. This is not the access tier: a custom policy with
@@ -24,24 +25,24 @@ export type AccessEffect = {
 
 /** Verb as it reads mid-sentence: "Anyone on the internet can *read* Order." */
 const VERB_PHRASES: Record<string, string> = {
-  view: "read",
-  create: "create records in",
-  edit: "edit",
-  delete: "delete from",
+  get view() { return tStatic("data.gateway.schema", "ACCESS_PHRASE.VERB_READ"); },
+  get create() { return tStatic("data.gateway.schema", "ACCESS_PHRASE.VERB_CREATE"); },
+  get edit() { return tStatic("data.gateway.schema", "ACCESS_PHRASE.VERB_EDIT"); },
+  get delete() { return tStatic("data.gateway.schema", "ACCESS_PHRASE.VERB_DELETE"); },
 };
 
 export const verbPhrase = (tab: string) => VERB_PHRASES[tab] ?? tab;
 
 /** Where an operand comes from. 0 Auth, 1 Schema Fields, 2 Static Value. */
 const LEFT_SOURCE_PHRASES: Record<number, string> = {
-  0: "the signed-in user's",
-  1: "the record's",
-  2: "the value",
+  get 0() { return tStatic("data.gateway.schema", "ACCESS_PHRASE.THE_SIGNED_IN_USER_S"); },
+  get 1() { return tStatic("data.gateway.schema", "ACCESS_PHRASE.THE_RECORD_S"); },
+  get 2() { return tStatic("data.gateway.schema", "ACCESS_PHRASE.THE_VALUE"); },
 };
 
 const RIGHT_SOURCE_PHRASES: Record<number, string> = {
-  0: "the signed-in user's",
-  1: "the record's",
+  get 0() { return tStatic("data.gateway.schema", "ACCESS_PHRASE.THE_SIGNED_IN_USER_S"); },
+  get 1() { return tStatic("data.gateway.schema", "ACCESS_PHRASE.THE_RECORD_S"); },
   2: "",
 };
 
@@ -106,7 +107,7 @@ export function ruleSetLines(policy: IPolicyItem): RuleSetLine[] {
       }
       const matchesAll = item.nested.logicalOperator === LOGICAL_OPERATOR.AND;
       return [
-        { lead, text: matchesAll ? "all of:" : "any of:", depth, kind: "group" },
+        { lead, text: matchesAll ? tStatic("data.gateway.schema", "ACCESS_PHRASE.ALL_OF") : tStatic("data.gateway.schema", "ACCESS_PHRASE.ANY_OF"), depth, kind: "group" },
         ...walk(item.nested, depth + 1),
       ];
     });
@@ -146,34 +147,34 @@ export function accessEffect({
 
   if (tier === "public") {
     return {
-      heading: "Anyone, no sign-in",
-      text: `Anyone on the internet can ${verb} ${subject}. This is the widest grant available.`,
+      heading: tStatic("data.gateway.schema", "ACCESS_PHRASE.ANYONE_NO_SIGN_IN"),
+      text: tStatic("data.gateway.schema", "ACCESS_PHRASE.ANYONE_ON_THE_INTERNET_CAN_VERB", { verb, subject }),
       risk: "open",
     };
   }
 
   if (tier === "user") {
     return {
-      heading: "Every signed-in user",
-      text: `Any signed-in user in this project can ${verb} ${subject}, with no further checks.`,
+      heading: tStatic("data.gateway.schema", "ACCESS_PHRASE.EVERY_SIGNED_IN_USER"),
+      text: tStatic("data.gateway.schema", "ACCESS_PHRASE.ANY_SIGNED_IN_USER_IN_THIS", { verb, subject }),
       risk: "caution",
     };
   }
 
   if (tier === "inherited") {
     return {
-      heading: "Inherited",
-      text: `Follows whatever the schema allows for ${verb === "read" ? "reading" : verb}.`,
+      heading: tStatic("data.gateway.schema", "ACCESS_PHRASE.INHERITED"),
+      text: tStatic("data.gateway.schema", "ACCESS_PHRASE.FOLLOWS_WHATEVER_THE_SCHEMA_ALLOWS_FOR", { value: verb === "read" ? "reading" : verb }),
       risk: "inherited",
     };
   }
 
   if (policies.some((policy) => policy.isAllowPolicy === false)) {
     return {
-      heading: "Cannot be summarised",
+      heading: tStatic("data.gateway.schema", "ACCESS_PHRASE.CANNOT_BE_SUMMARISED"),
       text:
-        `This policy includes a deny rule set, which the editor cannot represent. ` +
-        `Read the rule sets below rather than trusting a summary.`,
+        tStatic("data.gateway.schema", "ACCESS_PHRASE.THIS_POLICY_INCLUDES_A_DENY_RULE") +
+        tStatic("data.gateway.schema", "ACCESS_PHRASE.READ_THE_RULE_SETS_BELOW_RATHER"),
       risk: "unknown",
     };
   }
@@ -181,18 +182,18 @@ export function accessEffect({
   // The trap: custom with nothing in it looks configured and grants nothing.
   if (policies.length === 0) {
     return {
-      heading: "Nobody",
-      text: `A custom policy with no rule sets allows nobody to ${verb} ${subject}.`,
+      heading: tStatic("data.gateway.schema", "ACCESS_PHRASE.NOBODY"),
+      text: tStatic("data.gateway.schema", "ACCESS_PHRASE.A_CUSTOM_POLICY_WITH_NO_RULE", { verb, subject }),
       risk: "none",
     };
   }
 
   return {
-    heading: "Effect",
+    heading: tStatic("data.gateway.schema", "ACCESS_PHRASE.EFFECT"),
     text:
       policies.length === 1
-        ? `A signed-in user can ${verb} ${subject} when ${listNames(policies)} matches.`
-        : `A signed-in user can ${verb} ${subject} when any of these ${policies.length} rule sets match: ${listNames(policies)}.`,
+        ? tStatic("data.gateway.schema", "ACCESS_PHRASE.SIGNED_IN_USER_CAN_WHEN_MATCHES", { verb, subject, names: listNames(policies) })
+        : tStatic("data.gateway.schema", "ACCESS_PHRASE.SIGNED_IN_USER_CAN_WHEN_ANY_MATCH", { verb, subject, count: policies.length, names: listNames(policies) }),
     risk: "scoped",
   };
 }

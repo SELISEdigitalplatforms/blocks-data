@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, X } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui-kits/radio-group/radio-group";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui-kits/popover/popover";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface SortPopoverProps {
   fieldNames: string[];
@@ -21,6 +22,7 @@ export function SortPopover({
   onApply,
   onClear,
 }: SortPopoverProps) {
+  const { t } = useT("data.gateway.schema");
   const [open, setOpen] = useState(false);
   const [draftField, setDraftField] = useState("");
   const [draftDirection, setDraftDirection] = useState<"asc" | "desc">("asc");
@@ -52,7 +54,7 @@ export function SortPopover({
             type="button"
             variant="ghost"
             size="icon"
-            title="Sort"
+            title={t("SORT_POPOVER.SORT")}
             className={`h-8 w-8 ${appliedSortField ? "text-primary" : "text-muted-foreground"}`}
           >
             <SortIcon className="h-4 w-4" />
@@ -60,14 +62,14 @@ export function SortPopover({
         </PopoverTrigger>
         <PopoverContent align="start" className="w-64 p-0">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <p className="text-xs font-medium">Sort</p>
+            <p className="text-xs font-medium">{t("SORT_POPOVER.SORT")}</p>
             {draftField && (
               <button
                 type="button"
                 className="text-xs text-muted-foreground hover:text-foreground"
                 onClick={() => setDraftField("")}
               >
-                Reset
+                {t("common:RESET")}
               </button>
             )}
           </div>
@@ -92,7 +94,7 @@ export function SortPopover({
               className="flex-1 text-xs"
               onClick={() => setDraftDirection("asc")}
             >
-              Ascending
+              {t("SORT_POPOVER.ASCENDING")}
             </Button>
             <Button
               type="button"
@@ -101,12 +103,12 @@ export function SortPopover({
               className="flex-1 text-xs"
               onClick={() => setDraftDirection("desc")}
             >
-              Descending
+              {t("SORT_POPOVER.DESCENDING")}
             </Button>
           </div>
           <div className="flex items-center justify-end border-t border-border px-3 py-2">
             <Button type="button" size="sm" className="text-xs" onClick={handleApply}>
-              Apply
+              {t("common:APPLY")}
             </Button>
           </div>
         </PopoverContent>

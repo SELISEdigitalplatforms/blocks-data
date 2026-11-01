@@ -1,12 +1,6 @@
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 export const dataServiceInstructions = {
-  description:
-    "Connect your data source and let Blocks Cloud manage it — from access to integration.",
-  note: "To get started:",
-  steps: [
-    "Click Configure to open the data gateway settings in Blocks OS",
-    "Choose between a database from Blocks or your existing platform's data",
-    "Select or provide connection details",
-    "Review and confirm the configuration",
-    "Come back here to set up your relevant schemas for your data service as needed",
-  ],
+  get description() { return tStatic("data.gateway.schema", "INSTRUCTIONS.CONNECT_YOUR_DATA_SOURCE_AND_LET"); },
+  get note() { return tStatic("data.gateway.schema", "INSTRUCTIONS.TO_GET_STARTED"); },
+  get steps() { return [tStatic("data.gateway.schema", "INSTRUCTIONS.CLICK_CONFIGURE_TO_OPEN_THE_DATA"), tStatic("data.gateway.schema", "INSTRUCTIONS.CHOOSE_BETWEEN_A_DATABASE_FROM_BLOCKS"), tStatic("data.gateway.schema", "INSTRUCTIONS.SELECT_OR_PROVIDE_CONNECTION_DETAILS"), tStatic("data.gateway.schema", "INSTRUCTIONS.REVIEW_AND_CONFIRM_THE_CONFIGURATION"), tStatic("data.gateway.schema", "INSTRUCTIONS.COME_BACK_HERE_TO_SET_UP")]; },
 };

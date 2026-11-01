@@ -35,6 +35,7 @@ import {
   allowLettersNumbersUnderscoreKeyDown,
   SCHEMA_NAME_ALLOWED_PATTERN,
 } from "../utils/input-restriction.util";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type SchemaFormValues = {
   schemaName: string;
@@ -59,6 +60,7 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   onCancel,
   onSubmit,
 }) => {
+  const { t } = useT("data.gateway.schema");
   const {
     register,
     handleSubmit,
@@ -83,11 +85,11 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
   const [isEditConfirmationModalOpen, setIsEditConfirmationModalOpen] =
     useState(false);
   const editSchemaConfirmationModalData = {
-    dialogTitle: "Update schema property",
+    dialogTitle: t("ADD_EDIT_SCHEMA.UPDATE_SCHEMA_PROPERTY"),
     dialogSubtitle:
-      "Updating the schema properties will impact all existing data. Any necessary updates will need to be handled manually. Are you sure you want to proceed?",
-    confirmButton: "Update",
-    cancelButton: "Cancel",
+      t("ADD_EDIT_SCHEMA.UPDATING_THE_SCHEMA_PROPERTIES_WILL"),
+    confirmButton: t("common:UPDATE"),
+    cancelButton: t("common:CANCEL"),
   };
 
   const schemaType = watch("schemaType");
@@ -149,13 +151,13 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
       if (exists) {
         setError("schemaName", {
           type: "manual",
-          message: "Schema with this name already exists",
+          message: t("ADD_EDIT_SCHEMA.SCHEMA_WITH_THIS_NAME_ALREADY_EXISTS"),
         });
       } else {
         clearErrors("schemaName");
       }
     }, 0);
-  }, [schemaName, schemaListQuery, setError, clearErrors]);
+  }, [schemaName, schemaListQuery, setError, clearErrors, t]);
 
   const onFormSubmit = async (data: SchemaFormValues) => {
     if (mode === "edit") {
@@ -191,7 +193,7 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
     } catch (error) {
       console.error("Error creating schema:", error);
       showErrorToast({
-        errors: ["An unexpected error occurred. Please try again."],
+        errors: [t("ADD_EDIT_SCHEMA.AN_UNEXPECTED_ERROR_OCCURRED_PLEASE")],
       });
     } finally {
       setIsEditConfirmationModalOpen(false);
@@ -208,17 +210,16 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
             ) : (
               <Plus className="h-4 w-4 text-indigo-400" />
             )}
-            {mode === "edit" ? "Edit Schema" : "Add New Schema"}
+            {mode === "edit" ? t("ADD_EDIT_SCHEMA.EDIT_SCHEMA") : t("ADD_EDIT_SCHEMA.ADD_NEW_SCHEMA")}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Define a schema to structure your data.
+            {t("ADD_EDIT_SCHEMA.DEFINE_A_SCHEMA_TO_STRUCTURE_YOUR")}
           </p>
           {mode === "edit" && (
             <div className="mb-4 rounded-md border border-base-warning bg-warning-100 p-4 dark:border-icon-warning dark:bg-warning-800/20">
               <div className="flex items-start gap-2 text-warning-700 dark:text-icon-warning">
                 <p className="text-sm">
-                  Editing schema properties will impact all areas of the
-                  application where they are used.
+                  {t("ADD_EDIT_SCHEMA.EDITING_SCHEMA_PROPERTIES_WILL_IMPACT")}
                 </p>
               </div>
             </div>
@@ -233,19 +234,19 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                 htmlFor="schemaName"
                 className="text-sm font-medium text-medium-emphasis"
               >
-                Schema name
+                {t("ADD_EDIT_SCHEMA.SCHEMA_NAME")}
               </label>
               <Input
                 id="schemaName"
                 type="text"
-                placeholder="Enter schema name"
+                placeholder={t("ADD_EDIT_SCHEMA.ENTER_SCHEMA_NAME")}
                 className="mt-1 w-full rounded border px-3 py-2 text-sm"
                 {...register("schemaName", {
-                  required: "Schema name is required",
+                  required: t("ADD_EDIT_SCHEMA.SCHEMA_NAME_IS_REQUIRED"),
                   pattern: {
                     value: SCHEMA_NAME_ALLOWED_PATTERN,
                     message:
-                      "Only letters, numbers, and '_' are allowed. Cannot start with a number.",
+                      t("ADD_EDIT_SCHEMA.ONLY_LETTERS_NUMBERS_AND_ARE_ALLOWED"),
                   },
                   onChange: (e) => {
                     const sanitized = e.target.value
@@ -300,14 +301,14 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                 }
               >
                 <Label htmlFor="schemaType" className="text-medium-emphasis">
-                  Schema Type
+                  {t("ADD_EDIT_SCHEMA.SCHEMA_TYPE")}
                 </Label>
                 <SelectTrigger id="schemaType">
-                  <SelectValue placeholder="Select schema type" />
+                  <SelectValue placeholder={t("ADD_EDIT_SCHEMA.SELECT_SCHEMA_TYPE")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Entity">Entity</SelectItem>
-                  <SelectItem value="DTO">Child</SelectItem>
+                  <SelectItem value="Entity">{t("ADD_EDIT_SCHEMA.ENTITY")}</SelectItem>
+                  <SelectItem value="DTO">{t("ADD_EDIT_SCHEMA.CHILD")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -319,19 +320,19 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
                   htmlFor="entityName"
                   className="text-sm font-medium text-medium-emphasis"
                 >
-                  Entity name
+                  {t("ADD_EDIT_SCHEMA.ENTITY_NAME")}
                 </label>
                 <Input
                   id="entityName"
                   type="text"
-                  placeholder="Enter entity name"
+                  placeholder={t("ADD_EDIT_SCHEMA.ENTER_ENTITY_NAME")}
                   className="mt-1 w-full rounded border px-3 py-2 text-sm"
                   {...register("entityName", {
-                    required: "Entity name is required",
+                    required: t("ADD_EDIT_SCHEMA.ENTITY_NAME_IS_REQUIRED"),
                     pattern: {
                       value: SCHEMA_NAME_ALLOWED_PATTERN,
                       message:
-                        "Only letters, numbers, and '_' are allowed. Cannot start with a number.",
+                        t("ADD_EDIT_SCHEMA.ONLY_LETTERS_NUMBERS_AND_ARE_ALLOWED"),
                     },
                     onChange: (e) => {
                       const sanitized = e.target.value
@@ -382,16 +383,16 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
             {/* Description (section 7): shown under the name, and in the target picker. */}
             <div>
               <label htmlFor="schemaDescription" className="text-sm font-medium text-medium-emphasis">
-                Description <span className="font-normal text-muted-foreground">(optional)</span>
+                {t("common:DESCRIPTION")} <span className="font-normal text-muted-foreground">{t("ADD_EDIT_SCHEMA.OPTIONAL")}</span>
               </label>
               <Textarea
                 id="schemaDescription"
                 rows={2}
-                placeholder="What this schema holds, e.g. Companies and people we sell to"
+                placeholder={t("ADD_EDIT_SCHEMA.WHAT_THIS_SCHEMA_HOLDS_E_G")}
                 className="mt-1 w-full resize-none rounded border px-3 py-2 text-sm"
                 {...register("description", {
                   validate: (value) =>
-                    (value ?? "").trim().length <= SCHEMA_DESCRIPTION_MAX_LENGTH || `At most ${SCHEMA_DESCRIPTION_MAX_LENGTH} characters`,
+                    (value ?? "").trim().length <= SCHEMA_DESCRIPTION_MAX_LENGTH || t("ADD_EDIT_SCHEMA.AT_MOST_SCHEMA_DESCRIPTION_MAX_LENGTH", { SCHEMA_DESCRIPTION_MAX_LENGTH }),
                 })}
               />
               {errors.description && <p className="mt-1 text-sm text-red-500">{errors.description.message}</p>}
@@ -400,10 +401,10 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
 
           <DialogFooter className="mt-4">
             <Button variant="outline" type="button" onClick={onCancel}>
-              Cancel
+              {t("common:CANCEL")}
             </Button>
             <Button type="submit" disabled={!isValid}>
-              {mode === "edit" ? "Save" : "Add"}
+              {mode === "edit" ? t("common:SAVE") : t("common:ADD")}
             </Button>
           </DialogFooter>
         </form>
@@ -435,10 +436,10 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
               size="sm"
               onClick={() => setIsEditConfirmationModalOpen(false)}
             >
-              {editSchemaConfirmationModalData.cancelButton || "Cancel"}
+              {editSchemaConfirmationModalData.cancelButton || t("common:CANCEL")}
             </Button>
             <Button size="sm" onClick={handleEditConfirm}>
-              {editSchemaConfirmationModalData.confirmButton || "Confirm"}
+              {editSchemaConfirmationModalData.confirmButton || t("common:CONFIRM")}
             </Button>
           </DialogFooter>
         </DialogContent>

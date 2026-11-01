@@ -3,13 +3,14 @@ import { cn } from "@/lib/utils";
 import { RectangleEllipsis } from "lucide-react";
 import type { IFieldDefaultValue } from "../../models/data-service";
 import { LOCKED_DEFAULT_PROPERTIES, canHaveDefault, formatDefaultSummary } from "../../utils/default-value.util";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /** Why a field can't take a default, or null when it can. */
 function unavailableReason(fieldName: string, fieldType: string, isNewField: boolean, isEditMode: boolean): string | null {
-  if (isEditMode) return "Exit edit mode to manage the default value";
-  if (isNewField) return "Save the field before setting a default value";
-  if (LOCKED_DEFAULT_PROPERTIES.includes(fieldName)) return `${fieldName} is set by the platform on every save`;
-  if (!canHaveDefault(fieldName, fieldType)) return "Default values are only available for text, number, true/false, date-time and enum properties";
+  if (isEditMode) return tStatic("data.gateway.schema", "DEFAULT_VALUE_BUTTON.EXIT_EDIT_MODE_TO_MANAGE_THE");
+  if (isNewField) return tStatic("data.gateway.schema", "DEFAULT_VALUE_BUTTON.SAVE_THE_FIELD_BEFORE_SETTING_A");
+  if (LOCKED_DEFAULT_PROPERTIES.includes(fieldName)) return tStatic("data.gateway.schema", "DEFAULT_VALUE_BUTTON.FIELDNAME_IS_SET_BY_THE_PLATFORM", { fieldName });
+  if (!canHaveDefault(fieldName, fieldType)) return tStatic("data.gateway.schema", "DEFAULT_VALUE_BUTTON.DEFAULT_VALUES_ARE_ONLY_AVAILABLE_FOR");
   return null;
 }
 
@@ -38,6 +39,7 @@ export function DefaultValueButton({
   active?: boolean;
   onOpen: () => void;
 }>) {
+  const { t } = useT("data.gateway.schema");
   const reason = unavailableReason(fieldName, fieldType, isNewField, isEditMode);
   const summary = defaultValue ? formatDefaultSummary(defaultValue) : null;
   const shape = wide
@@ -76,12 +78,12 @@ export function DefaultValueButton({
             !active && defaultValue && "border-primary/30 bg-primary/10 text-primary",
             !active && !defaultValue && "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
           )}
-          aria-label={summary ? `Default value for ${fieldName} (${summary})` : `Default value for ${fieldName}`}
+          aria-label={summary ? t("DEFAULT_VALUE_BUTTON.DEFAULT_VALUE_FOR_FIELDNAME_SUMMARY", { fieldName, summary }) : t("DEFAULT_VALUE_BUTTON.DEFAULT_VALUE_FOR_FIELDNAME", { fieldName })}
         >
           <RectangleEllipsis className={iconClass} />
         </button>
       </TooltipTrigger>
-      <TooltipContent>{summary ? `Default value: ${summary}` : "Set a default value"}</TooltipContent>
+      <TooltipContent>{summary ? t("DEFAULT_VALUE_BUTTON.DEFAULT_VALUE_SUMMARY", { summary }) : t("DEFAULT_VALUE_BUTTON.SET_A_DEFAULT_VALUE")}</TooltipContent>
     </Tooltip>
   );
 }

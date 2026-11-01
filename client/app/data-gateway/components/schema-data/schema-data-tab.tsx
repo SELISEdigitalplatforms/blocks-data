@@ -15,6 +15,7 @@ import { ProjectionPopover } from "./toolbar/projection-popover";
 import { SortPopover } from "./toolbar/sort-popover";
 import { ResetButton } from "./toolbar/reset-button";
 import { DataPagination } from "./toolbar/data-pagination";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 type ViewMode = "list" | "json" | "table";
 
@@ -192,21 +193,23 @@ function LoadingSkeleton() {
 }
 
 function EmptyState() {
+  const { t } = useT("data.gateway.schema");
   return (
     <div className="flex h-[calc(100vh-608px)] flex-col items-center justify-center text-center py-4">
-      <p className="text-sm font-medium text-foreground">No data found</p>
+      <p className="text-sm font-medium text-foreground">{t("common:NO_DATA")}</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        This schema has no records yet.
+        {t("SCHEMA_DATA_TAB.THIS_SCHEMA_HAS_NO_RECORDS_YET")}
       </p>
     </div>
   );
 }
 
 function ErrorState({ message }: { message: string }) {
+  const { t } = useT("data.gateway.schema");
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <p className="text-sm font-medium text-destructive">
-        Failed to fetch data
+        {t("SCHEMA_DATA_TAB.FAILED_TO_FETCH_DATA")}
       </p>
       <p className="mt-1 max-w-xs text-xs text-muted-foreground">{message}</p>
     </div>
@@ -214,9 +217,9 @@ function ErrorState({ message }: { message: string }) {
 }
 
 const VIEW_TOGGLES: { mode: ViewMode; icon: ReactNode; label: string }[] = [
-  { mode: "table", icon: <Table2 className="h-4 w-4" />, label: "Table view" },
-  { mode: "json", icon: <Braces className="h-4 w-4" />, label: "JSON view" },
-  { mode: "list", icon: <List className="h-4 w-4" />, label: "List view" },
+  { mode: "table", icon: <Table2 className="h-4 w-4" />, get label() { return tStatic("data.gateway.schema", "SCHEMA_DATA_TAB.TABLE_VIEW"); } },
+  { mode: "json", icon: <Braces className="h-4 w-4" />, get label() { return tStatic("data.gateway.schema", "SCHEMA_DATA_TAB.JSON_VIEW"); } },
+  { mode: "list", icon: <List className="h-4 w-4" />, get label() { return tStatic("data.gateway.schema", "SCHEMA_DATA_TAB.LIST_VIEW"); } },
 ];
 
 // ---------------------------------------------------------------------------
@@ -228,6 +231,7 @@ export function SchemaDataTab({
   fields,
   previewData,
 }: SchemaDataTabProps) {
+  const { t } = useT("data.gateway.schema");
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [data, setData] = useState<Record<string, unknown>[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -308,7 +312,7 @@ export function SchemaDataTab({
       setTotalCount(count);
     } catch (err) {
       if (err instanceof HttpError && err.status === 404) {
-        setError("Please check the server status");
+        setError(t("SCHEMA_DATA_TAB.PLEASE_CHECK_THE_SERVER_STATUS"));
       } else {
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -445,7 +449,7 @@ export function SchemaDataTab({
             className="h-8 w-8"
             onClick={() => fetchData(pageNo)}
             disabled={isLoading}
-            title="Refresh data"
+            title={t("SCHEMA_DATA_TAB.REFRESH_DATA")}
           >
             <RefreshCw
               className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}

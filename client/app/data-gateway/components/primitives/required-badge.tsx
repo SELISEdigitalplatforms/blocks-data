@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 
 import type { RequiredOn } from "../../models/data-service";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * IsRequired is an enum, not a boolean — None | Insert | Update | Both. It is
@@ -9,16 +10,16 @@ import type { RequiredOn } from "../../models/data-service";
  */
 const LABELS: Record<RequiredOn, string> = {
   None: "—",
-  Insert: "Insert",
-  Update: "Update",
-  Both: "Both",
+  get Insert() { return tStatic("data.gateway.schema", "REQUIRED_BADGE.INSERT"); },
+  get Update() { return tStatic("data.gateway.schema", "common:UPDATE"); },
+  get Both() { return tStatic("data.gateway.schema", "REQUIRED_BADGE.BOTH"); },
 };
 
 const TITLES: Record<RequiredOn, string> = {
-  None: "Never required",
-  Insert: "Required when the record is created",
-  Update: "Required when the record is updated",
-  Both: "Required on create and update",
+  get None() { return tStatic("data.gateway.schema", "REQUIRED_BADGE.NEVER_REQUIRED"); },
+  get Insert() { return tStatic("data.gateway.schema", "REQUIRED_BADGE.REQUIRED_WHEN_THE_RECORD_IS_CREATED"); },
+  get Update() { return tStatic("data.gateway.schema", "REQUIRED_BADGE.REQUIRED_WHEN_THE_RECORD_IS_UPDATED"); },
+  get Both() { return tStatic("data.gateway.schema", "REQUIRED_BADGE.REQUIRED_ON_CREATE_AND_UPDATE"); },
 };
 
 export function RequiredBadge({

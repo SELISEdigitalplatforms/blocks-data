@@ -1,6 +1,7 @@
 import { HttpError } from "@/lib/http-client";
 import type { IField, IndexDirection } from "../models/data-service";
 import { buildValidationFieldName } from "./schema-normalization";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * The backend returns a bare error code (optionally with a ": <detail>" suffix) either as
@@ -13,21 +14,21 @@ interface IndexErrorSource {
 }
 
 const INDEX_ERROR_MESSAGES: Record<string, (detail: string) => string> = {
-  SCHEMA_NOT_FOUND: () => "Schema not found.",
-  SCHEMA_TYPE_NOT_INDEXABLE: () => "Indexes are only supported on Entity schemas.",
+  SCHEMA_NOT_FOUND: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.SCHEMA_NOT_FOUND"),
+  SCHEMA_TYPE_NOT_INDEXABLE: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.INDEXES_ARE_ONLY_SUPPORTED_ON_ENTITY"),
   FIELD_NOT_INDEXABLE: (detail) =>
-    detail ? `Field '${detail}' cannot be indexed.` : "One or more selected fields cannot be indexed.",
-  INVALID_INDEX_FIELDS: () => "Select at least one field, with no field repeated.",
-  INVALID_INDEX_NAME: () => "Index name cannot exceed 128 characters.",
-  INDEX_ALREADY_EXISTS: () => "An index with this name or exact property combination already exists.",
-  INDEX_LIMIT_REACHED: () => "This schema already has the maximum of 15 indexes.",
+    detail ? tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.FIELD_DETAIL_CANNOT_BE_INDEXED", { detail }) : tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.ONE_OR_MORE_SELECTED_FIELDS_CANNOT"),
+  INVALID_INDEX_FIELDS: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.SELECT_AT_LEAST_ONE_FIELD_WITH"),
+  INVALID_INDEX_NAME: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.INDEX_NAME_CANNOT_EXCEED_128"),
+  INDEX_ALREADY_EXISTS: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.AN_INDEX_WITH_THIS_NAME_OR"),
+  INDEX_LIMIT_REACHED: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.THIS_SCHEMA_ALREADY_HAS_THE_MAXIMUM"),
   UNIQUE_INDEX_CONFLICT: () =>
-    "Cannot create a unique index: this field combination already has duplicate values in existing data.",
-  INDEX_NOT_FOUND: () => "This index no longer exists.",
+    tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.CANNOT_CREATE_A_UNIQUE_INDEX_THIS"),
+  INDEX_NOT_FOUND: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.THIS_INDEX_NO_LONGER_EXISTS"),
   FIELD_USED_BY_INDEX: (detail) =>
     detail
-      ? `This field is used by index '${detail}' and cannot be deleted.`
-      : "This field is used by an existing index and cannot be deleted.",
+      ? tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.THIS_FIELD_IS_USED_BY_INDEX", { detail })
+      : tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.THIS_FIELD_IS_USED_BY_AN"),
 };
 
 const extractRawCode = (res: IndexErrorSource): string | null => {
@@ -71,8 +72,8 @@ export function mapIndexErrorFromException(error: unknown): string | null {
 }
 
 export const INDEX_DIRECTION_LABELS: Record<IndexDirection, string> = {
-  ASC: "Ascending",
-  DESC: "Descending",
+  get ASC() { return tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.ASCENDING"); },
+  get DESC() { return tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.DESCENDING"); },
 };
 
 export const MAX_INDEX_FIELDS = 10;

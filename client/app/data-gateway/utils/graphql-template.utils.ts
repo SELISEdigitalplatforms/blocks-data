@@ -5,6 +5,7 @@ import type {
   TemplateSection,
 } from "../models/schema-preview.types";
 import { SAMPLE_VALUE_BY_TYPE } from "../models/schema-preview.types";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 // ─── JSON Formatting ──────────────────────────────────────────────────────────
 
@@ -339,23 +340,23 @@ export const buildTemplateSections = ({
 
   return [
     {
-      title: "Query",
-      description: "Fetch data from the schema",
+      title: tStatic("data.gateway.schema", "GRAPHQL_TEMPLATE_UTILS.QUERY"),
+      description: tStatic("data.gateway.schema", "GRAPHQL_TEMPLATE_UTILS.FETCH_DATA_FROM_THE_SCHEMA"),
       code: buildQuery(`${schemaName}s`, normalizedFields, previewData),
     },
     {
-      title: "Insert",
-      description: "Add new entries to the schema",
+      title: tStatic("data.gateway.schema", "GRAPHQL_TEMPLATE_UTILS.INSERT"),
+      description: tStatic("data.gateway.schema", "GRAPHQL_TEMPLATE_UTILS.ADD_NEW_ENTRIES_TO_THE_SCHEMA"),
       code: buildInsertMutation(schemaName as string, editableFields, previewData),
     },
     {
-      title: "Update",
-      description: "Modify existing entries",
+      title: tStatic("data.gateway.schema", "common:UPDATE"),
+      description: tStatic("data.gateway.schema", "GRAPHQL_TEMPLATE_UTILS.MODIFY_EXISTING_ENTRIES"),
       code: buildUpdateMutation(schemaName as string, editableFields, previewData),
     },
     {
-      title: "Delete",
-      description: "Remove entries from the schema",
+      title: tStatic("data.gateway.schema", "common:DELETE"),
+      description: tStatic("data.gateway.schema", "GRAPHQL_TEMPLATE_UTILS.REMOVE_ENTRIES_FROM_THE_SCHEMA"),
       code: buildDeleteMutation(schemaName as string),
     },
   ];

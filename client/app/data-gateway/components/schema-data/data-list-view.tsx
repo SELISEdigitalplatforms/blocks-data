@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronRight, EyeOff } from "lucide-react";
 import { CopyToClipboardButton } from "@/components/copy-to-clipboard-button/copy-to-clipboard-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/tooltip/tooltip";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface DataListViewProps {
   data: Record<string, unknown>[];
@@ -21,6 +22,7 @@ function CollapsibleNested({
   children: React.ReactNode;
   itemCount?: number;
 }) {
+  const { t } = useT("data.gateway.schema");
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -35,7 +37,7 @@ function CollapsibleNested({
         <span>{label}</span>
         {itemCount !== undefined && (
           <span className="ml-1 text-muted-foreground/60">
-            {itemCount} item{itemCount !== 1 ? "s" : ""}
+            {itemCount} {t("DATA_LIST_VIEW.ITEM")}{itemCount !== 1 ? "s" : ""}
           </span>
         )}
       </button>
@@ -45,8 +47,9 @@ function CollapsibleNested({
 }
 
 function NestedValue({ value, depth = 0 }: { value: unknown; depth?: number }) {
+  const { t } = useT("data.gateway.schema");
   if (value === null || value === undefined) {
-    return <span className="italic text-muted-foreground">null</span>;
+    return <span className="italic text-muted-foreground">{t("DATA_LIST_VIEW.NULL")}</span>;
   }
 
   if (typeof value === "boolean") {
@@ -62,7 +65,7 @@ function NestedValue({ value, depth = 0 }: { value: unknown; depth?: number }) {
       return <span className="italic text-muted-foreground">[]</span>;
     }
     return (
-      <CollapsibleNested label="Array" itemCount={value.length}>
+      <CollapsibleNested label={t("DATA_LIST_VIEW.ARRAY")} itemCount={value.length}>
         <div className="space-y-2 pt-1">
           {value.map((item, idx) => (
             <div key={idx}>
@@ -82,7 +85,7 @@ function NestedValue({ value, depth = 0 }: { value: unknown; depth?: number }) {
 
   const entries = Object.entries(value as Record<string, unknown>);
   return (
-    <CollapsibleNested label="Object" itemCount={entries.length}>
+    <CollapsibleNested label={t("DATA_LIST_VIEW.OBJECT")} itemCount={entries.length}>
       <div className="pt-1">
         <NestedRecord record={value as Record<string, unknown>} depth={depth + 1} />
       </div>
@@ -99,6 +102,7 @@ function NestedRecord({
   depth?: number;
   piiFields?: Set<string>;
 }) {
+  const { t } = useT("data.gateway.schema");
   return (
     <div className="space-y-1.5">
       {Object.entries(record).map(([key, val]) => {
@@ -123,7 +127,7 @@ function NestedRecord({
                       <EyeOff className="h-3.5 w-3.5 shrink-0 cursor-default" />
                     </TooltipTrigger>
                     <TooltipContent>
-                      This field contains personally identifiable information and is masked
+                      {t("DATA_LIST_VIEW.THIS_FIELD_CONTAINS_PERSONALLY")}
                     </TooltipContent>
                   </Tooltip>
                 </span>

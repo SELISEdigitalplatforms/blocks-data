@@ -12,6 +12,7 @@ import type { NestedTreeRow, TreeGuide } from "../../utils/nested-tree.util";
 import { getValidationDisplayInfo } from "../../utils/schema-normalization";
 import { FieldFlags, RequiredBadge, TypeChip, flagTitlesFromField, flagsFromField } from "../primitives";
 import { DefaultValueButton } from "./default-value-button";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * The tree drawing of the schema table: guide lines, the open/close chevron, and the read-only rows
@@ -159,13 +160,14 @@ export function NestedTreeRowView({
   activeRule: "validation" | "default" | null;
   actions: NestedRowActions;
 }>) {
+  const { t } = useT("data.gateway.schema");
   if (row.kind !== "field") {
     return (
       <TableRow className="bg-muted/20 hover:bg-muted/20">
         <TableCell colSpan={columnCount} className="relative py-2.5 align-middle">
           <TreeGuides guides={row.guides} />
           <span style={treeIndent(row.depth)} className="block pl-6 text-xs text-muted-foreground">
-            {row.kind === "loading" ? "Loading fields…" : "No fields yet"}
+            {row.kind === "loading" ? t("PROPERTY_TREE.LOADING_FIELDS") : t("PROPERTY_TREE.NO_FIELDS_YET")}
           </span>
         </TableCell>
       </TableRow>
@@ -179,7 +181,7 @@ export function NestedTreeRowView({
   const hasCustomAccess = [field.readAccessLevel, field.writeAccessLevel, field.editAccessLevel].some(
     (level) => (ACCESS_LEVEL_TO_TYPE[level ?? 0] ?? ACCESS_TYPES.INHERITED) !== ACCESS_TYPES.INHERITED,
   );
-  const objectReason = `Rules apply to the fields inside ${field.name}`;
+  const objectReason = t("PROPERTY_TREE.RULES_APPLY_TO_THE_FIELDS_INSIDE", { name: field.name });
 
   return (
     <TableRow className={cn("bg-muted/20 hover:bg-muted/30", activeRule && "bg-primary/[0.06] hover:bg-primary/[0.08]")} data-tree-depth={row.depth}>
@@ -192,7 +194,7 @@ export function NestedTreeRowView({
             {isObject ? (
               <TreeToggle
                 expanded={row.isExpanded}
-                label={`${row.isExpanded ? "Collapse" : "Expand"} ${path}`}
+                label={t(row.isExpanded ? "PROPERTY_TREE.COLLAPSE_PATH" : "PROPERTY_TREE.EXPAND_PATH", { path })}
                 blockedReason={row.blockedReason}
                 onToggle={() => actions.onToggle(path)}
               />
@@ -234,7 +236,7 @@ export function NestedTreeRowView({
                 <button
                   type="button"
                   onClick={() => actions.onOpenAccess(path, field)}
-                  aria-label={`View access for ${path}`}
+                  aria-label={t("PROPERTY_TREE.VIEW_ACCESS_FOR_PATH", { path })}
                   className={cn(
                     RULE_BUTTON_CLASS,
                     "w-[26px]",
@@ -254,7 +256,7 @@ export function NestedTreeRowView({
                 type="button"
                 onClick={() => actions.onOpenValidation(path, field)}
                 aria-expanded={activeRule === "validation"}
-                aria-label={`Manage validations for ${path}${validation.total > 0 ? ` (${validation.total})` : ""}`}
+                aria-label={validation.total > 0 ? t("PROPERTY_TREE.MANAGE_VALIDATIONS_FOR_TOTAL", { name: path, total: validation.total }) : t("PROPERTY_TREE.MANAGE_VALIDATIONS_FOR", { name: path })}
                 className={cn(
                   RULE_BUTTON_CLASS,
                   "min-w-[28px] gap-1 px-1",

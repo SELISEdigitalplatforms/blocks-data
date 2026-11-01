@@ -33,6 +33,7 @@ import {
   sortByRisk as sortSchemasByRisk,
   type SecurityFilter,
 } from "../../utils/security-summary";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface SecurityAndPerformanceProps {
   onSchemaRowClick: (schema: Schema) => void;
@@ -45,6 +46,7 @@ const SecurityAndPerformance = ({
   onNavigateToSchemas,
   onSchemaCreated,
 }: SecurityAndPerformanceProps) => {
+  const { t } = useT("data.gateway.schema");
   const [isAddSchemaModalOpen, setIsAddSchemaModalOpen] = useState(false);
   const [addSchemaInstance, setAddSchemaInstance] = useState(0);
   const [pageNo, setPageNo] = useState(1);
@@ -75,10 +77,10 @@ const SecurityAndPerformance = ({
         }
       } catch (error) {
         console.error(error);
-        showErrorToast({ errors: "Error processing import schema" });
+        showErrorToast({ errors: t("SECURITY_AND_PERFORMANCE.ERROR_PROCESSING_IMPORT_SCHEMA") });
       }
     },
-    [queryClient],
+    [queryClient, t],
   );
 
   useNotificationListener("schema-import", handleImportSchemaNotification);
@@ -94,7 +96,7 @@ const SecurityAndPerformance = ({
     const res = await createSchema(payload);
     if (res.isSuccess) {
       onSchemaCreated(res.data.itemId);
-      showSuccessToast({ description: "Schema added successfully" });
+      showSuccessToast({ description: t("SECURITY_AND_PERFORMANCE.SCHEMA_ADDED_SUCCESSFULLY") });
       setIsAddSchemaModalOpen(false);
       return true;
     }
@@ -140,9 +142,9 @@ const SecurityAndPerformance = ({
               </svg>
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-foreground">Security Assessment</h2>
+              <h2 className="text-sm font-semibold text-foreground">{t("SECURITY_AND_PERFORMANCE.SECURITY_ASSESSMENT")}</h2>
               <p className="mt-0.5 text-xs text-muted-foreground/70">
-                Access control overview for all entity schemas
+                {t("SECURITY_AND_PERFORMANCE.ACCESS_CONTROL_OVERVIEW_FOR_ALL_ENTITY")}
               </p>
             </div>
           </div>
@@ -154,9 +156,9 @@ const SecurityAndPerformance = ({
             <ShieldAlert className="h-8 w-8 opacity-30" />
           </div>
           <div className="text-center">
-            <p className="text-base font-semibold text-foreground">No schemas yet</p>
+            <p className="text-base font-semibold text-foreground">{t("SECURITY_AND_PERFORMANCE.NO_SCHEMAS_YET")}</p>
             <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-              Add your first schema and configure access permissions to get started.
+              {t("SECURITY_AND_PERFORMANCE.ADD_YOUR_FIRST_SCHEMA_AND_CONFIGURE")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -167,10 +169,10 @@ const SecurityAndPerformance = ({
                 setIsAddSchemaModalOpen(true);
               }}
             >
-              <Plus className="h-4 w-4" /> Add Schema
+              <Plus className="h-4 w-4" /> {t("SECURITY_AND_PERFORMANCE.ADD_SCHEMA")}
             </Button>
             <Button size="sm" variant="outline" onClick={onNavigateToSchemas}>
-              Go to Schemas <ArrowRight className="ml-2 h-4 w-4" />
+              {t("SECURITY_AND_PERFORMANCE.GO_TO_SCHEMAS")} <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -183,9 +185,9 @@ const SecurityAndPerformance = ({
                 <ShieldCheck className="h-4 w-4 text-primary" aria-hidden />
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-foreground">Security Assessment</h2>
+                <h2 className="text-sm font-semibold text-foreground">{t("SECURITY_AND_PERFORMANCE.SECURITY_ASSESSMENT")}</h2>
                 <p className="mt-0.5 text-xs text-muted-foreground/70">
-                  Access control overview for all entity schemas
+                  {t("SECURITY_AND_PERFORMANCE.ACCESS_CONTROL_OVERVIEW_FOR_ALL_ENTITY")}
                 </p>
               </div>
             </div>
@@ -197,7 +199,7 @@ const SecurityAndPerformance = ({
                 setIsAddSchemaModalOpen(true);
               }}
             >
-              <Plus className="h-3.5 w-3.5" /> Add Schema
+              <Plus className="h-3.5 w-3.5" /> {t("SECURITY_AND_PERFORMANCE.ADD_SCHEMA")}
             </Button>
           </div>
 
@@ -219,8 +221,7 @@ const SecurityAndPerformance = ({
 
           {!isComplete && (
             <p className="shrink-0 border-b border-border/40 bg-muted/20 px-5 py-1.5 text-[11px] text-muted-foreground">
-              Showing the first {schemas.length} of {totalItems} schemas. Exposure order and the
-              counts above cover only those.
+              {t("SECURITY_AND_PERFORMANCE.SHOWING_THE_FIRST_LENGTH_OF_TOTALITEMS", { length: schemas.length, totalItems })}
             </p>
           )}
 

@@ -30,6 +30,7 @@ import {
   mongoStringLiteralForField,
   paginationDefaultForField,
 } from "./graphql-constants";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const MAX_NESTING_DEPTH = 30;
 
@@ -340,7 +341,7 @@ const buildArgumentSnippet = (
           const mongoLit = mongoStringLiteralForField(f.name, fIsList);
           if (mongoLit !== null) {
             const litWithCursor = mongoLit.replace('[""]', '["${1}"]').replace('"{}"', '"{${1}}"');
-            return `    ${f.name}: ${litWithCursor}${fComment}`;
+            return `${f.name}: ${litWithCursor}${fComment}`;
           }
           if (fIsList) return `    ${f.name}: ["\${${fStop}}"]${fComment}`;
           return `    ${f.name}: "\${${fStop}}"${fComment}`;
@@ -348,7 +349,7 @@ const buildArgumentSnippet = (
         if (fType.includes("Int") || fType.includes("Float")) {
           const pageDef = paginationDefaultForField(f.name, fIsList);
           if (pageDef !== null) {
-            return `    ${f.name}: ${pageDef}${fComment}`;
+            return `${f.name}: ${pageDef}${fComment}`;
           }
           return `    ${f.name}: \${${fStop}:0}${fComment}`;
         }
@@ -495,8 +496,8 @@ export const getQuerySuggestions = (schema: GraphQLSchema): IntrospectionSuggest
 
     return {
       label: field.name,
-      detail: `Query → ${resolveTypeString(field.type)}`,
-      documentation: field.description || `Query: ${field.name}`,
+      detail: tStatic("data.gateway.schema", "INTROSPECTION_UTILS.QUERY_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
+      documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.QUERY_NAME", { name: field.name }),
       insertText: `${field.name}${argSnippet}${fieldSelection}`,
       isSnippet: true,
       kind: "function" as const,
@@ -521,8 +522,8 @@ export const getMutationSuggestions = (schema: GraphQLSchema): IntrospectionSugg
 
     return {
       label: field.name,
-      detail: `Mutation → ${resolveTypeString(field.type)}`,
-      documentation: field.description || `Mutation: ${field.name}`,
+      detail: tStatic("data.gateway.schema", "INTROSPECTION_UTILS.MUTATION_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
+      documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.MUTATION_NAME", { name: field.name }),
       insertText: `${field.name}${argSnippet}${fieldSelection}`,
       isSnippet: true,
       kind: "function" as const,
@@ -569,7 +570,7 @@ export const getFieldSuggestions = (
       return {
         label: field.name,
         detail: resolveTypeString(field.type),
-        documentation: field.description || `Field: ${field.name}`,
+        documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.FIELD_NAME", { name: field.name }),
         insertText,
         isSnippet: isNestedObject,
         kind: isNestedObject ? ("class" as const) : ("field" as const),
@@ -633,7 +634,7 @@ export const getArgumentSuggestions = (
         return {
           label: arg.name,
           detail: typeStr,
-          documentation: arg.description || `Argument: ${arg.name} (${typeStr})`,
+          documentation: arg.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.ARGUMENT_NAME_TYPESTR", { name: arg.name, typeStr }),
           insertText,
           isSnippet,
           kind: "variable" as const,
@@ -666,7 +667,7 @@ export const getArgumentSuggestions = (
     return {
       label: arg.name,
       detail: typeStr,
-      documentation: arg.description || `Argument: ${arg.name} (${typeStr})`,
+      documentation: arg.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.ARGUMENT_NAME_TYPESTR", { name: arg.name, typeStr }),
       insertText,
       isSnippet,
       kind: "field" as const,
@@ -741,7 +742,7 @@ export const getInputFieldSuggestions = (
       return {
         label: field.name,
         detail: typeStr,
-        documentation: field.description || `Input field: ${field.name} (${typeStr})`,
+        documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.INPUT_FIELD_NAME_TYPESTR", { name: field.name, typeStr }),
         insertText,
         isSnippet,
         kind: "field" as const,
@@ -917,8 +918,8 @@ export const getFullQuerySnippets = (schema: GraphQLSchema): IntrospectionSugges
 
   return getListedQueryFields(queryType).map((field) => ({
     label: field.name,
-    detail: `Full Query → ${resolveTypeString(field.type)}`,
-    documentation: field.description || `Full query: ${field.name}`,
+    detail: tStatic("data.gateway.schema", "INTROSPECTION_UTILS.FULL_QUERY_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
+    documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.FULL_QUERY_NAME", { name: field.name }),
     insertText: buildFullOperationSnippet(field, "query"),
     isSnippet: true,
     kind: "function" as const,
@@ -937,8 +938,8 @@ export const getFullMutationSnippets = (schema: GraphQLSchema): IntrospectionSug
 
   return Object.values(mutationType.getFields()).map((field) => ({
     label: field.name,
-    detail: `Full Mutation → ${resolveTypeString(field.type)}`,
-    documentation: field.description || `Full mutation: ${field.name}`,
+    detail: tStatic("data.gateway.schema", "INTROSPECTION_UTILS.FULL_MUTATION_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
+    documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.FULL_MUTATION_NAME", { name: field.name }),
     insertText: buildFullOperationSnippet(field, "mutation"),
     isSnippet: true,
     kind: "function" as const,

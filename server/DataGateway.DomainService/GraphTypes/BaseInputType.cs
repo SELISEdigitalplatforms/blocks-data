@@ -1,5 +1,6 @@
 using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
+using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using HotChocolate.Language;
@@ -13,7 +14,7 @@ public abstract class BaseInputType : InputObjectType<object>
     protected readonly Dictionary<string, SchemaDefinitionExtended> _schemaMap;
 
     protected abstract string NameSuffix { get; }
-    protected abstract string[] AllowedBaseFields { get; }
+    protected abstract WriteOperation Operation { get; }
 
     protected BaseInputType(SchemaDefinitionExtended schema, Dictionary<string, SchemaDefinitionExtended> schemaMap)
     {
@@ -31,8 +32,7 @@ public abstract class BaseInputType : InputObjectType<object>
             var fieldType = field.Type;
             var fieldName = field.Name;
 
-            if (!AllowedBaseFields.Contains(fieldName)
-                && typeof(GraphQlBaseEntity).GetProperty(fieldName) is not null)
+            if (!WritableFields.IsWritable(fieldName, Operation))
             {
                 continue;
             }

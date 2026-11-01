@@ -1,6 +1,7 @@
 using Blocks.Genesis.Entities.Data;
 using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Conversion;
+using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
 using static XUnitTest.DataGateway.TestSupport;
@@ -103,5 +104,46 @@ public class OrderToMongoSortConverterTests
             new Dictionary<string, object?> { ["direction"] = "ASC" }
         };
         OrderToMongoSortConverter.Convert(order, PersonSchema()).Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("Name", null, 1)]
+    [InlineData("Age", "DESC", -1)]
+    [InlineData("Age", "desc", -1)]
+    [InlineData("ItemId", "ASC", 1)]
+    public void OrderConverter_OrderItemOverload_MatchesObjectOverload(string field, string? direction, int expected)
+    {
+        var entry = new Dictionary<string, object?> { ["field"] = field };
+        if (direction is not null) entry["direction"] = direction;
+        var order = new List<object> { entry };
+
+        var viaObject = OrderToMongoSortConverter.Convert(order, PersonSchema());
+        var viaItems = OrderToMongoSortConverter.Convert(
+            new List<OrderItem> { new(field, direction?.ToUpperInvariant() == "DESC" ? SortDirection.DESC : SortDirection.ASC) },
+            PersonSchema());
+
+        Assert.Equal(viaObject, viaItems);
+        viaItems!.GetValue(0).AsInt32.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("Unknown", "*not defined on the schema*")]
+    [InlineData("$x", "*Invalid or disallowed sort field*")]
+    public void OrderConverter_OrderItemOverload_RejectsBadFieldsLikeTheObjectOverload(string field, string message)
+    {
+        var order = new List<object> { new Dictionary<string, object?> { ["field"] = field } };
+
+        var viaObject = () => OrderToMongoSortConverter.Convert(order, PersonSchema());
+        var viaItems = () => OrderToMongoSortConverter.Convert(new List<OrderItem> { new(field, SortDirection.ASC) }, PersonSchema());
+
+        var expected = viaObject.Should().Throw<ArgumentException>().WithMessage(message).Which.Message;
+        viaItems.Should().Throw<ArgumentException>().WithMessage(expected);
+    }
+
+    [Fact]
+    public void OrderConverter_OrderItemOverload_NullOrEmpty_ReturnsNull()
+    {
+        OrderToMongoSortConverter.Convert((IReadOnlyList<OrderItem>?)null, PersonSchema()).Should().BeNull();
+        OrderToMongoSortConverter.Convert(new List<OrderItem>(), PersonSchema()).Should().BeNull();
     }
 }

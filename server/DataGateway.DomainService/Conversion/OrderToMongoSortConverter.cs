@@ -1,5 +1,7 @@
 using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
+using DataGateway.DomainService.Gateway;
+using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using MongoDB.Bson;
@@ -20,21 +22,22 @@ public static class OrderToMongoSortConverter
     /// <param name="schema">Schema used to validate field names.</param>
     /// <returns>BsonDocument sort, or null if order is null/empty.</returns>
     public static BsonDocument? Convert(object? order, SchemaDefinitionExtended schema)
+        => Convert(GraphQLArgumentNormalizer.ToOrder(order), schema);
+
+    /// <summary>
+    /// Converts plain sort entries to a MongoDB BsonDocument sort definition, validating each field against the schema.
+    /// </summary>
+    /// <returns>BsonDocument sort, or null if order is null/empty.</returns>
+    public static BsonDocument? Convert(IReadOnlyList<OrderItem>? order, SchemaDefinitionExtended schema)
     {
-        if (order is null) return null;
-        if (order is not IList<object> list || list.Count == 0) return null;
+        if (order is null || order.Count == 0) return null;
 
         var allowedFields = schema.Fields.Select(f => f.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var sortDoc = new BsonDocument();
 
-        foreach (var item in list)
+        foreach (var item in order)
         {
-            if (item is not IReadOnlyDictionary<string, object?> entry)
-                continue;
-            if (!entry.TryGetValue("field", out var fieldObj) || fieldObj is null)
-                continue;
-
-            var fieldName = fieldObj.ToString()?.Trim();
+            var fieldName = item.Field;
             if (string.IsNullOrEmpty(fieldName) || fieldName.StartsWith("$", StringComparison.Ordinal))
                 throw new ArgumentException($"Invalid or disallowed sort field: '{fieldName}'.");
 
@@ -45,14 +48,7 @@ public static class OrderToMongoSortConverter
                 ? GraphQlConstant.DbEntityIdFieldName
                 : fieldName;
 
-            var direction = 1;
-            if (entry.TryGetValue("direction", out var dirObj) && dirObj != null)
-            {
-                var dirStr = dirObj.ToString()?.ToUpperInvariant();
-                direction = dirStr == "DESC" ? -1 : 1;
-            }
-
-            sortDoc[dbFieldName] = direction;
+            sortDoc[dbFieldName] = item.Direction == SortDirection.DESC ? -1 : 1;
         }
 
         return sortDoc.ElementCount == 0 ? null : sortDoc;

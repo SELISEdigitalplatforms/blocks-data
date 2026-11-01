@@ -1,12 +1,12 @@
 using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Entities;
+using DataGateway.DomainService.GraphQL;
+using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
-using HotChocolate;
 using MongoDB.Bson;
 using System.Collections;
-using System.Reflection;
 using System.Text.RegularExpressions;
 using Blocks.Genesis.Entities.Data;
 
@@ -35,21 +35,49 @@ public static class WhereToMongoFilterConverter
         { "or", "and" };
 
     /// <summary>
-    /// Converts a typed where object (from GraphQL) to a MongoDB BsonDocument filter.
+    /// Converts a where argument as the GraphQL layer coerced it (CLR input objects with <c>Optional&lt;T&gt;</c>
+    /// members, dictionaries, lists) to a MongoDB filter. It normalises the value to plain values first, then
+    /// converts. Moves into <c>GraphQLArgumentNormalizer</c> as <c>ConvertWhere</c> when the GraphQL code is split out.
+    /// </summary>
+    public static BsonDocument? Convert(
+        object? where,
+        SchemaDefinitionExtended schema,
+        string pathPrefix = "")
+        => Convert(GraphQLArgumentNormalizer.ToWhere(where)?.Root, schema, pathPrefix);
+
+    /// <summary>
+    /// A <see cref="Dictionary{TKey,TValue}"/> is what callers build by hand and what HotChocolate hands over for
+    /// an object-typed argument, and its members may still be CLR input objects with <c>Optional&lt;T&gt;</c>. This
+    /// overload exists so such a dictionary is normalised like any other coerced argument rather than binding to the
+    /// plain-value core (an <see cref="IReadOnlyDictionary{TKey,TValue}"/> parameter is a worse match for it than
+    /// this exact type). Removed with the <c>object?</c> overload when the GraphQL code is split out.
+    /// </summary>
+    public static BsonDocument? Convert(
+        Dictionary<string, object?>? where,
+        SchemaDefinitionExtended schema,
+        string pathPrefix = "")
+        => Convert((object?)where, schema, pathPrefix);
+
+    /// <summary>Converts a gateway where filter (plain values only) to a MongoDB filter.</summary>
+    public static BsonDocument? Convert(WhereNode? where, SchemaDefinitionExtended schema)
+        => Convert(where?.Root, schema);
+
+    /// <summary>
+    /// Converts a plain-valued where tree to a MongoDB BsonDocument filter. This is the GraphQL-free core: every
+    /// value in the tree is a string, number, bool, date, list or nested dictionary.
     /// </summary>
     /// <param name="where">Dictionary representation of the where input (field -> operation object or nested where).</param>
     /// <param name="schema">Schema used to validate field names and types.</param>
     /// <param name="pathPrefix">Current path prefix for nested validation (e.g. "Address.").</param>
     /// <returns>BsonDocument filter, or null if where is null/empty.</returns>
     public static BsonDocument? Convert(
-        object? where,
+        IReadOnlyDictionary<string, object?>? where,
         SchemaDefinitionExtended schema,
         string pathPrefix = "")
     {
-        if (where is null) return null;
-        var dict = CoerceWhereDictionary(where);
-        if (dict is null || dict.Count == 0)
+        if (where is null || where.Count == 0)
             return null;
+        var dict = where;
 
         var allowedFields = GetAllowedFieldNames(schema, pathPrefix);
         var elements = new List<BsonElement>();
@@ -102,9 +130,9 @@ public static class WhereToMongoFilterConverter
             }
             else
             {
-                if (CoerceWhereDictionary(value) is null)
+                if (value is not IReadOnlyDictionary<string, object?> nestedWhere)
                     throw Invalid($"Field '{fullPath}' must be filtered using its child fields.");
-                var nested = Convert(value, schema, fullPath);
+                var nested = Convert(nestedWhere, schema, fullPath);
                 if (nested != null && nested.ElementCount > 0)
                 {
                     if (nested.ElementCount == 1 && nested.GetElement(0).Name == "$and")
@@ -134,8 +162,8 @@ public static class WhereToMongoFilterConverter
         var clauses = new List<BsonDocument>();
         foreach (var item in items)
         {
-            if (item == null) continue;
-            var clause = Convert(item, schema, "");
+            if (item is not IReadOnlyDictionary<string, object?> itemWhere) continue;
+            var clause = Convert(itemWhere, schema, "");
             if (clause != null)
                 clauses.Add(clause);
         }
@@ -279,89 +307,7 @@ public static class WhereToMongoFilterConverter
     }
 
     private static IReadOnlyDictionary<string, object?>? CoerceOperationDictionary(object value)
-    {
-        switch (value)
-        {
-            case IReadOnlyDictionary<string, object?> roDict:
-                return roDict;
-            case IDictionary<string, object?> dict:
-                return dict as IReadOnlyDictionary<string, object?>
-                    ?? dict.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
-        }
-
-        return CoerceFromClrObject(value);
-    }
-
-    private static IReadOnlyDictionary<string, object?>? CoerceWhereDictionary(object value)
-    {
-        if (value is IReadOnlyDictionary<string, object?> roDict)
-            return roDict;
-        if (value is IDictionary<string, object?> dict)
-            return dict as IReadOnlyDictionary<string, object?>
-                ?? dict.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
-
-        return CoerceFromClrObject(value);
-    }
-
-    private static IReadOnlyDictionary<string, object?>? CoerceFromClrObject(object? value)
-    {
-        if (value is null || value is string || value is IEnumerable || value.GetType().IsPrimitive)
-            return null;
-
-        var unwrapped = UnwrapOptional(value);
-        if (unwrapped is null || unwrapped is string || unwrapped is IEnumerable || unwrapped.GetType().IsPrimitive)
-            return null;
-        if (unwrapped is IReadOnlyDictionary<string, object?> roDict)
-            return roDict;
-        if (unwrapped is IDictionary<string, object?> dict)
-            return dict as IReadOnlyDictionary<string, object?>
-                ?? dict.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
-
-        var result = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var prop in unwrapped.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
-        {
-            if (prop.GetIndexParameters().Length > 0) continue;
-            if (!seen.Add(prop.Name)) continue;
-
-            object? propValue;
-            try
-            {
-                propValue = prop.GetValue(unwrapped);
-            }
-            catch
-            {
-                continue;
-            }
-
-            result[prop.Name] = UnwrapOptional(propValue);
-        }
-
-        return result.Count == 0 ? null : result;
-    }
-
-    private static object? UnwrapOptional(object? value)
-    {
-        while (value is not null)
-        {
-            var type = value.GetType();
-            if (!type.IsGenericType || type.GetGenericTypeDefinition() != typeof(Optional<>))
-                break;
-
-            var hasValueProp = type.GetProperty("HasValue");
-            var valueProp = type.GetProperty("Value");
-            if (hasValueProp is null || valueProp is null)
-                break;
-            if (hasValueProp.GetValue(value) is not true)
-                return null;
-            value = valueProp.GetValue(value);
-        }
-
-        if (value is Optional<object?> optional)
-            return optional.HasValue ? optional.Value : null;
-
-        return value;
-    }
+        => value as IReadOnlyDictionary<string, object?>;
 
     private static string MapOperatorToMongo(string opKey)
     {

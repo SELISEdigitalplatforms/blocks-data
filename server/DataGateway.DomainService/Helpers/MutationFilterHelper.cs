@@ -68,7 +68,7 @@ public static class MutationFilterHelper
     /// already-extracted arguments instead of a resolver context.
     /// </summary>
     public static BsonDocument BuildFilterWithRls(
-        object? where,
+        IReadOnlyDictionary<string, object?>? where,
         string? filterJson,
         bool isOwnerCheckRequested,
         SchemaDefinitionExtended schema,
@@ -83,7 +83,7 @@ public static class MutationFilterHelper
 
     /// <summary>HotChocolate-free overload used by the REST gateway.</summary>
     public static BsonDocument BuildBaseFilter(
-        object? where,
+        IReadOnlyDictionary<string, object?>? where,
         string? filterJson,
         bool isOwnerCheckRequested,
         SchemaDefinitionExtended schema)

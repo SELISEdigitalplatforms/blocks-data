@@ -22,6 +22,7 @@ import {
   useMoveFile,
 } from "../../hooks/use-dms";
 import { DmsItem, isDirectory } from "../../models/dms.model";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export type MoveCopyMode = "move" | "copy";
 
@@ -38,6 +39,8 @@ export interface MoveCopyDialogProps {
 interface Crumb {
   id?: string;
   name: string;
+  /** The root crumb has no name of its own; its label is translated where it is shown. */
+  isRoot?: boolean;
 }
 
 /**
@@ -59,11 +62,12 @@ export function MoveCopyDialog({
   startDirectoryId,
   onDone,
 }: Readonly<MoveCopyDialogProps>) {
+  const { t } = useT("data.storage");
   // The picker starts inside the item's current directory, seeded with the full
   // breadcrumb trail from the root so the caller can navigate UP to ancestors as
   // well as down into children. Without this the picker can only descend, which
   // makes it impossible to move a file into a parent or sibling tree.
-  const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: startDirectoryId, name: "Root" }]);
+  const [crumbs, setCrumbs] = useState<Crumb[]>([{ id: startDirectoryId, name: "", isRoot: true }]);
   const current = crumbs[crumbs.length - 1];
 
   const directoryDetail = useDmsDirectory(startDirectoryId);
@@ -95,7 +99,12 @@ export function MoveCopyDialog({
   const targetIsSelf = current.id === item.itemId;
   const targetIsCurrentParent = mode === "move" && current.id === item.parentDirectoryId;
   const canConfirm = !!current.id && !targetIsSelf && !targetIsCurrentParent && !isPending;
-  const action = mode === "move" ? "Move" : "Copy";
+  // The item name sits in its own styled span; the sentence is split around it.
+  const [descriptionBefore, descriptionAfter] = t(
+    mode === "move" ? "MOVE_COPY_DIALOG.CHOOSE_WHERE_TO_MOVE" : "MOVE_COPY_DIALOG.CHOOSE_WHERE_TO_COPY",
+    { name: "\u0000" },
+  ).split("\u0000");
+  const crumbLabel = (crumb: Crumb) => (crumb.isRoot ? t("MOVE_COPY_DIALOG.ROOT") : crumb.name);
 
   const handleConfirm = async () => {
     if (!current.id) return;
@@ -113,15 +122,15 @@ export function MoveCopyDialog({
       }
 
       showSuccessToast({
-        title: mode === "move" ? "Moved" : "Copied",
-        description: `${item.name} is now in ${current.name}.`,
+        title: mode === "move" ? t("MOVE_COPY_DIALOG.MOVED") : t("common:COPIED"),
+        description: t("MOVE_COPY_DIALOG.NAME_IS_NOW_IN_NAME2", { name: item.name, name2: crumbLabel(current) }),
       });
       onOpenChange(false);
       onDone?.();
     } catch {
       showErrorToast({
-        title: mode === "move" ? "Could not move" : "Could not copy",
-        errors: `${item.name} was not ${mode === "move" ? "moved" : "copied"}.`,
+        title: mode === "move" ? t("MOVE_COPY_DIALOG.COULD_NOT_MOVE") : t("MOVE_COPY_DIALOG.COULD_NOT_COPY"),
+        errors: t(mode === "move" ? "MOVE_COPY_DIALOG.NAME_WAS_NOT_MOVED" : "MOVE_COPY_DIALOG.NAME_WAS_NOT_COPIED", { name: item.name }),
       });
     }
   };
@@ -135,10 +144,11 @@ export function MoveCopyDialog({
               <FolderInput className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="space-y-1">
-              <DialogTitle>{action} item</DialogTitle>
+              <DialogTitle>{t(mode === "move" ? "MOVE_COPY_DIALOG.MOVE_ITEM" : "MOVE_COPY_DIALOG.COPY_ITEM")}</DialogTitle>
               <DialogDescription className="line-clamp-1">
-                Choose where to {mode === "move" ? "move" : "save a copy of"}{" "}
-                <span className="font-medium text-foreground">{item.name}</span>.
+                {descriptionBefore}
+                <span className="font-medium text-foreground">{item.name}</span>
+                {descriptionAfter}
               </DialogDescription>
             </div>
           </div>
@@ -147,10 +157,10 @@ export function MoveCopyDialog({
         <div className="space-y-5 px-6 py-5">
           <section aria-labelledby="destination-label" className="space-y-2">
             <p id="destination-label" className="text-sm font-medium">
-              Destination
+              {t("MOVE_COPY_DIALOG.DESTINATION")}
             </p>
             <nav
-              aria-label="Destination path"
+              aria-label={t("MOVE_COPY_DIALOG.DESTINATION_PATH")}
               className="rounded-lg border bg-muted/30 px-3 py-2.5"
             >
               <ol className="flex flex-wrap items-center gap-1.5 text-sm">
@@ -179,7 +189,7 @@ export function MoveCopyDialog({
                         disabled={isPending}
                         onClick={() => setCrumbs(crumbs.slice(0, index + 1))}
                       >
-                        {crumb.name}
+                        {crumbLabel(crumb)}
                       </button>
                     </li>
                   );
@@ -190,17 +200,17 @@ export function MoveCopyDialog({
 
           <section
             className="overflow-hidden rounded-lg border"
-            aria-label="Folders in current destination"
+            aria-label={t("MOVE_COPY_DIALOG.FOLDERS_IN_CURRENT_DESTINATION")}
           >
             <div className="flex items-center justify-between border-b bg-muted/20 px-4 py-3">
               <div>
-                <p className="text-sm font-medium">Folders</p>
+                <p className="text-sm font-medium">{t("MOVE_COPY_DIALOG.FOLDERS")}</p>
                 <p className="text-xs text-muted-foreground">
-                  Open a folder to make it the destination.
+                  {t("MOVE_COPY_DIALOG.OPEN_A_FOLDER_TO_MAKE_IT")}
                 </p>
               </div>
               {!children.isLoading ? (
-                <span className="text-xs text-muted-foreground">{directories.length} shown</span>
+                <span className="text-xs text-muted-foreground">{t("MOVE_COPY_DIALOG.LENGTH_SHOWN", { length: directories.length })}</span>
               ) : null}
             </div>
 
@@ -211,11 +221,11 @@ export function MoveCopyDialog({
               </div>
             ) : children.isError ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                Could not load folders. Try again from the main storage view.
+                {t("MOVE_COPY_DIALOG.COULD_NOT_LOAD_FOLDERS_TRY_AGAIN")}
               </p>
             ) : directories.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No folders here. You can choose this destination or go back.
+                {t("MOVE_COPY_DIALOG.NO_FOLDERS_HERE_YOU_CAN_CHOOSE")}
               </p>
             ) : (
               <ul className="max-h-64 overflow-y-auto p-2">
@@ -228,7 +238,7 @@ export function MoveCopyDialog({
                         className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-muted focus:outline-hidden focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={isSelf || isPending}
                         aria-label={
-                          isSelf ? `${directory.name} (current item)` : `Open ${directory.name}`
+                          isSelf ? t("MOVE_COPY_DIALOG.NAME_CURRENT_ITEM", { name: directory.name }) : t("MOVE_COPY_DIALOG.OPEN_NAME", { name: directory.name })
                         }
                         onClick={() =>
                           setCrumbs([...crumbs, { id: directory.itemId, name: directory.name }])
@@ -242,7 +252,7 @@ export function MoveCopyDialog({
                           {directory.name}
                         </span>
                         {isSelf ? (
-                          <span className="text-xs text-muted-foreground">Current item</span>
+                          <span className="text-xs text-muted-foreground">{t("MOVE_COPY_DIALOG.CURRENT_ITEM")}</span>
                         ) : (
                           <ChevronRight
                             className="h-4 w-4 text-muted-foreground"
@@ -266,10 +276,10 @@ export function MoveCopyDialog({
                   {children.isFetchingNextPage ? (
                     <>
                       <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                      Loading folders...
+                      {t("MOVE_COPY_DIALOG.LOADING_FOLDERS")}
                     </>
                   ) : (
-                    "Show more folders"
+                    t("MOVE_COPY_DIALOG.SHOW_MORE_FOLDERS")
                   )}
                 </Button>
               </div>
@@ -278,11 +288,11 @@ export function MoveCopyDialog({
 
           <p aria-live="polite" className="text-sm text-muted-foreground">
             {targetIsCurrentParent ? (
-              "This item is already in the selected folder."
+              t("MOVE_COPY_DIALOG.THIS_ITEM_IS_ALREADY_IN_THE")
             ) : (
               <>
-                Selected destination:{" "}
-                <span className="font-medium text-foreground">{current.name}</span>
+                {t("MOVE_COPY_DIALOG.SELECTED_DESTINATION")}
+                <span className="font-medium text-foreground">{crumbLabel(current)}</span>
               </>
             )}
           </p>
@@ -293,17 +303,19 @@ export function MoveCopyDialog({
               className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
             >
               <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-              {action}ing {item.name}…
+              {t(mode === "move" ? "MOVE_COPY_DIALOG.MOVING_NAME" : "MOVE_COPY_DIALOG.COPYING_NAME", { name: item.name })}
             </div>
           ) : null}
         </div>
 
         <DialogFooter className="border-t bg-muted/20 px-6 py-4 sm:gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isPending}>
-            Cancel
+            {t("common:CANCEL")}
           </Button>
           <Button onClick={handleConfirm} disabled={!canConfirm}>
-            {isPending ? `${action}ing...` : `${action} here`}
+            {isPending
+              ? t(mode === "move" ? "MOVE_COPY_DIALOG.MOVING" : "MOVE_COPY_DIALOG.COPYING")
+              : t(mode === "move" ? "MOVE_COPY_DIALOG.MOVE_HERE" : "MOVE_COPY_DIALOG.COPY_HERE")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -327,5 +339,5 @@ function buildStartTrail(
     .filter(Boolean);
   const allIds = [...(detail.ancestorIds ?? []), startDirectoryId];
   if (names.length !== allIds.length) return null;
-  return [{ id: undefined, name: "Root" }, ...allIds.map((id, i) => ({ id, name: names[i] }))];
+  return [{ id: undefined, name: "", isRoot: true }, ...allIds.map((id, i) => ({ id, name: names[i] }))];
 }

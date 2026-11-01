@@ -13,6 +13,7 @@ import {
   StorageStrategyType,
 } from "@/storage/models/storage.model";
 import { PackageOpen, X } from "lucide-react";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 interface StorageDetailsDrawerProps {
   open: boolean;
@@ -40,7 +41,7 @@ const getProviderLabel = (provider: StorageStrategyType): string => {
     case "SftpStorage":
       return "SFTP";
     case "S3Compatible":
-      return "AWS S3 Compatible";
+      return tStatic("data.storage", "STORAGE_DETAILS_DRAWER.AWS_S3_COMPATIBLE");
     default:
       return provider;
   }
@@ -51,6 +52,7 @@ export function StorageDetailsDrawer({
   onOpenChange,
   storage,
 }: StorageDetailsDrawerProps) {
+  const { t } = useT("data.storage");
   if (!storage) return null;
 
   const providerLabel = getProviderLabel(storage.storageStrategy);
@@ -63,13 +65,13 @@ export function StorageDetailsDrawer({
           {/* Header */}
           <SheetHeader className="border-b border-border px-6 py-4">
             <div className="flex items-center justify-between">
-              <SheetTitle className="text-lg font-semibold">Details</SheetTitle>
+              <SheetTitle className="text-lg font-semibold">{t("common:DETAILS")}</SheetTitle>
               <button
                 onClick={() => onOpenChange(false)}
                 className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2"
               >
                 <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
+                <span className="sr-only">{t("common:CLOSE")}</span>
               </button>
             </div>
           </SheetHeader>
@@ -80,14 +82,14 @@ export function StorageDetailsDrawer({
               {/* Properties Section */}
               <div>
                 <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-                  Properties
+                  {t("STORAGE_DETAILS_DRAWER.PROPERTIES")}
                 </h3>
 
                 <div className="space-y-4">
                   {/* Name */}
                   <div>
                     <div className="mb-1 text-xs text-muted-foreground">
-                      Name
+                      {t("common:NAME")}
                     </div>
                     <div className="text-sm font-medium">{storage.name}</div>
                   </div>
@@ -95,7 +97,7 @@ export function StorageDetailsDrawer({
                   {/* Storage Provider */}
                   <div>
                     <div className="mb-2 text-xs text-muted-foreground">
-                      Storage provider
+                      {t("STORAGE_DETAILS_DRAWER.STORAGE_PROVIDER")}
                     </div>
                     <div className="flex items-center gap-2">
                       <div
@@ -116,7 +118,7 @@ export function StorageDetailsDrawer({
                         {storage.storageStrategy === "Azure" && (
                           <img
                             src="/assets/images/azure.png"
-                            alt="Azure"
+                            alt={t("STORAGE_DETAILS_DRAWER.AZURE")}
                             width={16}
                             height={16}
                             className="h-4 w-4 object-contain"
@@ -128,7 +130,7 @@ export function StorageDetailsDrawer({
                         {storage.storageStrategy === "S3Compatible" && (
                           <img
                             src="/assets/images/amazon.png"
-                            alt="AWS S3 Compatible"
+                            alt={t("STORAGE_DETAILS_DRAWER.AWS_S3_COMPATIBLE")}
                             width={16}
                             height={16}
                             className="h-4 w-4 object-contain"
@@ -144,30 +146,30 @@ export function StorageDetailsDrawer({
                   {/* Owner */}
                   <div>
                     <div className="mb-1 text-xs text-muted-foreground">
-                      Owner
+                      {t("STORAGE_DETAILS_DRAWER.OWNER")}
                     </div>
                     <div className="text-sm font-medium">
-                      {storage.createdBy || "Me"}
+                      {storage.createdBy || t("STORAGE_DETAILS_DRAWER.ME")}
                     </div>
                   </div>
 
                   {/* Type */}
                   <div>
                     <div className="mb-2 text-xs text-muted-foreground">
-                      Type
+                      {t("common:TYPE")}
                     </div>
                     <Badge
                       variant="secondary"
                       className="h-6 w-fit text-xs font-medium"
                     >
-                      Configured
+                      {t("STORAGE_DETAILS_DRAWER.CONFIGURED")}
                     </Badge>
                   </div>
 
                   {/* Last Modified */}
                   <div>
                     <div className="mb-1 text-xs text-muted-foreground">
-                      Last modified
+                      {t("STORAGE_DETAILS_DRAWER.LAST_MODIFIED")}
                     </div>
                     <div className="text-sm font-medium">
                       {formatDate(new Date(storage.lastUpdatedDate))}
@@ -177,7 +179,7 @@ export function StorageDetailsDrawer({
                   {/* Date Created */}
                   <div>
                     <div className="mb-1 text-xs text-muted-foreground">
-                      Date created
+                      {t("STORAGE_DETAILS_DRAWER.DATE_CREATED")}
                     </div>
                     <div className="text-sm font-medium">
                       {formatDate(new Date(storage.createdDate))}

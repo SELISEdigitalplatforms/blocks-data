@@ -7,11 +7,12 @@ import { DmsItemList } from "../../components/dms-item-list/dms-item-list";
 import { useDeleteFromTrash, useDmsTrash, useRestoreFromTrash } from "../../hooks/use-dms";
 import { DmsItem, DmsItemType } from "../../models/dms.model";
 import { itemActions } from "../../utils/permission-actions";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const FILTERS: { label: string; value: DmsItemType | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "Directorys", value: "directory" },
-  { label: "Files", value: "file" },
+  { get label() { return tStatic("data.storage", "common:ALL"); }, value: "all" },
+  { get label() { return tStatic("data.storage", "TRASH.DIRECTORYS"); }, value: "directory" },
+  { get label() { return tStatic("data.storage", "TRASH.FILES"); }, value: "file" },
 ];
 
 /**
@@ -23,6 +24,7 @@ const FILTERS: { label: string; value: DmsItemType | "all" }[] = [
  * same authority as having removed it.
  */
 export function Trash() {
+  const { t } = useT("data.storage");
   const [type, setType] = useState<DmsItemType | "all">("all");
   const [pendingDelete, setPendingDelete] = useState<DmsItem | null>(null);
 
@@ -38,9 +40,9 @@ export function Trash() {
   const handleRestore = async (item: DmsItem) => {
     try {
       await restore.mutateAsync(item.itemId);
-      showSuccessToast({ title: "Restored", description: `${item.name} is back in its directory.` });
+      showSuccessToast({ title: t("TRASH.RESTORED"), description: t("TRASH.NAME_IS_BACK_IN_ITS_DIRECTORY", { name: item.name }) });
     } catch {
-      showErrorToast({ title: "Could not restore", errors: `${item.name} was not restored.` });
+      showErrorToast({ title: t("TRASH.COULD_NOT_RESTORE"), errors: t("TRASH.NAME_WAS_NOT_RESTORED", { name: item.name }) });
     }
   };
 
@@ -51,9 +53,9 @@ export function Trash() {
 
     try {
       await permanentDelete.mutateAsync(item.itemId);
-      showSuccessToast({ title: "Deleted", description: `${item.name} was permanently deleted.` });
+      showSuccessToast({ title: t("TRASH.DELETED"), description: t("TRASH.NAME_WAS_PERMANENTLY_DELETED", { name: item.name }) });
     } catch {
-      showErrorToast({ title: "Could not delete", errors: `${item.name} was not deleted.` });
+      showErrorToast({ title: t("TRASH.COULD_NOT_DELETE"), errors: t("TRASH.NAME_WAS_NOT_DELETED", { name: item.name }) });
     }
   };
 
@@ -78,7 +80,7 @@ export function Trash() {
         hasNextPage={query.hasNextPage}
         isFetchingNextPage={query.isFetchingNextPage}
         onLoadMore={() => query.fetchNextPage()}
-        emptyMessage="The trash is empty."
+        emptyMessage={t("TRASH.THE_TRASH_IS_EMPTY")}
         renderActions={(item) => {
           const actions = itemActions(item);
           if (!actions.canDelete) {
@@ -95,10 +97,10 @@ export function Trash() {
                 onClick={() => handleRestore(item)}
                 disabled={restore.isPending}
               >
-                Restore
+                {t("TRASH.RESTORE")}
               </Button>
               <Button variant="destructive" size="sm" onClick={() => setPendingDelete(item)}>
-                Delete
+                {t("common:DELETE")}
               </Button>
             </span>
           );
@@ -108,10 +110,10 @@ export function Trash() {
       <Dialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <ConfirmationModal
           data={{
-            dialogTitle: "Delete permanently",
-            dialogSubtitle: `${pendingDelete?.name ?? "This item"} will be removed for good. This cannot be undone.`,
-            confirmButton: "Delete permanently",
-            cancelButton: "Cancel",
+            dialogTitle: t("TRASH.DELETE_PERMANENTLY"),
+            dialogSubtitle: t("TRASH.NAME_WILL_BE_REMOVED_FOR_GOOD", { name: pendingDelete?.name ?? t("TRASH.THIS_ITEM") }),
+            confirmButton: t("TRASH.DELETE_PERMANENTLY"),
+            cancelButton: t("common:CANCEL"),
           }}
           onCancel={() => setPendingDelete(null)}
           onConfirm={handleConfirmDelete}

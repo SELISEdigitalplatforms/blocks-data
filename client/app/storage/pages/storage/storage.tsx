@@ -19,6 +19,7 @@ import {
 } from "./components/storage-card/storage-card";
 import { StorageDetailsDrawer } from "./components/storage-details-drawer/storage-details-drawer";
 import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 type FilterValues = StorageFilterValues;
 
@@ -37,9 +38,9 @@ const mapConfigurationToCardData = (
       config.storageStrategy === "Amazon"
         ? "AWS"
         : config.storageStrategy === "Azure"
-          ? "Azure"
+          ? tStatic("data.storage", "STORAGE.AZURE")
           : config.storageStrategy === "S3Compatible"
-            ? "AWS S3 Compatible"
+            ? tStatic("data.storage", "STORAGE.AWS_S3_COMPATIBLE")
             : "SFTP",
     // folderCount: 0,
     // fileCount: 0,
@@ -47,6 +48,7 @@ const mapConfigurationToCardData = (
 };
 
 export function Storage() {
+  const { t } = useT("data.storage");
   const navigate = useNavigate();
   const storagePath = useStoragePath();
   const osConfigUrl = useOsSecretManagementUrl("storage");
@@ -125,7 +127,7 @@ export function Storage() {
     <main className="flex flex-col">
       <div className="flex justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold">Storage</h1>
+          <h1 className="text-2xl font-semibold">{t("STORAGE.STORAGE")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -138,7 +140,7 @@ export function Storage() {
               )
             }
           >
-            API Docs
+            {t("STORAGE.API_DOCS")}
           </Button>
           {/* <LogMenu link="/app/services/storage/logs" />{" "} */}
         </div>
@@ -191,7 +193,7 @@ export function Storage() {
         ) : (
           <div className="flex h-64 items-center justify-center">
             <p className="text-muted-foreground">
-              No storage configurations found.
+              {t("STORAGE.NO_STORAGE_CONFIGURATIONS_FOUND")}
             </p>
           </div>
         )}

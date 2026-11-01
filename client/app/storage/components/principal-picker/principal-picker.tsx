@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export interface PrincipalPickerOption {
   value: string;
@@ -74,6 +75,7 @@ export function PrincipalPicker({
   searchTerm,
   onSearchChange,
 }: Readonly<PrincipalPickerProps>) {
+  const { t } = useT("data.storage");
   const [open, setOpen] = useState(false);
   const [internalSearch, setInternalSearch] = useState("");
 
@@ -145,7 +147,7 @@ export function PrincipalPicker({
                         e.stopPropagation();
                         remove(o.value);
                       }}
-                      aria-label={`Remove ${o.label}`}
+                      aria-label={t("PRINCIPAL_PICKER.REMOVE_LABEL", { label: o.label })}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -160,7 +162,7 @@ export function PrincipalPicker({
           <Command shouldFilter={shouldCmdFilter}>
             {searchable && (
               <CommandInput
-                placeholder="Search…"
+                placeholder={t("PRINCIPAL_PICKER.SEARCH")}
                 className="h-9"
                 value={activeSearch}
                 onValueChange={
@@ -178,7 +180,7 @@ export function PrincipalPicker({
                   <Skeleton className="h-8 w-full" />
                 </div>
               ) : options.length === 0 ? (
-                <CommandEmpty>No results.</CommandEmpty>
+                <CommandEmpty>{t("PRINCIPAL_PICKER.NO_RESULTS")}</CommandEmpty>
               ) : (
                 <CommandGroup>
                   {options.map((option) => {

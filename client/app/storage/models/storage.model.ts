@@ -1,3 +1,4 @@
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 // "Azure"
 export type StorageStrategyType =
   | "Amazon"
@@ -14,9 +15,9 @@ export interface StorageStrategyOption {
 
 export const STORAGE_STRATEGIES: StorageStrategyOption[] = [
   { id: "aws", label: "AWS", value: "Amazon" },
-  { id: "azure", label: "Azure", value: "Azure" },
+  { id: "azure", get label() { return tStatic("data.storage", "STORAGE_MODEL.AZURE"); }, value: "Azure" },
   { id: "sftp", label: "SFTP", value: "SftpStorage" },
-  { id: "s3compatible", label: "AWS S3 Compatible", value: "S3Compatible" },
+  { id: "s3compatible", get label() { return tStatic("data.storage", "STORAGE_MODEL.AWS_S3_COMPATIBLE"); }, value: "S3Compatible" },
 ];
 /** State of one secret of a configuration ("none" = not set for this provider). The API never returns a secret value. */
 export type StorageSecretStatus = "none" | "active" | "locked" | "archived" | "missing" | "unavailable";

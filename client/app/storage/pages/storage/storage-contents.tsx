@@ -17,6 +17,7 @@ import {
 } from "./components/storage-card/storage-card";
 import { StorageDetailsDrawer } from "./components/storage-details-drawer/storage-details-drawer";
 import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 type FilterValues = StorageFilterValues;
 
@@ -32,9 +33,9 @@ const mapConfigurationToCardData = (
     config.storageStrategy === "Amazon"
       ? "AWS"
       : config.storageStrategy === "Azure"
-        ? "Azure"
+        ? tStatic("data.storage", "STORAGE_CONTENTS.AZURE")
         : config.storageStrategy === "S3Compatible"
-          ? "AWS S3 Compatible"
+          ? tStatic("data.storage", "STORAGE_CONTENTS.AWS_S3_COMPATIBLE")
           : "SFTP",
 });
 
@@ -55,6 +56,7 @@ export function StorageContentsWrapper() {
 }
 
 export function StorageContents() {
+  const { t } = useT("data.storage");
   const navigate = useNavigate();
   const storagePath = useStoragePath();
   const osConfigUrl = useOsSecretManagementUrl("storage");
@@ -166,7 +168,7 @@ export function StorageContents() {
         ) : (
           <div className="flex h-64 items-center justify-center">
             <p className="text-muted-foreground">
-              No storage configurations found.
+              {t("STORAGE_CONTENTS.NO_STORAGE_CONFIGURATIONS_FOUND")}
             </p>
           </div>
         )}

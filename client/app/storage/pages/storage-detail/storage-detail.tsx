@@ -85,6 +85,7 @@ import {
   DirectoryGridSkeleton,
   DirectoryListSkeleton,
 } from "./storage-detail-skeleton";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type FilterValues = {
   search: string;
@@ -156,6 +157,7 @@ const toRow = (item: DmsItem): ListRow => ({
 });
 
 export function StorageDetail() {
+  const { t } = useT("data.storage");
   const navigate = useNavigate();
   const storagePath = useStoragePath();
   const params = new URLSearchParams(window.location.search);
@@ -389,10 +391,10 @@ export function StorageDetail() {
         projectKey,
       });
       if (res.isSuccess) {
-        showSuccessToast({ description: "File Deleted successfully" });
+        showSuccessToast({ description: t("STORAGE_DETAIL.FILE_DELETED_SUCCESSFULLY") });
         childrenQuery.refetch();
       } else {
-        showErrorToast({ errors: "Something went wrong" });
+        showErrorToast({ errors: t("STORAGE_DETAIL.SOMETHING_WENT_WRONG") });
       }
     } catch (error) {
       showErrorToast({ errors: error });
@@ -404,7 +406,7 @@ export function StorageDetail() {
   const handleDeleteDirectory = async (id: string) => {
     try {
       await deleteDirectoryItem({ directoryId: id });
-      showSuccessToast({ description: "Directory Deleted successfully" });
+      showSuccessToast({ description: t("STORAGE_DETAIL.DIRECTORY_DELETED_SUCCESSFULLY") });
     } catch (error) {
       showErrorToast({ errors: error });
     }
@@ -452,7 +454,7 @@ export function StorageDetail() {
             }}
             className="cursor-pointer"
           >
-            Versions
+            {t("STORAGE_DETAIL.VERSIONS")}
           </DropdownMenuItem>
         )}
         {dmsItem && actions.canMove && !isProtected && (
@@ -463,7 +465,7 @@ export function StorageDetail() {
             }}
             className="cursor-pointer"
           >
-            Move
+            {t("STORAGE_DETAIL.MOVE")}
           </DropdownMenuItem>
         )}
         {dmsItem && !isDirectoryRow && actions.canCopy && (
@@ -474,7 +476,7 @@ export function StorageDetail() {
             }}
             className="cursor-pointer"
           >
-            Copy
+            {t("common:COPY")}
           </DropdownMenuItem>
         )}
         {dmsItem && actions.canManageAccess && !isProtected && (
@@ -485,7 +487,7 @@ export function StorageDetail() {
             }}
             className="cursor-pointer"
           >
-            Manage access
+            {t("STORAGE_DETAIL.MANAGE_ACCESS")}
           </DropdownMenuItem>
         )}
         {dmsItem && actions.canRename && !isProtected && (
@@ -500,7 +502,7 @@ export function StorageDetail() {
             }}
             className="cursor-pointer"
           >
-            Rename
+            {t("STORAGE_DETAIL.RENAME")}
           </DropdownMenuItem>
         )}
         {actions.canDelete && !isProtected && (
@@ -517,7 +519,7 @@ export function StorageDetail() {
             }}
             className="cursor-pointer text-red-500"
           >
-            Delete
+            {t("common:DELETE")}
           </DropdownMenuItem>
         )}
       </>
@@ -547,10 +549,10 @@ export function StorageDetail() {
     return (
       <main className="flex flex-col">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold">Storage Details</h1>
+          <h1 className="text-2xl font-semibold">{t("STORAGE_DETAIL.STORAGE_DETAILS")}</h1>
         </div>
         <div className="mt-6 rounded-sm border bg-card p-6">
-          <p className="text-muted-foreground">Storage configuration not found.</p>
+          <p className="text-muted-foreground">{t("STORAGE_DETAIL.STORAGE_CONFIGURATION_NOT_FOUND")}</p>
         </div>
       </main>
     );
@@ -567,7 +569,7 @@ export function StorageDetail() {
               className="cursor-pointer"
               onClick={() => navigate(storagePath)}
             >
-              <span className="text-foreground hover:text-foreground">Storage</span>
+              <span className="text-foreground hover:text-foreground">{t("STORAGE_DETAIL.STORAGE")}</span>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -610,7 +612,7 @@ export function StorageDetail() {
         <div className="flex items-center gap-2">
           <h1 className="text-xl font-semibold">
             {storage.storageStrategy === "S3Compatible"
-              ? "AWS S3 Compatible"
+              ? t("STORAGE_DETAIL.AWS_S3_COMPATIBLE")
               : storage.storageStrategy}
           </h1>
         </div>
@@ -622,7 +624,7 @@ export function StorageDetail() {
               window.open(`${getRuntimeEnv("BLOCKS_DATA_BASE_URL")}/swagger/index.html`, "_blank")
             }
           >
-            API Docs
+            {t("STORAGE_DETAIL.API_DOCS")}
           </Button>
           {/* <LogMenu link="/services/storage/logs" /> */}
           <DropdownMenu>
@@ -630,7 +632,7 @@ export function StorageDetail() {
               {(currentParentId || storage.name !== "Default") && canAddHere && (
                 <Button size="sm" className="bg-primary">
                   <Plus className="mr-2 h-4 w-4" />
-                  Add New
+                  {t("STORAGE_DETAIL.ADD_NEW")}
                 </Button>
               )}
             </DropdownMenuTrigger>
@@ -640,14 +642,14 @@ export function StorageDetail() {
                 onClick={() => setIsUploadModalOpen(true)}
               >
                 <Upload className="mr-2 h-4 w-4" />
-                Upload file
+                {t("STORAGE_DETAIL.UPLOAD_FILE")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="cursor-pointer"
                 onClick={() => setIsCreateDirectoryModalOpen(true)}
               >
                 <DirectoryPlus className="mr-2 h-4 w-4" />
-                Create new directory
+                {t("STORAGE_DETAIL.CREATE_NEW_DIRECTORY")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -662,7 +664,7 @@ export function StorageDetail() {
               <div className="flex-1">
                 <FilterToolbar
                   filters={[
-                    { key: "search", type: "SearchInput", label: "Search" },
+                    { key: "search", type: "SearchInput", label: t("common:SEARCH") },
                     // TODO: Implement Last Modified filter later
                     // {
                     //   key: "lastModified",
@@ -779,7 +781,7 @@ export function StorageDetail() {
                           <Button
                             variant="ghost"
                             className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                            aria-label="More options"
+                            aria-label={t("STORAGE_DETAIL.MORE_OPTIONS")}
                           >
                             <MoreVertical className="h-4 w-4" />
                           </Button>
@@ -800,14 +802,14 @@ export function StorageDetail() {
                       <TableRow>
                         <TableHead className="w-px">
                           <SelectAllCheckbox
-                            label="Select all folders"
+                            label={t("STORAGE_DETAIL.SELECT_ALL_FOLDERS")}
                             items={directorySelectables}
                             selection={selection}
                           />
                         </TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>File type</TableHead>
-                        <TableHead>Last modified</TableHead>
+                        <TableHead>{t("common:NAME")}</TableHead>
+                        <TableHead>{t("STORAGE_DETAIL.FILE_TYPE")}</TableHead>
+                        <TableHead>{t("STORAGE_DETAIL.LAST_MODIFIED")}</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -836,7 +838,7 @@ export function StorageDetail() {
                         </TableCell>
 
                         {/* Directory Type */}
-                        <TableCell className="text-muted-foreground">Directory</TableCell>
+                        <TableCell className="text-muted-foreground">{t("STORAGE_DETAIL.DIRECTORY")}</TableCell>
 
                         {/* Last Modified */}
                         <TableCell className="text-muted-foreground">
@@ -853,7 +855,7 @@ export function StorageDetail() {
                                 <Button
                                   variant="ghost"
                                   className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                                  aria-label="More options"
+                                  aria-label={t("STORAGE_DETAIL.MORE_OPTIONS")}
                                 >
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
@@ -874,7 +876,7 @@ export function StorageDetail() {
 
           {/* Files Section */}
           <div>
-            {filteredFiles.length > 0 && <h2 className="mb-4 text-base font-semibold">Files</h2>}
+            {filteredFiles.length > 0 && <h2 className="mb-4 text-base font-semibold">{t("STORAGE_DETAIL.FILES")}</h2>}
             {isDmsLoading ? (
               viewMode === "grid" ? (
                 <FileGridSkeleton />
@@ -916,7 +918,7 @@ export function StorageDetail() {
                       ) : file?.extension?.toLowerCase() === ".pdf" ? (
                         <div className="flex flex-col items-center justify-center space-y-2">
                           <FileText className="h-12 w-12 text-blue-500" />
-                          <span className="text-xs text-muted-foreground">PDF</span>
+                          <span className="text-xs text-muted-foreground">{t("STORAGE_DETAIL.PDF")}</span>
                         </div>
                       ) : (
                         getFileIcon(file.extension)
@@ -939,7 +941,7 @@ export function StorageDetail() {
                               <Button
                                 variant="ghost"
                                 className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                                aria-label="More options"
+                                aria-label={t("STORAGE_DETAIL.MORE_OPTIONS")}
                               >
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
@@ -962,15 +964,15 @@ export function StorageDetail() {
                       <TableRow>
                         <TableHead className="w-px">
                           <SelectAllCheckbox
-                            label="Select all files"
+                            label={t("STORAGE_DETAIL.SELECT_ALL_FILES")}
                             items={fileSelectables}
                             selection={selection}
                           />
                         </TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>File type</TableHead>
-                        <TableHead>Size</TableHead>
-                        <TableHead>Last modified</TableHead>
+                        <TableHead>{t("common:NAME")}</TableHead>
+                        <TableHead>{t("STORAGE_DETAIL.FILE_TYPE")}</TableHead>
+                        <TableHead>{t("STORAGE_DETAIL.SIZE")}</TableHead>
+                        <TableHead>{t("STORAGE_DETAIL.LAST_MODIFIED")}</TableHead>
                         <TableHead></TableHead>
                       </TableRow>
                     </TableHeader>
@@ -1017,7 +1019,7 @@ export function StorageDetail() {
                                 <Button
                                   variant="ghost"
                                   className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                                  aria-label="More options"
+                                  aria-label={t("STORAGE_DETAIL.MORE_OPTIONS")}
                                 >
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
@@ -1038,7 +1040,7 @@ export function StorageDetail() {
         </ScrollArea>
         {!isDmsLoading && rows.length === 0 && (
           <div className="flex h-full items-center justify-center">
-            <p className="text-muted-foreground">No directories and files found</p>
+            <p className="text-muted-foreground">{t("STORAGE_DETAIL.NO_DIRECTORIES_AND_FILES_FOUND")}</p>
           </div>
         )}
         {childrenQuery.hasNextPage && (
@@ -1049,7 +1051,7 @@ export function StorageDetail() {
               onClick={() => childrenQuery.fetchNextPage()}
               disabled={childrenQuery.isFetchingNextPage}
             >
-              {childrenQuery.isFetchingNextPage ? "Loading..." : "Load more"}
+              {childrenQuery.isFetchingNextPage ? t("common:LOADING") : t("STORAGE_DETAIL.LOAD_MORE")}
             </Button>
           </div>
         )}
@@ -1137,8 +1139,8 @@ export function StorageDetail() {
       >
         <ConfirmationModal
           data={{
-            dialogTitle: "Delete File",
-            dialogSubtitle: "Are you sure you want to delete this file?",
+            dialogTitle: t("STORAGE_DETAIL.DELETE_FILE"),
+            dialogSubtitle: t("STORAGE_DETAIL.ARE_YOU_SURE_YOU_WANT_TO"),
           }}
           onConfirm={async () => {
             if (selectedFileId) {
@@ -1165,9 +1167,9 @@ export function StorageDetail() {
       >
         <ConfirmationModal
           data={{
-            dialogTitle: "Delete Directory",
+            dialogTitle: t("STORAGE_DETAIL.DELETE_DIRECTORY"),
             dialogSubtitle:
-              "Are you sure you want to delete this directory? All the files inside this directory will be deleted for this action.",
+              t("STORAGE_DETAIL.ARE_YOU_SURE_YOU_WANT_TO_2"),
           }}
           onConfirm={async () => {
             if (selectedDirectoryId) {

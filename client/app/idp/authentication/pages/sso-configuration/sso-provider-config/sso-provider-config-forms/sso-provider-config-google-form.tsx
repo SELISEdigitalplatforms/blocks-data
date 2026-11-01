@@ -13,17 +13,22 @@ import { createCommonOAuthFields } from "../sso-provider-config-field-factory.ut
 import { ssoOAuthProviderSchema } from "../sso-provider-config.schema";
 import { SSOProviderConfigFormField } from "./sso-provider-config-form-fields";
 import { SsoConfigForms } from "./sso-provider-config-forms";
-import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+
+function ClientIdHelpLink({ to }: Readonly<{ to: string }>) {
+  const { t } = useT("data.idp.authentication");
+  return (
+    <Link to={to} target="_blank">
+      <Button variant="link" className="h-fit p-0!" type="button">
+        {t("SSO_PROVIDER_CONFIG_FORMS.HOW_TO_OBTAIN_A_CLIENT_ID")}
+      </Button>
+    </Link>
+  );
+}
 
 const SSOGoogleFormFields = createCommonOAuthFields({
   clientId: {
-    description: (
-      <Link to="https://console.cloud.google.com/apis/credentials" target="_blank">
-        <Button variant="link" className="h-fit p-0!" type="button">
-          {tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_FORMS.HOW_TO_OBTAIN_A_CLIENT_ID")}
-        </Button>
-      </Link>
-    ),
+    description: <ClientIdHelpLink to="https://console.cloud.google.com/apis/credentials" />,
   },
 });
 

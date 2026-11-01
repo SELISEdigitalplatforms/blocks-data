@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDuration } from "./graph-log-formatters";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export interface PhaseRow {
   label: string;
@@ -23,12 +24,12 @@ export const toPhaseRows = (phases: {
   const measured = phases.databaseMs + phases.policyMs + phases.validationMs + phases.publishMs;
 
   return [
-    { label: "Database", value: phases.databaseMs },
-    { label: "Policy checks", value: phases.policyMs },
-    { label: "Validation", value: phases.validationMs },
-    { label: "Event publishing", value: phases.publishMs },
+    { label: tStatic("data.gateway.analytics", "GRAPH_PHASE_BREAKDOWN.DATABASE"), value: phases.databaseMs },
+    { label: tStatic("data.gateway.analytics", "GRAPH_PHASE_BREAKDOWN.POLICY_CHECKS"), value: phases.policyMs },
+    { label: tStatic("data.gateway.analytics", "GRAPH_PHASE_BREAKDOWN.VALIDATION"), value: phases.validationMs },
+    { label: tStatic("data.gateway.analytics", "GRAPH_PHASE_BREAKDOWN.EVENT_PUBLISHING"), value: phases.publishMs },
     {
-      label: "Gateway & transport",
+      label: tStatic("data.gateway.analytics", "GRAPH_PHASE_BREAKDOWN.GATEWAY_TRANSPORT"),
       // Clamped: a trace recorded before a phase was instrumented would otherwise go negative.
       value: phases.otherMs ?? Math.max(0, phases.totalMs - measured),
     },

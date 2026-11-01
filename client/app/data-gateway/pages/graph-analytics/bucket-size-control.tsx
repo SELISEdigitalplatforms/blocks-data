@@ -6,14 +6,15 @@ import {
 } from "@/components/ui-kits/tooltip/tooltip";
 import { cn } from "@/lib/utils";
 import { GraphLogGranularity } from "../../models/graph-log-analytics";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /** Longest range, in calendar days, that hourly buckets still read as a chart (~336 points). */
 export const HOURLY_MAX_DAYS = 14;
 
 const OPTIONS: { value: GraphLogGranularity; label: string }[] = [
-  { value: "hourly", label: "Hourly" },
-  { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
+  { value: "hourly", get label() { return tStatic("data.gateway.analytics", "BUCKET_SIZE_CONTROL.HOURLY"); } },
+  { value: "daily", get label() { return tStatic("data.gateway.analytics", "BUCKET_SIZE_CONTROL.DAILY"); } },
+  { value: "weekly", get label() { return tStatic("data.gateway.analytics", "BUCKET_SIZE_CONTROL.WEEKLY"); } },
 ];
 
 interface BucketSizeControlProps {
@@ -24,11 +25,12 @@ interface BucketSizeControlProps {
 }
 
 export function BucketSizeControl({ value, onChange, isHourlyAllowed }: BucketSizeControlProps) {
+  const { t } = useT("data.gateway.analytics");
   return (
     <TooltipProvider delayDuration={150}>
       <div
         role="radiogroup"
-        aria-label="Bucket size"
+        aria-label={t("BUCKET_SIZE_CONTROL.BUCKET_SIZE")}
         className="inline-flex h-8 items-center rounded-md border border-border/40 p-0.5"
       >
         {OPTIONS.map((option) => {
@@ -70,7 +72,7 @@ export function BucketSizeControl({ value, onChange, isHourlyAllowed }: BucketSi
                 </span>
               </TooltipTrigger>
               <TooltipContent className="text-xs">
-                Hourly is available for ranges up to {HOURLY_MAX_DAYS} days.
+                {t("BUCKET_SIZE_CONTROL.HOURLY_IS_AVAILABLE_FOR_RANGES_UP", { HOURLY_MAX_DAYS })}
               </TooltipContent>
             </Tooltip>
           );

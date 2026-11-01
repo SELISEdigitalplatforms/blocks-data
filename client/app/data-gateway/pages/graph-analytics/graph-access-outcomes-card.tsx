@@ -21,6 +21,7 @@ import { DENIED_FAILURE_KINDS, failureKindLabel } from "../../models/graph-log-h
 import { AnalyticsCard } from "./analytics-card";
 import { formatBucketLabel } from "./graph-log-formatters";
 import { OUTCOME_COLORS } from "./graph-outcome-colors";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * A request the gateway refused on purpose, as opposed to an error response. Authentication,
@@ -33,9 +34,9 @@ import { OUTCOME_COLORS } from "./graph-outcome-colors";
  */
 // Status colours, not a categorical ramp: these are states, and each ships with its own label.
 const CHART_CONFIG = {
-  success: { label: "Allows", color: OUTCOME_COLORS.allows },
-  denied: { label: "Denies", color: OUTCOME_COLORS.denies },
-  errored: { label: "Errors", color: OUTCOME_COLORS.errors },
+  success: { get label() { return tStatic("data.gateway.analytics", "GRAPH_ACCESS_OUTCOMES_CARD.ALLOWS"); }, color: OUTCOME_COLORS.allows },
+  denied: { get label() { return tStatic("data.gateway.analytics", "GRAPH_ACCESS_OUTCOMES_CARD.DENIES"); }, color: OUTCOME_COLORS.denies },
+  errored: { get label() { return tStatic("data.gateway.analytics", "GRAPH_ACCESS_OUTCOMES_CARD.ERRORS"); }, color: OUTCOME_COLORS.errors },
 } satisfies ChartConfig;
 
 // A real non-zero outcome must remain visible even when a much larger successful-request segment
@@ -88,6 +89,7 @@ export const GraphAccessOutcomesCard = ({
   isLoading,
   isError,
 }: GraphAccessOutcomesCardProps) => {
+  const { t } = useT("data.gateway.analytics");
   const chartData = useMemo(
     () =>
       (requestsOverTime ?? []).map((bucket) => ({
@@ -130,7 +132,7 @@ export const GraphAccessOutcomesCard = ({
   return (
     <AnalyticsCard
       icon={Activity}
-      title="Requests over time"
+      title={t("GRAPH_ACCESS_OUTCOMES_CARD.REQUESTS_OVER_TIME")}
       contentClassName="flex flex-col gap-5"
     >
       {isLoading ? (
@@ -138,28 +140,28 @@ export const GraphAccessOutcomesCard = ({
           <SpinnerLoader />
         </div>
       ) : isError ? (
-        <p className="text-sm text-destructive">Couldn&apos;t load outcomes. Please try again.</p>
+        <p className="text-sm text-destructive">{t("GRAPH_ACCESS_OUTCOMES_CARD.COULDN_T_LOAD_OUTCOMES_PLEASE_TRY")}</p>
       ) : outcomes.total === 0 ? (
-        <p className="text-sm text-muted-foreground">No requests in this range.</p>
+        <p className="text-sm text-muted-foreground">{t("GRAPH_ACCESS_OUTCOMES_CARD.NO_REQUESTS_IN_THIS_RANGE")}</p>
       ) : (
         <>
           <div className="flex flex-wrap gap-3">
             <Outcome
-              label="Allows"
+              label={t("GRAPH_ACCESS_OUTCOMES_CARD.ALLOWS")}
               count={outcomes.allowed}
               share={share(outcomes.allowed)}
               detail="served"
               color={OUTCOME_COLORS.allows}
             />
             <Outcome
-              label="Denies"
+              label={t("GRAPH_ACCESS_OUTCOMES_CARD.DENIES")}
               count={outcomes.denied}
               share={share(outcomes.denied)}
               detail={outcomes.deniedDetail}
               color={OUTCOME_COLORS.denies}
             />
             <Outcome
-              label="Errors"
+              label={t("GRAPH_ACCESS_OUTCOMES_CARD.ERRORS")}
               count={outcomes.errored}
               share={share(outcomes.errored)}
               detail={outcomes.erroredDetail}
@@ -171,7 +173,7 @@ export const GraphAccessOutcomesCard = ({
             config={CHART_CONFIG}
             className="h-48 w-full"
             role="img"
-            aria-label="Allowed, denied and errored requests over time"
+            aria-label={t("GRAPH_ACCESS_OUTCOMES_CARD.ALLOWED_DENIED_AND_ERRORED_REQUESTS")}
           >
             <BarChart data={chartData}>
               <CartesianGrid vertical={false} />

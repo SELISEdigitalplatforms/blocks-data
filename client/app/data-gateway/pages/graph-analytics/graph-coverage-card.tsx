@@ -16,6 +16,7 @@ import {
 import { cn } from "@/lib/utils";
 import { IGraphLogSchemaCoverage } from "../../models/graph-log-analytics";
 import { AnalyticsCard } from "./analytics-card";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface GraphCoverageCardProps {
   schemaCoverage: IGraphLogSchemaCoverage[];
@@ -28,6 +29,7 @@ export const GraphCoverageCard = ({
   isLoading,
   isError,
 }: GraphCoverageCardProps) => {
+  const { t } = useT("data.gateway.analytics");
   const unusedCount = useMemo(
     () => schemaCoverage.filter((coverage) => coverage.calls === 0).length,
     [schemaCoverage],
@@ -36,11 +38,11 @@ export const GraphCoverageCard = ({
   return (
     <AnalyticsCard
       icon={Database}
-      title="Schema coverage"
+      title={t("GRAPH_COVERAGE_CARD.SCHEMA_COVERAGE")}
       headerRight={
         schemaCoverage.length > 0 && (
           <span className="text-xs text-muted-foreground">
-            {unusedCount} of {schemaCoverage.length} never called in this range
+            {t("GRAPH_COVERAGE_CARD.UNUSEDCOUNT_OF_LENGTH_NEVER_CALLED_IN", { unusedCount, length: schemaCoverage.length })}
           </span>
         )
       }
@@ -50,17 +52,17 @@ export const GraphCoverageCard = ({
           <SpinnerLoader />
         </div>
       ) : isError ? (
-        <p className="text-sm text-destructive">Couldn&apos;t load coverage. Please try again.</p>
+        <p className="text-sm text-destructive">{t("GRAPH_COVERAGE_CARD.COULDN_T_LOAD_COVERAGE_PLEASE_TRY")}</p>
       ) : schemaCoverage.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No schemas defined yet.</p>
+        <p className="text-sm text-muted-foreground">{t("GRAPH_COVERAGE_CARD.NO_SCHEMAS_DEFINED_YET")}</p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Schema</TableHead>
-              <TableHead>Calls</TableHead>
-              <TableHead>Reads</TableHead>
-              <TableHead>Writes</TableHead>
+              <TableHead>{t("GRAPH_COVERAGE_CARD.SCHEMA")}</TableHead>
+              <TableHead>{t("GRAPH_COVERAGE_CARD.CALLS")}</TableHead>
+              <TableHead>{t("GRAPH_COVERAGE_CARD.READS")}</TableHead>
+              <TableHead>{t("GRAPH_COVERAGE_CARD.WRITES")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -71,7 +73,7 @@ export const GraphCoverageCard = ({
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       <span>{coverage.entityName}</span>
-                      {unused && <Badge variant="secondary">unused</Badge>}
+                      {unused && <Badge variant="secondary">{t("GRAPH_COVERAGE_CARD.UNUSED")}</Badge>}
                     </div>
                   </TableCell>
                   <TableCell>{coverage.calls}</TableCell>

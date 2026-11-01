@@ -775,6 +775,28 @@ public class SchemaDefinitionServiceTests
     }
 
     [Fact]
+    public async Task DeleteSchema_Found_TellsTheOwnersWhatWasDeleted()
+    {
+        var schema = new SchemaDefinition { ItemId = "1", SchemaName = "Person" };
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync(schema);
+        _repo.Setup(r => r.DeleteAsync(It.IsAny<FilterDefinition<SchemaDefinition>>(), "")).ReturnsAsync(new ActionResponse { Acknowledged = true, ItemId = "1" });
+
+        await _service.DeleteSchemaAsync("1");
+
+        _changeLog.Verify(c => c.NotifyChangedAsync(schema, SchemaChangeType.SchemaDelete), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteSchema_NotFound_NotifiesNobody()
+    {
+        _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync((SchemaDefinition?)null);
+
+        await _service.DeleteSchemaAsync("x");
+
+        _changeLog.Verify(c => c.NotifyChangedAsync(It.IsAny<SchemaDefinition>(), It.IsAny<SchemaChangeType>()), Times.Never);
+    }
+
+    [Fact]
     public async Task GetSchemaById_NotFound_Returns204()
     {
         _repo.Setup(r => r.GetItemAsync<SchemaDefinition>(It.IsAny<string>(), "")).ReturnsAsync((SchemaDefinition?)null);

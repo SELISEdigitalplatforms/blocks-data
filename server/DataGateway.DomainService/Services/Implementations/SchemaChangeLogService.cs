@@ -2,6 +2,7 @@ using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Responses;
+using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Repositories;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
@@ -14,8 +15,10 @@ public class SchemaChangeLogService : ISchemaChangeLogService
 {
     private readonly IDbRepository _repository;
     private readonly ILogger<SchemaChangeLogService> _logger;
-    public SchemaChangeLogService(IDbRepository repository, ILogger<SchemaChangeLogService> logger)
+    private readonly ISchemaChangeNotifier? _notifier;
+    public SchemaChangeLogService(IDbRepository repository, ILogger<SchemaChangeLogService> logger, ISchemaChangeNotifier? notifier = null)
     {
+        _notifier = notifier;
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -40,6 +43,9 @@ public class SchemaChangeLogService : ISchemaChangeLogService
             return null;
         }
     }
+
+    public Task NotifyChangedAsync(SchemaDefinition schema, SchemaChangeType changeType) =>
+        _notifier is null ? Task.CompletedTask : _notifier.NotifyChangedAsync(schema, changeType);
 
     public async Task<ServiceResponse<List<SchemaChangeLog>>> GetUnadaptedSchemaChangeLogsAsync(CancellationToken cancellationToken = default)
     {

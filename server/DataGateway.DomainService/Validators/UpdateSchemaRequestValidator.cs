@@ -1,3 +1,4 @@
+using DataGateway.DomainService.Helpers;
 using FluentValidation;
 using DataGateway.DomainService.Models;
 using Blocks.Genesis.Entities.Data;
@@ -33,5 +34,8 @@ public class UpdateSchemaRequestValidator : AbstractValidator<UpdateSchemaReques
 
         RuleFor(x => x.SchemaType)
             .NotEmpty().WithMessage(SchemaTypeRequired);
+
+        RuleFor(x => x.Description)
+            .Must(SchemaDescription.HasValidLength).WithMessage(SchemaDescription.LengthMessage);
     }
 }

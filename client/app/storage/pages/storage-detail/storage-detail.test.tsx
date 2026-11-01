@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   DmsItemType,
@@ -32,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   fetchFile: vi.fn(),
   showErrorToast: vi.fn(),
   showSuccessToast: vi.fn(),
+  startZip: vi.fn(),
 }));
 
 vi.mock("react-router", async (orig) => ({
@@ -130,6 +131,24 @@ vi.mock("@/storage/components/manage-access-modal/manage-access-modal", () => ({
   ),
 }));
 
+vi.mock("@/storage/components/share-objects-modal/share-objects-modal", () => ({
+  ShareObjectsModal: ({
+    open,
+    items,
+    onShared,
+  }: {
+    open: boolean;
+    items: { itemId: string; name: string }[];
+    onShared: () => void;
+  }) => (
+    <div data-testid="share-objects-modal" data-open={String(open)} data-items={JSON.stringify(items)}>
+      <button type="button" onClick={onShared}>
+        mock shared
+      </button>
+    </div>
+  ),
+}));
+
 vi.mock("@/storage/components/file-versions-drawer/file-versions-drawer", () => ({
   FileVersionsDrawer: ({ open }: { open: boolean }) => (
     <div data-testid="versions-drawer" data-open={String(open)} />
@@ -184,12 +203,18 @@ vi.mock("@/storage/components/create-new-directory-modal/create-dms-new-director
 }));
 
 import { StorageDetail } from "./storage-detail";
+import { useZipDownloadStore } from "@/storage/store/use-zip-download-store";
 
 beforeAll(() => {
+  useZipDownloadStore.setState({ start: mocks.startZip });
   Element.prototype.hasPointerCapture ??= vi.fn(() => false) as never;
   Element.prototype.setPointerCapture ??= vi.fn() as never;
   Element.prototype.releasePointerCapture ??= vi.fn() as never;
   Element.prototype.scrollIntoView ??= vi.fn() as never;
+});
+
+afterAll(() => {
+  useZipDownloadStore.setState({ start: useZipDownloadStore.getInitialState().start });
 });
 
 function makeConfig(overrides: Partial<IStorageConfiguration> = {}): IStorageConfiguration {
@@ -257,6 +282,11 @@ function setLocation(search: string) {
 
 function renderDetail() {
   return render(<StorageDetail />);
+}
+
+async function switchToList(container: HTMLElement, user: ReturnType<typeof userEvent.setup>) {
+  const toggle = container.querySelector("div.gap-1.rounded-md.border.p-1") as HTMLElement;
+  await user.click(toggle.querySelectorAll("button")[0]);
 }
 
 beforeEach(() => {
@@ -951,5 +981,356 @@ describe("StorageDetail", () => {
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: /Add New/ })).not.toBeInTheDocument(),
     );
+  });
+  describe("selection and zip download", () => {
+    it("grid card checkbox selects a folder and shows '1 selected'", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [makeDirectory({ name: "Documents", itemId: "fold-1" })],
+        totalCount: 1,
+      };
+      renderDetail();
+
+      expect(screen.queryByText("1 selected")).not.toBeInTheDocument();
+      const checkbox = await screen.findByRole("checkbox", { name: "Select Documents" });
+      await user.click(checkbox);
+
+      expect(checkbox).toBeChecked();
+      expect(screen.getByText("1 selected")).toBeInTheDocument();
+    });
+
+    it("list view header checkbox selects all loaded rows", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [
+          makeDirectory({ name: "Alpha", itemId: "dir-a" }),
+          makeDirectory({ name: "Beta", itemId: "dir-b" }),
+          makeFile({ name: "report.pdf", itemId: "file-1" }),
+        ],
+        totalCount: 3,
+      };
+      const { container } = renderDetail();
+      await screen.findByText("Alpha");
+      await switchToList(container, user);
+
+      const allFolders = await screen.findByRole("checkbox", { name: "Select all folders" });
+      await user.click(allFolders);
+
+      expect(screen.getByText("2 selected")).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Select Alpha" })).toBeChecked();
+      expect(screen.getByRole("checkbox", { name: "Select Beta" })).toBeChecked();
+      expect(screen.getByRole("checkbox", { name: "Select report.pdf" })).not.toBeChecked();
+      expect(allFolders).toBeChecked();
+
+      // Some but not all of the section selected: the header shows a dash.
+      await user.click(screen.getByRole("checkbox", { name: "Select Alpha" }));
+      expect(screen.getByText("1 selected")).toBeInTheDocument();
+      expect(allFolders).toBePartiallyChecked();
+
+      await user.click(screen.getByRole("checkbox", { name: "Select all files" }));
+      expect(screen.getByText("2 selected")).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Select report.pdf" })).toBeChecked();
+
+      // Clearing a section leaves the other one alone.
+      await user.click(allFolders);
+      expect(screen.getByText("3 selected")).toBeInTheDocument();
+      await user.click(allFolders);
+      expect(screen.getByText("1 selected")).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Select report.pdf" })).toBeChecked();
+    });
+
+    it("Download calls start with fileIds, directoryIds and the page's configuration name", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [
+          makeDirectory({ name: "Documents", itemId: "fold-1" }),
+          makeFile({ name: "report.pdf", itemId: "file-1" }),
+        ],
+        totalCount: 2,
+      };
+      renderDetail();
+
+      mocks.startZip.mockResolvedValueOnce("started");
+      await user.click(await screen.findByRole("checkbox", { name: "Select Documents" }));
+      await user.click(screen.getByRole("checkbox", { name: "Select report.pdf" }));
+      expect(screen.getByText("2 selected")).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: "Selection" })).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Download" }));
+
+      expect(mocks.startZip).toHaveBeenCalledTimes(1);
+      expect(mocks.startZip).toHaveBeenCalledWith({
+        fileIds: ["file-1"],
+        directoryIds: ["fold-1"],
+        configurationName: "MyStore",
+      });
+      // The zip started, so the selection is handed off and cleared.
+      await waitFor(() => expect(screen.queryByText(/selected$/)).not.toBeInTheDocument());
+      expect(screen.getByRole("checkbox", { name: "Select Documents" })).not.toBeChecked();
+    });
+
+    it.each(["failed", "cancelled"])(
+      "Download keeps the selection when the zip %s",
+      async (outcome) => {
+        const user = userEvent.setup();
+        mocks.dmsState.response = {
+          dmsFileAndDirectoryInfos: [makeFile({ name: "report.pdf", itemId: "file-1" })],
+          totalCount: 1,
+        };
+        renderDetail();
+
+        let settle!: (value: string) => void;
+        mocks.startZip.mockReturnValueOnce(
+          new Promise<string>((resolve) => {
+            settle = resolve;
+          }),
+        );
+        await user.click(await screen.findByRole("checkbox", { name: "Select report.pdf" }));
+        await user.click(screen.getByRole("button", { name: "Download" }));
+
+        // Still preparing: nothing is cleared yet.
+        expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+        await act(async () => {
+          settle(outcome);
+        });
+
+        expect(screen.getByText("1 selected")).toBeInTheDocument();
+        expect(screen.getByRole("checkbox", { name: "Select report.pdf" })).toBeChecked();
+      },
+    );
+
+    it("Clear empties the selection", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [makeFile({ name: "report.pdf", itemId: "file-1" })],
+        totalCount: 1,
+      };
+      renderDetail();
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select report.pdf" }));
+      expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Clear" }));
+
+      expect(screen.queryByText("1 selected")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Download" })).not.toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Select report.pdf" })).not.toBeChecked();
+      expect(mocks.startZip).not.toHaveBeenCalled();
+    });
+
+    it("selection resets when opening another folder", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [makeDirectory({ name: "Documents", itemId: "fold-1" })],
+        totalCount: 1,
+      };
+      const { rerender } = renderDetail();
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select Documents" }));
+      expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+      // The page reads its folder from the URL, so opening a folder is a URL change.
+      const path = encodeURIComponent(JSON.stringify([{ id: "fold-1", name: "Documents" }]));
+      setLocation(`/?id=cfg-1&directoryId=fold-1&path=${path}`);
+      rerender(<StorageDetail />);
+
+      expect(screen.queryByText("1 selected")).not.toBeInTheDocument();
+
+      // Coming back does not bring the old selection back either.
+      setLocation("/?id=cfg-1");
+      rerender(<StorageDetail />);
+
+      expect(screen.queryByText("1 selected")).not.toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Select Documents" })).not.toBeChecked();
+    });
+
+    it("selection resets when the search changes", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [makeDirectory({ name: "Documents", itemId: "fold-1" })],
+        totalCount: 1,
+      };
+      renderDetail();
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select Documents" }));
+      expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+      await user.type(screen.getAllByPlaceholderText("Search...")[0], "Doc");
+
+      await waitFor(() => expect(screen.queryByText("1 selected")).not.toBeInTheDocument());
+    });
+
+    it("folder menu shows 'Download as zip' only when canDownload", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [makeDirectory({ name: "Documents", itemId: "fold-1" })],
+        totalCount: 1,
+      };
+      const { unmount } = renderDetail();
+
+      await user.click(await screen.findByRole("button", { name: "More options" }));
+      expect(await screen.findByText("Download as zip")).toBeInTheDocument();
+      unmount();
+
+      mocks.permissions = { ...mocks.permissions, canDownload: false };
+      renderDetail();
+
+      await user.click(await screen.findByRole("button", { name: "More options" }));
+      await screen.findByText("Move");
+      expect(screen.queryByText("Download as zip")).not.toBeInTheDocument();
+    });
+
+    it("offers no 'Download as zip' on a file row", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [makeFile({ name: "report.pdf", itemId: "file-1" })],
+        totalCount: 1,
+      };
+      renderDetail();
+
+      await user.click(await screen.findByRole("button", { name: "More options" }));
+      await screen.findByText("Versions");
+      expect(screen.queryByText("Download as zip")).not.toBeInTheDocument();
+    });
+
+    it("'Download as zip' starts a zip for that one folder", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [
+          makeDirectory({ name: "Documents", itemId: "fold-1" }),
+          makeFile({ name: "report.pdf", itemId: "file-1" }),
+        ],
+        totalCount: 2,
+      };
+      renderDetail();
+
+      // An unrelated selection is not swept into the single-folder zip, nor cleared by it.
+      mocks.startZip.mockResolvedValueOnce("started");
+      await user.click(await screen.findByRole("checkbox", { name: "Select report.pdf" }));
+
+      await user.click(screen.getAllByRole("button", { name: "More options" })[0]);
+      // Opening the menu itself reaches the card's click handler under jsdom (the
+      // trigger opens on pointerdown); that predates this feature, so only the
+      // menu item's own click is asserted on below.
+      mocks.navigate.mockClear();
+      await user.click(await screen.findByText("Download as zip"));
+
+      expect(mocks.startZip).toHaveBeenCalledWith({
+        fileIds: [],
+        directoryIds: ["fold-1"],
+        configurationName: "MyStore",
+      });
+      expect(mocks.navigate).not.toHaveBeenCalled();
+      await act(async () => {});
+      expect(screen.getByText("1 selected")).toBeInTheDocument();
+    });
+
+    it("clicking a checkbox does not open the folder or file", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [
+          makeDirectory({ name: "Documents", itemId: "fold-1" }),
+          makeFile({ name: "report.pdf", itemId: "file-1" }),
+        ],
+        totalCount: 2,
+      };
+      const { container } = renderDetail();
+
+      // Grid cards, by mouse and by keyboard.
+      await user.click(await screen.findByRole("checkbox", { name: "Select Documents" }));
+      await user.click(screen.getByRole("checkbox", { name: "Select report.pdf" }));
+      screen.getByRole("checkbox", { name: "Select Documents" }).focus();
+      await user.keyboard(" ");
+      expect(screen.getByRole("checkbox", { name: "Select Documents" })).not.toBeChecked();
+
+      // List rows and the header.
+      await switchToList(container, user);
+      await user.click(await screen.findByRole("checkbox", { name: "Select Documents" }));
+      await user.click(screen.getByRole("checkbox", { name: "Select report.pdf" }));
+      await user.click(screen.getByRole("checkbox", { name: "Select all folders" }));
+
+      expect(mocks.navigate).not.toHaveBeenCalled();
+      expect(mocks.fetchFile).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("preview-modal")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("sharing the selection", () => {
+    it("Share opens the bulk share modal with the selected files and folders", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [
+          makeDirectory({ name: "Documents", itemId: "fold-1" }),
+          makeFile({ name: "report.pdf", itemId: "file-1" }),
+        ],
+        totalCount: 2,
+      };
+      renderDetail();
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select Documents" }));
+      await user.click(screen.getByRole("checkbox", { name: "Select report.pdf" }));
+      expect(screen.queryByTestId("share-objects-modal")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Share" }));
+
+      const modal = screen.getByTestId("share-objects-modal");
+      expect(modal).toHaveAttribute("data-open", "true");
+      expect(JSON.parse(modal.getAttribute("data-items") ?? "[]")).toEqual([
+        { itemId: "fold-1", name: "Documents" },
+        { itemId: "file-1", name: "report.pdf" },
+      ]);
+    });
+
+    it("clears the selection once the share succeeded", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [makeFile({ name: "report.pdf", itemId: "file-1" })],
+        totalCount: 1,
+      };
+      renderDetail();
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select report.pdf" }));
+      await user.click(screen.getByRole("button", { name: "Share" }));
+      await user.click(screen.getByRole("button", { name: "mock shared" }));
+
+      await waitFor(() => expect(screen.queryByText(/selected$/)).not.toBeInTheDocument());
+      expect(screen.getByRole("checkbox", { name: "Select report.pdf" })).not.toBeChecked();
+    });
+
+    it("disables Share when the caller cannot manage access on the selection", async () => {
+      const user = userEvent.setup();
+      mocks.permissions = { ...mocks.permissions, canManage: false };
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: [makeFile({ name: "report.pdf", itemId: "file-1" })],
+        totalCount: 1,
+      };
+      renderDetail();
+
+      await user.click(await screen.findByRole("checkbox", { name: "Select report.pdf" }));
+
+      const share = screen.getByRole("button", { name: "Share" });
+      expect(share).toBeDisabled();
+      expect(share).toHaveAttribute("title", "You can't manage access on some selected items");
+    });
+
+    it("disables Share above 50 selected items", async () => {
+      const user = userEvent.setup();
+      mocks.dmsState.response = {
+        dmsFileAndDirectoryInfos: Array.from({ length: 51 }, (_, i) =>
+          makeFile({ name: `file-${i}.txt`, itemId: `file-${i}` }),
+        ),
+        totalCount: 51,
+      };
+      const { container } = renderDetail();
+
+      await switchToList(container, user);
+      await user.click(await screen.findByRole("checkbox", { name: "Select all files" }));
+
+      expect(screen.getByText("51 selected")).toBeInTheDocument();
+      const share = screen.getByRole("button", { name: "Share" });
+      expect(share).toBeDisabled();
+      expect(share).toHaveAttribute("title", "Share up to 50 items at a time");
+    });
   });
 });

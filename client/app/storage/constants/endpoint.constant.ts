@@ -33,6 +33,13 @@ export const STORAGE_FILE_ENDPOINTS = {
   UPLOAD_PUBLIC_CERTIFICATE: `${API_BASES.UDS}/Certificate/UploadCertificate`,
 } as const;
 
+// Zip download endpoints (see ObjectController). PREPARE is authenticated; DOWNLOAD is hit directly by the
+// browser's download manager with a single-use ticket.
+export const ZIP_DOWNLOAD_ENDPOINTS = {
+  PREPARE: `${API_BASES.UDS}${OBJECT_SUBPATH}/download-zip/prepare`,
+  DOWNLOAD: `${API_BASES.UDS}${OBJECT_SUBPATH}/download-zip`,
+} as const;
+
 // DMS directory endpoints (see DirectoryController).
 export const FOLDER_ENDPOINTS = {
   GET: `${API_BASES.UDS}${FOLDERS_SUBPATH}/get-directory`,
@@ -59,6 +66,7 @@ export const OBJECT_ENDPOINTS = {
   RESOLVE: `${API_BASES.UDS}${OBJECT_SUBPATH}/resolve-access`,
   INHERITANCE: `${API_BASES.UDS}${OBJECT_SUBPATH}/toggle-inheritance`,
   SHARE: `${API_BASES.UDS}${OBJECT_SUBPATH}/share-object`,
+  SHARE_MANY: `${API_BASES.UDS}${OBJECT_SUBPATH}/share-objects`,
 } as const;
 
 // File endpoints added by the DMS revamp, alongside the existing ones above (see FileController).

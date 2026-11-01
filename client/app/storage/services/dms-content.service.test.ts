@@ -164,6 +164,24 @@ describe("DmsContentService", () => {
     );
   });
 
+  it("shares several resources with several principals in one request", async () => {
+    const payload = {
+      resourceIds: ["file-1", "dir-1"],
+      principals: [
+        { principalType: "User" as const, principalId: "user-1" },
+        { principalType: "Role" as const, principalId: "editor", organizationId: "default" },
+      ],
+      permission: "View" as const,
+    };
+
+    await service.shareObjects(payload);
+
+    expect(http.post).toHaveBeenCalledWith(
+      expect.stringContaining("/objects/share-objects"),
+      payload,
+    );
+  });
+
   it("requests a presigned url for a new version", async () => {
     await service.createFileVersion("file-1", "azure");
 

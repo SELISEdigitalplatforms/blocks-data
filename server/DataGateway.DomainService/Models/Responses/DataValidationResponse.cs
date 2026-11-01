@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using DataGateway.DomainService.Entities;
 using Blocks.Genesis.Entities.Data;
 
@@ -71,4 +72,12 @@ public class ValidationRuleResponse
 
     /// <summary>0: rules as they always were; 1: list properties are checked item by item.</summary>
     public int EvaluationVersion { get; set; }
+
+    /// <summary>The rule applies only when this condition holds. Left out when the rule has none.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PolicyRuleGroup? When { get; set; }
+
+    /// <summary>The target row must also match this condition. Left out when the rule has none.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PolicyRuleGroup? TargetFilter { get; set; }
 }

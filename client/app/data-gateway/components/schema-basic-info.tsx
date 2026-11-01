@@ -184,6 +184,8 @@ export const SchemaBasicInfo = ({
                   </span>
                 )}
               </div>
+              {/* The schema's description (section 7), as plain text. */}
+              {props.description && <p className="wrap-break-word text-[12px] text-muted-foreground">{props.description}</p>}
               {/* Narrow: collection and counts stack on two lines, without the
                   dot, which a wrapping line would leave dangling at its end. */}
               <div

@@ -1,3 +1,4 @@
+using DataGateway.DomainService.Helpers;
 using FluentValidation;
 using DataGateway.DomainService.Entities;
 using DataGateway.DomainService.Models;
@@ -42,6 +43,9 @@ public class CreateSchemaRequestValidator : AbstractValidator<CreateSchemaReques
 
         RuleFor(x => x.SchemaType)
             .NotEmpty().WithMessage(SchemaTypeRequired);
+
+        RuleFor(x => x.Description)
+            .Must(SchemaDescription.HasValidLength).WithMessage(SchemaDescription.LengthMessage);
     }
 
     public async Task<bool> IsValidSchemaName(string schemaName)

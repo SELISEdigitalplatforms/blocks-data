@@ -30,7 +30,9 @@ public static class DataValidationMapping
             SecondaryValue = rule.SecondaryValue,
             ErrorMessage = rule.ErrorMessage,
             IsActive = rule.IsActive,
-            EvaluationVersion = rule.EvaluationVersion
+            EvaluationVersion = rule.EvaluationVersion,
+            When = rule.When,
+            TargetFilter = rule.TargetFilter
         };
     }
 
@@ -43,16 +45,33 @@ public static class DataValidationMapping
             SecondaryValue = JsonValueHelper.ToStorableValue(request.SecondaryValue),
             ErrorMessage = request.ErrorMessage,
             IsActive = request.IsActive,
-            EvaluationVersion = request.EvaluationVersion ?? 0
-        };
-        if (rule.Type == ValidationType.Reference)
+            EvaluationVersion = request.EvaluationVersion ?? 0,
+            When = request.When,
+            TargetFilter = request.TargetFilter
+        }.WithPlainList();
+        if (ReferenceTargets.IsLookupRule(rule))
         {
             // Stored as plain names: the target schema, and its field (ItemId unless another was picked).
             rule.Value = ReferenceTargets.TargetSchemaName(rule);
             rule.SecondaryValue = ReferenceTargets.TargetFieldName(rule);
-            // A new rule type, so it has no earlier behaviour to keep: lists are always checked item by item.
-            rule.EvaluationVersion = 1;
         }
+        if (rule.Type == ValidationType.Reference)
+        {
+            // Lists are always checked item by item, so at least 1. A higher version the client sends is kept:
+            // from 2, deleted target rows don't count.
+            rule.EvaluationVersion = Math.Max(rule.EvaluationVersion, 1);
+        }
+        return rule;
+    }
+
+    /// <summary>
+    /// In / Not in values as a plain list. A JSON array arrives as an array, which the BSON object serializer writes
+    /// as <c>{ _t, _v }</c>; a list is written as a plain array.
+    /// </summary>
+    public static ValidationRule WithPlainList(this ValidationRule rule)
+    {
+        if (rule.Type is ValidationType.In or ValidationType.NotIn && rule.Value is object?[] values)
+            rule.Value = values.ToList();
         return rule;
     }
 }

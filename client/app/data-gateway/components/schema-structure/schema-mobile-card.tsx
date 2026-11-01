@@ -625,10 +625,11 @@ export function SchemaMobileCard({
     "Exit edit mode to manage access",
     "Save the field before setting access",
   );
+  // A list of objects can be counted (At least / At most items); a single object takes no rule.
   const validationReason = unavailableReason(
     isEditMode,
     isNewField,
-    typeReason && "Validations are only available for primitive types",
+    typeReason && !watch(`properties.${index}.isArray`) ? "Validations are only available for primitive types and lists" : "",
     "Exit edit mode to manage validations",
     "Save the field before adding validations",
   );

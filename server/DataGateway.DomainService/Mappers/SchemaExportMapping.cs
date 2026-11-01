@@ -35,6 +35,7 @@ public static class SchemaExportMapping
             var doc = new SchemaExportDocument
             {
                 CollectionName = schema.CollectionName,
+                Description = schema.Description,
                 SchemaName = schema.SchemaName,
                 SchemaType = schema.SchemaType,
                 ReadAccessLevel = schema.ReadAccessLevel,
@@ -108,6 +109,8 @@ public static class SchemaExportMapping
         SecondaryValue = rule.SecondaryValue,
         ErrorMessage = rule.ErrorMessage,
         IsActive = rule.IsActive,
-        EvaluationVersion = rule.EvaluationVersion
+        EvaluationVersion = rule.EvaluationVersion,
+        When = rule.When,
+        TargetFilter = rule.TargetFilter
     };
 }

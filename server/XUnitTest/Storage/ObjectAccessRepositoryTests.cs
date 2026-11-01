@@ -256,4 +256,45 @@ public class ObjectAccessRepositoryTests : IDisposable
 
         indexes.Should().Contain(i => i["key"].AsBsonDocument.Contains("ResourceId"));
     }
+
+    private static ObjectAuditLog AuditEntry(string resourceId) => new()
+    {
+        ItemId = Guid.NewGuid().ToString(),
+        TenantId = "tenant-1",
+        ResourceId = resourceId,
+        ResourceType = ObjectResourceType.Directory,
+        UserId = "user-1",
+        Action = "Share",
+        Granted = true,
+        CreatedDate = DateTime.UtcNow,
+    };
+
+    [Fact]
+    public async Task Granting_many_stores_every_entry()
+    {
+        await _repository.GrantManyAsync([Policy("dir-1"), Policy("dir-2")]);
+
+        (await _repository.GetByResourceAsync("dir-1")).Should().ContainSingle();
+        (await _repository.GetByResourceAsync("dir-2")).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Granting_or_auditing_an_empty_list_does_nothing()
+    {
+        await _repository.GrantManyAsync([]);
+        await _repository.WriteAuditManyAsync([]);
+
+        (await _db.GetCollection<ObjectAccessPolicy>("ObjectAccessPolicies")
+            .CountDocumentsAsync(FilterDefinition<ObjectAccessPolicy>.Empty)).Should().Be(0);
+        (await _db.GetCollection<ObjectAuditLog>("ObjectAuditLogs")
+            .CountDocumentsAsync(FilterDefinition<ObjectAuditLog>.Empty)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Writing_many_audit_entries_stores_each()
+    {
+        await _repository.WriteAuditManyAsync([AuditEntry("dir-1"), AuditEntry("dir-1")]);
+
+        (await _repository.GetAuditForResourceAsync("dir-1")).Should().HaveCount(2);
+    }
 }

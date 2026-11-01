@@ -43,6 +43,15 @@ import {
 } from "@/storage/components/move-copy-dialog/move-copy-dialog";
 import { RenameDirectoryDialog } from "@/storage/components/rename-directory-dialog";
 import { RenameFileDialog } from "@/storage/components/rename-file-dialog";
+import { SelectionBar } from "@/storage/components/selection-bar/selection-bar";
+import { ShareObjectsModal } from "@/storage/components/share-objects-modal/share-objects-modal";
+import { MAX_SHARE_ITEMS } from "@/storage/constants/share.constant";
+import {
+  ItemCheckbox,
+  SelectAllCheckbox,
+} from "@/storage/components/selection-bar/item-checkbox";
+import { useItemSelection } from "@/storage/hooks/use-item-selection";
+import { useZipDownloadStore } from "@/storage/store/use-zip-download-store";
 import {
   DmsFileItem,
   DmsDirectoryItem,
@@ -54,6 +63,7 @@ import { DmsItemType, IDmsFileAndDirectoryInfo } from "@/storage/models/storage.
 import { useProjectStore } from "@seliseblocks/genesis-os";
 
 import {
+  Download,
   FileText,
   Folder as Directory,
   FolderPlus as DirectoryPlus,
@@ -176,6 +186,7 @@ export function StorageDetail() {
   });
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [accessItem, setAccessItem] = useState<DmsItem | null>(null);
+  const [isShareOpen, setIsShareOpen] = useState(false);
   const [versionsFile, setVersionsFile] = useState<DmsItem | null>(null);
   const [transfer, setTransfer] = useState<{ item: DmsItem; mode: MoveCopyMode } | null>(null);
   const [renameDirectory, setRenameDirectory] = useState<DmsDirectoryItem | null>(null);
@@ -226,6 +237,31 @@ export function StorageDetail() {
     }
     return configurations.find((config) => config.itemId === storageId);
   }, [configurations, storageId]);
+
+  // A selection belongs to one listing: opening another folder or searching drops it.
+  const selection = useItemSelection(`${currentParentId}|${filters.search}`);
+  const startZip = useZipDownloadStore((state) => state.start);
+
+  const handleDownloadSelection = async () => {
+    const outcome = await startZip({
+      fileIds: [...selection.fileIds],
+      directoryIds: [...selection.directoryIds],
+      configurationName: storage?.name,
+    });
+    // A zip that failed or was closed before it started keeps the selection, so it can be retried.
+    if (outcome === "started") selection.clear();
+  };
+
+  // The selected rows in listing order, for the bulk share. The server shares all or
+  // nothing, so Share is offered only when every selected item allows managing access
+  // and the selection fits in one request.
+  const selectedItems = [...dmsItemsById.values()].filter((item) => selection.isSelected(item.itemId));
+  const shareDisabledReason =
+    selection.count > MAX_SHARE_ITEMS
+      ? `Share up to ${MAX_SHARE_ITEMS} items at a time`
+      : selectedItems.some((item) => !itemActions(item).canManageAccess)
+        ? "You can't manage access on some selected items"
+        : undefined;
 
   // Helper to build URL with directory navigation params
   const buildDirectoryUrl = useCallback((directoryId: string, path: BreadcrumbItem[]) => {
@@ -333,6 +369,16 @@ export function StorageDetail() {
     });
   }, [files, filters.fileType]);
 
+  // What each list header's select-all covers: the rows loaded so far.
+  const directorySelectables = useMemo(
+    () => filteredDirectorys.map((row) => ({ id: row.itemId, kind: "directory" as const })),
+    [filteredDirectorys],
+  );
+  const fileSelectables = useMemo(
+    () => filteredFiles.map((row) => ({ id: row.itemId, kind: "file" as const })),
+    [filteredFiles],
+  );
+
   // Deleting is a soft delete: the item moves to the trash and can be restored
   // from there. The hooks invalidate both the children and the trash listings.
   const handleDeleteFile = async (id: string) => {
@@ -382,6 +428,22 @@ export function StorageDetail() {
 
     return (
       <>
+        {isDirectoryRow && actions.canDownload && (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              void startZip({
+                fileIds: [],
+                directoryIds: [row.itemId],
+                configurationName: storage?.name,
+              });
+            }}
+            className="cursor-pointer"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Download as zip
+          </DropdownMenuItem>
+        )}
         {dmsItem && !isDirectoryRow && actions.canViewVersions && (
           <DropdownMenuItem
             onClick={(e) => {
@@ -661,6 +723,18 @@ export function StorageDetail() {
           </div>
         )}
 
+        {selection.count > 0 && (
+          <div className="px-3 pt-3">
+            <SelectionBar
+              count={selection.count}
+              onShare={() => setIsShareOpen(true)}
+              shareDisabledReason={shareDisabledReason}
+              onDownload={handleDownloadSelection}
+              onClear={selection.clear}
+            />
+          </div>
+        )}
+
         <ScrollArea className="flex-1 overflow-auto p-3">
           {/* Directories */}
           <div className="mb-8">
@@ -677,7 +751,7 @@ export function StorageDetail() {
                     key={`directory-${directory.fileStorageId}-${index}`}
                     role="button"
                     tabIndex={0}
-                    className="group flex cursor-pointer items-center justify-between gap-2 rounded-lg border bg-background p-4 transition-colors hover:bg-accent"
+                    className="group relative flex cursor-pointer items-center justify-between gap-2 rounded-lg border bg-background p-4 transition-colors hover:bg-accent"
                     onClick={() => handleDirectoryClick(directory)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
@@ -686,6 +760,13 @@ export function StorageDetail() {
                       }
                     }}
                   >
+                    <ItemCheckbox
+                      name={directory.name}
+                      checked={selection.isSelected(directory.itemId)}
+                      onToggle={() => selection.toggle(directory.itemId, "directory")}
+                      revealOnHover={selection.count === 0}
+                      className="absolute left-1 top-1"
+                    />
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <Directory className="h-5 w-5 shrink-0 text-yellow-500" />
                       <span className="truncate text-sm font-medium" title={directory.name}>
@@ -717,6 +798,13 @@ export function StorageDetail() {
                   {filteredDirectorys.length > 0 && (
                     <TableHeader className="bg-muted/50">
                       <TableRow>
+                        <TableHead className="w-px">
+                          <SelectAllCheckbox
+                            label="Select all folders"
+                            items={directorySelectables}
+                            selection={selection}
+                          />
+                        </TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>File type</TableHead>
                         <TableHead>Last modified</TableHead>
@@ -731,6 +819,14 @@ export function StorageDetail() {
                         className="group cursor-pointer hover:bg-accent"
                         onClick={() => handleDirectoryClick(directory)}
                       >
+                        <TableCell className="w-px">
+                          <ItemCheckbox
+                            name={directory.name}
+                            checked={selection.isSelected(directory.itemId)}
+                            onToggle={() => selection.toggle(directory.itemId, "directory")}
+                          />
+                        </TableCell>
+
                         {/* Directory Name */}
                         <TableCell className="flex items-center gap-3 min-w-0">
                           <Directory className="h-5 w-5 shrink-0 text-yellow-500" />
@@ -792,7 +888,7 @@ export function StorageDetail() {
                     key={`file-${file.fileStorageId}-${index}`}
                     role="button"
                     tabIndex={0}
-                    className="group flex cursor-pointer flex-col rounded-lg border bg-background transition-colors hover:bg-accent"
+                    className="group relative flex cursor-pointer flex-col rounded-lg border bg-background transition-colors hover:bg-accent"
                     onClick={() => handleFileClick(file)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
@@ -801,6 +897,13 @@ export function StorageDetail() {
                       }
                     }}
                   >
+                    <ItemCheckbox
+                      name={file.name}
+                      checked={selection.isSelected(file.itemId)}
+                      onToggle={() => selection.toggle(file.itemId, "file")}
+                      revealOnHover={selection.count === 0}
+                      className="absolute left-2 top-2"
+                    />
                     {/* File Preview */}
                     <div className="flex h-40 items-center justify-center border-b bg-muted/30 p-4">
                       {[".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"].includes(
@@ -857,6 +960,13 @@ export function StorageDetail() {
                   {filteredFiles.length > 0 && (
                     <TableHeader className="bg-muted/50">
                       <TableRow>
+                        <TableHead className="w-px">
+                          <SelectAllCheckbox
+                            label="Select all files"
+                            items={fileSelectables}
+                            selection={selection}
+                          />
+                        </TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>File type</TableHead>
                         <TableHead>Size</TableHead>
@@ -872,6 +982,13 @@ export function StorageDetail() {
                         className="group cursor-pointer hover:bg-accent"
                         onClick={() => handleFileClick(file)}
                       >
+                        <TableCell className="w-px">
+                          <ItemCheckbox
+                            name={file.name}
+                            checked={selection.isSelected(file.itemId)}
+                            onToggle={() => selection.toggle(file.itemId, "file")}
+                          />
+                        </TableCell>
                         <TableCell className="flex items-center gap-3 min-w-0">
                           {getFileIcon(file.extension, "sm")}
                           <span className="font-medium truncate max-w-[200px] min-w-0">
@@ -937,6 +1054,15 @@ export function StorageDetail() {
           </div>
         )}
       </div>
+
+      {isShareOpen && (
+        <ShareObjectsModal
+          open={isShareOpen}
+          onOpenChange={setIsShareOpen}
+          items={selectedItems.map((item) => ({ itemId: item.itemId, name: item.name }))}
+          onShared={selection.clear}
+        />
+      )}
 
       {accessItem && (
         <ManageAccessModal

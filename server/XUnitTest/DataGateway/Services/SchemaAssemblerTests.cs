@@ -2,7 +2,7 @@ using Blocks.Genesis;
 using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
-using DataGateway.DomainService.Schema;
+using DataGateway.DomainService.Schemas;
 using FluentAssertions;
 using MongoDB.Driver;
 using Moq;

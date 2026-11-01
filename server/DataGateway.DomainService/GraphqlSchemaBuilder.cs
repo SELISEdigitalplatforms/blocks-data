@@ -9,7 +9,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
-using DataGateway.DomainService.Schema;
+using DataGateway.DomainService.Schemas;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using Blocks.Genesis.DataAccess.Rules;
@@ -22,11 +22,18 @@ public class GraphqlSchemaBuilder
     private readonly SchemaResolver _schemaResolver;
     private readonly ILogger<GraphqlSchemaBuilder> _logger;
 
-    public GraphqlSchemaBuilder(SchemaResolver schemaResolver, IDbRepository repository, ILogger<GraphqlSchemaBuilder> logger)
+    public GraphqlSchemaBuilder(SchemaResolver schemaResolver, SchemaAssembler schemaAssembler, ILogger<GraphqlSchemaBuilder> logger)
     {
         _schemaResolver = schemaResolver;
-        _assembler = new SchemaAssembler(repository);
+        _assembler = schemaAssembler;
         _logger = logger;
+    }
+
+    // Not public: next to the constructor above, the container could not choose between them when both an
+    // IDbRepository and a SchemaAssembler are registered. Tests build the builder from a repository.
+    internal GraphqlSchemaBuilder(SchemaResolver schemaResolver, IDbRepository repository, ILogger<GraphqlSchemaBuilder> logger)
+        : this(schemaResolver, new SchemaAssembler(repository), logger)
+    {
     }
 
     /// <summary>

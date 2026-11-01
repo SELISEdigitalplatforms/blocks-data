@@ -1,6 +1,6 @@
 using DataGateway.DomainService.Models;
 
-namespace DataGateway.DomainService.Schema;
+namespace DataGateway.DomainService.Schemas;
 
 /// <summary>
 /// Checks that a tenant's drafts build, before a publish stores them. Throws whatever the build

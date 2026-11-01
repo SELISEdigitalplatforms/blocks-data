@@ -9,7 +9,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using MongoDB.Bson;
 
-namespace DataGateway.DomainService.Schema;
+namespace DataGateway.DomainService.Schemas;
 
 /// <summary>
 /// Reads a tenant's schema source and assembles it into the shape the gateway builds from, with no
@@ -101,7 +101,7 @@ public sealed class SchemaAssembler(IDbRepository repository)
     /// A system entity as a reference target: its name, collection and properties, with no rules of its own. Its
     /// nested properties are stored as dotted rows ("MfaMethods.Active"), which a filter may name.
     /// </summary>
-    internal static SchemaDefinitionExtended SystemTarget(SchemaDefinition schema) => new()
+    public static SchemaDefinitionExtended SystemTarget(SchemaDefinition schema) => new()
     {
         ItemId = schema.ItemId,
         SchemaName = schema.SchemaName,
@@ -118,7 +118,7 @@ public sealed class SchemaAssembler(IDbRepository repository)
     /// their validations, and policies with field-level inheritance applied. Modifies
     /// <paramref name="source"/>'s definitions (legacy reference-field repair).
     /// </summary>
-    internal static List<SchemaDefinitionExtended> Assemble(SchemaSource source)
+    public static List<SchemaDefinitionExtended> Assemble(SchemaSource source)
     {
         var data = source.SchemaDefinitions;
         if (data.Count == 0)
@@ -186,7 +186,7 @@ public sealed class SchemaAssembler(IDbRepository repository)
         return schemaDefinitions;
     }
 
-    internal static void RestoreMissingReferenceFieldTypes(List<SchemaDefinition> schemas)
+    public static void RestoreMissingReferenceFieldTypes(List<SchemaDefinition> schemas)
     {
         var schemasByName = schemas
             .Where(schema => !string.IsNullOrWhiteSpace(schema.SchemaName))

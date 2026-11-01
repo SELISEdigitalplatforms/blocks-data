@@ -5,7 +5,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Repositories;
-using DataGateway.DomainService.Schema;
+using DataGateway.DomainService.Schemas;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;

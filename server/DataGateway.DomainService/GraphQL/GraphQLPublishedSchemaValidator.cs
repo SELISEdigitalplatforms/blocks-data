@@ -1,5 +1,5 @@
 using DataGateway.DomainService.Models;
-using DataGateway.DomainService.Schema;
+using DataGateway.DomainService.Schemas;
 using HotChocolate;
 
 namespace DataGateway.DomainService.GraphQL;

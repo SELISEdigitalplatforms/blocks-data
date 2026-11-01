@@ -51,9 +51,9 @@ public sealed class ProjectExecutorOptionsMonitor : IRequestExecutorOptionsMonit
 
         // Every project slug is configured from the default ("template") schema configuration.
         var options = new RequestExecutorSetup();
-        _optionsMonitor.Get(HotChocolate.Schema.DefaultName).CopyTo(options);
+        _optionsMonitor.Get(Schema.DefaultName).CopyTo(options);
 
-        if (_configs.TryGetValue(HotChocolate.Schema.DefaultName, out var configurations))
+        if (_configs.TryGetValue(Schema.DefaultName, out var configurations))
         {
             foreach (var configuration in configurations)
             {
@@ -131,7 +131,7 @@ public sealed class ProjectExecutorOptionsMonitor : IRequestExecutorOptionsMonit
             // default name; per-project executors are reloaded explicitly via eviction.
             foreach (var listener in _listeners)
             {
-                listener.Invoke(HotChocolate.Schema.DefaultName);
+                listener.Invoke(Schema.DefaultName);
             }
         }
     }

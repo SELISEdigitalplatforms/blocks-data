@@ -6,7 +6,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
-using DataGateway.DomainService.Schema;
+using DataGateway.DomainService.Schemas;
 using DataGateway.DomainService.Services;
 using DataGateway.DomainService.Services.RegexAssistant;
 using DataGateway.DomainService.Validators;

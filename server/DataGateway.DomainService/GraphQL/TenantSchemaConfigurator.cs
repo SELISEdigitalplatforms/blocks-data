@@ -140,7 +140,7 @@ public sealed class TenantSchemaConfigurator : ITenantSchemaConfigurator
     }
 
     private static bool IsNotATenant(string schemaName) =>
-        string.IsNullOrWhiteSpace(schemaName) || schemaName == HotChocolate.Schema.DefaultName;
+        string.IsNullOrWhiteSpace(schemaName) || schemaName == Schema.DefaultName;
 
     /// <summary>Reports the error when HotChocolate fails to create the schema from the built types.</summary>
     private sealed class BuildErrorInterceptor(Action<Exception> onError) : TypeInterceptor

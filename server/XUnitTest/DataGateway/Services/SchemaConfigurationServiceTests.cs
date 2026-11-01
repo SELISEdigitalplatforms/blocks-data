@@ -9,7 +9,7 @@ using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Repositories;
 using DataGateway.DomainService.Resolvers;
-using DataGateway.DomainService.Schema;
+using DataGateway.DomainService.Schemas;
 using DataGateway.DomainService.Services;
 using FluentAssertions;
 using HotChocolate;

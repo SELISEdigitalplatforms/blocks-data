@@ -4,8 +4,10 @@ import { getRuntimeEnv } from "@/lib/runtime-env";
 import { useAuthStore } from "@seliseblocks/genesis-os";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export default function LoginSimplePage() {
+  const { t } = useT("data.console");
   const [isStarting, setIsStarting] = useState(false);
   const { isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
@@ -33,12 +35,12 @@ export default function LoginSimplePage() {
       if (data.redirect_uri) {
         window.location.href = data.redirect_uri;
       } else {
-        showErrorToast({ errors: "Failed to get authorization URL" });
+        showErrorToast({ errors: t("LOGIN_SIMPLE.FAILED_TO_GET_AUTHORIZATION_URL") });
         setIsStarting(false);
       }
     } catch (errors) {
       console.error("Login initiation error:", errors);
-      showErrorToast({ errors: "Unable to start login. Please try again." });
+      showErrorToast({ errors: t("LOGIN_SIMPLE.UNABLE_TO_START_LOGIN_PLEASE_TRY") });
       setIsStarting(false);
     }
   };

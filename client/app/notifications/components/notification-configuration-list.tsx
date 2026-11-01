@@ -25,12 +25,13 @@ import {
 import { toast } from "@/hooks/use-toast";
 import { Dialog, DialogTrigger } from "@/components/ui-kits/dialog/dialog";
 import { Button } from "@/components/ui-kits/button/button";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const columns = [
-  { key: "name", label: "Name" },
-  { key: "channelToNotify", label: "Channel" },
-  { key: "notificationType", label: "Type" },
-  { key: "enablePersistence", label: "Persistence" },
+  { key: "name", get label() { return tStatic("data.console", "common:NAME"); } },
+  { key: "channelToNotify", get label() { return tStatic("data.console", "NOTIFICATION_CONFIGURATION_LIST.CHANNEL"); } },
+  { key: "notificationType", get label() { return tStatic("data.console", "common:TYPE"); } },
+  { key: "enablePersistence", get label() { return tStatic("data.console", "NOTIFICATION_CONFIGURATION_LIST.PERSISTENCE"); } },
   { key: "actions", label: "" },
 ];
 
@@ -43,6 +44,7 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
   addConfigOpen,
   onAddConfigOpenChange,
 }) => {
+  const { t } = useT("data.console");
   const [filterData, setFilterData] = useState({ page: 0, pageSize: 10 });
   const { data, isLoading } = useGetNotificationConfigs(filterData.page, filterData.pageSize);
   const [isEditOpen, setIsEditOpen] = useState<boolean>(false);
@@ -78,21 +80,21 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
       if (res?.isSuccess) {
         toast({
           variant: "success",
-          title: "Success",
-          description: "Configuration deleted successfully",
+          title: t("common:SUCCESS"),
+          description: t("NOTIFICATION_CONFIGURATION_LIST.CONFIGURATION_DELETED_SUCCESSFULLY"),
         });
         setIsDeleteDialogOpen(false);
       } else {
         toast({
           variant: "destructive",
-          title: "Error",
+          title: t("common:ERROR"),
           description: JSON.stringify(res?.errors),
         });
       }
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Error",
+        title: t("common:ERROR"),
         description: JSON.stringify(error),
       });
     }
@@ -104,7 +106,7 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
       <Dialog open={internalOpen} onOpenChange={setOpen}>
         <NewNotificationConfiguration
           key={internalOpen ? "open" : "closed"}
-          dialogTitle="Add Configuration"
+          dialogTitle={t("NOTIFICATION_CONFIGURATION_LIST.ADD_CONFIGURATION")}
           onClose={setOpen}
           isEdit={false}
         />
@@ -112,7 +114,7 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Configurations</CardTitle>
+          <CardTitle>{t("NOTIFICATION_CONFIGURATION_LIST.CONFIGURATIONS")}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -144,7 +146,7 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
                     <TableCell>
                       {notificationTypes.find((x) => x.value === config.notificationType)?.label}
                     </TableCell>
-                    <TableCell>{config.enablePersistence ? "Yes" : "No"}</TableCell>
+                    <TableCell>{config.enablePersistence ? t("common:YES") : t("common:NO")}</TableCell>
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -161,7 +163,7 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
                             }}
                           >
                             <Pencil className="mr-2 h-4 w-4" />
-                            <span>Edit</span>
+                            <span>{t("common:EDIT")}</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             className="cursor-pointer text-error"
@@ -171,7 +173,7 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
                             }}
                           >
                             <Trash className="mr-2 h-4 w-4" />
-                            <span>Delete</span>
+                            <span>{t("common:DELETE")}</span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -181,7 +183,7 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
               ) : (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="text-center">
-                    No notification configurations found.
+                    {t("NOTIFICATION_CONFIGURATION_LIST.NO_NOTIFICATION_CONFIGURATIONS_FOUND")}
                   </TableCell>
                 </TableRow>
               )}
@@ -195,8 +197,8 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
                 onCancel={() => {}}
                 onConfirm={() => onConfirmDeleteConfig()}
                 data={{
-                  dialogTitle: "Confirmation",
-                  dialogSubtitle: `Are you sure you want to delete the ${selectedConfigData?.name} configuration?`,
+                  dialogTitle: t("NOTIFICATION_CONFIGURATION_LIST.CONFIRMATION"),
+                  dialogSubtitle: t("NOTIFICATION_CONFIGURATION_LIST.ARE_YOU_SURE_YOU_WANT_TO", { name: selectedConfigData?.name }),
                 }}
                 buttonState={{ confirm: { disable: isDeletePending } }}
               />
@@ -208,7 +210,7 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
             {selectedConfigData && (
               <NewNotificationConfiguration
                 key={`${selectedConfigData.itemId}-${isEditOpen}`}
-                dialogTitle="Edit Configuration"
+                dialogTitle={t("NOTIFICATION_CONFIGURATION_LIST.EDIT_CONFIGURATION")}
                 previousData={selectedConfigData}
                 isEdit={true}
                 onClose={setIsEditOpen}

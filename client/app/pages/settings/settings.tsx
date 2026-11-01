@@ -33,6 +33,7 @@ import {
 import { useGetProjects, useUpdateTenantGroup } from "@/hooks/use-project";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { formatDate } from "@/lib/utils";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const SettingsLoading = () => (
   <main className="p-6">
@@ -62,18 +63,19 @@ const SettingsLoading = () => (
   </main>
 );
 
-const projectNameSchema = z.object({
+const projectNameSchema = z.lazy(() => z.object({
   name: z
     .string()
     .trim()
-    .min(1, "Name is required")
-    .min(3, "Project name must be at least 3 characters")
-    .max(100, "Project name should be a maximum of 100 characters"),
-});
+    .min(1, tStatic("data.console", "SETTINGS.NAME_IS_REQUIRED"))
+    .min(3, tStatic("data.console", "SETTINGS.PROJECT_NAME_MUST_BE_AT_LEAST"))
+    .max(100, tStatic("data.console", "SETTINGS.PROJECT_NAME_SHOULD_BE_A_MAXIMUM")),
+}));
 
 type ProjectNameForm = z.infer<typeof projectNameSchema>;
 
 export const SettingsPage = () => {
+  const { t } = useT("data.console");
   const { selectedProject, selectedTenantGroup, setSelectedProject } =
     useProjectStore();
 
@@ -126,22 +128,22 @@ export const SettingsPage = () => {
       if (res.errors) {
         toast({
           variant: "destructive",
-          title: "Error",
-          description: "Failed to update project name",
+          title: t("common:ERROR"),
+          description: t("SETTINGS.FAILED_TO_UPDATE_PROJECT_NAME"),
         });
       } else {
         toast({
           variant: "success",
-          title: "Success",
-          description: "Project name updated successfully",
+          title: t("common:SUCCESS"),
+          description: t("SETTINGS.PROJECT_NAME_UPDATED_SUCCESSFULLY"),
         });
         setIsEditOpen(false);
       }
     } catch (_error) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "An unexpected error occurred",
+        title: t("common:ERROR"),
+        description: t("SETTINGS.AN_UNEXPECTED_ERROR_OCCURRED"),
       });
     }
   };
@@ -150,35 +152,35 @@ export const SettingsPage = () => {
 
   return (
     <main className="p-6 pt-8">
-      <h4 className="h-8 text-lg font-semibold md:text-xl">Project Settings</h4>
+      <h4 className="h-8 text-lg font-semibold md:text-xl">{t("SETTINGS.PROJECT_SETTINGS")}</h4>
       <Card className="mt-4">
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>General Information</CardTitle>
+          <CardTitle>{t("SETTINGS.GENERAL_INFORMATION")}</CardTitle>
           <Button
             size="sm"
             variant="outline"
             className="h-10"
-            aria-label="Edit project name"
+            aria-label={t("SETTINGS.EDIT_PROJECT_NAME")}
             onClick={() => setIsEditOpen(true)}
           >
             <Pencil className="mr-2 h-4 w-4" />
-            <span>Edit</span>
+            <span>{t("common:EDIT")}</span>
           </Button>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Name</p>
+              <p className="text-sm text-muted-foreground">{t("common:NAME")}</p>
               <div className="font-medium">{project?.name || "-"}</div>
             </div>
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Created On</p>
+              <p className="text-sm text-muted-foreground">{t("SETTINGS.CREATED_ON")}</p>
               <div className="font-medium">{formattedDate}</div>
             </div>
           </div>
           <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Plan</p>
-            <div className="font-medium">Free</div>
+            <p className="text-sm text-muted-foreground">{t("SETTINGS.PLAN")}</p>
+            <div className="font-medium">{t("SETTINGS.FREE")}</div>
           </div>
         </CardContent>
       </Card>
@@ -186,13 +188,13 @@ export const SettingsPage = () => {
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
+            <DialogTitle>{t("SETTINGS.EDIT_PROJECT")}</DialogTitle>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSave)}>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="name">Project name</Label>
+                  <Label htmlFor="name">{t("SETTINGS.PROJECT_NAME")}</Label>
                   <FormField
                     name="name"
                     control={form.control}
@@ -221,7 +223,7 @@ export const SettingsPage = () => {
                   onClick={() => setIsEditOpen(false)}
                   disabled={isUpdating}
                 >
-                  Cancel
+                  {t("common:CANCEL")}
                 </Button>
                 <Button
                   type="submit"
@@ -230,7 +232,7 @@ export const SettingsPage = () => {
                   {isUpdating && (
                     <Loader className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  Save
+                  {t("common:SAVE")}
                 </Button>
               </DialogFooter>
             </form>

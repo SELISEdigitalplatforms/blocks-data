@@ -36,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui-kits/select/select";
 import { Button } from "@/components/ui-kits/button/button";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 interface NewNotificationConfigurationProps {
   dialogTitle: string;
@@ -45,38 +46,39 @@ interface NewNotificationConfigurationProps {
   isEdit: boolean;
 }
 
-const schema = z.object({
+const schema = z.lazy(() => z.object({
   name: z
     .string()
-    .min(3, { message: "Configuration name must be at least 3 characters" })
-    .max(100, { message: "Configuration name must be at most 100 characters" })
+    .min(3, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.CONFIGURATION_NAME_MUST_BE_AT_LEAST") })
+    .max(100, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.CONFIGURATION_NAME_MUST_BE_AT_MOST") })
     .refine((val) => val.trim().length > 0, {
-      message: "Name cannot contain only whitespace",
+      message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.NAME_CANNOT_CONTAIN_ONLY_WHITESPACE"),
     }),
   channelToNotify: z
     .number()
-    .min(0, { message: "Channel to notify is required" }),
+    .min(0, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.CHANNEL_TO_NOTIFY_IS_REQUIRED") }),
   notificationType: z
     .number()
-    .min(0, { message: "Notification type is required" }),
+    .min(0, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.NOTIFICATION_TYPE_IS_REQUIRED") }),
   enablePersistence: z.boolean(),
   notifyMethod: z
     .string()
-    .min(3, { message: "Notify method must be at least 3 characters" })
-    .max(100, { message: "Notify method must be at most 100 characters" })
+    .min(3, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.NOTIFY_METHOD_MUST_BE_AT_LEAST") })
+    .max(100, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.NOTIFY_METHOD_MUST_BE_AT_MOST") })
     .refine((val) => val.trim().length > 0, {
-      message: "Notify method cannot contain only whitespace",
+      message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.NOTIFY_METHOD_CANNOT_CONTAIN_ONLY"),
     }),
-});
+}));
 
 const NewNotificationConfiguration: React.FC<
   NewNotificationConfigurationProps
 > = ({ dialogTitle, onClose, previousData, isEdit }) => {
+  const { t } = useT("data.console");
   const tenantId = useProjectStore()?.selectedProject?.tenantId || "";
   const { isPending, mutateAsync } = useSaveNotificationConfig();
 
   if (isEdit && previousData?.itemId == "") {
-    return <div>loading</div>;
+    return <div>{t("NEW_NOTIFICATION_CONFIGURATION.LOADING")}</div>;
   }
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -133,10 +135,10 @@ const NewNotificationConfiguration: React.FC<
       if (res?.isSuccess) {
         toast({
           variant: "success",
-          title: "Success",
+          title: t("common:SUCCESS"),
           description: isEdit
-            ? "Configuration updated"
-            : "New configuration added",
+            ? t("NEW_NOTIFICATION_CONFIGURATION.CONFIGURATION_UPDATED")
+            : t("NEW_NOTIFICATION_CONFIGURATION.NEW_CONFIGURATION_ADDED"),
         });
         form.reset();
         onClose(false);
@@ -149,7 +151,7 @@ const NewNotificationConfiguration: React.FC<
           errors: error.errors as Record<string, string | string[]>,
         });
       } else {
-        showErrorToast({ errors: "Something went wrong" });
+        showErrorToast({ errors: t("NEW_NOTIFICATION_CONFIGURATION.SOMETHING_WENT_WRONG") });
       }
     }
   };
@@ -169,13 +171,13 @@ const NewNotificationConfiguration: React.FC<
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-left font-medium text-high-emphasis">
-                          Name *
+                          {t("NEW_NOTIFICATION_CONFIGURATION.NAME")}
                         </FormLabel>
                         <FormControl>
                           <Input
                             disabled={isEdit}
                             id="configName"
-                            placeholder="Enter name"
+                            placeholder={t("NEW_NOTIFICATION_CONFIGURATION.ENTER_NAME")}
                             className="border-default col-span-3 mt-1 border shadow-none"
                             {...field}
                             onBlur={(e) => {
@@ -196,7 +198,7 @@ const NewNotificationConfiguration: React.FC<
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-left font-medium text-high-emphasis">
-                          Channel to Notify *
+                          {t("NEW_NOTIFICATION_CONFIGURATION.CHANNEL_TO_NOTIFY")}
                         </FormLabel>
                         <Select
                           disabled={true}
@@ -205,7 +207,7 @@ const NewNotificationConfiguration: React.FC<
                         >
                           <FormControl>
                             <SelectTrigger className="border-default col-span-3 flex h-10 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm shadow-none">
-                              <SelectValue placeholder="Select Configuration" />
+                              <SelectValue placeholder={t("NEW_NOTIFICATION_CONFIGURATION.SELECT_CONFIGURATION")} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -229,7 +231,7 @@ const NewNotificationConfiguration: React.FC<
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-left font-medium text-high-emphasis">
-                          Notification Type *
+                          {t("NEW_NOTIFICATION_CONFIGURATION.NOTIFICATION_TYPE")}
                         </FormLabel>
                         <Select
                           onValueChange={(val) => field.onChange(Number(val))}
@@ -237,7 +239,7 @@ const NewNotificationConfiguration: React.FC<
                         >
                           <FormControl>
                             <SelectTrigger className="border-default col-span-3 flex h-10 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm shadow-none">
-                              <SelectValue placeholder="Select Notification Type" />
+                              <SelectValue placeholder={t("NEW_NOTIFICATION_CONFIGURATION.SELECT_NOTIFICATION_TYPE")} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -263,12 +265,12 @@ const NewNotificationConfiguration: React.FC<
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-left font-medium text-high-emphasis">
-                          Notify Method *
+                          {t("NEW_NOTIFICATION_CONFIGURATION.NOTIFY_METHOD")}
                         </FormLabel>
                         <FormControl>
                           <Input
                             id="notifyMethod"
-                            placeholder="Enter notify method"
+                            placeholder={t("NEW_NOTIFICATION_CONFIGURATION.ENTER_NOTIFY_METHOD")}
                             className="border-default col-span-3 mt-1 border shadow-none"
                             {...field}
                             onBlur={(e) => {
@@ -297,7 +299,7 @@ const NewNotificationConfiguration: React.FC<
                         </FormControl>
                         <FormMessage />
                         <FormLabel className="flex-start inline-flex">
-                          Enable Persistence
+                          {t("NEW_NOTIFICATION_CONFIGURATION.ENABLE_PERSISTENCE")}
                         </FormLabel>
                       </FormItem>
                     )}
@@ -310,14 +312,14 @@ const NewNotificationConfiguration: React.FC<
             <div className="flex flex-row justify-end gap-2">
               <DialogTrigger asChild>
                 <Button variant="outline" size="default" disabled={isPending}>
-                  Cancel
+                  {t("common:CANCEL")}
                 </Button>
               </DialogTrigger>
               <Button
                 disabled={isPending || !form.formState.isValid}
                 size="default"
               >
-                Save
+                {t("common:SAVE")}
               </Button>
             </div>
           </div>

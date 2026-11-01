@@ -14,9 +14,9 @@ public class QueryLockInTests
 
     public QueryLockInTests(MongoFixture fixture) => _fixture = fixture;
 
-    private async Task RunAsync(string caseName, string document, LockInCaller caller)
+    private async Task RunAsync(string caseName, string document, LockInCaller caller, LockInTenant? tenant = null)
     {
-        await using var harness = await GatewayLockInHarness.CreateAsync(_fixture, LockInTenant.Standard);
+        await using var harness = await GatewayLockInHarness.CreateAsync(_fixture, tenant ?? LockInTenant.Standard);
 
         var result = await harness.ExecuteAsync(document, caller);
 
@@ -64,4 +64,14 @@ public class QueryLockInTests
         { getProducts(where: { Location: { near: { geometry: { type: "Point", coordinates: [8.5417, 47.3769] }, maxDistanceMeters: 5000 } } }) {
             items { ItemId } } }
         """, LockInCaller.User("u1", "admin"));
+
+    [Fact]
+    public Task GetClsAdminSeesField() => RunAsync("get-cls-admin-sees-field", "{ getProducts { items { ItemId Secret } } }", LockInCaller.User("u1", "admin"));
+
+    // Today a DTO field that inherits its read level from a Custom-read entity returns null nested fields for everyone,
+    // admin included. Locked in as it is; the Address field of the standard tenant is Public so the other cases avoid it.
+    [Fact]
+    public Task GetDtoInheritsCustomRead() => RunAsync("get-dto-inherits-custom-read", """
+        { getProducts(where: { ItemId: { eq: "p1" } }) { items { ItemId Billing { City Zip } } } }
+        """, LockInCaller.User("u1", "admin"), LockInTenant.WithInheritedDtoField);
 }

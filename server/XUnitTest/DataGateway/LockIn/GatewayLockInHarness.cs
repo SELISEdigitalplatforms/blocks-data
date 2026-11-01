@@ -71,6 +71,7 @@ public sealed class GatewayLockInHarness : IAsyncDisposable
     private static readonly TimeSpan NowWindow = TimeSpan.FromMinutes(1);
     private static readonly Regex GuidPattern = new("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}", RegexOptions.Compiled);
     private static readonly Regex IsoDatePattern = new(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", RegexOptions.Compiled);
+    private static readonly Regex EmbeddedTimePattern = new(@"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z", RegexOptions.Compiled);
 
     internal static readonly JsonSerializerOptions Indented = new()
     {
@@ -116,7 +117,8 @@ public sealed class GatewayLockInHarness : IAsyncDisposable
 
         // The drafts the schema is built from go in through the draft repository, as they do in production.
         var draftRepository = new DbRepository(provider.Object, new Mock<IBlocksSecret>().Object);
-        await draftRepository.InsertManyAsync(tenant.Schemas);
+        if (tenant.Schemas.Count > 0)
+            await draftRepository.InsertManyAsync(tenant.Schemas);
         if (tenant.Validations.Count > 0)
             await draftRepository.InsertManyAsync(tenant.Validations);
         if (tenant.Policies.Count > 0)
@@ -147,6 +149,9 @@ public sealed class GatewayLockInHarness : IAsyncDisposable
 
         return new GatewayLockInHarness(fixture.Client, db, tenant, publisher, serviceProvider, executor, httpContextAccessor);
     }
+
+    /// <summary>The GraphQL schema the tenant's drafts built, as SDL text.</summary>
+    public string Sdl => _executor.Schema.ToString();
 
     public IMongoCollection<BsonDocument> Collection(string name) => _db.GetCollection<BsonDocument>(name);
 
@@ -231,8 +236,8 @@ public sealed class GatewayLockInHarness : IAsyncDisposable
     private static string Serialise(JsonNode? node) => node?.ToJsonString(Indented) ?? "null";
 
     /// <summary>
-    /// Replaces what differs from run to run: server-generated ids, and times of "now". CreatedDate and
-    /// LastUpdatedDate always read "&lt;now&gt;"; any other date within a minute of now does too.
+    /// Replaces what differs from run to run: server-generated ids, and dates within a minute of now ("&lt;now&gt;").
+    /// Dates further away, such as the fixed past dates on seed rows, stay as they are.
     /// </summary>
     internal static JsonNode? Normalise(JsonNode? node, bool sortKeys = false)
     {
@@ -250,10 +255,7 @@ public sealed class GatewayLockInHarness : IAsyncDisposable
                 var normalised = new JsonObject();
                 foreach (var (key, value) in entries)
                 {
-                    if (key is "CreatedDate" or "LastUpdatedDate")
-                        normalised[key] = JsonValue.Create("<now>");
-                    else
-                        normalised[key] = Normalise(value?.DeepClone(), sortKeys);
+                    normalised[key] = Normalise(value?.DeepClone(), sortKeys);
                 }
                 return normalised;
 
@@ -286,8 +288,14 @@ public sealed class GatewayLockInHarness : IAsyncDisposable
             && DateTime.TryParse(text, null, System.Globalization.DateTimeStyles.RoundtripKind, out var parsed)
             && (DateTime.UtcNow - parsed.ToUniversalTime()).Duration() <= NowWindow)
             return "<now>";
+
+        // Times inside a longer text, such as the MongoQuery tag's "$date" values.
+        text = EmbeddedTimePattern.Replace(text, match =>
+            DateTime.TryParse(match.Value, null, System.Globalization.DateTimeStyles.RoundtripKind, out var time) && IsNow(time) ? "<now>" : match.Value);
         return GuidPattern.Replace(text, "<generated-id>");
     }
+
+    private static bool IsNow(DateTime time) => (DateTime.UtcNow - time.ToUniversalTime()).Duration() <= NowWindow;
 
     public async ValueTask DisposeAsync()
     {

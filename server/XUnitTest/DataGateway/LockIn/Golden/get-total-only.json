@@ -21,8 +21,10 @@
           "City": "Zurich",
           "Zip": "8000"
         },
+        "CreatedDate": "2024-01-01T00:00:00Z",
         "IsDeleted": false,
         "ItemId": "p1",
+        "LastUpdatedDate": "2024-01-01T00:00:00Z",
         "Location": {
           "coordinates": [
             8.5417000000000005,
@@ -47,8 +49,10 @@
           "City": "Lucerne",
           "Zip": "6000"
         },
+        "CreatedDate": "2024-01-01T00:00:00Z",
         "IsDeleted": false,
         "ItemId": "p2",
+        "LastUpdatedDate": "2024-01-01T00:00:00Z",
         "Location": {
           "coordinates": [
             8.3093000000000004,
@@ -72,8 +76,10 @@
           "City": "Zurich",
           "Zip": "8004"
         },
+        "CreatedDate": "2024-01-01T00:00:00Z",
         "IsDeleted": false,
         "ItemId": "p3",
+        "LastUpdatedDate": "2024-01-01T00:00:00Z",
         "Location": {
           "coordinates": [
             8.5816999999999997,
@@ -104,7 +110,7 @@
     "FailureKind": "",
     "FailureCode": "",
     "FailureMessage": "",
-    "ResponseSize": 830,
+    "ResponseSize": 968,
     "DocumentCount": 3,
     "InAppRequest": true,
     "IsIntrospection": false

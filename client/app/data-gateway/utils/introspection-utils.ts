@@ -32,6 +32,8 @@ import {
 } from "./graphql-constants";
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 const MAX_NESTING_DEPTH = 30;
 
 // ---------------------------------------------------------------------------
@@ -496,8 +498,8 @@ export const getQuerySuggestions = (schema: GraphQLSchema): IntrospectionSuggest
 
     return {
       label: field.name,
-      detail: tStatic("data.gateway.schema", "INTROSPECTION_UTILS.QUERY_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
-      documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.QUERY_NAME", { name: field.name }),
+      detail: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.QUERY_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
+      documentation: field.description || tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.QUERY_NAME", { name: field.name }),
       insertText: `${field.name}${argSnippet}${fieldSelection}`,
       isSnippet: true,
       kind: "function" as const,
@@ -522,8 +524,8 @@ export const getMutationSuggestions = (schema: GraphQLSchema): IntrospectionSugg
 
     return {
       label: field.name,
-      detail: tStatic("data.gateway.schema", "INTROSPECTION_UTILS.MUTATION_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
-      documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.MUTATION_NAME", { name: field.name }),
+      detail: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.MUTATION_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
+      documentation: field.description || tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.MUTATION_NAME", { name: field.name }),
       insertText: `${field.name}${argSnippet}${fieldSelection}`,
       isSnippet: true,
       kind: "function" as const,
@@ -570,7 +572,7 @@ export const getFieldSuggestions = (
       return {
         label: field.name,
         detail: resolveTypeString(field.type),
-        documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.FIELD_NAME", { name: field.name }),
+        documentation: field.description || tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.FIELD_NAME", { name: field.name }),
         insertText,
         isSnippet: isNestedObject,
         kind: isNestedObject ? ("class" as const) : ("field" as const),
@@ -634,7 +636,7 @@ export const getArgumentSuggestions = (
         return {
           label: arg.name,
           detail: typeStr,
-          documentation: arg.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.ARGUMENT_NAME_TYPESTR", { name: arg.name, typeStr }),
+          documentation: arg.description || tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.ARGUMENT_NAME_TYPESTR", { name: arg.name, typeStr }),
           insertText,
           isSnippet,
           kind: "variable" as const,
@@ -667,7 +669,7 @@ export const getArgumentSuggestions = (
     return {
       label: arg.name,
       detail: typeStr,
-      documentation: arg.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.ARGUMENT_NAME_TYPESTR", { name: arg.name, typeStr }),
+      documentation: arg.description || tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.ARGUMENT_NAME_TYPESTR", { name: arg.name, typeStr }),
       insertText,
       isSnippet,
       kind: "field" as const,
@@ -742,7 +744,7 @@ export const getInputFieldSuggestions = (
       return {
         label: field.name,
         detail: typeStr,
-        documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.INPUT_FIELD_NAME_TYPESTR", { name: field.name, typeStr }),
+        documentation: field.description || tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.INPUT_FIELD_NAME_TYPESTR", { name: field.name, typeStr }),
         insertText,
         isSnippet,
         kind: "field" as const,
@@ -918,8 +920,8 @@ export const getFullQuerySnippets = (schema: GraphQLSchema): IntrospectionSugges
 
   return getListedQueryFields(queryType).map((field) => ({
     label: field.name,
-    detail: tStatic("data.gateway.schema", "INTROSPECTION_UTILS.FULL_QUERY_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
-    documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.FULL_QUERY_NAME", { name: field.name }),
+    detail: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.FULL_QUERY_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
+    documentation: field.description || tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.FULL_QUERY_NAME", { name: field.name }),
     insertText: buildFullOperationSnippet(field, "query"),
     isSnippet: true,
     kind: "function" as const,
@@ -938,8 +940,8 @@ export const getFullMutationSnippets = (schema: GraphQLSchema): IntrospectionSug
 
   return Object.values(mutationType.getFields()).map((field) => ({
     label: field.name,
-    detail: tStatic("data.gateway.schema", "INTROSPECTION_UTILS.FULL_MUTATION_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
-    documentation: field.description || tStatic("data.gateway.schema", "INTROSPECTION_UTILS.FULL_MUTATION_NAME", { name: field.name }),
+    detail: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.FULL_MUTATION_RESOLVETYPESTRING", { resolveTypeString: resolveTypeString(field.type) }),
+    documentation: field.description || tStatic(DATA_GATEWAY_SCHEMA_MODULE, "INTROSPECTION_UTILS.FULL_MUTATION_NAME", { name: field.name }),
     insertText: buildFullOperationSnippet(field, "mutation"),
     isSnippet: true,
     kind: "function" as const,

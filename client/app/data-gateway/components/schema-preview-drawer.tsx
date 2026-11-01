@@ -28,10 +28,12 @@ import { buildPreviewSections } from "../utils/generate-preview-queries";
 import { formatPreviewJson } from "../utils/graphql-template.utils";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 const OPERATIONS = [
   {
     value: "query",
-    get label() { return tStatic("data.gateway.schema", "SCHEMA_PREVIEW_DRAWER.QUERY"); },
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_PREVIEW_DRAWER.QUERY"); },
     icon: Search,
     iconColor: "text-blue-500",
     activeBg: "bg-blue-50 dark:bg-blue-950/50",
@@ -43,7 +45,7 @@ const OPERATIONS = [
   },
   {
     value: "insert",
-    get label() { return tStatic("data.gateway.schema", "SCHEMA_PREVIEW_DRAWER.INSERT"); },
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_PREVIEW_DRAWER.INSERT"); },
     icon: Plus,
     iconColor: "text-emerald-500",
     activeBg: "bg-emerald-50 dark:bg-emerald-950/50",
@@ -55,7 +57,7 @@ const OPERATIONS = [
   },
   {
     value: "update",
-    get label() { return tStatic("data.gateway.schema", "common:UPDATE"); },
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:UPDATE"); },
     icon: Pencil,
     iconColor: "text-amber-500",
     activeBg: "bg-amber-50 dark:bg-amber-950/50",
@@ -67,7 +69,7 @@ const OPERATIONS = [
   },
   {
     value: "delete",
-    get label() { return tStatic("data.gateway.schema", "common:DELETE"); },
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:DELETE"); },
     icon: Trash2,
     iconColor: "text-red-500",
     activeBg: "bg-red-50 dark:bg-red-950/50",
@@ -92,7 +94,7 @@ export function SchemaPreviewDrawer({
   isGatewayIntrospectionPending: isGatewayIntrospectionPendingProp,
   isGatewayIntrospectionFetching: isGatewayIntrospectionFetchingProp,
 }: SchemaPreviewDrawerProps) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const handleCloseAutoFocus = (event: Event) => {
     event.preventDefault();
     (document.activeElement as HTMLElement | null)?.blur();

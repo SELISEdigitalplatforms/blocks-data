@@ -5,12 +5,14 @@ import { cn } from "@/lib/utils";
 import { CornerDownRight, Database, Plus, Upload } from "lucide-react";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 const KINDS = [
   {
     kind: "Entity" as const,
-    get title() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.ENTITY"); },
-    get description() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.A_TOP_LEVEL_RECORD_WITH_ITS"); },
-    get examples() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.ORDER_CUSTOMER_PRODUCT"); },
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "CREATE_FIRST_SCHEMA_PANEL.ENTITY"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "CREATE_FIRST_SCHEMA_PANEL.A_TOP_LEVEL_RECORD_WITH_ITS"); },
+    get examples() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "CREATE_FIRST_SCHEMA_PANEL.ORDER_CUSTOMER_PRODUCT"); },
     icon: Database,
     border: "border-primary/30",
     background: "bg-primary/5 hover:bg-primary/10",
@@ -18,9 +20,9 @@ const KINDS = [
   },
   {
     kind: "DTO" as const,
-    get title() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.CHILD"); },
-    get description() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.A_REUSABLE_SHAPE_NESTED_INSIDE_AN"); },
-    get examples() { return tStatic("data.gateway.schema", "CREATE_FIRST_SCHEMA_PANEL.ORDERITEM_ADDRESS_TAXLINE"); },
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "CREATE_FIRST_SCHEMA_PANEL.CHILD"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "CREATE_FIRST_SCHEMA_PANEL.A_REUSABLE_SHAPE_NESTED_INSIDE_AN"); },
+    get examples() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "CREATE_FIRST_SCHEMA_PANEL.ORDERITEM_ADDRESS_TAXLINE"); },
     icon: CornerDownRight,
     border: "border-border/40",
     background: "hover:bg-muted/20",
@@ -43,7 +45,7 @@ export function CreateFirstSchemaPanel({
   onCreateSchema: (kind?: "Entity" | "DTO") => void;
   onImportSchema: () => void;
 }) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   return (
     <div className="flex flex-1 items-start justify-center rounded-sm border border-border/40 bg-card p-8">
       <div className="mt-[8vh] flex w-full max-w-2xl flex-col items-center text-center">

@@ -44,6 +44,8 @@ import { AccessEffectLine } from "./access-effect-line";
 import { AccessPresetList } from "./access-preset-list";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_ACCESS_MODULE = "data.gateway.access";
+
 /** What the rule editor's own Save/Update hands back to be sent to the API. */
 interface RuleSetSubmission {
   payload: ICreatePolicyPayload | IUpdatePolicyPayload;
@@ -62,10 +64,10 @@ export interface SchemaAccessControlViewHandle {
 
 /** "Who is allowed" tile grid — Inherited is column-only (there is nothing to inherit from at row level). */
 const ACCESS_TIER_TILES = [
-  { type: ACCESS_TYPES.INHERITED, get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL_VIEW.INHERITED"); } },
-  { type: ACCESS_TYPES.PUBLIC, get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL_VIEW.PUBLIC"); } },
-  { type: ACCESS_TYPES.LOGGED_IN, get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL_VIEW.SIGNED_IN_USERS"); } },
-  { type: ACCESS_TYPES.CUSTOM, get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL_VIEW.CUSTOM"); } },
+  { type: ACCESS_TYPES.INHERITED, get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL_VIEW.INHERITED"); } },
+  { type: ACCESS_TYPES.PUBLIC, get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL_VIEW.PUBLIC"); } },
+  { type: ACCESS_TYPES.LOGGED_IN, get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL_VIEW.SIGNED_IN_USERS"); } },
+  { type: ACCESS_TYPES.CUSTOM, get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL_VIEW.CUSTOM"); } },
 ];
 
 /** Below this width the 4-tile grid can no longer fit a label beside every icon. */
@@ -87,7 +89,7 @@ export const SchemaAccessControlView = forwardRef<
   },
   ref,
 ) {
-  const { t: tx } = useT("data.gateway.access");
+  const { t: tx } = useT(DATA_GATEWAY_ACCESS_MODULE);
   const [showRuleSetForm, setShowRuleSetForm] = useState(false);
 
   // The inspector widens for the rule editor; it needs to

@@ -87,6 +87,8 @@ import {
 } from "./storage-detail-skeleton";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const STORAGE_DETAIL_MORE_OPTIONS = "STORAGE_DETAIL.MORE_OPTIONS";
+
 type FilterValues = {
   search: string;
   lastModified: string;
@@ -781,7 +783,7 @@ export function StorageDetail() {
                           <Button
                             variant="ghost"
                             className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                            aria-label={t("STORAGE_DETAIL.MORE_OPTIONS")}
+                            aria-label={t(STORAGE_DETAIL_MORE_OPTIONS)}
                           >
                             <MoreVertical className="h-4 w-4" />
                           </Button>
@@ -855,7 +857,7 @@ export function StorageDetail() {
                                 <Button
                                   variant="ghost"
                                   className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                                  aria-label={t("STORAGE_DETAIL.MORE_OPTIONS")}
+                                  aria-label={t(STORAGE_DETAIL_MORE_OPTIONS)}
                                 >
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>
@@ -941,7 +943,7 @@ export function StorageDetail() {
                               <Button
                                 variant="ghost"
                                 className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                                aria-label={t("STORAGE_DETAIL.MORE_OPTIONS")}
+                                aria-label={t(STORAGE_DETAIL_MORE_OPTIONS)}
                               >
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
@@ -1019,7 +1021,7 @@ export function StorageDetail() {
                                 <Button
                                   variant="ghost"
                                   className="p-1 w-6 h-6 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center"
-                                  aria-label={t("STORAGE_DETAIL.MORE_OPTIONS")}
+                                  aria-label={t(STORAGE_DETAIL_MORE_OPTIONS)}
                                 >
                                   <MoreVertical className="h-4 w-4" />
                                 </Button>

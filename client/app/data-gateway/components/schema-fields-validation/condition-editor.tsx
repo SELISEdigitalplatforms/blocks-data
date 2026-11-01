@@ -22,12 +22,16 @@ import {
 } from "../../utils/validation-conditions";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
+const CONDITION_EDITOR_CONDITION_VALUE = "CONDITION_EDITOR.CONDITION_VALUE";
+
 const CONTROL_CLASS = "h-8 rounded-md border-border/60 bg-background text-[12px]";
+const INVALID_BORDER = "border-rose-500";
 
 /** D1: a condition on the record being saved is pink (ONLY WHEN); a filter on another schema is teal (WHERE). */
 export const CONDITION_TONE = {
-  when: { tag: "bg-[#2A1626] text-[#F2A7D8]", border: "border-[#F2A7D8]/30", get label() { return tStatic("data.gateway.validation", "CONDITION_EDITOR.ONLY_WHEN"); } },
-  filter: { tag: "bg-[#0A1F1E] text-[#5FD4C4]", border: "border-[#5FD4C4]/30", get label() { return tStatic("data.gateway.validation", "CONDITION_EDITOR.WHERE"); } },
+  when: { tag: "bg-[#2A1626] text-[#F2A7D8]", border: "border-[#F2A7D8]/30", get label() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "CONDITION_EDITOR.ONLY_WHEN"); } },
+  filter: { tag: "bg-[#0A1F1E] text-[#5FD4C4]", border: "border-[#5FD4C4]/30", get label() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "CONDITION_EDITOR.WHERE"); } },
 } as const;
 
 export function ConditionTag({ kind }: Readonly<{ kind: "when" | "filter" }>) {
@@ -48,7 +52,7 @@ function ChoiceToggles({
   onChange,
 }: Readonly<{ options: string[]; selected: string[]; multiple: boolean; invalid: boolean; label: string; onChange: (selected: string[]) => void }>) {
   return (
-    <div role="group" aria-label={label} className={cn("flex flex-wrap gap-1 rounded-md border p-0.5", invalid ? "border-rose-500" : "border-transparent")}>
+    <fieldset aria-label={label} className={cn("m-0 min-w-0 flex flex-wrap gap-1 rounded-md border p-0.5", invalid ? INVALID_BORDER : "border-transparent")}>
       {options.map((option) => {
         const on = selected.includes(option);
         return (
@@ -69,7 +73,7 @@ function ChoiceToggles({
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }
 
@@ -80,7 +84,7 @@ function RowValue({
   invalid,
   onChange,
 }: Readonly<{ row: ConditionRow; field: ConditionField | undefined; invalid: boolean; onChange: (value: string) => void }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const list = row.operator === "IN" || row.operator === "NOT_IN";
   const type = field?.type ?? "String";
   const choices = type === "Boolean" ? BOOLEAN_VALUES : type === "Enum" ? (field?.enumValues ?? []) : [];
@@ -91,7 +95,7 @@ function RowValue({
         selected={splitList(row.value)}
         multiple={list}
         invalid={invalid}
-        label={t("CONDITION_EDITOR.CONDITION_VALUE")}
+        label={t(CONDITION_EDITOR_CONDITION_VALUE)}
         onChange={(selected) => onChange(selected.join(", "))}
       />
     );
@@ -100,21 +104,23 @@ function RowValue({
     return (
       <Input
         type="datetime-local"
-        aria-label={t("CONDITION_EDITOR.CONDITION_VALUE")}
+        aria-label={t(CONDITION_EDITOR_CONDITION_VALUE)}
         value={toDateInput(row.value)}
         onChange={(e) => onChange(fromDateInput(e.target.value))}
-        className={cn(CONTROL_CLASS, "font-mono [color-scheme:dark]", invalid && "border-rose-500")}
+        className={cn(CONTROL_CLASS, "font-mono [color-scheme:dark]", invalid && INVALID_BORDER)}
       />
     );
   }
+  const isNumeric = type === "Int" || type === "Float";
+  const scalarPlaceholder = isNumeric ? "0" : "value";
   return (
     <Input
-      aria-label={t("CONDITION_EDITOR.CONDITION_VALUE")}
-      inputMode={type === "Int" || type === "Float" ? "decimal" : undefined}
-      placeholder={list ? t("CONDITION_EDITOR.DE_AT_CH") : type === "Int" || type === "Float" ? "0" : "value"}
+      aria-label={t(CONDITION_EDITOR_CONDITION_VALUE)}
+      inputMode={isNumeric ? "decimal" : undefined}
+      placeholder={list ? t("CONDITION_EDITOR.DE_AT_CH") : scalarPlaceholder}
       value={row.value}
       onChange={(e) => onChange(e.target.value)}
-      className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}
+      className={cn(CONTROL_CLASS, "font-mono", invalid && INVALID_BORDER)}
     />
   );
 }
@@ -134,7 +140,7 @@ function ConditionRowEditor({
   onChange: (row: ConditionRow) => void;
   onRemove: () => void;
 }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const field = fields.find((f) => f.path === row.field);
   const others = allowProperties ? fittingProperties(row, fields) : [];
   const canSwitch = others.length > 0 && canCompareProperties(row.operator);
@@ -174,29 +180,29 @@ function ConditionRowEditor({
         </Button>
       </div>
 
-      {needsValue ? (
-        asProperty ? (
-          <Select value={row.other || undefined} onValueChange={(other) => onChange({ ...row, other })}>
-            <SelectTrigger className={cn(CONTROL_CLASS, "w-full", error && "border-rose-500")} aria-label={t("CONDITION_EDITOR.COMPARED_PROPERTY")}>
-              <SelectValue placeholder={t("CONDITION_EDITOR.PICK_A_PROPERTY")} />
-            </SelectTrigger>
-            <SelectContent>
-              {others.map((name) => (
-                <SelectItem key={name} value={name}>
-                  {name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <RowValue row={row} field={field} invalid={!!error} onChange={(value) => onChange({ ...row, value })} />
-        )
-      ) : (
+      {needsValue && asProperty && (
+        <Select value={row.other || undefined} onValueChange={(other) => onChange({ ...row, other })}>
+          <SelectTrigger className={cn(CONTROL_CLASS, "w-full", error && INVALID_BORDER)} aria-label={t("CONDITION_EDITOR.COMPARED_PROPERTY")}>
+            <SelectValue placeholder={t("CONDITION_EDITOR.PICK_A_PROPERTY")} />
+          </SelectTrigger>
+          <SelectContent>
+            {others.map((name) => (
+              <SelectItem key={name} value={name}>
+                {name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      {needsValue && !asProperty && (
+        <RowValue row={row} field={field} invalid={!!error} onChange={(value) => onChange({ ...row, value })} />
+      )}
+      {!needsValue && (
         <span className="text-[11px] text-muted-foreground">{t("CONDITION_EDITOR.NO_VALUE_NEEDED")}</span>
       )}
 
       {canSwitch && (
-        <div role="group" aria-label={t("CONDITION_EDITOR.COMPARE_WITH")} className="flex w-fit gap-0.5 rounded-md border border-border/50 p-0.5 text-[10.5px]">
+        <fieldset aria-label={t("CONDITION_EDITOR.COMPARE_WITH")} className="m-0 min-w-0 flex w-fit gap-0.5 rounded-md border border-border/50 p-0.5 text-[10.5px]">
           {(["value", "property"] as const).map((mode) => (
             <button
               key={mode}
@@ -208,7 +214,7 @@ function ConditionRowEditor({
               {mode === "value" ? t("CONDITION_EDITOR.VALUE") : t("CONDITION_EDITOR.PROPERTY")}
             </button>
           ))}
-        </div>
+        </fieldset>
       )}
 
       {error && (
@@ -242,7 +248,7 @@ export function ConditionEditor({
   targetName?: string;
   onChange: (draft: ConditionDraft) => void;
 }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const text = conditionDraftText(draft, fields);
   if (draft.locked) {
     return (
@@ -264,7 +270,7 @@ export function ConditionEditor({
   return (
     <div className={cn("flex flex-col gap-2 rounded-md border bg-background p-2.5", CONDITION_TONE[kind].border)}>
       {draft.rows.length >= 2 && (
-        <div role="group" aria-label={t("CONDITION_EDITOR.HOW_THE_CONDITIONS_COMBINE")} className="flex w-fit gap-0.5 rounded-md border border-border/50 p-0.5 text-[11px]">
+        <fieldset aria-label={t("CONDITION_EDITOR.HOW_THE_CONDITIONS_COMBINE")} className="m-0 min-w-0 flex w-fit gap-0.5 rounded-md border border-border/50 p-0.5 text-[11px]">
           {(["AND", "OR"] as const).map((combine) => (
             <button
               key={combine}
@@ -276,7 +282,7 @@ export function ConditionEditor({
               {combine === "AND" ? t("CONDITION_EDITOR.ALL_MATCH") : t("CONDITION_EDITOR.ANY_MATCHES")}
             </button>
           ))}
-        </div>
+        </fieldset>
       )}
 
       {draft.rows.map((row, index) => (

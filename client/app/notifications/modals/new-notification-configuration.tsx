@@ -38,6 +38,8 @@ import {
 import { Button } from "@/components/ui-kits/button/button";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_CONSOLE_MODULE = "data.console";
+
 interface NewNotificationConfigurationProps {
   dialogTitle: string;
   // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
@@ -49,31 +51,31 @@ interface NewNotificationConfigurationProps {
 const schema = z.lazy(() => z.object({
   name: z
     .string()
-    .min(3, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.CONFIGURATION_NAME_MUST_BE_AT_LEAST") })
-    .max(100, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.CONFIGURATION_NAME_MUST_BE_AT_MOST") })
+    .min(3, { message: tStatic(DATA_CONSOLE_MODULE, "NEW_NOTIFICATION_CONFIGURATION.CONFIGURATION_NAME_MUST_BE_AT_LEAST") })
+    .max(100, { message: tStatic(DATA_CONSOLE_MODULE, "NEW_NOTIFICATION_CONFIGURATION.CONFIGURATION_NAME_MUST_BE_AT_MOST") })
     .refine((val) => val.trim().length > 0, {
-      message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.NAME_CANNOT_CONTAIN_ONLY_WHITESPACE"),
+      message: tStatic(DATA_CONSOLE_MODULE, "NEW_NOTIFICATION_CONFIGURATION.NAME_CANNOT_CONTAIN_ONLY_WHITESPACE"),
     }),
   channelToNotify: z
     .number()
-    .min(0, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.CHANNEL_TO_NOTIFY_IS_REQUIRED") }),
+    .min(0, { message: tStatic(DATA_CONSOLE_MODULE, "NEW_NOTIFICATION_CONFIGURATION.CHANNEL_TO_NOTIFY_IS_REQUIRED") }),
   notificationType: z
     .number()
-    .min(0, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.NOTIFICATION_TYPE_IS_REQUIRED") }),
+    .min(0, { message: tStatic(DATA_CONSOLE_MODULE, "NEW_NOTIFICATION_CONFIGURATION.NOTIFICATION_TYPE_IS_REQUIRED") }),
   enablePersistence: z.boolean(),
   notifyMethod: z
     .string()
-    .min(3, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.NOTIFY_METHOD_MUST_BE_AT_LEAST") })
-    .max(100, { message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.NOTIFY_METHOD_MUST_BE_AT_MOST") })
+    .min(3, { message: tStatic(DATA_CONSOLE_MODULE, "NEW_NOTIFICATION_CONFIGURATION.NOTIFY_METHOD_MUST_BE_AT_LEAST") })
+    .max(100, { message: tStatic(DATA_CONSOLE_MODULE, "NEW_NOTIFICATION_CONFIGURATION.NOTIFY_METHOD_MUST_BE_AT_MOST") })
     .refine((val) => val.trim().length > 0, {
-      message: tStatic("data.console", "NEW_NOTIFICATION_CONFIGURATION.NOTIFY_METHOD_CANNOT_CONTAIN_ONLY"),
+      message: tStatic(DATA_CONSOLE_MODULE, "NEW_NOTIFICATION_CONFIGURATION.NOTIFY_METHOD_CANNOT_CONTAIN_ONLY"),
     }),
 }));
 
 const NewNotificationConfiguration: React.FC<
   NewNotificationConfigurationProps
 > = ({ dialogTitle, onClose, previousData, isEdit }) => {
-  const { t } = useT("data.console");
+  const { t } = useT(DATA_CONSOLE_MODULE);
   const tenantId = useProjectStore()?.selectedProject?.tenantId || "";
   const { isPending, mutateAsync } = useSaveNotificationConfig();
 

@@ -1,4 +1,6 @@
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
 /**
  * The static value of an access rule, entered the way the compared property's type is: a dropdown for
  * Boolean and Enum, a UTC date-time picker for DateTime, a checked box for Int and Float, plain text
@@ -66,20 +68,20 @@ const isValidItem = (spec: StaticValueSpec, item: string): boolean => {
 };
 
 const ONE_VALUE_MESSAGE: Record<StaticValueKind, string> = {
-  get boolean() { return tStatic("data.gateway.validation", "RULE_STATIC_VALUE.CHOOSE_TRUE_OR_FALSE"); },
-  get enum() { return tStatic("data.gateway.validation", "RULE_STATIC_VALUE.CHOOSE_ONE_OF_THE_PROPERTY_S"); },
-  get date() { return tStatic("data.gateway.validation", "RULE_STATIC_VALUE.ENTER_A_DATE_AND_TIME"); },
-  get int() { return tStatic("data.gateway.validation", "RULE_STATIC_VALUE.ENTER_A_WHOLE_NUMBER"); },
-  get float() { return tStatic("data.gateway.validation", "RULE_STATIC_VALUE.ENTER_A_NUMBER"); },
+  get boolean() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.CHOOSE_TRUE_OR_FALSE"); },
+  get enum() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.CHOOSE_ONE_OF_THE_PROPERTY_S"); },
+  get date() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_A_DATE_AND_TIME"); },
+  get int() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_A_WHOLE_NUMBER"); },
+  get float() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_A_NUMBER"); },
   text: "",
 };
 
 const LIST_MESSAGE: Record<StaticValueKind, string> = {
-  get boolean() { return tStatic("data.gateway.validation", "RULE_STATIC_VALUE.CHOOSE_TRUE_OR_FALSE"); },
-  get enum() { return tStatic("data.gateway.validation", "RULE_STATIC_VALUE.CHOOSE_FROM_THE_PROPERTY_S_VALUES"); },
-  get date() { return tStatic("data.gateway.validation", "RULE_STATIC_VALUE.ENTER_DATES_SEPARATED_BY_COMMAS"); },
-  get int() { return tStatic("data.gateway.validation", "RULE_STATIC_VALUE.ENTER_WHOLE_NUMBERS_SEPARATED_BY"); },
-  get float() { return tStatic("data.gateway.validation", "RULE_STATIC_VALUE.ENTER_NUMBERS_SEPARATED_BY_COMMAS"); },
+  get boolean() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.CHOOSE_TRUE_OR_FALSE"); },
+  get enum() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.CHOOSE_FROM_THE_PROPERTY_S_VALUES"); },
+  get date() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_DATES_SEPARATED_BY_COMMAS"); },
+  get int() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_WHOLE_NUMBERS_SEPARATED_BY"); },
+  get float() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_NUMBERS_SEPARATED_BY_COMMAS"); },
   text: "",
 };
 

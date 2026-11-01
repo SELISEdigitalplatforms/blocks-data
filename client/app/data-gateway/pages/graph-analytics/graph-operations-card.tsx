@@ -18,6 +18,8 @@ import { formatDuration } from "./graph-log-formatters";
 import { OUTCOME_COLORS } from "./graph-outcome-colors";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_ANALYTICS_MODULE = "data.gateway.analytics";
+
 const MAX_BAR_WIDTH_PX = 80;
 
 interface GraphOperationsCardProps {
@@ -26,11 +28,11 @@ interface GraphOperationsCardProps {
 }
 
 const emptyMessage = (isError: boolean) =>
-  isError ? tStatic("data.gateway.analytics", "GRAPH_OPERATIONS_CARD.COULDN_T_LOAD_DATA_PLEASE_TRY") : tStatic("data.gateway.analytics", "GRAPH_OPERATIONS_CARD.NO_REQUESTS_IN_THIS_RANGE");
+  isError ? tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_OPERATIONS_CARD.COULDN_T_LOAD_DATA_PLEASE_TRY") : tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_OPERATIONS_CARD.NO_REQUESTS_IN_THIS_RANGE");
 
 /** Busiest fields first, with the response times they cost. */
 export const GraphOperationsCard = ({ operationStats, isError }: GraphOperationsCardProps) => {
-  const { t } = useT("data.gateway.analytics");
+  const { t } = useT(DATA_GATEWAY_ANALYTICS_MODULE);
   const maxCalls = Math.max(1, ...operationStats.map((stat) => stat.calls));
 
   return (
@@ -90,7 +92,7 @@ export const GraphOperationsCard = ({ operationStats, isError }: GraphOperations
 
 /** The same fields ranked by how often they fail rather than how often they're called. */
 export const GraphErrorRatesCard = ({ operationStats, isError }: GraphOperationsCardProps) => {
-  const { t } = useT("data.gateway.analytics");
+  const { t } = useT(DATA_GATEWAY_ANALYTICS_MODULE);
   const errorRateStats = useMemo(
     () => [...operationStats].sort((a, b) => b.errorRate - a.errorRate),
     [operationStats],

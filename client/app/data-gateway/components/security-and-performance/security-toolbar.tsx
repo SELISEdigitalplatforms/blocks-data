@@ -4,12 +4,14 @@ import { ArrowDownWideNarrow } from "lucide-react";
 import type { SecurityFilter } from "../../utils/security-summary";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 const CHIPS: { value: SecurityFilter; label: string }[] = [
-  { value: "all", get label() { return tStatic("data.gateway.schema", "common:ALL"); } },
-  { value: "attention", get label() { return tStatic("data.gateway.schema", "SECURITY_TOOLBAR.NEEDS_ATTENTION"); } },
-  { value: "public", get label() { return tStatic("data.gateway.schema", "SECURITY_TOOLBAR.PUBLIC"); } },
-  { value: "user", get label() { return tStatic("data.gateway.schema", "SECURITY_TOOLBAR.SIGNED_IN"); } },
-  { value: "custom", get label() { return tStatic("data.gateway.schema", "SECURITY_TOOLBAR.CUSTOM"); } },
+  { value: "all", get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:ALL"); } },
+  { value: "attention", get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SECURITY_TOOLBAR.NEEDS_ATTENTION"); } },
+  { value: "public", get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SECURITY_TOOLBAR.PUBLIC"); } },
+  { value: "user", get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SECURITY_TOOLBAR.SIGNED_IN"); } },
+  { value: "custom", get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SECURITY_TOOLBAR.CUSTOM"); } },
 ];
 
 /**
@@ -32,7 +34,7 @@ export function SecurityToolbar({
   onFilterChange: (filter: SecurityFilter) => void;
   onSortToggle: () => void;
 }) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   return (
     <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border/40 px-5 py-2.5">
       {CHIPS.map(({ value, label }) => {

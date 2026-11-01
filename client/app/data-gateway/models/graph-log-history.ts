@@ -1,4 +1,6 @@
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 export type GraphLogOperationType = "query" | "mutation";
 export type GraphLogResponseStatus = "success" | "failed";
 export type GraphLogOutcome = "allowed" | "denied" | "error";
@@ -17,13 +19,13 @@ export type GraphLogFailureKind =
 
 /** Reader-facing names for each failure reason, used by the table, filter and details panel. */
 export const FAILURE_KIND_LABELS: Record<GraphLogFailureKind, string> = {
-  get authentication() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.AUTHENTICATION"); },
-  get authorization() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.AUTHORIZATION"); },
-  get validation() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.VALIDATION"); },
-  get syntax_error() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.SYNTAX_ERROR"); },
-  get bad_request() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.BAD_REQUEST"); },
-  get unhandled() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.SERVER_ERROR"); },
-  get unknown() { return tStatic("data.gateway.schema", "GRAPH_LOG_HISTORY.OTHERS"); },
+  get authentication() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.AUTHENTICATION"); },
+  get authorization() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.AUTHORIZATION"); },
+  get validation() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.VALIDATION"); },
+  get syntax_error() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.SYNTAX_ERROR"); },
+  get bad_request() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.BAD_REQUEST"); },
+  get unhandled() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.SERVER_ERROR"); },
+  get unknown() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GRAPH_LOG_HISTORY.OTHERS"); },
 };
 
 export const failureKindLabel = (failureKind: string) =>

@@ -32,15 +32,17 @@ import { cn } from "@/lib/utils";
 import { FolderPlus, LoaderCircle } from "lucide-react";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_STORAGE_MODULE = "data.storage";
+
 const createDirectorySchema = z.lazy(() => z.object({
-  name: z.string().min(1, tStatic("data.storage", "CREATE_DMS_NEW_DIRECTORY.DIRECTORY_NAME_IS_REQUIRED")),
+  name: z.string().min(1, tStatic(DATA_STORAGE_MODULE, "CREATE_DMS_NEW_DIRECTORY.DIRECTORY_NAME_IS_REQUIRED")),
   objectAccessLevel: z.union([z.literal("Creator"), z.literal("Organization"), z.literal("")]),
 }));
 
 const GENERAL_ACCESS_OPTIONS = [
-  { value: "", get label() { return tStatic("data.storage", "CREATE_DMS_NEW_DIRECTORY.DEFAULT_UNRESTRICTED_UNTIL_SHARED"); } },
-  { value: "Creator", get label() { return tStatic("data.storage", "CREATE_DMS_NEW_DIRECTORY.ONLY_ME_UNTIL_I_SHARE_IT"); } },
-  { value: "Organization", get label() { return tStatic("data.storage", "CREATE_DMS_NEW_DIRECTORY.ANYONE_IN_MY_ORGANIZATION"); } },
+  { value: "", get label() { return tStatic(DATA_STORAGE_MODULE, "CREATE_DMS_NEW_DIRECTORY.DEFAULT_UNRESTRICTED_UNTIL_SHARED"); } },
+  { value: "Creator", get label() { return tStatic(DATA_STORAGE_MODULE, "CREATE_DMS_NEW_DIRECTORY.ONLY_ME_UNTIL_I_SHARE_IT"); } },
+  { value: "Organization", get label() { return tStatic(DATA_STORAGE_MODULE, "CREATE_DMS_NEW_DIRECTORY.ANYONE_IN_MY_ORGANIZATION"); } },
 ] as const;
 
 type CreateDirectoryFormData = z.infer<typeof createDirectorySchema>;
@@ -60,7 +62,7 @@ export const CreateDmsNewDirectory = ({
   configurationName,
   onSuccess,
 }: CreateDmsDirectoryModalProps) => {
-  const { t } = useT("data.storage");
+  const { t } = useT(DATA_STORAGE_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const { mutateAsync: createDmsDirectoryMutate, isPending } = useCreateDmsDirectory();
   const form = useForm<CreateDirectoryFormData>({
@@ -162,10 +164,9 @@ export const CreateDmsNewDirectory = ({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("CREATE_DMS_NEW_DIRECTORY.DEFAULT_ACCESS")}</FormLabel>
-                  <div
-                    role="group"
+                  <fieldset
                     aria-label={t("CREATE_DMS_NEW_DIRECTORY.DEFAULT_ACCESS")}
-                    className="inline-flex overflow-hidden rounded-sm border border-input"
+                    className="m-0 min-w-0 inline-flex overflow-hidden rounded-sm border border-input"
                   >
                     {GENERAL_ACCESS_OPTIONS.map((o) => {
                       const active = field.value === o.value;
@@ -187,7 +188,7 @@ export const CreateDmsNewDirectory = ({
                         </button>
                       );
                     })}
-                  </div>
+                  </fieldset>
                   <FormMessage />
                 </FormItem>
               )}

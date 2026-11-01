@@ -15,6 +15,8 @@ import { cn, navigateToUrl } from "@/lib/utils";
 import { useState } from "react";
 import { useLocation } from "react-router";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_SHARED_MODULE = "data.shared";
 interface BlocksApp {
   key: string;
   label: string;
@@ -284,7 +286,7 @@ const SELISE_APPS: BlocksApp[] = [
   {
     key: "iam",
     label: "IAM",
-    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.IDENTITY_ACCESS"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.IDENTITY_ACCESS"); },
     url: getRuntimeEnv("BLOCKS_IAM_BASE_URL"),
     icon: <IdpIcon />,
     clientId: "a5831e15-e193-4a4f-8e10-d04a4ad1705b",
@@ -292,8 +294,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "localization",
-    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.LOCALIZATION"); },
-    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.LOCALIZATION"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.LOCALIZATION"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.LOCALIZATION"); },
     url: getRuntimeEnv("BLOCKS_LOCALIZATION_BASE_URL"),
     icon: <UilmIcon />,
     clientId: "57214b67-aa9c-4307-92ab-a25e35180fac",
@@ -301,8 +303,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "agents",
-    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.AGENTS"); },
-    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.AI_PLATFORM"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.AGENTS"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.AI_PLATFORM"); },
     url: getRuntimeEnv("BLOCKS_AGENTS_BASE_URL"),
     icon: <AiIcon />,
     clientId: "c1565dbc-de65-4966-a427-0ed9e542c678",
@@ -310,8 +312,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "data",
-    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.DATA"); },
-    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.DATA_INTEGRATION"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.DATA"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.DATA_INTEGRATION"); },
     url: getRuntimeEnv("BLOCKS_DATA_BASE_URL"),
     icon: <DataGatewayIcon />,
     clientId: "e76867a8-37a1-483e-a15e-875c3884b8e8",
@@ -320,7 +322,7 @@ const SELISE_APPS: BlocksApp[] = [
   {
     key: "os",
     label: "OS",
-    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.OPERATING_SYSTEM"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.OPERATING_SYSTEM"); },
     url: getRuntimeEnv("BLOCKS_OS_BASE_URL"),
     icon: <BlocksOsIcon />,
     clientId: "5225b9c1-15bc-41b0-bdc6-d3ceb180ccc5",
@@ -328,8 +330,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "utilities",
-    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.UTILITIES"); },
-    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.UTILITY_TOOLS"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.UTILITIES"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.UTILITY_TOOLS"); },
     url: getRuntimeEnv("BLOCKS_UTILITIES_BASE_URL"),
     icon: <UtilityIcon />,
     clientId: "4f7ae2b9-4b42-4770-9138-63db08538629",
@@ -337,8 +339,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "logic",
-    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.LOGIC"); },
-    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.BUSINESS_LOGIC"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.LOGIC"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.BUSINESS_LOGIC"); },
     url: getRuntimeEnv("BLOCKS_LOGIC_BASE_URL"),
     icon: <LogicIcon />,
     clientId: "a25aee32-73ae-484b-b813-522a8d091f89",
@@ -346,8 +348,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "monitor",
-    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.MONITOR"); },
-    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.MONITORING_LOGS"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.MONITOR"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.MONITORING_LOGS"); },
     url: getRuntimeEnv("BLOCKS_MONITOR_BASE_URL"),
     icon: <ObservabilityIcon />,
     clientId: "1bd234da-1fa1-4264-982e-3debb1078be5",
@@ -355,8 +357,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "release",
-    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.RELEASE"); },
-    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.CI_CD_RELEASES"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.RELEASE"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "BLOCKS_APP_LAUNCHER.CI_CD_RELEASES"); },
     url: getRuntimeEnv("BLOCKS_RELEASE_BASE_URL"),
     icon: <DeploymentsIcon />,
     clientId: "6523b311-256f-4b9a-a88a-2ac4e02bad25",
@@ -431,7 +433,7 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 export function BlocksAppLauncher() {
-  const { t } = useT("data.shared");
+  const { t } = useT(DATA_SHARED_MODULE);
   const [open, setOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   // Read once on mount; this client-only SPA always has localStorage.

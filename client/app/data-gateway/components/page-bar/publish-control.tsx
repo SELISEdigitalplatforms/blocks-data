@@ -20,17 +20,20 @@ import {
 import { ISchemaVersionSummary } from "../../models/data-service";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+const PUBLISH_CONTROL_VERSION_HISTORY = "PUBLISH_CONTROL.VERSION_HISTORY";
+
 type PublishState = "clean" | "pending" | "publishing" | "failed";
 
 const formatPublishedDate = (value: string) => {
   const date = new Date(value);
-  if (isToday(date)) return tStatic("data.gateway.schema", "PUBLISH_CONTROL.TODAY_FORMAT", { format: format(date, "HH:mm") });
+  if (isToday(date)) return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "PUBLISH_CONTROL.TODAY_FORMAT", { format: format(date, "HH:mm") });
   return format(date, isThisYear(date) ? "d MMM" : "d MMM yyyy");
 };
 
 const describeVersion = (version: ISchemaVersionSummary) => {
   const date = formatPublishedDate(version.publishedDate);
-  if (version.kind === "Bootstrap") return tStatic("data.gateway.schema", "PUBLISH_CONTROL.DATE_FIRST_VERSION_FROM_DRAFTS", { date });
+  if (version.kind === "Bootstrap") return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "PUBLISH_CONTROL.DATE_FIRST_VERSION_FROM_DRAFTS", { date });
   const changes = `${version.changeCount} ${version.changeCount === 1 ? "change" : "changes"}`;
   return [date, version.publishedBy, changes].filter(Boolean).join(" · ");
 };
@@ -49,7 +52,7 @@ const describeVersion = (version: ISchemaVersionSummary) => {
  * opened; failed reads leave publishing available.
  */
 export const PublishControl = () => {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const { data: unadaptedChangeLogs } = useGetUnadaptedChangeLogs({ projectKey });
   const { mutateAsync: reloadSchemas, isPending: isPublishing } = useSchemasReload();
@@ -183,7 +186,7 @@ interface VersionHistoryProps {
  * changes and what does not.
  */
 const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHistoryProps) => {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const { mutateAsync: rollback, isPending: isRollingBack } = useSchemaRollback();
   const [isOpen, setIsOpen] = useState(false);
   const [rollbackTarget, setRollbackTarget] = useState<number | null>(null);
@@ -210,8 +213,8 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label={t("PUBLISH_CONTROL.VERSION_HISTORY")}
-            title={t("PUBLISH_CONTROL.VERSION_HISTORY")}
+            aria-label={t(PUBLISH_CONTROL_VERSION_HISTORY)}
+            title={t(PUBLISH_CONTROL_VERSION_HISTORY)}
             className={cn(
               "flex w-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground",
               className,
@@ -221,7 +224,7 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-[340px] p-0">
-          <div className="px-3 py-2.5 text-sm font-medium">{t("PUBLISH_CONTROL.VERSION_HISTORY")}</div>
+          <div className="px-3 py-2.5 text-sm font-medium">{t(PUBLISH_CONTROL_VERSION_HISTORY)}</div>
           {!history ? (
             <p className="px-3 py-3 text-xs text-muted-foreground">
               {isError ? t("PUBLISH_CONTROL.VERSION_HISTORY_IS_UNAVAILABLE") : t("PUBLISH_CONTROL.LOADING_VERSION_HISTORY")}

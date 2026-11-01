@@ -6,6 +6,8 @@ import { cn } from "@/lib/utils";
 import { ACCESS_LEVEL_TO_TYPE, ACCESS_TYPES } from "../../constants/schema-access-control";
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 /**
  * Single source of truth for how an access tier looks.
  *
@@ -57,10 +59,10 @@ const TYPE_TO_TIER: Record<string, AccessTier> = {
 };
 
 export const ACCESS_TIER_LABELS: Record<AccessTier, string> = {
-  get public() { return tStatic("data.gateway.schema", "ACCESS_TIER_BADGE.PUBLIC"); },
-  get user() { return tStatic("data.gateway.schema", "ACCESS_TIER_BADGE.SIGNED_IN_USERS"); },
-  get custom() { return tStatic("data.gateway.schema", "ACCESS_TIER_BADGE.CUSTOM"); },
-  get inherited() { return tStatic("data.gateway.schema", "ACCESS_TIER_BADGE.INHERITED"); },
+  get public() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_TIER_BADGE.PUBLIC"); },
+  get user() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_TIER_BADGE.SIGNED_IN_USERS"); },
+  get custom() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_TIER_BADGE.CUSTOM"); },
+  get inherited() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "ACCESS_TIER_BADGE.INHERITED"); },
 };
 
 /** Tier's icon, for compact chips/tiles where the label text is dropped. */

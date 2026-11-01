@@ -1,4 +1,6 @@
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_IDP_AUTHENTICATION_MODULE = "data.idp.authentication";
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 30;
 export const STRENGTH_MULTIPLIER = 25;
@@ -36,12 +38,12 @@ export interface PasswordRequirement {
 
 
 export const getPasswordRequirements = (): PasswordRequirement[] => [
-  { key: "length", label: tStatic("data.idp.authentication", "PASSWORD_STRENGTH_UTIL.BETWEEN_8_AND_30_CHARACTERS") },
-  { key: "case", label: tStatic("data.idp.authentication", "PASSWORD_STRENGTH_UTIL.AT_LEAST_1_UPPERCASE_AND_1") },
-  { key: "number", label: tStatic("data.idp.authentication", "PASSWORD_STRENGTH_UTIL.AT_LEAST_1_DIGIT") },
+  { key: "length", label: tStatic(DATA_IDP_AUTHENTICATION_MODULE, "PASSWORD_STRENGTH_UTIL.BETWEEN_8_AND_30_CHARACTERS") },
+  { key: "case", label: tStatic(DATA_IDP_AUTHENTICATION_MODULE, "PASSWORD_STRENGTH_UTIL.AT_LEAST_1_UPPERCASE_AND_1") },
+  { key: "number", label: tStatic(DATA_IDP_AUTHENTICATION_MODULE, "PASSWORD_STRENGTH_UTIL.AT_LEAST_1_DIGIT") },
   {
     key: "special",
-    label: `${tStatic("data.idp.authentication", "PASSWORD_STRENGTH_UTIL.AT_LEAST_1_SPECIAL_CHARACTER")}`,
+    label: `${tStatic(DATA_IDP_AUTHENTICATION_MODULE, "PASSWORD_STRENGTH_UTIL.AT_LEAST_1_SPECIAL_CHARACTER")}`,
   },
 ];
 

@@ -8,10 +8,12 @@ import { useDmsSearch } from "../../hooks/use-dms";
 import { DmsItem, DmsItemType } from "../../models/dms.model";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_STORAGE_MODULE = "data.storage";
+
 const FILTERS: { label: string; value: DmsItemType | "all" }[] = [
-  { get label() { return tStatic("data.storage", "common:ALL"); }, value: "all" },
-  { get label() { return tStatic("data.storage", "SEARCH.DIRECTORYS"); }, value: "directory" },
-  { get label() { return tStatic("data.storage", "SEARCH.FILES"); }, value: "file" },
+  { get label() { return tStatic(DATA_STORAGE_MODULE, "common:ALL"); }, value: "all" },
+  { get label() { return tStatic(DATA_STORAGE_MODULE, "SEARCH.DIRECTORYS"); }, value: "directory" },
+  { get label() { return tStatic(DATA_STORAGE_MODULE, "SEARCH.FILES"); }, value: "file" },
 ];
 
 /**
@@ -23,7 +25,7 @@ const FILTERS: { label: string; value: DmsItemType | "all" }[] = [
  * in, only on the actions offered.
  */
 export function StorageSearch() {
-  const { t } = useT("data.storage");
+  const { t } = useT(DATA_STORAGE_MODULE);
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const storagePath = useStoragePath();

@@ -9,10 +9,12 @@ import { DmsItem, DmsItemType } from "../../models/dms.model";
 import { itemActions } from "../../utils/permission-actions";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_STORAGE_MODULE = "data.storage";
+
 const FILTERS: { label: string; value: DmsItemType | "all" }[] = [
-  { get label() { return tStatic("data.storage", "common:ALL"); }, value: "all" },
-  { get label() { return tStatic("data.storage", "TRASH.DIRECTORYS"); }, value: "directory" },
-  { get label() { return tStatic("data.storage", "TRASH.FILES"); }, value: "file" },
+  { get label() { return tStatic(DATA_STORAGE_MODULE, "common:ALL"); }, value: "all" },
+  { get label() { return tStatic(DATA_STORAGE_MODULE, "TRASH.DIRECTORYS"); }, value: "directory" },
+  { get label() { return tStatic(DATA_STORAGE_MODULE, "TRASH.FILES"); }, value: "file" },
 ];
 
 /**
@@ -24,7 +26,7 @@ const FILTERS: { label: string; value: DmsItemType | "all" }[] = [
  * same authority as having removed it.
  */
 export function Trash() {
-  const { t } = useT("data.storage");
+  const { t } = useT(DATA_STORAGE_MODULE);
   const [type, setType] = useState<DmsItemType | "all">("all");
   const [pendingDelete, setPendingDelete] = useState<DmsItem | null>(null);
 

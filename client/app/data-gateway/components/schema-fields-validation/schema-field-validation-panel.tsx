@@ -48,6 +48,8 @@ import { useReferenceTarget } from "./reference-target-picker";
 import { RuleValueInputs, filterFieldsOf } from "./rule-value-inputs";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
+
 export interface SchemaFieldValidationPanelProps {
   fieldName: string;
   schemaId: string;
@@ -108,7 +110,7 @@ function ValidationSkeleton() {
 
 /** How many validations there are and how many are on, e.g. "2 validations · 1 active, 1 off". */
 function StatusLine({ rules, fieldName }: Readonly<{ rules: ISchemaFieldValidation[]; fieldName: string }>) {
-  const { t: tx } = useT("data.gateway.validation");
+  const { t: tx } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   if (rules.length === 0) {
     return (
       <div className="flex items-center gap-2.5 rounded-md border border-border/50 bg-background px-3 py-2.5 text-xs text-muted-foreground">
@@ -164,7 +166,7 @@ function RuleCard({
   onKeep: () => void;
   onDelete: () => void;
 }>) {
-  const { t: tx } = useT("data.gateway.validation");
+  const { t: tx } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   // Saved without a version (0), a rule checks the list as a whole.
   const scope = ruleScope(rule.type, isArray, rule.evaluationVersion ?? 0);
   return (
@@ -267,7 +269,7 @@ export function SchemaFieldValidationPanel({
   isArray = false,
   initialValidationData,
 }: SchemaFieldValidationPanelProps) {
-  const { t: tx } = useT("data.gateway.validation");
+  const { t: tx } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<ValidationFormState>(() => newDraft(fieldType, isArray));
   // Shown once the user has typed or tried to save, not while the form is still blank.
@@ -472,6 +474,9 @@ export function SchemaFieldValidationPanel({
   const isRegex = VALIDATION_TYPE_META[form.type]?.input === "regex";
 
   const showList = !(isRefreshing || (isLoading && !hasInitialData));
+  const submitLabel = isEditMode
+    ? tx("SCHEMA_FIELD_VALIDATION_PANEL.SAVE_VALIDATION")
+    : tx("SCHEMA_FIELD_VALIDATION_PANEL.ADD_VALIDATION");
 
   return (
     <>
@@ -734,7 +739,7 @@ export function SchemaFieldValidationPanel({
                 {tx("common:CANCEL")}
               </Button>
               <Button type="button" size="sm" disabled={isPending || !!draftError || !isDirty} onClick={() => void handleSubmit()}>
-                {isPending ? "Saving…" : isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.SAVE_VALIDATION") : tx("SCHEMA_FIELD_VALIDATION_PANEL.ADD_VALIDATION")}
+                {isPending ? "Saving…" : submitLabel}
               </Button>
             </div>
           )}

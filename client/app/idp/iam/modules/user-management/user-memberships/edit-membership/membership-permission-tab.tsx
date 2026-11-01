@@ -22,6 +22,8 @@ import { TabsContent } from "@radix-ui/react-tabs";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const COMMON_TYPE = "common:TYPE";
+
 type MembershipPermissionsTabProps = {
   isEditing: boolean;
   permissionsSearch: string;
@@ -73,7 +75,7 @@ export const MembershipPermissionsTab = ({
             onValueChange={(value) => onPermissionsTypeFilterChange(value)}
           >
             <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder={t("common:TYPE")} />
+              <SelectValue placeholder={t(COMMON_TYPE)} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t("common:ALL")}</SelectItem>
@@ -99,7 +101,7 @@ export const MembershipPermissionsTab = ({
                   <TableRow>
                     <TableHead className="w-[50px]"></TableHead>
                     <TableHead>{t("MEMBERSHIP_PERMISSION_TAB.PERMISSION")}</TableHead>
-                    <TableHead>{t("common:TYPE")}</TableHead>
+                    <TableHead>{t(COMMON_TYPE)}</TableHead>
                     <TableHead>{t("MEMBERSHIP_PERMISSION_TAB.ROLE")}</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -190,7 +192,7 @@ export const MembershipPermissionsTab = ({
           />
           <Select value={permissionsTypeFilter} onValueChange={onPermissionsTypeFilterChange}>
             <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder={t("common:TYPE")} />
+              <SelectValue placeholder={t(COMMON_TYPE)} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t("common:ALL")}</SelectItem>
@@ -207,7 +209,7 @@ export const MembershipPermissionsTab = ({
             <TableHeader>
               <TableRow>
                 <TableHead>{t("MEMBERSHIP_PERMISSION_TAB.PERMISSION")}</TableHead>
-                <TableHead>{t("common:TYPE")}</TableHead>
+                <TableHead>{t(COMMON_TYPE)}</TableHead>
                 <TableHead>{t("MEMBERSHIP_PERMISSION_TAB.ROLE")}</TableHead>
               </TableRow>
             </TableHeader>

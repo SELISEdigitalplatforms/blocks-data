@@ -37,6 +37,8 @@ import {
 } from "./default-value-fields";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
+
 export interface DefaultValuePanelProps {
   /** The property; a nested one by its full dotted path, e.g. Read.Roles. */
   fieldName: string;
@@ -52,28 +54,28 @@ export interface DefaultValuePanelProps {
 
 /** One line under the value box saying what it takes. */
 function hintFor(fieldType: string, useNow: boolean): string {
-  if (useNow) return tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.STORED_IN_UTC_RECORDS_CREATED_TOGETHER");
+  if (useNow) return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.STORED_IN_UTC_RECORDS_CREATED_TOGETHER");
   switch (fieldType) {
     case "String":
     case "ID":
-      return tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.TYPE_FIXED_TEXT_ADD_EXPRESSIONS_FILLED");
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.TYPE_FIXED_TEXT_ADD_EXPRESSIONS_FILLED");
     case "DateTime":
-      return tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.PICK_A_FIXED_DATE_UTC_OR");
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.PICK_A_FIXED_DATE_UTC_OR");
     case "Enum":
-      return tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.ONE_OF_THE_ALLOWED_VALUES_PICK");
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.ONE_OF_THE_ALLOWED_VALUES_PICK");
     case "Boolean":
-      return tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.PICK_TRUE_OR_FALSE_PICK_IT");
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.PICK_TRUE_OR_FALSE_PICK_IT");
     default:
-      return tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.STORED_EXACTLY_AS_ENTERED");
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.STORED_EXACTLY_AS_ENTERED");
   }
 }
 
 /** What the box shows before anything is typed. */
 function placeholderFor(fieldType: string, fieldName: string): string {
-  if (canUseExpressions(fieldType)) return tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.TYPE_TEXT_OR_ADD_AN_EXPRESSION");
+  if (canUseExpressions(fieldType)) return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.TYPE_TEXT_OR_ADD_AN_EXPRESSION");
   if (fieldType === "Int") return "e.g. 1";
   if (fieldType === "Float") return "e.g. 0.5";
-  return fieldType === "DateTime" ? "" : tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.STORED_WHEN_FIELDNAME_IS_OMITTED", { fieldName });
+  return fieldType === "DateTime" ? "" : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.STORED_WHEN_FIELDNAME_IS_OMITTED", { fieldName });
 }
 
 /** An `HttpError` from the client: its status and the response body (or the body's `errors`). */
@@ -85,7 +87,7 @@ const asHttpError = (error: unknown): { status: number; errors: Record<string, u
 /** The server's reason for a refusal: the response's message, else its errors. */
 function serverMessage(error: unknown): string {
   const http = asHttpError(error);
-  if (!http) return tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.SOMETHING_WENT_WRONG");
+  if (!http) return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.SOMETHING_WENT_WRONG");
   if (typeof http.errors?.message === "string" && http.errors.message) return expressionWording(http.errors.message);
   const messages = handleErrorMessages(http.errors);
   return expressionWording(Array.isArray(messages) ? messages.join(" ") : messages);
@@ -149,11 +151,11 @@ function previewOf(draft: DefaultDraft, target: DefaultTarget, fieldName: string
     const o = defaultFromDraft(draft, target).offset ?? { days: 0, hours: 0, minutes: 0, seconds: 0 };
     const ms = (o.days * 86400 + o.hours * 3600 + o.minutes * 60 + o.seconds) * 1000;
     const when = Number.isFinite(ms) ? `${new Date(Date.now() + ms).toISOString().slice(0, 16).replace("T", " ")} UTC` : "—";
-    return { pieces: [text(when)], caption: tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.FOR_A_RECORD_CREATED_RIGHT_NOW") };
+    return { pieces: [text(when)], caption: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.FOR_A_RECORD_CREATED_RIGHT_NOW") };
   }
   const items = target.isArray ? draft.items.filter((t) => t.trim() !== "") : draft.items.slice(0, 1);
   if (items.every((t) => t.trim() === "")) {
-    return { pieces: [muted("—")], caption: tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.WHEN_AN_INSERT_LEAVES_FIELDNAME_OUT", { fieldName }) };
+    return { pieces: [muted("—")], caption: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.WHEN_AN_INSERT_LEAVES_FIELDNAME_OUT", { fieldName }) };
   }
   if (kind === "Template") {
     const pieces: PreviewPiece[] = [];
@@ -163,13 +165,13 @@ function previewOf(draft: DefaultDraft, target: DefaultTarget, fieldName: string
       }
       if (target.isArray && index < items.length - 1) pieces.push(muted(","));
     });
-    return { pieces, caption: tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.FILLED_IN_AT_INSERT_TIME") };
+    return { pieces, caption: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.FILLED_IN_AT_INSERT_TIME") };
   }
   const quote = (t: string) => (target.fieldType === "String" ? JSON.stringify(t.trim()) : t.trim());
   const values = items.map((t) => text(quote(t)));
   return {
     pieces: target.isArray ? [muted("["), ...values, muted("]")] : values,
-    caption: tStatic("data.gateway.validation", "DEFAULT_VALUE_PANEL.WHEN_AN_INSERT_LEAVES_FIELDNAME_OUT", { fieldName }),
+    caption: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_PANEL.WHEN_AN_INSERT_LEAVES_FIELDNAME_OUT", { fieldName }),
   };
 }
 
@@ -188,7 +190,7 @@ export function DefaultValuePanel({
   enumValues = [],
   initialDefault = null,
 }: Readonly<DefaultValuePanelProps>) {
-  const { t: tx } = useT("data.gateway.validation");
+  const { t: tx } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const nowAllowed = canUseNow(fieldType, isArray);
   // What's stored now: the schema response's value, then whatever this panel last saved.
   const [saved, setSaved] = useState<IFieldDefaultValue | null>(initialDefault);

@@ -2,6 +2,8 @@ import type { DefaultValueKind, IFieldDefaultValue } from "../models/data-servic
 import { checkVariables, type VariableField } from "./variable-syntax";
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
+
 /**
  * Default values: what a property can be given, the checks before saving, and the one-line summary.
  * Mirrors Genesis `FieldDefaultValueCheck` / `DefaultValueConverter`, with the same messages.
@@ -42,18 +44,18 @@ export function checkStaticItem(text: string, fieldType: string, enumValues: str
   const value = text.trim();
   switch (fieldType) {
     case "Int":
-      return /^[+-]?\d+$/.test(value) && Math.abs(Number(value)) <= 2147483647 ? null : tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.VALUE_IS_NOT_A_WHOLE_NUMBER", { value });
+      return /^[+-]?\d+$/.test(value) && Math.abs(Number(value)) <= 2147483647 ? null : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.VALUE_IS_NOT_A_WHOLE_NUMBER", { value });
     case "Float":
-      return value !== "" && Number.isFinite(Number(value)) ? null : tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.VALUE_IS_NOT_A_NUMBER", { value });
+      return value !== "" && Number.isFinite(Number(value)) ? null : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.VALUE_IS_NOT_A_NUMBER", { value });
     case "Boolean":
-      return value === "true" || value === "false" ? null : tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.VALUE_IS_NOT_TRUE_OR_FALSE", { value });
+      return value === "true" || value === "false" ? null : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.VALUE_IS_NOT_TRUE_OR_FALSE", { value });
     case "DateTime":
       return value !== "" && !Number.isNaN(Date.parse(value)) && /^\d{4}-\d{2}-\d{2}/.test(value) && isRealDate(value)
         ? null
-        : tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.VALUE_IS_NOT_A_VALID_DATE", { value });
+        : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.VALUE_IS_NOT_A_VALID_DATE", { value });
     case "Enum":
       return enumValues.length > 0 && !enumValues.includes(value)
-        ? tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.NOT_ONE_OF_THE_LISTED_VALUES", { value, values: enumValues.join(", ") })
+        ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.NOT_ONE_OF_THE_LISTED_VALUES", { value, values: enumValues.join(", ") })
         : null;
     default:
       return null;
@@ -121,7 +123,7 @@ export function draftFromDefault(value: IFieldDefaultValue | null | undefined): 
   };
 }
 
-const OFFSET_LABELS = { get days() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.DAYS"); }, get hours() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.HOURS"); }, get minutes() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.MINUTES"); }, get seconds() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.SECONDS"); } } as const;
+const OFFSET_LABELS = { get days() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.DAYS"); }, get hours() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.HOURS"); }, get minutes() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.MINUTES"); }, get seconds() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.SECONDS"); } } as const;
 
 export interface DefaultTarget {
   fieldType: string;
@@ -138,7 +140,7 @@ const draftItems = (draft: DefaultDraft, target: DefaultTarget) =>
 function checkStaticDraft(items: string[], target: DefaultTarget): string | null {
   if (items.length === 0 || (items[0] ?? "").trim() === "") {
     // Only a single text property may default to empty text.
-    return target.fieldType === "String" && !target.isArray ? null : tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.A_VALUE_IS_REQUIRED");
+    return target.fieldType === "String" && !target.isArray ? null : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.A_VALUE_IS_REQUIRED");
   }
   for (const item of items) {
     const problem = checkStaticItem(item, target.fieldType, target.enumValues);
@@ -148,8 +150,8 @@ function checkStaticDraft(items: string[], target: DefaultTarget): string | null
 }
 
 function checkTemplateDraft(items: string[], target: DefaultTarget): string | null {
-  if (target.fieldType !== "String" && target.fieldType !== "ID") return tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.EXPRESSIONS_CAN_ONLY_BE_USED_ON");
-  if (items.every((item) => item.trim() === "")) return tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.AN_EXPRESSION_IS_REQUIRED");
+  if (target.fieldType !== "String" && target.fieldType !== "ID") return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.EXPRESSIONS_CAN_ONLY_BE_USED_ON");
+  if (items.every((item) => item.trim() === "")) return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.AN_EXPRESSION_IS_REQUIRED");
   for (const item of items) {
     const problem = checkVariables(item, "template", target.schemaName, target.fields, target.isArray);
     if (problem) return problem.message;
@@ -158,9 +160,9 @@ function checkTemplateDraft(items: string[], target: DefaultTarget): string | nu
 }
 
 function checkNowDraft(offset: DefaultDraft["offset"], target: DefaultTarget): string | null {
-  if (target.fieldType !== "DateTime" || target.isArray) return tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.NOW_CAN_ONLY_BE_USED_ON");
+  if (target.fieldType !== "DateTime" || target.isArray) return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.NOW_CAN_ONLY_BE_USED_ON");
   const notWhole = (Object.keys(OFFSET_LABELS) as Array<keyof typeof OFFSET_LABELS>).find((key) => !/^[+-]?\d+$/.test(offset[key].trim()));
-  return notWhole ? tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.MUST_BE_A_WHOLE_NUMBER", { name: OFFSET_LABELS[notWhole] }) : null;
+  return notWhole ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.MUST_BE_A_WHOLE_NUMBER", { name: OFFSET_LABELS[notWhole] }) : null;
 }
 
 /** The kind the API gets for this draft: Now, Template when any item holds a variable, else Static. */
@@ -180,7 +182,7 @@ export function checkDefaultDraft(draft: DefaultDraft, target: DefaultTarget): s
     case "Now":
       return checkNowDraft(draft.offset, target);
     default:
-      return tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.ENTER_A_VALUE");
+      return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.ENTER_A_VALUE");
   }
 }
 
@@ -215,12 +217,12 @@ const AMOUNT_KEYS = {
   seconds: "DEFAULT_VALUE_UTIL.AMOUNT_SECONDS",
 } as const;
 const amount = (n: number, unit: (typeof OFFSET_UNITS)[number]) =>
-  tStatic("data.gateway.validation", AMOUNT_KEYS[unit], { count: n });
+  tStatic(DATA_GATEWAY_VALIDATION_MODULE, AMOUNT_KEYS[unit], { count: n });
 
 /** "30 days", "2 hours and 30 minutes", "1 day, 2 hours and 5 seconds". */
 const listAmounts = (parts: string[]) =>
   parts.length > 1
-    ? tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.LIST_AND", { list: parts.slice(0, -1).join(", "), last: parts[parts.length - 1] })
+    ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.LIST_AND", { list: parts.slice(0, -1).join(", "), last: parts[parts.length - 1] })
     : parts[0];
 
 /**
@@ -230,16 +232,16 @@ const listAmounts = (parts: string[]) =>
  */
 export function describeNow(offset: IFieldDefaultValue["offset"] | null | undefined): string {
   const parts = OFFSET_UNITS.filter((unit) => (offset?.[unit] ?? 0) !== 0).map((unit) => ({ unit, n: offset![unit] }));
-  if (parts.length === 0) return tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.THE_DATE_AND_TIME_THE_RECORD");
+  if (parts.length === 0) return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.THE_DATE_AND_TIME_THE_RECORD");
   const later = parts.every((p) => p.n > 0);
   const earlier = parts.every((p) => p.n < 0);
   if (later || earlier) {
-    return tStatic("data.gateway.validation", later ? "DEFAULT_VALUE_UTIL.AMOUNT_AFTER_THE_RECORD_IS_CREATED" : "DEFAULT_VALUE_UTIL.AMOUNT_BEFORE_THE_RECORD_IS_CREATED", {
+    return tStatic(DATA_GATEWAY_VALIDATION_MODULE, later ? "DEFAULT_VALUE_UTIL.AMOUNT_AFTER_THE_RECORD_IS_CREATED" : "DEFAULT_VALUE_UTIL.AMOUNT_BEFORE_THE_RECORD_IS_CREATED", {
       amount: listAmounts(parts.map((p) => amount(Math.abs(p.n), p.unit))),
     });
   }
   const signed = parts.map((p) => `${p.n > 0 ? "+" : "−"}${amount(Math.abs(p.n), p.unit)}`);
-  return tStatic("data.gateway.validation", "DEFAULT_VALUE_UTIL.THE_DATE_AND_TIME_THE_RECORD_ADJUSTED", { adjustments: signed.join(" ") });
+  return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.THE_DATE_AND_TIME_THE_RECORD_ADJUSTED", { adjustments: signed.join(" ") });
 }
 
 /** One line for the DEF flag and the Rules button: "30 days after the record is created", or the value. */

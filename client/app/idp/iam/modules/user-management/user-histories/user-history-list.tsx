@@ -13,6 +13,8 @@ import { formatDistanceToNow } from "date-fns";
 import { useMemo } from "react";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_IDP_IAM_MODULE = "data.idp.iam";
+
 type HistoryListProps = {
   isLoading: boolean;
   data: IHistories[];
@@ -27,12 +29,12 @@ const LoadingSkelton = () => (
 );
 
 const EVENT_TYPE = {
-  get issued_refresh_token() { return tStatic("data.idp.iam", "USER_HISTORY_LIST.REFRESH_TOKEN_ISSUED"); },
-  get revoke_access_by_logout() { return tStatic("data.idp.iam", "USER_HISTORY_LIST.ACCESS_REVOKED_LOGOUT"); },
+  get issued_refresh_token() { return tStatic(DATA_IDP_IAM_MODULE, "USER_HISTORY_LIST.REFRESH_TOKEN_ISSUED"); },
+  get revoke_access_by_logout() { return tStatic(DATA_IDP_IAM_MODULE, "USER_HISTORY_LIST.ACCESS_REVOKED_LOGOUT"); },
 };
 
 export const UserHistoryList = ({ isLoading, data }: HistoryListProps) => {
-  const { t } = useT("data.idp.iam");
+  const { t } = useT(DATA_IDP_IAM_MODULE);
   const columns: ColumnDef<IHistories>[] = useMemo(
     () => [
       {

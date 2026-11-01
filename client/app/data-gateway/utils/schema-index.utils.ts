@@ -3,6 +3,8 @@ import type { IField, IndexDirection } from "../models/data-service";
 import { buildValidationFieldName } from "./schema-normalization";
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 /**
  * The backend returns a bare error code (optionally with a ": <detail>" suffix) either as
  * ServiceResponse.message (business-rule errors) or as the first FluentValidation failure's
@@ -14,21 +16,21 @@ interface IndexErrorSource {
 }
 
 const INDEX_ERROR_MESSAGES: Record<string, (detail: string) => string> = {
-  SCHEMA_NOT_FOUND: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.SCHEMA_NOT_FOUND"),
-  SCHEMA_TYPE_NOT_INDEXABLE: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.INDEXES_ARE_ONLY_SUPPORTED_ON_ENTITY"),
+  SCHEMA_NOT_FOUND: () => tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.SCHEMA_NOT_FOUND"),
+  SCHEMA_TYPE_NOT_INDEXABLE: () => tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.INDEXES_ARE_ONLY_SUPPORTED_ON_ENTITY"),
   FIELD_NOT_INDEXABLE: (detail) =>
-    detail ? tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.FIELD_DETAIL_CANNOT_BE_INDEXED", { detail }) : tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.ONE_OR_MORE_SELECTED_FIELDS_CANNOT"),
-  INVALID_INDEX_FIELDS: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.SELECT_AT_LEAST_ONE_FIELD_WITH"),
-  INVALID_INDEX_NAME: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.INDEX_NAME_CANNOT_EXCEED_128"),
-  INDEX_ALREADY_EXISTS: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.AN_INDEX_WITH_THIS_NAME_OR"),
-  INDEX_LIMIT_REACHED: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.THIS_SCHEMA_ALREADY_HAS_THE_MAXIMUM"),
+    detail ? tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.FIELD_DETAIL_CANNOT_BE_INDEXED", { detail }) : tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.ONE_OR_MORE_SELECTED_FIELDS_CANNOT"),
+  INVALID_INDEX_FIELDS: () => tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.SELECT_AT_LEAST_ONE_FIELD_WITH"),
+  INVALID_INDEX_NAME: () => tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.INDEX_NAME_CANNOT_EXCEED_128"),
+  INDEX_ALREADY_EXISTS: () => tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.AN_INDEX_WITH_THIS_NAME_OR"),
+  INDEX_LIMIT_REACHED: () => tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.THIS_SCHEMA_ALREADY_HAS_THE_MAXIMUM"),
   UNIQUE_INDEX_CONFLICT: () =>
-    tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.CANNOT_CREATE_A_UNIQUE_INDEX_THIS"),
-  INDEX_NOT_FOUND: () => tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.THIS_INDEX_NO_LONGER_EXISTS"),
+    tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.CANNOT_CREATE_A_UNIQUE_INDEX_THIS"),
+  INDEX_NOT_FOUND: () => tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.THIS_INDEX_NO_LONGER_EXISTS"),
   FIELD_USED_BY_INDEX: (detail) =>
     detail
-      ? tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.THIS_FIELD_IS_USED_BY_INDEX", { detail })
-      : tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.THIS_FIELD_IS_USED_BY_AN"),
+      ? tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.THIS_FIELD_IS_USED_BY_INDEX", { detail })
+      : tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.THIS_FIELD_IS_USED_BY_AN"),
 };
 
 const extractRawCode = (res: IndexErrorSource): string | null => {
@@ -72,8 +74,8 @@ export function mapIndexErrorFromException(error: unknown): string | null {
 }
 
 export const INDEX_DIRECTION_LABELS: Record<IndexDirection, string> = {
-  get ASC() { return tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.ASCENDING"); },
-  get DESC() { return tStatic("data.gateway.schema", "SCHEMA_INDEX_UTILS.DESCENDING"); },
+  get ASC() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.ASCENDING"); },
+  get DESC() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_UTILS.DESCENDING"); },
 };
 
 export const MAX_INDEX_FIELDS = 10;

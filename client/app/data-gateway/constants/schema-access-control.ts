@@ -1,9 +1,13 @@
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_ACCESS_MODULE = "data.gateway.access";
+const SCHEMA_ACCESS_CONTROL_AUTH = "SCHEMA_ACCESS_CONTROL.AUTH";
+const SCHEMA_ACCESS_CONTROL_SCHEMA_FIELDS = "SCHEMA_ACCESS_CONTROL.SCHEMA_FIELDS";
 export const PERMISSION_ACTIONS = [
-  { id: "view", get label() { return tStatic("data.gateway.access", "common:VIEW"); }, value: "view" },
-  { id: "create", get label() { return tStatic("data.gateway.access", "common:CREATE"); }, value: "create" },
-  { id: "edit", get label() { return tStatic("data.gateway.access", "common:EDIT"); }, value: "edit" },
-  { id: "delete", get label() { return tStatic("data.gateway.access", "common:DELETE"); }, value: "delete" },
+  { id: "view", get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:VIEW"); }, value: "view" },
+  { id: "create", get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:CREATE"); }, value: "create" },
+  { id: "edit", get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:EDIT"); }, value: "edit" },
+  { id: "delete", get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:DELETE"); }, value: "delete" },
 ];
 
 export const ACCESS_TYPES = {
@@ -20,15 +24,15 @@ export const RULE_SOURCE_TYPES = {
 } as const;
 
 export const RULE_SOURCE_OPTIONS = [
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.AUTH"); }, value: RULE_SOURCE_TYPES.AUTH },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.SCHEMA_FIELDS"); }, value: RULE_SOURCE_TYPES.SCHEMA_FIELD },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, SCHEMA_ACCESS_CONTROL_AUTH); }, value: RULE_SOURCE_TYPES.AUTH },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, SCHEMA_ACCESS_CONTROL_SCHEMA_FIELDS); }, value: RULE_SOURCE_TYPES.SCHEMA_FIELD },
   // { label: "Static Value", value: RULE_SOURCE_TYPES.STATIC_VALUE },
 ];
 
 export const COMPARE_SOURCE_OPTIONS = [
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.AUTH"); }, value: RULE_SOURCE_TYPES.AUTH },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.SCHEMA_FIELDS"); }, value: RULE_SOURCE_TYPES.SCHEMA_FIELD },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.STATIC_VALUE"); }, value: RULE_SOURCE_TYPES.STATIC_VALUE },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, SCHEMA_ACCESS_CONTROL_AUTH); }, value: RULE_SOURCE_TYPES.AUTH },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, SCHEMA_ACCESS_CONTROL_SCHEMA_FIELDS); }, value: RULE_SOURCE_TYPES.SCHEMA_FIELD },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.STATIC_VALUE"); }, value: RULE_SOURCE_TYPES.STATIC_VALUE },
 ];
 
 /** Mirrors GraphQlConstant.MaxNestedLevelIterationLimit (server/DataGateway.DomainService) */
@@ -54,16 +58,16 @@ export const FIELD_TYPE_CATEGORY = {
 export type FieldTypeCategory = (typeof FIELD_TYPE_CATEGORY)[keyof typeof FIELD_TYPE_CATEGORY];
 
 export const AUTH_FIELD_OPTIONS = [
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.USERID"); }, value: "userId", category: FIELD_TYPE_CATEGORY.STRING },
-  { get label() { return tStatic("data.gateway.access", "common:EMAIL"); }, value: "email", category: FIELD_TYPE_CATEGORY.STRING },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.ROLES"); }, value: "roles", category: FIELD_TYPE_CATEGORY.ARRAY },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.USERID"); }, value: "userId", category: FIELD_TYPE_CATEGORY.STRING },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:EMAIL"); }, value: "email", category: FIELD_TYPE_CATEGORY.STRING },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.ROLES"); }, value: "roles", category: FIELD_TYPE_CATEGORY.ARRAY },
   {
-    get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.PERMISSIONS"); },
+    get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.PERMISSIONS"); },
     value: "permissions",
     category: FIELD_TYPE_CATEGORY.ARRAY,
   },
   {
-    get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.ORGANIZATIONID"); },
+    get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.ORGANIZATIONID"); },
     value: "organizationId",
     category: FIELD_TYPE_CATEGORY.STRING,
   },
@@ -73,20 +77,20 @@ export const AUTH_FIELD_OPTIONS = [
 ];
 
 export const RULE_OPERATORS = [
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.EQUAL"); }, value: "EQUAL" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.NOT_EQUAL"); }, value: "NOT_EQUAL" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.GREATER_THAN"); }, value: "GREATER_THAN" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.GREATER_THAN_OR_EQUAL"); }, value: "GREATER_THAN_OR_EQUAL" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.LESS_THAN"); }, value: "LESS_THAN" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.LESS_THAN_OR_EQUAL"); }, value: "LESS_THAN_OR_EQUAL" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.CONTAIN"); }, value: "CONTAIN" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.NOT_CONTAIN"); }, value: "NOT_CONTAIN" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IN"); }, value: "IN" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.NOT_IN"); }, value: "NOT_IN" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.START_WITH"); }, value: "START_WITH" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.END_WITH"); }, value: "END_WITH" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_NULL"); }, value: "IS_NULL" },
-  { get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_NOT_NULL"); }, value: "IS_NOT_NULL" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.EQUAL"); }, value: "EQUAL" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.NOT_EQUAL"); }, value: "NOT_EQUAL" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.GREATER_THAN"); }, value: "GREATER_THAN" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.GREATER_THAN_OR_EQUAL"); }, value: "GREATER_THAN_OR_EQUAL" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.LESS_THAN"); }, value: "LESS_THAN" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.LESS_THAN_OR_EQUAL"); }, value: "LESS_THAN_OR_EQUAL" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.CONTAIN"); }, value: "CONTAIN" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.NOT_CONTAIN"); }, value: "NOT_CONTAIN" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IN"); }, value: "IN" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.NOT_IN"); }, value: "NOT_IN" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.START_WITH"); }, value: "START_WITH" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.END_WITH"); }, value: "END_WITH" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_NULL"); }, value: "IS_NULL" },
+  { get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_NOT_NULL"); }, value: "IS_NOT_NULL" },
   // { label: "Regex", value: "REGEX" },
 ];
 
@@ -161,10 +165,10 @@ export const POLICY_OPERATION = {
 
 /** Short display labels for access type badges */
 export const ACCESS_TYPE_SHORT_LABELS: Record<string, string> = {
-  get [ACCESS_TYPES.LOGGED_IN]() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.LOGGED_IN_USERS"); },
-  get [ACCESS_TYPES.PUBLIC]() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.PUBLIC"); },
-  get [ACCESS_TYPES.CUSTOM]() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.CUSTOM"); },
-  get [ACCESS_TYPES.INHERITED]() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.INHERITED"); },
+  get [ACCESS_TYPES.LOGGED_IN]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.LOGGED_IN_USERS"); },
+  get [ACCESS_TYPES.PUBLIC]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.PUBLIC"); },
+  get [ACCESS_TYPES.CUSTOM]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.CUSTOM"); },
+  get [ACCESS_TYPES.INHERITED]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.INHERITED"); },
 };
 
 /** SchemaAccessLevel enum: number → ACCESS_TYPES string */
@@ -185,9 +189,9 @@ export const ACCESS_TYPE_TO_LEVEL: Record<string, number> = {
 
 /** Reverse mappings: number → display label */
 export const NUMBER_TO_SOURCE_LABEL: Record<number, string> = {
-  get 0() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.AUTH"); },
-  get 1() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.SCHEMA_FIELDS"); },
-  get 2() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.STATIC_VALUE"); },
+  get 0() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, SCHEMA_ACCESS_CONTROL_AUTH); },
+  get 1() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, SCHEMA_ACCESS_CONTROL_SCHEMA_FIELDS); },
+  get 2() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.STATIC_VALUE"); },
 };
 
 /** Operators valid per field type category */
@@ -267,40 +271,40 @@ export function getFieldTypeCategory(
 }
 
 export const NUMBER_TO_OPERATOR_LABEL: Record<number, string> = {
-  get 0() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.EQUAL"); },
-  get 1() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.NOT_EQUAL"); },
-  get 2() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.GREATER_THAN"); },
-  get 3() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.GREATER_THAN_OR_EQUAL"); },
-  get 4() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.LESS_THAN"); },
-  get 5() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.LESS_THAN_OR_EQUAL"); },
-  get 6() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.CONTAIN"); },
-  get 7() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.NOT_CONTAIN"); },
-  get 8() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IN"); },
-  get 9() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.NOT_IN"); },
-  get 10() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.START_WITH"); },
-  get 11() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.END_WITH"); },
-  get 12() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_NULL"); },
-  get 13() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_NOT_NULL"); },
-  get 14() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.REGEX"); },
+  get 0() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.EQUAL"); },
+  get 1() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.NOT_EQUAL"); },
+  get 2() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.GREATER_THAN"); },
+  get 3() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.GREATER_THAN_OR_EQUAL"); },
+  get 4() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.LESS_THAN"); },
+  get 5() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.LESS_THAN_OR_EQUAL"); },
+  get 6() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.CONTAIN"); },
+  get 7() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.NOT_CONTAIN"); },
+  get 8() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IN"); },
+  get 9() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.NOT_IN"); },
+  get 10() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.START_WITH"); },
+  get 11() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.END_WITH"); },
+  get 12() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_NULL"); },
+  get 13() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_NOT_NULL"); },
+  get 14() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.REGEX"); },
 };
 
 /** Natural-language operator labels for readable rule text */
 export const READABLE_OPERATORS: Record<number, string> = {
-  get 0() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.EQUALS"); },
-  get 1() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.DOES_NOT_EQUAL"); },
-  get 2() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_GREATER_THAN"); },
-  get 3() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_GREATER_THAN_OR_EQUAL_TO"); },
-  get 4() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_LESS_THAN"); },
-  get 5() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_LESS_THAN_OR_EQUAL_TO"); },
-  get 6() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.CONTAINS"); },
-  get 7() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.DOES_NOT_CONTAIN"); },
-  get 8() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_IN"); },
-  get 9() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_NOT_IN"); },
-  get 10() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.STARTS_WITH"); },
-  get 11() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.ENDS_WITH"); },
-  get 12() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_NULL_2"); },
-  get 13() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.IS_NOT_NULL_2"); },
-  get 14() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.MATCHES_REGEX"); },
+  get 0() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.EQUALS"); },
+  get 1() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.DOES_NOT_EQUAL"); },
+  get 2() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_GREATER_THAN"); },
+  get 3() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_GREATER_THAN_OR_EQUAL_TO"); },
+  get 4() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_LESS_THAN"); },
+  get 5() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_LESS_THAN_OR_EQUAL_TO"); },
+  get 6() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.CONTAINS"); },
+  get 7() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.DOES_NOT_CONTAIN"); },
+  get 8() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_IN"); },
+  get 9() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_NOT_IN"); },
+  get 10() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.STARTS_WITH"); },
+  get 11() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.ENDS_WITH"); },
+  get 12() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_NULL_2"); },
+  get 13() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.IS_NOT_NULL_2"); },
+  get 14() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.MATCHES_REGEX"); },
 };
 
 /** Operator keys that take no right-hand operand */
@@ -311,10 +315,10 @@ export const IN_OPERATORS: string[] = ["IN", "NOT_IN"];
 
 /** Display labels for the access type selector */
 export const ACCESS_TYPE_LABELS: Record<string, string> = {
-  get [ACCESS_TYPES.LOGGED_IN]() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.ALL_LOGGED_IN_USERS"); },
-  get [ACCESS_TYPES.PUBLIC]() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.PUBLIC"); },
-  get [ACCESS_TYPES.CUSTOM]() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.CUSTOM_PERMISSIONS"); },
-  get [ACCESS_TYPES.INHERITED]() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL.INHERITED"); },
+  get [ACCESS_TYPES.LOGGED_IN]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.ALL_LOGGED_IN_USERS"); },
+  get [ACCESS_TYPES.PUBLIC]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.PUBLIC"); },
+  get [ACCESS_TYPES.CUSTOM]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.CUSTOM_PERMISSIONS"); },
+  get [ACCESS_TYPES.INHERITED]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "SCHEMA_ACCESS_CONTROL.INHERITED"); },
 };
 
 /** Map tab id → POLICY_OPERATION number */

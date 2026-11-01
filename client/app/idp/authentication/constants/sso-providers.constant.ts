@@ -15,6 +15,8 @@ import {
 } from "@blocks-idp/authentication/models/sso.model";
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_IDP_AUTHENTICATION_MODULE = "data.idp.authentication";
+
 export enum SSO_PROVIDERS {
   google = "google",
   microsoft = "microsoft",
@@ -70,60 +72,60 @@ export const SOCIAL_AUTH_PROVIDERS_CONFIG: Record<
   ISsoProviderConfigurationWithMeta
 > = {
   github: createProviderConfig(SSO_PROVIDERS.github, {
-    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.GITHUB"); },
-    get description() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.ENABLE_THE_GITHUB_LOGIN_OPTION_FOR"); },
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.GITHUB"); },
+    get description() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.ENABLE_THE_GITHUB_LOGIN_OPTION_FOR"); },
     imageSrc: Github,
     imageSrcDark: GithubDark,
     isAvailable: true,
     isConfigured: false,
   }),
   google: createProviderConfig(SSO_PROVIDERS.google, {
-    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.GOOGLE"); },
-    get description() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.ALLOW_YOUR_USERS_TO_SEAMLESSLY_LOG"); },
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.GOOGLE"); },
+    get description() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.ALLOW_YOUR_USERS_TO_SEAMLESSLY_LOG"); },
     imageSrc: Google,
     isAvailable: true,
     isConfigured: false,
   }),
   microsoft: createProviderConfig(SSO_PROVIDERS.microsoft, {
-    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.MICROSOFT"); },
-    get description() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.ENABLE_YOUR_USERS_TO_SECURELY_SIGN"); },
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.MICROSOFT"); },
+    get description() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.ENABLE_YOUR_USERS_TO_SECURELY_SIGN"); },
     imageSrc: Microsoft,
     isAvailable: true,
     isConfigured: false,
   }),
   linkedin: createProviderConfig(SSO_PROVIDERS.linkedin, {
-    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.LINKEDIN"); },
-    get description() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.LEVERAGE_THE_LARGEST_PROFESSIONAL"); },
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.LINKEDIN"); },
+    get description() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.LEVERAGE_THE_LARGEST_PROFESSIONAL"); },
     imageSrc: LinkedIn,
     isAvailable: true,
     isConfigured: false,
   }),
   x: createProviderConfig(SSO_PROVIDERS.x, {
     label: "X",
-    get description() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.TWITTER_ALLOWS_USERS_TO_ENJOY_THE"); },
+    get description() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.TWITTER_ALLOWS_USERS_TO_ENJOY_THE"); },
     imageSrc: X,
     imageSrcDark: XDark,
     isAvailable: true,
     isConfigured: false,
   }),
   apple: createProviderConfig(SSO_PROVIDERS.apple, {
-    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.APPLE"); },
-    get description() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.THE_EASY_WAY_TO_ADD_SIGN"); },
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.APPLE"); },
+    get description() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.THE_EASY_WAY_TO_ADD_SIGN"); },
     imageSrc: Apple,
     imageSrcDark: AppleDark,
     isAvailable: true,
     isConfigured: false,
   }),
   facebook: createProviderConfig(SSO_PROVIDERS.facebook, {
-    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.FACEBOOK"); },
-    get description() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.A_FAST_AND_CONVENIENT_WAY_FOR"); },
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.FACEBOOK"); },
+    get description() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.A_FAST_AND_CONVENIENT_WAY_FOR"); },
     imageSrc: Facebook,
     isAvailable: false,
     isConfigured: false,
   }),
   ownsso: createProviderConfig(SSO_PROVIDERS.ownsso, {
-    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.BRING_YOUR_OWN_SSO"); },
-    get description() { return tStatic("data.idp.authentication", "SSO_PROVIDERS_CONSTANT.BRING_YOUR_OWN_SSO_PROVIDER"); },
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.BRING_YOUR_OWN_SSO"); },
+    get description() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDERS_CONSTANT.BRING_YOUR_OWN_SSO_PROVIDER"); },
     imageSrc: Selise,
     isAvailable: true,
     isConfigured: false,

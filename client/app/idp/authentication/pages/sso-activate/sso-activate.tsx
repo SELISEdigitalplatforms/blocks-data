@@ -21,6 +21,8 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const SSO_ACTIVATE_SOMETHING_WENT_WRONG = "SSO_ACTIVATE.SOMETHING_WENT_WRONG";
+
 type SsoActivateProps = {
   oauthParams: { code: string; username: string };
 };
@@ -48,7 +50,7 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
   const handleUseDifferentAccount = async () => {
     const audience = sessionStorage.getItem("clicked_sso_audience");
     if (!providerKey || !audience) {
-      return showErrorToast({ errors: t("SSO_ACTIVATE.SOMETHING_WENT_WRONG") });
+      return showErrorToast({ errors: t(SSO_ACTIVATE_SOMETHING_WENT_WRONG) });
     }
 
     try {
@@ -66,13 +68,15 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
     } catch (error) {
       if (isErrorWithErrors(error))
         return showErrorToast({ errors: error.errors });
-      showErrorToast({ errors: t("SSO_ACTIVATE.SOMETHING_WENT_WRONG") });
+      showErrorToast({ errors: t(SSO_ACTIVATE_SOMETHING_WENT_WRONG) });
     }
   };
 
   const handleActivate = async () => {
-    if (!oauthParams?.code)
-      return showErrorToast({ errors: t("SSO_ACTIVATE.CODE_IS_MISSING") });
+    if (!oauthParams?.code) {
+      showErrorToast({ errors: t("SSO_ACTIVATE.CODE_IS_MISSING") });
+      return;
+    }
     setIsPending(true);
     try {
       const key = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY");
@@ -110,7 +114,7 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
         setAuthenticated();
         navigate("/console");
       } else {
-        showErrorToast({ errors: data.errors || t("SSO_ACTIVATE.SOMETHING_WENT_WRONG") });
+        showErrorToast({ errors: data.errors || t(SSO_ACTIVATE_SOMETHING_WENT_WRONG) });
       }
     } catch (error) {
       if (JSON.stringify(error).includes("expire")) {
@@ -120,7 +124,7 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
       } else if (isErrorWithErrors(error)) {
         showErrorToast({ errors: error.errors });
       } else {
-        showErrorToast({ errors: t("SSO_ACTIVATE.SOMETHING_WENT_WRONG") });
+        showErrorToast({ errors: t(SSO_ACTIVATE_SOMETHING_WENT_WRONG) });
       }
     } finally {
       setIsPending(false);

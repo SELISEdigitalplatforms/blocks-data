@@ -1,4 +1,6 @@
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_IDP_IAM_MODULE = "data.idp.iam";
 export enum PermissionSeverityLevel {
   Critical = 1,
   High,
@@ -19,7 +21,7 @@ type PermissionSeverityOption = {
 export const PERMISSION_SEVERITY_OPTIONS: PermissionSeverityOption[] = [
   {
     id: "Critical",
-    get label() { return tStatic("data.idp.iam", "PERMISSION.CRITICAL"); },
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.CRITICAL"); },
     value: PermissionSeverityLevel.Critical,
     variant: "error",
     className: "text-red-800",
@@ -28,7 +30,7 @@ export const PERMISSION_SEVERITY_OPTIONS: PermissionSeverityOption[] = [
   },
   {
     id: "High",
-    get label() { return tStatic("data.idp.iam", "PERMISSION.HIGH"); },
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.HIGH"); },
     value: PermissionSeverityLevel.High,
     variant: "destructive",
     className: "text-rose-800",
@@ -37,7 +39,7 @@ export const PERMISSION_SEVERITY_OPTIONS: PermissionSeverityOption[] = [
   },
   {
     id: "Medium",
-    get label() { return tStatic("data.idp.iam", "PERMISSION.MEDIUM"); },
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.MEDIUM"); },
     value: PermissionSeverityLevel.Medium,
     variant: "info",
     className: "text-yellow-500",
@@ -46,7 +48,7 @@ export const PERMISSION_SEVERITY_OPTIONS: PermissionSeverityOption[] = [
   },
   {
     id: "Low",
-    get label() { return tStatic("data.idp.iam", "PERMISSION.LOW"); },
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.LOW"); },
     value: PermissionSeverityLevel.Low,
     variant: "success",
     className: "text-blue-500",
@@ -170,11 +172,11 @@ export enum ResourceType {
 export const RESOURCE_TYPE = [
   {
     value: "1",
-    get label() { return tStatic("data.idp.iam", "PERMISSION.ENDPOINT"); },
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.ENDPOINT"); },
   },
   {
     value: "2",
-    get label() { return tStatic("data.idp.iam", "PERMISSION.FE_ACTION"); },
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.FE_ACTION"); },
   },
 ];
 

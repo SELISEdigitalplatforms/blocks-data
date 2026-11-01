@@ -8,17 +8,20 @@ import { ProfileMfaMethodSelectList } from "./user-mfa-confirmation/profile-mfa-
 import { useGetMFAConfig } from "@blocks-idp/mfa/hooks/use-mfa-config";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_IDP_IAM_MODULE = "data.idp.iam";
+const PROFILE_MFA_MULTI_FACTOR_AUTHENTICATION = "PROFILE_MFA.MULTI_FACTOR_AUTHENTICATION";
+
 type ProfileMFAProps = {
   userId: string;
   projectKey: string;
 };
 
 export const ProfileConfigMFA = () => {
-  const { t } = useT("data.idp.iam");
+  const { t } = useT(DATA_IDP_IAM_MODULE);
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("PROFILE_MFA.MULTI_FACTOR_AUTHENTICATION")}</CardTitle>
+        <CardTitle>{t(PROFILE_MFA_MULTI_FACTOR_AUTHENTICATION)}</CardTitle>
       </CardHeader>
       <CardContent>
         <ProfileMFADetails />
@@ -31,12 +34,12 @@ export const ProfileConfigMFA = () => {
 };
 
 export const ProjectMFA = () => {
-  const { t } = useT("data.idp.iam");
+  const { t } = useT(DATA_IDP_IAM_MODULE);
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>{t("PROFILE_MFA.MULTI_FACTOR_AUTHENTICATION")}</CardTitle>
+          <CardTitle>{t(PROFILE_MFA_MULTI_FACTOR_AUTHENTICATION)}</CardTitle>
           <Button asChild variant="outline" size="sm">
             <Link to="/services/secret-management?tab=mfa">{t("PROFILE_MFA.GO_TO_MFA_SETTINGS")}</Link>
           </Button>
@@ -54,12 +57,12 @@ export const ProjectMFA = () => {
 };
 
 const LoadingSkelton = () => {
-  const { t } = useT("data.idp.iam");
+  const { t } = useT(DATA_IDP_IAM_MODULE);
   return (
     <Card className="rounded shadow-none">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-xl text-high-emphasis">{t("PROFILE_MFA.MULTI_FACTOR_AUTHENTICATION")}</CardTitle>
+          <CardTitle className="text-xl text-high-emphasis">{t(PROFILE_MFA_MULTI_FACTOR_AUTHENTICATION)}</CardTitle>
           <Skeleton className="h-6 w-1/6" />
         </div>
       </CardHeader>

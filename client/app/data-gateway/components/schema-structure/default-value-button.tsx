@@ -5,12 +5,14 @@ import type { IFieldDefaultValue } from "../../models/data-service";
 import { LOCKED_DEFAULT_PROPERTIES, canHaveDefault, formatDefaultSummary } from "../../utils/default-value.util";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 /** Why a field can't take a default, or null when it can. */
 function unavailableReason(fieldName: string, fieldType: string, isNewField: boolean, isEditMode: boolean): string | null {
-  if (isEditMode) return tStatic("data.gateway.schema", "DEFAULT_VALUE_BUTTON.EXIT_EDIT_MODE_TO_MANAGE_THE");
-  if (isNewField) return tStatic("data.gateway.schema", "DEFAULT_VALUE_BUTTON.SAVE_THE_FIELD_BEFORE_SETTING_A");
-  if (LOCKED_DEFAULT_PROPERTIES.includes(fieldName)) return tStatic("data.gateway.schema", "DEFAULT_VALUE_BUTTON.FIELDNAME_IS_SET_BY_THE_PLATFORM", { fieldName });
-  if (!canHaveDefault(fieldName, fieldType)) return tStatic("data.gateway.schema", "DEFAULT_VALUE_BUTTON.DEFAULT_VALUES_ARE_ONLY_AVAILABLE_FOR");
+  if (isEditMode) return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DEFAULT_VALUE_BUTTON.EXIT_EDIT_MODE_TO_MANAGE_THE");
+  if (isNewField) return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DEFAULT_VALUE_BUTTON.SAVE_THE_FIELD_BEFORE_SETTING_A");
+  if (LOCKED_DEFAULT_PROPERTIES.includes(fieldName)) return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DEFAULT_VALUE_BUTTON.FIELDNAME_IS_SET_BY_THE_PLATFORM", { fieldName });
+  if (!canHaveDefault(fieldName, fieldType)) return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DEFAULT_VALUE_BUTTON.DEFAULT_VALUES_ARE_ONLY_AVAILABLE_FOR");
   return null;
 }
 
@@ -39,7 +41,7 @@ export function DefaultValueButton({
   active?: boolean;
   onOpen: () => void;
 }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const reason = unavailableReason(fieldName, fieldType, isNewField, isEditMode);
   const summary = defaultValue ? formatDefaultSummary(defaultValue) : null;
   const shape = wide

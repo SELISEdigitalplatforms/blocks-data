@@ -8,13 +8,15 @@ import { cn } from "@/lib/utils";
 import { GraphLogGranularity } from "../../models/graph-log-analytics";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_ANALYTICS_MODULE = "data.gateway.analytics";
+
 /** Longest range, in calendar days, that hourly buckets still read as a chart (~336 points). */
 export const HOURLY_MAX_DAYS = 14;
 
 const OPTIONS: { value: GraphLogGranularity; label: string }[] = [
-  { value: "hourly", get label() { return tStatic("data.gateway.analytics", "BUCKET_SIZE_CONTROL.HOURLY"); } },
-  { value: "daily", get label() { return tStatic("data.gateway.analytics", "BUCKET_SIZE_CONTROL.DAILY"); } },
-  { value: "weekly", get label() { return tStatic("data.gateway.analytics", "BUCKET_SIZE_CONTROL.WEEKLY"); } },
+  { value: "hourly", get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "BUCKET_SIZE_CONTROL.HOURLY"); } },
+  { value: "daily", get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "BUCKET_SIZE_CONTROL.DAILY"); } },
+  { value: "weekly", get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "BUCKET_SIZE_CONTROL.WEEKLY"); } },
 ];
 
 interface BucketSizeControlProps {
@@ -25,7 +27,7 @@ interface BucketSizeControlProps {
 }
 
 export function BucketSizeControl({ value, onChange, isHourlyAllowed }: BucketSizeControlProps) {
-  const { t } = useT("data.gateway.analytics");
+  const { t } = useT(DATA_GATEWAY_ANALYTICS_MODULE);
   return (
     <TooltipProvider delayDuration={150}>
       <div

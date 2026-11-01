@@ -6,6 +6,8 @@ import { BLOCKS_PRODUCTS } from "@/constants/blocks-products";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_SHARED_MODULE = "data.shared";
+
 export interface BlocksLoginPageProps {
   name: string;
   onLogin: () => void | Promise<void>;
@@ -37,14 +39,14 @@ export function BlocksLoginPage({
   name,
   onLogin,
   isLoading = false,
-  eyebrow = tStatic("data.shared", "BLOCKS_LOGIN_PAGE.ENTERPRISE_APPLICATION_OS"),
+  eyebrow = tStatic(DATA_SHARED_MODULE, "BLOCKS_LOGIN_PAGE.ENTERPRISE_APPLICATION_OS"),
   keywords = DEFAULT_KEYWORDS,
-  keywordPrefix = tStatic("data.shared", "BLOCKS_LOGIN_PAGE.BACKENDS_THAT_ARE"),
-  loginLabel = tStatic("data.shared", "BLOCKS_LOGIN_PAGE.LOG_IN_TO_YOUR_ACCOUNT"),
+  keywordPrefix = tStatic(DATA_SHARED_MODULE, "BLOCKS_LOGIN_PAGE.BACKENDS_THAT_ARE"),
+  loginLabel = tStatic(DATA_SHARED_MODULE, "BLOCKS_LOGIN_PAGE.LOG_IN_TO_YOUR_ACCOUNT"),
   docsUrl = "https://docs.seliseblocks.com/",
-  footerLink = { label: tStatic("data.shared", "BLOCKS_LOGIN_PAGE.VISIT_BLOCKS"), url: "https://seliseblocks.com" },
+  footerLink = { label: tStatic(DATA_SHARED_MODULE, "BLOCKS_LOGIN_PAGE.VISIT_BLOCKS"), url: "https://seliseblocks.com" },
 }: BlocksLoginPageProps) {
-  const { t: tx } = useT("data.shared");
+  const { t: tx } = useT(DATA_SHARED_MODULE);
   const active = useMemo(
     () => BLOCKS_PRODUCTS.find((p) => p.name === name) ?? BLOCKS_PRODUCTS[0],
     [name],

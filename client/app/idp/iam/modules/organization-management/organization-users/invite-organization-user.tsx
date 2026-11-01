@@ -29,6 +29,8 @@ import { isErrorWithErrors } from "@/lib/error";
 import { PrimaryButton } from "@/components/action-buttons/primary-button";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_IDP_IAM_MODULE = "data.idp.iam";
+
 const inviteOrganizationUserFormDefaultValue = {
   email: "",
   firstName: "",
@@ -36,16 +38,16 @@ const inviteOrganizationUserFormDefaultValue = {
 };
 
 const inviteOrganizationUserFormSchema = z.lazy(() => z.object({
-  email: z.string().email(tStatic("data.idp.iam", "INVITE_ORGANIZATION_USER.INVALID_EMAIL_ADDRESS")),
+  email: z.string().email(tStatic(DATA_IDP_IAM_MODULE, "INVITE_ORGANIZATION_USER.INVALID_EMAIL_ADDRESS")),
   firstName: z
     .string()
-    .min(1, tStatic("data.idp.iam", "INVITE_ORGANIZATION_USER.FIRST_NAME_IS_REQUIRED"))
-    .max(150, tStatic("data.idp.iam", "INVITE_ORGANIZATION_USER.FIRST_NAME_MUST_BE_AT_MOST"))
+    .min(1, tStatic(DATA_IDP_IAM_MODULE, "INVITE_ORGANIZATION_USER.FIRST_NAME_IS_REQUIRED"))
+    .max(150, tStatic(DATA_IDP_IAM_MODULE, "INVITE_ORGANIZATION_USER.FIRST_NAME_MUST_BE_AT_MOST"))
     .trim(),
   lastName: z
     .string()
-    .min(1, tStatic("data.idp.iam", "INVITE_ORGANIZATION_USER.LAST_NAME_IS_REQUIRED"))
-    .max(150, tStatic("data.idp.iam", "INVITE_ORGANIZATION_USER.LAST_NAME_MUST_BE_AT_MOST"))
+    .min(1, tStatic(DATA_IDP_IAM_MODULE, "INVITE_ORGANIZATION_USER.LAST_NAME_IS_REQUIRED"))
+    .max(150, tStatic(DATA_IDP_IAM_MODULE, "INVITE_ORGANIZATION_USER.LAST_NAME_MUST_BE_AT_MOST"))
     .trim(),
 }));
 
@@ -54,7 +56,7 @@ interface InviteOrganizationUserProps {
 }
 
 export const InviteOrganizationUser = ({ organizationId }: InviteOrganizationUserProps) => {
-  const { t } = useT("data.idp.iam");
+  const { t } = useT(DATA_IDP_IAM_MODULE);
   const { isPending, mutateAsync } = useAddUser();
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const [open, setOpen] = useState(false);

@@ -2,6 +2,8 @@ import { ArrowUpRight } from "lucide-react";
 import { motion } from "framer-motion";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_CONSOLE_MODULE = "data.console";
+
 type DocCardProps = {
   label: string;
   imageUri: string;
@@ -10,7 +12,7 @@ type DocCardProps = {
 };
 
 const DocCard = ({ label, imageUri, description, url }: DocCardProps) => {
-  const { t } = useT("data.console");
+  const { t } = useT(DATA_CONSOLE_MODULE);
   return (
     <motion.a
       href={url}
@@ -49,20 +51,20 @@ const DocCard = ({ label, imageUri, description, url }: DocCardProps) => {
 
 const data = [
   {
-    get label() { return tStatic("data.console", "DEFAULT_DOC.DOCS"); },
-    get description() { return tStatic("data.console", "DEFAULT_DOC.ESTABLISHED_STANDARDS_THAT_HELP"); },
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "DEFAULT_DOC.DOCS"); },
+    get description() { return tStatic(DATA_CONSOLE_MODULE, "DEFAULT_DOC.ESTABLISHED_STANDARDS_THAT_HELP"); },
     imageUri: "/assets/images/console/console_timeline.png",
     url: "https://github.com/SELISEdigitalplatforms/Wiki-BlocksGuideline-Code/wiki",
   },
   {
-    get label() { return tStatic("data.console", "DEFAULT_DOC.CODE"); },
-    get description() { return tStatic("data.console", "DEFAULT_DOC.A_REPOSITORY_OF_WELL_DOCUMENTED"); },
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "DEFAULT_DOC.CODE"); },
+    get description() { return tStatic(DATA_CONSOLE_MODULE, "DEFAULT_DOC.A_REPOSITORY_OF_WELL_DOCUMENTED"); },
     imageUri: "/assets/images/console/console_coding.png",
     url: "https://github.com/SELISEdigitalplatforms",
   },
   {
-    get label() { return tStatic("data.console", "DEFAULT_DOC.CLOUD"); },
-    get description() { return tStatic("data.console", "DEFAULT_DOC.HIGH_PERFORMING_OPTIMIZED_AND_24_7"); },
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "DEFAULT_DOC.CLOUD"); },
+    get description() { return tStatic(DATA_CONSOLE_MODULE, "DEFAULT_DOC.HIGH_PERFORMING_OPTIMIZED_AND_24_7"); },
     imageUri: "/assets/images/console/console_data-center.png",
     url: "https://selisegroup.com/blocks/",
   },

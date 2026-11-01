@@ -7,6 +7,8 @@ import { useState } from "react";
 import { createContext, useContext } from "react";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_SHARED_MODULE = "data.shared";
+
 interface ChipsContextProps {
   value: string[];
   inputValue: string;
@@ -25,7 +27,7 @@ export const useChipsContext = () => {
 };
 
 export const ChipsInputList = () => {
-  const { t } = useT("data.shared");
+  const { t } = useT(DATA_SHARED_MODULE);
   const { value, handleRemoveChip } = useChipsContext();
   return (
     <>
@@ -54,7 +56,7 @@ export interface ChipsInputFieldProps {
 }
 
 export const ChipsInputField = ({ className }: ChipsInputFieldProps) => {
-  const { t } = useT("data.shared");
+  const { t } = useT(DATA_SHARED_MODULE);
   const { inputValue, handleInputChange, handleKeyDown, error } = useChipsContext();
 
   return (
@@ -91,7 +93,7 @@ export const ChipsInput = ({
   onChange,
   validatorRegex,
   customValidator,
-  validatorRegexErrorMessage = tStatic("data.shared", "CHIPS_INPUT.INVALID_FORMAT"),
+  validatorRegexErrorMessage = tStatic(DATA_SHARED_MODULE, "CHIPS_INPUT.INVALID_FORMAT"),
   className,
 }: ChipsInputRootProps) => {
   const [inputValue, setInputValue] = useState("");

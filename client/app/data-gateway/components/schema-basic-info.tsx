@@ -26,6 +26,8 @@ import { CloudOff, CloudUpload, Database, Eye, MoreVertical, Shield, Trash2 } fr
 import { useState } from "react";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const SCHEMA_BASIC_INFO_SCHEMA_ACCESS = "SCHEMA_BASIC_INFO.SCHEMA_ACCESS";
+
 /** Below this width the header can no longer fit Preview + Schema Access +
  *  the ACCESS CONTROL pills' text on one line — matters most once the access
  *  inspector opens beside this panel and eats into its width. */
@@ -229,7 +231,7 @@ export const SchemaBasicInfo = ({
               <Button
                 variant="outline"
                 size="sm"
-                aria-label={t("SCHEMA_BASIC_INFO.SCHEMA_ACCESS")}
+                aria-label={t(SCHEMA_BASIC_INFO_SCHEMA_ACCESS)}
                 className={cn(
                   "h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                   isNarrow && "w-8 px-0",
@@ -237,7 +239,7 @@ export const SchemaBasicInfo = ({
                 onClick={() => onOpenSchemaAccess("View")}
               >
                 <Shield className="h-3.5 w-3.5" />
-                {!isNarrow && t("SCHEMA_BASIC_INFO.SCHEMA_ACCESS")}
+                {!isNarrow && t(SCHEMA_BASIC_INFO_SCHEMA_ACCESS)}
               </Button>
             ) : isEntity ? (
               <SchemaAccessControlDrawer
@@ -253,14 +255,14 @@ export const SchemaBasicInfo = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    aria-label={t("SCHEMA_BASIC_INFO.SCHEMA_ACCESS")}
+                    aria-label={t(SCHEMA_BASIC_INFO_SCHEMA_ACCESS)}
                     className={cn(
                       "h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                       isNarrow && "w-8 px-0",
                     )}
                   >
                     <Shield className="h-3.5 w-3.5" />
-                    {!isNarrow && t("SCHEMA_BASIC_INFO.SCHEMA_ACCESS")}
+                    {!isNarrow && t(SCHEMA_BASIC_INFO_SCHEMA_ACCESS)}
                   </Button>
                 }
                 open={isSchemaAccessControlDrawerOpen}

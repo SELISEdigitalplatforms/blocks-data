@@ -25,17 +25,19 @@ import { useProjectStore } from "@seliseblocks/genesis-os";
 import { ModuleName } from "@/constants/modules.constants";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_STORAGE_MODULE = "data.storage";
+
 const GENERAL_ACCESS_OPTIONS = [
-  { value: "", get label() { return tStatic("data.storage", "UPLOAD_DMS_FILE_MODAL.DEFAULT_UNRESTRICTED_UNTIL_SHARED"); } },
-  { value: "Creator", get label() { return tStatic("data.storage", "UPLOAD_DMS_FILE_MODAL.ONLY_ME_UNTIL_I_SHARE_IT"); } },
-  { value: "Organization", get label() { return tStatic("data.storage", "UPLOAD_DMS_FILE_MODAL.ANYONE_IN_MY_ORGANIZATION"); } },
+  { value: "", get label() { return tStatic(DATA_STORAGE_MODULE, "UPLOAD_DMS_FILE_MODAL.DEFAULT_UNRESTRICTED_UNTIL_SHARED"); } },
+  { value: "Creator", get label() { return tStatic(DATA_STORAGE_MODULE, "UPLOAD_DMS_FILE_MODAL.ONLY_ME_UNTIL_I_SHARE_IT"); } },
+  { value: "Organization", get label() { return tStatic(DATA_STORAGE_MODULE, "UPLOAD_DMS_FILE_MODAL.ANYONE_IN_MY_ORGANIZATION"); } },
 ] as const;
 
 /** "Public" or "Private" only - this is the storage access modifier, kept separate from the
  * object-sharing "Default access" selector above. Private is the safe default. */
 const STORAGE_ACCESS_OPTIONS = [
-  { value: "Private", get label() { return tStatic("data.storage", "UPLOAD_DMS_FILE_MODAL.PRIVATE"); } },
-  { value: "Public", get label() { return tStatic("data.storage", "UPLOAD_DMS_FILE_MODAL.PUBLIC"); } },
+  { value: "Private", get label() { return tStatic(DATA_STORAGE_MODULE, "UPLOAD_DMS_FILE_MODAL.PRIVATE"); } },
+  { value: "Public", get label() { return tStatic(DATA_STORAGE_MODULE, "UPLOAD_DMS_FILE_MODAL.PUBLIC"); } },
 ] as const;
 
 type StorageAccessModifier = (typeof STORAGE_ACCESS_OPTIONS)[number]["value"];
@@ -83,7 +85,7 @@ export const UploadDmsFileModal = ({
   maxFileSizeInBytes,
   onUploadSuccess,
 }: UploadDmsFileModalProps) => {
-  const { t } = useT("data.storage");
+  const { t } = useT(DATA_STORAGE_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -279,10 +281,9 @@ export const UploadDmsFileModal = ({
 
           <div className="space-y-1.5">
             <span className="text-sm font-medium">{t("UPLOAD_DMS_FILE_MODAL.STORAGE_ACCESS")}</span>
-            <div
-              role="group"
+            <fieldset
               aria-label={t("UPLOAD_DMS_FILE_MODAL.STORAGE_ACCESS")}
-              className="inline-flex overflow-hidden rounded-sm border border-input"
+              className="m-0 min-w-0 inline-flex overflow-hidden rounded-sm border border-input"
             >
               {STORAGE_ACCESS_OPTIONS.map((o) => {
                 const active = accessModifier === o.value;
@@ -304,15 +305,14 @@ export const UploadDmsFileModal = ({
                   </button>
                 );
               })}
-            </div>
+            </fieldset>
           </div>
 
           <div className="space-y-1.5">
             <span className="text-sm font-medium">{t("UPLOAD_DMS_FILE_MODAL.DEFAULT_ACCESS")}</span>
-            <div
-              role="group"
+            <fieldset
               aria-label={t("UPLOAD_DMS_FILE_MODAL.DEFAULT_ACCESS")}
-              className="inline-flex overflow-hidden rounded-sm border border-input"
+              className="m-0 min-w-0 inline-flex overflow-hidden rounded-sm border border-input"
             >
               {GENERAL_ACCESS_OPTIONS.map((o) => {
                 const active = objectAccessLevel === o.value;
@@ -334,7 +334,7 @@ export const UploadDmsFileModal = ({
                   </button>
                 );
               })}
-            </div>
+            </fieldset>
           </div>
 
           {files.length > 0 ? (

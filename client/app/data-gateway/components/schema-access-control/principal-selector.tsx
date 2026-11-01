@@ -18,14 +18,16 @@ import {
 } from "@/data-gateway/hooks/use-principal-options";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_ACCESS_MODULE = "data.gateway.access";
+
 export const PRINCIPAL_MESSAGES = {
-  get MISSING_TENANT() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.SELECT_A_PROJECT_BEFORE_LOADING_ROLES"); },
-  get FORBIDDEN() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.YOU_DO_NOT_HAVE_PERMISSION_TO"); },
-  get ROLES_FAILED() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.ROLES_COULD_NOT_BE_LOADED"); },
-  get USERS_FAILED() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.USERS_COULD_NOT_BE_LOADED"); },
-  get NO_ROLES() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.NO_ROLES_FOUND"); },
-  get NO_USERS() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.NO_USERS_FOUND"); },
-  get UNAVAILABLE() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.UNAVAILABLE"); },
+  get MISSING_TENANT() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.SELECT_A_PROJECT_BEFORE_LOADING_ROLES"); },
+  get FORBIDDEN() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.YOU_DO_NOT_HAVE_PERMISSION_TO"); },
+  get ROLES_FAILED() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.ROLES_COULD_NOT_BE_LOADED"); },
+  get USERS_FAILED() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.USERS_COULD_NOT_BE_LOADED"); },
+  get NO_ROLES() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.NO_ROLES_FOUND"); },
+  get NO_USERS() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.NO_USERS_FOUND"); },
+  get UNAVAILABLE() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "PRINCIPAL_SELECTOR.UNAVAILABLE"); },
 } as const;
 
 interface PrincipalSelectorProps {
@@ -62,7 +64,7 @@ const PrincipalSelectorInner = ({
   userValueField,
   variant = "field",
 }: PrincipalSelectorProps) => {
-  const { t } = useT("data.gateway.access");
+  const { t } = useT(DATA_GATEWAY_ACCESS_MODULE);
   const isChip = variant === "chip";
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -125,11 +127,15 @@ const PrincipalSelectorInner = ({
     );
   }
 
-  const triggerLabel = selectedValues.length
-    ? selectedValues.map(labelFor).join(", ")
-    : entity === "role"
-      ? t("PRINCIPAL_SELECTOR.SELECT_ROLE")
-      : t("PRINCIPAL_SELECTOR.SELECT_USER");
+  const emptyTriggerLabel =
+    entity === "role" ? t("PRINCIPAL_SELECTOR.SELECT_ROLE") : t("PRINCIPAL_SELECTOR.SELECT_USER");
+  const triggerLabel = selectedValues.length ? selectedValues.map(labelFor).join(", ") : emptyTriggerLabel;
+
+  let browseState: "forbidden" | "error" | "loading" | "empty" | "list" = "list";
+  if (browse.isForbidden) browseState = "forbidden";
+  else if (browse.error) browseState = "error";
+  else if (browse.isLoading) browseState = "loading";
+  else if (browse.options.length === 0) browseState = "empty";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -185,22 +191,26 @@ const PrincipalSelectorInner = ({
         </div>
         <Command shouldFilter={false}>
           <CommandList>
-            {browse.isForbidden ? (
+            {browseState === "forbidden" && (
               <div className="p-3 text-sm text-destructive">{PRINCIPAL_MESSAGES.FORBIDDEN}</div>
-            ) : browse.error ? (
+            )}
+            {browseState === "error" && (
               <div className="flex items-center justify-between gap-2 p-3 text-sm text-destructive">
                 <span>{failedMessage}</span>
                 <button type="button" className="underline" onClick={() => browse.refetch()}>
                   {t("common:RETRY")}
                 </button>
               </div>
-            ) : browse.isLoading ? (
+            )}
+            {browseState === "loading" && (
               <div className="p-3 text-sm text-muted-foreground" aria-busy="true">
                 {t("PRINCIPAL_SELECTOR.LOADING")}
               </div>
-            ) : browse.options.length === 0 ? (
+            )}
+            {browseState === "empty" && (
               <div className="p-3 text-sm text-muted-foreground">{emptyMessage}</div>
-            ) : (
+            )}
+            {browseState === "list" && (
               <CommandGroup>
                 {browse.options.map((option) => {
                   const isSelected = selectedValues.includes(option.value);

@@ -1,6 +1,8 @@
 import React from "react";
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_SHARED_MODULE = "data.shared";
+
 export interface BlocksApp {
   key: string;
   label: string;
@@ -312,7 +314,7 @@ export const SELISE_APPS: BlocksApp[] = [
   {
     key: "iam",
     label: "IAM",
-    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.IDENTITY_ACCESS"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.IDENTITY_ACCESS"); },
     url: window.process?.env.BLOCKS_IAM_BASE_URL || "",
     icon: <IdpIcon />,
     clientId: window.process?.env.BLOCKS_IAM_CLIENT_ID || "",
@@ -320,8 +322,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "localization",
-    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.LOCALIZATION"); },
-    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.LOCALIZATION"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.LOCALIZATION"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.LOCALIZATION"); },
     url: window.process?.env.BLOCKS_LOCALIZATION_BASE_URL || "",
     icon: <UilmIcon />,
     clientId: window.process?.env.BLOCKS_LOCALIZATION_CLIENT_ID || "",
@@ -330,8 +332,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "agents",
-    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.AGENTS"); },
-    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.AI_PLATFORM"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.AGENTS"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.AI_PLATFORM"); },
     url: window.process?.env.BLOCKS_AGENTS_BASE_URL || "",
     icon: <AiIcon />,
     clientId: window.process?.env.BLOCKS_AGENTS_CLIENT_ID || "",
@@ -339,8 +341,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "data",
-    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.DATA"); },
-    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.DATA_INTEGRATION"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.DATA"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.DATA_INTEGRATION"); },
     url: window.process?.env.BLOCKS_DATA_BASE_URL || "",
     icon: <DataGatewayIcon />,
     clientId: window.process?.env.BLOCKS_DATA_CLIENT_ID || "",
@@ -349,7 +351,7 @@ export const SELISE_APPS: BlocksApp[] = [
   {
     key: "os",
     label: "OS",
-    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.OPERATING_SYSTEM"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.OPERATING_SYSTEM"); },
     url: window.process?.env.BLOCKS_OS_BASE_URL || "",
     icon: <BlocksOsIcon />,
     clientId: window.process?.env.BLOCKS_OS_CLIENT_ID || "",
@@ -357,8 +359,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "utilities",
-    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.UTILITIES"); },
-    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.UTILITY_TOOLS"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.UTILITIES"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.UTILITY_TOOLS"); },
     url: window.process?.env.BLOCKS_UTILITIES_BASE_URL || "",
     icon: <UtilityIcon />,
     clientId: window.process?.env.BLOCKS_UTILITIES_CLIENT_ID || "",
@@ -367,8 +369,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "logic",
-    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.LOGIC"); },
-    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.BUSINESS_LOGIC"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.LOGIC"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.BUSINESS_LOGIC"); },
     url: window.process?.env.BLOCKS_LOGIC_BASE_URL || "",
     icon: <LogicIcon />,
     clientId: window.process?.env.BLOCKS_LOGIC_CLIENT_ID || "",
@@ -376,8 +378,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "monitor",
-    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.MONITOR"); },
-    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.MONITORING_LOGS"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.MONITOR"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.MONITORING_LOGS"); },
     url: window.process?.env.BLOCKS_MONITOR_BASE_URL || "",
     icon: <ObservabilityIcon />,
     clientId: window.process?.env.BLOCKS_MONITOR_CLIENT_ID || "",
@@ -386,8 +388,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "release",
-    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.RELEASE"); },
-    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.CI_CD_RELEASES"); },
+    get label() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.RELEASE"); },
+    get description() { return tStatic(DATA_SHARED_MODULE, "DASHBOARD_CONSTANT.CI_CD_RELEASES"); },
     url: window.process?.env.BLOCKS_RELEASE_BASE_URL || "",
     icon: <DeploymentsIcon />,
     clientId: window.process?.env.BLOCKS_RELEASE_CLIENT_ID || "",

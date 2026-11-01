@@ -2,6 +2,8 @@ import { ReactNode } from "react";
 import type { SSOProviderConfigFormFieldType } from "./sso-provider-config.type";
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_IDP_AUTHENTICATION_MODULE = "data.idp.authentication";
+
 type FieldOverrides = {
   description?: ReactNode;
   isDisabled?: boolean;
@@ -25,31 +27,31 @@ export const createProviderField = (
 };
 
 export const createNameField = (overrides?: FieldOverrides): SSOProviderConfigFormFieldType =>
-  createProviderField("1", tStatic("data.idp.authentication", "common:NAME"), "provider", "input", {
+  createProviderField("1", tStatic(DATA_IDP_AUTHENTICATION_MODULE, "common:NAME"), "provider", "input", {
     isDisabled: true,
     description:
-      tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.IF_YOU_ARE_TRIGGERING_A_LOGIN"),
+      tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.IF_YOU_ARE_TRIGGERING_A_LOGIN"),
     ...overrides,
   });
 
 export const createClientIdField = (overrides?: FieldOverrides): SSOProviderConfigFormFieldType =>
-  createProviderField("2", tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.CLIENT_ID"), "clientId", "input", overrides);
+  createProviderField("2", tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.CLIENT_ID"), "clientId", "input", overrides);
 
 export const createClientSecretField = (
   overrides?: FieldOverrides,
 ): SSOProviderConfigFormFieldType =>
-  createProviderField("3", tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.CLIENT_SECRET"), "clientSecret", "password", {
-    description: tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.FOR_SECURITY_PURPOSES_WE_DON_T"),
+  createProviderField("3", tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.CLIENT_SECRET"), "clientSecret", "password", {
+    description: tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.FOR_SECURITY_PURPOSES_WE_DON_T"),
     ...overrides,
   });
 
 export const createRedirectUrlField = (
   overrides?: FieldOverrides,
 ): SSOProviderConfigFormFieldType =>
-  createProviderField("4", tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.REDIRECT_URL"), "redirectUrl", "input", overrides);
+  createProviderField("4", tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.REDIRECT_URL"), "redirectUrl", "input", overrides);
 
 export const createAudienceField = (overrides?: FieldOverrides): SSOProviderConfigFormFieldType =>
-  createProviderField("5", tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.AUDIENCE"), "audience", "input", overrides);
+  createProviderField("5", tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_FIELD_FACTORY_UTIL.AUDIENCE"), "audience", "input", overrides);
 
 export const createCommonOAuthFields = (overrides?: {
   name?: FieldOverrides;

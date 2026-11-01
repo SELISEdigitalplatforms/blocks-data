@@ -6,6 +6,8 @@ import { CopyToClipboardButton } from "@/components/copy-to-clipboard-button/cop
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/tooltip/tooltip";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 interface DataListViewProps {
   data: Record<string, unknown>[];
   piiFields?: Set<string>;
@@ -22,7 +24,7 @@ function CollapsibleNested({
   children: React.ReactNode;
   itemCount?: number;
 }) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -37,7 +39,7 @@ function CollapsibleNested({
         <span>{label}</span>
         {itemCount !== undefined && (
           <span className="ml-1 text-muted-foreground/60">
-            {itemCount} {t("DATA_LIST_VIEW.ITEM")}{itemCount !== 1 ? "s" : ""}
+            {itemCount} {t("DATA_LIST_VIEW.ITEM")}{itemCount === 1 ? "" : "s"}
           </span>
         )}
       </button>
@@ -47,7 +49,7 @@ function CollapsibleNested({
 }
 
 function NestedValue({ value, depth = 0 }: { value: unknown; depth?: number }) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   if (value === null || value === undefined) {
     return <span className="italic text-muted-foreground">{t("DATA_LIST_VIEW.NULL")}</span>;
   }
@@ -102,7 +104,7 @@ function NestedRecord({
   depth?: number;
   piiFields?: Set<string>;
 }) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   return (
     <div className="space-y-1.5">
       {Object.entries(record).map(([key, val]) => {

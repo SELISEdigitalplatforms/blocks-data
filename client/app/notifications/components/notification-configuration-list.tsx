@@ -27,11 +27,13 @@ import { Dialog, DialogTrigger } from "@/components/ui-kits/dialog/dialog";
 import { Button } from "@/components/ui-kits/button/button";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_CONSOLE_MODULE = "data.console";
+
 const columns = [
-  { key: "name", get label() { return tStatic("data.console", "common:NAME"); } },
-  { key: "channelToNotify", get label() { return tStatic("data.console", "NOTIFICATION_CONFIGURATION_LIST.CHANNEL"); } },
-  { key: "notificationType", get label() { return tStatic("data.console", "common:TYPE"); } },
-  { key: "enablePersistence", get label() { return tStatic("data.console", "NOTIFICATION_CONFIGURATION_LIST.PERSISTENCE"); } },
+  { key: "name", get label() { return tStatic(DATA_CONSOLE_MODULE, "common:NAME"); } },
+  { key: "channelToNotify", get label() { return tStatic(DATA_CONSOLE_MODULE, "NOTIFICATION_CONFIGURATION_LIST.CHANNEL"); } },
+  { key: "notificationType", get label() { return tStatic(DATA_CONSOLE_MODULE, "common:TYPE"); } },
+  { key: "enablePersistence", get label() { return tStatic(DATA_CONSOLE_MODULE, "NOTIFICATION_CONFIGURATION_LIST.PERSISTENCE"); } },
   { key: "actions", label: "" },
 ];
 
@@ -44,7 +46,7 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
   addConfigOpen,
   onAddConfigOpenChange,
 }) => {
-  const { t } = useT("data.console");
+  const { t } = useT(DATA_CONSOLE_MODULE);
   const [filterData, setFilterData] = useState({ page: 0, pageSize: 10 });
   const { data, isLoading } = useGetNotificationConfigs(filterData.page, filterData.pageSize);
   const [isEditOpen, setIsEditOpen] = useState<boolean>(false);

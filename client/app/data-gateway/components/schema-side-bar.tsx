@@ -17,6 +17,8 @@ import { SCHEMA_LIVE_STATE_LABELS, schemaLiveState } from "../utils/schema-live-
 import { AccessTierDot } from "./primitives";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 export type DataGatewayListQueryUpdate = Partial<{
   type: string;
   page: number;
@@ -56,12 +58,12 @@ const SchemaListSkeleton = () => (
  * are. Values match the server's SchemaType: 1 Entity, 2 Child.
  */
 const TYPE_FILTERS = [
-  { value: "all", get label() { return tStatic("data.gateway.schema", "common:ALL"); } },
-  { value: "1", get label() { return tStatic("data.gateway.schema", "SCHEMA_SIDE_BAR.ENTITY"); } },
-  { value: "2", get label() { return tStatic("data.gateway.schema", "SCHEMA_SIDE_BAR.CHILD"); } },
+  { value: "all", get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:ALL"); } },
+  { value: "1", get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_SIDE_BAR.ENTITY"); } },
+  { value: "2", get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_SIDE_BAR.CHILD"); } },
 ] as const;
 
-const SCHEMA_TYPE_LABELS: Record<number, string> = { get 1() { return tStatic("data.gateway.schema", "SCHEMA_SIDE_BAR.ENTITY"); }, get 2() { return tStatic("data.gateway.schema", "SCHEMA_SIDE_BAR.CHILD"); } };
+const SCHEMA_TYPE_LABELS: Record<number, string> = { get 1() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_SIDE_BAR.ENTITY"); }, get 2() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_SIDE_BAR.CHILD"); } };
 
 export default function SchemasSidebar({
   onAddSchema,
@@ -71,7 +73,7 @@ export default function SchemasSidebar({
   pageSize,
   onListQueryChange,
 }: SchemaListProps) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const queryClient = useQueryClient();
 
   const { register, watch } = useForm<SearchFormValues>({
@@ -174,6 +176,10 @@ export default function SchemasSidebar({
   // filter with no matches gets its own message instead, since "nothing here
   // yet" would be misleading once schemas actually exist.
   const isFilteredOrSearched = filterType !== "all" || debouncedSearch.trim().length > 0;
+  const emptyListState = isFilteredOrSearched ? "filtered-empty" : "empty";
+  let listState: "loading" | "list" | "filtered-empty" | "empty" = emptyListState;
+  if (!schemaListQuery?.data) listState = "loading";
+  else if (schemas.length > 0) listState = "list";
 
   return (
     // Width comes from the explorer column in `SchemaDetailsPage`, which is
@@ -234,9 +240,8 @@ export default function SchemasSidebar({
 
       {/* Schema list */}
       <div className="flex-1 overflow-auto px-2 py-1.5">
-        {!schemaListQuery?.data ? (
-          <SchemaListSkeleton />
-        ) : schemas.length > 0 ? (
+        {listState === "loading" && <SchemaListSkeleton />}
+        {listState === "list" &&
           schemas.map((schema: ISchemaDetails) => {
             const isSelected = schema.id === selectedSchemaId;
             const exposure = schemaExposure(schema);
@@ -303,12 +308,13 @@ export default function SchemasSidebar({
                 )}
               </button>
             );
-          })
-        ) : isFilteredOrSearched ? (
+          })}
+        {listState === "filtered-empty" && (
           <div className="flex h-full items-center justify-center py-8 text-sm text-muted-foreground/60">
             {t("SCHEMA_SIDE_BAR.NO_SCHEMAS_FOUND")}
           </div>
-        ) : (
+        )}
+        {listState === "empty" && (
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-8 text-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-[11px] border border-dashed border-border/60 text-muted-foreground/40">
               <Database className="h-[19px] w-[19px]" aria-hidden />

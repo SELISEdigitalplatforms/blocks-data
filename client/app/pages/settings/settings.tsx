@@ -35,6 +35,8 @@ import { useProjectStore } from "@seliseblocks/genesis-os";
 import { formatDate } from "@/lib/utils";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_CONSOLE_MODULE = "data.console";
+
 const SettingsLoading = () => (
   <main className="p-6">
     <Skeleton className="h-8 w-24" />
@@ -67,15 +69,15 @@ const projectNameSchema = z.lazy(() => z.object({
   name: z
     .string()
     .trim()
-    .min(1, tStatic("data.console", "SETTINGS.NAME_IS_REQUIRED"))
-    .min(3, tStatic("data.console", "SETTINGS.PROJECT_NAME_MUST_BE_AT_LEAST"))
-    .max(100, tStatic("data.console", "SETTINGS.PROJECT_NAME_SHOULD_BE_A_MAXIMUM")),
+    .min(1, tStatic(DATA_CONSOLE_MODULE, "SETTINGS.NAME_IS_REQUIRED"))
+    .min(3, tStatic(DATA_CONSOLE_MODULE, "SETTINGS.PROJECT_NAME_MUST_BE_AT_LEAST"))
+    .max(100, tStatic(DATA_CONSOLE_MODULE, "SETTINGS.PROJECT_NAME_SHOULD_BE_A_MAXIMUM")),
 }));
 
 type ProjectNameForm = z.infer<typeof projectNameSchema>;
 
 export const SettingsPage = () => {
-  const { t } = useT("data.console");
+  const { t } = useT(DATA_CONSOLE_MODULE);
   const { selectedProject, selectedTenantGroup, setSelectedProject } =
     useProjectStore();
 

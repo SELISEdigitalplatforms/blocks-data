@@ -35,6 +35,9 @@ import { CleanTestDataModal } from "./clean-test-data-modal";
 import { SchemasDrawer } from "./schemas-drawer";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME = "GRAPHQL_PLAYGROUND_PAGE.MUTATION_SCHEMANAME";
+const GRAPHQL_PLAYGROUND_PAGE_RESPONSE = "GRAPHQL_PLAYGROUND_PAGE.RESPONSE";
+
 const MonacoEditorLazy = lazy(async () => {
   await import("./monaco-local");
   const mod = await import("@monaco-editor/react");
@@ -1260,7 +1263,7 @@ export const GraphQLPlaygroundPage = () => {
 }`,
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: t("GRAPHQL_PLAYGROUND_PAGE.INSERT_NEW_SCHEMANAME_ENTRY", { schemaName }),
-              detail: t("GRAPHQL_PLAYGROUND_PAGE.MUTATION_SCHEMANAME", { schemaName }),
+              detail: t(GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME, { schemaName }),
               sortText: `0_insert${schemaName}`,
               range,
             });
@@ -1280,7 +1283,7 @@ export const GraphQLPlaygroundPage = () => {
 }`,
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: t("GRAPHQL_PLAYGROUND_PAGE.UPDATE_SCHEMANAME_ENTRY", { schemaName }),
-              detail: t("GRAPHQL_PLAYGROUND_PAGE.MUTATION_SCHEMANAME", { schemaName }),
+              detail: t(GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME, { schemaName }),
               sortText: `0_update${schemaName}`,
               range,
             });
@@ -1297,7 +1300,7 @@ export const GraphQLPlaygroundPage = () => {
 }`,
               insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
               documentation: t("GRAPHQL_PLAYGROUND_PAGE.DELETE_SCHEMANAME_ENTRY", { schemaName }),
-              detail: t("GRAPHQL_PLAYGROUND_PAGE.MUTATION_SCHEMANAME", { schemaName }),
+              detail: t(GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME, { schemaName }),
               sortText: `0_delete${schemaName}`,
               range,
             });
@@ -1461,13 +1464,13 @@ export const GraphQLPlaygroundPage = () => {
 
         newResponses.push({
           id: `response-${i}`,
-          name: operations.length === 1 ? t("GRAPHQL_PLAYGROUND_PAGE.RESPONSE") : t("GRAPHQL_PLAYGROUND_PAGE.RESPONSE_VALUE", { value: i + 1 }),
+          name: operations.length === 1 ? t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE) : t("GRAPHQL_PLAYGROUND_PAGE.RESPONSE_VALUE", { value: i + 1 }),
           content: JSON.stringify(data, null, 2),
         });
       } catch (error) {
         newResponses.push({
           id: `response-${i}`,
-          name: operations.length === 1 ? t("GRAPHQL_PLAYGROUND_PAGE.RESPONSE") : t("GRAPHQL_PLAYGROUND_PAGE.RESPONSE_VALUE", { value: i + 1 }),
+          name: operations.length === 1 ? t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE) : t("GRAPHQL_PLAYGROUND_PAGE.RESPONSE_VALUE", { value: i + 1 }),
           content: JSON.stringify({ error: String(error) }, null, 2),
         });
       }
@@ -1607,7 +1610,7 @@ export const GraphQLPlaygroundPage = () => {
             {responses.length === 0 ? (
               <>
                 <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
-                  <span className="text-xs font-medium text-muted-foreground">{t("GRAPHQL_PLAYGROUND_PAGE.RESPONSE")}</span>
+                  <span className="text-xs font-medium text-muted-foreground">{t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE)}</span>
                 </div>
                 <div className="flex-1 overflow-hidden">
                   <GraphqlMonacoEditor

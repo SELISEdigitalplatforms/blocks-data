@@ -52,6 +52,8 @@ import { useEffect, useRef, type MutableRefObject } from "react";
 import { useFormContext } from "react-hook-form";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const RULE_CONDITION_ROW_NOT_SET = "RULE_CONDITION_ROW.NOT_SET";
+
 export type RuleCellKey = "source" | "field" | "operator" | "compareSource" | "compareValue";
 
 export interface SchemaField {
@@ -519,6 +521,7 @@ export const RuleConditionRow = ({
   ) => {
     const isFilled = Boolean(cell.label);
     const disabled = !cell.reachable;
+    const setLabel = isFilled ? cell.label : t("RULE_CONDITION_ROW.SET_TITLE", { title: cell.title });
 
     return (
       <Popover
@@ -538,7 +541,7 @@ export const RuleConditionRow = ({
           <button
             type="button"
             disabled={disabled}
-            aria-label={disabled ? undefined : isFilled ? cell.label : t("RULE_CONDITION_ROW.SET_TITLE", { title: cell.title })}
+            aria-label={disabled ? undefined : setLabel}
             aria-hidden={disabled || undefined}
             onClick={() => openCellFor(cell.key)}
             title={disabled ? undefined : t("RULE_CONDITION_ROW.EDIT_KEY", { key: cell.key })}
@@ -552,7 +555,7 @@ export const RuleConditionRow = ({
                   : "border-dashed border-border/50 bg-background text-muted-foreground hover:bg-muted/30",
             )}
           >
-            <span className="block truncate">{isFilled ? cell.label : t("RULE_CONDITION_ROW.NOT_SET")}</span>
+            <span className="block truncate">{isFilled ? cell.label : t(RULE_CONDITION_ROW_NOT_SET)}</span>
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-52 p-0" align="start">
@@ -639,12 +642,12 @@ export const RuleConditionRow = ({
         name={path("compareValue")}
         render={({ field }) => {
           if (isDirectValueOp) {
+            const suffixOrPrefixPlaceholder =
+              operatorValue === "START_WITH"
+                ? t("RULE_CONDITION_ROW.ENTER_PREFIX")
+                : t("RULE_CONDITION_ROW.ENTER_SUFFIX");
             const placeholder =
-              operatorValue === "REGEX"
-                ? t("RULE_CONDITION_ROW.ENTER_REGEX_PATTERN")
-                : operatorValue === "START_WITH"
-                  ? t("RULE_CONDITION_ROW.ENTER_PREFIX")
-                  : t("RULE_CONDITION_ROW.ENTER_SUFFIX");
+              operatorValue === "REGEX" ? t("RULE_CONDITION_ROW.ENTER_REGEX_PATTERN") : suffixOrPrefixPlaceholder;
             return (
               <Input
                 className="h-9 w-full min-w-0 rounded-md px-3 text-xs"
@@ -779,18 +782,16 @@ export const RuleConditionRow = ({
       );
     }
 
-    const hint =
-      valueSpec.kind === "int"
-        ? isList
-          ? t("RULE_CONDITION_ROW.HINT_WHOLE_NUMBERS_LIST")
-          : t("RULE_CONDITION_ROW.HINT_WHOLE_NUMBER")
-        : valueSpec.kind === "float"
-          ? isList
-            ? t("RULE_CONDITION_ROW.HINT_NUMBERS_LIST")
-            : t("RULE_CONDITION_ROW.HINT_NUMBER")
-          : valueSpec.kind === "date"
-            ? t("RULE_CONDITION_ROW.HINT_DATES_LIST")
-            : "";
+    const describeHint = (): string => {
+      if (valueSpec.kind === "int") {
+        return isList ? t("RULE_CONDITION_ROW.HINT_WHOLE_NUMBERS_LIST") : t("RULE_CONDITION_ROW.HINT_WHOLE_NUMBER");
+      }
+      if (valueSpec.kind === "float") {
+        return isList ? t("RULE_CONDITION_ROW.HINT_NUMBERS_LIST") : t("RULE_CONDITION_ROW.HINT_NUMBER");
+      }
+      return valueSpec.kind === "date" ? t("RULE_CONDITION_ROW.HINT_DATES_LIST") : "";
+    };
+    const hint = describeHint();
     const isNumber = valueSpec.kind === "int" || valueSpec.kind === "float";
 
     return (
@@ -915,7 +916,7 @@ export const RuleConditionRow = ({
                 aria-hidden="true"
                 className="flex h-8 min-w-0 max-w-full items-center justify-center truncate rounded-md border border-dashed border-border/40 px-3 text-center text-xs text-muted-foreground/40"
               >
-                {t("RULE_CONDITION_ROW.NOT_SET")}
+                {t(RULE_CONDITION_ROW_NOT_SET)}
               </div>
             );
           }
@@ -947,7 +948,7 @@ export const RuleConditionRow = ({
                   : "border-dashed border-border/50 bg-background text-muted-foreground hover:bg-muted/30",
               )}
             >
-              <span className="block truncate">{isFilled ? cell.label : t("RULE_CONDITION_ROW.NOT_SET")}</span>
+              <span className="block truncate">{isFilled ? cell.label : t(RULE_CONDITION_ROW_NOT_SET)}</span>
             </button>
           );
         })}

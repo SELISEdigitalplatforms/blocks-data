@@ -51,6 +51,8 @@ import { DefaultValueButton } from "./default-value-button";
 import { FieldCount, TreeStem, TreeToggle } from "./property-tree";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 /**
  * The three genuine booleans on a property, as one column.
  *
@@ -59,9 +61,9 @@ import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
  * could not. The aria-labels are unchanged so the edit-mode contract holds.
  */
 const FLAG_SWITCHES = [
-  { key: "isArray", label: "ARR", get title() { return tStatic("data.gateway.schema", "SCHEMA_DESKTOP_ROW.ISARRAY"); }, notForChildTypes: false },
-  { key: "isPIIData", label: "PII", get title() { return tStatic("data.gateway.schema", "SCHEMA_DESKTOP_ROW.ISPII"); }, notForChildTypes: true },
-  { key: "isUniqueData", label: "UQ", get title() { return tStatic("data.gateway.schema", "SCHEMA_DESKTOP_ROW.ISUNIQUE"); }, notForChildTypes: true },
+  { key: "isArray", label: "ARR", get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DESKTOP_ROW.ISARRAY"); }, notForChildTypes: false },
+  { key: "isPIIData", label: "PII", get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DESKTOP_ROW.ISPII"); }, notForChildTypes: true },
+  { key: "isUniqueData", label: "UQ", get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DESKTOP_ROW.ISUNIQUE"); }, notForChildTypes: true },
 ] as const;
 
 interface SchemaDesktopRowProps {
@@ -155,7 +157,7 @@ export function SchemaDesktopRow({
   visibleColumnCount,
   originalFieldFromSchema,
 }: Readonly<SchemaDesktopRowProps>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const [focusEnumEditor, setFocusEnumEditor] = useState(false);
   const compactCellClass = "py-3 align-middle";
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();
@@ -205,6 +207,13 @@ export function SchemaDesktopRow({
   const isFirstRow = isEntityType && index === 0;
   const isRowVisible =
     (!isEntityType || !isReadOnly || isReadonlyExpanded) && (totalFieldsLength > 0 || isEditMode);
+  const modeLabels = {
+    None: t("SCHEMA_DESKTOP_ROW.NONE"),
+    Insert: t("SCHEMA_DESKTOP_ROW.INSERT"),
+    Update: t("common:UPDATE"),
+    Both: t("SCHEMA_DESKTOP_ROW.BOTH"),
+  };
+
   return (
     <>
       {/* Readonly Properties Section Header - Always show at index 0 for entity types */}
@@ -416,7 +425,7 @@ export function SchemaDesktopRow({
                 <SelectContent className="w-(--radix-select-trigger-width) min-w-0">
                   {(["None", "Insert", "Update", "Both"] as const).map((mode) => (
                     <SelectItem key={mode} value={mode} className="py-1 pl-7 text-[13px]">
-                      {mode === "None" ? t("SCHEMA_DESKTOP_ROW.NONE") : mode === "Insert" ? t("SCHEMA_DESKTOP_ROW.INSERT") : mode === "Update" ? t("common:UPDATE") : t("SCHEMA_DESKTOP_ROW.BOTH")}
+                      {modeLabels[mode]}
                     </SelectItem>
                   ))}
                 </SelectContent>

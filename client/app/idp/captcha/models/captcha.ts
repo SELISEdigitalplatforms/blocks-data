@@ -1,11 +1,13 @@
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_IDP_SECURITY_MODULE = "data.idp.security";
 export const CAPTCHA_PROVIDERS = {
-  recaptcha: { value: "recaptcha", get label() { return tStatic("data.idp.security", "CAPTCHA.GOOGLE_RECAPTCHA"); } },
+  recaptcha: { value: "recaptcha", get label() { return tStatic(DATA_IDP_SECURITY_MODULE, "CAPTCHA.GOOGLE_RECAPTCHA"); } },
   hcaptcha: { value: "hcaptcha", label: "hCAPTCHA" },
 } as const;
 export const CAPTCHA_GENERATOR_TYPE = {
-  EasyCaptchaGenerator: { value: "EasyCaptchaGenerator", get label() { return tStatic("data.idp.security", "CAPTCHA.EASY"); } },
-  HardCaptchaGenerator: { value: "HardCaptchaGenerator", get label() { return tStatic("data.idp.security", "CAPTCHA.HARD"); } },
+  EasyCaptchaGenerator: { value: "EasyCaptchaGenerator", get label() { return tStatic(DATA_IDP_SECURITY_MODULE, "CAPTCHA.EASY"); } },
+  HardCaptchaGenerator: { value: "HardCaptchaGenerator", get label() { return tStatic(DATA_IDP_SECURITY_MODULE, "CAPTCHA.HARD"); } },
 } as const;
 
 export type CAPTCHA_PROVIDERS_KEY = keyof typeof CAPTCHA_PROVIDERS;

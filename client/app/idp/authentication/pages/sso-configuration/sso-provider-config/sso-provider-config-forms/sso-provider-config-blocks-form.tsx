@@ -18,9 +18,11 @@ import { SSOProviderConfigFormField } from "./sso-provider-config-form-fields";
 import { SsoConfigForms } from "./sso-provider-config-forms";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_IDP_AUTHENTICATION_MODULE = "data.idp.authentication";
+
 const SCOPE_OPTIONS = [
-  { get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.OPEN_ID"); }, value: "openid" },
-  { get label() { return tStatic("data.idp.authentication", "common:EMAIL"); }, value: "email" },
+  { get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_BLOCKS_FORM.OPEN_ID"); }, value: "openid" },
+  { get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "common:EMAIL"); }, value: "email" },
 ];
 
 const SCOPE_VALUE_SET = new Set(SCOPE_OPTIONS.map((option) => option.value.toLowerCase()));
@@ -57,20 +59,20 @@ const SSOBlocksFormFields: SSOProviderConfigFormFieldType[] = [
   }),
   {
     id: "6",
-    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.SCOPE"); },
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_BLOCKS_FORM.SCOPE"); },
     type: "multi-select",
     name: "scope",
     options: SCOPE_OPTIONS,
-    get placeholder() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.SELECT_SCOPES"); },
+    get placeholder() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_BLOCKS_FORM.SELECT_SCOPES"); },
   },
   {
     id: "7",
-    get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.IS_AUTO_REDIRECT"); },
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_BLOCKS_FORM.IS_AUTO_REDIRECT"); },
     type: "radio",
     name: "isAutoRedirect",
     options: [
-      { get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.TRUE"); }, value: "true" },
-      { get label() { return tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.FALSE"); }, value: "false" },
+      { get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_BLOCKS_FORM.TRUE"); }, value: "true" },
+      { get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_BLOCKS_FORM.FALSE"); }, value: "false" },
     ],
   },
 ];
@@ -87,13 +89,13 @@ type FormValue = {
 
 const schema = z.lazy(() =>
   createSsoProviderConfigBaseSchema().extend({
-    scope: z.array(z.string().trim()).nonempty({ message: tStatic("data.idp.authentication", "SSO_PROVIDER_CONFIG_BLOCKS_FORM.SELECT_AT_LEAST_ONE_SCOPE") }),
+    scope: z.array(z.string().trim()).nonempty({ message: tStatic(DATA_IDP_AUTHENTICATION_MODULE, "SSO_PROVIDER_CONFIG_BLOCKS_FORM.SELECT_AT_LEAST_ONE_SCOPE") }),
     isAutoRedirect: z.enum(["true", "false"]),
   }),
 );
 
 export const SSOProviderConfigBlocksForm: React.FC<SsoConfigForms> = () => {
-  const { t } = useT("data.idp.authentication");
+  const { t } = useT(DATA_IDP_AUTHENTICATION_MODULE);
   const tenantId = useProjectStore()?.selectedProject?.tenantId || "";
   const { data: existingConfiguration } = useSaveGetOIDCCredential(tenantId);
   const { mutateAsync } = useSaveOIDCCredential();

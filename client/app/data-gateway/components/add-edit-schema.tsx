@@ -37,6 +37,8 @@ import {
 } from "../utils/input-restriction.util";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const COMMON_CANCEL = "common:CANCEL";
+
 type SchemaFormValues = {
   schemaName: string;
   schemaType: "Entity" | "DTO";
@@ -89,7 +91,7 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
     dialogSubtitle:
       t("ADD_EDIT_SCHEMA.UPDATING_THE_SCHEMA_PROPERTIES_WILL"),
     confirmButton: t("common:UPDATE"),
-    cancelButton: t("common:CANCEL"),
+    cancelButton: t(COMMON_CANCEL),
   };
 
   const schemaType = watch("schemaType");
@@ -401,7 +403,7 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
 
           <DialogFooter className="mt-4">
             <Button variant="outline" type="button" onClick={onCancel}>
-              {t("common:CANCEL")}
+              {t(COMMON_CANCEL)}
             </Button>
             <Button type="submit" disabled={!isValid}>
               {mode === "edit" ? t("common:SAVE") : t("common:ADD")}
@@ -436,7 +438,7 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
               size="sm"
               onClick={() => setIsEditConfirmationModalOpen(false)}
             >
-              {editSchemaConfirmationModalData.cancelButton || t("common:CANCEL")}
+              {editSchemaConfirmationModalData.cancelButton || t(COMMON_CANCEL)}
             </Button>
             <Button size="sm" onClick={handleEditConfirm}>
               {editSchemaConfirmationModalData.confirmButton || t("common:CONFIRM")}

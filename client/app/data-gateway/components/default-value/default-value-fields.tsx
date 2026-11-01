@@ -10,6 +10,8 @@ import { describeNow, formatDefaultSummary, type DefaultDraft, type OffsetDirect
 import { ExpressionMenu, insertAt, type ExpressionGroup, type ExpressionOption } from "../primitives";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
+
 /**
  * The pieces of the default-value panel: the status line, the one value box (typed text with the
  * "{ } Expression" menu inside it), the current date & time card, and the "will store" preview.
@@ -26,7 +28,7 @@ export const CURRENT_DATE_TIME = "@current-date-time";
 
 /** What's stored now: the saved default as a one-liner, or that nothing is. */
 export function StatusLine({ saved, fieldName }: Readonly<{ saved: IFieldDefaultValue | null; fieldName: string }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   if (!saved) {
     return (
       <div className="flex items-center gap-2.5 rounded-md border border-border/50 bg-background px-3 py-2.5 text-xs text-muted-foreground">
@@ -50,7 +52,7 @@ export function StatusLine({ saved, fieldName }: Readonly<{ saved: IFieldDefault
 
 /** "Fixed" or "Filled at insert time" beside the VALUE label, for properties that can take either. */
 export function ModeBadge({ dynamic }: Readonly<{ dynamic: boolean }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   return (
     <span
       className={cn(
@@ -131,7 +133,7 @@ export function ValueBox({
   onChange: (value: string) => void;
   onUseNow?: () => void;
 }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const inputRef = useRef<HTMLInputElement>(null);
   // Where the caret last was, so a pick lands there even though the menu took focus.
   const caret = useRef<number | null>(null);
@@ -214,7 +216,7 @@ export function ItemsEditor({
   onAdd: () => void;
   onRemove: (index: number) => void;
 }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   return (
     <>
       {items.map((item, index) => (
@@ -277,8 +279,8 @@ export function expressionGroups({
   if (fieldType === "DateTime" && !isArray) {
     return [
       {
-        heading: tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.DATE_TIME"),
-        options: [{ value: CURRENT_DATE_TIME, label: tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.CURRENT_DATE_TIME"), detail: tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.WHEN_THE_RECORD_IS_CREATED") }],
+        heading: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.DATE_TIME"),
+        options: [{ value: CURRENT_DATE_TIME, label: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.CURRENT_DATE_TIME"), detail: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.WHEN_THE_RECORD_IS_CREATED") }],
       },
     ];
   }
@@ -291,24 +293,24 @@ export function expressionGroups({
     .filter((name) => isArray || (name !== "Roles" && name !== "Permissions"))
     .map((name) => ({ value: `{{Auth.${name}}}`, label: AUTH_LABELS[name] ?? name, detail: `Auth.${name}` }));
   return [
-    { heading: tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.THIS_RECORD"), options: record },
-    { heading: tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.SIGNED_IN_USER"), options: auth },
+    { heading: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.THIS_RECORD"), options: record },
+    { heading: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.SIGNED_IN_USER"), options: auth },
   ];
 }
 
 const AUTH_LABELS: Record<string, string> = {
-  get UserId() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.USER_ID"); },
-  get Email() { return tStatic("data.gateway.validation", "common:EMAIL"); },
-  get OrganizationId() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.ORGANIZATION"); },
-  get Roles() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.ROLES"); },
-  get Permissions() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.PERMISSIONS"); },
+  get UserId() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.USER_ID"); },
+  get Email() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "common:EMAIL"); },
+  get OrganizationId() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.ORGANIZATION"); },
+  get Roles() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.ROLES"); },
+  get Permissions() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.PERMISSIONS"); },
 };
 
 const OFFSET_PARTS = [
-  { key: "days", get label() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.DAYS"); } },
-  { key: "hours", get label() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.HOURS"); } },
-  { key: "minutes", get label() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.MINUTES"); } },
-  { key: "seconds", get label() { return tStatic("data.gateway.validation", "DEFAULT_VALUE_FIELDS.SECONDS"); } },
+  { key: "days", get label() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.DAYS"); } },
+  { key: "hours", get label() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.HOURS"); } },
+  { key: "minutes", get label() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.MINUTES"); } },
+  { key: "seconds", get label() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.SECONDS"); } },
 ] as const;
 
 /**
@@ -333,7 +335,7 @@ export function CurrentDateTimeCard({
   onChange: (offset: DefaultDraft["offset"]) => void;
   onUseFixed: () => void;
 }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const adjustId = useId();
   return (
     <div className="flex flex-col gap-2.5">
@@ -410,7 +412,7 @@ export interface PreviewPiece {
 
 /** What an insert that omits the property would store, as the draft stands. */
 export function WillStore({ pieces, caption }: Readonly<{ pieces: PreviewPiece[]; caption: string }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">

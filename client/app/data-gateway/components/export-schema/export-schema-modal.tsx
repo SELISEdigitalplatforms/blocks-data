@@ -32,6 +32,8 @@ import {
 } from "../../models/data-service";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 const exportFormats = [{ id: "json", label: "JSON" }] as const;
 
 type ExportFormatId = (typeof exportFormats)[number]["id"];
@@ -49,20 +51,20 @@ interface ExportOptionRow {
 const EXPORT_OPTIONS: ExportOptionRow[] = [
   {
     key: "schema",
-    get label() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.SCHEMA"); },
-    get description() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.STRUCTURE_AND_FIELD_ACCESS_LEVELS_READ"); },
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "EXPORT_SCHEMA_MODAL.SCHEMA"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "EXPORT_SCHEMA_MODAL.STRUCTURE_AND_FIELD_ACCESS_LEVELS_READ"); },
     alwaysSelected: true,
   },
   {
     key: "accessPolicies",
-    get label() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.ACCESS_POLICIES"); },
-    get description() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.RLS_AND_CLS_POLICIES_FROM_DATA"); },
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "EXPORT_SCHEMA_MODAL.ACCESS_POLICIES"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "EXPORT_SCHEMA_MODAL.RLS_AND_CLS_POLICIES_FROM_DATA"); },
     alwaysSelected: false,
   },
   {
     key: "validationRules",
-    get label() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.VALIDATION_RULES"); },
-    get description() { return tStatic("data.gateway.schema", "EXPORT_SCHEMA_MODAL.PER_FIELD_VALIDATION_RULES"); },
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "EXPORT_SCHEMA_MODAL.VALIDATION_RULES"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "EXPORT_SCHEMA_MODAL.PER_FIELD_VALIDATION_RULES"); },
     alwaysSelected: false,
   },
 ];
@@ -121,7 +123,7 @@ export default function ExportSchemaModal({
 }: {
   onClose: () => void;
 }) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const [currentStep, setCurrentStep] = useState(1);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 

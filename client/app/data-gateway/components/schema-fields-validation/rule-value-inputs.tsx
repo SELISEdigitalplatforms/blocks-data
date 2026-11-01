@@ -26,6 +26,8 @@ import { ConditionEditor, ConditionTag } from "./condition-editor";
 import { ReferenceTargetPicker, useReferenceTarget } from "./reference-target-picker";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
+
 const LABEL_CLASS = "text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground";
 const CONTROL_CLASS = "h-9 rounded-md border-border/60 bg-background text-[12.5px]";
 
@@ -111,7 +113,7 @@ function RelativeNowEditor({
   sentence,
   onChange,
 }: Readonly<{ label: string; value: string; invalid: boolean; sentence: (bound: string) => string; onChange: (value: string) => void }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const parsed = parseRelativeNow(value);
   // Kept here as the sign is: "{{Now}}" (an amount of 0) carries neither.
   const [sign, setSign] = useState<1 | -1>(parsed && parsed.amount > 0 ? 1 : -1);
@@ -132,7 +134,7 @@ function RelativeNowEditor({
           <Clock className="h-3 w-3" aria-hidden />
           {t("RULE_VALUE_INPUTS.NOW")}
         </span>
-        <div role="group" aria-label={t("RULE_VALUE_INPUTS.LABEL_BEFORE_OR_AFTER_NOW", { label })} className="flex gap-0.5 rounded-md border border-border/50 p-0.5">
+        <fieldset aria-label={t("RULE_VALUE_INPUTS.LABEL_BEFORE_OR_AFTER_NOW", { label })} className="m-0 min-w-0 flex gap-0.5 rounded-md border border-border/50 p-0.5">
           {([1, -1] as const).map((option) => (
             <button
               key={option}
@@ -148,7 +150,7 @@ function RelativeNowEditor({
               {option === 1 ? "+" : "−"}
             </button>
           ))}
-        </div>
+        </fieldset>
         <Input
           type="number"
           min={0}
@@ -193,6 +195,12 @@ function RelativeNowEditor({
  * Is one of / is not one of: an Enum's values as toggles, anything else as chips added by typing (Enter or a comma)
  * or by pasting a comma-separated list.
  */
+/** Key from the value and its n-th repeat, so a removed chip never renames the others. */
+function chipKey(values: string[], index: number): string {
+  const repeat = values.slice(0, index).filter((item) => item === values[index]).length;
+  return `${values[index]}#${repeat}`;
+}
+
 function ValueListInput({
   values,
   enumValues,
@@ -201,14 +209,14 @@ function ValueListInput({
   fieldLabel,
   onChange,
 }: Readonly<{ values: string[]; enumValues: string[]; kind: ValueKind; invalid: boolean; fieldLabel: string; onChange: (values: string[]) => void }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const [typed, setTyped] = useState("");
   if (kind === "enum" && enumValues.length > 0) {
     // A value the Enum no longer has stays visible, so it can be taken out.
     const stale = values.filter((value) => !enumValues.includes(value));
     return (
       <div className="flex flex-col gap-1.5">
-        <div role="group" aria-label={t("RULE_VALUE_INPUTS.ALLOWED_VALUES")} className="flex flex-wrap gap-1.5">
+        <fieldset aria-label={t("RULE_VALUE_INPUTS.ALLOWED_VALUES")} className="m-0 min-w-0 flex flex-wrap gap-1.5">
           {[...enumValues, ...stale].map((option) => {
             const on = values.includes(option);
             const gone = stale.includes(option);
@@ -228,7 +236,7 @@ function ValueListInput({
               </button>
             );
           })}
-        </div>
+        </fieldset>
         <p className="text-[11px] text-muted-foreground">{t("RULE_VALUE_INPUTS.THE_ENUM_S_OWN_VALUES_PICKED")}</p>
         {stale.length > 0 && (
           <p className="text-[11px] text-rose-400">
@@ -248,7 +256,7 @@ function ValueListInput({
     <div className="flex flex-col gap-1.5">
       <div className={cn("flex min-h-9 flex-wrap items-center gap-1 rounded-md border bg-background p-1", invalid ? "border-rose-500" : "border-border/60")}>
         {values.map((value, index) => (
-          <span key={`${index}-${value}`} className="inline-flex items-center gap-1 rounded bg-primary/10 py-0.5 pl-1.5 pr-0.5 font-mono text-[12px] text-primary">
+          <span key={chipKey(values, index)} className="inline-flex items-center gap-1 rounded bg-primary/10 py-0.5 pl-1.5 pr-0.5 font-mono text-[12px] text-primary">
             {value}
             <button type="button" aria-label={t("RULE_VALUE_INPUTS.REMOVE_VALUE", { value })} className="rounded p-0.5 hover:bg-primary/20" onClick={() => onChange(values.filter((_, i) => i !== index))}>
               <X className="h-3 w-3" />
@@ -317,7 +325,7 @@ function ComparisonValue({
   nowSentence?: (bound: string) => string;
   onChange: (value: string) => void;
 }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const options = variableOptions ?? [];
   const groups: ExpressionGroup[] = [
     {
@@ -396,7 +404,7 @@ function ReferenceInputs({
   showConditionErrors?: boolean;
   onChange: (patch: Partial<RuleDraft>) => void;
 }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const mustNotExist = draft.type === VALIDATION_TYPE.NotExistsIn;
   const target = useReferenceTarget(draft.value);
   const targetName = draft.value || "target";
@@ -521,7 +529,7 @@ export function RuleValueInputs({
   showConditionErrors?: boolean;
   onChange: (patch: Partial<RuleDraft>) => void;
 }>) {
-  const { t } = useT("data.gateway.validation");
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const input = VALIDATION_TYPE_META[draft.type]?.input;
   const kind = valueKindForField(fieldType);
   const invalid = Boolean(error);

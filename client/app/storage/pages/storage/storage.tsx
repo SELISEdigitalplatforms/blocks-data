@@ -21,6 +21,8 @@ import { StorageDetailsDrawer } from "./components/storage-details-drawer/storag
 import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_STORAGE_MODULE = "data.storage";
+
 type FilterValues = StorageFilterValues;
 
 // Helper function to map API configuration to card data
@@ -38,9 +40,9 @@ const mapConfigurationToCardData = (
       config.storageStrategy === "Amazon"
         ? "AWS"
         : config.storageStrategy === "Azure"
-          ? tStatic("data.storage", "STORAGE.AZURE")
+          ? tStatic(DATA_STORAGE_MODULE, "STORAGE.AZURE")
           : config.storageStrategy === "S3Compatible"
-            ? tStatic("data.storage", "STORAGE.AWS_S3_COMPATIBLE")
+            ? tStatic(DATA_STORAGE_MODULE, "STORAGE.AWS_S3_COMPATIBLE")
             : "SFTP",
     // folderCount: 0,
     // fileCount: 0,
@@ -48,7 +50,7 @@ const mapConfigurationToCardData = (
 };
 
 export function Storage() {
-  const { t } = useT("data.storage");
+  const { t } = useT(DATA_STORAGE_MODULE);
   const navigate = useNavigate();
   const storagePath = useStoragePath();
   const osConfigUrl = useOsSecretManagementUrl("storage");

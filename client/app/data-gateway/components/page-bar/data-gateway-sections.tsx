@@ -14,6 +14,8 @@ import { IDataSourceResponse } from "../../models/data-service";
 import { filterCounts, RISK_FETCH_LIMIT } from "../../utils/security-summary";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 type Section = {
   label: string;
   /** Appended to the scoped data-gateway path; "" is the schemas root. */
@@ -23,10 +25,10 @@ type Section = {
 };
 
 const SECTIONS: readonly Section[] = [
-  { get label() { return tStatic("data.gateway.schema", "DATA_GATEWAY_SECTIONS.SCHEMAS"); }, subPath: "", badge: "neutral" },
-  { get label() { return tStatic("data.gateway.schema", "DATA_GATEWAY_SECTIONS.SECURITY"); }, subPath: "/security", badge: "attention" },
-  { get label() { return tStatic("data.gateway.schema", "DATA_GATEWAY_SECTIONS.PLAYGROUND"); }, subPath: "/playground" },
-  { get label() { return tStatic("data.gateway.schema", "DATA_GATEWAY_SECTIONS.ANALYTICS"); }, subPath: "/analytics" },
+  { get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DATA_GATEWAY_SECTIONS.SCHEMAS"); }, subPath: "", badge: "neutral" },
+  { get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DATA_GATEWAY_SECTIONS.SECURITY"); }, subPath: "/security", badge: "attention" },
+  { get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DATA_GATEWAY_SECTIONS.PLAYGROUND"); }, subPath: "/playground" },
+  { get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DATA_GATEWAY_SECTIONS.ANALYTICS"); }, subPath: "/analytics" },
 ];
 
 const BADGE_CLASS: Record<NonNullable<Section["badge"]>, string> = {
@@ -49,7 +51,7 @@ const BADGE_CLASS: Record<NonNullable<Section["badge"]>, string> = {
  * than being a place you work, so it stays a utility icon in the page bar.
  */
 export const DataGatewaySections = () => {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const dataGatewayPath = useDataGatewayPath();
   const { pathname } = useLocation();
   const { data: configurationData } = useGetDataServiceConfiguration();

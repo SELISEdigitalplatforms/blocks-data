@@ -3,6 +3,8 @@
 import { formatDuration } from "./graph-log-formatters";
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_ANALYTICS_MODULE = "data.gateway.analytics";
+
 export interface PhaseRow {
   label: string;
   value: number;
@@ -24,12 +26,12 @@ export const toPhaseRows = (phases: {
   const measured = phases.databaseMs + phases.policyMs + phases.validationMs + phases.publishMs;
 
   return [
-    { label: tStatic("data.gateway.analytics", "GRAPH_PHASE_BREAKDOWN.DATABASE"), value: phases.databaseMs },
-    { label: tStatic("data.gateway.analytics", "GRAPH_PHASE_BREAKDOWN.POLICY_CHECKS"), value: phases.policyMs },
-    { label: tStatic("data.gateway.analytics", "GRAPH_PHASE_BREAKDOWN.VALIDATION"), value: phases.validationMs },
-    { label: tStatic("data.gateway.analytics", "GRAPH_PHASE_BREAKDOWN.EVENT_PUBLISHING"), value: phases.publishMs },
+    { label: tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_PHASE_BREAKDOWN.DATABASE"), value: phases.databaseMs },
+    { label: tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_PHASE_BREAKDOWN.POLICY_CHECKS"), value: phases.policyMs },
+    { label: tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_PHASE_BREAKDOWN.VALIDATION"), value: phases.validationMs },
+    { label: tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_PHASE_BREAKDOWN.EVENT_PUBLISHING"), value: phases.publishMs },
     {
-      label: tStatic("data.gateway.analytics", "GRAPH_PHASE_BREAKDOWN.GATEWAY_TRANSPORT"),
+      label: tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_PHASE_BREAKDOWN.GATEWAY_TRANSPORT"),
       // Clamped: a trace recorded before a phase was instrumented would otherwise go negative.
       value: phases.otherMs ?? Math.max(0, phases.totalMs - measured),
     },

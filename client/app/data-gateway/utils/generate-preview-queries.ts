@@ -20,6 +20,8 @@ import {
 import type { TemplateSection } from "../models/schema-preview.types";
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 const MAX_NESTING_DEPTH = 30;
 
 // ---------------------------------------------------------------------------
@@ -434,50 +436,50 @@ interface OperationDescriptor {
 
 const OPERATION_DESCRIPTORS: OperationDescriptor[] = [
   {
-    get title() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.QUERY"); },
-    get description() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.FETCH_DATA_FROM_THE_SCHEMA"); },
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.QUERY"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.FETCH_DATA_FROM_THE_SCHEMA"); },
     prefix: "get",
     suffix: "s",
     type: "query",
   },
   {
-    get title() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.INSERT"); },
-    get description() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.ADD_NEW_ENTRIES_TO_THE_SCHEMA"); },
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.INSERT"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.ADD_NEW_ENTRIES_TO_THE_SCHEMA"); },
     prefix: "insert",
     suffix: "",
     type: "mutation",
   },
   {
-    get title() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.INSERT_MANY"); },
-    get description() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.ADD_MULTIPLE_ENTRIES_AT_ONCE"); },
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.INSERT_MANY"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.ADD_MULTIPLE_ENTRIES_AT_ONCE"); },
     prefix: "insertMany",
     suffix: "",
     type: "mutation",
   },
   {
-    get title() { return tStatic("data.gateway.schema", "common:UPDATE"); },
-    get description() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.MODIFY_EXISTING_ENTRIES"); },
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:UPDATE"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.MODIFY_EXISTING_ENTRIES"); },
     prefix: "update",
     suffix: "",
     type: "mutation",
   },
   {
-    get title() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.UPDATE_MANY"); },
-    get description() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.MODIFY_MULTIPLE_ENTRIES_AT_ONCE"); },
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.UPDATE_MANY"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.MODIFY_MULTIPLE_ENTRIES_AT_ONCE"); },
     prefix: "updateMany",
     suffix: "",
     type: "mutation",
   },
   {
-    get title() { return tStatic("data.gateway.schema", "common:DELETE"); },
-    get description() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.REMOVE_ENTRIES_FROM_THE_SCHEMA"); },
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:DELETE"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.REMOVE_ENTRIES_FROM_THE_SCHEMA"); },
     prefix: "delete",
     suffix: "",
     type: "mutation",
   },
   {
-    get title() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.DELETE_MANY"); },
-    get description() { return tStatic("data.gateway.schema", "GENERATE_PREVIEW_QUERIES.REMOVE_MULTIPLE_ENTRIES_FROM_THE"); },
+    get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.DELETE_MANY"); },
+    get description() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "GENERATE_PREVIEW_QUERIES.REMOVE_MULTIPLE_ENTRIES_FROM_THE"); },
     prefix: "deleteMany",
     suffix: "",
     type: "mutation",

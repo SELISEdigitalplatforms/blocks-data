@@ -135,6 +135,9 @@ export function MoveCopyDialog({
     }
   };
 
+  const pendingLabel = t(mode === "move" ? "MOVE_COPY_DIALOG.MOVING" : "MOVE_COPY_DIALOG.COPYING");
+  const idleLabel = t(mode === "move" ? "MOVE_COPY_DIALOG.MOVE_HERE" : "MOVE_COPY_DIALOG.COPY_HERE");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-xl gap-0 overflow-hidden p-0">
@@ -313,9 +316,7 @@ export function MoveCopyDialog({
             {t("common:CANCEL")}
           </Button>
           <Button onClick={handleConfirm} disabled={!canConfirm}>
-            {isPending
-              ? t(mode === "move" ? "MOVE_COPY_DIALOG.MOVING" : "MOVE_COPY_DIALOG.COPYING")
-              : t(mode === "move" ? "MOVE_COPY_DIALOG.MOVE_HERE" : "MOVE_COPY_DIALOG.COPY_HERE")}
+            {isPending ? pendingLabel : idleLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

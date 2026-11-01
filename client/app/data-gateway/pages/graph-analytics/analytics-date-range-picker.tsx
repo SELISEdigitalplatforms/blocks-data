@@ -28,20 +28,22 @@ import { cn } from "@/lib/utils";
 import { formatCalendarDate } from "./graph-log-formatters";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_ANALYTICS_MODULE = "data.gateway.analytics";
+
 /** A complete, calendar-day range: both ends are local midnights. */
 export type AnalyticsDateRange = { from: Date; to: Date };
 
 type Preset = { label: string; range: (today: Date) => AnalyticsDateRange };
 
 export const DATE_RANGE_PRESETS: Preset[] = [
-  { get label() { return tStatic("data.gateway.analytics", "ANALYTICS_DATE_RANGE_PICKER.TODAY"); }, range: (today) => ({ from: today, to: today }) },
-  { get label() { return tStatic("data.gateway.analytics", "ANALYTICS_DATE_RANGE_PICKER.YESTERDAY"); }, range: (today) => ({ from: subDays(today, 1), to: subDays(today, 1) }) },
-  { get label() { return tStatic("data.gateway.analytics", "ANALYTICS_DATE_RANGE_PICKER.LAST_7_DAYS"); }, range: (today) => ({ from: subDays(today, 6), to: today }) },
-  { get label() { return tStatic("data.gateway.analytics", "ANALYTICS_DATE_RANGE_PICKER.LAST_30_DAYS"); }, range: (today) => ({ from: subDays(today, 29), to: today }) },
-  { get label() { return tStatic("data.gateway.analytics", "ANALYTICS_DATE_RANGE_PICKER.LAST_90_DAYS"); }, range: (today) => ({ from: subDays(today, 89), to: today }) },
-  { get label() { return tStatic("data.gateway.analytics", "ANALYTICS_DATE_RANGE_PICKER.THIS_MONTH"); }, range: (today) => ({ from: startOfMonth(today), to: today }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.TODAY"); }, range: (today) => ({ from: today, to: today }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.YESTERDAY"); }, range: (today) => ({ from: subDays(today, 1), to: subDays(today, 1) }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.LAST_7_DAYS"); }, range: (today) => ({ from: subDays(today, 6), to: today }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.LAST_30_DAYS"); }, range: (today) => ({ from: subDays(today, 29), to: today }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.LAST_90_DAYS"); }, range: (today) => ({ from: subDays(today, 89), to: today }) },
+  { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.THIS_MONTH"); }, range: (today) => ({ from: startOfMonth(today), to: today }) },
   {
-    get label() { return tStatic("data.gateway.analytics", "ANALYTICS_DATE_RANGE_PICKER.LAST_MONTH"); },
+    get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "ANALYTICS_DATE_RANGE_PICKER.LAST_MONTH"); },
     range: (today) => {
       const lastMonth = subMonths(today, 1);
       return { from: startOfMonth(lastMonth), to: startOfDay(endOfMonth(lastMonth)) };
@@ -75,7 +77,7 @@ interface AnalyticsDateRangePickerProps {
  * calendar always starts a new range rather than nudging the nearest end of the old one.
  */
 export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRangePickerProps) {
-  const { t } = useT("data.gateway.analytics");
+  const { t } = useT(DATA_GATEWAY_ANALYTICS_MODULE);
   const isMobile = useIsMobile();
   const numberOfMonths = isMobile ? 1 : 2;
   const today = startOfDay(new Date());
@@ -123,11 +125,10 @@ export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRange
   };
 
   const years = Array.from({ length: YEARS_BACK + 1 }, (_, i) => today.getFullYear() - i);
-  const draftLabel = draft?.from
-    ? draft.to
-      ? formatRangeLabel({ from: draft.from, to: draft.to })
-      : t("ANALYTICS_DATE_RANGE_PICKER.PICK_AN_END_DATE", { date: formatCalendarDate(draft.from) })
+  const pendingEndLabel = draft?.from
+    ? t("ANALYTICS_DATE_RANGE_PICKER.PICK_AN_END_DATE", { date: formatCalendarDate(draft.from) })
     : t("ANALYTICS_DATE_RANGE_PICKER.PICK_A_START_DATE");
+  const draftLabel = draft?.from && draft.to ? formatRangeLabel({ from: draft.from, to: draft.to }) : pendingEndLabel;
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>

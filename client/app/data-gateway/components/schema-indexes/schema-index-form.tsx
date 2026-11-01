@@ -26,20 +26,22 @@ import {
 } from "../../utils/schema-index.utils";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 const indexFormSchema = z.lazy(() => z.object({
-  name: z.string().trim().max(128, tStatic("data.gateway.schema", "SCHEMA_INDEX_FORM.INDEX_NAME_CANNOT_EXCEED_128")),
+  name: z.string().trim().max(128, tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_FORM.INDEX_NAME_CANNOT_EXCEED_128")),
   fields: z
     .array(
       z.object({
-        fieldName: z.string().min(1, tStatic("data.gateway.schema", "SCHEMA_INDEX_FORM.FIELD_IS_REQUIRED")),
+        fieldName: z.string().min(1, tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_FORM.FIELD_IS_REQUIRED")),
         direction: z.enum(["ASC", "DESC"]),
       }),
     )
-    .min(1, tStatic("data.gateway.schema", "SCHEMA_INDEX_FORM.SELECT_AT_LEAST_ONE_FIELD"))
-    .max(MAX_INDEX_FIELDS, tStatic("data.gateway.schema", "SCHEMA_INDEX_FORM.AN_INDEX_CAN_COVER_AT_MOST", { MAX_INDEX_FIELDS }))
+    .min(1, tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_FORM.SELECT_AT_LEAST_ONE_FIELD"))
+    .max(MAX_INDEX_FIELDS, tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_FORM.AN_INDEX_CAN_COVER_AT_MOST", { MAX_INDEX_FIELDS }))
     .refine(
       (fields) => new Set(fields.map((f) => f.fieldName)).size === fields.length,
-      { message: tStatic("data.gateway.schema", "SCHEMA_INDEX_FORM.SELECT_AT_LEAST_ONE_FIELD_WITH") },
+      { message: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_FORM.SELECT_AT_LEAST_ONE_FIELD_WITH") },
     ),
   isUnique: z.boolean(),
 }));
@@ -59,7 +61,7 @@ export function SchemaIndexForm({
   onSaved,
   onCancel,
 }: SchemaIndexFormProps) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const { mutateAsync: createIndex, isPending } = useCreateSchemaIndex();
 
   const form = useForm<IndexFormValues>({

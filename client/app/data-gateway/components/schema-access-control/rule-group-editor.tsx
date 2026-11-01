@@ -14,6 +14,8 @@ import { useFieldArray, useFormContext } from "react-hook-form";
 import { RuleConditionRow, useFocusNewRow, type RuleBuilderContext } from "./rule-condition-row";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_ACCESS_MODULE = "data.gateway.access";
+
 /** `nestedGroups.1` + `rules` → `nestedGroups.1.rules`; the root's path is empty. */
 const joinPath = (path: string, key: string) => (path ? `${path}.${key}` : key);
 
@@ -76,9 +78,10 @@ export const RuleGroupChildren = ({
   onRemoveGroup,
   labelPrefix = "",
 }: RuleGroupChildrenProps) => {
-  const { t } = useT("data.gateway.access");
+  const { t } = useT(DATA_GATEWAY_ACCESS_MODULE);
   const form = useFormContext<RuleSetFormValues>();
   const operator = form.watch(joinPath(path, "logicalOperator") as "logicalOperator");
+  const connectorLabel = operator === "OR" ? t("RULE_GROUP_EDITOR.OR") : t("RULE_GROUP_EDITOR.AND");
 
   const children = [
     ...ruleFields.map((field, index) => ({ kind: "rule" as const, id: field.id, index })),
@@ -97,7 +100,7 @@ export const RuleGroupChildren = ({
               basePath={joinPath(path, `rules.${child.index}`)}
               ruleId={child.id}
               conditionLabel={t("RULE_GROUP_EDITOR.CONDITION_LABEL", { prefix: labelPrefix, number: child.index + 1 })}
-              lead={position === 0 ? t("RULE_GROUP_EDITOR.WHEN") : operator === "OR" ? t("RULE_GROUP_EDITOR.OR") : t("RULE_GROUP_EDITOR.AND")}
+              lead={position === 0 ? t("RULE_GROUP_EDITOR.WHEN") : connectorLabel}
               ctx={ctx}
               onRemove={() => onRemoveRule(child.index)}
             />
@@ -128,8 +131,8 @@ interface RuleGroupEditorProps {
 }
 
 const MATCH_OPTIONS = [
-  { value: "AND", get label() { return tStatic("data.gateway.access", "RULE_GROUP_EDITOR.MATCH_ALL"); }, get ariaLabel() { return tStatic("data.gateway.access", "RULE_GROUP_EDITOR.GROUP_MATCH_ALL"); } },
-  { value: "OR", get label() { return tStatic("data.gateway.access", "RULE_GROUP_EDITOR.MATCH_ANY"); }, get ariaLabel() { return tStatic("data.gateway.access", "RULE_GROUP_EDITOR.GROUP_MATCH_ANY"); } },
+  { value: "AND", get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_GROUP_EDITOR.MATCH_ALL"); }, get ariaLabel() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_GROUP_EDITOR.GROUP_MATCH_ALL"); } },
+  { value: "OR", get label() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_GROUP_EDITOR.MATCH_ANY"); }, get ariaLabel() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_GROUP_EDITOR.GROUP_MATCH_ANY"); } },
 ] as const;
 
 /**
@@ -144,7 +147,7 @@ export const RuleGroupEditor = ({
   labelPrefix,
   onRemove,
 }: RuleGroupEditorProps) => {
-  const { t } = useT("data.gateway.access");
+  const { t } = useT(DATA_GATEWAY_ACCESS_MODULE);
   const form = useFormContext<RuleSetFormValues>();
   const {
     fields: ruleFields,

@@ -50,6 +50,8 @@ import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagTitlesFromFiel
 import { DefaultValueButton } from "./default-value-button";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 const FLAG_TOGGLES = [
   { flag: "ARR", key: "isArray", notForChildTypes: false },
   { flag: "PII", key: "isPIIData", notForChildTypes: true },
@@ -154,7 +156,7 @@ function DisabledWideButton({ reason, icon }: Readonly<{ reason: string; icon: R
 }
 
 function ReadonlySectionHeader({ count }: Readonly<{ count: number }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();
   return (
     <div className="rounded-lg bg-primary/5 px-4 py-3">
@@ -183,7 +185,7 @@ function NameField({
   errors: FieldErrors<{ properties: IField[] }>;
   properties: PropertyRow[];
 }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const { index, isEditMode, isReadOnly, setValue } = form;
   const nameError = errors.properties?.[index]?.name;
   const inputId = useId();
@@ -245,7 +247,7 @@ function ExpandChildButton({
   isExpanded,
   onToggle,
 }: Readonly<{ childName: string; isExpanded: boolean; onToggle: () => void }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -294,7 +296,7 @@ function TypeField({
   onTypeSearchChange: (value: string) => void;
   searchText: string;
 }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const { index, isEditMode, isReadOnly, watch, setValue } = form;
   const [focusEnumEditor, setFocusEnumEditor] = useState(false);
   const currentType = watch(`properties.${index}.type`);
@@ -356,7 +358,7 @@ function FlagsField({
   isChildType,
   defaultValue,
 }: Readonly<{ form: CardForm; isChildType: boolean; defaultValue: IFieldDefaultValue | null }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const { index, isEditMode, isReadOnly, watch, setValue } = form;
   if (!isEditMode) {
     // Every board shows ARR as its own chip even when the type chip already
@@ -411,8 +413,15 @@ function FlagsField({
 }
 
 function RequiredField({ form, name }: Readonly<{ form: CardForm; name: string }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const { index, isEditMode, isReadOnly, watch, setValue } = form;
+  const modeLabels = {
+    None: t("SCHEMA_MOBILE_CARD.NONE"),
+    Insert: t("SCHEMA_MOBILE_CARD.INSERT"),
+    Update: t("common:UPDATE"),
+    Both: t("SCHEMA_MOBILE_CARD.BOTH"),
+  };
+
   return (
     <div className="min-w-0 space-y-1">
       <FieldHeading>{t("SCHEMA_MOBILE_CARD.REQUIRED")}</FieldHeading>
@@ -428,7 +437,7 @@ function RequiredField({ form, name }: Readonly<{ form: CardForm; name: string }
           <SelectContent>
             {(["None", "Insert", "Update", "Both"] as const).map((mode) => (
               <SelectItem key={mode} value={mode}>
-                {mode === "None" ? t("SCHEMA_MOBILE_CARD.NONE") : mode === "Insert" ? t("SCHEMA_MOBILE_CARD.INSERT") : mode === "Update" ? t("common:UPDATE") : t("SCHEMA_MOBILE_CARD.BOTH")}
+                {modeLabels[mode]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -443,7 +452,7 @@ function RequiredField({ form, name }: Readonly<{ form: CardForm; name: string }
 }
 
 function DescriptionField({ form }: Readonly<{ form: CardForm }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const { index, isEditMode, isReadOnly, watch, setValue } = form;
   const description = watch(`properties.${index}.description`) ?? "";
   const inputId = useId();
@@ -472,7 +481,7 @@ function AccessButton({
   label,
   onOpen,
 }: Readonly<{ reason: string | null; fieldSource?: IField; label: string; onOpen: () => void }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   if (reason) return <DisabledWideButton reason={reason} icon={<Shield className="h-4 w-4 shrink-0" />} />;
 
   const levels = [
@@ -518,7 +527,7 @@ function ValidationButton({
   total,
   onOpen,
 }: Readonly<{ reason: string | null; fieldName: string; total: number; onOpen: () => void }>) {
-  const { t: tx } = useT("data.gateway.schema");
+  const { t: tx } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   if (reason) return <DisabledWideButton reason={reason} icon={<Check className="h-4 w-4 shrink-0" />} />;
   const label = total > 0 ? tx("SCHEMA_MOBILE_CARD.MANAGE_VALIDATIONS_FOR_FIELDNAME_TOTAL", { fieldName, total }) : tx("SCHEMA_MOBILE_CARD.MANAGE_VALIDATIONS_FOR_FIELDNAME", { fieldName });
   return (
@@ -539,7 +548,7 @@ function ValidationButton({
 }
 
 function CardActions({ index, name, onDuplicate, onDelete }: Readonly<{ index: number; name: string; onDuplicate: (index: number) => void; onDelete: (index: number) => void }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -562,7 +571,7 @@ function CardActions({ index, name, onDuplicate, onDelete }: Readonly<{ index: n
 }
 
 function SelectRowCheckbox({ checked, disabled, label, onChange }: Readonly<{ checked: boolean; disabled: boolean; label: string; onChange: (selected: boolean) => void }>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -616,7 +625,7 @@ export function SchemaMobileCard({
   originalFieldFromSchema,
   isNestedAttributePanel = false,
 }: Readonly<SchemaMobileCardProps>) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const [isReadonlyExpanded] = useReadonlyExpanded();
   const form: CardForm = { index, isEditMode, isReadOnly, watch, setValue };
   const name = watch(`properties.${index}.name`);

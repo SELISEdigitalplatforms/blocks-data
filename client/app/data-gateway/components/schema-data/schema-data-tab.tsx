@@ -17,6 +17,8 @@ import { ResetButton } from "./toolbar/reset-button";
 import { DataPagination } from "./toolbar/data-pagination";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 type ViewMode = "list" | "json" | "table";
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100, 200] as const;
@@ -193,7 +195,7 @@ function LoadingSkeleton() {
 }
 
 function EmptyState() {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   return (
     <div className="flex h-[calc(100vh-608px)] flex-col items-center justify-center text-center py-4">
       <p className="text-sm font-medium text-foreground">{t("common:NO_DATA")}</p>
@@ -205,7 +207,7 @@ function EmptyState() {
 }
 
 function ErrorState({ message }: { message: string }) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center">
       <p className="text-sm font-medium text-destructive">
@@ -217,9 +219,9 @@ function ErrorState({ message }: { message: string }) {
 }
 
 const VIEW_TOGGLES: { mode: ViewMode; icon: ReactNode; label: string }[] = [
-  { mode: "table", icon: <Table2 className="h-4 w-4" />, get label() { return tStatic("data.gateway.schema", "SCHEMA_DATA_TAB.TABLE_VIEW"); } },
-  { mode: "json", icon: <Braces className="h-4 w-4" />, get label() { return tStatic("data.gateway.schema", "SCHEMA_DATA_TAB.JSON_VIEW"); } },
-  { mode: "list", icon: <List className="h-4 w-4" />, get label() { return tStatic("data.gateway.schema", "SCHEMA_DATA_TAB.LIST_VIEW"); } },
+  { mode: "table", icon: <Table2 className="h-4 w-4" />, get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DATA_TAB.TABLE_VIEW"); } },
+  { mode: "json", icon: <Braces className="h-4 w-4" />, get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DATA_TAB.JSON_VIEW"); } },
+  { mode: "list", icon: <List className="h-4 w-4" />, get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DATA_TAB.LIST_VIEW"); } },
 ];
 
 // ---------------------------------------------------------------------------
@@ -231,7 +233,7 @@ export function SchemaDataTab({
   fields,
   previewData,
 }: SchemaDataTabProps) {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const [viewMode, setViewMode] = useState<ViewMode>("table");
   const [data, setData] = useState<Record<string, unknown>[] | null>(null);
   const [isLoading, setIsLoading] = useState(false);

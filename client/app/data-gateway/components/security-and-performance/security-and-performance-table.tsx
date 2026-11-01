@@ -9,6 +9,8 @@ import { piiFieldCount, schemaRisk, type SchemaRisk } from "../../utils/security
 import { ACCESS_TIER_LABELS, AccessTierBadge, tierFromLevel } from "../primitives";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
 /**
  * View/Create/Edit/Delete, not Create/Read/Update/Delete — the verbs the
  * schema page's own access pills already use (`schema-basic-info.tsx`'s
@@ -19,10 +21,10 @@ import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
  * schema page's own left-to-right order) changed.
  */
 const CRUD_COLUMNS = [
-  { key: "V", get verb() { return tStatic("data.gateway.schema", "common:VIEW"); }, levelKey: "readAccessLevel" },
-  { key: "C", get verb() { return tStatic("data.gateway.schema", "common:CREATE"); }, levelKey: "writeAccessLevel" },
-  { key: "E", get verb() { return tStatic("data.gateway.schema", "common:EDIT"); }, levelKey: "editAccessLevel" },
-  { key: "D", get verb() { return tStatic("data.gateway.schema", "common:DELETE"); }, levelKey: "deleteAccessLevel" },
+  { key: "V", get verb() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:VIEW"); }, levelKey: "readAccessLevel" },
+  { key: "C", get verb() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:CREATE"); }, levelKey: "writeAccessLevel" },
+  { key: "E", get verb() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:EDIT"); }, levelKey: "editAccessLevel" },
+  { key: "D", get verb() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:DELETE"); }, levelKey: "deleteAccessLevel" },
 ] as const;
 
 const SEVERITY_EDGE: Record<SchemaRisk["severity"], string> = {
@@ -38,7 +40,7 @@ const RISK_TEXT: Record<SchemaRisk["severity"], string> = {
 };
 
 const CrudCell = ({ letter, level, verb }: { letter: string; level: number; verb: string }) => {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   if (ACCESS_LEVEL_TO_TYPE[level] === undefined) {
     return (
       <span
@@ -62,7 +64,7 @@ const CrudCell = ({ letter, level, verb }: { letter: string; level: number; verb
 };
 
 const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps) => {
-  const { t } = useT("data.gateway.schema");
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   if (!schemas.length) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 py-16 text-muted-foreground">
@@ -71,6 +73,11 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
       </div>
     );
   }
+
+  const piiLabel = (pii: number): string => {
+    if (pii === 0) return t("SECURITY_AND_PERFORMANCE_TABLE.NONE");
+    return pii === 1 ? t("SECURITY_AND_PERFORMANCE_TABLE.1_FIELD") : t("SECURITY_AND_PERFORMANCE_TABLE.PII_FIELDS_2", { pii });
+  };
 
   return (
     <div className="min-w-0 md:min-w-[760px]">
@@ -137,7 +144,7 @@ const SecurityAndPerformanceTable = ({ schemas, onRowClick }: SecurityTableProps
                     pii > 0 ? "text-access-user-fg" : "text-muted-foreground/60",
                   )}
                 >
-                  {pii === 0 ? t("SECURITY_AND_PERFORMANCE_TABLE.NONE") : pii === 1 ? t("SECURITY_AND_PERFORMANCE_TABLE.1_FIELD") : t("SECURITY_AND_PERFORMANCE_TABLE.PII_FIELDS_2", { pii })}
+                  {piiLabel(pii)}
                 </span>
 
                 <ChevronRight

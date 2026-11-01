@@ -3,6 +3,8 @@ import type { ToastActionElement, ToastProps } from "@/components/ui-kits/toaste
 import { handleErrorMessages } from "@/lib/error";
 import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_SHARED_MODULE = "data.shared";
+
 const TOAST_LIMIT = 1;
 const TOAST_REMOVE_DELAY = 1000000;
 
@@ -182,7 +184,7 @@ type ErrorToastOptions = {
 export const showSuccessToast = ({ title, description }: SuccessToastOptions) => {
   toast({
     variant: "success",
-    title: title ?? tStatic("data.shared", "USE_TOAST.SUCCESS"),
+    title: title ?? tStatic(DATA_SHARED_MODULE, "USE_TOAST.SUCCESS"),
     description,
   });
 };
@@ -190,7 +192,7 @@ export const showSuccessToast = ({ title, description }: SuccessToastOptions) =>
 export const showInfoToast = ({ title, description }: InfoToastOptions) => {
   toast({
     variant: "info",
-    title: title ?? tStatic("data.shared", "USE_TOAST.INFO"),
+    title: title ?? tStatic(DATA_SHARED_MODULE, "USE_TOAST.INFO"),
     description,
   });
 };
@@ -203,7 +205,7 @@ export const showErrorToast = ({
   const message = handleErrorMessages(errors, customMessages);
   toast({
     variant: "destructive",
-    title: title ?? tStatic("data.shared", "USE_TOAST.FAILED"),
+    title: title ?? tStatic(DATA_SHARED_MODULE, "USE_TOAST.FAILED"),
     description: Array.isArray(message)
       ? message.map((item, index) => <div key={index}>{item}</div>)
       : message,

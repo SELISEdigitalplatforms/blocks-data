@@ -45,13 +45,15 @@ import {
 import { PrincipalSelector, usePrincipalSelection } from "../principal-selector/principal-selector";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_STORAGE_MODULE = "data.storage";
+const EVERYONE_KEY = "MANAGE_ACCESS_MODAL.EVERYONE";
 const PERMISSIONS: ObjectPermission[] = ["View", "Download", "Edit", "Delete", "Manage", "Owner"];
 const EFFECTS: ObjectEffect[] = ["Allow", "Deny"];
 
 const GENERAL_ACCESS_OPTIONS = [
-  { value: "", get label() { return tStatic("data.storage", "MANAGE_ACCESS_MODAL.DEFAULT_UNRESTRICTED_UNTIL_SHARED"); } },
-  { value: "Creator", get label() { return tStatic("data.storage", "MANAGE_ACCESS_MODAL.CREATOR_ONLY_UNTIL_SHARED"); } },
-  { value: "Organization", get label() { return tStatic("data.storage", "MANAGE_ACCESS_MODAL.ANYONE_IN_MY_ORGANIZATION"); } },
+  { value: "", get label() { return tStatic(DATA_STORAGE_MODULE, "MANAGE_ACCESS_MODAL.DEFAULT_UNRESTRICTED_UNTIL_SHARED"); } },
+  { value: "Creator", get label() { return tStatic(DATA_STORAGE_MODULE, "MANAGE_ACCESS_MODAL.CREATOR_ONLY_UNTIL_SHARED"); } },
+  { value: "Organization", get label() { return tStatic(DATA_STORAGE_MODULE, "MANAGE_ACCESS_MODAL.ANYONE_IN_MY_ORGANIZATION"); } },
 ] as const;
 
 export interface ManageAccessModalProps {
@@ -75,7 +77,7 @@ export interface ManageAccessModalProps {
  * principal becomes its own access policy on submit.
  */
 export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageAccessModalProps>) {
-  const { t: tx } = useT("data.storage");
+  const { t: tx } = useT(DATA_STORAGE_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const policies = useAccessPolicies(open ? item.itemId : undefined);
   const grant = useGrantAccess(item.itemId);
@@ -177,15 +179,17 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
     [rowOrganizations.data],
   );
 
-  const principalNameById = (t: ObjectPrincipalType) =>
-    t === "User" ? userNameById : t === "Role" ? roleNameById : organizationNameById;
+  const principalNameById = (t: ObjectPrincipalType) => {
+    if (t === "User") return userNameById;
+    return t === "Role" ? roleNameById : organizationNameById;
+  };
 
   // Enum values go to the API as they are; these are the words shown to the user.
   const enumLabels: Record<string, string> = {
     User: tx("MANAGE_ACCESS_MODAL.TYPE_USER"),
     Role: tx("MANAGE_ACCESS_MODAL.TYPE_ROLE"),
     Organization: tx("MANAGE_ACCESS_MODAL.TYPE_ORGANIZATION"),
-    Everyone: tx("MANAGE_ACCESS_MODAL.EVERYONE"),
+    Everyone: tx(EVERYONE_KEY),
     View: tx("MANAGE_ACCESS_MODAL.PERMISSION_VIEW"),
     Download: tx("MANAGE_ACCESS_MODAL.PERMISSION_DOWNLOAD"),
     Edit: tx("MANAGE_ACCESS_MODAL.PERMISSION_EDIT"),
@@ -198,7 +202,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
   const labelOf = (value: string) => enumLabels[value] ?? value;
 
   const resolvePrincipalName = (policy: AccessPolicyDto): string => {
-    if (!policy.principalId) return tx("MANAGE_ACCESS_MODAL.EVERYONE");
+    if (!policy.principalId) return tx(EVERYONE_KEY);
     return principalNameById(policy.principalType).get(policy.principalId) ?? policy.principalId;
   };
 
@@ -267,6 +271,22 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
     }
   };
 
+  const describeSelectPrincipals = (): string => {
+    if (principalType === "Organization") return tx("MANAGE_ACCESS_MODAL.SELECT_ORGANIZATIONS");
+    return principalType === "Role" ? tx("MANAGE_ACCESS_MODAL.SELECT_ROLES") : tx("MANAGE_ACCESS_MODAL.SELECT_USERS");
+  };
+  const describeChoosePrincipals = (): string => {
+    if (principalType === "Organization") return tx("MANAGE_ACCESS_MODAL.CHOOSE_ORGANIZATIONS_TO_CONTINUE");
+    return principalType === "Role"
+      ? tx("MANAGE_ACCESS_MODAL.CHOOSE_ROLES_TO_CONTINUE")
+      : tx("MANAGE_ACCESS_MODAL.CHOOSE_USERS_TO_CONTINUE");
+  };
+  const selectPrincipalsLabel = describeSelectPrincipals();
+  const choosePrincipalsLabel = describeChoosePrincipals();
+  const inheritanceToggleLabel = item.inheritsParentAccess
+    ? tx("MANAGE_ACCESS_MODAL.TURN_OFF_INHERITANCE")
+    : tx("MANAGE_ACCESS_MODAL.TURN_ON_INHERITANCE");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0">
@@ -298,10 +318,9 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <div
-              role="group"
+            <fieldset
               aria-label={tx("MANAGE_ACCESS_MODAL.GENERAL_ACCESS")}
-              className="inline-flex overflow-hidden rounded-sm border border-input"
+              className="m-0 min-w-0 inline-flex overflow-hidden rounded-sm border border-input"
             >
               {GENERAL_ACCESS_OPTIONS.map((o) => {
                 const active = generalAccess === o.value;
@@ -323,7 +342,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
                   </button>
                 );
               })}
-            </div>
+            </fieldset>
             <Button
               size="sm"
               variant="outline"
@@ -355,7 +374,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
 
             <PrincipalSelector
               selection={selection}
-              hint="You can select more than one. Each selection becomes its own rule."
+              hint={tx("MANAGE_ACCESS_MODAL.YOU_CAN_SELECT_MORE_THAN_ONE")}
             />
             <div className="space-y-2">
               <label className="text-sm font-medium">{tx("MANAGE_ACCESS_MODAL.PERMISSION")}</label>
@@ -413,8 +432,8 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
                 ) : (
                   <span className="text-muted-foreground">
                     {needsPrincipal
-                      ? tx(principalType === "Organization" ? "MANAGE_ACCESS_MODAL.CHOOSE_ORGANIZATIONS_TO_CONTINUE" : principalType === "Role" ? "MANAGE_ACCESS_MODAL.CHOOSE_ROLES_TO_CONTINUE" : "MANAGE_ACCESS_MODAL.CHOOSE_USERS_TO_CONTINUE")
-                      : tx("MANAGE_ACCESS_MODAL.EVERYONE")}
+                      ? choosePrincipalsLabel
+                      : tx(EVERYONE_KEY)}
                   </span>
                 )}
                 <Badge variant={effect === "Allow" ? "success" : "error"}>{effect}</Badge>
@@ -523,11 +542,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
                   (item.inheritsParentAccess && ownEntries.length === 0)
                 }
               >
-                {toggleInheritance.isPending
-                  ? tx("MANAGE_ACCESS_MODAL.UPDATING")
-                  : item.inheritsParentAccess
-                    ? tx("MANAGE_ACCESS_MODAL.TURN_OFF_INHERITANCE")
-                    : tx("MANAGE_ACCESS_MODAL.TURN_ON_INHERITANCE")}
+                {toggleInheritance.isPending ? tx("MANAGE_ACCESS_MODAL.UPDATING") : inheritanceToggleLabel}
               </Button>
               {item.inheritsParentAccess && ownEntries.length === 0 ? (
                 <p className="mt-2 text-xs text-muted-foreground">

@@ -51,6 +51,8 @@ import {
 import { RuleGroupChildren } from "./rule-group-editor";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_ACCESS_MODULE = "data.gateway.access";
+
 /**
  * A group needs something inside it. The server evaluates an empty group to
  * false, so an AND parent holding one would deny everyone — better to refuse
@@ -61,7 +63,7 @@ const groupHasContent = (group: { rules: unknown[]; nestedGroups: unknown[] }) =
 
 const createLogicalOperatorSchema = () =>
   z.enum(["AND", "OR"], {
-    required_error: tStatic("data.gateway.access", "RULE_SET_FORM.PLEASE_SELECT_A_RULE_RELATION"),
+    required_error: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.PLEASE_SELECT_A_RULE_RELATION"),
   });
 
 /**
@@ -73,9 +75,9 @@ const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => Sta
   const logicalOperatorSchema = createLogicalOperatorSchema();
   const ruleRowSchema = z
     .object({
-      source: z.string().min(1, tStatic("data.gateway.access", "RULE_SET_FORM.SOURCE_IS_REQUIRED")),
-      field: z.string().min(1, tStatic("data.gateway.access", "RULE_SET_FORM.FIELD_IS_REQUIRED")),
-      operator: z.string().min(1, tStatic("data.gateway.access", "RULE_SET_FORM.OPERATOR_IS_REQUIRED")),
+      source: z.string().min(1, tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.SOURCE_IS_REQUIRED")),
+      field: z.string().min(1, tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.FIELD_IS_REQUIRED")),
+      operator: z.string().min(1, tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.OPERATOR_IS_REQUIRED")),
       compareSource: z.string().default(""),
       compareValue: z.string().default(""),
     })
@@ -87,7 +89,7 @@ const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => Sta
         if (!data.compareValue) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: tStatic("data.gateway.access", "RULE_SET_FORM.VALUE_IS_REQUIRED"),
+            message: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.VALUE_IS_REQUIRED"),
             path: ["compareValue"],
           });
         }
@@ -97,14 +99,14 @@ const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => Sta
       if (!data.compareSource) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: tStatic("data.gateway.access", "RULE_SET_FORM.COMPARE_SOURCE_IS_REQUIRED"),
+          message: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.COMPARE_SOURCE_IS_REQUIRED"),
           path: ["compareSource"],
         });
       }
       if (!data.compareValue) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: tStatic("data.gateway.access", "RULE_SET_FORM.COMPARE_VALUE_IS_REQUIRED"),
+          message: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.COMPARE_VALUE_IS_REQUIRED"),
           path: ["compareValue"],
         });
         return;
@@ -128,19 +130,19 @@ const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => Sta
       nestedGroups: z.array(z.lazy(() => ruleGroupSchema)),
     })
     .refine(groupHasContent, {
-      message: tStatic("data.gateway.access", "RULE_SET_FORM.A_GROUP_NEEDS_AT_LEAST_ONE"),
+      message: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.A_GROUP_NEEDS_AT_LEAST_ONE"),
       path: ["rules"],
     });
 
   const ruleSetSchema = z
     .object({
-      name: z.string().trim().min(1, tStatic("data.gateway.access", "RULE_SET_FORM.RULE_SET_NAME_IS_REQUIRED")),
+      name: z.string().trim().min(1, tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.RULE_SET_NAME_IS_REQUIRED")),
       logicalOperator: logicalOperatorSchema,
       rules: z.array(ruleRowSchema),
       nestedGroups: z.array(ruleGroupSchema),
     })
     .refine(groupHasContent, {
-      message: tStatic("data.gateway.access", "RULE_SET_FORM.AT_LEAST_ONE_COMPLETE_RULE_IS"),
+      message: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.AT_LEAST_ONE_COMPLETE_RULE_IS"),
       path: ["rules"],
     });
 
@@ -149,11 +151,11 @@ const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => Sta
 
 /** The verb shown under the title, e.g. "Order · Update". */
 const OPERATION_LABEL: Record<number, string> = {
-  get [POLICY_OPERATION.READ]() { return tStatic("data.gateway.access", "RULE_SET_FORM.READ"); },
-  get [POLICY_OPERATION.CREATE]() { return tStatic("data.gateway.access", "common:CREATE"); },
-  get [POLICY_OPERATION.UPDATE]() { return tStatic("data.gateway.access", "common:UPDATE"); },
-  get [POLICY_OPERATION.DELETE]() { return tStatic("data.gateway.access", "common:DELETE"); },
-  get [POLICY_OPERATION.ALL]() { return tStatic("data.gateway.access", "common:ALL"); },
+  get [POLICY_OPERATION.READ]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.READ"); },
+  get [POLICY_OPERATION.CREATE]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:CREATE"); },
+  get [POLICY_OPERATION.UPDATE]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:UPDATE"); },
+  get [POLICY_OPERATION.DELETE]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:DELETE"); },
+  get [POLICY_OPERATION.ALL]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:ALL"); },
 };
 
 interface RuleSetFormProps {
@@ -202,7 +204,7 @@ export const RuleSetForm = ({
   isSubmitting = false,
   status = null,
 }: RuleSetFormProps) => {
-  const { t, language } = useT("data.gateway.access");
+  const { t, language } = useT(DATA_GATEWAY_ACCESS_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   const isEditMode = !!editingPolicy;

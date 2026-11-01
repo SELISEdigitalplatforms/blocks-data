@@ -20,26 +20,28 @@ import { UserHistories } from "../user-histories";
 import { UserMemberships } from "../user-memberships";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_IDP_IAM_MODULE = "data.idp.iam";
+
 const Menu = [
   {
     id: 1,
-    get label() { return tStatic("data.idp.iam", "common:DETAILS"); },
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "common:DETAILS"); },
     value: "details",
   },
   {
     id: 3,
-    get label() { return tStatic("data.idp.iam", "USER_MANAGEMENT_USER_USER.DEVICES"); },
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "USER_MANAGEMENT_USER_USER.DEVICES"); },
     value: "devices",
   },
   {
     id: 4,
-    get label() { return tStatic("data.idp.iam", "USER_MANAGEMENT_USER_USER.HISTORY"); },
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "USER_MANAGEMENT_USER_USER.HISTORY"); },
     value: "history",
   },
 ];
 
 export const User = ({ id }: { id: string }) => {
-  const { t } = useT("data.idp.iam");
+  const { t } = useT(DATA_IDP_IAM_MODULE);
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const [tabId, setTabId] = useQueryState("userDetails", { defaultValue: "details" });
   const { data } = useGetUserById({ id, projectKey: tenantId });

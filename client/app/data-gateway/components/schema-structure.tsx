@@ -77,6 +77,8 @@ const omitFieldArrayId = <T extends { id?: string }>(row: T) => {
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+const FIELD_ON_SCHEMANAME_KEY = "SCHEMA_STRUCTURE.FIELD_ON_SCHEMANAME";
+
 /**
  * Radix ScrollArea only scrolls sideways when a horizontal scrollbar is mounted, so the
  * top-level region opts into one for edit mode's wide table. Embedded (child) schema uses
@@ -522,7 +524,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       onOpenFieldValidation({
         fieldName: qualifiedName,
         subject: qualifiedName,
-        context: tx("SCHEMA_STRUCTURE.FIELD_ON_SCHEMANAME", { schemaName: schemaDetails.schemaName }),
+        context: tx(FIELD_ON_SCHEMANAME_KEY, { schemaName: schemaDetails.schemaName }),
         schemaName: schemaDetails.schemaName,
         validationRule: validationRule ?? null,
         ...fieldMeta,
@@ -560,7 +562,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       onOpenFieldDefault({
         ...target,
         subject: qualifiedName,
-        context: tx("SCHEMA_STRUCTURE.FIELD_ON_SCHEMANAME", { schemaName: schemaDetails.schemaName }),
+        context: tx(FIELD_ON_SCHEMANAME_KEY, { schemaName: schemaDetails.schemaName }),
         schemaName: schemaDetails.schemaName,
       });
       return;
@@ -582,7 +584,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       onOpenFieldAccess({
         fieldNames: [qualifiedName],
         subject: qualifiedName,
-        context: tx("SCHEMA_STRUCTURE.FIELD_ON_SCHEMANAME", { schemaName: schemaDetails.schemaName }),
+        context: tx(FIELD_ON_SCHEMANAME_KEY, { schemaName: schemaDetails.schemaName }),
       });
       return;
     }

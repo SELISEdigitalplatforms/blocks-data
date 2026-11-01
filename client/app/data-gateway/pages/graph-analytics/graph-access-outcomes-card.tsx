@@ -23,6 +23,8 @@ import { formatBucketLabel } from "./graph-log-formatters";
 import { OUTCOME_COLORS } from "./graph-outcome-colors";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
+const DATA_GATEWAY_ANALYTICS_MODULE = "data.gateway.analytics";
+
 /**
  * A request the gateway refused on purpose, as opposed to an error response. Authentication,
  * authorization and explicit input validation are denials; malformed requests and GraphQL
@@ -34,9 +36,9 @@ import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
  */
 // Status colours, not a categorical ramp: these are states, and each ships with its own label.
 const CHART_CONFIG = {
-  success: { get label() { return tStatic("data.gateway.analytics", "GRAPH_ACCESS_OUTCOMES_CARD.ALLOWS"); }, color: OUTCOME_COLORS.allows },
-  denied: { get label() { return tStatic("data.gateway.analytics", "GRAPH_ACCESS_OUTCOMES_CARD.DENIES"); }, color: OUTCOME_COLORS.denies },
-  errored: { get label() { return tStatic("data.gateway.analytics", "GRAPH_ACCESS_OUTCOMES_CARD.ERRORS"); }, color: OUTCOME_COLORS.errors },
+  success: { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_ACCESS_OUTCOMES_CARD.ALLOWS"); }, color: OUTCOME_COLORS.allows },
+  denied: { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_ACCESS_OUTCOMES_CARD.DENIES"); }, color: OUTCOME_COLORS.denies },
+  errored: { get label() { return tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_ACCESS_OUTCOMES_CARD.ERRORS"); }, color: OUTCOME_COLORS.errors },
 } satisfies ChartConfig;
 
 // A real non-zero outcome must remain visible even when a much larger successful-request segment
@@ -89,7 +91,7 @@ export const GraphAccessOutcomesCard = ({
   isLoading,
   isError,
 }: GraphAccessOutcomesCardProps) => {
-  const { t } = useT("data.gateway.analytics");
+  const { t } = useT(DATA_GATEWAY_ANALYTICS_MODULE);
   const chartData = useMemo(
     () =>
       (requestsOverTime ?? []).map((bucket) => ({

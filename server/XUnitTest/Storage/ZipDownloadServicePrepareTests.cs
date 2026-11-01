@@ -19,7 +19,7 @@ public class ZipDownloadServicePrepareTests : IDisposable
 {
     private readonly Mock<IFileDirectoryRepository> _directories = new();
     private readonly Mock<IObjectAccessResolver> _resolver = new();
-    private readonly Mock<IObjectListingService> _listing = new();
+    private readonly Mock<IObjectDiscoveryService> _listing = new();
     private readonly Mock<IFileManagementService> _files = new();
     private readonly Mock<IZipTicketStore> _store = new();
 
@@ -94,7 +94,7 @@ public class ZipDownloadServicePrepareTests : IDisposable
 
     private void SetPage(string parentId, string? cursor, IEnumerable<VisibleChildItem> items, string? nextCursor)
         => _listing
-            .Setup(l => l.GetVisibleChildrenAsync(parentId, cursor, ZipDownloadLimits.ListingPageSize, null, null, It.IsAny<CancellationToken>()))
+            .Setup(l => l.GetObjectAsync(parentId, null, null, cursor, ZipDownloadLimits.ListingPageSize, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new VisibleChildrenPage { Items = items.ToList(), NextCursor = nextCursor, HasMore = nextCursor != null });
 
     private static PrepareZipDownloadRequest Request(IEnumerable<string>? items = null, IEnumerable<string>? dirs = null)
@@ -217,8 +217,8 @@ public class ZipDownloadServicePrepareTests : IDisposable
 
         ShouldFailWith(archived, ZipDownloadLimits.NothingToDownload);
         _saved.Should().BeEmpty();
-        _listing.Verify(l => l.GetVisibleChildrenAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<int>(),
-            It.IsAny<StructureType?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Never);
+        _listing.Verify(l => l.GetObjectAsync(It.IsAny<string>(), It.IsAny<StructureType?>(), It.IsAny<string?>(),
+            It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -249,8 +249,8 @@ public class ZipDownloadServicePrepareTests : IDisposable
 
         response.FileCount.Should().Be(1);
         Paths(_saved.Single()).Should().Equal("Docs/", "Docs/Sub/", "Docs/Sub/y.txt");
-        _listing.Verify(l => l.GetVisibleChildrenAsync("Sub", It.IsAny<string?>(), It.IsAny<int>(),
-            It.IsAny<StructureType?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+        _listing.Verify(l => l.GetObjectAsync("Sub", It.IsAny<StructureType?>(), It.IsAny<string?>(),
+            It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         // Two folders were selected, so the name is not taken from either.
         response.ZipName.Should().StartWith("download-");
     }
@@ -335,7 +335,7 @@ public class ZipDownloadServicePrepareTests : IDisposable
         // The selected folder counts too, so it holds folderCount - 1 empty subfolders (and one file).
         AddDirectory("D", "Docs");
         _listing
-            .Setup(l => l.GetVisibleChildrenAsync(It.IsAny<string>(), null, ZipDownloadLimits.ListingPageSize, null, null, It.IsAny<CancellationToken>()))
+            .Setup(l => l.GetObjectAsync(It.IsAny<string>(), null, null, null, ZipDownloadLimits.ListingPageSize, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new VisibleChildrenPage { Items = [], HasMore = false });
         var children = new[] { FileItem("x", "x.txt") }
             .Concat(Enumerable.Range(0, folderCount - 1).Select(i => Folder($"s{i}", $"s{i}")))
@@ -356,8 +356,8 @@ public class ZipDownloadServicePrepareTests : IDisposable
             _store.Verify(s => s.SaveAsync(It.IsAny<ZipTicket>()), Times.Never);
             _resolveCalls.Should().BeEmpty();
             // The walk stops at the folder that passes the cap: none of the subfolders is ever listed.
-            _listing.Verify(l => l.GetVisibleChildrenAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<int>(),
-                It.IsAny<StructureType?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
+            _listing.Verify(l => l.GetObjectAsync(It.IsAny<string>(), It.IsAny<StructureType?>(), It.IsAny<string?>(),
+            It.IsAny<string?>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         }
     }
 

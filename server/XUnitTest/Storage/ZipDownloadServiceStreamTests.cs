@@ -42,7 +42,7 @@ public class ZipDownloadServiceStreamTests : IDisposable
     private ZipDownloadService CreateSut() => new(
         Mock.Of<IFileDirectoryRepository>(),
         Mock.Of<IObjectAccessResolver>(),
-        Mock.Of<IObjectListingService>(),
+        Mock.Of<IObjectDiscoveryService>(),
         _files.Object,
         _store.Object,
         _configurations.Object,

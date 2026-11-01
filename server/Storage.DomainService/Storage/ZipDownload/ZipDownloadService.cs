@@ -66,7 +66,7 @@ public sealed class ZipDownloadService : IZipDownloadService
 
     private readonly IFileDirectoryRepository _directoryRepository;
     private readonly IObjectAccessResolver _accessResolver;
-    private readonly IObjectListingService _listingService;
+    private readonly IObjectDiscoveryService _discoveryService;
     private readonly IFileManagementService _fileManagementService;
     private readonly IZipTicketStore _ticketStore;
     private readonly IStorageConfigurationProvider _configurationProvider;
@@ -75,7 +75,7 @@ public sealed class ZipDownloadService : IZipDownloadService
     public ZipDownloadService(
         IFileDirectoryRepository directoryRepository,
         IObjectAccessResolver accessResolver,
-        IObjectListingService listingService,
+        IObjectDiscoveryService discoveryService,
         IFileManagementService fileManagementService,
         IZipTicketStore ticketStore,
         IStorageConfigurationProvider configurationProvider,
@@ -83,7 +83,7 @@ public sealed class ZipDownloadService : IZipDownloadService
     {
         _directoryRepository = directoryRepository;
         _accessResolver = accessResolver;
-        _listingService = listingService;
+        _discoveryService = discoveryService;
         _fileManagementService = fileManagementService;
         _ticketStore = ticketStore;
         _configurationProvider = configurationProvider;
@@ -420,8 +420,10 @@ public sealed class ZipDownloadService : IZipDownloadService
 
             do
             {
-                var page = await _listingService.GetVisibleChildrenAsync(
-                    directoryId, cursor, ZipDownloadLimits.ListingPageSize, null, null, cancellationToken).ConfigureAwait(false);
+                // The same access-resolved listing the Storage UI shows (get-objects), so a
+                // folder zips exactly the children the caller sees there.
+                var page = await _discoveryService.GetObjectAsync(
+                    directoryId, null, null, cursor, ZipDownloadLimits.ListingPageSize, cancellationToken).ConfigureAwait(false);
 
                 foreach (var child in page.Items)
                 {

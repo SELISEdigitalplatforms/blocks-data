@@ -262,9 +262,9 @@ export function StorageDetail() {
   const selectedItems = [...dmsItemsById.values()].filter((item) => selection.isSelected(item.itemId));
   const shareDisabledReason =
     selection.count > MAX_SHARE_ITEMS
-      ? `Share up to ${MAX_SHARE_ITEMS} items at a time`
+      ? t("STORAGE_DETAIL.SHARE_UP_TO_ITEMS_AT_A_TIME", { max: MAX_SHARE_ITEMS })
       : selectedItems.some((item) => !itemActions(item).canManageAccess)
-        ? "You can't manage access on some selected items"
+        ? t("STORAGE_DETAIL.CANT_MANAGE_ACCESS_ON_SOME_ITEMS")
         : undefined;
 
   // Helper to build URL with directory navigation params
@@ -445,7 +445,7 @@ export function StorageDetail() {
             className="cursor-pointer"
           >
             <Download className="mr-2 h-4 w-4" />
-            Download as zip
+            {t("STORAGE_DETAIL.DOWNLOAD_AS_ZIP")}
           </DropdownMenuItem>
         )}
         {dmsItem && !isDirectoryRow && actions.canViewVersions && (

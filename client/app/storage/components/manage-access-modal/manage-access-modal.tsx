@@ -271,17 +271,12 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
     }
   };
 
-  const describeSelectPrincipals = (): string => {
-    if (principalType === "Organization") return tx("MANAGE_ACCESS_MODAL.SELECT_ORGANIZATIONS");
-    return principalType === "Role" ? tx("MANAGE_ACCESS_MODAL.SELECT_ROLES") : tx("MANAGE_ACCESS_MODAL.SELECT_USERS");
-  };
   const describeChoosePrincipals = (): string => {
     if (principalType === "Organization") return tx("MANAGE_ACCESS_MODAL.CHOOSE_ORGANIZATIONS_TO_CONTINUE");
     return principalType === "Role"
       ? tx("MANAGE_ACCESS_MODAL.CHOOSE_ROLES_TO_CONTINUE")
       : tx("MANAGE_ACCESS_MODAL.CHOOSE_USERS_TO_CONTINUE");
   };
-  const selectPrincipalsLabel = describeSelectPrincipals();
   const choosePrincipalsLabel = describeChoosePrincipals();
   const inheritanceToggleLabel = item.inheritsParentAccess
     ? tx("MANAGE_ACCESS_MODAL.TURN_OFF_INHERITANCE")

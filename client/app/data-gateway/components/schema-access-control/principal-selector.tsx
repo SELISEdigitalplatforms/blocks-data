@@ -16,15 +16,16 @@ import {
   type PrincipalOption,
   type UserPrincipalValue,
 } from "@/data-gateway/hooks/use-principal-options";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export const PRINCIPAL_MESSAGES = {
-  MISSING_TENANT: "Select a project before loading roles or users.",
-  FORBIDDEN: "You do not have permission to view tenant roles or users.",
-  ROLES_FAILED: "Roles could not be loaded.",
-  USERS_FAILED: "Users could not be loaded.",
-  NO_ROLES: "No roles found.",
-  NO_USERS: "No users found.",
-  UNAVAILABLE: "Unavailable",
+  get MISSING_TENANT() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.SELECT_A_PROJECT_BEFORE_LOADING_ROLES"); },
+  get FORBIDDEN() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.YOU_DO_NOT_HAVE_PERMISSION_TO"); },
+  get ROLES_FAILED() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.ROLES_COULD_NOT_BE_LOADED"); },
+  get USERS_FAILED() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.USERS_COULD_NOT_BE_LOADED"); },
+  get NO_ROLES() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.NO_ROLES_FOUND"); },
+  get NO_USERS() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.NO_USERS_FOUND"); },
+  get UNAVAILABLE() { return tStatic("data.gateway.access", "PRINCIPAL_SELECTOR.UNAVAILABLE"); },
 } as const;
 
 interface PrincipalSelectorProps {
@@ -61,6 +62,7 @@ const PrincipalSelectorInner = ({
   userValueField,
   variant = "field",
 }: PrincipalSelectorProps) => {
+  const { t } = useT("data.gateway.access");
   const isChip = variant === "chip";
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -126,8 +128,8 @@ const PrincipalSelectorInner = ({
   const triggerLabel = selectedValues.length
     ? selectedValues.map(labelFor).join(", ")
     : entity === "role"
-      ? "Select role"
-      : "Select user";
+      ? t("PRINCIPAL_SELECTOR.SELECT_ROLE")
+      : t("PRINCIPAL_SELECTOR.SELECT_USER");
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -146,7 +148,7 @@ const PrincipalSelectorInner = ({
             )}
           >
             <span className="block truncate">
-              {selectedValues.length ? triggerLabel : "Not set"}
+              {selectedValues.length ? triggerLabel : t("PRINCIPAL_SELECTOR.NOT_SET")}
             </span>
           </button>
         ) : (
@@ -176,7 +178,7 @@ const PrincipalSelectorInner = ({
         <div className="border-b p-2">
           <Input
             className={cn("h-8", isChip && "text-xs")}
-            placeholder={entity === "role" ? "Search roles" : "Search users"}
+            placeholder={entity === "role" ? t("PRINCIPAL_SELECTOR.SEARCH_ROLES") : t("PRINCIPAL_SELECTOR.SEARCH_USERS")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -189,12 +191,12 @@ const PrincipalSelectorInner = ({
               <div className="flex items-center justify-between gap-2 p-3 text-sm text-destructive">
                 <span>{failedMessage}</span>
                 <button type="button" className="underline" onClick={() => browse.refetch()}>
-                  Retry
+                  {t("common:RETRY")}
                 </button>
               </div>
             ) : browse.isLoading ? (
               <div className="p-3 text-sm text-muted-foreground" aria-busy="true">
-                Loading…
+                {t("PRINCIPAL_SELECTOR.LOADING")}
               </div>
             ) : browse.options.length === 0 ? (
               <div className="p-3 text-sm text-muted-foreground">{emptyMessage}</div>
@@ -214,7 +216,7 @@ const PrincipalSelectorInner = ({
                         <Checkbox
                           checked={isSelected}
                           tabIndex={-1}
-                          aria-label={`${isSelected ? "Deselect" : "Select"} ${option.primaryLabel}`}
+                          aria-label={t(isSelected ? "PRINCIPAL_SELECTOR.DESELECT_OPTION" : "PRINCIPAL_SELECTOR.SELECT_OPTION", { label: option.primaryLabel })}
                           className="pointer-events-none mr-2 shrink-0"
                         />
                       )}
@@ -233,7 +235,7 @@ const PrincipalSelectorInner = ({
                     value="__load_more__"
                     onSelect={() => browse.fetchNextPage()}
                   >
-                    {browse.isFetchingNextPage ? "Loading…" : "Load more"}
+                    {browse.isFetchingNextPage ? "Loading…" : t("PRINCIPAL_SELECTOR.LOAD_MORE")}
                   </CommandItem>
                 )}
               </CommandGroup>

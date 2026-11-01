@@ -42,6 +42,7 @@ import { useNarrowContainer } from "@/data-gateway/hooks/use-narrow-container";
 import { useTransientStatus } from "@/data-gateway/hooks/use-transient-status";
 import { AccessEffectLine } from "./access-effect-line";
 import { AccessPresetList } from "./access-preset-list";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /** What the rule editor's own Save/Update hands back to be sent to the API. */
 interface RuleSetSubmission {
@@ -61,10 +62,10 @@ export interface SchemaAccessControlViewHandle {
 
 /** "Who is allowed" tile grid — Inherited is column-only (there is nothing to inherit from at row level). */
 const ACCESS_TIER_TILES = [
-  { type: ACCESS_TYPES.INHERITED, label: "Inherited" },
-  { type: ACCESS_TYPES.PUBLIC, label: "Public" },
-  { type: ACCESS_TYPES.LOGGED_IN, label: "Signed-in users" },
-  { type: ACCESS_TYPES.CUSTOM, label: "Custom" },
+  { type: ACCESS_TYPES.INHERITED, get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL_VIEW.INHERITED"); } },
+  { type: ACCESS_TYPES.PUBLIC, get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL_VIEW.PUBLIC"); } },
+  { type: ACCESS_TYPES.LOGGED_IN, get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL_VIEW.SIGNED_IN_USERS"); } },
+  { type: ACCESS_TYPES.CUSTOM, get label() { return tStatic("data.gateway.access", "SCHEMA_ACCESS_CONTROL_VIEW.CUSTOM"); } },
 ];
 
 /** Below this width the 4-tile grid can no longer fit a label beside every icon. */
@@ -86,6 +87,7 @@ export const SchemaAccessControlView = forwardRef<
   },
   ref,
 ) {
+  const { t: tx } = useT("data.gateway.access");
   const [showRuleSetForm, setShowRuleSetForm] = useState(false);
 
   // The inspector widens for the rule editor; it needs to
@@ -234,7 +236,7 @@ export const SchemaAccessControlView = forwardRef<
         return; // leave the form open with its values so the user can retry
       }
 
-      setSuccess("Rule set saved successfully");
+      setSuccess(tx("SCHEMA_ACCESS_CONTROL_VIEW.RULE_SET_SAVED_SUCCESSFULLY"));
       refetch();
       advanceAfterRuleSetSaved();
     } catch (error) {
@@ -279,7 +281,7 @@ export const SchemaAccessControlView = forwardRef<
       });
 
       if (res?.isSuccess) {
-        setSuccess("Access level updated successfully");
+        setSuccess(tx("SCHEMA_ACCESS_CONTROL_VIEW.ACCESS_LEVEL_UPDATED_SUCCESSFULLY"));
         setLastSavedAccessType(selectedAccessType);
         return true;
       }
@@ -354,9 +356,9 @@ export const SchemaAccessControlView = forwardRef<
       <div className="flex shrink-0 flex-col gap-3">
         <div>
           <div className="mb-2">
-            <p className="text-sm font-semibold text-foreground">Who can access this?</p>
+            <p className="text-sm font-semibold text-foreground">{tx("SCHEMA_ACCESS_CONTROL_VIEW.WHO_CAN_ACCESS_THIS")}</p>
             <p className="text-xs text-muted-foreground">
-              Choose the access level for this operation.
+              {tx("SCHEMA_ACCESS_CONTROL_VIEW.CHOOSE_THE_ACCESS_LEVEL_FOR_THIS")}
             </p>
           </div>
           <div
@@ -368,7 +370,7 @@ export const SchemaAccessControlView = forwardRef<
                 : "grid-cols-2",
             )}
             role="radiogroup"
-            aria-label="Who is allowed"
+            aria-label={tx("SCHEMA_ACCESS_CONTROL_VIEW.WHO_IS_ALLOWED")}
           >
             {visibleTiers.map(({ type, label }) => {
               const tier = tierFromType(type);
@@ -466,7 +468,7 @@ export const SchemaAccessControlView = forwardRef<
                 aria-busy="true"
               >
                 <Loader className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
-                <span className="text-sm text-muted-foreground">Loading access rules…</span>
+                <span className="text-sm text-muted-foreground">{tx("SCHEMA_ACCESS_CONTROL_VIEW.LOADING_ACCESS_RULES")}</span>
               </div>
             ) : policies.length === 0 ? (
               <AccessPresetList
@@ -493,7 +495,7 @@ export const SchemaAccessControlView = forwardRef<
                   setShowRuleSetForm(true);
                 }}
                 onDeleteSuccess={() => {
-                  setSuccess("Rule set deleted successfully");
+                  setSuccess(tx("SCHEMA_ACCESS_CONTROL_VIEW.RULE_SET_DELETED_SUCCESSFULLY"));
                   refetch();
                 }}
                 onDeleteError={setError}
@@ -508,7 +510,7 @@ export const SchemaAccessControlView = forwardRef<
           <StatusSnackbar status={status} />
           <div className="flex items-center gap-2">
             <span className="flex-1 min-w-0 text-xs text-muted-foreground">
-              {hasUnsavedChanges ? "Unsaved changes" : "No changes"}
+              {hasUnsavedChanges ? tx("SCHEMA_ACCESS_CONTROL_VIEW.UNSAVED_CHANGES") : tx("SCHEMA_ACCESS_CONTROL_VIEW.NO_CHANGES")}
             </span>
             <Button
               type="button"
@@ -517,7 +519,7 @@ export const SchemaAccessControlView = forwardRef<
               disabled={!hasUnsavedChanges || isUpdating || isSavingRuleSet}
               onClick={handleCancelAccessType}
             >
-              Cancel
+              {tx("common:CANCEL")}
             </Button>
             <Button
               type="button"
@@ -525,7 +527,7 @@ export const SchemaAccessControlView = forwardRef<
               disabled={!hasUnsavedChanges || isUpdating || isSavingRuleSet}
               onClick={() => void handleFinalSave()}
             >
-              Save
+              {tx("common:SAVE")}
             </Button>
           </div>
         </div>

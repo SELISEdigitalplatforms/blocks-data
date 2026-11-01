@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui-kits/dialog/dialog";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * The panel now holds unsaved changes — a staged rule set, a picked-but-not-
@@ -24,6 +25,7 @@ export function UnsavedAccessChangesDialog({
   onDiscard: () => void;
   isSaving?: boolean;
 }) {
+  const { t } = useT("data.gateway.access");
   return (
     <DialogContent
       className="mr-4 w-full max-w-[425px] rounded-md"
@@ -35,10 +37,10 @@ export function UnsavedAccessChangesDialog({
     >
       <DialogHeader>
         <DialogTitle className="text-left text-lg font-semibold leading-7">
-          Save changes?
+          {t("UNSAVED_ACCESS_CHANGES_DIALOG.SAVE_CHANGES")}
         </DialogTitle>
         <DialogDescription className="mb-2 mt-2 wrap-break-word text-left text-sm font-normal leading-5 text-medium-emphasis">
-          This access rule has unsaved changes. Save them before leaving, or discard them.
+          {t("UNSAVED_ACCESS_CHANGES_DIALOG.THIS_ACCESS_RULE_HAS_UNSAVED_CHANGES")}
         </DialogDescription>
       </DialogHeader>
       <DialogFooter className="mt-4 flex flex-row justify-end gap-2">
@@ -50,10 +52,10 @@ export function UnsavedAccessChangesDialog({
           onClick={onDiscard}
           disabled={isSaving}
         >
-          Discard
+          {t("UNSAVED_ACCESS_CHANGES_DIALOG.DISCARD")}
         </Button>
         <Button type="button" size="sm" onClick={onSave} disabled={isSaving}>
-          Save changes
+          {t("common:SAVE_CHANGES")}
         </Button>
       </DialogFooter>
     </DialogContent>

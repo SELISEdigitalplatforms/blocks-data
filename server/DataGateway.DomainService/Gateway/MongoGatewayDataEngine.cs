@@ -140,13 +140,7 @@ public sealed partial class MongoGatewayDataEngine : IGatewayDataEngine
         }
     }
 
-    // Task 10 replaces these with the mutation implementations.
-    public Task<ActionResponse> InsertAsync(EntityModel entity, InsertCommand command) => throw new NotImplementedException();
-    public Task<BulkActionResponse> InsertManyAsync(EntityModel entity, InsertManyCommand command) => throw new NotImplementedException();
-    public Task<ActionResponse> UpdateAsync(EntityModel entity, UpdateCommand command) => throw new NotImplementedException();
-    public Task<ActionResponse> UpdateManyAsync(EntityModel entity, UpdateManyCommand command) => throw new NotImplementedException();
-    public Task<ActionResponse> DeleteAsync(EntityModel entity, DeleteCommand command) => throw new NotImplementedException();
-    public Task<ActionResponse> DeleteManyAsync(EntityModel entity, DeleteManyCommand command) => throw new NotImplementedException();
+    // The mutation operations are in MongoGatewayDataEngine.Mutations.cs.
 
     /// <summary>The projection document the requested paths make: <c>{ path: 1 }</c> for each.</summary>
     private static BsonDocument MapProjection(IReadOnlyList<string> select)

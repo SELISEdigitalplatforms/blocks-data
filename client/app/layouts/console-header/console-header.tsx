@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui-kits/sheet/sh
 import { UserDropdownMenu } from "@/components/user-dropdown-menu/user-dropdown-menu";
 import { SidebarContext } from "@/contexts/dashboard-layout-provider";
 import useIsMobile from "@/hooks/use-is-mobile";
+import { LanguageSelector } from "@seliseblocks/genesis-os";
 import { Menu } from "lucide-react";
 import { useContext, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
@@ -60,6 +61,7 @@ export function ConsoleHeader() {
                 </div>
               )}
               <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-3">
+                <LanguageSelector />
                 <ModeToggle />
                 <Notification />
                 <BlocksAppLauncher />
@@ -70,6 +72,7 @@ export function ConsoleHeader() {
         </div>
         <div className="hidden sm:flex sm:items-center sm:gap-4">
           {isConsoleButtonVisible && <BackToConsoleNavigator />}
+          <LanguageSelector />
           <ModeToggle />
           <Notification />
           <BlocksAppLauncher />

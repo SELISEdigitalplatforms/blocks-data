@@ -1,0 +1,22 @@
+import { registerTranslations } from "@seliseblocks/genesis-os/i18n";
+import consoleApp from "./data.console.en.json";
+import gatewayAccess from "./data.gateway.access.en.json";
+import gatewayAnalytics from "./data.gateway.analytics.en.json";
+import gatewaySchema from "./data.gateway.schema.en.json";
+import gatewayValidation from "./data.gateway.validation.en.json";
+import idpAuthentication from "./data.idp.authentication.en.json";
+import idpIam from "./data.idp.iam.en.json";
+import idpSecurity from "./data.idp.security.en.json";
+import shared from "./data.shared.en.json";
+import storage from "./data.storage.en.json";
+
+registerTranslations("data.console", consoleApp);
+registerTranslations("data.gateway.access", gatewayAccess);
+registerTranslations("data.gateway.analytics", gatewayAnalytics);
+registerTranslations("data.gateway.schema", gatewaySchema);
+registerTranslations("data.gateway.validation", gatewayValidation);
+registerTranslations("data.idp.authentication", idpAuthentication);
+registerTranslations("data.idp.iam", idpIam);
+registerTranslations("data.idp.security", idpSecurity);
+registerTranslations("data.shared", shared);
+registerTranslations("data.storage", storage);

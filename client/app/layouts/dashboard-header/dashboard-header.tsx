@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import {
   AppSwitcher,
+  LanguageSelector,
   ThemeSwitcher,
   UserDropdownMenu,
 } from "@seliseblocks/genesis-os";
@@ -77,6 +78,7 @@ export function DashboardHeader() {
 
         <div className="flex items-center gap-4">
           <BackToConsoleNavigator />
+          <LanguageSelector />
           <ThemeSwitcher />
           <Notification />
           <AppSwitcher forwardedTo="/app/dashboard" />

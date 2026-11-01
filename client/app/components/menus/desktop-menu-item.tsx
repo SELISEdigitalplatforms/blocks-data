@@ -5,6 +5,7 @@ import { useProjectStore } from "@seliseblocks/genesis-os";
 import { ChevronRight } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type MenuItemType = Extract<Menu, { type: "menu" }>;
 
@@ -40,6 +41,7 @@ export function DesktopMenuItem({
   // the same order, whatever the menu type is.
   const menuItem = menu as MenuItemType;
   const { pathname } = useLocation();
+  const { t } = useT("data.shared");
   const selectedProject = useProjectStore().selectedProject;
 
   const isActiveMenu = useMemo(() => {
@@ -64,8 +66,8 @@ export function DesktopMenuItem({
     return null;
   }
 
-  const projectName = selectedProject?.name || "Project";
-  const environment = selectedProject?.environment || "Environment";
+  const projectName = selectedProject?.name || t("DESKTOP_MENU_ITEM.PROJECT");
+  const environment = selectedProject?.environment || t("DESKTOP_MENU_ITEM.ENVIRONMENT");
 
   const hasChildren = Boolean(menuItem.children?.length);
 

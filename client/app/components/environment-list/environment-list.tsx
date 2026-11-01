@@ -12,6 +12,7 @@ import { useProjectStore } from "@/store/use-project-store";
 import { Globe, Loader } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const redirectPaths: Record<string, string> = {
   "/services/iam/user-detail/*": "/services/iam",
@@ -39,6 +40,7 @@ export function EnvironmentList({
 }: {
   collapsed?: boolean;
 }) {
+  const { t } = useT("data.shared");
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { data: projectGroups = [], isLoading } = useGetProjects();
@@ -109,7 +111,7 @@ export function EnvironmentList({
           <div className="pointer-events-none absolute left-full top-0 z-20 ml-2 min-w-max whitespace-nowrap rounded bg-gray-300 px-2 py-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
             {environment
               ? `${environment}${applicationDomain ? ` - ${applicationDomain}` : ""}`
-              : "Select an Environment"}
+              : t("ENVIRONMENT_LIST.SELECT_AN_ENVIRONMENT")}
           </div>
         </DropdownMenuTrigger>
       ) : (
@@ -121,7 +123,7 @@ export function EnvironmentList({
             <Globe className="h-4 w-4 shrink-0 text-muted-foreground" />
             <div className="flex min-w-0 flex-1 flex-col items-start">
               <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Environment
+                {t("ENVIRONMENT_LIST.ENVIRONMENT")}
               </div>
               {environment ? (
                 <div className="flex min-w-0 items-center gap-1 leading-tight">
@@ -131,7 +133,7 @@ export function EnvironmentList({
                 </div>
               ) : (
                 <span className="text-sm leading-tight">
-                  Select an Environment
+                  {t("ENVIRONMENT_LIST.SELECT_AN_ENVIRONMENT")}
                 </span>
               )}
             </div>
@@ -146,7 +148,7 @@ export function EnvironmentList({
           collapsed ? "min-w-48" : "w-(--radix-dropdown-menu-trigger-width)"
         }
       >
-        <DropdownMenuLabel>Your Environments</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("ENVIRONMENT_LIST.YOUR_ENVIRONMENTS")}</DropdownMenuLabel>
         {projects
           .filter((project) => project.itemId !== selectedProject?.itemId)
           .slice(0, 5)
@@ -166,7 +168,7 @@ export function EnvironmentList({
           ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled>
-          Environment overview is not part of this client
+          {t("ENVIRONMENT_LIST.ENVIRONMENT_OVERVIEW_IS_NOT_PART_OF")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

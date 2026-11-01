@@ -1,4 +1,5 @@
 import React from "react";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export interface BlocksApp {
   key: string;
@@ -311,7 +312,7 @@ export const SELISE_APPS: BlocksApp[] = [
   {
     key: "iam",
     label: "IAM",
-    description: "Identity & Access",
+    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.IDENTITY_ACCESS"); },
     url: window.process?.env.BLOCKS_IAM_BASE_URL || "",
     icon: <IdpIcon />,
     clientId: window.process?.env.BLOCKS_IAM_CLIENT_ID || "",
@@ -319,8 +320,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "localization",
-    label: "Localization",
-    description: "Localization",
+    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.LOCALIZATION"); },
+    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.LOCALIZATION"); },
     url: window.process?.env.BLOCKS_LOCALIZATION_BASE_URL || "",
     icon: <UilmIcon />,
     clientId: window.process?.env.BLOCKS_LOCALIZATION_CLIENT_ID || "",
@@ -329,8 +330,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "agents",
-    label: "Agents",
-    description: "AI Platform",
+    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.AGENTS"); },
+    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.AI_PLATFORM"); },
     url: window.process?.env.BLOCKS_AGENTS_BASE_URL || "",
     icon: <AiIcon />,
     clientId: window.process?.env.BLOCKS_AGENTS_CLIENT_ID || "",
@@ -338,8 +339,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "data",
-    label: "Data",
-    description: "Data Integration",
+    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.DATA"); },
+    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.DATA_INTEGRATION"); },
     url: window.process?.env.BLOCKS_DATA_BASE_URL || "",
     icon: <DataGatewayIcon />,
     clientId: window.process?.env.BLOCKS_DATA_CLIENT_ID || "",
@@ -348,7 +349,7 @@ export const SELISE_APPS: BlocksApp[] = [
   {
     key: "os",
     label: "OS",
-    description: "Operating System",
+    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.OPERATING_SYSTEM"); },
     url: window.process?.env.BLOCKS_OS_BASE_URL || "",
     icon: <BlocksOsIcon />,
     clientId: window.process?.env.BLOCKS_OS_CLIENT_ID || "",
@@ -356,8 +357,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "utilities",
-    label: "Utilities",
-    description: "Utility Tools",
+    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.UTILITIES"); },
+    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.UTILITY_TOOLS"); },
     url: window.process?.env.BLOCKS_UTILITIES_BASE_URL || "",
     icon: <UtilityIcon />,
     clientId: window.process?.env.BLOCKS_UTILITIES_CLIENT_ID || "",
@@ -366,8 +367,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "logic",
-    label: "Logic",
-    description: "Business Logic",
+    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.LOGIC"); },
+    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.BUSINESS_LOGIC"); },
     url: window.process?.env.BLOCKS_LOGIC_BASE_URL || "",
     icon: <LogicIcon />,
     clientId: window.process?.env.BLOCKS_LOGIC_CLIENT_ID || "",
@@ -375,8 +376,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "monitor",
-    label: "Monitor",
-    description: "Monitoring & Logs",
+    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.MONITOR"); },
+    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.MONITORING_LOGS"); },
     url: window.process?.env.BLOCKS_MONITOR_BASE_URL || "",
     icon: <ObservabilityIcon />,
     clientId: window.process?.env.BLOCKS_MONITOR_CLIENT_ID || "",
@@ -385,8 +386,8 @@ export const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "release",
-    label: "Release",
-    description: "CI/CD & Releases",
+    get label() { return tStatic("data.shared", "DASHBOARD_CONSTANT.RELEASE"); },
+    get description() { return tStatic("data.shared", "DASHBOARD_CONSTANT.CI_CD_RELEASES"); },
     url: window.process?.env.BLOCKS_RELEASE_BASE_URL || "",
     icon: <DeploymentsIcon />,
     clientId: window.process?.env.BLOCKS_RELEASE_CLIENT_ID || "",

@@ -7,6 +7,7 @@ import { IProject } from "@/identifier/models/project.model";
 import { getProjectBlocksApiUrl } from "@/lib/domain";
 import { formatFullDate } from "@/lib/utils";
 import { ReactNode } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface ProjectDetailItemProps {
   label: string;
@@ -54,13 +55,14 @@ export const ProjectDetail = ({
   project?: IProject;
   isLoading: boolean;
 }) => {
+  const { t } = useT("data.shared");
   if (isLoading) return <LoadingSkeleton />;
 
   return (
     <div className="rounded-sm border bg-card px-2 py-2 shadow-xs">
       <div className="grid-col-1 grid gap-4 px-2 py-4 md:gap-6 lg:grid-cols-2">
-        <ProjectDetailItem label="Name">{project?.name}</ProjectDetailItem>
-        <ProjectDetailItem label="X-Blocks-Key">
+        <ProjectDetailItem label={t("common:NAME")}>{project?.name}</ProjectDetailItem>
+        <ProjectDetailItem label={t("PROJECT_DETAIL.X_BLOCKS_KEY")}>
           <div className="flex h-6 items-center gap-2">
             <CopyToClipboardButton
               textToCopy={project?.tenantId || ""}
@@ -76,7 +78,7 @@ export const ProjectDetail = ({
           </div>
         </ProjectDetailItem>
         {project?.tenantSlug && (
-          <ProjectDetailItem label="Project Slug">
+          <ProjectDetailItem label={t("PROJECT_DETAIL.PROJECT_SLUG")}>
             <div className="flex h-6 items-center gap-2">
               <CopyToClipboardButton
                 textToCopy={project?.tenantSlug || ""}
@@ -87,10 +89,10 @@ export const ProjectDetail = ({
             </div>
           </ProjectDetailItem>
         )}
-        <ProjectDetailItem label="Environment">
+        <ProjectDetailItem label={t("PROJECT_DETAIL.ENVIRONMENT")}>
           {project?.environment === "prod" ? (
             <Button className="mr-4 h-6 rounded-xl" size="sm" variant="default">
-              Production
+              {t("PROJECT_DETAIL.PRODUCTION")}
             </Button>
           ) : (
             <Button
@@ -111,11 +113,11 @@ export const ProjectDetail = ({
             <RenderProjectUrl project={project} />
           </div>
         </ProjectDetailItem> */}
-        <ProjectDetailItem label="Last updated Date">
+        <ProjectDetailItem label={t("PROJECT_DETAIL.LAST_UPDATED_DATE")}>
           {project?.lastUpdatedDate &&
             formatFullDate(new Date(project.lastUpdatedDate))}
         </ProjectDetailItem>
-        <ProjectDetailItem label="Created Date">
+        <ProjectDetailItem label={t("PROJECT_DETAIL.CREATED_DATE")}>
           {project?.createdDate &&
             formatFullDate(new Date(project.createdDate))}
         </ProjectDetailItem>

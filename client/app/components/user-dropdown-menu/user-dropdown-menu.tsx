@@ -11,8 +11,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { useGetUser } from "@/idp/iam/hooks/use-user";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 function UserDropdownMenuLogo() {
+  const { t } = useT("data.shared");
   const { data } = useGetUser({ enabled: true });
   const userData = data?.data || { firstName: "", lastName: "", profileImageUrl: "" };
   const initials = `${userData.firstName?.[0] || ""}${userData.lastName?.[0] || ""}`.toUpperCase();
@@ -21,7 +23,7 @@ function UserDropdownMenuLogo() {
     return (
       <img
         src={userData.profileImageUrl}
-        alt="Profile"
+        alt={t("USER_DROPDOWN_MENU.PROFILE")}
         className="h-full w-full object-cover"
       />
     );
@@ -35,6 +37,7 @@ function UserDropdownMenuLogo() {
 }
 
 export function UserDropdownMenu() {
+  const { t } = useT("data.shared");
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -49,10 +52,10 @@ export function UserDropdownMenu() {
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-            <Link to="/profile">My profile</Link>
+            <Link to="/profile">{t("USER_DROPDOWN_MENU.MY_PROFILE")}</Link>
           </DropdownMenuItem>
-          <DropdownMenuItem disabled>Privacy</DropdownMenuItem>
-          <DropdownMenuItem disabled>Support</DropdownMenuItem>
+          <DropdownMenuItem disabled>{t("USER_DROPDOWN_MENU.PRIVACY")}</DropdownMenuItem>
+          <DropdownMenuItem disabled>{t("USER_DROPDOWN_MENU.SUPPORT")}</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>

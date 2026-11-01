@@ -3,6 +3,7 @@ import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
 import { Input } from "@/components/ui-kits/input/input";
 import { cn, debounce } from "@/lib/utils";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export interface SearchInputProps {
   onChange: (value: string) => void;
@@ -13,7 +14,7 @@ export interface SearchInputProps {
 
 export const SearchInput: React.FC<SearchInputProps> = ({
   onChange,
-  placeholder = "Search...",
+  placeholder = tStatic("data.shared", "SEARCH_INPUT.SEARCH"),
   value,
   className = "",
 }) => {

@@ -14,6 +14,7 @@ import { getRuntimeEnv } from "@/lib/runtime-env";
 import { cn, navigateToUrl } from "@/lib/utils";
 import { useState } from "react";
 import { useLocation } from "react-router";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 interface BlocksApp {
   key: string;
   label: string;
@@ -283,7 +284,7 @@ const SELISE_APPS: BlocksApp[] = [
   {
     key: "iam",
     label: "IAM",
-    description: "Identity & Access",
+    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.IDENTITY_ACCESS"); },
     url: getRuntimeEnv("BLOCKS_IAM_BASE_URL"),
     icon: <IdpIcon />,
     clientId: "a5831e15-e193-4a4f-8e10-d04a4ad1705b",
@@ -291,8 +292,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "localization",
-    label: "Localization",
-    description: "Localization",
+    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.LOCALIZATION"); },
+    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.LOCALIZATION"); },
     url: getRuntimeEnv("BLOCKS_LOCALIZATION_BASE_URL"),
     icon: <UilmIcon />,
     clientId: "57214b67-aa9c-4307-92ab-a25e35180fac",
@@ -300,8 +301,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "agents",
-    label: "Agents",
-    description: "AI Platform",
+    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.AGENTS"); },
+    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.AI_PLATFORM"); },
     url: getRuntimeEnv("BLOCKS_AGENTS_BASE_URL"),
     icon: <AiIcon />,
     clientId: "c1565dbc-de65-4966-a427-0ed9e542c678",
@@ -309,8 +310,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "data",
-    label: "Data",
-    description: "Data Integration",
+    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.DATA"); },
+    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.DATA_INTEGRATION"); },
     url: getRuntimeEnv("BLOCKS_DATA_BASE_URL"),
     icon: <DataGatewayIcon />,
     clientId: "e76867a8-37a1-483e-a15e-875c3884b8e8",
@@ -319,7 +320,7 @@ const SELISE_APPS: BlocksApp[] = [
   {
     key: "os",
     label: "OS",
-    description: "Operating System",
+    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.OPERATING_SYSTEM"); },
     url: getRuntimeEnv("BLOCKS_OS_BASE_URL"),
     icon: <BlocksOsIcon />,
     clientId: "5225b9c1-15bc-41b0-bdc6-d3ceb180ccc5",
@@ -327,8 +328,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "utilities",
-    label: "Utilities",
-    description: "Utility Tools",
+    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.UTILITIES"); },
+    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.UTILITY_TOOLS"); },
     url: getRuntimeEnv("BLOCKS_UTILITIES_BASE_URL"),
     icon: <UtilityIcon />,
     clientId: "4f7ae2b9-4b42-4770-9138-63db08538629",
@@ -336,8 +337,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "logic",
-    label: "Logic",
-    description: "Business Logic",
+    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.LOGIC"); },
+    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.BUSINESS_LOGIC"); },
     url: getRuntimeEnv("BLOCKS_LOGIC_BASE_URL"),
     icon: <LogicIcon />,
     clientId: "a25aee32-73ae-484b-b813-522a8d091f89",
@@ -345,8 +346,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "monitor",
-    label: "Monitor",
-    description: "Monitoring & Logs",
+    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.MONITOR"); },
+    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.MONITORING_LOGS"); },
     url: getRuntimeEnv("BLOCKS_MONITOR_BASE_URL"),
     icon: <ObservabilityIcon />,
     clientId: "1bd234da-1fa1-4264-982e-3debb1078be5",
@@ -354,8 +355,8 @@ const SELISE_APPS: BlocksApp[] = [
   },
   {
     key: "release",
-    label: "Release",
-    description: "CI/CD & Releases",
+    get label() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.RELEASE"); },
+    get description() { return tStatic("data.shared", "BLOCKS_APP_LAUNCHER.CI_CD_RELEASES"); },
     url: getRuntimeEnv("BLOCKS_RELEASE_BASE_URL"),
     icon: <DeploymentsIcon />,
     clientId: "6523b311-256f-4b9a-a88a-2ac4e02bad25",
@@ -430,6 +431,7 @@ function StarIcon({ filled }: { filled: boolean }) {
   );
 }
 export function BlocksAppLauncher() {
+  const { t } = useT("data.shared");
   const [open, setOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   // Read once on mount; this client-only SPA always has localStorage.
@@ -473,12 +475,12 @@ export function BlocksAppLauncher() {
       if (data.redirect_uri && navigateToUrl(data.redirect_uri as string)) {
         return;
       } else {
-        showErrorToast({ errors: "Failed to get authorization URL" });
+        showErrorToast({ errors: t("BLOCKS_APP_LAUNCHER.FAILED_TO_GET_AUTHORIZATION_URL") });
         setLoadingKey(null);
       }
     } catch (error) {
       console.error("App login initiation error:", error);
-      showErrorToast({ errors: "Unable to open app. Please try again." });
+      showErrorToast({ errors: t("BLOCKS_APP_LAUNCHER.UNABLE_TO_OPEN_APP_PLEASE_TRY") });
       setLoadingKey(null);
     }
   };
@@ -489,7 +491,7 @@ export function BlocksAppLauncher() {
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
-            aria-label="SELISE Blocks apps"
+            aria-label={t("BLOCKS_APP_LAUNCHER.SELISE_BLOCKS_APPS")}
             className={cn(
               "flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors",
               "hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
@@ -506,12 +508,12 @@ export function BlocksAppLauncher() {
         >
           <div className="flex items-center justify-between bg-background px-3 py-3 border-b">
             <p className="text-[13px] font-semibold text-foreground">
-              Your favourites
+              {t("BLOCKS_APP_LAUNCHER.YOUR_FAVOURITES")}
             </p>
             <button
               onClick={() => setEditDialogOpen(true)}
               className="flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              aria-label="Edit favourites"
+              aria-label={t("BLOCKS_APP_LAUNCHER.EDIT_FAVOURITES")}
             >
               <EditIcon />
             </button>
@@ -531,7 +533,7 @@ export function BlocksAppLauncher() {
           {moreApps.length > 0 && (
             <div className="bg-muted/50 px-3 pb-4 pt-3 border-t">
               <p className="mb-2 px-1 text-[13px] font-semibold text-muted-foreground">
-                More from SELISE Blocks
+                {t("BLOCKS_APP_LAUNCHER.MORE_FROM_SELISE_BLOCKS")}
               </p>
               <div className="grid grid-cols-3">
                 {moreApps.map((app) => (
@@ -550,7 +552,7 @@ export function BlocksAppLauncher() {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Manage Favourites</DialogTitle>
+            <DialogTitle>{t("BLOCKS_APP_LAUNCHER.MANAGE_FAVOURITES")}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-4 py-2">
             {SELISE_APPS.map((app) => (

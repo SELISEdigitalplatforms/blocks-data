@@ -4,6 +4,7 @@ import { Button } from "@/components/ui-kits/button/button";
 import { Separator } from "@/components/ui-kits/separator/separator";
 import { BLOCKS_PRODUCTS } from "@/constants/blocks-products";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export interface BlocksLoginPageProps {
   name: string;
@@ -36,13 +37,14 @@ export function BlocksLoginPage({
   name,
   onLogin,
   isLoading = false,
-  eyebrow = "Enterprise Application OS",
+  eyebrow = tStatic("data.shared", "BLOCKS_LOGIN_PAGE.ENTERPRISE_APPLICATION_OS"),
   keywords = DEFAULT_KEYWORDS,
-  keywordPrefix = "Backends that are",
-  loginLabel = "Log in to your account",
+  keywordPrefix = tStatic("data.shared", "BLOCKS_LOGIN_PAGE.BACKENDS_THAT_ARE"),
+  loginLabel = tStatic("data.shared", "BLOCKS_LOGIN_PAGE.LOG_IN_TO_YOUR_ACCOUNT"),
   docsUrl = "https://docs.seliseblocks.com/",
-  footerLink = { label: "Visit Blocks", url: "https://seliseblocks.com" },
+  footerLink = { label: tStatic("data.shared", "BLOCKS_LOGIN_PAGE.VISIT_BLOCKS"), url: "https://seliseblocks.com" },
 }: BlocksLoginPageProps) {
+  const { t: tx } = useT("data.shared");
   const active = useMemo(
     () => BLOCKS_PRODUCTS.find((p) => p.name === name) ?? BLOCKS_PRODUCTS[0],
     [name],
@@ -288,7 +290,7 @@ export function BlocksLoginPage({
               rel="noreferrer"
               className="nav-link"
             >
-              Docs
+              {tx("BLOCKS_LOGIN_PAGE.DOCS")}
             </a>
             <a
               href="https://seliseblocks.com"
@@ -296,7 +298,7 @@ export function BlocksLoginPage({
               rel="noreferrer"
               className="nav-link"
             >
-              Blocks
+              {tx("BLOCKS_LOGIN_PAGE.BLOCKS")}
             </a>
             <a
               href="https://github.com/SELISEdigitalplatforms"
@@ -304,7 +306,7 @@ export function BlocksLoginPage({
               rel="noreferrer"
               className="nav-link"
             >
-              GitHub
+              {tx("BLOCKS_LOGIN_PAGE.GITHUB")}
             </a>
           </nav>
           <ModeToggle />
@@ -363,7 +365,7 @@ export function BlocksLoginPage({
               rel="noreferrer"
               className="cta-docs"
             >
-              View documentation
+              {tx("BLOCKS_LOGIN_PAGE.VIEW_DOCUMENTATION")}
               <svg
                 width="12"
                 height="12"
@@ -380,9 +382,9 @@ export function BlocksLoginPage({
 
         <div className="col-right">
           <div className="sdk-header-row">
-            <p className="sdk-header-label">Core Services — Blocks Platform</p>
+            <p className="sdk-header-label">{tx("BLOCKS_LOGIN_PAGE.CORE_SERVICES_BLOCKS_PLATFORM")}</p>
             <Badge variant="outline" className="sdk-count-badge">
-              {otherProducts.length} services
+              {tx("BLOCKS_LOGIN_PAGE.LENGTH_SERVICES", { length: otherProducts.length })}
             </Badge>
           </div>
 
@@ -456,7 +458,7 @@ export function BlocksLoginPage({
                 <path d="M5 12h14M12 5l7 7-7 7" />
               </svg>
             </a>
-            <span className="sdk-open-source">Open source</span>
+            <span className="sdk-open-source">{tx("BLOCKS_LOGIN_PAGE.OPEN_SOURCE")}</span>
           </div>
         </div>
       </main>

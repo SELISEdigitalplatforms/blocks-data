@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\DataGateway.DomainService\DataGateway.DomainService.csproj" />
     <ProjectReference Include="..\DataGateway.GraphQL\DataGateway.GraphQL.csproj" />
+    <ProjectReference Include="..\DataGateway.Rest\DataGateway.Rest.csproj" />
     <ProjectReference Include="..\Storage.DomainService\Storage.DomainService.csproj" />
   </ItemGroup>
 </Project>

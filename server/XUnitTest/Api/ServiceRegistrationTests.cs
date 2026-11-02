@@ -5,6 +5,8 @@ using DataGateway.DomainService;
 using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Services;
+using DataGateway.Rest;
+using DataGateway.Rest.Entities;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,8 +15,8 @@ using Moq;
 namespace XUnitTest.Api;
 
 /// <summary>
-/// The Api host wires the gateway from two registries: the GraphQL-free domain services and the GraphQL
-/// transport. Every gateway entry point must resolve from that combined collection.
+/// The Api host wires the gateway from three registries: the GraphQL-free domain services, the GraphQL transport
+/// and the REST transport. Every gateway entry point must resolve from that combined collection.
 /// </summary>
 public class ServiceRegistrationTests
 {
@@ -30,11 +32,13 @@ public class ServiceRegistrationTests
         services.AddSingleton(Mock.Of<ICloudBuildSecret>());
         services.AddSingleton(Mock.Of<IMessageClient>());
         services.AddSingleton(new ActivitySource("service-registration-test"));
-        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        var configuration = new ConfigurationBuilder().Build();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddKeyValueStore(); // Genesis ApplicationConfigurations.ConfigureServices registers it in the Api host
 
         services.AddDataGatewayDomainServices();
         services.AddDataGatewayGraphQL();
+        services.AddDataGatewayRest(configuration);
 
         return services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
@@ -51,5 +55,10 @@ public class ServiceRegistrationTests
         provider.GetRequiredService<ISchemaPublishService>().Should().NotBeNull();
         provider.GetRequiredService<ISchemaConfigurationService>().Should().NotBeNull();
         provider.GetRequiredService<DataGatewayPipelineDispatcher>().Should().NotBeNull();
+        provider.GetRequiredService<IEntityModelProvider>().Should().NotBeNull();
+
+        // The REST service is scoped (one per request), so it is resolved from a request-like scope.
+        await using var scope = provider.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<IGatewayRestService>().Should().NotBeNull();
     }
 }

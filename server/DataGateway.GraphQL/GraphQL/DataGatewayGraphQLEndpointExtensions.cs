@@ -1,10 +1,12 @@
 using System.Diagnostics;
+using System.Globalization;
 using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models.Constants;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace DataGateway.DomainService.GraphQL;
 
@@ -24,10 +26,14 @@ public static class DataGatewayGraphQLEndpointExtensions
         return app.Map(basePath, HandleDataGatewayRequestAsync);
     }
 
-    private static async Task HandleDataGatewayRequestAsync(HttpContext context)
+    internal static async Task HandleDataGatewayRequestAsync(HttpContext context)
     {
         try
         {
+            // First, so every response of this endpoint carries them: the early rejections below and
+            // whatever the GraphQL pipeline writes. REST lives in a controller and never passes through here.
+            // Inside the try, so a failure reading the options is logged like any other.
+            AddDeprecationHeaders(context);
             await DispatchAsync(context);
         }
         catch (Exception ex)
@@ -87,6 +93,37 @@ public static class DataGatewayGraphQLEndpointExtensions
         var dispatcher = context.RequestServices.GetRequiredService<DataGatewayPipelineDispatcher>();
         var pipeline = dispatcher.GetPipeline(tenantId);
         await pipeline(context);
+    }
+
+    /// <summary>
+    /// Announces the GraphQL deprecation on the response, when configured: <c>Deprecation</c> (RFC 9745), plus
+    /// <c>Link</c> to the migration guide and <c>Sunset</c> (RFC 8594) when those are set. Added when the response
+    /// starts, so it covers responses the GraphQL pipeline writes as well.
+    /// </summary>
+    private static void AddDeprecationHeaders(HttpContext context)
+    {
+        var options = context.RequestServices.GetService<IOptions<GraphQLDeprecationOptions>>()?.Value;
+        if (options?.DeprecatedSince is not { } deprecatedSince)
+        {
+            return;
+        }
+
+        context.Response.OnStarting(() =>
+        {
+            var headers = context.Response.Headers;
+            headers["Deprecation"] = $"@{deprecatedSince.ToUnixTimeSeconds()}";
+            if (!string.IsNullOrWhiteSpace(options.MigrationGuideUrl))
+            {
+                headers["Link"] = $"<{options.MigrationGuideUrl}>; rel=\"deprecation\"";
+            }
+
+            if (options.SunsetDate is { } sunset)
+            {
+                headers["Sunset"] = sunset.UtcDateTime.ToString("r", CultureInfo.InvariantCulture);
+            }
+
+            return Task.CompletedTask;
+        });
     }
 
     /// <summary>

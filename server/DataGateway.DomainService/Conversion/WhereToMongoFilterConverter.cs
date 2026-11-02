@@ -61,13 +61,13 @@ public static class WhereToMongoFilterConverter
         {
             if (dict.TryGetValue("or", out var orValue) && orValue != null)
             {
-                var orClause = ConvertLogicalOperator(orValue, schema, "$or");
+                var orClause = ConvertLogicalOperator(orValue, schema, "or", "$or");
                 if (orClause.HasValue)
                     elements.Add(orClause.Value);
             }
             if (dict.TryGetValue("and", out var andValue) && andValue != null)
             {
-                var andClause = ConvertLogicalOperator(andValue, schema, "$and");
+                var andClause = ConvertLogicalOperator(andValue, schema, "and", "$and");
                 if (andClause.HasValue)
                     elements.Add(andClause.Value);
             }
@@ -128,16 +128,22 @@ public static class WhereToMongoFilterConverter
         return new BsonDocument("$and", new BsonArray(elements.Select(e => new BsonDocument(e.Name, e.Value))));
     }
 
-    private static BsonElement? ConvertLogicalOperator(object value, SchemaDefinitionExtended schema, string mongoOp)
+    /// <summary>
+    /// Converts an <c>and</c> / <c>or</c> value. It must be a list and every item a filter object: anything else would
+    /// silently drop a condition and widen the result, so it is rejected. An empty list adds no clause.
+    /// </summary>
+    private static BsonElement? ConvertLogicalOperator(object value, SchemaDefinitionExtended schema, string key, string mongoOp)
     {
-        var items = CoerceList(value);
-        if (items is null || items.Count == 0)
+        var items = CoerceList(value)
+            ?? throw Invalid($"'{key}' must be a list of filter objects.");
+        if (items.Count == 0)
             return null;
 
         var clauses = new List<BsonDocument>();
         foreach (var item in items)
         {
-            if (item is not IReadOnlyDictionary<string, object?> itemWhere) continue;
+            if (item is not IReadOnlyDictionary<string, object?> itemWhere)
+                throw Invalid($"Each item in '{key}' must be a filter object.");
             var clause = Convert(itemWhere, schema, "");
             if (clause != null)
                 clauses.Add(clause);
@@ -156,6 +162,9 @@ public static class WhereToMongoFilterConverter
             case IList<object?> typed:
                 return [.. typed];
             case string:
+                return null;
+            // A dictionary is IEnumerable too, but it is one filter object, not a list of them.
+            case IDictionary<string, object?> or IReadOnlyDictionary<string, object?> or IDictionary:
                 return null;
             case IEnumerable enumerable:
             {

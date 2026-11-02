@@ -17,4 +17,17 @@ public interface IGatewayDataEngine
     Task<ActionResponse> UpdateManyAsync(EntityModel entity, UpdateManyCommand command);
     Task<ActionResponse> DeleteAsync(EntityModel entity, DeleteCommand command);
     Task<ActionResponse> DeleteManyAsync(EntityModel entity, DeleteManyCommand command);
+
+    /// <summary>
+    /// One row by id, with the same access checks as a query. Null both when there is no such row and when the
+    /// row rules hide it from the caller.
+    /// </summary>
+    Task<Dictionary<string, object>?> GetByIdAsync(EntityModel entity, string itemId, IReadOnlyList<string> select, string operationName);
+
+    /// <summary>
+    /// Updates the row with this id (merging the sent fields), or inserts it when there is none. A row that exists but
+    /// is hidden from the caller by the row rules comes back as a <see cref="NotFoundActionResponse"/> and is never
+    /// inserted over.
+    /// </summary>
+    Task<UpsertResult> UpsertAsync(EntityModel entity, UpsertCommand command);
 }

@@ -21,6 +21,18 @@ public static class GraphQLServiceRegistry
 {
     public static IServiceCollection AddDataGatewayGraphQL(this IServiceCollection services)
     {
+        // Checked when the host starts (binding included, so an unparseable date fails there), not per request.
+        services.AddOptions<GraphQLDeprecationOptions>()
+            .Configure<IConfiguration>((options, configuration) =>
+                configuration.GetSection(GraphQLDeprecationOptions.SectionName).Bind(options))
+            .Validate(
+                options => options.DeprecatedSince is not { } since || options.SunsetDate is not { } sunset || sunset > since,
+                $"{GraphQLDeprecationOptions.SectionName}:{nameof(GraphQLDeprecationOptions.SunsetDate)} must be after " +
+                $"{GraphQLDeprecationOptions.SectionName}:{nameof(GraphQLDeprecationOptions.DeprecatedSince)}.")
+            .Validate(
+                options => options.MigrationGuideUrl is null || GraphQLDeprecationOptions.IsHttpUrl(options.MigrationGuideUrl),
+                $"{GraphQLDeprecationOptions.SectionName}:{nameof(GraphQLDeprecationOptions.MigrationGuideUrl)} must be an absolute http or https URL.")
+            .ValidateOnStart();
         services.AddSingleton<ISchemaConfigurationService, SchemaConfigurationService>();
         services.AddSingleton<GraphqlSchemaBuilder>();
         services.AddSingleton<IPublishedSchemaValidator, GraphQLPublishedSchemaValidator>();

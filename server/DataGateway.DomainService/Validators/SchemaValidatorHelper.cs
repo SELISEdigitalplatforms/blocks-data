@@ -6,10 +6,8 @@ namespace DataGateway.DomainService.Validators;
 
 internal static class SchemaValidatorHelper
 {
-    internal static readonly Regex NameAllowedPattern = new(
-        @"^[A-Za-z_][A-Za-z0-9_]*$",
-        RegexOptions.Compiled,
-        TimeSpan.FromSeconds(1));
+    // The rule itself lives in SchemaNameRules, which the REST API shares.
+    internal static readonly Regex NameAllowedPattern = SchemaNameRules.Pattern;
 
     internal static bool DoesNotEmptyCollectionName(string collectionName, SchemaType schemaType)
     {

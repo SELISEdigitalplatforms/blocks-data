@@ -89,7 +89,7 @@ public class SchemaConfigurationServiceTests
             SchemaVersionTracker.DefaultPollInterval, NullLogger<SchemaVersionTracker>.Instance);
 
         var publishService = new SchemaPublishService(
-            new SchemaAssembler(repository), new GraphQLPublishedSchemaValidator(Builder()), new SchemaSnapshotStore(repository), versionStore, repository, NullLogger<SchemaPublishService>.Instance);
+            new SchemaAssembler(repository), new GraphQLPublishedSchemaValidator(Builder()), new SchemaSnapshotStore(repository), versionStore, repository, new EntityViewStore(repository), NullLogger<SchemaPublishService>.Instance);
 
         var service = new SchemaConfigurationService(
             Builder(),

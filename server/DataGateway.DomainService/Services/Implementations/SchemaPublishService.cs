@@ -25,6 +25,7 @@ public class SchemaPublishService : ISchemaPublishService
     private readonly ISchemaSnapshotStore _snapshotStore;
     private readonly ISchemaVersionStore _versionStore;
     private readonly IDbRepository _repository;
+    private readonly IEntityViewStore _viewStore;
     private readonly ILogger<SchemaPublishService> _logger;
 
     public SchemaPublishService(
@@ -33,6 +34,7 @@ public class SchemaPublishService : ISchemaPublishService
         ISchemaSnapshotStore snapshotStore,
         ISchemaVersionStore versionStore,
         IDbRepository repository,
+        IEntityViewStore viewStore,
         ILogger<SchemaPublishService> logger)
     {
         _schemaAssembler = schemaAssembler ?? throw new ArgumentNullException(nameof(schemaAssembler));
@@ -40,6 +42,7 @@ public class SchemaPublishService : ISchemaPublishService
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
         _versionStore = versionStore ?? throw new ArgumentNullException(nameof(versionStore));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _viewStore = viewStore ?? throw new ArgumentNullException(nameof(viewStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -75,6 +78,7 @@ public class SchemaPublishService : ISchemaPublishService
 
             step = "storing the snapshot";
             var manifest = await _snapshotStore.SaveAsync(tenantId, version.Value, content, SchemaSnapshotKind.Publish, pendingChangeLogIds, cancellationToken);
+            await WriteViewsAsync(tenantId, version.Value, content);
 
             step = "making the version live";
             await _versionStore.MakeCurrentAsync(tenantId, version.Value, cancellationToken);
@@ -210,6 +214,7 @@ public class SchemaPublishService : ISchemaPublishService
 
         var version = await _versionStore.AllocateAsync(tenantId, cancellationToken);
         await _snapshotStore.SaveAsync(tenantId, version, content, SchemaSnapshotKind.Bootstrap, [], cancellationToken);
+        await WriteViewsAsync(tenantId, version, content);
 
         // Pods that bootstrap at the same moment each store a copy of the same drafts; the highest
         // version wins and the others are never served.
@@ -220,6 +225,23 @@ public class SchemaPublishService : ISchemaPublishService
         _logger.LogInformation("Created first published schema version {Version} for tenant {TenantId} from its drafts: {SchemaCount} schemas, {CompressedKb} KB; live version is {LiveVersion}",
             version, tenantId, content.SchemaCount, ToKb(content.CompressedBytes.LongLength), currentVersion);
         return (version, source);
+    }
+
+    /// <summary>
+    /// Stores the per-entity views of the version just saved, before it can become live. Built from a
+    /// fresh copy of the stored content, because building modifies the definitions. Best effort: a
+    /// missing view is built on first use, so a failure only costs that.
+    /// </summary>
+    private async Task WriteViewsAsync(string tenantId, long version, SchemaSnapshotContent content)
+    {
+        try
+        {
+            await _viewStore.WriteAsync(tenantId, version, SchemaSnapshotStore.Unpack(content.CompressedBytes));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not store the entity views of schema version {Version} for tenant {TenantId}; they are built when first needed", version, tenantId);
+        }
     }
 
     private async Task PruneAsync(string tenantId, long liveVersion, CancellationToken cancellationToken)
@@ -237,6 +259,17 @@ public class SchemaPublishService : ISchemaPublishService
         {
             // Old versions are retried at the next publish; the publish itself has succeeded.
             _logger.LogWarning(ex, "Could not delete old published schema versions for tenant {TenantId}; retried at the next publish", tenantId);
+        }
+
+        try
+        {
+            // The versions still listed keep their views; the views of every other version go with them.
+            var kept = (await _snapshotStore.ListAsync(tenantId, 0, cancellationToken)).Select(m => m.Version).ToList();
+            await _viewStore.DeleteExceptAsync(tenantId, kept);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not delete the entity views of old published schema versions for tenant {TenantId}; retried at the next publish", tenantId);
         }
     }
 

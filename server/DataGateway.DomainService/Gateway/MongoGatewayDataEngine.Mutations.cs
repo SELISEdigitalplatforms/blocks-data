@@ -240,6 +240,7 @@ public sealed partial class MongoGatewayDataEngine
         _logger.LogInformation("Bulk deleting data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.DELETE, OperationLabelDelete);
         var filter = MutationFilterHelper.BuildFilterWithRls(command.Where?.Root, command.LegacyFilterJson, command.CheckOwner, schema, PolicyOperation.DELETE, EvaluateRlsPolicies);
+        filter = BoundByReadRules(schema, filter, command.BoundByReadRules);
         gatewayOperation.CollectionName = schema.CollectionName;
         gatewayOperation.MongoQuery = new BsonDocument { { "filter", filter } }.ToString();
         var isHardDelete = command.HardDelete;
@@ -401,6 +402,7 @@ public sealed partial class MongoGatewayDataEngine
         _logger.LogInformation("Bulk updating data for schema {SchemaName}", schema.SchemaName);
         PrepareMutation(schema, PolicyOperation.EDIT, OperationLabelUpdate);
         var filter = MutationFilterHelper.BuildFilterWithRls(command.Where?.Root, command.LegacyFilterJson, command.CheckOwner, schema, PolicyOperation.EDIT, EvaluateRlsPolicies);
+        filter = BoundByReadRules(schema, filter, command.BoundByReadRules);
         gatewayOperation.CollectionName = schema.CollectionName;
         gatewayOperation.MongoQuery = new BsonDocument { { "filter", filter } }.ToString();
         var existingDocuments = await _repository.GetItemsAsync(schema.CollectionName, filter);
@@ -815,6 +817,26 @@ public sealed partial class MongoGatewayDataEngine
 
             throw new GatewayException(GraphQlConstant.ForbiddenErrorCode, message);
         }
+    }
+
+    /// <summary>
+    /// When <paramref name="bound"/>, narrows a bulk write's filter to the rows the caller may read: on a Custom-read
+    /// entity the READ row-rule filter is ANDed in, as a query combines it (the root tenant reads every row). A caller
+    /// the read rules refuse outright is refused here as a query would refuse them.
+    /// </summary>
+    private BsonDocument BoundByReadRules(SchemaDefinitionExtended schema, BsonDocument filter, bool bound)
+    {
+        if (!bound || schema.ReadAccessLevel != SchemaAccessLevel.Custom)
+            return filter;
+
+        var request = new SchemaAccessRequest(_principals.Current, schema, PolicyOperation.READ);
+        if (request.Principal.IsRootTenant)
+            return filter;
+
+        using var _ = GatewayOperationActivity.Measure(GatewayPhase.Policy);
+        var readRules = _resolver.Check(request);
+        EnsureReadAccess(readRules, schema);
+        return RlsFilterHelper.ApplyPolicyFilter(filter, readRules);
     }
 
     private PolicyEvaluationResult EvaluateRlsPolicies(SchemaDefinitionExtended schema, PolicyOperation operation) =>

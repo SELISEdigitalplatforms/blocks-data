@@ -85,5 +85,5 @@ public static class MutationInputHelper
 
     /// <summary>Builds a standard "not found" action response for the given operation.</summary>
     public static ActionResponse ActionResponseNotFound(string operation) =>
-        new ActionResponse { Acknowledged = false, Message = $"No data found to {operation} or you don't have permission to {operation} this record." };
+        new NotFoundActionResponse { Acknowledged = false, Message = $"No data found to {operation} or you don't have permission to {operation} this record." };
 }

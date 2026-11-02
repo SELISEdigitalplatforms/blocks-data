@@ -30,7 +30,7 @@ public class CreateSchemaRequestValidator : AbstractValidator<CreateSchemaReques
     {
         RuleFor(x => x.SchemaName)
             .NotEmpty().WithMessage(SchemaNameRequired)
-            .Length(1, 50).WithMessage(SchemaNameLength)
+            .Length(SchemaNameRules.MinLength, SchemaNameRules.MaxLength).WithMessage(SchemaNameLength)
             .Matches(SchemaValidatorHelper.NameAllowedPattern).WithMessage(SchemaNameInvalid);
 
         RuleFor(x => x.CollectionName)

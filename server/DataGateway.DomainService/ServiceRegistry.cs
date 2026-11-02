@@ -116,6 +116,7 @@ public static class ServiceRegistry
             sp.GetRequiredService<IAfterWriteQueue>()));
         serviceCollection.AddSingleton<ISchemaVersionStore, SchemaVersionStore>();
         serviceCollection.AddSingleton<ISchemaSnapshotStore>(sp => new SchemaSnapshotStore(sp.GetRequiredService<IDbRepository>()));
+        serviceCollection.AddSingleton<IEntityViewStore>(sp => new EntityViewStore(sp.GetRequiredService<IDbRepository>()));
         serviceCollection.AddSingleton<ISchemaPublishService, SchemaPublishService>();
         serviceCollection.AddSingleton<ILiveSchemaCatalog, LiveSchemaCatalog>();
     }

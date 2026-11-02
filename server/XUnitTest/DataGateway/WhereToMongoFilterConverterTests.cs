@@ -280,6 +280,65 @@ public class WhereToMongoFilterConverterTests
     }
 
     [Fact]
+    public void Convert_AndAsSingleObject_Throws()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["and"] = new Dictionary<string, object?> { ["Name"] = new Dictionary<string, object?> { ["eq"] = "A" } }
+        };
+        var act = () => WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        act.Should().Throw<InvalidWhereFilterException>()
+            .WithMessage("'and' must be a list of filter objects.");
+    }
+
+    [Fact]
+    public void Convert_OrAsSingleObject_Throws()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["or"] = new Dictionary<string, object?> { ["Name"] = new Dictionary<string, object?> { ["eq"] = "A" } }
+        };
+        var act = () => WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        act.Should().Throw<InvalidWhereFilterException>()
+            .WithMessage("'or' must be a list of filter objects.");
+    }
+
+    [Fact]
+    public void Convert_OrWithStringItem_Throws()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["or"] = new List<object?>
+            {
+                new Dictionary<string, object?> { ["Name"] = new Dictionary<string, object?> { ["eq"] = "A" } },
+                "B"
+            }
+        };
+        var act = () => WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        act.Should().Throw<InvalidWhereFilterException>()
+            .WithMessage("Each item in 'or' must be a filter object.");
+    }
+
+    [Fact]
+    public void Convert_AndWithNullItem_Throws()
+    {
+        var where = new Dictionary<string, object?>
+        {
+            ["and"] = new List<object?> { null }
+        };
+        var act = () => WhereToMongoFilterConverter.Convert(where, ExtendedSchema());
+        act.Should().Throw<InvalidWhereFilterException>()
+            .WithMessage("Each item in 'and' must be a filter object.");
+    }
+
+    [Fact]
+    public void Convert_EmptyAnd_StillNoClause()
+    {
+        var where = new Dictionary<string, object?> { ["and"] = new List<object?>() };
+        WhereToMongoFilterConverter.Convert(where, ExtendedSchema()).Should().BeNull();
+    }
+
+    [Fact]
     public void Convert_ScalarValueNotDictionary_Throws()
     {
         var where = new Dictionary<string, object?> { ["Name"] = "John" };

@@ -54,7 +54,7 @@ public class SchemaPublishValidatorSeamTests
 
         var service = new SchemaPublishService(
             new SchemaAssembler(repository.Object), validator.Object, snapshotStore.Object, versionStore.Object,
-            repository.Object, NullLogger<SchemaPublishService>.Instance);
+            repository.Object, Mock.Of<IEntityViewStore>(), NullLogger<SchemaPublishService>.Instance);
 
         var act = () => service.PublishAsync(Tenant);
 

@@ -5,6 +5,7 @@ using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Middlewares;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Services;
+using DataGateway.Rest;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Storage.DomainService.Utilities;
@@ -60,6 +61,7 @@ cloudSecret.ChatGptEncryptionKey = builder.Configuration["ChatGptEncryptionKey"]
 
 services.AddDataGatewayDomainServices();
 services.AddDataGatewayGraphQL();
+services.AddDataGatewayRest(builder.Configuration);
 services.AddStorageDomainServices();
 
 var app = builder.Build();
@@ -81,6 +83,8 @@ if (File.Exists(indexHtml))
 }
 
 app.UseMiddleware<RequestContextMiddleware>();
+// The router answers a wrong content type under the REST routes with an empty 415; this gives it the problem body.
+app.UseMiddleware<Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware>();
 
 app.MapControllers();
 

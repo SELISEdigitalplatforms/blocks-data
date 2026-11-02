@@ -86,6 +86,7 @@ public class MultiPodSchemaReloadTests
         services.AddSingleton<IPublishedSchemaValidator, GraphQLPublishedSchemaValidator>();
         services.AddSingleton<ISchemaVersionStore, SchemaVersionStore>();
         services.AddSingleton<ISchemaSnapshotStore>(new SchemaSnapshotStore(_repository));
+        services.AddSingleton<IEntityViewStore>(new EntityViewStore(_repository));
         services.AddSingleton<ISchemaPublishService, SchemaPublishService>();
         services.AddSingleton<BuiltSchemaVersions>();
         services.AddSingleton<ITenantSchemaConfigurator, TenantSchemaConfigurator>();

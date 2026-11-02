@@ -81,6 +81,112 @@
             <param name="request">Import parameters: ProjectKey, FileId of the exported schema file, MessageCoRelationId.</param>
             <returns>Returns Acknowledged=true when the import has been queued.</returns>
         </member>
+        <member name="T:Api.Controllers.DataGatewayController">
+            <summary>
+            The Data Gateway's REST API: one set of routes for every entity (<c>/api/gateway/{entity}</c>), whatever its
+            schema. The controller only maps HTTP to <see cref="T:DataGateway.Rest.IGatewayRestService"/> and writes what it answers; the service
+            authenticates the caller, checks the entity's access level and runs the operation. There is no endpoint policy
+            here on purpose: an entity can be public, so the service decides per entity whether the caller must sign in.
+            A failure answers in the gateway's problem shape (<see cref="T:Api.Controllers.RestProblemFilterAttribute"/>), and a request body
+            is capped at <see cref="P:DataGateway.Rest.RestLimits.MaxRequestBodyBytes"/> (<see cref="T:Api.Controllers.RestRequestSizeLimitAttribute"/>).
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.#ctor(DataGateway.Rest.IGatewayRestService)">
+            <summary>
+            The Data Gateway's REST API: one set of routes for every entity (<c>/api/gateway/{entity}</c>), whatever its
+            schema. The controller only maps HTTP to <see cref="T:DataGateway.Rest.IGatewayRestService"/> and writes what it answers; the service
+            authenticates the caller, checks the entity's access level and runs the operation. There is no endpoint policy
+            here on purpose: an entity can be public, so the service decides per entity whether the caller must sign in.
+            A failure answers in the gateway's problem shape (<see cref="T:Api.Controllers.RestProblemFilterAttribute"/>), and a request body
+            is capped at <see cref="P:DataGateway.Rest.RestLimits.MaxRequestBodyBytes"/> (<see cref="T:Api.Controllers.RestRequestSizeLimitAttribute"/>).
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.Get(System.String)">
+            <summary>Lists records. The query string takes <c>order</c>, <c>select</c>, <c>pageNo</c>, <c>pageSize</c> and <c>includeTotalCount</c>; a filter (<c>where</c>) needs the body form, <c>POST</c>.</summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.Get(System.String,System.Text.Json.JsonElement)">
+            <summary>Lists records, with the query as a JSON body: <c>where</c>, <c>order</c>, <c>select</c>, <c>paging</c>, <c>includeTotalCount</c>. The only list form that takes a filter.</summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.GetById(System.String,System.String)">
+            <summary>Reads one record.</summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.Insert(System.String,System.Text.Json.JsonElement)">
+            <summary>Inserts one record; 201 with its <c>Location</c>.</summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.Update(System.String,System.String,System.Text.Json.JsonElement)">
+            <summary>Changes the fields the body names on one record.</summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.Upsert(System.String,System.String,System.Text.Json.JsonElement)">
+            <summary>Writes one record under the given id: updates it when it exists (200), inserts it otherwise (201).</summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.Delete(System.String,System.String,System.Boolean)">
+            <summary>Deletes one record; soft unless <paramref name="hardDelete"/> is set.</summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.InsertMany(System.String,System.Text.Json.JsonElement)">
+            <summary>Inserts many records.</summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.UpdateMany(System.String,System.Text.Json.JsonElement)">
+            <summary>Changes every record a <c>where</c> selects: <c>{ "where": {…}, "input": {…} }</c>.</summary>
+        </member>
+        <member name="M:Api.Controllers.DataGatewayController.DeleteMany(System.String,System.Text.Json.JsonElement,System.Boolean)">
+            <summary>Deletes every record a <c>where</c> selects: <c>{ "where": {…} }</c>; soft unless <paramref name="hardDelete"/> is set.</summary>
+        </member>
+        <member name="T:Api.Controllers.RestActionResults">
+            <summary>Writes a <see cref="T:DataGateway.Rest.RestResult"/> the way every REST answer goes out: its status and body, and the problem media type for an error.</summary>
+        </member>
+        <member name="T:Api.Controllers.RestRequestSizeLimitAttribute">
+            <summary>
+            Caps the request body at <see cref="P:DataGateway.Rest.RestLimits.MaxRequestBodyBytes"/>. A resource filter, because the limit comes
+            from configuration and an attribute argument must be a constant. It runs before the body is read; a body over the
+            limit makes Kestrel fail the read with a 413 <see cref="T:Microsoft.AspNetCore.Http.BadHttpRequestException"/>, which
+            <see cref="T:Api.Controllers.RestProblemFilterAttribute"/> answers as a problem.
+            </summary>
+        </member>
+        <member name="M:Api.Controllers.RestRequestSizeLimitAttribute.OnResourceExecuting(Microsoft.AspNetCore.Mvc.Filters.ResourceExecutingContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:Api.Controllers.RestRequestSizeLimitAttribute.OnResourceExecuted(Microsoft.AspNetCore.Mvc.Filters.ResourceExecutedContext)">
+            <inheritdoc />
+        </member>
+        <member name="T:Api.Controllers.RestProblemFilterAttribute">
+            <summary>
+            Answers in the gateway's problem shape (<c>{ type, title, status, code, detail, errors?, traceId }</c>) wherever
+            the framework would answer in its own, for the actions of the controller it is on and for no other controller:
+            <list type="bullet">
+            <item>a model-binding failure (an empty or malformed body, a query value that is not a bool) is a 400
+            <c>VALIDATION_ERROR</c>; this runs ahead of the one <c>[ApiController]</c> adds, so that one never answers;</item>
+            <item>a body that is not <c>application/json</c> (a missing content type, which <c>[Consumes]</c> refuses in the
+            action pipeline) is a 415 <c>UNSUPPORTED_MEDIA_TYPE</c>; a wrong one is refused earlier, by the router, and
+            <see cref="T:Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware"/> gives that the same body;</item>
+            <item>an exception goes through <see cref="T:DataGateway.Rest.Errors.GatewayProblemMapper"/>; a body over the size limit is a 413
+            <c>PAYLOAD_TOO_LARGE</c> and any other unreadable body a 400.</item>
+            </list>
+            </summary>
+        </member>
+        <member name="P:Api.Controllers.RestProblemFilterAttribute.Order">
+            <summary>Ahead of the model-state and client-error filters <c>[ApiController]</c> adds (both at -2000).</summary>
+        </member>
+        <member name="M:Api.Controllers.RestProblemFilterAttribute.OnActionExecuting(Microsoft.AspNetCore.Mvc.Filters.ActionExecutingContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:Api.Controllers.RestProblemFilterAttribute.OnActionExecuted(Microsoft.AspNetCore.Mvc.Filters.ActionExecutedContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:Api.Controllers.RestProblemFilterAttribute.OnResultExecuting(Microsoft.AspNetCore.Mvc.Filters.ResultExecutingContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:Api.Controllers.RestProblemFilterAttribute.OnResultExecuted(Microsoft.AspNetCore.Mvc.Filters.ResultExecutedContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:Api.Controllers.RestProblemFilterAttribute.OnException(Microsoft.AspNetCore.Mvc.Filters.ExceptionContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:Api.Controllers.RestProblemFilterAttribute.FromUnreadableBody(Microsoft.AspNetCore.Http.BadHttpRequestException,Microsoft.AspNetCore.Http.HttpContext)">
+            <summary>
+            Kestrel (or the server below it) refused to read the body: over the size limit is 413, anything else about the
+            body (cut short, timed out) is the caller's 400. The server's own message is not repeated.
+            </summary>
+        </member>
         <member name="T:Api.Controllers.DataValidationController">
             <summary>
             DataValidationController is responsible for managing data validation rules.
@@ -643,6 +749,22 @@
             upload and bulk-share endpoints report validation failures in their own response shape.
             Arguments without a registered validator, and null arguments, are left to the action.
             </remarks>
+        </member>
+        <member name="T:Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware">
+            <summary>
+            Gives a 415 the router answers under the REST routes (<c>/api/gateway/{entity}…</c>) the gateway's problem body.
+            A POST, PATCH or PUT with a content type other than <c>application/json</c> never reaches the controller: the
+            <c>[Consumes]</c> metadata makes the router refuse it with an empty 415, before any filter could answer. The
+            GraphQL endpoint (<c>/api/gateway</c> itself) and every other route are left as they are.
+            </summary>
+        </member>
+        <member name="M:Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware.#ctor(Microsoft.AspNetCore.Http.RequestDelegate)">
+            <summary>
+            Gives a 415 the router answers under the REST routes (<c>/api/gateway/{entity}…</c>) the gateway's problem body.
+            A POST, PATCH or PUT with a content type other than <c>application/json</c> never reaches the controller: the
+            <c>[Consumes]</c> metadata makes the router refuse it with an empty 415, before any filter could answer. The
+            GraphQL endpoint (<c>/api/gateway</c> itself) and every other route are left as they are.
+            </summary>
         </member>
         <member name="T:Blocks.Data.Api.Middleware.SecurityHeadersMiddleware">
             <summary>

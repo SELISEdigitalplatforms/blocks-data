@@ -240,7 +240,7 @@ public class SchemaPublishService : ISchemaPublishService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not store the entity views of schema version {Version} for tenant {TenantId}; they are built when first needed", version, tenantId);
+            _logger.LogWarning(ex, "Could not store the entity views of schema version {Version} for tenant {TenantId}; they are built when first needed", version, LogMasking.OneLine(tenantId));
         }
     }
 
@@ -269,7 +269,7 @@ public class SchemaPublishService : ISchemaPublishService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not delete the entity views of old published schema versions for tenant {TenantId}; retried at the next publish", tenantId);
+            _logger.LogWarning(ex, "Could not delete the entity views of old published schema versions for tenant {TenantId}; retried at the next publish", LogMasking.OneLine(tenantId));
         }
     }
 

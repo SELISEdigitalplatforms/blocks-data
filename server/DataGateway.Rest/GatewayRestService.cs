@@ -6,6 +6,7 @@ using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService;
 using DataGateway.DomainService.Gateway;
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Validators;
@@ -216,7 +217,7 @@ public sealed partial class GatewayRestService : IGatewayRestService
         {
             var result = GatewayProblemMapper.Map(ex, http);
             if (result.StatusCode >= StatusCodes.Status500InternalServerError)
-                _logger.LogError(ex, "REST {OperationName} failed unexpectedly", operationName);
+                _logger.LogError(ex, "REST {OperationName} failed unexpectedly", LogMasking.OneLine(operationName));
             log.Failed(ex, result);
             return result;
         }

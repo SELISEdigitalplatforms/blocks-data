@@ -47,4 +47,15 @@ public class LogMaskingTests
     {
         LogMasking.MaskText(value).Should().Be(expected);
     }
+
+    [Theory]
+    [InlineData("tenant-1", "tenant-1")]
+    [InlineData("a\r\nINFO forged", "a__INFO forged")]
+    [InlineData("a\nb\rc", "a_b_c")]
+    [InlineData("a\u2028b\u0085c", "a_b_c")]
+    [InlineData(null, "")]
+    public void OneLine_ReplacesLineBreaksSoAValueCannotStartAForgedLogLine(string? value, string expected)
+    {
+        LogMasking.OneLine(value).Should().Be(expected);
+    }
 }

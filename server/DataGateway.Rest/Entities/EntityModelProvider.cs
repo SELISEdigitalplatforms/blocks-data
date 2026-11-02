@@ -161,7 +161,7 @@ public sealed class EntityModelProvider : IEntityModelProvider, IDisposable
             var snapshot = await _snapshots.LoadAsync(tenantId, version);
             if (snapshot is null)
             {
-                _logger.LogWarning("Schema version {Version} of tenant {TenantId} has no snapshot to build entity views from", version, tenantId);
+                _logger.LogWarning("Schema version {Version} of tenant {TenantId} has no snapshot to build entity views from", version, LogMasking.OneLine(tenantId));
                 return new ViewLookup(null);
             }
 
@@ -173,7 +173,7 @@ public sealed class EntityModelProvider : IEntityModelProvider, IDisposable
             {
                 // Some views may be missing and the version is not marked complete. Answer from the snapshot in hand
                 // for a while instead of reloading it and writing again on every request.
-                _logger.LogWarning(ex, "Building the entity views of version {Version} of tenant {TenantId} failed", version, tenantId);
+                _logger.LogWarning(ex, "Building the entity views of version {Version} of tenant {TenantId} failed", version, LogMasking.OneLine(tenantId));
                 KeepBuilt(versionKey, snapshot);
                 return TryGetBuilt(versionKey, schemaName, out fromSlot, out slotSequence)
                     ? FromSlot(fromSlot, slotSequence)

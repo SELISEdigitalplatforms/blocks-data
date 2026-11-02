@@ -1,3 +1,4 @@
+using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using Microsoft.Extensions.Logging;
@@ -42,7 +43,7 @@ public sealed partial class MongoGatewayDataEngine
         {
             // Another request created the row between the existence check and the insert: it exists now.
             _logger.LogInformation(
-                "Upsert on schema {SchemaName} lost an insert race for {ItemId}; updating instead", schema.SchemaName, command.ItemId);
+                "Upsert on schema {SchemaName} lost an insert race for {ItemId}; updating instead", schema.SchemaName, LogMasking.OneLine(command.ItemId));
             return new UpsertResult(await UpdateExistingAsync(entity, command), Created: false);
         }
     }

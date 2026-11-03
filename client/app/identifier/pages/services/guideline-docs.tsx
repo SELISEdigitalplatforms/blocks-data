@@ -38,6 +38,7 @@ export const managedServicesGuidelineSteps = [
             target="_blank"
             rel="noopener noreferrer"
             className="ml-1 font-normal text-primary underline"
+            // eslint-disable-next-line no-restricted-syntax -- NuGet package name, not translatable
           >
             SeliseBlocks.LMT.Client
           </a>

@@ -1,3 +1,8 @@
+const {
+  noHardcodedTextRule,
+  hardcodedTextExemptFiles,
+} = require("@seliseblocks/genesis-os/eslint");
+
 module.exports = {
   root: true,
   env: {
@@ -81,6 +86,18 @@ module.exports = {
         format: null,
       },
     ],
+    // No hard-coded user-facing text: visible JSX text and the placeholder/title/alt/aria-label attributes
+    // must come from an i18n key (useT/tStatic) in the owning module's <module>.en.json. Only text with two or
+    // more lowercase letters is flagged, so acronyms and symbols pass. Non-translatable tokens (product names,
+    // code identifiers) take an eslint-disable-next-line comment with the reason.
+    "no-restricted-syntax": noHardcodedTextRule,
   },
+  overrides: [
+    {
+      // Tests, stories and test helpers render fixtures, not user-facing screens.
+      files: [...hardcodedTextExemptFiles],
+      rules: { "no-restricted-syntax": "off" },
+    },
+  ],
   ignorePatterns: ["node_modules/", "dist/"],
 };

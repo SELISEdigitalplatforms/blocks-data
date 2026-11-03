@@ -1,5 +1,7 @@
-const I18N_MESSAGE =
-  "User-facing text must use an i18n key (useT/tStatic) in the module's .en.json, not a hard-coded string.";
+const {
+  noHardcodedTextRule,
+  hardcodedTextExemptFiles,
+} = require("@seliseblocks/genesis-os/eslint");
 
 module.exports = {
   root: true,
@@ -88,34 +90,12 @@ module.exports = {
     // must come from an i18n key (useT/tStatic) in the owning module's <module>.en.json. Only text with two or
     // more lowercase letters is flagged, so acronyms and symbols pass. Non-translatable tokens (product names,
     // code identifiers) take an eslint-disable-next-line comment with the reason.
-    "no-restricted-syntax": [
-      "error",
-      {
-        selector: "JSXText[value=/[a-z]{2,}/]",
-        message: I18N_MESSAGE,
-      },
-      {
-        selector: "JSXAttribute[name.name=/^(placeholder|title|alt|aria-label)$/] > Literal[value=/[a-z]{2,}/]",
-        message: I18N_MESSAGE,
-      },
-      {
-        selector:
-          "JSXAttribute[name.name=/^(placeholder|title|alt|aria-label)$/] > JSXExpressionContainer > TemplateLiteral[expressions.length=0][quasis.0.value.raw=/[a-z]{2,}/]",
-        message: I18N_MESSAGE,
-      },
-    ],
+    "no-restricted-syntax": noHardcodedTextRule,
   },
   overrides: [
     {
       // Tests, stories and test helpers render fixtures, not user-facing screens.
-      files: [
-        "**/*.test.{ts,tsx}",
-        "**/*.spec.{ts,tsx}",
-        "**/*.stories.{ts,tsx}",
-        "**/__tests__/**",
-        "**/__mocks__/**",
-        "**/test-utils/**",
-      ],
+      files: [...hardcodedTextExemptFiles],
       rules: { "no-restricted-syntax": "off" },
     },
   ],

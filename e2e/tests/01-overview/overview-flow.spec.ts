@@ -26,19 +26,19 @@ test.describe("flow: Overview menu", () => {
       await page.getByText("Auto", { exact: true }).click();
     });
 
-    // Drift (PR #416, 48921a15): the app ships German, so German is selectable; French is not.
-    await test.step("Topbar: language selector lists EN/German/French with German enabled and French disabled", async () => {
+    // Drift (PR #416, 48921a15, genesis-os 4.4.6/4.4.7): the language menu lists exactly the
+    // project's configured localization languages and never disables an item. English and German
+    // are configured, so both are selectable; French is not configured, so it is not listed.
+    await test.step("Topbar: language selector lists English and German as selectable, and no French", async () => {
       const languageButton = page.getByRole("button", { name: /^en$/i });
       await languageButton.click();
       await expect(page.getByRole("menuitem", { name: "English" })).toBeVisible();
+      await expect(page.getByRole("menuitem", { name: "German" })).toBeVisible();
       await expect(page.getByRole("menuitem", { name: "German" })).not.toHaveAttribute(
         "aria-disabled",
         "true",
       );
-      await expect(page.getByRole("menuitem", { name: "French" })).toHaveAttribute(
-        "aria-disabled",
-        "true",
-      );
+      await expect(page.getByRole("menuitem", { name: "French" })).toHaveCount(0);
     });
 
     await test.step("Topbar: notification bell opens the popover and 'Mark all as read' is usable", async () => {

@@ -38,6 +38,13 @@ import { PlaygroundMonacoEditor as GraphqlMonacoEditor } from "../playground/mon
 const GRAPHQL_PLAYGROUND_PAGE_MUTATION_SCHEMANAME = "GRAPHQL_PLAYGROUND_PAGE.MUTATION_SCHEMANAME";
 const GRAPHQL_PLAYGROUND_PAGE_RESPONSE = "GRAPHQL_PLAYGROUND_PAGE.RESPONSE";
 
+// Monaco command ids and the query editor's context key, registered by the page (see the
+// registration effect in GraphQLPlaygroundPage).
+const RUN_OPERATION_COMMAND = "graphql-playground.run-operation";
+const INSERT_NEWLINE_COMMAND = "graphql-playground.insert-newline";
+const EXECUTE_COMMAND = "graphql-playground.execute";
+const QUERY_EDITOR_CONTEXT_KEY = "graphqlPlaygroundQueryEditor";
+
 interface ResponseTab {
   id: string;
   name: string;
@@ -81,7 +88,6 @@ export const GraphQLWorkspace = ({
   const [activeResponseTab, setActiveResponseTab] = useState<string>("");
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const completionDisposableRef = useRef<IDisposable | null>(null);
-  const codeLensDisposableRef = useRef<IDisposable | null>(null);
   const selectedProject = useProjectStore().selectedProject;
   const { setSelectedProject } = useProjectStore();
   const { data: projectData } = useGetProject({
@@ -594,28 +600,9 @@ export const GraphQLWorkspace = ({
     // Store monaco instance globally for later use
     (window as unknown as { monaco?: typeof import("monaco-editor") }).monaco = monaco;
 
-    // Key bindings are actions, not addCommand: addCommand binds globally (no `when` clause) and is never disposed,
-    // so it would fire in the REST editor mounted beside this one. An action's keybinding has a condition scoped to
-    // this editor's id, so it fires only in this editor. Monaco doesn't dispose the binding when the editor goes,
-    // but no other editor has that id, so it can't fire again.
-    // Shift+Enter inserts a newline without accepting any active suggestion
-    editorInstance.addAction({
-      id: "graphql-playground.insert-newline",
-      label: t("GRAPHQL_PLAYGROUND_PAGE.NEW_LINE"),
-      keybindings: [monaco.KeyMod.Shift | monaco.KeyCode.Enter],
-      run: () => editorInstance.trigger("keyboard", "type", { text: "\n" }),
-    });
-
-    // Ctrl+Shift+E → Execute the current query
-    editorInstance.addAction({
-      id: "graphql-playground.execute",
-      label: t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE"),
-      keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE],
-      run: () => {
-        const executeBtn = document.getElementById("graphql-execute-btn");
-        if (executeBtn) executeBtn.click();
-      },
-    });
+    // Scopes the playground's keybinding rules to this editor: the read-only response
+    // editors never set the key, so the shortcuts do not fire there.
+    editorInstance.createContextKey(QUERY_EDITOR_CONTEXT_KEY, true);
 
     // Mark Monaco as ready
     setIsMonacoReady(true);
@@ -1317,34 +1304,72 @@ export const GraphQLWorkspace = ({
     }
   }, [schemas, generateFieldSnippet, isMonacoReady, dtoPreviewMap, dtoSchemas, introspectedSchema, toMonacoItem, t]);
 
-  // Register CodeLens provider for individual operation execution
+  // Latest values for the Monaco handlers registered once per mount below. They are
+  // updated after render, never during it, so the registrations need not be redone.
+  const executeOperationRef = useRef(executeOperation);
+  const parseOperationsRef = useRef(parseOperations);
+  const tRef = useRef(t);
+  useEffect(() => {
+    executeOperationRef.current = executeOperation;
+  }, [executeOperation]);
+  useEffect(() => {
+    parseOperationsRef.current = parseOperations;
+  }, [parseOperations]);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+
+  // Register the CodeLens "Run" command, the two shortcuts and the CodeLens provider once
+  // per mount, through Monaco's public disposable APIs. Monaco's command and keybinding
+  // services are shared by every editor and outlive this page, so everything registered
+  // here is disposed on unmount; nothing patches the shared command service.
   useEffect(() => {
     if (!editorRef.current || !isMonacoReady) return;
 
     const monaco = (window as unknown as { monaco?: typeof import("monaco-editor") }).monaco;
     if (!monaco || !monaco.languages) return;
 
+    const disposables: IDisposable[] = [];
+    const disposeAll = () => disposables.forEach((disposable) => disposable.dispose());
+
     try {
-      // Clean up previous provider
-      if (codeLensDisposableRef.current) {
-        codeLensDisposableRef.current.dispose();
-      }
-
-      // Store operation map globally for command handler
-      const operationMap = new Map<string, string>();
-
-      // Register CodeLens provider
-      codeLensDisposableRef.current = monaco.languages.registerCodeLensProvider("graphql", {
-        provideCodeLenses: (model) => {
-          const text = model.getValue();
-          const operations = parseOperations(text);
-
-          const lenses = operations.map((op, index) => {
-            const commandId = `run-graphql-operation-${index}`;
-
-            operationMap.set(commandId, op.text);
-
-            return {
+      disposables.push(
+        monaco.editor.registerCommand(RUN_OPERATION_COMMAND, (_accessor, operationText: unknown) => {
+          if (typeof operationText !== "string") return;
+          return executeOperationRef.current(operationText);
+        }),
+      );
+      disposables.push(
+        monaco.editor.registerCommand(INSERT_NEWLINE_COMMAND, () =>
+          // Shift+Enter inserts a newline without accepting any active suggestion
+          editorRef.current?.trigger("keyboard", "type", { text: "\n" }),
+        ),
+      );
+      disposables.push(
+        monaco.editor.registerCommand(EXECUTE_COMMAND, () =>
+          document.getElementById("graphql-execute-btn")?.click(),
+        ),
+      );
+      disposables.push(
+        monaco.editor.addKeybindingRule({
+          keybinding: monaco.KeyMod.Shift | monaco.KeyCode.Enter,
+          command: INSERT_NEWLINE_COMMAND,
+          when: QUERY_EDITOR_CONTEXT_KEY,
+        }),
+      );
+      disposables.push(
+        monaco.editor.addKeybindingRule({
+          keybinding: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE,
+          command: EXECUTE_COMMAND,
+          when: QUERY_EDITOR_CONTEXT_KEY,
+        }),
+      );
+      disposables.push(
+        monaco.languages.registerCodeLensProvider("graphql", {
+          provideCodeLenses: (model) => {
+            const translate = tRef.current;
+            const unnamed = translate("GRAPHQL_PLAYGROUND_PAGE.UNNAMED");
+            const lenses = parseOperationsRef.current(model.getValue()).map((op) => ({
               range: {
                 startLineNumber: op.startLine,
                 startColumn: 1,
@@ -1352,71 +1377,35 @@ export const GraphQLWorkspace = ({
                 endColumn: 1,
               },
               command: {
-                id: commandId,
+                id: RUN_OPERATION_COMMAND,
                 title:
-                  op.name !== "Unnamed"
-                    ? t("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE_NAME", { type: op.type, name: op.name })
-                    : t("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE", { type: op.type }),
+                  op.name !== unnamed
+                    ? translate("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE_NAME", { type: op.type, name: op.name })
+                    : translate("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE", { type: op.type }),
+                // The lens carries its own operation text, so a click never reads stale state.
+                arguments: [op.text],
               },
-            };
-          });
+            }));
 
-          return { lenses, dispose: () => {} };
-        },
-        resolveCodeLens: (_model, codeLens) => codeLens,
-      });
-
-      // Register global command handler
-      const editorInstance = editorRef.current;
-      const onDidExecuteCommand = editorInstance.onDidChangeModelContent(() => {
-        // Trigger CodeLens refresh when content changes
-        if (monaco.editor) {
-          monaco.editor.setModelMarkers(editorInstance.getModel()!, "graphql", []);
-        }
-      });
-
-      // Listen for CodeLens clicks
-      const commandService = (
-        editorInstance as unknown as {
-          _commandService?: {
-            executeCommand: (commandId: string, ...args: unknown[]) => unknown;
-          };
-        }
-      )._commandService;
-
-      if (commandService) {
-        const originalExecuteCommand = commandService.executeCommand.bind(commandService);
-        commandService.executeCommand = function (commandId: string, ...args: unknown[]) {
-          // Check if this is our GraphQL operation command
-          if (commandId.startsWith("run-graphql-operation-")) {
-            const operationText = operationMap.get(commandId);
-            if (operationText) {
-              executeOperation(operationText);
-              return Promise.resolve();
-            }
-          }
-
-          // Otherwise, execute the original command
-          return originalExecuteCommand(commandId, ...args);
-        };
-      }
-
-      return () => {
-        onDidExecuteCommand?.dispose();
-      };
+            return { lenses, dispose: () => {} };
+          },
+          resolveCodeLens: (_model, codeLens) => codeLens,
+        }),
+      );
     } catch (error) {
       console.error("Error registering CodeLens provider:", error);
+      disposeAll();
+      return;
     }
-  }, [isMonacoReady, parseOperations, executeOperation, t]);
+
+    return disposeAll;
+  }, [isMonacoReady]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (completionDisposableRef.current) {
         completionDisposableRef.current.dispose();
-      }
-      if (codeLensDisposableRef.current) {
-        codeLensDisposableRef.current.dispose();
       }
     };
   }, []);
@@ -1590,6 +1579,7 @@ export const GraphQLWorkspace = ({
                       tabSize: 2,
                       wordWrap: "on",
                       folding: true,
+                      codeLens: false,
                     }}
                   />
                 </div>
@@ -1617,6 +1607,7 @@ export const GraphQLWorkspace = ({
                       tabSize: 2,
                       wordWrap: "on",
                       folding: true,
+                      codeLens: false,
                     }}
                   />
                 </div>
@@ -1661,6 +1652,7 @@ export const GraphQLWorkspace = ({
                         tabSize: 2,
                         wordWrap: "on",
                         folding: true,
+                        codeLens: false,
                       }}
                     />
                   </TabsContent>

@@ -25,7 +25,7 @@ type ActivationProps = {
   lang?: string;
 };
 
-const x_blocks_key = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY");
+const xBlocksKey = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY");
 
 export const Activation = ({ code }: ActivationProps) => {
   const { t } = useT("data.idp.authentication");
@@ -59,7 +59,7 @@ export const Activation = ({ code }: ActivationProps) => {
     const validateCode = async () => {
       try {
         const res = await activationCodeValidation({
-          projectKey: x_blocks_key as string,
+          projectKey: xBlocksKey as string,
           activationCode: code,
         });
 
@@ -105,7 +105,7 @@ export const Activation = ({ code }: ActivationProps) => {
 
       const response = await resendActivationLink({
         userId: activationUserId,
-        projectKey: x_blocks_key as string,
+        projectKey: xBlocksKey as string,
       });
 
       if (response?.isSuccess) {

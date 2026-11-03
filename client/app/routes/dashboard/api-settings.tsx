@@ -14,6 +14,9 @@ import {
 import { IApiEndpoint } from "@blocks-idp/api-settings/models/api-endpoint.model";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+// Shared fallback while the list loads, so the memoised values below keep a stable input.
+const NO_ENDPOINTS: IApiEndpoint[] = [];
+
 /** ─── Loading skeleton ──────────────────────────────────────────────────────── */
 const ServiceGroupSkeleton = () => (
   <div className="rounded-lg border border-border bg-card p-4">
@@ -44,7 +47,7 @@ export default function ApiSettingsPage() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const endpoints = data?.data ?? [];
+  const endpoints = data?.data ?? NO_ENDPOINTS;
 
   // Group endpoints: service → controller (nested)
   const serviceGroups = useMemo(() => {
@@ -273,36 +276,6 @@ export default function ApiSettingsPage() {
       }
     },
     [tenantId, endpoints, bulkUpdate, t],
-  );
-
-  const handleBulkGroupDisableAll = useCallback(
-    async (ids: string[]) => {
-      try {
-        const result = await bulkUpdate({
-          projectKey: tenantId,
-          itemIds: ids,
-          isMFARequired: false,
-          isCaptchaRequired: false,
-          disableAll: true,
-        });
-        if (!result.isSuccess) {
-          throw new Error(
-            result.errors?.join(", ") || t("API_SETTINGS.FAILED_TO_DISABLE_SECURITY_FEATURES"),
-          );
-        }
-        showSuccessToast({
-          description: t("API_SETTINGS.ALL_SECURITY_FEATURES_DISABLED_FOR", { length: ids.length }),
-        });
-      } catch (error) {
-        showErrorToast({
-          errors:
-            error instanceof Error
-              ? error.message
-              : t("API_SETTINGS.FAILED_TO_DISABLE_SECURITY_FEATURES"),
-        });
-      }
-    },
-    [tenantId, bulkUpdate, t],
   );
 
   // ── Bulk bar actions ───────────────────────────────────────────────────────

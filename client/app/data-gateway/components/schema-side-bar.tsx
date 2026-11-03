@@ -82,6 +82,7 @@ export default function SchemasSidebar({
     },
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() returns values the React Compiler cannot memoize; switching to useWatch would change when this component re-renders.
   const search = watch("search");
   const debouncedSearch = useDebounce(search, 500);
   const selectedProject = useProjectStore().selectedProject;

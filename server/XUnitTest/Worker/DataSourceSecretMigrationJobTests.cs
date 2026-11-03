@@ -143,7 +143,7 @@ public class DataSourceSecretMigrationJobTests
         s.Results["no-doc"].Should().StartWith("kind=default root=missing live-docs=0");
         (await Root.CountDocumentsAsync(new BsonDocument())).Should().Be(0);
         _secrets.Calls.Should().BeEmpty();
-        _logs.Logs.Should().Contain(l => l.Message.Contains("value-store="));
+        _logs.Logs.Should().Contain(l => l.Message.Contains("[dsc-migration] mode=plan"));
         _logs.Logs.Should().NotContain(l => l.AllText().Contains("JobSecretPw") || l.AllText().Contains("OtherJobPw"));
     }
 

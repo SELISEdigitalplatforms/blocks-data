@@ -60,7 +60,7 @@ import {
 } from "@/storage/models/dms.model";
 import { canAddToDirectory, itemActions } from "@/storage/utils/permission-actions";
 import { DmsItemType, IDmsFileAndDirectoryInfo } from "@/storage/models/storage.model";
-import { useProjectStore } from "@seliseblocks/genesis-os";
+import { useProjectStore, type TFunction } from "@seliseblocks/genesis-os";
 
 import {
   Download,
@@ -129,6 +129,43 @@ type BreadcrumbItem = {
   id: string;
   name: string;
 };
+
+/** Why Share is off for this selection, or undefined when it can be shared. */
+const shareDisabledReasonFor = (
+  count: number,
+  selectedItems: DmsItem[],
+  t: TFunction,
+): string | undefined => {
+  if (count > MAX_SHARE_ITEMS) return t("STORAGE_DETAIL.SHARE_UP_TO_ITEMS_AT_A_TIME", { max: MAX_SHARE_ITEMS });
+  if (selectedItems.some((item) => !itemActions(item).canManageAccess)) {
+    return t("STORAGE_DETAIL.CANT_MANAGE_ACCESS_ON_SOME_ITEMS");
+  }
+  return undefined;
+};
+
+const PREVIEW_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"];
+
+/** The big icon in a grid card: images show their extension, PDFs a labelled icon, the rest the plain icon. */
+function FileGridPreview({ extension, pdfLabel }: Readonly<{ extension: string; pdfLabel: string }>) {
+  const ext = extension?.toLowerCase() || "";
+  if (PREVIEW_IMAGE_EXTENSIONS.includes(ext)) {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-2">
+        {getFileIcon(extension)}
+        <span className="text-xs text-muted-foreground">{extension}</span>
+      </div>
+    );
+  }
+  if (ext === ".pdf") {
+    return (
+      <div className="flex flex-col items-center justify-center space-y-2">
+        <FileText className="h-12 w-12 text-blue-500" />
+        <span className="text-xs text-muted-foreground">{pdfLabel}</span>
+      </div>
+    );
+  }
+  return getFileIcon(extension);
+}
 
 /**
  * The listing rows the render tree below already expects, plus the per-item
@@ -260,12 +297,7 @@ export function StorageDetail() {
   // nothing, so Share is offered only when every selected item allows managing access
   // and the selection fits in one request.
   const selectedItems = [...dmsItemsById.values()].filter((item) => selection.isSelected(item.itemId));
-  const shareDisabledReason =
-    selection.count > MAX_SHARE_ITEMS
-      ? t("STORAGE_DETAIL.SHARE_UP_TO_ITEMS_AT_A_TIME", { max: MAX_SHARE_ITEMS })
-      : selectedItems.some((item) => !itemActions(item).canManageAccess)
-        ? t("STORAGE_DETAIL.CANT_MANAGE_ACCESS_ON_SOME_ITEMS")
-        : undefined;
+  const shareDisabledReason = shareDisabledReasonFor(selection.count, selectedItems, t);
 
   // Helper to build URL with directory navigation params
   const buildDirectoryUrl = useCallback((directoryId: string, path: BreadcrumbItem[]) => {
@@ -742,13 +774,14 @@ export function StorageDetail() {
         <ScrollArea className="flex-1 overflow-auto p-3">
           {/* Directories */}
           <div className="mb-8">
-            {isDmsLoading ? (
+            {isDmsLoading && (
               viewMode === "grid" ? (
                 <DirectoryGridSkeleton />
               ) : (
                 <DirectoryListSkeleton />
               )
-            ) : viewMode === "grid" ? (
+            )}
+            {!isDmsLoading && viewMode === "grid" && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {filteredDirectorys.map((directory, index) => (
                   <div
@@ -796,7 +829,8 @@ export function StorageDetail() {
                   </div>
                 ))}
               </div>
-            ) : (
+            )}
+            {!isDmsLoading && viewMode !== "grid" && (
               <div className={`rounded-lg ${directorys.length > 0 && "border"} overflow-hidden`}>
                 <Table className="w-full bg-background">
                   {filteredDirectorys.length > 0 && (
@@ -879,13 +913,14 @@ export function StorageDetail() {
           {/* Files Section */}
           <div>
             {filteredFiles.length > 0 && <h2 className="mb-4 text-base font-semibold">{t("STORAGE_DETAIL.FILES")}</h2>}
-            {isDmsLoading ? (
+            {isDmsLoading && (
               viewMode === "grid" ? (
                 <FileGridSkeleton />
               ) : (
                 <FileListSkeleton />
               )
-            ) : viewMode === "grid" ? (
+            )}
+            {!isDmsLoading && viewMode === "grid" && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 {filteredFiles.map((file, index) => (
                   <div
@@ -910,21 +945,7 @@ export function StorageDetail() {
                     />
                     {/* File Preview */}
                     <div className="flex h-40 items-center justify-center border-b bg-muted/30 p-4">
-                      {[".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"].includes(
-                        file?.extension?.toLowerCase() || "",
-                      ) ? (
-                        <div className="flex flex-col items-center justify-center space-y-2">
-                          {getFileIcon(file.extension)}
-                          <span className="text-xs text-muted-foreground">{file.extension}</span>
-                        </div>
-                      ) : file?.extension?.toLowerCase() === ".pdf" ? (
-                        <div className="flex flex-col items-center justify-center space-y-2">
-                          <FileText className="h-12 w-12 text-blue-500" />
-                          <span className="text-xs text-muted-foreground">{t("STORAGE_DETAIL.PDF")}</span>
-                        </div>
-                      ) : (
-                        getFileIcon(file.extension)
-                      )}
+                      <FileGridPreview extension={file.extension} pdfLabel={t("STORAGE_DETAIL.PDF")} />
                     </div>
 
                     {/* File Info */}
@@ -958,7 +979,8 @@ export function StorageDetail() {
                   </div>
                 ))}
               </div>
-            ) : (
+            )}
+            {!isDmsLoading && viewMode !== "grid" && (
               <div className={`rounded-lg ${files.length > 0 && "border"} overflow-hidden`}>
                 <Table className="w-full bg-background">
                   {filteredFiles.length > 0 && (

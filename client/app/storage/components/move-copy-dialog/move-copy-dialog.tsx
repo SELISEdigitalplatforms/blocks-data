@@ -26,6 +26,24 @@ import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export type MoveCopyMode = "move" | "copy";
 
+/** The text keys that differ between moving and copying. */
+const MODE_KEYS: Record<MoveCopyMode, Record<"choose" | "pending" | "idle" | "title" | "pendingName", string>> = {
+  move: {
+    choose: "MOVE_COPY_DIALOG.CHOOSE_WHERE_TO_MOVE",
+    pending: "MOVE_COPY_DIALOG.MOVING",
+    idle: "MOVE_COPY_DIALOG.MOVE_HERE",
+    title: "MOVE_COPY_DIALOG.MOVE_ITEM",
+    pendingName: "MOVE_COPY_DIALOG.MOVING_NAME",
+  },
+  copy: {
+    choose: "MOVE_COPY_DIALOG.CHOOSE_WHERE_TO_COPY",
+    pending: "MOVE_COPY_DIALOG.COPYING",
+    idle: "MOVE_COPY_DIALOG.COPY_HERE",
+    title: "MOVE_COPY_DIALOG.COPY_ITEM",
+    pendingName: "MOVE_COPY_DIALOG.COPYING_NAME",
+  },
+};
+
 export interface MoveCopyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -100,10 +118,8 @@ export function MoveCopyDialog({
   const targetIsCurrentParent = mode === "move" && current.id === item.parentDirectoryId;
   const canConfirm = !!current.id && !targetIsSelf && !targetIsCurrentParent && !isPending;
   // The item name sits in its own styled span; the sentence is split around it.
-  const [descriptionBefore, descriptionAfter] = t(
-    mode === "move" ? "MOVE_COPY_DIALOG.CHOOSE_WHERE_TO_MOVE" : "MOVE_COPY_DIALOG.CHOOSE_WHERE_TO_COPY",
-    { name: "\u0000" },
-  ).split("\u0000");
+  const modeKeys = MODE_KEYS[mode];
+  const [descriptionBefore, descriptionAfter] = t(modeKeys.choose, { name: "\u0000" }).split("\u0000");
   const crumbLabel = (crumb: Crumb) => (crumb.isRoot ? t("MOVE_COPY_DIALOG.ROOT") : crumb.name);
 
   const handleConfirm = async () => {
@@ -135,8 +151,8 @@ export function MoveCopyDialog({
     }
   };
 
-  const pendingLabel = t(mode === "move" ? "MOVE_COPY_DIALOG.MOVING" : "MOVE_COPY_DIALOG.COPYING");
-  const idleLabel = t(mode === "move" ? "MOVE_COPY_DIALOG.MOVE_HERE" : "MOVE_COPY_DIALOG.COPY_HERE");
+  const pendingLabel = t(modeKeys.pending);
+  const idleLabel = t(modeKeys.idle);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -147,7 +163,7 @@ export function MoveCopyDialog({
               <FolderInput className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="space-y-1">
-              <DialogTitle>{t(mode === "move" ? "MOVE_COPY_DIALOG.MOVE_ITEM" : "MOVE_COPY_DIALOG.COPY_ITEM")}</DialogTitle>
+              <DialogTitle>{t(modeKeys.title)}</DialogTitle>
               <DialogDescription className="line-clamp-1">
                 {descriptionBefore}
                 <span className="font-medium text-foreground">{item.name}</span>
@@ -217,20 +233,23 @@ export function MoveCopyDialog({
               ) : null}
             </div>
 
-            {children.isLoading ? (
+            {children.isLoading && (
               <div className="space-y-2 p-3">
                 <Skeleton className="h-12 w-full" />
                 <Skeleton className="h-12 w-full" />
               </div>
-            ) : children.isError ? (
+            )}
+            {!children.isLoading && children.isError && (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                 {t("MOVE_COPY_DIALOG.COULD_NOT_LOAD_FOLDERS_TRY_AGAIN")}
               </p>
-            ) : directories.length === 0 ? (
+            )}
+            {!children.isLoading && !children.isError && directories.length === 0 && (
               <p className="px-4 py-8 text-center text-sm text-muted-foreground">
                 {t("MOVE_COPY_DIALOG.NO_FOLDERS_HERE_YOU_CAN_CHOOSE")}
               </p>
-            ) : (
+            )}
+            {!children.isLoading && !children.isError && directories.length !== 0 && (
               <ul className="max-h-64 overflow-y-auto p-2">
                 {directories.map((directory) => {
                   const isSelf = directory.itemId === item.itemId;
@@ -306,7 +325,7 @@ export function MoveCopyDialog({
               className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
             >
               <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-              {t(mode === "move" ? "MOVE_COPY_DIALOG.MOVING_NAME" : "MOVE_COPY_DIALOG.COPYING_NAME", { name: item.name })}
+              {t(modeKeys.pendingName, { name: item.name })}
             </div>
           ) : null}
         </div>

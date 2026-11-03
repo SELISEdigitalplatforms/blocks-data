@@ -343,9 +343,10 @@ function ComparisonValue({
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
       <span className={LABEL_CLASS}>{heading}</span>
-      {nowSentence && isRelativeNowWritten(value) ? (
+      {nowSentence && isRelativeNowWritten(value) && (
         <RelativeNowEditor label={label} value={value} invalid={invalid} sentence={nowSentence} onChange={onChange} />
-      ) : IS_ONE_VARIABLE.test(value) ? (
+      )}
+      {!(nowSentence && isRelativeNowWritten(value)) && IS_ONE_VARIABLE.test(value) && (
         <div
           className={cn(
             "flex min-h-9 items-center gap-2 rounded-md border bg-background py-1 pl-2 pr-1",
@@ -360,7 +361,8 @@ function ComparisonValue({
             {t("RULE_VALUE_INPUTS.USE_A_FIXED_VALUE")}
           </Button>
         </div>
-      ) : (
+      )}
+      {!(nowSentence && isRelativeNowWritten(value)) && !(IS_ONE_VARIABLE.test(value)) && (
         <ValueInput kind={kind} label={label} value={value} enumValues={enumValues} invalid={invalid} menu={menu} onChange={onChange} />
       )}
     </div>
@@ -541,6 +543,11 @@ export function RuleValueInputs({
       ? (bound: string) => t(sentenceKey, { field: shortField, bound })
       : undefined;
 
+  const lengthPlaceholder = draft.type === VALIDATION_TYPE.MinLength ? t("RULE_VALUE_INPUTS.AT_LEAST") : t("RULE_VALUE_INPUTS.AT_MOST");
+  const comparisonHeading = draft.type === VALIDATION_TYPE.Equal || draft.type === VALIDATION_TYPE.NotEqual ? t("RULE_VALUE_INPUTS.VALUE") : t("RULE_VALUE_INPUTS.COMPARED_WITH");
+  const valueListLabel = draft.type === VALIDATION_TYPE.NotIn ? t("RULE_VALUE_INPUTS.REFUSED_VALUES") : t("RULE_VALUE_INPUTS.ALLOWED_VALUES");
+  const countPlaceholder = draft.type === VALIDATION_TYPE.MinItems ? t("RULE_VALUE_INPUTS.AT_LEAST") : t("RULE_VALUE_INPUTS.AT_MOST");
+
   const body = (() => {
     switch (input) {
       case "none":
@@ -572,7 +579,7 @@ export function RuleValueInputs({
               type="number"
               min={0}
               aria-label={t("RULE_VALUE_INPUTS.LENGTH")}
-              placeholder={draft.type === VALIDATION_TYPE.MinLength ? t("RULE_VALUE_INPUTS.AT_LEAST") : t("RULE_VALUE_INPUTS.AT_MOST")}
+              placeholder={lengthPlaceholder}
               value={draft.value}
               onChange={(e) => onChange({ value: e.target.value })}
               className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}
@@ -594,7 +601,7 @@ export function RuleValueInputs({
         return (
           <ComparisonValue
             kind={kind}
-            heading={draft.type === VALIDATION_TYPE.Equal || draft.type === VALIDATION_TYPE.NotEqual ? t("RULE_VALUE_INPUTS.VALUE") : t("RULE_VALUE_INPUTS.COMPARED_WITH")}
+            heading={comparisonHeading}
             label={t("RULE_VALUE_INPUTS.VALUE")}
             value={draft.value}
             enumValues={enumValues}
@@ -606,7 +613,7 @@ export function RuleValueInputs({
         );
       case "valueList":
         return (
-          <Labelled label={draft.type === VALIDATION_TYPE.NotIn ? t("RULE_VALUE_INPUTS.REFUSED_VALUES") : t("RULE_VALUE_INPUTS.ALLOWED_VALUES")}>
+          <Labelled label={valueListLabel}>
             <ValueListInput values={draft.values ?? []} enumValues={enumValues} kind={kind} invalid={invalid} fieldLabel={shortField} onChange={(values) => onChange({ values })} />
           </Labelled>
         );
@@ -617,7 +624,7 @@ export function RuleValueInputs({
               type="number"
               min={0}
               aria-label={t("RULE_VALUE_INPUTS.ITEMS")}
-              placeholder={draft.type === VALIDATION_TYPE.MinItems ? t("RULE_VALUE_INPUTS.AT_LEAST") : t("RULE_VALUE_INPUTS.AT_MOST")}
+              placeholder={countPlaceholder}
               value={draft.value}
               onChange={(e) => onChange({ value: e.target.value })}
               className={cn(CONTROL_CLASS, "font-mono", invalid && "border-rose-500")}

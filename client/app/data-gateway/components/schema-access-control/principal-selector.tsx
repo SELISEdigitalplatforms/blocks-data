@@ -51,6 +51,29 @@ const splitValue = (value: string): string[] =>
     .map((v) => v.trim())
     .filter(Boolean);
 
+/** The stored value as a list: comma-separated when several are allowed, else the one trimmed value. */
+const selectedValuesOf = (value: string, multiple: boolean | undefined): string[] => {
+  if (multiple) return splitValue(value);
+  const single = value.trim();
+  return single ? [single] : [];
+};
+
+type BrowseState = "forbidden" | "error" | "loading" | "empty" | "list";
+
+const browseStateOf = (browse: ReturnType<typeof usePrincipalOptions>): BrowseState => {
+  if (browse.isForbidden) return "forbidden";
+  if (browse.error) return "error";
+  if (browse.isLoading) return "loading";
+  if (browse.options.length === 0) return "empty";
+  return "list";
+};
+
+/** Text keys that differ between picking roles and picking users. */
+const ENTITY_KEYS: Record<PrincipalEntity, { select: string; search: string }> = {
+  role: { select: "PRINCIPAL_SELECTOR.SELECT_ROLE", search: "PRINCIPAL_SELECTOR.SEARCH_ROLES" },
+  user: { select: "PRINCIPAL_SELECTOR.SELECT_USER", search: "PRINCIPAL_SELECTOR.SEARCH_USERS" },
+};
+
 /**
  * Inner selector. Remounted per tenant by the exported wrapper, so obsolete options cannot be
  * rendered even for the single commit before an effect could clear them.
@@ -69,7 +92,7 @@ const PrincipalSelectorInner = ({
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const selectedValues = multiple ? splitValue(value) : value.trim() ? [value.trim()] : [];
+  const selectedValues = selectedValuesOf(value, multiple);
 
   // Browsing is gated on the popover; resolving what is already stored is NOT - a closed selector
   // still has to show its labels and any Unavailable marker.
@@ -127,15 +150,10 @@ const PrincipalSelectorInner = ({
     );
   }
 
-  const emptyTriggerLabel =
-    entity === "role" ? t("PRINCIPAL_SELECTOR.SELECT_ROLE") : t("PRINCIPAL_SELECTOR.SELECT_USER");
+  const emptyTriggerLabel = t(ENTITY_KEYS[entity].select);
   const triggerLabel = selectedValues.length ? selectedValues.map(labelFor).join(", ") : emptyTriggerLabel;
 
-  let browseState: "forbidden" | "error" | "loading" | "empty" | "list" = "list";
-  if (browse.isForbidden) browseState = "forbidden";
-  else if (browse.error) browseState = "error";
-  else if (browse.isLoading) browseState = "loading";
-  else if (browse.options.length === 0) browseState = "empty";
+  const browseState = browseStateOf(browse);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -184,7 +202,7 @@ const PrincipalSelectorInner = ({
         <div className="border-b p-2">
           <Input
             className={cn("h-8", isChip && "text-xs")}
-            placeholder={entity === "role" ? t("PRINCIPAL_SELECTOR.SEARCH_ROLES") : t("PRINCIPAL_SELECTOR.SEARCH_USERS")}
+            placeholder={t(ENTITY_KEYS[entity].search)}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

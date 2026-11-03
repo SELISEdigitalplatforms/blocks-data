@@ -76,6 +76,68 @@ export interface ManageAccessModalProps {
  * being typed as opaque ids, and several can be granted at once — each picked
  * principal becomes its own access policy on submit.
  */
+/**
+ * General access: the default this item grants when nothing above has been explicitly added yet.
+ * Read from whichever detail endpoint matches the item kind, and kept in its own piece of state
+ * since the Select is edited before it's saved.
+ */
+function useGeneralAccess(item: ManageAccessModalProps["item"], open: boolean, projectKey: string) {
+  const directoryDetail = useDmsDirectory(item.type === "directory" ? item.itemId : undefined);
+  const fileDetail = useGetFile(
+    { itemId: item.itemId, projectKey },
+    { enabled: open && item.type === "file" && !!projectKey },
+  );
+  const detail = item.type === "directory" ? directoryDetail : fileDetail;
+  const currentAccessLevel = detail.data?.objectAccessLevel ?? "";
+
+  // Tracks only what the user has actively picked, keyed by item so switching to a
+  // different item (or reopening before a fetch resolves) falls back to the fetched
+  // value instead of carrying over a stale pick — no effect needed to keep this in sync.
+  const [override, setOverride] = useState<{ itemId: string; value: string } | null>(null);
+  const generalAccess =
+    override?.itemId === item.itemId ? override.value : currentAccessLevel;
+  const setGeneralAccess = (value: string) => setOverride({ itemId: item.itemId, value });
+
+  return { currentAccessLevel, isLoadingAccessLevel: detail.isLoading, generalAccess, setGeneralAccess };
+}
+
+/**
+ * Access rules carry IAM ids, not names ("b41a3acb-..." rather than "Editor"). Resolve them for
+ * display: a plain, unfiltered lookup per principal type actually present in the rows, cached
+ * separately from the Add-access panel's own (search-filtered) picker queries. A page of 50 covers
+ * the common case; an id outside that page still falls back to itself rather than the row silently
+ * going blank.
+ */
+function useRowPrincipalNames(rows: AccessPolicyDto[], open: boolean) {
+  const rowPrincipalTypes = useMemo(() => new Set(rows.map((p) => p.principalType)), [rows]);
+  const rowsNeedOrganizationNames = useMemo(
+    () => rowPrincipalTypes.has("Organization") || rows.some((p) => !!p.organizationId),
+    [rowPrincipalTypes, rows],
+  );
+  const rowUsers = useIamUsers("", open && rowPrincipalTypes.has("User"));
+  const rowRoles = useIamRoles("", open && rowPrincipalTypes.has("Role"));
+  const rowOrganizations = useIamOrganizations("", open && rowsNeedOrganizationNames);
+
+  const userNameById = useMemo(
+    () => new Map((rowUsers.data ?? []).map((u) => [u.value, u.label])),
+    [rowUsers.data],
+  );
+  const roleNameById = useMemo(
+    () => new Map((rowRoles.data ?? []).map((r) => [r.value, r.label])),
+    [rowRoles.data],
+  );
+  const organizationNameById = useMemo(
+    () => new Map((rowOrganizations.data ?? []).map((o) => [o.value, o.label])),
+    [rowOrganizations.data],
+  );
+
+  const principalNameById = (t: ObjectPrincipalType) => {
+    if (t === "User") return userNameById;
+    return t === "Role" ? roleNameById : organizationNameById;
+  };
+  return { principalNameById, organizationNameById };
+}
+
 export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageAccessModalProps>) {
   const { t: tx } = useT(DATA_STORAGE_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
@@ -89,29 +151,11 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
   const [permission, setPermission] = useState<ObjectPermission>("View");
   const [effect, setEffect] = useState<ObjectEffect>("Allow");
 
-  // General access: the default this item grants when nothing above has been
-  // explicitly added yet. Read from whichever detail endpoint matches the item
-  // kind, and kept in its own piece of state since the Select is edited before
-  // it's saved.
-  const directoryDetail = useDmsDirectory(item.type === "directory" ? item.itemId : undefined);
-  const fileDetail = useGetFile(
-    { itemId: item.itemId, projectKey },
-    { enabled: open && item.type === "file" && !!projectKey },
+  const { currentAccessLevel, isLoadingAccessLevel, generalAccess, setGeneralAccess } = useGeneralAccess(
+    item,
+    open,
+    projectKey,
   );
-  const currentAccessLevel =
-    item.type === "directory"
-      ? (directoryDetail.data?.objectAccessLevel ?? "")
-      : (fileDetail.data?.objectAccessLevel ?? "");
-  const isLoadingAccessLevel =
-    item.type === "directory" ? directoryDetail.isLoading : fileDetail.isLoading;
-
-  // Tracks only what the user has actively picked, keyed by item so switching to a
-  // different item (or reopening before a fetch resolves) falls back to the fetched
-  // value instead of carrying over a stale pick — no effect needed to keep this in sync.
-  const [override, setOverride] = useState<{ itemId: string; value: string } | null>(null);
-  const generalAccess =
-    override?.itemId === item.itemId ? override.value : currentAccessLevel;
-  const setGeneralAccess = (value: string) => setOverride({ itemId: item.itemId, value });
 
   const updateDirectory = useUpdateDmsDirectory();
   const updateFile = useUpdateFileAdditionalInfo();
@@ -151,38 +195,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
   const ownEntries = rows.filter((p) => !p.isInherited);
   const canSubmit = !needsPrincipal || selectedPrincipals.length > 0;
 
-  // Access rules carry IAM ids, not names ("b41a3acb-..." rather than "Editor").
-  // Resolve them for display: a plain, unfiltered lookup per principal type
-  // actually present in the rows, cached separately from the Add-access
-  // panel's own (search-filtered) picker queries. A page of 50 covers the
-  // common case; an id outside that page still falls back to itself below
-  // rather than the row silently going blank.
-  const rowPrincipalTypes = useMemo(() => new Set(rows.map((p) => p.principalType)), [rows]);
-  const rowsNeedOrganizationNames = useMemo(
-    () => rowPrincipalTypes.has("Organization") || rows.some((p) => !!p.organizationId),
-    [rowPrincipalTypes, rows],
-  );
-  const rowUsers = useIamUsers("", open && rowPrincipalTypes.has("User"));
-  const rowRoles = useIamRoles("", open && rowPrincipalTypes.has("Role"));
-  const rowOrganizations = useIamOrganizations("", open && rowsNeedOrganizationNames);
-
-  const userNameById = useMemo(
-    () => new Map((rowUsers.data ?? []).map((u) => [u.value, u.label])),
-    [rowUsers.data],
-  );
-  const roleNameById = useMemo(
-    () => new Map((rowRoles.data ?? []).map((r) => [r.value, r.label])),
-    [rowRoles.data],
-  );
-  const organizationNameById = useMemo(
-    () => new Map((rowOrganizations.data ?? []).map((o) => [o.value, o.label])),
-    [rowOrganizations.data],
-  );
-
-  const principalNameById = (t: ObjectPrincipalType) => {
-    if (t === "User") return userNameById;
-    return t === "Role" ? roleNameById : organizationNameById;
-  };
+  const { principalNameById, organizationNameById } = useRowPrincipalNames(rows, open);
 
   // Enum values go to the API as they are; these are the words shown to the user.
   const enumLabels: Record<string, string> = {
@@ -278,6 +291,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
       : tx("MANAGE_ACCESS_MODAL.CHOOSE_USERS_TO_CONTINUE");
   };
   const choosePrincipalsLabel = describeChoosePrincipals();
+  const emptyPreviewLabel = needsPrincipal ? choosePrincipalsLabel : tx(EVERYONE_KEY);
   const inheritanceToggleLabel = item.inheritsParentAccess
     ? tx("MANAGE_ACCESS_MODAL.TURN_OFF_INHERITANCE")
     : tx("MANAGE_ACCESS_MODAL.TURN_ON_INHERITANCE");
@@ -425,11 +439,7 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
                       </Badge>
                     ))
                 ) : (
-                  <span className="text-muted-foreground">
-                    {needsPrincipal
-                      ? choosePrincipalsLabel
-                      : tx(EVERYONE_KEY)}
-                  </span>
+                  <span className="text-muted-foreground">{emptyPreviewLabel}</span>
                 )}
                 <Badge variant={effect === "Allow" ? "success" : "error"}>{effect}</Badge>
                 <Badge variant="outline">{permission}</Badge>
@@ -456,16 +466,18 @@ export function ManageAccessModal({ open, onOpenChange, item }: Readonly<ManageA
               {!policies.isLoading ? <Badge variant="secondary">{rows.length}</Badge> : null}
             </div>
 
-            {policies.isLoading ? (
+            {policies.isLoading && (
               <div className="space-y-2">
                 <Skeleton className="h-16 w-full" />
                 <Skeleton className="h-16 w-full" />
               </div>
-            ) : rows.length === 0 ? (
+            )}
+            {!policies.isLoading && rows.length === 0 && (
               <div className="rounded-lg border border-dashed bg-background px-4 py-8 text-center text-sm text-muted-foreground">
                 {tx("MANAGE_ACCESS_MODAL.NO_RULES_ON_THIS_ITEM_ACCESS")}
               </div>
-            ) : (
+            )}
+            {!policies.isLoading && rows.length !== 0 && (
               <ul className="space-y-2">
                 {rows.map((policy) => (
                   <li key={policy.itemId} className="rounded-lg border bg-background p-3">

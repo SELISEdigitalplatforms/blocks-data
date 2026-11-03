@@ -136,6 +136,24 @@ export interface NestedRowActions {
   onOpenDefault: (path: string, field: IField) => void;
 }
 
+/** The loading or empty line under an expanded object, across every column. */
+function NestedTreePlaceholderRow({
+  row,
+  columnCount,
+}: Readonly<{ row: Exclude<NestedTreeRow, { kind: "field" }>; columnCount: number }>) {
+  const { t } = useT("data.gateway.schema");
+  return (
+    <TableRow className="bg-muted/20 hover:bg-muted/20">
+      <TableCell colSpan={columnCount} className="relative py-2.5 align-middle">
+        <TreeGuides guides={row.guides} />
+        <span style={treeIndent(row.depth)} className="block pl-6 text-xs text-muted-foreground">
+          {row.kind === "loading" ? t("PROPERTY_TREE.LOADING_FIELDS") : t("PROPERTY_TREE.NO_FIELDS_YET")}
+        </span>
+      </TableCell>
+    </TableRow>
+  );
+}
+
 /**
  * One nested property, read-only, in the same columns as the table's own rows. Nested properties
  * belong to their child schema, so they are changed there; here they are shown and their rules
@@ -161,18 +179,7 @@ export function NestedTreeRowView({
   actions: NestedRowActions;
 }>) {
   const { t } = useT("data.gateway.schema");
-  if (row.kind !== "field") {
-    return (
-      <TableRow className="bg-muted/20 hover:bg-muted/20">
-        <TableCell colSpan={columnCount} className="relative py-2.5 align-middle">
-          <TreeGuides guides={row.guides} />
-          <span style={treeIndent(row.depth)} className="block pl-6 text-xs text-muted-foreground">
-            {row.kind === "loading" ? t("PROPERTY_TREE.LOADING_FIELDS") : t("PROPERTY_TREE.NO_FIELDS_YET")}
-          </span>
-        </TableCell>
-      </TableRow>
-    );
-  }
+  if (row.kind !== "field") return <NestedTreePlaceholderRow row={row} columnCount={columnCount} />;
 
   const { field, path } = row;
   const isObject = Boolean(row.childSchema);
@@ -182,6 +189,10 @@ export function NestedTreeRowView({
     (level) => (ACCESS_LEVEL_TO_TYPE[level ?? 0] ?? ACCESS_TYPES.INHERITED) !== ACCESS_TYPES.INHERITED,
   );
   const objectReason = t("PROPERTY_TREE.RULES_APPLY_TO_THE_FIELDS_INSIDE", { name: field.name });
+  const validationLabel =
+    validation.total > 0
+      ? t("PROPERTY_TREE.MANAGE_VALIDATIONS_FOR_TOTAL", { name: path, total: validation.total })
+      : t("PROPERTY_TREE.MANAGE_VALIDATIONS_FOR", { name: path });
 
   return (
     <TableRow className={cn("bg-muted/20 hover:bg-muted/30", activeRule && "bg-primary/[0.06] hover:bg-primary/[0.08]")} data-tree-depth={row.depth}>
@@ -256,7 +267,7 @@ export function NestedTreeRowView({
                 type="button"
                 onClick={() => actions.onOpenValidation(path, field)}
                 aria-expanded={activeRule === "validation"}
-                aria-label={validation.total > 0 ? t("PROPERTY_TREE.MANAGE_VALIDATIONS_FOR_TOTAL", { name: path, total: validation.total }) : t("PROPERTY_TREE.MANAGE_VALIDATIONS_FOR", { name: path })}
+                aria-label={validationLabel}
                 className={cn(
                   RULE_BUTTON_CLASS,
                   "min-w-[28px] gap-1 px-1",

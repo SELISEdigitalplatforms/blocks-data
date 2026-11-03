@@ -214,32 +214,49 @@ export function conditionGroupFrom(draft: ConditionDraft): IPolicyRuleGroup {
 
 const NUMBER_PATTERN = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
 
+/** Boolean, date and number values: something picked, and for numbers, numbers only. */
+function typedValueError(kind: "boolean" | "date" | "number", items: string[], list: boolean): string | null {
+  if (kind === "number") {
+    const allNumbers = items.length > 0 && items.every((item) => NUMBER_PATTERN.test(item));
+    if (allNumbers) return null;
+    return list
+      ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.ENTER_NUMBERS_SEPARATED_BY_COMMAS")
+      : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.ENTER_A_NUMBER");
+  }
+  if (items.length) return null;
+  return kind === "boolean"
+    ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.PICK_A_VALUE")
+    : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.PICK_A_DATE_AND_TIME");
+}
+
+/** Enum and text values: something given, an allowed value, no placeholder, one value unless a list. */
+function otherValueError(field: ConditionField, value: string, items: string[], list: boolean): string | null {
+  if (field.type === "Enum" && field.enumValues?.length) {
+    if (items.length) return staticValueError(staticValueSpec(field.type, false, field.enumValues), value, list);
+    return list
+      ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.PICK_AT_LEAST_ONE_VALUE")
+      : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.PICK_A_VALUE");
+  }
+  if (!items.length) return list ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.ENTER_ONE_OR_MORE_VALUES_SEPARATED") : RULE_MESSAGES.ConditionNeedsValue;
+  // As the server: "{{" starts a placeholder, which a fixed value can't hold.
+  if (items.some((item) => item.includes("{{"))) return RULE_MESSAGES.PlaceholderNotAllowed;
+  return !list && value.includes(",") ? RULE_MESSAGES.CommaInSingleValue : null;
+}
+
 /** Why a row can't be saved yet, or null (D6). */
 export function conditionRowError(row: ConditionRow, fields: ConditionField[]): string | null {
   const field = fields.find((f) => f.path === row.field);
   if (!field) return RULE_MESSAGE_FORMATS.UnknownProperty(row.field);
   if (isNullOperator(row.operator)) return null;
-  if (row.mode === "property" && canCompareProperties(row.operator)) return row.other ? null : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.PICK_THE_PROPERTY_TO_COMPARE_WITH");
+  if (row.mode === "property" && canCompareProperties(row.operator)) {
+    return row.other ? null : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.PICK_THE_PROPERTY_TO_COMPARE_WITH");
+  }
 
   const list = isListOperator(row.operator);
   const items = list ? splitList(row.value) : [row.value.trim()].filter(Boolean);
-  switch (kindOf(field.type)) {
-    case "boolean":
-      return items.length ? null : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.PICK_A_VALUE");
-    case "date":
-      return items.length ? null : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.PICK_A_DATE_AND_TIME");
-    case "number":
-      if (!items.length || items.some((item) => !NUMBER_PATTERN.test(item))) return list ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.ENTER_NUMBERS_SEPARATED_BY_COMMAS") : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.ENTER_A_NUMBER");
-      return null;
-  }
-  if (field.type === "Enum" && field.enumValues?.length) {
-    if (!items.length) return list ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.PICK_AT_LEAST_ONE_VALUE") : tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.PICK_A_VALUE");
-    return staticValueError(staticValueSpec(field.type, false, field.enumValues), row.value, list);
-  }
-  if (!items.length) return list ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_CONDITIONS.ENTER_ONE_OR_MORE_VALUES_SEPARATED") : RULE_MESSAGES.ConditionNeedsValue;
-  // As the server: "{{" starts a placeholder, which a fixed value can't hold.
-  if (items.some((item) => item.includes("{{"))) return RULE_MESSAGES.PlaceholderNotAllowed;
-  return !list && row.value.includes(",") ? RULE_MESSAGES.CommaInSingleValue : null;
+  const kind = kindOf(field.type);
+  if (kind === "boolean" || kind === "date" || kind === "number") return typedValueError(kind, items, list);
+  return otherValueError(field, row.value, items, list);
 }
 
 /** Why a switched-on condition can't be saved yet, or null. Each row's own error shows on the row. */

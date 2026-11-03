@@ -51,6 +51,12 @@ const describeVersion = (version: ISchemaVersionSummary) => {
  * version history, where an earlier version can be made live again. History is fetched only when
  * opened; failed reads leave publishing available.
  */
+const publishStateOf = (isPublishing: boolean, hasFailed: boolean, pendingCount: number): PublishState => {
+  if (isPublishing) return "publishing";
+  if (hasFailed) return "failed";
+  return pendingCount > 0 ? "pending" : "clean";
+};
+
 export const PublishControl = () => {
   const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
@@ -66,13 +72,7 @@ export const PublishControl = () => {
   // published version exists, there is nothing to name.
   const liveVersion = history?.versions.some((v) => v.isCurrent) ? history.currentVersion : null;
 
-  const state: PublishState = isPublishing
-    ? "publishing"
-    : hasFailed
-      ? "failed"
-      : pendingCount > 0
-        ? "pending"
-        : "clean";
+  const state = publishStateOf(isPublishing, hasFailed, pendingCount);
 
   const publish = async () => {
     setHasFailed(false);
@@ -114,6 +114,9 @@ export const PublishControl = () => {
   }
 
   const failed = state === "failed";
+  let statusText = t("PUBLISH_CONTROL.PENDINGCOUNT_UNPUBLISHED", { pendingCount });
+  if (failed) statusText = t("PUBLISH_CONTROL.PUBLISH_FAILED");
+  else if (state === "publishing") statusText = "Publishing…";
 
   return (
     <div className="flex shrink-0 items-center gap-1.5">
@@ -143,11 +146,7 @@ export const PublishControl = () => {
             />
           )}
           <span className="whitespace-nowrap">
-            {failed
-              ? t("PUBLISH_CONTROL.PUBLISH_FAILED")
-              : state === "publishing"
-                ? "Publishing…"
-                : t("PUBLISH_CONTROL.PENDINGCOUNT_UNPUBLISHED", { pendingCount })}
+            {statusText}
             {!failed && state !== "publishing" && liveVersion !== null && (
               <span className="hidden lg:inline"> {t("PUBLISH_CONTROL.LIVE_V_LIVEVERSION", { liveVersion })}</span>
             )}
@@ -225,15 +224,17 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
         </PopoverTrigger>
         <PopoverContent align="end" className="w-[340px] p-0">
           <div className="px-3 py-2.5 text-sm font-medium">{t(PUBLISH_CONTROL_VERSION_HISTORY)}</div>
-          {!history ? (
+          {!history && (
             <p className="px-3 py-3 text-xs text-muted-foreground">
               {isError ? t("PUBLISH_CONTROL.VERSION_HISTORY_IS_UNAVAILABLE") : t("PUBLISH_CONTROL.LOADING_VERSION_HISTORY")}
             </p>
-          ) : history.versions.length === 0 ? (
+          )}
+          {history && history.versions.length === 0 && (
             <p className="border-t border-border/50 px-3 py-3 text-xs text-muted-foreground">
               {t("PUBLISH_CONTROL.NOTHING_IS_PUBLISHED_YET_PUBLISHING")}
             </p>
-          ) : (
+          )}
+          {history && history.versions.length !== 0 && (
             <ul>
               {history.versions.map((version) => (
                 <li

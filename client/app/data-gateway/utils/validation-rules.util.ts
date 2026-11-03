@@ -335,6 +335,16 @@ function checkRelativeNow(slots: string[], type: ValidationTypeValue, fieldType:
   return null;
 }
 
+/** Why one listed value does not fit the property's type, or null when it fits. */
+function valueTypeMismatch(item: string, fieldType: string, options?: RuleCheckOptions): string | null {
+  // 1.0 is a whole number, as on the server.
+  if (fieldType === "Int" && !(isNumber(item) && Number.isInteger(Number(item)))) return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_RULES_UTIL.EXPECTED_WHOLE_NUMBER"));
+  if (fieldType === "Enum" && options?.enumValues?.length && !options.enumValues.includes(item))
+    return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_RULES_UTIL.EXPECTED_VALUE_OF", { name: options.fieldPath ?? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_RULES_UTIL.THE_PROPERTY") }));
+  if (fieldType === "Float" && !isNumber(item)) return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_RULES_UTIL.EXPECTED_NUMBER"));
+  return null;
+}
+
 /** Is one of / is not one of: some values, at most 500, each of the property's type, none twice (Genesis `ValidationRuleCheck`). */
 function checkValueList(values: string[], fieldType: string, options?: RuleCheckOptions): string | null {
   const items = values.map((v) => v.trim());
@@ -342,11 +352,8 @@ function checkValueList(values: string[], fieldType: string, options?: RuleCheck
   if (items.length > MAX_LIST_VALUES) return RULE_MESSAGES.TooManyValues;
   const seen = new Set<string>();
   for (const item of items) {
-    // 1.0 is a whole number, as on the server.
-    if (fieldType === "Int" && !(isNumber(item) && Number.isInteger(Number(item)))) return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_RULES_UTIL.EXPECTED_WHOLE_NUMBER"));
-    if (fieldType === "Enum" && options?.enumValues?.length && !options.enumValues.includes(item))
-      return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_RULES_UTIL.EXPECTED_VALUE_OF", { name: options.fieldPath ?? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_RULES_UTIL.THE_PROPERTY") }));
-    if (fieldType === "Float" && !isNumber(item)) return RULE_MESSAGE_FORMATS.ValueDoesNotFit(item, tStatic(DATA_GATEWAY_VALIDATION_MODULE, "VALIDATION_RULES_UTIL.EXPECTED_NUMBER"));
+    const mismatch = valueTypeMismatch(item, fieldType, options);
+    if (mismatch) return mismatch;
     // Exact match, as Equal: "de" and "DE" are two values; 2 and 2.0 are one.
     const key = fieldType === "Int" || fieldType === "Float" ? String(Number(item)) : item;
     if (seen.has(key)) return RULE_MESSAGE_FORMATS.DuplicateValue(item);

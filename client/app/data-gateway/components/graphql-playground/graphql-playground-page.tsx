@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui-kits/button/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
 import { useGetProject } from "@/hooks/use-project";
-import { useProjectStore } from "@seliseblocks/genesis-os";
+import { useProjectStore, type TFunction } from "@seliseblocks/genesis-os";
 import type { EditorProps } from "@monaco-editor/react";
 import { isListType, isNonNullType, isObjectType } from "graphql";
 import { BookOpen, Keyboard, Play, Trash2 } from "lucide-react";
@@ -66,6 +66,21 @@ interface ResponseTab {
 }
 
 const MAX_NESTING_DEPTH = 30;
+
+/** The hover text of a field suggestion in the query editor: its type, and whether it is a nested DTO. */
+const fieldSuggestionText = (field: { type: string; isArray?: boolean }, isDto: boolean, t: TFunction) => {
+  const arraySuffix = field.isArray ? "[]" : "";
+  if (isDto) {
+    return {
+      documentation: `${field.type}${arraySuffix}${t("GRAPHQL_PLAYGROUND_PAGE.NESTED_DTO")}`,
+      detail: t("GRAPHQL_PLAYGROUND_PAGE.DTO_TYPE", { type: field.type }),
+    };
+  }
+  return {
+    documentation: `${field.type}${arraySuffix}`,
+    detail: t("GRAPHQL_PLAYGROUND_PAGE.FIELD_TYPE", { type: field.type }),
+  };
+};
 
 export const GraphQLPlaygroundPage = () => {
   const { t } = useT("data.gateway.schema");
@@ -1185,8 +1200,7 @@ export const GraphQLPlaygroundPage = () => {
                     : monaco.languages.CompletionItemKind.Field,
                   insertText,
                   insertTextRules,
-                  documentation: `${field.type}${field.isArray ? "[]" : ""}${isDto ? t("GRAPHQL_PLAYGROUND_PAGE.NESTED_DTO") : ""}`,
-                  detail: isDto ? t("GRAPHQL_PLAYGROUND_PAGE.DTO_TYPE", { type: field.type }) : t("GRAPHQL_PLAYGROUND_PAGE.FIELD_TYPE", { type: field.type }),
+                  ...fieldSuggestionText(field, Boolean(isDto), t),
                   sortText: `0_${field.name}`,
                   range,
                 });

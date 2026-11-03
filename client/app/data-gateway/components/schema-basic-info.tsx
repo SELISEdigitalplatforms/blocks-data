@@ -57,6 +57,28 @@ interface SchemaBasicInfoProps extends ISchemaDetails {
   isAccessPanelOpen?: boolean;
 }
 
+/**
+ * "3 fields · 5 system · 2 indexes". Entity schemas split into system defaults and the ones you
+ * added; Child schemas carry no system split and have no Indexes tab, so there is nothing to add.
+ */
+const schemaFieldsSummary = (
+  fields: SchemaBasicInfoProps["fields"],
+  isEntity: boolean,
+  indexCount: number | undefined,
+  systemLabel: (systemFieldsCount: number) => string,
+): string => {
+  const customFieldsCount = isEntity
+    ? fields.filter((f) => !readonlyPropertyNames.includes(f.name)).length
+    : fields.length;
+  const systemFieldsCount = isEntity
+    ? fields.filter((f) => readonlyPropertyNames.includes(f.name)).length
+    : 0;
+  const parts = [`${customFieldsCount} ${customFieldsCount === 1 ? "field" : "fields"}`];
+  if (isEntity) parts.push(systemLabel(systemFieldsCount));
+  if (isEntity && indexCount !== undefined) parts.push(`${indexCount} ${indexCount === 1 ? "index" : "indexes"}`);
+  return parts.join(" · ");
+};
+
 export const SchemaBasicInfo = ({
   onDeleteSuccess,
   isLoading,
@@ -102,15 +124,6 @@ export const SchemaBasicInfo = ({
   const schemaType = props.schemaType === 1 ? "Entity" : "Child";
   const isEntity = schemaType === "Entity";
 
-  // Entity schemas split into system defaults and the ones you added; Child
-  // schemas carry no system split and have no Indexes tab, so there is
-  // nothing to add to their count.
-  const customFieldsCount = isEntity
-    ? props.fields.filter((f) => !readonlyPropertyNames.includes(f.name)).length
-    : props.fields.length;
-  const systemFieldsCount = isEntity
-    ? props.fields.filter((f) => readonlyPropertyNames.includes(f.name)).length
-    : 0;
   // Reuses the Indexes tab's own cache entry — opening that tab later reads
   // the same query rather than starting a second one.
   const { data: indexesQuery } = useSchemaIndexes(props.id, {
@@ -118,15 +131,9 @@ export const SchemaBasicInfo = ({
   });
   const indexCount = indexesQuery?.data?.indexes.length;
 
-  const fieldsSummary = [
-    `${customFieldsCount} ${customFieldsCount === 1 ? "field" : "fields"}`,
-    isEntity ? t("SCHEMA_BASIC_INFO.SYSTEMFIELDSCOUNT_SYSTEM", { systemFieldsCount }) : null,
-    isEntity && indexCount !== undefined
-      ? `${indexCount} ${indexCount === 1 ? "index" : "indexes"}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const fieldsSummary = schemaFieldsSummary(props.fields, isEntity, indexCount, (systemFieldsCount) =>
+    t("SCHEMA_BASIC_INFO.SYSTEMFIELDSCOUNT_SYSTEM", { systemFieldsCount }),
+  );
 
   const accessLevels = [
     { label: t("common:VIEW"), level: props.readAccessLevel },
@@ -227,7 +234,7 @@ export const SchemaBasicInfo = ({
                 {t("SCHEMA_BASIC_INFO.PREVIEW")}
               </Button>
             )}
-            {isEntity && onOpenSchemaAccess ? (
+            {isEntity && onOpenSchemaAccess && (
               <Button
                 variant="outline"
                 size="sm"
@@ -241,7 +248,8 @@ export const SchemaBasicInfo = ({
                 <Shield className="h-3.5 w-3.5" />
                 {!isNarrow && t(SCHEMA_BASIC_INFO_SCHEMA_ACCESS)}
               </Button>
-            ) : isEntity ? (
+            )}
+            {isEntity && !onOpenSchemaAccess && (
               <SchemaAccessControlDrawer
                 fields={props.fields}
                 schemaName={schemaName}
@@ -269,7 +277,7 @@ export const SchemaBasicInfo = ({
                 onOpenChange={setIsSchemaAccessControlDrawerOpen}
                 selectedTab={selectedTab}
               />
-            ) : null}
+            )}
             <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
               <DropdownMenuTrigger asChild>
                 <Button

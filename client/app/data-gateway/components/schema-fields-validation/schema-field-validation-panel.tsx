@@ -46,7 +46,7 @@ import { StatusSnackbar } from "../primitives";
 import { ConditionEditor, ConditionTag } from "./condition-editor";
 import { useReferenceTarget } from "./reference-target-picker";
 import { RuleValueInputs, filterFieldsOf } from "./rule-value-inputs";
-import { useT } from "@seliseblocks/genesis-os/i18n";
+import { useT, type TFunction } from "@seliseblocks/genesis-os/i18n";
 
 const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
 
@@ -260,6 +260,30 @@ function RuleCard({
  * access (`AccessInspectorPanel`). Laid out like the default-value panel: a
  * status line, the content, a pinned footer.
  */
+/** The panel's state-dependent texts, so the markup only places them. */
+const validationPanelLabels = (
+  tx: TFunction,
+  state: { isEditMode: boolean; isGenerating: boolean; isPending: boolean; isActive: boolean; leftToServerIsDate: boolean },
+) => {
+  const submitLabel = state.isEditMode
+    ? tx("SCHEMA_FIELD_VALIDATION_PANEL.SAVE_VALIDATION")
+    : tx("SCHEMA_FIELD_VALIDATION_PANEL.ADD_VALIDATION");
+  return {
+    submitButton: state.isPending ? "Saving…" : submitLabel,
+    formHeading: state.isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.EDIT_VALIDATION") : tx("SCHEMA_FIELD_VALIDATION_PANEL.NEW_VALIDATION"),
+    footerNote: state.isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.EDITING_A_VALIDATION") : tx("SCHEMA_FIELD_VALIDATION_PANEL.NEW_VALIDATION"),
+    generateButton: state.isGenerating ? "Generating…" : tx("SCHEMA_FIELD_VALIDATION_PANEL.GENERATE"),
+    leftEmptyHint: tx(
+      state.leftToServerIsDate
+        ? "SCHEMA_FIELD_VALIDATION_PANEL.LEFT_EMPTY_NAMES_THE_DATE"
+        : "SCHEMA_FIELD_VALIDATION_PANEL.LEFT_EMPTY_NAMES_THE_VALUE",
+    ),
+    activeLabel: state.isActive
+      ? tx("SCHEMA_FIELD_VALIDATION_PANEL.ACTIVE_ENFORCED_ON_INSERT_AND_UPDATE")
+      : tx("SCHEMA_FIELD_VALIDATION_PANEL.INACTIVE_KEPT_NOT_ENFORCED"),
+  };
+};
+
 export function SchemaFieldValidationPanel({
   fieldName,
   schemaId,
@@ -474,9 +498,13 @@ export function SchemaFieldValidationPanel({
   const isRegex = VALIDATION_TYPE_META[form.type]?.input === "regex";
 
   const showList = !(isRefreshing || (isLoading && !hasInitialData));
-  const submitLabel = isEditMode
-    ? tx("SCHEMA_FIELD_VALIDATION_PANEL.SAVE_VALIDATION")
-    : tx("SCHEMA_FIELD_VALIDATION_PANEL.ADD_VALIDATION");
+  const labels = validationPanelLabels(tx, {
+    isEditMode,
+    isGenerating,
+    isPending,
+    isActive: Boolean(form.isActive),
+    leftToServerIsDate: messageLeftToServer(form) === "date",
+  });
 
   return (
     <>
@@ -531,7 +559,7 @@ export function SchemaFieldValidationPanel({
 
           {showForm && (
             <div className="flex flex-col gap-3.5 rounded-md border border-primary/30 bg-primary/[0.04] p-3.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-primary">{isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.EDIT_VALIDATION") : tx("SCHEMA_FIELD_VALIDATION_PANEL.NEW_VALIDATION")}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.09em] text-primary">{labels.formHeading}</p>
 
               <div className="flex flex-col gap-1.5">
                 <label className={LABEL_CLASS}>{tx("SCHEMA_FIELD_VALIDATION_PANEL.VALIDATION_TYPE")}</label>
@@ -619,7 +647,7 @@ export function SchemaFieldValidationPanel({
                     />
                     <Button type="button" size="sm" className="h-9 gap-1.5 text-xs" onClick={() => void handleGenerateRegex()} disabled={isGenerating || !prompt.trim()}>
                       <Sparkles size={13} className={cn(isGenerating && "animate-spin")} />
-                      {isGenerating ? "Generating…" : tx("SCHEMA_FIELD_VALIDATION_PANEL.GENERATE")}
+                      {labels.generateButton}
                     </Button>
                   </div>
                   <p className={HINT_CLASS}>{tx("SCHEMA_FIELD_VALIDATION_PANEL.THE_PATTERN_IS_WRITTEN_FOR_YOU")}</p>
@@ -690,7 +718,7 @@ export function SchemaFieldValidationPanel({
                 {!messageEdited && suggestedMessage && <p className={HINT_CLASS}>{tx("SCHEMA_FIELD_VALIDATION_PANEL.WRITTEN_FROM_THE_VALIDATION_CHANGE_IT")}</p>}
                 {!shownMessage && messageLeftToServer(form) && (
                   <p className={HINT_CLASS}>
-                    {tx(messageLeftToServer(form) === "date" ? "SCHEMA_FIELD_VALIDATION_PANEL.LEFT_EMPTY_NAMES_THE_DATE" : "SCHEMA_FIELD_VALIDATION_PANEL.LEFT_EMPTY_NAMES_THE_VALUE")}
+                    {labels.leftEmptyHint}
                   </p>
                 )}
                 {messageEdited && suggestedMessage && suggestedMessage !== form.errorMessage && (
@@ -714,7 +742,7 @@ export function SchemaFieldValidationPanel({
                   className={SWITCH_CLASS}
                 />
                 <label htmlFor="rule-active" className="cursor-pointer text-xs text-foreground/80">
-                  {form.isActive ? tx("SCHEMA_FIELD_VALIDATION_PANEL.ACTIVE_ENFORCED_ON_INSERT_AND_UPDATE") : tx("SCHEMA_FIELD_VALIDATION_PANEL.INACTIVE_KEPT_NOT_ENFORCED")}
+                  {labels.activeLabel}
                 </label>
               </div>
             </div>
@@ -734,12 +762,12 @@ export function SchemaFieldValidationPanel({
           <StatusSnackbar status={status} />
           {showForm && (
             <div className="flex items-center gap-2">
-              <span className="flex-1 text-[11px] text-muted-foreground">{isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.EDITING_A_VALIDATION") : tx("SCHEMA_FIELD_VALIDATION_PANEL.NEW_VALIDATION")}</span>
+              <span className="flex-1 text-[11px] text-muted-foreground">{labels.footerNote}</span>
               <Button type="button" size="sm" variant="ghost" className="text-muted-foreground" onClick={resetForm} disabled={isPending}>
                 {tx("common:CANCEL")}
               </Button>
               <Button type="button" size="sm" disabled={isPending || !!draftError || !isDirty} onClick={() => void handleSubmit()}>
-                {isPending ? "Saving…" : submitLabel}
+                {labels.submitButton}
               </Button>
             </div>
           )}

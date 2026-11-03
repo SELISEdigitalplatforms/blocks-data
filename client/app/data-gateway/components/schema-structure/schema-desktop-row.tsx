@@ -49,7 +49,7 @@ import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
 import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagTitlesFromField, flagsFromField } from "../primitives";
 import { DefaultValueButton } from "./default-value-button";
 import { FieldCount, TreeStem, TreeToggle } from "./property-tree";
-import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+import { useT, tStatic, type TFunction } from "@seliseblocks/genesis-os/i18n";
 
 const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 
@@ -116,6 +116,38 @@ interface SchemaDesktopRowProps {
   originalFieldFromSchema?: IField | null;
 }
 
+/** The row's state-dependent texts, so the row markup only places them. */
+const desktopRowLabels = (
+  t: TFunction,
+  row: {
+    fieldName: string;
+    schemaName: string;
+    childSchemaName: string;
+    isExpanded: boolean;
+    isNewField: boolean;
+    isReadOnly: boolean;
+    validationTotal: number;
+  },
+) => ({
+  drawerTitle: row.fieldName
+    ? t("SCHEMA_DESKTOP_ROW.ACCESS_FOR_FIELDNAME", { fieldName: row.fieldName })
+    : t("SCHEMA_DESKTOP_ROW.ACCESS_FOR_SCHEMANAME", { schemaName: row.schemaName }),
+  toggleLabel: row.isExpanded
+    ? t("SCHEMA_DESKTOP_ROW.COLLAPSE_SCHEMANAME", { schemaName: row.childSchemaName })
+    : t("SCHEMA_DESKTOP_ROW.EXPAND_SCHEMANAME_ATTRIBUTES", { schemaName: row.childSchemaName }),
+  descriptionPlaceholder: row.isReadOnly ? "—" : t("SCHEMA_DESKTOP_ROW.ADD_DESCRIPTION"),
+  accessUnavailable: row.isNewField
+    ? t("SCHEMA_DESKTOP_ROW.SAVE_THE_FIELD_BEFORE_SETTING_ACCESS")
+    : t("SCHEMA_DESKTOP_ROW.ACCESS_IS_NOT_AVAILABLE_FOR_CUSTOM"),
+  validationUnavailable: row.isNewField
+    ? t("SCHEMA_DESKTOP_ROW.SAVE_THE_FIELD_BEFORE_ADDING")
+    : t("SCHEMA_DESKTOP_ROW.VALIDATIONS_ARE_ONLY_AVAILABLE_FOR"),
+  manageValidations:
+    row.validationTotal > 0
+      ? t("SCHEMA_DESKTOP_ROW.MANAGE_VALIDATIONS_FOR_TOTAL", { name: row.fieldName, total: row.validationTotal })
+      : t("SCHEMA_DESKTOP_ROW.MANAGE_VALIDATIONS_FOR", { name: row.fieldName }),
+});
+
 export function SchemaDesktopRow({
   field,
   index,
@@ -180,7 +212,6 @@ export function SchemaDesktopRow({
       }
     : undefined;
 
-  const drawerTitle = fieldName ? t("SCHEMA_DESKTOP_ROW.ACCESS_FOR_FIELDNAME", { fieldName }) : t("SCHEMA_DESKTOP_ROW.ACCESS_FOR_SCHEMANAME", { schemaName });
 
   const hasNonInheritedPolicy = [
     fieldSource?.readAccessLevel,
@@ -198,6 +229,16 @@ export function SchemaDesktopRow({
   const canValidate = isPrimitiveType || Boolean(watch(`properties.${index}.isArray`));
   const resolvedChildSchema = childSchema ?? findChildSchemaByType(schemaItems, currentType);
   const isChildType = Boolean(resolvedChildSchema);
+  const labels = desktopRowLabels(t, {
+    fieldName,
+    schemaName,
+    childSchemaName: resolvedChildSchema?.schemaName ?? "",
+    isExpanded: Boolean(isExpanded),
+    isNewField,
+    isReadOnly,
+    validationTotal: validationInfo.total,
+  });
+  const { drawerTitle } = labels;
 
   // For entity type schemas, show section headers and handle collapse
   const isEntityType = schemaType === 1;
@@ -270,7 +311,7 @@ export function SchemaDesktopRow({
                     {isChildType && resolvedChildSchema && onToggleExpand && (
                       <TreeToggle
                         expanded={Boolean(isExpanded)}
-                        label={isExpanded ? t("SCHEMA_DESKTOP_ROW.COLLAPSE_SCHEMANAME", { schemaName: resolvedChildSchema.schemaName }) : t("SCHEMA_DESKTOP_ROW.EXPAND_SCHEMANAME_ATTRIBUTES", { schemaName: resolvedChildSchema.schemaName })}
+                        label={labels.toggleLabel}
                         blockedReason={expandBlockedReason}
                         onToggle={() => onToggleExpand(index)}
                       />
@@ -503,7 +544,7 @@ export function SchemaDesktopRow({
                       shouldDirty: true,
                     })
                   }
-                  placeholder={isReadOnly ? "—" : t("SCHEMA_DESKTOP_ROW.ADD_DESCRIPTION")}
+                  placeholder={labels.descriptionPlaceholder}
                   readOnly={isReadOnly}
                   className={cn(
                     "min-w-0",
@@ -530,19 +571,13 @@ export function SchemaDesktopRow({
                           type="button"
                           disabled
                           className="flex h-[26px] w-[26px] shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-border/60 text-muted-foreground/50"
-                          aria-label={
-                            isNewField
-                              ? t("SCHEMA_DESKTOP_ROW.SAVE_THE_FIELD_BEFORE_SETTING_ACCESS")
-                              : t("SCHEMA_DESKTOP_ROW.ACCESS_IS_NOT_AVAILABLE_FOR_CUSTOM")
-                          }
+                          aria-label={labels.accessUnavailable}
                         >
                           <Shield className="h-3.5 w-3.5" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {isNewField
-                          ? t("SCHEMA_DESKTOP_ROW.SAVE_THE_FIELD_BEFORE_SETTING_ACCESS")
-                          : t("SCHEMA_DESKTOP_ROW.ACCESS_IS_NOT_AVAILABLE_FOR_CUSTOM")}
+                        {labels.accessUnavailable}
                       </TooltipContent>
                     </Tooltip>
                   ) : (
@@ -596,19 +631,13 @@ export function SchemaDesktopRow({
                         type="button"
                         disabled
                         className="flex h-[26px] min-w-[28px] shrink-0 cursor-not-allowed items-center justify-center gap-1 rounded-md border border-border/60 px-1 text-muted-foreground/50"
-                        aria-label={
-                          isNewField
-                            ? t("SCHEMA_DESKTOP_ROW.SAVE_THE_FIELD_BEFORE_ADDING")
-                            : t("SCHEMA_DESKTOP_ROW.VALIDATIONS_ARE_ONLY_AVAILABLE_FOR")
-                        }
+                        aria-label={labels.validationUnavailable}
                       >
                         <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {isNewField
-                        ? t("SCHEMA_DESKTOP_ROW.SAVE_THE_FIELD_BEFORE_ADDING")
-                        : t("SCHEMA_DESKTOP_ROW.VALIDATIONS_ARE_ONLY_AVAILABLE_FOR")}
+                      {labels.validationUnavailable}
                     </TooltipContent>
                   </Tooltip>
                 ) : (
@@ -626,7 +655,7 @@ export function SchemaDesktopRow({
                           ? "border-primary/30 bg-primary/10 text-primary"
                           : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
                     )}
-                    aria-label={validationInfo.total > 0 ? t("SCHEMA_DESKTOP_ROW.MANAGE_VALIDATIONS_FOR_TOTAL", { name: fieldName, total: validationInfo.total }) : t("SCHEMA_DESKTOP_ROW.MANAGE_VALIDATIONS_FOR", { name: fieldName })}
+                    aria-label={labels.manageValidations}
                   >
                     <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                     {validationInfo.total > 0 && (

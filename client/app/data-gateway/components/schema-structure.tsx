@@ -32,7 +32,7 @@ import { SchemaFieldValidationDrawer } from "./schema-fields-validation/schema-f
 import { DefaultValueDrawer } from "./default-value/default-value-drawer";
 import { SchemaIndexesTab } from "./schema-indexes/schema-indexes-tab";
 import { mapIndexRelatedErrorMessage } from "../utils/schema-index.utils";
-import { useProjectStore } from "@seliseblocks/genesis-os";
+import { useProjectStore, type TFunction } from "@seliseblocks/genesis-os";
 import { InfoCard } from "./info-card";
 import { defaultProperty, PropertyRow } from "../models/schema-structure.types";
 import { useBulkOperations } from "../hooks/use-bulk-operations";
@@ -84,6 +84,10 @@ const FIELD_ON_SCHEMANAME_KEY = "SCHEMA_STRUCTURE.FIELD_ON_SCHEMANAME";
  * top-level region opts into one for edit mode's wide table. Embedded (child) schema uses
  * native overflow.
  */
+/** "Save 1 change" / "Save 3 changes" for the save confirmation. */
+const saveChangesTitle = (count: number, tx: TFunction) =>
+  count === 1 ? tx("SCHEMA_STRUCTURE.SAVE_1_CHANGE") : tx("SCHEMA_STRUCTURE.SAVE_COUNT_CHANGES", { count });
+
 function SchemaTableScrollRegion({
   embedded,
   children,
@@ -1182,8 +1186,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           onCancel={() => {}}
           onConfirm={handleSchemaSave}
           data={{
-            dialogTitle:
-              schemaDiff.count === 1 ? tx("SCHEMA_STRUCTURE.SAVE_1_CHANGE") : tx("SCHEMA_STRUCTURE.SAVE_COUNT_CHANGES", { count: schemaDiff.count }),
+            dialogTitle: saveChangesTitle(schemaDiff.count, tx),
             // The old text said updates "impact all existing data" without
             // naming a field, so it read the same whether you fixed a
             // description or dropped a column.

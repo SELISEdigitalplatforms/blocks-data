@@ -51,7 +51,8 @@ export const EnvironmentsPage = () => {
     isFetching,
   } = useGetProjects(groupId ?? "");
   const [addEnvModalOpen, setAddEnvModalOpen] = useState(false);
-  const navigate = useNavigate();
+  // Keeps the router subscription of the original navigate hook; its only caller is commented out below.
+  useNavigate();
 
   const { data: migrationStatus, refetch: refetchMigrationStatus } =
     useGetMigrationStatus(groupId as string);
@@ -88,11 +89,6 @@ export const EnvironmentsPage = () => {
       </main>
     );
   }
-
-  const canAddEnvironment =
-    environmentList &&
-    environmentList[0]?.projects?.length < 8 &&
-    !environmentList[0]?.isShared;
 
   return (
     <main className="flex flex-1 flex-col gap-4 p-6 md:gap-6">

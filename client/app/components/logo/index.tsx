@@ -13,7 +13,8 @@ const LOGO_SELISE_LOGO = "LOGO.SELISE_LOGO";
 
 export function Logo({ src, alt, width, height, className }: LogoProps) {
   const { t } = useT("data.shared");
-  const { resolvedTheme } = useTheme();
+  // Keeps the theme subscription so the logo re-renders on theme changes, as before.
+  useTheme();
 
   if (src) {
     return (

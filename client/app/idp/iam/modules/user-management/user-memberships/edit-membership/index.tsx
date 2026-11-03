@@ -66,6 +66,7 @@ export const EditMembership = ({
 
   const { mutateAsync, isPending } = useUpdateUser({ id: userId, projectKey });
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- memoising the fallback would make getRoleDisplayName (passed as a prop) stable while roles load, changing when the child re-renders; kept as is
   const allRoles = rolesData?.data || [];
   const allPermissions = permissionsData?.data || [];
   const totalPermissions = permissionsData?.totalCount || 0;

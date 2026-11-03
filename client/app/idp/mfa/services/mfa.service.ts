@@ -1,7 +1,7 @@
 import { http } from "@/lib/http-client";
 import {
-  IGenerateUserMFA_OtpPayload,
-  IGenerateUserMFA_OtpResponse,
+  IGenerateUserMfaOtpPayload,
+  IGenerateUserMfaOtpResponse,
   IGetConfigurationPayload,
   IGetConfigurationResponse,
   IConfigureUserMFAPayload,
@@ -29,7 +29,7 @@ export class MFAService {
     return http.post(MFA_CONFIG_ENDPOINTS.SAVE, payload);
   }
 
-  generateUserMfaOTP(payload: IGenerateUserMFA_OtpPayload): Promise<IGenerateUserMFA_OtpResponse> {
+  generateUserMfaOTP(payload: IGenerateUserMfaOtpPayload): Promise<IGenerateUserMfaOtpResponse> {
     return http.post(MFA_ENDPOINTS.GENERATE_OTP, payload);
   }
 

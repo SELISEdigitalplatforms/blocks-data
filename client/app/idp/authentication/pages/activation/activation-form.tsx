@@ -29,7 +29,7 @@ type ActivationFormProps = {
   code: string;
 };
 
-const x_blocks_key = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY");
+const xBlocksKey = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY");
 
 export const ActivationForm = ({ code }: ActivationFormProps) => {
   const { t } = useT("data.idp.authentication");
@@ -66,7 +66,7 @@ export const ActivationForm = ({ code }: ActivationFormProps) => {
       const res = await mutateAsync({
         code: code,
         preventPostEvent: true,
-        projectKey: x_blocks_key || "",
+        projectKey: xBlocksKey || "",
         password: values.password,
         firstname: values.firstname,
         lastname: values.lastname,
@@ -89,6 +89,7 @@ export const ActivationForm = ({ code }: ActivationFormProps) => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() re-renders on field changes by design; the React Compiler skipping this component is expected, and replacing it (e.g. useWatch) would change re-render behaviour
   const password = form.watch("password");
   const confirmPassword = form.watch("confirmPassword");
   const { isValid } = form.formState;

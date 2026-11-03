@@ -1,5 +1,4 @@
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useEffect, useRef } from "react";
 import { buildSchema } from "graphql";
@@ -106,14 +105,15 @@ vi.mock("./monaco-local", () => ({}));
 vi.mock("@monaco-editor/react", () => ({
   default: function MonacoEditorMock(props: { onMount?: (editor: unknown, monaco: unknown) => void; onChange?: (value: string) => void; value?: string }) {
     const mounted = useRef(false);
+    const { onMount } = props;
     useEffect(() => {
-      if (!mounted.current && props.onMount) {
+      if (!mounted.current && onMount) {
         mounted.current = true;
         capturedMonaco = makeMonaco();
         capturedEditor = makeEditor();
-        props.onMount(capturedEditor, capturedMonaco);
+        onMount(capturedEditor, capturedMonaco);
       }
-    }, [props.onMount]);
+    }, [onMount]);
     return (
       <textarea
         data-testid={props.onChange ? "monaco-query" : "monaco-response"}

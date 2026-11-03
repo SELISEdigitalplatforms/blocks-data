@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui-kits/badge/badge";
 import { useGetMFAConfig, useSaveMFAConfig } from "../../hooks/use-mfa-config";
 import { useProjectStore } from "@/store/use-project-store";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
-import { MFA_Provider_Data } from "../../utils/mfa-config";
+import { MFA_PROVIDER_DATA } from "../../utils/mfa-config";
 import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import ConfirmationModal from "@/components/confirmation-modal/confirmation-modal";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
@@ -57,7 +57,7 @@ export const ConfigureMFA = () => {
     type: null,
   });
 
-  const columns: ColumnDef<(typeof MFA_Provider_Data)[number]>[] = useMemo(
+  const columns: ColumnDef<(typeof MFA_PROVIDER_DATA)[number]>[] = useMemo(
     () => [
       {
         accessorKey: "provider",
@@ -148,9 +148,10 @@ export const ConfigureMFA = () => {
 
   const mfaConfigData = useMemo(() => {
     if (!data) return [];
-    return MFA_Provider_Data;
+    return MFA_PROVIDER_DATA;
   }, [data]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table's useReactTable() returns non-memoizable functions by design; the React Compiler skipping this component is expected, and avoiding the hook would change behaviour
   const table = useReactTable({
     data: mfaConfigData,
     columns,

@@ -26,11 +26,12 @@ test.describe("flow: Overview menu", () => {
       await page.getByText("Auto", { exact: true }).click();
     });
 
-    await test.step("Topbar: language selector lists EN/German/French with non-English disabled", async () => {
+    // Drift (PR #416, 48921a15): the app ships German, so German is selectable; French is not.
+    await test.step("Topbar: language selector lists EN/German/French with German enabled and French disabled", async () => {
       const languageButton = page.getByRole("button", { name: /^en$/i });
       await languageButton.click();
       await expect(page.getByRole("menuitem", { name: "English" })).toBeVisible();
-      await expect(page.getByRole("menuitem", { name: "German" })).toHaveAttribute(
+      await expect(page.getByRole("menuitem", { name: "German" })).not.toHaveAttribute(
         "aria-disabled",
         "true",
       );

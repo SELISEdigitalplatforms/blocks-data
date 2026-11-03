@@ -20,7 +20,7 @@ export class StorageFiltersToolbar {
   }
 
   getAddConfigurationMenuItem(): Locator {
-    return this.page.getByRole("menuitem", { name: "Add Configuration" });
+    return this.page.getByRole("menuitem", { name: "Configure in Blocks OS" });
   }
 
   async search(term: string): Promise<void> {

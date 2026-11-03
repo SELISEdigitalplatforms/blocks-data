@@ -494,10 +494,13 @@ describe("GraphQLWorkspace", () => {
   it("ignores a run command without a string operation (E5, C4)", async () => {
     await renderMounted();
     const run = commandHandler(RUN);
-    expect(() => run({})).not.toThrow();
-    expect(() => run({}, 42)).not.toThrow();
-    expect(run({})).toBeUndefined();
+    await act(async () => {
+      expect(run({})).toBeUndefined();
+      expect(run({}, 42)).toBeUndefined();
+    });
     expect(executeGraphQL).not.toHaveBeenCalled();
+    // Nothing was executed, so the empty response placeholder is still shown.
+    expect(screen.getByTestId("monaco-response")).toHaveValue("// Execute a query to see the response");
   });
 
   it("shows the error response tab when a CodeLens run fails (C5)", async () => {
@@ -789,13 +792,19 @@ describe("GraphQLWorkspace Monaco registrations", () => {
   });
 
   it("does not re-register when translations change while mounted (C2)", async () => {
-    await renderMounted();
-    act(() => registerTranslations("x.y", { K: "v" }));
-    act(() => useI18nStore.getState().setRemote("xx", "data.gateway.schema", { K: "v" }));
-    expect(ofKind("codelens")).toHaveLength(1);
-    expect(ownsExecuteCommand()).toBe(false);
-    expect(commandIds(ofKind("command"))).toEqual([RUN, NEWLINE, EXECUTE]);
-    expect(ofKind("keybinding")).toHaveLength(2);
+    const { bundled, remote } = useI18nStore.getState();
+    try {
+      await renderMounted();
+      act(() => registerTranslations("x.y", { K: "v" }));
+      act(() => useI18nStore.getState().setRemote("xx", "data.gateway.schema", { K: "v" }));
+      expect(ofKind("codelens")).toHaveLength(1);
+      expect(ownsExecuteCommand()).toBe(false);
+      expect(commandIds(ofKind("command"))).toEqual([RUN, NEWLINE, EXECUTE]);
+      expect(ofKind("keybinding")).toHaveLength(2);
+    } finally {
+      // Put the i18n store back as it was, so later tests see the shipped English only.
+      act(() => useI18nStore.setState({ bundled, remote }));
+    }
   });
 
   it("owns exactly one set of registrations under StrictMode (C3)", async () => {

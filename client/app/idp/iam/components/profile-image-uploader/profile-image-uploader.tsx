@@ -99,7 +99,9 @@ export const ProfileImageUploader = ({ projectKey, id }: ProfileImageUploaderPro
       return showErrorToast({ errors: t("PROFILE_IMAGE_UPLOADER.FILE_SIZE_MUST_BE_LESS_THAN", { size: MAX_SIZE_MB }) });
     }
 
-    setImage(URL.createObjectURL(selectedFile)); // Generate preview
+    // The preview is the file's own object URL; only a blob: URL is ever used as the image source.
+    const preview = new URL(URL.createObjectURL(selectedFile));
+    if (preview.protocol === "blob:") setImage(preview.href);
     uploadImage(selectedFile);
     event.target.value = "";
   };

@@ -143,12 +143,12 @@ const shareDisabledReasonFor = (
   return undefined;
 };
 
-const PREVIEW_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"];
+const PREVIEW_IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".svg", ".webp"]);
 
 /** The big icon in a grid card: images show their extension, PDFs a labelled icon, the rest the plain icon. */
 function FileGridPreview({ extension, pdfLabel }: Readonly<{ extension: string; pdfLabel: string }>) {
   const ext = extension?.toLowerCase() || "";
-  if (PREVIEW_IMAGE_EXTENSIONS.includes(ext)) {
+  if (PREVIEW_IMAGE_EXTENSIONS.has(ext)) {
     return (
       <div className="flex flex-col items-center justify-center space-y-2">
         {getFileIcon(extension)}

@@ -229,12 +229,12 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
               {isError ? t("PUBLISH_CONTROL.VERSION_HISTORY_IS_UNAVAILABLE") : t("PUBLISH_CONTROL.LOADING_VERSION_HISTORY")}
             </p>
           )}
-          {history && history.versions.length === 0 && (
+          {history?.versions.length === 0 && (
             <p className="border-t border-border/50 px-3 py-3 text-xs text-muted-foreground">
               {t("PUBLISH_CONTROL.NOTHING_IS_PUBLISHED_YET_PUBLISHING")}
             </p>
           )}
-          {history && history.versions.length !== 0 && (
+          {!!history?.versions.length && (
             <ul>
               {history.versions.map((version) => (
                 <li

@@ -12,6 +12,7 @@ import { Card, CardContent, CardFooter } from "@/components/ui-kits/card/card";
 import { DependentPermissions } from "../dependent-permissions";
 import { PermissionGroupCombobox } from "@blocks-idp/iam/components/permission-group-combobox/permission-group-combobox";
 import { Textarea } from "@/components/ui-kits/textarea/textarea";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type PermissionFormProps = {
   onSave: (data: permissionFormSchemaType) => void;
@@ -20,6 +21,7 @@ type PermissionFormProps = {
 };
 
 export const PermissionForm = ({ onSave, isPending, values = null }: PermissionFormProps) => {
+  const { t } = useT("data.idp.iam");
   const form = useForm({
     values: values || permissionFormDefaultValue,
     resolver: zodResolver(permissionFormSchema),
@@ -41,9 +43,9 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Name</FormLabel>
+                  <FormLabel>{t("common:NAME")}</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Enter name" disabled={!!values?.isBuiltIn} />
+                    <Input {...field} placeholder={t("PERMISSION_FORM.ENTER_NAME")} disabled={!!values?.isBuiltIn} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -54,7 +56,7 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Type</FormLabel>
+                  <FormLabel>{t("common:TYPE")}</FormLabel>
                   <FormControl>
                     <Select
                       value={field.value.toString()}
@@ -62,7 +64,7 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
                       disabled={!!values?.isBuiltIn}
                     >
                       <SelectTrigger className="border-default col-span-3 flex h-10 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm shadow-none placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                        <SelectValue placeholder="Select type" />
+                        <SelectValue placeholder={t("PERMISSION_FORM.SELECT_TYPE")} />
                       </SelectTrigger>
                       <SelectContent>
                         {RESOURCE_TYPE.map((item) => (
@@ -82,11 +84,11 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Resource</FormLabel>
+                  <FormLabel>{t("PERMISSION_FORM.RESOURCE")}</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
-                      placeholder={resourceType === 1 ? "Enter service::controller::name" : "Enter resource"}
+                      placeholder={resourceType === 1 ? t("PERMISSION_FORM.ENTER_SERVICE_CONTROLLER_NAME") : t("PERMISSION_FORM.ENTER_RESOURCE")}
                       disabled={!!values?.isBuiltIn}
                     />
                   </FormControl>
@@ -99,7 +101,7 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Group</FormLabel>
+                  <FormLabel>{t("PERMISSION_FORM.GROUP")}</FormLabel>
                   <FormControl>
                     <PermissionGroupCombobox
                       value={field.value}
@@ -118,7 +120,7 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Severity</FormLabel>
+                  <FormLabel>{t("PERMISSION_FORM.SEVERITY")}</FormLabel>
                   <FormControl>
                     <Select
                       value={field.value?.toString() || ""}
@@ -126,7 +128,7 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
                       disabled={!!values?.isBuiltIn}
                     >
                       <SelectTrigger className="border-default col-span-3 flex h-10 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm shadow-none placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                        <SelectValue placeholder="Select severity" />
+                        <SelectValue placeholder={t("PERMISSION_FORM.SELECT_SEVERITY")} />
                       </SelectTrigger>
                       <SelectContent>
                         {PERMISSION_SEVERITY_OPTIONS.map((item) => (
@@ -147,7 +149,7 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
               control={form.control}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Tags</FormLabel>
+                  <FormLabel>{t("PERMISSION_FORM.TAGS")}</FormLabel>
                   <FormControl>
                     <ChipsInput {...field}>
                       <ChipsInputList />
@@ -163,9 +165,9 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
               control={form.control}
               render={({ field }) => (
                 <FormItem className=" md:col-span-2">
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>{t("common:DESCRIPTION")}</FormLabel>
                   <FormControl>
-                    <Textarea {...field} placeholder="Enter description" />
+                    <Textarea {...field} placeholder={t("PERMISSION_FORM.ENTER_DESCRIPTION")} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -177,7 +179,7 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
                 control={form.control}
                 render={({ field }) => (
                   <FormItem className="md:col-span-2">
-                    <FormLabel>Dependent permissions (Max 5)</FormLabel>
+                    <FormLabel>{t("PERMISSION_FORM.DEPENDENT_PERMISSIONS_MAX_5")}</FormLabel>
                     <FormControl>
                       <DependentPermissions
                         permissionsResource={field.value}
@@ -194,7 +196,7 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
           </CardContent>
           <CardFooter className="mt-4 justify-end">
             <Button className="min-w-[80px]" type="submit" disabled={isPending}>
-              Save
+              {t("common:SAVE")}
             </Button>
           </CardFooter>
         </Card>

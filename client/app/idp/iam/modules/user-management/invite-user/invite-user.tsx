@@ -28,8 +28,10 @@ import { useProjectStore } from "@/store/use-project-store";
 import { useState } from "react";
 import { isErrorWithErrors } from "@/lib/error";
 import { PrimaryButton } from "@/components/action-buttons/primary-button";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const InviteUser = () => {
+  const { t } = useT("data.idp.iam");
   const { isPending, mutateAsync } = useAddUser();
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const [open, setOpen] = useState(false);
@@ -60,7 +62,7 @@ export const InviteUser = () => {
         projectKey: tenantId,
       });
       if (res.isSuccess) {
-        showSuccessToast({ description: "Invitation is sent" });
+        showSuccessToast({ description: t("INVITE_USER.INVITATION_IS_SENT") });
         form.reset();
         setOpen(false);
       } else {
@@ -76,13 +78,13 @@ export const InviteUser = () => {
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogTrigger asChild>
-        <PrimaryButton label="Invite User" />
+        <PrimaryButton label={t("INVITE_USER.INVITE_USER")} />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader className="mb-4">
-          <DialogTitle>Invite User</DialogTitle>
+          <DialogTitle>{t("INVITE_USER.INVITE_USER")}</DialogTitle>
           <DialogDescription className="mt-2! text-sm text-medium-emphasis">
-            Invite a new user to the system
+            {t("INVITE_USER.INVITE_A_NEW_USER_TO_THE")}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -93,9 +95,9 @@ export const InviteUser = () => {
                 name="firstName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>First name</FormLabel>
+                    <FormLabel>{t("INVITE_USER.FIRST_NAME")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter first name" {...field} />
+                      <Input placeholder={t("INVITE_USER.ENTER_FIRST_NAME")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -106,9 +108,9 @@ export const InviteUser = () => {
                 name="lastName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Last name</FormLabel>
+                    <FormLabel>{t("INVITE_USER.LAST_NAME")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter last name" {...field} />
+                      <Input placeholder={t("INVITE_USER.ENTER_LAST_NAME")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -119,9 +121,9 @@ export const InviteUser = () => {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("common:EMAIL")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter email" {...field} />
+                      <Input placeholder={t("INVITE_USER.ENTER_EMAIL")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -131,10 +133,10 @@ export const InviteUser = () => {
             <DialogFooter className="mt-6">
               <DialogClose asChild>
                 <Button variant="secondary" disabled={isPending}>
-                  Cancel
+                  {t("common:CANCEL")}
                 </Button>
               </DialogClose>
-              <Button disabled={isPending || !isDirty}>{isPending ? "Sending..." : "Send"}</Button>
+              <Button disabled={isPending || !isDirty}>{isPending ? t("INVITE_USER.SENDING") : t("INVITE_USER.SEND")}</Button>
             </DialogFooter>
           </form>
         </Form>

@@ -12,6 +12,7 @@ import { useProjectStore } from "@seliseblocks/genesis-os";
 import { FolderOpen, Loader } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useLocation, useNavigate } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const redirectPaths: Record<string, string> = {
   "/services/iam/user-detail/*": "/services/iam",
@@ -35,6 +36,7 @@ const matchesWildcardPath = (pattern: string, pathname: string): boolean => {
 };
 
 export function ProjectList({ collapsed = false }: { collapsed?: boolean }) {
+  const { t } = useT("data.shared");
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { data: projectGroups = [], isLoading } = useGetProjects();
@@ -81,7 +83,7 @@ export function ProjectList({ collapsed = false }: { collapsed?: boolean }) {
         >
           <FolderOpen className="h-5 w-5 text-muted-foreground" />
           <div className="pointer-events-none absolute left-full top-0 z-20 ml-2 min-w-max whitespace-nowrap rounded bg-gray-300 px-2 py-1 text-xs text-primary opacity-0 transition-opacity group-hover:opacity-100">
-            {name || "Select a Project"}
+            {name || t("PROJECT_LIST.SELECT_A_PROJECT")}
           </div>
         </DropdownMenuTrigger>
       ) : (
@@ -93,10 +95,10 @@ export function ProjectList({ collapsed = false }: { collapsed?: boolean }) {
             <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1">
               <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Project
+                {t("PROJECT_LIST.PROJECT")}
               </div>
               <div className="break-all text-sm font-medium leading-tight">
-                {name || "Select a Project"}
+                {name || t("PROJECT_LIST.SELECT_A_PROJECT")}
               </div>
             </div>
           </div>
@@ -110,7 +112,7 @@ export function ProjectList({ collapsed = false }: { collapsed?: boolean }) {
           collapsed ? "min-w-48" : "w-(--radix-dropdown-menu-trigger-width)"
         }
       >
-        <DropdownMenuLabel>Your Projects</DropdownMenuLabel>
+        <DropdownMenuLabel>{t("PROJECT_LIST.YOUR_PROJECTS")}</DropdownMenuLabel>
         {projects
           .filter((project) => project.itemId !== selectedProject?.itemId)
           .slice(0, 5)
@@ -130,7 +132,7 @@ export function ProjectList({ collapsed = false }: { collapsed?: boolean }) {
           ))}
         <DropdownMenuSeparator />
         <DropdownMenuItem disabled>
-          Project overview is not part of this client
+          {t("PROJECT_LIST.PROJECT_OVERVIEW_IS_NOT_PART_OF")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

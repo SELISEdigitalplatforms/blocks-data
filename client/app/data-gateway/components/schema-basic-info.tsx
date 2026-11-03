@@ -24,6 +24,9 @@ import { toast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { CloudOff, CloudUpload, Database, Eye, MoreVertical, Shield, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+
+const SCHEMA_BASIC_INFO_SCHEMA_ACCESS = "SCHEMA_BASIC_INFO.SCHEMA_ACCESS";
 
 /** Below this width the header can no longer fit Preview + Schema Access +
  *  the ACCESS CONTROL pills' text on one line — matters most once the access
@@ -54,6 +57,28 @@ interface SchemaBasicInfoProps extends ISchemaDetails {
   isAccessPanelOpen?: boolean;
 }
 
+/**
+ * "3 fields · 5 system · 2 indexes". Entity schemas split into system defaults and the ones you
+ * added; Child schemas carry no system split and have no Indexes tab, so there is nothing to add.
+ */
+const schemaFieldsSummary = (
+  fields: SchemaBasicInfoProps["fields"],
+  isEntity: boolean,
+  indexCount: number | undefined,
+  systemLabel: (systemFieldsCount: number) => string,
+): string => {
+  const customFieldsCount = isEntity
+    ? fields.filter((f) => !readonlyPropertyNames.includes(f.name)).length
+    : fields.length;
+  const systemFieldsCount = isEntity
+    ? fields.filter((f) => readonlyPropertyNames.includes(f.name)).length
+    : 0;
+  const parts = [`${customFieldsCount} ${customFieldsCount === 1 ? "field" : "fields"}`];
+  if (isEntity) parts.push(systemLabel(systemFieldsCount));
+  if (isEntity && indexCount !== undefined) parts.push(`${indexCount} ${indexCount === 1 ? "index" : "indexes"}`);
+  return parts.join(" · ");
+};
+
 export const SchemaBasicInfo = ({
   onDeleteSuccess,
   isLoading,
@@ -62,6 +87,7 @@ export const SchemaBasicInfo = ({
   isAccessPanelOpen = false,
   ...props
 }: SchemaBasicInfoProps) => {
+  const { t } = useT("data.gateway.schema");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSchemaAccessControlDrawerOpen, setIsSchemaAccessControlDrawerOpen] = useState(false);
@@ -81,16 +107,16 @@ export const SchemaBasicInfo = ({
     try {
       const res = await deleteAsync({ id: props.id, projectKey });
       if (res?.isSuccess) {
-        toast({ variant: "success", title: "Success", description: "Deleted successfully" });
+        toast({ variant: "success", title: t("common:SUCCESS"), description: t("SCHEMA_BASIC_INFO.DELETED_SUCCESSFULLY") });
         setIsDeleteDialogOpen(false);
         if (onDeleteSuccess) {
           onDeleteSuccess();
         }
       } else {
-        toast({ variant: "destructive", title: "Error", description: JSON.stringify(res?.errors) });
+        toast({ variant: "destructive", title: t("common:ERROR"), description: JSON.stringify(res?.errors) });
       }
     } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: JSON.stringify(error) });
+      toast({ variant: "destructive", title: t("common:ERROR"), description: JSON.stringify(error) });
     }
   };
 
@@ -98,15 +124,6 @@ export const SchemaBasicInfo = ({
   const schemaType = props.schemaType === 1 ? "Entity" : "Child";
   const isEntity = schemaType === "Entity";
 
-  // Entity schemas split into system defaults and the ones you added; Child
-  // schemas carry no system split and have no Indexes tab, so there is
-  // nothing to add to their count.
-  const customFieldsCount = isEntity
-    ? props.fields.filter((f) => !readonlyPropertyNames.includes(f.name)).length
-    : props.fields.length;
-  const systemFieldsCount = isEntity
-    ? props.fields.filter((f) => readonlyPropertyNames.includes(f.name)).length
-    : 0;
   // Reuses the Indexes tab's own cache entry — opening that tab later reads
   // the same query rather than starting a second one.
   const { data: indexesQuery } = useSchemaIndexes(props.id, {
@@ -114,21 +131,15 @@ export const SchemaBasicInfo = ({
   });
   const indexCount = indexesQuery?.data?.indexes.length;
 
-  const fieldsSummary = [
-    `${customFieldsCount} ${customFieldsCount === 1 ? "field" : "fields"}`,
-    isEntity ? `${systemFieldsCount} system` : null,
-    isEntity && indexCount !== undefined
-      ? `${indexCount} ${indexCount === 1 ? "index" : "indexes"}`
-      : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const fieldsSummary = schemaFieldsSummary(props.fields, isEntity, indexCount, (systemFieldsCount) =>
+    t("SCHEMA_BASIC_INFO.SYSTEMFIELDSCOUNT_SYSTEM", { systemFieldsCount }),
+  );
 
   const accessLevels = [
-    { label: "View", level: props.readAccessLevel },
-    { label: "Create", level: props.writeAccessLevel },
-    { label: "Edit", level: props.editAccessLevel },
-    { label: "Delete", level: props.deleteAccessLevel },
+    { label: t("common:VIEW"), level: props.readAccessLevel },
+    { label: t("common:CREATE"), level: props.writeAccessLevel },
+    { label: t("common:EDIT"), level: props.editAccessLevel },
+    { label: t("common:DELETE"), level: props.deleteAccessLevel },
   ] as const;
 
   if (isLoading) return <SchemaBasicInfoSkeleton />;
@@ -136,8 +147,8 @@ export const SchemaBasicInfo = ({
   if (!schemaName) {
     return (
       <InfoCard
-        title="Basic Information"
-        message="Select a schema from the sidebar to view its details."
+        title={t("SCHEMA_BASIC_INFO.BASIC_INFORMATION")}
+        message={t("SCHEMA_BASIC_INFO.SELECT_A_SCHEMA_FROM_THE_SIDEBAR")}
       />
     );
   }
@@ -210,8 +221,8 @@ export const SchemaBasicInfo = ({
               {liveState && (
                 <p className="text-[11px] text-warning-800">
                   {liveState === "not-live"
-                    ? "Not in the live version. Apps using the API can't query it until you publish."
-                    : "The live version doesn't include the latest changes to this schema. Publish to apply them."}
+                    ? t("SCHEMA_BASIC_INFO.NOT_IN_THE_LIVE_VERSION_APPS")
+                    : t("SCHEMA_BASIC_INFO.THE_LIVE_VERSION_DOESN_T_INCLUDE")}
                 </p>
               )}
             </div>
@@ -220,14 +231,14 @@ export const SchemaBasicInfo = ({
             {onOpenPreview && !foldPreviewIntoMenu && (
               <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={onOpenPreview}>
                 <Eye className="h-3.5 w-3.5" />
-                Preview
+                {t("SCHEMA_BASIC_INFO.PREVIEW")}
               </Button>
             )}
-            {isEntity && onOpenSchemaAccess ? (
+            {isEntity && onOpenSchemaAccess && (
               <Button
                 variant="outline"
                 size="sm"
-                aria-label="Schema Access"
+                aria-label={t(SCHEMA_BASIC_INFO_SCHEMA_ACCESS)}
                 className={cn(
                   "h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                   isNarrow && "w-8 px-0",
@@ -235,9 +246,10 @@ export const SchemaBasicInfo = ({
                 onClick={() => onOpenSchemaAccess("View")}
               >
                 <Shield className="h-3.5 w-3.5" />
-                {!isNarrow && "Schema Access"}
+                {!isNarrow && t(SCHEMA_BASIC_INFO_SCHEMA_ACCESS)}
               </Button>
-            ) : isEntity ? (
+            )}
+            {isEntity && !onOpenSchemaAccess && (
               <SchemaAccessControlDrawer
                 fields={props.fields}
                 schemaName={schemaName}
@@ -251,28 +263,28 @@ export const SchemaBasicInfo = ({
                   <Button
                     variant="outline"
                     size="sm"
-                    aria-label="Schema Access"
+                    aria-label={t(SCHEMA_BASIC_INFO_SCHEMA_ACCESS)}
                     className={cn(
                       "h-8 gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                       isNarrow && "w-8 px-0",
                     )}
                   >
                     <Shield className="h-3.5 w-3.5" />
-                    {!isNarrow && "Schema Access"}
+                    {!isNarrow && t(SCHEMA_BASIC_INFO_SCHEMA_ACCESS)}
                   </Button>
                 }
                 open={isSchemaAccessControlDrawerOpen}
                 onOpenChange={setIsSchemaAccessControlDrawerOpen}
                 selectedTab={selectedTab}
               />
-            ) : null}
+            )}
             <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   size="icon"
                   variant="ghost"
                   className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                  aria-label="More options"
+                  aria-label={t("SCHEMA_BASIC_INFO.MORE_OPTIONS")}
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
@@ -287,7 +299,7 @@ export const SchemaBasicInfo = ({
                     }}
                   >
                     <Eye className="mr-2 h-3.5 w-3.5" />
-                    Preview
+                    {t("SCHEMA_BASIC_INFO.PREVIEW")}
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
@@ -298,7 +310,7 @@ export const SchemaBasicInfo = ({
                   }}
                 >
                   <Trash2 className="mr-2 h-3.5 w-3.5" />
-                  Delete schema
+                  {t("SCHEMA_BASIC_INFO.DELETE_SCHEMA")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -311,7 +323,7 @@ export const SchemaBasicInfo = ({
              beside them, where it ran off the card's left edge. */
           <div className="relative flex flex-col items-start gap-2.5 border-t border-border/40 px-3 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
             <span className="shrink-0 text-[11px] font-medium uppercase tracking-widest text-muted-foreground/50">
-              {isEntity ? "Access Control" : "References"}
+              {isEntity ? t("SCHEMA_BASIC_INFO.ACCESS_CONTROL") : t("SCHEMA_BASIC_INFO.REFERENCES")}
             </span>
             {isEntity ? (
               /* Access Control pills for Entity — verb and tier share one
@@ -346,7 +358,7 @@ export const SchemaBasicInfo = ({
                     </Badge>
                   ))
                 ) : (
-                  <span className="text-xs text-muted-foreground/50">No references</span>
+                  <span className="text-xs text-muted-foreground/50">{t("SCHEMA_BASIC_INFO.NO_REFERENCES")}</span>
                 )}
               </div>
             )}
@@ -359,10 +371,10 @@ export const SchemaBasicInfo = ({
           onCancel={() => {}}
           onConfirm={onConfirmDelete}
           data={{
-            dialogTitle: "Delete schema?",
-            dialogSubtitle: "Are you sure you want to delete this schema?",
-            confirmButton: "Delete",
-            cancelButton: "Cancel",
+            dialogTitle: t("SCHEMA_BASIC_INFO.DELETE_SCHEMA_2"),
+            dialogSubtitle: t("SCHEMA_BASIC_INFO.ARE_YOU_SURE_YOU_WANT_TO"),
+            confirmButton: t("common:DELETE"),
+            cancelButton: t("common:CANCEL"),
           }}
           buttonState={{ confirm: { disable: isDeleteSchemaPending } }}
         />

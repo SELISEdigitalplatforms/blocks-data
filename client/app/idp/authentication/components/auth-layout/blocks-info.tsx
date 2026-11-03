@@ -2,20 +2,22 @@ import { Button } from "@/components/ui-kits/button/button";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 import { BookOpenText } from "lucide-react";
 import { Link } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const BlockInfo = () => {
+  const { t } = useT("data.idp.authentication");
   return (
     <div className="mt-[24px] w-full p-4 shadow-none md:p-0 lg:mt-0 lg:max-w-md">
       <div className="mb-[36px] flex items-center gap-4">
         <Link to="https://docs.seliseblocks.com/" target="_blank" className="w-full">
           <Button variant="outline" className="w-full">
             <BookOpenText className="mr-3 h-4 w-4" />
-            See Docs
+            {t("BLOCKS_INFO.SEE_DOCS")}
           </Button>
         </Link>
       </div>
       <div className="mb-[36px] flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Frontend</h2>
+        <h2 className="text-xl font-semibold">{t("BLOCKS_INFO.FRONTEND")}</h2>
         <div className="flex items-center gap-4">
           <div className="flex w-[50%] flex-col gap-2">
             <Button variant="outline" className="w-full">
@@ -23,7 +25,7 @@ export const BlockInfo = () => {
                 src="/assets/images/react-icon.png"
                 width={20}
                 height={20}
-                alt="Reactjs Logo"
+                alt={t("BLOCKS_INFO.REACTJS_LOGO")}
               />
             </Button>
             <div className="flex items-center gap-2 text-blue-700 md:justify-between">
@@ -32,7 +34,7 @@ export const BlockInfo = () => {
                 className="text-primary"
                 target="_blank"
               >
-                Npm
+                {t("BLOCKS_INFO.NPM")}
               </Link>
               <span className="h-4 w-px bg-gray-300"></span>
               <Link
@@ -40,7 +42,7 @@ export const BlockInfo = () => {
                 className="text-primary"
                 target="_blank"
               >
-                GitHub
+                {t("BLOCKS_INFO.GITHUB")}
               </Link>
               <span className="h-4 w-px bg-gray-300"></span>
               <Link
@@ -48,7 +50,7 @@ export const BlockInfo = () => {
                 className="text-primary"
                 target="_blank"
               >
-                Demo
+                {t("BLOCKS_INFO.DEMO")}
               </Link>
             </div>
           </div>
@@ -58,15 +60,15 @@ export const BlockInfo = () => {
                 src="/assets/images/angular-icon.png"
                 width={20}
                 height={20}
-                alt="Angular Logo"
+                alt={t("BLOCKS_INFO.ANGULAR_LOGO")}
               />
             </Button>
-            <p className="text-medium-emphasis">Coming soon</p>
+            <p className="text-medium-emphasis">{t("BLOCKS_INFO.COMING_SOON")}</p>
           </div>
         </div>
       </div>
       <div className="mb-[36px] flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Backend</h2>
+        <h2 className="text-xl font-semibold">{t("BLOCKS_INFO.BACKEND")}</h2>
         <div className="flex items-center gap-4">
           <div className="flex w-[50%] flex-col gap-2">
             <Button variant="outline" className="w-full">
@@ -74,7 +76,7 @@ export const BlockInfo = () => {
                 src="/assets/images/dotnet-icon.png"
                 width={20}
                 height={20}
-                alt="DotNet Logo"
+                alt={t("BLOCKS_INFO.DOTNET_LOGO")}
               />
             </Button>
             <div className="flex items-center gap-1 text-blue-700 md:justify-between">
@@ -83,7 +85,7 @@ export const BlockInfo = () => {
                 className="text-primary"
                 target="_blank"
               >
-                NuGet
+                {t("BLOCKS_INFO.NUGET")}
               </Link>
               <span className="h-4 w-[0.5px] bg-gray-300"></span>
               <Link
@@ -91,7 +93,7 @@ export const BlockInfo = () => {
                 className="text-primary"
                 target="_blank"
               >
-                GitHub
+                {t("BLOCKS_INFO.GITHUB")}
               </Link>
               <span className="h-4 w-[0.5px] bg-gray-300"></span>
               <Link
@@ -99,7 +101,7 @@ export const BlockInfo = () => {
                 className="text-primary"
                 target="_blank"
               >
-                PyPI
+                {t("BLOCKS_INFO.PYPI")}
               </Link>
             </div>
             {/* <div className="flex items-center gap-2 text-blue-700 md:justify-between">
@@ -114,14 +116,14 @@ export const BlockInfo = () => {
           </div>
           <div className="flex w-[50%] flex-col gap-2">
             <Button variant="outline" className="w-full" disabled>
-              <img src="/assets/images/ruby-icon.png" width={20} height={20} alt="RUby Logo" />
+              <img src="/assets/images/ruby-icon.png" width={20} height={20} alt={t("BLOCKS_INFO.RUBY_LOGO")} />
             </Button>
-            <p className="text-medium-emphasis">Coming soon</p>
+            <p className="text-medium-emphasis">{t("BLOCKS_INFO.COMING_SOON")}</p>
           </div>
         </div>
       </div>
       <div className="flex flex-col gap-4">
-        <p className="text-center">Fully open source.</p>
+        <p className="text-center">{t("BLOCKS_INFO.FULLY_OPEN_SOURCE")}</p>
         <Link to="https://github.com/SELISEdigitalplatforms" target="_blank">
           <Button variant="outline" className="w-full">
             <img
@@ -129,9 +131,9 @@ export const BlockInfo = () => {
               width={20}
               height={20}
               className="mr-3"
-              alt="github Logo"
+              alt={t("BLOCKS_INFO.GITHUB_LOGO")}
             />
-            Open in GitHub
+            {t("BLOCKS_INFO.OPEN_IN_GITHUB")}
           </Button>
         </Link>
       </div>

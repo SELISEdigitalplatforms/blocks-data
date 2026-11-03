@@ -3,6 +3,7 @@
 import { CopyToClipboardButton } from "@/components/copy-to-clipboard-button/copy-to-clipboard-button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui-kits/tooltip/tooltip";
 import { EyeOff } from "lucide-react";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 interface DataJsonViewProps {
   data: Record<string, unknown>[];
@@ -39,7 +40,7 @@ function renderJsonLines(item: Record<string, unknown>, piiFields: Set<string>):
                 <EyeOff className="inline h-3 w-3 cursor-default" />
               </TooltipTrigger>
               <TooltipContent>
-                This field contains personally identifiable information and is masked
+                {tStatic("data.gateway.schema", "DATA_JSON_VIEW.THIS_FIELD_CONTAINS_PERSONALLY")}
               </TooltipContent>
             </Tooltip>
           </span>

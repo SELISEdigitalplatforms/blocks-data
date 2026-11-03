@@ -1,5 +1,6 @@
 import React from "react";
 import { cn } from "@/lib/utils";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface ColorSwatchProps {
   value?: string;
@@ -14,6 +15,7 @@ export const ColorSwatch: React.FC<ColorSwatchProps> = ({
   className = "",
   hasError = false,
 }) => {
+  const { t } = useT("data.shared");
   const handleTextInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let newValue = e.target.value.toUpperCase();
     newValue = newValue.replace(/[^#0-9A-F]/g, "");
@@ -42,8 +44,8 @@ export const ColorSwatch: React.FC<ColorSwatchProps> = ({
               click itself and stays reachable by keyboard. */}
           <input
             type="color"
-            aria-label="Pick a color"
-            title="Pick a color"
+            aria-label={t("COLOR_SWATCH.PICK_A_COLOR")}
+            title={t("COLOR_SWATCH.PICK_A_COLOR")}
             value={value}
             onChange={handleColorPickerChange}
             className="absolute inset-0 h-6 w-6 cursor-pointer opacity-0"

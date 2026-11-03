@@ -35,6 +35,7 @@ import {
 } from "@/components/ui-kits/command/command";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui-kits/badge/badge";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type AssignOrganizationProps = {
   userId: string;
@@ -42,6 +43,7 @@ type AssignOrganizationProps = {
 };
 
 export const AssignOrganization = ({ userId, projectKey }: AssignOrganizationProps) => {
+  const { t } = useT("data.idp.iam");
   const [open, setOpen] = useState(false);
   const [selectedOrgId, setSelectedOrgId] = useState<string>("");
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
@@ -79,7 +81,7 @@ export const AssignOrganization = ({ userId, projectKey }: AssignOrganizationPro
 
   const onConfirm = async () => {
     if (!selectedOrgId || selectedRoles.length === 0) {
-      showErrorToast({ errors: "Please select an organization and at least one role" });
+      showErrorToast({ errors: t("ASSIGN_ORGANIZATION.PLEASE_SELECT_AN_ORGANIZATION_AND_AT") });
       return;
     }
 
@@ -104,14 +106,14 @@ export const AssignOrganization = ({ userId, projectKey }: AssignOrganizationPro
         return;
       }
 
-      showSuccessToast({ description: "Organization assigned successfully" });
+      showSuccessToast({ description: t("ASSIGN_ORGANIZATION.ORGANIZATION_ASSIGNED_SUCCESSFULLY") });
       reset();
       setOpen(false);
     } catch (error) {
       if (isErrorWithErrors(error)) {
         showErrorToast({ errors: error.errors });
       } else {
-        showErrorToast({ errors: "Something went wrong" });
+        showErrorToast({ errors: t("ASSIGN_ORGANIZATION.SOMETHING_WENT_WRONG") });
       }
     }
   };
@@ -132,32 +134,34 @@ export const AssignOrganization = ({ userId, projectKey }: AssignOrganizationPro
       <DialogTrigger asChild>
         <Button size="sm" variant="ghost" className="h-10 text-sm text-primary">
           <Plus className="h-5 w-5 text-primary md:mr-2.5" />
-          <span className="sr-only sm:not-sr-only">Assign</span>
+          <span className="sr-only sm:not-sr-only">{t("ASSIGN_ORGANIZATION.ASSIGN")}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Assign organization</DialogTitle>
+          <DialogTitle>{t("ASSIGN_ORGANIZATION.ASSIGN_ORGANIZATION")}</DialogTitle>
           <DialogDescription></DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Organization name</label>
+            <label className="text-sm font-medium">{t("ASSIGN_ORGANIZATION.ORGANIZATION_NAME")}</label>
             <Select value={selectedOrgId} onValueChange={setSelectedOrgId}>
               <SelectTrigger>
-                <SelectValue placeholder="Organization name" />
+                <SelectValue placeholder={t("ASSIGN_ORGANIZATION.ORGANIZATION_NAME")} />
               </SelectTrigger>
               <SelectContent>
-                {isOrgsLoading ? (
+                {isOrgsLoading && (
                   <SelectItem value="loading" disabled>
-                    Loading...
+                    {t("common:LOADING")}
                   </SelectItem>
-                ) : availableOrgs.length === 0 ? (
+                )}
+                {!isOrgsLoading && availableOrgs.length === 0 && (
                   <SelectItem value="none" disabled>
-                    No organizations available
+                    {t("ASSIGN_ORGANIZATION.NO_ORGANIZATIONS_AVAILABLE")}
                   </SelectItem>
-                ) : (
+                )}
+                {!isOrgsLoading && availableOrgs.length !== 0 && (
                   availableOrgs.map((org) => (
                     <SelectItem key={org.itemId} value={org.itemId}>
                       {org.name}
@@ -169,19 +173,21 @@ export const AssignOrganization = ({ userId, projectKey }: AssignOrganizationPro
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Select at least one role to assign</label>
-            {isRolesLoading ? (
-              <div className="p-2 text-sm text-muted-foreground">Loading roles...</div>
-            ) : roles.length === 0 ? (
-              <div className="p-2 text-sm text-muted-foreground">No roles available</div>
-            ) : (
+            <label className="text-sm font-medium">{t("ASSIGN_ORGANIZATION.SELECT_AT_LEAST_ONE_ROLE_TO")}</label>
+            {isRolesLoading && (
+              <div className="p-2 text-sm text-muted-foreground">{t("ASSIGN_ORGANIZATION.LOADING_ROLES")}</div>
+            )}
+            {!isRolesLoading && roles.length === 0 && (
+              <div className="p-2 text-sm text-muted-foreground">{t("ASSIGN_ORGANIZATION.NO_ROLES_AVAILABLE")}</div>
+            )}
+            {!isRolesLoading && roles.length !== 0 && (
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" role="combobox" className="w-full justify-between">
                     {selectedRoles.length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {selectedRoles.length > 2 ? (
-                          <Badge variant="secondary">{selectedRoles.length} selected</Badge>
+                          <Badge variant="secondary">{t("ASSIGN_ORGANIZATION.LENGTH_SELECTED", { length: selectedRoles.length })}</Badge>
                         ) : (
                           selectedRoles.map((slug) => {
                             const role = roles.find((r) => r.slug === slug);
@@ -194,16 +200,16 @@ export const AssignOrganization = ({ userId, projectKey }: AssignOrganizationPro
                         )}
                       </div>
                     ) : (
-                      "Select Roles"
+                      t("ASSIGN_ORGANIZATION.SELECT_ROLES")
                     )}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-full p-0" align="start">
                   <Command>
-                    <CommandInput placeholder="Search roles..." />
+                    <CommandInput placeholder={t("ASSIGN_ORGANIZATION.SEARCH_ROLES")} />
                     <CommandList>
-                      <CommandEmpty>No roles found.</CommandEmpty>
+                      <CommandEmpty>{t("ASSIGN_ORGANIZATION.NO_ROLES_FOUND")}</CommandEmpty>
                       <CommandGroup>
                         {roleOptions.map((option) => {
                           const isSelected = selectedRoles.includes(option.value);
@@ -244,13 +250,13 @@ export const AssignOrganization = ({ userId, projectKey }: AssignOrganizationPro
               setOpen(false);
             }}
           >
-            Cancel
+            {t("common:CANCEL")}
           </Button>
           <Button
             onClick={onConfirm}
             disabled={isPending || !selectedOrgId || selectedRoles.length === 0}
           >
-            {isPending ? "Assigning..." : "Confirm"}
+            {isPending ? t("ASSIGN_ORGANIZATION.ASSIGNING") : t("common:CONFIRM")}
           </Button>
         </DialogFooter>
       </DialogContent>

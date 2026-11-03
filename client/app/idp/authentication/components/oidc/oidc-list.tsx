@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useProjectStore } from "@/store/use-project-store";
 import { Card, CardContent, CardHeader } from "@/components/ui-kits/card/card";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const LoadingSkeleton = () => {
   return (
@@ -57,6 +58,7 @@ const LoadingSkeleton = () => {
 };
 
 export const OidcList = () => {
+  const { t } = useT("data.idp.authentication");
   const { tenantId } = useProjectStore().selectedProject || { tenantId: "" };
   const { isLoading, isFetching, data } = useGetAuthOidcCredentials({
     projectKey: tenantId,
@@ -80,7 +82,7 @@ export const OidcList = () => {
   if (!sortedOidcData.length)
     return (
       <div className="text-muted- flex h-32 flex-wrap items-center justify-center rounded-sm border bg-background p-4 text-center">
-        No OIDC configuration found. Please create a new OIDC configuration.
+        {t("OIDC_LIST.NO_OIDC_CONFIGURATION_FOUND_PLEASE")}
       </div>
     );
 

@@ -18,6 +18,7 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { Loader, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface CleanTestDataModalProps {
   open: boolean;
@@ -28,6 +29,7 @@ export const CleanTestDataModal = ({
   open,
   onOpenChange,
 }: CleanTestDataModalProps) => {
+  const { t } = useT("data.gateway.schema");
   const selectedProject = useProjectStore().selectedProject;
   const projectKey = selectedProject?.tenantId || "";
 
@@ -85,7 +87,7 @@ export const CleanTestDataModal = ({
       });
 
       showSuccessToast({
-        description: `Successfully deleted test data for ${selectedSchemas.length} schema(s)`,
+        description: t("CLEAN_TEST_DATA_MODAL.SUCCESSFULLY_DELETED_TEST_DATA_FOR", { length: selectedSchemas.length }),
       });
 
       // Reset selections and close modal
@@ -103,23 +105,25 @@ export const CleanTestDataModal = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Trash2 className="h-4 w-4 text-indigo-400" />
-            Clean Test Data
+            {t("CLEAN_TEST_DATA_MODAL.CLEAN_TEST_DATA")}
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            Select schemas to delete their test data
+            {t("CLEAN_TEST_DATA_MODAL.SELECT_SCHEMAS_TO_DELETE_THEIR_TEST")}
           </DialogDescription>
         </DialogHeader>
 
         <div className="max-h-[380px] overflow-y-auto">
-          {isLoading ? (
+          {isLoading && (
             <div className="flex items-center justify-center py-10">
               <Loader className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
-          ) : mockDataItems.length === 0 ? (
+          )}
+          {!isLoading && mockDataItems.length === 0 && (
             <div className="py-10 text-center text-xs text-muted-foreground">
-              No test data found
+              {t("CLEAN_TEST_DATA_MODAL.NO_TEST_DATA_FOUND")}
             </div>
-          ) : (
+          )}
+          {!isLoading && mockDataItems.length !== 0 && (
             <div className="space-y-3">
               {/* Select All */}
               <div className="flex items-center gap-2 border-b border-border/40 pb-3">
@@ -129,7 +133,7 @@ export const CleanTestDataModal = ({
                   onCheckedChange={handleSelectAll}
                 />
                 <label htmlFor="select-all" className="flex-1 cursor-pointer text-xs font-medium text-muted-foreground">
-                  Select All ({mockDataItems.length})
+                  {t("CLEAN_TEST_DATA_MODAL.SELECT_ALL_LENGTH", { length: mockDataItems.length })}
                 </label>
               </div>
 
@@ -173,7 +177,7 @@ export const CleanTestDataModal = ({
             onClick={() => onOpenChange(false)}
             disabled={isDeleting}
           >
-            Cancel
+            {t("common:CANCEL")}
           </Button>
           <Button
             size="sm"
@@ -184,10 +188,10 @@ export const CleanTestDataModal = ({
             {isDeleting ? (
               <>
                 <Loader className="h-3.5 w-3.5 animate-spin" />
-                Deleting…
+                {t("CLEAN_TEST_DATA_MODAL.DELETING")}
               </>
             ) : (
-              "Delete"
+              t("common:DELETE")
             )}
           </Button>
         </DialogFooter>

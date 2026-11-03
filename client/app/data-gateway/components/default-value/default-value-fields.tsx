@@ -8,6 +8,9 @@ import { useId, useRef } from "react";
 import type { IFieldDefaultValue } from "../../models/data-service";
 import { describeNow, formatDefaultSummary, type DefaultDraft, type OffsetDirection } from "../../utils/default-value.util";
 import { ExpressionMenu, insertAt, type ExpressionGroup, type ExpressionOption } from "../primitives";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
 
 /**
  * The pieces of the default-value panel: the status line, the one value box (typed text with the
@@ -25,12 +28,13 @@ export const CURRENT_DATE_TIME = "@current-date-time";
 
 /** What's stored now: the saved default as a one-liner, or that nothing is. */
 export function StatusLine({ saved, fieldName }: Readonly<{ saved: IFieldDefaultValue | null; fieldName: string }>) {
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   if (!saved) {
     return (
       <div className="flex items-center gap-2.5 rounded-md border border-border/50 bg-background px-3 py-2.5 text-xs text-muted-foreground">
         <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-muted-foreground/40" />
         <span>
-          <strong className="font-semibold text-foreground/80">Not set.</strong> {fieldName} is stored only when an insert sends it.
+          <strong className="font-semibold text-foreground/80">{t("DEFAULT_VALUE_FIELDS.NOT_SET")}</strong> {t("DEFAULT_VALUE_FIELDS.FIELDNAME_IS_STORED_ONLY_WHEN_AN", { fieldName })}
         </span>
       </div>
     );
@@ -39,7 +43,7 @@ export function StatusLine({ saved, fieldName }: Readonly<{ saved: IFieldDefault
     <div className="flex items-center gap-2.5 rounded-md border border-emerald-500/25 bg-emerald-500/5 px-3 py-2.5 text-xs text-muted-foreground">
       <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />
       <span className="min-w-0 flex-1">
-        <strong className="font-semibold text-foreground/80">Set</strong>
+        <strong className="font-semibold text-foreground/80">{t("DEFAULT_VALUE_FIELDS.SET")}</strong>
         <span className={cn("mt-0.5 block truncate text-xs text-foreground", saved.kind !== "Now" && "font-mono")}>{formatDefaultSummary(saved)}</span>
       </span>
     </div>
@@ -48,6 +52,7 @@ export function StatusLine({ saved, fieldName }: Readonly<{ saved: IFieldDefault
 
 /** "Fixed" or "Filled at insert time" beside the VALUE label, for properties that can take either. */
 export function ModeBadge({ dynamic }: Readonly<{ dynamic: boolean }>) {
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   return (
     <span
       className={cn(
@@ -55,7 +60,7 @@ export function ModeBadge({ dynamic }: Readonly<{ dynamic: boolean }>) {
         dynamic ? "bg-primary/10 text-primary" : "bg-muted/50 text-muted-foreground",
       )}
     >
-      {dynamic ? "Filled at insert time" : "Fixed"}
+      {dynamic ? t("DEFAULT_VALUE_FIELDS.FILLED_AT_INSERT_TIME") : t("DEFAULT_VALUE_FIELDS.FIXED")}
     </span>
   );
 }
@@ -128,6 +133,7 @@ export function ValueBox({
   onChange: (value: string) => void;
   onUseNow?: () => void;
 }>) {
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const inputRef = useRef<HTMLInputElement>(null);
   // Where the caret last was, so a pick lands there even though the menu took focus.
   const caret = useRef<number | null>(null);
@@ -173,7 +179,7 @@ export function ValueBox({
         onClick={remember}
         className={cn(CONTROL_CLASS, "font-mono [color-scheme:dark]", hasMenu && "pr-[118px]", invalid && "border-rose-500")}
       />
-      {hasMenu && <ExpressionMenu groups={groups} onPick={pick} label={`Add an expression to ${label}`} className="absolute right-1" />}
+      {hasMenu && <ExpressionMenu groups={groups} onPick={pick} label={t("DEFAULT_VALUE_FIELDS.ADD_AN_EXPRESSION_TO_LABEL", { label })} className="absolute right-1" />}
     </div>
   );
 }
@@ -210,6 +216,7 @@ export function ItemsEditor({
   onAdd: () => void;
   onRemove: (index: number) => void;
 }>) {
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   return (
     <>
       {items.map((item, index) => (
@@ -219,7 +226,7 @@ export function ItemsEditor({
               fieldType={fieldType}
               enumValues={enumValues}
               value={item.text}
-              label={isArray ? `Value ${index + 1}` : "Value"}
+              label={isArray ? t("DEFAULT_VALUE_FIELDS.VALUE_NUMBER", { number: index + 1 }) : t("DEFAULT_VALUE_FIELDS.VALUE")}
               placeholder={placeholder}
               invalid={invalid}
               groups={groups}
@@ -234,7 +241,7 @@ export function ItemsEditor({
               size="icon"
               disabled={items.length === 1}
               className="h-8 w-8 shrink-0 text-muted-foreground hover:text-rose-500 disabled:opacity-30"
-              aria-label={`Remove item ${index + 1}`}
+              aria-label={t("DEFAULT_VALUE_FIELDS.REMOVE_ITEM_NUMBER", { number: index + 1 })}
               onClick={() => onRemove(index)}
             >
               <X className="h-3.5 w-3.5" />
@@ -245,7 +252,7 @@ export function ItemsEditor({
       {isArray && (
         <Button type="button" variant="outline" size="sm" className="h-7 w-fit gap-1.5 text-[11.5px]" onClick={onAdd}>
           <Plus className="h-3 w-3" />
-          Add item
+          {t("DEFAULT_VALUE_FIELDS.ADD_ITEM")}
         </Button>
       )}
     </>
@@ -272,8 +279,8 @@ export function expressionGroups({
   if (fieldType === "DateTime" && !isArray) {
     return [
       {
-        heading: "Date & time",
-        options: [{ value: CURRENT_DATE_TIME, label: "Current date & time", detail: "when the record is created" }],
+        heading: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.DATE_TIME"),
+        options: [{ value: CURRENT_DATE_TIME, label: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.CURRENT_DATE_TIME"), detail: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.WHEN_THE_RECORD_IS_CREATED") }],
       },
     ];
   }
@@ -286,24 +293,24 @@ export function expressionGroups({
     .filter((name) => isArray || (name !== "Roles" && name !== "Permissions"))
     .map((name) => ({ value: `{{Auth.${name}}}`, label: AUTH_LABELS[name] ?? name, detail: `Auth.${name}` }));
   return [
-    { heading: "This record", options: record },
-    { heading: "Signed-in user", options: auth },
+    { heading: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.THIS_RECORD"), options: record },
+    { heading: tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.SIGNED_IN_USER"), options: auth },
   ];
 }
 
 const AUTH_LABELS: Record<string, string> = {
-  UserId: "User ID",
-  Email: "Email",
-  OrganizationId: "Organization",
-  Roles: "Roles",
-  Permissions: "Permissions",
+  get UserId() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.USER_ID"); },
+  get Email() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "common:EMAIL"); },
+  get OrganizationId() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.ORGANIZATION"); },
+  get Roles() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.ROLES"); },
+  get Permissions() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.PERMISSIONS"); },
 };
 
 const OFFSET_PARTS = [
-  { key: "days", label: "Days" },
-  { key: "hours", label: "Hours" },
-  { key: "minutes", label: "Minutes" },
-  { key: "seconds", label: "Seconds" },
+  { key: "days", get label() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.DAYS"); } },
+  { key: "hours", get label() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.HOURS"); } },
+  { key: "minutes", get label() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.MINUTES"); } },
+  { key: "seconds", get label() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_FIELDS.SECONDS"); } },
 ] as const;
 
 /**
@@ -328,6 +335,7 @@ export function CurrentDateTimeCard({
   onChange: (offset: DefaultDraft["offset"]) => void;
   onUseFixed: () => void;
 }>) {
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   const adjustId = useId();
   return (
     <div className="flex flex-col gap-2.5">
@@ -336,20 +344,20 @@ export function CurrentDateTimeCard({
           <CalendarClock className="h-4 w-4" />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[12.5px] font-semibold text-foreground">Current date &amp; time</p>
-          <p className="text-[11px] text-muted-foreground">Taken when each record is created</p>
+          <p className="text-[12.5px] font-semibold text-foreground">{t("DEFAULT_VALUE_FIELDS.CURRENT_DATE_TIME")}</p>
+          <p className="text-[11px] text-muted-foreground">{t("DEFAULT_VALUE_FIELDS.TAKEN_WHEN_EACH_RECORD_IS_CREATED")}</p>
         </div>
         <Button type="button" variant="outline" size="sm" className="h-7 text-[11.5px]" onClick={onUseFixed}>
-          Use a fixed date
+          {t("DEFAULT_VALUE_FIELDS.USE_A_FIXED_DATE")}
         </Button>
       </div>
 
       <div role="group" aria-labelledby={adjustId} className="rounded-md border border-border/50 bg-background p-3">
         <div className="mb-2 flex items-center justify-between gap-2">
           <span id={adjustId} className={LABEL_CLASS}>
-            Adjust (optional)
+            {t("DEFAULT_VALUE_FIELDS.ADJUST_OPTIONAL")}
           </span>
-          <div role="radiogroup" aria-label="Move the date" className="flex h-[26px] rounded-md border border-border/60 bg-card p-0.5">
+          <div role="radiogroup" aria-label={t("DEFAULT_VALUE_FIELDS.MOVE_THE_DATE")} className="flex h-[26px] rounded-md border border-border/60 bg-card p-0.5">
             {(["+", "-"] as const).map((sign) => (
               <button
                 key={sign}
@@ -362,7 +370,7 @@ export function CurrentDateTimeCard({
                   direction === sign ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                {sign === "+" ? "Later" : "Earlier"}
+                {sign === "+" ? t("DEFAULT_VALUE_FIELDS.LATER") : t("DEFAULT_VALUE_FIELDS.EARLIER")}
               </button>
             ))}
           </div>
@@ -404,10 +412,11 @@ export interface PreviewPiece {
 
 /** What an insert that omits the property would store, as the draft stands. */
 export function WillStore({ pieces, caption }: Readonly<{ pieces: PreviewPiece[]; caption: string }>) {
+  const { t } = useT(DATA_GATEWAY_VALIDATION_MODULE);
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
-        <span className={LABEL_CLASS}>Will store</span>
+        <span className={LABEL_CLASS}>{t("DEFAULT_VALUE_FIELDS.WILL_STORE")}</span>
         <span className="truncate text-[10.5px] text-muted-foreground">{caption}</span>
       </div>
       <div

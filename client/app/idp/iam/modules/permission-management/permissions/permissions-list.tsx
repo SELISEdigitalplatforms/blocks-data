@@ -19,6 +19,7 @@ import { Link } from "react-router";
 import { useNavigate } from "react-router";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui-kits/scroll-area/scroll-area";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type PermissionTableProps = {
   permissions: IPermission[];
@@ -44,6 +45,7 @@ export const PermissionSeverityBadge = ({ severity }: { severity: PermissionSeve
 };
 
 export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps) => {
+  const { t } = useT("data.idp.iam");
   const { sortQueryParams, setSortQueryParams } = usePermissionsSortQuaryParams();
   const navigate = useNavigate();
 
@@ -53,7 +55,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
         id: "name",
         accessorFn: (row) => `${row.name}`.trim(),
         header: () => (
-          <FilterControls.SortHeader label="Name" id="Name" value={sortQueryParams} onChange={setSortQueryParams} />
+          <FilterControls.SortHeader label={t("common:NAME")} id="Name" value={sortQueryParams} onChange={setSortQueryParams} />
         ),
         cell: (permission) => (
           <div className="flex w-[200px] items-center break-all" title={permission.row.original.name}>
@@ -66,7 +68,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
         accessorFn: (row) => `${row.resource}`.trim(),
         header: () => (
           <FilterControls.SortHeader
-            label="Resource"
+            label={t("PERMISSIONS_LIST.RESOURCE")}
             id="Resource"
             value={sortQueryParams}
             onChange={setSortQueryParams}
@@ -85,7 +87,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
         header: () => {
           return (
             <div className="flex items-center">
-              <span className="font-bold text-medium-emphasis">Source</span>
+              <span className="font-bold text-medium-emphasis">{t("PERMISSIONS_LIST.SOURCE")}</span>
             </div>
           );
         },
@@ -97,7 +99,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
                 permission.row.original.isBuiltIn ? "bg-gray-300! text-gray-800!" : "bg-purple-100! text-purple-700!"
               )}
             >
-              {permission.row.original.isBuiltIn ? "Built In" : "Custom"}
+              {permission.row.original.isBuiltIn ? t("PERMISSIONS_LIST.BUILT_IN") : t("PERMISSIONS_LIST.CUSTOM")}
             </Badge>
           </div>
         ),
@@ -106,7 +108,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
         id: "Type",
         accessorFn: (row) => `${row.type}`.trim(),
         header: () => (
-          <FilterControls.SortHeader label="Type" id="Type" value={sortQueryParams} onChange={setSortQueryParams} />
+          <FilterControls.SortHeader label={t("common:TYPE")} id="Type" value={sortQueryParams} onChange={setSortQueryParams} />
         ),
 
         cell: (permission) => {
@@ -126,7 +128,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
         header: () => {
           return (
             <div className="flex items-center">
-              <span className="font-bold text-medium-emphasis">Severity</span>
+              <span className="font-bold text-medium-emphasis">{t("PERMISSIONS_LIST.SEVERITY")}</span>
             </div>
           );
         },
@@ -145,7 +147,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
         header: () => {
           return (
             <div className="flex items-center">
-              <span className="font-bold text-medium-emphasis">No of Roles</span>
+              <span className="font-bold text-medium-emphasis">{t("PERMISSIONS_LIST.NO_OF_ROLES")}</span>
             </div>
           );
         },
@@ -162,7 +164,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
         id: "tags",
         accessorFn: (row) => `${row.description}`.trim(),
         header: () => {
-          return <div>Tags</div>;
+          return <div>{t("PERMISSIONS_LIST.TAGS")}</div>;
         },
         cell: (tags) => (
           <div className="flex max-w-[150px] flex-wrap gap-1">
@@ -193,7 +195,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
         header: () => {
           return (
             <div className="flex items-center">
-              <span className="font-bold text-medium-emphasis">Description</span>
+              <span className="font-bold text-medium-emphasis">{t("common:DESCRIPTION")}</span>
             </div>
           );
         },
@@ -221,7 +223,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
         ),
       },
     ],
-    [setSortQueryParams, sortQueryParams]
+    [setSortQueryParams, sortQueryParams, t]
   );
 
   const table = useReactTable({
@@ -265,7 +267,7 @@ export const PermissionsList = ({ permissions, isLoading }: PermissionTableProps
           ) : (
             <TableRow>
               <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                No permission found. Please create new permission.
+                {t("PERMISSIONS_LIST.NO_PERMISSION_FOUND_PLEASE_CREATE_NEW")}
               </TableCell>
             </TableRow>
           )}

@@ -3,6 +3,7 @@
 import { FilterToolbar, useSortQueryParams } from "@/components/filter-toolbar";
 import { PERMISSION_SEVERITY_OPTIONS, RESOURCE_TYPE } from "@blocks-idp/iam/models/permission";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const usePermissionsFilterQuaryParams = () => {
   const [queryParams, setQueryParams] = useQueryStates({
@@ -16,9 +17,12 @@ export const usePermissionsFilterQuaryParams = () => {
   return { queryParams, setQueryParams };
 };
 export const usePermissionsSortQuaryParams = () =>
-  useSortQueryParams({ initial: { property: "Name", isDescending: false } });
+  {
+  return (useSortQueryParams({ initial: { property: "Name", isDescending: false } }));
+};
 
 export function PermissionsFilterToolbar() {
+  const { t } = useT("data.idp.iam");
   const { queryParams, setQueryParams } = usePermissionsFilterQuaryParams();
 
   const changeHandler = (key: string, value: unknown) => {
@@ -38,18 +42,18 @@ export function PermissionsFilterToolbar() {
         {
           key: "isBuiltIn",
           type: "Radio",
-          label: "Source",
+          label: t("PERMISSIONS_FILTER_TOOLBAR.SOURCE"),
           props: {
             options: [
-              { label: "Built-in", value: "yes" },
-              { label: "Custom", value: "no" },
+              { label: t("PERMISSIONS_FILTER_TOOLBAR.BUILT_IN"), value: "yes" },
+              { label: t("PERMISSIONS_FILTER_TOOLBAR.CUSTOM"), value: "no" },
             ],
           },
         },
         {
           key: "permissionSeverity",
           type: "Radio",
-          label: "Severity",
+          label: t("PERMISSIONS_FILTER_TOOLBAR.SEVERITY"),
           props: {
             options: PERMISSION_SEVERITY_OPTIONS.map((option) => ({
               label: option.label,
@@ -60,7 +64,7 @@ export function PermissionsFilterToolbar() {
         {
           key: "type",
           type: "Radio",
-          label: "Type",
+          label: t("common:TYPE"),
           props: { options: RESOURCE_TYPE },
         },
       ]}

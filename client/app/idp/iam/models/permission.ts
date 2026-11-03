@@ -1,3 +1,6 @@
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_IDP_IAM_MODULE = "data.idp.iam";
 export enum PermissionSeverityLevel {
   Critical = 1,
   High,
@@ -18,7 +21,7 @@ type PermissionSeverityOption = {
 export const PERMISSION_SEVERITY_OPTIONS: PermissionSeverityOption[] = [
   {
     id: "Critical",
-    label: "Critical",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.CRITICAL"); },
     value: PermissionSeverityLevel.Critical,
     variant: "error",
     className: "text-red-800",
@@ -27,7 +30,7 @@ export const PERMISSION_SEVERITY_OPTIONS: PermissionSeverityOption[] = [
   },
   {
     id: "High",
-    label: "High",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.HIGH"); },
     value: PermissionSeverityLevel.High,
     variant: "destructive",
     className: "text-rose-800",
@@ -36,7 +39,7 @@ export const PERMISSION_SEVERITY_OPTIONS: PermissionSeverityOption[] = [
   },
   {
     id: "Medium",
-    label: "Medium",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.MEDIUM"); },
     value: PermissionSeverityLevel.Medium,
     variant: "info",
     className: "text-yellow-500",
@@ -45,7 +48,7 @@ export const PERMISSION_SEVERITY_OPTIONS: PermissionSeverityOption[] = [
   },
   {
     id: "Low",
-    label: "Low",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.LOW"); },
     value: PermissionSeverityLevel.Low,
     variant: "success",
     className: "text-blue-500",
@@ -169,11 +172,11 @@ export enum ResourceType {
 export const RESOURCE_TYPE = [
   {
     value: "1",
-    label: "Endpoint",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.ENDPOINT"); },
   },
   {
     value: "2",
-    label: "FE action",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "PERMISSION.FE_ACTION"); },
   },
 ];
 

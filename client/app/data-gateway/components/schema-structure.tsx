@@ -32,7 +32,7 @@ import { SchemaFieldValidationDrawer } from "./schema-fields-validation/schema-f
 import { DefaultValueDrawer } from "./default-value/default-value-drawer";
 import { SchemaIndexesTab } from "./schema-indexes/schema-indexes-tab";
 import { mapIndexRelatedErrorMessage } from "../utils/schema-index.utils";
-import { useProjectStore } from "@seliseblocks/genesis-os";
+import { useProjectStore, type TFunction } from "@seliseblocks/genesis-os";
 import { InfoCard } from "./info-card";
 import { defaultProperty, PropertyRow } from "../models/schema-structure.types";
 import { useBulkOperations } from "../hooks/use-bulk-operations";
@@ -75,12 +75,19 @@ const omitFieldArrayId = <T extends { id?: string }>(row: T) => {
   return values;
 };
 import { findChildSchemaByType } from "@/data-gateway/utils/schema-structure.utils";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+
+const FIELD_ON_SCHEMANAME_KEY = "SCHEMA_STRUCTURE.FIELD_ON_SCHEMANAME";
 
 /**
  * Radix ScrollArea only scrolls sideways when a horizontal scrollbar is mounted, so the
  * top-level region opts into one for edit mode's wide table. Embedded (child) schema uses
  * native overflow.
  */
+/** "Save 1 change" / "Save 3 changes" for the save confirmation. */
+const saveChangesTitle = (count: number, tx: TFunction) =>
+  count === 1 ? tx("SCHEMA_STRUCTURE.SAVE_1_CHANGE") : tx("SCHEMA_STRUCTURE.SAVE_COUNT_CHANGES", { count });
+
 function SchemaTableScrollRegion({
   embedded,
   children,
@@ -190,6 +197,7 @@ interface SchemaStructureTableProps extends ISchemaDetails {
 }
 
 export default function SchemaStructureTable(props: SchemaStructureTableProps) {
+  const { t: tx } = useT("data.gateway.schema");
   const {
     isLoading,
     disableFormElement,
@@ -486,7 +494,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     const res = await mutateAsync(payload);
 
     if (res.isSuccess) {
-      showSuccessToast({ description: "Schema updated successfully" });
+      showSuccessToast({ description: tx("SCHEMA_STRUCTURE.SCHEMA_UPDATED_SUCCESSFULLY") });
       setIsEditMode(false);
       bulkOperations.setSelectedRows({});
       setPendingPayload({
@@ -520,7 +528,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       onOpenFieldValidation({
         fieldName: qualifiedName,
         subject: qualifiedName,
-        context: `Field on ${schemaDetails.schemaName}`,
+        context: tx(FIELD_ON_SCHEMANAME_KEY, { schemaName: schemaDetails.schemaName }),
         schemaName: schemaDetails.schemaName,
         validationRule: validationRule ?? null,
         ...fieldMeta,
@@ -558,7 +566,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       onOpenFieldDefault({
         ...target,
         subject: qualifiedName,
-        context: `Field on ${schemaDetails.schemaName}`,
+        context: tx(FIELD_ON_SCHEMANAME_KEY, { schemaName: schemaDetails.schemaName }),
         schemaName: schemaDetails.schemaName,
       });
       return;
@@ -580,7 +588,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       onOpenFieldAccess({
         fieldNames: [qualifiedName],
         subject: qualifiedName,
-        context: `Field on ${schemaDetails.schemaName}`,
+        context: tx(FIELD_ON_SCHEMANAME_KEY, { schemaName: schemaDetails.schemaName }),
       });
       return;
     }
@@ -651,7 +659,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
       openAccessFor(
         qualified,
         { name: qualified, readAccess: field.readAccess, writeAccess: field.writeAccess, deleteAccess: field.deleteAccess },
-        `Access for ${qualified}`,
+        tx("SCHEMA_STRUCTURE.ACCESS_FOR_QUALIFIED", { qualified }),
       );
     },
     onOpenValidation: (path, field) =>
@@ -713,6 +721,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     !isEditMode;
 
   const EmptySchemaPropertyState = () => {
+  const { t: tx } = useT("data.gateway.schema");
     if (isEmbedded) {
       return (
         <div
@@ -725,12 +734,11 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
             <div className="space-y-2">
               <h3 className="wrap-break-word text-base font-semibold leading-snug text-foreground sm:text-lg">
                 <span className="font-medium">{schemaDetails.schemaName}</span>{" "}
-                doesn’t have any{" "}
-                {schemaType === 1 ? "custom property" : "property"} yet.
+                {tx("SCHEMA_STRUCTURE.DOESN_T_HAVE_ANY")}{" "}
+                {schemaType === 1 ? tx("SCHEMA_STRUCTURE.CUSTOM_PROPERTY") : "property"} {tx("SCHEMA_STRUCTURE.YET")}
               </h3>
               <p className="text-sm text-muted-foreground">
-                Nested child schemas cannot be edited here. Open this schema
-                from the Schemas list (Child) to add or change properties.
+                {tx("SCHEMA_STRUCTURE.NESTED_CHILD_SCHEMAS_CANNOT_BE_EDITED")}
               </p>
             </div>
             {onOpenStandaloneSchemaEditor && schemaDetails.id ? (
@@ -739,7 +747,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                 className="gap-2"
                 onClick={() => onOpenStandaloneSchemaEditor(schemaDetails.id)}
               >
-                Open child schema
+                {tx("SCHEMA_STRUCTURE.OPEN_CHILD_SCHEMA")}
               </Button>
             ) : null}
           </div>
@@ -752,9 +760,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         <div className="flex flex-col items-center justify-center space-y-4 text-center">
           <div className="space-y-2">
             <h3 className="wrap-break-word px-2 text-center text-base font-semibold leading-snug text-foreground sm:text-lg">
-              This schema doesn’t have any{" "}
-              {schemaType === 1 ? "custom property" : "property"} yet. Click Add
-              Property to set one up.
+              {tx("SCHEMA_STRUCTURE.THIS_SCHEMA_DOESN_T_HAVE_ANY")}{" "}
+              {schemaType === 1 ? tx("SCHEMA_STRUCTURE.CUSTOM_PROPERTY") : "property"} {tx("SCHEMA_STRUCTURE.YET_CLICK_ADD_PROPERTY_TO_SET")}
             </h3>
           </div>
           <Button
@@ -776,7 +783,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
             }}
           >
             <Plus className="h-4 w-4" />
-            Add Property
+            {tx("SCHEMA_STRUCTURE.ADD_PROPERTY")}
           </Button>
         </div>
       </div>
@@ -887,21 +894,21 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                                     fields.length
                                 }
                                 onCheckedChange={handleSelectAll}
-                                aria-label="Select all properties"
+                                aria-label={tx("SCHEMA_STRUCTURE.SELECT_ALL_PROPERTIES")}
                               />
                             )}
                           </TableHead>
                         )}
-                        <TableHead>Property</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Required</TableHead>
-                        <TableHead>Flags</TableHead>
+                        <TableHead>{tx("SCHEMA_STRUCTURE.PROPERTY")}</TableHead>
+                        <TableHead>{tx("common:TYPE")}</TableHead>
+                        <TableHead>{tx("SCHEMA_STRUCTURE.REQUIRED")}</TableHead>
+                        <TableHead>{tx("SCHEMA_STRUCTURE.FLAGS")}</TableHead>
                         <TableHead
                           className={cn("text-left", !isEditMode && "px-3 md:px-3")}
                         >
-                          Description
+                          {tx("common:DESCRIPTION")}
                         </TableHead>
-                        {showRulesColumn && <TableHead>Rules</TableHead>}
+                        {showRulesColumn && <TableHead>{tx("SCHEMA_STRUCTURE.RULES")}</TableHead>}
                         {isEditMode && <TableHead></TableHead>}
                       </TableRow>
                     </TableHeader>
@@ -968,7 +975,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                               openAccessFor(
                                 qualified,
                                 fieldTarget,
-                                fieldTarget?.name && resolvedAncestorPath.length > 0 ? `Access for ${qualified}` : title,
+                                fieldTarget?.name && resolvedAncestorPath.length > 0 ? tx("SCHEMA_STRUCTURE.ACCESS_FOR_QUALIFIED", { qualified }) : title,
                               );
                             }}
                             onOpenValidationDrawer={handleOpenValidationDrawer}
@@ -1010,8 +1017,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                           className="bg-muted/30 px-4 py-2"
                         >
                           <div className="text-sm font-medium text-foreground">
-                            {schemaDetails.schemaName} Properties (
-                            {customFieldsCount})
+                            {tx("SCHEMA_STRUCTURE.SCHEMANAME_PROPERTIES", { schemaName: schemaDetails.schemaName, customFieldsCount })}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1088,7 +1094,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                           setCurrentAccessFieldTarget(fieldTarget ?? null);
                           const nestedTitle =
                             fieldTarget?.name && resolvedAncestorPath.length > 0
-                              ? `Access for ${buildValidationFieldName(resolvedAncestorPath, fieldTarget.name)}`
+                              ? tx("SCHEMA_STRUCTURE.ACCESS_FOR_BUILDVALIDATIONFIELDNAME", { buildValidationFieldName: buildValidationFieldName(resolvedAncestorPath, fieldTarget.name) })
                               : title;
                           setCurrentAccessDrawerTitle(nestedTitle);
                           setIsPropertyAccessDrawerOpen(true);
@@ -1131,8 +1137,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                   <>
                     <div className="rounded-lg bg-muted/30 px-4 py-3">
                       <div className="text-sm font-medium text-foreground">
-                        {schemaDetails.schemaName} Properties (
-                        {customFieldsCount})
+                        {tx("SCHEMA_STRUCTURE.SCHEMANAME_PROPERTIES", { schemaName: schemaDetails.schemaName, customFieldsCount })}
                       </div>
                     </div>
                     <EmptySchemaPropertyState />
@@ -1159,7 +1164,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                   }, 100);
                 }}
               >
-                + Add property
+                {tx("SCHEMA_STRUCTURE.ADD_PROPERTY_2")}
               </Button>
             </div>
           )}
@@ -1181,14 +1186,13 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           onCancel={() => {}}
           onConfirm={handleSchemaSave}
           data={{
-            dialogTitle:
-              schemaDiff.count === 1 ? "Save 1 change?" : `Save ${schemaDiff.count} changes?`,
+            dialogTitle: saveChangesTitle(schemaDiff.count, tx),
             // The old text said updates "impact all existing data" without
             // naming a field, so it read the same whether you fixed a
             // description or dropped a column.
             dialogSubtitle: <SchemaChangeReview diff={schemaDiff} />,
-            confirmButton: "Update",
-            cancelButton: "Cancel",
+            confirmButton: tx("common:UPDATE"),
+            cancelButton: tx("common:CANCEL"),
           }}
         />
       </Dialog>
@@ -1212,7 +1216,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
             bulkOperations.setIsBulkAccessDrawerOpen(open);
             if (!open) {
               bulkOperations.setBulkAccessTargets(null);
-              bulkOperations.setBulkAccessTitle("Manage access");
+              bulkOperations.setBulkAccessTitle(tx("SCHEMA_STRUCTURE.MANAGE_ACCESS"));
               bulkOperations.setSelectedFieldNames([]);
             }
           }}
@@ -1244,7 +1248,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
           setIsPropertyAccessDrawerOpen(open);
           if (!open) {
             setCurrentAccessFieldTarget(null);
-            setCurrentAccessDrawerTitle("Manage access");
+            setCurrentAccessDrawerTitle(tx("SCHEMA_STRUCTURE.MANAGE_ACCESS"));
           }
         }}
       />
@@ -1295,7 +1299,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
         schemaType={schemaType}
         fields={templateFields}
         previewData={previewData}
-        title={`${schemaDetails.schemaName} preview`}
+        title={tx("SCHEMA_STRUCTURE.SCHEMANAME_PREVIEW", { schemaName: schemaDetails.schemaName })}
         open={isPreviewDrawerOpen}
         onOpenChange={setIsPreviewDrawerOpen}
         rawIntrospection={rawIntrospection}
@@ -1305,8 +1309,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     </>
   ) : (
     <InfoCard
-      title="Schema Structure"
-      message="Select a schema from the sidebar to view its structure."
+      title={tx("SCHEMA_STRUCTURE.SCHEMA_STRUCTURE")}
+      message={tx("SCHEMA_STRUCTURE.SELECT_A_SCHEMA_FROM_THE_SIDEBAR")}
     />
   );
 }

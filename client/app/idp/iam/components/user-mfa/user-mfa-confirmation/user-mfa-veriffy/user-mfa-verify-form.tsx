@@ -14,6 +14,7 @@ import { z } from "zod";
 import { userMfaContext } from "../../user-mfa";
 import { useVerifyMfaOTP } from "@blocks-idp/mfa/hooks/use-mfa-config";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const CustomInputOTPSlot = ({ index }: { index: number }) => {
   return (
@@ -28,6 +29,7 @@ const FormSchema = z.object({
 });
 
 export const UserMfaVerifyForm = ({ mfaId }: { mfaId: string }) => {
+  const { t } = useT("data.idp.iam");
   const { projectKey, setIsTotpModalOpen, mfaMethodType, userId } = useContext(userMfaContext);
   const { mutateAsync } = useVerifyMfaOTP({ id: userId, projectKey });
 
@@ -47,7 +49,7 @@ export const UserMfaVerifyForm = ({ mfaId }: { mfaId: string }) => {
       });
       if (!verifyOtpResponse.isSuccess) return showErrorToast({ errors: verifyOtpResponse.errors });
       setIsTotpModalOpen(false);
-      showSuccessToast({ description: "MFA enabled successfully" });
+      showSuccessToast({ description: t("USER_MFA_VERIFY_FORM.MFA_ENABLED_SUCCESSFULLY") });
     } catch (_error) {
       //
     }
@@ -80,9 +82,9 @@ export const UserMfaVerifyForm = ({ mfaId }: { mfaId: string }) => {
 
         <div className="mt-6 flex items-center justify-end gap-4">
           <Button variant="outline" type="button" onClick={() => setIsTotpModalOpen(false)}>
-            Cancel
+            {t("common:CANCEL")}
           </Button>
-          <Button>Verify</Button>
+          <Button>{t("USER_MFA_VERIFY_FORM.VERIFY")}</Button>
         </div>
       </form>
     </Form>

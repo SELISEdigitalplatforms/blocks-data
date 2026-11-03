@@ -14,12 +14,14 @@ import { PERMISSION_SEVERITY_OPTIONS, ResourceType } from "@blocks-idp/iam/model
 import { useMemo } from "react";
 import { PermissionDialogProps } from "./permission-selection-utils";
 import { useRoleDetailsStore } from "./role-details-state";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const AffectedPermissionsDialog = ({ permission, onOpenChange, open }: PermissionDialogProps) => {
+  const { t } = useT("data.idp.iam");
   const permissionMap = useRoleDetailsStore((state) => state.permissionMap);
   const changePermissionSelection = useRoleDetailsStore((state) => state.changePermissionSelection);
-  const title = `Review Permission Changes`;
-  const description = `The following permissions depend on this permission. Changing it may impact their functionality. Please review carefully`;
+  const title = t("AFFECTED_DEPENDENTS_DIALOG.REVIEW_PERMISSION_CHANGES");
+  const description = t("AFFECTED_DEPENDENTS_DIALOG.THE_FOLLOWING_PERMISSIONS_DEPEND_ON");
 
   const permissionSeverity = useMemo(() => {
     return PERMISSION_SEVERITY_OPTIONS.find((option) => option.value === permission.permissionSeverity);
@@ -59,7 +61,7 @@ export const AffectedPermissionsDialog = ({ permission, onOpenChange, open }: Pe
                       <h5>{parent?.name}</h5>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {parent?.description || "No description available."}
+                      {parent?.description || t("AFFECTED_DEPENDENTS_DIALOG.NO_DESCRIPTION_AVAILABLE")}
                     </p>
                   </div>
                   <div className="md:self-center space-x-2">
@@ -83,9 +85,9 @@ export const AffectedPermissionsDialog = ({ permission, onOpenChange, open }: Pe
         </ScrollArea>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">{t("common:CANCEL")}</Button>
           </DialogClose>
-          <Button onClick={onSaveClick}>Save</Button>
+          <Button onClick={onSaveClick}>{t("common:SAVE")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

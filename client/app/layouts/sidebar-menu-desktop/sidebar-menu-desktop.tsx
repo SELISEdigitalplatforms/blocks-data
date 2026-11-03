@@ -11,8 +11,10 @@ import { cn } from "@/lib/utils";
 import { PanelLeft } from "lucide-react";
 import { Fragment, useContext } from "react";
 import { Link, useLocation } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export function SidebarMenuDesktop() {
+  const { t } = useT("data.shared");
   const { isSidebarOpen, toggleSidebar } = useContext(SidebarContext);
   const { resolvedTheme } = useTheme();
   const { pathname } = useLocation();
@@ -46,7 +48,7 @@ export function SidebarMenuDesktop() {
         >
           <img
             src={getLogoSrc()}
-            alt="Logo"
+            alt={t("SIDEBAR_MENU_DESKTOP.LOGO")}
             className="h-full w-full object-contain"
           />
         </Link>
@@ -66,7 +68,7 @@ export function SidebarMenuDesktop() {
         (isSidebarOpen ? (
           <div className="relative border-b px-2 pb-2 pt-2">
             <p className="mb-1 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Workspace
+              {t("SIDEBAR_MENU_DESKTOP.WORKSPACE")}
             </p>
 
             <div className="space-y-0.5">

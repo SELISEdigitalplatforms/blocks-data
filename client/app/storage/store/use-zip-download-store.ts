@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 import { HttpError } from "@/lib/http-client";
 import { storageService } from "../services/storage.service";
 import { buildZipDownloadUrl } from "../services/storage-file.service";
@@ -6,11 +7,19 @@ import type { ZipDownloadRow } from "../models/zip-download.model";
 
 export const ZIP_AUTO_CLOSE_MS = 10_000;
 
+const DATA_STORAGE_MODULE = "data.storage";
+
 export const ZIP_ERROR_MESSAGES = {
-  limitExceeded: "Too large to zip (max 2 GB / 5,000 files)",
-  nothingToDownload: "Nothing here can be downloaded",
-  generic: "Couldn't prepare the download",
-} as const;
+  get limitExceeded() {
+    return tStatic(DATA_STORAGE_MODULE, "ZIP_DOWNLOAD.TOO_LARGE_TO_ZIP");
+  },
+  get nothingToDownload() {
+    return tStatic(DATA_STORAGE_MODULE, "ZIP_DOWNLOAD.NOTHING_TO_DOWNLOAD");
+  },
+  get generic() {
+    return tStatic(DATA_STORAGE_MODULE, "ZIP_DOWNLOAD.COULD_NOT_PREPARE");
+  },
+};
 
 export interface IZipDownloadSelection {
   fileIds: string[];
@@ -34,7 +43,11 @@ export interface IZipDownloadStore {
 
 const buildLabel = ({ fileIds, directoryIds }: IZipDownloadSelection): string => {
   const count = fileIds.length + directoryIds.length;
-  return `Zipping ${count} ${directoryIds.length === 0 ? "files" : "items"}`;
+  return tStatic(
+    DATA_STORAGE_MODULE,
+    directoryIds.length === 0 ? "ZIP_DOWNLOAD.ZIPPING_FILES" : "ZIP_DOWNLOAD.ZIPPING_ITEMS",
+    { count },
+  );
 };
 
 /** The HTTP client throws HttpError on non-2xx; `errors` is the response body's `errors` object. */

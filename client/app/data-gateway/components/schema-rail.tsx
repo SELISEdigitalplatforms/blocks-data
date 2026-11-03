@@ -6,6 +6,7 @@ import { PanelLeftOpen } from "lucide-react";
 import { usePendingSchemaIds, useSchemaList } from "../hooks/use-configuration";
 import { ISchemaDetails } from "../models/data-service";
 import { SCHEMA_LIVE_STATE_LABELS, schemaLiveState } from "../utils/schema-live-state";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * The collapsed Explorer — an initial per schema instead of a bare "Schemas"
@@ -28,6 +29,7 @@ export function SchemaRail({
   onSelectSchema: (id: string) => void;
   onExpand: () => void;
 }) {
+  const { t } = useT("data.gateway.schema");
   const projectKey = useProjectStore().selectedProject?.tenantId ?? "";
   const { data: schemaListQuery } = useSchemaList({
     keyword: "",
@@ -48,7 +50,7 @@ export function SchemaRail({
         <button
           type="button"
           onClick={onExpand}
-          aria-label="Show the schema list"
+          aria-label={t("SCHEMA_RAIL.SHOW_THE_SCHEMA_LIST")}
           className="dg-interactive flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40"
         >
           <PanelLeftOpen className="h-4 w-4" aria-hidden />

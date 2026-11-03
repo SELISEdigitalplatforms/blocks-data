@@ -9,8 +9,10 @@ import {
 } from "@/components/ui-kits/card/card";
 import { parseAsInteger, useQueryStates } from "nuqs";
 import { MfaCheckFrom } from "./mfa-check-form";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const MfaCheck = () => {
+  const { t } = useT("data.idp.authentication");
   const [{ mfa_type }] = useQueryStates({
     mfa_type: parseAsInteger.withDefault(0),
   });
@@ -26,7 +28,7 @@ export const MfaCheck = () => {
       </div>
       <Card className="mx-auto mt-16 w-full rounded border-solid border-background py-5 shadow-none sm:max-w-md sm:border-[#95ADC4]">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl leading-9">Verify it’s you</CardTitle>
+          <CardTitle className="text-3xl leading-9">{t("MFA_CHECK.VERIFY_IT_S_YOU")}</CardTitle>
           <CardDescription className="mt-3 text-xl font-normal leading-7 text-high-emphasis">
             {mfa_type_message}
           </CardDescription>

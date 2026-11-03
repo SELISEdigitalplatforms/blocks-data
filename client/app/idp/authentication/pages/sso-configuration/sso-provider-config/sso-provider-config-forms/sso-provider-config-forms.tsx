@@ -12,6 +12,7 @@ import { isErrorWithErrors } from "@/lib/error";
 import { ISsoProviderConfiguration } from "@blocks-idp/authentication/models/sso.model";
 import { useNavigate } from "react-router";
 import { SSOProviderConfigOwnSSOForm } from "./sso-provider-config-blocks-own-sso-form";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 export type SsoConfigFormsProps = {
   provider: SSO_PROVIDERS;
   id: string;
@@ -23,6 +24,7 @@ export type SsoConfigForms = {
 };
 
 export const SsoProviderConfigForms = ({ provider, id }: SsoConfigFormsProps) => {
+  const { t } = useT("data.idp.authentication");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const navigate = useNavigate();
   const { data } = useGetSsoCredentialById({
@@ -47,10 +49,10 @@ export const SsoProviderConfigForms = ({ provider, id }: SsoConfigFormsProps) =>
       });
       if (!res.isSuccess) return showErrorToast({ errors: res.errors });
       if (!id) navigate(`/services/authentication/sso-configuration?provider=${provider}&id=${res.itemId}`);
-      showSuccessToast({ description: `${provider} is configured successfully` });
+      showSuccessToast({ description: t("SSO_PROVIDER_CONFIG_FORMS.PROVIDER_IS_CONFIGURED_SUCCESSFULLY", { provider }) });
     } catch (error) {
       if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
-      showErrorToast({ errors: "Something went wrong" });
+      showErrorToast({ errors: t("SSO_PROVIDER_CONFIG_FORMS.SOMETHING_WENT_WRONG") });
     }
   };
   const CurrentForm = useMemo(() => {

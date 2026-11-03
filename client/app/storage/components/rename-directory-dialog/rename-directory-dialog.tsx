@@ -16,6 +16,7 @@ import { isErrorWithErrors } from "@/lib/error";
 import { useUpdateDmsDirectory } from "@/storage/hooks/use-dms";
 import { DmsDirectoryItem } from "@/storage/models/dms.model";
 import { LoaderCircle } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export interface RenameDirectoryDialogProps {
   open: boolean;
@@ -34,6 +35,7 @@ export function RenameDirectoryDialog({
   directory,
   onDone,
 }: Readonly<RenameDirectoryDialogProps>) {
+  const { t } = useT("data.storage");
   const [name, setName] = useState(directory?.name ?? "");
   // Reset the field whenever a different directory is passed in.
   const [prevDirectory, setPrevDirectory] = useState(directory);
@@ -56,7 +58,7 @@ export function RenameDirectoryDialog({
     try {
       await updateDirectory.mutateAsync({ directoryId: directory.itemId, name: trimmed });
 
-      showSuccessToast({ description: `Renamed to ${trimmed}.` });
+      showSuccessToast({ description: t("RENAME_DIRECTORY_DIALOG.RENAMED_TO_TRIMMED", { trimmed }) });
       onOpenChange(false);
       onDone?.();
     } catch (err: unknown) {
@@ -74,7 +76,7 @@ export function RenameDirectoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Rename directory</DialogTitle>
+          <DialogTitle>{t("RENAME_DIRECTORY_DIALOG.RENAME_DIRECTORY")}</DialogTitle>
         </DialogHeader>
 
         <Input
@@ -88,7 +90,7 @@ export function RenameDirectoryDialog({
               handleSubmit();
             }
           }}
-          placeholder="Directory name"
+          placeholder={t("RENAME_DIRECTORY_DIALOG.DIRECTORY_NAME")}
         />
 
         {updateDirectory.isPending ? (
@@ -98,18 +100,18 @@ export function RenameDirectoryDialog({
             className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
           >
             <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Renaming directory…
+            {t("RENAME_DIRECTORY_DIALOG.RENAMING_DIRECTORY")}
           </div>
         ) : null}
 
         <DialogFooter className="gap-2 sm:gap-2">
           <DialogClose asChild>
             <Button variant="outline" size="sm" disabled={updateDirectory.isPending}>
-              Cancel
+              {t("common:CANCEL")}
             </Button>
           </DialogClose>
           <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-            {updateDirectory.isPending ? "Renaming…" : "Save"}
+            {updateDirectory.isPending ? "Renaming…" : t("common:SAVE")}
           </Button>
         </DialogFooter>
       </DialogContent>

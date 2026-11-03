@@ -2,6 +2,7 @@ import { Input } from "@/components/ui-kits/input/input";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { Checkbox } from "@radix-ui/react-checkbox";
 import { TabsContent } from "@radix-ui/react-tabs";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type MembershipRolesTabProps = {
   isEditing: boolean;
@@ -23,15 +24,17 @@ export const MembershipRolesTab = ({
   selectedRoles,
   onRoleToggle,
   getRoleDisplayName,
-}: MembershipRolesTabProps) => (
+}: MembershipRolesTabProps) => {
+  const { t } = useT("data.idp.iam");
+  return (
   <TabsContent value="roles" className="mt-4">
     {isEditing ? (
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">Select at least one role to assign</p>
+        <p className="text-sm text-muted-foreground">{t("MEMBERSHIP_ROLE_TAB.SELECT_AT_LEAST_ONE_ROLE_TO")}</p>
         <Input
           data-testid="role-tab-searchbar"
           name="role-tab-searchbar"
-          placeholder="Search"
+          placeholder={t("common:SEARCH")}
           value={rolesSearch}
           onChange={(e) => onRolesSearchChange(e.target.value)}
           className="focus-visible:ring-inset focus-visible:ring-offset-0"
@@ -45,7 +48,7 @@ export const MembershipRolesTab = ({
         ) : (
           <div className="rounded-md border">
             <div className="flex items-center gap-3 border-b bg-muted/50 p-3">
-              <span className="font-medium">Roles</span>
+              <span className="font-medium">{t("MEMBERSHIP_ROLE_TAB.ROLES")}</span>
             </div>
             <div className="max-h-[300px] overflow-y-auto">
               {filteredRoles.map((role) => (
@@ -61,7 +64,7 @@ export const MembershipRolesTab = ({
                 </div>
               ))}
               {filteredRoles.length === 0 && (
-                <div className="p-4 text-center text-muted-foreground">No roles found</div>
+                <div className="p-4 text-center text-muted-foreground">{t("MEMBERSHIP_ROLE_TAB.NO_ROLES_FOUND")}</div>
               )}
             </div>
           </div>
@@ -69,10 +72,10 @@ export const MembershipRolesTab = ({
       </div>
     ) : (
       <div className="flex flex-col gap-4">
-        <p className="text-sm font-medium">Assigned roles</p>
+        <p className="text-sm font-medium">{t("MEMBERSHIP_ROLE_TAB.ASSIGNED_ROLES")}</p>
         <div className="space-y-2">
           {selectedRoles.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No roles assigned</p>
+            <p className="text-sm text-muted-foreground">{t("MEMBERSHIP_ROLE_TAB.NO_ROLES_ASSIGNED")}</p>
           ) : (
             selectedRoles.map((role, index) => (
               <div
@@ -88,3 +91,4 @@ export const MembershipRolesTab = ({
     )}
   </TabsContent>
 );
+};

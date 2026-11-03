@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_IDP_IAM_MODULE = "data.idp.iam";
 
 export const iamConfigFormDefaultValues = {
   accountActivationUrl: "",
@@ -9,26 +12,26 @@ export const iamConfigFormDefaultValues = {
   logoutOnPasswordChange: true,
 };
 
-export const iamConfigFormSchema = z.object({
-  accountActivationUrl: z.string().url({ message: "Account activation URL must be a valid URL." }),
+export const iamConfigFormSchema = z.lazy(() => z.object({
+  accountActivationUrl: z.string().url({ message: tStatic(DATA_IDP_IAM_MODULE, "CONFIGURE_UTILS.ACCOUNT_ACTIVATION_URL_MUST_BE_A") }),
   accountVerificationUrl: z
     .string()
-    .url({ message: "Account verification URL must be a valid URL." }),
-  recoverAccountUrl: z.string().url({ message: "Recovery account URL must be a valid URL." }),
+    .url({ message: tStatic(DATA_IDP_IAM_MODULE, "CONFIGURE_UTILS.ACCOUNT_VERIFICATION_URL_MUST_BE_A") }),
+  recoverAccountUrl: z.string().url({ message: tStatic(DATA_IDP_IAM_MODULE, "CONFIGURE_UTILS.RECOVERY_ACCOUNT_URL_MUST_BE_A") }),
   activationUrlLifetimeInMinutes: z.coerce
     .number()
-    .int({ message: "Must be a whole number." })
-    .positive({ message: "Must be a positive number." })
+    .int({ message: tStatic(DATA_IDP_IAM_MODULE, "CONFIGURE_UTILS.MUST_BE_A_WHOLE_NUMBER") })
+    .positive({ message: tStatic(DATA_IDP_IAM_MODULE, "CONFIGURE_UTILS.MUST_BE_A_POSITIVE_NUMBER") })
     .max(2147483647, {
-      message: "Value exceeds the allowed limit (1 - 2,147,483,647).",
+      message: tStatic(DATA_IDP_IAM_MODULE, "CONFIGURE_UTILS.VALUE_EXCEEDS_THE_ALLOWED_LIMIT_1"),
     }),
   recoverAccountUrlLifetimeInMinutes: z.coerce
     .number()
-    .int({ message: "Must be a whole number." })
-    .positive({ message: "Must be a positive number." })
+    .int({ message: tStatic(DATA_IDP_IAM_MODULE, "CONFIGURE_UTILS.MUST_BE_A_WHOLE_NUMBER") })
+    .positive({ message: tStatic(DATA_IDP_IAM_MODULE, "CONFIGURE_UTILS.MUST_BE_A_POSITIVE_NUMBER") })
     .max(2147483647, {
-      message: "Value exceeds the allowed limit (1 - 2,147,483,647).",
+      message: tStatic(DATA_IDP_IAM_MODULE, "CONFIGURE_UTILS.VALUE_EXCEEDS_THE_ALLOWED_LIMIT_1"),
     }),
 
   logoutOnPasswordChange: z.boolean(),
-});
+}));

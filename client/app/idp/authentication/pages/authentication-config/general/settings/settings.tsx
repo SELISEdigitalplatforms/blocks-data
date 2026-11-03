@@ -4,8 +4,10 @@ import { EditGeneralSettings } from "./edit-settings";
 import { useIsFetching } from "@tanstack/react-query";
 import { useProjectStore } from "@/store/use-project-store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export function GeneralSettings() {
+  const { t } = useT("data.idp.authentication");
   const { itemId } = useProjectStore().selectedProject || { itemId: "" };
   const isFetching = useIsFetching({
     queryKey: [
@@ -21,7 +23,7 @@ export function GeneralSettings() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          Settings {!isFetching && <EditGeneralSettings />}
+          {t("common:SETTINGS")} {!isFetching && <EditGeneralSettings />}
         </CardTitle>
       </CardHeader>
       <CardContent>

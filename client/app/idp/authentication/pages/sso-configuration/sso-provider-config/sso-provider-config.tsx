@@ -6,6 +6,7 @@ import { SSO_PROVIDERS } from "@blocks-idp/authentication/constants/sso-provider
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type SSOProviderConfigProps = {
   provider: SSO_PROVIDERS;
@@ -13,10 +14,11 @@ type SSOProviderConfigProps = {
 };
 
 export const SSOProviderConfig = ({ provider, id = "" }: SSOProviderConfigProps) => {
+  const { t } = useT("data.idp.authentication");
   const [open, setOpen] = useState<boolean>(false);
   if (!provider) return null;
 
-  setBreadcrumbTitle("/services/authentication?tab=social", "Authentication");
+  setBreadcrumbTitle("/services/authentication?tab=social", t("SSO_PROVIDER_CONFIG.AUTHENTICATION"));
   setBreadcrumbTitle(`/services/authentication/sso-configuration`, provider);
   return (
     <div className="flex flex-col">
@@ -27,7 +29,7 @@ export const SSOProviderConfig = ({ provider, id = "" }: SSOProviderConfigProps)
         <h3 className="text-2xl font-bold tracking-tight">{provider.toUpperCase()}</h3>
         <Button variant="outline" onClick={() => setOpen((open) => !open)}>
           <BookText className="aspect-square w-4" />
-          <span className="sr-only sm:not-sr-only sm:ml-2">Setup Guide</span>
+          <span className="sr-only sm:not-sr-only sm:ml-2">{t("SSO_PROVIDER_CONFIG.SETUP_GUIDE")}</span>
         </Button>
       </div>
 

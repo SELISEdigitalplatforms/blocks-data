@@ -18,6 +18,7 @@ import { useState } from "react";
 import { useReferenceTargets } from "../../hooks/use-configuration";
 import type { IReferenceTargetSchema } from "../../models/data-service";
 import { DEFAULT_REFERENCE_FIELD } from "../../utils/validation-rules.util";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const TEXT_TYPES = ["String", "ID", "Enum"];
 const NUMBER_TYPES = ["Int", "Float"];
@@ -53,6 +54,7 @@ function TargetItem({
   disabledNote,
   onSelect,
 }: Readonly<{ schema: IReferenceTargetSchema; selected: boolean; disabledNote?: string; onSelect: () => void }>) {
+  const { t } = useT("data.gateway.validation");
   return (
     <CommandItem value={schema.schemaName} disabled={!!disabledNote} onSelect={onSelect} className="items-start">
       <Check className={cn("mr-1.5 mt-0.5 h-3.5 w-3.5 shrink-0", selected ? "opacity-100" : "opacity-0")} />
@@ -60,7 +62,7 @@ function TargetItem({
         <span className="flex items-center gap-1.5">
           <span className="truncate">{schema.schemaName}</span>
           {schema.isSystemEntity && (
-            <span className="shrink-0 rounded bg-muted px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">System</span>
+            <span className="shrink-0 rounded bg-muted px-1 py-px text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">{t("REFERENCE_TARGET_PICKER.SYSTEM")}</span>
           )}
         </span>
         {(disabledNote ?? schema.description) && <span className="truncate text-[11px] text-muted-foreground">{disabledNote ?? schema.description}</span>}
@@ -93,13 +95,14 @@ export function ReferenceTargetPicker({
   ownSchemaName?: string;
   onChange: (target: { schemaName: string; fieldName: string }) => void;
 }>) {
+  const { t } = useT("data.gateway.validation");
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const keyword = useDebounce(search, 300);
   const { data, isLoading } = useReferenceTargets(keyword, open);
   const groups = [
-    { heading: "Your entities", schemas: data?.data?.entities ?? [] },
-    { heading: "System entities", schemas: data?.data?.systemEntities ?? [] },
+    { heading: t("REFERENCE_TARGET_PICKER.YOUR_ENTITIES"), schemas: data?.data?.entities ?? [] },
+    { heading: t("REFERENCE_TARGET_PICKER.SYSTEM_ENTITIES"), schemas: data?.data?.systemEntities ?? [] },
   ].filter((group) => group.schemas.length > 0);
 
   const selected = useReferenceTarget(schemaName);
@@ -112,7 +115,7 @@ export function ReferenceTargetPicker({
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1.5">
         <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-          {mustNotExist ? "Must not exist in schema" : "Must exist in schema"} <span className="text-rose-500">*</span>
+          {mustNotExist ? t("REFERENCE_TARGET_PICKER.MUST_NOT_EXIST_IN_SCHEMA") : t("REFERENCE_TARGET_PICKER.MUST_EXIST_IN_SCHEMA")} <span className="text-rose-500">*</span>
         </label>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
@@ -121,18 +124,18 @@ export function ReferenceTargetPicker({
               variant="outline"
               role="combobox"
               aria-expanded={open}
-              aria-label="Target schema"
+              aria-label={t("REFERENCE_TARGET_PICKER.TARGET_SCHEMA")}
               className="h-9 w-full justify-between font-normal hover:bg-transparent"
             >
-              <span className={cn("truncate", !schemaName && "text-muted-foreground")}>{schemaName || "Select a schema…"}</span>
+              <span className={cn("truncate", !schemaName && "text-muted-foreground")}>{schemaName || t("REFERENCE_TARGET_PICKER.SELECT_A_SCHEMA")}</span>
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-(--radix-popover-trigger-width) min-w-0 p-0" align="start">
             <Command shouldFilter={false}>
-              <CommandInput placeholder="Search names and descriptions…" value={search} onValueChange={setSearch} />
+              <CommandInput placeholder={t("REFERENCE_TARGET_PICKER.SEARCH_NAMES_AND_DESCRIPTIONS")} value={search} onValueChange={setSearch} />
               <CommandList className="max-h-[280px]">
-                <CommandEmpty>{isLoading ? "Loading…" : "No entity found."}</CommandEmpty>
+                <CommandEmpty>{isLoading ? "Loading…" : t("REFERENCE_TARGET_PICKER.NO_ENTITY_FOUND")}</CommandEmpty>
                 {groups.map((group) => (
                   <CommandGroup key={group.heading} heading={`${group.heading} · ${group.schemas.length}`}>
                     {group.schemas.map((schema) => (
@@ -140,7 +143,7 @@ export function ReferenceTargetPicker({
                         key={`${schema.isSystemEntity}-${schema.schemaName}`}
                         schema={schema}
                         selected={schemaName === schema.schemaName}
-                        disabledNote={isOwn(schema.schemaName) ? "This schema. Use the Unique flag instead" : undefined}
+                        disabledNote={isOwn(schema.schemaName) ? t("REFERENCE_TARGET_PICKER.THIS_SCHEMA_USE_THE_UNIQUE_FLAG") : undefined}
                         onSelect={() => {
                           onChange({ schemaName: schema.schemaName, fieldName: compatibleTargetFields(schema, sourceType)[0] ?? "" });
                           setOpen(false);
@@ -155,20 +158,20 @@ export function ReferenceTargetPicker({
         </Popover>
         {mustNotExist && ownSchemaName && (
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            {ownSchemaName} isn&apos;t offered here. For no duplicates within {ownSchemaName}, use the Unique flag on the property.
+            {t("REFERENCE_TARGET_PICKER.OWNSCHEMANAME_ISN_T_OFFERED_HERE_FOR", { ownSchemaName })}
           </p>
         )}
       </div>
 
       {schemaName && (
         <div className="flex flex-col gap-1.5">
-          <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">Target field</label>
+          <label className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">{t("REFERENCE_TARGET_PICKER.TARGET_FIELD")}</label>
           {selected && fieldOptions.length === 0 ? (
-            <p className="text-xs text-rose-500">{schemaName} has no {NUMBER_TYPES.includes(sourceType) ? "number" : "text"} field to match.</p>
+            <p className="text-xs text-rose-500">{t(NUMBER_TYPES.includes(sourceType) ? "REFERENCE_TARGET_PICKER.HAS_NO_NUMBER_FIELD_TO_MATCH" : "REFERENCE_TARGET_PICKER.HAS_NO_TEXT_FIELD_TO_MATCH", { schemaName })}</p>
           ) : (
             <Select value={fieldName || undefined} onValueChange={(value) => onChange({ schemaName, fieldName: value })}>
-              <SelectTrigger className="h-9 w-full" aria-label="Target field">
-                <SelectValue placeholder="Select a field" />
+              <SelectTrigger className="h-9 w-full" aria-label={t("REFERENCE_TARGET_PICKER.TARGET_FIELD")}>
+                <SelectValue placeholder={t("REFERENCE_TARGET_PICKER.SELECT_A_FIELD")} />
               </SelectTrigger>
               <SelectContent>
                 {(selected ? fieldOptions : [fieldName || DEFAULT_REFERENCE_FIELD]).map((name) => (
@@ -181,7 +184,7 @@ export function ReferenceTargetPicker({
           )}
           {showIndexHint && (
             <p className="text-xs text-muted-foreground">
-              {fieldName} is not unique. The check still works, but is faster when this field is indexed.
+              {t("REFERENCE_TARGET_PICKER.FIELDNAME_IS_NOT_UNIQUE_THE_CHECK", { fieldName })}
             </p>
           )}
         </div>

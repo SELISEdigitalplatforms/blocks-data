@@ -5,6 +5,7 @@ import { microsoftStepupDocs } from "./sso-setup-guideline-microsoft";
 import { githubStepupDocs } from "./sso-setup-guideline-github";
 import { linkedinStepupDocs } from "./sso-setup-guideline-linkedin";
 import { xStepupDocs } from "./sso-setup-guideline-x";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export type Step = {
   id: string;
@@ -22,18 +23,18 @@ export const SSOSetupGuideSteps: Record<SSO_PROVIDERS, Step[]> = {
   ownsso: [
     {
       id: "0",
-      description: (
+      get description() {
+      return (
         <div>
           <p>
-            Coming soon: The OwnSSO social connection allows users to log in to your application using their OwnSSO
-            account profile.
+            {tStatic("data.idp.authentication", "SSO_SETUP_GUIDELINE_STEPS_DOCS.COMING_SOON_THE_OWNSSO_SOCIAL")}
           </p>
           <p className="mt-2">
-            Coming soon: The OwnSSO social connection allows users to log in to your application using their OwnSSO
-            account profile.
+            {tStatic("data.idp.authentication", "SSO_SETUP_GUIDELINE_STEPS_DOCS.COMING_SOON_THE_OWNSSO_SOCIAL")}
           </p>
         </div>
-      ),
+      );
+      },
     },
   ],
 };

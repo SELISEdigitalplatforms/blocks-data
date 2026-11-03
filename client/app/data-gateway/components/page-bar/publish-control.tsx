@@ -18,18 +18,22 @@ import {
   useSchemaVersionHistory,
 } from "../../hooks/use-configuration";
 import { ISchemaVersionSummary } from "../../models/data-service";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+const PUBLISH_CONTROL_VERSION_HISTORY = "PUBLISH_CONTROL.VERSION_HISTORY";
 
 type PublishState = "clean" | "pending" | "publishing" | "failed";
 
 const formatPublishedDate = (value: string) => {
   const date = new Date(value);
-  if (isToday(date)) return `Today ${format(date, "HH:mm")}`;
+  if (isToday(date)) return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "PUBLISH_CONTROL.TODAY_FORMAT", { format: format(date, "HH:mm") });
   return format(date, isThisYear(date) ? "d MMM" : "d MMM yyyy");
 };
 
 const describeVersion = (version: ISchemaVersionSummary) => {
   const date = formatPublishedDate(version.publishedDate);
-  if (version.kind === "Bootstrap") return `${date} · First version · from drafts`;
+  if (version.kind === "Bootstrap") return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "PUBLISH_CONTROL.DATE_FIRST_VERSION_FROM_DRAFTS", { date });
   const changes = `${version.changeCount} ${version.changeCount === 1 ? "change" : "changes"}`;
   return [date, version.publishedBy, changes].filter(Boolean).join(" · ");
 };
@@ -47,7 +51,14 @@ const describeVersion = (version: ISchemaVersionSummary) => {
  * version history, where an earlier version can be made live again. History is fetched only when
  * opened; failed reads leave publishing available.
  */
+const publishStateOf = (isPublishing: boolean, hasFailed: boolean, pendingCount: number): PublishState => {
+  if (isPublishing) return "publishing";
+  if (hasFailed) return "failed";
+  return pendingCount > 0 ? "pending" : "clean";
+};
+
 export const PublishControl = () => {
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const { data: unadaptedChangeLogs } = useGetUnadaptedChangeLogs({ projectKey });
   const { mutateAsync: reloadSchemas, isPending: isPublishing } = useSchemasReload();
@@ -61,24 +72,18 @@ export const PublishControl = () => {
   // published version exists, there is nothing to name.
   const liveVersion = history?.versions.some((v) => v.isCurrent) ? history.currentVersion : null;
 
-  const state: PublishState = isPublishing
-    ? "publishing"
-    : hasFailed
-      ? "failed"
-      : pendingCount > 0
-        ? "pending"
-        : "clean";
+  const state = publishStateOf(isPublishing, hasFailed, pendingCount);
 
   const publish = async () => {
     setHasFailed(false);
     try {
       const res = await reloadSchemas();
       if (res.isSuccess) {
-        showSuccessToast({ description: "Schemas published successfully" });
+        showSuccessToast({ description: t("PUBLISH_CONTROL.SCHEMAS_PUBLISHED_SUCCESSFULLY") });
         return;
       }
       setHasFailed(true);
-      showErrorToast({ errors: "Something went wrong" });
+      showErrorToast({ errors: t("PUBLISH_CONTROL.SOMETHING_WENT_WRONG") });
     } catch (error) {
       setHasFailed(true);
       // A schema that does not build comes back with the reason; show it.
@@ -94,13 +99,13 @@ export const PublishControl = () => {
         <button
           type="button"
           onClick={publish}
-          aria-label="Publish"
-          title="Everything is published. Publishing again re-adapts the gateway."
+          aria-label={t("PUBLISH_CONTROL.PUBLISH")}
+          title={t("PUBLISH_CONTROL.EVERYTHING_IS_PUBLISHED_PUBLISHING")}
           className="flex items-center gap-1.5 px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           <Check className="h-3.5 w-3.5" />
           <span className="hidden lg:inline">
-            Published{liveVersion !== null && ` · v${liveVersion}`}
+            {t("PUBLISH_CONTROL.PUBLISHED")}{liveVersion !== null && ` · v${liveVersion}`}
           </span>
         </button>
         <VersionHistory history={history} onOpenChange={setHistoryRequested} isError={historyError} className="border-l border-border/50" />
@@ -109,6 +114,9 @@ export const PublishControl = () => {
   }
 
   const failed = state === "failed";
+  let statusText = t("PUBLISH_CONTROL.PENDINGCOUNT_UNPUBLISHED", { pendingCount });
+  if (failed) statusText = t("PUBLISH_CONTROL.PUBLISH_FAILED");
+  else if (state === "publishing") statusText = "Publishing…";
 
   return (
     <div className="flex shrink-0 items-center gap-1.5">
@@ -138,13 +146,9 @@ export const PublishControl = () => {
             />
           )}
           <span className="whitespace-nowrap">
-            {failed
-              ? "Publish failed"
-              : state === "publishing"
-                ? "Publishing…"
-                : `${pendingCount} unpublished`}
+            {statusText}
             {!failed && state !== "publishing" && liveVersion !== null && (
-              <span className="hidden lg:inline"> · live v{liveVersion}</span>
+              <span className="hidden lg:inline"> {t("PUBLISH_CONTROL.LIVE_V_LIVEVERSION", { liveVersion })}</span>
             )}
           </span>
         </div>
@@ -159,7 +163,7 @@ export const PublishControl = () => {
           )}
         >
           <RotateCcw className={cn("h-3.5 w-3.5", isPublishing && "animate-spin")} />
-          {failed ? "Retry" : "Publish"}
+          {failed ? t("common:RETRY") : t("PUBLISH_CONTROL.PUBLISH")}
         </button>
       </div>
 
@@ -181,6 +185,7 @@ interface VersionHistoryProps {
  * changes and what does not.
  */
 const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHistoryProps) => {
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const { mutateAsync: rollback, isPending: isRollingBack } = useSchemaRollback();
   const [isOpen, setIsOpen] = useState(false);
   const [rollbackTarget, setRollbackTarget] = useState<number | null>(null);
@@ -190,12 +195,12 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
     try {
       const res = await rollback(rollbackTarget);
       if (res.isSuccess) {
-        showSuccessToast({ description: `Version ${rollbackTarget} is live` });
+        showSuccessToast({ description: t("PUBLISH_CONTROL.VERSION_ROLLBACKTARGET_IS_LIVE", { rollbackTarget }) });
         setRollbackTarget(null);
         setIsOpen(false);
         return;
       }
-      showErrorToast({ errors: "Something went wrong" });
+      showErrorToast({ errors: t("PUBLISH_CONTROL.SOMETHING_WENT_WRONG") });
     } catch (error) {
       showErrorToast({ errors: isErrorWithErrors(error) ? error.errors : error });
     }
@@ -207,8 +212,8 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-label="Version history"
-            title="Version history"
+            aria-label={t(PUBLISH_CONTROL_VERSION_HISTORY)}
+            title={t(PUBLISH_CONTROL_VERSION_HISTORY)}
             className={cn(
               "flex w-8 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground",
               className,
@@ -218,16 +223,18 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
           </button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-[340px] p-0">
-          <div className="px-3 py-2.5 text-sm font-medium">Version history</div>
-          {!history ? (
+          <div className="px-3 py-2.5 text-sm font-medium">{t(PUBLISH_CONTROL_VERSION_HISTORY)}</div>
+          {!history && (
             <p className="px-3 py-3 text-xs text-muted-foreground">
-              {isError ? "Version history is unavailable." : "Loading version history…"}
+              {isError ? t("PUBLISH_CONTROL.VERSION_HISTORY_IS_UNAVAILABLE") : t("PUBLISH_CONTROL.LOADING_VERSION_HISTORY")}
             </p>
-          ) : history.versions.length === 0 ? (
+          )}
+          {history?.versions.length === 0 && (
             <p className="border-t border-border/50 px-3 py-3 text-xs text-muted-foreground">
-              Nothing is published yet. Publishing creates the first version.
+              {t("PUBLISH_CONTROL.NOTHING_IS_PUBLISHED_YET_PUBLISHING")}
             </p>
-          ) : (
+          )}
+          {!!history?.versions.length && (
             <ul>
               {history.versions.map((version) => (
                 <li
@@ -240,7 +247,7 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
                   </span>
                   {version.isCurrent ? (
                     <span className="rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-800 dark:bg-green-900/20 dark:text-green-400">
-                      Live
+                      {t("PUBLISH_CONTROL.LIVE")}
                     </span>
                   ) : (
                     <button
@@ -248,7 +255,7 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
                       onClick={() => setRollbackTarget(version.version)}
                       className="rounded-md border border-border px-2 py-0.5 font-medium transition-colors hover:bg-muted"
                     >
-                      Roll back
+                      {t("PUBLISH_CONTROL.ROLL_BACK")}
                     </button>
                   )}
                 </li>
@@ -256,7 +263,7 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
             </ul>
           )}
           <p className="border-t border-border/50 px-3 py-2 text-[11px] text-muted-foreground">
-            The last 10 published versions are kept.
+            {t("PUBLISH_CONTROL.THE_LAST_10_PUBLISHED_VERSIONS_ARE")}
           </p>
         </PopoverContent>
       </Popover>
@@ -270,18 +277,18 @@ const VersionHistory = ({ history, className, onOpenChange, isError }: VersionHi
         {rollbackTarget !== null && (
           <ConfirmationModal
             data={{
-              dialogTitle: `Roll back to version ${rollbackTarget}?`,
+              dialogTitle: t("PUBLISH_CONTROL.ROLL_BACK_TO_VERSION_ROLLBACKTARGET", { rollbackTarget }),
               dialogSubtitle: (
                 <>
                   <span className="block">
-                    {`Every server switches from v${history?.currentVersion} to v${rollbackTarget} within about a second. Apps using the API see v${rollbackTarget}'s schemas and access rules.`}
+                    {t("PUBLISH_CONTROL.EVERY_SERVER_SWITCHES_FROM_V", { currentVersion: history?.currentVersion ?? "", rollbackTarget })}
                   </span>
                   <span className="mt-2 block">
-                    {"Your drafts don't change. Changes made after this version show as unpublished, and publishing again creates a new version from them."}
+                    {t("PUBLISH_CONTROL.YOUR_DRAFTS_DON_T_CHANGE_CHANGES")}
                   </span>
                 </>
               ),
-              confirmButton: isRollingBack ? "Rolling back…" : "Roll back",
+              confirmButton: isRollingBack ? t("PUBLISH_CONTROL.ROLLING_BACK") : t("PUBLISH_CONTROL.ROLL_BACK"),
             }}
             onCancel={() => setRollbackTarget(null)}
             onConfirm={confirmRollback}

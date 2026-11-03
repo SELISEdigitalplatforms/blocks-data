@@ -49,6 +49,9 @@ import {
   type SchemaField,
 } from "./rule-condition-row";
 import { RuleGroupChildren } from "./rule-group-editor";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_ACCESS_MODULE = "data.gateway.access";
 
 /**
  * A group needs something inside it. The server evaluates an empty group to
@@ -58,9 +61,10 @@ import { RuleGroupChildren } from "./rule-group-editor";
 const groupHasContent = (group: { rules: unknown[]; nestedGroups: unknown[] }) =>
   group.rules.length + group.nestedGroups.length > 0;
 
-const logicalOperatorSchema = z.enum(["AND", "OR"], {
-  required_error: "Please select a rule relation",
-});
+const createLogicalOperatorSchema = () =>
+  z.enum(["AND", "OR"], {
+    required_error: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.PLEASE_SELECT_A_RULE_RELATION"),
+  });
 
 /**
  * The rule set's checks. A static value is also checked against the type of the property it is
@@ -68,11 +72,12 @@ const logicalOperatorSchema = z.enum(["AND", "OR"], {
  * left operand's value spec.
  */
 const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => StaticValueSpec) => {
+  const logicalOperatorSchema = createLogicalOperatorSchema();
   const ruleRowSchema = z
     .object({
-      source: z.string().min(1, "Source is required"),
-      field: z.string().min(1, "Field is required"),
-      operator: z.string().min(1, "Operator is required"),
+      source: z.string().min(1, tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.SOURCE_IS_REQUIRED")),
+      field: z.string().min(1, tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.FIELD_IS_REQUIRED")),
+      operator: z.string().min(1, tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.OPERATOR_IS_REQUIRED")),
       compareSource: z.string().default(""),
       compareValue: z.string().default(""),
     })
@@ -84,7 +89,7 @@ const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => Sta
         if (!data.compareValue) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "Value is required",
+            message: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.VALUE_IS_REQUIRED"),
             path: ["compareValue"],
           });
         }
@@ -94,14 +99,14 @@ const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => Sta
       if (!data.compareSource) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Compare source is required",
+          message: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.COMPARE_SOURCE_IS_REQUIRED"),
           path: ["compareSource"],
         });
       }
       if (!data.compareValue) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Compare value is required",
+          message: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.COMPARE_VALUE_IS_REQUIRED"),
           path: ["compareValue"],
         });
         return;
@@ -125,19 +130,19 @@ const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => Sta
       nestedGroups: z.array(z.lazy(() => ruleGroupSchema)),
     })
     .refine(groupHasContent, {
-      message: "A group needs at least one rule",
+      message: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.A_GROUP_NEEDS_AT_LEAST_ONE"),
       path: ["rules"],
     });
 
   const ruleSetSchema = z
     .object({
-      name: z.string().trim().min(1, "Rule Set Name is required"),
+      name: z.string().trim().min(1, tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.RULE_SET_NAME_IS_REQUIRED")),
       logicalOperator: logicalOperatorSchema,
       rules: z.array(ruleRowSchema),
       nestedGroups: z.array(ruleGroupSchema),
     })
     .refine(groupHasContent, {
-      message: "At least one complete rule is required",
+      message: tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.AT_LEAST_ONE_COMPLETE_RULE_IS"),
       path: ["rules"],
     });
 
@@ -146,11 +151,11 @@ const createRuleSetSchema = (valueSpecOf: (source: string, field: string) => Sta
 
 /** The verb shown under the title, e.g. "Order · Update". */
 const OPERATION_LABEL: Record<number, string> = {
-  [POLICY_OPERATION.READ]: "Read",
-  [POLICY_OPERATION.CREATE]: "Create",
-  [POLICY_OPERATION.UPDATE]: "Update",
-  [POLICY_OPERATION.DELETE]: "Delete",
-  [POLICY_OPERATION.ALL]: "All",
+  get [POLICY_OPERATION.READ]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "RULE_SET_FORM.READ"); },
+  get [POLICY_OPERATION.CREATE]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:CREATE"); },
+  get [POLICY_OPERATION.UPDATE]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:UPDATE"); },
+  get [POLICY_OPERATION.DELETE]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:DELETE"); },
+  get [POLICY_OPERATION.ALL]() { return tStatic(DATA_GATEWAY_ACCESS_MODULE, "common:ALL"); },
 };
 
 interface RuleSetFormProps {
@@ -199,6 +204,7 @@ export const RuleSetForm = ({
   isSubmitting = false,
   status = null,
 }: RuleSetFormProps) => {
+  const { t, language } = useT(DATA_GATEWAY_ACCESS_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
   const isEditMode = !!editingPolicy;
@@ -209,8 +215,10 @@ export const RuleSetForm = ({
     [schemaFields, schemaName],
   );
   const ruleSetSchema = useMemo(
+    // `language` rebuilds the schema so its messages follow the chosen language
     () => createRuleSetSchema(ruleBuilderHelpers.getStaticValueSpec),
-    [ruleBuilderHelpers],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ruleBuilderHelpers, language],
   );
 
   const form = useForm<RuleSetFormValues>({
@@ -350,7 +358,7 @@ export const RuleSetForm = ({
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label="Back to rule sets"
+                aria-label={t("RULE_SET_FORM.BACK_TO_RULE_SETS")}
                 className="h-7 w-7 shrink-0 text-muted-foreground"
                 disabled={isSubmitting}
                 onClick={onCancel}
@@ -359,7 +367,7 @@ export const RuleSetForm = ({
               </Button>
               <div className="min-w-0 flex-1">
                 <p className="text-[13.5px] font-semibold text-foreground">
-                  {isEditMode ? "Edit rule set" : "New rule set for Custom policy"}
+                  {isEditMode ? t("RULE_SET_FORM.EDIT_RULE_SET") : t("RULE_SET_FORM.NEW_RULE_SET_FOR_CUSTOM_POLICY")}
                 </p>
                 <p className="mt-0.5 text-[11.5px] text-muted-foreground">
                   {schemaName} · {OPERATION_LABEL[operation] ?? ""}
@@ -373,10 +381,10 @@ export const RuleSetForm = ({
               render={({ field }) => (
                 <FormItem className="space-y-1.5">
                   <FormLabel className="text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
-                    Rule set name
+                    {t("RULE_SET_FORM.RULE_SET_NAME")}
                   </FormLabel>
                   <FormControl>
-                    <Input className="h-9" placeholder="Enter a rule name" {...field} />
+                    <Input className="h-9" placeholder={t("RULE_SET_FORM.ENTER_A_RULE_NAME")} {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -391,18 +399,18 @@ export const RuleSetForm = ({
                   <FormItem className="mb-3 space-y-1">
                     <div className="flex items-center gap-2.5">
                       <span className="text-[10px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
-                        Rules
+                        {t("RULE_SET_FORM.RULES")}
                       </span>
                       <FormControl>
                         <div
                           role="radiogroup"
-                          aria-label="Multi-rule relations"
+                          aria-label={t("RULE_SET_FORM.MULTI_RULE_RELATIONS")}
                           className="flex items-center gap-0.5 rounded-md border border-border/50 bg-background p-0.5"
                         >
                           {(
                             [
-                              { value: "AND", label: "Match all" },
-                              { value: "OR", label: "Match any" },
+                              { value: "AND", label: t("RULE_SET_FORM.MATCH_ALL") },
+                              { value: "OR", label: t("RULE_SET_FORM.MATCH_ANY") },
                             ] as const
                           ).map((option) => {
                             const isSelected = field.value === option.value;
@@ -432,23 +440,23 @@ export const RuleSetForm = ({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        aria-label="Add Rule"
+                        aria-label={t("RULE_SET_FORM.ADD_RULE")}
                         className="h-7 shrink-0 gap-1 px-2 text-xs font-semibold text-primary hover:text-primary"
                         onClick={addRule}
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        Rule
+                        {t("RULE_SET_FORM.RULE")}
                       </Button>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        aria-label="Add group"
+                        aria-label={t("RULE_SET_FORM.ADD_GROUP")}
                         className="h-7 shrink-0 gap-1 px-2 text-xs font-semibold text-primary hover:text-primary"
                         onClick={() => appendGroup(createBlankGroup())}
                       >
                         <SquarePlus className="h-3.5 w-3.5" />
-                        Group
+                        {t("RULE_SET_FORM.GROUP")}
                       </Button>
                     </div>
                     <FormMessage />
@@ -458,7 +466,7 @@ export const RuleSetForm = ({
 
               {fields.length === 0 && groupFields.length === 0 ? (
                 <p className="py-4 text-center text-sm text-muted-foreground">
-                  No rules added yet. Add a rule to define who can view.
+                  {t("RULE_SET_FORM.NO_RULES_ADDED_YET_ADD_A")}
                 </p>
               ) : (
                 <RuleGroupChildren
@@ -487,7 +495,7 @@ export const RuleSetForm = ({
                 {/* Sent the moment this is saved here — including the pending
                     access-level change first, if Custom was just picked — so
                     there's never a second, separate Save to remember. */}
-                {isSubmitting ? "Saving…" : "Saves immediately"}
+                {isSubmitting ? "Saving…" : t("RULE_SET_FORM.SAVES_IMMEDIATELY")}
               </span>
               <Button
                 type="button"
@@ -496,7 +504,7 @@ export const RuleSetForm = ({
                 disabled={isSubmitting}
                 onClick={onCancel}
               >
-                Cancel
+                {t("common:CANCEL")}
               </Button>
               <Button
                 type="button"
@@ -504,7 +512,7 @@ export const RuleSetForm = ({
                 disabled={!form.formState.isValid || isSubmitting}
                 onClick={() => void submitRuleSet()}
               >
-                Save rule set
+                {t("RULE_SET_FORM.SAVE_RULE_SET")}
               </Button>
             </div>
           </div>

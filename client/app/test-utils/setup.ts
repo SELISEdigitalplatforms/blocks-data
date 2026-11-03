@@ -134,6 +134,9 @@ if (globalThis.window !== undefined && !globalThis.window.matchMedia) {
   }));
 }
 
+// English text for every module. Loaded after matchMedia exists: the genesis settings store reads it on import.
+await import("../i18n");
+
 // jsdom lacks ResizeObserver / IntersectionObserver used by some UI primitives.
 class MockObserver {
   observe = vi.fn();

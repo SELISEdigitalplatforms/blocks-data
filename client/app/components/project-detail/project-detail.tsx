@@ -4,7 +4,6 @@ import { Button } from "@/components/ui-kits/button/button";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { environmentOptions } from "@/constants/environment-options";
 import { IProject } from "@/identifier/models/project.model";
-import { getProjectBlocksApiUrl } from "@/lib/domain";
 import { formatFullDate } from "@/lib/utils";
 import { ReactNode } from "react";
 import { useT } from "@seliseblocks/genesis-os/i18n";
@@ -20,18 +19,6 @@ const ProjectDetailItem = ({ label, children }: ProjectDetailItemProps) => (
     <div className="text-base">{children}</div>
   </div>
 );
-
-const RenderProjectUrl = ({ project }: { project?: IProject }) => {
-  if (!project) return null;
-  const url = getProjectBlocksApiUrl(project);
-  return (
-    <div>
-      <CopyToClipboardButton textToCopy={url || ""} isHoverable>
-        {url}
-      </CopyToClipboardButton>
-    </div>
-  );
-};
 
 const LoadingSkeleton = () => {
   return (
@@ -108,11 +95,6 @@ export const ProjectDetail = ({
             </Button>
           )}
         </ProjectDetailItem>
-        {/* <ProjectDetailItem label="Blocks Microservices Url">
-          <div className="flex h-auto items-center gap-2">
-            <RenderProjectUrl project={project} />
-          </div>
-        </ProjectDetailItem> */}
         <ProjectDetailItem label={t("PROJECT_DETAIL.LAST_UPDATED_DATE")}>
           {project?.lastUpdatedDate &&
             formatFullDate(new Date(project.lastUpdatedDate))}

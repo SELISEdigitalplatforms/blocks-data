@@ -46,4 +46,8 @@ RUN chown -R app:app /app
 
 USER app
 
+# The Worker has no HTTP host to probe; its liveness is managed by the orchestrator. The base
+# image defines no HEALTHCHECK, so NONE states that explicitly.
+HEALTHCHECK NONE
+
 ENTRYPOINT ["dotnet", "Worker.dll"]

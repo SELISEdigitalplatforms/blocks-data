@@ -199,6 +199,9 @@ export function StorageDetail() {
   const { t } = useT("data.storage");
   const navigate = useNavigate();
   const storagePath = useStoragePath();
+  // URL state is re-read from window.location on every render on purpose: memoising params would freeze it
+  // to the first render's URL, because window.location is not a React dependency.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- see above; the breadcrumb memo must re-read the URL each render.
   const params = new URLSearchParams(window.location.search);
   const storageId = params.get("id") as string;
   const projectKey = useProjectStore().selectedProject?.tenantId || "";

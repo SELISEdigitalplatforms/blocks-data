@@ -10,7 +10,7 @@ export const CAPTCHA_GENERATOR_TYPE = {
   HardCaptchaGenerator: { value: "HardCaptchaGenerator", get label() { return tStatic(DATA_IDP_SECURITY_MODULE, "CAPTCHA.HARD"); } },
 } as const;
 
-export type CAPTCHA_PROVIDERS_KEY = keyof typeof CAPTCHA_PROVIDERS;
+export type CaptchaProvidersKey = keyof typeof CAPTCHA_PROVIDERS;
 
 export interface ICaptchaConfig {
   itemId: string;
@@ -22,7 +22,7 @@ export interface ICaptchaConfig {
   tags: string[];
   captchaKey: string;
   captchaSecret: string;
-  provider: CAPTCHA_PROVIDERS_KEY;
+  provider: CaptchaProvidersKey;
   captchaGenerator: keyof typeof CAPTCHA_GENERATOR_TYPE;
   isEnable: boolean;
 }

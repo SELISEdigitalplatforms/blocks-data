@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui-kits/dropdown-menu/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
-import { Dialog, DialogTrigger } from "@/components/ui-kits/dialog/dialog";
+import { Dialog } from "@/components/ui-kits/dialog/dialog";
 import { Button } from "@/components/ui-kits/button/button";
 import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 

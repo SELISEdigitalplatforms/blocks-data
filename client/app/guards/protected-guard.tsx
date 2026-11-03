@@ -26,6 +26,7 @@ export function ProtectedGuard({ children }: { children: React.ReactNode }) {
       return;
     }
     setUser(data.data);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- adding isMounted would re-run this effect when the app finishes mounting and can redirect to /login at a moment it does not today.
   }, [data, navigate, setUser]);
   if (!isMounted || !data) return null;
   return <>{children}</>;

@@ -7,7 +7,7 @@ import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { PermissionForm } from "../permission-form";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { isErrorWithErrors } from "@/lib/error";
-import { permissionFormSchemaType } from "../permission-form/utils";
+import { PermissionFormSchemaType } from "../permission-form/utils";
 import { PermissionRolesList } from "./permission-roles-list";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { Card, CardContent } from "@/components/ui-kits/card/card";
@@ -40,7 +40,7 @@ export const PermissionDetails = ({ id }: PermissionDetailsProps) => {
   const { data, isLoading } = useGetPermissionById({ id, projectKey: selectedTenantId });
   const { isPending, mutateAsync } = useUpdatePermission({ id, projectKey: selectedTenantId });
 
-  const onSubmit = async (data: permissionFormSchemaType) => {
+  const onSubmit = async (data: PermissionFormSchemaType) => {
     try {
       const res = await mutateAsync({
         ...data,

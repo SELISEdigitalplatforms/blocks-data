@@ -165,6 +165,7 @@ export function SchemaPreviewDrawer({
   const filteredSections = useMemo(() => {
     const allowedTitles = operationTabMap[activeOperationTab] || [];
     return sections.filter((s) => allowedTitles.includes(s.title));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- operationTabMap is rebuilt on every render; listing it would recompute the filter on every render instead of only when the sections or the tab change.
   }, [sections, activeOperationTab]);
 
   const activeOperation = OPERATIONS.find((op) => op.value === activeOperationTab) ?? OPERATIONS[0];

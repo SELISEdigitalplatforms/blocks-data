@@ -204,7 +204,8 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     compactView,
     rootSchemaId,
     ancestorPath,
-    parentSchemaId,
+    // Kept out of ...schemaDetails; this table does not read it.
+    parentSchemaId: _parentSchemaId,
     parentPropertyName,
     hideAccessValidation,
     policyEntitySchemaName,
@@ -915,6 +916,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                   )}
                   <TableBody ref={addPropertyScroll}>
                     {fields.map((field, index) => {
+                      // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() returns values the React Compiler cannot memoize; switching to useWatch would change when this component re-renders.
                       const name = watch(`properties.${index}.name`);
                       const currentType = watch(`properties.${index}.type`);
                       const childSchema = findChildSchemaByType(

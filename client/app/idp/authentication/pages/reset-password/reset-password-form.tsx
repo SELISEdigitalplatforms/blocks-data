@@ -27,7 +27,7 @@ type ResetPasswordFormProps = {
   code: string;
 };
 
-const x_blocks_key = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY");
+const xBlocksKey = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY");
 
 export const ResetPasswordForm = ({ code }: ResetPasswordFormProps) => {
   const { t } = useT("data.idp.authentication");
@@ -61,7 +61,7 @@ export const ResetPasswordForm = ({ code }: ResetPasswordFormProps) => {
         code: code,
         captchaCode,
         logoutFromAllDevices: true,
-        projectKey: x_blocks_key || "",
+        projectKey: xBlocksKey || "",
         password: values.password,
       });
 
@@ -77,6 +77,7 @@ export const ResetPasswordForm = ({ code }: ResetPasswordFormProps) => {
     }
   };
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() re-renders on field changes by design; the React Compiler skipping this component is expected, and replacing it (e.g. useWatch) would change re-render behaviour
   const password = form.watch("password");
   const confirmPassword = form.watch("confirmPassword");
 

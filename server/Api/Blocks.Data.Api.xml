@@ -732,6 +732,16 @@
             <param name="request">The regex generation request containing description and optional constraints</param>
             <returns>Generated regex pattern</returns>
         </member>
+        <member name="T:BlocksTemplate.Api.FrontendRuntimeValues">
+            <summary>Values the host injects into the console's <c>runtime-config.js</c> that do not come from the <c>FrontendRuntime</c> section.</summary>
+        </member>
+        <member name="F:BlocksTemplate.Api.FrontendRuntimeValues.GraphQLDeprecatedSinceKey">
+            <summary>Configuration key that holds the date the GraphQL API is deprecated since.</summary>
+        </member>
+        <member name="M:BlocksTemplate.Api.FrontendRuntimeValues.GraphQLDeprecatedSince(Microsoft.Extensions.Configuration.IConfiguration)">
+            <summary>The configured deprecation date, trimmed, or <c>null</c> when it is unset or blank.</summary>
+            <remarks>Reads the raw string so the Api project does not depend on the GraphQL project.</remarks>
+        </member>
         <member name="T:BlocksTemplate.Api.GlobalApiRoutePrefixConvention">
             <summary>Prepends a segment (e.g. <c>api</c>) to every controller’s attribute route template.</summary>
         </member>

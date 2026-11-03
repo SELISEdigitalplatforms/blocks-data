@@ -3,6 +3,24 @@ import { Button } from "../ui-kits/button/button";
 import { Check, Copy } from "lucide-react";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
+/** The clipboard API in a secure context, else the textarea and execCommand fallback. */
+export async function writeToClipboard(text: string): Promise<void> {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.left = "-999999px";
+  textArea.style.top = "-999999px";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  document.execCommand("copy");
+  document.body.removeChild(textArea);
+}
+
 interface CopyToClipboardButtonProps {
   textToCopy: string;
   children: ReactNode;
@@ -26,20 +44,7 @@ export const CopyToClipboardButton: React.FC<CopyToClipboardButtonProps> = ({
 
       setIsCopying(true);
 
-      if (navigator.clipboard && window.isSecureContext) {
-        await navigator.clipboard.writeText(textToCopy);
-      } else {
-        const textArea = document.createElement("textarea");
-        textArea.value = textToCopy;
-        textArea.style.position = "fixed";
-        textArea.style.left = "-999999px";
-        textArea.style.top = "-999999px";
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textArea);
-      }
+      await writeToClipboard(textToCopy);
     } catch (err) {
       console.error("Failed to copy:", err);
       setIsCopying(false);

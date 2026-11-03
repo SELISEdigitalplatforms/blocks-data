@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -102,6 +102,7 @@ describe("SchemaPreviewDrawer", () => {
     ["Query", "Insert", "Update", "Delete"].forEach((label) =>
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument(),
     );
+    fireEvent.click(screen.getByRole("radio", { name: /GraphQL/ }));
     // Connection info reflects the project key from the store.
     expect(screen.getByText(/x-blocks-key: t1/)).toBeInTheDocument();
   });
@@ -115,6 +116,7 @@ describe("SchemaPreviewDrawer", () => {
     ];
     renderDrawer({ rawIntrospection: { __schema: {} } });
 
+    fireEvent.click(screen.getByRole("radio", { name: /GraphQL/ }));
     // Default operation is "query".
     expect(screen.getByText("Fetch data")).toBeInTheDocument();
 
@@ -129,9 +131,13 @@ describe("SchemaPreviewDrawer", () => {
     sectionsMock = [{ title: "Query", description: "Fetch data", code: "QUERY_CODE" }];
     renderDrawer({ rawIntrospection: { __schema: {} } });
 
+    fireEvent.click(screen.getByRole("radio", { name: /GraphQL/ }));
     await user.click(screen.getByRole("button", { name: /Playground/ }));
 
-    expect(localStorage.getItem("graphql-playground-query")).toBe("QUERY_CODE");
+    expect(JSON.parse(localStorage.getItem("data-gateway-playground-handoff")!)).toEqual({
+      protocol: "graphql",
+      query: "QUERY_CODE",
+    });
     expect(navigate).toHaveBeenCalledWith("/data-gateway/playground");
   });
 
@@ -139,6 +145,7 @@ describe("SchemaPreviewDrawer", () => {
     sectionsMock = [];
     renderDrawer({ rawIntrospection: { __schema: {} } });
 
+    fireEvent.click(screen.getByRole("radio", { name: /GraphQL/ }));
     expect(screen.getByText("No examples available")).toBeInTheDocument();
   });
 
@@ -148,6 +155,7 @@ describe("SchemaPreviewDrawer", () => {
       isGatewayIntrospectionPending: true,
     });
 
+    fireEvent.click(screen.getByRole("radio", { name: /GraphQL/ }));
     expect(screen.getByText(/Loading from gateway/)).toBeInTheDocument();
   });
 
@@ -170,6 +178,7 @@ describe("SchemaPreviewDrawer", () => {
     renderDrawer({ schemaType: 1, rawIntrospection: { __schema: {} } });
 
     await user.click(screen.getByRole("tab", { name: "Request Format" }));
+    fireEvent.click(screen.getByRole("radio", { name: /GraphQL/ }));
     expect(await screen.findByText("Fetch data")).toBeInTheDocument();
   });
 

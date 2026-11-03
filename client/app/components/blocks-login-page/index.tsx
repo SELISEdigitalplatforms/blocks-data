@@ -45,7 +45,7 @@ export function BlocksLoginPage({
   loginLabel = tStatic(DATA_SHARED_MODULE, "BLOCKS_LOGIN_PAGE.LOG_IN_TO_YOUR_ACCOUNT"),
   docsUrl = "https://docs.seliseblocks.com/",
   footerLink = { label: tStatic(DATA_SHARED_MODULE, "BLOCKS_LOGIN_PAGE.VISIT_BLOCKS"), url: "https://seliseblocks.com" },
-}: BlocksLoginPageProps) {
+}: Readonly<BlocksLoginPageProps>) {
   const { t: tx } = useT(DATA_SHARED_MODULE);
   const active = useMemo(
     () => BLOCKS_PRODUCTS.find((p) => p.name === name) ?? BLOCKS_PRODUCTS[0],

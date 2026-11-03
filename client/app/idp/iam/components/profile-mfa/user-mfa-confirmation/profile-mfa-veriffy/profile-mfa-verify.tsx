@@ -43,7 +43,6 @@ export const ProfileMFAVerify = () => {
   }, [generateOtp, isFirstMount, isVerifyModalOpen]);
 
   return (
-    <>
       <Dialog
         open={isVerifyModalOpen}
         onOpenChange={(value) => {
@@ -70,6 +69,5 @@ export const ProfileMFAVerify = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </>
   );
 };

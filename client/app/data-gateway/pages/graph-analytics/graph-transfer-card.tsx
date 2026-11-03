@@ -95,17 +95,20 @@ export const GraphTransferCard = ({
       }
       contentClassName="flex flex-col gap-6"
     >
-      {isLoading ? (
+      {isLoading && (
         <div className="flex h-40 items-center justify-center">
           <SpinnerLoader />
         </div>
-      ) : isError ? (
+      )}
+      {!isLoading && isError && (
         <div className="flex h-40 items-center justify-center text-sm text-destructive">
           {t("GRAPH_TRANSFER_CARD.COULDN_T_LOAD_DATA_TRANSFER_PLEASE")}
         </div>
-      ) : !hasData ? (
+      )}
+      {!isLoading && !isError && !hasData && (
         <p className="text-sm text-muted-foreground">{t("GRAPH_TRANSFER_CARD.NO_REQUESTS_IN_THIS_RANGE")}</p>
-      ) : (
+      )}
+      {!isLoading && !isError && hasData && (
         <>
           <ChartContainer
             config={CHART_CONFIG}

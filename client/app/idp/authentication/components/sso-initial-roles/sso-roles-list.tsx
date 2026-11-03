@@ -80,7 +80,6 @@ export const SSORolesList = ({ roles, onDelete }: SSORolesListProps) => {
   };
 
   return (
-    <>
       <Table>
         <TableHeader>
           <TableRow className="px-4 py-3 hover:bg-transparent">
@@ -124,6 +123,5 @@ export const SSORolesList = ({ roles, onDelete }: SSORolesListProps) => {
           )}
         </TableBody>
       </Table>
-    </>
   );
 };

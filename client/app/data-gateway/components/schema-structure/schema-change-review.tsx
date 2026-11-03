@@ -19,7 +19,7 @@ function ChangeRow({ change }: { change: FieldChange }) {
     <li className="flex items-start gap-2 py-1">
       <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", className)} aria-hidden />
       <span className="min-w-0 text-xs text-foreground">
-        {change.kind === "renamed" ? (
+        {change.kind === "renamed" && (
           <>
             <span className="font-mono">{change.from}</span> →{" "}
             <span className="font-mono">{change.to}</span>
@@ -27,12 +27,14 @@ function ChangeRow({ change }: { change: FieldChange }) {
               <span className="text-muted-foreground"> ({change.attributes.join(", ")})</span>
             )}
           </>
-        ) : change.kind === "modified" ? (
+        )}
+        {change.kind !== "renamed" && change.kind === "modified" && (
           <>
             <span className="font-mono">{change.name}</span>
             <span className="text-muted-foreground"> — {change.attributes.join(", ")}</span>
           </>
-        ) : (
+        )}
+        {change.kind !== "renamed" && change.kind !== "modified" && (
           <span className="font-mono">{change.name || t("SCHEMA_CHANGE_REVIEW.UNNAMED_FIELD")}</span>
         )}
       </span>

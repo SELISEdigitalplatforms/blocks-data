@@ -37,7 +37,6 @@ export function DashboardHeader() {
   }, [projectData, selectedProject?.itemId, setSelectedProject]);
 
   return (
-    <>
       <header className="flex h-[60px] items-center justify-between gap-4 border-b bg-background px-5 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <div className="md:hidden">
@@ -85,6 +84,5 @@ export function DashboardHeader() {
           <UserDropdownMenu />
         </div>
       </header>
-    </>
   );
 }

@@ -175,7 +175,7 @@ export default function ExportSchemaModal({
             variant: "success",
           });
         }
-      } catch (error) {
+      } catch {
         pendingExportFileIdsRef.current.delete(fileId);
         toast({
           title: t("EXPORT_SCHEMA_MODAL.DOWNLOAD_FAILED"),

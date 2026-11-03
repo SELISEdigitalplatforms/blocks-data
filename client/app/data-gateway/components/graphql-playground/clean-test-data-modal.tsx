@@ -113,15 +113,17 @@ export const CleanTestDataModal = ({
         </DialogHeader>
 
         <div className="max-h-[380px] overflow-y-auto">
-          {isLoading ? (
+          {isLoading && (
             <div className="flex items-center justify-center py-10">
               <Loader className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
-          ) : mockDataItems.length === 0 ? (
+          )}
+          {!isLoading && mockDataItems.length === 0 && (
             <div className="py-10 text-center text-xs text-muted-foreground">
               {t("CLEAN_TEST_DATA_MODAL.NO_TEST_DATA_FOUND")}
             </div>
-          ) : (
+          )}
+          {!isLoading && mockDataItems.length !== 0 && (
             <div className="space-y-3">
               {/* Select All */}
               <div className="flex items-center gap-2 border-b border-border/40 pb-3">

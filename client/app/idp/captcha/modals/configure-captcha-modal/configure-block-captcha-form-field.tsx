@@ -24,7 +24,6 @@ type ConfigureBlockCaptchaFormProps = {
 export const ConfigureBlockCaptchaFormField = ({ form }: ConfigureBlockCaptchaFormProps) => {
   const { t } = useT("data.idp.security");
   return (
-    <>
       <FormField
         name="captchaGenerator"
         control={form.control}
@@ -49,7 +48,6 @@ export const ConfigureBlockCaptchaFormField = ({ form }: ConfigureBlockCaptchaFo
           </FormItem>
         )}
       />
-    </>
   );
 };
 

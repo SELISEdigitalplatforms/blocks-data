@@ -120,17 +120,20 @@ export const GraphLatencyCard = ({
       }
       contentClassName="flex flex-col gap-5"
     >
-      {isLoading ? (
+      {isLoading && (
         <div className="flex h-56 items-center justify-center">
           <SpinnerLoader />
         </div>
-      ) : isError ? (
+      )}
+      {!isLoading && isError && (
         <div className="flex h-56 items-center justify-center text-sm text-destructive">
           {t("GRAPH_LATENCY_CARD.COULDN_T_LOAD_RESPONSE_TIMES_PLEASE")}
         </div>
-      ) : !hasData ? (
+      )}
+      {!isLoading && !isError && !hasData && (
         <p className="text-sm text-muted-foreground">{t("GRAPH_LATENCY_CARD.NO_REQUESTS_IN_THIS_RANGE")}</p>
-      ) : (
+      )}
+      {!isLoading && !isError && hasData && (
         <>
           <div className="grid auto-rows-fr grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Tile

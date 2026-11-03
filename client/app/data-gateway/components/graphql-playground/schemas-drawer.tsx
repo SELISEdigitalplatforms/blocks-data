@@ -568,15 +568,17 @@ export function SchemasDrawer({
 
           {/* Content */}
           <ScrollArea className="relative flex-1">
-            {isLoading ? (
+            {isLoading && (
               <div className="flex items-center justify-center py-16">
                 <Loader className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            ) : !filtered ? (
+            )}
+            {!isLoading && !filtered && (
               <div className="py-16 text-center text-xs text-muted-foreground">
                 {tx("SCHEMAS_DRAWER.NO_SCHEMA_DATA_AVAILABLE")}
               </div>
-            ) : (
+            )}
+            {!isLoading && filtered && (
               <div className="py-2">
                 <CollapsibleSection title={tx("SCHEMAS_DRAWER.QUERIES")} count={filtered.queries.length}>
                   {filtered.queries.map((field) => (

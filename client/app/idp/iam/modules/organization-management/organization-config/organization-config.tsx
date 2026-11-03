@@ -209,11 +209,13 @@ export const OrganizationConfig = ({ configData, isLoading }: OrganizationConfig
                   {form.watch("allowCreationFromConstruct") && (
                     <div className="mt-3 space-y-2">
                       <label className="text-sm font-medium">{t("ORGANIZATION_CONFIG.DEFAULT_ROLES")}</label>
-                      {isRolesLoading ? (
+                      {isRolesLoading && (
                         <div className="p-2 text-sm text-muted-foreground">{t("ORGANIZATION_CONFIG.LOADING_ROLES")}</div>
-                      ) : roles.length === 0 ? (
+                      )}
+                      {!isRolesLoading && roles.length === 0 && (
                         <div className="p-2 text-sm text-muted-foreground">{t("ORGANIZATION_CONFIG.NO_ROLES_AVAILABLE")}</div>
-                      ) : (
+                      )}
+                      {!isRolesLoading && roles.length !== 0 && (
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button

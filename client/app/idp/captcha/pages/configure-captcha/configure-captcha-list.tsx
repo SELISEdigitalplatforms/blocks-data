@@ -51,7 +51,6 @@ export const ConfigureCaptchaList = ({ isLoading, configurations }: ConfigureCap
   if (!configurations.length) return <EmptyCaptchaConfig />;
 
   return (
-    <>
       <div className="grid gap-4">
         {configurations.map((configuration) => (
           <>
@@ -108,6 +107,5 @@ export const ConfigureCaptchaList = ({ isLoading, configurations }: ConfigureCap
           </>
         ))}
       </div>
-    </>
   );
 };

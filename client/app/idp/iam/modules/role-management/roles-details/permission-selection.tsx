@@ -395,11 +395,13 @@ export const PermissionSelection = forwardRef(function PermissionSelection(
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
-                  {isLoading ? (
+                  {isLoading && (
                     <div className="py-4 text-center">{t("PERMISSION_SELECTION.LOADING_GROUP_PERMISSIONS")}</div>
-                  ) : groupObj.allIds.length === 0 ? (
+                  )}
+                  {!isLoading && groupObj.allIds.length === 0 && (
                     <div className="py-4 text-center">{t("PERMISSION_SELECTION.CLICK_TO_LOAD_PERMISSIONS_FOR_THIS")}</div>
-                  ) : (
+                  )}
+                  {!isLoading && groupObj.allIds.length !== 0 && (
                     <ul className="ml-4">
                       {/* FE Actions with dependents */}
                       {groupObj.feActions.map((fa) => (

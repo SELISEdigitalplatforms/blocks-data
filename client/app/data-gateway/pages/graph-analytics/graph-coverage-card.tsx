@@ -47,15 +47,18 @@ export const GraphCoverageCard = ({
         )
       }
     >
-      {isLoading ? (
+      {isLoading && (
         <div className="flex h-24 items-center justify-center">
           <SpinnerLoader />
         </div>
-      ) : isError ? (
+      )}
+      {!isLoading && isError && (
         <p className="text-sm text-destructive">{t("GRAPH_COVERAGE_CARD.COULDN_T_LOAD_COVERAGE_PLEASE_TRY")}</p>
-      ) : schemaCoverage.length === 0 ? (
+      )}
+      {!isLoading && !isError && schemaCoverage.length === 0 && (
         <p className="text-sm text-muted-foreground">{t("GRAPH_COVERAGE_CARD.NO_SCHEMAS_DEFINED_YET")}</p>
-      ) : (
+      )}
+      {!isLoading && !isError && schemaCoverage.length !== 0 && (
         <Table>
           <TableHeader>
             <TableRow>

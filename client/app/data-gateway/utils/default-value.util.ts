@@ -222,7 +222,7 @@ const amount = (n: number, unit: (typeof OFFSET_UNITS)[number]) =>
 /** "30 days", "2 hours and 30 minutes", "1 day, 2 hours and 5 seconds". */
 const listAmounts = (parts: string[]) =>
   parts.length > 1
-    ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.LIST_AND", { list: parts.slice(0, -1).join(", "), last: parts[parts.length - 1] })
+    ? tStatic(DATA_GATEWAY_VALIDATION_MODULE, "DEFAULT_VALUE_UTIL.LIST_AND", { list: parts.slice(0, -1).join(", "), last: parts.at(-1) ?? "" })
     : parts[0];
 
 /**

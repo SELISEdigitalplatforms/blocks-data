@@ -188,11 +188,13 @@ export function Notification() {
           </button>
         </div>
         <div className="max-h-[400px] overflow-y-auto" ref={listRef} onScroll={handleScroll}>
-          {isLoading && notifications.length === 0 ? (
+          {isLoading && notifications.length === 0 && (
             <div className="p-4 text-center text-sm text-muted-foreground"></div>
-          ) : notifications.length === 0 ? (
+          )}
+          {!isLoading && notifications.length === 0 && (
             <div className="p-4 text-center text-sm text-muted-foreground">{t("NOTIFICATION.NO_NOTIFICATIONS")}</div>
-          ) : (
+          )}
+          {notifications.length !== 0 && (
             notifications.map((notification, idx) => (
               <div
                 key={notification.id || idx}

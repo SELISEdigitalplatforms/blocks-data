@@ -253,7 +253,8 @@ export function SchemaAccessList({
 
                 <TableCell className="align-middle">
                   {isEditing ? (
-                    entry.type === "Role" ? (
+                    <>
+                    {entry.type === "Role" && (
                       <Popover
                         open={openRoleIndex === index}
                         onOpenChange={(open) => {
@@ -335,7 +336,8 @@ export function SchemaAccessList({
                           </Command>
                         </PopoverContent>
                       </Popover>
-                    ) : entry.type === "User" ? (
+                    )}
+                    {entry.type === "User" && (
                       <Popover
                         open={openUserIndex === index}
                         onOpenChange={(open) => {
@@ -427,7 +429,8 @@ export function SchemaAccessList({
                           </Command>
                         </PopoverContent>
                       </Popover>
-                    ) : (
+                    )}
+                    {entry.type !== "Role" && entry.type !== "User" && (
                       <Popover
                         open={openPermissionIndex === index}
                         onOpenChange={(open) => {
@@ -514,7 +517,8 @@ export function SchemaAccessList({
                           </Command>
                         </PopoverContent>
                       </Popover>
-                    )
+                    )}
+                    </>
                   ) : (
                     <div className="text-sm font-semibold text-foreground">
                       {entry.name}

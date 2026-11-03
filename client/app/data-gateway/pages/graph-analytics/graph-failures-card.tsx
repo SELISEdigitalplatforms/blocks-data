@@ -34,15 +34,17 @@ export const GraphFailuresCard = ({
 
   return (
     <AnalyticsCard icon={XCircle} title={t("GRAPH_FAILURES_CARD.FAILURES_BY_REASON")}>
-      {isLoading ? (
+      {isLoading && (
         <div className="flex h-20 items-center justify-center">
           <SpinnerLoader />
         </div>
-      ) : failureStats.length === 0 ? (
+      )}
+      {!isLoading && failureStats.length === 0 && (
         <p className="text-sm text-muted-foreground">
           {isError ? t("GRAPH_FAILURES_CARD.COULDN_T_LOAD_DATA_PLEASE_TRY") : t("GRAPH_FAILURES_CARD.NO_FAILED_REQUESTS_IN_THIS_RANGE")}
         </p>
-      ) : (
+      )}
+      {!isLoading && failureStats.length !== 0 && (
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap gap-3">
             {failureStats.map((stat) => (

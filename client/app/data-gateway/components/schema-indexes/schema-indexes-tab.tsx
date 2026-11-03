@@ -168,18 +168,20 @@ export function SchemaIndexesTab({
         />
       )}
 
-      {isLoading ? (
+      {isLoading && (
         <div className="flex flex-col gap-2">
           <Skeleton className="h-12 w-full" />
           <Skeleton className="h-12 w-full" />
         </div>
-      ) : displayedIndexes.length === 0 ? (
+      )}
+      {!isLoading && displayedIndexes.length === 0 && (
         !isFormOpen && (
           <div className="flex items-center justify-center rounded-sm border border-dashed border-border/30 bg-muted/5 py-8 text-sm text-muted-foreground">
             {t("SCHEMA_INDEXES_TAB.NO_INDEXES_YET")}
           </div>
         )
-      ) : (
+      )}
+      {!isLoading && displayedIndexes.length !== 0 && (
         <Accordion type="single" collapsible className="flex flex-col gap-2">
           {displayedIndexes.map((index) => {
             const isGeo = index.itemId.startsWith(GEO_SYSTEM_INDEX_PREFIX);

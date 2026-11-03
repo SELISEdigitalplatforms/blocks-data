@@ -462,7 +462,7 @@ export const SchemaAccessControlView = forwardRef<
           </div>
         ) : (
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
-            {isPolicyListLoading ? (
+            {isPolicyListLoading && (
               <div
                 className="flex min-h-[200px] flex-col items-center justify-center gap-2 py-12"
                 role="status"
@@ -472,7 +472,8 @@ export const SchemaAccessControlView = forwardRef<
                 <Loader className="h-8 w-8 animate-spin text-muted-foreground" aria-hidden />
                 <span className="text-sm text-muted-foreground">{tx("SCHEMA_ACCESS_CONTROL_VIEW.LOADING_ACCESS_RULES")}</span>
               </div>
-            ) : policies.length === 0 ? (
+            )}
+            {!isPolicyListLoading && policies.length === 0 && (
               <AccessPresetList
                 presets={accessPresets(schemaFields)}
                 onApply={applyPreset}
@@ -482,7 +483,8 @@ export const SchemaAccessControlView = forwardRef<
                   setShowRuleSetForm(true);
                 }}
               />
-            ) : (
+            )}
+            {!isPolicyListLoading && policies.length !== 0 && (
               <SchemaAccessControlAccordion
                 policies={policies}
                 onAddRuleSet={() => {

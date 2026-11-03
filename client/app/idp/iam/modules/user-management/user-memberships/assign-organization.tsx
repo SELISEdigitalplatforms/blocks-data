@@ -151,15 +151,17 @@ export const AssignOrganization = ({ userId, projectKey }: AssignOrganizationPro
                 <SelectValue placeholder={t("ASSIGN_ORGANIZATION.ORGANIZATION_NAME")} />
               </SelectTrigger>
               <SelectContent>
-                {isOrgsLoading ? (
+                {isOrgsLoading && (
                   <SelectItem value="loading" disabled>
                     {t("common:LOADING")}
                   </SelectItem>
-                ) : availableOrgs.length === 0 ? (
+                )}
+                {!isOrgsLoading && availableOrgs.length === 0 && (
                   <SelectItem value="none" disabled>
                     {t("ASSIGN_ORGANIZATION.NO_ORGANIZATIONS_AVAILABLE")}
                   </SelectItem>
-                ) : (
+                )}
+                {!isOrgsLoading && availableOrgs.length !== 0 && (
                   availableOrgs.map((org) => (
                     <SelectItem key={org.itemId} value={org.itemId}>
                       {org.name}
@@ -172,11 +174,13 @@ export const AssignOrganization = ({ userId, projectKey }: AssignOrganizationPro
 
           <div className="space-y-2">
             <label className="text-sm font-medium">{t("ASSIGN_ORGANIZATION.SELECT_AT_LEAST_ONE_ROLE_TO")}</label>
-            {isRolesLoading ? (
+            {isRolesLoading && (
               <div className="p-2 text-sm text-muted-foreground">{t("ASSIGN_ORGANIZATION.LOADING_ROLES")}</div>
-            ) : roles.length === 0 ? (
+            )}
+            {!isRolesLoading && roles.length === 0 && (
               <div className="p-2 text-sm text-muted-foreground">{t("ASSIGN_ORGANIZATION.NO_ROLES_AVAILABLE")}</div>
-            ) : (
+            )}
+            {!isRolesLoading && roles.length !== 0 && (
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" role="combobox" className="w-full justify-between">

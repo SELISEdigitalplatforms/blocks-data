@@ -128,7 +128,7 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoading ? (
+              {isLoading && (
                 Array.from({ length: 5 }).map((_, idx) => (
                   <TableRow key={idx}>
                     {columns.map((col) => (
@@ -138,7 +138,8 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
                     ))}
                   </TableRow>
                 ))
-              ) : data && data.configurations?.length > 0 ? (
+              )}
+              {!isLoading && !!data?.configurations?.length && (
                 data.configurations.map((config) => (
                   <TableRow key={config.itemId}>
                     <TableCell>{config.name}</TableCell>
@@ -182,7 +183,8 @@ const NotificationConfigurationList: React.FC<NotificationConfigurationListProps
                     </TableCell>
                   </TableRow>
                 ))
-              ) : (
+              )}
+              {!isLoading && !data?.configurations?.length && (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="text-center">
                     {t("NOTIFICATION_CONFIGURATION_LIST.NO_NOTIFICATION_CONFIGURATIONS_FOUND")}

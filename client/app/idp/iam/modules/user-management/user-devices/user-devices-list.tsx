@@ -109,7 +109,6 @@ export const UserDevicesList = ({ isLoading, data }: DeviceListProps) => {
   if (isLoading) return <LoadingSkelton />;
 
   return (
-    <>
       <Table className="text-sm">
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -151,6 +150,5 @@ export const UserDevicesList = ({ isLoading, data }: DeviceListProps) => {
           )}
         </TableBody>
       </Table>
-    </>
   );
 };

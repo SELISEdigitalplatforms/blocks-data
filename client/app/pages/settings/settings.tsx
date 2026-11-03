@@ -141,7 +141,7 @@ export const SettingsPage = () => {
         });
         setIsEditOpen(false);
       }
-    } catch (_error) {
+    } catch {
       toast({
         variant: "destructive",
         title: t("common:ERROR"),

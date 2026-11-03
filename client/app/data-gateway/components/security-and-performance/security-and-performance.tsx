@@ -132,7 +132,7 @@ const SecurityAndPerformance = ({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-sm border border-border/40 bg-card">
-      {isLoading ? (
+      {isLoading && (
         <div className="p-5">
           {/* Keep heading visible so deep-links/E2E are not blank during aggregation fetch */}
           <div className="mb-4 flex items-center gap-3">
@@ -150,7 +150,8 @@ const SecurityAndPerformance = ({
           </div>
           <LoadingSkeleton />
         </div>
-      ) : isEmpty ? (
+      )}
+      {!isLoading && isEmpty && (
         <div className="flex flex-1 flex-col items-center justify-center gap-5 p-8 text-muted-foreground">
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30 ring-1 ring-border/40">
             <ShieldAlert className="h-8 w-8 opacity-30" />
@@ -176,7 +177,8 @@ const SecurityAndPerformance = ({
             </Button>
           </div>
         </div>
-      ) : (
+      )}
+      {!isLoading && !isEmpty && (
         <>
           {/* Header */}
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-4 border-b border-border/40 px-3 py-4 sm:px-5">

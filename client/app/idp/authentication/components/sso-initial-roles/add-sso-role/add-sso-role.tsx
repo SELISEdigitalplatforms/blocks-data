@@ -95,7 +95,7 @@ export const AddSSORole = ({ onAdd, roles }: AddSSORoleProps) => {
         <Card>
           <CardContent>
             <div className="grid grid-cols-2">
-              {isLoading ? (
+              {isLoading && (
                 // Show skeletons while loading
                 Array.from({ length: filter.pageSize }).map((_, idx) => (
                   <div key={idx} className="flex animate-pulse items-center space-x-2 py-2">
@@ -104,7 +104,8 @@ export const AddSSORole = ({ onAdd, roles }: AddSSORoleProps) => {
                     <div className="h-4 w-20 rounded bg-gray-200" />
                   </div>
                 ))
-              ) : data && data.data && data.data.length > 0 ? (
+              )}
+              {!isLoading && !!data?.data?.length && (
                 data.data.map((item) => (
                   <div key={item.itemId} className="col-span-1 flex items-center py-2">
                     <Checkbox
@@ -127,7 +128,8 @@ export const AddSSORole = ({ onAdd, roles }: AddSSORoleProps) => {
                     </div>
                   </div>
                 ))
-              ) : (
+              )}
+              {!isLoading && !data?.data?.length && (
                 <div className="flex h-24 items-center justify-center">{t("ADD_SSO_ROLE.NO_ROLES_ARE_FOUND")}</div>
               )}
             </div>

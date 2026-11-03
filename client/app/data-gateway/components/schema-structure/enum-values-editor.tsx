@@ -65,11 +65,9 @@ export function EnumValuesEditor({
   }, []);
 
   const atLimit = values.length >= MAX_VALUES;
-  const draftError = draft
-    ? atLimit
-      ? t("ENUM_VALUES_EDITOR.AT_MOST_MAX_VALUES_VALUES", { MAX_VALUES })
-      : validate(draft, values)
-    : null;
+  const checkDraft = () =>
+    atLimit ? t("ENUM_VALUES_EDITOR.AT_MOST_MAX_VALUES_VALUES", { MAX_VALUES }) : validate(draft, values);
+  const draftError = draft ? checkDraft() : null;
   const editError =
     editIndex !== null && editText
       ? validate(
@@ -181,7 +179,7 @@ export function EnumValuesEditor({
               className="h-6 w-24 rounded-md border border-input bg-background px-2 text-xs outline-hidden"
             />
           ) : (
-            <span
+            <span // NOSONAR: double-click to edit is a shortcut; the chip holds the remove <button>, so it can't be a <button> itself
               key={v}
               title={t("ENUM_VALUES_EDITOR.DOUBLE_CLICK_TO_EDIT")}
               onDoubleClick={() => {
@@ -234,11 +232,13 @@ export function EnumValuesEditor({
         />
       </div>
       <div className="flex items-start justify-between gap-2 text-[11px] leading-snug">
-        {error ? (
+        {error && (
           <p className="text-destructive">{error}</p>
-        ) : values.length === 0 ? (
+        )}
+        {!error && values.length === 0 && (
           <p className="text-muted-foreground">{t("ENUM_VALUES_EDITOR.ADD_AT_LEAST_ONE_ALLOWED_VALUE")}</p>
-        ) : (
+        )}
+        {!error && values.length !== 0 && (
           <span />
         )}
         {values.length > 0 && (

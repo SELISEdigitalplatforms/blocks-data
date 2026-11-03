@@ -40,7 +40,6 @@ export const UserMFAVerify = () => {
   }, [generateOtp, isFirstMount, isTotpModalOpen]);
 
   return (
-    <>
       <Dialog open={isTotpModalOpen} onOpenChange={setIsTotpModalOpen}>
         <DialogContent>
           {mfaMethodType === 1 && (
@@ -57,6 +56,5 @@ export const UserMFAVerify = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </>
   );
 };

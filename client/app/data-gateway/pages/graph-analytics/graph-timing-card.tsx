@@ -50,15 +50,18 @@ export const GraphTimingCard = ({ timing, isLoading, isError }: GraphTimingCardP
         </div>
       }
     >
-      {isLoading ? (
+      {isLoading && (
         <div className="flex h-32 items-center justify-center">
           <SpinnerLoader />
         </div>
-      ) : isError ? (
+      )}
+      {!isLoading && isError && (
         <p className="text-sm text-destructive">{t("GRAPH_TIMING_CARD.COULDN_T_LOAD_TIMINGS_PLEASE_TRY")}</p>
-      ) : total === 0 ? (
+      )}
+      {!isLoading && !isError && total === 0 && (
         <p className="text-sm text-muted-foreground">{t("GRAPH_TIMING_CARD.NO_REQUESTS_IN_THIS_RANGE")}</p>
-      ) : (
+      )}
+      {!isLoading && !isError && total !== 0 && (
         <PhaseBreakdown phases={phases} total={total} />
       )}
     </AnalyticsCard>

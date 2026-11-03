@@ -48,14 +48,12 @@ export const AuthenticationConfig = () => {
             </div>
           </>
 
-          <>
             {selectedTab === "roles" && <AddRole />}
             {selectedTab === "permissions" && (
               <Link to="/services/iam/permission-detail/new">
                 <PrimaryButton label={t("AUTHENTICATION_CONFIG.ADD_PERMISSION")} />
               </Link>
             )}
-          </>
         </div>
         <TabsContent value="general" className="grid grid-cols-1 gap-6">
           <GeneralSettings />

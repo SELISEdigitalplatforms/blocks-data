@@ -137,15 +137,18 @@ export const GraphAccessOutcomesCard = ({
       title={t("GRAPH_ACCESS_OUTCOMES_CARD.REQUESTS_OVER_TIME")}
       contentClassName="flex flex-col gap-5"
     >
-      {isLoading ? (
+      {isLoading && (
         <div className="flex h-48 items-center justify-center">
           <SpinnerLoader />
         </div>
-      ) : isError ? (
+      )}
+      {!isLoading && isError && (
         <p className="text-sm text-destructive">{t("GRAPH_ACCESS_OUTCOMES_CARD.COULDN_T_LOAD_OUTCOMES_PLEASE_TRY")}</p>
-      ) : outcomes.total === 0 ? (
+      )}
+      {!isLoading && !isError && outcomes.total === 0 && (
         <p className="text-sm text-muted-foreground">{t("GRAPH_ACCESS_OUTCOMES_CARD.NO_REQUESTS_IN_THIS_RANGE")}</p>
-      ) : (
+      )}
+      {!isLoading && !isError && outcomes.total !== 0 && (
         <>
           <div className="flex flex-wrap gap-3">
             <Outcome

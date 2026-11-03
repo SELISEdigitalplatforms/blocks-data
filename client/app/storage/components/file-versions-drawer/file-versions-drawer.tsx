@@ -99,14 +99,16 @@ export function FileVersionsDrawer({
           <SheetTitle>{t("FILE_VERSIONS_DRAWER.VERSIONS_OF_NAME", { name: file.name })}</SheetTitle>
         </SheetHeader>
 
-        {query.isLoading ? (
+        {query.isLoading && (
           <div className="flex flex-col gap-2">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
           </div>
-        ) : versions.length === 0 ? (
+        )}
+        {!query.isLoading && versions.length === 0 && (
           <p className="text-sm text-muted-foreground">{t("FILE_VERSIONS_DRAWER.THIS_FILE_HAS_NO_RECORDED_VERSIONS")}</p>
-        ) : (
+        )}
+        {!query.isLoading && versions.length !== 0 && (
           <ul className="flex flex-col divide-y rounded-md border text-sm">
             {versions.map((version) => (
               <li key={version.itemId} className="flex items-center gap-3 px-3 py-2">

@@ -164,13 +164,15 @@ export const ConfigureMFA = () => {
       <div>
           <Card className="border-none shadow-none">
             <CardContent>
-              {loading ? (
+              {loading && (
                 <LoadingSkelton />
-              ) : mfaConfigData.length === 0 ? (
+              )}
+              {!loading && mfaConfigData.length === 0 && (
                 <div className="flex h-32 flex-wrap items-center justify-center rounded-sm border-none bg-background p-4 text-center">
                   <p className="text-muted-foreground">{t("CONFIGURE_MFA.NO_CONFIGURATIONS_FOUND_MFA_IS_NOT")}</p>
                 </div>
-              ) : (
+              )}
+              {!loading && mfaConfigData.length !== 0 && (
                 <Table className="text-sm md:table-fixed">
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (

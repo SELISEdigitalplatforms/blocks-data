@@ -388,17 +388,19 @@ export default function ApiSettingsPage() {
       </div>
 
       {/* Service groups */}
-      {isLoading ? (
+      {isLoading && (
         <div className="flex flex-col gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <ServiceGroupSkeleton key={i} />
           ))}
         </div>
-      ) : serviceGroups.length === 0 ? (
+      )}
+      {!isLoading && serviceGroups.length === 0 && (
         <div className="flex h-40 items-center justify-center rounded-lg border border-dashed bg-card text-muted-foreground">
           {t("API_SETTINGS.NO_API_ENDPOINTS_CONFIGURED")}
         </div>
-      ) : (
+      )}
+      {!isLoading && serviceGroups.length !== 0 && (
         <div className="flex flex-col gap-8">
           {serviceGroups.map(
             ({ service, swaggerJsonUrl, swaggerUiUrl, controllers }) => (

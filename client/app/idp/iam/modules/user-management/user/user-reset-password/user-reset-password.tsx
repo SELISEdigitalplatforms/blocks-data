@@ -28,7 +28,7 @@ export const UserResetPassword = ({
     try {
       const email = data?.data.email;
       if (!email) {
-        throw Error(t("USER_RESET_PASSWORD.EMAIL_IS_NOT_PROVIDED_YET"));
+        throw new Error(t("USER_RESET_PASSWORD.EMAIL_IS_NOT_PROVIDED_YET"));
       }
       const res = await mutateAsync({
         projectKey,

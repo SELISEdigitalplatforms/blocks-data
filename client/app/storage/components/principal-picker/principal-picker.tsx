@@ -173,15 +173,17 @@ export function PrincipalPicker({
               />
             )}
             <CommandList>
-              {isLoading ? (
+              {isLoading && (
                 <div className="flex flex-col gap-2 p-2">
                   <Skeleton className="h-8 w-full" />
                   <Skeleton className="h-8 w-full" />
                   <Skeleton className="h-8 w-full" />
                 </div>
-              ) : options.length === 0 ? (
+              )}
+              {!isLoading && options.length === 0 && (
                 <CommandEmpty>{t("PRINCIPAL_PICKER.NO_RESULTS")}</CommandEmpty>
-              ) : (
+              )}
+              {!isLoading && options.length !== 0 && (
                 <CommandGroup>
                   {options.map((option) => {
                     const isSelected = selected.includes(option.value);

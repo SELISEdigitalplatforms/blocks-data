@@ -136,8 +136,7 @@ export const Activation = ({ code }: ActivationProps) => {
       <Link to="/login" className="mb-4 mt-[30px] cursor-pointer p-4 hover:opacity-80 transition-opacity">
         <Logo src={"/Logo.svg"} width={128} height={54.931} />
       </Link>
-      {activationError === null ? (
-        <>
+      {activationError === null && (
           <Card className="mx-auto w-full rounded border-solid border-background shadow-none sm:max-w-md sm:border-[#95ADC4]">
             <CardHeader className="text-center">
               <CardTitle className="text-3xl leading-9">{t("ACTIVATION.ACTIVATE_ACCOUNT")}</CardTitle>
@@ -149,8 +148,8 @@ export const Activation = ({ code }: ActivationProps) => {
               <ActivationForm code={code ?? ""} />
             </CardContent>
           </Card>
-        </>
-      ) : activationError === "invalid" ? (
+      )}
+      {activationError === "invalid" && (
         <Card className="mx-auto w-full max-w-lg rounded-none border-none text-center shadow-none">
           <CardContent className="p-8">
             <AlertTriangle className="mx-auto flex h-10 w-10 items-center justify-center text-amber-600" />
@@ -162,7 +161,8 @@ export const Activation = ({ code }: ActivationProps) => {
             </p>
           </CardContent>
         </Card>
-      ) : (
+      )}
+      {activationError !== null && activationError !== "invalid" && (
         <Card className="mx-auto w-full max-w-lg rounded-none border-none text-center shadow-none">
           <CardContent className="p-8">
             {/* <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full border"> */}

@@ -14,6 +14,11 @@ import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type ProfileImageUploaderProps = { projectKey: string; id: string };
 
+// Only blob previews, http(s) and same-origin paths are used as an image source.
+const SAFE_IMAGE_SRC = /^(blob:|https?:\/\/|\/(?!\/))/i;
+const safeImageSrc = (url: string | null | undefined): string | null =>
+  url && SAFE_IMAGE_SRC.test(url) ? url : null;
+
 export const ProfileImageUploader = ({ projectKey, id }: ProfileImageUploaderProps) => {
   const { t } = useT("data.idp.iam");
   const [image, setImage] = useState<string | null>(null);
@@ -104,13 +109,15 @@ export const ProfileImageUploader = ({ projectKey, id }: ProfileImageUploaderPro
     event.target.value = "";
   };
 
+  const safeImage = safeImageSrc(image);
+
   return (
     <div className="flex flex-col items-center justify-center gap-8 lg:col-span-3 lg:justify-start">
       <div className="relative aspect-square w-full max-w-[200px] overflow-hidden rounded-full bg-gray-50 dark:bg-gray-800">
-        {image ? (
+        {safeImage ? (
           <>
             <img
-              src={image}
+              src={safeImage}
               alt={t("PROFILE_IMAGE_UPLOADER.PROFILE_IMAGE")}
              
              

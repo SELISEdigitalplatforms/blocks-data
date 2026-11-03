@@ -269,6 +269,8 @@ Singleton exported as `configurationService`. All calls use the shared `http` cl
 | `useGetPodActiveStatus(option)`          | `["ping-pod", slug]`                                           | Pod readiness; supports configurable `refetchInterval`          |
 | `useInitiateDataGatewayPipeline(option)` | `["initiate-pod", projectKey]`                                 | Trigger pipeline; supports `enabled` flag                       |
 | `useGetSchemaFieldValidation(option)`    | `["schema-field-validation", schemaId, fieldName, projectKey]` | Field validation rules; disabled until all params present       |
+| `useRawIntrospectionQuery(options)`      | `["graphql-raw-introspection", projectKey]` (tenantId)         | Raw introspection JSON of the served schema (Schemas drawer, schema preview); refreshed only by publish or rollback |
+| `useGraphQLIntrospection(options)`       | `["graphql-introspection", projectShortKey]` (tenantSlug)      | Built `GraphQLSchema` for playground autocomplete; refreshed only by publish or rollback |
 
 #### Mutation Hooks
 
@@ -276,7 +278,9 @@ Singleton exported as `configurationService`. All calls use the shared `http` cl
 | ------------------------------------ | -------------------------------------------------------------------- | --------------------------------------------------- |
 | `useCreateDataSourceConfiguration()` | `data-service-config`                                                | Create a data source                                |
 | `useUpdateDataSourceConfiguration()` | `data-service-config`, `unadapted-change-logs`                       | Update a data source                                |
-| `useSchemasReload()`                 | `schema-list`, `unadapted-change-logs`                               | Reload schemas from the live database               |
+| `useSchemasReload()`                 | Seeds `graphql-raw-introspection` and `graphql-introspection` from one introspection request, marks both stale without refetching; invalidates `schema-version-history`, `unadapted-change-logs`, `schema-list`, `schema-details` (only on success) | Publish: reload schemas from the live database      |
+| `useSchemaRollback()`                | Same as `useSchemasReload()`                                         | Make an earlier published version live again        |
+| `useImportSchemaFile()`              | `schema-list`, `unadapted-change-logs`, `security-performance-schema-list`; no introspection | Queue a schema file import (drafts only, so the served schema is unchanged) |
 | `useCreateSchema()`                  | `schema-list`, `unadapted-change-logs`                               | Create a new schema                                 |
 | `useUpdateSchema()`                  | `schema-list`, `schema-details`, `unadapted-change-logs`             | Update schema basic info                            |
 | `useUpdateSchemaStructure()`         | `schema-details`, `unadapted-change-logs`                            | Add/edit/delete fields                              |

@@ -19,12 +19,12 @@ describe("language switch", () => {
     expect(screen.getByText("Toggle theme")).toBeInTheDocument();
   });
 
-  it("shows German once the German text is registered and the language is de", () => {
+  it("shows another language's text once it comes from the localization service and that language is selected", () => {
     render(<ModeToggle />);
     act(() => {
-      useI18nStore.getState().setRemote("de", "data.shared", { "MODE_TOGGLE.TOGGLE_THEME": "Design umschalten" });
-      useAppSettingsStore.getState().setSettings({ language: "de" });
+      useI18nStore.getState().setRemote("xx", "data.shared", { "MODE_TOGGLE.TOGGLE_THEME": "[xx] Toggle theme" });
+      useAppSettingsStore.getState().setSettings({ language: "xx" });
     });
-    expect(screen.getByText("Design umschalten")).toBeInTheDocument();
+    expect(screen.getByText("[xx] Toggle theme")).toBeInTheDocument();
   });
 });

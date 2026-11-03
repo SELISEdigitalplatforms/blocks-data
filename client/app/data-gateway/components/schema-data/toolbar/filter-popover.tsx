@@ -132,6 +132,13 @@ function geoJsonPlaceholder(operator: string): string {
     : POINT_PLACEHOLDER;
 }
 
+/** Placeholder of the value input: a GeoJSON sample, a list sample, or the generic "Value" label. */
+function valuePlaceholder(category: string, operator: string, fallback: string): string {
+  if (category === "geojson") return geoJsonPlaceholder(operator);
+  if (operator === "is one of" || operator === "is not one of") return "a, b, c";
+  return fallback;
+}
+
 function resolveFieldCategory(
   field: TemplateField | undefined,
 ): "string" | "number" | "boolean" | "array" | "date" | "geojson" {
@@ -543,30 +550,21 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                   </Select>
 
                   {/* Value input or spacer */}
-                  {needsValue ? (
-                    category === "date" ? (
-                      <DatePickerInput
-                        value={condition.value}
-                        onChange={(iso) => updateCondition(condition.id, { value: iso })}
-                      />
-                    ) : (
-                      <Input
-                        type={category === "number" ? "number" : "text"}
-                        value={condition.value}
-                        onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
-                        placeholder={
-                          category === "geojson"
-                            ? geoJsonPlaceholder(condition.operator)
-                            : condition.operator === "is one of" ||
-                                condition.operator === "is not one of"
-                              ? "a, b, c"
-                              : t("FILTER_POPOVER.VALUE")
-                        }
-                        className="h-8 w-36 text-xs"
-                      />
-                    )
-                  ) : (
-                    <div className="w-36" />
+                  {!needsValue && <div className="w-36" />}
+                  {needsValue && category === "date" && (
+                    <DatePickerInput
+                      value={condition.value}
+                      onChange={(iso) => updateCondition(condition.id, { value: iso })}
+                    />
+                  )}
+                  {needsValue && category !== "date" && (
+                    <Input
+                      type={category === "number" ? "number" : "text"}
+                      value={condition.value}
+                      onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
+                      placeholder={valuePlaceholder(category, condition.operator, t("FILTER_POPOVER.VALUE"))}
+                      className="h-8 w-36 text-xs"
+                    />
                   )}
 
                   {/* near: distances from the reference point, in meters */}

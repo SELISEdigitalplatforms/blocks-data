@@ -1,6 +1,9 @@
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_CONSOLE_MODULE = "data.console";
 export const SERVICES = [
   {
-    label: "Identity",
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "SERVICES_CATALOG.IDENTITY"); },
     name: "idp",
     serviceName: "idp",
     showInUsage: true,
@@ -8,7 +11,7 @@ export const SERVICES = [
     showInLogs: true,
   },
   {
-    label: "Authentication",
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "SERVICES_CATALOG.AUTHENTICATION"); },
     name: "authentication",
     serviceName: "authentication",
     showInUsage: true,
@@ -32,7 +35,7 @@ export const SERVICES = [
     showInLogs: true,
   },
   {
-    label: "Captcha",
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "SERVICES_CATALOG.CAPTCHA"); },
     name: "captcha",
     serviceName: "captcha",
     showInUsage: true,
@@ -40,7 +43,7 @@ export const SERVICES = [
     showInLogs: true,
   },
   {
-    label: "Email",
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "common:EMAIL"); },
     name: "email",
     serviceName: "communication",
     showInUsage: true,
@@ -48,7 +51,7 @@ export const SERVICES = [
     showInLogs: true,
   },
   {
-    label: "Blocks Data",
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "SERVICES_CATALOG.BLOCKS_DATA"); },
     name: "unified-data-service",
     serviceName: "uds",
     showInUsage: true,
@@ -56,7 +59,7 @@ export const SERVICES = [
     showInLogs: true,
   },
   {
-    label: "Notification",
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "SERVICES_CATALOG.NOTIFICATION"); },
     name: "notification",
     serviceName: "notification",
     showInUsage: true,
@@ -64,7 +67,7 @@ export const SERVICES = [
     showInLogs: true,
   },
   {
-    label: "Deploy & Observe",
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "SERVICES_CATALOG.DEPLOY_OBSERVE"); },
     name: "cloudbuild",
     serviceName: "cloudbuild",
     showInUsage: true,
@@ -72,7 +75,7 @@ export const SERVICES = [
     showInLogs: true,
   },
   {
-    label: "AI Gateway",
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "SERVICES_CATALOG.AI_GATEWAY"); },
     name: "ai",
     serviceName: "ai",
     showInUsage: true,
@@ -80,7 +83,7 @@ export const SERVICES = [
     showInLogs: true,
   },
   {
-    label: "Identifier",
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "SERVICES_CATALOG.IDENTIFIER"); },
     name: "identifier",
     serviceName: "identifier",
     showInUsage: false,
@@ -88,7 +91,7 @@ export const SERVICES = [
     showInLogs: false,
   },
   {
-    label: "Configuration",
+    get label() { return tStatic(DATA_CONSOLE_MODULE, "SERVICES_CATALOG.CONFIGURATION"); },
     name: "configuration",
     serviceName: "configuration",
     showInUsage: false,

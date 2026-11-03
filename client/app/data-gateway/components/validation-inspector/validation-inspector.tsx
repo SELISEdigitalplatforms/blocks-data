@@ -8,6 +8,7 @@ import {
   SchemaFieldValidationPanel,
   type SchemaFieldValidationPanelProps,
 } from "../schema-fields-validation/schema-field-validation-panel";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface InspectorHeading {
   /** The qualified property name being inspected. */
@@ -45,13 +46,14 @@ export function ValidationInspector({
   target: ValidationInspectorTarget;
   onClose: () => void;
 }) {
+  const { t } = useT("data.gateway.validation");
   if (target.panel === "default") {
     const { subject, context, schemaName, panel: _panel, ...panelProps } = target;
     return (
-      <PanelShell label={`Default value for ${subject}`}>
+      <PanelShell label={t("VALIDATION_INSPECTOR.DEFAULT_VALUE_FOR_SUBJECT", { subject })}>
         <PanelHeader
           icon={RectangleEllipsis}
-          title="Default value"
+          title={t("VALIDATION_INSPECTOR.DEFAULT_VALUE")}
           mono={false}
           subtitle={
             <>
@@ -60,7 +62,7 @@ export function ValidationInspector({
             </>
           }
           onClose={onClose}
-          closeLabel="Close default value inspector"
+          closeLabel={t("VALIDATION_INSPECTOR.CLOSE_DEFAULT_VALUE_INSPECTOR")}
         />
         <DefaultValuePanel {...panelProps} />
       </PanelShell>
@@ -70,10 +72,10 @@ export function ValidationInspector({
   const { subject, context, schemaName, panel: _panel, ...panelProps } = target;
 
   return (
-    <PanelShell label={`Validations for ${subject}`}>
+    <PanelShell label={t("VALIDATION_INSPECTOR.VALIDATIONS_FOR_SUBJECT", { subject })}>
       <PanelHeader
         icon={Check}
-        title="Validations"
+        title={t("VALIDATION_INSPECTOR.VALIDATIONS")}
         mono={false}
         subtitle={
           <>
@@ -82,7 +84,7 @@ export function ValidationInspector({
           </>
         }
         onClose={onClose}
-        closeLabel="Close validation inspector"
+        closeLabel={t("VALIDATION_INSPECTOR.CLOSE_VALIDATION_INSPECTOR")}
       />
       <SchemaFieldValidationPanel {...panelProps} />
     </PanelShell>

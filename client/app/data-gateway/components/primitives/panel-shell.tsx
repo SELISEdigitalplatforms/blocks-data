@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { TypeChip } from "./type-chip";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * The chrome every docked panel in the schema shell shares.
@@ -109,11 +110,12 @@ export function FieldSubject({
   isArray?: boolean;
   schemaName?: string;
 }) {
+  const { t } = useT("data.gateway.schema");
   return (
     <>
       <span className="truncate font-mono text-foreground/80">{name}</span>
       {type && <TypeChip type={type} isArray={isArray} className="h-[18px] px-1.5 text-[10.5px]" />}
-      {schemaName && <span className="truncate">on {schemaName}</span>}
+      {schemaName && <span className="truncate">{t("PANEL_SHELL.ON_SCHEMANAME", { schemaName })}</span>}
     </>
   );
 }

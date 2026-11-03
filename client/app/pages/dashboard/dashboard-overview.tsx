@@ -4,8 +4,10 @@ import { showErrorToast } from "@/hooks/use-toast";
 import { getDomain } from "@/lib/domain";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { useCallback, useEffect } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const DashboardOverview = () => {
+  const { t } = useT("data.console");
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const { itemId } = useProjectStore().selectedProject || {
     itemId: "",
@@ -46,7 +48,7 @@ export const DashboardOverview = () => {
     <main className="flex flex-col gap-6 p-6">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold md:text-2xl">
-          Environment Overview
+          {t("DASHBOARD_OVERVIEW.ENVIRONMENT_OVERVIEW")}
         </h1>
       </div>
       <ProjectDetail project={data?.data} isLoading={isLoading} />

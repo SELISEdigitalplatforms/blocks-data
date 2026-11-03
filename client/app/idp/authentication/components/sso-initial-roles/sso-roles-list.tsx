@@ -12,6 +12,7 @@ import { useNavigate } from "react-router";
 import { IRole } from "@blocks-idp/iam/models/role";
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { DeleteSSORole } from "./delete-sso-role";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type SSORolesListProps = {
   roles: IRole[];
@@ -19,6 +20,7 @@ type SSORolesListProps = {
 };
 
 export const SSORolesList = ({ roles, onDelete }: SSORolesListProps) => {
+  const { t } = useT("data.idp.authentication");
   const navigate = useNavigate();
   const columns = useMemo<ColumnDef<IRole>[]>(
     () => [
@@ -27,7 +29,7 @@ export const SSORolesList = ({ roles, onDelete }: SSORolesListProps) => {
         accessorFn: (row) => `${row.name}`.trim(),
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Roles</span>
+            <span className="font-bold text-medium-emphasis">{t("SSO_ROLES_LIST.ROLES")}</span>
           </div>
         ),
         cell: (roles) => <div className="w-[130px] truncate">{roles.row.original.name}</div>,
@@ -37,7 +39,7 @@ export const SSORolesList = ({ roles, onDelete }: SSORolesListProps) => {
         accessorFn: (row) => `${row.slug}`.trim(),
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Slug</span>
+            <span className="font-bold text-medium-emphasis">{t("SSO_ROLES_LIST.SLUG")}</span>
           </div>
         ),
         cell: ({ row }) => (
@@ -64,7 +66,7 @@ export const SSORolesList = ({ roles, onDelete }: SSORolesListProps) => {
         ),
       },
     ],
-    [onDelete],
+    [onDelete, t],
   );
 
   const table = useReactTable({
@@ -78,7 +80,6 @@ export const SSORolesList = ({ roles, onDelete }: SSORolesListProps) => {
   };
 
   return (
-    <>
       <Table>
         <TableHeader>
           <TableRow className="px-4 py-3 hover:bg-transparent">
@@ -102,7 +103,7 @@ export const SSORolesList = ({ roles, onDelete }: SSORolesListProps) => {
                 colSpan={columns.length}
                 className="h-24 text-center text-muted-foreground"
               >
-                No roles found
+                {t("SSO_ROLES_LIST.NO_ROLES_FOUND")}
               </TableCell>
             </TableRow>
           ) : (
@@ -122,6 +123,5 @@ export const SSORolesList = ({ roles, onDelete }: SSORolesListProps) => {
           )}
         </TableBody>
       </Table>
-    </>
   );
 };

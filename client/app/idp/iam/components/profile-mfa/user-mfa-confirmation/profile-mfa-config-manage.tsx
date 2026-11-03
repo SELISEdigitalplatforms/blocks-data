@@ -16,8 +16,10 @@ import { useGetUserById } from "@blocks-idp/iam/hooks/use-user";
 import { isErrorWithErrors } from "@/lib/error";
 import { profileMfaContext } from "../profile-mfa";
 import { RefreshCcw } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const ProfileMFAConfigManage = () => {
+  const { t } = useT("data.idp.iam");
   const { projectKey, userId, showVerifyModal } = useContext(profileMfaContext);
   const [open, setOpen] = useState<boolean>(false);
   const [type, setType] = useState(0);
@@ -59,20 +61,20 @@ export const ProfileMFAConfigManage = () => {
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <RefreshCcw className="h-4 w-4" />
-          <span className="sr-only sm:not-sr-only sm:ml-2">Switch</span>
+          <span className="sr-only sm:not-sr-only sm:ml-2">{t("PROFILE_MFA_CONFIG_MANAGE.SWITCH")}</span>
         </Button>
       </DialogTrigger>
 
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Switch MFA?</DialogTitle>
-          <DialogDescription>Select the method of MFA for this user.</DialogDescription>
+          <DialogTitle>{t("PROFILE_MFA_CONFIG_MANAGE.SWITCH_MFA")}</DialogTitle>
+          <DialogDescription>{t("PROFILE_MFA_CONFIG_MANAGE.SELECT_THE_METHOD_OF_MFA_FOR")}</DialogDescription>
         </DialogHeader>
         <ProfileMFAMethodList selected={type} setSelected={setType} />
         <DialogFooter className="mt-4 flex flex-row gap-2">
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" disabled={isPending}>
-              Cancel
+              {t("common:CANCEL")}
             </Button>
           </DialogTrigger>
           <Button
@@ -80,7 +82,7 @@ export const ProfileMFAConfigManage = () => {
             onClick={onClickHandler}
             disabled={isPending || type === 0 || isLoading || isFetching}
           >
-            {isPending ? "Saving" : "Save"}
+            {isPending ? t("PROFILE_MFA_CONFIG_MANAGE.SAVING") : t("common:SAVE")}
           </Button>
         </DialogFooter>
       </DialogContent>

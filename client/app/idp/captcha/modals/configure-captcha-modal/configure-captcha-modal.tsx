@@ -35,6 +35,7 @@ import {
 import { Button } from "@/components/ui-kits/button/button";
 import { useProjectStore } from "@/store/use-project-store";
 import { ReactNode, useEffect, useMemo, useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type ConfigureCaptchaModalProps = {
   configuration?: ICaptchaConfig | null;
@@ -42,6 +43,7 @@ type ConfigureCaptchaModalProps = {
 };
 
 export const ConfigureCaptchaModal = ({ configuration, children }: ConfigureCaptchaModalProps) => {
+  const { t } = useT("data.idp.security");
   const [open, setOpen] = useState<boolean>(false);
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const { isLoading, isFetching, data } = useGetCaptchaConfigs({ projectKey: tenantId });
@@ -86,7 +88,7 @@ export const ConfigureCaptchaModal = ({ configuration, children }: ConfigureCapt
       const res = await mutateAsync(payload);
       if (!res.isSuccess) return showErrorToast({ errors: res.errors });
       showSuccessToast({
-        description: configuration ? "Captcha updated successfully" : "Captcha added successfully",
+        description: configuration ? t("CONFIGURE_CAPTCHA_MODAL.CAPTCHA_UPDATED_SUCCESSFULLY") : t("CONFIGURE_CAPTCHA_MODAL.CAPTCHA_ADDED_SUCCESSFULLY"),
       });
       form.reset();
       setOpen(false);
@@ -115,8 +117,8 @@ export const ConfigureCaptchaModal = ({ configuration, children }: ConfigureCapt
         <DialogHeader>
           <DialogTitle>
             {configuration
-              ? `Edit ${CAPTCHA_PROVIDERS[configuration.provider].label}`
-              : "Add Captcha Configuration"}{" "}
+              ? t("CONFIGURE_CAPTCHA_MODAL.EDIT_PROVIDER", { provider: CAPTCHA_PROVIDERS[configuration.provider].label })
+              : t("CONFIGURE_CAPTCHA_MODAL.ADD_CAPTCHA_CONFIGURATION")}{" "}
           </DialogTitle>
         </DialogHeader>
         <div className="mt-2">
@@ -127,7 +129,7 @@ export const ConfigureCaptchaModal = ({ configuration, children }: ConfigureCapt
                 name="provider"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Captcha Provider</FormLabel>
+                    <FormLabel>{t("CONFIGURE_CAPTCHA_MODAL.CAPTCHA_PROVIDER")}</FormLabel>
                     <FormControl>
                       <Select
                         onValueChange={field.onChange}
@@ -135,7 +137,7 @@ export const ConfigureCaptchaModal = ({ configuration, children }: ConfigureCapt
                         disabled={!!configuration}
                       >
                         <SelectTrigger className="border-default col-span-3 flex h-10 w-full items-center justify-between rounded-md border bg-background px-3 py-2 text-sm shadow-none placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2">
-                          <SelectValue placeholder="Select configuration provider" />
+                          <SelectValue placeholder={t("CONFIGURE_CAPTCHA_MODAL.SELECT_CONFIGURATION_PROVIDER")} />
                         </SelectTrigger>
                         <SelectContent>
                           {unConfiguredProviders.map((item) => (
@@ -155,7 +157,7 @@ export const ConfigureCaptchaModal = ({ configuration, children }: ConfigureCapt
               <DialogFooter className="mt-4">
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">
-                    Cancel
+                    {t("common:CANCEL")}
                   </Button>
                 </DialogTrigger>
 
@@ -164,7 +166,7 @@ export const ConfigureCaptchaModal = ({ configuration, children }: ConfigureCapt
                   disabled={isPending || isLoading || isFetching || !isDirty}
                   type="submit"
                 >
-                  Save
+                  {t("common:SAVE")}
                 </Button>
               </DialogFooter>
             </form>

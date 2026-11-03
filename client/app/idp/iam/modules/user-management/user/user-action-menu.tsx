@@ -13,6 +13,7 @@ import { UserDeactivate } from "./user-deactivate/user-deactivate";
 import { UpdateUser } from "../update-user";
 import { UserDisableMFA } from "./user-disable-mfa";
 import { useGetUserById } from "@blocks-idp/iam/hooks/use-user";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type UserActionMenuProps = {
   id: string;
@@ -20,6 +21,7 @@ type UserActionMenuProps = {
 };
 
 export const UserActionMenu = ({ id, projectKey }: UserActionMenuProps) => {
+  const { t } = useT("data.idp.iam");
   const { data } = useGetUserById({ id, projectKey });
   const [isResendActivationModalOpen, setIsResendActivationModalOpen] = useState<boolean>(false);
   const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState<boolean>(false);
@@ -44,11 +46,11 @@ export const UserActionMenu = ({ id, projectKey }: UserActionMenuProps) => {
               }}
             >
               <Send className="aspect-square w-4" />
-              <span>Resend Activation</span>
+              <span>{t("USER_ACTION_MENU.RESEND_ACTIVATION")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem className="gap-2" onSelect={() => setIsResetPasswordModalOpen(true)}>
               <RotateCcw className="aspect-square w-4" />
-              <span>Reset Password</span>
+              <span>{t("USER_ACTION_MENU.RESET_PASSWORD")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="gap-2"
@@ -56,7 +58,7 @@ export const UserActionMenu = ({ id, projectKey }: UserActionMenuProps) => {
               disabled={!data?.data.mfaEnabled}
             >
               <ShieldBan className="aspect-square w-4" />
-              <span>Disable MFA</span>
+              <span>{t("USER_ACTION_MENU.DISABLE_MFA")}</span>
             </DropdownMenuItem>
             <DropdownMenuItem
               className="gap-2"
@@ -64,7 +66,7 @@ export const UserActionMenu = ({ id, projectKey }: UserActionMenuProps) => {
               disabled={!data?.data?.active}
             >
               <UserX className="aspect-square w-4" />
-              <span>Deactivate User</span>
+              <span>{t("USER_ACTION_MENU.DEACTIVATE_USER")}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

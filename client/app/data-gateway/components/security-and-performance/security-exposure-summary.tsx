@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
 
 import type { ExposureBreakdown, SecurityAlert } from "../../utils/security-summary";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const SEGMENT_FILL: Record<ExposureBreakdown["segments"][number]["tier"], string> = {
   public: "bg-access-public-dot",
@@ -30,13 +31,14 @@ export function SecurityExposureSummary({
   alerts: SecurityAlert[];
   onAlertClick: (alert: SecurityAlert) => void;
 }) {
+  const { t } = useT("data.gateway.schema");
   return (
     <div className="flex shrink-0 flex-col gap-5 border-b border-border/40 px-5 py-4 xl:flex-row xl:items-stretch xl:gap-6">
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <h3 className="text-sm font-semibold text-foreground">Access surface</h3>
+          <h3 className="text-sm font-semibold text-foreground">{t("SECURITY_EXPOSURE_SUMMARY.ACCESS_SURFACE")}</h3>
           <span className="text-xs text-muted-foreground">
-            {breakdown.totalGrants} grants across {breakdown.schemaCount} entity{" "}
+            {breakdown.totalGrants} {t("SECURITY_EXPOSURE_SUMMARY.GRANTS_ACROSS")} {breakdown.schemaCount} {t("SECURITY_EXPOSURE_SUMMARY.ENTITY")}{" "}
             {breakdown.schemaCount === 1 ? "schema" : "schemas"}
           </span>
         </div>
@@ -47,7 +49,7 @@ export function SecurityExposureSummary({
               key={segment.tier}
               className={SEGMENT_FILL[segment.tier]}
               style={{ width: segment.width }}
-              title={`${segment.label} — ${segment.count} grants`}
+              title={t("SECURITY_EXPOSURE_SUMMARY.LABEL_COUNT_GRANTS", { label: segment.label, count: segment.count })}
             />
           ))}
         </div>
@@ -79,7 +81,7 @@ export function SecurityExposureSummary({
             disabled={alert.count === 0}
             // A row's exposure column carries the same words, so the tile says
             // what it does rather than repeating its own label.
-            aria-label={`Filter by ${alert.label.toLowerCase()} — ${alert.count}`}
+            aria-label={t("SECURITY_EXPOSURE_SUMMARY.FILTER_BY_LABEL_COUNT", { label: alert.label.toLowerCase(), count: alert.count })}
             className={cn(
               "flex flex-col items-start gap-0.5 rounded-lg border px-3 py-2.5 text-left transition-opacity",
               alert.count === 0

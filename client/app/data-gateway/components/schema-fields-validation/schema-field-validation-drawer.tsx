@@ -14,6 +14,7 @@ import {
   SchemaFieldValidationPanel,
   type SchemaFieldValidationPanelProps,
 } from "./schema-field-validation-panel";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface SchemaFieldValidationDrawerProps extends SchemaFieldValidationPanelProps {
   trigger?: ReactNode;
@@ -44,6 +45,7 @@ export function SchemaFieldValidationDrawer({
   open,
   onOpenChange,
 }: SchemaFieldValidationDrawerProps) {
+  const { t } = useT("data.gateway.validation");
   return (
     <Drawer
       direction="right"
@@ -58,7 +60,7 @@ export function SchemaFieldValidationDrawer({
             <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <DrawerTitle className="text-sm font-semibold text-foreground">Validations</DrawerTitle>
+            <DrawerTitle className="text-sm font-semibold text-foreground">{t("SCHEMA_FIELD_VALIDATION_DRAWER.VALIDATIONS")}</DrawerTitle>
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-[11px] text-muted-foreground">
               <FieldSubject name={fieldName} type={fieldType} isArray={isArray} schemaName={schemaName} />
             </div>
@@ -67,7 +69,7 @@ export function SchemaFieldValidationDrawer({
             <button
               type="button"
               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Close validation drawer"
+              aria-label={t("SCHEMA_FIELD_VALIDATION_DRAWER.CLOSE_VALIDATION_DRAWER")}
             >
               <X className="h-4 w-4" />
             </button>

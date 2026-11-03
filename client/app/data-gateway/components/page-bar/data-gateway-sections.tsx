@@ -12,6 +12,9 @@ import {
 } from "../../hooks/use-configuration";
 import { IDataSourceResponse } from "../../models/data-service";
 import { filterCounts, RISK_FETCH_LIMIT } from "../../utils/security-summary";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 
 type Section = {
   label: string;
@@ -22,10 +25,10 @@ type Section = {
 };
 
 const SECTIONS: readonly Section[] = [
-  { label: "Schemas", subPath: "", badge: "neutral" },
-  { label: "Security", subPath: "/security", badge: "attention" },
-  { label: "Playground", subPath: "/playground" },
-  { label: "Analytics", subPath: "/analytics" },
+  { get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DATA_GATEWAY_SECTIONS.SCHEMAS"); }, subPath: "", badge: "neutral" },
+  { get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DATA_GATEWAY_SECTIONS.SECURITY"); }, subPath: "/security", badge: "attention" },
+  { get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DATA_GATEWAY_SECTIONS.PLAYGROUND"); }, subPath: "/playground" },
+  { get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "DATA_GATEWAY_SECTIONS.ANALYTICS"); }, subPath: "/analytics" },
 ];
 
 const BADGE_CLASS: Record<NonNullable<Section["badge"]>, string> = {
@@ -48,6 +51,7 @@ const BADGE_CLASS: Record<NonNullable<Section["badge"]>, string> = {
  * than being a place you work, so it stays a utility icon in the page bar.
  */
 export const DataGatewaySections = () => {
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const dataGatewayPath = useDataGatewayPath();
   const { pathname } = useLocation();
   const { data: configurationData } = useGetDataServiceConfiguration();
@@ -97,7 +101,7 @@ export const DataGatewaySections = () => {
 
   return (
     <nav
-      aria-label="Data Gateway sections"
+      aria-label={t("DATA_GATEWAY_SECTIONS.DATA_GATEWAY_SECTIONS")}
       className="order-3 flex h-11 w-full min-w-0 items-stretch gap-0.5 overflow-x-auto lg:order-0 lg:h-auto lg:w-auto lg:shrink"
     >
       {sections.map(({ label, subPath: sectionPath, badge }) => {

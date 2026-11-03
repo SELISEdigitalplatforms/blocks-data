@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useProjectStore } from "@/store/use-project-store";
 import { Card, CardContent, CardHeader } from "@/components/ui-kits/card/card";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const LoadingSkeleton = () => (
   <Card className="py-6">
@@ -55,6 +56,7 @@ const LoadingSkeleton = () => (
 );
 
 export const ClientCredentialList = () => {
+  const { t } = useT("data.idp.authentication");
   const { tenantId } = useProjectStore().selectedProject || { tenantId: "" };
   const { isLoading, isFetching, data } = useGetAuthClientCredentials({
     projectKey: tenantId,
@@ -75,7 +77,7 @@ export const ClientCredentialList = () => {
   if (!sortedClientsData.length)
     return (
       <div className="text-muted- flex h-32 flex-wrap items-center justify-center rounded-sm border bg-background p-4 text-center">
-        No client credential found. Please create a new client credential.
+        {t("CLIENT_CREDENTIALS_LIST.NO_CLIENT_CREDENTIAL_FOUND_PLEASE")}
       </div>
     );
 

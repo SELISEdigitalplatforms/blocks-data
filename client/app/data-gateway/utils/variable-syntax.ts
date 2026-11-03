@@ -1,4 +1,7 @@
 import type { IField } from "../models/data-service";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 
 /**
  * The variable grammar of default values and validation rules: the client copy of Genesis
@@ -43,7 +46,7 @@ const isAuth = (part: VariablePart) => part.prefix?.toLowerCase() === AUTH_PREFI
 const nameOf = (part: VariablePart) => `${part.prefix}.${part.path}`;
 
 const invalidName = (name: string, position: number): VariableError => ({
-  message: `Invalid name "${name}" at position ${position}: use letters, digits, "_" and "." between parts`,
+  message: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.INVALID_NAME_NAME_AT_POSITION_POSITION", { name, position }),
   position,
 });
 
@@ -51,7 +54,7 @@ function checkNameShape(name: string, position: number, mode: VariableMode, sche
   if (!name.includes(".")) {
     if (!SEGMENT_PATTERN.test(name)) return invalidName(name, position);
     const target = mode === "template" ? `{{${schema}.${name}}} or {{Auth.…}}` : `{{${schema}.${name}}}`;
-    return { message: `Missing prefix at position ${position}: write ${target}`, position };
+    return { message: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.MISSING_PREFIX_AT_POSITION_POSITION", { position, target }), position };
   }
   return NAME_PATTERN.test(name) ? null : invalidName(name, position);
 }
@@ -75,11 +78,11 @@ function readVariable(
   const position = i + 1;
   const close = text.indexOf("}}", i + 2);
   const nextOpen = text.indexOf("{{", i + 2);
-  const unclosed = { error: at(`Unclosed variable at position ${position}: expected "}}"`, position) };
+  const unclosed = { error: at(tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.UNCLOSED_VARIABLE_AT_POSITION_POSITION", { position }), position) };
   if (close < 0 || (nextOpen >= 0 && nextOpen < close)) return unclosed;
 
   const name = text.slice(i + 2, close).trim();
-  if (name.length === 0) return { error: at(`Empty variable at position ${position}`, position) };
+  if (name.length === 0) return { error: at(tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.EMPTY_VARIABLE_AT_POSITION_POSITION", { position }), position) };
   if (name.includes("{") || name.includes("}")) return unclosed;
 
   const shapeError = checkNameShape(name, position, mode, schema);
@@ -146,11 +149,11 @@ const AUTH_CHOICES = AUTH_NAMES.map((n) => `Auth.${n}`).join(", ");
 /** An {{Auth.X}} variable: allowed in templates only, a known name, a list only in a list property. */
 function checkAuthPart(part: VariablePart, mode: VariableMode, targetIsList: boolean): VariableError | null {
   const { position } = part;
-  if (mode === "single") return at(`Auth values aren't available in validation rules at position ${position}: use an access policy`, position);
+  if (mode === "single") return at(tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.AUTH_VALUES_AREN_T_AVAILABLE_IN", { position }), position);
   const authName = AUTH_NAMES.find((n) => n.toLowerCase() === part.path?.toLowerCase());
-  if (!authName) return at(`Unknown value "${nameOf(part)}" at position ${position}: use ${AUTH_CHOICES}`, position);
+  if (!authName) return at(tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.UNKNOWN_VALUE_NAMEOF_AT_POSITION", { nameOf: nameOf(part), position, AUTH_CHOICES }), position);
   if (AUTH_LIST_NAMES.has(authName.toLowerCase()) && !targetIsList) {
-    return at(`Auth.${authName} is a list at position ${position}: use it in a list property`, position);
+    return at(tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.AUTH_AUTHNAME_IS_A_LIST_AT", { authName, position }), position);
   }
   return null;
 }
@@ -159,19 +162,19 @@ function checkAuthPart(part: VariablePart, mode: VariableMode, targetIsList: boo
 function checkFieldPart(part: VariablePart, mode: VariableMode, schemaName: string, fields: Record<string, VariableField>): VariableError | null {
   const { position } = part;
   if (part.prefix !== schemaName) {
-    const allowed = mode === "template" ? `${schemaName} or Auth` : schemaName;
-    return at(`Unknown prefix "${part.prefix}" at position ${position}: use ${allowed}`, position);
+    const allowed = mode === "template" ? tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.SCHEMANAME_OR_AUTH", { schemaName }) : schemaName;
+    return at(tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.UNKNOWN_PREFIX_PREFIX_AT_POSITION", { prefix: part.prefix ?? "", position, allowed }), position);
   }
   const field = fields[part.path!];
   if (!field) {
     const guess = closestName(part.path!, Object.keys(fields).filter((k) => !fields[k].isObject));
-    const hint = guess ? ` (did you mean ${schemaName}.${guess}?)` : "";
-    return at(`Unknown property "${nameOf(part)}" at position ${position}${hint}`, position);
+    const hint = guess ? " " + tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.DID_YOU_MEAN_SCHEMANAME_GUESS", { schemaName, guess }) : "";
+    return at(tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.UNKNOWN_PROPERTY_NAMEOF_AT_POSITION", { nameOf: nameOf(part), position, hint }), position);
   }
   if (field.isObject) {
     const child = Object.keys(fields).find((k) => k.startsWith(`${part.path}.`) && !fields[k].isObject);
     const example = child ? `, e.g. {{${schemaName}.${child}}}` : "";
-    return at(`"${nameOf(part)}" holds an object at position ${position}: use one of its properties${example}`, position);
+    return at(tStatic(DATA_GATEWAY_SCHEMA_MODULE, "VARIABLE_SYNTAX.NAMEOF_HOLDS_AN_OBJECT_AT_POSITION", { nameOf: nameOf(part), position, example }), position);
   }
   return null;
 }

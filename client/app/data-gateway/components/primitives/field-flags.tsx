@@ -2,6 +2,9 @@ import { cn } from "@/lib/utils";
 
 import type { IField } from "../../models/data-service";
 import { formatDefaultSummary } from "../../utils/default-value.util";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 
 /**
  * The three genuine booleans on a property, plus DEF when it has a default value, as one compact strip.
@@ -17,10 +20,10 @@ import { formatDefaultSummary } from "../../utils/default-value.util";
 export type FieldFlag = "ARR" | "PII" | "UQ" | "DEF";
 
 const FLAG_TITLES: Record<FieldFlag, string> = {
-  ARR: "Array",
-  PII: "Personally identifiable data",
-  UQ: "Unique",
-  DEF: "Default value",
+  get ARR() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "FIELD_FLAGS.ARRAY"); },
+  get PII() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "FIELD_FLAGS.PERSONALLY_IDENTIFIABLE_DATA"); },
+  get UQ() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "FIELD_FLAGS.UNIQUE"); },
+  get DEF() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "FIELD_FLAGS.DEFAULT_VALUE"); },
 };
 
 /**
@@ -43,7 +46,7 @@ export function flagsFromField(
 
 /** Hover text per flag; DEF shows what the default is, e.g. "Default value: Now + 365 days". */
 export function flagTitlesFromField(field: Partial<Pick<IField, "defaultValue">>): Partial<Record<FieldFlag, string>> {
-  return field.defaultValue ? { DEF: `Default value: ${formatDefaultSummary(field.defaultValue)}` } : {};
+  return field.defaultValue ? { DEF: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "FIELD_FLAGS.DEFAULT_VALUE_FORMATDEFAULTSUMMARY", { formatDefaultSummary: formatDefaultSummary(field.defaultValue) }) } : {};
 }
 
 export function FieldFlagChip({ flag, title, className }: Readonly<{ flag: FieldFlag; title?: string; className?: string }>) {

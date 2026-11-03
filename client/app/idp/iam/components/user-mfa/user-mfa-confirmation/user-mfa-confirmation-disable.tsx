@@ -13,8 +13,10 @@ import { isErrorWithErrors } from "@/lib/error";
 import { useConfigureUserMFA } from "@blocks-idp/mfa/hooks/use-mfa-config";
 import { useContext, useState } from "react";
 import { userMfaContext } from "../user-mfa";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const UserMFAConfirmationDisable = () => {
+  const { t } = useT("data.idp.iam");
   const { projectKey, userId } = useContext(userMfaContext);
   const [open, setOpen] = useState<boolean>(false);
   const { isPending, mutateAsync } = useConfigureUserMFA({ id: userId, projectKey });
@@ -27,7 +29,7 @@ export const UserMFAConfirmationDisable = () => {
         userMfaType: 0,
       });
       if (!res.isSuccess) return showErrorToast({ errors: res.errors });
-      showSuccessToast({ description: "MFA disabled successfully" });
+      showSuccessToast({ description: t("USER_MFA_CONFIRMATION_DISABLE.MFA_DISABLED_SUCCESSFULLY") });
       setOpen(false);
     } catch (error) {
       if (isErrorWithErrors(error)) {
@@ -40,25 +42,24 @@ export const UserMFAConfirmationDisable = () => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm" variant="destructive-outline">
-          Disable
+          {t("USER_MFA_CONFIRMATION_DISABLE.DISABLE")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Disable MFA?</DialogTitle>
+          <DialogTitle>{t("USER_MFA_CONFIRMATION_DISABLE.DISABLE_MFA")}</DialogTitle>
           <DialogDescription>
-            Are you sure you want to disable Multi-Factor Authentication (MFA) for this account?
-            Disabling MFA may reduce the security of this account.
+            {t("USER_MFA_CONFIRMATION_DISABLE.ARE_YOU_SURE_YOU_WANT_TO")}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="mt-4 flex flex-row gap-2">
           <DialogTrigger asChild>
             <Button variant="outline" size="sm" disabled={isPending}>
-              Cancel
+              {t("common:CANCEL")}
             </Button>
           </DialogTrigger>
           <Button size="sm" onClick={onClickHandler} disabled={isPending}>
-            {isPending ? "Processing" : "Yes"}
+            {isPending ? t("USER_MFA_CONFIRMATION_DISABLE.PROCESSING") : t("common:YES")}
           </Button>
         </DialogFooter>
       </DialogContent>

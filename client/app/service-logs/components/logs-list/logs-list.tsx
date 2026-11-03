@@ -9,9 +9,12 @@ import { LogsViewerContext } from "../logs-viewer";
 import { useServiceLogs } from "../../hooks/use-service-logs";
 import { LogsFilterToolbar } from "../logs-header/logs-filter-toolbar";
 import { ILog } from "../../models/log.model";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 // UI: New Data Available Indicator
-const NewDataAvailableIndicator = ({ onBottomClick }: { onBottomClick: () => void }) => (
+const NewDataAvailableIndicator = ({ onBottomClick }: { onBottomClick: () => void }) => {
+  const { t } = useT("data.console");
+  return (
   <button
     type="button"
     className="absolute bottom-4 left-1/2 inline-flex h-9 -translate-x-1/2 cursor-pointer items-center justify-center whitespace-nowrap rounded-sm bg-primary px-4 py-2 text-sm font-medium text-primary-foreground ring-offset-background transition-colors hover:bg-primary/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -20,9 +23,10 @@ const NewDataAvailableIndicator = ({ onBottomClick }: { onBottomClick: () => voi
       onBottomClick();
     }}
   >
-    New logs available
+    {t("LOGS_LIST.NEW_LOGS_AVAILABLE")}
   </button>
 );
+};
 
 // UI: Loading Indicator for Older Data
 const OldDataFetchingIndicator = () => (

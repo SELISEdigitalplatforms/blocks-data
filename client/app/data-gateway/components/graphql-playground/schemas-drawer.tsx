@@ -21,6 +21,7 @@ import {
 import { EMPTY_QUERY_FIELD_NAME } from "@/data-gateway/utils/graphql-constants";
 import { Boxes, Check, ChevronDown, ChevronRight, FilePenLine, Loader, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface CategorizedSchema {
   queries: SchemaField[];
@@ -332,6 +333,7 @@ function OperationField({
   operationType: "query" | "mutation";
   onUseQuery?: (query: string) => void;
 }) {
+  const { t: tx } = useT("data.gateway.schema");
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
   const returnBaseName = resolveBaseTypeName(field.type);
@@ -376,12 +378,12 @@ function OperationField({
               ? "text-emerald-400"
               : "text-muted-foreground hover:text-primary",
           )}
-          title="Use in Query Editor"
+          title={tx("SCHEMAS_DRAWER.USE_IN_QUERY_EDITOR")}
         >
           {isCopied ? (
             <span className="flex items-center gap-1">
               <Check className="h-3.5 w-3.5" />
-              <span className="text-[11px] font-medium">Done!</span>
+              <span className="text-[11px] font-medium">{tx("SCHEMAS_DRAWER.DONE")}</span>
             </span>
           ) : (
             <FilePenLine className="h-3.5 w-3.5" />
@@ -396,7 +398,7 @@ function OperationField({
           {field.args.length > 0 && (
             <div>
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Arguments
+                {tx("SCHEMAS_DRAWER.ARGUMENTS")}
               </p>
               <div className="space-y-0.5">
                 {field.args.map((arg) => {
@@ -428,7 +430,7 @@ function OperationField({
             <div>
               <div className="mb-1.5 flex flex-wrap items-baseline gap-1.5">
                 <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  Returns:
+                  {tx("SCHEMAS_DRAWER.RETURNS")}
                 </span>
                 <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
                   {resolveTypeName(field.type)}
@@ -450,6 +452,7 @@ export function SchemasDrawer({
   isLoading,
   onUseQuery,
 }: SchemasDrawerProps) {
+  const { t: tx } = useT("data.gateway.schema");
   const [searchQuery, setSearchQuery] = useState("");
 
   const typeMap = useMemo(() => {
@@ -537,13 +540,13 @@ export function SchemasDrawer({
           <div className="relative flex shrink-0 items-center justify-between gap-4 border-b border-border/40 px-6 py-4">
             <DrawerTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <Boxes className="h-4 w-4 text-indigo-400" />
-              Schemas
+              {tx("SCHEMAS_DRAWER.SCHEMAS")}
             </DrawerTitle>
             <DrawerClose asChild>
               <button
                 type="button"
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-                aria-label="Close schemas drawer"
+                aria-label={tx("SCHEMAS_DRAWER.CLOSE_SCHEMAS_DRAWER")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -555,7 +558,7 @@ export function SchemasDrawer({
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search types, fields..."
+                placeholder={tx("SCHEMAS_DRAWER.SEARCH_TYPES_FIELDS")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-8 border-border/40 bg-muted/10 pl-9 text-xs placeholder:text-muted-foreground focus-visible:border-primary/40 focus-visible:ring-primary/20"
@@ -565,17 +568,19 @@ export function SchemasDrawer({
 
           {/* Content */}
           <ScrollArea className="relative flex-1">
-            {isLoading ? (
+            {isLoading && (
               <div className="flex items-center justify-center py-16">
                 <Loader className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
-            ) : !filtered ? (
+            )}
+            {!isLoading && !filtered && (
               <div className="py-16 text-center text-xs text-muted-foreground">
-                No schema data available
+                {tx("SCHEMAS_DRAWER.NO_SCHEMA_DATA_AVAILABLE")}
               </div>
-            ) : (
+            )}
+            {!isLoading && filtered && (
               <div className="py-2">
-                <CollapsibleSection title="Queries" count={filtered.queries.length}>
+                <CollapsibleSection title={tx("SCHEMAS_DRAWER.QUERIES")} count={filtered.queries.length}>
                   {filtered.queries.map((field) => (
                     <OperationField
                       key={field.name}
@@ -587,7 +592,7 @@ export function SchemasDrawer({
                   ))}
                 </CollapsibleSection>
 
-                <CollapsibleSection title="Mutations" count={filtered.mutations.length}>
+                <CollapsibleSection title={tx("SCHEMAS_DRAWER.MUTATIONS")} count={filtered.mutations.length}>
                   {filtered.mutations.map((field) => (
                     <OperationField
                       key={field.name}
@@ -599,32 +604,32 @@ export function SchemasDrawer({
                   ))}
                 </CollapsibleSection>
 
-                <CollapsibleSection title="Types" count={filtered.objectTypes.length}>
+                <CollapsibleSection title={tx("SCHEMAS_DRAWER.TYPES")} count={filtered.objectTypes.length}>
                   {filtered.objectTypes.map((type) => (
                     <ExpandableType key={type.name} type={type} typeMap={typeMap} />
                   ))}
                 </CollapsibleSection>
 
-                <CollapsibleSection title="Result Types" count={filtered.resultTypes.length}>
+                <CollapsibleSection title={tx("SCHEMAS_DRAWER.RESULT_TYPES")} count={filtered.resultTypes.length}>
                   {filtered.resultTypes.map((type) => (
                     <ExpandableType key={type.name} type={type} typeMap={typeMap} />
                   ))}
                 </CollapsibleSection>
 
-                <CollapsibleSection title="Input Types" count={filtered.inputTypes.length}>
+                <CollapsibleSection title={tx("SCHEMAS_DRAWER.INPUT_TYPES")} count={filtered.inputTypes.length}>
                   {filtered.inputTypes.map((type) => (
                     <ExpandableType key={type.name} type={type} typeMap={typeMap} />
                   ))}
                 </CollapsibleSection>
 
-                <CollapsibleSection title="Enums" count={filtered.enums.length} defaultOpen={false}>
+                <CollapsibleSection title={tx("SCHEMAS_DRAWER.ENUMS")} count={filtered.enums.length} defaultOpen={false}>
                   {filtered.enums.map((type) => (
                     <ExpandableType key={type.name} type={type} typeMap={typeMap} />
                   ))}
                 </CollapsibleSection>
 
                 <CollapsibleSection
-                  title="Scalars"
+                  title={tx("SCHEMAS_DRAWER.SCALARS")}
                   count={filtered.scalars.length}
                   defaultOpen={false}
                 >

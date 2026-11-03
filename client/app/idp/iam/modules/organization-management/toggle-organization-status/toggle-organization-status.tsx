@@ -12,6 +12,7 @@ import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { useProjectStore } from "@/store/use-project-store";
 import { IOrganization } from "@blocks-idp/iam/models/organization";
 import { useSaveOrganization } from "@blocks-idp/iam/hooks/use-organization";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type ToggleOrganizationStatusProps = {
   organization: IOrganization;
@@ -22,13 +23,15 @@ export const ToggleOrganizationStatus = ({
   organization,
   onClose,
 }: ToggleOrganizationStatusProps) => {
+  const { t } = useT("data.idp.iam");
   const { mutateAsync, isPending } = useSaveOrganization();
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
 
   const isEnabling = !organization.isEnable;
-  const action = isEnabling ? "enable" : "disable";
-  const actionLabel = isEnabling ? "Enable" : "Disable";
-  const actioningLabel = isEnabling ? "Enabling..." : "Disabling...";
+  const actionLabel = isEnabling
+    ? t("TOGGLE_ORGANIZATION_STATUS.ENABLE")
+    : t("TOGGLE_ORGANIZATION_STATUS.DISABLE");
+  const actioningLabel = isEnabling ? t("TOGGLE_ORGANIZATION_STATUS.ENABLING") : t("TOGGLE_ORGANIZATION_STATUS.DISABLING");
 
   const handleConfirm = async () => {
     try {
@@ -43,7 +46,7 @@ export const ToggleOrganizationStatus = ({
         return;
       }
       showSuccessToast({
-        description: `Organization ${isEnabling ? "enabled" : "disabled"} successfully`,
+        description: t(isEnabling ? "TOGGLE_ORGANIZATION_STATUS.ORGANIZATION_ENABLED_SUCCESSFULLY" : "TOGGLE_ORGANIZATION_STATUS.ORGANIZATION_DISABLED_SUCCESSFULLY"),
       });
       onClose();
     } catch (error: unknown) {
@@ -56,17 +59,21 @@ export const ToggleOrganizationStatus = ({
   return (
     <DialogContent>
       <DialogHeader className="mb-4">
-        <DialogTitle>{actionLabel} Organization</DialogTitle>
+        <DialogTitle>
+          {t(isEnabling ? "TOGGLE_ORGANIZATION_STATUS.ENABLE_ORGANIZATION" : "TOGGLE_ORGANIZATION_STATUS.DISABLE_ORGANIZATION")}
+        </DialogTitle>
         <DialogDescription>
-          Are you sure you want to {action} the organization &quot;{organization.name}&quot;?
-          {!isEnabling && " This will make it inactive."}
-          {isEnabling && " This will make it active again."}
+          {t(isEnabling ? "TOGGLE_ORGANIZATION_STATUS.ARE_YOU_SURE_YOU_WANT_TO_ENABLE" : "TOGGLE_ORGANIZATION_STATUS.ARE_YOU_SURE_YOU_WANT_TO_DISABLE", {
+            name: organization.name,
+          })}
+          {!isEnabling && ` ${t("TOGGLE_ORGANIZATION_STATUS.THIS_WILL_MAKE_IT_INACTIVE")}`}
+          {isEnabling && ` ${t("TOGGLE_ORGANIZATION_STATUS.THIS_WILL_MAKE_IT_ACTIVE_AGAIN")}`}
         </DialogDescription>
       </DialogHeader>
       <DialogFooter className="mt-6">
         <DialogTrigger asChild>
           <Button className="min-w-[80px]" variant="outline" disabled={isPending}>
-            Cancel
+            {t("common:CANCEL")}
           </Button>
         </DialogTrigger>
         <Button

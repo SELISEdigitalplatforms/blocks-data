@@ -1,7 +1,10 @@
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_CONSOLE_MODULE = "data.console";
 export const LOG_LEVEL = {
-  Information: "Information",
-  Warning: "Warning",
-  Error: "Error",
+  get Information() { return tStatic(DATA_CONSOLE_MODULE, "LOG_DISPLAY.INFORMATION"); },
+  get Warning() { return tStatic(DATA_CONSOLE_MODULE, "LOG_DISPLAY.WARNING"); },
+  get Error() { return tStatic(DATA_CONSOLE_MODULE, "common:ERROR"); },
 } as const;
 
 export const getLogFormatTimestamp = (timestamp: string) => {

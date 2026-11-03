@@ -1,4 +1,5 @@
 import { ISchemaDetails } from "../models/data-service";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 /**
  * How a schema's drafts differ from what the live version serves:
@@ -10,8 +11,8 @@ import { ISchemaDetails } from "../models/data-service";
 export type SchemaLiveState = "not-live" | "unpublished" | null;
 
 export const SCHEMA_LIVE_STATE_LABELS: Record<Exclude<SchemaLiveState, null>, string> = {
-  "not-live": "Not live",
-  unpublished: "Unpublished changes",
+  get "not-live"() { return tStatic("data.gateway.schema", "SCHEMA_LIVE_STATE.NOT_LIVE"); },
+  get unpublished() { return tStatic("data.gateway.schema", "SCHEMA_LIVE_STATE.UNPUBLISHED_CHANGES"); },
 };
 
 export function schemaLiveState(

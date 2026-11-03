@@ -5,6 +5,7 @@ import { PERMISSION_SEVERITY_OPTIONS, ResourceType } from "@blocks-idp/iam/model
 import { BadgeAlert, BadgeCheck } from "lucide-react";
 import { useMemo } from "react";
 import { PermissionState, useRoleDetailsStore } from "./role-details-state";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type PermissionToggleCardProps = {
   permission: PermissionState;
@@ -23,6 +24,7 @@ export const PermissionToggleCard = ({
   hasDependentPermissions,
   isAllDependentPermissionsChecked,
 }: PermissionToggleCardProps) => {
+  const { t } = useT("data.idp.iam");
   const isEditMode = useRoleDetailsStore((state) => state.isEditMode);
   const permissionSeverity = useMemo(() => {
     return PERMISSION_SEVERITY_OPTIONS.find((option) => option.value === permission.permissionSeverity);
@@ -61,15 +63,15 @@ export const PermissionToggleCard = ({
                 </TooltipTrigger>
                 <TooltipContent side="right">
                   {isAllDependentPermissionsChecked
-                    ? "All dependent permissions are selected"
-                    : "One or more dependent permissions are missing"}
+                    ? t("PERMISSION_TOGGLE_CARD.ALL_DEPENDENT_PERMISSIONS_ARE_SELECTED")
+                    : t("PERMISSION_TOGGLE_CARD.ONE_OR_MORE_DEPENDENT_PERMISSIONS_ARE")}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
             )}
           </div>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {permission.description || "No description available."}
+            {permission.description || t("PERMISSION_TOGGLE_CARD.NO_DESCRIPTION_AVAILABLE")}
           </p>
         </div>
         <div className="md:self-center space-x-2">

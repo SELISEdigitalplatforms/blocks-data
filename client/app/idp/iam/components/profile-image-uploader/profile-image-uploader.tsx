@@ -10,10 +10,12 @@ import { isErrorWithErrors } from "@/lib/error";
 
 const emptyProfilePhoto = "/assets/images/empty-profile-photo.png";
 import { ModuleName } from "@/constants/modules.constants";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type ProfileImageUploaderProps = { projectKey: string; id: string };
 
 export const ProfileImageUploader = ({ projectKey, id }: ProfileImageUploaderProps) => {
+  const { t } = useT("data.idp.iam");
   const [image, setImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { data } = useGetUserById({ id, projectKey });
@@ -60,12 +62,12 @@ export const ProfileImageUploader = ({ projectKey, id }: ProfileImageUploaderPro
         profileImageUrl: userProfileFile.url,
       });
       if (!updatedUser.isSuccess) return showErrorToast({ errors: updatedUser.errors });
-      showSuccessToast({ description: "Profile pic updated successfully" });
+      showSuccessToast({ description: t("PROFILE_IMAGE_UPLOADER.PROFILE_PIC_UPDATED_SUCCESSFULLY") });
     } catch (error) {
       if (isErrorWithErrors(error)) {
         return showErrorToast({ errors: error.errors });
       }
-      return showErrorToast({ errors: "Something wen wrong" });
+      return showErrorToast({ errors: t("PROFILE_IMAGE_UPLOADER.SOMETHING_WEN_WRONG") });
     } finally {
       setIsProfileImageUploading(false);
     }
@@ -88,16 +90,18 @@ export const ProfileImageUploader = ({ projectKey, id }: ProfileImageUploaderPro
     if (!ALLOWED_TYPES.includes(selectedFile.type)) {
       event.target.value = "";
       return showErrorToast({
-        errors: "Only image files (PNG, JPG, GIF, WebP, and SVG) are allowed",
+        errors: t("PROFILE_IMAGE_UPLOADER.ONLY_IMAGE_FILES_PNG_JPG_GIF"),
       });
     }
 
     if (selectedFile.size > MAX_SIZE_MB * 1024 * 1024) {
       event.target.value = "";
-      return showErrorToast({ errors: `File size must be less than ${MAX_SIZE_MB}MB` });
+      return showErrorToast({ errors: t("PROFILE_IMAGE_UPLOADER.FILE_SIZE_MUST_BE_LESS_THAN", { size: MAX_SIZE_MB }) });
     }
 
-    setImage(URL.createObjectURL(selectedFile)); // Generate preview
+    // The preview is the file's own object URL; only a blob: URL is ever used as the image source.
+    const preview = new URL(URL.createObjectURL(selectedFile));
+    if (preview.protocol === "blob:") setImage(preview.href);
     uploadImage(selectedFile);
     event.target.value = "";
   };
@@ -109,7 +113,7 @@ export const ProfileImageUploader = ({ projectKey, id }: ProfileImageUploaderPro
           <>
             <img
               src={image}
-              alt="Profile Image"
+              alt={t("PROFILE_IMAGE_UPLOADER.PROFILE_IMAGE")}
              
              
               className="rounded-full object-cover"
@@ -121,7 +125,7 @@ export const ProfileImageUploader = ({ projectKey, id }: ProfileImageUploaderPro
         ) : (
           <img
             src={emptyProfilePhoto}
-            alt="Empty Profile Image"
+            alt={t("PROFILE_IMAGE_UPLOADER.EMPTY_PROFILE_IMAGE")}
            
             className="rounded-full object-cover"
           />
@@ -143,7 +147,7 @@ export const ProfileImageUploader = ({ projectKey, id }: ProfileImageUploaderPro
         }}
       >
         <Camera className="h-5 w-5" />
-        <span className="ml-2.5">Change Image</span>
+        <span className="ml-2.5">{t("PROFILE_IMAGE_UPLOADER.CHANGE_IMAGE")}</span>
       </Button>
     </div>
   );

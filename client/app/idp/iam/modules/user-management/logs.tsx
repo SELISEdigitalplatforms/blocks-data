@@ -1,10 +1,12 @@
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { LogsViewer } from "@/service-logs";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export function IamLogs() {
+  const { t } = useT("data.idp.iam");
   setBreadcrumbTitle("/services/iam", "IAM");
-  setBreadcrumbTitle("/services/iam/logs", "Logs");
+  setBreadcrumbTitle("/services/iam/logs", t("LOGS.LOGS"));
 
   return (
     <div>
@@ -18,14 +20,14 @@ export function IamLogs() {
           },
           {
             id: "blocks-idp-worker",
-            label: "Worker",
+            label: t("LOGS.WORKER"),
             serviceName: "blocks-idp-worker",
           },
         ]}
         predefinedQueries={[
-          "Show recent IAM user-management errors.",
-          "Were there unusual permission or role update failures today?",
-          "Any spikes in user provisioning issues over the last 24 hours?",
+          t("LOGS.SHOW_RECENT_IAM_USER_MANAGEMENT_ERRORS"),
+          t("LOGS.WERE_THERE_UNUSUAL_PERMISSION_OR_ROLE"),
+          t("LOGS.ANY_SPIKES_IN_USER_PROVISIONING_ISSUES"),
         ]}
       />
     </div>

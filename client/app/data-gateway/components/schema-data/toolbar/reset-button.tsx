@@ -2,6 +2,7 @@
 
 import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface ResetButtonProps {
   isActive: boolean;
@@ -9,6 +10,7 @@ interface ResetButtonProps {
 }
 
 export function ResetButton({ isActive, onReset }: ResetButtonProps) {
+  const { t } = useT("data.gateway.schema");
   if (!isActive) return null;
 
   return (
@@ -18,10 +20,10 @@ export function ResetButton({ isActive, onReset }: ResetButtonProps) {
       size="sm"
       className="h-8 gap-1.5 px-2 text-xs text-muted-foreground"
       onClick={onReset}
-      title="Reset all filters"
+      title={t("RESET_BUTTON.RESET_ALL_FILTERS")}
     >
       <RotateCcw className="h-3.5 w-3.5" />
-      Reset
+      {t("common:RESET")}
     </Button>
   );
 }

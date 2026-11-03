@@ -41,6 +41,7 @@ import {
   formatRelativeTime,
   formatSize,
 } from "./graph-log-formatters";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const ALL = "all";
 const STATUS_CODES = [200, 201, 204, 400, 401, 403, 404, 409, 422, 429, 500, 502, 503, 504];
@@ -61,6 +62,7 @@ const SortableTableHead = ({
   descending: boolean;
   onSort: (field: GraphLogHistorySort) => void;
 }) => {
+  const { t } = useT("data.gateway.analytics");
   const active = field === activeField;
   const Icon = active ? (descending ? ArrowDown : ArrowUp) : ArrowUpDown;
 
@@ -70,7 +72,7 @@ const SortableTableHead = ({
         type="button"
         className="group inline-flex items-center gap-1.5 whitespace-nowrap font-medium hover:text-foreground"
         onClick={() => onSort(field)}
-        aria-label={`Sort by ${label}`}
+        aria-label={t("GRAPH_LOG_HISTORY.SORT_BY_LABEL", { label })}
       >
         {label}
         <Icon
@@ -100,6 +102,7 @@ export const GraphLogHistory = ({
   utcOffsetMinutes = -new Date().getTimezoneOffset(),
   includeBlocksConsole = false,
 }: GraphLogHistoryProps) => {
+  const { t } = useT("data.gateway.analytics");
   const [pageNo, setPageNo] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [operationType, setOperationType] = useState<GraphLogOperationType | typeof ALL>(ALL);
@@ -147,13 +150,13 @@ export const GraphLogHistory = ({
   useEffect(() => {
     if (isError) {
       showErrorToast({
-        title: "Couldn't load request history",
+        title: t("GRAPH_LOG_HISTORY.COULDN_T_LOAD_REQUEST_HISTORY"),
         errors: [
-          error instanceof Error ? error.message : "Something went wrong. Please try again.",
+          error instanceof Error ? error.message : t("GRAPH_LOG_HISTORY.SOMETHING_WENT_WRONG_PLEASE_TRY_AGAIN"),
         ],
       });
     }
-  }, [isError, error]);
+  }, [isError, error, t]);
 
   const items = useMemo(() => data?.data?.items ?? [], [data?.data?.items]);
   const totalCount = data?.data?.totalCount ?? 0;
@@ -161,7 +164,7 @@ export const GraphLogHistory = ({
 
   return (
     <>
-      <AnalyticsCard icon={History} title="Request log" contentClassName="flex flex-col gap-4 p-0">
+      <AnalyticsCard icon={History} title={t("GRAPH_LOG_HISTORY.REQUEST_LOG")} contentClassName="flex flex-col gap-4 p-0">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 pt-5">
           <span className="text-sm text-muted-foreground">
             {totalCount} {totalCount === 1 ? "request" : "requests"}
@@ -174,13 +177,13 @@ export const GraphLogHistory = ({
                 setPageNo(1);
               }}
             >
-              <SelectTrigger className="h-8 w-[130px] text-xs" aria-label="Operation type">
+              <SelectTrigger className="h-8 w-[130px] text-xs" aria-label={t("GRAPH_LOG_HISTORY.OPERATION_TYPE")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>All types</SelectItem>
-                <SelectItem value="query">Query</SelectItem>
-                <SelectItem value="mutation">Mutation</SelectItem>
+                <SelectItem value={ALL}>{t("GRAPH_LOG_HISTORY.ALL_TYPES")}</SelectItem>
+                <SelectItem value="query">{t("GRAPH_LOG_HISTORY.QUERY")}</SelectItem>
+                <SelectItem value="mutation">{t("GRAPH_LOG_HISTORY.MUTATION")}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -191,14 +194,14 @@ export const GraphLogHistory = ({
                 setPageNo(1);
               }}
             >
-              <SelectTrigger className="h-8 w-[130px] text-xs" aria-label="Response status">
+              <SelectTrigger className="h-8 w-[130px] text-xs" aria-label={t("GRAPH_LOG_HISTORY.RESPONSE_STATUS")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>All statuses</SelectItem>
-                <SelectItem value="allowed">Allowed</SelectItem>
-                <SelectItem value="denied">Denied</SelectItem>
-                <SelectItem value="error">Error</SelectItem>
+                <SelectItem value={ALL}>{t("GRAPH_LOG_HISTORY.ALL_STATUSES")}</SelectItem>
+                <SelectItem value="allowed">{t("GRAPH_LOG_HISTORY.ALLOWED")}</SelectItem>
+                <SelectItem value="denied">{t("GRAPH_LOG_HISTORY.DENIED")}</SelectItem>
+                <SelectItem value="error">{t("common:ERROR")}</SelectItem>
               </SelectContent>
             </Select>
 
@@ -209,11 +212,11 @@ export const GraphLogHistory = ({
                 setPageNo(1);
               }}
             >
-              <SelectTrigger className="h-8 w-[120px] text-xs" aria-label="Status code">
+              <SelectTrigger className="h-8 w-[120px] text-xs" aria-label={t("GRAPH_LOG_HISTORY.STATUS_CODE")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>All codes</SelectItem>
+                <SelectItem value={ALL}>{t("GRAPH_LOG_HISTORY.ALL_CODES")}</SelectItem>
                 {STATUS_CODES.map((code) => (
                   <SelectItem key={code} value={String(code)}>
                     {code}
@@ -229,11 +232,11 @@ export const GraphLogHistory = ({
                 setPageNo(1);
               }}
             >
-              <SelectTrigger className="h-8 w-[150px] text-xs" aria-label="Failure reason">
+              <SelectTrigger className="h-8 w-[150px] text-xs" aria-label={t("GRAPH_LOG_HISTORY.FAILURE_REASON")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>All reasons</SelectItem>
+                <SelectItem value={ALL}>{t("GRAPH_LOG_HISTORY.ALL_REASONS")}</SelectItem>
                 {Object.entries(FAILURE_KIND_LABELS).map(([kind, label]) => (
                   <SelectItem key={kind} value={kind}>
                     {label}
@@ -254,14 +257,14 @@ export const GraphLogHistory = ({
               <TableRow>
                 {(
                   [
-                    ["time", "Time"],
-                    ["schema", "Schema"],
-                    ["type", "Type"],
-                    ["status", "Status"],
-                    ["code", "Code"],
-                    ["duration", "Duration"],
-                    ["size", "Size"],
-                    ["source", "Source"],
+                    ["time", t("GRAPH_LOG_HISTORY.TIME")],
+                    ["schema", t("GRAPH_LOG_HISTORY.SCHEMA")],
+                    ["type", t("common:TYPE")],
+                    ["status", t("common:STATUS")],
+                    ["code", t("GRAPH_LOG_HISTORY.CODE")],
+                    ["duration", t("GRAPH_LOG_HISTORY.DURATION")],
+                    ["size", t("GRAPH_LOG_HISTORY.SIZE")],
+                    ["source", t("GRAPH_LOG_HISTORY.SOURCE")],
                   ] as const
                 ).map(([field, label]) => (
                   <SortableTableHead
@@ -280,8 +283,8 @@ export const GraphLogHistory = ({
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground">
                     {isError
-                      ? "Couldn't load data. Please try again."
-                      : "No requests in this range."}
+                      ? t("GRAPH_LOG_HISTORY.COULDN_T_LOAD_DATA_PLEASE_TRY")
+                      : t("GRAPH_LOG_HISTORY.NO_REQUESTS_IN_THIS_RANGE")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -307,7 +310,7 @@ export const GraphLogHistory = ({
                       <TableCell className="font-medium">
                         {item.schemaName ||
                           (item.isIntrospection ? (
-                            <span className="italic text-muted-foreground">introspection</span>
+                            <span className="italic text-muted-foreground">{t("GRAPH_LOG_HISTORY.INTROSPECTION")}</span>
                           ) : (
                             "—"
                           ))}
@@ -334,7 +337,7 @@ export const GraphLogHistory = ({
                         {formatSize(item.responseSize)}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {item.inAppRequest ? "In-app" : "Blocks Console"}
+                        {item.inAppRequest ? t("GRAPH_LOG_HISTORY.IN_APP") : t("GRAPH_LOG_HISTORY.BLOCKS_CONSOLE")}
                       </TableCell>
                     </TableRow>
                   );

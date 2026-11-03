@@ -16,8 +16,10 @@ import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import { Wrench } from "lucide-react";
 import { useGetSignUpSetting, useSaveSignUpSetting } from "@blocks-idp/iam/hooks/use-user";
 import { useProjectStore } from "@/store/use-project-store";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const SignupSettings = () => {
+  const { t } = useT("data.idp.iam");
   const [open, setOpen] = useState(false);
   const [allowSignup, setAllowSignup] = useState(false);
   const [emailPassword, setEmailPassword] = useState(false);
@@ -70,14 +72,14 @@ export const SignupSettings = () => {
       <DialogTrigger asChild>
         <Button variant="outline">
             <Wrench className="mr-2 aspect-square w-4" />
-            <span>Signup Settings</span>
+            <span>{t("SIGNUP_SETTINGS.SIGNUP_SETTINGS")}</span>
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Signup Settings</DialogTitle>
+          <DialogTitle>{t("SIGNUP_SETTINGS.SIGNUP_SETTINGS")}</DialogTitle>
           <DialogDescription>
-            Configure signup settings for users.
+            {t("SIGNUP_SETTINGS.CONFIGURE_SIGNUP_SETTINGS_FOR_USERS")}
           </DialogDescription>
         </DialogHeader>
 
@@ -92,7 +94,7 @@ export const SignupSettings = () => {
               htmlFor="allow-signup"
               className="text-sm font-medium leading-none cursor-pointer"
             >
-              Allow signup
+              {t("SIGNUP_SETTINGS.ALLOW_SIGNUP")}
             </label>
           </div>
           
@@ -111,7 +113,7 @@ export const SignupSettings = () => {
                     allowSignup ? "cursor-pointer" : "text-muted-foreground cursor-not-allowed"
                   }`}
                 >
-                  Email and password
+                  {t("SIGNUP_SETTINGS.EMAIL_AND_PASSWORD")}
                 </label>
               </div>
               <div className="flex items-center space-x-2">
@@ -127,7 +129,7 @@ export const SignupSettings = () => {
                     allowSignup ? "cursor-pointer" : "text-muted-foreground cursor-not-allowed"
                   }`}
                 >
-                  SSO
+                  {t("SIGNUP_SETTINGS.SSO")}
                 </label>
               </div>
             </div>
@@ -136,10 +138,10 @@ export const SignupSettings = () => {
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">{t("common:CANCEL")}</Button>
           </DialogClose>
           <Button onClick={submitHandler} disabled={isSaveDisabled}>
-            {isPending ? "Saving..." : "Save"}
+            {isPending ? t("SIGNUP_SETTINGS.SAVING") : t("common:SAVE")}
           </Button>
         </DialogFooter>
       </DialogContent>

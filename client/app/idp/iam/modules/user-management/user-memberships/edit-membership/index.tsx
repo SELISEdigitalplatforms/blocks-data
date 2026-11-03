@@ -12,6 +12,7 @@ import { RemoveMembership } from "../remove-membership";
 import { MembershipPermissionsTab } from "./membership-permission-tab";
 import { MembershipRolesTab } from "./membership-role-tab";
 import { MembershipFooter } from "./membership-footer";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type EditMembershipProps = {
   open: boolean;
@@ -30,6 +31,7 @@ export const EditMembership = ({
   userId,
   projectKey,
 }: EditMembershipProps) => {
+  const { t } = useT("data.idp.iam");
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState("roles");
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
@@ -153,13 +155,13 @@ export const EditMembership = ({
         return;
       }
 
-      showSuccessToast({ description: "Membership updated successfully" });
+      showSuccessToast({ description: t("EDIT_MEMBERSHIP.MEMBERSHIP_UPDATED_SUCCESSFULLY") });
       setIsEditing(false);
     } catch (error) {
       if (isErrorWithErrors(error)) {
         showErrorToast({ errors: error.errors });
       } else {
-        showErrorToast({ errors: "Something went wrong" });
+        showErrorToast({ errors: t("EDIT_MEMBERSHIP.SOMETHING_WENT_WRONG") });
       }
     }
   };
@@ -202,8 +204,8 @@ export const EditMembership = ({
             className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto"
           >
             <TabsList className="w-fit">
-              <TabsTrigger value="roles">Roles</TabsTrigger>
-              <TabsTrigger value="permissions">Permissions</TabsTrigger>
+              <TabsTrigger value="roles">{t("EDIT_MEMBERSHIP.ROLES")}</TabsTrigger>
+              <TabsTrigger value="permissions">{t("EDIT_MEMBERSHIP.PERMISSIONS")}</TabsTrigger>
             </TabsList>
 
             <MembershipRolesTab

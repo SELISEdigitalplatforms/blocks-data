@@ -1,6 +1,7 @@
 import { FilterToolbar, useSortQueryParams } from "@/components/filter-toolbar";
 
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type RolesFilter = {
   search: string;
@@ -15,14 +16,17 @@ export const useRolesFilterQueryParams = () => {
   return { queryParams, setQueryParams };
 };
 export const useRolesSortQueryParams = () =>
-  useSortQueryParams({
+  {
+  return (useSortQueryParams({
     initial: {
       property: "Name",
       isDescending: false,
     },
-  });
+  }));
+};
 
 export const RolesFilterToolBar = () => {
+  const { t } = useT("data.idp.iam");
   const {
     queryParams: { search },
     setQueryParams,
@@ -37,7 +41,7 @@ export const RolesFilterToolBar = () => {
 
   return (
     <FilterToolbar<RolesFilter>
-      filters={[{ key: "search", type: "SearchInput", label: "Search" }]}
+      filters={[{ key: "search", type: "SearchInput", label: t("common:SEARCH") }]}
       values={{ search: search }}
       defaultValues={{ search: "" }}
       onChange={changeHandler}

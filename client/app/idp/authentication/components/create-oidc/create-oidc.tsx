@@ -35,6 +35,7 @@ import { useGetPreSignedUrlForUpload, useUploadFile } from "@/storage/hooks/use-
 import { storageService } from "@/storage/services/storage.service";
 import { ColorSwatch } from "@/components/color-swatch/color-swatch";
 import { ModuleName } from "@/constants/modules.constants";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type CreateOIDCProps = {
   itemId?: string;
@@ -42,6 +43,7 @@ type CreateOIDCProps = {
 };
 
 export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCProps) => {
+  const { t } = useT("data.idp.authentication");
   const [open, setOpen] = useState<boolean>(false);
   const [clientLogoUrl, setClientLogoUrl] = useState<string>("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -67,10 +69,10 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
   } = form;
 
   const isEditMode = !!itemId;
-  const dialogTitle = isEditMode ? "Edit OIDC Client" : "New OIDC Client";
+  const dialogTitle = isEditMode ? t("CREATE_OIDC.EDIT_OIDC_CLIENT") : t("CREATE_OIDC.NEW_OIDC_CLIENT");
   const dialogDescription = isEditMode
-    ? "Update OIDC client details"
-    : "Enter details to create a new key";
+    ? t("CREATE_OIDC.UPDATE_OIDC_CLIENT_DETAILS")
+    : t("CREATE_OIDC.ENTER_DETAILS_TO_CREATE_A_NEW");
 
   useEffect(() => {
     if (isEditMode && existingOidc?.oIDCClientCredential && open) {
@@ -129,14 +131,14 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
       !allowedExtensions.some((ext) => fileName.endsWith(ext))
     ) {
       showErrorToast({
-        errors: "Invalid file type. Only JPG, JPEG, PNG, GIF, and WEBP files are allowed.",
+        errors: t("CREATE_OIDC.INVALID_FILE_TYPE_ONLY_JPG_JPEG"),
       });
       e.target.value = "";
       return;
     }
 
     if (file.size > MAX_LOGO_FILE_SIZE) {
-      showErrorToast({ errors: "Image size must be under 5 MB." });
+      showErrorToast({ errors: t("CREATE_OIDC.IMAGE_SIZE_MUST_BE_UNDER_5") });
       e.target.value = "";
       return;
     }
@@ -166,10 +168,10 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
 
       setClientLogoUrl(fileInfo.url);
 
-      showSuccessToast({ description: "Logo uploaded successfully" });
+      showSuccessToast({ description: t("CREATE_OIDC.LOGO_UPLOADED_SUCCESSFULLY") });
     } catch (err: unknown) {
       if (isErrorWithErrors(err)) return showErrorToast({ errors: err.errors });
-      showErrorToast({ errors: "Something went wrong uploading logo" });
+      showErrorToast({ errors: t("CREATE_OIDC.SOMETHING_WENT_WRONG_UPLOADING_LOGO") });
     } finally {
       setIsUploadingImage(false);
       e.target.value = "";
@@ -194,13 +196,13 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
 
       if (!res.isSuccess) return showErrorToast({ errors: res.error });
       const message = isEditMode
-        ? "OIDC Client updated successfully"
-        : "OIDC Client created successfully";
+        ? t("CREATE_OIDC.OIDC_CLIENT_UPDATED_SUCCESSFULLY")
+        : t("CREATE_OIDC.OIDC_CLIENT_CREATED_SUCCESSFULLY");
       showSuccessToast({ description: message });
       setOpen(false);
     } catch (error) {
       if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
-      return showErrorToast({ errors: "Something went wrong" });
+      return showErrorToast({ errors: t("CREATE_OIDC.SOMETHING_WENT_WRONG") });
     } finally {
       form.reset();
       setClientLogoUrl("");
@@ -217,7 +219,7 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
         ) : (
           <Button>
             <Plus className="aspect-square w-4" />
-            <span className="sr-only sm:not-sr-only sm:ml-2">Create</span>
+            <span className="sr-only sm:not-sr-only sm:ml-2">{t("common:CREATE")}</span>
           </Button>
         )}
       </DialogTrigger>
@@ -232,7 +234,7 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
               <div className="flex flex-col items-center gap-4">
                 <div className="relative h-32 w-32 overflow-hidden rounded-lg border border-dashed border-border bg-muted">
                   {clientLogoUrl ? (
-                    <img src={clientLogoUrl} alt="OIDC Logo" className="object-cover" />
+                    <img src={clientLogoUrl} alt={t("CREATE_OIDC.OIDC_LOGO")} className="object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center">
                       <Camera className="h-6 w-6 text-muted-foreground" />
@@ -255,7 +257,7 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploadingImage}
                   >
-                    Upload Logo
+                    {t("CREATE_OIDC.UPLOAD_LOGO")}
                   </Button>
                   {clientLogoUrl && (
                     <Button
@@ -264,7 +266,7 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
                       size="sm"
                       onClick={() => setClientLogoUrl("")}
                     >
-                      Remove
+                      {t("common:REMOVE")}
                     </Button>
                   )}
                 </div>
@@ -275,9 +277,9 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
                 name="clientDisplayName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Client Name</FormLabel>
+                    <FormLabel>{t("CREATE_OIDC.CLIENT_NAME")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter client name" {...field} />
+                      <Input placeholder={t("CREATE_OIDC.ENTER_CLIENT_NAME")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -289,7 +291,7 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
                 name="redirectUrlOidc"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Redirect URL</FormLabel>
+                    <FormLabel>{t("CREATE_OIDC.REDIRECT_URL")}</FormLabel>
                     <FormControl>
                       <Input placeholder="https://example.com/oidc" {...field} />
                     </FormControl>
@@ -304,7 +306,7 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
                 name="audienceUrlOidc"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Audience</FormLabel>
+                    <FormLabel>{t("CREATE_OIDC.AUDIENCE")}</FormLabel>
                     <FormControl>
                       <Input placeholder="https://example.com" {...field} />
                     </FormControl>
@@ -319,7 +321,7 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
                 name="clientBrandColor"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Color Theme Picker</FormLabel>
+                    <FormLabel>{t("CREATE_OIDC.COLOR_THEME_PICKER")}</FormLabel>
                     <FormControl>
                       <ColorSwatch value={field.value || "#124091"} onChange={field.onChange} />
                     </FormControl>
@@ -333,12 +335,12 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
                 name="scope"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Scope(s)</FormLabel>
+                    <FormLabel>{t("CREATE_OIDC.SCOPE_S")}</FormLabel>
                     <FormControl>
                       <div className="flex items-center gap-2 rounded border p-4">
                         <Checkbox {...field} id="scope" checked={true} disabled={true} />
                         <label htmlFor="scope" className="cursor-pointer">
-                          OpenID
+                          {t("CREATE_OIDC.OPENID")}
                         </label>
                       </div>
                     </FormControl>
@@ -351,14 +353,14 @@ export const CreateOIDC = ({ itemId, triggerVariant = "default" }: CreateOIDCPro
         </div>
         <DialogFooter>
           <Button onClick={() => setOpen(false)} type="button" variant="outline">
-            Cancel
+            {t("common:CANCEL")}
           </Button>
           <Button
             form="oidc-form"
             type="submit"
             disabled={!isValid || isPending || isLoadingOidc || !isDirty}
           >
-            {isEditMode ? "Update" : "Add"}
+            {isEditMode ? t("common:UPDATE") : t("common:ADD")}
           </Button>
         </DialogFooter>
       </DialogContent>

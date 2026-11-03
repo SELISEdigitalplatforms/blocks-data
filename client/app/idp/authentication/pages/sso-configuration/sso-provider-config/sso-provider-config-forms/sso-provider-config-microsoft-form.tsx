@@ -13,19 +13,23 @@ import { createCommonOAuthFields } from "../sso-provider-config-field-factory.ut
 import { ssoOAuthProviderSchema } from "../sso-provider-config.schema";
 import { SSOProviderConfigFormField } from "./sso-provider-config-form-fields";
 import { SsoConfigForms } from "./sso-provider-config-forms";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+
+function ClientIdHelpLink({ to }: Readonly<{ to: string }>) {
+  const { t } = useT("data.idp.authentication");
+  return (
+    <Link to={to} target="_blank">
+      <Button variant="link" className="h-fit p-0!" type="button">
+        {t("SSO_PROVIDER_CONFIG_FORMS.HOW_TO_OBTAIN_A_CLIENT_ID")}
+      </Button>
+    </Link>
+  );
+}
 
 const SSOMicrosoftFormFields = createCommonOAuthFields({
   clientId: {
     description: (
-      <Link
-        to="https://marketplace.auth0.com/integrations/microsoft-account-social-connection"
-       
-        target="_blank"
-      >
-        <Button variant="link" className="h-fit p-0!" type="button">
-          How to obtain a Client ID?
-        </Button>
-      </Link>
+      <ClientIdHelpLink to="https://marketplace.auth0.com/integrations/microsoft-account-social-connection" />
     ),
   },
 });
@@ -34,6 +38,7 @@ export const SSOProviderConfigMicrosoftForm: React.FC<SsoConfigForms> = ({
   save,
   configuration,
 }) => {
+  const { t } = useT("data.idp.authentication");
   const form = useForm({
     values: configuration || {
       provider: SSO_PROVIDERS.microsoft,
@@ -44,7 +49,7 @@ export const SSOProviderConfigMicrosoftForm: React.FC<SsoConfigForms> = ({
       initialRoles: [],
       initialPermissions: [],
       // Hardcoded default role for now; will use API response later
-      userRoles: [{ name: "user", slug: "user", description: "default role", itemId: "1234" }],
+      userRoles: [{ name: "user", slug: "user", description: t("SSO_PROVIDER_CONFIG_MICROSOFT_FORM.DEFAULT_ROLE"), itemId: "1234" }],
       userPermissions: [],
     },
     resolver: zodResolver(ssoOAuthProviderSchema),
@@ -57,7 +62,7 @@ export const SSOProviderConfigMicrosoftForm: React.FC<SsoConfigForms> = ({
       >
         <Card>
           <CardHeader>
-            <CardTitle>General</CardTitle>
+            <CardTitle>{t("SSO_PROVIDER_CONFIG_MICROSOFT_FORM.GENERAL")}</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <SSOProviderConfigFormField fields={SSOMicrosoftFormFields} form={form} />
@@ -84,7 +89,7 @@ export const SSOProviderConfigMicrosoftForm: React.FC<SsoConfigForms> = ({
         </div>
 
         <div className="flex items-center justify-end gap-2">
-          <Button type="submit">Save</Button>
+          <Button type="submit">{t("common:SAVE")}</Button>
         </div>
       </form>
     </Form>

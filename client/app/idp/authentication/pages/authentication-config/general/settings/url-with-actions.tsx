@@ -3,12 +3,14 @@ import { Button } from "@/components/ui-kits/button/button";
 import { Check, Copy, Download } from "lucide-react";
 import { getApiUrl } from "@/lib/get-api-path";
 import { useProjectStore } from "@/store/use-project-store";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface UrlWithActionsProps {
   url: string;
 }
 
 export const UrlWithActions = ({ url }: UrlWithActionsProps) => {
+  const { t } = useT("data.idp.authentication");
   const [isCopying, setIsCopying] = useState(false);
   const { tenantId } = useProjectStore().selectedProject || { tenantId: "" };
   const jwksUrl = `${getApiUrl("idp/v1", ".well-known/jwks.json")}?X-Blocks-Key=${tenantId}`;
@@ -66,7 +68,7 @@ export const UrlWithActions = ({ url }: UrlWithActionsProps) => {
   return (
     <div className="group flex min-w-0 items-center gap-1">
       <span className="text-base font-normal text-high-emphasis underline" title={jwksUrl}>
-        certificate
+        {t("URL_WITH_ACTIONS.CERTIFICATE")}
       </span>
       <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
         <Button
@@ -74,7 +76,7 @@ export const UrlWithActions = ({ url }: UrlWithActionsProps) => {
           className="h-auto p-1 transition-colors hover:bg-gray-100"
           onClick={handleCopy}
           type="button"
-          title={isCopying ? "Copied!" : "Copy URL"}
+          title={isCopying ? t("URL_WITH_ACTIONS.COPIED") : t("URL_WITH_ACTIONS.COPY_URL")}
         >
           {isCopying ? (
             <Check className="h-4 w-4 text-green-600" />
@@ -87,7 +89,7 @@ export const UrlWithActions = ({ url }: UrlWithActionsProps) => {
           className="h-auto p-1 transition-colors hover:bg-gray-100"
           onClick={handleDownload}
           type="button"
-          title="Download certificate"
+          title={t("URL_WITH_ACTIONS.DOWNLOAD_CERTIFICATE")}
         >
           <Download className="h-4 w-4 text-gray-600 hover:text-gray-800" />
         </Button>

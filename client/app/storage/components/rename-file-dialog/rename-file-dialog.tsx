@@ -16,6 +16,7 @@ import { isErrorWithErrors } from "@/lib/error";
 import { useRenameFile } from "@/storage/hooks/use-dms";
 import { DmsFileItem } from "@/storage/models/dms.model";
 import { LoaderCircle } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export interface RenameFileDialogProps {
   open: boolean;
@@ -30,6 +31,7 @@ export function RenameFileDialog({
   file,
   onDone,
 }: Readonly<RenameFileDialogProps>) {
+  const { t } = useT("data.storage");
   const [name, setName] = useState(file?.name ?? "");
   // Reset the field whenever a different file is passed in.
   const [prevFile, setPrevFile] = useState(file);
@@ -52,7 +54,7 @@ export function RenameFileDialog({
     try {
       await renameFile.mutateAsync({ fileId: file.itemId, name: trimmed });
 
-      showSuccessToast({ description: `Renamed to ${trimmed}.` });
+      showSuccessToast({ description: t("RENAME_FILE_DIALOG.RENAMED_TO_TRIMMED", { trimmed }) });
       onOpenChange(false);
       onDone?.();
     } catch (err: unknown) {
@@ -70,7 +72,7 @@ export function RenameFileDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Rename file</DialogTitle>
+          <DialogTitle>{t("RENAME_FILE_DIALOG.RENAME_FILE")}</DialogTitle>
         </DialogHeader>
 
         <Input
@@ -84,7 +86,7 @@ export function RenameFileDialog({
               handleSubmit();
             }
           }}
-          placeholder="File name"
+          placeholder={t("RENAME_FILE_DIALOG.FILE_NAME")}
         />
 
         {renameFile.isPending ? (
@@ -94,18 +96,18 @@ export function RenameFileDialog({
             className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground"
           >
             <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Renaming file…
+            {t("RENAME_FILE_DIALOG.RENAMING_FILE")}
           </div>
         ) : null}
 
         <DialogFooter className="gap-2 sm:gap-2">
           <DialogClose asChild>
             <Button variant="outline" size="sm" disabled={renameFile.isPending}>
-              Cancel
+              {t("common:CANCEL")}
             </Button>
           </DialogClose>
           <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-            {renameFile.isPending ? "Renaming…" : "Save"}
+            {renameFile.isPending ? "Renaming…" : t("common:SAVE")}
           </Button>
         </DialogFooter>
       </DialogContent>

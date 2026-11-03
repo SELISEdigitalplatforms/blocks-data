@@ -5,6 +5,7 @@ import { Columns3 } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui-kits/popover/popover";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface ProjectionPopoverProps {
   fieldNames: string[];
@@ -13,6 +14,7 @@ interface ProjectionPopoverProps {
 }
 
 export function ProjectionPopover({ fieldNames, appliedFields, onApply }: ProjectionPopoverProps) {
+  const { t } = useT("data.gateway.schema");
   const [open, setOpen] = useState(false);
   const [draftFields, setDraftFields] = useState<string[]>([]);
 
@@ -40,7 +42,7 @@ export function ProjectionPopover({ fieldNames, appliedFields, onApply }: Projec
           type="button"
           variant="ghost"
           size="icon"
-          title="Column"
+          title={t("PROJECTION_POPOVER.COLUMN")}
           className={`h-8 w-8 ${appliedFields.length > 0 ? "text-primary" : "text-muted-foreground"}`}
         >
           <Columns3 className="h-4 w-4" />
@@ -48,13 +50,13 @@ export function ProjectionPopover({ fieldNames, appliedFields, onApply }: Projec
       </PopoverTrigger>
       <PopoverContent align="start" className="w-64 p-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <p className="text-xs font-medium">Column</p>
+          <p className="text-xs font-medium">{t("PROJECTION_POPOVER.COLUMN")}</p>
           <button
             type="button"
             className="text-xs text-muted-foreground hover:text-foreground"
             onClick={toggleAll}
           >
-            {draftFields.length === fieldNames.length ? "Deselect all" : "Select all"}
+            {draftFields.length === fieldNames.length ? t("PROJECTION_POPOVER.DESELECT_ALL") : t("PROJECTION_POPOVER.SELECT_ALL")}
           </button>
         </div>
         <div className="max-h-52 overflow-y-auto py-1">
@@ -77,7 +79,7 @@ export function ProjectionPopover({ fieldNames, appliedFields, onApply }: Projec
         </div>
         <div className="flex items-center justify-end border-t border-border px-3 py-2">
           <Button type="button" size="sm" className="text-xs" onClick={handleApply}>
-            Apply
+            {t("common:APPLY")}
           </Button>
         </div>
       </PopoverContent>

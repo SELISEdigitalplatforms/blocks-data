@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui-kits/select/select";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 type ValueType = { selected: string; value: string };
 
@@ -27,7 +28,7 @@ export interface DropdownSearchInputProps {
 
 export const DropdownSearchInput: React.FC<DropdownSearchInputProps> = ({
   onChange,
-  placeholder = "Search...",
+  placeholder = tStatic("data.shared", "DROPDOWN_SEARCH_INPUT.SEARCH"),
   value,
   className = {},
   options = [],

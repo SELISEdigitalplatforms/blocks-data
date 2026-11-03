@@ -6,8 +6,10 @@ import { UserMFAMethodList } from "./user-mfa-methods-list";
 import { useGetUserById } from "@blocks-idp/iam/hooks/use-user";
 import { isErrorWithErrors } from "@/lib/error";
 import { userMfaContext } from "../user-mfa";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const UserMFAConfigManage = () => {
+  const { t } = useT("data.idp.iam");
   const { projectKey, userId } = useContext(userMfaContext);
   const [type, setType] = useState(0);
   const { isPending, mutateAsync } = useConfigureUserMFA({ id: userId, projectKey });
@@ -30,7 +32,7 @@ export const UserMFAConfigManage = () => {
         userMfaType: type,
       });
       if (!res.isSuccess) return showErrorToast({ errors: res.errors });
-      showSuccessToast({ description: "Mfa is configured " });
+      showSuccessToast({ description: t("USER_MFA_CONFIG_MANAGE.MFA_IS_CONFIGURED") });
     } catch (error) {
       if (isErrorWithErrors(error)) showErrorToast({ errors: error.errors });
     }
@@ -45,7 +47,7 @@ export const UserMFAConfigManage = () => {
           disabled={isPending || type === 0 || isLoading || isFetching}
           className="w-fit"
         >
-          Save
+          {t("common:SAVE")}
         </Button>
       )}
     </div>

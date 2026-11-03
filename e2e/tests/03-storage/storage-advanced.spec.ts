@@ -5,14 +5,14 @@ import { dismissSessionConflictIfPresent } from "../../support/session-conflict"
 
 /**
  * Advanced Storage coverage that runs WITHOUT real SFTP credentials:
- * configuration-form advanced fields (URL expiry, max file size) and the
- * storage-detail UI states (breadcrumb, view toggle, dialogs, search) driven
+ * the "Configure in Blocks OS" entry point (configurations moved to Blocks OS
+ * in 6fdac347) and the storage-detail UI states (breadcrumb, view toggle, dialogs, search) driven
  * behind the same route mocks the main flow spec uses. Destructive or
  * backend-mutating actions are deliberately NOT exercised here — the full
  * file/folder chain lives in storage-flow.spec.ts behind E2E_STORAGE_SFTP_*.
  *
  * Locators are derived from client/app/storage sources:
- * save-storage-configuration.tsx (labels, buttons, zod messages in utils.ts),
+ * storage-filters-toolbar.tsx ("Configure in Blocks OS"),
  * storage-detail.tsx (breadcrumb, icon-only view toggles, "Add New" menu),
  * trash.tsx (filter chip labels).
  */
@@ -113,73 +113,24 @@ test.describe("feature: Storage advanced flows", () => {
   test("configuration form expiry/max-size fields and mocked detail-page states", async ({
     page,
   }) => {
-    await test.step("Add-configuration form: URL expiry and max file size fields validate", async () => {
+    // Drift (6fdac347, 2026-10-15): the in-app configuration form, with its URL expiry and max
+    // file size fields, was removed; "Configure in Blocks OS" opens the OS secret-management page
+    // for storage in a new tab instead (storage.tsx onAddConfiguration, use-scoped-path.ts).
+    await test.step("Add menu: 'Configure in Blocks OS' opens the OS storage configuration page", async () => {
       await openEnvironment(page);
       await dismissSessionConflictIfPresent(page);
       await openStorage(page);
       await page.setViewportSize({ width: 1440, height: 900 });
 
       await page.getByRole("button", { name: "Add", exact: true }).first().click();
-      await page.getByText("Add Configuration", { exact: true }).click();
-      const dialog = page.getByRole("dialog");
-      await expect(
-        page.getByRole("heading", { name: "Add Storage Configuration" }),
-      ).toBeVisible({ timeout: 30_000 });
-      await expect(page.getByText("Storage Provider")).toBeVisible();
+      const configureItem = page.getByRole("menuitem", { name: "Configure in Blocks OS" });
+      await expect(configureItem).toBeVisible({ timeout: 30_000 });
 
-      const nameInput = dialog.getByLabel("Name", { exact: true });
-      await expect(nameInput).toBeVisible({ timeout: 10_000 });
-      await nameInput.fill("e2e-adv-config");
-
-      // The provider select defaults to AWS; switch it to exercise the
-      // select UI — the S3Compatible branch then requires key/secret/host.
-      const providerSelect = dialog.getByRole("combobox").first();
-      await expect(providerSelect).toBeVisible({ timeout: 10_000 });
-      await providerSelect.click();
-      const s3Compatible = page.getByRole("option", { name: "AWS S3 Compatible" });
-      await expect(s3Compatible).toBeVisible({ timeout: 10_000 });
-      await s3Compatible.click();
-      await expect(providerSelect).toHaveText(/AWS S3 Compatible/);
-
-      await dialog.getByLabel(/Access Key/i).fill("e2e-adv-access-key");
-      await dialog.getByLabel(/Secret Key/i).fill("e2e-adv-secret-key");
-      await dialog.getByLabel(/Host URL/i).fill("https://e2e-advanced.example.com");
-
-      // Advanced numeric fields — the coverage this spec adds. The inputs
-      // carry their form-field names as name attributes.
-      const uploadExpiry = dialog.locator("input[name='uploadUrlExpirySeconds']");
-      await expect(uploadExpiry).toBeVisible({ timeout: 10_000 });
-      await uploadExpiry.fill("900");
-
-      const downloadExpiry = dialog.locator("input[name='downloadUrlExpirySeconds']");
-      await expect(downloadExpiry).toBeVisible({ timeout: 10_000 });
-      await downloadExpiry.fill("300");
-
-      // An implausible max size is rejected client-side: Save stays enabled
-      // but submitting surfaces the zod message "Must be greater than 0"
-      // (save-storage-configuration/utils.ts) without any API call.
-      const maxFileSize = dialog.locator("input[name='maxFileSizeInMb']");
-      await expect(maxFileSize).toBeVisible({ timeout: 10_000 });
-      await maxFileSize.fill("0");
-
-      const saveButton = dialog.getByRole("button", { name: "Save" });
-      await saveButton.click();
-      await expect(dialog.getByText("Must be greater than 0", { exact: true })).toBeVisible({
-        timeout: 10_000,
-      });
-      await expect(
-        page.getByRole("heading", { name: "Add Storage Configuration" }),
-      ).toBeVisible();
-
-      await maxFileSize.fill("100");
-      await expect(dialog.getByText("Must be greater than 0", { exact: true })).toBeHidden({
-        timeout: 10_000,
-      });
-
-      // Do NOT save — creating provider configurations against the live
-      // backend is out of scope here. Cancel closes cleanly.
-      await dialog.getByRole("button", { name: "Cancel" }).click();
-      await expect(dialog).toBeHidden({ timeout: 10_000 });
+      const popupPromise = page.waitForEvent("popup");
+      await configureItem.click();
+      const popup = await popupPromise;
+      await popup.waitForURL(/\/secret-management\/storage$/, { waitUntil: "commit" });
+      await popup.close();
     });
 
     await test.step("Detail page (mocked): card opens ?id=, strategy heading and mocked folder listed", async () => {

@@ -30,13 +30,7 @@ const LoadingSkelton = () => (
   </div>
 );
 
-export const UserRolesList = ({
-  roles,
-  isLoading,
-  userId,
-  projectKey,
-  onRemoveRole,
-}: UserRolesListProps) => {
+export const UserRolesList = ({ roles, isLoading, onRemoveRole }: UserRolesListProps) => {
   const { t } = useT("data.idp.iam");
   if (isLoading) return <LoadingSkelton />;
 

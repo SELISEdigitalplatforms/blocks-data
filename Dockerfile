@@ -13,11 +13,11 @@ FROM node:22-alpine AS client
 WORKDIR /src
 
 COPY client/package.json client/package-lock.json ./client/
-RUN cd client && npm ci --no-audit --no-fund
+WORKDIR /src/client
+RUN npm ci --no-audit --no-fund
 
-COPY client ./client
-RUN mkdir -p server/Api/wwwroot \
-    && cd client \
+COPY client ./
+RUN mkdir -p /src/server/Api/wwwroot \
     && npm run build
 
 # -----------------------------------------------------------------------------
@@ -62,5 +62,9 @@ COPY --from=publish /app/publish .
 RUN chown -R app:app /app
 
 USER app
+
+# Health is probed by the orchestrator (the Api maps ASP.NET Core health checks), not by
+# Docker. The base image defines no HEALTHCHECK, so NONE states that explicitly.
+HEALTHCHECK NONE
 
 ENTRYPOINT ["dotnet", "Api.dll"]

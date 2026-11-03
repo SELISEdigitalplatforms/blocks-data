@@ -94,6 +94,7 @@ export const AddEditSchemaModal: React.FC<SchemaModalProps> = ({
     cancelButton: t(COMMON_CANCEL),
   };
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() returns values the React Compiler cannot memoize; switching to useWatch would change when this component re-renders.
   const schemaType = watch("schemaType");
   const schemaName = watch("schemaName");
   const isEntity = schemaType === "Entity";

@@ -2,7 +2,7 @@ import { profileMfaContext } from "../profile-mfa";
 import { ReactNode, useContext, useMemo, useState } from "react";
 import { useGetMFAConfig } from "@blocks-idp/mfa/hooks/use-mfa-config";
 import { useGetUserById } from "@blocks-idp/iam/hooks/use-user";
-import { MFA_Provider_Data } from "@blocks-idp/mfa/utils/mfa-config";
+import { MFA_PROVIDER_DATA } from "@blocks-idp/mfa/utils/mfa-config";
 import { Button } from "@/components/ui-kits/button/button";
 import { Badge } from "@/components/ui-kits/badge/badge";
 import { cn } from "@/lib/utils";
@@ -12,7 +12,7 @@ import { UserMFAConfirmationDisable } from "./profile-mfa-confirmation-disable";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type MethodsOptionProps = {
-  method: Omit<(typeof MFA_Provider_Data)[0], "description"> & { description: ReactNode };
+  method: Omit<(typeof MFA_PROVIDER_DATA)[0], "description"> & { description: ReactNode };
   selected: string;
   onSaveClick: () => void;
   activeType: string;
@@ -65,7 +65,7 @@ export const ProfileMfaMethodSelectList = () => {
   const [type, setType] = useState<string>("");
   const availableMFaMethod = useMemo(() => {
     if (!data?.userMfaType.length) return [];
-    return MFA_Provider_Data.filter((item) => data?.userMfaType.includes(item.type));
+    return MFA_PROVIDER_DATA.filter((item) => data?.userMfaType.includes(item.type));
   }, [data?.userMfaType]);
 
   const [prevUserData, setPrevUserData] = useState<typeof userData | null>(null);

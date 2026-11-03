@@ -31,7 +31,6 @@ const LoadingSkelton = () => (
 export const UserPermissionsList = ({
   permissions,
   isLoading,
-  userId,
   onRemovePermission,
 }: UserPermissionsListProps) => {
   const { t } = useT("data.idp.iam");

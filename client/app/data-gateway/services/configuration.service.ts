@@ -97,7 +97,7 @@ class ConfigurationService {
 
   getSchemaDetails(
     id: string,
-    projectKey: string,
+    _projectKey: string,
   ): Promise<IGetSchemaDetailsResponse> {
     const params = new URLSearchParams({ id });
     return http.get(`${API_BASES.UDS}/schemas/get-by-id?${params.toString()}`);
@@ -168,7 +168,7 @@ class ConfigurationService {
 
   getPolicy(
     entityName: string,
-    projectKey: string,
+    _projectKey: string,
   ): Promise<IGetPolicyResponse> {
     const params = new URLSearchParams({
       schemaName: entityName
@@ -198,7 +198,7 @@ class ConfigurationService {
   }
 
   getUnadaptedChangeLogs(
-    payload: IGetUnAdaptedChangeLogsPayload,
+    _payload: IGetUnAdaptedChangeLogsPayload,
   ): Promise<IUnadaptedChangeLogsResponse> {
     return http.get(
       `${SCHEMA_ENDPOINTS.UNADAPTED_CHANGE_LOGS}`,

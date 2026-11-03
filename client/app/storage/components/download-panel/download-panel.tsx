@@ -74,8 +74,7 @@ export function DownloadPanel() {
   if (rows.length === 0) return null;
 
   return (
-    <div
-      role="region"
+    <section
       aria-label={t("DOWNLOAD_PANEL.DOWNLOADS")}
       className="fixed bottom-4 right-4 z-50 w-[360px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border bg-card text-foreground shadow-lg"
     >
@@ -105,6 +104,6 @@ export function DownloadPanel() {
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }

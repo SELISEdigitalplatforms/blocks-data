@@ -25,10 +25,9 @@ export function SelectionBar({
   }
 
   return (
-    <div
-      role="group"
+    <fieldset
       aria-label={t("SELECTION_BAR.SELECTION")}
-      className="flex items-center gap-3 rounded-md border bg-muted/50 px-3 py-1.5"
+      className="flex min-w-0 items-center gap-3 rounded-md border bg-muted/50 px-3 py-1.5"
     >
       <span className="text-sm font-medium">{t("SELECTION_BAR.COUNT_SELECTED", { count })}</span>
       <div className="ml-auto flex items-center gap-2">
@@ -50,6 +49,6 @@ export function SelectionBar({
           {t("common:CLEAR")}
         </Button>
       </div>
-    </div>
+    </fieldset>
   );
 }

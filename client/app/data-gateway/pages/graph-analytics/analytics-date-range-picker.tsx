@@ -147,9 +147,8 @@ export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRange
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end">
         <div className="flex flex-col sm:flex-row">
-          <div
+          <fieldset
             className="flex flex-row flex-wrap gap-1 border-b border-border/40 p-2 sm:w-36 sm:flex-col sm:flex-nowrap sm:border-b-0 sm:border-r"
-            role="group"
             aria-label={t("ANALYTICS_DATE_RANGE_PICKER.QUICK_RANGES")}
           >
             {DATE_RANGE_PRESETS.map((preset) => (
@@ -168,7 +167,7 @@ export function AnalyticsDateRangePicker({ value, onChange }: AnalyticsDateRange
                 {preset.label}
               </Button>
             ))}
-          </div>
+          </fieldset>
 
           <div className="flex flex-col">
             <div className="flex items-center gap-2 px-3 pt-3">

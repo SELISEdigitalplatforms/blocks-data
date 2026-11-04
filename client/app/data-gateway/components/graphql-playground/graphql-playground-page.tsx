@@ -1330,41 +1330,45 @@ export const GraphQLWorkspace = ({
     if (!monaco || !monaco.languages) return;
 
     const disposables: IDisposable[] = [];
+    // Each registration is owned as soon as it returns, so a later throw disposes it too.
+    const own = (disposable: IDisposable) => {
+      disposables.push(disposable);
+    };
     const disposeAll = () => disposables.forEach((disposable) => disposable.dispose());
 
     try {
-      disposables.push(
+      own(
         monaco.editor.registerCommand(RUN_OPERATION_COMMAND, (_accessor, operationText: unknown) => {
           if (typeof operationText !== "string") return;
           return executeOperationRef.current(operationText);
         }),
       );
-      disposables.push(
+      own(
         monaco.editor.registerCommand(INSERT_NEWLINE_COMMAND, () =>
           // Shift+Enter inserts a newline without accepting any active suggestion
           editorRef.current?.trigger("keyboard", "type", { text: "\n" }),
         ),
       );
-      disposables.push(
+      own(
         monaco.editor.registerCommand(EXECUTE_COMMAND, () =>
           document.getElementById("graphql-execute-btn")?.click(),
         ),
       );
-      disposables.push(
+      own(
         monaco.editor.addKeybindingRule({
           keybinding: monaco.KeyMod.Shift | monaco.KeyCode.Enter,
           command: INSERT_NEWLINE_COMMAND,
           when: QUERY_EDITOR_CONTEXT_KEY,
         }),
       );
-      disposables.push(
+      own(
         monaco.editor.addKeybindingRule({
           keybinding: monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyE,
           command: EXECUTE_COMMAND,
           when: QUERY_EDITOR_CONTEXT_KEY,
         }),
       );
-      disposables.push(
+      own(
         monaco.languages.registerCodeLensProvider("graphql", {
           provideCodeLenses: (model) => {
             const translate = tRef.current;
@@ -1379,9 +1383,9 @@ export const GraphQLWorkspace = ({
               command: {
                 id: RUN_OPERATION_COMMAND,
                 title:
-                  op.name !== unnamed
-                    ? translate("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE_NAME", { type: op.type, name: op.name })
-                    : translate("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE", { type: op.type }),
+                  op.name === unnamed
+                    ? translate("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE", { type: op.type })
+                    : translate("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE_NAME", { type: op.type, name: op.name }),
                 // The lens carries its own operation text, so a click never reads stale state.
                 arguments: [op.text],
               },
@@ -1478,6 +1482,9 @@ export const GraphQLWorkspace = ({
     }
   };
 
+  // With at most one response, the panel shows it, or the empty state when there is none yet.
+  const firstResponse: ResponseTab | undefined = responses[0];
+
   return (
     <>
         {/* Stacked on phones, with a gap so Response reads as its own panel
@@ -1558,61 +1565,7 @@ export const GraphQLWorkspace = ({
 
           {/* Response panel */}
           <div className="flex min-h-[280px] w-full flex-col border-t border-border/40 md:min-h-0 md:w-1/2 md:border-t-0">
-            {responses.length === 0 ? (
-              <>
-                <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
-                  <span className="text-xs font-medium text-muted-foreground">{t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE)}</span>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <GraphqlMonacoEditor
-                    height="100%"
-                    language="json"
-                    theme={monacoTheme}
-                    value={t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE_A_QUERY_TO_SEE_THE_RESPONSE")}
-                    options={{
-                      readOnly: true,
-                      minimap: { enabled: false },
-                      fontSize: 13,
-                      lineNumbers: "on",
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      tabSize: 2,
-                      wordWrap: "on",
-                      folding: true,
-                      codeLens: false,
-                    }}
-                  />
-                </div>
-              </>
-            ) : responses.length === 1 ? (
-              <>
-                <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {responses[0].name}
-                  </span>
-                </div>
-                <div className="flex-1 overflow-hidden">
-                  <GraphqlMonacoEditor
-                    height="100%"
-                    language="json"
-                    theme={monacoTheme}
-                    value={responses[0].content}
-                    options={{
-                      readOnly: true,
-                      minimap: { enabled: false },
-                      fontSize: 13,
-                      lineNumbers: "on",
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      tabSize: 2,
-                      wordWrap: "on",
-                      folding: true,
-                      codeLens: false,
-                    }}
-                  />
-                </div>
-              </>
-            ) : (
+            {responses.length > 1 ? (
               <Tabs
                 value={activeResponseTab}
                 onValueChange={setActiveResponseTab}
@@ -1658,6 +1611,34 @@ export const GraphQLWorkspace = ({
                   </TabsContent>
                 ))}
               </Tabs>
+            ) : (
+              <>
+                <div className="flex h-10 shrink-0 items-center border-b border-border/40 bg-muted/10 px-4">
+                  <span className="text-xs font-medium text-muted-foreground">
+                    {firstResponse?.name ?? t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE)}
+                  </span>
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <GraphqlMonacoEditor
+                    height="100%"
+                    language="json"
+                    theme={monacoTheme}
+                    value={firstResponse?.content ?? t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE_A_QUERY_TO_SEE_THE_RESPONSE")}
+                    options={{
+                      readOnly: true,
+                      minimap: { enabled: false },
+                      fontSize: 13,
+                      lineNumbers: "on",
+                      scrollBeyondLastLine: false,
+                      automaticLayout: true,
+                      tabSize: 2,
+                      wordWrap: "on",
+                      folding: true,
+                      codeLens: false,
+                    }}
+                  />
+                </div>
+              </>
             )}
           </div>
         </div>

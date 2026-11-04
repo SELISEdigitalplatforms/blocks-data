@@ -10,6 +10,25 @@ test.describe("flow: Overview menu", () => {
   }) => {
     test.setTimeout(150_000);
 
+    // The project's configured localization languages, as the app loads them for its
+    // language menu (genesis-os loadLanguages: GET /api/Language/Gets on every page load).
+    let configuredLanguageCodes: string[] | null = null;
+    page.on("response", async (response) => {
+      if (!new URL(response.url()).pathname.toLowerCase().endsWith("/api/language/gets")) return;
+      try {
+        const body: unknown = await response.json();
+        if (!Array.isArray(body)) return;
+        const codes = body
+          .map((item: Record<string, unknown>) => item.languageCode ?? item.LanguageCode)
+          .filter((culture): culture is string => typeof culture === "string" && culture.trim() !== "")
+          .map((culture) => culture.trim().toLowerCase().split(/[-_]/)[0]);
+        // English is always offered, configured or not (genesis-os toProjectLanguages).
+        if (codes.length > 0) configuredLanguageCodes = [...new Set([...codes, "en"])].sort();
+      } catch {
+        // Not JSON (for example a redirect); the step below waits for a usable response.
+      }
+    });
+
     await page.goto(`${e2eBaseUrl()}/app/console`, { waitUntil: "domcontentloaded" });
     await dismissSessionConflictIfPresent(page);
 
@@ -26,19 +45,30 @@ test.describe("flow: Overview menu", () => {
       await page.getByText("Auto", { exact: true }).click();
     });
 
-    // Drift (PR #416, 48921a15, genesis-os 4.4.6/4.4.7): the language menu lists exactly the
-    // project's configured localization languages and never disables an item. English and German
-    // are configured, so both are selectable; French is not configured, so it is not listed.
-    await test.step("Topbar: language selector lists English and German as selectable, and no French", async () => {
+    // Drift (PR #416, 48921a15; genesis-os 4.4.6/4.4.7): the language menu lists exactly the
+    // project's configured localization languages and disables none of them, where it used to
+    // list a fixed set with every non-English item disabled.
+    await test.step("Topbar: language selector lists the project's configured languages, all selectable", async () => {
+      await expect
+        .poll(() => configuredLanguageCodes, {
+          timeout: 15_000,
+          message: "the app loaded the project's languages from /api/Language/Gets",
+        })
+        .not.toBeNull();
+
       const languageButton = page.getByRole("button", { name: /^en$/i });
       await languageButton.click();
       await expect(page.getByRole("menuitem", { name: "English" })).toBeVisible();
-      await expect(page.getByRole("menuitem", { name: "German" })).toBeVisible();
-      await expect(page.getByRole("menuitem", { name: "German" })).not.toHaveAttribute(
-        "aria-disabled",
-        "true",
-      );
-      await expect(page.getByRole("menuitem", { name: "French" })).toHaveCount(0);
+
+      const languageItems = page.locator('[role="menuitem"][lang]');
+      await expect
+        .poll(async () => (await languageItems.evaluateAll((items) => items.map((item) => item.getAttribute("lang")))).sort())
+        .toEqual(configuredLanguageCodes);
+      for (const item of await languageItems.all()) {
+        await expect(item).toBeVisible();
+        await expect(item).not.toHaveAttribute("aria-disabled", "true");
+      }
+      await page.keyboard.press("Escape");
     });
 
     await test.step("Topbar: notification bell opens the popover and 'Mark all as read' is usable", async () => {

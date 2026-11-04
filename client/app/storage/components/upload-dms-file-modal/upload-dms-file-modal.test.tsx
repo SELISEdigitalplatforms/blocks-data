@@ -114,6 +114,54 @@ describe("UploadDmsFileModal", () => {
     expect(uploadfileMutate).not.toHaveBeenCalled();
   });
 
+  const nameError =
+    "Name must not be blank, contain a path separator or control characters, or have leading or trailing whitespace.";
+
+  async function uploadOneFileExpectingFailure(fileName = "doc.txt") {
+    render(<UploadDmsFileModal {...baseProps} />);
+    addFile(fileName);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Upload" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Upload" }));
+    await waitFor(() => expect(showErrorToast).toHaveBeenCalledTimes(1));
+    return showErrorToast.mock.calls[0][0] as { errors: string };
+  }
+
+  it("H8: shows the server's Name message in the per-file error toast and keeps the dialog open with the file", async () => {
+    presignedMutate.mockResolvedValue({ isSuccess: false, errors: { Name: nameError } });
+
+    const toast = await uploadOneFileExpectingFailure("e2e.txt");
+
+    expect(toast.errors).toBe(`e2e.txt: ${nameError}`);
+    expect(uploadfileMutate).not.toHaveBeenCalled();
+    expect(showSuccessToast).not.toHaveBeenCalled();
+    expect(baseProps.onOpenChange).not.toHaveBeenCalledWith(false);
+    expect(screen.getByText("e2e.txt")).toBeInTheDocument();
+  });
+
+  it("H8: shows the first message when the server returns several properties", async () => {
+    presignedMutate.mockResolvedValue({ isSuccess: false, errors: { Name: "Name is required.", ConfigurationName: "other" } });
+
+    const toast = await uploadOneFileExpectingFailure();
+
+    expect(toast.errors).toBe("doc.txt: Name is required.");
+  });
+
+  it("H11: falls back to the translated generic message when the rejection has no Errors", async () => {
+    presignedMutate.mockResolvedValue({ isSuccess: false });
+
+    const toast = await uploadOneFileExpectingFailure();
+
+    expect(toast.errors).toBe("doc.txt: Failed to get upload URL");
+  });
+
+  it("H11: falls back to the generic message when Errors holds no text", async () => {
+    presignedMutate.mockResolvedValue({ isSuccess: false, errors: { Name: "" } });
+
+    const toast = await uploadOneFileExpectingFailure();
+
+    expect(toast.errors).toBe("doc.txt: Failed to get upload URL");
+  });
+
   it("defaults storage access to Private and sends it in the presigned-URL request", async () => {
     render(<UploadDmsFileModal {...baseProps} />);
     expect(screen.getByRole("button", { name: "Private" })).toHaveAttribute(

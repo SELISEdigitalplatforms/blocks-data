@@ -45,6 +45,12 @@ type StorageAccessModifier = (typeof STORAGE_ACCESS_OPTIONS)[number]["value"];
 /** Matches `Constants.DefaultMaxFileSizeInBytes` server-side; used until the configured value is available. */
 const DEFAULT_MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
+/** The first non-empty message in a rejected pre-signed request's `errors` (for example the server's `Name` rule), if any. */
+const firstServerError = (errors: unknown): string | undefined => {
+  if (!errors || typeof errors !== "object") return undefined;
+  return Object.values(errors).find((value): value is string => typeof value === "string" && value.length > 0);
+};
+
 type FileOutcome =
   | { name: string; status: "uploaded" }
   | { name: string; status: "rejected"; reason?: string | null }
@@ -133,7 +139,7 @@ export const UploadDmsFileModal = ({
 
     const presignedUrlResponse = await presignedMutate(payload);
     if (!presignedUrlResponse.isSuccess) {
-      throw new Error(t("UPLOAD_DMS_FILE_MODAL.FAILED_TO_GET_UPLOAD_URL"));
+      throw new Error(firstServerError(presignedUrlResponse.errors) ?? t("UPLOAD_DMS_FILE_MODAL.FAILED_TO_GET_UPLOAD_URL"));
     }
 
     // Step 2: PUT the file bytes to the presigned URL, using whatever headers this provider requires.

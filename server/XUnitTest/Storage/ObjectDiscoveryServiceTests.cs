@@ -618,4 +618,21 @@ public class ObjectDiscoveryServiceTests : IDisposable
         var audit = await _accessRepository.GetAuditForResourceAsync("file-1");
         audit.Should().ContainSingle().Which.Action.Should().Be("Restore");
     }
+
+    // ---------- blocks-data#418 H10: stored names are never revalidated ----------
+
+    [Fact]
+    public async Task H10_a_file_whose_stored_name_breaks_the_new_rules_is_still_listed_trashed_and_restored()
+    {
+        await SeedFile("bad-live", "Icon\r");
+        await SeedFile("bad-trashed", "a/b\u0007.txt", archived: true);
+
+        (await _discovery.GetObjectAsync(null)).Items.Select(i => i.ItemId).Should().Contain("bad-live");
+        (await _discovery.GetTrashAsync()).Items.Select(i => i.ItemId).Should().Equal("bad-trashed");
+
+        var restored = await _discovery.RestoreAsync("bad-trashed");
+
+        restored.IsSuccess.Should().BeTrue();
+        (await Files.Find(f => f.ItemId == "bad-trashed").FirstAsync()).Name.Should().Be("a/b\u0007.txt");
+    }
 }

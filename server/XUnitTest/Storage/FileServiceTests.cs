@@ -464,4 +464,35 @@ public class FileServiceTests : IDisposable
         (await _files.CopyFileAsync("nope", "dir-2")).Status.Should().Be(FileOperationStatus.FileNotFound);
         (await _files.CopyFileAsync("file-1", "nowhere")).Status.Should().Be(FileOperationStatus.TargetNotFound);
     }
+
+    // blocks-data#418 H9, H10: a stored name that breaks the new rules keeps working
+
+    [Fact]
+    public async Task H10_a_file_whose_stored_name_has_a_control_character_can_still_be_copied_and_moved()
+    {
+        await Directory("dir-1", "source");
+        await Directory("dir-2", "target");
+        await Directory("dir-3", "other");
+        await FileDoc("file-1", "Icon\r", "dir-1");
+        await Version("file-1", 1, "Private/file-1/v1/Icon_");
+
+        var copy = await _files.CopyFileAsync("file-1", "dir-2");
+        var move = await _files.MoveFileAsync("file-1", "dir-3");
+
+        copy.Status.Should().Be(FileOperationStatus.Succeeded);
+        (await ReadFile(copy.NewFileId!)).Name.Should().Be("Icon\r");
+        move.Status.Should().Be(FileOperationStatus.Succeeded);
+        (await ReadFile("file-1")).DirectoryId.Should().Be("dir-3");
+    }
+
+    [Fact]
+    public async Task H9_a_file_whose_stored_name_has_a_control_character_can_be_renamed_to_a_valid_name()
+    {
+        await FileDoc("file-1", "Icon\r", "dir-1");
+
+        var result = await _files.RenameFileAsync("file-1", "Icon.png");
+
+        result.Status.Should().Be(FileOperationStatus.Succeeded);
+        (await ReadFile("file-1")).Name.Should().Be("Icon.png");
+    }
 }

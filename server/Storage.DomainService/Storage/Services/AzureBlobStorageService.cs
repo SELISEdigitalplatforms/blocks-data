@@ -1,4 +1,5 @@
-﻿using Azure.Storage.Blobs.Models;
+﻿using Azure;
+using Azure.Storage.Blobs.Models;
 using Azure.Storage.Blobs;
 using DomainService.Configuration;
 using Blocks.Genesis;
@@ -111,6 +112,35 @@ namespace DomainService.Storage
             await blobClient.DeleteIfExistsAsync();
             return true;
         }
+
+        public async Task<BlobDeleteOutcome> TryDeleteFileAsync(string key)
+        {
+            try
+            {
+                var response = await _containerClient.GetBlobClient(key).DeleteIfExistsAsync().ConfigureAwait(false);
+                return MapDeleteResult(response.Value);
+            }
+            catch (Exception exception) when (MapDeleteException(exception).Status != BlobDeleteStatus.Fatal)
+            {
+                return MapDeleteException(exception);
+            }
+        }
+
+        /// <summary>DeleteIfExists answers false when the blob is already gone.</summary>
+        public static BlobDeleteOutcome MapDeleteResult(bool deleted) =>
+            deleted ? BlobDeleteOutcome.Deleted : BlobDeleteOutcome.NotFound;
+
+        /// <summary>
+        /// 404 means the blob is already gone; 400 and 409 reject only this key (for example an invalid blob
+        /// name or a lease); every other status (401, 403, 5xx, 0 for network) and every other exception,
+        /// including timeouts and cancellation, is fatal.
+        /// </summary>
+        public static BlobDeleteOutcome MapDeleteException(Exception exception) => exception switch
+        {
+            RequestFailedException { Status: 404 } => BlobDeleteOutcome.NotFound,
+            RequestFailedException { Status: 400 or 409 } failed => BlobDeleteOutcome.Skipped(failed.Status, failed.ErrorCode),
+            _ => BlobDeleteOutcome.Fatal,
+        };
 
         public string GeneratePreSignedUploadUrlAsync(string fileName, TimeSpan expiry)
         {

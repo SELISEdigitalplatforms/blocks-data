@@ -300,6 +300,16 @@ describe("GraphQLPlaygroundPage", () => {
     );
   });
 
+  it("titles the response panel with the single response's name, and Response while empty", async () => {
+    executeGraphQL.mockRejectedValue(new Error("boom"));
+    await renderMounted();
+    expect(screen.getByText("Response")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("monaco-query"), { target: { value: "notanop" } });
+    fireEvent.click(screen.getByRole("button", { name: /Execute/ }));
+    expect(await screen.findByText("Error")).toBeInTheDocument();
+    expect(screen.queryByText("Response")).not.toBeInTheDocument();
+  });
+
   it("executes multiple operations and shows tabs", async () => {
     executeGraphQL.mockResolvedValue({ ok: 1 });
     await renderMounted();

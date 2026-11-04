@@ -121,6 +121,7 @@ public class BlobDeleteOutcomeMappingTests
                 ServiceURL = $"http://127.0.0.1:{port}",
                 ForcePathStyle = true,
                 MaxErrorRetry = 0,
+                Timeout = TimeSpan.FromSeconds(10),
             });
             await client.DeleteObjectAsync("bucket", "Private/F3/V9/../../G1/V1/doc.pdf");
         });
@@ -138,7 +139,7 @@ public class BlobDeleteOutcomeMappingTests
         var served = ServeOneRequestAsync(listener);
 #pragma warning restore CA2025
         await sendRequest(((IPEndPoint)listener.LocalEndpoint).Port);
-        return await served;
+        return await served.WaitAsync(TimeSpan.FromSeconds(10));
     }
 
     private static async Task<string> ServeOneRequestAsync(System.Net.Sockets.TcpListener listener)

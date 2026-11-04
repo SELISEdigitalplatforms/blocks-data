@@ -377,6 +377,19 @@ public sealed class FileManagementServiceDeleteTests : IDisposable
         ShouldNotHaveCleanedUp();
     }
 
+    [Fact]
+    public async Task C3_a_provider_that_returns_Fatal_instead_of_throwing_still_stops_before_cleanup()
+    {
+        GivenFile("f6.pdf");
+        GivenVersions(Version("V1", 1, "Private/F1/V1/f6.pdf"));
+        _outcomes["Private/F1/V1/f6.pdf"] = () => BlobDeleteOutcome.Fatal;
+
+        var act = DeletePermanently;
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        ShouldNotHaveCleanedUp();
+    }
+
     // C4, C12
 
     [Fact]

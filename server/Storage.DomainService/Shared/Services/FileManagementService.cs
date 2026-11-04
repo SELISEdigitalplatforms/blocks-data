@@ -15,11 +15,11 @@ using Storage.DomainService.Storage.ZipDownload;
 using Storage.DomainService.Utilities;
 using Storage.DomainService.Storage.Validators;
 using Microsoft.Extensions.Logging;
-using System.Security.Cryptography;
-using System.Text;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Blocks.Genesis.Entities.Data;
 using File = Blocks.Genesis.Entities.Data.File;
@@ -942,6 +942,12 @@ namespace Storage.DomainService.Services
                 }
 
                 var outcome = await storageService.TryDeleteFileAsync(key).ConfigureAwait(false);
+                if (outcome.Status == BlobDeleteStatus.Fatal)
+                {
+                    // Providers rethrow instead of returning Fatal; enforce that so a database cleanup can never follow.
+                    throw new InvalidOperationException("The storage provider reported a fatal blob delete outcome.");
+                }
+
                 if (outcome.Status == BlobDeleteStatus.NotFound)
                 {
                     if (_logger.IsEnabled(LogLevel.Information))

@@ -107,7 +107,7 @@ export function RenameFileDialog({
             </Button>
           </DialogClose>
           <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-            {renameFile.isPending ? "Renaming…" : t("common:SAVE")}
+            {renameFile.isPending ? t("RENAME_FILE_DIALOG.RENAMING") : t("common:SAVE")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -86,6 +86,7 @@
   "RULE_SET_FORM.RULE_SET_NAME_IS_REQUIRED": "Rule Set Name is required",
   "RULE_SET_FORM.SAVES_IMMEDIATELY": "Saves immediately",
   "RULE_SET_FORM.SAVE_RULE_SET": "Save rule set",
+  "RULE_SET_FORM.SAVING": "Saving…",
   "RULE_SET_FORM.SOURCE_IS_REQUIRED": "Source is required",
   "RULE_SET_FORM.VALUE_IS_REQUIRED": "Value is required",
   "SCHEMA_ACCESS_CONTROL.ALL_LOGGED_IN_USERS": "All Logged In Users",

@@ -111,7 +111,7 @@ export function RenameDirectoryDialog({
             </Button>
           </DialogClose>
           <Button size="sm" onClick={handleSubmit} disabled={!canSubmit}>
-            {updateDirectory.isPending ? "Renaming…" : t("common:SAVE")}
+            {updateDirectory.isPending ? t("RENAME_DIRECTORY_DIALOG.RENAMING") : t("common:SAVE")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -495,7 +495,7 @@ export const RuleSetForm = ({
                 {/* Sent the moment this is saved here — including the pending
                     access-level change first, if Custom was just picked — so
                     there's never a second, separate Save to remember. */}
-                {isSubmitting ? "Saving…" : t("RULE_SET_FORM.SAVES_IMMEDIATELY")}
+                {isSubmitting ? t("RULE_SET_FORM.SAVING") : t("RULE_SET_FORM.SAVES_IMMEDIATELY")}
               </span>
               <Button
                 type="button"

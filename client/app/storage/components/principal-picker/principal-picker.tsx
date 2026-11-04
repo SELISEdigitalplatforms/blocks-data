@@ -129,7 +129,7 @@ export function PrincipalPicker({
             <span className="flex min-w-0 flex-wrap items-center gap-1">
               {selectedOptions.length === 0 ? (
                 <span className="text-muted-foreground">
-                  {placeholder ?? "Select…"}
+                  {placeholder ?? t("PRINCIPAL_PICKER.SELECT")}
                 </span>
               ) : (
                 selectedOptions.map((o) => (

@@ -133,7 +133,7 @@ export const UploadDmsFileModal = ({
 
     const presignedUrlResponse = await presignedMutate(payload);
     if (!presignedUrlResponse.isSuccess) {
-      throw new Error("Failed to get upload URL");
+      throw new Error(t("UPLOAD_DMS_FILE_MODAL.FAILED_TO_GET_UPLOAD_URL"));
     }
 
     // Step 2: PUT the file bytes to the presigned URL, using whatever headers this provider requires.
@@ -189,7 +189,11 @@ export const UploadDmsFileModal = ({
       if (rejected.length > 0) {
         showErrorToast({
           errors: rejected
-            .map((o) => `${o.name}: rejected${o.reason ? ` (${o.reason})` : ""}`)
+            .map((o) =>
+              o.reason
+                ? `${o.name}: ${t("UPLOAD_DMS_FILE_MODAL.REJECTED_REASON", { reason: o.reason })}`
+                : `${o.name}: ${t("UPLOAD_DMS_FILE_MODAL.REJECTED")}`,
+            )
             .join(", "),
         });
       }

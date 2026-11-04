@@ -207,8 +207,6 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     compactView,
     rootSchemaId,
     ancestorPath,
-    // Kept out of ...schemaDetails; this table does not read it.
-    parentSchemaId: _parentSchemaId,
     parentPropertyName,
     hideAccessValidation,
     policyEntitySchemaName,

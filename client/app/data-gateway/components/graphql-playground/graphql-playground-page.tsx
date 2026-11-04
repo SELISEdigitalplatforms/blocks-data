@@ -1365,9 +1365,9 @@ export const GraphQLPlaygroundPage = () => {
               command: {
                 id: commandId,
                 title:
-                  op.name !== "Unnamed"
-                    ? t("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE_NAME", { type: op.type, name: op.name })
-                    : t("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE", { type: op.type }),
+                  op.name === "Unnamed"
+                    ? t("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE", { type: op.type })
+                    : t("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE_NAME", { type: op.type, name: op.name }),
               },
             };
           });

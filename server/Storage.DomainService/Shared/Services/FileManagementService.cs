@@ -48,7 +48,7 @@ namespace Storage.DomainService.Services
 
         private const string ConfigurationNotFound = "configuration_not_found";
 
-        public FileManagementService(
+        public FileManagementService( // NOSONAR S107 — DI-resolved public constructor (Api, StorageDriver consumers); a parameter object would change that public surface
             IFileRepository fileRepository,
             IStorageServiceFactory storageServiceFactory,
             IFileVersionRepository versionRepository,
@@ -907,25 +907,7 @@ namespace Storage.DomainService.Services
         private async Task DeleteCloudBlobsAsync(IStorageService storageService, File file, string tenantId)
         {
             var versions = await _versionRepository.GetVersionKeysAsync(file.ItemId).ConfigureAwait(false);
-            var accessModifier = file.AccessModifier == AccessModifier.Public ? AccessModifier.Public : AccessModifier.Private;
-
-            // Ordinal de-duplication; each key is reported with the lowest-numbered version that references it.
-            var candidates = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var version in versions.OrderBy(v => v.No))
-            {
-                foreach (var key in CandidateKeys(version, file, accessModifier))
-                    candidates.TryAdd(key, version.ItemId);
-            }
-
-            var deletable = new List<KeyValuePair<string, string>>();
-            foreach (var candidate in candidates)
-            {
-                if (HasDotSegment(candidate.Key))
-                    LogBlobSkipped(tenantId, file.ItemId, candidate.Value, BlobDeleteOutcome.Skipped(0, "unsafe_key"), candidate.Key);
-                else
-                    deletable.Add(candidate);
-            }
-
+            var deletable = WithoutUnsafeKeys(CollectCandidates(versions, file), file.ItemId, tenantId);
             if (deletable.Count == 0) return;
 
             var shared = new HashSet<string>(
@@ -933,30 +915,64 @@ namespace Storage.DomainService.Services
                 StringComparer.Ordinal);
 
             foreach (var (key, versionId) in deletable)
+                await DeleteOrKeepAsync(storageService, file.ItemId, versionId, key, shared.Contains(key), tenantId).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Every candidate key of the file's versions, de-duplicated ordinally; each key maps to the lowest-numbered
+        /// version that references it, which is the version its log lines report.
+        /// </summary>
+        private static Dictionary<string, string> CollectCandidates(IEnumerable<FileVersion> versions, File file)
+        {
+            var accessModifier = file.AccessModifier == AccessModifier.Public ? AccessModifier.Public : AccessModifier.Private;
+            var candidates = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var version in versions.OrderBy(v => v.No))
             {
-                if (shared.Contains(key))
-                {
-                    if (_logger.IsEnabled(LogLevel.Information))
-                        LogBlobKept(_logger, file.ItemId, versionId, KeyHash(key), tenantId, null);
-                    continue;
-                }
+                foreach (var key in CandidateKeys(version, file, accessModifier))
+                    candidates.TryAdd(key, version.ItemId);
+            }
+            return candidates;
+        }
 
-                var outcome = await storageService.TryDeleteFileAsync(key).ConfigureAwait(false);
-                if (outcome.Status == BlobDeleteStatus.Fatal)
-                {
-                    // Providers rethrow instead of returning Fatal; enforce that so a database cleanup can never follow.
-                    throw new InvalidOperationException("The storage provider reported a fatal blob delete outcome.");
-                }
+        /// <summary>Drops (and logs as skipped, error code unsafe_key) every candidate with a "." or ".." path segment.</summary>
+        private List<KeyValuePair<string, string>> WithoutUnsafeKeys(Dictionary<string, string> candidates, string fileId, string tenantId)
+        {
+            var deletable = new List<KeyValuePair<string, string>>();
+            foreach (var candidate in candidates)
+            {
+                if (HasDotSegment(candidate.Key))
+                    LogBlobSkipped(tenantId, fileId, candidate.Value, BlobDeleteOutcome.Skipped(0, "unsafe_key"), candidate.Key);
+                else
+                    deletable.Add(candidate);
+            }
+            return deletable;
+        }
 
-                if (outcome.Status == BlobDeleteStatus.NotFound)
-                {
-                    if (_logger.IsEnabled(LogLevel.Information))
-                        LogBlobAlreadyMissing(_logger, file.ItemId, versionId, KeyHash(key), tenantId, null);
-                }
-                else if (outcome.Status == BlobDeleteStatus.Skipped)
-                {
-                    LogBlobSkipped(tenantId, file.ItemId, versionId, outcome, key);
-                }
+        /// <summary>Keeps a key another file still references, otherwise deletes it and logs a missing or skipped blob.</summary>
+        private async Task DeleteOrKeepAsync(IStorageService storageService, string fileId, string versionId, string key, bool isShared, string tenantId)
+        {
+            if (isShared)
+            {
+                if (_logger.IsEnabled(LogLevel.Information))
+                    LogBlobKept(_logger, fileId, versionId, KeyHash(key), tenantId, null);
+                return;
+            }
+
+            var outcome = await storageService.TryDeleteFileAsync(key).ConfigureAwait(false);
+            if (outcome.Status == BlobDeleteStatus.Fatal)
+            {
+                // Providers rethrow instead of returning Fatal; enforce that so a database cleanup can never follow.
+                throw new InvalidOperationException("The storage provider reported a fatal blob delete outcome.");
+            }
+
+            if (outcome.Status == BlobDeleteStatus.NotFound)
+            {
+                if (_logger.IsEnabled(LogLevel.Information))
+                    LogBlobAlreadyMissing(_logger, fileId, versionId, KeyHash(key), tenantId, null);
+            }
+            else if (outcome.Status == BlobDeleteStatus.Skipped)
+            {
+                LogBlobSkipped(tenantId, fileId, versionId, outcome, key);
             }
         }
 

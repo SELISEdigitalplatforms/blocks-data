@@ -23,7 +23,7 @@ function Bar() {
 }
 
 const pathField = () => screen.getByRole("combobox", { name: "Request path" }) as HTMLInputElement;
-const pickItemRoute = () => fireEvent.change(pathField(), { target: { value: "/Employee/item/{itemId}" } });
+const pickItemRoute = () => fireEvent.change(pathField(), { target: { value: "/Employee/{itemId}" } });
 
 let frames: Map<number, FrameRequestCallback>;
 let nextFrame: number;
@@ -57,6 +57,12 @@ describe("RequestBar: selecting the {itemId} placeholder", () => {
     const input = pathField();
     expect(input).toHaveFocus();
     expect(input.value.slice(input.selectionStart!, input.selectionEnd!)).toBe("{itemId}");
+  });
+
+  it("picking a :verb route selects no placeholder", () => {
+    render(<Bar />);
+    fireEvent.change(pathField(), { target: { value: "/Employee:deleteMany" } });
+    expect(frames.size).toBe(0);
   });
 
   it("a new pick cancels the frame still pending", () => {

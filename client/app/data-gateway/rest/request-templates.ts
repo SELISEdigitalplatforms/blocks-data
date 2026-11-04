@@ -19,7 +19,7 @@ export type RestRequestTemplate = {
   group: "query" | "insert" | "update" | "delete";
   id: RestTemplateId;
   method: RestMethod;
-  /** Relative to the gateway base, e.g. "/RT_Blocklist/item/{itemId}". */
+  /** Relative to the gateway base, e.g. "/RT_Blocklist/{itemId}" or "/RT_Blocklist:query". */
   path: string;
   query: [string, string][];
   body?: unknown;
@@ -53,7 +53,7 @@ function sampleRecord(shape: EntityShape): Record<string, unknown> {
 
 export function buildRestRequests(shape: EntityShape): RestRequestTemplate[] {
   const base = `/${shape.name}`;
-  const itemPath = `${base}/item/${ITEM_ID_PLACEHOLDER}`;
+  const itemPath = `${base}/${ITEM_ID_PLACEHOLDER}`;
   const scalars = ownScalars(shape);
   const orderField = scalars[0];
 
@@ -76,13 +76,13 @@ export function buildRestRequests(shape: EntityShape): RestRequestTemplate[] {
 
   return [
     { group: "query", id: "list", method: "GET", path: base, query: listQuery },
-    { group: "query", id: "listByBody", method: "POST", path: base, query: [], body: listBody },
+    { group: "query", id: "listByBody", method: "POST", path: `${base}:query`, query: [], body: listBody },
     { group: "query", id: "getOne", method: "GET", path: itemPath, query: getOneQuery },
     {
       group: "insert",
       id: "insert",
       method: "POST",
-      path: `${base}/item`,
+      path: base,
       query: [],
       body: sampleRecord(shape),
     },
@@ -90,7 +90,7 @@ export function buildRestRequests(shape: EntityShape): RestRequestTemplate[] {
       group: "insert",
       id: "insertMany",
       method: "POST",
-      path: `${base}/items`,
+      path: `${base}:insertMany`,
       query: [],
       body: [sampleRecord(shape), sampleRecord(shape)],
     },
@@ -113,8 +113,8 @@ export function buildRestRequests(shape: EntityShape): RestRequestTemplate[] {
     {
       group: "update",
       id: "updateMany",
-      method: "PATCH",
-      path: `${base}/items`,
+      method: "POST",
+      path: `${base}:updateMany`,
       query: [],
       body: { where: whereFilter(shape), input: sampleRecord(shape) },
     },
@@ -122,8 +122,8 @@ export function buildRestRequests(shape: EntityShape): RestRequestTemplate[] {
     {
       group: "delete",
       id: "deleteMany",
-      method: "DELETE",
-      path: `${base}/items`,
+      method: "POST",
+      path: `${base}:deleteMany`,
       query: [],
       body: { where: whereFilter(shape) },
     },

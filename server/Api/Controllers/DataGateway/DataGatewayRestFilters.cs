@@ -2,8 +2,10 @@ using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.Rest;
 using DataGateway.Rest.Errors;
+using DataGateway.Rest.Logging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
@@ -84,8 +86,14 @@ public sealed class RestProblemFilterAttribute : Attribute, IActionFilter, IAlwa
         if (context.ModelState.IsValid)
             return;
 
+        context.Result = RestActionResults.From(InvalidModel(context.HttpContext, context.ModelState));
+    }
+
+    /// <summary>The 400 <c>VALIDATION_ERROR</c> problem for a model-state with errors: one field error per message.</summary>
+    internal static RestResult InvalidModel(HttpContext http, ModelStateDictionary modelState)
+    {
         var errors = new List<GatewayFieldError>();
-        foreach (var (key, entry) in context.ModelState)
+        foreach (var (key, entry) in modelState)
         {
             // An empty key is the body as a whole. The JSON input formatter reports a parse failure at a "$" path and
             // keeps only the parser's text (a position and a token), so that text is replaced, not passed on.
@@ -100,9 +108,9 @@ public sealed class RestProblemFilterAttribute : Attribute, IActionFilter, IAlwa
             }
         }
 
-        context.Result = RestActionResults.From(GatewayProblemMapper.Problem(
-            context.HttpContext, StatusCodes.Status400BadRequest, GraphQlConstant.ValidationErrorErrorCode,
-            "The request is not valid.", errors));
+        return GatewayProblemMapper.Problem(
+            http, StatusCodes.Status400BadRequest, GraphQlConstant.ValidationErrorErrorCode,
+            "The request is not valid.", errors);
     }
 
     /// <inheritdoc />
@@ -116,8 +124,10 @@ public sealed class RestProblemFilterAttribute : Attribute, IActionFilter, IAlwa
     public void OnResultExecuting(ResultExecutingContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (context.Result is StatusCodeResult { StatusCode: StatusCodes.Status415UnsupportedMediaType })
-            context.Result = RestActionResults.From(UnsupportedMediaType(context.HttpContext));
+        if (context.Result is not StatusCodeResult { StatusCode: StatusCodes.Status415UnsupportedMediaType })
+            return;
+        LogUnsupportedMediaType(context.HttpContext);
+        context.Result = RestActionResults.From(UnsupportedMediaType(context.HttpContext));
     }
 
     /// <inheritdoc />
@@ -125,9 +135,25 @@ public sealed class RestProblemFilterAttribute : Attribute, IActionFilter, IAlwa
     {
     }
 
+    private const string UnsupportedMediaTypeDetail =
+        $"The request body must be sent as '{RestActionResults.JsonContentType}'; set the Content-Type header.";
+
     internal static RestResult UnsupportedMediaType(HttpContext http) =>
-        GatewayProblemMapper.Problem(http, StatusCodes.Status415UnsupportedMediaType, GatewayProblemMapper.UnsupportedMediaTypeCode,
-            $"The request body must be sent as '{RestActionResults.JsonContentType}'; set the Content-Type header.");
+        GatewayProblemMapper.Problem(
+            http, StatusCodes.Status415UnsupportedMediaType, GatewayProblemMapper.UnsupportedMediaTypeCode, UnsupportedMediaTypeDetail);
+
+    /// <summary>
+    /// Writes the request-log entry of a refused wrong content type: the operation the route would have run, or
+    /// <c>unknown{Entity}</c> when that cannot be told (spec 2026-11-04 §4). No action ran, so nothing else logs it.
+    /// </summary>
+    internal static void LogUnsupportedMediaType(HttpContext http)
+    {
+        var request = http.Request;
+        RestOperationLog.Refused(
+            http, RestRouteNames.EntityFor(request.Path.Value ?? string.Empty),
+            RestRouteNames.OperationFor(request.Method, request.Path.Value ?? string.Empty),
+            StatusCodes.Status415UnsupportedMediaType, GatewayProblemMapper.UnsupportedMediaTypeCode, UnsupportedMediaTypeDetail);
+    }
 
     // ---- exceptions ----
 

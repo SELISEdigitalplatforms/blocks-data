@@ -16,6 +16,7 @@ import { useEffect, useId, useMemo, useRef, type KeyboardEvent, type RefObject }
 import { hasItemIdPlaceholder } from "../../rest/path-guard";
 import { splitRequestLine } from "../../rest/request-line";
 import type { RestMethod } from "../../rest/request-templates";
+import { GATEWAY_VERBS } from "../../rest/route-segments";
 
 const METHODS: RestMethod[] = ["GET", "POST", "PATCH", "PUT", "DELETE"];
 const ITEM_ID_PLACEHOLDER = "{itemId}";
@@ -33,12 +34,18 @@ export function selectItemIdPlaceholder(input: HTMLInputElement | null) {
   input.setSelectionRange(at, at + ITEM_ID_PLACEHOLDER.length);
 }
 
-/** Entity names first; once the first segment names an entity, its item and items routes. */
+const VERB_SUFFIXES = GATEWAY_VERBS.map((verb) => `:${verb}`);
+
+/** Entity names first; once the first segment names an entity (with or without a `:verb`), its record and verb routes. */
 function pathSuggestions(requestLine: string, entityNames: string[]): string[] {
   const entityPaths = entityNames.map((name) => `/${name}`);
-  const first = splitRequestLine(requestLine).path.split("/")[1] ?? "";
+  const first = (splitRequestLine(requestLine).path.split("/")[1] ?? "").split(":")[0];
   if (!entityNames.includes(first)) return entityPaths;
-  return [...entityPaths, `/${first}/item/${ITEM_ID_PLACEHOLDER}`, `/${first}/items`];
+  return [
+    ...entityPaths,
+    `/${first}/${ITEM_ID_PLACEHOLDER}`,
+    ...VERB_SUFFIXES.map((suffix) => `/${first}${suffix}`),
+  ];
 }
 
 type RequestBarProps = {
@@ -85,7 +92,7 @@ export function RequestBar({
 
   const handleChange = (value: string) => {
     onRequestLineChange(value);
-    // Picking an item route from the suggestions leaves the placeholder ready to type over.
+    // Picking a record route from the suggestions leaves the placeholder ready to type over.
     if (hasItemIdPlaceholder(value) && suggestions.includes(value)) {
       cancelSelectFrame();
       selectFrame.current = requestAnimationFrame(() => {

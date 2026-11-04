@@ -16,21 +16,42 @@ import { routedSegments } from "../../rest/route-segments";
 export type ConfirmKind = "bulk-update" | "bulk-delete" | "bulk-hard-delete" | "hard-delete";
 
 /**
- * Requests that change many records, or delete for good, are confirmed before they are sent (spec §4.2). It fails
- * closed: the server routes case-insensitively on the decoded path, so the second segment is compared the same way,
- * and one that does not decode counts as `items`. `routeIdFor` stays exact; it only drives hints.
+ * The bulk kind a decoded, lower-cased first segment names. Every part after a colon is read, so a path holding a
+ * bulk verb anywhere asks (the guard admits only one colon anyway); a segment that does not decode counts as a delete.
+ */
+function bulkKind(first: string | null | undefined): "bulk-update" | "bulk-delete" | null {
+  if (first === undefined) return null;
+  if (first === null) return "bulk-delete";
+  const verbs = first.split(":").slice(1);
+  if (verbs.includes("deletemany")) return "bulk-delete";
+  if (verbs.includes("updatemany")) return "bulk-update";
+  return null;
+}
+
+/**
+ * Whether a `hardDelete` value may delete for good. It fails closed (R-V2-15): the server's bool parse also trims `\0`
+ * and whitespace a JS `trim()` keeps (U+0085 and others), so any non-blank value other than `false` counts as hard.
+ */
+function isHardDeleteValue(value: string): boolean {
+  const text = value.trim().toLowerCase();
+  return text !== "" && text !== "false";
+}
+
+/**
+ * Requests that change many records, or delete for good, are confirmed before they are sent (spec §4.2, routes-v2 §5).
+ * It fails closed: the verb of `POST /{entity}:{verb}` is compared after decoding and in any case (`routedSegments`),
+ * so `/E:DELETEMANY` and `/E%3AdeleteMany` still ask though the server refuses the first. `parseGatewayRoute` stays
+ * exact; it only drives hints and routing.
  */
 export function needsConfirm(req: RestRequest): ConfirmKind | null {
-  if (req.method !== "PATCH" && req.method !== "DELETE") return null;
-  const routed = routedSegments(req.path)[1];
-  const isItems = routed === null || routed === "items";
-  if (req.method === "PATCH") return isItems ? "bulk-update" : null;
-
   const hardDelete = req.query.some(
-    ([key, value]) => key.toLowerCase() === "harddelete" && value.trim().toLowerCase() === "true",
+    ([key, value]) => key.toLowerCase() === "harddelete" && isHardDeleteValue(value),
   );
-  if (isItems) return hardDelete ? "bulk-hard-delete" : "bulk-delete";
-  return hardDelete ? "hard-delete" : null;
+  if (req.method === "DELETE") return hardDelete ? "hard-delete" : null;
+  if (req.method !== "POST") return null;
+
+  const kind = bulkKind(routedSegments(req.path)[0]);
+  return kind === "bulk-delete" && hardDelete ? "bulk-hard-delete" : kind;
 }
 
 const COPY: Record<ConfirmKind, { title: string; description: string; action: string }> = {

@@ -121,7 +121,8 @@ public class GatewayRestServiceTests : IDisposable
     /// a bearer token the mocked authenticator accepts. Not async, so the ambient context it sets stays with the test.
     /// </summary>
     private static DefaultHttpContext Request(
-        string method, string path, string? query = null, string? user = "u1", string[]? roles = null, bool blocksKey = true)
+        string method, string path, string? query = null, string? user = "u1", string[]? roles = null, bool blocksKey = true,
+        bool impersonated = false)
     {
         var authenticated = user is not null;
         RequestContextAccessor.Current = new RequestContext { BlocksKey = blocksKey ? Tenant : string.Empty, IsRequestFromBlocksCloud = false };
@@ -130,7 +131,8 @@ public class GatewayRestServiceTests : IDisposable
             userName: authenticated ? $"{user}@lockin.test" : string.Empty,
             tenantId: Tenant,
             isAuthenticated: authenticated,
-            roles: roles ?? []);
+            roles: roles ?? [],
+            impersonated: impersonated);
 
         ClaimsPrincipal? principal = authenticated
             ? new ClaimsPrincipal(new ClaimsIdentity(
@@ -215,7 +217,9 @@ public class GatewayRestServiceTests : IDisposable
     }
 
     // An entity name that no schema can have (the rule schemas are created under) is refused as an unknown entity:
-    // the same answer, and no lookup of the name at all.
+    // the same answer, and no lookup of the name at all. Over HTTP the route's schemaName constraint refuses such a
+    // name first, with a 404 for every caller (spec 2026-11-04 §3.3, DataGatewayRestRoutingTests); the service keeps
+    // its own check so that it holds for any caller of the service.
     public static TheoryData<string> InvalidEntityNames => new()
     {
         "Bad-Name",
@@ -309,7 +313,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.GetByIdAsync(Request("GET", "/api/gateway/Product/item/x"), "Product", itemId);
+        var result = await service.GetByIdAsync(Request("GET", "/api/gateway/Product/x"), "Product", itemId);
 
         ShouldBeProblem(result, 400, "VALIDATION_ERROR");
         _models.Verify(m => m.GetAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
@@ -321,7 +325,7 @@ public class GatewayRestServiceTests : IDisposable
         var service = await LockInServiceAsync();
         var itemId = new string('a', 60) + "_-Z9";
 
-        var result = await service.GetByIdAsync(Request("GET", $"/api/gateway/Product/item/{itemId}"), "Product", itemId);
+        var result = await service.GetByIdAsync(Request("GET", $"/api/gateway/Product/{itemId}"), "Product", itemId);
 
         ShouldBeProblem(result, 404, "NOT_FOUND");
     }
@@ -336,7 +340,7 @@ public class GatewayRestServiceTests : IDisposable
         tenant.Policies.RemoveAll(p => p.Operation == PolicyOperation.DELETE);
         var service = await LockInServiceAsync(tenant);
 
-        var result = await service.DeleteAsync(Request("DELETE", "/api/gateway/Product/item/p1"), "Product", "p1", hardDelete: true);
+        var result = await service.DeleteAsync(Request("DELETE", "/api/gateway/Product/p1"), "Product", "p1", hardDelete: true);
 
         ShouldBeProblem(result, 403, "FORBIDDEN");
         (await StoredAsync("Products", "p1")).Should().NotBeNull();
@@ -348,7 +352,7 @@ public class GatewayRestServiceTests : IDisposable
         var service = await LockInServiceAsync();
 
         // Not even a valid record: the gate refuses before the body is read.
-        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product/item", user: null), "Product", Json("""{ "Nope": 1 }"""));
+        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product", user: null), "Product", Json("""{ "Nope": 1 }"""));
 
         ShouldBeProblem(result, 401, "AUTH_NOT_AUTHENTICATED");
     }
@@ -360,7 +364,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var (service, engine) = MockedService(Schema(write: write, edit: edit, fields: [Field("ItemId"), Field("Name")]));
 
-        var result = await service.UpsertAsync(Request("PUT", "/api/gateway/Person/item/p1", user: null), "Person", "p1", Json("""{ "Name": "Ann" }"""));
+        var result = await service.UpsertAsync(Request("PUT", "/api/gateway/Person/p1", user: null), "Person", "p1", Json("""{ "Name": "Ann" }"""));
 
         ShouldBeProblem(result, 401, "AUTH_NOT_AUTHENTICATED");
         engine.VerifyNoOtherCalls();
@@ -373,10 +377,10 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var byWhere = await service.GetAsync(Request("POST", "/api/gateway/Product"), "Product",
+        var byWhere = await service.GetAsync(Request("POST", "/api/gateway/Product:query"), "Product",
             Json("""{ "where": { "Secret": { "eq": "s-one" } } }"""));
         var byOrder = await service.GetAsync(Request("GET", "/api/gateway/Product", "?order=Secret:DESC"), "Product", null);
-        var byBulkWhere = await service.DeleteManyAsync(Request("DELETE", "/api/gateway/Product/items"), "Product",
+        var byBulkWhere = await service.DeleteManyAsync(Request("POST", "/api/gateway/Product:deleteMany"), "Product",
             Json("""{ "where": { "Secret": { "eq": "s-one" } } }"""), hardDelete: true);
 
         ShouldBeProblem(byWhere, 403, "FORBIDDEN");
@@ -417,7 +421,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.UpdateManyAsync(Request("PATCH", "/api/gateway/Product/items", roles: ["admin"]), "Product", Json(body));
+        var result = await service.UpdateManyAsync(Request("POST", "/api/gateway/Product:updateMany", roles: ["admin"]), "Product", Json(body));
 
         ShouldBeProblem(result, 400, "VALIDATION_ERROR");
         (await StoredAsync("Products", "p1"))!["Price"].AsDouble.Should().Be(10.5);
@@ -428,8 +432,8 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var missing = await service.DeleteManyAsync(Request("DELETE", "/api/gateway/Product/items", roles: ["admin"]), "Product", default, hardDelete: true);
-        var emptyWhere = await service.DeleteManyAsync(Request("DELETE", "/api/gateway/Product/items", roles: ["admin"]), "Product", Json("{}"), hardDelete: true);
+        var missing = await service.DeleteManyAsync(Request("POST", "/api/gateway/Product:deleteMany", roles: ["admin"]), "Product", default, hardDelete: true);
+        var emptyWhere = await service.DeleteManyAsync(Request("POST", "/api/gateway/Product:deleteMany", roles: ["admin"]), "Product", Json("{}"), hardDelete: true);
 
         ShouldBeProblem(missing, 400, "VALIDATION_ERROR");
         ShouldBeProblem(emptyWhere, 400, "VALIDATION_ERROR");
@@ -441,7 +445,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.UpdateManyAsync(Request("PATCH", "/api/gateway/Product/items"), "Product",
+        var result = await service.UpdateManyAsync(Request("POST", "/api/gateway/Product:updateMany"), "Product",
             Json("""{ "where": { "Status": { "eq": "Draft" } }, "input": { "Stock": 99 } }"""));
 
         result.StatusCode.Should().Be(200);
@@ -460,7 +464,7 @@ public class GatewayRestServiceTests : IDisposable
         tenant.Policies.RemoveAll(p => p.Operation == PolicyOperation.DELETE);
         var service = await LockInServiceAsync(tenant);
 
-        var result = await service.DeleteManyAsync(Request("DELETE", "/api/gateway/Product/items"), "Product",
+        var result = await service.DeleteManyAsync(Request("POST", "/api/gateway/Product:deleteMany"), "Product",
             Json("""{ "where": { "Status": { "eq": "Draft" } } }"""), hardDelete: true);
 
         result.StatusCode.Should().Be(200);
@@ -475,7 +479,7 @@ public class GatewayRestServiceTests : IDisposable
         // A bulk write that matches nothing is not an error: the same shape as any other bulk result (R33).
         var service = await LockInServiceAsync();
 
-        var result = await service.UpdateManyAsync(Request("PATCH", "/api/gateway/Product/items"), "Product",
+        var result = await service.UpdateManyAsync(Request("POST", "/api/gateway/Product:updateMany"), "Product",
             Json("""{ "where": { "Title": { "eq": "No such title" } }, "input": { "Stock": 99 } }"""));
 
         result.StatusCode.Should().Be(200);
@@ -491,7 +495,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.DeleteManyAsync(Request("DELETE", "/api/gateway/Product/items", roles: ["admin"]), "Product",
+        var result = await service.DeleteManyAsync(Request("POST", "/api/gateway/Product:deleteMany", roles: ["admin"]), "Product",
             Json("""{ "where": { "Title": { "eq": "No such title" } } }"""), hardDelete: true);
 
         result.StatusCode.Should().Be(200);
@@ -542,7 +546,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.GetAsync(Request("POST", "/api/gateway/Product", roles: ["admin"]), "Product", Json("""
+        var result = await service.GetAsync(Request("POST", "/api/gateway/Product:query", roles: ["admin"]), "Product", Json("""
             { "where": { "Price": { "gte": 20 } }, "order": [{ "field": "Price", "direction": "DESC" }],
               "paging": { "pageNo": 1, "pageSize": 1 }, "select": ["Title"], "includeTotalCount": true }
             """));
@@ -561,8 +565,8 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var own = await service.GetByIdAsync(Request("GET", "/api/gateway/Product/item/p1", "?select=Title"), "Product", "p1");
-        var hidden = await service.GetByIdAsync(Request("GET", "/api/gateway/Product/item/p2"), "Product", "p2");
+        var own = await service.GetByIdAsync(Request("GET", "/api/gateway/Product/p1", "?select=Title"), "Product", "p1");
+        var hidden = await service.GetByIdAsync(Request("GET", "/api/gateway/Product/p2"), "Product", "p2");
 
         own.StatusCode.Should().Be(200);
         Body(own).GetProperty("Title").GetString().Should().Be("Alpha");
@@ -577,14 +581,14 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product/item"), "Product", Json("""{ "Title": "Lamp", "Price": 5 }"""));
+        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product"), "Product", Json("""{ "Title": "Lamp", "Price": 5 }"""));
 
         result.StatusCode.Should().Be(201);
         var body = Body(result);
         body.GetProperty("acknowledged").GetBoolean().Should().BeTrue();
         var itemId = body.GetProperty("itemId").GetString();
         itemId.Should().NotBeNullOrEmpty();
-        result.Location.Should().Be($"/api/gateway/Product/item/{itemId}");
+        result.Location.Should().Be($"/api/gateway/Product/{itemId}");
         (await StoredAsync("Products", itemId!))!["Title"].AsString.Should().Be("Lamp");
     }
 
@@ -593,7 +597,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.InsertManyAsync(Request("POST", "/api/gateway/Product/items"), "Product",
+        var result = await service.InsertManyAsync(Request("POST", "/api/gateway/Product:insertMany"), "Product",
             Json("""[{ "ItemId": "p7", "Title": "Lamp" }, { "ItemId": "p8", "Title": "Desk" }]"""));
 
         result.StatusCode.Should().Be(200);
@@ -607,11 +611,11 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var created = await service.UpsertAsync(Request("PUT", "/api/gateway/Product/item/p9"), "Product", "p9", Json("""{ "Title": "Lamp" }"""));
-        var updated = await service.UpsertAsync(Request("PUT", "/api/gateway/Product/item/p1"), "Product", "p1", Json("""{ "ItemId": "p1", "Price": 99 }"""));
+        var created = await service.UpsertAsync(Request("PUT", "/api/gateway/Product/p9"), "Product", "p9", Json("""{ "Title": "Lamp" }"""));
+        var updated = await service.UpsertAsync(Request("PUT", "/api/gateway/Product/p1"), "Product", "p1", Json("""{ "ItemId": "p1", "Price": 99 }"""));
 
         created.StatusCode.Should().Be(201);
-        created.Location.Should().Be("/api/gateway/Product/item/p9");
+        created.Location.Should().Be("/api/gateway/Product/p9");
         Body(created).GetProperty("created").GetBoolean().Should().BeTrue();
         Body(created).GetProperty("itemId").GetString().Should().Be("p9");
 
@@ -627,7 +631,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.UpsertAsync(Request("PUT", "/api/gateway/Product/item/p1"), "Product", "p1", Json("""{ "ItemId": "p2", "Price": 1 }"""));
+        var result = await service.UpsertAsync(Request("PUT", "/api/gateway/Product/p1"), "Product", "p1", Json("""{ "ItemId": "p2", "Price": 1 }"""));
 
         ShouldBeProblem(result, 400, "VALIDATION_ERROR");
         (await StoredAsync("Products", "p2"))!["Price"].AsDouble.Should().Be(20.0);
@@ -645,7 +649,7 @@ public class GatewayRestServiceTests : IDisposable
         // A record whose id the item routes cannot address would be reachable only through the list and bulk routes (R34).
         var service = await LockInServiceAsync();
 
-        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product/item"), "Product",
+        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product"), "Product",
             Json($$"""{ "ItemId": {{JsonSerializer.Serialize(itemId)}}, "Title": "Lamp" }"""));
 
         ShouldBeProblem(result, 400, "VALIDATION_ERROR");
@@ -662,7 +666,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.InsertManyAsync(Request("POST", "/api/gateway/Product/items"), "Product",
+        var result = await service.InsertManyAsync(Request("POST", "/api/gateway/Product:insertMany"), "Product",
             Json("""[{ "ItemId": "p7", "Title": "Lamp" }, { "ItemId": "p 8", "Title": "Desk" }]"""));
 
         ShouldBeProblem(result, 400, "VALIDATION_ERROR");
@@ -681,7 +685,7 @@ public class GatewayRestServiceTests : IDisposable
         // Checked before the route match, so the caller learns why the id is refused.
         var service = await LockInServiceAsync();
 
-        var result = await service.UpsertAsync(Request("PUT", "/api/gateway/Product/item/p1"), "Product", "p1",
+        var result = await service.UpsertAsync(Request("PUT", "/api/gateway/Product/p1"), "Product", "p1",
             Json("""{ "ItemId": "p 1", "Price": 1 }"""));
 
         ShouldBeProblem(result, 400, "VALIDATION_ERROR");
@@ -698,7 +702,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.UpsertAsync(Request("PUT", "/api/gateway/Product/item/p2"), "Product", "p2", Json("""{ "Price": 1 }"""));
+        var result = await service.UpsertAsync(Request("PUT", "/api/gateway/Product/p2"), "Product", "p2", Json("""{ "Price": 1 }"""));
 
         ShouldBeProblem(result, 404, "NOT_FOUND");
         (await StoredAsync("Products", "p2"))!["Price"].AsDouble.Should().Be(20.0);
@@ -709,8 +713,8 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var missing = await service.UpdateAsync(Request("PATCH", "/api/gateway/Product/item/nope"), "Product", "nope", Json("""{ "Price": 1 }"""));
-        var hidden = await service.UpdateAsync(Request("PATCH", "/api/gateway/Product/item/p2"), "Product", "p2", Json("""{ "Price": 1 }"""));
+        var missing = await service.UpdateAsync(Request("PATCH", "/api/gateway/Product/nope"), "Product", "nope", Json("""{ "Price": 1 }"""));
+        var hidden = await service.UpdateAsync(Request("PATCH", "/api/gateway/Product/p2"), "Product", "p2", Json("""{ "Price": 1 }"""));
 
         ShouldBeProblem(missing, 404, "NOT_FOUND");
         ShouldBeProblem(hidden, 404, "NOT_FOUND");
@@ -721,7 +725,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.UpdateAsync(Request("PATCH", "/api/gateway/Product/item/p1"), "Product", "p1", Json("""{ "Price": 1 }"""));
+        var result = await service.UpdateAsync(Request("PATCH", "/api/gateway/Product/p1"), "Product", "p1", Json("""{ "Price": 1 }"""));
 
         result.StatusCode.Should().Be(200);
         Body(result).GetProperty("itemId").GetString().Should().Be("p1");
@@ -733,8 +737,8 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var soft = await service.DeleteAsync(Request("DELETE", "/api/gateway/Product/item/p1"), "Product", "p1", hardDelete: false);
-        var again = await service.DeleteAsync(Request("DELETE", "/api/gateway/Product/item/p1"), "Product", "p1", hardDelete: false);
+        var soft = await service.DeleteAsync(Request("DELETE", "/api/gateway/Product/p1"), "Product", "p1", hardDelete: false);
+        var again = await service.DeleteAsync(Request("DELETE", "/api/gateway/Product/p1"), "Product", "p1", hardDelete: false);
 
         soft.StatusCode.Should().Be(200);
         Body(soft).GetProperty("itemId").GetString().Should().Be("p1");
@@ -747,7 +751,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product/item"), "Product", Json("""{ "ItemId": "p9", "Title": "Alpha" }"""));
+        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product"), "Product", Json("""{ "ItemId": "p9", "Title": "Alpha" }"""));
 
         ShouldBeProblem(result, 409, "VALIDATION_ERROR");
         Problem(result).Errors.Should().OnlyContain(e => e.ValidationType == "Unique");
@@ -758,7 +762,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product/item"), "Product", Json("""{ "ItemId": "p9", "Title": "" }"""));
+        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product"), "Product", Json("""{ "ItemId": "p9", "Title": "" }"""));
 
         ShouldBeProblem(result, 400, "VALIDATION_ERROR");
         var errors = Body(result).GetProperty("errors");
@@ -777,7 +781,7 @@ public class GatewayRestServiceTests : IDisposable
     {
         var service = await LockInServiceAsync();
 
-        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product/item"), "Product", Json("""{ "Titel": "Lamp" }"""));
+        var result = await service.InsertAsync(Request("POST", "/api/gateway/Product"), "Product", Json("""{ "Titel": "Lamp" }"""));
 
         ShouldBeProblem(result, 400, "VALIDATION_ERROR");
         Problem(result).Errors.Should().ContainSingle().Which.Field.Should().Be("Titel");
@@ -839,7 +843,7 @@ public class GatewayRestServiceTests : IDisposable
         await service.DeleteManyAsync(Request("DELETE", "/x"), "Person", Json("""{ "where": { "Name": { "eq": "Ann" } } }"""), hardDelete: true);
 
         names.Should().Equal(
-            "getPersons", "getPersons", "insertPerson", "insertManyPerson", "updatePerson",
+            "getPersons", "getPersonById", "insertPerson", "insertManyPerson", "updatePerson",
             "updateManyPerson", "upsertPerson", "deletePerson", "deleteManyPerson");
     }
 
@@ -878,7 +882,7 @@ public class GatewayRestServiceTests : IDisposable
             .ReturnsAsync(new ActionResponse { Acknowledged = true, ItemId = "p1" });
 
         var result = await service.InsertAsync(
-            Request("POST", "/api/gateway/Person/item", "?trace=1"), "Person",
+            Request("POST", "/api/gateway/Person", "?trace=1"), "Person",
             Json("""{ "Name": "Ann Example", "Email": "john.doe@example.com" }"""));
 
         result.StatusCode.Should().Be(201);
@@ -889,10 +893,32 @@ public class GatewayRestServiceTests : IDisposable
         tag["EntityName"].Should().Be("Person");
         tag["ResponseStatus"].Should().Be("success");
         var query = tag["OperationQuery"].Should().BeOfType<string>().Subject;
-        query.Should().StartWith("POST /api/gateway/Person/item?trace=1");
+        query.Should().StartWith("POST /api/gateway/Person?trace=1");
         query.Should().Contain("Ann Example");
         query.Should().Contain(LogMasking.MaskText("john.doe@example.com"));
         query.Should().NotContain("john.doe@example.com");
+    }
+
+    [Fact]
+    public async Task Log_GetOne_IsNamedGetEntityById_AndListGetsTheGraphQlName()
+    {
+        var (service, engine) = MockedService();
+        engine.Setup(e => e.GetByIdAsync(It.IsAny<EntityModel>(), "p1", It.IsAny<IReadOnlyList<string>>(), It.IsAny<string>()))
+            .ReturnsAsync(new Dictionary<string, object> { ["_id"] = "p1" });
+        engine.Setup(e => e.QueryAsync(It.IsAny<EntityModel>(), It.IsAny<QueryCommand>()))
+            .ReturnsAsync(new QueryResponse<Dictionary<string, object>>());
+
+        await service.GetByIdAsync(Request("GET", "/api/gateway/Person/p1"), "Person", "p1");
+        var one = OperationTag();
+        await service.GetAsync(Request("GET", "/api/gateway/Person"), "Person", null);
+        var list = OperationTag();
+        await service.GetAsync(Request("POST", "/api/gateway/Person:query"), "Person", Json("{}"));
+        var query = OperationTag();
+
+        one["SchemaName"].Should().Be("getPersonById");
+        one["OperationType"].Should().Be("query");
+        list["SchemaName"].Should().Be("getPersons");
+        query["SchemaName"].Should().Be("getPersons");
     }
 
     [Fact]
@@ -911,6 +937,31 @@ public class GatewayRestServiceTests : IDisposable
         tag["FailureCode"].Should().Be("AUTH_NOT_AUTHENTICATED");
     }
 
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task Log_InAppRequest_IsSetLikeGraphQl_FalseOnlyForAnImpersonatedConsoleCaller(bool impersonated, bool inApp)
+    {
+        // Graph Log and analytics show only InAppRequest rows unless "Include Playground operations" is on (R-V2-14).
+        var (service, engine) = MockedService();
+        engine.Setup(e => e.GetByIdAsync(It.IsAny<EntityModel>(), "p1", It.IsAny<IReadOnlyList<string>>(), It.IsAny<string>()))
+            .ReturnsAsync(new Dictionary<string, object> { ["_id"] = "p1" });
+
+        await service.GetByIdAsync(Request("GET", "/api/gateway/Person/p1", impersonated: impersonated), "Person", "p1");
+
+        OperationTag()["InAppRequest"].Should().Be(inApp);
+    }
+
+    [Fact]
+    public async Task Log_Rejection_StillCarriesInAppRequest()
+    {
+        var service = await LockInServiceAsync();
+
+        await service.GetAsync(Request("GET", "/api/gateway/Product", user: null), "Product", null);
+
+        OperationTag()["InAppRequest"].Should().Be(true);
+    }
+
     [Fact]
     public async Task Log_LongBody_TruncatedTo8192()
     {
@@ -918,7 +969,7 @@ public class GatewayRestServiceTests : IDisposable
         engine.Setup(e => e.InsertAsync(It.IsAny<EntityModel>(), It.IsAny<InsertCommand>()))
             .ReturnsAsync(new ActionResponse { Acknowledged = true, ItemId = "p1" });
 
-        await service.InsertAsync(Request("POST", "/api/gateway/Person/item"), "Person",
+        await service.InsertAsync(Request("POST", "/api/gateway/Person"), "Person",
             Json($$"""{ "Name": "{{new string('n', 20000)}}" }"""));
 
         OperationTag()["OperationQuery"].Should().BeOfType<string>().Which.Length.Should().Be(8192);

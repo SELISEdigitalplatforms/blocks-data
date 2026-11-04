@@ -52,14 +52,14 @@ public class DataGatewayRestControllerTests
     }
 
     [Fact]
-    public async Task Get_Body_PassesTheBody()
+    public async Task Query_PassesTheBody()
     {
         var body = Json("""{"where":{"Name":{"eq":"a"}}}""");
         var expected = new RestResult(200, new RestListResponse([], 1, 10, false));
         _service.Setup(s => s.GetAsync(_http, "Person", It.Is<JsonElement?>(b => b.HasValue && b.Value.ToString() == body.ToString())))
             .ReturnsAsync(expected);
 
-        var result = Written(await _sut.Get("Person", body));
+        var result = Written(await _sut.CustomMethod("Person", "query", body));
 
         result.Value.Should().BeSameAs(expected.Body);
         _service.VerifyAll();
@@ -81,14 +81,14 @@ public class DataGatewayRestControllerTests
     public async Task Insert_Created_WritesTheLocationHeader()
     {
         var body = Json("""{"Name":"a"}""");
-        var expected = new RestResult(201, new RestItemResponse(true, "i1"), "/api/gateway/Person/item/i1");
+        var expected = new RestResult(201, new RestItemResponse(true, "i1"), "/api/gateway/Person/i1");
         _service.Setup(s => s.InsertAsync(_http, "Person", It.IsAny<JsonElement>())).ReturnsAsync(expected);
 
         var result = Written(await _sut.Insert("Person", body));
 
         result.StatusCode.Should().Be(201);
         result.Value.Should().BeSameAs(expected.Body);
-        _http.Response.Headers.Location.ToString().Should().Be("/api/gateway/Person/item/i1");
+        _http.Response.Headers.Location.ToString().Should().Be("/api/gateway/Person/i1");
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class DataGatewayRestControllerTests
         var expected = new RestResult(200, new RestBulkResponse(true, 2, ["a", "b"]));
         _service.Setup(s => s.InsertManyAsync(_http, "Person", It.IsAny<JsonElement>())).ReturnsAsync(expected);
 
-        var result = Written(await _sut.InsertMany("Person", Json("""[{"Name":"a"},{"Name":"b"}]""")));
+        var result = Written(await _sut.CustomMethod("Person", "insertMany", Json("""[{"Name":"a"},{"Name":"b"}]""")));
 
         result.Value.Should().BeSameAs(expected.Body);
         _service.VerifyAll();
@@ -130,7 +130,7 @@ public class DataGatewayRestControllerTests
         var expected = new RestResult(200, new RestBulkResponse(true, 3));
         _service.Setup(s => s.UpdateManyAsync(_http, "Person", It.IsAny<JsonElement>())).ReturnsAsync(expected);
 
-        var result = Written(await _sut.UpdateMany("Person", Json("""{"where":{},"input":{}}""")));
+        var result = Written(await _sut.CustomMethod("Person", "updateMany", Json("""{"where":{},"input":{}}""")));
 
         result.Value.Should().BeSameAs(expected.Body);
         _service.VerifyAll();
@@ -139,13 +139,13 @@ public class DataGatewayRestControllerTests
     [Fact]
     public async Task Upsert_Created_WritesStatusAndLocation()
     {
-        var expected = new RestResult(201, new RestItemResponse(true, "i1", true), "/api/gateway/Person/item/i1");
+        var expected = new RestResult(201, new RestItemResponse(true, "i1", true), "/api/gateway/Person/i1");
         _service.Setup(s => s.UpsertAsync(_http, "Person", "i1", It.IsAny<JsonElement>())).ReturnsAsync(expected);
 
         var result = Written(await _sut.Upsert("Person", "i1", Json("""{"Name":"b"}""")));
 
         result.StatusCode.Should().Be(201);
-        _http.Response.Headers.Location.ToString().Should().Be("/api/gateway/Person/item/i1");
+        _http.Response.Headers.Location.ToString().Should().Be("/api/gateway/Person/i1");
     }
 
     [Fact]
@@ -181,10 +181,79 @@ public class DataGatewayRestControllerTests
         var expected = new RestResult(200, new RestBulkResponse(true, 5));
         _service.Setup(s => s.DeleteManyAsync(_http, "Person", It.IsAny<JsonElement>(), hardDelete)).ReturnsAsync(expected);
 
-        var result = Written(await _sut.DeleteMany("Person", Json("""{"where":{"Name":{"eq":"a"}}}"""), hardDelete));
+        _http.Request.QueryString = new QueryString(hardDelete ? "?hardDelete=true" : string.Empty);
+
+        var result = Written(await _sut.CustomMethod("Person", "deleteMany", Json("""{"where":{"Name":{"eq":"a"}}}""")));
 
         result.Value.Should().BeSameAs(expected.Body);
         _service.VerifyAll();
+    }
+
+    [Theory]
+    [InlineData("?hardDelete=TRUE", true)]
+    [InlineData("?hardDelete=False", false)]
+    [InlineData("?hardDelete=true&hardDelete=false", true)]
+    [InlineData("?other=zz", false)]
+    public async Task DeleteMany_ReadsHardDeleteFromTheQuery_AsABoolDoes(string query, bool hardDelete)
+    {
+        _http.Request.QueryString = new QueryString(query);
+        _service.Setup(s => s.DeleteManyAsync(_http, "Person", It.IsAny<JsonElement>(), hardDelete)).ReturnsAsync(Ok());
+
+        await _sut.CustomMethod("Person", "deleteMany", Json("""{"where":{}}"""));
+
+        _service.VerifyAll();
+    }
+
+    [Theory]
+    [InlineData("zz")]
+    [InlineData("")]
+    [InlineData("1")]
+    public async Task DeleteMany_WithAHardDeleteThatIsNotABool_Is400Validation_WithoutCallingTheService(string value)
+    {
+        _http.Request.QueryString = new QueryString($"?hardDelete={value}");
+
+        var result = Written(await _sut.CustomMethod("Person", "deleteMany", Json("""{"where":{}}""")));
+
+        result.StatusCode.Should().Be(400);
+        result.ContentTypes.Should().Equal("application/problem+json");
+        var problem = result.Value.Should().BeOfType<GatewayProblem>().Subject;
+        problem.Code.Should().Be("VALIDATION_ERROR");
+        problem.Errors.Should().ContainSingle().Which.Field.Should().Be("hardDelete");
+        _service.Invocations.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("query")]
+    [InlineData("insertMany")]
+    [InlineData("updateMany")]
+    public async Task OtherVerbs_IgnoreHardDelete(string verb)
+    {
+        // Review of Task 1 (R-V2-9): only deleteMany takes the flag, so a bad value cannot refuse another verb.
+        _http.Request.QueryString = new QueryString("?hardDelete=zz");
+        _service.Setup(s => s.GetAsync(_http, "Person", It.IsAny<JsonElement?>())).ReturnsAsync(Ok());
+        _service.Setup(s => s.InsertManyAsync(_http, "Person", It.IsAny<JsonElement>())).ReturnsAsync(Ok());
+        _service.Setup(s => s.UpdateManyAsync(_http, "Person", It.IsAny<JsonElement>())).ReturnsAsync(Ok());
+
+        var result = Written(await _sut.CustomMethod("Person", verb, Json("{}")));
+
+        result.StatusCode.Should().Be(200);
+    }
+
+    [Theory]
+    [InlineData("DeleteMany")]
+    [InlineData("Query")]
+    [InlineData("nope")]
+    [InlineData("")]
+    public async Task CustomMethod_UnknownVerb_Is400UnknownMethod_WithoutCallingTheService(string verb)
+    {
+        var result = Written(await _sut.CustomMethod("Person", verb, Json("{}")));
+
+        result.StatusCode.Should().Be(400);
+        result.ContentTypes.Should().Equal("application/problem+json");
+        var problem = result.Value.Should().BeOfType<GatewayProblem>().Subject;
+        problem.Code.Should().Be("UNKNOWN_METHOD");
+        problem.Detail.Should().Be($"Unknown method '{verb}'. Use one of: query, insertMany, updateMany, deleteMany.");
+        _service.Invocations.Should().BeEmpty();
     }
 
     [Fact]
@@ -225,15 +294,15 @@ public class DataGatewayRestControllerTests
         var body = Json("{}");
 
         await _sut.Get("E");
-        await _sut.Get("E", body);
+        await _sut.CustomMethod("E", "query", body);
         await _sut.GetById("E", "i");
         await _sut.Insert("E", body);
-        await _sut.InsertMany("E", body);
+        await _sut.CustomMethod("E", "insertMany", body);
         await _sut.Update("E", "i", body);
-        await _sut.UpdateMany("E", body);
+        await _sut.CustomMethod("E", "updateMany", body);
         await _sut.Upsert("E", "i", body);
         await _sut.Delete("E", "i");
-        await _sut.DeleteMany("E", body);
+        await _sut.CustomMethod("E", "deleteMany", body);
 
         _service.Invocations.Should().HaveCount(10);
     }

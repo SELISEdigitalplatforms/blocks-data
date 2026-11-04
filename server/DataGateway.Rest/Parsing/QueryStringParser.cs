@@ -37,7 +37,7 @@ public static class QueryStringParser
     }
 
     /// <summary>
-    /// Reads the query string of a single-record read (<c>GET .../item/{itemId}</c>), which takes only
+    /// Reads the query string of a single-record read (<c>GET .../{entity}/{itemId}</c>), which takes only
     /// <c>select</c>, with the same strictness as <see cref="Parse"/>.
     /// </summary>
     public static IReadOnlyList<string> ParseSelectOnly(IQueryCollection query, EntityModel entity)

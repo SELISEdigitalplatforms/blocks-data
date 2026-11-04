@@ -9,7 +9,7 @@ namespace DataGateway.Rest;
 /// </summary>
 public interface IGatewayRestService
 {
-    /// <summary>A list. <paramref name="body"/> null reads the query string (<c>GET</c>); a value is the <c>POST</c> body, read once the entity is known.</summary>
+    /// <summary>A list. <paramref name="body"/> null reads the query string (<c>GET</c>); a value is the <c>POST /{entity}:query</c> body, read once the entity is known.</summary>
     Task<RestResult> GetAsync(HttpContext http, string entity, JsonElement? body);
 
     Task<RestResult> GetByIdAsync(HttpContext http, string entity, string itemId);

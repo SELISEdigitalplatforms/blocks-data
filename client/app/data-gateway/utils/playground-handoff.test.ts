@@ -25,7 +25,7 @@ const store = (value: unknown) => localStorage.setItem(NEW_KEY, JSON.stringify(v
 const validRest = {
   protocol: "rest",
   method: "POST",
-  path: "/RT/item",
+  path: "/RT",
   query: [["a", "1"]],
   body: '{"x":1}',
 };
@@ -38,7 +38,7 @@ describe("playground handoff", () => {
     writePlaygroundHandoff({
       protocol: "rest",
       method: "PATCH",
-      path: "/RT/item/1",
+      path: "/RT/1",
       query: [["k", "v"]],
       body: "{}",
     });
@@ -46,7 +46,7 @@ describe("playground handoff", () => {
     expect(consume()).toEqual({
       protocol: "rest",
       method: "PATCH",
-      path: "/RT/item/1",
+      path: "/RT/1",
       query: [["k", "v"]],
       body: "{}",
     });
@@ -61,12 +61,12 @@ describe("playground handoff", () => {
   });
 
   it("accepts a rest handoff without a body", () => {
-    store({ protocol: "rest", method: "GET", path: "/RT/item", query: [] });
+    store({ protocol: "rest", method: "GET", path: "/RT", query: [] });
 
     expect(consume()).toEqual({
       protocol: "rest",
       method: "GET",
-      path: "/RT/item",
+      path: "/RT",
       query: [],
     });
   });
@@ -84,7 +84,7 @@ describe("playground handoff", () => {
     expect(consume()).toBeNull();
   });
 
-  it.each(["//evil.com/x", "/a/../b", "RT/item", "/a\\b"])(
+  it.each(["//evil.com/x", "/a/../b", "RT", "/a\\b"])(
     "drops path %s that fails the guard",
     (path) => {
       store({ ...validRest, path });

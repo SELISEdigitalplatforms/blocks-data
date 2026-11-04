@@ -142,8 +142,11 @@ describe("RequestsDrawer", () => {
     await userEvent.click(entityToggle("Employee"));
     expect(entityToggle("Employee")).toHaveAttribute("aria-expanded", "true");
     expect(screen.getAllByRole("button", USE_BUTTON)).toHaveLength(10);
+    for (const verb of ["query", "insertMany", "updateMany", "deleteMany"]) {
+      expect(screen.getByText(`/Employee:${verb}`, { selector: "code" })).toBeInTheDocument();
+    }
     expect(screen.getByText("List records")).toBeInTheDocument();
-    expect(screen.getAllByText("/Employee/item/{itemId}", { selector: "code" })).toHaveLength(4);
+    expect(screen.getAllByText("/Employee/{itemId}", { selector: "code" })).toHaveLength(4);
     await userEvent.click(entityToggle("Employee"));
     expect(screen.queryByRole("button", USE_BUTTON)).not.toBeInTheDocument();
   });
@@ -156,7 +159,7 @@ describe("RequestsDrawer", () => {
     expect(new Set(names).size).toBe(10);
     expect(names).toContain("Use in builder: GET /Employee");
     expect(screen.getByRole("button", { name: "Use in builder: GET /Employee" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Use in builder: POST /Employee/item" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Use in builder: POST /Employee:query" })).toBeInTheDocument();
   });
 
   it("shows a method badge on every operation", async () => {

@@ -6,7 +6,7 @@ const patch: RestRequestTemplate = {
   group: "update",
   id: "update",
   method: "PATCH",
-  path: "/E/item/{itemId}",
+  path: "/E/{itemId}",
   query: [],
   body: { Name: "x" },
 };
@@ -15,7 +15,7 @@ const list: RestRequestTemplate = {
   group: "query",
   id: "list",
   method: "GET",
-  path: "/E/items",
+  path: "/E",
   query: [
     ["order", "Name:ASC"],
     ["select", "Name,Age"],
@@ -26,15 +26,15 @@ const BASE = "https://h/api/gateway";
 
 describe("toHttp", () => {
   it("writes the request line, a blank line and the indented body", () => {
-    expect(toHttp(patch)).toBe('PATCH /E/item/{itemId}\n\n{\n  "Name": "x"\n}');
+    expect(toHttp(patch)).toBe('PATCH /E/{itemId}\n\n{\n  "Name": "x"\n}');
   });
 
   it("returns the first line only when there is no body", () => {
-    expect(toHttp(list)).toBe("GET /E/items?order=Name:ASC&select=Name,Age");
+    expect(toHttp(list)).toBe("GET /E?order=Name:ASC&select=Name,Age");
   });
 
   it("drops query pairs with an empty key", () => {
-    expect(toHttp({ ...list, query: [["", "x"], ["a", "1"]] })).toBe("GET /E/items?a=1");
+    expect(toHttp({ ...list, query: [["", "x"], ["a", "1"]] })).toBe("GET /E?a=1");
   });
 });
 
@@ -43,7 +43,7 @@ describe("toCurl", () => {
     const out = toCurl(patch, BASE, "k");
     expect(out).toBe(
       [
-        "curl -X PATCH 'https://h/api/gateway/E/item/{itemId}' \\",
+        "curl -X PATCH 'https://h/api/gateway/E/{itemId}' \\",
         "  -H 'x-blocks-key: k' \\",
         "  -H 'Content-Type: application/json' \\",
         `  --data '{"Name":"x"}'`,
@@ -54,7 +54,7 @@ describe("toCurl", () => {
   it("omits Content-Type and --data without a body", () => {
     const out = toCurl(list, BASE, "k");
     expect(out).toBe(
-      ["curl -X GET 'https://h/api/gateway/E/items?order=Name:ASC&select=Name,Age' \\", "  -H 'x-blocks-key: k'"].join("\n"),
+      ["curl -X GET 'https://h/api/gateway/E?order=Name:ASC&select=Name,Age' \\", "  -H 'x-blocks-key: k'"].join("\n"),
     );
     expect(out).not.toContain("Content-Type");
     expect(out).not.toContain("--data");
@@ -78,7 +78,7 @@ describe("toCurl", () => {
   });
 
   it("strips one trailing slash from the base", () => {
-    expect(toCurl(list, `${BASE}/`, "k")).toContain("'https://h/api/gateway/E/items?");
+    expect(toCurl(list, `${BASE}/`, "k")).toContain("'https://h/api/gateway/E?");
   });
 
   it("URL-encodes query values", () => {
@@ -90,7 +90,7 @@ describe("toFetch", () => {
   it("builds a fetch call with method, headers and a pretty body", () => {
     expect(toFetch(patch, BASE, "k")).toBe(
       [
-        'await fetch("https://h/api/gateway/E/item/{itemId}", {',
+        'await fetch("https://h/api/gateway/E/{itemId}", {',
         '  method: "PATCH",',
         "  headers: {",
         '    "x-blocks-key": "k",',
@@ -107,7 +107,7 @@ describe("toFetch", () => {
   it("omits Content-Type and body for a GET and encodes the query", () => {
     expect(toFetch(list, BASE, "k")).toBe(
       [
-        'await fetch("https://h/api/gateway/E/items?order=Name:ASC&select=Name,Age", {',
+        'await fetch("https://h/api/gateway/E?order=Name:ASC&select=Name,Age", {',
         '  method: "GET",',
         "  headers: {",
         '    "x-blocks-key": "k",',
@@ -127,6 +127,6 @@ describe("toFetch", () => {
   });
 
   it("strips one trailing slash from the base", () => {
-    expect(toFetch(list, `${BASE}/`, "k")).toContain('fetch("https://h/api/gateway/E/items?');
+    expect(toFetch(list, `${BASE}/`, "k")).toContain('fetch("https://h/api/gateway/E?');
   });
 });

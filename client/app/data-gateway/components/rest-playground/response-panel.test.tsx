@@ -71,7 +71,7 @@ describe("ResponsePanel", () => {
         response={response({
           status: 201,
           statusText: "Created",
-          headers: [["location", "/data/v1/Thing/item/abc"]],
+          headers: [["location", "/api/gateway/Thing/abc"]],
           bodyText: '{"itemId":"abc"}',
           durationMs: 87,
           sizeBytes: 16,
@@ -85,7 +85,7 @@ describe("ResponsePanel", () => {
 
     await userEvent.click(screen.getByRole("tab", { name: "Headers" }));
     expect(screen.getByText("location:")).toBeInTheDocument();
-    expect(screen.getByText("/data/v1/Thing/item/abc")).toBeInTheDocument();
+    expect(screen.getByText("/api/gateway/Thing/abc")).toBeInTheDocument();
   });
 
   it("formats the size in KB with one decimal from 1024 bytes", () => {

@@ -50,6 +50,10 @@ builder.Services.Configure<MvcOptions>(options =>
     options.Conventions.Insert(0, new GlobalApiRoutePrefixConvention("api"));
 });
 
+// {entity:schemaName} on the Data Gateway REST routes: only a name a schema can have reaches the controller.
+builder.Services.Configure<RouteOptions>(options =>
+    options.ConstraintMap[Api.Controllers.SchemaNameRouteConstraint.Name] = typeof(Api.Controllers.SchemaNameRouteConstraint));
+
 var wwwrootPath = Path.Combine(builder.Environment.ContentRootPath, "wwwroot");
 Directory.CreateDirectory(wwwrootPath);
 
@@ -79,11 +83,12 @@ app.UseStaticFiles();
 var indexHtml = Path.Combine(app.Environment.WebRootPath ?? "", "index.html");
 if (File.Exists(indexHtml))
 {
-    app.MapFallbackToFile("/index.html");
+    // Not under the REST routes: there an unmatched path is the router's 404, which gets a problem body below.
+    app.MapFallbackToFile(Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware.SpaFallbackPattern, "/index.html");
 }
 
 app.UseMiddleware<RequestContextMiddleware>();
-// The router answers a wrong content type under the REST routes with an empty 415; this gives it the problem body.
+// The router answers under the REST routes with an empty 404, 405 or 415; this gives it the problem body.
 app.UseMiddleware<Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware>();
 
 app.MapControllers();

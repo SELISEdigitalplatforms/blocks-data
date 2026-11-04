@@ -136,12 +136,12 @@ describe("RestPreviewPanel", () => {
       ]),
     ).toEqual([
       ["GET", "/"],
-      ["POST", "/"],
-      ["GET", "/item/{itemId}"],
+      ["POST", ":query"],
+      ["GET", "/{itemId}"],
     ]);
   });
 
-  it("shows PATCH, PUT and PATCH /items cards for the Update group, with entity-relative path, title and description", () => {
+  it("shows PATCH, PUT and POST :updateMany cards for the Update group, with entity-relative path, title and description", () => {
     renderPanel({ operationGroup: "update" });
 
     expect(cards()).toHaveLength(3);
@@ -151,9 +151,9 @@ describe("RestPreviewPanel", () => {
         within(c).getByTestId("request-path").textContent,
       ]),
     ).toEqual([
-      ["PATCH", "/item/{itemId}"],
-      ["PUT", "/item/{itemId}"],
-      ["PATCH", "/items"],
+      ["PATCH", "/{itemId}"],
+      ["PUT", "/{itemId}"],
+      ["POST", ":updateMany"],
     ]);
     const update = card("Update a record");
     expect(within(update).getByText("Change fields on one record by its item ID.")).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe("RestPreviewPanel", () => {
     expect(card("Update many records")).toBeInTheDocument();
   });
 
-  it("shows POST /item and POST /items cards for the Insert group, with entity-relative paths", () => {
+  it("shows POST / and POST :insertMany cards for the Insert group, with entity-relative paths", () => {
     renderPanel({ operationGroup: "insert" });
 
     expect(cards()).toHaveLength(2);
@@ -171,12 +171,12 @@ describe("RestPreviewPanel", () => {
         within(c).getByTestId("request-path").textContent,
       ]),
     ).toEqual([
-      ["POST", "/item"],
-      ["POST", "/items"],
+      ["POST", "/"],
+      ["POST", ":insertMany"],
     ]);
   });
 
-  it("shows DELETE /item/{itemId} and DELETE /items cards for the Delete group, with entity-relative paths", () => {
+  it("shows DELETE /{itemId} and POST :deleteMany cards for the Delete group, with entity-relative paths", () => {
     renderPanel({ operationGroup: "delete" });
 
     expect(cards()).toHaveLength(2);
@@ -186,8 +186,8 @@ describe("RestPreviewPanel", () => {
         within(c).getByTestId("request-path").textContent,
       ]),
     ).toEqual([
-      ["DELETE", "/item/{itemId}"],
-      ["DELETE", "/items"],
+      ["DELETE", "/{itemId}"],
+      ["POST", ":deleteMany"],
     ]);
   });
 
@@ -201,7 +201,7 @@ describe("RestPreviewPanel", () => {
     bodies.forEach((pre) => {
       expect(pre).toHaveAttribute("data-language", "http");
       // The body keeps the full gateway-relative path; only the header drops the entity.
-      expect(pre.textContent).toMatch(/^PATCH \/RT_Blocklist\/item\/\{itemId\}\n/);
+      expect(pre.textContent).toMatch(/^PATCH \/RT_Blocklist\/\{itemId\}\n/);
     });
   });
 
@@ -229,7 +229,7 @@ describe("RestPreviewPanel", () => {
     expect(writePlaygroundHandoff).toHaveBeenCalledWith({
       protocol: "rest",
       method: "PATCH",
-      path: "/RT_Blocklist/item/{itemId}",
+      path: "/RT_Blocklist/{itemId}",
       query: [],
       body: JSON.stringify(t.body, null, 2),
     });

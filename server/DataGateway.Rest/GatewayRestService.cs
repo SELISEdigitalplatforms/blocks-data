@@ -44,7 +44,7 @@ public sealed partial class GatewayRestService : IGatewayRestService
 {
     private const string ItemIdField = "ItemId";
     private const string NotAuthenticatedMessage = "User is not authenticated.";
-    private const string LocationFormat = "/api/gateway/{0}/item/{1}";
+    private const string LocationFormat = "/api/gateway/{0}/{1}";
     private const string BodyItemIdMessage = "Field 'ItemId' must be 1-64 characters of letters, digits, '_' or '-'.";
 
     private readonly IGatewayDataEngine _engine;
@@ -204,7 +204,7 @@ public sealed partial class GatewayRestService : IGatewayRestService
         Func<EntityModel, string, Task<RestResult>> run)
     {
         ArgumentNullException.ThrowIfNull(http);
-        var operationName = OperationName(operation, entityName);
+        var operationName = RestRouteNames.OperationName(operation, entityName);
         var log = RestOperationLog.Begin(http, operation, operationName, entityName, body);
         try
         {
@@ -281,20 +281,6 @@ public sealed partial class GatewayRestService : IGatewayRestService
         RestOperation.Update or RestOperation.UpdateMany => [schema.EditAccessLevel],
         RestOperation.Upsert => [schema.WriteAccessLevel, schema.EditAccessLevel],
         RestOperation.Delete or RestOperation.DeleteMany => [schema.DeleteAccessLevel],
-        _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null),
-    };
-
-    /// <summary>The GraphQL field name of the same operation, as the request log and Graph Log know it.</summary>
-    internal static string OperationName(RestOperation operation, string entity) => operation switch
-    {
-        RestOperation.Get or RestOperation.GetById => $"get{entity}s",
-        RestOperation.Insert => $"insert{entity}",
-        RestOperation.InsertMany => $"insertMany{entity}",
-        RestOperation.Update => $"update{entity}",
-        RestOperation.UpdateMany => $"updateMany{entity}",
-        RestOperation.Upsert => $"upsert{entity}",
-        RestOperation.Delete => $"delete{entity}",
-        RestOperation.DeleteMany => $"deleteMany{entity}",
         _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null),
     };
 

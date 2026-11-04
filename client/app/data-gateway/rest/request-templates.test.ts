@@ -8,6 +8,7 @@ import {
   templateTitleKey,
   type RestTemplateId,
 } from "./request-templates";
+import { routeIdFor } from "./route-id";
 import { sampleValue } from "./sample-values";
 
 /** The part of a draft-07 JSON Schema these tests read. */
@@ -49,16 +50,20 @@ describe("buildRestRequests", () => {
   it("returns the ten routes in order", () =>
     expect(templates.map((t) => `${t.method} ${t.path}`)).toEqual([
       "GET /RT_Blocklist",
+      "POST /RT_Blocklist:query",
+      "GET /RT_Blocklist/{itemId}",
       "POST /RT_Blocklist",
-      "GET /RT_Blocklist/item/{itemId}",
-      "POST /RT_Blocklist/item",
-      "POST /RT_Blocklist/items",
-      "PATCH /RT_Blocklist/item/{itemId}",
-      "PUT /RT_Blocklist/item/{itemId}",
-      "PATCH /RT_Blocklist/items",
-      "DELETE /RT_Blocklist/item/{itemId}",
-      "DELETE /RT_Blocklist/items",
+      "POST /RT_Blocklist:insertMany",
+      "PATCH /RT_Blocklist/{itemId}",
+      "PUT /RT_Blocklist/{itemId}",
+      "POST /RT_Blocklist:updateMany",
+      "DELETE /RT_Blocklist/{itemId}",
+      "POST /RT_Blocklist:deleteMany",
     ]));
+
+  it("names each template's own route", () => {
+    for (const t of templates) expect(routeIdFor(t.method, t.path)).toEqual({ entity: "RT_Blocklist", id: t.id });
+  });
 
   it("assigns the four groups", () =>
     expect(templates.map((t) => t.group)).toEqual([
@@ -130,7 +135,7 @@ describe("buildRestRequests", () => {
     expect(t.query).toEqual([["select", "A,B,C,D,E"]]);
   });
 
-  it("GET item, item deletes and the plain routes have no body", () => {
+  it("list, get one and delete one have no body", () => {
     for (const id of ["list", "getOne", "delete"] as const) {
       expect(byId(id).body).toBeUndefined();
     }

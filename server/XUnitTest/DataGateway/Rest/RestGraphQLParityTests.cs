@@ -69,7 +69,7 @@ public class RestGraphQLParityTests
             { getProducts(where: { Price: { gte: 10 } }, order: [{ field: "Title", direction: DESC }], paging: { pageNo: 2, pageSize: 1 }) {
                 items { ItemId Title Price Tags Address { City } } pageNo pageSize totalCount } }
             """, Admin,
-            service => service.GetAsync(Request("POST", "/api/gateway/Product", Admin), "Product", Json("""
+            service => service.GetAsync(Request("POST", "/api/gateway/Product:query", Admin), "Product", Json("""
                 { "where": { "Price": { "gte": 10 } }, "order": [{ "field": "Title", "direction": "DESC" }],
                   "paging": { "pageNo": 2, "pageSize": 1 }, "select": ["ItemId", "Title", "Price", "Tags", "Address.City"],
                   "includeTotalCount": true }
@@ -99,7 +99,7 @@ public class RestGraphQLParityTests
             { getProducts(where: { or: [{ and: [{ Status: { eq: Live } }, { Stock: { gte: 0 } }] }, { Title: { eq: "Bravo" } }] }, order: [{ field: "Title" }]) {
                 items { ItemId Title } pageNo pageSize totalCount } }
             """, Admin,
-            service => service.GetAsync(Request("POST", "/api/gateway/Product", Admin), "Product", Json("""
+            service => service.GetAsync(Request("POST", "/api/gateway/Product:query", Admin), "Product", Json("""
                 { "where": { "or": [{ "and": [{ "Status": { "eq": "Live" } }, { "Stock": { "gte": 0 } }] }, { "Title": { "eq": "Bravo" } }] },
                   "order": [{ "field": "Title", "direction": "ASC" }], "select": ["ItemId", "Title"], "includeTotalCount": true }
                 """)));
@@ -126,7 +126,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, """
             { getProducts(where: { ItemId: { eq: "p2" } }) { items { ItemId } } }
             """, Owner,
-            service => service.GetByIdAsync(Request("GET", "/api/gateway/Product/item/p2", Owner), "Product", "p2"));
+            service => service.GetByIdAsync(Request("GET", "/api/gateway/Product/p2", Owner), "Product", "p2"));
 
         // GraphQL answers an empty list; REST's one-record route answers 404, as for a record that does not exist.
         Data(graphQl, "getProducts")!["items"]!.AsArray().Should().BeEmpty();
@@ -158,7 +158,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, """
             { getProducts(where: { ItemId: { eq: "p1" } }) { items { ItemId Location } pageNo pageSize } }
             """, Admin,
-            service => service.GetAsync(Request("POST", "/api/gateway/Product", Admin), "Product",
+            service => service.GetAsync(Request("POST", "/api/gateway/Product:query", Admin), "Product",
                 Json("""{ "where": { "ItemId": { "eq": "p1" } }, "select": ["ItemId", "Location"] }""")));
 
         ShouldMatchList(graphQl, "getProducts", rest, expectedIds: ["p1"]);
@@ -185,7 +185,7 @@ public class RestGraphQLParityTests
             { getProducts(where: { Location: { near: { geometry: { type: "Point", coordinates: [8.5417, 47.3769] }, maxDistanceMeters: 5000 } } }) {
                 items { ItemId } pageNo pageSize } }
             """, caller,
-            service => service.GetAsync(Request("POST", "/api/gateway/Product", caller), "Product", Json("""
+            service => service.GetAsync(Request("POST", "/api/gateway/Product:query", caller), "Product", Json("""
                 { "where": { "Location": { "near": { "geometry": { "type": "Point", "coordinates": [8.5417, 47.3769] }, "maxDistanceMeters": 5000 } } },
                   "select": ["ItemId"] }
                 """)));
@@ -202,7 +202,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, """
             mutation { insertProduct(input: { ItemId: "p9", Title: "Lamp", Price: 5, Status: Live, Address: { City: "Oslo" }, Tags: ["a"] }) { acknowledged itemId totalImpactedData message } }
             """, Owner,
-            service => service.InsertAsync(Request("POST", "/api/gateway/Product/item", Owner), "Product", Json("""
+            service => service.InsertAsync(Request("POST", "/api/gateway/Product", Owner), "Product", Json("""
                 { "ItemId": "p9", "Title": "Lamp", "Price": 5, "Status": "Live", "Address": { "City": "Oslo" }, "Tags": ["a"] }
                 """)));
 
@@ -217,7 +217,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, $$"""
             mutation { insertManyProduct(input: [{ ItemId: "p7", Title: "Lamp" }, { ItemId: "p8", Title: "Desk" }]) { {{Bulk}} } }
             """, Owner,
-            service => service.InsertManyAsync(Request("POST", "/api/gateway/Product/items", Owner), "Product",
+            service => service.InsertManyAsync(Request("POST", "/api/gateway/Product:insertMany", Owner), "Product",
                 Json("""[{ "ItemId": "p7", "Title": "Lamp" }, { "ItemId": "p8", "Title": "Desk" }]""")));
 
         rest.Result.StatusCode.Should().Be(200);
@@ -235,7 +235,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, $$"""
             mutation { updateProduct(where: { ItemId: { eq: "p1" } }, input: { Price: 9, Address: { City: "Basel" } }) { {{Single}} } }
             """, Owner,
-            service => service.UpdateAsync(Request("PATCH", "/api/gateway/Product/item/p1", Owner), "Product", "p1",
+            service => service.UpdateAsync(Request("PATCH", "/api/gateway/Product/p1", Owner), "Product", "p1",
                 Json("""{ "Price": 9, "Address": { "City": "Basel" } }""")));
 
         rest.Result.StatusCode.Should().Be(200);
@@ -249,7 +249,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, $$"""
             mutation { updateProduct(where: { ItemId: { eq: "p2" } }, input: { Price: 9 }) { {{Single}} } }
             """, Owner,
-            service => service.UpdateAsync(Request("PATCH", "/api/gateway/Product/item/p2", Owner), "Product", "p2", Json("""{ "Price": 9 }""")));
+            service => service.UpdateAsync(Request("PATCH", "/api/gateway/Product/p2", Owner), "Product", "p2", Json("""{ "Price": 9 }""")));
 
         // GraphQL answers its "not found" result (acknowledged false); REST answers 404. Nothing changes on either.
         Data(graphQl, "updateProduct")!["acknowledged"]!.GetValue<bool>().Should().BeFalse();
@@ -266,7 +266,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, $$"""
             mutation { updateManyProduct(where: { Status: { eq: Draft } }, input: { Stock: 1 }) { {{Single}} } }
             """, caller,
-            service => service.UpdateManyAsync(Request("PATCH", "/api/gateway/Product/items", caller), "Product",
+            service => service.UpdateManyAsync(Request("POST", "/api/gateway/Product:updateMany", caller), "Product",
                 Json("""{ "where": { "Status": { "eq": "Draft" } }, "input": { "Stock": 1 } }""")));
 
         // An admin reaches both Draft rows; u1 only its own, by the edit row rules on GraphQL and by the edit and read
@@ -282,7 +282,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.WithAuditLog, $$"""
             mutation { deleteProduct(where: { ItemId: { eq: "p1" } }, input: { isHardDelete: false }) { {{Single}} } }
             """, Owner,
-            service => service.DeleteAsync(Request("DELETE", "/api/gateway/Product/item/p1", Owner), "Product", "p1", hardDelete: false));
+            service => service.DeleteAsync(Request("DELETE", "/api/gateway/Product/p1", Owner), "Product", "p1", hardDelete: false));
 
         rest.Result.StatusCode.Should().Be(200);
         ShouldMatchItemResult(graphQl, "deleteProduct", rest);
@@ -297,7 +297,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.WithAuditLog, $$"""
             mutation { deleteProduct(where: { ItemId: { eq: "p1" } }, input: { isHardDelete: true }) { {{Single}} } }
             """, Owner,
-            service => service.DeleteAsync(Request("DELETE", "/api/gateway/Product/item/p1", Owner), "Product", "p1", hardDelete: true));
+            service => service.DeleteAsync(Request("DELETE", "/api/gateway/Product/p1", Owner), "Product", "p1", hardDelete: true));
 
         rest.Result.StatusCode.Should().Be(200);
         ShouldMatchItemResult(graphQl, "deleteProduct", rest);
@@ -312,7 +312,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.WithAuditLog, $$"""
             mutation { deleteManyProduct(where: { Status: { eq: Draft } }, input: { isHardDelete: {{(hardDelete ? "true" : "false")}} }) { {{Single}} } }
             """, Owner,
-            service => service.DeleteManyAsync(Request("DELETE", "/api/gateway/Product/items", Owner), "Product",
+            service => service.DeleteManyAsync(Request("POST", "/api/gateway/Product:deleteMany", Owner), "Product",
                 Json("""{ "where": { "Status": { "eq": "Draft" } } }"""), hardDelete));
 
         // Of the two Draft rows u1 may delete only its own, p1.
@@ -338,7 +338,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, $$"""
             mutation { insertProduct(input: { ItemId: "p9", Title: "Lamp" }) { {{Single}} } }
             """, LockInCaller.Anonymous,
-            service => service.InsertAsync(Request("POST", "/api/gateway/Product/item", LockInCaller.Anonymous), "Product",
+            service => service.InsertAsync(Request("POST", "/api/gateway/Product", LockInCaller.Anonymous), "Product",
                 Json("""{ "ItemId": "p9", "Title": "Lamp" }""")));
 
         ShouldRefuseAlike(graphQl, rest, 401, "AUTH_NOT_AUTHENTICATED");
@@ -351,7 +351,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, $$"""
             mutation { insertProduct(input: { ItemId: "p9", Title: "" }) { {{Single}} } }
             """, Owner,
-            service => service.InsertAsync(Request("POST", "/api/gateway/Product/item", Owner), "Product", Json("""{ "ItemId": "p9", "Title": "" }""")));
+            service => service.InsertAsync(Request("POST", "/api/gateway/Product", Owner), "Product", Json("""{ "ItemId": "p9", "Title": "" }""")));
 
         ShouldRefuseAlike(graphQl, rest, 400, "VALIDATION_ERROR");
         ShouldHaveSameFieldErrors(graphQl, rest, ("Title", "NotEmpty"));
@@ -364,7 +364,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, $$"""
             mutation { insertManyProduct(input: [{ ItemId: "p7", Title: "Lamp" }, { ItemId: "p8", Title: "" }]) { {{Bulk}} } }
             """, Owner,
-            service => service.InsertManyAsync(Request("POST", "/api/gateway/Product/items", Owner), "Product",
+            service => service.InsertManyAsync(Request("POST", "/api/gateway/Product:insertMany", Owner), "Product",
                 Json("""[{ "ItemId": "p7", "Title": "Lamp" }, { "ItemId": "p8", "Title": "" }]""")));
 
         ShouldRefuseAlike(graphQl, rest, 400, "VALIDATION_ERROR");
@@ -377,7 +377,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, $$"""
             mutation { insertProduct(input: { ItemId: "p9", Title: "Alpha" }) { {{Single}} } }
             """, Owner,
-            service => service.InsertAsync(Request("POST", "/api/gateway/Product/item", Owner), "Product", Json("""{ "ItemId": "p9", "Title": "Alpha" }""")));
+            service => service.InsertAsync(Request("POST", "/api/gateway/Product", Owner), "Product", Json("""{ "ItemId": "p9", "Title": "Alpha" }""")));
 
         // The same VALIDATION_ERROR; REST answers it 409 because every field error is a Unique one.
         ShouldRefuseAlike(graphQl, rest, 409, "VALIDATION_ERROR");
@@ -391,7 +391,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, $$"""
             mutation { updateProduct(where: { ItemId: { eq: "p1" } }, input: { Title: "Charlie" }) { {{Single}} } }
             """, Owner,
-            service => service.UpdateAsync(Request("PATCH", "/api/gateway/Product/item/p1", Owner), "Product", "p1", Json("""{ "Title": "Charlie" }""")));
+            service => service.UpdateAsync(Request("PATCH", "/api/gateway/Product/p1", Owner), "Product", "p1", Json("""{ "Title": "Charlie" }""")));
 
         ShouldRefuseAlike(graphQl, rest, 409, "VALIDATION_ERROR");
         ShouldHaveSameFieldErrors(graphQl, rest, ("Title", "Unique"));
@@ -404,7 +404,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, $$"""
             mutation { updateProduct(where: { ItemId: { eq: "p1" } }, input: { Secret: "x" }) { {{Single}} } }
             """, Owner,
-            service => service.UpdateAsync(Request("PATCH", "/api/gateway/Product/item/p1", Owner), "Product", "p1", Json("""{ "Secret": "x" }""")));
+            service => service.UpdateAsync(Request("PATCH", "/api/gateway/Product/p1", Owner), "Product", "p1", Json("""{ "Secret": "x" }""")));
 
         // A write column rule refuses as a field error on both, not as FORBIDDEN.
         ShouldRefuseAlike(graphQl, rest, 400, "VALIDATION_ERROR");
@@ -430,7 +430,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(DeleteForEveryone, $$"""
             mutation { deleteManyProduct(where: { Status: { eq: Draft } }, input: { isHardDelete: true }) { {{Single}} } }
             """, Owner,
-            service => service.DeleteManyAsync(Request("DELETE", "/api/gateway/Product/items", Owner), "Product",
+            service => service.DeleteManyAsync(Request("POST", "/api/gateway/Product:deleteMany", Owner), "Product",
                 Json("""{ "where": { "Status": { "eq": "Draft" } } }"""), hardDelete: true));
 
         Data(graphQl, "deleteManyProduct")!["totalImpactedData"]!.GetValue<long>().Should().Be(2);
@@ -446,7 +446,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.Standard, """
             { getProducts(where: { Secret: { eq: "s-one" } }) { items { ItemId Secret } } }
             """, Owner,
-            service => service.GetAsync(Request("POST", "/api/gateway/Product", Owner), "Product",
+            service => service.GetAsync(Request("POST", "/api/gateway/Product:query", Owner), "Product",
                 Json("""{ "where": { "Secret": { "eq": "s-one" } }, "select": ["ItemId", "Secret"] }""")));
 
         Data(graphQl, "getProducts")!["items"]!.AsArray().Select(i => i!["ItemId"]!.GetValue<string>()).Should().Equal("p1");
@@ -458,7 +458,7 @@ public class RestGraphQLParityTests
     {
         // A null operand is silently dropped by the shared converter, widening the filter; REST refuses it (R9).
         var (_, rest) = await BothAsync(() => LockInTenant.Standard, "{ getProducts { items { ItemId } } }", Admin,
-            service => service.GetAsync(Request("POST", "/api/gateway/Product", Admin), "Product",
+            service => service.GetAsync(Request("POST", "/api/gateway/Product:query", Admin), "Product",
                 Json("""{ "where": { "Title": { "eq": null } } }""")));
 
         ShouldBeProblem(rest.Result, 400, "VALIDATION_ERROR");
@@ -478,7 +478,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(() => LockInTenant.WithInheritedDtoField, """
             { getProducts(where: { ItemId: { eq: "p1" } }) { items { ItemId Billing { City Zip } } pageNo pageSize } }
             """, Admin,
-            service => service.GetAsync(Request("POST", "/api/gateway/Product", Admin), "Product",
+            service => service.GetAsync(Request("POST", "/api/gateway/Product:query", Admin), "Product",
                 Json("""{ "where": { "ItemId": { "eq": "p1" } }, "select": ["ItemId", "Billing.City", "Billing.Zip"] }""")));
 
         ShouldMatchList(graphQl, "getProducts", rest, expectedIds: ["p1"]);
@@ -537,7 +537,7 @@ public class RestGraphQLParityTests
         var rest = await RestSide.CreateAsync(_fixture, LockInTenant.WithInheritedDtoField);
         await using var _ = rest;
 
-        var byWhere = await rest.Service.GetAsync(Request("POST", "/api/gateway/Product", Admin), "Product",
+        var byWhere = await rest.Service.GetAsync(Request("POST", "/api/gateway/Product:query", Admin), "Product",
             Json("""{ "where": { "Billing": { "City": { "eq": "Bern" } } } }"""));
         var byOrder = await rest.Service.GetAsync(Request("GET", "/api/gateway/Product", Admin, "?order=Billing.City"), "Product", null);
 
@@ -557,7 +557,7 @@ public class RestGraphQLParityTests
         var (graphQl, rest) = await BothAsync(WithBillingFieldRows, """
             { getProducts(where: { ItemId: { eq: "p1" } }) { items { ItemId Billing { City Zip } } pageNo pageSize } }
             """, Admin,
-            service => service.GetAsync(Request("POST", "/api/gateway/Product", Admin), "Product",
+            service => service.GetAsync(Request("POST", "/api/gateway/Product:query", Admin), "Product",
                 Json("""{ "where": { "ItemId": { "eq": "p1" } }, "select": ["ItemId", "Billing.City", "Billing.Zip"] }""")));
 
         ShouldMatchList(graphQl, "getProducts", rest, expectedIds: ["p1"]);
@@ -565,7 +565,7 @@ public class RestGraphQLParityTests
 
         var filtered = await RestSide.CreateAsync(_fixture, WithBillingFieldRows());
         await using var __ = filtered;
-        var result = await filtered.Service.GetAsync(Request("POST", "/api/gateway/Product", Owner), "Product",
+        var result = await filtered.Service.GetAsync(Request("POST", "/api/gateway/Product:query", Owner), "Product",
             Json("""{ "where": { "Billing": { "City": { "eq": "Bern" } } }, "select": ["ItemId", "Billing.City"] }"""));
 
         result.StatusCode.Should().Be(200);

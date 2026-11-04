@@ -2,6 +2,8 @@ import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 export type GraphLogOperationType = "query" | "mutation";
+/** How a request reached the gateway; a log entry with no recorded transport is GraphQL. */
+export type GraphLogTransport = "rest" | "graphql";
 export type GraphLogResponseStatus = "success" | "failed";
 export type GraphLogOutcome = "allowed" | "denied" | "error";
 export type GraphLogHistorySort =
@@ -53,6 +55,7 @@ export interface IGetGraphLogHistoryPayload {
   pageSize: number;
   schemaName?: string;
   operationType?: GraphLogOperationType;
+  transport?: GraphLogTransport;
   outcome?: GraphLogOutcome;
   statusCode?: number;
   failureKind?: GraphLogFailureKind;
@@ -61,7 +64,7 @@ export interface IGetGraphLogHistoryPayload {
   sortDescending: boolean;
 }
 
-/** One GraphQL request, as recorded in the trace store. */
+/** One gateway request (REST or GraphQL), as recorded in the trace store. */
 export interface IGraphLogHistoryItem {
   traceId: string;
   spanId: string;
@@ -76,6 +79,9 @@ export interface IGraphLogHistoryItem {
   entityName: string;
   collectionName: string;
   operationType: string;
+  /** "rest" or "graphql". */
+  transport: GraphLogTransport;
+  /** The request text: the GraphQL query for GraphQL rows, the REST request line for REST rows. */
   operationQuery: string;
   mongoQuery: string;
   responseStatus: string;

@@ -4,7 +4,7 @@ using DataGateway.DomainService.Gateway;
 namespace DataGateway.Rest.Parsing;
 
 /// <summary>
-/// Reads a list request's body (<c>POST /api/gateway/{entity}</c>):
+/// Reads a list request's body (<c>POST /api/gateway/{entity}:query</c>):
 /// <c>{ "where": {…}, "order": [{ "field", "direction" }], "select": [paths], "paging": { "pageNo", "pageSize" },
 /// "includeTotalCount": bool }</c>. Every member is optional and <c>null</c> means not given. Unknown or repeated
 /// property names (case-sensitive) are refused, as in the query string.

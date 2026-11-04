@@ -83,35 +83,50 @@
         </member>
         <member name="T:Api.Controllers.DataGatewayController">
             <summary>
-            The Data Gateway's REST API: one set of routes for every entity (<c>/api/gateway/{entity}</c>), whatever its
-            schema. The controller only maps HTTP to <see cref="T:DataGateway.Rest.IGatewayRestService"/> and writes what it answers; the service
+            The Data Gateway's REST API: one set of routes for every entity, whatever its schema (spec 2026-11-04 §2):
+            standard methods on the collection <c>/api/gateway/{entity}</c> and the record <c>/api/gateway/{entity}/{id}</c>,
+            and custom methods, <c>POST /api/gateway/{entity}:{verb}</c>, for the operations that need a body and are not a
+            create or an update of one record. <c>{entity}</c> must pass the <see cref="T:Api.Controllers.SchemaNameRouteConstraint"/>, so a
+            segment with a ':' never reaches a standard method and a name no schema can have is a routing 404.
+            The controller only maps HTTP to <see cref="T:DataGateway.Rest.IGatewayRestService"/> and writes what it answers; the service
             authenticates the caller, checks the entity's access level and runs the operation. There is no endpoint policy
             here on purpose: an entity can be public, so the service decides per entity whether the caller must sign in.
             A failure answers in the gateway's problem shape (<see cref="T:Api.Controllers.RestProblemFilterAttribute"/>), and a request body
             is capped at <see cref="P:DataGateway.Rest.RestLimits.MaxRequestBodyBytes"/> (<see cref="T:Api.Controllers.RestRequestSizeLimitAttribute"/>).
             </summary>
+            <remarks>
+            The entity is in each action's template rather than the controller's: the custom-method segment
+            <c>{entity}:{verb}</c> shares its segment with the entity, and an action template can only add segments after the
+            controller's. The final templates are the same either way, and keep the global <c>api</c> prefix.
+            </remarks>
         </member>
         <member name="M:Api.Controllers.DataGatewayController.#ctor(DataGateway.Rest.IGatewayRestService)">
             <summary>
-            The Data Gateway's REST API: one set of routes for every entity (<c>/api/gateway/{entity}</c>), whatever its
-            schema. The controller only maps HTTP to <see cref="T:DataGateway.Rest.IGatewayRestService"/> and writes what it answers; the service
+            The Data Gateway's REST API: one set of routes for every entity, whatever its schema (spec 2026-11-04 §2):
+            standard methods on the collection <c>/api/gateway/{entity}</c> and the record <c>/api/gateway/{entity}/{id}</c>,
+            and custom methods, <c>POST /api/gateway/{entity}:{verb}</c>, for the operations that need a body and are not a
+            create or an update of one record. <c>{entity}</c> must pass the <see cref="T:Api.Controllers.SchemaNameRouteConstraint"/>, so a
+            segment with a ':' never reaches a standard method and a name no schema can have is a routing 404.
+            The controller only maps HTTP to <see cref="T:DataGateway.Rest.IGatewayRestService"/> and writes what it answers; the service
             authenticates the caller, checks the entity's access level and runs the operation. There is no endpoint policy
             here on purpose: an entity can be public, so the service decides per entity whether the caller must sign in.
             A failure answers in the gateway's problem shape (<see cref="T:Api.Controllers.RestProblemFilterAttribute"/>), and a request body
             is capped at <see cref="P:DataGateway.Rest.RestLimits.MaxRequestBodyBytes"/> (<see cref="T:Api.Controllers.RestRequestSizeLimitAttribute"/>).
             </summary>
+            <remarks>
+            The entity is in each action's template rather than the controller's: the custom-method segment
+            <c>{entity}:{verb}</c> shares its segment with the entity, and an action template can only add segments after the
+            controller's. The final templates are the same either way, and keep the global <c>api</c> prefix.
+            </remarks>
         </member>
         <member name="M:Api.Controllers.DataGatewayController.Get(System.String)">
-            <summary>Lists records. The query string takes <c>order</c>, <c>select</c>, <c>pageNo</c>, <c>pageSize</c> and <c>includeTotalCount</c>; a filter (<c>where</c>) needs the body form, <c>POST</c>.</summary>
+            <summary>Lists records. The query string takes <c>order</c>, <c>select</c>, <c>pageNo</c>, <c>pageSize</c> and <c>includeTotalCount</c>; a filter (<c>where</c>) needs the body form, <c>POST /{entity}:query</c>.</summary>
         </member>
-        <member name="M:Api.Controllers.DataGatewayController.Get(System.String,System.Text.Json.JsonElement)">
-            <summary>Lists records, with the query as a JSON body: <c>where</c>, <c>order</c>, <c>select</c>, <c>paging</c>, <c>includeTotalCount</c>. The only list form that takes a filter.</summary>
+        <member name="M:Api.Controllers.DataGatewayController.Insert(System.String,System.Text.Json.JsonElement)">
+            <summary>Inserts one record; 201 with its <c>Location</c>, <c>/api/gateway/{entity}/{id}</c>.</summary>
         </member>
         <member name="M:Api.Controllers.DataGatewayController.GetById(System.String,System.String)">
             <summary>Reads one record.</summary>
-        </member>
-        <member name="M:Api.Controllers.DataGatewayController.Insert(System.String,System.Text.Json.JsonElement)">
-            <summary>Inserts one record; 201 with its <c>Location</c>.</summary>
         </member>
         <member name="M:Api.Controllers.DataGatewayController.Update(System.String,System.String,System.Text.Json.JsonElement)">
             <summary>Changes the fields the body names on one record.</summary>
@@ -122,14 +137,35 @@
         <member name="M:Api.Controllers.DataGatewayController.Delete(System.String,System.String,System.Boolean)">
             <summary>Deletes one record; soft unless <paramref name="hardDelete"/> is set.</summary>
         </member>
-        <member name="M:Api.Controllers.DataGatewayController.InsertMany(System.String,System.Text.Json.JsonElement)">
-            <summary>Inserts many records.</summary>
+        <member name="M:Api.Controllers.DataGatewayController.CustomMethod(System.String,System.String,System.Text.Json.JsonElement)">
+            <summary>
+            A custom method, by its <paramref name="verb"/> (exact, case included):
+            <list type="bullet">
+            <item><c>query</c>: lists records with the query as a JSON body: <c>where</c>, <c>order</c>, <c>select</c>, <c>paging</c>, <c>includeTotalCount</c>;</item>
+            <item><c>insertMany</c>: inserts the records of a JSON array;</item>
+            <item><c>updateMany</c>: changes every record a <c>where</c> selects: <c>{ "where": {…}, "input": {…} }</c>;</item>
+            <item><c>deleteMany</c>: deletes every record a <c>where</c> selects: <c>{ "where": {…} }</c>; soft unless the query has <c>hardDelete=true</c>.</item>
+            </list>
+            Any other verb is a 400 <c>UNKNOWN_METHOD</c> problem, and runs nothing; it is written to the request log, as the
+            action runs only for a request that bound.
+            </summary>
+            <remarks>
+            <c>hardDelete</c> is read in the <c>deleteMany</c> arm only, not bound as a parameter: a parameter would refuse
+            a bad value on every verb, even the unknown ones, before the verb is known.
+            </remarks>
         </member>
-        <member name="M:Api.Controllers.DataGatewayController.UpdateMany(System.String,System.Text.Json.JsonElement)">
-            <summary>Changes every record a <c>where</c> selects: <c>{ "where": {…}, "input": {…} }</c>.</summary>
+        <member name="M:Api.Controllers.DataGatewayController.ReadHardDelete(Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary)">
+            <summary>
+            The query's <c>hardDelete</c> as a <c>[FromQuery] bool</c> reads it: absent is <c>false</c>, the first value is
+            taken, <c>true</c> and <c>false</c> in any case are accepted, and anything else (an empty value included) is a
+            model-state error with the framework's own message, so the answer is the one <c>DELETE /{entity}/{id}</c> gives.
+            </summary>
         </member>
-        <member name="M:Api.Controllers.DataGatewayController.DeleteMany(System.String,System.Text.Json.JsonElement,System.Boolean)">
-            <summary>Deletes every record a <c>where</c> selects: <c>{ "where": {…} }</c>; soft unless <paramref name="hardDelete"/> is set.</summary>
+        <member name="M:Api.Controllers.DataGatewayController.EchoedVerb(System.String)">
+            <summary>
+            The unknown verb as the problem detail and the log echo it: its first 64 characters, then "…". A surrogate pair
+            across the cut is dropped whole, so the echo is never half a character.
+            </summary>
         </member>
         <member name="T:Api.Controllers.RestActionResults">
             <summary>Writes a <see cref="T:DataGateway.Rest.RestResult"/> the way every REST answer goes out: its status and body, and the problem media type for an error.</summary>
@@ -169,6 +205,9 @@
         <member name="M:Api.Controllers.RestProblemFilterAttribute.OnActionExecuting(Microsoft.AspNetCore.Mvc.Filters.ActionExecutingContext)">
             <inheritdoc />
         </member>
+        <member name="M:Api.Controllers.RestProblemFilterAttribute.InvalidModel(Microsoft.AspNetCore.Http.HttpContext,Microsoft.AspNetCore.Mvc.ModelBinding.ModelStateDictionary)">
+            <summary>The 400 <c>VALIDATION_ERROR</c> problem for a model-state with errors: one field error per message.</summary>
+        </member>
         <member name="M:Api.Controllers.RestProblemFilterAttribute.OnActionExecuted(Microsoft.AspNetCore.Mvc.Filters.ActionExecutedContext)">
             <inheritdoc />
         </member>
@@ -177,6 +216,12 @@
         </member>
         <member name="M:Api.Controllers.RestProblemFilterAttribute.OnResultExecuted(Microsoft.AspNetCore.Mvc.Filters.ResultExecutedContext)">
             <inheritdoc />
+        </member>
+        <member name="M:Api.Controllers.RestProblemFilterAttribute.LogUnsupportedMediaType(Microsoft.AspNetCore.Http.HttpContext)">
+            <summary>
+            Writes the request-log entry of a refused wrong content type: the operation the route would have run, or
+            <c>unknown{Entity}</c> when that cannot be told (spec 2026-11-04 §4). No action ran, so nothing else logs it.
+            </summary>
         </member>
         <member name="M:Api.Controllers.RestProblemFilterAttribute.OnException(Microsoft.AspNetCore.Mvc.Filters.ExceptionContext)">
             <inheritdoc />
@@ -260,7 +305,8 @@
             Retrieves a paginated, most-recent-first list of GraphQL request history for the
             current tenant. Supports filtering by SchemaName (GraphQL field name), EntityName,
             OperationType ("query"/"mutation"), Outcome ("allowed"/"denied"/"error"), exact
-            HTTP StatusCode, failure reason, sorting, and a From/To timestamp range.
+            HTTP StatusCode, failure reason, Transport ("rest"/"graphql"; 400 for any other value),
+            sorting, and a From/To timestamp range.
             </summary>
         </member>
         <member name="M:Api.Controllers.GraphLogController.GetAnalytics(DataGateway.DomainService.Models.GetGraphLogAnalyticsRequest)">
@@ -418,6 +464,20 @@
             Deletes a schema index by its unique ID. This drops the underlying MongoDB index as well.
             </summary>
             <param name="itemId">The unique identifier of the schema index to delete.</param>
+        </member>
+        <member name="T:Api.Controllers.SchemaNameRouteConstraint">
+            <summary>
+            The <c>schemaName</c> route constraint: a route value matches only when it could be a schema name
+            (<see cref="T:DataGateway.DomainService.Validators.SchemaNameRules"/>: 1 to 50 letters, digits or '_', not starting with a digit). On the REST routes it
+            keeps a <c>{entity}:{verb}</c> segment off the standard routes (the ':' never passes), and makes the router answer
+            404 for a name no schema can have, before any action or the service runs (spec 2026-11-04 §3.1, §3.3).
+            </summary>
+        </member>
+        <member name="F:Api.Controllers.SchemaNameRouteConstraint.Name">
+            <summary>The name the constraint is registered under in <c>RouteOptions.ConstraintMap</c> (<c>Program.cs</c>).</summary>
+        </member>
+        <member name="M:Api.Controllers.SchemaNameRouteConstraint.Match(Microsoft.AspNetCore.Http.HttpContext,Microsoft.AspNetCore.Routing.IRouter,System.String,Microsoft.AspNetCore.Routing.RouteValueDictionary,Microsoft.AspNetCore.Routing.RouteDirection)">
+            <inheritdoc />
         </member>
         <member name="T:Api.Controllers.DirectoryController">
              <summary>
@@ -762,18 +822,43 @@
         </member>
         <member name="T:Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware">
             <summary>
-            Gives a 415 the router answers under the REST routes (<c>/api/gateway/{entity}…</c>) the gateway's problem body.
-            A POST, PATCH or PUT with a content type other than <c>application/json</c> never reaches the controller: the
-            <c>[Consumes]</c> metadata makes the router refuse it with an empty 415, before any filter could answer. The
-            GraphQL endpoint (<c>/api/gateway</c> itself) and every other route are left as they are.
+            Gives the empty answers the router gives under the REST routes (<c>/api/gateway/{entity}…</c>) the gateway's
+            problem body:
+            <list type="bullet">
+            <item>415: a POST, PATCH or PUT with a content type other than <c>application/json</c> never reaches the
+            controller: the <c>[Consumes]</c> metadata makes the router refuse it, before any filter could answer. No action
+            ran, so this also writes the request-log entry (spec 2026-11-04 §4);</item>
+            <item>404 <c>NOT_FOUND</c>: no route matches the path, e.g. an old <c>/item</c> URL or an entity name no schema
+            can have (spec 2026-11-04 §3.3, §3.4);</item>
+            <item>405 <c>METHOD_NOT_ALLOWED</c>: the path exists but not for this method, e.g. <c>PATCH /{entity}</c>; the
+            router's <c>Allow</c> header is kept.</item>
+            </list>
+            An answer that already has a body (the service's own problems) is left as it is. The GraphQL endpoint
+            (<c>/api/gateway</c> itself) and every other route are left as they are.
             </summary>
         </member>
         <member name="M:Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware.#ctor(Microsoft.AspNetCore.Http.RequestDelegate)">
             <summary>
-            Gives a 415 the router answers under the REST routes (<c>/api/gateway/{entity}…</c>) the gateway's problem body.
-            A POST, PATCH or PUT with a content type other than <c>application/json</c> never reaches the controller: the
-            <c>[Consumes]</c> metadata makes the router refuse it with an empty 415, before any filter could answer. The
-            GraphQL endpoint (<c>/api/gateway</c> itself) and every other route are left as they are.
+            Gives the empty answers the router gives under the REST routes (<c>/api/gateway/{entity}…</c>) the gateway's
+            problem body:
+            <list type="bullet">
+            <item>415: a POST, PATCH or PUT with a content type other than <c>application/json</c> never reaches the
+            controller: the <c>[Consumes]</c> metadata makes the router refuse it, before any filter could answer. No action
+            ran, so this also writes the request-log entry (spec 2026-11-04 §4);</item>
+            <item>404 <c>NOT_FOUND</c>: no route matches the path, e.g. an old <c>/item</c> URL or an entity name no schema
+            can have (spec 2026-11-04 §3.3, §3.4);</item>
+            <item>405 <c>METHOD_NOT_ALLOWED</c>: the path exists but not for this method, e.g. <c>PATCH /{entity}</c>; the
+            router's <c>Allow</c> header is kept.</item>
+            </list>
+            An answer that already has a body (the service's own problems) is left as it is. The GraphQL endpoint
+            (<c>/api/gateway</c> itself) and every other route are left as they are.
+            </summary>
+        </member>
+        <member name="F:Blocks.Data.Api.Middleware.RestUnsupportedMediaTypeMiddleware.SpaFallbackPattern">
+            <summary>
+            The SPA fallback's route pattern: every path that does not look like a file, except those under the REST
+            routes. Otherwise the fallback would answer an unmatched <c>GET</c> there with the SPA's page and a 200, hiding
+            the router's 404. Case-insensitive, as routing is.
             </summary>
         </member>
         <member name="T:Blocks.Data.Api.Middleware.SecurityHeadersMiddleware">

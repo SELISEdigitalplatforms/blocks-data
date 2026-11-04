@@ -14,6 +14,7 @@ const SUGGESTED_KEYS: Partial<Record<RestTemplateId, string[]>> = {
   list: ["pageNo", "pageSize", "order", "select", "includeTotalCount"],
   getOne: ["select"],
   delete: ["hardDelete"],
+  deleteMany: ["hardDelete"],
 };
 
 export const suggestedParamKeys = (id: RestTemplateId | undefined): string[] =>

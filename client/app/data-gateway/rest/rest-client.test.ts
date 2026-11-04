@@ -68,13 +68,13 @@ describe("sendRestRequest", () => {
     fetchMock.mockResolvedValue(
       reply(201, '{"itemId":"1"}', {
         statusText: "Created",
-        headers: { Location: "/api/gateway/RT/item/1", "Content-Type": "application/json" },
+        headers: { Location: "/api/gateway/RT/1", "Content-Type": "application/json" },
       }),
     );
 
     const result = await sendRestRequest({
       method: "POST",
-      path: "/RT/item",
+      path: "/RT",
       query: [],
       body: '{"a":1}',
     });
@@ -88,7 +88,7 @@ describe("sendRestRequest", () => {
       sizeBytes: 14,
     });
     if (result.kind !== "response") throw new Error("unreachable");
-    expect(result.headers).toContainEqual(["location", "/api/gateway/RT/item/1"]);
+    expect(result.headers).toContainEqual(["location", "/api/gateway/RT/1"]);
     expect(Number.isInteger(result.durationMs)).toBe(true);
   });
 
@@ -98,7 +98,7 @@ describe("sendRestRequest", () => {
       reply(400, problem, { headers: { "Content-Type": "application/problem+json" } }),
     );
 
-    const result = await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+    const result = await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
     expect(result).toMatchObject({
       kind: "response",
@@ -111,7 +111,7 @@ describe("sendRestRequest", () => {
   it("returns an empty content type when the response has none", async () => {
     fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
 
-    const result = await sendRestRequest({ method: "DELETE", path: "/RT/item/1", query: [] });
+    const result = await sendRestRequest({ method: "DELETE", path: "/RT/1", query: [] });
 
     expect(result).toMatchObject({
       kind: "response",
@@ -127,7 +127,7 @@ describe("sendRestRequest", () => {
 
     await sendRestRequest({
       method: "GET",
-      path: "/RT/item",
+      path: "/RT",
       query: [
         ["page", "1"],
         ["", "dropped"],
@@ -135,7 +135,7 @@ describe("sendRestRequest", () => {
       ],
     });
 
-    expect(fetchMock.mock.calls[0][0]).toBe(`${BASE}/RT/item?page=1&filter=a%20b`);
+    expect(fetchMock.mock.calls[0][0]).toBe(`${BASE}/RT?page=1&filter=a%20b`);
   });
 
   it("sends a body on DELETE", async () => {
@@ -143,7 +143,7 @@ describe("sendRestRequest", () => {
 
     await sendRestRequest({
       method: "DELETE",
-      path: "/RT/items",
+      path: "/RT/1",
       query: [],
       body: '{"ids":["1"]}',
     });
@@ -158,7 +158,7 @@ describe("sendRestRequest", () => {
     const controller = new AbortController();
     fetchMock.mockResolvedValue(reply(200));
 
-    await sendRestRequest({ method: "GET", path: "/RT/item", query: [] }, controller.signal);
+    await sendRestRequest({ method: "GET", path: "/RT", query: [] }, controller.signal);
 
     const init = fetchMock.mock.calls[0][1];
     expect(init.credentials).toBe("include");
@@ -169,8 +169,8 @@ describe("sendRestRequest", () => {
   it("omits Content-Type without a body", async () => {
     fetchMock.mockResolvedValue(reply(200));
 
-    await sendRestRequest({ method: "POST", path: "/RT/item", query: [], body: "" });
-    await sendRestRequest({ method: "GET", path: "/RT/item", query: [], body: '{"ignored":true}' });
+    await sendRestRequest({ method: "POST", path: "/RT", query: [], body: "" });
+    await sendRestRequest({ method: "GET", path: "/RT", query: [], body: '{"ignored":true}' });
 
     for (const [, init] of fetchMock.mock.calls) {
       expect(init.body).toBeUndefined();
@@ -191,9 +191,9 @@ describe("sendRestRequest", () => {
     runtimeEnv.values.BLOCKS_DATA_BASE_URL = "";
     fetchMock.mockResolvedValue(reply(200));
 
-    await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+    await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
-    expect(fetchMock.mock.calls[0][0]).toBe(`${window.location.origin}/api/gateway/RT/item`);
+    expect(fetchMock.mock.calls[0][0]).toBe(`${window.location.origin}/api/gateway/RT`);
   });
 
   describe("401 handling", () => {
@@ -201,7 +201,7 @@ describe("sendRestRequest", () => {
       fetchMock.mockResolvedValueOnce(reply(401)).mockResolvedValueOnce(reply(200, "ok"));
       getMockData.mockResolvedValue({});
 
-      const result = await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+      const result = await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
       expect(getMockData).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -213,7 +213,7 @@ describe("sendRestRequest", () => {
       fetchMock.mockImplementation(async () => reply(401, "again"));
       getMockData.mockResolvedValue({});
 
-      const result = await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+      const result = await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
       expect(result).toMatchObject({ kind: "response", status: 401, bodyText: "again" });
     });
@@ -222,7 +222,7 @@ describe("sendRestRequest", () => {
       fetchMock.mockImplementation(async () => reply(401));
       getMockData.mockResolvedValue({});
 
-      await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+      await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
       expect(getMockData).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -232,7 +232,7 @@ describe("sendRestRequest", () => {
       fetchMock.mockResolvedValue(reply(401, "nope"));
       getMockData.mockRejectedValue(new Error("refresh failed"));
 
-      const result = await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+      const result = await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(result).toMatchObject({ kind: "response", status: 401, bodyText: "nope" });
@@ -241,7 +241,7 @@ describe("sendRestRequest", () => {
     it("does not refresh on other statuses", async () => {
       fetchMock.mockResolvedValue(reply(403));
 
-      await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+      await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
       expect(getMockData).not.toHaveBeenCalled();
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -256,7 +256,7 @@ describe("sendRestRequest", () => {
       getMockData.mockResolvedValue({});
 
       const result = await sendRestRequest(
-        { method: "GET", path: "/RT/item", query: [] },
+        { method: "GET", path: "/RT", query: [] },
         controller.signal,
       );
 
@@ -269,7 +269,7 @@ describe("sendRestRequest", () => {
         .mockRejectedValueOnce(new TypeError("Failed to fetch"));
       getMockData.mockResolvedValue({});
 
-      const result = await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+      const result = await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
       expect(result).toMatchObject({ kind: "no-response", reason: "Failed to fetch" });
     });
@@ -278,7 +278,7 @@ describe("sendRestRequest", () => {
   it("turns a fetch rejection into no-response", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
 
-    const result = await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+    const result = await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
     expect(result).toMatchObject({ kind: "no-response", reason: "Failed to fetch" });
     if (result.kind !== "no-response") throw new Error("unreachable");
@@ -288,7 +288,7 @@ describe("sendRestRequest", () => {
   it("falls back to String(error) when the rejection has no message", async () => {
     fetchMock.mockRejectedValue("boom");
 
-    const result = await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+    const result = await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
     expect(result).toMatchObject({ kind: "no-response", reason: "boom" });
   });
@@ -296,7 +296,7 @@ describe("sendRestRequest", () => {
   it("turns an abort into aborted", async () => {
     fetchMock.mockRejectedValue(new DOMException("The operation was aborted.", "AbortError"));
 
-    const result = await sendRestRequest({ method: "GET", path: "/RT/item", query: [] });
+    const result = await sendRestRequest({ method: "GET", path: "/RT", query: [] });
 
     expect(result).toEqual({ kind: "aborted" });
   });
@@ -307,7 +307,7 @@ describe("sendRestRequest", () => {
     fetchMock.mockRejectedValue(new Error("something else"));
 
     const result = await sendRestRequest(
-      { method: "GET", path: "/RT/item", query: [] },
+      { method: "GET", path: "/RT", query: [] },
       controller.signal,
     );
 
@@ -318,7 +318,7 @@ describe("sendRestRequest", () => {
     fetchMock.mockResolvedValueOnce(reply(401)).mockResolvedValueOnce(reply(200));
     getMockData.mockResolvedValue({});
 
-    await sendRestRequest({ method: "DELETE", path: "/RT/items", query: [], body: "{}" });
+    await sendRestRequest({ method: "POST", path: "/RT:deleteMany", query: [], body: "{}" });
 
     for (const fn of Object.values(http)) expect(fn).not.toHaveBeenCalled();
   });

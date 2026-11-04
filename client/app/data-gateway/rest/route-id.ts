@@ -1,39 +1,38 @@
 import type { RestMethod, RestTemplateId } from "./request-templates";
+import { parseGatewayRoute, type GatewayVerb } from "./route-segments";
 
 export type RouteId = { entity: string; id: RestTemplateId };
 
+const VERB_ROUTES: Record<GatewayVerb, RestTemplateId> = {
+  query: "listByBody",
+  insertMany: "insertMany",
+  updateMany: "updateMany",
+  deleteMany: "deleteMany",
+};
+
+const RECORD_ROUTES: Partial<Record<RestMethod, RestTemplateId>> = {
+  GET: "getOne",
+  PATCH: "update",
+  PUT: "upsert",
+  DELETE: "delete",
+};
+
+const COLLECTION_ROUTES: Partial<Record<RestMethod, RestTemplateId>> = {
+  GET: "list",
+  POST: "insert",
+};
+
 /**
- * The REST route (spec §2) a method and path name, by exact segment match. `path` has no query string; one trailing
- * slash is ignored. Anything else, including an empty segment, gives null.
+ * The REST route (spec §2) a method and path name, as `parseGatewayRoute` reads the path (decoded, verb exact). `path`
+ * has no query string; one trailing slash is ignored. Anything else gives null.
  */
 export function routeIdFor(method: RestMethod, path: string): RouteId | null {
-  if (!path.startsWith("/")) return null;
-  const trimmed = path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
-  const segments = trimmed.split("/").slice(1);
-  if (segments.some((segment) => segment === "")) return null;
+  const route = parseGatewayRoute(path);
+  if (!route) return null;
 
-  const [entity, kind, itemId] = segments;
-  const route = (id: RestTemplateId): RouteId => ({ entity, id });
-
-  if (segments.length === 1) {
-    if (method === "GET") return route("list");
-    if (method === "POST") return route("listByBody");
-    return null;
-  }
-  if (segments.length === 2 && kind === "item") {
-    return method === "POST" ? route("insert") : null;
-  }
-  if (segments.length === 2 && kind === "items") {
-    if (method === "POST") return route("insertMany");
-    if (method === "PATCH") return route("updateMany");
-    if (method === "DELETE") return route("deleteMany");
-    return null;
-  }
-  if (segments.length === 3 && kind === "item" && itemId) {
-    if (method === "GET") return route("getOne");
-    if (method === "PATCH") return route("update");
-    if (method === "PUT") return route("upsert");
-    if (method === "DELETE") return route("delete");
-  }
-  return null;
+  let id: RestTemplateId | undefined;
+  if (route.verb) id = method === "POST" ? VERB_ROUTES[route.verb] : undefined;
+  else if (route.id !== undefined) id = RECORD_ROUTES[method];
+  else id = COLLECTION_ROUTES[method];
+  return id ? { entity: route.entity, id } : null;
 }

@@ -6,7 +6,6 @@ import { RestPathError, sendRestRequest, type RestResponse } from "../../rest/re
 import { useSchemaList } from "../../hooks/use-configuration";
 import {
   loadTemplate,
-  needsConfirm,
   requestToDraft,
   RestWorkspace,
   type RestDraft,
@@ -161,10 +160,10 @@ afterEach(() => vi.clearAllMocks());
 
 describe("RestWorkspace: sending", () => {
   it("sends method, path, query and body on Send", async () => {
-    renderWith({ method: "POST", requestLine: "/Employee?trace=1", bodyText: '{"where":{}}' });
+    renderWith({ method: "POST", requestLine: "/Employee:query?trace=1", bodyText: '{"where":{}}' });
     await clickSend();
     expect(send).toHaveBeenCalledWith(
-      { method: "POST", path: "/Employee", query: [["trace", "1"]], body: '{"where":{}}' },
+      { method: "POST", path: "/Employee:query", query: [["trace", "1"]], body: '{"where":{}}' },
       expect.any(AbortSignal),
     );
     expect(await screen.findByText("200 OK")).toBeInTheDocument();
@@ -210,8 +209,8 @@ describe("RestWorkspace: sending", () => {
     expect(screen.getByRole("tab", { name: "Body" })).toBeInTheDocument();
   });
 
-  it('POST /E/item sends the body with Tags ["mock-data"] and shows the mock-data note', async () => {
-    renderWith({ method: "POST", requestLine: "/Employee/item", bodyText: '{\n  "Name": "Ann"\n}' });
+  it('POST /E sends the body with Tags ["mock-data"] and shows the mock-data note', async () => {
+    renderWith({ method: "POST", requestLine: "/Employee", bodyText: '{\n  "Name": "Ann"\n}' });
     expect(
       screen.getByText("Records created here are tagged mock-data so Clean test data can remove them."),
     ).toBeInTheDocument();
@@ -223,7 +222,7 @@ describe("RestWorkspace: sending", () => {
   it("tagging keeps every number exactly as typed", async () => {
     renderWith({
       method: "POST",
-      requestLine: "/Employee/items",
+      requestLine: "/Employee:insertMany",
       bodyText: '[{ "Id": 9007199254740993, "Price": 1.0, "Delta": -0, "Huge": 1e400, "Note": "1.0" }]',
     });
     await clickSend();
@@ -233,8 +232,8 @@ describe("RestWorkspace: sending", () => {
   });
 
   it.each([
-    ["PATCH", "/Employee/item/1"],
-    ["PUT", "/Employee/item/1"],
+    ["PATCH", "/Employee/1"],
+    ["PUT", "/Employee/1"],
   ] as const)("sends the body text unchanged on %s %s, which is not tagged, and shows no note", async (method, line) => {
     renderWith({ method, requestLine: line, bodyText: '{ "Name": "Ann" }' });
     expect(screen.queryByText(/tagged mock-data/)).not.toBeInTheDocument();
@@ -245,7 +244,7 @@ describe("RestWorkspace: sending", () => {
 
 describe("RestWorkspace: validation before sending", () => {
   it('invalid JSON shows "The body isn\'t valid JSON (line 2)" and does not send', async () => {
-    renderWith({ method: "POST", requestLine: "/Employee/item", bodyText: '{\n  "Name": }' });
+    renderWith({ method: "POST", requestLine: "/Employee", bodyText: '{\n  "Name": }' });
     await clickSend();
     expect(screen.getByRole("alert")).toHaveTextContent("The body isn't valid JSON (line 2)");
     expect(send).not.toHaveBeenCalled();
@@ -254,8 +253,8 @@ describe("RestWorkspace: validation before sending", () => {
   });
 
   it.each([
-    ["/Employee/item", '{"Name":"a","Age":1,"Age":2}', "Age"],
-    ["/Employee/items", '[{"A":{"x":1},"A":{"y":"s"}}]', "A"],
+    ["/Employee", '{"Name":"a","Age":1,"Age":2}', "Age"],
+    ["/Employee:insertMany", '[{"A":{"x":1},"A":{"y":"s"}}]', "A"],
   ])(
     "a duplicate key on tagged POST %s shows the duplicate-key message and does not send",
     { timeout: 2000 },
@@ -283,28 +282,28 @@ describe("RestWorkspace: validation before sending", () => {
 
   it("a body nested too deep to tag shows the too-deep message and does not send", async () => {
     const bodyText = `[${'{"a":'.repeat(20_000)}1${"}".repeat(20_000)}]`;
-    renderWith({ method: "POST", requestLine: "/Employee/items", bodyText });
+    renderWith({ method: "POST", requestLine: "/Employee:insertMany", bodyText });
     await clickSend();
     expect(screen.getByRole("alert")).toHaveTextContent("The body is nested too deeply to send from the playground.");
     expect(send).not.toHaveBeenCalled();
   });
 
   it('{itemId} still in the path shows "Replace {itemId} with a record id." and does not send', async () => {
-    renderWith({ method: "GET", requestLine: "/Employee/item/{itemId}", bodyText: "" });
+    renderWith({ method: "GET", requestLine: "/Employee/{itemId}", bodyText: "" });
     await clickSend();
     expect(screen.getByRole("alert")).toHaveTextContent("Replace {itemId} with a record id.");
     expect(send).not.toHaveBeenCalled();
   });
 
   it("a loaded draft with {itemId} focuses the path and selects the placeholder", () => {
-    renderWith({ method: "GET", requestLine: "/Employee/item/{itemId}?select=Name", bodyText: "" });
+    renderWith({ method: "GET", requestLine: "/Employee/{itemId}?select=Name", bodyText: "" });
     const input = pathField();
     expect(input).toHaveFocus();
     expect(input.value.slice(input.selectionStart!, input.selectionEnd!)).toBe("{itemId}");
   });
 
   it("guard refusal shows its message under the path and does not send", async () => {
-    renderWith({ method: "GET", requestLine: "/Employee//item", bodyText: "" });
+    renderWith({ method: "GET", requestLine: "/Employee//1", bodyText: "" });
     await clickSend();
     const message = screen.getByRole("alert");
     expect(message).toHaveTextContent("The path has an empty segment (//). Remove the extra slash.");
@@ -313,16 +312,23 @@ describe("RestWorkspace: validation before sending", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("refuses a crafted DELETE /E/%2e/items as a dot segment and never sends or confirms it", async () => {
-    renderWith({ method: "DELETE", requestLine: "/Employee/%2e/items", bodyText: '{"where":{}}' });
-    await clickSend();
-    expect(screen.getByRole("alert")).toHaveTextContent("The path has a . or .. segment. Remove it.");
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(send).not.toHaveBeenCalled();
-  });
+  it.each([
+    ["DELETE", "/Employee/%2e?hardDelete=true", ""],
+    ["POST", "/Employee:deleteMany/%2e", '{"where":{}}'],
+    ["POST", "/Employee/%2e%2e/Order:deleteMany?hardDelete=true", '{"where":{}}'],
+  ] as const)(
+    "refuses a crafted %s %s as a dot segment before any confirm, and never sends it",
+    async (method, line, body) => {
+      renderWith({ method, requestLine: line, bodyText: body });
+      await clickSend();
+      expect(screen.getByRole("alert")).toHaveTextContent("The path has a . or .. segment. Remove it.");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(send).not.toHaveBeenCalled();
+    },
+  );
 
   it("refuses a path with a bad percent escape and never sends it", async () => {
-    renderWith({ method: "GET", requestLine: "/Employee/item/%zz", bodyText: "" });
+    renderWith({ method: "GET", requestLine: "/Employee/%zz", bodyText: "" });
     await clickSend();
     expect(screen.getByRole("alert")).toHaveTextContent(
       "The path has a % that doesn't start a valid escape. Fix it, or encode the % as %25.",
@@ -355,18 +361,20 @@ describe("RestWorkspace: validation before sending", () => {
 });
 
 describe("RestWorkspace: confirm before bulk and hard deletes", () => {
+  const FILTER_COPY = "This changes every record that matches the filter.";
   it.each([
-    ["PATCH", "/Employee/items", '{"where":{},"input":{}}', "This changes every record that matches the filter.", "Update records"],
-    ["DELETE", "/Employee/items", '{"where":{}}', "This changes every record that matches the filter.", "Delete records"],
-    ["DELETE", "/Employee/item/1?hardDelete=true", "", "This permanently deletes the record.", "Delete permanently"],
+    ["POST", "/Employee:updateMany", '{"where":{},"input":{}}', FILTER_COPY, "Update records"],
+    ["POST", "/Employee:deleteMany", '{"where":{}}', FILTER_COPY, "Delete records"],
+    ["DELETE", "/Employee/1?hardDelete=true", "", "This permanently deletes the record.", "Delete permanently"],
     [
-      "DELETE",
-      "/Employee/items?hardDelete=true",
+      "POST",
+      "/Employee:deleteMany?hardDelete=true",
       '{"where":{}}',
       "Delete every matching record permanently?This permanently deletes every record that matches the filter.",
       "Delete permanently",
     ],
-    ["PATCH", "/Employee/Items", '{"where":{},"input":{}}', "This changes every record that matches the filter.", "Update records"],
+    ["POST", "/Employee:UpdateMany", '{"where":{},"input":{}}', FILTER_COPY, "Update records"],
+    ["POST", "/Employee%3AdeleteMany", '{"where":{}}', FILTER_COPY, "Delete records"],
   ] as const)("%s %s asks to confirm; Cancel sends nothing; confirm sends", async (method, line, body, copy, action) => {
     renderWith({ method, requestLine: line, bodyText: body });
     await clickSend();
@@ -381,53 +389,16 @@ describe("RestWorkspace: confirm before bulk and hard deletes", () => {
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0]).toMatchObject({ method, path: line.split("?")[0] });
   });
-});
 
-describe("needsConfirm", () => {
-  type Method = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
-  const req = (method: Method, path: string, query: [string, string][] = []) => ({ method, path, query });
-
-  it("names bulk updates, bulk deletes and hard deletes", () => {
-    expect(needsConfirm(req("PATCH", "/E/items"))).toBe("bulk-update");
-    expect(needsConfirm(req("DELETE", "/E/items"))).toBe("bulk-delete");
-    expect(needsConfirm(req("DELETE", "/E/item/1", [["hardDelete", "true"]]))).toBe("hard-delete");
-    expect(needsConfirm(req("DELETE", "/E/item/1", [["hardDelete", "TRUE"]]))).toBe("hard-delete");
-  });
-
-  it("a hard delete on /items is a bulk hard delete, ahead of bulk delete", () => {
-    expect(needsConfirm(req("DELETE", "/E/items", [["hardDelete", "true"]]))).toBe("bulk-hard-delete");
-    expect(needsConfirm(req("DELETE", "/E/ITEMS", [["hardDelete", "True"]]))).toBe("bulk-hard-delete");
-  });
-
-  it("fails closed: /items in any case or percent-encoding still asks", () => {
-    expect(needsConfirm(req("PATCH", "/E/Items"))).toBe("bulk-update");
-    expect(needsConfirm(req("DELETE", "/E/ITEMS"))).toBe("bulk-delete");
-    expect(needsConfirm(req("PATCH", "/E/%69tems"))).toBe("bulk-update");
-    expect(needsConfirm(req("DELETE", "/E/%49TEMS"))).toBe("bulk-delete");
-    expect(needsConfirm(req("PATCH", "/E/items/"))).toBe("bulk-update");
-    expect(needsConfirm(req("PATCH", "/E//items"))).toBe("bulk-update");
-  });
-
-  it("fails closed: a second segment that does not decode counts as /items", () => {
-    expect(needsConfirm(req("PATCH", "/E/%zz"))).toBe("bulk-update");
-    expect(needsConfirm(req("DELETE", "/E/%E0%A4%A"))).toBe("bulk-delete");
-  });
-
-  it("counts hardDelete=true only on DELETE", () => {
-    expect(needsConfirm(req("GET", "/E", [["hardDelete", "true"]]))).toBeNull();
-    expect(needsConfirm(req("GET", "/E/item/1", [["hardDelete", "true"]]))).toBeNull();
-    expect(needsConfirm(req("PATCH", "/E/item/1", [["hardDelete", "true"]]))).toBeNull();
-  });
-
-  it("lets everything else through", () => {
-    expect(needsConfirm(req("DELETE", "/E/item/1"))).toBeNull();
-    expect(needsConfirm(req("DELETE", "/E/item/1", [["hardDelete", "false"]]))).toBeNull();
-    expect(needsConfirm(req("POST", "/E/items"))).toBeNull();
-    expect(needsConfirm(req("PUT", "/E/items"))).toBeNull();
-    expect(needsConfirm(req("GET", "/E/items"))).toBeNull();
-    expect(needsConfirm(req("PATCH", "/E/item/1"))).toBeNull();
-    expect(needsConfirm(req("PATCH", "/E/itemsx"))).toBeNull();
-    expect(needsConfirm(req("GET", "/E"))).toBeNull();
+  it.each([
+    ["DELETE", "/Employee/1", ""],
+    ["POST", "/Employee:query", '{"where":{}}'],
+    ["POST", "/Employee:insertMany", "[]"],
+  ] as const)("%s %s sends without asking", async (method, line, body) => {
+    renderWith({ method, requestLine: line, bodyText: body });
+    await clickSend();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -498,8 +469,8 @@ describe("RestWorkspace: params, path suggestions and headers", () => {
     expect(pathField()).toHaveValue("/Employee?pageSize=5&order=");
   });
 
-  it("Params suggests pageNo, pageSize, order, select, includeTotalCount for GET /E and hardDelete for DELETE /E/item/x", async () => {
-    const { load } = renderWith({ method: "GET", requestLine: "/Employee", bodyText: "" });
+  it("Params suggests pageNo, pageSize, order, select, includeTotalCount for GET /E", async () => {
+    renderWith({ method: "GET", requestLine: "/Employee", bodyText: "" });
     for (const key of ["pageNo", "pageSize", "order", "select", "includeTotalCount"]) {
       expect(screen.getByRole("button", { name: `Add ${key}` })).toBeInTheDocument();
     }
@@ -507,14 +478,27 @@ describe("RestWorkspace: params, path suggestions and headers", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add pageSize" }));
     expect(pathField()).toHaveValue("/Employee?pageSize=");
     expect(screen.queryByRole("button", { name: "Add pageSize" })).not.toBeInTheDocument();
-
-    load({ method: "DELETE", requestLine: "/Employee/item/1", bodyText: "" });
-    await userEvent.click(screen.getByRole("tab", { name: "Params" }));
-    expect(screen.getByRole("button", { name: "Add hardDelete" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Add pageNo" })).not.toBeInTheDocument();
   });
 
-  it("the path field suggests entity names, then /item/{itemId} and /items", () => {
+  const suggestedParams = () =>
+    screen
+      .queryAllByRole("button", { name: /^Add (?!parameter)/ })
+      .map((button) => button.getAttribute("aria-label")!.slice("Add ".length));
+
+  it.each([
+    ["GET", "/Employee/1", ["select"]],
+    ["DELETE", "/Employee/1", ["hardDelete"]],
+    ["POST", "/Employee:deleteMany", ["hardDelete"]],
+    ["POST", "/Employee:query", []],
+    ["POST", "/Employee:updateMany", []],
+    ["PATCH", "/Employee/1", []],
+  ] as const)("Params suggests %s %s: %j", async (method, line, keys) => {
+    renderWith({ method, requestLine: line, bodyText: "" });
+    await userEvent.click(screen.getByRole("tab", { name: "Params" }));
+    expect(suggestedParams()).toEqual(keys);
+  });
+
+  it("the path field suggests entity names, then /{itemId} and the four :verbs", () => {
     renderWith({ method: "GET", requestLine: "/", bodyText: "" });
     const options = () =>
       [...document.getElementById(pathField().getAttribute("list")!)!.querySelectorAll("option")].map(
@@ -522,11 +506,22 @@ describe("RestWorkspace: params, path suggestions and headers", () => {
       );
     expect(options()).toEqual(["/Employee", "/Order"]);
     fireEvent.change(pathField(), { target: { value: "/Employee" } });
-    expect(options()).toEqual(["/Employee", "/Order", "/Employee/item/{itemId}", "/Employee/items"]);
+    expect(options()).toEqual([
+      "/Employee",
+      "/Order",
+      "/Employee/{itemId}",
+      "/Employee:query",
+      "/Employee:insertMany",
+      "/Employee:updateMany",
+      "/Employee:deleteMany",
+    ]);
+    // Still offered once a verb is being typed.
+    fireEvent.change(pathField(), { target: { value: "/Employee:" } });
+    expect(options()).toContain("/Employee:deleteMany");
   });
 
   it("Headers tab lists x-blocks-key and Content-Type read-only", async () => {
-    const { load } = renderWith({ method: "POST", requestLine: "/Employee/item", bodyText: "{}" });
+    const { load } = renderWith({ method: "POST", requestLine: "/Employee", bodyText: "{}" });
     await userEvent.click(screen.getByRole("tab", { name: "Headers" }));
     const panel = screen.getByRole("tabpanel", { name: "Headers" });
     expect(panel).toHaveTextContent("x-blocks-key:(console key)");
@@ -542,7 +537,7 @@ describe("RestWorkspace: params, path suggestions and headers", () => {
 
 describe("RestWorkspace: body JSON Schema", () => {
   it("changing the entity in the path switches body suggestions to that entity's schema", () => {
-    renderWith({ method: "POST", requestLine: "/Employee/item", bodyText: "{}" });
+    renderWith({ method: "POST", requestLine: "/Employee", bodyText: "{}" });
     let registered = lastSchema().schemas;
     expect(registered).toHaveLength(1);
     expect(registered[0].fileMatch).toEqual([bodyField().dataset.path]);
@@ -550,16 +545,16 @@ describe("RestWorkspace: body JSON Schema", () => {
     // DTO-typed fields get their children from the DTO list.
     expect(registered[0].schema.properties.Address.properties).toEqual({ City: { type: "string" } });
 
-    fireEvent.change(pathField(), { target: { value: "/Order/item" } });
+    fireEvent.change(pathField(), { target: { value: "/Order" } });
     registered = lastSchema().schemas;
     expect(Object.keys(registered[0].schema.properties)).toEqual(["Total", "Tags"]);
 
-    fireEvent.change(pathField(), { target: { value: "/Unknown/item" } });
+    fireEvent.change(pathField(), { target: { value: "/Unknown" } });
     expect(lastSchema().schemas).toEqual([]);
   });
 
   it("uses the route's schema: insertMany is an array of records", () => {
-    renderWith({ method: "POST", requestLine: "/Order/items", bodyText: "[]" });
+    renderWith({ method: "POST", requestLine: "/Order:insertMany", bodyText: "[]" });
     expect(lastSchema().schemas[0].schema).toMatchObject({ type: "array", items: { type: "object" } });
   });
 });
@@ -571,20 +566,20 @@ describe("draft helpers", () => {
         group: "insert",
         id: "insert",
         method: "POST",
-        path: "/E/item",
+        path: "/E",
         query: [["a", "1"]],
         body: { Name: "x" },
       }),
-    ).toEqual({ method: "POST", requestLine: "/E/item?a=1", bodyText: '{\n  "Name": "x"\n}' });
+    ).toEqual({ method: "POST", requestLine: "/E?a=1", bodyText: '{\n  "Name": "x"\n}' });
     expect(
-      loadTemplate({ group: "delete", id: "delete", method: "DELETE", path: "/E/item/{itemId}", query: [] }),
-    ).toEqual({ method: "DELETE", requestLine: "/E/item/{itemId}", bodyText: "" });
+      loadTemplate({ group: "delete", id: "delete", method: "DELETE", path: "/E/{itemId}", query: [] }),
+    ).toEqual({ method: "DELETE", requestLine: "/E/{itemId}", bodyText: "" });
   });
 
   it("requestToDraft keeps the body text", () => {
-    expect(requestToDraft({ method: "PATCH", path: "/E/items", query: [], body: '{"where":{}}' })).toEqual({
-      method: "PATCH",
-      requestLine: "/E/items",
+    expect(requestToDraft({ method: "POST", path: "/E:updateMany", query: [], body: '{"where":{}}' })).toEqual({
+      method: "POST",
+      requestLine: "/E:updateMany",
       bodyText: '{"where":{}}',
     });
     expect(requestToDraft({ method: "GET", path: "/E", query: [["pageNo", "1"]] })).toEqual({
@@ -629,7 +624,7 @@ describe("RestWorkspace: method and suggested params", () => {
   });
 
   it("choosing PATCH in the method list changes the bar, shows the Body tab and sends PATCH", async () => {
-    renderWith({ method: "GET", requestLine: "/Employee/item/1", bodyText: "" });
+    renderWith({ method: "GET", requestLine: "/Employee/1", bodyText: "" });
     expect(screen.queryByRole("tab", { name: "Body" })).not.toBeInTheDocument();
     const method = screen.getByRole("combobox", { name: "Method" });
     expect(method).toHaveTextContent("GET");
@@ -640,7 +635,7 @@ describe("RestWorkspace: method and suggested params", () => {
     expect(screen.getByRole("tab", { name: "Body" })).toBeInTheDocument();
 
     await clickSend();
-    expect(send.mock.calls[0][0]).toMatchObject({ method: "PATCH", path: "/Employee/item/1" });
+    expect(send.mock.calls[0][0]).toMatchObject({ method: "PATCH", path: "/Employee/1" });
   });
 
   it("a suggested key focuses its new row once, so a row that remounts later does not take the focus", async () => {

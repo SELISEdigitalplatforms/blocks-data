@@ -129,7 +129,16 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
               <Field label={t("GRAPH_LOG_DETAILS_SHEET.STATUS_DESCRIPTION")} value={item.statusDescription} />
             )}
 
-            {item.operationQuery && <CodeBlock label={t("GRAPH_LOG_DETAILS_SHEET.GRAPHQL_QUERY")} value={item.operationQuery} />}
+            {item.operationQuery && (
+              <CodeBlock
+                label={t(
+                  item.transport === "rest"
+                    ? "GRAPH_LOG_DETAILS_SHEET.REQUEST"
+                    : "GRAPH_LOG_DETAILS_SHEET.GRAPHQL_QUERY",
+                )}
+                value={item.operationQuery}
+              />
+            )}
             {item.mongoQuery && <CodeBlock label={t("GRAPH_LOG_DETAILS_SHEET.MONGO_QUERY")} value={item.mongoQuery} />}
           </div>
         </div>

@@ -21,6 +21,10 @@ public static class GatewayProblemMapper
     public const string InternalErrorCode = "INTERNAL_ERROR";
     public const string UnsupportedMediaTypeCode = "UNSUPPORTED_MEDIA_TYPE";
     public const string PayloadTooLargeCode = "PAYLOAD_TOO_LARGE";
+    public const string MethodNotAllowedCode = "METHOD_NOT_ALLOWED";
+
+    /// <summary>A custom method (<c>POST /{entity}:{verb}</c>) whose verb is not one of <see cref="RestCustomMethods.All"/>.</summary>
+    public const string UnknownMethodCode = "UNKNOWN_METHOD";
 
     /// <summary>The <c>validationType</c> of a field error for a value (or a whole body) the request carried wrongly.</summary>
     public const string InvalidValueType = FieldPaths.InvalidValueType;

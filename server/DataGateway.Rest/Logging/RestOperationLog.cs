@@ -2,11 +2,13 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Blocks.Genesis;
 using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis.Entities.Data;
 using DataGateway.DomainService.Gateway;
 using DataGateway.DomainService.Helpers;
 using DataGateway.DomainService.Models.Constants;
+using DataGateway.DomainService.Validators;
 using DataGateway.Rest.Errors;
 using DataGateway.Rest.Parsing;
 using Microsoft.AspNetCore.Http;
@@ -19,12 +21,15 @@ namespace DataGateway.Rest.Logging;
 /// <see cref="GatewayOperation.SchemaName"/>, so Graph Log shows both APIs side by side. <see cref="Finish"/> writes
 /// it onto the request's activity.
 /// </summary>
-internal sealed class RestOperationLog
+public sealed class RestOperationLog
 {
     /// <summary>The most characters of method, path, query string and body kept in <see cref="GatewayOperation.OperationQuery"/>.</summary>
     public const int MaxOperationQueryLength = 8192;
 
     private const string Transport = "rest";
+
+    /// <summary>Every query's name starts with it (<see cref="RestRouteNames"/>); every mutation's does not.</summary>
+    private const string QueryNamePrefix = "get";
 
     private readonly HttpContext _http;
     private readonly JsonElement? _body;
@@ -38,7 +43,7 @@ internal sealed class RestOperationLog
         _operation = operation;
     }
 
-    public static RestOperationLog Begin(HttpContext http, RestOperation operation, string operationName, string entityName, JsonElement? body)
+    internal static RestOperationLog Begin(HttpContext http, RestOperation operation, string operationName, string entityName, JsonElement? body)
     {
         var gatewayOperation = GatewayOperationActivity.GetOrCreate(Activity.Current);
         gatewayOperation.Transport = Transport;
@@ -49,42 +54,81 @@ internal sealed class RestOperationLog
     }
 
     /// <summary>The entity, once loaded: its PII fields are what the logged body masks.</summary>
-    public void UseEntity(EntityModel entity) => _entity = entity;
+    internal void UseEntity(EntityModel entity) => _entity = entity;
 
     /// <summary>
     /// Records a failed request. The check that refused it may already have said why (the first reason recorded
     /// wins); otherwise the kind follows from the answer.
     /// </summary>
-    public void Failed(Exception ex, RestResult result)
+    internal void Failed(Exception ex, RestResult result)
     {
         var code = (result.Body as GatewayProblem)?.Code;
-        var kind = result.StatusCode switch
-        {
-            StatusCodes.Status401Unauthorized => GatewayFailureKind.Authentication,
-            StatusCodes.Status403Forbidden => GatewayFailureKind.Authorization,
-            StatusCodes.Status400BadRequest or StatusCodes.Status409Conflict when ex is GatewayException => GatewayFailureKind.Validation,
-            >= 400 and < 500 => GatewayFailureKind.BadRequest,
-            _ => GatewayFailureKind.Unhandled,
-        };
+        var kind = result.StatusCode is StatusCodes.Status400BadRequest or StatusCodes.Status409Conflict && ex is GatewayException
+            ? GatewayFailureKind.Validation
+            : KindFor(result.StatusCode);
         // The log is internal: it keeps the exception's own message, which the answer never carries.
         GatewayOperationActivity.MarkFailed(Activity.Current, kind, ex.Message, code);
     }
 
+    /// <summary>
+    /// Logs a request the REST API refused before an operation ran (an unknown custom-method verb, a wrong content type),
+    /// as one failed entry with transport <c>rest</c>. <paramref name="entityName"/> is recorded only when it passes the
+    /// schema-name rule, and the body is not logged (it was never read). Does nothing without an ambient activity.
+    /// </summary>
+    public static void Refused(HttpContext http, string? entityName, string operationName, int status, string code, string message)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+        var activity = Activity.Current;
+        if (activity is null)
+            return;
+
+        var gatewayOperation = GatewayOperationActivity.GetOrCreate(activity);
+        gatewayOperation.Transport = Transport;
+        gatewayOperation.OperationType = operationName.StartsWith(QueryNamePrefix, StringComparison.Ordinal) ? "query" : "mutation";
+        gatewayOperation.SchemaName = operationName;
+        gatewayOperation.EntityName = SchemaNameRules.IsValid(entityName) ? entityName : null;
+        gatewayOperation.OperationQuery = Truncate(RequestLine(http).ToString());
+        gatewayOperation.InAppRequest = IsInAppRequest();
+        GatewayOperationActivity.MarkFailed(activity, KindFor(status), message, code);
+        GatewayOperationActivity.Tag(activity, gatewayOperation);
+    }
+
+    private static string KindFor(int status) => status switch
+    {
+        StatusCodes.Status401Unauthorized => GatewayFailureKind.Authentication,
+        StatusCodes.Status403Forbidden => GatewayFailureKind.Authorization,
+        >= 400 and < 500 => GatewayFailureKind.BadRequest,
+        _ => GatewayFailureKind.Unhandled,
+    };
+
     /// <summary>Fills in what the request was and tags the activity.</summary>
-    public void Finish()
+    internal void Finish()
     {
         _operation.OperationQuery = Truncate(Describe());
+        _operation.InAppRequest = IsInAppRequest();
         GatewayOperationActivity.Tag(Activity.Current, _operation);
     }
 
+    /// <summary>
+    /// As GraphQL sets it: false only for an impersonated (Blocks Console) caller. Graph Log and analytics hide the
+    /// other rows unless "Include Playground operations" is on. Without a context (a refusal before the caller is
+    /// known) nobody is impersonating, so the request counts as in-app.
+    /// </summary>
+    private static bool IsInAppRequest() => !(BlocksContext.GetContext()?.Impersonated ?? false);
+
     private string Describe()
     {
-        var request = _http.Request;
-        var text = new StringBuilder()
-            .Append(request.Method).Append(' ').Append(request.PathBase).Append(request.Path).Append(request.QueryString);
+        var text = RequestLine(_http);
         if (_body is { ValueKind: not JsonValueKind.Undefined } body)
             text.Append('\n').Append(MaskedBody(body));
         return text.ToString();
+    }
+
+    private static StringBuilder RequestLine(HttpContext http)
+    {
+        var request = http.Request;
+        return new StringBuilder()
+            .Append(request.Method).Append(' ').Append(request.PathBase).Append(request.Path).Append(request.QueryString);
     }
 
     private static string Truncate(string text) =>

@@ -267,14 +267,18 @@ public class DataGatewayRestFilterTests
 
     // ---- the 415 the router answers before MVC runs ----
 
-    private static async Task<DefaultHttpContext> RunMiddleware(string path, int status, bool startResponse = false)
+    private static async Task<DefaultHttpContext> RunMiddleware(
+        string path, int status, bool startResponse = false, string method = "POST", string? allow = null)
     {
         var http = Http();
+        http.Request.Method = method;
         http.Request.Path = path;
         http.Response.Body = new MemoryStream();
         var middleware = new RestUnsupportedMediaTypeMiddleware(async context =>
         {
             context.Response.StatusCode = status;
+            if (allow is not null)
+                context.Response.Headers.Allow = allow;
             if (startResponse)
             {
                 // A response that already carries a body (in a real host it has started, which a DefaultHttpContext cannot say).
@@ -295,7 +299,7 @@ public class DataGatewayRestFilterTests
     [Fact]
     public async Task Router415_UnderTheRestRoutes_GetsTheProblemBody()
     {
-        var http = await RunMiddleware("/api/gateway/Person/items", 415);
+        var http = await RunMiddleware("/api/gateway/Person:insertMany", 415);
 
         http.Response.StatusCode.Should().Be(415);
         http.Response.ContentType.Should().StartWith("application/problem+json");
@@ -317,13 +321,80 @@ public class DataGatewayRestFilterTests
         BodyOf(http).Should().BeEmpty();
     }
 
-    [Fact]
-    public async Task Other_StatusesAreLeftAlone()
+    [Theory]
+    [InlineData(401)]
+    [InlineData(500)]
+    public async Task Other_StatusesAreLeftAlone(int status)
     {
-        var http = await RunMiddleware("/api/gateway/Person", 404);
+        var http = await RunMiddleware("/api/gateway/Person", status);
+
+        http.Response.StatusCode.Should().Be(status);
+        BodyOf(http).Should().BeEmpty();
+    }
+
+    // ---- the 404 and 405 the router answers under the REST routes ----
+
+    [Theory]
+    [InlineData("/api/gateway/Person/item/1")]
+    [InlineData("/api/gateway/bad-name!")]
+    public async Task Router404_UnderTheRestRoutes_IsANotFoundProblem(string path)
+    {
+        var http = await RunMiddleware(path, 404);
 
         http.Response.StatusCode.Should().Be(404);
+        http.Response.ContentType.Should().StartWith("application/problem+json");
+        using var body = JsonDocument.Parse(BodyOf(http));
+        body.RootElement.GetProperty("code").GetString().Should().Be("NOT_FOUND");
+        body.RootElement.GetProperty("status").GetInt32().Should().Be(404);
+        // Points an old /item or /items caller at the routes that exist.
+        body.RootElement.GetProperty("detail").GetString().Should().Contain("/api/gateway/{entity}/{id}").And.Contain("{entity}:{method}");
+        body.RootElement.GetProperty("traceId").GetString().Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task Router405_UnderTheRestRoutes_IsAMethodNotAllowedProblem_NamingTheAllowedMethods()
+    {
+        var http = await RunMiddleware("/api/gateway/Person", 405, method: "PATCH", allow: "GET, POST");
+
+        http.Response.StatusCode.Should().Be(405);
+        http.Response.ContentType.Should().StartWith("application/problem+json");
+        http.Response.Headers.Allow.ToString().Should().Be("GET, POST");
+        using var body = JsonDocument.Parse(BodyOf(http));
+        body.RootElement.GetProperty("code").GetString().Should().Be("METHOD_NOT_ALLOWED");
+        body.RootElement.GetProperty("status").GetInt32().Should().Be(405);
+        body.RootElement.GetProperty("detail").GetString().Should().Be("The method 'PATCH' is not allowed on this route. Allowed: GET, POST.");
+    }
+
+    [Fact]
+    public async Task Router405_WithoutAnAllowHeader_StillSaysWhichMethod()
+    {
+        var http = await RunMiddleware("/api/gateway/Person", 405, method: "DELETE");
+
+        using var body = JsonDocument.Parse(BodyOf(http));
+        body.RootElement.GetProperty("detail").GetString().Should().Be("The method 'DELETE' is not allowed on this route.");
+    }
+
+    [Theory]
+    [InlineData("/api/gateway", 404)]
+    [InlineData("/api/gateway/", 404)]
+    [InlineData("/api/gateway", 405)]
+    [InlineData("/api/schemas", 404)]
+    [InlineData("/api/gateway-options", 405)]
+    public async Task Router404Or405_ElsewhereIsLeftAlone(string path, int status)
+    {
+        var http = await RunMiddleware(path, status);
+
+        http.Response.StatusCode.Should().Be(status);
         BodyOf(http).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A404WithItsOwnBody_IsLeftAlone()
+    {
+        // The service's own NOT_FOUND (an unknown entity or record) already carries a problem body.
+        var http = await RunMiddleware("/api/gateway/Person/p1", 404, startResponse: true);
+
+        BodyOf(http).Should().Be("own body");
     }
 
     [Fact]

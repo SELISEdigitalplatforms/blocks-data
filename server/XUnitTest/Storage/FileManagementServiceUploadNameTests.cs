@@ -53,14 +53,16 @@ public sealed class FileManagementServiceUploadNameTests : IDisposable
         BlocksTestContext.Clear();
     }
 
-    private FileManagementService CreateSut() => new(
+    private FileManagementService CreateSut(
+        IValidator<GetPreSignedUrlForUploadRequest>? preSignedValidator = null,
+        IValidator<LocalStorageUploadRequest>? localValidator = null) => new(
         _fileRepository.Object,
         Mock.Of<IStorageServiceFactory>(),
         Mock.Of<IFileVersionRepository>(),
         Mock.Of<IStorageConfigurationProvider>(),
         _directoryRepository.Object,
-        new GetPreSignedUrlForUploadRequestValidator(),
-        new LocalStorageUploadRequestValidator(Mock.Of<IFileDirectoryRepository>()),
+        preSignedValidator ?? new GetPreSignedUrlForUploadRequestValidator(),
+        localValidator ?? new LocalStorageUploadRequestValidator(Mock.Of<IFileDirectoryRepository>()),
         Mock.Of<IValidator<UpdateFileRequest>>(),
         Mock.Of<Blocks.Genesis.IMessageClient>(),
         _accessResolver.Object,
@@ -163,5 +165,27 @@ public sealed class FileManagementServiceUploadNameTests : IDisposable
 
         response.IsSuccess.Should().BeFalse();
         response.Errors.Should().Equal(new Dictionary<string, string> { ["Name"] = "Name is required." });
+    }
+
+    // §6.5: whatever the validators report, both upload paths keep the first message per property instead of throwing
+
+    private static InlineValidator<T> TwoNameFailures<T>()
+    {
+        var validator = new InlineValidator<T>();
+        validator.RuleFor(_ => "x").Must(_ => false).WithName("Name").OverridePropertyName("Name").WithMessage("first");
+        validator.RuleFor(_ => "y").Must(_ => false).OverridePropertyName("Name").WithMessage("second");
+        return validator;
+    }
+
+    [Fact]
+    public async Task A_repeated_property_keeps_its_first_message_on_both_upload_paths()
+    {
+        var preSigned = await CreateSut(preSignedValidator: TwoNameFailures<GetPreSignedUrlForUploadRequest>())
+            .GetPerSignedUrlForUploadAsync(PreSigned("ok.txt"));
+        var local = await CreateSut(localValidator: TwoNameFailures<LocalStorageUploadRequest>())
+            .UploadFileToLocalStorageAsync(Local("ok.txt"));
+
+        preSigned.Errors.Should().Equal(new Dictionary<string, string> { ["Name"] = "first" });
+        local.Errors.Should().Equal(new Dictionary<string, string> { ["Name"] = "first" });
     }
 }

@@ -46,6 +46,7 @@ public static class ServiceRegistry
         serviceCollection.AddSingleton<IBuiltInNotificationSender, BuiltInNotificationSender>();
         serviceCollection.AddSingleton<ISchemaChangeNotifier, SchemaChangeNotifier>();
         serviceCollection.AddSingleton<IMutationNotifier, MutationNotifier>();
+        serviceCollection.AddSingleton<TenantCertificateCache>();
         serviceCollection.AddSingleton<DataGatewayTokenAuthenticator>();
 
         serviceCollection.AddScoped<IDataGatewayConfigurationService, DataGatewayConfigurationService>();

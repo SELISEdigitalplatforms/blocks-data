@@ -24,7 +24,6 @@ public class EditSchemaAccessMiddleware
             context,
             _next,
             _schema.EditAccessLevel,
-            nameof(EditSchemaAccessMiddleware),
             _schema.SchemaName);
     }
 

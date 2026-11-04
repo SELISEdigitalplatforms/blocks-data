@@ -24,7 +24,6 @@ public class ReadSchemaAccessMiddleware
             context,
             _next,
             _schema.ReadAccessLevel,
-            nameof(ReadSchemaAccessMiddleware),
             _schema.SchemaName);
     }
 

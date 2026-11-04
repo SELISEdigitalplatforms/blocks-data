@@ -4,9 +4,12 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Blocks.Genesis;
 using DataGateway.DomainService.Authentication;
+using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Repositories;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -122,13 +125,18 @@ public class DataGatewayAuthenticationTests : IDisposable
     private static IHttpClientFactory HttpClientFactory()
         => new Mock<IHttpClientFactory>().Object;
 
+    private static DataGatewayTokenAuthenticator Authenticator(
+        ITenants tenants, ICacheClient cache, IDbRepository repository)
+        => new(tenants, new TenantCertificateCache(tenants, cache, HttpClientFactory()), repository,
+            NullLogger<DataGatewayTokenAuthenticator>.Instance);
+
     [Fact]
     public async Task GetPrincipalFromToken_ReturnsNullWhenTheTenantIsUnknown()
     {
         var tenants = new Mock<ITenants>();
         tenants.Setup(t => t.GetTenantByID("missing")).Returns((Tenant?)null);
         var cache = CacheReturning(null);
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object, HttpClientFactory(), new Mock<IDbRepository>().Object);
+        var authenticator = Authenticator(tenants.Object, cache.Object, new Mock<IDbRepository>().Object);
 
         var principal = await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer("abc"), "missing");
 
@@ -142,7 +150,7 @@ public class DataGatewayAuthenticationTests : IDisposable
     {
         var tenants = new Mock<ITenants>();
         tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, CacheReturning(null).Object, HttpClientFactory(), new Mock<IDbRepository>().Object);
+        var authenticator = Authenticator(tenants.Object, CacheReturning(null).Object, new Mock<IDbRepository>().Object);
 
         var principal = await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer(null), "tenant-1");
 
@@ -156,7 +164,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
         var cache = CacheReturning([1, 2, 3, 4]);
         tenants.Setup(t => t.GetTenantTokenValidationParameter("tenant-1")).Returns(Tenant().JwtTokenParameters);
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object, HttpClientFactory(), new Mock<IDbRepository>().Object);
+        var authenticator = Authenticator(tenants.Object, cache.Object, new Mock<IDbRepository>().Object);
 
         var principal = await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer("abc"), "tenant-1");
 
@@ -172,7 +180,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
         var cache = CacheReturning(certificate.Export(X509ContentType.Cert));
         tenants.Setup(t => t.GetTenantTokenValidationParameter("tenant-1")).Returns(Tenant().JwtTokenParameters);
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object, HttpClientFactory(), new Mock<IDbRepository>().Object);
+        var authenticator = Authenticator(tenants.Object, cache.Object, new Mock<IDbRepository>().Object);
 
         var foreignToken = WriteToken(otherCertificate, Issuer, "api://blocks-protected-api");
 
@@ -190,7 +198,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
         var cache = CacheReturning(certificate.Export(X509ContentType.Cert));
         tenants.Setup(t => t.GetTenantTokenValidationParameter("tenant-1")).Returns(Tenant().JwtTokenParameters);
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object, HttpClientFactory(), new Mock<IDbRepository>().Object);
+        var authenticator = Authenticator(tenants.Object, cache.Object, new Mock<IDbRepository>().Object);
 
         var token = WriteToken(certificate, Issuer, "api://someone-else");
 
@@ -208,7 +216,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
         var cache = CacheReturning(certificate.Export(X509ContentType.Cert));
         tenants.Setup(t => t.GetTenantTokenValidationParameter("tenant-1")).Returns(Tenant().JwtTokenParameters);
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object, cache.Object, HttpClientFactory(), new Mock<IDbRepository>().Object);
+        var authenticator = Authenticator(tenants.Object, cache.Object, new Mock<IDbRepository>().Object);
 
         var token = WriteToken(certificate, Issuer, "api://blocks-protected-api");
 
@@ -235,8 +243,7 @@ public class DataGatewayAuthenticationTests : IDisposable
         repository.Setup(r => r.GetItemsAsync("Permissions", It.IsAny<FilterDefinition<BsonDocument>>(),
                 null, It.IsAny<BsonDocument>(), 0, 5000, "tenant-1"))
             .ReturnsAsync([new BsonDocument("Resource", "read:documents")]);
-        var authenticator = new DataGatewayTokenAuthenticator(tenants.Object,
-            CacheReturning(certificate.Export(X509ContentType.Cert)).Object, HttpClientFactory(), repository.Object);
+        var authenticator = Authenticator(tenants.Object, CacheReturning(certificate.Export(X509ContentType.Cert)).Object, repository.Object);
         var token = WriteToken(certificate, Issuer, "api://blocks-protected-api",
             new Claim(BlocksContext.TENANT_ID_CLAIM, "tenant-1"),
             new Claim(ClaimTypes.Role, "reader"),
@@ -248,6 +255,78 @@ public class DataGatewayAuthenticationTests : IDisposable
         principal!.FindAll("permissions").Select(c => c.Value).Should().Contain("read:documents");
         repository.Verify(r => r.GetItemsAsync("Permissions", It.IsAny<FilterDefinition<BsonDocument>>(),
             null, It.IsAny<BsonDocument>(), 0, 5000, "tenant-1"), Times.Once);
+    }
+
+    // Bug 2026-11-04: a Redis stall during the certificate read was swallowed and answered 401,
+    // so valid users were signed out at random. It must surface as "could not check", not "no user".
+    [Fact]
+    public async Task GetPrincipalFromToken_ThrowsUnavailableWhenRedisFails()
+    {
+        var database = new Mock<IDatabase>();
+        database
+            .Setup(d => d.StringGetAsync(It.IsAny<RedisKey>(), It.IsAny<CommandFlags>()))
+            .ThrowsAsync(new RedisTimeoutException("Timeout performing GET", CommandStatus.Sent));
+        var cache = new Mock<ICacheClient>();
+        cache.Setup(c => c.CacheDatabase()).Returns(database.Object);
+        var tenants = new Mock<ITenants>();
+        tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
+        var authenticator = Authenticator(tenants.Object, cache.Object, new Mock<IDbRepository>().Object);
+
+        var act = () => authenticator.GetPrincipalFromTokenAsync(RequestWithBearer("abc"), "tenant-1");
+
+        await act.Should().ThrowAsync<DataGatewayAuthUnavailableException>()
+            .WithInnerException(typeof(RedisTimeoutException));
+    }
+
+    [Fact]
+    public async Task GetPrincipalFromToken_ReadsTheCertificateFromRedisOnlyOnce()
+    {
+        ClearContext();
+        using var certificate = CreateSelfSignedCertificate();
+        var tenants = new Mock<ITenants>();
+        tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
+        tenants.Setup(t => t.GetTenantTokenValidationParameter("tenant-1")).Returns(Tenant().JwtTokenParameters);
+        var cache = CacheReturning(certificate.Export(X509ContentType.Cert));
+        var authenticator = Authenticator(tenants.Object, cache.Object, new Mock<IDbRepository>().Object);
+        var token = WriteToken(certificate, Issuer, "api://blocks-protected-api");
+
+        (await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer(token), "tenant-1")).Should().NotBeNull();
+        (await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer(token), "tenant-1")).Should().NotBeNull();
+
+        cache.Verify(c => c.CacheDatabase(), Times.Once);
+    }
+
+    // A rotated certificate must not keep failing tokens until the cache entry expires.
+    [Fact]
+    public async Task GetPrincipalFromToken_ReloadsTheCertificateAfterASignatureMismatch()
+    {
+        using var certificate = CreateSelfSignedCertificate();
+        using var otherCertificate = CreateSelfSignedCertificate();
+        var tenants = new Mock<ITenants>();
+        tenants.Setup(t => t.GetTenantByID("tenant-1")).Returns(Tenant());
+        tenants.Setup(t => t.GetTenantTokenValidationParameter("tenant-1")).Returns(Tenant().JwtTokenParameters);
+        var cache = CacheReturning(certificate.Export(X509ContentType.Cert));
+        var authenticator = Authenticator(tenants.Object, cache.Object, new Mock<IDbRepository>().Object);
+        var foreignToken = WriteToken(otherCertificate, Issuer, "api://blocks-protected-api");
+
+        (await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer(foreignToken), "tenant-1")).Should().BeNull();
+        (await authenticator.GetPrincipalFromTokenAsync(RequestWithBearer(foreignToken), "tenant-1")).Should().BeNull();
+
+        cache.Verify(c => c.CacheDatabase(), Times.Exactly(2));
+    }
+
+    // Contract: clients sign the user out on 401, so a failed check must answer 503 + Retry-After.
+    [Fact]
+    public async Task AuthUnavailable_IsAnswered503WithRetryAfter()
+    {
+        using var services = new ServiceCollection().BuildServiceProvider();
+        var context = new DefaultHttpContext { RequestServices = services };
+
+        await DataGatewayGraphQLEndpointExtensions.RespondAuthUnavailableAsync(
+            context, new DataGatewayAuthUnavailableException("retry", new TimeoutException()));
+
+        context.Response.StatusCode.Should().Be(StatusCodes.Status503ServiceUnavailable);
+        context.Response.Headers.RetryAfter.ToString().Should().Be("1");
     }
 
     private static string WriteToken(X509Certificate2 signingCertificate, string issuer, string audience,

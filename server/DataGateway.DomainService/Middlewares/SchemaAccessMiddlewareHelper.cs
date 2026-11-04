@@ -16,6 +16,7 @@ internal static class SchemaAccessMiddlewareHelper
         IMiddlewareContext context,
         FieldDelegate next,
         SchemaAccessLevel accessLevel,
+        string middlewareName,
         string entityName)
     {
         // Runs before QueryService/MutationService ever gets invoked, so this is the only chance
@@ -27,10 +28,13 @@ internal static class SchemaAccessMiddlewareHelper
         gatewayOperation.SchemaName = context.Selection.Field.Name;
         gatewayOperation.EntityName = entityName;
 
+        Console.WriteLine($"Invoking {middlewareName}");
+        Console.WriteLine($"{middlewareName}: accessLevel: {accessLevel}");
         var httpContextAccessor = context.Services.GetService<IHttpContextAccessor>();
         var httpContext = httpContextAccessor?.HttpContext;
         if (!IsValidTenant(httpContext))
         {
+            Console.WriteLine($"{middlewareName}: tenant is not valid");
             throw Rejected(GatewayFailureKind.Authentication, "Tenant is not valid.");
         }
 
@@ -40,10 +44,13 @@ internal static class SchemaAccessMiddlewareHelper
             return;
         }
 
+        Console.WriteLine($"{middlewareName}: accessLevel is not public");
         var isAuthenticated = IsAuthenticated(httpContext);
+        Console.WriteLine($"{middlewareName}: isAuthenticated: {isAuthenticated}");
 
         if (!isAuthenticated)
         {
+            Console.WriteLine($"{middlewareName}: user is not authenticated");
             throw Rejected(GatewayFailureKind.Authentication, "User is not authenticated.");
         }
 

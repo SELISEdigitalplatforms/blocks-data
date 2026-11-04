@@ -6,7 +6,6 @@ using DataGateway.DomainService.Models.Constants;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace DataGateway.DomainService.GraphQL;
 
@@ -21,8 +20,6 @@ namespace DataGateway.DomainService.GraphQL;
 /// </summary>
 public static class DataGatewayGraphQLEndpointExtensions
 {
-    private const string AuthLoggerName = "DataGateway.Authentication";
-
     public static IEndpointConventionBuilder MapDataGatewayGraphQL(this WebApplication app, string basePath)
     {
         return app.Map(basePath, HandleDataGatewayRequestAsync);
@@ -48,15 +45,17 @@ public static class DataGatewayGraphQLEndpointExtensions
 
     private static async Task DispatchAsync(HttpContext context)
     {
-        bool isAuthenticated;
-        try
+        bool isAuthenticated = false;
+        var blocksKey = RequestContextAccessor.Current.BlocksKey;
+        if (!string.IsNullOrWhiteSpace(blocksKey))
         {
-            isAuthenticated = await AuthenticateAsync(context);
-        }
-        catch (DataGatewayAuthUnavailableException ex)
-        {
-            await RespondAuthUnavailableAsync(context, ex);
-            return;
+            var authenticator = context.RequestServices.GetRequiredService<DataGatewayTokenAuthenticator>();
+            var principal = await authenticator.GetPrincipalFromTokenAsync(context.Request, blocksKey);
+            if (principal is not null)
+            {
+                context.User = principal;
+                isAuthenticated = true;
+            }
         }
 
         // Only an anonymous caller can be refused introspection, so only their request is read.
@@ -100,44 +99,6 @@ public static class DataGatewayGraphQLEndpointExtensions
         var dispatcher = context.RequestServices.GetRequiredService<DataGatewayPipelineDispatcher>();
         var pipeline = dispatcher.GetPipeline(tenantId);
         await pipeline(context);
-    }
-
-    /// <summary>Validates the request's token and sets <c>context.User</c>. False when there is no valid token.</summary>
-    private static async Task<bool> AuthenticateAsync(HttpContext context)
-    {
-        var blocksKey = RequestContextAccessor.Current.BlocksKey;
-        if (string.IsNullOrWhiteSpace(blocksKey))
-        {
-            return false;
-        }
-
-        var authenticator = context.RequestServices.GetRequiredService<DataGatewayTokenAuthenticator>();
-        var principal = await authenticator.GetPrincipalFromTokenAsync(context.Request, blocksKey);
-        if (principal is null)
-        {
-            return false;
-        }
-
-        context.User = principal;
-        return true;
-    }
-
-    /// <summary>
-    /// The token could not be checked because Redis or Mongo failed. Answered 503 with Retry-After,
-    /// never 401: a 401 makes clients sign a valid user out.
-    /// </summary>
-    internal static async Task RespondAuthUnavailableAsync(HttpContext context, DataGatewayAuthUnavailableException ex)
-    {
-        var logger = context.RequestServices.GetService<ILoggerFactory>()?.CreateLogger(AuthLoggerName);
-        logger?.LogWarning(ex.InnerException ?? ex, "Gateway token check failed on a dependency; answering 503");
-        LogRejected(GatewayFailureKind.Unhandled, ex.Message);
-
-        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
-        context.Response.Headers.RetryAfter = "1";
-        await context.Response.WriteAsJsonAsync(new
-        {
-            error = ex.Message
-        }, context.RequestAborted);
     }
 
     /// <summary>

@@ -123,6 +123,8 @@ public class DataSourceErrorAndStartupTests
         services.AddSingleton(Mock.Of<ICacheClient>());
         services.AddSingleton(Mock.Of<IBlocksSecret>());
         services.AddSingleton(Mock.Of<ITenants>());
+        // Values live only in Key Vault; a fake store keeps the wiring test free of a vault URL.
+        services.AddSingleton(Mock.Of<ISecretValueStore>());
         services.AddSingleton(new ActivitySource("startup-test"));
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
         services.AddKeyValueStore(); // Genesis ApplicationConfigurations.ConfigureServices registers it in both hosts

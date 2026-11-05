@@ -1,3 +1,5 @@
+import { GraphLogTransport } from "./graph-log-history";
+
 export type GraphLogGranularity = "hourly" | "daily" | "weekly";
 
 export interface IGetGraphLogAnalyticsPayload {
@@ -6,6 +8,7 @@ export interface IGetGraphLogAnalyticsPayload {
   /** Viewer offset from UTC in minutes; UTC+06:00 is 360. */
   utcOffsetMinutes: number;
   granularity: GraphLogGranularity;
+  transport?: GraphLogTransport;
   includeBlocksConsole: boolean;
 }
 
@@ -21,6 +24,10 @@ export interface IGraphLogRequestsOverTimeBucket {
 export interface IGraphLogOperationStat {
   schemaName: string;
   calls: number;
+  /** How many of `calls` came over REST. */
+  restCount: number;
+  /** How many of `calls` came over GraphQL, including entries with no recorded transport. */
+  graphQLCount: number;
   success: number;
   /** Everything that did not succeed: `denied` plus `errored`. */
   failed: number;

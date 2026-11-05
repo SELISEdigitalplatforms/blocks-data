@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { graphLogService } from "../services/graph-log.service";
 import { GraphLogGranularity } from "../models/graph-log-analytics";
+import { GraphLogTransport } from "../models/graph-log-history";
 
 export const useGraphLogAnalytics = (
   from: string | undefined,
@@ -10,6 +11,7 @@ export const useGraphLogAnalytics = (
   utcOffsetMinutes: number,
   includeBlocksConsole: boolean,
   enabled = true,
+  transport?: GraphLogTransport,
 ) => {
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
 
@@ -21,6 +23,7 @@ export const useGraphLogAnalytics = (
       granularity,
       utcOffsetMinutes,
       includeBlocksConsole,
+      transport,
       projectKey,
     ],
     queryFn: () =>
@@ -30,6 +33,7 @@ export const useGraphLogAnalytics = (
         granularity,
         utcOffsetMinutes,
         includeBlocksConsole,
+        transport,
       }),
     enabled: Boolean(from && to && enabled),
   });

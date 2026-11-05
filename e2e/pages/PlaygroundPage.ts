@@ -52,7 +52,7 @@ export class PlaygroundPage extends BasePage {
   }
 
   getCleanTestDataButton(): Locator {
-    return this.page.getByRole("button", { name: "Clean Test Data" });
+    return this.page.getByRole("button", { name: "Clean test data" });
   }
 
   async executeQuery(): Promise<void> {
@@ -80,7 +80,7 @@ export class PlaygroundPage extends BasePage {
     await this.getCleanTestDataButton().click();
     const dialog = this.page.getByRole("dialog");
     await expect(dialog).toBeVisible({ timeout: 10_000 });
-    await expect(dialog.getByRole("heading", { name: "Clean Test Data" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "Clean test data" })).toBeVisible();
   }
 
   async closeCleanTestDataModal(): Promise<void> {

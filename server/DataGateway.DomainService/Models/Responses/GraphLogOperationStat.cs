@@ -9,6 +9,12 @@ public class GraphLogOperationStat
 {
     public string SchemaName { get; set; } = string.Empty;
     public int Calls { get; set; }
+
+    /// <summary>Calls that came through the REST API. Together with <see cref="GraphQLCount"/> it adds up to <see cref="Calls"/>.</summary>
+    public int RestCount { get; set; }
+
+    /// <summary>Calls that came through GraphQL, including entries logged before the transport was recorded.</summary>
+    public int GraphQLCount { get; set; }
     public int Success { get; set; }
 
     /// <summary>Everything that did not succeed: <see cref="Denied"/> plus <see cref="Errored"/>.</summary>

@@ -7,6 +7,7 @@ using DataGateway.DomainService.Validators;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using SortDirection = DataGateway.DomainService.Models.SortDirection;
 
 namespace DataGateway.DomainService.Services;
@@ -179,7 +180,7 @@ public class SchemaIndexService : ISchemaIndexService
     {
         var field = schema.Fields.FirstOrDefault(f => f.Name == fieldName);
         return field != null
-            && GraphQlTypeHelper.IsScalar(field.Type)
+            && SchemaTypeHelper.IsScalar(field.Type)
             && field.Type != GeoJsonValidator.TypeName;
     }
 

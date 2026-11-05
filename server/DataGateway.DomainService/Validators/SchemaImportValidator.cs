@@ -7,6 +7,7 @@ using DataGateway.DomainService.Repositories;
 using FluentValidation;
 using MongoDB.Driver;
 using Blocks.Genesis.Entities.Data;
+using Blocks.Genesis.DataAccess.Evaluation;
 using Blocks.Genesis.DataAccess.Rules;
 
 namespace DataGateway.DomainService.Validators;
@@ -59,7 +60,7 @@ public class SchemaImportValidator
             .SelectMany(d => d.Fields ?? [])
             .Where(f => !DefaultValueInjection.IsBaseEntityField(f.Name, f.Type))
             .Select(f => f.Type)
-            .Where(t => !string.IsNullOrWhiteSpace(t) && !GraphQlTypeHelper.IsScalar(t))
+            .Where(t => !string.IsNullOrWhiteSpace(t) && !SchemaTypeHelper.IsScalar(t))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Except(schemaNamesInBatch, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -214,7 +215,7 @@ public class SchemaImportValidator
             return;
         }
 
-        if (!GraphQlTypeHelper.IsScalar(field.Type) &&
+        if (!SchemaTypeHelper.IsScalar(field.Type) &&
             !DefaultValueInjection.IsBaseEntityField(field.Name, field.Type) &&
             !context.SchemaNamesInBatch.Contains(field.Type) &&
             !context.ExistingCustomSchemaNames.Contains(field.Type))

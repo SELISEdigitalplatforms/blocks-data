@@ -4,8 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../page-bar", () => ({
   DataGatewayPageBar: () => <div data-testid="page-bar" />,
 }));
-vi.mock("./graphql-playground-page", () => ({
-  GraphQLPlaygroundPage: () => <div data-testid="playground-page" />,
+vi.mock("../playground/playground-page", () => ({
+  PlaygroundPage: () => <div data-testid="playground-page" />,
 }));
 
 import { GraphQLPlayground } from "./graphql-playground";

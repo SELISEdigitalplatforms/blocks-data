@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The REST transport of the Data Gateway. It talks to the engine in the domain service and must reference no
+       HotChocolate and no MongoDB assembly (RestArchitectureTests). -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DataGateway.DomainService\DataGateway.DomainService.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="XUnitTest" />
+  </ItemGroup>
+</Project>

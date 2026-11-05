@@ -1,0 +1,156 @@
+schema {
+  query: Query
+}
+
+type Address {
+  City: String @cost(weight: "10")
+  Zip: String @cost(weight: "10")
+}
+
+type Query {
+  "No entity schemas are published yet. Always null."
+  _empty: Boolean @cost(weight: "10")
+}
+
+input AddressInput {
+  City: String
+  Zip: String
+}
+
+input BooleanOperationFilterInput {
+  "Equals."
+  eq: Boolean
+  "Not equals."
+  neq: Boolean
+}
+
+input DateTimeOperationFilterInput {
+  "Equals."
+  eq: DateTime
+  "Not equals."
+  neq: DateTime
+  "Greater than."
+  gt: DateTime
+  "Greater than or equal."
+  gte: DateTime
+  "Less than."
+  lt: DateTime
+  "Less than or equal."
+  lte: DateTime
+  "In list."
+  in: [DateTime]
+}
+
+input DynamicQueryInput {
+  filter: String
+  sort: String
+  pageNo: Int
+  pageSize: Int
+}
+
+"Sort by a field and direction."
+input DynamicSortInput {
+  "Name of the field to sort by."
+  field: String!
+  "Sort direction (ASC or DESC). Defaults to ASC."
+  direction: SortDirection
+}
+
+input GeoJsonGeometryFilterInput {
+  "Reference GeoJSON geometry. `within` accepts only Polygon or MultiPolygon."
+  geometry: GeoJson!
+}
+
+input GeoJsonNearInput {
+  "Reference GeoJSON Point."
+  geometry: GeoJson!
+  "Maximum distance from the reference point, in meters. Must be positive."
+  maxDistanceMeters: Float!
+  "Minimum distance from the reference point, in meters. Must be positive and less than maxDistanceMeters."
+  minDistanceMeters: Float
+}
+
+input GeoJsonOperationFilterInput {
+  "Structurally equals."
+  eq: GeoJson
+  "Does not structurally equal."
+  neq: GeoJson
+  "Within a distance (meters) of a reference Point."
+  near: GeoJsonNearInput
+  "Entirely contained by a reference Polygon or MultiPolygon."
+  within: GeoJsonGeometryFilterInput
+  "Overlaps a reference geometry of any type."
+  intersects: GeoJsonGeometryFilterInput
+}
+
+input IntOperationFilterInput {
+  "Equals."
+  eq: Int
+  "Not equals."
+  neq: Int
+  "Greater than."
+  gt: Int
+  "Greater than or equal."
+  gte: Int
+  "Less than."
+  lt: Int
+  "Less than or equal."
+  lte: Int
+  "In list."
+  in: [Int]
+}
+
+input NumberOperationFilterInput {
+  "Equals."
+  eq: Float
+  "Not equals."
+  neq: Float
+  "Greater than."
+  gt: Float
+  "Greater than or equal."
+  gte: Float
+  "Less than."
+  lt: Float
+  "Less than or equal."
+  lte: Float
+  "In list."
+  in: [Float]
+}
+
+input PaginationInput {
+  pageNo: Int
+  pageSize: Int
+}
+
+input StringOperationFilterInput {
+  "Equals."
+  eq: String
+  "Not equals."
+  neq: String
+  "Contains substring."
+  contains: String
+  "Starts with."
+  startsWith: String
+  "Ends with."
+  endsWith: String
+  "In list."
+  in: [String]
+}
+
+"Direction for ordering results."
+enum SortDirection {
+  ASC
+  DESC
+}
+
+"The purpose of the `cost` directive is to define a `weight` for GraphQL types, fields, and arguments. Static analysis can use these weights when calculating the overall cost of a query or response."
+directive @cost("The `weight` argument defines what value to add to the overall cost for every appearance, or possible appearance, of a type, field, argument, etc." weight: String!) on SCALAR | OBJECT | FIELD_DEFINITION | ARGUMENT_DEFINITION | ENUM | INPUT_FIELD_DEFINITION
+
+"The `@specifiedBy` directive is used within the type system definition language to provide a URL for specifying the behavior of custom scalar definitions."
+directive @specifiedBy("The specifiedBy URL points to a human-readable specification. This field will only read a result for scalar types." url: String!) on SCALAR
+
+"The `DateTime` scalar represents an ISO-8601 compliant date time type."
+scalar DateTime @specifiedBy(url: "https:\/\/www.graphql-scalars.com\/date-time")
+
+"An RFC 7946 GeoJSON geometry object: one of Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon or GeometryCollection. Coordinates are [longitude, latitude]."
+scalar GeoJson

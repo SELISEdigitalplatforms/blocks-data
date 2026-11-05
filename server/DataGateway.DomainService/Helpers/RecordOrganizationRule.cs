@@ -71,6 +71,6 @@ public static class RecordOrganizationRule
     private static void ThrowIfInvalid(DataValidationResult result)
     {
         if (!result.IsValid)
-            MutationValidationHelper.ThrowValidationError(result);
+            GatewayValidationError.Throw(result);
     }
 }

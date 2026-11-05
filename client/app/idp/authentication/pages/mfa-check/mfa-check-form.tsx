@@ -19,6 +19,7 @@ import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const CustomInputOTPSlot = ({ index }: { index: number }) => {
   return (
@@ -33,6 +34,7 @@ const getFormSchema = (type: number) =>
     code: z.string().min(type === 2 ? 5 : 6),
   });
 export const MfaCheckFrom = () => {
+  const { t } = useT("data.idp.authentication");
   const navigate = useNavigate();
   const [{ mfa_id, mfa_type }] = useQueryStates({
     mfa_id: parseAsString.withDefault(""),
@@ -55,9 +57,9 @@ export const MfaCheckFrom = () => {
       navigate("/console");
     } catch (error) {
       if (isErrorWithErrors(error)) {
-        showErrorToast({ errors: error.errors.error_description || `Something went wrong` });
+        showErrorToast({ errors: error.errors.error_description || t("MFA_CHECK_FORM.SOMETHING_WENT_WRONG") });
       } else {
-        showErrorToast({ errors: "Something went wrong" });
+        showErrorToast({ errors: t("MFA_CHECK_FORM.SOMETHING_WENT_WRONG") });
       }
     }
   };
@@ -97,16 +99,18 @@ export const MfaCheckFrom = () => {
               onClick={resend}
               disabled={!!remainingTime}
             >
-              Resend Otp
-              {remainingTime > 0 &&
-                ` (${Math.floor(remainingTime / 60)}:${String(remainingTime % 60).padStart(2, "0")})`}
+              {remainingTime > 0
+                ? t("MFA_CHECK_FORM.RESEND_OTP_IN", {
+                    time: `${Math.floor(remainingTime / 60)}:${String(remainingTime % 60).padStart(2, "0")}`,
+                  })
+                : t("MFA_CHECK_FORM.RESEND_OTP")}
             </Button>
           </div>
         )}
 
         <div className="mt-4">
           <Button className="w-full" disabled={!isValid || isPending}>
-            Verify
+            {t("MFA_CHECK_FORM.VERIFY")}
           </Button>
         </div>
       </form>

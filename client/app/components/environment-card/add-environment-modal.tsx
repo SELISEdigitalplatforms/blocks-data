@@ -3,6 +3,7 @@ import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import { Button } from "@/components/ui-kits/button/button";
 import { useCreateProject } from "@/hooks/use-project";
 import { environmentOptions } from "@/constants/environment-options";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 function shortGuidGenerator(length: number): string {
   const letters = "abcdefghijklmnopqrstuvwxyz";
@@ -23,6 +24,7 @@ export const AddEnvironmentModal = ({
   tenantGroupId,
   projectName,
 }: AddEnvironmentModalProps) => {
+  const { t } = useT("data.shared");
   const { isPending, mutateAsync } = useCreateProject();
   const [selected, setSelected] = useState<string[]>([]);
 
@@ -101,14 +103,14 @@ export const AddEnvironmentModal = ({
           disabled={isPending}
           onClick={() => onClose && onClose([])}
         >
-          Cancel
+          {t("common:CANCEL")}
         </Button>
         <Button
           type="button"
           disabled={isPending || selected.length === 0}
           onClick={() => onSaveClick()}
         >
-          Add
+          {t("common:ADD")}
         </Button>
       </div>
     </div>

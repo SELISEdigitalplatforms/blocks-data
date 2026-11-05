@@ -19,12 +19,16 @@ import { oauthService } from "@blocks-idp/authentication/services/oauth.service"
 import { sanitizeProviderUrl } from "@blocks-idp/authentication/utils/sanitize-provider-url.util";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+
+const SSO_ACTIVATE_SOMETHING_WENT_WRONG = "SSO_ACTIVATE.SOMETHING_WENT_WRONG";
 
 type SsoActivateProps = {
   oauthParams: { code: string; username: string };
 };
 
 export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
+  const { t } = useT("data.idp.authentication");
   const { setAuthenticated, setTokens } = useAuthStore();
   const [isChecked, setIsChecked] = useState(false);
   const [isPending, setIsPending] = useState(false);
@@ -46,7 +50,7 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
   const handleUseDifferentAccount = async () => {
     const audience = sessionStorage.getItem("clicked_sso_audience");
     if (!providerKey || !audience) {
-      return showErrorToast({ errors: "Something went wrong" });
+      return showErrorToast({ errors: t(SSO_ACTIVATE_SOMETHING_WENT_WRONG) });
     }
 
     try {
@@ -58,19 +62,21 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
 
       if (res.error) return showErrorToast({ errors: res.error });
       if (!res.providerUrl)
-        return showErrorToast({ errors: "No redirect URL provided." });
+        return showErrorToast({ errors: t("SSO_ACTIVATE.NO_REDIRECT_URL_PROVIDED") });
 
       window.location.href = sanitizeProviderUrl(res.providerUrl);
     } catch (error) {
       if (isErrorWithErrors(error))
         return showErrorToast({ errors: error.errors });
-      showErrorToast({ errors: "Something went wrong" });
+      showErrorToast({ errors: t(SSO_ACTIVATE_SOMETHING_WENT_WRONG) });
     }
   };
 
   const handleActivate = async () => {
-    if (!oauthParams?.code)
-      return showErrorToast({ errors: "Code is missing" });
+    if (!oauthParams?.code) {
+      showErrorToast({ errors: t("SSO_ACTIVATE.CODE_IS_MISSING") });
+      return;
+    }
     setIsPending(true);
     try {
       const key = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY");
@@ -108,17 +114,17 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
         setAuthenticated();
         navigate("/console");
       } else {
-        showErrorToast({ errors: data.errors || "Something went wrong" });
+        showErrorToast({ errors: data.errors || t(SSO_ACTIVATE_SOMETHING_WENT_WRONG) });
       }
     } catch (error) {
       if (JSON.stringify(error).includes("expire")) {
         showErrorToast({
-          errors: "Your session has expired. Please try again.",
+          errors: t("SSO_ACTIVATE.YOUR_SESSION_HAS_EXPIRED_PLEASE_TRY"),
         });
       } else if (isErrorWithErrors(error)) {
         showErrorToast({ errors: error.errors });
       } else {
-        showErrorToast({ errors: "Something went wrong" });
+        showErrorToast({ errors: t(SSO_ACTIVATE_SOMETHING_WENT_WRONG) });
       }
     } finally {
       setIsPending(false);
@@ -128,7 +134,7 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
   return (
     <Card className="w-full rounded border-solid border-background shadow-none md:border-[#95ADC4] lg:max-w-md">
       <CardHeader className="text-center">
-        <CardTitle className="text-3xl leading-9">Blocks Cloud</CardTitle>
+        <CardTitle className="text-3xl leading-9">{t("SSO_ACTIVATE.BLOCKS_CLOUD")}</CardTitle>
       </CardHeader>
       <CardContent>
         {config && (
@@ -143,8 +149,8 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
                 />
               </div>
               <span className="text-medium-emphasis">
-                Signing in with{" "}
-                <span className="font-bold">{providerLabel}</span> account (
+                {t("SSO_ACTIVATE.SIGNING_IN_WITH")}
+                <span className="font-bold">{providerLabel}</span> {t("SSO_ACTIVATE.ACCOUNT")}
                 <span className="font-bold underline">
                   {oauthParams.username}
                 </span>
@@ -156,7 +162,7 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
               onClick={handleUseDifferentAccount}
               className="mb-8 cursor-pointer text-left text-base font-semibold text-primary hover:underline"
             >
-              Use a different {providerLabel} account
+              {t("SSO_ACTIVATE.USE_A_DIFFERENT_PROVIDERLABEL_ACCOUNT", { providerLabel })}
             </button>
           </>
         )}
@@ -172,21 +178,21 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
             htmlFor="terms"
             className="cursor-pointer text-sm font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
           >
-            I agree to the{" "}
+            {t("SSO_ACTIVATE.I_AGREE_TO_THE")}
             <Link
               to="https://selisegroup.com/software-development-terms/"
               className="text-primary underline"
               target="_blank"
             >
-              Terms of Services{" "}
+              {t("SSO_ACTIVATE.TERMS_OF_SERVICES")}
             </Link>
-            and acknowledge that I have read the{" "}
+            {t("SSO_ACTIVATE.AND_ACKNOWLEDGE_THAT_I_HAVE_READ")}
             <Link
               to="https://selisegroup.com/privacy-policy/"
               className="text-primary underline"
               target="_blank"
             >
-              Privacy policy.
+              {t("SSO_ACTIVATE.PRIVACY_POLICY")}
             </Link>
           </label>
         </div>
@@ -195,7 +201,7 @@ export const SsoActivate = ({ oauthParams }: SsoActivateProps) => {
           className="mt-6 w-full rounded"
           disabled={isPending || !isChecked}
         >
-          Continue
+          {t("common:CONTINUE")}
         </Button>
       </CardContent>
     </Card>

@@ -2,6 +2,7 @@ import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import PageBreadcrumb from "@/components/breadcrumb/breadcrumb";
 import { useGetOrganizationById } from "@blocks-idp/iam/hooks/use-organization";
 import { useProjectStore } from "@seliseblocks/genesis-os";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import {
   OrganizationUsers,
@@ -9,13 +10,14 @@ import {
 } from "@blocks-idp/iam/modules/organization-management/organization-users";
 
 export const OrganizationDetail = ({ id }: { id: string }) => {
+  const { t } = useT("data.idp.iam");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const { data, isLoading } = useGetOrganizationById({
     itemId: id,
     projectKey: tenantId,
   });
 
-  setBreadcrumbTitle("/services/iam/organization-detail", "Organizations");
+  setBreadcrumbTitle("/services/iam/organization-detail", t("ORGANIZATION_DETAIL.ORGANIZATIONS"));
   setBreadcrumbTitle(`/services/iam/organization-detail/${id}`, data?.organization?.name ?? null);
 
   return (

@@ -14,8 +14,10 @@ import {
   INotification,
 } from "@/notifications/models/notification.model";
 import { notificationService } from "@/notifications/services/notification.service";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export function Notification() {
+  const { t } = useT("data.shared");
   const { data: configData } = useGetBlocksNotificationConfig(0, 100);
   const queryClient = useQueryClient();
 
@@ -123,8 +125,8 @@ export function Notification() {
   }
 
   function formatKBTitle(str: string) {
-    if (!str) return "No Title";
-    if (str === "agent_kb_processing_status") return "AI Agent Knowledge Update Status";
+    if (!str) return t("NOTIFICATION.NO_TITLE");
+    if (str === "agent_kb_processing_status") return t("NOTIFICATION.AI_AGENT_KNOWLEDGE_UPDATE_STATUS");
     return str
       .split("_")
       .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -147,11 +149,11 @@ export function Notification() {
   ): string {
     const metaInfo = getKBMetaInfo(meta);
     if (metaInfo.status && metaInfo.kb_id)
-      return `Status: ${metaInfo.status.charAt(0).toUpperCase() + metaInfo.status.slice(1)} | KB Id: ${metaInfo.kb_id.split("-")[0]}`;
+      return t("NOTIFICATION.STATUS_AND_KB_ID", { status: metaInfo.status.charAt(0).toUpperCase() + metaInfo.status.slice(1), id: metaInfo.kb_id.split("-")[0] });
     if (metaInfo.status)
-      return `Status: ${metaInfo.status.charAt(0).toUpperCase() + metaInfo.status.slice(1)}`;
-    if (metaInfo.kb_id) return `KB Id: ${metaInfo.kb_id.split("-")[0]}`;
-    return fallbackDescription || "No Description";
+      return t("NOTIFICATION.STATUS", { status: metaInfo.status.charAt(0).toUpperCase() + metaInfo.status.slice(1) });
+    if (metaInfo.kb_id) return t("NOTIFICATION.KB_ID", { id: metaInfo.kb_id.split("-")[0] });
+    return fallbackDescription || t("NOTIFICATION.NO_DESCRIPTION");
   }
 
   return (
@@ -170,7 +172,7 @@ export function Notification() {
       </PopoverTrigger>
       <PopoverContent className="w-[370px] p-0">
         <div className="flex items-center justify-between border-b px-4 py-3">
-          <div className="text-base font-semibold text-primary">Notifications</div>
+          <div className="text-base font-semibold text-primary">{t("NOTIFICATION.NOTIFICATIONS")}</div>
           <button
             onClick={() => {
               markAllAsRead.mutate(undefined, {
@@ -182,15 +184,17 @@ export function Notification() {
             }}
             className="text-xs text-muted-foreground hover:text-primary hover:underline"
           >
-            Mark all as read
+            {t("NOTIFICATION.MARK_ALL_AS_READ")}
           </button>
         </div>
         <div className="max-h-[400px] overflow-y-auto" ref={listRef} onScroll={handleScroll}>
-          {isLoading && notifications.length === 0 ? (
+          {isLoading && notifications.length === 0 && (
             <div className="p-4 text-center text-sm text-muted-foreground"></div>
-          ) : notifications.length === 0 ? (
-            <div className="p-4 text-center text-sm text-muted-foreground">No notifications</div>
-          ) : (
+          )}
+          {!isLoading && notifications.length === 0 && (
+            <div className="p-4 text-center text-sm text-muted-foreground">{t("NOTIFICATION.NO_NOTIFICATIONS")}</div>
+          )}
+          {notifications.length !== 0 && (
             notifications.map((notification, idx) => (
               <div
                 key={notification.id || idx}
@@ -224,7 +228,7 @@ export function Notification() {
                     return (
                       <>
                         <div className="text-sm font-medium">
-                          {formatKBTitle(denorm.title) || "No Title"}
+                          {formatKBTitle(denorm.title) || t("NOTIFICATION.NO_TITLE")}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {formatKBMetaDescription(denorm.meta, denorm.description)}
@@ -242,7 +246,7 @@ export function Notification() {
             ))
           )}
           {isFetching && notifications.length > 0 && (
-            <div className="p-2 text-center text-xs text-muted-foreground">Loading ...</div>
+            <div className="p-2 text-center text-xs text-muted-foreground">{t("NOTIFICATION.LOADING")}</div>
           )}
         </div>
       </PopoverContent>

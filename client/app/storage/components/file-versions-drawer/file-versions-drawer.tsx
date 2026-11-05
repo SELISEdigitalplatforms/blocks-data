@@ -14,6 +14,7 @@ import { useProjectStore } from "@seliseblocks/genesis-os";
 import { userService } from "@blocks-idp/iam/services/user.service";
 import { useFileVersions } from "../../hooks/use-dms";
 import { DmsItem, FileVersionDto } from "../../models/dms.model";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export interface FileVersionsDrawerProps {
   open: boolean;
@@ -50,6 +51,7 @@ export function FileVersionsDrawer({
   file,
   onDownloadVersion,
 }: Readonly<FileVersionsDrawerProps>) {
+  const { t } = useT("data.storage");
   const query = useFileVersions(open ? file.itemId : undefined);
   const projectKey = useProjectStore().selectedProject?.tenantId;
 
@@ -94,17 +96,19 @@ export function FileVersionsDrawer({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col gap-4 sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>Versions of {file.name}</SheetTitle>
+          <SheetTitle>{t("FILE_VERSIONS_DRAWER.VERSIONS_OF_NAME", { name: file.name })}</SheetTitle>
         </SheetHeader>
 
-        {query.isLoading ? (
+        {query.isLoading && (
           <div className="flex flex-col gap-2">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
           </div>
-        ) : versions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">This file has no recorded versions.</p>
-        ) : (
+        )}
+        {!query.isLoading && versions.length === 0 && (
+          <p className="text-sm text-muted-foreground">{t("FILE_VERSIONS_DRAWER.THIS_FILE_HAS_NO_RECORDED_VERSIONS")}</p>
+        )}
+        {!query.isLoading && versions.length !== 0 && (
           <ul className="flex flex-col divide-y rounded-md border text-sm">
             {versions.map((version) => (
               <li key={version.itemId} className="flex items-center gap-3 px-3 py-2">
@@ -115,7 +119,7 @@ export function FileVersionsDrawer({
                   </span>
                   {version.uploadedBy ? (
                     <span className="truncate text-xs text-muted-foreground">
-                      by {uploaderLabels.get(version.uploadedBy) ?? version.uploadedBy}
+                      {t("FILE_VERSIONS_DRAWER.BY_UPLOADER", { name: uploaderLabels.get(version.uploadedBy) ?? version.uploadedBy })}
                     </span>
                   ) : null}
                 </span>
@@ -124,7 +128,7 @@ export function FileVersionsDrawer({
                 </span>
                 {onDownloadVersion ? (
                   <Button variant="outline" size="sm" onClick={() => onDownloadVersion(version)}>
-                    Download
+                    {t("common:DOWNLOAD")}
                   </Button>
                 ) : null}
               </li>
@@ -139,7 +143,7 @@ export function FileVersionsDrawer({
             disabled={query.isFetchingNextPage}
             className="self-center"
           >
-            {query.isFetchingNextPage ? "Loading..." : "Load more"}
+            {query.isFetchingNextPage ? t("common:LOADING") : t("FILE_VERSIONS_DRAWER.LOAD_MORE")}
           </Button>
         ) : null}
       </SheetContent>

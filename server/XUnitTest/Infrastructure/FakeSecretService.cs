@@ -138,6 +138,7 @@ public sealed class FakeSecretService : ISecretService
     public Task LockAsync(string secretId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task UnlockAsync(string secretId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task RestoreAsync(string secretId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+    public Task PurgeAsync(string secretId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task UpdateAccessAsync(string secretId, SecretAccess access, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     public Task<SecretAuditListResult> GetAuditLogsAsync(SecretAuditFilter filter, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 

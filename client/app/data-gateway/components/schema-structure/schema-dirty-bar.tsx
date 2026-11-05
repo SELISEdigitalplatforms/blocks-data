@@ -2,6 +2,7 @@ import { Button } from "@/components/ui-kits/button/button";
 import { AlertTriangle } from "lucide-react";
 
 import { describeChange, type SchemaDiff } from "../../utils/schema-diff";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface SchemaDirtyBarProps {
   /** Save submits the surrounding form unless a click handler is supplied. */
@@ -23,6 +24,7 @@ interface SchemaDirtyBarProps {
  * which would put a wrong number in front of the reader.
  */
 export function SchemaDirtyBar({ onSave, isValid, diff }: SchemaDirtyBarProps) {
+  const { t } = useT("data.gateway.schema");
   const summary = diff.changes.map(describeChange).join(" · ");
 
   return (
@@ -30,7 +32,7 @@ export function SchemaDirtyBar({ onSave, isValid, diff }: SchemaDirtyBarProps) {
       <AlertTriangle className="h-4 w-4 shrink-0 text-base-warning" aria-hidden />
       <div className="min-w-0">
         <p className="text-xs font-semibold text-foreground">
-          {diff.count === 1 ? "1 unsaved change" : `${diff.count} unsaved changes`}
+          {diff.count === 1 ? t("SCHEMA_DIRTY_BAR.1_UNSAVED_CHANGE") : t("SCHEMA_DIRTY_BAR.COUNT_UNSAVED_CHANGES", { count: diff.count })}
         </p>
         <p className="truncate text-[11px] text-muted-foreground" title={summary || undefined}>
           {summary ||
@@ -44,7 +46,7 @@ export function SchemaDirtyBar({ onSave, isValid, diff }: SchemaDirtyBarProps) {
         disabled={!isValid}
         onClick={onSave}
       >
-        Save
+        {t("common:SAVE")}
       </Button>
     </div>
   );

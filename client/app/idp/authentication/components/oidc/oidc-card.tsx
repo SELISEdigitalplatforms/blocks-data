@@ -19,6 +19,7 @@ import { useDeleteAuthOidc } from "@blocks-idp/authentication/hooks/use-auth-oid
 import { isErrorWithErrors } from "@/lib/error";
 import { Trash } from "lucide-react";
 import { CreateOIDC } from "../create-oidc/create-oidc";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const Item = ({ label, children }: { label: string; children: ReactNode }) => {
   return (
@@ -34,6 +35,7 @@ type OIDCCardProps = {
 };
 
 export const OIDCCard = ({ oidc }: OIDCCardProps) => {
+  const { t } = useT("data.idp.authentication");
   const [open, setOpen] = useState<boolean>(false);
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
 
@@ -50,11 +52,11 @@ export const OIDCCard = ({ oidc }: OIDCCardProps) => {
 
       const res = await mutateAsync(payload);
       if (!res.isSuccess) return showErrorToast({ errors: res.error });
-      showSuccessToast({ description: "OIDC credential deleted successfully" });
+      showSuccessToast({ description: t("OIDC_CARD.OIDC_CREDENTIAL_DELETED_SUCCESSFULLY") });
       setOpen(false);
     } catch (error) {
       if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
-      return showErrorToast({ errors: "Something went wrong" });
+      return showErrorToast({ errors: t("OIDC_CARD.SOMETHING_WENT_WRONG") });
     }
   };
 
@@ -66,7 +68,7 @@ export const OIDCCard = ({ oidc }: OIDCCardProps) => {
             <div className="flex items-center gap-4">
               {oidc.clientLogoUrl && (
                 <div className="relative h-12 w-12 overflow-hidden rounded-lg">
-                  <img src={oidc.clientLogoUrl} alt="OIDC Logo" className="object-cover" />
+                  <img src={oidc.clientLogoUrl} alt={t("OIDC_CARD.OIDC_LOGO")} className="object-cover" />
                 </div>
               )}
               <CardTitle>{oidc.clientDisplayName}</CardTitle>
@@ -85,25 +87,25 @@ export const OIDCCard = ({ oidc }: OIDCCardProps) => {
         <CardContent>
           <div className="flex flex-col gap-8">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <Item label="Client Id">
+              <Item label={t("OIDC_CARD.CLIENT_ID")}>
                 <CopyToClipboardButton textToCopy={oidc.itemId}>
                   <MaskedText text={oidc.itemId} length={30} showFirstN={4} showLastN={4} />
                 </CopyToClipboardButton>
               </Item>
 
-              <Item label="Client Secret">
+              <Item label={t("OIDC_CARD.CLIENT_SECRET")}>
                 <CopyToClipboardButton textToCopy={oidc.clientSecret}>
                   <MaskedText text={oidc.clientSecret} length={30} showFirstN={4} showLastN={4} />
                 </CopyToClipboardButton>
               </Item>
 
-              <Item label="Redirect URL">
+              <Item label={t("OIDC_CARD.REDIRECT_URL")}>
                 <CopyToClipboardButton textToCopy={oidc.redirectUri}>
                   {oidc.redirectUri}
                 </CopyToClipboardButton>
               </Item>
 
-              <Item label="Audience">
+              <Item label={t("OIDC_CARD.AUDIENCE")}>
                 <CopyToClipboardButton textToCopy={oidc.audience}>
                   <div className="flex items-center gap-2">
                     <div className="flex flex-wrap gap-1.5">{oidc.audience}</div>
@@ -111,7 +113,7 @@ export const OIDCCard = ({ oidc }: OIDCCardProps) => {
                 </CopyToClipboardButton>
               </Item>
 
-              <Item label="Scope(s)">
+              <Item label={t("OIDC_CARD.SCOPE_S")}>
                 <div className="flex items-center gap-2">
                   <div className="flex flex-wrap gap-1.5">
                     {oidc.scope ? (
@@ -125,13 +127,13 @@ export const OIDCCard = ({ oidc }: OIDCCardProps) => {
                 </div>
               </Item>
 
-              <Item label="Created on">
+              <Item label={t("OIDC_CARD.CREATED_ON")}>
                 <span className="whitespace-nowrap">
                   {format(oidc.createdDate, "dd/MM/yyyy HH:mm")}
                 </span>
               </Item>
 
-              <Item label="Theme Color">
+              <Item label={t("OIDC_CARD.THEME_COLOR")}>
                 <div className="flex items-center gap-3">
                   {oidc.clientBrandColor && (
                     <div
@@ -145,7 +147,7 @@ export const OIDCCard = ({ oidc }: OIDCCardProps) => {
               </Item>
 
               <div className="md:col-span-2">
-                <Item label="Well Known URL">
+                <Item label={t("OIDC_CARD.WELL_KNOWN_URL")}>
                   <CopyToClipboardButton
                     textToCopy={`${getApiUrl("idp/v1", ".well-known/openid-configuration")}?projectKey=${tenantId}`}
                   >
@@ -165,8 +167,8 @@ export const OIDCCard = ({ oidc }: OIDCCardProps) => {
           onCancel={() => setOpen(false)}
           onConfirm={() => handleConfirmDelete(oidc.itemId)}
           data={{
-            dialogTitle: "Delete",
-            dialogSubtitle: `Are you sure you want to delete this OIDC credential?`,
+            dialogTitle: t("common:DELETE"),
+            dialogSubtitle: t("OIDC_CARD.ARE_YOU_SURE_YOU_WANT_TO"),
           }}
           buttonState={{
             confirm: { disable: isPending },

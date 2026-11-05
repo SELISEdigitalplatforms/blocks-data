@@ -26,11 +26,14 @@ import prism from "react-syntax-highlighter/dist/esm/styles/prism/prism";
 import { SchemaPreviewDrawerProps } from "../models/schema-preview.types";
 import { buildPreviewSections } from "../utils/generate-preview-queries";
 import { formatPreviewJson } from "../utils/graphql-template.utils";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 
 const OPERATIONS = [
   {
     value: "query",
-    label: "Query",
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_PREVIEW_DRAWER.QUERY"); },
     icon: Search,
     iconColor: "text-blue-500",
     activeBg: "bg-blue-50 dark:bg-blue-950/50",
@@ -42,7 +45,7 @@ const OPERATIONS = [
   },
   {
     value: "insert",
-    label: "Insert",
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_PREVIEW_DRAWER.INSERT"); },
     icon: Plus,
     iconColor: "text-emerald-500",
     activeBg: "bg-emerald-50 dark:bg-emerald-950/50",
@@ -54,7 +57,7 @@ const OPERATIONS = [
   },
   {
     value: "update",
-    label: "Update",
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:UPDATE"); },
     icon: Pencil,
     iconColor: "text-amber-500",
     activeBg: "bg-amber-50 dark:bg-amber-950/50",
@@ -66,7 +69,7 @@ const OPERATIONS = [
   },
   {
     value: "delete",
-    label: "Delete",
+    get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "common:DELETE"); },
     icon: Trash2,
     iconColor: "text-red-500",
     activeBg: "bg-red-50 dark:bg-red-950/50",
@@ -91,6 +94,7 @@ export function SchemaPreviewDrawer({
   isGatewayIntrospectionPending: isGatewayIntrospectionPendingProp,
   isGatewayIntrospectionFetching: isGatewayIntrospectionFetchingProp,
 }: SchemaPreviewDrawerProps) {
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const handleCloseAutoFocus = (event: Event) => {
     event.preventDefault();
     (document.activeElement as HTMLElement | null)?.blur();
@@ -125,10 +129,11 @@ export function SchemaPreviewDrawer({
   }
 
   const operationTabMap: Record<string, string[]> = {
-    query: ["Query"],
-    insert: ["Insert", "Insert Many"],
-    update: ["Update", "Update Many"],
-    delete: ["Delete", "Delete Many"],
+    // These must read the same text as the section titles built in generate-preview-queries.
+    query: [t("GENERATE_PREVIEW_QUERIES.QUERY")],
+    insert: [t("GENERATE_PREVIEW_QUERIES.INSERT"), t("GENERATE_PREVIEW_QUERIES.INSERT_MANY")],
+    update: [t("common:UPDATE"), t("GENERATE_PREVIEW_QUERIES.UPDATE_MANY")],
+    delete: [t("common:DELETE"), t("GENERATE_PREVIEW_QUERIES.DELETE_MANY")],
   };
 
   const handleTryInPlayground = (code: string) => {
@@ -163,7 +168,7 @@ export function SchemaPreviewDrawer({
   }, [sections, activeOperationTab]);
 
   const activeOperation = OPERATIONS.find((op) => op.value === activeOperationTab) ?? OPERATIONS[0];
-  const heading = title ?? `${schemaName ?? "Schema"} preview`;
+  const heading = title ?? t("SCHEMA_PREVIEW_DRAWER.SCHEMANAME_PREVIEW", { schemaName: schemaName ?? t("SCHEMA_PREVIEW_DRAWER.SCHEMA") });
 
   return (
     <Drawer direction="right" handleOnly open={open} onOpenChange={onOpenChange}>
@@ -190,13 +195,13 @@ export function SchemaPreviewDrawer({
               {heading}
             </DrawerTitle>
             <DrawerDescription className="sr-only">
-              Preview schema payload and request examples.
+              {t("SCHEMA_PREVIEW_DRAWER.PREVIEW_SCHEMA_PAYLOAD_AND_REQUEST")}
             </DrawerDescription>
             <DrawerClose asChild>
               <button
                 type="button"
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground/80 transition-colors hover:bg-muted/60 hover:text-foreground"
-                aria-label="Close"
+                aria-label={t("common:CLOSE")}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -217,13 +222,13 @@ export function SchemaPreviewDrawer({
                     value="request-format"
                     className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs text-foreground/70 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
                   >
-                    Request Format
+                    {t("SCHEMA_PREVIEW_DRAWER.REQUEST_FORMAT")}
                   </TabsTrigger>
                   <TabsTrigger
                     value="schema-structure"
                     className="h-8 rounded-none border-b-2 border-transparent px-3 text-xs text-foreground/70 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none"
                   >
-                    Schema Structure
+                    {t("SCHEMA_PREVIEW_DRAWER.SCHEMA_STRUCTURE")}
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -278,7 +283,7 @@ export function SchemaPreviewDrawer({
               <div className="shrink-0 space-y-2 border-b border-border/40 px-6 py-3">
                 <div className="flex items-center gap-3 text-xs">
                   <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-widest text-foreground">
-                    URL
+                    {t("SCHEMA_PREVIEW_DRAWER.URL")}
                   </span>
                   <CopyToClipboardButton textToCopy={requestUrl} isHoverable>
                     <code className="font-mono text-foreground">{requestUrl}</code>
@@ -286,9 +291,10 @@ export function SchemaPreviewDrawer({
                 </div>
                 <div className="flex items-center gap-3 text-xs">
                   <span className="w-14 shrink-0 text-[11px] font-semibold uppercase tracking-widest text-foreground">
-                    Header
+                    {t("SCHEMA_PREVIEW_DRAWER.HEADER")}
                   </span>
                   <CopyToClipboardButton textToCopy={`x-blocks-key: ${projectKey}`} isHoverable>
+                    {/* eslint-disable-next-line no-restricted-syntax -- HTTP header name, not translatable */}
                     <code className="font-mono text-foreground">x-blocks-key: {projectKey}</code>
                   </CopyToClipboardButton>
                 </div>
@@ -337,7 +343,7 @@ export function SchemaPreviewDrawer({
                   {isGatewaySchemaLoading ? (
                     <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-foreground/80">
                       <span className="inline-block size-6 animate-spin rounded-full border-2 border-foreground/20 border-t-foreground/70" />
-                      <span className="text-xs">Loading from gateway…</span>
+                      <span className="text-xs">{t("SCHEMA_PREVIEW_DRAWER.LOADING_FROM_GATEWAY")}</span>
                     </div>
                   ) : (
                     <ScrollArea className="h-full">
@@ -348,7 +354,7 @@ export function SchemaPreviewDrawer({
                               className={cn("h-7 w-7 opacity-40", activeOperation.iconColor)}
                             />
                             <span className="text-xs text-foreground/70">
-                              No examples available
+                              {t("SCHEMA_PREVIEW_DRAWER.NO_EXAMPLES_AVAILABLE")}
                             </span>
                           </div>
                         ) : (
@@ -385,7 +391,7 @@ export function SchemaPreviewDrawer({
                                     onClick={() => handleTryInPlayground(section.code)}
                                   >
                                     <Play className="h-3 w-3" />
-                                    Playground
+                                    {t("SCHEMA_PREVIEW_DRAWER.PLAYGROUND")}
                                   </Button>
                                   <CopyToClipboardButton textToCopy={section.code}>
                                     {" "}

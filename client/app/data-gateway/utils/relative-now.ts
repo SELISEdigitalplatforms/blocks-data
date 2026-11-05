@@ -1,3 +1,4 @@
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 /**
  * Dates relative to now in comparison values: {{Now}}, {{Now-18y}}, {{Now+30d}} (units y, mo, d, h, min). The same
  * grammar as Genesis `RelativeNow`, checked against the shared cases in rule-message-cases.json. The server works the
@@ -41,13 +42,19 @@ export function parseRelativeNow(value: unknown): RelativeNow | null {
 export const relativeNowText = (now: RelativeNow) =>
   !now.unit || now.amount === 0 ? "{{Now}}" : `{{Now${now.amount < 0 ? "-" : "+"}${Math.abs(now.amount)}${now.unit}}}`;
 
-const UNIT_WORD: Record<Exclude<RelativeNowUnit, "">, string> = { y: "year", mo: "month", d: "day", h: "hour", min: "minute" };
+const UNIT_KEYS = {
+  y: ["RELATIVE_NOW.PLUS_YEARS", "RELATIVE_NOW.MINUS_YEARS"],
+  mo: ["RELATIVE_NOW.PLUS_MONTHS", "RELATIVE_NOW.MINUS_MONTHS"],
+  d: ["RELATIVE_NOW.PLUS_DAYS", "RELATIVE_NOW.MINUS_DAYS"],
+  h: ["RELATIVE_NOW.PLUS_HOURS", "RELATIVE_NOW.MINUS_HOURS"],
+  min: ["RELATIVE_NOW.PLUS_MINUTES", "RELATIVE_NOW.MINUS_MINUTES"],
+} as const;
 
 /** How messages and cards name it: "now", "now − 18 years", "now + 1 month". */
 export function describeRelativeNow(now: RelativeNow): string {
-  if (!now.unit || now.amount === 0) return "now";
+  if (!now.unit || now.amount === 0) return tStatic("data.gateway.schema", "RELATIVE_NOW.NOW");
   const count = Math.abs(now.amount);
-  return `now ${now.amount < 0 ? "−" : "+"} ${count} ${UNIT_WORD[now.unit]}${count === 1 ? "" : "s"}`;
+  return tStatic("data.gateway.schema", UNIT_KEYS[now.unit][now.amount < 0 ? 1 : 0], { count });
 }
 
 /** The calendar's ends on the server (.NET DateTime.MinValue / MaxValue), where a far offset is clamped. */

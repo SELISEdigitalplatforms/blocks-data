@@ -1,4 +1,7 @@
 import type { IField } from "../models/data-service";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 
 /** The attributes a review is worth mentioning, and how to say each one. */
 const COMPARED_ATTRIBUTES: { key: keyof IField; label: string }[] = [
@@ -8,7 +11,7 @@ const COMPARED_ATTRIBUTES: { key: keyof IField; label: string }[] = [
   { key: "isPIIData", label: "PII" },
   { key: "isUniqueData", label: "unique" },
   { key: "description", label: "description" },
-  { key: "enumValues", label: "allowed values" },
+  { key: "enumValues", get label() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DIFF.ALLOWED_VALUES"); } },
 ];
 
 export type FieldChange =
@@ -109,12 +112,12 @@ export function diffSchemaFields({
 export function describeChange(change: FieldChange): string {
   switch (change.kind) {
     case "added":
-      return `${change.name || "New field"} added`;
+      return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DIFF.NAME_ADDED", { name: change.name || tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DIFF.NEW_FIELD") });
     case "removed":
-      return `${change.name} removed`;
+      return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DIFF.NAME_REMOVED", { name: change.name });
     case "renamed":
-      return `${change.from} renamed to ${change.to}`;
+      return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DIFF.FROM_RENAMED_TO_TO", { from: change.from, to: change.to });
     case "modified":
-      return `${change.name} ${change.attributes.join(", ")} changed`;
+      return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DIFF.NAME_JOIN_CHANGED", { name: change.name, join: change.attributes.join(", ") });
   }
 }

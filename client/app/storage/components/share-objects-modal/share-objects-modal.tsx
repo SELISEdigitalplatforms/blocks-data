@@ -19,6 +19,7 @@ import {
 } from "@/components/ui-kits/select/select";
 import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 import { HttpError } from "@/lib/http-client";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 import { Share2 } from "lucide-react";
 import { useState } from "react";
 import { MAX_SHARE_PRINCIPALS } from "../../constants/share.constant";
@@ -28,12 +29,18 @@ import { PrincipalSelector, usePrincipalSelection } from "../principal-selector/
 
 const PERMISSIONS: ObjectPermission[] = ["View", "Download", "Edit", "Delete", "Manage", "Owner"];
 
+const PRINCIPAL_COUNT_KEYS: Record<ObjectPrincipalType, string> = {
+  User: "SHARE_OBJECTS_MODAL.USERS_COUNT",
+  Role: "SHARE_OBJECTS_MODAL.ROLES_COUNT",
+  Organization: "SHARE_OBJECTS_MODAL.ORGANIZATIONS_COUNT",
+  Everyone: "SHARE_OBJECTS_MODAL.EVERYONE_LOWER",
+};
 
-const PRINCIPAL_NOUNS: Record<ObjectPrincipalType, [string, string]> = {
-  User: ["user", "users"],
-  Role: ["role", "roles"],
-  Organization: ["organization", "organizations"],
-  Everyone: ["everyone", "everyone"],
+const CHOOSE_KEYS: Record<ObjectPrincipalType, string> = {
+  User: "SHARE_OBJECTS_MODAL.CHOOSE_USERS_TO_CONTINUE",
+  Role: "SHARE_OBJECTS_MODAL.CHOOSE_ROLES_TO_CONTINUE",
+  Organization: "SHARE_OBJECTS_MODAL.CHOOSE_ORGANIZATIONS_TO_CONTINUE",
+  Everyone: "SHARE_OBJECTS_MODAL.EVERYONE",
 };
 
 export interface ShareObjectsModalProps {
@@ -45,14 +52,13 @@ export interface ShareObjectsModalProps {
   onShared: () => void;
 }
 
-const plural = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
-
 /**
  * Shares several files and directories with several principals at one permission, in a
  * single all-or-nothing request: either every item is shared with every principal, or
  * nothing changes and the failure names the items that caused it.
  */
 export function ShareObjectsModal({ open, onOpenChange, items, onShared }: Readonly<ShareObjectsModalProps>) {
+  const { t } = useT("data.storage");
   const selection = usePrincipalSelection(open);
   const { principalType, selectedPrincipals, needsPrincipal } = selection;
   const [permission, setPermission] = useState<ObjectPermission>("View");
@@ -65,16 +71,29 @@ export function ShareObjectsModal({ open, onOpenChange, items, onShared }: Reado
   const nameOf = (resourceId: string) =>
     items.find((item) => item.itemId === resourceId)?.name ?? resourceId;
 
+  const permissionLabels: Record<ObjectPermission, string> = {
+    View: t("SHARE_OBJECTS_MODAL.PERMISSION_VIEW"),
+    Download: t("SHARE_OBJECTS_MODAL.PERMISSION_DOWNLOAD"),
+    Edit: t("SHARE_OBJECTS_MODAL.PERMISSION_EDIT"),
+    Delete: t("SHARE_OBJECTS_MODAL.PERMISSION_DELETE"),
+    Manage: t("SHARE_OBJECTS_MODAL.PERMISSION_MANAGE"),
+    Owner: t("SHARE_OBJECTS_MODAL.PERMISSION_OWNER"),
+  };
+
   const failureMessage = (error: unknown): string => {
     if (error instanceof HttpError && (error.status === 403 || error.status === 404)) {
       const ids = (error.errors as { resourceIds?: unknown }).resourceIds;
       const names = Array.isArray(ids) && ids.length > 0 ? ids.map(String).map(nameOf).join(", ") : "";
       if (error.status === 403) {
-        return names ? `You can't manage access on: ${names}` : "You can't manage access on these items.";
+        return names
+          ? t("SHARE_OBJECTS_MODAL.CANT_MANAGE_ACCESS_ON_NAMES", { names })
+          : t("SHARE_OBJECTS_MODAL.CANT_MANAGE_ACCESS_ON_THESE_ITEMS");
       }
-      return names ? `Some items no longer exist: ${names}` : "Some items no longer exist.";
+      return names
+        ? t("SHARE_OBJECTS_MODAL.ITEMS_NO_LONGER_EXIST_NAMES", { names })
+        : t("SHARE_OBJECTS_MODAL.ITEMS_NO_LONGER_EXIST");
     }
-    return "The items were not shared.";
+    return t("SHARE_OBJECTS_MODAL.ITEMS_NOT_SHARED");
   };
 
   const handleShare = async () => {
@@ -92,18 +111,21 @@ export function ShareObjectsModal({ open, onOpenChange, items, onShared }: Reado
         principals,
         permission,
       });
-      const [one, many] = PRINCIPAL_NOUNS[principalType];
       showSuccessToast({
-        title: "Shared",
-        description: `${permission} on ${plural(items.length, "item", "items")} for ${
-          needsPrincipal ? plural(principals.length, one, many) : "everyone"
-        }.`,
+        title: t("SHARE_OBJECTS_MODAL.SHARED"),
+        description: t("SHARE_OBJECTS_MODAL.SHARED_DESCRIPTION", {
+          permission: permissionLabels[permission],
+          items: t("SHARE_OBJECTS_MODAL.ITEMS_COUNT", { count: items.length }),
+          principals: needsPrincipal
+            ? t(PRINCIPAL_COUNT_KEYS[principalType], { count: principals.length })
+            : t(PRINCIPAL_COUNT_KEYS.Everyone),
+        }),
       });
       selection.clearPicks();
       onShared();
       onOpenChange(false);
     } catch (error) {
-      showErrorToast({ title: "Nothing was shared", errors: failureMessage(error) });
+      showErrorToast({ title: t("SHARE_OBJECTS_MODAL.NOTHING_WAS_SHARED"), errors: failureMessage(error) });
     }
   };
 
@@ -119,10 +141,11 @@ export function ShareObjectsModal({ open, onOpenChange, items, onShared }: Reado
               <Share2 className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0 space-y-1">
-              <DialogTitle>Share {plural(items.length, "item", "items")}</DialogTitle>
+              <DialogTitle>{t("SHARE_OBJECTS_MODAL.SHARE_ITEMS_TITLE", { count: items.length })}</DialogTitle>
               <DialogDescription className="line-clamp-2">
-                {visibleNames.join(", ")}
-                {hiddenCount > 0 ? ` and ${hiddenCount} more` : ""}
+                {hiddenCount > 0
+                  ? t("SHARE_OBJECTS_MODAL.NAMES_AND_MORE", { names: visibleNames.join(", "), count: hiddenCount })
+                  : visibleNames.join(", ")}
               </DialogDescription>
             </div>
           </div>
@@ -131,26 +154,26 @@ export function ShareObjectsModal({ open, onOpenChange, items, onShared }: Reado
         <div className="space-y-5">
           <PrincipalSelector
             selection={selection}
-            hint="You can select more than one. Every selected item is shared with each of them."
+            hint={t("SHARE_OBJECTS_MODAL.HINT")}
           />
           {tooManyPrincipals ? (
             <p className="text-sm text-destructive">
-              Share with up to {MAX_SHARE_PRINCIPALS} at a time.
+              {t("SHARE_OBJECTS_MODAL.SHARE_WITH_UP_TO", { max: MAX_SHARE_PRINCIPALS })}
             </p>
           ) : null}
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium" htmlFor="share-permission">
-              Permission
+              {t("SHARE_OBJECTS_MODAL.PERMISSION")}
             </label>
             <Select value={permission} onValueChange={(v) => setPermission(v as ObjectPermission)}>
-              <SelectTrigger id="share-permission" aria-label="Permission">
+              <SelectTrigger id="share-permission" aria-label={t("SHARE_OBJECTS_MODAL.PERMISSION")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {PERMISSIONS.map((p) => (
                   <SelectItem key={p} value={p}>
-                    {p}
+                    {permissionLabels[p]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -158,7 +181,7 @@ export function ShareObjectsModal({ open, onOpenChange, items, onShared }: Reado
           </div>
 
           <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-            <p className="font-medium">Preview</p>
+            <p className="font-medium">{t("SHARE_OBJECTS_MODAL.PREVIEW")}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {needsPrincipal && selectedPrincipals.length > 0 ? (
                 selection.options
@@ -170,20 +193,20 @@ export function ShareObjectsModal({ open, onOpenChange, items, onShared }: Reado
                   ))
               ) : (
                 <span className="text-muted-foreground">
-                  {needsPrincipal ? `Choose ${principalType.toLowerCase()}s to continue.` : "Everyone"}
+                  {t(CHOOSE_KEYS[principalType])}
                 </span>
               )}
-              <Badge variant="outline">{permission}</Badge>
+              <Badge variant="outline">{permissionLabels[permission]}</Badge>
             </div>
           </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("common:CANCEL")}
           </Button>
           <Button onClick={handleShare} disabled={!canSubmit || share.isPending}>
-            {share.isPending ? "Sharing..." : "Share"}
+            {share.isPending ? t("SHARE_OBJECTS_MODAL.SHARING") : t("SHARE_OBJECTS_MODAL.SHARE")}
           </Button>
         </DialogFooter>
       </DialogContent>

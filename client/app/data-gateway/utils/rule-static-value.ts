@@ -1,3 +1,6 @@
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_VALIDATION_MODULE = "data.gateway.validation";
 /**
  * The static value of an access rule, entered the way the compared property's type is: a dropdown for
  * Boolean and Enum, a UTC date-time picker for DateTime, a checked box for Int and Float, plain text
@@ -65,20 +68,20 @@ const isValidItem = (spec: StaticValueSpec, item: string): boolean => {
 };
 
 const ONE_VALUE_MESSAGE: Record<StaticValueKind, string> = {
-  boolean: "Choose true or false",
-  enum: "Choose one of the property's values",
-  date: "Enter a date and time",
-  int: "Enter a whole number",
-  float: "Enter a number",
+  get boolean() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.CHOOSE_TRUE_OR_FALSE"); },
+  get enum() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.CHOOSE_ONE_OF_THE_PROPERTY_S"); },
+  get date() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_A_DATE_AND_TIME"); },
+  get int() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_A_WHOLE_NUMBER"); },
+  get float() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_A_NUMBER"); },
   text: "",
 };
 
 const LIST_MESSAGE: Record<StaticValueKind, string> = {
-  boolean: "Choose true or false",
-  enum: "Choose from the property's values",
-  date: "Enter dates separated by commas",
-  int: "Enter whole numbers separated by commas",
-  float: "Enter numbers separated by commas",
+  get boolean() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.CHOOSE_TRUE_OR_FALSE"); },
+  get enum() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.CHOOSE_FROM_THE_PROPERTY_S_VALUES"); },
+  get date() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_DATES_SEPARATED_BY_COMMAS"); },
+  get int() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_WHOLE_NUMBERS_SEPARATED_BY"); },
+  get float() { return tStatic(DATA_GATEWAY_VALIDATION_MODULE, "RULE_STATIC_VALUE.ENTER_NUMBERS_SEPARATED_BY_COMMAS"); },
   text: "",
 };
 

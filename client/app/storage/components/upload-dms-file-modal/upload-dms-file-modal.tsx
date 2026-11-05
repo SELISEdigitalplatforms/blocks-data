@@ -23,18 +23,21 @@ import { isErrorWithErrors } from "@/lib/error";
 import { cn } from "@/lib/utils";
 import { useProjectStore } from "@seliseblocks/genesis-os";
 import { ModuleName } from "@/constants/modules.constants";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_STORAGE_MODULE = "data.storage";
 
 const GENERAL_ACCESS_OPTIONS = [
-  { value: "", label: "Default (unrestricted until shared)" },
-  { value: "Creator", label: "Only me, until I share it" },
-  { value: "Organization", label: "Anyone in my organization" },
+  { value: "", get label() { return tStatic(DATA_STORAGE_MODULE, "UPLOAD_DMS_FILE_MODAL.DEFAULT_UNRESTRICTED_UNTIL_SHARED"); } },
+  { value: "Creator", get label() { return tStatic(DATA_STORAGE_MODULE, "UPLOAD_DMS_FILE_MODAL.ONLY_ME_UNTIL_I_SHARE_IT"); } },
+  { value: "Organization", get label() { return tStatic(DATA_STORAGE_MODULE, "UPLOAD_DMS_FILE_MODAL.ANYONE_IN_MY_ORGANIZATION"); } },
 ] as const;
 
 /** "Public" or "Private" only - this is the storage access modifier, kept separate from the
  * object-sharing "Default access" selector above. Private is the safe default. */
 const STORAGE_ACCESS_OPTIONS = [
-  { value: "Private", label: "Private" },
-  { value: "Public", label: "Public" },
+  { value: "Private", get label() { return tStatic(DATA_STORAGE_MODULE, "UPLOAD_DMS_FILE_MODAL.PRIVATE"); } },
+  { value: "Public", get label() { return tStatic(DATA_STORAGE_MODULE, "UPLOAD_DMS_FILE_MODAL.PUBLIC"); } },
 ] as const;
 
 type StorageAccessModifier = (typeof STORAGE_ACCESS_OPTIONS)[number]["value"];
@@ -82,6 +85,7 @@ export const UploadDmsFileModal = ({
   maxFileSizeInBytes,
   onUploadSuccess,
 }: UploadDmsFileModalProps) => {
+  const { t } = useT(DATA_STORAGE_MODULE);
   const projectKey = useProjectStore().selectedProject?.tenantId || "";
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -178,7 +182,7 @@ export const UploadDmsFileModal = ({
 
       if (uploaded.length > 0) {
         showSuccessToast({
-          description: `${uploaded.length} file(s) uploaded successfully!`,
+          description: t("UPLOAD_DMS_FILE_MODAL.LENGTH_FILE_S_UPLOADED_SUCCESSFULLY", { length: uploaded.length }),
         });
       }
 
@@ -243,10 +247,9 @@ export const UploadDmsFileModal = ({
               <CloudUpload className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="space-y-1">
-              <DialogTitle>Upload File</DialogTitle>
+              <DialogTitle>{t("UPLOAD_DMS_FILE_MODAL.UPLOAD_FILE")}</DialogTitle>
               <DialogDescription>
-                Add up to 10 files to this directory. Each file can be up to{" "}
-                {Math.round(maxSize / 1024 / 1024)} MB.
+                {t("UPLOAD_DMS_FILE_MODAL.ADD_UP_TO_10_FILES" , { size: Math.round(maxSize / 1024 / 1024) })}
               </DialogDescription>
             </div>
           </div>
@@ -270,18 +273,17 @@ export const UploadDmsFileModal = ({
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <CloudUpload className="h-5 w-5" aria-hidden="true" />
                 </div>
-                <p className="text-sm font-medium">Choose files or drag them here</p>
-                <span className="text-xs text-muted-foreground">All file types supported</span>
+                <p className="text-sm font-medium">{t("UPLOAD_DMS_FILE_MODAL.CHOOSE_FILES_OR_DRAG_THEM_HERE")}</p>
+                <span className="text-xs text-muted-foreground">{t("UPLOAD_DMS_FILE_MODAL.ALL_FILE_TYPES_SUPPORTED")}</span>
               </FileInput>
             </FileUploader>
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-sm font-medium">Storage access</span>
-            <div
-              role="group"
-              aria-label="Storage access"
-              className="inline-flex overflow-hidden rounded-sm border border-input"
+            <span className="text-sm font-medium">{t("UPLOAD_DMS_FILE_MODAL.STORAGE_ACCESS")}</span>
+            <fieldset
+              aria-label={t("UPLOAD_DMS_FILE_MODAL.STORAGE_ACCESS")}
+              className="m-0 min-w-0 inline-flex overflow-hidden rounded-sm border border-input"
             >
               {STORAGE_ACCESS_OPTIONS.map((o) => {
                 const active = accessModifier === o.value;
@@ -303,15 +305,14 @@ export const UploadDmsFileModal = ({
                   </button>
                 );
               })}
-            </div>
+            </fieldset>
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-sm font-medium">Default access</span>
-            <div
-              role="group"
-              aria-label="Default access"
-              className="inline-flex overflow-hidden rounded-sm border border-input"
+            <span className="text-sm font-medium">{t("UPLOAD_DMS_FILE_MODAL.DEFAULT_ACCESS")}</span>
+            <fieldset
+              aria-label={t("UPLOAD_DMS_FILE_MODAL.DEFAULT_ACCESS")}
+              className="m-0 min-w-0 inline-flex overflow-hidden rounded-sm border border-input"
             >
               {GENERAL_ACCESS_OPTIONS.map((o) => {
                 const active = objectAccessLevel === o.value;
@@ -333,13 +334,13 @@ export const UploadDmsFileModal = ({
                   </button>
                 );
               })}
-            </div>
+            </fieldset>
           </div>
 
           {files.length > 0 ? (
-            <section aria-label="Files ready to upload" className="space-y-2">
+            <section aria-label={t("UPLOAD_DMS_FILE_MODAL.FILES_READY_TO_UPLOAD")} className="space-y-2">
               <p className="text-sm font-medium">
-                Ready to upload{" "}
+                {t("UPLOAD_DMS_FILE_MODAL.READY_TO_UPLOAD")}
                 <span className="font-normal text-muted-foreground">({files.length})</span>
               </p>
               <ul className="max-h-40 space-y-2 overflow-y-auto pr-1">
@@ -356,7 +357,7 @@ export const UploadDmsFileModal = ({
                     </span>
                     <button
                       type="button"
-                      aria-label={`Remove ${file.name}`}
+                      aria-label={t("UPLOAD_DMS_FILE_MODAL.REMOVE_NAME", { name: file.name })}
                       onClick={() => removeFile(index)}
                       disabled={isUploading}
                       className="rounded-full text-muted-foreground transition-colors hover:text-destructive disabled:pointer-events-none"
@@ -376,7 +377,7 @@ export const UploadDmsFileModal = ({
               className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground"
             >
               <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Uploading {files.length} {files.length === 1 ? "file" : "files"}…
+              {t("UPLOAD_DMS_FILE_MODAL.UPLOADING_FILES", { count: files.length })}
             </div>
           ) : null}
         </div>
@@ -384,11 +385,11 @@ export const UploadDmsFileModal = ({
         <DialogFooter className="border-t bg-muted/20 px-6 py-4 sm:gap-2">
           <DialogClose asChild>
             <Button variant="outline" disabled={isUploading}>
-              Cancel
+              {t("common:CANCEL")}
             </Button>
           </DialogClose>
           <Button onClick={uploadFileHandler} disabled={disabled}>
-            {isUploading ? "Uploading..." : "Upload"}
+            {isUploading ? t("UPLOAD_DMS_FILE_MODAL.UPLOADING_2") : t("common:UPLOAD")}
           </Button>
         </DialogFooter>
       </DialogContent>

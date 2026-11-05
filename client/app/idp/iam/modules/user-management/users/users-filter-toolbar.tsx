@@ -19,9 +19,11 @@ export const useUsersFilterQueryParams = () => {
 };
 
 export const useUsersSortQueryParams = () =>
-  useSortQueryParams({
+  {
+  return (useSortQueryParams({
     initial: { property: "FirstName", isDescending: false },
-  });
+  }));
+};
 
 export const UsersFilterToolbar = () => {
   const { queryParams, setQueryParams } = useUsersFilterQueryParams();

@@ -50,6 +50,9 @@ import { CheckIcon } from "@radix-ui/react-icons";
 import { ChevronDown, X } from "lucide-react";
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { useFormContext } from "react-hook-form";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+
+const RULE_CONDITION_ROW_NOT_SET = "RULE_CONDITION_ROW.NOT_SET";
 
 export type RuleCellKey = "source" | "field" | "operator" | "compareSource" | "compareValue";
 
@@ -279,6 +282,7 @@ export const RuleConditionRow = ({
   ctx,
   onRemove,
 }: RuleConditionRowProps) => {
+  const { t } = useT("data.gateway.access");
   const form = useFormContext<RuleSetFormValues>();
   const {
     getFieldOptions,
@@ -382,35 +386,35 @@ export const RuleConditionRow = ({
   }[] = [
     {
       key: "source",
-      title: "Left operand",
+      title: t("RULE_CONDITION_ROW.LEFT_OPERAND"),
       label: sourceLabel,
       applicable: true,
       reachable: true,
     },
     {
       key: "field",
-      title: "Left value",
+      title: t("RULE_CONDITION_ROW.LEFT_VALUE"),
       label: leftFieldLabel,
       applicable: true,
       reachable: Boolean(source),
     },
     {
       key: "operator",
-      title: "Operator",
+      title: t("RULE_CONDITION_ROW.OPERATOR"),
       label: operatorLabel,
       applicable: true,
       reachable: Boolean(leftField),
     },
     {
       key: "compareSource",
-      title: "Right operand",
+      title: t("RULE_CONDITION_ROW.RIGHT_OPERAND"),
       label: compareSourceLabel,
       applicable: !isNullOperator && !isDirectValueOp,
       reachable: Boolean(operatorValue),
     },
     {
       key: "compareValue",
-      title: "Right value",
+      title: t("RULE_CONDITION_ROW.RIGHT_VALUE"),
       label: compareValueLabel,
       applicable: !isNullOperator,
       reachable: isDirectValueOp ? Boolean(operatorValue) : Boolean(compareSource),
@@ -517,6 +521,7 @@ export const RuleConditionRow = ({
   ) => {
     const isFilled = Boolean(cell.label);
     const disabled = !cell.reachable;
+    const setLabel = isFilled ? cell.label : t("RULE_CONDITION_ROW.SET_TITLE", { title: cell.title });
 
     return (
       <Popover
@@ -536,10 +541,10 @@ export const RuleConditionRow = ({
           <button
             type="button"
             disabled={disabled}
-            aria-label={disabled ? undefined : isFilled ? cell.label : `Set ${cell.title}`}
+            aria-label={disabled ? undefined : setLabel}
             aria-hidden={disabled || undefined}
             onClick={() => openCellFor(cell.key)}
-            title={disabled ? undefined : `Edit ${cell.key}`}
+            title={disabled ? undefined : t("RULE_CONDITION_ROW.EDIT_KEY", { key: cell.key })}
             className={cn(
               "flex h-8 min-w-0 max-w-full items-center justify-center truncate rounded-md border px-3 text-center text-xs font-semibold transition-colors",
               disabled
@@ -550,7 +555,7 @@ export const RuleConditionRow = ({
                   : "border-dashed border-border/50 bg-background text-muted-foreground hover:bg-muted/30",
             )}
           >
-            <span className="block truncate">{isFilled ? cell.label : "Not set"}</span>
+            <span className="block truncate">{isFilled ? cell.label : t(RULE_CONDITION_ROW_NOT_SET)}</span>
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-52 p-0" align="start">
@@ -580,7 +585,7 @@ export const RuleConditionRow = ({
             isStaticValue ? (
               <Input
                 className="h-9 w-full min-w-0 rounded-md px-3 text-xs"
-                placeholder="Enter value"
+                placeholder={t("RULE_CONDITION_ROW.ENTER_VALUE")}
                 value={field.value}
                 onChange={field.onChange}
                 onBlur={() => openCellFor(field.value ? "operator" : null)}
@@ -615,7 +620,7 @@ export const RuleConditionRow = ({
                 }}
               >
                 <SelectTrigger className="h-9 w-full min-w-0 rounded-md px-3 text-xs">
-                  <SelectValue placeholder="Select field" />
+                  <SelectValue placeholder={t("RULE_CONDITION_ROW.SELECT_FIELD")} />
                 </SelectTrigger>
                 <SelectContent>
                   {fieldOptions.map((option) => (
@@ -637,12 +642,12 @@ export const RuleConditionRow = ({
         name={path("compareValue")}
         render={({ field }) => {
           if (isDirectValueOp) {
+            const suffixOrPrefixPlaceholder =
+              operatorValue === "START_WITH"
+                ? t("RULE_CONDITION_ROW.ENTER_PREFIX")
+                : t("RULE_CONDITION_ROW.ENTER_SUFFIX");
             const placeholder =
-              operatorValue === "REGEX"
-                ? "Enter regex pattern"
-                : operatorValue === "START_WITH"
-                  ? "Enter prefix"
-                  : "Enter suffix";
+              operatorValue === "REGEX" ? t("RULE_CONDITION_ROW.ENTER_REGEX_PATTERN") : suffixOrPrefixPlaceholder;
             return (
               <Input
                 className="h-9 w-full min-w-0 rounded-md px-3 text-xs"
@@ -658,7 +663,7 @@ export const RuleConditionRow = ({
           if (isInOp && isStaticDropdown) {
             return renderMultiSelect(
               staticOptions.map((option) => ({ value: option, label: option })),
-              "Select values",
+              t("RULE_CONDITION_ROW.SELECT_VALUES"),
               field.onChange,
             );
           }
@@ -668,7 +673,7 @@ export const RuleConditionRow = ({
           }
 
           if (isInOp && !isCompareStatic && compareSource) {
-            return renderMultiSelect(compareFieldOptions, "Select fields", field.onChange);
+            return renderMultiSelect(compareFieldOptions, t("RULE_CONDITION_ROW.SELECT_FIELDS"), field.onChange);
           }
 
           return isCompareStatic ? (
@@ -682,7 +687,7 @@ export const RuleConditionRow = ({
               }}
             >
               <SelectTrigger className="h-9 w-full min-w-0 rounded-md px-3 text-xs">
-                <SelectValue placeholder="Select field" />
+                <SelectValue placeholder={t("RULE_CONDITION_ROW.SELECT_FIELD")} />
               </SelectTrigger>
               <SelectContent>
                 {compareFieldOptions.map((option) => (
@@ -763,7 +768,7 @@ export const RuleConditionRow = ({
         <div className="relative flex items-center">
           <Input
             type="datetime-local"
-            aria-label="Date and time (UTC)"
+            aria-label={t("RULE_CONDITION_ROW.DATE_AND_TIME_UTC")}
             className="h-9 w-full min-w-0 rounded-md px-3 pr-12 font-mono text-xs [color-scheme:light] dark:[color-scheme:dark]"
             value={toDateInput(value)}
             onChange={(e) => onChange(fromDateInput(e.target.value))}
@@ -771,24 +776,22 @@ export const RuleConditionRow = ({
             autoFocus
           />
           <span className="pointer-events-none absolute right-3 text-[11px] text-muted-foreground">
-            UTC
+            {t("RULE_CONDITION_ROW.UTC")}
           </span>
         </div>
       );
     }
 
-    const hint =
-      valueSpec.kind === "int"
-        ? isList
-          ? "whole numbers, comma-separated"
-          : "whole number"
-        : valueSpec.kind === "float"
-          ? isList
-            ? "numbers, comma-separated"
-            : "number"
-          : valueSpec.kind === "date"
-            ? "dates, comma-separated"
-            : "";
+    const describeHint = (): string => {
+      if (valueSpec.kind === "int") {
+        return isList ? t("RULE_CONDITION_ROW.HINT_WHOLE_NUMBERS_LIST") : t("RULE_CONDITION_ROW.HINT_WHOLE_NUMBER");
+      }
+      if (valueSpec.kind === "float") {
+        return isList ? t("RULE_CONDITION_ROW.HINT_NUMBERS_LIST") : t("RULE_CONDITION_ROW.HINT_NUMBER");
+      }
+      return valueSpec.kind === "date" ? t("RULE_CONDITION_ROW.HINT_DATES_LIST") : "";
+    };
+    const hint = describeHint();
     const isNumber = valueSpec.kind === "int" || valueSpec.kind === "float";
 
     return (
@@ -800,7 +803,7 @@ export const RuleConditionRow = ({
             isNumber && "font-mono",
             compareValueError && "border-destructive",
           )}
-          placeholder={isList ? "Values" : "Enter value"}
+          placeholder={isList ? t("RULE_CONDITION_ROW.VALUES") : t("RULE_CONDITION_ROW.ENTER_VALUE")}
           inputMode={
             isNumber && !isList ? (valueSpec.kind === "int" ? "numeric" : "decimal") : undefined
           }
@@ -816,6 +819,74 @@ export const RuleConditionRow = ({
           </span>
         )}
       </div>
+    );
+  };
+
+  // Roles / users: the chip is the picker, like the other option chips — one
+  // click opens the list, no editor step in between.
+  const renderPrincipalChip = (cell: (typeof cellDefs)[number]) => {
+    return (
+      <PrincipalSelector
+        key={cell.key}
+        variant="chip"
+        entity={leftField === "roles" ? "role" : "user"}
+        userValueField={leftField === "email" ? "email" : "itemId"}
+        projectKey={projectKey}
+        value={compareValue}
+        onChange={(next) =>
+          form.setValue(path("compareValue"), next, {
+            shouldValidate: true,
+            shouldDirty: true,
+          })
+        }
+        multiple
+      />
+    );
+  };
+
+  // A cell that is not yet reachable, open in its editor, or a chip that opens it.
+  const renderCellChip = (cell: (typeof cellDefs)[number]) => {
+    if (!cell.reachable) {
+      return (
+        <div
+          key={cell.key}
+          aria-hidden="true"
+          className="flex h-8 min-w-0 max-w-full items-center justify-center truncate rounded-md border border-dashed border-border/40 px-3 text-center text-xs text-muted-foreground/40"
+        >
+          {t(RULE_CONDITION_ROW_NOT_SET)}
+        </div>
+      );
+    }
+
+    if (isCellActive(cell.key)) {
+      return (
+        <div key={cell.key} className="min-w-36 flex-1 rounded-md bg-muted/30 p-1">
+          {renderCellEditor(cell.key)}
+        </div>
+      );
+    }
+
+    // Only "field" and "compareValue" reach here — their editor
+    // shape varies too much (input, select, popover multi-select,
+    // the principal selector) for a single shared popover.
+    const isFilled = Boolean(cell.label);
+
+    return (
+      <button
+        key={cell.key}
+        type="button"
+        aria-label={isFilled ? cell.label : t("RULE_CONDITION_ROW.SET_TITLE", { title: cell.title })}
+        onClick={() => openCellFor(cell.key)}
+        title={t("RULE_CONDITION_ROW.EDIT_KEY", { key: cell.key })}
+        className={cn(
+          "flex h-8 min-w-0 max-w-full items-center justify-center truncate rounded-md border px-3 text-center text-xs font-semibold transition-colors",
+          isFilled
+            ? "border-border/70 bg-muted/70 text-foreground hover:bg-muted"
+            : "border-dashed border-border/50 bg-background text-muted-foreground hover:bg-muted/30",
+        )}
+      >
+        <span className="block truncate">{isFilled ? cell.label : t(RULE_CONDITION_ROW_NOT_SET)}</span>
+      </button>
     );
   };
 
@@ -836,7 +907,7 @@ export const RuleConditionRow = ({
           variant="ghost"
           size="icon"
           className="h-6 w-6 shrink-0 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-          aria-label="Remove rule"
+          aria-label={t("RULE_CONDITION_ROW.REMOVE_RULE")}
           onClick={onRemove}
         >
           <X className="h-3.5 w-3.5" strokeWidth={2.25} />
@@ -844,7 +915,7 @@ export const RuleConditionRow = ({
       </div>
       <div
         className="flex flex-wrap items-center gap-1.5"
-        aria-label={`${conditionLabel} expression`}
+        aria-label={t("RULE_CONDITION_ROW.CONDITIONLABEL_EXPRESSION", { conditionLabel })}
       >
         {cellDefs.map((cell) => {
           if (!cell.applicable) return null;
@@ -884,70 +955,12 @@ export const RuleConditionRow = ({
             );
           }
 
-          // Roles / users: the chip is the picker, like the other option chips — one
-          // click opens the list, no editor step in between.
           if (cell.key === "compareValue" && showPrincipalSelector) {
-            return (
-              <PrincipalSelector
-                key={cell.key}
-                variant="chip"
-                entity={leftField === "roles" ? "role" : "user"}
-                userValueField={leftField === "email" ? "email" : "itemId"}
-                projectKey={projectKey}
-                value={compareValue}
-                onChange={(next) =>
-                  form.setValue(path("compareValue"), next, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                  })
-                }
-                multiple
-              />
-            );
+            return renderPrincipalChip(cell);
           }
 
-          if (!cell.reachable) {
-            return (
-              <div
-                key={cell.key}
-                aria-hidden="true"
-                className="flex h-8 min-w-0 max-w-full items-center justify-center truncate rounded-md border border-dashed border-border/40 px-3 text-center text-xs text-muted-foreground/40"
-              >
-                Not set
-              </div>
-            );
-          }
 
-          if (isCellActive(cell.key)) {
-            return (
-              <div key={cell.key} className="min-w-36 flex-1 rounded-md bg-muted/30 p-1">
-                {renderCellEditor(cell.key)}
-              </div>
-            );
-          }
-
-          // Only "field" and "compareValue" reach here — their editor
-          // shape varies too much (input, select, popover multi-select,
-          // the principal selector) for a single shared popover.
-          const isFilled = Boolean(cell.label);
-
-          return (
-            <button
-              key={cell.key}
-              type="button"
-              aria-label={isFilled ? cell.label : `Set ${cell.title}`}
-              onClick={() => openCellFor(cell.key)}
-              title={`Edit ${cell.key}`}
-              className={cn(
-                "flex h-8 min-w-0 max-w-full items-center justify-center truncate rounded-md border px-3 text-center text-xs font-semibold transition-colors",
-                isFilled
-                  ? "border-border/70 bg-muted/70 text-foreground hover:bg-muted"
-                  : "border-dashed border-border/50 bg-background text-muted-foreground hover:bg-muted/30",
-              )}
-            >
-              <span className="block truncate">{isFilled ? cell.label : "Not set"}</span>
-            </button>
-          );
+          return renderCellChip(cell);
         })}
       </div>
       {compareValueError && (

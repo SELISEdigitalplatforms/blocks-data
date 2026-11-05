@@ -2,6 +2,7 @@ import { useGetUserById } from "@blocks-idp/iam/hooks/use-user";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { useContext } from "react";
 import { userMfaContext } from "./user-mfa";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const LoadingSkelton = () => {
   return (
@@ -14,6 +15,7 @@ const LoadingSkelton = () => {
 };
 
 export const UserMFADetails = () => {
+  const { t } = useT("data.idp.iam");
   const { projectKey, userId } = useContext(userMfaContext);
   const { isLoading, data } = useGetUserById({ id: userId, projectKey });
 
@@ -23,14 +25,11 @@ export const UserMFADetails = () => {
     <>
       {data?.data.mfaEnabled ? (
         <div className="text-base font-normal text-high-emphasis">
-          Multi-Factor Authentication (MFA) is enabled on your account, providing an extra layer of
-          security against unauthorized access. Even if your password is compromised, MFA helps keep
-          your account safe. By requiring additional verification, it ensures stronger protection
-          for your sensitive information
+          {t("USER_MFA_DETAIL.MULTI_FACTOR_AUTHENTICATION_MFA_IS")}
         </div>
       ) : (
         <div className="text-base font-normal text-high-emphasis">
-          Multi-Factor Authentication (MFA) is currently disabled for this user
+          {t("USER_MFA_DETAIL.MULTI_FACTOR_AUTHENTICATION_MFA_IS_2")}
         </div>
       )}
     </>

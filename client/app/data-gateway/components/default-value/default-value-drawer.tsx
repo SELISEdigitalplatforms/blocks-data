@@ -9,6 +9,7 @@ import {
 import { RectangleEllipsis, X } from "lucide-react";
 import { FieldSubject } from "../primitives";
 import { DefaultValuePanel, type DefaultValuePanelProps } from "./default-value-panel";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface DefaultValueDrawerProps extends DefaultValuePanelProps {
   open?: boolean;
@@ -24,6 +25,7 @@ interface DefaultValueDrawerProps extends DefaultValuePanelProps {
  * property (name, type, schema).
  */
 export function DefaultValueDrawer({ open, onOpenChange, schemaName, ...panelProps }: Readonly<DefaultValueDrawerProps>) {
+  const { t } = useT("data.gateway.validation");
   return (
     <Drawer direction="right" open={open} onOpenChange={onOpenChange} handleOnly>
       <DrawerContent className="inset-y-0 left-auto right-0 mt-0 flex h-full w-full flex-col gap-0 rounded-none border-l border-border/40 bg-background p-0 transition-all duration-300 ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right md:w-[480px] [&>div:first-child]:hidden">
@@ -32,7 +34,7 @@ export function DefaultValueDrawer({ open, onOpenChange, schemaName, ...panelPro
             <RectangleEllipsis className="h-4 w-4" aria-hidden />
           </span>
           <div className="min-w-0 flex-1">
-            <DrawerTitle className="text-sm font-semibold text-foreground">Default value</DrawerTitle>
+            <DrawerTitle className="text-sm font-semibold text-foreground">{t("DEFAULT_VALUE_DRAWER.DEFAULT_VALUE")}</DrawerTitle>
             <div className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-[11px] text-muted-foreground">
               <FieldSubject name={panelProps.fieldName} type={panelProps.fieldType} isArray={panelProps.isArray} schemaName={schemaName} />
             </div>
@@ -41,7 +43,7 @@ export function DefaultValueDrawer({ open, onOpenChange, schemaName, ...panelPro
             <button
               type="button"
               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Close default value drawer"
+              aria-label={t("DEFAULT_VALUE_DRAWER.CLOSE_DEFAULT_VALUE_DRAWER")}
             >
               <X className="h-4 w-4" />
             </button>

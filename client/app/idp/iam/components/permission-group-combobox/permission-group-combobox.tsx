@@ -5,6 +5,7 @@ import { useProjectStore } from "@/store/use-project-store";
 import { useGetResourceGroup } from "@blocks-idp/iam/hooks/use-permission";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type PermissionGroupComboboxProps = {
   value: string;
@@ -13,6 +14,7 @@ type PermissionGroupComboboxProps = {
 };
 
 export function PermissionGroupCombobox({ value, onChange, disabled }: PermissionGroupComboboxProps) {
+  const { t } = useT("data.idp.iam");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const { data: resourceGroupData } = useGetResourceGroup({ projectKey: tenantId });
   const [open, setOpen] = useState(false);
@@ -34,14 +36,14 @@ export function PermissionGroupCombobox({ value, onChange, disabled }: Permissio
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild disabled={disabled}>
         <Button variant="outline" className="flex w-full justify-between">
-          {value || "Select or type..."}
+          {value || t("PERMISSION_GROUP_COMBOBOX.SELECT_OR_TYPE")}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
         <Command shouldFilter={false}>
           <div className="relative">
             <CommandInput
-              placeholder="Search or type..."
+              placeholder={t("PERMISSION_GROUP_COMBOBOX.SEARCH_OR_TYPE")}
               value={inputValue}
               onValueChange={(v) => {
                 setInputValue(v);

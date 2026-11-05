@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from "@/components/ui-kits/select/select";
 import { cn } from "@/lib/utils";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 import { useState } from "react";
 import { useIamOrganizations, useIamRoles, useIamUsers } from "../../hooks/use-dms";
 import { ObjectPrincipalType } from "../../models/dms.model";
@@ -115,20 +116,33 @@ interface PrincipalSelectorProps {
 
 /** Principal type tabs, the IAM picker, and a Role's organization scope. */
 export function PrincipalSelector({ selection, hint }: Readonly<PrincipalSelectorProps>) {
+  const { t } = useT("data.storage");
   const { principalType } = selection;
+  const typeLabels: Record<ObjectPrincipalType, string> = {
+    User: t("PRINCIPAL_SELECTOR.TYPE_USER"),
+    Role: t("PRINCIPAL_SELECTOR.TYPE_ROLE"),
+    Organization: t("PRINCIPAL_SELECTOR.TYPE_ORGANIZATION"),
+    Everyone: t("PRINCIPAL_SELECTOR.TYPE_EVERYONE"),
+  };
+  const pickerLabels: Record<ObjectPrincipalType, string> = {
+    User: t("PRINCIPAL_SELECTOR.SELECT_USERS"),
+    Role: t("PRINCIPAL_SELECTOR.SELECT_ROLES"),
+    Organization: t("PRINCIPAL_SELECTOR.SELECT_ORGANIZATIONS"),
+    Everyone: "",
+  };
 
   return (
     <>
       <div className="space-y-2">
-        <label className="text-sm font-medium">Who should have access?</label>
+        <label className="text-sm font-medium">{t("PRINCIPAL_SELECTOR.WHO_SHOULD_HAVE_ACCESS")}</label>
         <div className="flex flex-wrap gap-2">
-          {PRINCIPAL_TYPES.map((t) => {
-            const active = principalType === t;
+          {PRINCIPAL_TYPES.map((type) => {
+            const active = principalType === type;
             return (
               <button
-                key={t}
+                key={type}
                 type="button"
-                onClick={() => selection.changePrincipalType(t)}
+                onClick={() => selection.changePrincipalType(type)}
                 className={cn(
                   "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring",
                   active
@@ -137,7 +151,7 @@ export function PrincipalSelector({ selection, hint }: Readonly<PrincipalSelecto
                 )}
                 aria-pressed={active}
               >
-                {t}
+                {typeLabels[type]}
               </button>
             );
           })}
@@ -147,7 +161,7 @@ export function PrincipalSelector({ selection, hint }: Readonly<PrincipalSelecto
       {selection.needsPrincipal ? (
         <div className="space-y-4">
           <PrincipalPicker
-            label={`Select ${principalType.toLowerCase()}${principalType === "Organization" ? "s" : ""}`}
+            label={pickerLabels[principalType]}
             options={selection.options}
             selected={selection.selectedPrincipals}
             onChange={selection.setSelectedPrincipals}
@@ -158,17 +172,17 @@ export function PrincipalSelector({ selection, hint }: Readonly<PrincipalSelecto
           {principalType === "Role" ? (
             <div className="space-y-1.5">
               <label className="text-sm font-medium" htmlFor="role-organization-scope">
-                Role scope
+                {t("PRINCIPAL_SELECTOR.ROLE_SCOPE")}
               </label>
               <Select
                 value={selection.roleOrganizationId}
                 onValueChange={selection.setRoleOrganizationId}
               >
-                <SelectTrigger id="role-organization-scope" aria-label="Role scope">
+                <SelectTrigger id="role-organization-scope" aria-label={t("PRINCIPAL_SELECTOR.ROLE_SCOPE")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={GLOBAL_ROLE_SCOPE}>All organizations</SelectItem>
+                  <SelectItem value={GLOBAL_ROLE_SCOPE}>{t("PRINCIPAL_SELECTOR.ALL_ORGANIZATIONS")}</SelectItem>
                   {selection.organizations.map((organization) => (
                     <SelectItem key={organization.value} value={organization.value}>
                       {organization.label}
@@ -177,14 +191,14 @@ export function PrincipalSelector({ selection, hint }: Readonly<PrincipalSelecto
                 </SelectContent>
               </Select>
               <span className="text-xs text-muted-foreground">
-                Choose an organization to grant the role only within that organization.
+                {t("PRINCIPAL_SELECTOR.CHOOSE_AN_ORGANIZATION_TO_GRANT_THE")}
               </span>
             </div>
           ) : null}
         </div>
       ) : (
         <div className="rounded-lg border bg-muted/30 px-3 py-3 text-sm text-muted-foreground">
-          Everyone matches any authenticated caller. No selection is needed.
+          {t("PRINCIPAL_SELECTOR.EVERYONE_MATCHES_ANY_AUTHENTICATED")}
         </div>
       )}
     </>

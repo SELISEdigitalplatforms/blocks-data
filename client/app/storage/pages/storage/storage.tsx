@@ -19,8 +19,18 @@ import {
 } from "./components/storage-card/storage-card";
 import { StorageDetailsDrawer } from "./components/storage-details-drawer/storage-details-drawer";
 import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_STORAGE_MODULE = "data.storage";
 
 type FilterValues = StorageFilterValues;
+
+const storageSubtitle = (strategy: IStorageConfiguration["storageStrategy"]): string => {
+  if (strategy === "Amazon") return "AWS";
+  if (strategy === "Azure") return tStatic(DATA_STORAGE_MODULE, "STORAGE.AZURE");
+  if (strategy === "S3Compatible") return tStatic(DATA_STORAGE_MODULE, "STORAGE.AWS_S3_COMPATIBLE");
+  return "SFTP";
+};
 
 // Helper function to map API configuration to card data
 const mapConfigurationToCardData = (
@@ -33,20 +43,14 @@ const mapConfigurationToCardData = (
     providerIcon: "",
     providerColor: "",
     title: config.name,
-    subtitle:
-      config.storageStrategy === "Amazon"
-        ? "AWS"
-        : config.storageStrategy === "Azure"
-          ? "Azure"
-          : config.storageStrategy === "S3Compatible"
-            ? "AWS S3 Compatible"
-            : "SFTP",
+    subtitle: storageSubtitle(config.storageStrategy),
     // folderCount: 0,
     // fileCount: 0,
   };
 };
 
 export function Storage() {
+  const { t } = useT(DATA_STORAGE_MODULE);
   const navigate = useNavigate();
   const storagePath = useStoragePath();
   const osConfigUrl = useOsSecretManagementUrl("storage");
@@ -125,7 +129,7 @@ export function Storage() {
     <main className="flex flex-col">
       <div className="flex justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-semibold">Storage</h1>
+          <h1 className="text-2xl font-semibold">{t("STORAGE.STORAGE")}</h1>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -138,7 +142,7 @@ export function Storage() {
               )
             }
           >
-            API Docs
+            {t("STORAGE.API_DOCS")}
           </Button>
           {/* <LogMenu link="/app/services/storage/logs" />{" "} */}
         </div>
@@ -153,7 +157,7 @@ export function Storage() {
           onConnectStorage={() => console.error("Connect to storage")}
         />
 
-        {loading ? (
+        {loading && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[...Array(4)].map((_, index) => (
               <div
@@ -175,7 +179,8 @@ export function Storage() {
               </div>
             ))}
           </div>
-        ) : filteredData.length > 0 ? (
+        )}
+        {!loading && filteredData.length > 0 && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredData.map((storage) => (
               <StorageCard
@@ -188,10 +193,11 @@ export function Storage() {
               />
             ))}
           </div>
-        ) : (
+        )}
+        {!loading && filteredData.length === 0 && (
           <div className="flex h-64 items-center justify-center">
             <p className="text-muted-foreground">
-              No storage configurations found.
+              {t("STORAGE.NO_STORAGE_CONFIGURATIONS_FOUND")}
             </p>
           </div>
         )}

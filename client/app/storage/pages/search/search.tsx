@@ -6,11 +6,14 @@ import { useNavigate, useSearchParams } from "react-router";
 import { DmsItemList } from "../../components/dms-item-list/dms-item-list";
 import { useDmsSearch } from "../../hooks/use-dms";
 import { DmsItem, DmsItemType } from "../../models/dms.model";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_STORAGE_MODULE = "data.storage";
 
 const FILTERS: { label: string; value: DmsItemType | "all" }[] = [
-  { label: "All", value: "all" },
-  { label: "Directorys", value: "directory" },
-  { label: "Files", value: "file" },
+  { get label() { return tStatic(DATA_STORAGE_MODULE, "common:ALL"); }, value: "all" },
+  { get label() { return tStatic(DATA_STORAGE_MODULE, "SEARCH.DIRECTORYS"); }, value: "directory" },
+  { get label() { return tStatic(DATA_STORAGE_MODULE, "SEARCH.FILES"); }, value: "file" },
 ];
 
 /**
@@ -22,6 +25,7 @@ const FILTERS: { label: string; value: DmsItemType | "all" }[] = [
  * in, only on the actions offered.
  */
 export function StorageSearch() {
+  const { t } = useT(DATA_STORAGE_MODULE);
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const storagePath = useStoragePath();
@@ -64,7 +68,7 @@ export function StorageSearch() {
       <SearchInput
         value={query}
         onSearch={setQuery}
-        placeholder="Search files and directorys"
+        placeholder={t("SEARCH.SEARCH_FILES_AND_DIRECTORYS")}
         isVisible
         setIsVisible={() => undefined}
       />
@@ -90,11 +94,11 @@ export function StorageSearch() {
           isFetchingNextPage={results.isFetchingNextPage}
           onLoadMore={() => results.fetchNextPage()}
           onOpen={openItem}
-          emptyMessage={`Nothing matches "${query}".`}
+          emptyMessage={t("SEARCH.NOTHING_MATCHES_QUERY", { query })}
         />
       ) : (
         <p className="py-8 text-center text-sm text-muted-foreground">
-          Type to search across your directorys and files.
+          {t("SEARCH.TYPE_TO_SEARCH_ACROSS_YOUR_DIRECTORYS")}
         </p>
       )}
     </div>

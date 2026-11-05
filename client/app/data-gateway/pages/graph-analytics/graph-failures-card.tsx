@@ -14,6 +14,7 @@ import {
 import { IGraphLogFailureHotspot, IGraphLogFailureStat } from "../../models/graph-log-analytics";
 import { failureKindLabel } from "../../models/graph-log-history";
 import { AnalyticsCard } from "./analytics-card";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface GraphFailuresCardProps {
   failureStats: IGraphLogFailureStat[];
@@ -28,19 +29,22 @@ export const GraphFailuresCard = ({
   isLoading,
   isError,
 }: GraphFailuresCardProps) => {
+  const { t } = useT("data.gateway.analytics");
   const totalFailures = failureStats.reduce((total, stat) => total + stat.count, 0);
 
   return (
-    <AnalyticsCard icon={XCircle} title="Failures by reason">
-      {isLoading ? (
+    <AnalyticsCard icon={XCircle} title={t("GRAPH_FAILURES_CARD.FAILURES_BY_REASON")}>
+      {isLoading && (
         <div className="flex h-20 items-center justify-center">
           <SpinnerLoader />
         </div>
-      ) : failureStats.length === 0 ? (
+      )}
+      {!isLoading && failureStats.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          {isError ? "Couldn't load data. Please try again." : "No failed requests in this range."}
+          {isError ? t("GRAPH_FAILURES_CARD.COULDN_T_LOAD_DATA_PLEASE_TRY") : t("GRAPH_FAILURES_CARD.NO_FAILED_REQUESTS_IN_THIS_RANGE")}
         </p>
-      ) : (
+      )}
+      {!isLoading && failureStats.length !== 0 && (
         <div className="flex flex-col gap-6">
           <div className="flex flex-wrap gap-3">
             {failureStats.map((stat) => (
@@ -53,7 +57,7 @@ export const GraphFailuresCard = ({
                   {failureKindLabel(stat.failureKind)}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {Math.round((stat.count / totalFailures) * 100)}% of failures
+                  {t("GRAPH_FAILURES_CARD.PERCENT_OF_FAILURES", { percent: Math.round((stat.count / totalFailures) * 100) })}
                 </span>
               </div>
             ))}
@@ -61,15 +65,15 @@ export const GraphFailuresCard = ({
 
           <div className="flex flex-col gap-2">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">
-              Where they happen
+              {t("GRAPH_FAILURES_CARD.WHERE_THEY_HAPPEN")}
             </span>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Schema</TableHead>
-                  <TableHead>Reason</TableHead>
-                  <TableHead>Failures</TableHead>
-                  <TableHead className="whitespace-nowrap">From outside</TableHead>
+                  <TableHead>{t("GRAPH_FAILURES_CARD.SCHEMA")}</TableHead>
+                  <TableHead>{t("GRAPH_FAILURES_CARD.REASON")}</TableHead>
+                  <TableHead>{t("GRAPH_FAILURES_CARD.FAILURES")}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t("GRAPH_FAILURES_CARD.FROM_OUTSIDE")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

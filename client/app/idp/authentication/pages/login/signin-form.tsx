@@ -22,8 +22,10 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
 import { z } from "zod";
 import { signinFormDefaultValue, signinFormSchema } from "./schema";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const SigninForm = () => {
+  const { t } = useT("data.idp.authentication");
   const { theme } = useTheme();
   const navigate = useNavigate();
   const { setAuthenticated, setTokens } = useAuthStore();
@@ -54,10 +56,10 @@ export const SigninForm = () => {
     } catch (error: unknown) {
       if (isErrorWithErrors(error)) {
         showErrorToast({
-          errors: error.errors.error_description || `Something went wrong`,
+          errors: error.errors.error_description || t("SIGNIN_FORM.SOMETHING_WENT_WRONG"),
         });
       } else {
-        showErrorToast({ errors: "Something went wrong" });
+        showErrorToast({ errors: t("SIGNIN_FORM.SOMETHING_WENT_WRONG") });
       }
     }
   };
@@ -78,9 +80,9 @@ export const SigninForm = () => {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>{t("common:EMAIL")}</FormLabel>
               <FormControl>
-                <Input placeholder="Enter your email" {...field} />
+                <Input placeholder={t("SIGNIN_FORM.ENTER_YOUR_EMAIL")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -91,9 +93,9 @@ export const SigninForm = () => {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel>{t("SIGNIN_FORM.PASSWORD")}</FormLabel>
               <FormControl>
-                <PasswordInput placeholder="Enter your password" {...field} />
+                <PasswordInput placeholder={t("SIGNIN_FORM.ENTER_YOUR_PASSWORD")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -104,7 +106,7 @@ export const SigninForm = () => {
           to="/forgot-password"
           className="ml-auto inline-block text-sm text-primary"
         >
-          Forgot password?
+          {t("SIGNIN_FORM.FORGOT_PASSWORD")}
         </Link>
         {isTokenNeed && (
           <Captcha
@@ -122,7 +124,7 @@ export const SigninForm = () => {
           className="w-full rounded"
           disabled={isPending || (isTokenNeed && !token)}
         >
-          Log in
+          {t("SIGNIN_FORM.LOG_IN")}
         </Button>
       </form>
     </Form>

@@ -5,6 +5,9 @@ import { X } from "lucide-react";
 import { useState } from "react";
 
 import { createContext, useContext } from "react";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_SHARED_MODULE = "data.shared";
 
 interface ChipsContextProps {
   value: string[];
@@ -24,6 +27,7 @@ export const useChipsContext = () => {
 };
 
 export const ChipsInputList = () => {
+  const { t } = useT(DATA_SHARED_MODULE);
   const { value, handleRemoveChip } = useChipsContext();
   return (
     <>
@@ -37,7 +41,7 @@ export const ChipsInputList = () => {
             type="button"
             className="cursor-pointer"
             onClick={() => handleRemoveChip(item)}
-            aria-label={`Remove ${item}`}
+            aria-label={t("CHIPS_INPUT.REMOVE_ITEM", { item })}
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -52,6 +56,7 @@ export interface ChipsInputFieldProps {
 }
 
 export const ChipsInputField = ({ className }: ChipsInputFieldProps) => {
+  const { t } = useT(DATA_SHARED_MODULE);
   const { inputValue, handleInputChange, handleKeyDown, error } = useChipsContext();
 
   return (
@@ -60,7 +65,7 @@ export const ChipsInputField = ({ className }: ChipsInputFieldProps) => {
         value={inputValue}
         onChange={(e) => handleInputChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Type and press enter"
+        placeholder={t("CHIPS_INPUT.TYPE_AND_PRESS_ENTER")}
         className={cn(
           "h-fit min-w-40 flex-1 border-0 p-0 py-0.5 text-sm focus-visible:ring-0 focus-visible:ring-offset-0",
           error && "text-error",
@@ -88,7 +93,7 @@ export const ChipsInput = ({
   onChange,
   validatorRegex,
   customValidator,
-  validatorRegexErrorMessage = "Invalid format",
+  validatorRegexErrorMessage = tStatic(DATA_SHARED_MODULE, "CHIPS_INPUT.INVALID_FORMAT"),
   className,
 }: ChipsInputRootProps) => {
   const [inputValue, setInputValue] = useState("");

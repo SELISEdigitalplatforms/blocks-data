@@ -4,6 +4,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui-kits/popover/popover";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 /** One value the menu can put into a box: what is inserted, and how it reads in the list. */
 export interface ExpressionOption {
@@ -37,6 +38,7 @@ export function ExpressionMenu({
   label: string;
   className?: string;
 }>) {
+  const { t } = useT("data.gateway.schema");
   const [open, setOpen] = useState(false);
   if (groups.every((group) => group.options.length === 0)) return null;
 
@@ -55,14 +57,14 @@ export function ExpressionMenu({
           <span aria-hidden className="font-mono text-[11px]">
             {"{ }"}
           </span>
-          Expression
+          {t("EXPRESSION_MENU.EXPRESSION")}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-0">
         <Command className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1 **:[[cmdk-group-heading]]:text-[10px] **:[[cmdk-group-heading]]:uppercase **:[[cmdk-group-heading]]:tracking-[0.08em] **:[[cmdk-input]]:h-8 **:[[cmdk-input]]:text-[12.5px] **:[[cmdk-item]]:px-2 **:[[cmdk-item]]:py-1.5">
-          <CommandInput placeholder="Search values" />
+          <CommandInput placeholder={t("EXPRESSION_MENU.SEARCH_VALUES")} />
           <CommandList className="max-h-[260px]">
-            <CommandEmpty>Nothing matches.</CommandEmpty>
+            <CommandEmpty>{t("EXPRESSION_MENU.NOTHING_MATCHES")}</CommandEmpty>
             {groups
               .filter((group) => group.options.length > 0)
               .map((group) => (

@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { AlertTriangle, ArrowRight, Minus, Pencil, Plus } from "lucide-react";
 
 import type { FieldChange, SchemaDiff } from "../../utils/schema-diff";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const KIND_STYLE: Record<FieldChange["kind"], { icon: typeof Plus; className: string }> = {
   added: { icon: Plus, className: "text-access-custom-fg" },
@@ -11,13 +12,14 @@ const KIND_STYLE: Record<FieldChange["kind"], { icon: typeof Plus; className: st
 };
 
 function ChangeRow({ change }: { change: FieldChange }) {
+  const { t } = useT("data.gateway.schema");
   const { icon: Icon, className } = KIND_STYLE[change.kind];
 
   return (
     <li className="flex items-start gap-2 py-1">
       <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", className)} aria-hidden />
       <span className="min-w-0 text-xs text-foreground">
-        {change.kind === "renamed" ? (
+        {change.kind === "renamed" && (
           <>
             <span className="font-mono">{change.from}</span> →{" "}
             <span className="font-mono">{change.to}</span>
@@ -25,13 +27,15 @@ function ChangeRow({ change }: { change: FieldChange }) {
               <span className="text-muted-foreground"> ({change.attributes.join(", ")})</span>
             )}
           </>
-        ) : change.kind === "modified" ? (
+        )}
+        {change.kind !== "renamed" && change.kind === "modified" && (
           <>
             <span className="font-mono">{change.name}</span>
             <span className="text-muted-foreground"> — {change.attributes.join(", ")}</span>
           </>
-        ) : (
-          <span className="font-mono">{change.name || "Unnamed field"}</span>
+        )}
+        {change.kind !== "renamed" && change.kind !== "modified" && (
+          <span className="font-mono">{change.name || t("SCHEMA_CHANGE_REVIEW.UNNAMED_FIELD")}</span>
         )}
       </span>
     </li>
@@ -48,6 +52,7 @@ function ChangeRow({ change }: { change: FieldChange }) {
  * add, so the stored values go.
  */
 export function SchemaChangeReview({ diff }: { diff: SchemaDiff }) {
+  const { t } = useT("data.gateway.schema");
   const renamed = diff.changes.filter((c) => c.kind === "renamed");
   const removed = diff.changes.filter((c) => c.kind === "removed");
 
@@ -65,13 +70,12 @@ export function SchemaChangeReview({ diff }: { diff: SchemaDiff }) {
           <p className="text-xs leading-relaxed">
             {removed.length > 0 && (
               <>
-                Removing {removed.length === 1 ? "a field" : "fields"} deletes the stored values.{" "}
+                {t("SCHEMA_CHANGE_REVIEW.REMOVING")} {removed.length === 1 ? t("SCHEMA_CHANGE_REVIEW.A_FIELD") : "fields"} {t("SCHEMA_CHANGE_REVIEW.DELETES_THE_STORED_VALUES")}{" "}
               </>
             )}
             {renamed.length > 0 && (
               <>
-                A rename is saved as a delete and an add, because fields are keyed by name — the
-                values under the old name are not carried over.
+                {t("SCHEMA_CHANGE_REVIEW.A_RENAME_IS_SAVED_AS_A")}
               </>
             )}
           </p>

@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from "react";
 import { Search, X } from "lucide-react";
 import { Button } from "@/components/ui-kits/button/button";
 import { Input } from "@/components/ui-kits/input/input";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 interface SearchInputProps {
   // eslint-disable-next-line no-unused-vars
@@ -17,7 +18,7 @@ interface SearchInputProps {
 
 export const SearchInput: React.FC<SearchInputProps> = ({
   onSearch,
-  placeholder = "Search...",
+  placeholder = tStatic("data.shared", "SEARCH_INPUT.SEARCH"),
   value,
   className = "",
   toggleable = false,

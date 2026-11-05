@@ -2,14 +2,16 @@
 import { Button } from "@/components/ui-kits/button/button";
 import { useOsSecretManagementUrl } from "@/hooks/use-scoped-path";
 import { dataServiceInstructions } from "../constants/instructions";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export function DataServiceInstructions() {
+  const { t } = useT("data.gateway.schema");
   const osConfigUrl = useOsSecretManagementUrl("data-gateway");
   const openBlocksOsConfiguration = () => window.open(osConfigUrl, "_blank");
 
   return (
     <div className="space-y-4 overflow-hidden p-6">
-      <p className="mb-5 text-2xl font-semibold">Data Gateway</p>
+      <p className="mb-5 text-2xl font-semibold">{t("DATA_SERVICE_INSTRUCTIONS.DATA_GATEWAY")}</p>
 
       <div className="">
         <p className="mb-7">{dataServiceInstructions.description}</p>
@@ -27,7 +29,7 @@ export function DataServiceInstructions() {
           className="mt-6 h-10 gap-2 px-4 py-1"
           onClick={openBlocksOsConfiguration}
         >
-          Configure
+          {t("DATA_SERVICE_INSTRUCTIONS.CONFIGURE")}
         </Button>
       </div>
     </div>

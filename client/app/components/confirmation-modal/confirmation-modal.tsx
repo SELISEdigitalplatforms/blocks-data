@@ -8,6 +8,7 @@ import {
   DialogFooter,
 } from "@/components/ui-kits/dialog/dialog";
 import { Button } from "@/components/ui-kits/button/button";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface ConfirmationModalProps {
   data: {
@@ -27,7 +28,9 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
   data,
   onConfirm,
   buttonState,
-}) => (
+}) => {
+  const { t } = useT("data.shared");
+  return (
   <DialogContent
     className="mr-4 w-full max-w-[425px] rounded-md"
     onCloseAutoFocus={(event) => {
@@ -50,15 +53,16 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
     <DialogFooter className="mt-4 flex flex-row gap-2">
       <DialogClose asChild>
         <Button variant="outline" size="sm">
-          {data.cancelButton || "Cancel"}
+          {data.cancelButton || t("common:CANCEL")}
         </Button>
       </DialogClose>
 
       <Button size="sm" onClick={onConfirm} disabled={buttonState?.confirm.disable}>
-        {data.confirmButton || "Yes"}
+        {data.confirmButton || t("common:YES")}
       </Button>
     </DialogFooter>
   </DialogContent>
 );
+};
 
 export default ConfirmationModal;

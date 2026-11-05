@@ -9,6 +9,7 @@ import { useProjectStore } from "@/store/use-project-store";
 import { useGetRoles } from "@blocks-idp/iam/hooks/use-roles";
 import { parseAsInteger, useQueryStates } from "nuqs";
 import { Pagination } from "@/components/ui-kits/pagination/pagination";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type RolesTableProps = {
   slugs: string[];
@@ -23,6 +24,7 @@ const LoadingSkeleton = () => (
 );
 
 export const PermissionRolesList = ({ slugs }: RolesTableProps) => {
+  const { t } = useT("data.idp.iam");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const navigate = useNavigate();
   const [queryParams, setQueryParams] = useQueryStates({
@@ -47,7 +49,7 @@ export const PermissionRolesList = ({ slugs }: RolesTableProps) => {
         accessorFn: (row) => `${row.name}`.trim(),
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Name</span>
+            <span className="font-bold text-medium-emphasis">{t("common:NAME")}</span>
           </div>
         ),
         cell: (roles) => <div className="w-[130px] truncate">{roles.row.original.name}</div>,
@@ -57,7 +59,7 @@ export const PermissionRolesList = ({ slugs }: RolesTableProps) => {
         accessorFn: (row) => `${row.slug}`.trim(),
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Slug</span>
+            <span className="font-bold text-medium-emphasis">{t("PERMISSION_ROLES_LIST.SLUG")}</span>
           </div>
         ),
         cell: (roles) => (
@@ -71,13 +73,13 @@ export const PermissionRolesList = ({ slugs }: RolesTableProps) => {
         accessorFn: (row) => `${row.description}`.trim(),
         header: () => (
           <div className="flex items-center">
-            <span className="font-bold text-medium-emphasis">Description</span>
+            <span className="font-bold text-medium-emphasis">{t("common:DESCRIPTION")}</span>
           </div>
         ),
         cell: (roles) => <div className="w-[200px] truncate md:w-[260px]">{roles.row.original.description}</div>,
       },
     ],
-    []
+    [t]
   );
 
   const table = useReactTable({
@@ -106,7 +108,7 @@ export const PermissionRolesList = ({ slugs }: RolesTableProps) => {
   return (
     <Card className="mt-4">
       <CardHeader>
-        <CardTitle>Assigned Roles</CardTitle>
+        <CardTitle>{t("PERMISSION_ROLES_LIST.ASSIGNED_ROLES")}</CardTitle>
       </CardHeader>
       <CardContent>
         {isLoading && <LoadingSkeleton />}
@@ -129,7 +131,7 @@ export const PermissionRolesList = ({ slugs }: RolesTableProps) => {
               {!data?.data.length ? (
                 <TableRow>
                   <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                    No roles found. Please create new roles.
+                    {t("PERMISSION_ROLES_LIST.NO_ROLES_FOUND_PLEASE_CREATE_NEW")}
                   </TableCell>
                 </TableRow>
               ) : (

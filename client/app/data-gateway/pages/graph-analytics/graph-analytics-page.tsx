@@ -24,6 +24,7 @@ import { BucketSizeControl, HOURLY_MAX_DAYS } from "./bucket-size-control";
 import { GraphErrorRatesCard, GraphOperationsCard } from "./graph-operations-card";
 import { GraphTimingCard } from "./graph-timing-card";
 import { GraphTransferCard } from "./graph-transfer-card";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 // The picker works in the browser's timezone, so the calendar date has to be formatted locally —
 // toISOString() would roll a midnight selection back to the previous day east of UTC.
@@ -37,14 +38,15 @@ const isAnalyticsTab = (value: string | null): value is string =>
   value !== null && ANALYTICS_TABS.has(value);
 
 export const GraphAnalytics = () => {
+  const { t } = useT("data.gateway.analytics");
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const tab = isAnalyticsTab(requestedTab) ? requestedTab : "traffic";
 
   useEffect(() => {
-    setBreadcrumbTitle("/services/data-gateway", "Data Gateway");
-    setBreadcrumbTitle("/services/data-gateway/analytics", "Analytics");
-  }, []);
+    setBreadcrumbTitle("/services/data-gateway", t("GRAPH_ANALYTICS_PAGE.DATA_GATEWAY"));
+    setBreadcrumbTitle("/services/data-gateway/analytics", t("GRAPH_ANALYTICS_PAGE.ANALYTICS"));
+  }, [t]);
 
   // Keep even the default tab explicit in the URL, and repair stale/invalid tab links without
   // adding a redundant browser-history entry.
@@ -113,13 +115,13 @@ export const GraphAnalytics = () => {
   useEffect(() => {
     if (isError) {
       showErrorToast({
-        title: "Couldn't load analytics",
+        title: t("GRAPH_ANALYTICS_PAGE.COULDN_T_LOAD_ANALYTICS"),
         errors: [
-          error instanceof Error ? error.message : "Something went wrong. Please try again.",
+          error instanceof Error ? error.message : t("GRAPH_ANALYTICS_PAGE.SOMETHING_WENT_WRONG_PLEASE_TRY_AGAIN"),
         ],
       });
     }
-  }, [isError, error]);
+  }, [isError, error, t]);
 
   const operationStats = analytics?.operationStats ?? [];
 
@@ -140,10 +142,10 @@ export const GraphAnalytics = () => {
             {/* Both range controls sit with the tabs they filter — one range, one bucket size, every tab. */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <TabsList>
-                <TabsTrigger value="traffic">Traffic</TabsTrigger>
-                <TabsTrigger value="performance">Performance</TabsTrigger>
-                <TabsTrigger value="reliability">Reliability</TabsTrigger>
-                <TabsTrigger value="requests">Requests</TabsTrigger>
+                <TabsTrigger value="traffic">{t("GRAPH_ANALYTICS_PAGE.TRAFFIC")}</TabsTrigger>
+                <TabsTrigger value="performance">{t("GRAPH_ANALYTICS_PAGE.PERFORMANCE")}</TabsTrigger>
+                <TabsTrigger value="reliability">{t("GRAPH_ANALYTICS_PAGE.RELIABILITY")}</TabsTrigger>
+                <TabsTrigger value="requests">{t("GRAPH_ANALYTICS_PAGE.REQUESTS")}</TabsTrigger>
               </TabsList>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -152,9 +154,9 @@ export const GraphAnalytics = () => {
                     size="sm"
                     checked={includeBlocksConsole}
                     onCheckedChange={setIncludeBlocksConsole}
-                    aria-label="Include Playground operations"
+                    aria-label={t("GRAPH_ANALYTICS_PAGE.INCLUDE_PLAYGROUND_OPERATIONS")}
                   />
-                  Include Playground operations
+                  {t("GRAPH_ANALYTICS_PAGE.INCLUDE_PLAYGROUND_OPERATIONS")}
                 </label>
                 {/* Requests has no time series, so a bucket size would be a dead control there. */}
                 {BUCKETED_TABS.has(tab) && (
@@ -172,7 +174,7 @@ export const GraphAnalytics = () => {
             are included. The request log remains the place to inspect those individual calls. */}
             {tab !== "requests" && (
               <p className="text-xs text-muted-foreground">
-                Schema introspection requests are excluded — see them under Requests.
+                {t("GRAPH_ANALYTICS_PAGE.SCHEMA_INTROSPECTION_REQUESTS_ARE")}
               </p>
             )}
 
@@ -236,12 +238,10 @@ export const GraphAnalytics = () => {
           <div className="absolute inset-0 z-10 flex items-center justify-center p-6">
             <div className="max-w-lg rounded-sm border border-border/40 bg-card/95 p-6 text-center shadow-xl backdrop-blur-md">
               <h2 className="text-base font-semibold text-foreground">
-                Analytics access unavailable
+                {t("GRAPH_ANALYTICS_PAGE.ANALYTICS_ACCESS_UNAVAILABLE")}
               </h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                Analytics is not available for this project. Access is disabled, expired, or does
-                not have a valid access period. Contact your administrator to enable or extend
-                access.
+                {t("GRAPH_ANALYTICS_PAGE.ANALYTICS_IS_NOT_AVAILABLE_FOR_THIS")}
               </p>
             </div>
           </div>

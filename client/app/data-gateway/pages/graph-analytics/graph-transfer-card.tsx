@@ -26,10 +26,11 @@ import {
 } from "../../models/graph-log-analytics";
 import { AnalyticsCard } from "./analytics-card";
 import { formatBucketLabel, formatSize } from "./graph-log-formatters";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
 // One measure, one hue — the card title names it, so no legend.
 const CHART_CONFIG = {
-  totalBytes: { label: "Transferred", color: "hsl(var(--chart-purple))" },
+  totalBytes: { get label() { return tStatic("data.gateway.analytics", "GRAPH_TRANSFER_CARD.TRANSFERRED"); }, color: "hsl(var(--chart-purple))" },
 } satisfies ChartConfig;
 
 const HEAVIEST_ROWS = 5;
@@ -51,6 +52,7 @@ export const GraphTransferCard = ({
   isLoading,
   isError,
 }: GraphTransferCardProps) => {
+  const { t } = useT("data.gateway.analytics");
   const chartData = useMemo(
     () =>
       (throughputOverTime ?? []).map((bucket) => ({
@@ -77,37 +79,42 @@ export const GraphTransferCard = ({
   return (
     <AnalyticsCard
       icon={ArrowUpDown}
-      title="Data transfer"
+      title={t("GRAPH_TRANSFER_CARD.DATA_TRANSFER")}
       headerRight={
         <div className="flex flex-col items-end">
           <span className="text-2xl font-semibold leading-none">
             {formatSize(throughput?.totalBytes ?? 0)}
           </span>
           <span className="text-xs text-muted-foreground">
-            {formatSize(throughput?.requestBytes ?? 0)} in ·{" "}
-            {formatSize(throughput?.responseBytes ?? 0)} out
+            {t("GRAPH_TRANSFER_CARD.IN_OUT", {
+              requestSize: formatSize(throughput?.requestBytes ?? 0),
+              responseSize: formatSize(throughput?.responseBytes ?? 0),
+            })}
           </span>
         </div>
       }
       contentClassName="flex flex-col gap-6"
     >
-      {isLoading ? (
+      {isLoading && (
         <div className="flex h-40 items-center justify-center">
           <SpinnerLoader />
         </div>
-      ) : isError ? (
+      )}
+      {!isLoading && isError && (
         <div className="flex h-40 items-center justify-center text-sm text-destructive">
-          Couldn&apos;t load data transfer. Please try again.
+          {t("GRAPH_TRANSFER_CARD.COULDN_T_LOAD_DATA_TRANSFER_PLEASE")}
         </div>
-      ) : !hasData ? (
-        <p className="text-sm text-muted-foreground">No requests in this range.</p>
-      ) : (
+      )}
+      {!isLoading && !isError && !hasData && (
+        <p className="text-sm text-muted-foreground">{t("GRAPH_TRANSFER_CARD.NO_REQUESTS_IN_THIS_RANGE")}</p>
+      )}
+      {!isLoading && !isError && hasData && (
         <>
           <ChartContainer
             config={CHART_CONFIG}
             className="h-40 w-full"
             role="img"
-            aria-label="Bytes transferred over time"
+            aria-label={t("GRAPH_TRANSFER_CARD.BYTES_TRANSFERRED_OVER_TIME")}
           >
             <BarChart data={chartData} margin={{ left: 4, right: 12, top: 4 }}>
               <CartesianGrid vertical={false} />
@@ -138,23 +145,23 @@ export const GraphTransferCard = ({
 
           <div className="flex flex-col gap-2">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">
-              Heaviest responses
+              {t("GRAPH_TRANSFER_CARD.HEAVIEST_RESPONSES")}
             </span>
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Schema</TableHead>
-                  <TableHead className="whitespace-nowrap">Avg docs</TableHead>
-                  <TableHead className="whitespace-nowrap">Avg response</TableHead>
-                  <TableHead className="whitespace-nowrap">Largest</TableHead>
-                  <TableHead className="whitespace-nowrap">Total</TableHead>
+                  <TableHead>{t("GRAPH_TRANSFER_CARD.SCHEMA")}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t("GRAPH_TRANSFER_CARD.AVG_DOCS")}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t("GRAPH_TRANSFER_CARD.AVG_RESPONSE")}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t("GRAPH_TRANSFER_CARD.LARGEST")}</TableHead>
+                  <TableHead className="whitespace-nowrap">{t("GRAPH_TRANSFER_CARD.TOTAL")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {heaviest.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      No responses with a recorded size.
+                      {t("GRAPH_TRANSFER_CARD.NO_RESPONSES_WITH_A_RECORDED_SIZE")}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -163,7 +170,7 @@ export const GraphTransferCard = ({
                       <TableCell className="font-medium">{stat.schemaName}</TableCell>
                       <TableCell
                         className="whitespace-nowrap"
-                        title={`largest: ${stat.maxDocumentCount}`}
+                        title={t("GRAPH_TRANSFER_CARD.LARGEST_MAXDOCUMENTCOUNT", { maxDocumentCount: stat.maxDocumentCount })}
                       >
                         {stat.averageDocumentCount}
                       </TableCell>

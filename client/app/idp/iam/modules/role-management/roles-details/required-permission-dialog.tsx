@@ -12,6 +12,7 @@ import { useCallback, useState } from "react";
 import { PermissionToggleCard } from "./permission-toggle-card";
 import { PermissionDialogProps, isChecked } from "./permission-selection-utils";
 import { useRoleDetailsStore } from "./role-details-state";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type SelectionState = {
   [key: string]: {
@@ -21,12 +22,13 @@ type SelectionState = {
 };
 
 export const RequiredPermissionsDialog = ({ permission, onOpenChange, open }: PermissionDialogProps) => {
+  const { t } = useT("data.idp.iam");
   const [selectionState, setSelectionState] = useState<SelectionState>({});
 
   const permissionMap = useRoleDetailsStore((state) => state.permissionMap);
   const changePermissionSelection = useRoleDetailsStore((state) => state.changePermissionSelection);
 
-  const title = `Review Permission Changes`;
+  const title = t("REQUIRED_PERMISSION_DIALOG.REVIEW_PERMISSION_CHANGES");
   const dependentPermissions = permission.dependentPermissions.map((dp) => permissionMap.get(dp));
 
   const onCheckedChangeHandler = (permResource: string, checked: boolean) => {
@@ -81,9 +83,9 @@ export const RequiredPermissionsDialog = ({ permission, onOpenChange, open }: Pe
           )}
         />
         <div className="mt-2">
-          <h5 className=" font-semibold">Dependencies</h5>
+          <h5 className=" font-semibold">{t("REQUIRED_PERMISSION_DIALOG.DEPENDENCIES")}</h5>
           <p className="text-sm text-muted-foreground">
-            The following permissions are required for this permission to work.
+            {t("REQUIRED_PERMISSION_DIALOG.THE_FOLLOWING_PERMISSIONS_ARE_REQUIRED")}
           </p>
         </div>
         <ScrollArea className="max-h-[400px]">
@@ -101,9 +103,9 @@ export const RequiredPermissionsDialog = ({ permission, onOpenChange, open }: Pe
         </ScrollArea>
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">{t("common:CANCEL")}</Button>
           </DialogClose>
-          <Button onClick={onSaveClick}>Save</Button>
+          <Button onClick={onSaveClick}>{t("common:SAVE")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

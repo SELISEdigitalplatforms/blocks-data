@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui-kits/tooltip/tooltip";
 import { environmentOptions } from "@/constants/environment-options";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type EnvironmentCardProps = {
   project: IProject;
@@ -25,6 +26,7 @@ export const EnvironmentCard = ({
   isMigrationOngoing,
   className,
 }: EnvironmentCardProps) => {
+  const { t } = useT("data.shared");
   const navigate = useNavigate();
   const { setSelectedProject } = useProjectStore();
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false);
@@ -70,7 +72,7 @@ export const EnvironmentCard = ({
                       <Hourglass className="h-4 w-4 cursor-pointer text-icon-warning" />
                     </TooltipTrigger>
                     <TooltipContent className="border-none bg-neutral-500 text-white shadow-none">
-                      Migration in progress
+                      {t("ENVIRONMENT_CARD.MIGRATION_IN_PROGRESS")}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -81,7 +83,7 @@ export const EnvironmentCard = ({
         </CardHeader>
         <div className="mt-2">
           <div className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-2 py-1 text-xs">
-            <span className="font-semibold text-muted-foreground">Key:</span>
+            <span className="font-semibold text-muted-foreground">{t("ENVIRONMENT_CARD.KEY")}</span>
             <span className="truncate font-mono text-muted-foreground">
               {project?.tenantId}
             </span>
@@ -93,11 +95,11 @@ export const EnvironmentCard = ({
           onCancel={() => setIsConfirmationOpen(false)}
           onConfirm={handleConfirm}
           data={{
-            dialogTitle: "Environment Migration in Progress",
+            dialogTitle: t("ENVIRONMENT_CARD.ENVIRONMENT_MIGRATION_IN_PROGRESS"),
             dialogSubtitle:
-              "This environment is currently migrating. Any changes now may cause incomplete data or service interruptions. Proceed only if necessary.",
-            confirmButton: "Continue Anyway",
-            cancelButton: "Cancel",
+              t("ENVIRONMENT_CARD.THIS_ENVIRONMENT_IS_CURRENTLY"),
+            confirmButton: t("ENVIRONMENT_CARD.CONTINUE_ANYWAY"),
+            cancelButton: t("common:CANCEL"),
           }}
         />
       )}

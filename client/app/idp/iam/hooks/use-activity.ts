@@ -2,6 +2,7 @@ import { toast } from "@/hooks/use-toast";
 import { IGeneratePATPayload, IGetHistoriesPayload, IGetSessionPayload } from "@blocks-idp/iam/models/user";
 import { userService } from "@blocks-idp/iam/services/user.service";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const useGetSessions = (option: IGetSessionPayload) => {
   return useQuery({
@@ -34,16 +35,17 @@ export const useGetPats = () => {
 };
 
 export const useGeneratePats = () => {
+  const { t } = useT("data.idp.iam");
     const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: IGeneratePATPayload) => userService.generatePats(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["personalAccessTokens"] });
-      toast({ variant: "success", description: "Token generated successfully!" });
+      toast({ variant: "success", description: t("USE_ACTIVITY.TOKEN_GENERATED_SUCCESSFULLY") });
     },
     onError: () => {
-      toast({ variant: "destructive", description: "Failed to generate token" });
+      toast({ variant: "destructive", description: t("USE_ACTIVITY.FAILED_TO_GENERATE_TOKEN") });
     },
   });
 };

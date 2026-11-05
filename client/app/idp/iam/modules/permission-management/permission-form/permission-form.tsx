@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { IPermission, PERMISSION_SEVERITY_OPTIONS, RESOURCE_TYPE } from "@blocks-idp/iam/models/permission";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { permissionFormDefaultValue, permissionFormSchema, permissionFormSchemaType } from "./utils";
+import { permissionFormDefaultValue, permissionFormSchema, PermissionFormSchemaType } from "./utils";
 import { Card, CardContent, CardFooter } from "@/components/ui-kits/card/card";
 import { DependentPermissions } from "../dependent-permissions";
 import { PermissionGroupCombobox } from "@blocks-idp/iam/components/permission-group-combobox/permission-group-combobox";
@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui-kits/textarea/textarea";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type PermissionFormProps = {
-  onSave: (data: permissionFormSchemaType) => void;
+  onSave: (data: PermissionFormSchemaType) => void;
   isPending: boolean;
   values?: IPermission | null;
 };
@@ -27,10 +27,11 @@ export const PermissionForm = ({ onSave, isPending, values = null }: PermissionF
     resolver: zodResolver(permissionFormSchema),
   });
 
-  const onSubmit = async (data: permissionFormSchemaType) => {
+  const onSubmit = async (data: PermissionFormSchemaType) => {
     onSave(data);
   };
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() re-renders on field changes by design; the React Compiler skipping this component is expected, and replacing it (e.g. useWatch) would change re-render behaviour
   const resourceType = form.watch("type");
 
   return (

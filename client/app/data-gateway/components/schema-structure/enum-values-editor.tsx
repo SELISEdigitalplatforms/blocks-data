@@ -133,7 +133,7 @@ export function EnumValuesEditor({
           <p className="text-xs text-muted-foreground">{t("ENUM_VALUES_EDITOR.NO_ALLOWED_VALUES_DEFINED")}</p>
         ) : (
           <div className="flex flex-wrap gap-1.5">
-            {values.map((v, i) => (
+            {values.map((v) => (
               <span key={v} className={CHIP_CLASS}>
                 {v}
               </span>

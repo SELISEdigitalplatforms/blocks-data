@@ -1,4 +1,4 @@
-import { expect, Locator, type Page } from "@playwright/test";
+import { expect, Locator, type Page, type Request } from "@playwright/test";
 import path from "path";
 import fs from "fs";
 import { test } from "../../support/test-base";
@@ -677,8 +677,10 @@ test.describe("flow: Data Gateway menu", () => {
       });
       await expect(drawerTitle).toBeVisible({ timeout: 15_000 });
 
+      // The rule list shows a regex as its one-line summary in a monospace <span>
+      // (schema-field-validation-panel.tsx; was a <p> before 9db74714).
       const existingPattern = page
-        .locator("p.font-mono")
+        .locator("span.font-mono")
         .filter({
           hasText: "^[A-Z]{2}",
         })
@@ -708,11 +710,11 @@ test.describe("flow: Data Gateway menu", () => {
       await expect(deleteRowButton).toBeVisible({ timeout: 5_000 });
       await deleteRowButton.click();
 
-      const deleteDialog = page
-        .getByRole("dialog")
-        .filter({ has: page.getByRole("heading", { name: "Delete validation?" }) });
+      // Deleting asks inline, under the rule, with Keep / Delete (since 767a10ef);
+      // there is no modal "Delete validation?" dialog any more.
+      const deleteDialog = page.getByRole("alertdialog", { name: "Delete this validation?" });
       await expect(deleteDialog).toBeVisible({ timeout: 5_000 });
-      await deleteDialog.getByRole("button", { name: "Cancel" }).click();
+      await deleteDialog.getByRole("button", { name: "Keep" }).click();
       await expect(deleteDialog).toBeHidden({ timeout: 5_000 });
 
       // Close button: the side-panel's close button is named "Close validation inspector"
@@ -897,6 +899,18 @@ test.describe("flow: Data Gateway menu", () => {
       await dialog.locator('input[type="file"]').setInputFiles(schemaFilePath);
       const uploadButton = dialog.getByRole("button", { name: "Upload" });
       await expect(uploadButton).toBeEnabled({ timeout: 10_000 });
+
+      // blocks-data#422 H4/H7: an import only queues draft changes, so it must not re-read the
+      // served schema. Count gateway introspection POSTs (their body asks for __schema) from the
+      // Upload click until the modal has closed, which happens after the import's onSuccess.
+      const introspectionRequests: string[] = [];
+      const recordIntrospection = (request: Request) => {
+        if (request.method() === "POST" && (request.postData() ?? "").includes("__schema")) {
+          introspectionRequests.push(request.url());
+        }
+      };
+      page.on("request", recordIntrospection);
+
       await uploadButton.click();
       // The upload kicks off async processing; assert the status text actually
       // shows (expect retries fast enough to catch a short-lived flash).
@@ -906,6 +920,9 @@ test.describe("flow: Data Gateway menu", () => {
         await page.keyboard.press("Escape");
       }
       await expect(dialog).toBeHidden({ timeout: 15_000 });
+
+      page.off("request", recordIntrospection);
+      expect(introspectionRequests, "gateway introspection requests sent by the import").toEqual([]);
     });
 
     const secondSchemaName = `dg_flow_sidebar_${Date.now()}`;

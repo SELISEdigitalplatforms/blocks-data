@@ -1,10 +1,8 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-let capturedOnAdd: ((perms: { resource: string }[]) => void) | undefined;
 vi.mock("./add-dependent-permission", () => ({
   AddDependentPermission: ({ onAdd }: { onAdd: (p: { resource: string }[]) => void }) => {
-    capturedOnAdd = onAdd;
     return <button onClick={() => onAdd([{ resource: "new:perm" }])}>add-dep</button>;
   },
 }));
@@ -13,7 +11,6 @@ import { DependentPermissions } from "./dependent-permissions";
 
 afterEach(() => {
   vi.clearAllMocks();
-  capturedOnAdd = undefined;
 });
 
 describe("DependentPermissions", () => {

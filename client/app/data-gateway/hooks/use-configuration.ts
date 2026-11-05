@@ -837,14 +837,9 @@ export const useImportSchemaFile = (_payload: IImportFile) => {
     mutationKey: ["import-schema-file"],
     mutationFn: configurationService.importSchemaFile,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ["graphql-raw-introspection"],
-        refetchType: "all",
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["graphql-introspection"],
-        refetchType: "all",
-      });
+      // No introspection refresh here: an import only queues draft changes, so the schema the
+      // gateway serves is unchanged. Publish and rollback refresh it (refreshServedSchema), and
+      // the entries they seed have no queryFn, so refetching them would fail with "Missing queryFn".
       await queryClient.invalidateQueries({
         queryKey: ["schema-list", projectKey],
       });

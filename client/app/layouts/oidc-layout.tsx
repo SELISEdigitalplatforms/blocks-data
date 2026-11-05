@@ -86,7 +86,8 @@ function OIDCProvider({ children }: { children: ReactNode }) {
   return <OIDCContext.Provider value={params}>{children}</OIDCContext.Provider>;
 }
 
-function OidcLayoutContent({ children }: { children: ReactNode }) {
+// Renders the matched route through <Outlet />; the children prop is accepted but not rendered.
+function OidcLayoutContent({ children: _children }: Readonly<{ children: ReactNode }>) {
   const { t } = useT("data.shared");
   const { logoUrl, themeColor, isLoading } = useOIDCContext();
 

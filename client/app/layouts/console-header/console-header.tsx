@@ -14,7 +14,8 @@ import { useContext, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 export function ConsoleHeader() {
-  const context = useContext(SidebarContext);
+  // Keeps the sidebar context subscription so the header re-renders with it, as before.
+  useContext(SidebarContext);
   const { pathname } = useLocation();
   const isMobile = useIsMobile();
   const [isScrolled, setIsScrolled] = useState(false);

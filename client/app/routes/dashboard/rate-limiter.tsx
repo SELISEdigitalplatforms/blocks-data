@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui-kits/card/card";
+import { Card, CardContent, CardHeader } from "@/components/ui-kits/card/card";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export default function RateLimiterPage() {

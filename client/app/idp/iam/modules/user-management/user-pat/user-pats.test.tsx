@@ -12,10 +12,8 @@ vi.mock("@blocks-idp/iam/hooks/use-activity", () => ({
 vi.mock("./user-pats-list", () => ({
   UserPATList: () => <div data-testid="pat-list" />,
 }));
-let modalOpen = false;
 vi.mock("./generate-pat-modal", () => ({
   GenerateTokenModal: ({ isOpen }: { isOpen: boolean }) => {
-    modalOpen = isOpen;
     return isOpen ? <div data-testid="generate-modal" /> : null;
   },
 }));
@@ -24,7 +22,6 @@ import { UserPats } from "./user-pats";
 
 afterEach(() => {
   vi.clearAllMocks();
-  modalOpen = false;
 });
 
 describe("UserPats", () => {

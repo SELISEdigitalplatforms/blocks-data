@@ -140,7 +140,7 @@ public static class ContentSecurityPolicy
         return uri.GetLeftPart(UriPartial.Authority);
     }
 
-    /// <summary>The ws:// or wss:// form of an http(s) origin, or null if it is not one.</summary>
+    /// <summary>The WebSocket origin (wss scheme for https, ws for http) of an http(s) origin, or null if it is not one.</summary>
     public static string? ToWebSocketOrigin(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;
@@ -148,6 +148,8 @@ public static class ContentSecurityPolicy
         if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri)) return null;
 
         if (uri.Scheme == Uri.UriSchemeHttps) return $"wss://{uri.Authority}";
+        // An http origin's WebSocket counterpart is plain ws, which CSP connect-src must list as is.
+        // nosemgrep: javascript.lang.security.detect-insecure-websocket.detect-insecure-websocket
         if (uri.Scheme == Uri.UriSchemeHttp) return $"ws://{uri.Authority}";
 
         return null;

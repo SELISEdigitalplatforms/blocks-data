@@ -7,7 +7,7 @@ import {
   DialogTrigger,
 } from "@/components/ui-kits/dialog/dialog";
 
-import { CAPTCHA_PROVIDERS, CAPTCHA_PROVIDERS_KEY, ICaptchaConfig } from "../../models/captcha";
+import { CAPTCHA_PROVIDERS, CaptchaProvidersKey, ICaptchaConfig } from "../../models/captcha";
 
 import { ConfigureGeneralCaptchaFormField } from "./configure-general-captcha-from-field";
 import { ConfigureBlockCaptchaFormField } from "./configure-block-captcha-form-field";
@@ -66,7 +66,8 @@ export const ConfigureCaptchaModal = ({ configuration, children }: ConfigureCapt
         (item) =>
           !data.configurations.find((config: { provider: string }) => config?.provider === item),
       )
-      .map((item) => CAPTCHA_PROVIDERS[item as CAPTCHA_PROVIDERS_KEY]);
+      .map((item) => CAPTCHA_PROVIDERS[item as CaptchaProvidersKey]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recomputing on `configuration` changes would re-run the provider effect below and reset the selected provider; the list is intentionally derived only when `data` changes
   }, [data]);
 
   useEffect(() => {
@@ -76,6 +77,7 @@ export const ConfigureCaptchaModal = ({ configuration, children }: ConfigureCapt
     if (unConfiguredProviders.length) {
       form.setValue("provider", unConfiguredProviders[0].value);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- adding `configuration` or `form` would re-apply the default provider on every prop/form identity change and overwrite the user's selection; it must run only when the provider list changes
   }, [unConfiguredProviders]);
 
   const onSubmitHandler = async (values: typeof ConfigureCaptchaFormDefaultValue) => {
@@ -99,6 +101,7 @@ export const ConfigureCaptchaModal = ({ configuration, children }: ConfigureCapt
     }
   };
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() re-renders on field changes by design; the React Compiler skipping this component is expected, and replacing it (e.g. useWatch) would change re-render behaviour
   const selectedProvider = form.watch("provider");
 
   const ConfigureFormField = ConfigureGeneralCaptchaFormField;

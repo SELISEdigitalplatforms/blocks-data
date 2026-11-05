@@ -1,5 +1,7 @@
-import { renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider, type DefaultOptions } from "@tanstack/react-query";
+import { createElement, type ReactNode } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   GraphQLSchema,
   buildSchema,
@@ -822,6 +824,352 @@ describe("use-configuration hooks", () => {
       result.current.mutate(payload);
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(configurationService.exportSchema).toHaveBeenCalledWith(payload);
+    });
+  });
+
+  // ─── Introspection caches (blocks-data#422) ─────────────────────────────────
+  // Publish and rollback seed both introspection keys with setQueryData, so a seeded entry
+  // has no queryFn until a reader mounts on it. Import only queues drafts and must not
+  // refetch these keys: a refetch without a queryFn rejects with "Missing queryFn".
+
+  describe("introspection caches across publish, rollback and import", () => {
+    const rawKey = ["graphql-raw-introspection", "t1"];
+    const builtKey = ["graphql-introspection", "slug1"];
+    const introspectionPrefixes = new Set(["graphql-raw-introspection", "graphql-introspection"]);
+    const worldIntrospectionResult = {
+      data: introspectionFromSchema(buildSchema("type Query { hello: String world: String }")),
+    };
+    const selectProject = (tenantId: string, tenantSlug: string) =>
+      mockGetState.mockImplementation(() => ({ selectedProject: { tenantId, tenantSlug } }));
+    const cleanups: Array<() => void> = [];
+
+    /** A fresh client per test that records every query error the cache stores. */
+    const setup = (
+      defaultOptions: DefaultOptions = { queries: { retry: false }, mutations: { retry: false } },
+    ) => {
+      const client = new QueryClient({ defaultOptions });
+      const errors: string[] = [];
+      const unsubscribe = client.getQueryCache().subscribe((event) => {
+        if (event.type === "updated" && event.action.type === "error") {
+          errors.push((event.action.error as Error).message);
+        }
+      });
+      cleanups.push(() => {
+        unsubscribe();
+        client.clear();
+      });
+      const wrapper = ({ children }: { children: ReactNode }) =>
+        createElement(QueryClientProvider, { client }, children);
+      const introspectionQueries = () =>
+        client
+          .getQueryCache()
+          .findAll({ predicate: (query) => introspectionPrefixes.has(query.queryKey[0] as string) });
+      return { client, errors, wrapper, introspectionQueries };
+    };
+
+    const renderMutations = (wrapper: ReturnType<typeof setup>["wrapper"]) =>
+      renderHook(
+        () => ({
+          publish: useSchemasReload(),
+          rollback: useSchemaRollback(),
+          importFile: useImportSchemaFile({} as never),
+        }),
+        { wrapper },
+      );
+
+    const expectUnfetched = (client: QueryClient, queryKey: unknown[]) => {
+      const state = client.getQueryCache().find({ queryKey, exact: true })?.state;
+      expect(state).toBeDefined();
+      expect(state?.fetchStatus).toBe("idle");
+      expect(state?.fetchFailureCount).toBe(0);
+      expect(state?.errorUpdateCount).toBe(0);
+    };
+
+    const queryFieldsOf = (schema: unknown) =>
+      Object.keys((schema as GraphQLSchema).getQueryType()?.getFields() ?? {});
+
+    beforeEach(() => {
+      vi.mocked(configurationService.reloadSchemas).mockResolvedValue({ isSuccess: true } as never);
+      vi.mocked(configurationService.rollbackSchemaVersion).mockResolvedValue({
+        isSuccess: true,
+        message: "Version 3 is live.",
+        errors: null,
+        data: { version: 3, previousVersion: 5 },
+      });
+      vi.mocked(configurationService.importSchemaFile).mockResolvedValue({ isSuccess: true } as never);
+      vi.mocked(configurationService.executeGraphQLOperation).mockResolvedValue(introspectionResult);
+      vi.mocked(configurationService.getUnadaptedChangeLogs).mockResolvedValue({ data: [] } as never);
+    });
+
+    afterEach(() => {
+      cleanups.splice(0).forEach((cleanup) => cleanup());
+      selectProject("t1", "slug1");
+    });
+
+    // H1, C1, C2 (E1)
+    it("records no query error when an import follows a publish with no reader mounted", async () => {
+      const { client, errors, wrapper } = setup();
+      const { result } = renderMutations(wrapper);
+
+      await act(() => result.current.publish.mutateAsync());
+      await act(() => result.current.importFile.mutateAsync({} as never));
+
+      expect(errors).toEqual([]);
+      expect(configurationService.executeGraphQLOperation).toHaveBeenCalledTimes(1);
+      expectUnfetched(client, rawKey);
+      expectUnfetched(client, builtKey);
+      expect(client.getQueryData(rawKey)).toEqual(introspectionResult);
+      expect(queryFieldsOf(client.getQueryData(builtKey))).toEqual(["hello"]);
+    });
+
+    // H2 (E2)
+    it("records no query error when an import follows a rollback with no reader mounted", async () => {
+      const { client, errors, wrapper } = setup();
+      const { result } = renderMutations(wrapper);
+
+      await act(() => result.current.rollback.mutateAsync(3));
+      await act(() => result.current.importFile.mutateAsync({} as never));
+
+      expect(errors).toEqual([]);
+      expect(configurationService.executeGraphQLOperation).toHaveBeenCalledTimes(1);
+      expectUnfetched(client, rawKey);
+      expectUnfetched(client, builtKey);
+      expect(client.getQueryData(rawKey)).toEqual(introspectionResult);
+    });
+
+    // H3, H4 (E4)
+    it("invalidates only the schema lists and pending changes on import", async () => {
+      const { client, wrapper } = setup();
+      const invalidateQueries = vi.spyOn(client, "invalidateQueries");
+      const { result } = renderMutations(wrapper);
+
+      await act(() => result.current.importFile.mutateAsync({} as never));
+
+      expect(invalidateQueries.mock.calls).toEqual([
+        [{ queryKey: ["schema-list", "t1"] }],
+        [{ queryKey: ["unadapted-change-logs", "t1"] }],
+        [{ queryKey: ["security-performance-schema-list", "t1"] }],
+      ]);
+      expect(configurationService.executeGraphQLOperation).not.toHaveBeenCalled();
+    });
+
+    // H5, H7 (E3)
+    it("refreshes mounted readers once on publish and leaves them untouched on import", async () => {
+      const { errors, wrapper } = setup();
+      const { result } = renderHook(
+        () => ({
+          raw: useRawIntrospectionQuery({ projectKey: "t1" }),
+          built: useGraphQLIntrospection({ projectShortKey: "slug1" }),
+          publish: useSchemasReload(),
+          importFile: useImportSchemaFile({} as never),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(result.current.raw.isSuccess).toBe(true);
+        expect(result.current.built.isSuccess).toBe(true);
+      });
+      expect(configurationService.executeGraphQLOperation).toHaveBeenCalledTimes(2);
+
+      vi.mocked(configurationService.executeGraphQLOperation).mockResolvedValue(worldIntrospectionResult);
+      await act(() => result.current.publish.mutateAsync());
+
+      expect(configurationService.executeGraphQLOperation).toHaveBeenCalledTimes(3);
+      // Observers are notified on the next tick, after mutateAsync resolves.
+      await waitFor(() => expect(result.current.raw.data).toEqual(worldIntrospectionResult));
+      await waitFor(() => expect(queryFieldsOf(result.current.built.data)).toEqual(["hello", "world"]));
+      const rawAfterPublish = result.current.raw.data;
+      const builtAfterPublish = result.current.built.data;
+
+      await act(() => result.current.importFile.mutateAsync({} as never));
+      await waitFor(() => expect(result.current.importFile.isSuccess).toBe(true));
+
+      expect(configurationService.executeGraphQLOperation).toHaveBeenCalledTimes(3);
+      expect(result.current.raw.data).toBe(rawAfterPublish);
+      expect(result.current.built.data).toBe(builtAfterPublish);
+      expect(errors).toEqual([]);
+    });
+
+    // H6
+    it("re-reads the served schema once on rollback and writes it under both reader keys", async () => {
+      const { client, wrapper } = setup();
+      const { result } = renderMutations(wrapper);
+
+      await act(() => result.current.rollback.mutateAsync(3));
+
+      expect(configurationService.executeGraphQLOperation).toHaveBeenCalledTimes(1);
+      expect(client.getQueryData(rawKey)).toEqual(introspectionResult);
+      expect(client.getQueryData(builtKey)).toBeInstanceOf(GraphQLSchema);
+      expect(queryFieldsOf(client.getQueryData(builtKey))).toEqual(["hello"]);
+    });
+
+    // H8
+    it("still refetches a mounted pending-changes reader on import", async () => {
+      const { wrapper } = setup();
+      const { result } = renderHook(
+        () => ({
+          changeLogs: useGetUnadaptedChangeLogs({ projectKey: "t1" }),
+          importFile: useImportSchemaFile({} as never),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.changeLogs.isSuccess).toBe(true));
+      vi.mocked(configurationService.getUnadaptedChangeLogs).mockClear();
+
+      await act(() => result.current.importFile.mutateAsync({} as never));
+
+      expect(configurationService.getUnadaptedChangeLogs).toHaveBeenCalledTimes(1);
+    });
+
+    // H9 (E7)
+    it("fetches once when a reader mounts after a publish and an import", async () => {
+      const { errors, wrapper } = setup();
+      const { result } = renderMutations(wrapper);
+      await act(() => result.current.publish.mutateAsync());
+      await act(() => result.current.importFile.mutateAsync({} as never));
+      vi.mocked(configurationService.executeGraphQLOperation).mockClear();
+
+      const reader = renderHook(() => useRawIntrospectionQuery({ projectKey: "t1" }), { wrapper });
+
+      await waitFor(() => expect(reader.result.current.isFetching).toBe(false));
+      expect(reader.result.current.isSuccess).toBe(true);
+      expect(reader.result.current.data).toEqual(introspectionResult);
+      expect(configurationService.executeGraphQLOperation).toHaveBeenCalledTimes(1);
+      expect(errors).toEqual([]);
+    });
+
+    // C3: the app's production query defaults (providers/query-provider.tsx)
+    it("never retries an introspection query on import with the production query defaults", async () => {
+      const { errors, wrapper, introspectionQueries } = setup({
+        queries: { staleTime: 60 * 1000, retry: 1 },
+      });
+      const { result } = renderMutations(wrapper);
+
+      await act(() => result.current.publish.mutateAsync());
+      await act(() => result.current.importFile.mutateAsync({} as never));
+
+      expect(introspectionQueries()).toHaveLength(2);
+      for (const query of introspectionQueries()) {
+        expect(query.state.fetchFailureCount).toBe(0);
+        expect(query.state.fetchStatus).toBe("idle");
+      }
+      expect(errors).toEqual([]);
+    });
+
+    // C4 (E6)
+    it("does not refetch another project's cached introspection on import", async () => {
+      const { client, wrapper } = setup();
+      const other = renderHook(() => useRawIntrospectionQuery({ projectKey: "t2" }), { wrapper });
+      await waitFor(() => expect(other.result.current.isSuccess).toBe(true));
+      other.unmount();
+      const otherUpdatedAt = client.getQueryState(["graphql-raw-introspection", "t2"])?.dataUpdatedAt;
+      vi.mocked(configurationService.executeGraphQLOperation).mockClear();
+      const { result } = renderMutations(wrapper);
+
+      await act(() => result.current.importFile.mutateAsync({} as never));
+
+      expect(configurationService.executeGraphQLOperation).not.toHaveBeenCalled();
+      expect(client.getQueryState(["graphql-raw-introspection", "t2"])?.dataUpdatedAt).toBe(otherUpdatedAt);
+    });
+
+    // C5 (E5)
+    it("invalidates nothing and reads no introspection when the import request fails", async () => {
+      const { client, wrapper } = setup();
+      const invalidateQueries = vi.spyOn(client, "invalidateQueries");
+      vi.mocked(configurationService.importSchemaFile).mockRejectedValue(new Error("upload failed"));
+      const { result } = renderMutations(wrapper);
+
+      await act(async () => {
+        await expect(result.current.importFile.mutateAsync({} as never)).rejects.toThrow("upload failed");
+      });
+
+      await waitFor(() => expect(result.current.importFile.isError).toBe(true));
+      expect(invalidateQueries).not.toHaveBeenCalled();
+      expect(configurationService.executeGraphQLOperation).not.toHaveBeenCalled();
+    });
+
+    // C6
+    it("reads no introspection when the publish fails", async () => {
+      const { wrapper, introspectionQueries } = setup();
+      vi.mocked(configurationService.reloadSchemas).mockRejectedValue(new Error("does not build"));
+      const { result } = renderMutations(wrapper);
+
+      await act(async () => {
+        await expect(result.current.publish.mutateAsync()).rejects.toThrow("does not build");
+      });
+
+      expect(configurationService.executeGraphQLOperation).not.toHaveBeenCalled();
+      expect(introspectionQueries()).toHaveLength(0);
+    });
+
+    // C7
+    it("reads no introspection when the rollback fails", async () => {
+      const { wrapper, introspectionQueries } = setup();
+      vi.mocked(configurationService.rollbackSchemaVersion).mockRejectedValue(new Error("404"));
+      const { result } = renderMutations(wrapper);
+
+      await act(async () => {
+        await expect(result.current.rollback.mutateAsync(9)).rejects.toThrow("404");
+      });
+
+      expect(configurationService.executeGraphQLOperation).not.toHaveBeenCalled();
+      expect(introspectionQueries()).toHaveLength(0);
+    });
+
+    // C9
+    it("completes a publish and an import without a selected tenant", async () => {
+      selectProject("", "");
+      const { errors, wrapper, introspectionQueries } = setup();
+      const { result } = renderMutations(wrapper);
+
+      await act(() => result.current.publish.mutateAsync());
+      await act(() => result.current.importFile.mutateAsync({} as never));
+
+      expect(introspectionQueries()).toHaveLength(0);
+      expect(errors).toEqual([]);
+    });
+
+    // C10
+    it("seeds the publish response when an import finishes while the publish still waits for it", async () => {
+      const { client, errors, wrapper } = setup();
+      let resolveIntrospection: (value: unknown) => void = () => undefined;
+      vi.mocked(configurationService.executeGraphQLOperation).mockImplementation(
+        () => new Promise((resolve) => {
+          resolveIntrospection = resolve;
+        }),
+      );
+      const { result } = renderMutations(wrapper);
+
+      let publishDone: Promise<unknown> = Promise.resolve();
+      act(() => {
+        publishDone = result.current.publish.mutateAsync();
+      });
+      await waitFor(() => expect(configurationService.executeGraphQLOperation).toHaveBeenCalledTimes(1));
+      await act(() => result.current.importFile.mutateAsync({} as never));
+      await act(async () => {
+        resolveIntrospection(introspectionResult);
+        await publishDone;
+      });
+
+      expect(configurationService.executeGraphQLOperation).toHaveBeenCalledTimes(1);
+      expect(errors).toEqual([]);
+      expect(client.getQueryData(rawKey)).toEqual(introspectionResult);
+      expect(queryFieldsOf(client.getQueryData(builtKey))).toEqual(["hello"]);
+    });
+
+    // C11
+    it("records no query error for two imports in a row after a publish", async () => {
+      const { client, errors, wrapper } = setup();
+      const { result } = renderMutations(wrapper);
+
+      await act(() => result.current.publish.mutateAsync());
+      await act(() => result.current.importFile.mutateAsync({} as never));
+      await act(() => result.current.importFile.mutateAsync({} as never));
+
+      expect(configurationService.executeGraphQLOperation).toHaveBeenCalledTimes(1);
+      expect(errors).toEqual([]);
+      expectUnfetched(client, rawKey);
+      expectUnfetched(client, builtKey);
     });
   });
 });

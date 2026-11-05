@@ -1,10 +1,8 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
 import { projectService } from "@/services/project.service";
 import { projectService as crossProjectService } from "@/identifier/services/project.service";
 import { useProjectStore } from "@/store/use-project-store";
-import { showErrorToast, showSuccessToast } from "@/hooks/use-toast";
 
 export const useGetProjects = (tenantGroupId = "") => {
   const { setProjects, selectedProject, setSelectedProject } =

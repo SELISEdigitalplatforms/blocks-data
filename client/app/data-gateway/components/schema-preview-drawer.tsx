@@ -268,6 +268,7 @@ export function SchemaPreviewDrawer({
                             {t("SCHEMA_PREVIEW_DRAWER.HEADER")}
                           </span>
                           <CopyToClipboardButton textToCopy={`x-blocks-key: ${projectKey}`} isHoverable>
+                            {/* eslint-disable-next-line no-restricted-syntax -- HTTP header name, not translatable */}
                             <code className="font-mono text-foreground">x-blocks-key: {projectKey}</code>
                           </CopyToClipboardButton>
                         </div>

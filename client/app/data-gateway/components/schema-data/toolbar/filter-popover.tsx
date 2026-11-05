@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui-kits/select/select";
 import { formatDate } from "@/lib/utils";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 import type { TemplateField } from "@/data-gateway/models/schema-preview.types";
 
 // ---------------------------------------------------------------------------
@@ -129,6 +130,13 @@ function geoJsonPlaceholder(operator: string): string {
   return operator === "within" || operator === "intersects"
     ? POLYGON_PLACEHOLDER
     : POINT_PLACEHOLDER;
+}
+
+/** Placeholder of the value input: a GeoJSON sample, a list sample, or the generic "Value" label. */
+function valuePlaceholder(category: string, operator: string, fallback: string): string {
+  if (category === "geojson") return geoJsonPlaceholder(operator);
+  if (operator === "is one of" || operator === "is not one of") return "a, b, c";
+  return fallback;
 }
 
 function resolveFieldCategory(
@@ -345,6 +353,7 @@ function DatePickerInput({
   value: string;
   onChange: (iso: string) => void;
 }) {
+  const { t } = useT("data.gateway.schema");
   const [open, setOpen] = useState(false);
   const selected = value ? new Date(value) : undefined;
 
@@ -356,7 +365,7 @@ function DatePickerInput({
           className="flex h-8 w-36 items-center gap-1.5 rounded-md border border-input bg-background px-2 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <CalendarIcon className="h-3 w-3 shrink-0" />
-          <span>{selected ? formatDate(selected, true) : "Pick a date"}</span>
+          <span>{selected ? formatDate(selected, true) : t("FILTER_POPOVER.PICK_A_DATE")}</span>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
@@ -388,6 +397,7 @@ function DatePickerInput({
 // ---------------------------------------------------------------------------
 
 export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverProps) {
+  const { t } = useT("data.gateway.schema");
   const [open, setOpen] = useState(false);
   const [draftConditions, setDraftConditions] = useState<FilterCondition[]>([emptyCondition()]);
   const [draftLogic, setDraftLogic] = useState<"and" | "or">("and");
@@ -459,7 +469,7 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
           type="button"
           variant="ghost"
           size="icon"
-          title="Filter"
+          title={t("FILTER_POPOVER.FILTER")}
           className={`h-8 w-8 ${isActive ? "text-primary" : "text-muted-foreground"}`}
         >
           <SlidersHorizontal className="h-4 w-4" />
@@ -469,7 +479,7 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
       <PopoverContent align="start" className="w-[560px] p-0">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
-          <p className="text-xs font-medium">Filters</p>
+          <p className="text-xs font-medium">{t("FILTER_POPOVER.FILTERS")}</p>
           {draftConditions.length > 1 && (
             <div className="flex items-center rounded border border-border text-xs">
               <button
@@ -508,7 +518,7 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                     onValueChange={(val) => updateCondition(condition.id, { field: val })}
                   >
                     <SelectTrigger className="h-8 w-40 text-xs">
-                      <SelectValue placeholder="Field" />
+                      <SelectValue placeholder={t("FILTER_POPOVER.FIELD")} />
                     </SelectTrigger>
                     <SelectContent>
                       {fields.map((f) => (
@@ -528,7 +538,7 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                     disabled={!condition.field}
                   >
                     <SelectTrigger className="h-8 w-44 text-xs">
-                      <SelectValue placeholder="Operator" />
+                      <SelectValue placeholder={t("FILTER_POPOVER.OPERATOR")} />
                     </SelectTrigger>
                     <SelectContent>
                       {operatorsForField.map((op) => (
@@ -540,30 +550,21 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                   </Select>
 
                   {/* Value input or spacer */}
-                  {needsValue ? (
-                    category === "date" ? (
-                      <DatePickerInput
-                        value={condition.value}
-                        onChange={(iso) => updateCondition(condition.id, { value: iso })}
-                      />
-                    ) : (
-                      <Input
-                        type={category === "number" ? "number" : "text"}
-                        value={condition.value}
-                        onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
-                        placeholder={
-                          category === "geojson"
-                            ? geoJsonPlaceholder(condition.operator)
-                            : condition.operator === "is one of" ||
-                                condition.operator === "is not one of"
-                              ? "a, b, c"
-                              : "Value"
-                        }
-                        className="h-8 w-36 text-xs"
-                      />
-                    )
-                  ) : (
-                    <div className="w-36" />
+                  {!needsValue && <div className="w-36" />}
+                  {needsValue && category === "date" && (
+                    <DatePickerInput
+                      value={condition.value}
+                      onChange={(iso) => updateCondition(condition.id, { value: iso })}
+                    />
+                  )}
+                  {needsValue && category !== "date" && (
+                    <Input
+                      type={category === "number" ? "number" : "text"}
+                      value={condition.value}
+                      onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
+                      placeholder={valuePlaceholder(category, condition.operator, t("FILTER_POPOVER.VALUE"))}
+                      className="h-8 w-36 text-xs"
+                    />
                   )}
 
                   {/* near: distances from the reference point, in meters */}
@@ -574,8 +575,8 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                         min={0}
                         value={condition.distance}
                         onChange={(e) => updateCondition(condition.id, { distance: e.target.value })}
-                        placeholder="Max (m)"
-                        aria-label="Maximum distance in meters"
+                        placeholder={t("FILTER_POPOVER.MAX_DISTANCE_PLACEHOLDER")}
+                        aria-label={t("FILTER_POPOVER.MAX_DISTANCE")}
                         className="h-8 w-24 text-xs"
                       />
                       <Input
@@ -585,8 +586,8 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                         onChange={(e) =>
                           updateCondition(condition.id, { minDistance: e.target.value })
                         }
-                        placeholder="Min (m)"
-                        aria-label="Minimum distance in meters"
+                        placeholder={t("FILTER_POPOVER.MIN_DISTANCE_PLACEHOLDER")}
+                        aria-label={t("FILTER_POPOVER.MIN_DISTANCE")}
                         className="h-8 w-24 text-xs"
                       />
                     </>
@@ -596,7 +597,7 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
                   <button
                     type="button"
                     onClick={() => removeCondition(condition.id)}
-                    title="Remove condition"
+                    title={t("FILTER_POPOVER.REMOVE_CONDITION")}
                     className="shrink-0 text-muted-foreground hover:text-foreground"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -615,7 +616,7 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           >
             <Plus className="h-3.5 w-3.5" />
-            Add condition
+            {t("FILTER_POPOVER.ADD_CONDITION")}
           </button>
         </div>
 
@@ -628,10 +629,10 @@ export function FilterPopover({ fields, appliedFilter, onApply }: FilterPopoverP
             className="text-xs text-muted-foreground"
             onClick={handleClear}
           >
-            Clear
+            {t("FILTER_POPOVER.CLEAR")}
           </Button>
           <Button type="button" size="sm" className="text-xs" onClick={handleApply}>
-            Apply
+            {t("FILTER_POPOVER.APPLY")}
           </Button>
         </div>
       </PopoverContent>

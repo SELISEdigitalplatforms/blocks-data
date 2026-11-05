@@ -201,12 +201,15 @@ export function RestWorkspace({ incoming }: RestWorkspaceProps) {
             <TabsContent value="headers" className="mt-0 min-h-0 flex-1 overflow-auto px-4 py-3">
               <dl className="space-y-1 font-mono text-xs">
                 <div className="flex flex-wrap gap-x-2">
+                  {/* eslint-disable-next-line no-restricted-syntax -- HTTP header name, not translatable */}
                   <dt className="font-medium text-foreground">x-blocks-key:</dt>
                   <dd className="text-muted-foreground">{t("REST_PLAYGROUND.HEADERS_CONSOLE_KEY")}</dd>
                 </div>
                 {willSendBody && (
                   <div className="flex flex-wrap gap-x-2">
+                    {/* eslint-disable-next-line no-restricted-syntax -- HTTP header name, not translatable */}
                     <dt className="font-medium text-foreground">Content-Type:</dt>
+                    {/* eslint-disable-next-line no-restricted-syntax -- HTTP header value, not translatable */}
                     <dd className="text-muted-foreground">application/json</dd>
                   </div>
                 )}

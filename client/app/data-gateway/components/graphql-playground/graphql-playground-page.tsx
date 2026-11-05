@@ -1505,18 +1505,21 @@ export const GraphQLWorkspace = ({
                     <div className="space-y-1.5 text-muted-foreground">
                       <div className="flex items-center justify-between">
                         <span>{t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE")}</span>
+                        {/* eslint-disable-next-line no-restricted-syntax -- keyboard key names, shown as on the keyboard */}
                         <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                           Ctrl+Shift+E
                         </kbd>
                       </div>
                       <div className="flex items-center justify-between">
                         <span>{t("GRAPHQL_PLAYGROUND_PAGE.NEW_LINE")}</span>
+                        {/* eslint-disable-next-line no-restricted-syntax -- keyboard key names, shown as on the keyboard */}
                         <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                           Shift+Enter
                         </kbd>
                       </div>
                       <div className="flex items-center justify-between">
                         <span>{t("GRAPHQL_PLAYGROUND_PAGE.NAVIGATE")}</span>
+                        {/* eslint-disable-next-line no-restricted-syntax -- keyboard key names, shown as on the keyboard */}
                         <kbd className="rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
                           Tab
                         </kbd>

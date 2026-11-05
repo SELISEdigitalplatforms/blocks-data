@@ -204,7 +204,6 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
     compactView,
     rootSchemaId,
     ancestorPath,
-    parentSchemaId,
     parentPropertyName,
     hideAccessValidation,
     policyEntitySchemaName,
@@ -303,7 +302,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
   const [currentAccessFieldTarget, setCurrentAccessFieldTarget] =
     useState<FieldAccessTarget | null>(null);
   const [currentAccessDrawerTitle, setCurrentAccessDrawerTitle] =
-    useState("Manage access");
+    useState(() => tx("SCHEMA_STRUCTURE.MANAGE_ACCESS"));
   const [openTypePopoverIndex, setOpenTypePopoverIndex] = useState<
     number | null
   >(null);
@@ -915,6 +914,7 @@ export default function SchemaStructureTable(props: SchemaStructureTableProps) {
                   )}
                   <TableBody ref={addPropertyScroll}>
                     {fields.map((field, index) => {
+                      // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() returns values the React Compiler cannot memoize; switching to useWatch would change when this component re-renders.
                       const name = watch(`properties.${index}.name`);
                       const currentType = watch(`properties.${index}.type`);
                       const childSchema = findChildSchemaByType(

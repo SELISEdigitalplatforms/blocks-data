@@ -10,7 +10,7 @@ import { UserHistories } from "../user-histories";
 import { UserPats } from "../user-pat";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 
-const x_blocks_key = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY") || "";
+const xBlocksKey = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY") || "";
 
 export const Profile = () => {
   const { isPending, isLoading, data } = useGetUser();
@@ -21,7 +21,7 @@ export const Profile = () => {
 export const UserProfile = ({ id }: { id: string }) => {
   const { t } = useT("data.idp.iam");
   const [tabId, setTabId] = useQueryState("userDetails", { defaultValue: "details" });
-  const { data } = useGetUserById({ id, projectKey: x_blocks_key });
+  const { data } = useGetUserById({ id, projectKey: xBlocksKey });
 
   return (
     <div className="">
@@ -50,7 +50,7 @@ export const UserProfile = ({ id }: { id: string }) => {
                 {t("PROFILE.PATS")}
               </TabsTrigger>
             </TabsList>
-            {tabId === "details" && <UpdateUser id={id} projectKey={x_blocks_key} own />}
+            {tabId === "details" && <UpdateUser id={id} projectKey={xBlocksKey} own />}
           </div>
 
           <TabsContent value="details">
@@ -58,10 +58,10 @@ export const UserProfile = ({ id }: { id: string }) => {
           </TabsContent>
 
           <TabsContent value="devices">
-            <UserDevices id={id} projectKey={x_blocks_key} />
+            <UserDevices id={id} projectKey={xBlocksKey} />
           </TabsContent>
           <TabsContent value="history">
-            <UserHistories id={id} projectKey={x_blocks_key} />
+            <UserHistories id={id} projectKey={xBlocksKey} />
           </TabsContent>
           <TabsContent value="personalAccessTokens">
             <UserPats id={id} />

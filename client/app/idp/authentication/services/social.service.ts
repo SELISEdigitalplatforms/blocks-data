@@ -53,7 +53,7 @@ export class SSOService {
   }
 
   saveBlocksSsoCredential(
-    payload: unknown,
+    _payload: unknown,
   ): Promise<ISaveSsoCredentialResponse> {
     return http.post(AUTH_OIDC_ENDPOINTS.SAVE_OIDC_CLIENT, {});
   }

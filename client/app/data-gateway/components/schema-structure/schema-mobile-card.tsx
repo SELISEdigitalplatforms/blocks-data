@@ -431,7 +431,7 @@ function RequiredField({ form, name }: Readonly<{ form: CardForm; name: string }
           onValueChange={(value) => setValue(`properties.${index}.requiredOn`, value as IField["requiredOn"], { shouldDirty: true })}
           disabled={isReadOnly}
         >
-          <SelectTrigger aria-label={t("SCHEMA_MOBILE_CARD.ISREQUIRED_FOR_NAME", { name: name || "property" })} className={PROPERTY_FIELD_CLASS}>
+          <SelectTrigger aria-label={t("SCHEMA_MOBILE_CARD.ISREQUIRED_FOR_NAME", { name: name || t("SCHEMA_MOBILE_CARD.PROPERTY") })} className={PROPERTY_FIELD_CLASS}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -552,7 +552,7 @@ function CardActions({ index, name, onDuplicate, onDelete }: Readonly<{ index: n
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 shrink-0 p-0" aria-label={t("SCHEMA_MOBILE_CARD.MORE_ACTIONS_FOR_NAME", { name: name || "property" })}>
+        <Button variant="ghost" className="h-8 w-8 shrink-0 p-0" aria-label={t("SCHEMA_MOBILE_CARD.MORE_ACTIONS_FOR_NAME", { name: name || t("SCHEMA_MOBILE_CARD.PROPERTY") })}>
           <MoreVertical className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -682,7 +682,7 @@ export function SchemaMobileCard({
               <SelectRowCheckbox
                 checked={!!selectedRows[field.id]}
                 disabled={isNewField}
-                label={t("SCHEMA_MOBILE_CARD.SELECT_NAME", { name: name || "property" })}
+                label={t("SCHEMA_MOBILE_CARD.SELECT_NAME", { name: name || t("SCHEMA_MOBILE_CARD.PROPERTY") })}
                 onChange={(selected) => onRowSelect(field.id, selected)}
               />
             )}

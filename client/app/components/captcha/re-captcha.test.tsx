@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { createRef } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReCaptcha } from "./re-captcha";
 import type { CaptchaRef } from "./index.type";
 
@@ -13,13 +13,13 @@ afterEach(() => {
 
 describe("ReCaptcha", () => {
   it("renders the widget when grecaptcha is already available", () => {
-    const render_ = vi.fn().mockReturnValue(42);
+    const renderWidget = vi.fn().mockReturnValue(42);
     const ready = vi.fn((cb: () => void) => cb());
-    window.grecaptcha = { render: render_, ready, reset: vi.fn() } as never;
+    window.grecaptcha = { render: renderWidget, ready, reset: vi.fn() } as never;
     const onVerify = vi.fn();
     render(<ReCaptcha siteKey="site-1" onVerify={onVerify} theme="dark" size="compact" />);
-    expect(render_).toHaveBeenCalledTimes(1);
-    const params = render_.mock.calls[0][1];
+    expect(renderWidget).toHaveBeenCalledTimes(1);
+    const params = renderWidget.mock.calls[0][1];
     expect(params.sitekey).toBe("site-1");
     expect(params.theme).toBe("dark");
     expect(params.size).toBe("compact");
@@ -27,12 +27,12 @@ describe("ReCaptcha", () => {
   });
 
   it("wires optional expired and error callbacks", () => {
-    const render_ = vi.fn().mockReturnValue(1);
-    window.grecaptcha = { render: render_, ready: (cb: () => void) => cb(), reset: vi.fn() } as never;
+    const renderWidget = vi.fn().mockReturnValue(1);
+    window.grecaptcha = { render: renderWidget, ready: (cb: () => void) => cb(), reset: vi.fn() } as never;
     const onExpired = vi.fn();
     const onError = vi.fn();
     render(<ReCaptcha siteKey="k" onVerify={vi.fn()} onExpired={onExpired} onError={onError} />);
-    const params = render_.mock.calls[0][1];
+    const params = renderWidget.mock.calls[0][1];
     expect(params["expired-callback"]).toBe(onExpired);
     expect(params["error-callback"]).toBe(onError);
   });

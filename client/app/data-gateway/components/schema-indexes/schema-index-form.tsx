@@ -131,6 +131,7 @@ export function SchemaIndexForm({
 
       <div className="flex flex-col gap-3">
         {fields.map((fieldRow, index) => {
+          // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() returns values the React Compiler cannot memoize; switching to useWatch would change when this component re-renders.
           const currentFieldName = form.watch(`fields.${index}.fieldName`);
           const fieldOptions = availableFields.filter(
             (name) => name === currentFieldName || !selectedFieldNames.includes(name),
@@ -247,7 +248,7 @@ export function SchemaIndexForm({
           disabled={!form.formState.isValid || isPending}
           onClick={() => void form.handleSubmit(onSubmit)()}
         >
-          {isPending ? "Saving…" : t("common:SAVE")}
+          {isPending ? t("SCHEMA_INDEX_FORM.SAVING") : t("common:SAVE")}
         </Button>
       </div>
     </Card>

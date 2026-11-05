@@ -269,10 +269,10 @@ const validationPanelLabels = (
     ? tx("SCHEMA_FIELD_VALIDATION_PANEL.SAVE_VALIDATION")
     : tx("SCHEMA_FIELD_VALIDATION_PANEL.ADD_VALIDATION");
   return {
-    submitButton: state.isPending ? "Saving…" : submitLabel,
+    submitButton: state.isPending ? tx("SCHEMA_FIELD_VALIDATION_PANEL.SAVING") : submitLabel,
     formHeading: state.isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.EDIT_VALIDATION") : tx("SCHEMA_FIELD_VALIDATION_PANEL.NEW_VALIDATION"),
     footerNote: state.isEditMode ? tx("SCHEMA_FIELD_VALIDATION_PANEL.EDITING_A_VALIDATION") : tx("SCHEMA_FIELD_VALIDATION_PANEL.NEW_VALIDATION"),
-    generateButton: state.isGenerating ? "Generating…" : tx("SCHEMA_FIELD_VALIDATION_PANEL.GENERATE"),
+    generateButton: state.isGenerating ? tx("SCHEMA_FIELD_VALIDATION_PANEL.GENERATING") : tx("SCHEMA_FIELD_VALIDATION_PANEL.GENERATE"),
     leftEmptyHint: tx(
       state.leftToServerIsDate
         ? "SCHEMA_FIELD_VALIDATION_PANEL.LEFT_EMPTY_NAMES_THE_DATE"

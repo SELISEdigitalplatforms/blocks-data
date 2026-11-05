@@ -263,7 +263,7 @@ const PrincipalSelectorInner = ({
                     value="__load_more__"
                     onSelect={() => browse.fetchNextPage()}
                   >
-                    {browse.isFetchingNextPage ? "Loading…" : t("PRINCIPAL_SELECTOR.LOAD_MORE")}
+                    {browse.isFetchingNextPage ? t("PRINCIPAL_SELECTOR.LOADING") : t("PRINCIPAL_SELECTOR.LOAD_MORE")}
                   </CommandItem>
                 )}
               </CommandGroup>

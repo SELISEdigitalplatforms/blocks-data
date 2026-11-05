@@ -30,25 +30,25 @@ const Harness = (props: Props) => {
   );
 };
 
-const render_ = (props: Props) => render(<Harness {...props} />);
+const renderDropdown = (props: Props) => render(<Harness {...props} />);
 
 afterEach(() => vi.clearAllMocks());
 
 describe("MultiSelectDropdown", () => {
   it("shows the placeholder when nothing is selected", () => {
-    render_({ options, value: [], onChange: vi.fn(), placeholder: "Pick" });
+    renderDropdown({ options, value: [], onChange: vi.fn(), placeholder: "Pick" });
     expect(screen.getByText("Pick")).toBeInTheDocument();
   });
 
   it("shows the joined labels of the selected values", () => {
-    render_({ options, value: ["a", "c"], onChange: vi.fn() });
+    renderDropdown({ options, value: ["a", "c"], onChange: vi.fn() });
     expect(screen.getByText("Alpha, Gamma")).toBeInTheDocument();
   });
 
   it("adds an option when clicked, preserving option order", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render_({ options, value: ["c"], onChange });
+    renderDropdown({ options, value: ["c"], onChange });
     await user.click(screen.getByRole("button"));
     await user.click(await screen.findByText("Alpha"));
     expect(onChange).toHaveBeenCalledWith(["a", "c"]);
@@ -57,7 +57,7 @@ describe("MultiSelectDropdown", () => {
   it("removes an already-selected option when clicked again", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render_({ options, value: ["a", "b"], onChange });
+    renderDropdown({ options, value: ["a", "b"], onChange });
     await user.click(screen.getByRole("button"));
     await user.click(await screen.findByText("Beta"));
     expect(onChange).toHaveBeenCalledWith(["a"]);
@@ -66,7 +66,7 @@ describe("MultiSelectDropdown", () => {
   it("clears the selection through the clear item", async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    render_({ options, value: ["a"], onChange });
+    renderDropdown({ options, value: ["a"], onChange });
     await user.click(screen.getByRole("button"));
     await user.click(await screen.findByText("Clear selection"));
     expect(onChange).toHaveBeenCalledWith([]);
@@ -74,7 +74,7 @@ describe("MultiSelectDropdown", () => {
 
   it("does not open when disabled", async () => {
     const user = userEvent.setup();
-    render_({ options, value: [], onChange: vi.fn(), disabled: true });
+    renderDropdown({ options, value: [], onChange: vi.fn(), disabled: true });
     await user.click(screen.getByRole("button"));
     expect(screen.queryByText("Alpha")).not.toBeInTheDocument();
   });

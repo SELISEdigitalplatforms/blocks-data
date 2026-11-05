@@ -4,7 +4,7 @@ import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const DATA_IDP_IAM_MODULE = "data.idp.iam";
 
-export const permissionFormDefaultValue: permissionFormSchemaType = {
+export const permissionFormDefaultValue: PermissionFormSchemaType = {
   name: "",
   type: 0,
   tags: [],
@@ -47,4 +47,4 @@ export const permissionFormSchema = z.lazy(() => z
     }
   ));
 
-export type permissionFormSchemaType = z.infer<typeof permissionFormSchema>;
+export type PermissionFormSchemaType = z.infer<typeof permissionFormSchema>;

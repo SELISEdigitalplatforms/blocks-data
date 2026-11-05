@@ -358,7 +358,7 @@ export function BlocksLoginPage({
                 disabled={isLoading}
                 onClick={onLogin}
               >
-                {isLoading ? "Redirecting…" : loginLabel}
+                {isLoading ? tx("BLOCKS_LOGIN_PAGE.REDIRECTING") : loginLabel}
               </Button>
             </div>
             <a

@@ -583,7 +583,7 @@ export const GraphQLPlaygroundPage = () => {
         // Create a single response tab - always use "Response" for single operations
         const newTab: ResponseTab = {
           id: `response-${Date.now()}`,
-          name: "Response",
+          name: t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE),
           content: responseContent,
         };
 
@@ -593,7 +593,7 @@ export const GraphQLPlaygroundPage = () => {
         const errorContent = JSON.stringify({ error: String(error) }, null, 2);
         const newTab: ResponseTab = {
           id: `response-${Date.now()}`,
-          name: "Response",
+          name: t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE),
           content: errorContent,
         };
 
@@ -601,7 +601,7 @@ export const GraphQLPlaygroundPage = () => {
         setActiveResponseTab(newTab.id);
       }
     },
-    [executeGraphQL, projectShortKey, injectMockDataTag],
+    [executeGraphQL, projectShortKey, injectMockDataTag, t],
   );
 
   // Register custom completion provider
@@ -1364,7 +1364,10 @@ export const GraphQLPlaygroundPage = () => {
               },
               command: {
                 id: commandId,
-                title: `▶ Run ${op.type}${op.name !== "Unnamed" ? ` "${op.name}"` : ""}`,
+                title:
+                  op.name === "Unnamed"
+                    ? t("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE", { type: op.type })
+                    : t("GRAPHQL_PLAYGROUND_PAGE.RUN_TYPE_NAME", { type: op.type, name: op.name }),
               },
             };
           });
@@ -1415,7 +1418,7 @@ export const GraphQLPlaygroundPage = () => {
     } catch (error) {
       console.error("Error registering CodeLens provider:", error);
     }
-  }, [isMonacoReady, parseOperations, executeOperation]);
+  }, [isMonacoReady, parseOperations, executeOperation, t]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -1445,7 +1448,7 @@ export const GraphQLPlaygroundPage = () => {
         });
         const newTab: ResponseTab = {
           id: `response-${Date.now()}`,
-          name: "Response",
+          name: t(GRAPHQL_PLAYGROUND_PAGE_RESPONSE),
           content: JSON.stringify(data, null, 2),
         };
         setResponses([newTab]);
@@ -1453,7 +1456,7 @@ export const GraphQLPlaygroundPage = () => {
       } catch (error) {
         const newTab: ResponseTab = {
           id: `response-${Date.now()}`,
-          name: "Error",
+          name: t("GRAPHQL_PLAYGROUND_PAGE.ERROR"),
           content: JSON.stringify({ error: String(error) }, null, 2),
         };
         setResponses([newTab]);
@@ -1594,7 +1597,7 @@ export const GraphQLPlaygroundPage = () => {
                 className="h-7 gap-1.5 px-3 text-xs shadow-[0_0_12px_-2px_rgba(99,102,241,0.35)] hover:shadow-[0_0_16px_-2px_rgba(99,102,241,0.5)]"
               >
                 <Play className="h-3 w-3" />
-                {isLoading ? "Executing…" : t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE")}
+                {isLoading ? t("GRAPHQL_PLAYGROUND_PAGE.EXECUTING") : t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE")}
               </Button>
             </div>
             <div className="flex-1 overflow-hidden">
@@ -1634,7 +1637,7 @@ export const GraphQLPlaygroundPage = () => {
                     height="100%"
                     language="json"
                     theme={monacoTheme}
-                    value="// Execute a query to see the response"
+                    value={t("GRAPHQL_PLAYGROUND_PAGE.EXECUTE_A_QUERY_TO_SEE_THE_RESPONSE")}
                     options={{
                       readOnly: true,
                       minimap: { enabled: false },

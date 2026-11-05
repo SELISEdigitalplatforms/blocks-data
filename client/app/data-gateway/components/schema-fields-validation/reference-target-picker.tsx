@@ -135,7 +135,7 @@ export function ReferenceTargetPicker({
             <Command shouldFilter={false}>
               <CommandInput placeholder={t("REFERENCE_TARGET_PICKER.SEARCH_NAMES_AND_DESCRIPTIONS")} value={search} onValueChange={setSearch} />
               <CommandList className="max-h-[280px]">
-                <CommandEmpty>{isLoading ? "Loading…" : t("REFERENCE_TARGET_PICKER.NO_ENTITY_FOUND")}</CommandEmpty>
+                <CommandEmpty>{isLoading ? t("REFERENCE_TARGET_PICKER.LOADING") : t("REFERENCE_TARGET_PICKER.NO_ENTITY_FOUND")}</CommandEmpty>
                 {groups.map((group) => (
                   <CommandGroup key={group.heading} heading={`${group.heading} · ${group.schemas.length}`}>
                     {group.schemas.map((schema) => (

@@ -5,7 +5,7 @@ import { useContext, useEffect } from "react";
 import { LogsViewerContext } from "../logs-viewer/logs-viewer";
 import { useT } from "@seliseblocks/genesis-os/i18n";
 // LMTQueryAgentSheet is from @blocks-ai which is not available in IDP standalone
-const LMTQueryAgentSheet = ({ questions }: { questions?: unknown[] }) => null;
+const LMTQueryAgentSheet = ({ questions: _questions }: { questions?: unknown[] }) => null;
 
 export const LogsListHeader = () => {
   const { t } = useT("data.console");

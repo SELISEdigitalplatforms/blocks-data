@@ -133,7 +133,7 @@ export function EnumValuesEditor({
           <p className="text-xs text-muted-foreground">{t("ENUM_VALUES_EDITOR.NO_ALLOWED_VALUES_DEFINED")}</p>
         ) : (
           <div className="flex flex-wrap gap-1.5">
-            {values.map((v, i) => (
+            {values.map((v) => (
               <span key={v} className={CHIP_CLASS}>
                 {v}
               </span>
@@ -225,7 +225,7 @@ export function EnumValuesEditor({
             commitTokens(e.clipboardData.getData("text").split(SEPARATORS));
           }}
           onBlur={() => draft && commitTokens([draft.trim()])}
-          placeholder={values.length === 0 ? t("ENUM_VALUES_EDITOR.ADD_A_VALUE") : "Add…"}
+          placeholder={values.length === 0 ? t("ENUM_VALUES_EDITOR.ADD_A_VALUE") : t("ENUM_VALUES_EDITOR.ADD")}
           aria-label={t("ENUM_VALUES_EDITOR.NEW_ENUM_VALUE")}
           aria-invalid={!!error}
           className="h-6 min-w-16 flex-1 bg-transparent text-[13px] outline-hidden placeholder:text-muted-foreground/60"

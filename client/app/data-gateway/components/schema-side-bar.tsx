@@ -82,6 +82,7 @@ export default function SchemasSidebar({
     },
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- react-hook-form's watch() returns values the React Compiler cannot memoize; switching to useWatch would change when this component re-renders.
   const search = watch("search");
   const debouncedSearch = useDebounce(search, 500);
   const selectedProject = useProjectStore().selectedProject;
@@ -330,7 +331,7 @@ export default function SchemasSidebar({
 
       {schemaListQuery?.data && totalCount > pageSize && (
         <div className="flex h-[38px] shrink-0 items-center gap-1.5 border-t border-border/40 pl-3 pr-2 text-[11px] text-muted-foreground">
-          <p>{`${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, totalCount)} of ${totalCount}`}</p>
+          <p>{t("SCHEMA_SIDE_BAR.FROM_TO_OF_TOTAL", { from: (page - 1) * pageSize + 1, to: Math.min(page * pageSize, totalCount), total: totalCount })}</p>
           <div className="flex-1" />
           <Button
             variant="outline"

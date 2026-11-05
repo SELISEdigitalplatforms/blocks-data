@@ -68,7 +68,8 @@ public class CompleteUploadOrchestrationTests : IDisposable
         _accessResolver.Object,
         _accessRepository.Object,
         Mock.Of<IUploadKeyRouter>(),
-        _uploadVerificationService.Object);
+        _uploadVerificationService.Object,
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<FileManagementService>.Instance);
 
     private static File QuarantinedFile() => new()
     {

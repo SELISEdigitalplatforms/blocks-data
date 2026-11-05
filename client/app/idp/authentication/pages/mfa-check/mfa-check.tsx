@@ -13,11 +13,11 @@ import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const MfaCheck = () => {
   const { t } = useT("data.idp.authentication");
-  const [{ mfa_type }] = useQueryStates({
+  const [{ mfa_type: mfaType }] = useQueryStates({
     mfa_type: parseAsInteger.withDefault(0),
   });
-  const mfa_type_message =
-    mfa_type == 1
+  const mfaTypeMessage =
+    mfaType == 1
       ? "2-step verification enabled. Open your authenticator app and get the verification code. Enter the code here."
       : "2-step verification enabled. Check your email for the verification code. Enter the code here to continue.";
 
@@ -30,7 +30,7 @@ export const MfaCheck = () => {
         <CardHeader className="text-center">
           <CardTitle className="text-3xl leading-9">{t("MFA_CHECK.VERIFY_IT_S_YOU")}</CardTitle>
           <CardDescription className="mt-3 text-xl font-normal leading-7 text-high-emphasis">
-            {mfa_type_message}
+            {mfaTypeMessage}
           </CardDescription>
         </CardHeader>
         <CardContent>

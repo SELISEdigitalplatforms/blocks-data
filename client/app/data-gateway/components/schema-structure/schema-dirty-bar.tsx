@@ -35,8 +35,7 @@ export function SchemaDirtyBar({ onSave, isValid, diff }: SchemaDirtyBarProps) {
           {diff.count === 1 ? t("SCHEMA_DIRTY_BAR.1_UNSAVED_CHANGE") : t("SCHEMA_DIRTY_BAR.COUNT_UNSAVED_CHANGES", { count: diff.count })}
         </p>
         <p className="truncate text-[11px] text-muted-foreground" title={summary || undefined}>
-          {summary ||
-            "Schema properties are used across the application; changing them affects everywhere they appear."}
+          {summary || t("SCHEMA_DIRTY_BAR.SCHEMA_PROPERTIES_ARE_USED_ACROSS")}
         </p>
       </div>
       <div className="flex-1" />

@@ -18,11 +18,12 @@ export const formatDate = (date: Date, withoutTime?: boolean): string => {
 };
 
 export const formatFullDate = (date: Date, withoutTime?: boolean): string => {
-  const monthNames = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  const monthKeys = [
+    "UTILS.JAN", "UTILS.FEB", "UTILS.MAR", "UTILS.APR", "UTILS.MAY", "UTILS.JUN",
+    "UTILS.JUL", "UTILS.AUG", "UTILS.SEP", "UTILS.OCT", "UTILS.NOV", "UTILS.DEC",
   ];
-  const dateStr = `${monthNames[date.getMonth()]} ${pad(date.getDate())}, ${date.getFullYear()}`;
+  const month = tStatic("data.shared", monthKeys[date.getMonth()]);
+  const dateStr = `${month} ${pad(date.getDate())}, ${date.getFullYear()}`;
   const timeStr = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   if (withoutTime) return dateStr;
   return tStatic("data.shared", "UTILS.DATESTR_AT_TIMESTR", { dateStr, timeStr });

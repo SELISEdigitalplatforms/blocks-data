@@ -371,6 +371,7 @@ interface AppTileProps {
   isLoading: boolean;
 }
 function AppTile({ app, onClick, isLoading }: AppTileProps) {
+  const { t } = useT(DATA_SHARED_MODULE);
   return (
     <button
       onClick={onClick}
@@ -381,7 +382,7 @@ function AppTile({ app, onClick, isLoading }: AppTileProps) {
         {app.icon}
       </div>
       <span className="line-clamp-1 max-w-[90px] text-[12px] font-medium leading-tight text-foreground">
-        {isLoading ? "Opening…" : app.label}
+        {isLoading ? t("BLOCKS_APP_LAUNCHER.OPENING") : app.label}
       </span>
     </button>
   );
@@ -418,20 +419,6 @@ function EditIcon() {
     </svg>
   );
 }
-function StarIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 20 20"
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-5 w-5"
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth={filled ? 0 : 1.5}
-    >
-      <path d="M10 1.5l2.38 6.29h6.63l-5.36 4.12 2.04 6.29-5.69-4.14-5.69 4.14 2.04-6.29-5.36-4.12h6.63z" />
-    </svg>
-  );
-}
 export function BlocksAppLauncher() {
   const { t } = useT(DATA_SHARED_MODULE);
   const [open, setOpen] = useState(false);
@@ -444,7 +431,8 @@ export function BlocksAppLauncher() {
       : new Set<string>(["iam", "localization"]);
   });
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
-  const location = useLocation();
+  // Subscribes to route changes so the launcher re-renders on navigation, as before.
+  useLocation();
   const saveFavourites = (keys: Set<string>) => {
     setFavouriteKeys(keys);
     localStorage.setItem(

@@ -106,103 +106,30 @@ test.describe("flow: Storage menu", () => {
     const trashUrl = `${storageBasePath}/trash`;
     const searchUrl = `${storageBasePath}/search`;
 
-    await test.step("Add Configuration form: Save is blocked before Name/Provider are filled", async () => {
+    // Drift (6fdac347, 2026-10-15): storage configurations are no longer created in this app.
+    // The Add menu's only item is "Configure in Blocks OS", which opens the OS secret-management
+    // page for storage in a new tab (storage.tsx onAddConfiguration, use-scoped-path.ts).
+    await test.step("Add menu: 'Configure in Blocks OS' opens the OS storage configuration page", async () => {
       await page.getByRole("button", { name: "Add" }).click();
-      await page.getByText("Add Configuration", { exact: true }).click();
-      await expect(page.getByRole("heading", { name: "Add Storage Configuration" })).toBeVisible({
-        timeout: 30_000,
-      });
-      await expect(page.getByText("Storage Provider")).toBeVisible();
+      const configureItem = page.getByRole("menuitem", { name: "Configure in Blocks OS" });
+      await expect(configureItem).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByRole("menuitem", { name: "Add Configuration" })).toHaveCount(0);
 
-      const saveButton = page.getByRole("button", { name: "Save" });
-
-      if (await saveButton.isDisabled()) {
-        await expect(saveButton).toBeDisabled();
-      } else {
-        await saveButton.click();
-        await expect(page.getByText("Name is required")).toBeVisible({ timeout: 10_000 });
-      }
-
-      await page.getByPlaceholder("Enter name").fill(`e2e-validation-${Date.now()}`);
+      const popupPromise = page.waitForEvent("popup");
+      await configureItem.click();
+      const popup = await popupPromise;
+      await popup.waitForURL(/\/secret-management\/storage$/, { waitUntil: "commit" });
+      await popup.close();
     });
 
-    async function validateProviderRequiredFields(optionName: string, requiredMessages: string[]) {
-      const providerSelect = page.getByRole("combobox").first();
-      await expect(providerSelect).toBeVisible({ timeout: 10_000 });
-
-      await providerSelect.click();
-      await page.getByRole("option", { name: optionName, exact: true }).click();
-
-      await page.getByRole("button", { name: "Save" }).click();
-      for (const message of requiredMessages) {
-        await expect(page.getByText(message)).toBeVisible({ timeout: 10_000 });
-      }
-    }
-
-    await test.step("AWS provider: Save is blocked until Access key / Secret key / Region endpoint are filled", async () => {
-      await validateProviderRequiredFields("AWS", [
-        "Access key is required",
-        "Secret key is required",
-        "Region endpoint is required",
-      ]);
-    });
-
-    await test.step("Azure provider: Save is blocked until Connection string is filled", async () => {
-      await validateProviderRequiredFields("Azure", ["Connection string is required"]);
-    });
-
-    await test.step("AWS S3 Compatible provider: Save is blocked until Access key / Secret key / Host URL are filled", async () => {
-      await validateProviderRequiredFields("AWS S3 Compatible", [
-        "Access key is required",
-        "Secret key is required",
-        "Host URL is required",
-      ]);
-    });
-
-    await test.step("SFTP provider: Save is blocked until Host / Username / Password / Remote base path are filled", async () => {
-      await validateProviderRequiredFields("SFTP", [
-        "Host is required",
-        "Username is required",
-        "Password is required",
-        "Remote base path is required",
-      ]);
-
-      await page.getByRole("button", { name: "Cancel" }).click();
-      await expect(page.getByRole("heading", { name: "Add Storage Configuration" })).toBeHidden();
-    });
-
-    await test.step("Add a real SFTP configuration (only when credentials are supplied via env)", async () => {
+    await test.step("Use a real SFTP configuration (only when credentials are supplied via env)", async () => {
       if (!sftpCredentials) return;
 
-      const existingCard = page.getByText(sftpCredentials.name, { exact: true });
-      try {
-        await expect(existingCard).toBeVisible({ timeout: 1_000 });
-        return;
-      } catch {
-        // Card not present -- fall through and create it.
-      }
-
-      await page.getByRole("button", { name: "Add" }).click();
-      await page.getByText("Add Configuration", { exact: true }).click();
-      await expect(page.getByRole("heading", { name: "Add Storage Configuration" })).toBeVisible({
-        timeout: 30_000,
-      });
-
-      await page.getByRole("combobox").first().click();
-      await page.getByRole("option", { name: "SFTP", exact: true }).click();
-
-      await page.getByPlaceholder("Enter name").fill(sftpCredentials.name);
-      await page.getByPlaceholder("Enter remote base path").fill(sftpCredentials.remoteBasePath);
-      await page.getByPlaceholder("Enter host").fill(sftpCredentials.host);
-      await page.getByPlaceholder("Enter port").fill(sftpCredentials.port);
-      await page.getByPlaceholder("Enter username").fill(sftpCredentials.userName);
-      await page.getByPlaceholder("Enter password").fill(sftpCredentials.password);
-
-      await page.getByRole("button", { name: "Save" }).click();
-      await expect(page.getByText("New configuration added successfully")).toBeVisible({
+      // Configurations are created in Blocks OS now (see above), so the env-named
+      // configuration must already exist there for the real-backend chain below.
+      await expect(page.getByText(sftpCredentials.name, { exact: true })).toBeVisible({
         timeout: 15_000,
       });
-      await expect(page.getByRole("heading", { name: "Add Storage Configuration" })).toBeHidden();
     });
 
     await test.step("Search configurations, then reset the filter", async () => {

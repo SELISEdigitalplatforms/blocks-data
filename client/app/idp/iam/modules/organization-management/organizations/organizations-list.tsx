@@ -162,9 +162,11 @@ export const OrganizationsList = ({ organizations, isLoading }: OrganizationTabl
         ),
       },
     ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dropping the sort deps would stop the column definitions (and the table built from them) from being recreated when sorting changes
     [sortQueryParams, setSortQueryParams, t],
   );
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table's useReactTable() returns non-memoizable functions by design; the React Compiler skipping this component is expected, and avoiding the hook would change behaviour
   const table = useReactTable({
     data: organizations,
     columns,

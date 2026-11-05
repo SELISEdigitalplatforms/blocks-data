@@ -3,7 +3,7 @@ import { Label } from "@/components/ui-kits/label/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui-kits/radio-group/radio-group";
 import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { useGetMFAConfig } from "@blocks-idp/mfa/hooks/use-mfa-config";
-import { MFA_Provider_Data } from "@blocks-idp/mfa/utils/mfa-config";
+import { MFA_PROVIDER_DATA } from "@blocks-idp/mfa/utils/mfa-config";
 import { useGetUserById } from "@blocks-idp/iam/hooks/use-user";
 import { useContext, useMemo } from "react";
 import { profileMfaContext } from "../profile-mfa";
@@ -21,7 +21,7 @@ export const ProfileMFAMethodList = ({ selected, setSelected }: UserMFAMethodLis
   const { data: userData } = useGetUserById({ id: userId, projectKey });
   const availableMFaMethod = useMemo(() => {
     if (!data?.userMfaType.length) return [];
-    return MFA_Provider_Data.filter((item) => data?.userMfaType.includes(item.type));
+    return MFA_PROVIDER_DATA.filter((item) => data?.userMfaType.includes(item.type));
   }, [data?.userMfaType]);
   return (
     <>

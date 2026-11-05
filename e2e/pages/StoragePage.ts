@@ -29,7 +29,7 @@ export class StoragePage extends BasePage {
   }
 
   getAddConfigurationMenuItem(): Locator {
-    return this.page.getByRole("menuitem", { name: "Add Configuration" });
+    return this.page.getByRole("menuitem", { name: "Configure in Blocks OS" });
   }
 
   getSearchInput(): Locator {

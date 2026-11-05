@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { Check, X } from "lucide-react";
 import { usePasswordStrength } from "@blocks-idp/authentication/hooks/use-password-strength";
 import { useT } from "@seliseblocks/genesis-os/i18n";

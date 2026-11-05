@@ -3,7 +3,7 @@ import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 const DATA_IDP_SECURITY_MODULE = "data.idp.security";
 
-export const MFA_Provider_Data = [
+export const MFA_PROVIDER_DATA = [
   {
     provider: "email",
     get label() { return tStatic(DATA_IDP_SECURITY_MODULE, "common:EMAIL"); },

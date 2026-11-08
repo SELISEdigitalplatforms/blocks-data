@@ -29,9 +29,10 @@ export type RuntimeKey =
   | "BLOCKS_STUDIO_BASE_URL"
   | "BLOCKS_STUDIO_CALLBACK_URL"
   | "BLOCKS_DATA_IMPORT_SAMPLE_FILE"
-  | "BLOCKS_GRAPHQL_PUBLIC_URL";
+  | "BLOCKS_GRAPHQL_PUBLIC_URL"
+  | "BLOCKS_GRAPHQL_DEPRECATED_SINCE";
 
-const isPlaceholder = (value?: string) =>
+export const isPlaceholder = (value?: string) =>
   !!value && value.startsWith(PLACEHOLDER_PREFIX) && value.endsWith("__");
 
 type GetRuntimeEnvOptions = {

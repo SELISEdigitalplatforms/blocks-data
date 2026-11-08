@@ -4,6 +4,8 @@
  */
 
 import { ReactNode } from "react";
+import type { SchemaLiveState } from "../utils/schema-live-state";
+import type { ISchemaDetails } from "./data-service";
 
 export type SchemaPreviewPayload = Record<string, unknown> & {
   SchemaName?: string;
@@ -35,6 +37,12 @@ export type SchemaPreviewDrawerProps = {
   rawIntrospection?: unknown;
   isGatewayIntrospectionPending?: boolean;
   isGatewayIntrospectionFetching?: boolean;
+  /** The schema being viewed; the REST side builds its requests from it. Without it, REST shows the empty state. */
+  schemaDetails?: ISchemaDetails;
+  /** The project's entity and DTO schemas, so DTO-typed fields get sample children. */
+  allSchemas?: ISchemaDetails[];
+  /** How the schema differs from the live version; drives the REST side's notice. */
+  liveState?: SchemaLiveState;
 };
 
 /**

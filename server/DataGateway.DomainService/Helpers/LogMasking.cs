@@ -47,4 +47,16 @@ public static class LogMasking
         var visible = value.Length >= 6 ? 3 : value.Length >= 2 ? 1 : 0;
         return value[..visible] + Stars;
     }
+
+    /// <summary>
+    /// Replaces every line break in a value that came from a request (a tenant id, an item id, an
+    /// entity name) with "_", so the value cannot end the log line and start a forged one.
+    /// </summary>
+    public static string OneLine(string? value) =>
+        (value ?? string.Empty)
+            .Replace('\r', '_')
+            .Replace('\n', '_')
+            .Replace('\u0085', '_')
+            .Replace('\u2028', '_')
+            .Replace('\u2029', '_');
 }

@@ -6,6 +6,13 @@ import { useSearchParams } from "react-router";
 
 import { setBreadcrumbTitle } from "@/constants/breadcrumb-custom-title";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui-kits/tabs/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui-kits/select/select";
 import { Switch } from "@/components/ui-kits/switch/switch";
 import { showErrorToast } from "@/hooks/use-toast";
 import { DataGatewayPageBar } from "../../components/page-bar";
@@ -13,6 +20,7 @@ import { useGetDataServiceConfiguration } from "../../hooks/use-configuration";
 import { useGraphLogAnalytics } from "../../hooks/use-graph-log-analytics";
 import { IDataSourceResponse } from "../../models/data-service";
 import { GraphLogGranularity } from "../../models/graph-log-analytics";
+import { GraphLogTransport } from "../../models/graph-log-history";
 import { isAnalyticsAccessible } from "../../utils/analytics-access.util";
 import { GraphAccessOutcomesCard } from "./graph-access-outcomes-card";
 import { GraphCoverageCard } from "./graph-coverage-card";
@@ -33,6 +41,8 @@ const toIsoDate = (date: Date) => format(date, "yyyy-MM-dd");
 /** Tabs whose charts are bucketed over time — the only ones the bucket-size control applies to. */
 const BUCKETED_TABS = new Set(["traffic", "performance", "reliability"]);
 const ANALYTICS_TABS = new Set(["traffic", "performance", "reliability", "requests"]);
+
+const ALL_TRANSPORTS = "all";
 
 const isAnalyticsTab = (value: string | null): value is string =>
   value !== null && ANALYTICS_TABS.has(value);
@@ -79,6 +89,9 @@ export const GraphAnalytics = () => {
     }
   };
   const [includeBlocksConsole, setIncludeBlocksConsole] = useState(false);
+  const [transport, setTransport] = useState<GraphLogTransport | typeof ALL_TRANSPORTS>(
+    ALL_TRANSPORTS,
+  );
   const { data: configurationData, isLoading: isConfigurationLoading } =
     useGetDataServiceConfiguration();
   const configuration = configurationData?.data as IDataSourceResponse | undefined;
@@ -109,6 +122,7 @@ export const GraphAnalytics = () => {
     utcOffsetMinutes,
     includeBlocksConsole,
     !isConfigurationLoading && hasAnalyticsAccess,
+    transport === ALL_TRANSPORTS ? undefined : transport,
   );
   const analytics = data?.data;
 
@@ -158,6 +172,29 @@ export const GraphAnalytics = () => {
                   />
                   {t("GRAPH_ANALYTICS_PAGE.INCLUDE_PLAYGROUND_OPERATIONS")}
                 </label>
+                {/* The request log has its own Transport filter, so this one only feeds the analytics. */}
+                {tab !== "requests" && (
+                  <Select
+                    value={transport}
+                    onValueChange={(value) =>
+                      setTransport(value as GraphLogTransport | typeof ALL_TRANSPORTS)
+                    }
+                  >
+                    <SelectTrigger
+                      className="h-8 w-[140px] text-xs"
+                      aria-label={t("GRAPH_ANALYTICS_PAGE.TRANSPORT")}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL_TRANSPORTS}>
+                        {t("GRAPH_ANALYTICS_PAGE.ALL_TRANSPORTS")}
+                      </SelectItem>
+                      <SelectItem value="rest">{t("GRAPH_ANALYTICS_PAGE.REST")}</SelectItem>
+                      <SelectItem value="graphql">{t("GRAPH_ANALYTICS_PAGE.GRAPHQL")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
                 {/* Requests has no time series, so a bucket size would be a dead control there. */}
                 {BUCKETED_TABS.has(tab) && (
                   <BucketSizeControl

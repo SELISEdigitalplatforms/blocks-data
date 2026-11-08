@@ -1,3 +1,5 @@
+using DataGateway.DomainService.Helpers;
+
 namespace DataGateway.DomainService.Models.Responses;
 
 /// <summary>
@@ -18,6 +20,13 @@ public class GraphLogHistoryItemResponse
     public string StatusDescription { get; set; } = string.Empty;
 
     public string SchemaName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The API the request came through: "rest" or "graphql". Entries logged before the transport
+    /// was recorded have none and read as "graphql".
+    /// </summary>
+    public string Transport { get; set; } = GraphLogTransport.GraphQl;
+
     public string EntityName { get; set; } = string.Empty;
     public string CollectionName { get; set; } = string.Empty;
     public string OperationType { get; set; } = string.Empty;

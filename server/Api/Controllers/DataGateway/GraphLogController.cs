@@ -1,3 +1,4 @@
+using Blocks.Data.Api.Filters;
 using Blocks.Genesis;
 using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Responses;
@@ -30,11 +31,14 @@ namespace Api.Controllers
         /// Retrieves a paginated, most-recent-first list of GraphQL request history for the
         /// current tenant. Supports filtering by SchemaName (GraphQL field name), EntityName,
         /// OperationType ("query"/"mutation"), Outcome ("allowed"/"denied"/"error"), exact
-        /// HTTP StatusCode, failure reason, sorting, and a From/To timestamp range.
+        /// HTTP StatusCode, failure reason, Transport ("rest"/"graphql"; 400 for any other value),
+        /// sorting, and a From/To timestamp range.
         /// </summary>
         [HttpGet("history")]
         [ProtectedEndPoint("blocks-data::graph-log::history")]
+        [ValidateRequest]
         [ProducesResponseType(typeof(ServiceResponse<PaginationResponse<GraphLogHistoryItemResponse>>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetHistory([FromQuery] GetGraphLogHistoryRequest request)
         {
@@ -49,7 +53,9 @@ namespace Api.Controllers
         /// </summary>
         [HttpGet("analytics")]
         [ProtectedEndPoint("blocks-data::graph-log::analytics")]
+        [ValidateRequest]
         [ProducesResponseType(typeof(ServiceResponse<GraphLogAnalyticsResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(typeof(ServiceResponse<GraphLogAnalyticsResponse>), StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
         public async Task<IActionResult> GetAnalytics([FromQuery] GetGraphLogAnalyticsRequest request)

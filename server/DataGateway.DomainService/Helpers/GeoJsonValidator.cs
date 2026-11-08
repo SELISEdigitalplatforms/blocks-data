@@ -36,7 +36,7 @@ public sealed class GeoJsonValidationException(string reason) : Exception(reason
 /// <c>Feature</c>/<c>FeatureCollection</c> wrappers are not accepted; they fail
 /// as unknown geometry types, which is the intended behaviour.
 ///
-/// The value shape is whatever <see cref="GraphQlTypeHelper.ParseValueNode"/>
+/// The value shape is whatever <c>GraphQlTypeHelper.ParseValueNode</c>
 /// produces — nested <see cref="IDictionary{TKey,TValue}"/> and
 /// <see cref="IList"/> — so this stays free of any GraphQL or BSON dependency
 /// and is directly unit-testable.

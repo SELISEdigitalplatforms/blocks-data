@@ -1,9 +1,12 @@
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_IDP_AUTHENTICATION_MODULE = "data.idp.authentication";
 export const UserCreationType: Record<number, string> = {
-  0: "None",
-  1: "Portal",
+  get 0() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.NONE"); },
+  get 1() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.PORTAL"); },
   2: "API",
-  3: "Service",
-  4: "Social",
+  get 3() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.SERVICE"); },
+  get 4() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.SOCIAL"); },
 };
 
 export enum GRANT_TYPES {
@@ -18,23 +21,23 @@ export const GRANT_TYPES_OPTIONS: { id: GRANT_TYPES; label: string; value: strin
   { id: GRANT_TYPES.social, label: "SSO", value: GRANT_TYPES.social },
   {
     id: GRANT_TYPES.clientCredential,
-    label: "Client Credential",
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.CLIENT_CREDENTIAL"); },
     value: GRANT_TYPES.clientCredential,
   },
   {
     id: GRANT_TYPES.authorizationCode,
-    label: "Authorization Code",
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.AUTHORIZATION_CODE"); },
     value: GRANT_TYPES.authorizationCode,
   },
 ];
 
 export const AuthenticationTabs: { id: string; label: string; value: string }[] = [
-  { id: "general", label: "General", value: "general" },
-  { id: "signin-flow", label: "Signin flow", value: "signin-flow" },
-  { id: "signup-flow", label: "Signup flow", value: "signup-flow" },
-  { id: "oidc-template", label: "OIDC template", value: "oidc-template" },
-  { id: "roles", label: "Roles", value: "roles" },
-  { id: "permissions", label: "Permissions", value: "permissions" },
+  { id: "general", get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.GENERAL"); }, value: "general" },
+  { id: "signin-flow", get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.SIGNIN_FLOW"); }, value: "signin-flow" },
+  { id: "signup-flow", get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.SIGNUP_FLOW"); }, value: "signup-flow" },
+  { id: "oidc-template", get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.OIDC_TEMPLATE"); }, value: "oidc-template" },
+  { id: "roles", get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.ROLES"); }, value: "roles" },
+  { id: "permissions", get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.PERMISSIONS"); }, value: "permissions" },
   // {
   //   id: GRANT_TYPES.clientCredential,
   //   label: "Client Credential",
@@ -45,17 +48,17 @@ export const AuthenticationTabs: { id: string; label: string; value: string }[] 
 export const SecretManagementTabs: { id: string; label: string; value: string }[] = [
   {
     id: "infra-config",
-    label: "Infra Config",
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.INFRA_CONFIG"); },
     value: "infra-config",
   },
   {
     id: "my-secret",
-    label: "My Secret",
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.MY_SECRET"); },
     value: "my-secret",
   },
   {
     id: "managed-services",
-    label: "My Service",
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.MY_SERVICE"); },
     value: "managed-services",
   },
   {
@@ -70,12 +73,12 @@ export const SecretManagementTabs: { id: string; label: string; value: string }[
   },
   {
     id: "external-idp",
-    label: "External IdP",
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.EXTERNAL_IDP"); },
     value: "external-idp",
   },
   {
     id: "captcha",
-    label: "Captcha",
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.CAPTCHA"); },
     value: "captcha",
   },
   {
@@ -85,12 +88,12 @@ export const SecretManagementTabs: { id: string; label: string; value: string }[
   },
   {
     id: "magic-url",
-    label: "Magic URL",
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.MAGIC_URL"); },
     value: "magic-url",
   },
   {
     id: "storage",
-    label: "Storage",
+    get label() { return tStatic(DATA_IDP_AUTHENTICATION_MODULE, "AUTHENTICATION_CONSTANT.STORAGE"); },
     value: "storage",
   },
 ];

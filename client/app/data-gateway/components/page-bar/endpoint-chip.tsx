@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useGetDataServiceConfiguration } from "../../hooks/use-configuration";
 import { IDataSourceResponse } from "../../models/data-service";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 /** The short, host-relative label shown in the chip — not what actually gets
  *  copied. `/api/gateway` is this app's own proxy path and isn't reachable
@@ -24,6 +25,7 @@ const GATEWAY_LABEL = "/gateway";
  * configuration page to find out which database they were editing.
  */
 export const EndpointChip = () => {
+  const { t } = useT("data.gateway.schema");
   const { data: configurationData } = useGetDataServiceConfiguration();
   const configuration = configurationData?.data as IDataSourceResponse | undefined;
   const [copied, setCopied] = useState(false);
@@ -49,7 +51,7 @@ export const EndpointChip = () => {
   return (
     <div
       className="hidden h-[26px] items-center gap-2 rounded-full border border-border/40 bg-muted/30 pl-2.5 pr-1 lg:flex"
-      title={configuration?.databaseName ? `Connected to ${configuration.databaseName}` : undefined}
+      title={configuration?.databaseName ? t("ENDPOINT_CHIP.CONNECTED_TO_DATABASENAME", { databaseName: configuration.databaseName }) : undefined}
     >
       <span
         className={cn(
@@ -62,7 +64,7 @@ export const EndpointChip = () => {
       <button
         type="button"
         onClick={copyEndpoint}
-        aria-label={copied ? "Endpoint copied" : "Copy endpoint"}
+        aria-label={copied ? t("ENDPOINT_CHIP.ENDPOINT_COPIED") : t("ENDPOINT_CHIP.COPY_ENDPOINT")}
         title={endpoint}
         className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
       >

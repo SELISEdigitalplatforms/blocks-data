@@ -1,0 +1,174 @@
+{
+  "response": {
+    "data": {
+      "insertManyProduct": {
+        "acknowledged": true,
+        "itemIds": [
+          "p7",
+          "p8"
+        ],
+        "totalImpactedData": 2,
+        "message": null
+      }
+    }
+  },
+  "mongoAfter": {
+    "Notes": [
+      {
+        "IsDeleted": false,
+        "ItemId": "n1",
+        "Text": "Hello",
+        "_id": "n1"
+      }
+    ],
+    "Products": [
+      {
+        "Address": {
+          "City": "Zurich",
+          "Zip": "8000"
+        },
+        "CreatedDate": "2024-01-01T00:00:00Z",
+        "IsDeleted": false,
+        "ItemId": "p1",
+        "LastUpdatedDate": "2024-01-01T00:00:00Z",
+        "Location": {
+          "coordinates": [
+            8.5417000000000005,
+            47.376899999999999
+          ],
+          "type": "Point"
+        },
+        "Owner": "u1",
+        "Price": 10.5,
+        "Secret": "s-one",
+        "Status": "Draft",
+        "Stock": 5,
+        "Tags": [
+          "red",
+          "new"
+        ],
+        "Title": "Alpha",
+        "_id": "p1"
+      },
+      {
+        "Address": {
+          "City": "Lucerne",
+          "Zip": "6000"
+        },
+        "CreatedDate": "2024-01-01T00:00:00Z",
+        "IsDeleted": false,
+        "ItemId": "p2",
+        "LastUpdatedDate": "2024-01-01T00:00:00Z",
+        "Location": {
+          "coordinates": [
+            8.3093000000000004,
+            47.050199999999997
+          ],
+          "type": "Point"
+        },
+        "Owner": "u2",
+        "Price": 20.0,
+        "Secret": "s-two",
+        "Status": "Draft",
+        "Stock": 0,
+        "Tags": [
+          "blue"
+        ],
+        "Title": "Bravo",
+        "_id": "p2"
+      },
+      {
+        "Address": {
+          "City": "Zurich",
+          "Zip": "8004"
+        },
+        "CreatedDate": "2024-01-01T00:00:00Z",
+        "IsDeleted": false,
+        "ItemId": "p3",
+        "LastUpdatedDate": "2024-01-01T00:00:00Z",
+        "Location": {
+          "coordinates": [
+            8.5816999999999997,
+            47.376899999999999
+          ],
+          "type": "Point"
+        },
+        "Owner": "u1",
+        "Price": 30.25,
+        "Secret": "s-three",
+        "Status": "Live",
+        "Stock": 12,
+        "Tags": [],
+        "Title": "Charlie",
+        "_id": "p3"
+      },
+      {
+        "CreatedBy": "u1",
+        "CreatedDate": "<now>",
+        "LastUpdatedBy": "u1",
+        "LastUpdatedDate": "<now>",
+        "OrganizationId": "org-1",
+        "Tags": [],
+        "Title": "Lamp",
+        "_id": "p7"
+      },
+      {
+        "CreatedBy": "u1",
+        "CreatedDate": "<now>",
+        "LastUpdatedBy": "u1",
+        "LastUpdatedDate": "<now>",
+        "OrganizationId": "org-1",
+        "Tags": [],
+        "Title": "Desk",
+        "_id": "p8"
+      }
+    ]
+  },
+  "events": [
+    {
+      "CollectionName": "Products",
+      "Data": [
+        {
+          "CreatedBy": "u1",
+          "CreatedDate": "<now>",
+          "LastUpdatedBy": "u1",
+          "LastUpdatedDate": "<now>",
+          "OrganizationId": "org-1",
+          "Tags": [],
+          "Title": "Lamp",
+          "_id": "p7"
+        },
+        {
+          "CreatedBy": "u1",
+          "CreatedDate": "<now>",
+          "LastUpdatedBy": "u1",
+          "LastUpdatedDate": "<now>",
+          "OrganizationId": "org-1",
+          "Tags": [],
+          "Title": "Desk",
+          "_id": "p8"
+        }
+      ],
+      "Kind": "Publish",
+      "Operation": "Inserted",
+      "SchemaName": "Product",
+      "UpdatedDocuments": null
+    }
+  ],
+  "operationTags": {
+    "SchemaName": "insertManyProduct",
+    "EntityName": "Product",
+    "CollectionName": "Products",
+    "OperationType": "mutation",
+    "OperationQuery": "mutation {\n  insertManyProduct(input: [ { ItemId: \"p7\", Title: \"Lamp\" }, { ItemId: \"p8\", Title: \"Desk\" } ]) {\n    acknowledged\n    itemIds\n    totalImpactedData\n    message\n  }\n}",
+    "MongoQuery": "{ \"insertMany\" : [{ \"_id\" : \"p7\", \"Title\" : \"Lamp\", \"CreatedDate\" : { \"$date\" : \"<now>\" }, \"LastUpdatedDate\" : { \"$date\" : \"<now>\" }, \"CreatedBy\" : \"u1\", \"LastUpdatedBy\" : \"u1\", \"OrganizationId\" : \"org-1\", \"Tags\" : [] }, { \"_id\" : \"p8\", \"Title\" : \"Desk\", \"CreatedDate\" : { \"$date\" : \"<now>\" }, \"LastUpdatedDate\" : { \"$date\" : \"<now>\" }, \"CreatedBy\" : \"u1\", \"LastUpdatedBy\" : \"u1\", \"OrganizationId\" : \"org-1\", \"Tags\" : [] }] }",
+    "ResponseStatus": "success",
+    "FailureKind": "",
+    "FailureCode": "",
+    "FailureMessage": "",
+    "ResponseSize": 312,
+    "DocumentCount": 2,
+    "InAppRequest": true,
+    "IsIntrospection": false
+  }
+}

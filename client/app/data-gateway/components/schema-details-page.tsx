@@ -38,6 +38,7 @@ import { SchemaBasicInfo } from "./schema-basic-info";
 import { SchemaRail } from "./schema-rail";
 import SchemasSidebar, { type DataGatewayListQueryUpdate } from "./schema-side-bar";
 import SchemaStructureTable from "./schema-structure";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const EMPTY_SCHEMA: ISchemaDetails = {
   id: "",
@@ -64,6 +65,7 @@ const EMPTY_SCHEMA: ISchemaDetails = {
 };
 
 export const SchemaDetailsPage = () => {
+  const { t } = useT("data.gateway.schema");
   const queryClient = useQueryClient();
   const [isAddEditSchemaModalOpen, setIsAddEditSchemaModalOpen] = useState(false);
   const [addEditSchemaInstance, setAddEditSchemaInstance] = useState(0);
@@ -300,7 +302,7 @@ export const SchemaDetailsPage = () => {
           },
           { history: "push" },
         );
-        showSuccessToast({ description: "Schema added successfully" });
+        showSuccessToast({ description: t("SCHEMA_DETAILS_PAGE.SCHEMA_ADDED_SUCCESSFULLY") });
         setIsAddEditSchemaModalOpen(false);
         return true;
       } else {
@@ -309,7 +311,7 @@ export const SchemaDetailsPage = () => {
       }
     } catch (error) {
       console.error("Error in onSchemaCreate:", error);
-      showErrorToast({ errors: ["An unexpected error occurred"] });
+      showErrorToast({ errors: [t("SCHEMA_DETAILS_PAGE.AN_UNEXPECTED_ERROR_OCCURRED")] });
       return false;
     }
   };
@@ -459,7 +461,7 @@ export const SchemaDetailsPage = () => {
             <div className="flex min-w-0 items-center gap-2 pb-2 lg:hidden">
               <button
                 type="button"
-                aria-label="Back to schema list"
+                aria-label={t("SCHEMA_DETAILS_PAGE.BACK_TO_SCHEMA_LIST")}
                 onClick={() => handleListQueryChange({ schemaId: null })}
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -503,7 +505,7 @@ export const SchemaDetailsPage = () => {
                     onOpenSchemaAccess={(tab) =>
                       openAccessInspector({
                         subject: schemaDetails.schemaName,
-                        context: "Schema access",
+                        context: t("SCHEMA_DETAILS_PAGE.SCHEMA_ACCESS"),
                         schemaName: schemaDetails.schemaName,
                         schemaId: schemaDetails.id,
                         fields: schemaDetails.fields,

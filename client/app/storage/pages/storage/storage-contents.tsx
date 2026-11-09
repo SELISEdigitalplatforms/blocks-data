@@ -17,8 +17,18 @@ import {
 } from "./components/storage-card/storage-card";
 import { StorageDetailsDrawer } from "./components/storage-details-drawer/storage-details-drawer";
 import { StorageFiltersToolbar } from "./components/storage-filters-toolbar/storage-filters-toolbar";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_STORAGE_MODULE = "data.storage";
 
 type FilterValues = StorageFilterValues;
+
+const storageSubtitle = (strategy: IStorageConfiguration["storageStrategy"]): string => {
+  if (strategy === "Amazon") return "AWS";
+  if (strategy === "Azure") return tStatic(DATA_STORAGE_MODULE, "STORAGE_CONTENTS.AZURE");
+  if (strategy === "S3Compatible") return tStatic(DATA_STORAGE_MODULE, "STORAGE_CONTENTS.AWS_S3_COMPATIBLE");
+  return "SFTP";
+};
 
 const mapConfigurationToCardData = (
   config: IStorageConfiguration,
@@ -28,14 +38,7 @@ const mapConfigurationToCardData = (
   providerIcon: "",
   providerColor: "",
   title: config.name,
-  subtitle:
-    config.storageStrategy === "Amazon"
-      ? "AWS"
-      : config.storageStrategy === "Azure"
-        ? "Azure"
-        : config.storageStrategy === "S3Compatible"
-          ? "AWS S3 Compatible"
-          : "SFTP",
+  subtitle: storageSubtitle(config.storageStrategy),
 });
 
 export function StorageContentsWrapper() {
@@ -55,6 +58,7 @@ export function StorageContentsWrapper() {
 }
 
 export function StorageContents() {
+  const { t } = useT(DATA_STORAGE_MODULE);
   const navigate = useNavigate();
   const storagePath = useStoragePath();
   const osConfigUrl = useOsSecretManagementUrl("storage");
@@ -132,7 +136,7 @@ export function StorageContents() {
           onConnectStorage={() => console.error("Connect to storage")}
         />
 
-        {loading ? (
+        {loading && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {[...Array(4)].map((_, index) => (
               <div
@@ -150,7 +154,8 @@ export function StorageContents() {
               </div>
             ))}
           </div>
-        ) : filteredData.length > 0 ? (
+        )}
+        {!loading && filteredData.length > 0 && (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filteredData.map((storage) => (
               <StorageCard
@@ -163,10 +168,11 @@ export function StorageContents() {
               />
             ))}
           </div>
-        ) : (
+        )}
+        {!loading && filteredData.length === 0 && (
           <div className="flex h-64 items-center justify-center">
             <p className="text-muted-foreground">
-              No storage configurations found.
+              {t("STORAGE_CONTENTS.NO_STORAGE_CONFIGURATIONS_FOUND")}
             </p>
           </div>
         )}

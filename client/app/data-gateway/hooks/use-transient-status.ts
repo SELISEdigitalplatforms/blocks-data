@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { handleErrorMessages } from "@/lib/error";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export interface TransientStatus {
   kind: "success" | "error";
@@ -19,6 +20,7 @@ const DEFAULT_DURATION_MS = 4000;
  * idle-text slot (see `InlineStatusMessage`) instead of firing a toast.
  */
 export function useTransientStatus(duration = DEFAULT_DURATION_MS) {
+  const { t } = useT("data.gateway.schema");
   const [status, setStatusState] = useState<TransientStatus | null>(null);
   // React 19 requires an explicit initial value; `useRef<T>()` no longer
   // implies `T | undefined`.
@@ -45,12 +47,12 @@ export function useTransientStatus(duration = DEFAULT_DURATION_MS) {
   /** Mirrors `showErrorToast`'s own `errors` normalization, so switching a
    *  call site from the toast to this hook is a drop-in swap. */
   const setError = useCallback(
-    (errors: unknown, fallback = "Something went wrong.") => {
+    (errors: unknown, fallback = t("USE_TRANSIENT_STATUS.SOMETHING_WENT_WRONG")) => {
       const normalized = handleErrorMessages(errors);
       const message = Array.isArray(normalized) ? normalized.join(" ") : normalized || fallback;
       setStatus({ kind: "error", message });
     },
-    [setStatus],
+    [setStatus, t],
   );
 
   return { status, setStatus, setSuccess, setError } as const;

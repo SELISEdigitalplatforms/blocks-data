@@ -17,6 +17,7 @@ import {
   formatRelativeTime,
   formatSize,
 } from "./graph-log-formatters";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface GraphLogDetailsSheetProps {
   item: IGraphLogHistoryItem | null;
@@ -41,6 +42,7 @@ const CodeBlock = ({ label, value }: { label: string; value: string }) => (
 );
 
 export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetailsSheetProps) => {
+  const { t } = useT("data.gateway.analytics");
   if (!item) return null;
 
   const failed = item.responseStatus === "failed";
@@ -54,7 +56,7 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 flex-col gap-1">
                 <SheetTitle className="truncate text-lg font-semibold">
-                  {item.schemaName || item.operationName || "Request"}
+                  {item.schemaName || item.operationName || t("GRAPH_LOG_DETAILS_SHEET.REQUEST")}
                 </SheetTitle>
                 <span className="text-xs text-muted-foreground">
                   {formatDateTimeWithSeconds(item.timestamp)} · {formatRelativeTime(item.timestamp)}
@@ -62,7 +64,7 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
               </div>
               <button
                 onClick={() => onOpenChange(false)}
-                aria-label="Close details"
+                aria-label={t("GRAPH_LOG_DETAILS_SHEET.CLOSE_DETAILS")}
                 className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring"
               >
                 <X className="h-4 w-4" />
@@ -84,30 +86,30 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
                 <Badge variant="error">{failureKindLabel(item.failureKind)}</Badge>
               )}
               {item.operationType && <Badge variant="secondary">{item.operationType}</Badge>}
-              <Badge variant="secondary">{item.inAppRequest ? "In-app" : "External"}</Badge>
+              <Badge variant="secondary">{item.inAppRequest ? t("GRAPH_LOG_DETAILS_SHEET.IN_APP") : t("GRAPH_LOG_DETAILS_SHEET.EXTERNAL")}</Badge>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <Field label="Operation" value={item.operationName || "—"} />
-              <Field label="Duration" value={formatDuration(item.duration)} />
-              <Field label="Entity" value={item.entityName || "—"} />
-              <Field label="Collection" value={item.collectionName || "—"} />
-              <Field label="Documents" value={item.documentCount ?? 0} />
-              <Field label="Request size" value={formatSize(item.requestSize)} />
-              <Field label="Response size" value={formatSize(item.responseSize)} />
-              <Field label="DB response size" value={formatSize(item.databaseResponseSize)} />
-              <Field label="Status code" value={item.statusCode || "—"} />
-              {failed && <Field label="Error code" value={item.failureCode || "—"} />}
-              <Field label="Started" value={formatDateTimeWithSeconds(item.startTime)} />
-              <Field label="Ended" value={formatDateTimeWithSeconds(item.endTime)} />
-              <Field label="Trace ID" value={item.traceId || "—"} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.OPERATION")} value={item.operationName || "—"} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.DURATION")} value={formatDuration(item.duration)} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.ENTITY")} value={item.entityName || "—"} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.COLLECTION")} value={item.collectionName || "—"} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.DOCUMENTS")} value={item.documentCount ?? 0} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.REQUEST_SIZE")} value={formatSize(item.requestSize)} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.RESPONSE_SIZE")} value={formatSize(item.responseSize)} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.DB_RESPONSE_SIZE")} value={formatSize(item.databaseResponseSize)} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.STATUS_CODE")} value={item.statusCode || "—"} />
+              {failed && <Field label={t("GRAPH_LOG_DETAILS_SHEET.ERROR_CODE")} value={item.failureCode || "—"} />}
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.STARTED")} value={formatDateTimeWithSeconds(item.startTime)} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.ENDED")} value={formatDateTimeWithSeconds(item.endTime)} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.TRACE_ID")} value={item.traceId || "—"} />
             </div>
 
-            {item.userAgent && <Field label="Client" value={item.userAgent} />}
+            {item.userAgent && <Field label={t("GRAPH_LOG_DETAILS_SHEET.CLIENT")} value={item.userAgent} />}
 
             <div className="flex flex-col gap-2">
               <span className="text-xs uppercase tracking-widest text-muted-foreground">
-                Where the time went
+                {t("GRAPH_LOG_DETAILS_SHEET.WHERE_THE_TIME_WENT")}
               </span>
               <PhaseBreakdown
                 phases={toPhaseRows({
@@ -121,14 +123,23 @@ export const GraphLogDetailsSheet = ({ item, open, onOpenChange }: GraphLogDetai
               />
             </div>
 
-            {item.failureMessage && <Field label="Failure reason" value={item.failureMessage} />}
+            {item.failureMessage && <Field label={t("GRAPH_LOG_DETAILS_SHEET.FAILURE_REASON")} value={item.failureMessage} />}
 
             {item.statusDescription && (
-              <Field label="Status description" value={item.statusDescription} />
+              <Field label={t("GRAPH_LOG_DETAILS_SHEET.STATUS_DESCRIPTION")} value={item.statusDescription} />
             )}
 
-            {item.operationQuery && <CodeBlock label="GraphQL query" value={item.operationQuery} />}
-            {item.mongoQuery && <CodeBlock label="Mongo query" value={item.mongoQuery} />}
+            {item.operationQuery && (
+              <CodeBlock
+                label={t(
+                  item.transport === "rest"
+                    ? "GRAPH_LOG_DETAILS_SHEET.REQUEST"
+                    : "GRAPH_LOG_DETAILS_SHEET.GRAPHQL_QUERY",
+                )}
+                value={item.operationQuery}
+              />
+            )}
+            {item.mongoQuery && <CodeBlock label={t("GRAPH_LOG_DETAILS_SHEET.MONGO_QUERY")} value={item.mongoQuery} />}
           </div>
         </div>
       </SheetContent>

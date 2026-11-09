@@ -1,3 +1,4 @@
+import "./i18n";
 import { BlocksAppLayout } from "@seliseblocks/genesis-os";
 import {
   attachQueryErrorReporting,

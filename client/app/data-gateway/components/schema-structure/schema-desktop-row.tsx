@@ -49,6 +49,9 @@ import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
 import { FieldFlags, FlagToggleChip, RequiredBadge, TypeChip, flagTitlesFromField, flagsFromField } from "../primitives";
 import { DefaultValueButton } from "./default-value-button";
 import { FieldCount, TreeStem, TreeToggle } from "./property-tree";
+import { useT, tStatic, type TFunction } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
 
 /**
  * The three genuine booleans on a property, as one column.
@@ -58,9 +61,9 @@ import { FieldCount, TreeStem, TreeToggle } from "./property-tree";
  * could not. The aria-labels are unchanged so the edit-mode contract holds.
  */
 const FLAG_SWITCHES = [
-  { key: "isArray", label: "ARR", title: "IsArray", notForChildTypes: false },
-  { key: "isPIIData", label: "PII", title: "IsPII", notForChildTypes: true },
-  { key: "isUniqueData", label: "UQ", title: "IsUnique", notForChildTypes: true },
+  { key: "isArray", label: "ARR", get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DESKTOP_ROW.ISARRAY"); }, notForChildTypes: false },
+  { key: "isPIIData", label: "PII", get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DESKTOP_ROW.ISPII"); }, notForChildTypes: true },
+  { key: "isUniqueData", label: "UQ", get title() { return tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_DESKTOP_ROW.ISUNIQUE"); }, notForChildTypes: true },
 ] as const;
 
 interface SchemaDesktopRowProps {
@@ -113,6 +116,38 @@ interface SchemaDesktopRowProps {
   originalFieldFromSchema?: IField | null;
 }
 
+/** The row's state-dependent texts, so the row markup only places them. */
+const desktopRowLabels = (
+  t: TFunction,
+  row: {
+    fieldName: string;
+    schemaName: string;
+    childSchemaName: string;
+    isExpanded: boolean;
+    isNewField: boolean;
+    isReadOnly: boolean;
+    validationTotal: number;
+  },
+) => ({
+  drawerTitle: row.fieldName
+    ? t("SCHEMA_DESKTOP_ROW.ACCESS_FOR_FIELDNAME", { fieldName: row.fieldName })
+    : t("SCHEMA_DESKTOP_ROW.ACCESS_FOR_SCHEMANAME", { schemaName: row.schemaName }),
+  toggleLabel: row.isExpanded
+    ? t("SCHEMA_DESKTOP_ROW.COLLAPSE_SCHEMANAME", { schemaName: row.childSchemaName })
+    : t("SCHEMA_DESKTOP_ROW.EXPAND_SCHEMANAME_ATTRIBUTES", { schemaName: row.childSchemaName }),
+  descriptionPlaceholder: row.isReadOnly ? "—" : t("SCHEMA_DESKTOP_ROW.ADD_DESCRIPTION"),
+  accessUnavailable: row.isNewField
+    ? t("SCHEMA_DESKTOP_ROW.SAVE_THE_FIELD_BEFORE_SETTING_ACCESS")
+    : t("SCHEMA_DESKTOP_ROW.ACCESS_IS_NOT_AVAILABLE_FOR_CUSTOM"),
+  validationUnavailable: row.isNewField
+    ? t("SCHEMA_DESKTOP_ROW.SAVE_THE_FIELD_BEFORE_ADDING")
+    : t("SCHEMA_DESKTOP_ROW.VALIDATIONS_ARE_ONLY_AVAILABLE_FOR"),
+  manageValidations:
+    row.validationTotal > 0
+      ? t("SCHEMA_DESKTOP_ROW.MANAGE_VALIDATIONS_FOR_TOTAL", { name: row.fieldName, total: row.validationTotal })
+      : t("SCHEMA_DESKTOP_ROW.MANAGE_VALIDATIONS_FOR", { name: row.fieldName }),
+});
+
 export function SchemaDesktopRow({
   field,
   index,
@@ -154,6 +189,7 @@ export function SchemaDesktopRow({
   visibleColumnCount,
   originalFieldFromSchema,
 }: Readonly<SchemaDesktopRowProps>) {
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const [focusEnumEditor, setFocusEnumEditor] = useState(false);
   const compactCellClass = "py-3 align-middle";
   const [isReadonlyExpanded, setIsReadonlyExpanded] = useReadonlyExpanded();
@@ -176,7 +212,6 @@ export function SchemaDesktopRow({
       }
     : undefined;
 
-  const drawerTitle = fieldName ? `Access for ${fieldName}` : `Access for ${schemaName}`;
 
   const hasNonInheritedPolicy = [
     fieldSource?.readAccessLevel,
@@ -194,6 +229,16 @@ export function SchemaDesktopRow({
   const canValidate = isPrimitiveType || Boolean(watch(`properties.${index}.isArray`));
   const resolvedChildSchema = childSchema ?? findChildSchemaByType(schemaItems, currentType);
   const isChildType = Boolean(resolvedChildSchema);
+  const labels = desktopRowLabels(t, {
+    fieldName,
+    schemaName,
+    childSchemaName: resolvedChildSchema?.schemaName ?? "",
+    isExpanded: Boolean(isExpanded),
+    isNewField,
+    isReadOnly,
+    validationTotal: validationInfo.total,
+  });
+  const { drawerTitle } = labels;
 
   // For entity type schemas, show section headers and handle collapse
   const isEntityType = schemaType === 1;
@@ -203,6 +248,13 @@ export function SchemaDesktopRow({
   const isFirstRow = isEntityType && index === 0;
   const isRowVisible =
     (!isEntityType || !isReadOnly || isReadonlyExpanded) && (totalFieldsLength > 0 || isEditMode);
+  const modeLabels = {
+    None: t("SCHEMA_DESKTOP_ROW.NONE"),
+    Insert: t("SCHEMA_DESKTOP_ROW.INSERT"),
+    Update: t("common:UPDATE"),
+    Both: t("SCHEMA_DESKTOP_ROW.BOTH"),
+  };
+
   return (
     <>
       {/* Readonly Properties Section Header - Always show at index 0 for entity types */}
@@ -220,7 +272,7 @@ export function SchemaDesktopRow({
                   isReadonlyExpanded ? "rotate-0" : "-rotate-90",
                 )}
               />
-              <span>Default Properties ({readonlyFieldsCount})</span>
+              <span>{t("SCHEMA_DESKTOP_ROW.DEFAULT_PROPERTIES_READONLYFIELDSCOUNT", { readonlyFieldsCount })}</span>
             </button>
           </TableCell>
         </TableRow>
@@ -240,11 +292,11 @@ export function SchemaDesktopRow({
                       checked={!!selectedRows[field.id]}
                       onCheckedChange={(value) => onRowSelect(field.id, value === true)}
                       disabled={isNewField}
-                      aria-label={`Select ${name || "property"}`}
+                      aria-label={t("SCHEMA_DESKTOP_ROW.SELECT_NAME", { name: name || "property" })}
                     />
                   </div>
                 </TooltipTrigger>
-                {isNewField && <TooltipContent>Save the field before selecting</TooltipContent>}
+                {isNewField && <TooltipContent>{t("SCHEMA_DESKTOP_ROW.SAVE_THE_FIELD_BEFORE_SELECTING")}</TooltipContent>}
               </Tooltip>
             </TableCell>
           )}
@@ -259,7 +311,7 @@ export function SchemaDesktopRow({
                     {isChildType && resolvedChildSchema && onToggleExpand && (
                       <TreeToggle
                         expanded={Boolean(isExpanded)}
-                        label={isExpanded ? `Collapse ${resolvedChildSchema.schemaName}` : `Expand ${resolvedChildSchema.schemaName} attributes`}
+                        label={labels.toggleLabel}
                         blockedReason={expandBlockedReason}
                         onToggle={() => onToggleExpand(index)}
                       />
@@ -275,21 +327,21 @@ export function SchemaDesktopRow({
             <div className="flex h-9 flex-col justify-center gap-0.5">
               <Input
                 {...register(`properties.${index}.name`, {
-                  required: "Property name is required",
+                  required: t("SCHEMA_DESKTOP_ROW.PROPERTY_NAME_IS_REQUIRED"),
                   pattern: {
                     value: SCHEMA_NAME_ALLOWED_PATTERN,
                     message:
-                      "Only letters, numbers, and '_' are allowed. Cannot start with a number.",
+                      t("SCHEMA_DESKTOP_ROW.ONLY_LETTERS_NUMBERS_AND_ARE_ALLOWED"),
                   },
                   validate: (value) => {
                     const allNames = properties.map((p) => p.name.trim().toLowerCase());
                     const occurrences = allNames.filter(
                       (n) => n === value.trim().toLowerCase(),
                     ).length;
-                    return occurrences <= 1 || "Duplicate property name not allowed";
+                    return occurrences <= 1 || t("SCHEMA_DESKTOP_ROW.DUPLICATE_PROPERTY_NAME_NOT_ALLOWED");
                   },
                 })}
-                placeholder="Click to edit"
+                placeholder={t("SCHEMA_DESKTOP_ROW.CLICK_TO_EDIT")}
                 readOnly={!isEditMode || isReadOnly}
                 onChange={(e) => {
                   const filtered = e.target.value
@@ -405,7 +457,7 @@ export function SchemaDesktopRow({
                 disabled={!isEditMode || isReadOnly}
               >
                 <SelectTrigger
-                  aria-label={`IsRequired for ${name || "property"}`}
+                  aria-label={t("SCHEMA_DESKTOP_ROW.ISREQUIRED_FOR_NAME", { name: name || "property" })}
                   className={cn("h-9", PROPERTY_FIELD_CLASS)}
                 >
                   <SelectValue />
@@ -414,7 +466,7 @@ export function SchemaDesktopRow({
                 <SelectContent className="w-(--radix-select-trigger-width) min-w-0">
                   {(["None", "Insert", "Update", "Both"] as const).map((mode) => (
                     <SelectItem key={mode} value={mode} className="py-1 pl-7 text-[13px]">
-                      {mode}
+                      {modeLabels[mode]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -461,8 +513,8 @@ export function SchemaDesktopRow({
                       <TooltipTrigger asChild>{chip}</TooltipTrigger>
                       <TooltipContent>
                         {notForChildTypes && isChildType
-                          ? `${title} is not applicable for child types`
-                          : `${title} is read-only for default properties`}
+                          ? t("SCHEMA_DESKTOP_ROW.TITLE_IS_NOT_APPLICABLE_FOR_CHILD", { title })
+                          : t("SCHEMA_DESKTOP_ROW.TITLE_IS_READ_ONLY_FOR_DEFAULT", { title })}
                       </TooltipContent>
                     </Tooltip>
                   );
@@ -492,7 +544,7 @@ export function SchemaDesktopRow({
                       shouldDirty: true,
                     })
                   }
-                  placeholder={isReadOnly ? "—" : "Add description"}
+                  placeholder={labels.descriptionPlaceholder}
                   readOnly={isReadOnly}
                   className={cn(
                     "min-w-0",
@@ -519,19 +571,13 @@ export function SchemaDesktopRow({
                           type="button"
                           disabled
                           className="flex h-[26px] w-[26px] shrink-0 cursor-not-allowed items-center justify-center rounded-md border border-border/60 text-muted-foreground/50"
-                          aria-label={
-                            isNewField
-                              ? "Save the field before setting access"
-                              : "Access is not available for custom property types"
-                          }
+                          aria-label={labels.accessUnavailable}
                         >
                           <Shield className="h-3.5 w-3.5" />
                         </button>
                       </TooltipTrigger>
                       <TooltipContent>
-                        {isNewField
-                          ? "Save the field before setting access"
-                          : "Access is not available for custom property types"}
+                        {labels.accessUnavailable}
                       </TooltipContent>
                     </Tooltip>
                   ) : (
@@ -546,7 +592,7 @@ export function SchemaDesktopRow({
                               ? "border-access-custom-border bg-access-custom-bg text-access-custom-fg"
                               : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
                           )}
-                          aria-label={`View access for ${fieldTarget?.name || schemaName}`}
+                          aria-label={t("SCHEMA_DESKTOP_ROW.VIEW_ACCESS_FOR_NAME", { name: fieldTarget?.name || schemaName })}
                         >
                           <Shield className="h-3.5 w-3.5" />
                         </button>
@@ -555,9 +601,9 @@ export function SchemaDesktopRow({
                         <div className="flex items-center gap-1.5 text-xs">
                           {(
                             [
-                              { label: "View", level: fieldSource?.readAccessLevel },
-                              { label: "Create", level: fieldSource?.writeAccessLevel },
-                              { label: "Edit", level: fieldSource?.editAccessLevel },
+                              { label: t("common:VIEW"), level: fieldSource?.readAccessLevel },
+                              { label: t("common:CREATE"), level: fieldSource?.writeAccessLevel },
+                              { label: t("common:EDIT"), level: fieldSource?.editAccessLevel },
                             ] as const
                           ).map(({ label, level }, i) => (
                             <span key={label} className="flex items-center gap-1.5">
@@ -585,19 +631,13 @@ export function SchemaDesktopRow({
                         type="button"
                         disabled
                         className="flex h-[26px] min-w-[28px] shrink-0 cursor-not-allowed items-center justify-center gap-1 rounded-md border border-border/60 px-1 text-muted-foreground/50"
-                        aria-label={
-                          isNewField
-                            ? "Save the field before adding validations"
-                            : "Validations are only available for primitive types and lists"
-                        }
+                        aria-label={labels.validationUnavailable}
                       >
                         <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {isNewField
-                        ? "Save the field before adding validations"
-                        : "Validations are only available for primitive types and lists"}
+                      {labels.validationUnavailable}
                     </TooltipContent>
                   </Tooltip>
                 ) : (
@@ -615,7 +655,7 @@ export function SchemaDesktopRow({
                           ? "border-primary/30 bg-primary/10 text-primary"
                           : "border-border text-muted-foreground hover:border-primary/40 hover:text-primary",
                     )}
-                    aria-label={`Manage validations for ${fieldName}${validationInfo.total > 0 ? ` (${validationInfo.total})` : ""}`}
+                    aria-label={labels.manageValidations}
                   >
                     <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
                     {validationInfo.total > 0 && (
@@ -649,7 +689,7 @@ export function SchemaDesktopRow({
                   <Button
                     variant="ghost"
                     className="h-5 w-5 p-0"
-                    aria-label={`More actions for ${name || "property"}`}
+                    aria-label={t("SCHEMA_DESKTOP_ROW.MORE_ACTIONS_FOR_NAME", { name: name || "property" })}
                   >
                     <MoreVertical className="h-4 w-4" />
                   </Button>
@@ -658,12 +698,12 @@ export function SchemaDesktopRow({
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem className="cursor-pointer" onClick={() => onDuplicate(index)}>
                     <Copy className="mr-2 h-4 w-4" />
-                    <span>Duplicate</span>
+                    <span>{t("SCHEMA_DESKTOP_ROW.DUPLICATE")}</span>
                   </DropdownMenuItem>
 
                   <DropdownMenuItem className="cursor-pointer" onClick={() => onDelete(index)}>
                     <Trash className="mr-2 h-4 w-4 text-red-500" />
-                    <span className="text-red-500">Delete</span>
+                    <span className="text-red-500">{t("common:DELETE")}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

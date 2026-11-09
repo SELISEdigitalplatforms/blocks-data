@@ -1,5 +1,6 @@
 import { SheetFooter } from "@/components/ui-kits/sheet/sheet";
 import { Button } from "@/components/ui-kits/button/button";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type MembershipFooterProps = {
   isEditing: boolean;
@@ -17,15 +18,17 @@ export const MembershipFooter = ({
   onSave,
   onEdit,
   onUnassign,
-}: MembershipFooterProps) => (
+}: MembershipFooterProps) => {
+  const { t } = useT("data.idp.iam");
+  return (
   <SheetFooter className="mt-auto flex gap-2">
     {isEditing ? (
       <>
         <Button variant="outline" onClick={onCancel} className="flex-1">
-          Cancel
+          {t("common:CANCEL")}
         </Button>
         <Button onClick={onSave} disabled={isPending} className="flex-1">
-          {isPending ? "Saving..." : "Save"}
+          {isPending ? t("MEMBERSHIP_FOOTER.SAVING") : t("common:SAVE")}
         </Button>
       </>
     ) : (
@@ -35,12 +38,13 @@ export const MembershipFooter = ({
           onClick={onUnassign}
           className="flex-1 border-destructive text-destructive hover:bg-destructive/10"
         >
-          Unassign User
+          {t("MEMBERSHIP_FOOTER.UNASSIGN_USER")}
         </Button>
         <Button variant="outline" onClick={onEdit} className="flex-1">
-          Edit
+          {t("common:EDIT")}
         </Button>
       </>
     )}
   </SheetFooter>
 );
+};

@@ -32,6 +32,7 @@ import { userService } from "@blocks-idp/iam/services/user.service";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, Trash2 } from "lucide-react";
 import type { AccessEntry, PermissionOption } from "../models/schema-access.types";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export type { AccessEntry, PermissionOption };
 
@@ -60,6 +61,7 @@ export function SchemaAccessList({
   permissionsLoading = false,
   projectKey,
 }: SchemaAccessListProps) {
+  const { t } = useT("data.gateway.access");
   const columns = isEditing ? 3 : 2;
 
   const [openRoleIndex, setOpenRoleIndex] = useState<number | null>(null);
@@ -139,7 +141,7 @@ export function SchemaAccessList({
   const renderEmptyMessage = () => (
     <TableRow>
       <TableCell colSpan={columns} className="py-10 text-center text-sm text-muted-foreground">
-        No access entries available.
+        {t("SCHEMA_ACCESS_LIST.NO_ACCESS_ENTRIES_AVAILABLE")}
       </TableCell>
     </TableRow>
   );
@@ -148,8 +150,8 @@ export function SchemaAccessList({
     <Table className={cn("mt-0", className)}>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-[140px] text-sm font-semibold text-foreground">Type</TableHead>
-          <TableHead className="text-sm font-semibold text-foreground">Name</TableHead>
+          <TableHead className="w-[140px] text-sm font-semibold text-foreground">{t("common:TYPE")}</TableHead>
+          <TableHead className="text-sm font-semibold text-foreground">{t("common:NAME")}</TableHead>
           {isEditing ? <TableHead className="w-[52px]" /> : null}
         </TableRow>
       </TableHeader>
@@ -236,12 +238,12 @@ export function SchemaAccessList({
                       }}
                     >
                       <SelectTrigger className="h-9 w-full text-left text-sm">
-                        <SelectValue placeholder="Select type" />
+                        <SelectValue placeholder={t("SCHEMA_ACCESS_LIST.SELECT_TYPE")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Role">Role</SelectItem>
-                        <SelectItem value="User">User</SelectItem>
-                        <SelectItem value="Permission">Permission</SelectItem>
+                        <SelectItem value="Role">{t("SCHEMA_ACCESS_LIST.ROLE")}</SelectItem>
+                        <SelectItem value="User">{t("SCHEMA_ACCESS_LIST.USER")}</SelectItem>
+                        <SelectItem value="Permission">{t("SCHEMA_ACCESS_LIST.PERMISSION")}</SelectItem>
                       </SelectContent>
                     </Select>
                   ) : (
@@ -251,7 +253,8 @@ export function SchemaAccessList({
 
                 <TableCell className="align-middle">
                   {isEditing ? (
-                    entry.type === "Role" ? (
+                    <>
+                    {entry.type === "Role" && (
                       <Popover
                         open={openRoleIndex === index}
                         onOpenChange={(open) => {
@@ -268,14 +271,14 @@ export function SchemaAccessList({
                             aria-expanded={openRoleIndex === index}
                             className="h-9 w-full justify-between text-left text-sm shadow-none"
                           >
-                            {roleDisplayName || "Select role"}
+                            {roleDisplayName || t("SCHEMA_ACCESS_LIST.SELECT_ROLE")}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="p-0 sm:w-[300px]">
                           <Command shouldFilter={false}>
                             <CommandInput
-                              placeholder="Search roles..."
+                              placeholder={t("SCHEMA_ACCESS_LIST.SEARCH_ROLES")}
                               value={roleSearch}
                               onValueChange={setRoleSearch}
                             />
@@ -285,11 +288,11 @@ export function SchemaAccessList({
                             >
                               {rolesLoading ? (
                                 <div className="p-3 text-sm text-muted-foreground">
-                                  Loading roles...
+                                  {t("SCHEMA_ACCESS_LIST.LOADING_ROLES")}
                                 </div>
                               ) : (
                                 <>
-                                  <CommandEmpty>No roles found.</CommandEmpty>
+                                  <CommandEmpty>{t("SCHEMA_ACCESS_LIST.NO_ROLES_FOUND")}</CommandEmpty>
                                   <CommandGroup>
                                     {filteredRoles.map((role) => {
                                       const isSelected = entry.roleSlug === role.slug;
@@ -333,7 +336,8 @@ export function SchemaAccessList({
                           </Command>
                         </PopoverContent>
                       </Popover>
-                    ) : entry.type === "User" ? (
+                    )}
+                    {entry.type === "User" && (
                       <Popover
                         open={openUserIndex === index}
                         onOpenChange={(open) => {
@@ -351,14 +355,14 @@ export function SchemaAccessList({
                             aria-expanded={openUserIndex === index}
                             className="h-9 w-full justify-between text-left text-sm shadow-none"
                           >
-                            {entry.name || "Select user"}
+                            {entry.name || t("SCHEMA_ACCESS_LIST.SELECT_USER")}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="p-0 sm:w-[320px]">
                           <Command shouldFilter={false}>
                             <CommandInput
-                              placeholder="Search users by name..."
+                              placeholder={t("SCHEMA_ACCESS_LIST.SEARCH_USERS_BY_NAME")}
                               value={userSearch}
                               onValueChange={setUserSearch}
                             />
@@ -368,11 +372,11 @@ export function SchemaAccessList({
                             >
                               {isUsersLoading ? (
                                 <div className="p-3 text-sm text-muted-foreground">
-                                  Loading users...
+                                  {t("SCHEMA_ACCESS_LIST.LOADING_USERS")}
                                 </div>
                               ) : (
                                 <>
-                                  <CommandEmpty>No users found.</CommandEmpty>
+                                  <CommandEmpty>{t("SCHEMA_ACCESS_LIST.NO_USERS_FOUND")}</CommandEmpty>
                                   <CommandGroup>
                                     {userOptions.map((user) => {
                                       const isSelected = entry.userId === user.itemId;
@@ -425,7 +429,8 @@ export function SchemaAccessList({
                           </Command>
                         </PopoverContent>
                       </Popover>
-                    ) : (
+                    )}
+                    {entry.type !== "Role" && entry.type !== "User" && (
                       <Popover
                         open={openPermissionIndex === index}
                         onOpenChange={(open) => {
@@ -443,14 +448,14 @@ export function SchemaAccessList({
                             aria-expanded={openPermissionIndex === index}
                             className="h-9 w-full justify-between text-left text-sm shadow-none"
                           >
-                            {entry.name || "Select permission"}
+                            {entry.name || t("SCHEMA_ACCESS_LIST.SELECT_PERMISSION")}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="p-0 sm:w-[320px]">
                           <Command shouldFilter={false}>
                             <CommandInput
-                              placeholder="Search permissions..."
+                              placeholder={t("SCHEMA_ACCESS_LIST.SEARCH_PERMISSIONS")}
                               value={permissionSearch}
                               onValueChange={setPermissionSearch}
                             />
@@ -460,11 +465,11 @@ export function SchemaAccessList({
                             >
                               {permissionsLoading ? (
                                 <div className="p-3 text-sm text-muted-foreground">
-                                  Loading permissions...
+                                  {t("SCHEMA_ACCESS_LIST.LOADING_PERMISSIONS")}
                                 </div>
                               ) : (
                                 <>
-                                  <CommandEmpty>No permissions found.</CommandEmpty>
+                                  <CommandEmpty>{t("SCHEMA_ACCESS_LIST.NO_PERMISSIONS_FOUND")}</CommandEmpty>
                                   <CommandGroup>
                                     {filteredPermissions.map((permission) => {
                                       const isSelected =
@@ -512,7 +517,8 @@ export function SchemaAccessList({
                           </Command>
                         </PopoverContent>
                       </Popover>
-                    )
+                    )}
+                    </>
                   ) : (
                     <div className="text-sm font-semibold text-foreground">
                       {entry.name}
@@ -530,7 +536,7 @@ export function SchemaAccessList({
                     <button
                       type="button"
                       className="inline-flex h-9 w-9 items-center justify-center rounded-md text-destructive transition-colors hover:bg-destructive/10"
-                      aria-label={`Remove ${entry.type.toLowerCase()} ${entry.name}`}
+                      aria-label={t("SCHEMA_ACCESS_LIST.REMOVE_TYPE_NAME", { type: entry.type.toLowerCase(), name: entry.name })}
                       onClick={() => onRemoveEntry?.(index)}
                     >
                       <Trash2 className="h-4 w-4" />

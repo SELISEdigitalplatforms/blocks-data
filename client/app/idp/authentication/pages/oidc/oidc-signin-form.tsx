@@ -27,6 +27,7 @@ import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
 import { z } from "zod";
 import { signinFormDefaultValue, signinFormSchema } from "../login/schema";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const signinByEmail = async (
   payload: ISigninByEmailPayload & { projectKey: string },
@@ -92,6 +93,7 @@ export const signinByEmail = async (
 };
 
 export const OidcSigninForm = () => {
+  const { t } = useT("data.idp.authentication");
   const { themeColor, projectKey, clientId, scope, state, redirectUri, nonce } =
     useOIDCContext();
   const navigate = useNavigate();
@@ -106,7 +108,7 @@ export const OidcSigninForm = () => {
   const onSubmitHandler = async (values: z.infer<typeof signinFormSchema>) => {
     try {
       if (!projectKey) {
-        showErrorToast({ errors: "Project key is required" });
+        showErrorToast({ errors: t("OIDC_SIGNIN_FORM.PROJECT_KEY_IS_REQUIRED") });
         return;
       }
 
@@ -170,9 +172,9 @@ export const OidcSigninForm = () => {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>{t("common:EMAIL")}</FormLabel>
               <FormControl>
-                <Input placeholder="Enter your email" {...field} />
+                <Input placeholder={t("OIDC_SIGNIN_FORM.ENTER_YOUR_EMAIL")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -183,9 +185,9 @@ export const OidcSigninForm = () => {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel>{t("OIDC_SIGNIN_FORM.PASSWORD")}</FormLabel>
               <FormControl>
-                <PasswordInput placeholder="Enter your password" {...field} />
+                <PasswordInput placeholder={t("OIDC_SIGNIN_FORM.ENTER_YOUR_PASSWORD")} {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -197,7 +199,7 @@ export const OidcSigninForm = () => {
           className="ml-auto inline-block text-sm hover:underline"
           style={{ color: themeColor }}
         >
-          Forgot password?
+          {t("OIDC_SIGNIN_FORM.FORGOT_PASSWORD")}
         </Link>
 
         <Button
@@ -208,7 +210,7 @@ export const OidcSigninForm = () => {
           }}
           disabled={isPending}
         >
-          Log in
+          {t("OIDC_SIGNIN_FORM.LOG_IN")}
         </Button>
       </form>
     </Form>

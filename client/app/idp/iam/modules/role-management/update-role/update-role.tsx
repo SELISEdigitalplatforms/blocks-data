@@ -27,10 +27,12 @@ import { IRole } from "@blocks-idp/iam/models/role";
 import { useUpdateRole } from "@blocks-idp/iam/hooks/use-roles";
 import { isErrorWithErrors } from "@/lib/error";
 import { Textarea } from "@/components/ui-kits/textarea/textarea";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type UpdateRoleProps = { role: IRole; isOpen: boolean; onClose: () => void };
 
 export const UpdateRole = ({ role, isOpen, onClose }: UpdateRoleProps) => {
+  const { t } = useT("data.idp.iam");
   const { toast } = useToast();
   const { mutateAsync, isPending } = useUpdateRole();
   const tenantId = useProjectStore().selectedProject?.itemId || "";
@@ -54,10 +56,10 @@ export const UpdateRole = ({ role, isOpen, onClose }: UpdateRoleProps) => {
       await mutateAsync(newRole);
       toast({
         variant: "success",
-        title: "Success",
-        description: "Role updated successfully",
+        title: t("common:SUCCESS"),
+        description: t("UPDATE_ROLE.ROLE_UPDATED_SUCCESSFULLY"),
       });
-      showSuccessToast({ description: "Role updated successfully" });
+      showSuccessToast({ description: t("UPDATE_ROLE.ROLE_UPDATED_SUCCESSFULLY") });
       onClose();
     } catch (error) {
       if (isErrorWithErrors(error)) {
@@ -74,7 +76,7 @@ export const UpdateRole = ({ role, isOpen, onClose }: UpdateRoleProps) => {
   return (
     <DialogContent>
       <DialogHeader className="mb-4">
-        <DialogTitle>Update Role</DialogTitle>
+        <DialogTitle>{t("UPDATE_ROLE.UPDATE_ROLE")}</DialogTitle>
         <DialogDescription></DialogDescription>
       </DialogHeader>
       <Form {...form}>
@@ -84,9 +86,9 @@ export const UpdateRole = ({ role, isOpen, onClose }: UpdateRoleProps) => {
             control={form.control}
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Name</FormLabel>
+                <FormLabel>{t("common:NAME")}</FormLabel>
                 <FormControl>
-                  <Input {...field} placeholder="Enter name" />
+                  <Input {...field} placeholder={t("UPDATE_ROLE.ENTER_NAME")} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -97,9 +99,9 @@ export const UpdateRole = ({ role, isOpen, onClose }: UpdateRoleProps) => {
             control={form.control}
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description</FormLabel>
+                <FormLabel>{t("common:DESCRIPTION")}</FormLabel>
                 <FormControl>
-                  <Textarea {...field} placeholder="Enter description" />
+                  <Textarea {...field} placeholder={t("UPDATE_ROLE.ENTER_DESCRIPTION")} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -108,11 +110,11 @@ export const UpdateRole = ({ role, isOpen, onClose }: UpdateRoleProps) => {
           <DialogFooter className="mt-6">
             <DialogTrigger asChild>
               <Button className="min-w-[80px]" variant="outline" disabled={isPending}>
-                Cancel
+                {t("common:CANCEL")}
               </Button>
             </DialogTrigger>
             <Button className="min-w-[80px]" type="submit" disabled={isPending || !isDirty}>
-              {isPending ? "Updating..." : "Update"}
+              {isPending ? t("UPDATE_ROLE.UPDATING") : t("common:UPDATE")}
             </Button>
           </DialogFooter>
         </form>

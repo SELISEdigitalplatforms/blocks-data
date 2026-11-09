@@ -8,6 +8,7 @@ import { IGraphLogTimingBreakdown } from "../../models/graph-log-analytics";
 import { AnalyticsCard } from "./analytics-card";
 import { PhaseBreakdown, toPhaseRows } from "./graph-phase-breakdown";
 import { formatDuration } from "./graph-log-formatters";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface GraphTimingCardProps {
   timing?: IGraphLogTimingBreakdown;
@@ -21,6 +22,7 @@ interface GraphTimingCardProps {
  * figure is the number people act on.
  */
 export const GraphTimingCard = ({ timing, isLoading, isError }: GraphTimingCardProps) => {
+  const { t } = useT("data.gateway.analytics");
   const phases = useMemo(
     () =>
       toPhaseRows({
@@ -40,23 +42,26 @@ export const GraphTimingCard = ({ timing, isLoading, isError }: GraphTimingCardP
   return (
     <AnalyticsCard
       icon={Clock}
-      title="Where the time goes"
+      title={t("GRAPH_TIMING_CARD.WHERE_THE_TIME_GOES")}
       headerRight={
         <div className="flex flex-col items-end">
           <span className="text-2xl font-semibold leading-none">{formatDuration(total)}</span>
-          <span className="text-xs text-muted-foreground">average request</span>
+          <span className="text-xs text-muted-foreground">{t("GRAPH_TIMING_CARD.AVERAGE_REQUEST")}</span>
         </div>
       }
     >
-      {isLoading ? (
+      {isLoading && (
         <div className="flex h-32 items-center justify-center">
           <SpinnerLoader />
         </div>
-      ) : isError ? (
-        <p className="text-sm text-destructive">Couldn&apos;t load timings. Please try again.</p>
-      ) : total === 0 ? (
-        <p className="text-sm text-muted-foreground">No requests in this range.</p>
-      ) : (
+      )}
+      {!isLoading && isError && (
+        <p className="text-sm text-destructive">{t("GRAPH_TIMING_CARD.COULDN_T_LOAD_TIMINGS_PLEASE_TRY")}</p>
+      )}
+      {!isLoading && !isError && total === 0 && (
+        <p className="text-sm text-muted-foreground">{t("GRAPH_TIMING_CARD.NO_REQUESTS_IN_THIS_RANGE")}</p>
+      )}
+      {!isLoading && !isError && total !== 0 && (
         <PhaseBreakdown phases={phases} total={total} />
       )}
     </AnalyticsCard>

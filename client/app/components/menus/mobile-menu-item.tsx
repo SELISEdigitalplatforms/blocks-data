@@ -10,7 +10,6 @@ import {
 } from "@/components/ui-kits/sheet/sheet";
 import { cn } from "@/lib/utils";
 import { Menu } from "@/models/menu-models";
-import { useProjectStore } from "@seliseblocks/genesis-os";
 import { ChevronRight, X } from "lucide-react";
 import { useMemo } from "react";
 import { Link, useLocation } from "react-router";
@@ -54,7 +53,6 @@ export function MobileMenuItem({
   // the same order, whatever the menu type is.
   const menuItem = menu as MenuItemType;
   const { pathname } = useLocation();
-  const selectedProject = useProjectStore().selectedProject;
 
   const isActiveMenu = useMemo(() => {
     if (menu.type !== "menu") return false;
@@ -77,9 +75,6 @@ export function MobileMenuItem({
   if (menu.type !== "menu") {
     return null;
   }
-
-  const projectName = selectedProject?.name || "Project";
-  const environment = selectedProject?.environment || "Environment";
 
   const hasChildren = Boolean(menuItem.children?.length);
 

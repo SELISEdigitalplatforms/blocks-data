@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const ServiceCardCopiedItem = ({
   label,
@@ -30,6 +31,7 @@ const ServiceCardCopiedItem = ({
   label: string;
   value: string;
 }) => {
+  const { t } = useT("data.console");
   const { copy } = useCopyToClipboard();
 
   return (
@@ -45,7 +47,7 @@ const ServiceCardCopiedItem = ({
           className="h-5 w-5 p-0 text-gray-400 hover:text-gray-600"
           onClick={() =>
             copy(value, () =>
-              showSuccessToast({ description: `${label} copied` }),
+              showSuccessToast({ description: t("SERVICE_CARD.LABEL_COPIED", { label }) }),
             )
           }
         >
@@ -73,6 +75,7 @@ const LinkButton = ({
 );
 
 export const ServiceCard = ({ service }: { service: RegisteredService }) => {
+  const { t } = useT("data.console");
   const [showAllTags, setShowAllTags] = useState(false);
   const navigate = useNavigate();
 
@@ -101,7 +104,7 @@ export const ServiceCard = ({ service }: { service: RegisteredService }) => {
               }
             >
               <FileText className="h-4 w-4" />
-              <span className="sr-only sm:not-sr-only sm:ml-2">Logs</span>
+              <span className="sr-only sm:not-sr-only sm:ml-2">{t("SERVICE_CARD.LOGS")}</span>
             </LinkButton>
 
             <DropdownMenu>
@@ -117,7 +120,7 @@ export const ServiceCard = ({ service }: { service: RegisteredService }) => {
                   }
                 >
                   <Braces className="mr-2 aspect-square w-4" />
-                  Swagger
+                  {t("SERVICE_CARD.SWAGGER")}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() =>
@@ -125,7 +128,7 @@ export const ServiceCard = ({ service }: { service: RegisteredService }) => {
                   }
                 >
                   <BookOpen className="mr-2 aspect-square w-4" />
-                  Docs
+                  {t("SERVICE_CARD.DOCS")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -135,23 +138,23 @@ export const ServiceCard = ({ service }: { service: RegisteredService }) => {
 
       <AccordionContent className="p-4">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <ServiceCardCopiedItem label="Service ID" value={service.serviceId} />
+          <ServiceCardCopiedItem label={t("SERVICE_CARD.SERVICE_ID")} value={service.serviceId} />
           {service.serviceBusConnectionString &&
             service.serviceType !== "frontend" && (
               <ServiceCardCopiedItem
-                label="Connection String"
+                label={t("SERVICE_CARD.CONNECTION_STRING")}
                 value={service.serviceBusConnectionString}
               />
             )}
           <ServiceCardCopiedItem
-            label="X-Blocks-Key"
+            label={t("SERVICE_CARD.X_BLOCKS_KEY")}
             value={service.tenantId}
           />
         </div>
 
         {service.description && (
           <div className="mt-3 text-sm">
-            <h3 className="text-low-emphasis">Description</h3>
+            <h3 className="text-low-emphasis">{t("common:DESCRIPTION")}</h3>
             <p className="wrap-break-word text-high-emphasis">
               {service.description}
             </p>

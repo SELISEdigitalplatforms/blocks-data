@@ -24,24 +24,27 @@ import {
   mapIndexErrorFromException,
   mapIndexRelatedErrorMessage,
 } from "../../utils/schema-index.utils";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
 
-const indexFormSchema = z.object({
-  name: z.string().trim().max(128, "Index name cannot exceed 128 characters"),
+const DATA_GATEWAY_SCHEMA_MODULE = "data.gateway.schema";
+
+const indexFormSchema = z.lazy(() => z.object({
+  name: z.string().trim().max(128, tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_FORM.INDEX_NAME_CANNOT_EXCEED_128")),
   fields: z
     .array(
       z.object({
-        fieldName: z.string().min(1, "Field is required"),
+        fieldName: z.string().min(1, tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_FORM.FIELD_IS_REQUIRED")),
         direction: z.enum(["ASC", "DESC"]),
       }),
     )
-    .min(1, "Select at least one field")
-    .max(MAX_INDEX_FIELDS, `An index can cover at most ${MAX_INDEX_FIELDS} fields`)
+    .min(1, tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_FORM.SELECT_AT_LEAST_ONE_FIELD"))
+    .max(MAX_INDEX_FIELDS, tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_FORM.AN_INDEX_CAN_COVER_AT_MOST", { MAX_INDEX_FIELDS }))
     .refine(
       (fields) => new Set(fields.map((f) => f.fieldName)).size === fields.length,
-      { message: "Select at least one field, with no field repeated." },
+      { message: tStatic(DATA_GATEWAY_SCHEMA_MODULE, "SCHEMA_INDEX_FORM.SELECT_AT_LEAST_ONE_FIELD_WITH") },
     ),
   isUnique: z.boolean(),
-});
+}));
 
 type IndexFormValues = z.infer<typeof indexFormSchema>;
 
@@ -58,6 +61,7 @@ export function SchemaIndexForm({
   onSaved,
   onCancel,
 }: SchemaIndexFormProps) {
+  const { t } = useT(DATA_GATEWAY_SCHEMA_MODULE);
   const { mutateAsync: createIndex, isPending } = useCreateSchemaIndex();
 
   const form = useForm<IndexFormValues>({
@@ -88,31 +92,31 @@ export function SchemaIndexForm({
     try {
       const res = await createIndex(payload);
       if (res.isSuccess) {
-        showSuccessToast({ description: "Index added successfully" });
+        showSuccessToast({ description: t("SCHEMA_INDEX_FORM.INDEX_ADDED_SUCCESSFULLY") });
         onSaved();
       } else {
         const mapped = mapIndexRelatedErrorMessage(res);
-        form.setError("root", { message: mapped ?? "Failed to create index." });
+        form.setError("root", { message: mapped ?? t("SCHEMA_INDEX_FORM.FAILED_TO_CREATE_INDEX") });
         if (!mapped) showErrorToast({ errors: res.errors });
       }
     } catch (error) {
       const mapped = mapIndexErrorFromException(error);
-      form.setError("root", { message: mapped ?? "Failed to create index." });
+      form.setError("root", { message: mapped ?? t("SCHEMA_INDEX_FORM.FAILED_TO_CREATE_INDEX") });
       if (!mapped) showErrorToast({ errors: error });
     }
   };
 
   return (
     <Card className="flex flex-col gap-4 p-4 shadow-none">
-      <p className="text-sm font-medium">Add index</p>
+      <p className="text-sm font-medium">{t("SCHEMA_INDEX_FORM.ADD_INDEX")}</p>
 
       <div className="flex flex-col gap-1.5">
         <label htmlFor="index-name" className="text-sm font-medium">
-          Index name <span className="font-normal text-muted-foreground">(optional)</span>
+          {t("SCHEMA_INDEX_FORM.INDEX_NAME")} <span className="font-normal text-muted-foreground">{t("SCHEMA_INDEX_FORM.OPTIONAL")}</span>
         </label>
         <Input
           id="index-name"
-          placeholder="Generated from properties when left blank"
+          placeholder={t("SCHEMA_INDEX_FORM.GENERATED_FROM_PROPERTIES_WHEN_LEFT")}
           maxLength={128}
           {...form.register("name")}
         />
@@ -120,7 +124,7 @@ export function SchemaIndexForm({
           <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            Leave blank to use the default property-and-order name.
+            {t("SCHEMA_INDEX_FORM.LEAVE_BLANK_TO_USE_THE_DEFAULT")}
           </p>
         )}
       </div>
@@ -143,7 +147,7 @@ export function SchemaIndexForm({
                 }
               >
                 <SelectTrigger className="h-9 w-full min-w-0 flex-1">
-                  <SelectValue placeholder="Select field" />
+                  <SelectValue placeholder={t("SCHEMA_INDEX_FORM.SELECT_FIELD")} />
                 </SelectTrigger>
                 <SelectContent>
                   {fieldOptions.map((name) => (
@@ -178,7 +182,7 @@ export function SchemaIndexForm({
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9 shrink-0 text-muted-foreground hover:text-destructive"
-                aria-label="Remove field"
+                aria-label={t("SCHEMA_INDEX_FORM.REMOVE_FIELD")}
                 disabled={fields.length === 1}
                 onClick={() => remove(index)}
               >
@@ -210,7 +214,7 @@ export function SchemaIndexForm({
           onClick={() => append({ fieldName: "", direction: "ASC" })}
         >
           <Plus className="h-4 w-4" />
-          Add field
+          {t("SCHEMA_INDEX_FORM.ADD_FIELD")}
         </Button>
       </div>
 
@@ -223,7 +227,7 @@ export function SchemaIndexForm({
           }
         />
         <label htmlFor="index-is-unique" className="cursor-pointer text-sm">
-          Unique
+          {t("SCHEMA_INDEX_FORM.UNIQUE")}
         </label>
       </div>
 
@@ -235,7 +239,7 @@ export function SchemaIndexForm({
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onCancel}>
-          Cancel
+          {t("common:CANCEL")}
         </Button>
         <Button
           type="button"
@@ -243,7 +247,7 @@ export function SchemaIndexForm({
           disabled={!form.formState.isValid || isPending}
           onClick={() => void form.handleSubmit(onSubmit)()}
         >
-          {isPending ? "Saving…" : "Save"}
+          {isPending ? "Saving…" : t("common:SAVE")}
         </Button>
       </div>
     </Card>

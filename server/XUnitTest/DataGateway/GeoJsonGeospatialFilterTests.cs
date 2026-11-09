@@ -1,6 +1,7 @@
 using Blocks.Genesis.Entities.Data;
 using Blocks.Genesis.DataAccess.Evaluation;
 using DataGateway.DomainService.Conversion;
+using DataGateway.DomainService.GraphQL;
 using DataGateway.DomainService.Models;
 using FluentAssertions;
 using MongoDB.Bson;
@@ -129,7 +130,7 @@ public class GeoJsonGeospatialFilterTests
             Within = new HotChocolate.Optional<GeoJsonGeometryFilterInput?>(new GeoJsonGeometryFilterInput { Geometry = Square() }),
         };
 
-        var result = WhereToMongoFilterConverter.Convert(
+        var result = GraphQLArgumentNormalizer.ConvertWhere(
             new Dictionary<string, object?> { ["location"] = input }, StoreSchema())!;
 
         var clauses = result["$and"].AsBsonArray;
@@ -147,7 +148,7 @@ public class GeoJsonGeospatialFilterTests
             Intersects = new HotChocolate.Optional<GeoJsonGeometryFilterInput?>(new GeoJsonGeometryFilterInput { Geometry = Square() }),
         };
 
-        var result = WhereToMongoFilterConverter.Convert(
+        var result = GraphQLArgumentNormalizer.ConvertWhere(
             new Dictionary<string, object?> { ["location"] = input }, StoreSchema())!;
 
         result["location"].AsBsonDocument.Names.Should().Equal("$geoIntersects");

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Temporary home of the HotChocolate (GraphQL) transport. Deleted when GraphQL is retired. -->
+  <ItemGroup>
+    <PackageReference Include="HotChocolate.AspNetCore" />
+    <PackageReference Include="HotChocolate.Types" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\DataGateway.DomainService\DataGateway.DomainService.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The unit tests cover a few internal members directly (e.g. GraphqlSchemaBuilder's repository constructor). -->
+    <InternalsVisibleTo Include="XUnitTest" />
+  </ItemGroup>
+</Project>

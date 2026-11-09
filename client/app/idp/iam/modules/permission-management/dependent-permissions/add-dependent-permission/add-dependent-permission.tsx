@@ -19,6 +19,7 @@ import { useProjectStore } from "@/store/use-project-store";
 import { useGetPermissions } from "@blocks-idp/iam/hooks/use-permission";
 import { IPermission, RESOURCE_TYPE } from "@blocks-idp/iam/models/permission";
 import { useMemo, useState } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type AddDependentPermissionProps = {
   permissionsResource: string[];
@@ -26,6 +27,7 @@ type AddDependentPermissionProps = {
 };
 
 export const AddDependentPermission = ({ onAdd, permissionsResource }: AddDependentPermissionProps) => {
+  const { t } = useT("data.idp.iam");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const [open, setOpen] = useState<boolean>(false);
   const [selectedPermisson, setSelectedPermissions] = useState<IPermission[]>([]);
@@ -88,17 +90,17 @@ export const AddDependentPermission = ({ onAdd, permissionsResource }: AddDepend
           }}
           className="h-[34px]"
         >
-          Add
+          {t("common:ADD")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="text-left">Assign Permissions</DialogTitle>
+          <DialogTitle className="text-left">{t("ADD_DEPENDENT_PERMISSION.ASSIGN_PERMISSIONS")}</DialogTitle>
           <DialogDescription></DialogDescription>
         </DialogHeader>
         <div>
           <FilterControls.SearchInput
-            placeholder="Search by permission name"
+            placeholder={t("ADD_DEPENDENT_PERMISSION.SEARCH_BY_PERMISSION_NAME")}
             onChange={(search) => setFilter((prev) => ({ ...prev, search, page: 0 }))}
             value={filter.search}
             className="h-fit w-full py-3"
@@ -110,8 +112,8 @@ export const AddDependentPermission = ({ onAdd, permissionsResource }: AddDepend
               <TableHeader>
                 <TableRow>
                   <TableHead></TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Type</TableHead>
+                  <TableHead>{t("common:NAME")}</TableHead>
+                  <TableHead>{t("common:TYPE")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -158,11 +160,11 @@ export const AddDependentPermission = ({ onAdd, permissionsResource }: AddDepend
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline" size="default">
-              Cancel
+              {t("common:CANCEL")}
             </Button>
           </DialogClose>
           <Button size="default" onClick={onClickHandler}>
-            Add
+            {t("common:ADD")}
           </Button>
         </DialogFooter>
       </DialogContent>

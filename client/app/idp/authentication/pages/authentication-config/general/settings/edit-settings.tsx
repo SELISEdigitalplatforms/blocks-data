@@ -30,8 +30,12 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { authConfigFormDefaultValues, authConfigFormSchema } from "./utils";
+import { useT } from "@seliseblocks/genesis-os/i18n";
+
+const EDIT_SETTINGS_SET_A_DURATION_IN_MINUTES = "EDIT_SETTINGS.SET_A_DURATION_IN_MINUTES";
 
 export const EditGeneralSettings = () => {
+  const { t } = useT("data.idp.authentication");
   const [open, setOpen] = useState<boolean>(false);
   const { tenantId } = useProjectStore().selectedProject || { tenantId: "" };
   const { data } = useGetAuthConfig({ projectKey: tenantId });
@@ -56,7 +60,10 @@ export const EditGeneralSettings = () => {
 
   const submitHandler = async (values: z.infer<typeof authConfigFormSchema>) => {
     try {
-      if (!tenantId || !data) return showErrorToast({ errors: "Something went wrong" });
+      if (!tenantId || !data) {
+        showErrorToast({ errors: t("EDIT_SETTINGS.SOMETHING_WENT_WRONG") });
+        return;
+      }
 
       const res = await mutateAsync({
         ...data,
@@ -64,24 +71,30 @@ export const EditGeneralSettings = () => {
         projectKey: tenantId,
       });
 
-      if (!res.isSuccess) return showErrorToast({ errors: res.errors });
+      if (!res.isSuccess) {
+        showErrorToast({ errors: res.errors });
+        return;
+      }
 
-      showSuccessToast({ description: "Configuration updated successfully" });
+      showSuccessToast({ description: t("EDIT_SETTINGS.CONFIGURATION_UPDATED_SUCCESSFULLY") });
       form.reset();
       setOpen(false);
     } catch (error) {
-      if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
-      showErrorToast({ errors: "Something went wrong" });
+      if (isErrorWithErrors(error)) {
+        showErrorToast({ errors: error.errors });
+        return;
+      }
+      showErrorToast({ errors: t("EDIT_SETTINGS.SOMETHING_WENT_WRONG") });
     }
   };
   return (
     <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogTrigger asChild>
-        <PrimaryButton label="Edit" Icon={Pen} />
+        <PrimaryButton label={t("common:EDIT")} Icon={Pen} />
       </DialogTrigger>
       <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
+          <DialogTitle>{t("common:SETTINGS")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(submitHandler)} onReset={() => form.reset()}>
@@ -92,10 +105,10 @@ export const EditGeneralSettings = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-muted-foreground">
-                      Access Token Validity (minutes)
+                      {t("EDIT_SETTINGS.ACCESS_TOKEN_VALIDITY_MINUTES")}
                     </FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Set a duration in minutes" {...field} />
+                      <Input type="number" placeholder={t(EDIT_SETTINGS_SET_A_DURATION_IN_MINUTES)} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -107,10 +120,10 @@ export const EditGeneralSettings = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-muted-foreground">
-                      Refresh Token Validity (minutes)
+                      {t("EDIT_SETTINGS.REFRESH_TOKEN_VALIDITY_MINUTES")}
                     </FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Set a duration in minutes" {...field} />
+                      <Input type="number" placeholder={t(EDIT_SETTINGS_SET_A_DURATION_IN_MINUTES)} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -122,10 +135,10 @@ export const EditGeneralSettings = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-muted-foreground">
-                      &#39;Remember Me&#39; Token Validity (minutes)
+                      {t("EDIT_SETTINGS.REMEMBER_ME_TOKEN_VALIDITY_MINUTES")}
                     </FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Set a duration in minutes" {...field} />
+                      <Input type="number" placeholder={t(EDIT_SETTINGS_SET_A_DURATION_IN_MINUTES)} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -137,10 +150,10 @@ export const EditGeneralSettings = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-muted-foreground">
-                      Max Wrong Attempts Before Lock
+                      {t("EDIT_SETTINGS.MAX_WRONG_ATTEMPTS_BEFORE_LOCK")}
                     </FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Enter number" {...field} />
+                      <Input type="number" placeholder={t("EDIT_SETTINGS.ENTER_NUMBER")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -153,10 +166,10 @@ export const EditGeneralSettings = () => {
                 render={({ field }) => (
                   <FormItem className="">
                     <FormLabel className="text-muted-foreground">
-                      Account Lock Duration (minutes)
+                      {t("EDIT_SETTINGS.ACCOUNT_LOCK_DURATION_MINUTES")}
                     </FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="Set a duration in minutes" {...field} />
+                      <Input type="number" placeholder={t(EDIT_SETTINGS_SET_A_DURATION_IN_MINUTES)} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -166,7 +179,7 @@ export const EditGeneralSettings = () => {
             <div className="mt-5 flex items-center justify-end gap-4">
               <DialogClose>
                 <Button variant="outline" className="h-9 w-20" size="sm" type="reset">
-                  Cancel
+                  {t("common:CANCEL")}
                 </Button>
               </DialogClose>
               <Button
@@ -175,7 +188,7 @@ export const EditGeneralSettings = () => {
                 className="h-9 w-20 text-primary-foreground"
                 disabled={isPending || !isDirty}
               >
-                Save
+                {t("common:SAVE")}
               </Button>
             </div>
           </form>

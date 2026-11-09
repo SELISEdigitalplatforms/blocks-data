@@ -5,8 +5,10 @@ import { LogsViewer } from "@/service-logs";
 import { SERVICES } from "@/service-logs/constants/services-catalog";
 import { useMemo } from "react";
 import { useParams } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export default function PlatformServiceLogsPage() {
+  const { t } = useT("data.console");
   const { serviceName } = useParams<{ serviceName: string }>();
 
   const service = useMemo(
@@ -14,9 +16,9 @@ export default function PlatformServiceLogsPage() {
     [serviceName],
   );
 
-  setBreadcrumbTitle("/services/logs", "Service logs");
+  setBreadcrumbTitle("/services/logs", t("PLATFORM_SERVICE_LOGS.SERVICE_LOGS"));
   if (serviceName) {
-    setBreadcrumbTitle(`/services/logs/${serviceName}`, service?.label || "Logs");
+    setBreadcrumbTitle(`/services/logs/${serviceName}`, service?.label || t("PLATFORM_SERVICE_LOGS.LOGS"));
   }
 
   if (!service) {
@@ -25,7 +27,7 @@ export default function PlatformServiceLogsPage() {
         <PageBreadcrumb breadcrumbIndex={2} />
         <Card>
           <CardContent className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            Logs are not configured for this service.
+            {t("PLATFORM_SERVICE_LOGS.LOGS_ARE_NOT_CONFIGURED_FOR_THIS")}
           </CardContent>
         </Card>
       </main>
@@ -39,19 +41,19 @@ export default function PlatformServiceLogsPage() {
         services={[
           {
             id: `blocks-${service.serviceName}-api`,
-            label: "Api",
+            label: t("PLATFORM_SERVICE_LOGS.API"),
             serviceName: `blocks-${service.serviceName}-api`,
           },
           {
             id: `blocks-${service.serviceName}-worker`,
-            label: "Worker",
+            label: t("PLATFORM_SERVICE_LOGS.WORKER"),
             serviceName: `blocks-${service.serviceName}-worker`,
           },
         ]}
         predefinedQueries={[
-          `Show recent errors for ${service.label}`,
-          `List the latest warnings for ${service.label}`,
-          `Summarize unusual log patterns for ${service.label}`,
+          t("PLATFORM_SERVICE_LOGS.SHOW_RECENT_ERRORS_FOR", { service: service.label }),
+          t("PLATFORM_SERVICE_LOGS.LIST_THE_LATEST_WARNINGS_FOR", { service: service.label }),
+          t("PLATFORM_SERVICE_LOGS.SUMMARIZE_UNUSUAL_LOG_PATTERNS_FOR", { service: service.label }),
         ]}
       />
     </main>

@@ -1,5 +1,8 @@
 import { IPermission } from "./permission";
 import { IRole } from "./role";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_IDP_IAM_MODULE = "data.idp.iam";
 
 export interface User {
   itemId: string;
@@ -247,15 +250,15 @@ export interface IPATResponse {
 export const status = [
   {
     value: "Active",
-    label: "Active",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "USER.ACTIVE"); },
   },
   {
     value: "Inactive",
-    label: "Inactive",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "USER.INACTIVE"); },
   },
   {
     value: "Verified",
-    label: "Verified",
+    get label() { return tStatic(DATA_IDP_IAM_MODULE, "USER.VERIFIED"); },
   },
 ];
 

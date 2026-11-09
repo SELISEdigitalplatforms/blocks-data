@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { useProjectStore } from "@/store/use-project-store";
 import { useGetAuthConfig } from "@blocks-idp/authentication/hooks/use-auth-config";
 import { UrlWithActions } from "./url-with-actions";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const DetailItem = ({ label, children }: { label: string; children: ReactNode }) => {
   return (
@@ -27,6 +28,7 @@ const LoadingSkelton = () => {
 };
 
 export const ViewAuthConfigure = () => {
+  const { t } = useT("data.idp.authentication");
   const { tenantId } = useProjectStore().selectedProject || { tenantId: "" };
   const { data, isLoading, isFetching } = useGetAuthConfig({ projectKey: tenantId });
 
@@ -34,22 +36,22 @@ export const ViewAuthConfigure = () => {
 
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-y-8 lg:grid-cols-3">
-      <DetailItem label="Access Token Validity">
-        {data?.accessTokenValidForNumberMinutes} minutes
+      <DetailItem label={t("VIEW_AUTH_CONFIGURE.ACCESS_TOKEN_VALIDITY")}>
+        {t("VIEW_AUTH_CONFIGURE.ACCESSTOKENVALIDFORNUMBERMINUTES", { accessTokenValidForNumberMinutes: data?.accessTokenValidForNumberMinutes ?? 0 })}
       </DetailItem>
-      <DetailItem label="Refresh Token Validity">
-        {data?.refreshTokenValidForNumberMinutes} minutes
+      <DetailItem label={t("VIEW_AUTH_CONFIGURE.REFRESH_TOKEN_VALIDITY")}>
+        {t("VIEW_AUTH_CONFIGURE.REFRESHTOKENVALIDFORNUMBERMINUTES", { refreshTokenValidForNumberMinutes: data?.refreshTokenValidForNumberMinutes ?? 0 })}
       </DetailItem>
-      <DetailItem label="'Remember Me' Token Validity">
-        {data?.rememberMeRefreshTokenValidForNumberMinutes} minutes
+      <DetailItem label={t("VIEW_AUTH_CONFIGURE.REMEMBER_ME_TOKEN_VALIDITY")}>
+        {t("VIEW_AUTH_CONFIGURE.REMEMBERMEREFRESHTOKENVALIDFORNUMBERMINUTES", { rememberMeRefreshTokenValidForNumberMinutes: data?.rememberMeRefreshTokenValidForNumberMinutes ?? 0 })}
       </DetailItem>
-      <DetailItem label="Max Wrong Attempts Before Lock">
+      <DetailItem label={t("VIEW_AUTH_CONFIGURE.MAX_WRONG_ATTEMPTS_BEFORE_LOCK")}>
         {data?.getNumberOfWrongAttemptsToLockTheAccount}
       </DetailItem>
-      <DetailItem label="Account Lock Duration">
-        {data?.accountLockDurationInMinutes} minutes
+      <DetailItem label={t("VIEW_AUTH_CONFIGURE.ACCOUNT_LOCK_DURATION")}>
+        {t("VIEW_AUTH_CONFIGURE.ACCOUNTLOCKDURATIONINMINUTES_MINUTES", { accountLockDurationInMinutes: data?.accountLockDurationInMinutes ?? 0 })}
       </DetailItem>
-      <DetailItem label="Public Certificate">
+      <DetailItem label={t("VIEW_AUTH_CONFIGURE.PUBLIC_CERTIFICATE")}>
         <UrlWithActions url={data?.publicCertificatePath || ""} />
       </DetailItem>
     </div>

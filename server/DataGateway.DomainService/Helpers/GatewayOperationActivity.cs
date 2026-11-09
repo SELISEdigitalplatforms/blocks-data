@@ -85,6 +85,12 @@ public sealed class GatewayOperation
     /// <summary>The GraphQL field name that was invoked, e.g. "getStudents".</summary>
     public string? SchemaName { get; set; }
 
+    /// <summary>
+    /// The API the request came through: "rest" for the REST API. Null for GraphQL, and then left out of the tag,
+    /// so GraphQL request logs keep exactly the fields they always had.
+    /// </summary>
+    public string? Transport { get; set; }
+
     /// <summary>The logical schema/entity name, e.g. "Student".</summary>
     public string? EntityName { get; set; }
 
@@ -165,27 +171,33 @@ public sealed class GatewayOperation
     /// tag value through <c>BsonValue.Create</c>) know how to convert a dictionary but not an
     /// arbitrary POCO.
     /// </summary>
-    internal Dictionary<string, object?> ToDictionary() => new()
+    internal Dictionary<string, object?> ToDictionary()
     {
-        [nameof(SchemaName)] = SchemaName,
-        [nameof(EntityName)] = EntityName,
-        [nameof(CollectionName)] = CollectionName,
-        [nameof(OperationType)] = OperationType,
-        [nameof(OperationQuery)] = OperationQuery,
-        [nameof(MongoQuery)] = MongoQuery,
-        [nameof(ResponseStatus)] = ResponseStatus,
-        [nameof(FailureKind)] = FailureKind,
-        [nameof(FailureCode)] = FailureCode,
-        [nameof(FailureMessage)] = FailureMessage,
-        [nameof(ResponseSize)] = ResponseSize,
-        [nameof(DocumentCount)] = DocumentCount,
-        [nameof(InAppRequest)] = InAppRequest,
-        [nameof(IsIntrospection)] = IsIntrospection,
-        [nameof(PolicyMs)] = PolicyMs,
-        [nameof(ValidationMs)] = ValidationMs,
-        [nameof(DatabaseMs)] = DatabaseMs,
-        [nameof(PublishMs)] = PublishMs,
-    };
+        var values = new Dictionary<string, object?>
+        {
+            [nameof(SchemaName)] = SchemaName,
+            [nameof(EntityName)] = EntityName,
+            [nameof(CollectionName)] = CollectionName,
+            [nameof(OperationType)] = OperationType,
+            [nameof(OperationQuery)] = OperationQuery,
+            [nameof(MongoQuery)] = MongoQuery,
+            [nameof(ResponseStatus)] = ResponseStatus,
+            [nameof(FailureKind)] = FailureKind,
+            [nameof(FailureCode)] = FailureCode,
+            [nameof(FailureMessage)] = FailureMessage,
+            [nameof(ResponseSize)] = ResponseSize,
+            [nameof(DocumentCount)] = DocumentCount,
+            [nameof(InAppRequest)] = InAppRequest,
+            [nameof(IsIntrospection)] = IsIntrospection,
+            [nameof(PolicyMs)] = PolicyMs,
+            [nameof(ValidationMs)] = ValidationMs,
+            [nameof(DatabaseMs)] = DatabaseMs,
+            [nameof(PublishMs)] = PublishMs,
+        };
+        if (Transport is not null)
+            values[nameof(Transport)] = Transport;
+        return values;
+    }
 }
 
 /// <summary>The parts of a request's duration that are measured separately.</summary>

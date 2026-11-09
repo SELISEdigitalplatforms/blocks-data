@@ -2,6 +2,7 @@ import { Button } from "@/components/ui-kits/button/button";
 import { Input } from "@/components/ui-kits/input/input";
 import { cn } from "@/lib/utils";
 import { Pencil, Plus, Search } from "lucide-react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type SchemaAccessToolbarProps = {
   isEditing: boolean;
@@ -24,13 +25,14 @@ export function SchemaAccessToolbar({
   onAdd,
   className,
 }: SchemaAccessToolbarProps) {
+  const { t } = useT("data.gateway.access");
   if (isEditing) {
     return (
       <div className={cn("flex flex-col gap-3 md:flex-row md:items-center md:justify-between", className)}>
         {/* Search Input */}
         <div className="relative flex w-full md:min-w-[220px] md:flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search" className="h-10 w-full rounded-md pl-9" />
+          <Input placeholder={t("common:SEARCH")} className="h-10 w-full rounded-md pl-9" />
         </div>
 
         {/* Action Buttons */}
@@ -43,7 +45,7 @@ export function SchemaAccessToolbar({
             disabled={isSaving}
           >
             <Plus className="h-4 w-4" />
-            Add
+            {t("common:ADD")}
           </Button>
           <Button
             variant="outline"
@@ -52,7 +54,7 @@ export function SchemaAccessToolbar({
             onClick={onCancel}
             disabled={isSaving}
           >
-            Cancel
+            {t("common:CANCEL")}
           </Button>
           <Button
             size="default"
@@ -60,7 +62,7 @@ export function SchemaAccessToolbar({
             onClick={onSave}
             disabled={isSaving || !hasUnsavedChanges}
           >
-            {isSaving ? "Saving..." : "Save"}
+            {isSaving ? t("SCHEMA_ACCESS_TOOLBAR.SAVING") : t("common:SAVE")}
           </Button>
         </div>
       </div>
@@ -72,7 +74,7 @@ export function SchemaAccessToolbar({
       {/* Search Input - Flexible Width */}
       <div className="relative flex flex-1">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input placeholder="Search" className="h-10 w-full rounded-md pl-9" />
+        <Input placeholder={t("common:SEARCH")} className="h-10 w-full rounded-md pl-9" />
       </div>
 
       {/* Edit Button */}
@@ -84,7 +86,7 @@ export function SchemaAccessToolbar({
         disabled={isSaving}
       >
         <Pencil className="h-4 w-4" />
-        Edit
+        {t("common:EDIT")}
       </Button>
     </div>
   );

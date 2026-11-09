@@ -12,6 +12,7 @@ import {
   useBulkUpdateApiEndpoints,
 } from "@blocks-idp/api-settings/hooks/use-api-settings";
 import { IApiEndpoint } from "@blocks-idp/api-settings/models/api-endpoint.model";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 /** ─── Loading skeleton ──────────────────────────────────────────────────────── */
 const ServiceGroupSkeleton = () => (
@@ -31,6 +32,7 @@ const ServiceGroupSkeleton = () => (
 
 /** ─── Page component ────────────────────────────────────────────────────────── */
 export default function ApiSettingsPage() {
+  const { t } = useT("data.console");
   const tenantId = useProjectStore().selectedProject?.tenantId || "";
   const { data, isLoading } = useGetApiEndpoints({
     projectKey: tenantId,
@@ -131,22 +133,24 @@ export default function ApiSettingsPage() {
         });
         if (!result.isSuccess) {
           throw new Error(
-            result.errors?.join(", ") || "Failed to update MFA setting",
+            result.errors?.join(", ") || t("API_SETTINGS.FAILED_TO_UPDATE_MFA_SETTING"),
           );
         }
         showSuccessToast({
-          description: `MFA ${value ? "enabled" : "disabled"} for /${ep.controller}/${ep.method.charAt(0).toUpperCase() + ep.method.slice(1)}`,
+          description: t(value ? "API_SETTINGS.MFA_ENABLED_FOR_ENDPOINT" : "API_SETTINGS.MFA_DISABLED_FOR_ENDPOINT", {
+            endpoint: `/${ep.controller}/${ep.method.charAt(0).toUpperCase() + ep.method.slice(1)}`,
+          }),
         });
       } catch (error) {
         showErrorToast({
           errors:
             error instanceof Error
               ? error.message
-              : "Failed to update MFA setting",
+              : t("API_SETTINGS.FAILED_TO_UPDATE_MFA_SETTING"),
         });
       }
     },
-    [tenantId, updateEndpoint],
+    [tenantId, updateEndpoint, t],
   );
 
   const handleToggleCaptcha = useCallback(
@@ -166,22 +170,24 @@ export default function ApiSettingsPage() {
         });
         if (!result.isSuccess) {
           throw new Error(
-            result.errors?.join(", ") || "Failed to update Captcha setting",
+            result.errors?.join(", ") || t("API_SETTINGS.FAILED_TO_UPDATE_CAPTCHA_SETTING"),
           );
         }
         showSuccessToast({
-          description: `Captcha ${value ? "enabled" : "disabled"} for /${ep.controller}/${ep.method.charAt(0).toUpperCase() + ep.method.slice(1)}`,
+          description: t(value ? "API_SETTINGS.CAPTCHA_ENABLED_FOR_ENDPOINT" : "API_SETTINGS.CAPTCHA_DISABLED_FOR_ENDPOINT", {
+            endpoint: `/${ep.controller}/${ep.method.charAt(0).toUpperCase() + ep.method.slice(1)}`,
+          }),
         });
       } catch (error) {
         showErrorToast({
           errors:
             error instanceof Error
               ? error.message
-              : "Failed to update Captcha setting",
+              : t("API_SETTINGS.FAILED_TO_UPDATE_CAPTCHA_SETTING"),
         });
       }
     },
-    [tenantId, updateEndpoint],
+    [tenantId, updateEndpoint, t],
   );
 
   // ── Bulk handlers (group presets) ─────────────────────────────────────────
@@ -207,22 +213,24 @@ export default function ApiSettingsPage() {
         });
         if (!result.isSuccess) {
           throw new Error(
-            result.errors?.join(", ") || "Failed to bulk update MFA",
+            result.errors?.join(", ") || t("API_SETTINGS.FAILED_TO_BULK_UPDATE_MFA"),
           );
         }
         showSuccessToast({
-          description: `MFA ${value ? "enabled" : "disabled"} for ${ids.length} endpoints`,
+          description: t(value ? "API_SETTINGS.MFA_ENABLED_FOR_COUNT_ENDPOINTS" : "API_SETTINGS.MFA_DISABLED_FOR_COUNT_ENDPOINTS", {
+            count: ids.length,
+          }),
         });
       } catch (error) {
         showErrorToast({
           errors:
             error instanceof Error
               ? error.message
-              : "Failed to bulk update MFA",
+              : t("API_SETTINGS.FAILED_TO_BULK_UPDATE_MFA"),
         });
       }
     },
-    [tenantId, endpoints, bulkUpdate],
+    [tenantId, endpoints, bulkUpdate, t],
   );
 
   const handleBulkGroupCaptcha = useCallback(
@@ -247,22 +255,24 @@ export default function ApiSettingsPage() {
         });
         if (!result.isSuccess) {
           throw new Error(
-            result.errors?.join(", ") || "Failed to bulk update Captcha",
+            result.errors?.join(", ") || t("API_SETTINGS.FAILED_TO_BULK_UPDATE_CAPTCHA"),
           );
         }
         showSuccessToast({
-          description: `Captcha ${value ? "enabled" : "disabled"} for ${ids.length} endpoints`,
+          description: t(value ? "API_SETTINGS.CAPTCHA_ENABLED_FOR_COUNT_ENDPOINTS" : "API_SETTINGS.CAPTCHA_DISABLED_FOR_COUNT_ENDPOINTS", {
+            count: ids.length,
+          }),
         });
       } catch (error) {
         showErrorToast({
           errors:
             error instanceof Error
               ? error.message
-              : "Failed to bulk update Captcha",
+              : t("API_SETTINGS.FAILED_TO_BULK_UPDATE_CAPTCHA"),
         });
       }
     },
-    [tenantId, endpoints, bulkUpdate],
+    [tenantId, endpoints, bulkUpdate, t],
   );
 
   const handleBulkGroupDisableAll = useCallback(
@@ -277,22 +287,22 @@ export default function ApiSettingsPage() {
         });
         if (!result.isSuccess) {
           throw new Error(
-            result.errors?.join(", ") || "Failed to disable security features",
+            result.errors?.join(", ") || t("API_SETTINGS.FAILED_TO_DISABLE_SECURITY_FEATURES"),
           );
         }
         showSuccessToast({
-          description: `All security features disabled for ${ids.length} endpoints`,
+          description: t("API_SETTINGS.ALL_SECURITY_FEATURES_DISABLED_FOR", { length: ids.length }),
         });
       } catch (error) {
         showErrorToast({
           errors:
             error instanceof Error
               ? error.message
-              : "Failed to disable security features",
+              : t("API_SETTINGS.FAILED_TO_DISABLE_SECURITY_FEATURES"),
         });
       }
     },
-    [tenantId, bulkUpdate],
+    [tenantId, bulkUpdate, t],
   );
 
   // ── Bulk bar actions ───────────────────────────────────────────────────────
@@ -318,18 +328,18 @@ export default function ApiSettingsPage() {
         disableAll: false,
       });
       if (!result.isSuccess) {
-        throw new Error(result.errors?.join(", ") || "Failed to enable MFA");
+        throw new Error(result.errors?.join(", ") || t("API_SETTINGS.FAILED_TO_ENABLE_MFA"));
       }
       showSuccessToast({
-        description: `MFA enabled for ${selectedArray.length} endpoints`,
+        description: t("API_SETTINGS.MFA_ENABLED_FOR_LENGTH_ENDPOINTS", { length: selectedArray.length }),
       });
       clearSelection();
     } catch (error) {
       showErrorToast({
-        errors: error instanceof Error ? error.message : "Failed to enable MFA",
+        errors: error instanceof Error ? error.message : t("API_SETTINGS.FAILED_TO_ENABLE_MFA"),
       });
     }
-  }, [tenantId, endpoints, selectedArray, bulkUpdate, clearSelection]);
+  }, [tenantId, endpoints, selectedArray, bulkUpdate, clearSelection, t]);
 
   const handleBulkCaptcha = useCallback(async () => {
     try {
@@ -352,44 +362,45 @@ export default function ApiSettingsPage() {
       });
       if (!result.isSuccess) {
         throw new Error(
-          result.errors?.join(", ") || "Failed to enable Captcha",
+          result.errors?.join(", ") || t("API_SETTINGS.FAILED_TO_ENABLE_CAPTCHA"),
         );
       }
       showSuccessToast({
-        description: `Captcha enabled for ${selectedArray.length} endpoints`,
+        description: t("API_SETTINGS.CAPTCHA_ENABLED_FOR_LENGTH_ENDPOINTS", { length: selectedArray.length }),
       });
       clearSelection();
     } catch (error) {
       showErrorToast({
         errors:
-          error instanceof Error ? error.message : "Failed to enable Captcha",
+          error instanceof Error ? error.message : t("API_SETTINGS.FAILED_TO_ENABLE_CAPTCHA"),
       });
     }
-  }, [tenantId, endpoints, selectedArray, bulkUpdate, clearSelection]);
+  }, [tenantId, endpoints, selectedArray, bulkUpdate, clearSelection, t]);
 
   return (
     <main className="flex flex-col gap-6 p-6 pb-24">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-semibold md:text-2xl">API Settings</h1>
+        <h1 className="text-xl font-semibold md:text-2xl">{t("API_SETTINGS.API_SETTINGS")}</h1>
         <p className="text-muted-foreground">
-          Configure security policies for your API endpoints — enable MFA,
-          Captcha, and manage access controls.
+          {t("API_SETTINGS.CONFIGURE_SECURITY_POLICIES_FOR_YOUR")}
         </p>
       </div>
 
       {/* Service groups */}
-      {isLoading ? (
+      {isLoading && (
         <div className="flex flex-col gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <ServiceGroupSkeleton key={i} />
           ))}
         </div>
-      ) : serviceGroups.length === 0 ? (
+      )}
+      {!isLoading && serviceGroups.length === 0 && (
         <div className="flex h-40 items-center justify-center rounded-lg border border-dashed bg-card text-muted-foreground">
-          No API endpoints configured.
+          {t("API_SETTINGS.NO_API_ENDPOINTS_CONFIGURED")}
         </div>
-      ) : (
+      )}
+      {!isLoading && serviceGroups.length !== 0 && (
         <div className="flex flex-col gap-8">
           {serviceGroups.map(
             ({ service, swaggerJsonUrl, swaggerUiUrl, controllers }) => (
@@ -416,7 +427,7 @@ export default function ApiSettingsPage() {
                     className="shrink-0 gap-1.5"
                   >
                     <BookOpen className="h-3.5 w-3.5" />
-                    <span>API Docs</span>
+                    <span>{t("API_SETTINGS.API_DOCS")}</span>
                   </Button>
                 </div>
                 {/* Controller cards */}

@@ -90,13 +90,13 @@ public static class DefaultValueInjection
     {
         var type = Nullable.GetUnderlyingType(propertyType) ?? propertyType;
         if (type.IsArray)
-            return (GraphQlTypeHelper.GetScalarType(type.GetElementType()!), true);
+            return (ScalarTypeName.Of(type.GetElementType()!), true);
         if (type.IsGenericType
             && type.GetGenericArguments().Length == 1
             && typeof(IEnumerable).IsAssignableFrom(type)
             && type != typeof(string))
-            return (GraphQlTypeHelper.GetScalarType(type.GetGenericArguments()[0]), true);
-        return (GraphQlTypeHelper.GetScalarType(type), false);
+            return (ScalarTypeName.Of(type.GetGenericArguments()[0]), true);
+        return (ScalarTypeName.Of(type), false);
     }
     public static void InjectDefaultValue<T>(this T entity) where T : GraphQlBaseEntity
     {
@@ -148,7 +148,7 @@ public static class DefaultValueInjection
 
     /// <summary>
     /// The id a client chose for the new row, or null. GraphQL input already carries it as <c>_id</c>
-    /// (<see cref="GraphQlTypeHelper.MapMutationInput"/> renames ItemId); input built elsewhere may still
+    /// (<c>GraphQlTypeHelper.MapMutationInput</c> renames ItemId); input built elsewhere may still
     /// use <c>ItemId</c>. A blank id counts as none.
     /// </summary>
     private static string? SuppliedItemId(Dictionary<string, object?> input)

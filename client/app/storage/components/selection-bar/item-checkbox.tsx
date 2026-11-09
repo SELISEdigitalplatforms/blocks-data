@@ -1,4 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 import { Checkbox } from "@/components/ui-kits/checkbox/checkbox";
 import type { ItemSelection, SelectableItem } from "@/storage/hooks/use-item-selection";
 import { cn } from "@/lib/utils";
@@ -24,9 +25,10 @@ export function ItemCheckbox({
   revealOnHover = false,
   className,
 }: Readonly<ItemCheckboxProps>) {
+  const { t } = useT("data.storage");
   return (
     <Checkbox
-      aria-label={`Select ${name}`}
+      aria-label={t("ITEM_CHECKBOX.SELECT_NAME", { name })}
       checked={checked}
       onCheckedChange={onToggle}
       onClick={stopPropagation}

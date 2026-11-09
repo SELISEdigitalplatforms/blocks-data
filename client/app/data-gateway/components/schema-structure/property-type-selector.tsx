@@ -13,6 +13,7 @@ import { PROPERTY_FIELD_CLASS } from "./property-field-styles";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { typeOptions } from "../../constants/input-restrictions";
 import { ISchemaDetails } from "../../models/data-service";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 interface PropertyTypeSelectorProps {
   index: number;
@@ -43,12 +44,13 @@ export function PropertyTypeSelector({
   isMobile = false,
   isChildType = false,
 }: PropertyTypeSelectorProps) {
+  const { t } = useT("data.gateway.schema");
   const childTypeStyles = isChildType
     ? "border-primary/50 bg-primary/5 text-primary font-medium"
     : "";
 
   if (!isEditMode) {
-    const typeLabel = value || "Select type...";
+    const typeLabel = value || t("PROPERTY_TYPE_SELECTOR.SELECT_TYPE");
     return (
       <div
         title={typeLabel}
@@ -63,7 +65,7 @@ export function PropertyTypeSelector({
     );
   }
 
-  const typeLabel = value || "Select type...";
+  const typeLabel = value || t("PROPERTY_TYPE_SELECTOR.SELECT_TYPE");
   return (
     <Popover open={isOpen} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
@@ -101,10 +103,10 @@ export function PropertyTypeSelector({
         {/* A compact list: the default row, heading and search sizes are tuned for a
             full-width menu and read as oversized in a narrow table cell. */}
         <Command className="**:[[cmdk-group-heading]]:px-2 **:[[cmdk-group-heading]]:py-1 **:[[cmdk-group-heading]]:text-[11px] **:[[cmdk-input-wrapper]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-3.5 [&_[cmdk-input-wrapper]_svg]:w-3.5 **:[[cmdk-input]]:h-8 **:[[cmdk-input]]:py-1 **:[[cmdk-input]]:text-[13px] **:[[cmdk-item]]:px-2 **:[[cmdk-item]]:py-1 **:[[cmdk-item]]:text-[13px]">
-          <CommandInput placeholder="Search…" onValueChange={onSearchChange} />
+          <CommandInput placeholder={t("PROPERTY_TYPE_SELECTOR.SEARCH")} onValueChange={onSearchChange} />
           <CommandList className="max-h-[240px]">
-            <CommandEmpty>No type found.</CommandEmpty>
-            <CommandGroup heading="Primitive Types">
+            <CommandEmpty>{t("PROPERTY_TYPE_SELECTOR.NO_TYPE_FOUND")}</CommandEmpty>
+            <CommandGroup heading={t("PROPERTY_TYPE_SELECTOR.PRIMITIVE_TYPES")}>
               {typeOptions
                 .filter((type) => type.toLowerCase().includes(searchText.toLowerCase()))
                 .map((type) => (
@@ -120,7 +122,7 @@ export function PropertyTypeSelector({
             </CommandGroup>
 
             {schemaItems.length > 0 && (
-              <CommandGroup heading="Child Types">
+              <CommandGroup heading={t("PROPERTY_TYPE_SELECTOR.CHILD_TYPES")}>
                 {schemaItems.map((item) => (
                   <CommandItem
                     key={item.schemaName}

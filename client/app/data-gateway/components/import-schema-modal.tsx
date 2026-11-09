@@ -31,19 +31,21 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { v4 as uuidv4 } from "uuid";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 const FileSvgDraw = () => {
+  const { t } = useT("data.gateway.schema");
   return (
     <>
       <div className="mb-3 h-8 w-8 text-border-medium-emphasis">
         <CloudUpload />
       </div>
       <div className="mb-1 text-sm text-high-emphasis">
-        <span className="font-semibold text-primary">Click to upload</span>
-        &nbsp; or drag and drop
+        <span className="font-semibold text-primary">{t("IMPORT_SCHEMA_MODAL.CLICK_TO_UPLOAD")}</span>
+        {t("IMPORT_SCHEMA_MODAL.OR_DRAG_AND_DROP")}
       </div>
       <div className="text-xs text-low-emphasis">
-        JSON only. Maximum file 5MB
+        {t("IMPORT_SCHEMA_MODAL.JSON_ONLY_MAXIMUM_FILE_5MB")}
       </div>
     </>
   );
@@ -58,6 +60,7 @@ export default function ImportSchemaModal({
   projectKey,
   onClose,
 }: IImportFilesModalProps) {
+  const { t } = useT("data.gateway.schema");
   const [files, setFiles] = useState<File[] | null>(null);
 
   const { mutateAsync: getPresignedUrl, isPending: isGettingPresignedUrl } =
@@ -102,7 +105,7 @@ export default function ImportSchemaModal({
       window.URL.revokeObjectURL(blobUrl);
     } catch (err) {
       console.error(err);
-      showErrorToast({ errors: "Failed to download template" });
+      showErrorToast({ errors: t("IMPORT_SCHEMA_MODAL.FAILED_TO_DOWNLOAD_TEMPLATE") });
     }
   };
 
@@ -167,7 +170,7 @@ export default function ImportSchemaModal({
 
   const handleUpload = async () => {
     if (!files || files.length === 0) {
-      showErrorToast({ errors: "Please select files to upload" });
+      showErrorToast({ errors: t("IMPORT_SCHEMA_MODAL.PLEASE_SELECT_FILES_TO_UPLOAD") });
       return;
     }
 
@@ -181,12 +184,12 @@ export default function ImportSchemaModal({
       setFiles(null);
       onClose(); // <-- close the modal
 
-      showSuccessToast({ description: "Processing schema upload" });
+      showSuccessToast({ description: t("IMPORT_SCHEMA_MODAL.PROCESSING_SCHEMA_UPLOAD") });
     } catch (error) {
       if (isErrorWithErrors(error)) {
         showErrorToast({ errors: error.errors });
       } else {
-        showErrorToast({ errors: "Something went wrong during upload" });
+        showErrorToast({ errors: t("IMPORT_SCHEMA_MODAL.SOMETHING_WENT_WRONG_DURING_UPLOAD") });
       }
     } finally {
       setIsUploadingBatch(false);
@@ -199,10 +202,10 @@ export default function ImportSchemaModal({
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <CloudUpload className="h-4 w-4 text-indigo-400" />
-          Import
+          {t("IMPORT_SCHEMA_MODAL.IMPORT")}
         </DialogTitle>
         <DialogDescription className="text-xs text-muted-foreground/60">
-          Import schema from a file.
+          {t("IMPORT_SCHEMA_MODAL.IMPORT_SCHEMA_FROM_A_FILE")}
         </DialogDescription>
       </DialogHeader>
 
@@ -213,10 +216,10 @@ export default function ImportSchemaModal({
       <div className="flex flex-col gap-1.5 rounded-sm border border-warning-500/50 bg-warning-100 px-3 py-2.5">
         <div className="flex items-center gap-2">
           <TriangleAlert className="h-3.5 w-3.5 shrink-0 text-warning-800" />
-          <p className="text-xs font-semibold text-warning-800">JSON Format</p>
+          <p className="text-xs font-semibold text-warning-800">{t("IMPORT_SCHEMA_MODAL.JSON_FORMAT")}</p>
         </div>
         <p className="text-xs text-warning-800">
-          Please download the JSON Template and re-upload with your data to avoid any error.
+          {t("IMPORT_SCHEMA_MODAL.PLEASE_DOWNLOAD_THE_JSON_TEMPLATE_AND")}
         </p>
       </div>
 
@@ -244,11 +247,11 @@ export default function ImportSchemaModal({
           onClick={downloadTemplate}
         >
           <ArrowDownToLine className="h-3.5 w-3.5" />
-          Template
+          {t("IMPORT_SCHEMA_MODAL.TEMPLATE")}
         </button>
         <div className="flex gap-2">
           <Button variant="ghost" size="sm" className="border border-border/40 text-muted-foreground/70" onClick={onClose}>
-            Cancel
+            {t("common:CANCEL")}
           </Button>
           <Button
             size="sm"
@@ -256,7 +259,7 @@ export default function ImportSchemaModal({
             onClick={handleUpload}
             disabled={!files || files.length === 0 || isBusy}
           >
-            {isBusy ? "Uploading…" : "Upload"}
+            {isBusy ? "Uploading…" : t("common:UPLOAD")}
           </Button>
         </div>
       </DialogFooter>

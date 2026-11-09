@@ -23,6 +23,7 @@ import { Captcha } from "@/components/captcha";
 import { useCaptcha } from "@blocks-idp/captcha/hooks/use-captcha";
 import { PasswordStrengthChecker } from "../../components/password-strength-checker/password-strength-checker";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type ActivationFormProps = {
   code: string;
@@ -31,6 +32,7 @@ type ActivationFormProps = {
 const x_blocks_key = getRuntimeEnv("BLOCKS_X_BLOCKS_KEY");
 
 export const ActivationForm = ({ code }: ActivationFormProps) => {
+  const { t } = useT("data.idp.authentication");
   const navigate = useNavigate();
   const form = useForm({
     defaultValues: activationFormDefaultValue,
@@ -82,7 +84,7 @@ export const ActivationForm = ({ code }: ActivationFormProps) => {
         window.location.reload();
         showErrorToast({ errors: error.errors });
       } else {
-        showErrorToast({ errors: "Something went wrong" });
+        showErrorToast({ errors: t("ACTIVATION_FORM.SOMETHING_WENT_WRONG") });
       }
     }
   };
@@ -99,7 +101,7 @@ export const ActivationForm = ({ code }: ActivationFormProps) => {
           name="firstname"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>First Name</FormLabel>
+              <FormLabel>{t("ACTIVATION_FORM.FIRST_NAME")}</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -113,7 +115,7 @@ export const ActivationForm = ({ code }: ActivationFormProps) => {
           name="lastname"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Last Name</FormLabel>
+              <FormLabel>{t("ACTIVATION_FORM.LAST_NAME")}</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -128,7 +130,7 @@ export const ActivationForm = ({ code }: ActivationFormProps) => {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel>{t("ACTIVATION_FORM.PASSWORD")}</FormLabel>
               <FormControl>
                 <PasswordInput {...field} />
               </FormControl>
@@ -142,7 +144,7 @@ export const ActivationForm = ({ code }: ActivationFormProps) => {
           name="confirmPassword"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Confirm Password</FormLabel>
+              <FormLabel>{t("ACTIVATION_FORM.CONFIRM_PASSWORD")}</FormLabel>
               <FormControl>
                 <PasswordInput {...field} />
               </FormControl>
@@ -163,7 +165,7 @@ export const ActivationForm = ({ code }: ActivationFormProps) => {
           className="w-full"
           disabled={isPending || !captchaCode || !requirementsMet || !isValid}
         >
-          Activate BTN
+          {t("ACTIVATION_FORM.ACTIVATE_BTN")}
         </Button>
       </form>
     </Form>

@@ -5,7 +5,7 @@ using DataGateway.DomainService.Models;
 using DataGateway.DomainService.Models.Constants;
 using DataGateway.DomainService.Notifications;
 using DataGateway.DomainService.Repositories;
-using HotChocolate;
+using DataGateway.DomainService.Schemas;
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -20,23 +20,29 @@ public class SchemaPublishService : ISchemaPublishService
 
     private const string ChangeLogCollectionName = $"{nameof(SchemaChangeLog)}s";
 
-    private readonly GraphqlSchemaBuilder _schemaBuilder;
+    private readonly SchemaAssembler _schemaAssembler;
+    private readonly IPublishedSchemaValidator _validator;
     private readonly ISchemaSnapshotStore _snapshotStore;
     private readonly ISchemaVersionStore _versionStore;
     private readonly IDbRepository _repository;
+    private readonly IEntityViewStore _viewStore;
     private readonly ILogger<SchemaPublishService> _logger;
 
     public SchemaPublishService(
-        GraphqlSchemaBuilder schemaBuilder,
+        SchemaAssembler schemaAssembler,
+        IPublishedSchemaValidator validator,
         ISchemaSnapshotStore snapshotStore,
         ISchemaVersionStore versionStore,
         IDbRepository repository,
+        IEntityViewStore viewStore,
         ILogger<SchemaPublishService> logger)
     {
-        _schemaBuilder = schemaBuilder ?? throw new ArgumentNullException(nameof(schemaBuilder));
+        _schemaAssembler = schemaAssembler ?? throw new ArgumentNullException(nameof(schemaAssembler));
+        _validator = validator ?? throw new ArgumentNullException(nameof(validator));
         _snapshotStore = snapshotStore ?? throw new ArgumentNullException(nameof(snapshotStore));
         _versionStore = versionStore ?? throw new ArgumentNullException(nameof(versionStore));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        _viewStore = viewStore ?? throw new ArgumentNullException(nameof(viewStore));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -57,7 +63,7 @@ public class SchemaPublishService : ISchemaPublishService
                 tenantId, userId, maskedEmail, pendingChangeLogIds.Count);
 
             step = "reading the drafts";
-            var source = await _schemaBuilder.ReadDraftSourceAsync(tenantId);
+            var source = await _schemaAssembler.ReadDraftSourceAsync(tenantId);
 
             // Pack before building: building modifies the definitions, and the snapshot must hold
             // exactly what was read. What is stored is then what was validated.
@@ -72,6 +78,7 @@ public class SchemaPublishService : ISchemaPublishService
 
             step = "storing the snapshot";
             var manifest = await _snapshotStore.SaveAsync(tenantId, version.Value, content, SchemaSnapshotKind.Publish, pendingChangeLogIds, cancellationToken);
+            await WriteViewsAsync(tenantId, version.Value, content);
 
             step = "making the version live";
             await _versionStore.MakeCurrentAsync(tenantId, version.Value, cancellationToken);
@@ -202,11 +209,12 @@ public class SchemaPublishService : ISchemaPublishService
     public async Task<(long Version, SchemaSource Source)> BootstrapAsync(string tenantId, CancellationToken cancellationToken = default)
     {
         using var scope = SchemaLog.BeginScope(_logger, SchemaLog.Bootstrap, tenantId);
-        var source = await _schemaBuilder.ReadDraftSourceAsync(tenantId);
+        var source = await _schemaAssembler.ReadDraftSourceAsync(tenantId);
         var content = SchemaSnapshotStore.Pack(source);
 
         var version = await _versionStore.AllocateAsync(tenantId, cancellationToken);
         await _snapshotStore.SaveAsync(tenantId, version, content, SchemaSnapshotKind.Bootstrap, [], cancellationToken);
+        await WriteViewsAsync(tenantId, version, content);
 
         // Pods that bootstrap at the same moment each store a copy of the same drafts; the highest
         // version wins and the others are never served.
@@ -217,6 +225,23 @@ public class SchemaPublishService : ISchemaPublishService
         _logger.LogInformation("Created first published schema version {Version} for tenant {TenantId} from its drafts: {SchemaCount} schemas, {CompressedKb} KB; live version is {LiveVersion}",
             version, tenantId, content.SchemaCount, ToKb(content.CompressedBytes.LongLength), currentVersion);
         return (version, source);
+    }
+
+    /// <summary>
+    /// Stores the per-entity views of the version just saved, before it can become live. Built from a
+    /// fresh copy of the stored content, because building modifies the definitions. Best effort: a
+    /// missing view is built on first use, so a failure only costs that.
+    /// </summary>
+    private async Task WriteViewsAsync(string tenantId, long version, SchemaSnapshotContent content)
+    {
+        try
+        {
+            await _viewStore.WriteAsync(tenantId, version, SchemaSnapshotStore.Unpack(content.CompressedBytes));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not store the entity views of schema version {Version} for tenant {TenantId}; they are built when first needed", version, LogMasking.OneLine(tenantId));
+        }
     }
 
     private async Task PruneAsync(string tenantId, long liveVersion, CancellationToken cancellationToken)
@@ -235,6 +260,17 @@ public class SchemaPublishService : ISchemaPublishService
             // Old versions are retried at the next publish; the publish itself has succeeded.
             _logger.LogWarning(ex, "Could not delete old published schema versions for tenant {TenantId}; retried at the next publish", tenantId);
         }
+
+        try
+        {
+            // The versions still listed keep their views; the views of every other version go with them.
+            var kept = (await _snapshotStore.ListAsync(tenantId, 0, cancellationToken)).Select(m => m.Version).ToList();
+            await _viewStore.DeleteExceptAsync(tenantId, kept);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not delete the entity views of old published schema versions for tenant {TenantId}; retried at the next publish", LogMasking.OneLine(tenantId));
+        }
     }
 
     private void EnsureBuilds(string tenantId, SchemaSource source)
@@ -242,13 +278,7 @@ public class SchemaPublishService : ISchemaPublishService
         var started = Stopwatch.GetTimestamp();
         try
         {
-            var builder = SchemaBuilder.New();
-            // A tenant without definitions has nothing to validate (and nothing to serve).
-            // Strict: a Reference rule pointing at a schema or field that no longer exists stops the publish.
-            if (_schemaBuilder.BuildSchema(tenantId, source, builder, strictReferences: true))
-            {
-                builder.Create();
-            }
+            _validator.Validate(tenantId, source);
         }
         catch (Exception ex)
         {

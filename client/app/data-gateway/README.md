@@ -26,16 +26,16 @@ A submodule of the [Blocks](https://github.com/SELISEdigitalplatforms/blocks-dat
 
 The `data-gateway` submodule is the management layer for the Blocks platform's **Unified Data Service (UDS)**. It allows teams to connect a MongoDB database, define schemas (Entities and DTOs), control read/write/delete access at both the row (RLS) and column (CLS) level, define declarative access policies with rule groups, add per-field validation rules, and interact with the live GraphQL API through a built-in playground.
 
-| Domain                 | Status     | Description                                                                                        |
-| ---------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
-| **Data Source**        | Production | Connect and manage MongoDB data source configurations per project                                  |
-| **Schema Management**  | Production | Create, update, and delete Entity and DTO schemas with typed field definitions                     |
-| **Access Control**     | Production | Row-Level Security (RLS) and Column-Level Security (CLS) with role/user/permission-based rule sets |
-| **Policy Engine**      | Production | Declarative allow/deny policies with nested rule groups for fine-grained data access               |
-| **Field Validation**   | Production | Per-field validation rules (e.g., min/max, regex, required) with custom error messages             |
-| **Mock Data**          | Production | View and delete seeded mock data per collection                                                    |
-| **GraphQL Playground** | Production | Live query editor that executes against the project's running data gateway pod                     |
-| **Pipeline**           | Production | Trigger CI/CD pipeline to build and deploy the data gateway service                                |
+| Domain                | Status     | Description                                                                                         |
+| --------------------- | ---------- | --------------------------------------------------------------------------------------------------- |
+| **Data Source**       | Production | Connect and manage MongoDB data source configurations per project                                   |
+| **Schema Management** | Production | Create, update, and delete Entity and DTO schemas with typed field definitions                      |
+| **Access Control**    | Production | Row-Level Security (RLS) and Column-Level Security (CLS) with role/user/permission-based rule sets  |
+| **Policy Engine**     | Production | Declarative allow/deny policies with nested rule groups for fine-grained data access                |
+| **Field Validation**  | Production | Per-field validation rules (e.g., min/max, regex, required) with custom error messages              |
+| **Mock Data**         | Production | View and delete seeded mock data per collection                                                     |
+| **Playground**        | Production | REST and GraphQL tabs (REST first) that run requests against the project's running data gateway pod |
+| **Pipeline**          | Production | Trigger CI/CD pipeline to build and deploy the data gateway service                                 |
 
 ---
 
@@ -64,7 +64,7 @@ data-gateway/
 │   ├── schema-structure-table-skeleton.tsx    # Loading skeleton for the fields table
 │   ├── graphql-playground/
 │   │   ├── graphql-playground.tsx             # Monaco editor + response pane
-│   │   ├── graphql-playground-page.tsx        # Page wrapper for the GraphQL playground
+│   │   ├── graphql-playground-page.tsx        # GraphQL workspace (the playground's GraphQL tab)
 │   │   ├── clean-test-data-modal.tsx          # Confirmation modal for deleting mock data
 │   │   └── index.ts
 │   ├── schema-access-control/
@@ -168,7 +168,11 @@ data-gateway/
 - **Per-field rules**: Attach validation rules to any schema field (e.g., min/max length, regex pattern, required) with a custom `errorMessage` and `isActive` toggle.
 - **Full lifecycle**: Get, create, update, and delete field validation rule sets.
 
-### GraphQL Playground
+### Playground
+
+The playground (`components/playground/`) has a REST tab and a GraphQL tab, REST first. The REST tab (`components/rest-playground/`) builds and sends requests to the gateway's REST routes; the GraphQL tab is described below.
+
+#### GraphQL tab
 
 - **Live query execution**: Submit GraphQL queries/mutations directly against the project's running gateway pod via `executeGraphQLOperation`.
 - **Template generation**: `graphql-template.utils.ts` auto-generates query/mutation templates from schema field definitions.

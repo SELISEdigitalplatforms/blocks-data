@@ -56,7 +56,7 @@ public static class SchemaDefinitionMapping
         {
             var currentPath = string.IsNullOrWhiteSpace(parentPath) ? field.Name : $"{parentPath}.{field.Name}";
             var fieldResponse = field.MapFieldToResponse(policies);
-            if (GraphQlTypeHelper.IsScalar(field.Type))
+            if (SchemaTypeHelper.IsScalar(field.Type))
             {
                 fieldResponse.ValidationRule = validations.FirstOrDefault(v => v.FieldName == currentPath);
             }

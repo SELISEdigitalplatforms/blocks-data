@@ -20,8 +20,10 @@ import { isErrorWithErrors } from "@/lib/error";
 import { useOIDCContext } from "@/layouts/oidc-layout";
 import { buildOIDCNavigationUrl } from "@blocks-idp/authentication/utils/oidc-utils";
 import { accountRecover } from "@blocks-idp/authentication/services/oidc-auth-flow.service";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const OidcForgotPasswordForm = () => {
+  const { t } = useT("data.idp.authentication");
   const { themeColor, projectKey } = useOIDCContext();
   const [isPending, setIsPending] = useState(false);
 
@@ -42,14 +44,14 @@ export const OidcForgotPasswordForm = () => {
         projectKey: projectKey,
       });
       if (!res?.isSuccess) {
-        return showErrorToast({ errors: res?.error || "Failed to recover account" });
+        return showErrorToast({ errors: res?.error || t("OIDC_FORGOT_PASSWORD_FORM.FAILED_TO_RECOVER_ACCOUNT") });
       }
       const baseUrl = buildOIDCNavigationUrl(`/oidc/email-sent-confirmation`);
       const navUrl = `${baseUrl}&email=${encodeURIComponent(values.email)}`;
       navigate(navUrl);
     } catch (error) {
       if (isErrorWithErrors(error)) return showErrorToast({ errors: error.errors });
-      showErrorToast({ errors: "Something went wrong" });
+      showErrorToast({ errors: t("OIDC_FORGOT_PASSWORD_FORM.SOMETHING_WENT_WRONG") });
     } finally {
       setIsPending(false);
     }
@@ -64,9 +66,9 @@ export const OidcForgotPasswordForm = () => {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>{t("common:EMAIL")}</FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="Enter your email" {...field} />
+                  <Input type="email" placeholder={t("OIDC_FORGOT_PASSWORD_FORM.ENTER_YOUR_EMAIL")} {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -79,17 +81,17 @@ export const OidcForgotPasswordForm = () => {
             style={{ backgroundColor: themeColor }}
             disabled={isPending || !isValid}
           >
-            Continue
+            {t("common:CONTINUE")}
           </Button>
         </div>
         <div className="mt-4 text-center text-base text-foreground">
-          Go back to{" "}
+          {t("OIDC_FORGOT_PASSWORD_FORM.GO_BACK_TO")}
           <Link
             to={buildOIDCNavigationUrl("/oidc/login")}
             className="hover:underline"
             style={{ color: themeColor }}
           >
-            Log in
+            {t("OIDC_FORGOT_PASSWORD_FORM.LOG_IN")}
           </Link>
         </div>
       </form>

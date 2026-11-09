@@ -2,6 +2,7 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { isValid as isValidDate, isBefore } from "date-fns";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -24,7 +25,7 @@ export const formatFullDate = (date: Date, withoutTime?: boolean): string => {
   const dateStr = `${monthNames[date.getMonth()]} ${pad(date.getDate())}, ${date.getFullYear()}`;
   const timeStr = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
   if (withoutTime) return dateStr;
-  return `${dateStr} at ${timeStr}`;
+  return tStatic("data.shared", "UTILS.DATESTR_AT_TIMESTR", { dateStr, timeStr });
 };
 
 export function parseDateString(dateString: string): Date {

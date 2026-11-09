@@ -26,6 +26,7 @@ import { useMemo } from "react";
 import { useOrganizationUsersSortQueryParams } from "./organization-users-filter-toolbar";
 import { FilterControls } from "@/components/filter-toolbar";
 import { useNavigate } from "react-router";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type OrganizationUsersTableProps = {
   users: User[];
@@ -41,6 +42,7 @@ const LoadingSkelton = () => (
 );
 
 export const OrganizationUsersTable = ({ users, isLoading }: OrganizationUsersTableProps) => {
+  const { t } = useT("data.idp.iam");
   const navigate = useNavigate();
   const { sortQueryParams, setSortQueryParams } = useOrganizationUsersSortQueryParams();
 
@@ -52,7 +54,7 @@ export const OrganizationUsersTable = ({ users, isLoading }: OrganizationUsersTa
         header: () => (
           <FilterControls.SortHeader
             id="FirstName"
-            label="Name"
+            label={t("common:NAME")}
             value={sortQueryParams}
             onChange={setSortQueryParams}
           />
@@ -70,7 +72,7 @@ export const OrganizationUsersTable = ({ users, isLoading }: OrganizationUsersTa
         header: () => (
           <FilterControls.SortHeader
             id="Email"
-            label="Email"
+            label={t("common:EMAIL")}
             value={sortQueryParams}
             onChange={setSortQueryParams}
           />
@@ -88,7 +90,7 @@ export const OrganizationUsersTable = ({ users, isLoading }: OrganizationUsersTa
         header: () => (
           <FilterControls.SortHeader
             id="LogInCount"
-            label="No. of logins"
+            label={t("ORGANIZATION_USERS_TABLE.NO_OF_LOGINS")}
             value={sortQueryParams}
             onChange={setSortQueryParams}
           />
@@ -106,7 +108,7 @@ export const OrganizationUsersTable = ({ users, isLoading }: OrganizationUsersTa
         header: () => (
           <FilterControls.SortHeader
             id="LastLoggedInTime"
-            label="Last login"
+            label={t("ORGANIZATION_USERS_TABLE.LAST_LOGIN")}
             value={sortQueryParams}
             onChange={setSortQueryParams}
           />
@@ -127,19 +129,19 @@ export const OrganizationUsersTable = ({ users, isLoading }: OrganizationUsersTa
         header: () => (
           <FilterControls.SortHeader
             id="Active"
-            label="Status"
+            label={t("common:STATUS")}
             value={sortQueryParams}
             onChange={setSortQueryParams}
           />
         ),
         cell: (info) => (
           <Badge variant={info.row.original.active ? "success" : "error"} className="w-fit">
-            {info.row.original.active ? "Active" : "Inactive"}
+            {info.row.original.active ? t("ORGANIZATION_USERS_TABLE.ACTIVE") : t("ORGANIZATION_USERS_TABLE.INACTIVE")}
           </Badge>
         ),
       },
     ],
-    [setSortQueryParams, sortQueryParams],
+    [setSortQueryParams, sortQueryParams, t],
   );
 
   const handleRowClick = (itemId: string) => {
@@ -180,7 +182,7 @@ export const OrganizationUsersTable = ({ users, isLoading }: OrganizationUsersTa
         {!users.length ? (
           <TableRow>
             <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-              No results found.
+              {t("ORGANIZATION_USERS_TABLE.NO_RESULTS_FOUND")}
             </TableCell>
           </TableRow>
         ) : (

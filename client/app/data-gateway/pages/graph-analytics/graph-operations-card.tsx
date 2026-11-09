@@ -16,6 +16,9 @@ import { IGraphLogOperationStat } from "../../models/graph-log-analytics";
 import { AnalyticsCard } from "./analytics-card";
 import { formatDuration } from "./graph-log-formatters";
 import { OUTCOME_COLORS } from "./graph-outcome-colors";
+import { useT, tStatic } from "@seliseblocks/genesis-os/i18n";
+
+const DATA_GATEWAY_ANALYTICS_MODULE = "data.gateway.analytics";
 
 const MAX_BAR_WIDTH_PX = 80;
 
@@ -25,30 +28,33 @@ interface GraphOperationsCardProps {
 }
 
 const emptyMessage = (isError: boolean) =>
-  isError ? "Couldn't load data. Please try again." : "No requests in this range.";
+  isError ? tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_OPERATIONS_CARD.COULDN_T_LOAD_DATA_PLEASE_TRY") : tStatic(DATA_GATEWAY_ANALYTICS_MODULE, "GRAPH_OPERATIONS_CARD.NO_REQUESTS_IN_THIS_RANGE");
 
 /** Busiest fields first, with the response times they cost. */
 export const GraphOperationsCard = ({ operationStats, isError }: GraphOperationsCardProps) => {
+  const { t } = useT(DATA_GATEWAY_ANALYTICS_MODULE);
   const maxCalls = Math.max(1, ...operationStats.map((stat) => stat.calls));
 
   return (
-    <AnalyticsCard icon={BarChart3} title="Most frequent operations">
+    <AnalyticsCard icon={BarChart3} title={t("GRAPH_OPERATIONS_CARD.MOST_FREQUENT_OPERATIONS")}>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Schema</TableHead>
-            <TableHead>Calls</TableHead>
-            <TableHead>Allows</TableHead>
-            <TableHead>Denies</TableHead>
-            <TableHead>Errors</TableHead>
-            <TableHead className="whitespace-nowrap">Avg</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.SCHEMA")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.CALLS")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.REST")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.GRAPHQL")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.ALLOWS")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.DENIES")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.ERRORS")}</TableHead>
+            <TableHead className="whitespace-nowrap">{t("GRAPH_OPERATIONS_CARD.AVG")}</TableHead>
             <TableHead className="whitespace-nowrap">p95</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {operationStats.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={7} className="text-center text-muted-foreground">
+              <TableCell colSpan={9} className="text-center text-muted-foreground">
                 {emptyMessage(isError)}
               </TableCell>
             </TableRow>
@@ -65,6 +71,8 @@ export const GraphOperationsCard = ({ operationStats, isError }: GraphOperations
                     <span>{stat.calls}</span>
                   </div>
                 </TableCell>
+                <TableCell>{stat.restCount}</TableCell>
+                <TableCell>{stat.graphQLCount}</TableCell>
                 {/* Refused on purpose and actually broken are different problems, so the row
                     shows them apart rather than as one "failed" count — in the same colours the
                     outcome tiles and bars above use. */}
@@ -88,20 +96,21 @@ export const GraphOperationsCard = ({ operationStats, isError }: GraphOperations
 
 /** The same fields ranked by how often they fail rather than how often they're called. */
 export const GraphErrorRatesCard = ({ operationStats, isError }: GraphOperationsCardProps) => {
+  const { t } = useT(DATA_GATEWAY_ANALYTICS_MODULE);
   const errorRateStats = useMemo(
     () => [...operationStats].sort((a, b) => b.errorRate - a.errorRate),
     [operationStats],
   );
 
   return (
-    <AnalyticsCard icon={AlertTriangle} title="Error rates">
+    <AnalyticsCard icon={AlertTriangle} title={t("GRAPH_OPERATIONS_CARD.ERROR_RATES")}>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Schema</TableHead>
-            <TableHead>Total</TableHead>
-            <TableHead>Failed</TableHead>
-            <TableHead>Error rate</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.SCHEMA")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.TOTAL")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.FAILED")}</TableHead>
+            <TableHead>{t("GRAPH_OPERATIONS_CARD.ERROR_RATE")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

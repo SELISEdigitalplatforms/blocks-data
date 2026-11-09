@@ -2,8 +2,10 @@ import { FilterToolbar } from "@/components/filter-toolbar";
 import { useContext } from "react";
 import { LogsViewerContext } from "../logs-viewer";
 import { LOG_LEVEL } from "../../utils/log-display";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 export const LogsFilterToolbar = () => {
+  const { t } = useT("data.console");
   const { filter, setFilter, resetFilter } = useContext(LogsViewerContext);
   const { level, startDate, endDate, search } = filter || {
     level: "",
@@ -45,13 +47,13 @@ export const LogsFilterToolbar = () => {
         {
           key: "date",
           type: "DateRange",
-          label: "Date",
+          label: t("LOGS_FILTER_TOOLBAR.DATE"),
           props: {},
         },
         {
           key: "level",
           type: "Radio",
-          label: "Type",
+          label: t("common:TYPE"),
           props: { options: levels },
         },
       ]}

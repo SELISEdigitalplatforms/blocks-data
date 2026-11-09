@@ -1,7 +1,10 @@
 import { z } from "zod";
+import { tStatic } from "@seliseblocks/genesis-os/i18n";
 
-export const createOidcSchema = z.object({
-redirectUrlOidc: z.string().url("Must be a valid URL").refine((val) => {
+const DATA_IDP_AUTHENTICATION_MODULE = "data.idp.authentication";
+
+export const createOidcSchema = z.lazy(() => z.object({
+redirectUrlOidc: z.string().url(tStatic(DATA_IDP_AUTHENTICATION_MODULE, "CREATE_OIDC_UTILS.MUST_BE_A_VALID_URL")).refine((val) => {
   try {
     const url = new URL(val);
     if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
@@ -11,8 +14,8 @@ redirectUrlOidc: z.string().url("Must be a valid URL").refine((val) => {
   } catch {
     return false;
   }
-}, "Only HTTP is allowed for localhost. All other URLs must use HTTPS."),  
-audienceUrlOidc: z.string().url("Must be a valid URL").refine((val) => {
+}, tStatic(DATA_IDP_AUTHENTICATION_MODULE, "CREATE_OIDC_UTILS.ONLY_HTTP_IS_ALLOWED_FOR_LOCALHOST")),  
+audienceUrlOidc: z.string().url(tStatic(DATA_IDP_AUTHENTICATION_MODULE, "CREATE_OIDC_UTILS.MUST_BE_A_VALID_URL")).refine((val) => {
   try {
     const url = new URL(val);
     if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
@@ -22,11 +25,11 @@ audienceUrlOidc: z.string().url("Must be a valid URL").refine((val) => {
   } catch {
     return false;
   }
-}, "Only HTTP is allowed for localhost. All other URLs must use HTTPS."), 
+}, tStatic(DATA_IDP_AUTHENTICATION_MODULE, "CREATE_OIDC_UTILS.ONLY_HTTP_IS_ALLOWED_FOR_LOCALHOST")), 
   scope: z.string().trim(),
   clientBrandColor: z.string().optional(),
-  clientDisplayName: z.string().trim().min(1, "Client display name is required"),
-});
+  clientDisplayName: z.string().trim().min(1, tStatic(DATA_IDP_AUTHENTICATION_MODULE, "CREATE_OIDC_UTILS.CLIENT_DISPLAY_NAME_IS_REQUIRED")),
+}));
 
 export type CreateOIDCFormValues = z.infer<typeof createOidcSchema>;
 

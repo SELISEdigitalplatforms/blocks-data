@@ -1,0 +1,343 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type ActionResponse {
+  acknowledged: Boolean!
+  itemId: String
+  totalImpactedData: Long!
+  message: String
+}
+
+type Address {
+  City: String @cost(weight: "10")
+  Zip: String @cost(weight: "10")
+}
+
+type BulkActionResponse {
+  acknowledged: Boolean!
+  totalImpactedData: Long!
+  message: String
+  itemIds: [String!]!
+}
+
+type Mutation {
+  insertProduct("The input data to insert." input: ProductInsertInput): ActionResponse @cost(weight: "10")
+  "Bulk insert Product items."
+  insertManyProduct("The input data to bulk insert." input: [ProductInsertInput]): BulkActionResponse @cost(weight: "10")
+  updateProduct("Use where instead" filter: String "Filter the results by a MongoDB filter document." where: ProductFilterInput "The input data to update." input: ProductUpdateInput): ActionResponse @cost(weight: "10")
+  "Bulk update Product items matching the filter."
+  updateManyProduct("Use where instead" filter: String "Filter the results by a MongoDB filter document." where: ProductFilterInput "The input data to bulk update." input: ProductUpdateInput): ActionResponse @cost(weight: "10")
+  "Delete Product items."
+  deleteProduct("Use where instead" filter: String "Filter the results by a MongoDB filter document." where: ProductFilterInput "The input data to delete." input: ProductDeleteInput): ActionResponse @cost(weight: "10")
+  "Delete Product items."
+  deleteManyProduct("Use where instead" filter: String "Filter the results by a MongoDB filter document." where: ProductFilterInput "The input data to delete." input: ProductDeleteInput): ActionResponse @cost(weight: "10")
+  insertNote("The input data to insert." input: NoteInsertInput): ActionResponse @cost(weight: "10")
+  "Bulk insert Note items."
+  insertManyNote("The input data to bulk insert." input: [NoteInsertInput]): BulkActionResponse @cost(weight: "10")
+  updateNote("Use where instead" filter: String "Filter the results by a MongoDB filter document." where: NoteFilterInput "The input data to update." input: NoteUpdateInput): ActionResponse @cost(weight: "10")
+  "Bulk update Note items matching the filter."
+  updateManyNote("Use where instead" filter: String "Filter the results by a MongoDB filter document." where: NoteFilterInput "The input data to bulk update." input: NoteUpdateInput): ActionResponse @cost(weight: "10")
+  "Delete Note items."
+  deleteNote("Use where instead" filter: String "Filter the results by a MongoDB filter document." where: NoteFilterInput "The input data to delete." input: NoteDeleteInput): ActionResponse @cost(weight: "10")
+  "Delete Note items."
+  deleteManyNote("Use where instead" filter: String "Filter the results by a MongoDB filter document." where: NoteFilterInput "The input data to delete." input: NoteDeleteInput): ActionResponse @cost(weight: "10")
+}
+
+type Note {
+  ItemId: String @cost(weight: "10")
+  Text: String @cost(weight: "10")
+}
+
+type NoteResult {
+  items: [Note!]! @cost(weight: "10")
+  totalCount: Int! @cost(weight: "10")
+  pageNo: Int! @cost(weight: "10")
+  pageSize: Int! @cost(weight: "10")
+  totalPages: Int! @cost(weight: "10")
+  hasNextPage: Boolean! @cost(weight: "10")
+  hasPreviousPage: Boolean! @cost(weight: "10")
+}
+
+type Product {
+  ItemId: String @cost(weight: "10")
+  Title: String @cost(weight: "10")
+  Price: Float @cost(weight: "10")
+  Stock: Int @cost(weight: "10")
+  Status: ProductStatusEnum @cost(weight: "10")
+  Location: GeoJson @cost(weight: "10")
+  Secret: String @cost(weight: "10")
+  Owner: String @cost(weight: "10")
+  Address: Address @cost(weight: "10")
+  Tags: [String] @cost(weight: "10")
+}
+
+type ProductResult {
+  items: [Product!]! @cost(weight: "10")
+  totalCount: Int! @cost(weight: "10")
+  pageNo: Int! @cost(weight: "10")
+  pageSize: Int! @cost(weight: "10")
+  totalPages: Int! @cost(weight: "10")
+  hasNextPage: Boolean! @cost(weight: "10")
+  hasPreviousPage: Boolean! @cost(weight: "10")
+}
+
+type Query {
+  getProducts("Use where, order, and paging instead" input: DynamicQueryInput "Filter the results by a MongoDB filter document." where: ProductFilterInput "Sort the results by a list of dynamic sort input." order: [DynamicSortInput!] "Paginate the results by a page number and page size." paging: PaginationInput): ProductResult @cost(weight: "10")
+  getNotes("Use where, order, and paging instead" input: DynamicQueryInput "Filter the results by a MongoDB filter document." where: NoteFilterInput "Sort the results by a list of dynamic sort input." order: [DynamicSortInput!] "Paginate the results by a page number and page size." paging: PaginationInput): NoteResult @cost(weight: "10")
+}
+
+"Filter input for embedded Address values."
+input AddressFilterInput {
+  "Filter by City."
+  City: StringOperationFilterInput
+  "Filter by Zip."
+  Zip: StringOperationFilterInput
+}
+
+input AddressInput {
+  City: String
+  Zip: String
+}
+
+input BooleanOperationFilterInput {
+  "Equals."
+  eq: Boolean
+  "Not equals."
+  neq: Boolean
+}
+
+input DateTimeOperationFilterInput {
+  "Equals."
+  eq: DateTime
+  "Not equals."
+  neq: DateTime
+  "Greater than."
+  gt: DateTime
+  "Greater than or equal."
+  gte: DateTime
+  "Less than."
+  lt: DateTime
+  "Less than or equal."
+  lte: DateTime
+  "In list."
+  in: [DateTime]
+}
+
+input DynamicQueryInput {
+  filter: String
+  sort: String
+  pageNo: Int
+  pageSize: Int
+}
+
+"Sort by a field and direction."
+input DynamicSortInput {
+  "Name of the field to sort by."
+  field: String!
+  "Sort direction (ASC or DESC). Defaults to ASC."
+  direction: SortDirection
+}
+
+input GeoJsonGeometryFilterInput {
+  "Reference GeoJSON geometry. `within` accepts only Polygon or MultiPolygon."
+  geometry: GeoJson!
+}
+
+input GeoJsonNearInput {
+  "Reference GeoJSON Point."
+  geometry: GeoJson!
+  "Maximum distance from the reference point, in meters. Must be positive."
+  maxDistanceMeters: Float!
+  "Minimum distance from the reference point, in meters. Must be positive and less than maxDistanceMeters."
+  minDistanceMeters: Float
+}
+
+input GeoJsonOperationFilterInput {
+  "Structurally equals."
+  eq: GeoJson
+  "Does not structurally equal."
+  neq: GeoJson
+  "Within a distance (meters) of a reference Point."
+  near: GeoJsonNearInput
+  "Entirely contained by a reference Polygon or MultiPolygon."
+  within: GeoJsonGeometryFilterInput
+  "Overlaps a reference geometry of any type."
+  intersects: GeoJsonGeometryFilterInput
+}
+
+input IntOperationFilterInput {
+  "Equals."
+  eq: Int
+  "Not equals."
+  neq: Int
+  "Greater than."
+  gt: Int
+  "Greater than or equal."
+  gte: Int
+  "Less than."
+  lt: Int
+  "Less than or equal."
+  lte: Int
+  "In list."
+  in: [Int]
+}
+
+input NoteDeleteInput {
+  "Indicates whether to perform a hard delete (true) or soft delete (false)."
+  isHardDelete: Boolean!
+}
+
+"Filter input for Note."
+input NoteFilterInput {
+  "Filter by ItemId."
+  ItemId: StringOperationFilterInput
+  "Filter by Text."
+  Text: StringOperationFilterInput
+  "Logical OR of conditions."
+  or: [NoteFilterInput!]
+  "Logical AND of conditions."
+  and: [NoteFilterInput!]
+}
+
+input NoteInsertInput {
+  ItemId: String
+  Text: String
+}
+
+input NoteUpdateInput {
+  Text: String
+}
+
+input NumberOperationFilterInput {
+  "Equals."
+  eq: Float
+  "Not equals."
+  neq: Float
+  "Greater than."
+  gt: Float
+  "Greater than or equal."
+  gte: Float
+  "Less than."
+  lt: Float
+  "Less than or equal."
+  lte: Float
+  "In list."
+  in: [Float]
+}
+
+input PaginationInput {
+  pageNo: Int
+  pageSize: Int
+}
+
+input ProductDeleteInput {
+  "Indicates whether to perform a hard delete (true) or soft delete (false)."
+  isHardDelete: Boolean!
+}
+
+"Filter input for Product."
+input ProductFilterInput {
+  "Filter by ItemId."
+  ItemId: StringOperationFilterInput
+  "Filter by Title."
+  Title: StringOperationFilterInput
+  "Filter by Price."
+  Price: NumberOperationFilterInput
+  "Filter by Stock."
+  Stock: IntOperationFilterInput
+  "Filter by Status."
+  Status: ProductStatusEnumOperationFilterInput
+  "Filter by Location."
+  Location: GeoJsonOperationFilterInput
+  "Filter by Secret."
+  Secret: StringOperationFilterInput
+  "Filter by Owner."
+  Owner: StringOperationFilterInput
+  "Filter by Tags."
+  Tags: StringOperationFilterInput
+  "Logical OR of conditions."
+  or: [ProductFilterInput!]
+  "Logical AND of conditions."
+  and: [ProductFilterInput!]
+}
+
+input ProductInsertInput {
+  ItemId: String
+  Title: String
+  Price: Float
+  Stock: Int
+  Status: ProductStatusEnum
+  Location: GeoJson
+  Secret: String
+  Owner: String
+  Address: AddressInput
+  Tags: [String]
+}
+
+"Filter operations for ProductStatusEnum."
+input ProductStatusEnumOperationFilterInput {
+  "Equals."
+  eq: ProductStatusEnum
+  "Not equals."
+  neq: ProductStatusEnum
+  "In list."
+  in: [ProductStatusEnum]
+  "Not in list."
+  nin: [ProductStatusEnum]
+}
+
+input ProductUpdateInput {
+  Title: String
+  Price: Float
+  Stock: Int
+  Status: ProductStatusEnum
+  Location: GeoJson
+  Secret: String
+  Owner: String
+  Address: AddressInput
+  Tags: [String]
+}
+
+input StringOperationFilterInput {
+  "Equals."
+  eq: String
+  "Not equals."
+  neq: String
+  "Contains substring."
+  contains: String
+  "Starts with."
+  startsWith: String
+  "Ends with."
+  endsWith: String
+  "In list."
+  in: [String]
+}
+
+"Allowed values for ProductStatusEnum."
+enum ProductStatusEnum {
+  Draft
+  Live
+}
+
+"Direction for ordering results."
+enum SortDirection {
+  ASC
+  DESC
+}
+
+"The purpose of the `cost` directive is to define a `weight` for GraphQL types, fields, and arguments. Static analysis can use these weights when calculating the overall cost of a query or response."
+directive @cost("The `weight` argument defines what value to add to the overall cost for every appearance, or possible appearance, of a type, field, argument, etc." weight: String!) on SCALAR | OBJECT | FIELD_DEFINITION | ARGUMENT_DEFINITION | ENUM | INPUT_FIELD_DEFINITION
+
+"The `@specifiedBy` directive is used within the type system definition language to provide a URL for specifying the behavior of custom scalar definitions."
+directive @specifiedBy("The specifiedBy URL points to a human-readable specification. This field will only read a result for scalar types." url: String!) on SCALAR
+
+"The `DateTime` scalar represents an ISO-8601 compliant date time type."
+scalar DateTime @specifiedBy(url: "https:\/\/www.graphql-scalars.com\/date-time")
+
+"An RFC 7946 GeoJSON geometry object: one of Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon or GeometryCollection. Coordinates are [longitude, latitude]."
+scalar GeoJson
+
+"The `Long` scalar type represents non-fractional signed whole 64-bit numeric values. Long can represent values between -(2^63) and 2^63 - 1."
+scalar Long

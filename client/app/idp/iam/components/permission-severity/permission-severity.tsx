@@ -3,6 +3,7 @@ import { Skeleton } from "@/components/ui-kits/skeleton/skeleton";
 import { cn } from "@/lib/utils";
 import { IGetPermissionsSeverityResponse, PERMISSION_SEVERITY_OPTIONS } from "@blocks-idp/iam/models/permission";
 import { useMemo } from "react";
+import { useT } from "@seliseblocks/genesis-os/i18n";
 
 type PermissionSeverityProps = {
   data: IGetPermissionsSeverityResponse;
@@ -10,6 +11,7 @@ type PermissionSeverityProps = {
 };
 
 export const PermissionSeverity = ({ data, isLoading }: PermissionSeverityProps) => {
+  const { t } = useT("data.idp.iam");
   const severityData = useMemo(() => {
     if (!data) return [];
     return PERMISSION_SEVERITY_OPTIONS.map((option) => {
@@ -24,7 +26,7 @@ export const PermissionSeverity = ({ data, isLoading }: PermissionSeverityProps)
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Permission Severity Overview</CardTitle>
+        <CardTitle>{t("PERMISSION_SEVERITY.PERMISSION_SEVERITY_OVERVIEW")}</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -33,7 +35,7 @@ export const PermissionSeverity = ({ data, isLoading }: PermissionSeverityProps)
               <div className={cn(item.barClassName, "absolute left-0 top-0 h-full w-1.5")} />
 
               <div className="pl-2">
-                <p className={cn("text-sm font-semibold uppercase")}>{item.label} Risk</p>
+                <p className={cn("text-sm font-semibold uppercase")}>{t("PERMISSION_SEVERITY.LABEL_RISK", { label: item.label })}</p>
 
                 {isLoading ? (
                   <Skeleton className="mt-3 h-8 w-[140px]" />
@@ -42,7 +44,7 @@ export const PermissionSeverity = ({ data, isLoading }: PermissionSeverityProps)
                     <span className="text-4xl font-extrabold leading-none text-foreground">
                       {String(item.count).padStart(2, "0")}
                     </span>
-                    <span className="pb-1 text-sm font-medium text-foreground">Permissions</span>
+                    <span className="pb-1 text-sm font-medium text-foreground">{t("PERMISSION_SEVERITY.PERMISSIONS")}</span>
                   </div>
                 )}
               </div>
